@@ -1,0 +1,605 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@import "./styles/badge-featured-star.css";
+@import "./styles/circlebutton-dark-shadow.css";
+
+/* ==========================
+   Design Tokens Base (Layer)
+   ==========================
+   - Variables pensadas para escalabilidad y consistencia.
+   - No se sobreescriben utilidades Tailwind; se combinan.
+*/
+:root {
+  /* Espaciado base (referencia, se usan utilidades tailwind para layout) */
+  --space-1: 0.25rem; /* 4px */
+  --space-2: 0.5rem;  /* 8px */
+  --space-3: 0.75rem; /* 12px */
+  --space-4: 1rem;    /* 16px */
+  --space-6: 1.5rem;  /* 24px */
+  --space-8: 2rem;    /* 32px */
+
+  /* Radios */
+  --radius-xs: 4px;
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
+  --radius-xl: 22px;
+  --radius-2xl: 30px;
+  --radius-full: 999px;
+
+  /* Tipografía escalas (de referencia) */
+  --font-size-xs: 0.75rem;
+  --font-size-sm: 0.8125rem;
+  --font-size-base: 0.875rem; /* baseline UI compact */
+  --font-size-md: 1rem;
+  --font-size-lg: 1.125rem;
+  --font-size-xl: 1.375rem;
+  --font-size-2xl: 1.75rem;
+  --font-size-3xl: clamp(1.9rem, 2.9vw, 2.6rem);
+
+  /* Line heights */
+  --line-tight: 1.1;
+  --line-snug: 1.25;
+  --line-normal: 1.45;
+
+  /* Colores semánticos base (se apoyan en tema actual) */
+  --color-bg: #ffffff;
+  --color-bg-alt: #f8f9fb;
+  --color-bg-inset: #f2f3f5;
+  --color-border: rgba(0,0,0,0.08);
+  --color-border-strong: rgba(0,0,0,0.16);
+  --color-text: #1b1f23;
+  --color-text-soft: #4b5563;
+  --color-text-faint: #6b7280;
+  /* Accent legacy removido: usamos primary (#FF3600) solo para énfasis controlado */
+  --color-primary: #FF3600;
+  --color-primary-rgb: 255 54 0;
+  /* Escalas neutrales semánticas */
+  --surface-1: var(--color-bg);          /* base */
+  --surface-2: var(--color-bg-alt);      /* alt ligera */
+  --surface-3: #ebedef;                  /* panel sutil */
+  --surface-inset: var(--color-bg-inset);
+  --surface-elevated: #ffffff;           /* tarjetas elevadas */
+  --surface-overlay: #ffffff;            /* overlays (modals) */
+  --surface-neutral-hover: rgba(0,0,0,0.04);
+  --surface-neutral-active: rgba(0,0,0,0.06);
+  --border-subtle-color: rgba(0,0,0,0.08);
+  --border-strong-color: rgba(0,0,0,0.16);
+  --text-primary: var(--color-text);
+  --text-secondary: var(--color-text-soft);
+  --text-tertiary: var(--color-text-faint);
+  --color-danger: #dc2626;
+  --color-warn: #f59e0b;
+  --color-success: #059669;
+
+  /* Gradientes */
+  /* Gradientes legacy eliminados (azules). Se puede definir uno neutro opcional: */
+  --grad-glow-neutral: radial-gradient(circle at 30% 20%, rgba(0,0,0,0.08), transparent 60%), radial-gradient(circle at 80% 70%, rgba(0,0,0,0.06), transparent 65%);
+
+  /* Sombras (evitar saturación) */
+  --shadow-sm: 0 1px 2px -1px rgba(0,0,0,0.08), 0 1px 1px rgba(0,0,0,0.06);
+  --shadow-md: 0 4px 12px -2px rgba(0,0,0,0.08), 0 2px 4px -2px rgba(0,0,0,0.04);
+  --shadow-lg: 0 10px 28px -6px rgba(0,0,0,0.18), 0 6px 12px -4px rgba(0,0,0,0.08);
+  --shadow-glass: 0 4px 18px -4px rgba(0,0,0,0.18), 0 2px 8px -2px rgba(0,0,0,0.06);
+  --shadow-raised: 0 12px 40px -10px rgba(24,32,54,0.22), 0 4px 16px -4px rgba(24,32,54,0.16);
+
+  /* Backdrop translucencias */
+  --glass-bg: rgba(255,255,255,0.6);
+  --glass-border: rgba(255,255,255,0.45);
+  --glass-dark-bg: rgba(17,20,24,0.55);
+  --glass-dark-border: rgba(255,255,255,0.12);
+
+  /* Timing / Easing */
+  --ease-standard: cubic-bezier(0.33, 1, 0.68, 1);
+  --ease-emphatic: cubic-bezier(0.83, 0, 0.17, 1);
+  --transition-fast: 120ms var(--ease-standard);
+  --transition-base: 200ms var(--ease-standard);
+  --transition-slow: 360ms var(--ease-standard);
+
+  /* Z layers comunes */
+  --z-base: 1;
+  --z-dropdown: 30;
+  --z-sticky: 40;
+  --z-modal: 50;
+  --z-popover: 60;
+  --z-toast: 70;
+
+  /* Border styles compuestos */
+  --border-subtle: 1px solid var(--color-border);
+  --border-strong: 1px solid var(--color-border-strong);
+}
+
+.dark:root {
+  /* Neutral gris (sin matiz azulado) */
+  --color-bg: #0f0f10;
+  --color-bg-alt: #161616;
+  --color-bg-inset: #1e1e1f;
+  --color-border: rgba(255,255,255,0.10);
+  --color-border-strong: rgba(255,255,255,0.22);
+  --color-text: #f1f1f2;
+  --color-text-soft: #c9c9cc;
+  --color-text-faint: #9a9aa0;
+  --glass-bg: rgba(28,28,28,0.55);
+  --glass-border: rgba(255,255,255,0.10);
+}
+
+/* Helper classes de tokens (ópticas rápidas) */
+.shadow-token-sm { box-shadow: var(--shadow-sm); }
+.shadow-token-md { box-shadow: var(--shadow-md); }
+.shadow-token-lg { box-shadow: var(--shadow-lg); }
+.shadow-token-glass { box-shadow: var(--shadow-glass); }
+.shadow-token-raised { box-shadow: var(--shadow-raised); }
+
+.radius-sm { border-radius: var(--radius-sm); }
+.radius-md { border-radius: var(--radius-md); }
+.radius-lg { border-radius: var(--radius-lg); }
+.radius-xl { border-radius: var(--radius-xl); }
+.radius-2xl { border-radius: var(--radius-2xl); }
+
+.bg-surface { background: var(--color-bg); }
+.bg-alt { background: var(--color-bg-alt); }
+.bg-inset { background: var(--color-bg-inset); }
+.text-soft { color: var(--color-text-soft); }
+.text-faint { color: var(--color-text-faint); }
+/* Utilities acento legacy removidas; para énfasis usar text-primary-emphasis */
+.text-primary-emphasis { color: var(--color-primary); }
+.bg-primary-emphasis { background: var(--color-primary); color:#fff; }
+
+.glass-surface { backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px); background: var(--glass-bg); border: 1px solid var(--glass-border); }
+.dark .glass-surface { background: var(--glass-dark-bg); border-color: var(--glass-dark-border); }
+
+.transition-base { transition: var(--transition-base); }
+.transition-fast { transition: var(--transition-fast); }
+
+@keyframes fade-scale-in { 0% { opacity:0; transform:translateY(4px) scale(.98);} 100% { opacity:1; transform:translateY(0) scale(1);} }
+.animate-fade-scale-in { animation: fade-scale-in 300ms var(--ease-standard); }
+
+/* Generic fadeIn & popIn animations (para componentes interactivos ligeros) */
+@keyframes fadeIn { from { opacity:0; } to { opacity:1; } }
+@keyframes popIn { 0% { opacity:0; transform:scale(.92);} 60% { opacity:1; transform:scale(1.025);} 100% { transform:scale(1);} }
+.animate-fade-in { animation: fadeIn 260ms var(--ease-standard); }
+.animate-pop-in { animation: popIn 380ms var(--ease-emphatic); }
+
+/* Featured star next to price: tamaño igual a los números y alineación centrada */
+.price-with-star {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.32em;
+}
+.price-with-star .featured-star {
+  font-size: 1.35rem; /* un poco menor que los números grandes */
+  line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  color: #fbbf24;
+  margin-right: 0.12em;
+  margin-left: -0.2em; /* solapa levemente la estrella para que no desplace el precio */
+}
+.dark .price-with-star .featured-star {
+  color: #ffe066;
+}
+
+/* Global resets and theme visibility */
+html, body {
+  max-width: 100vw;
+  overflow-x: hidden;
+  font-family: var(--font-inter), Arial, sans-serif;
+}
+
+/* ==========================
+   Field (Input) Token Layer
+   ==========================
+   Variables para unificar apariencia de inputs, selects y textareas.
+   - Permiten futuros theming (ej. estados brand invertidos) sin cambiar componentes.
+*/
+:root {
+  --field-bg: #f3f4f6;
+  --field-bg-hover: #eaedf0;
+  --field-bg-active: #e2e5e9;
+  --field-border: transparent;
+  --field-border-hover: #d0d5db;
+  --field-border-active: #c2c8d0;
+  --field-text: #111827;
+  --field-placeholder: #6b7280;
+  --field-focus-ring: var(--color-primary);
+  --field-invalid-border: #dc2626;
+  --field-invalid-ring: #dc2626;
+}
+.dark {
+  --field-bg: #303030;
+  --field-bg-hover: #373737;
+  --field-bg-active: #414141;
+  --field-border: transparent;
+  --field-border-hover: #4a4a4a;
+  --field-border-active: #565656;
+  --field-text: #ffffff;
+  --field-placeholder: #9ca3af;
+  --field-focus-ring: var(--color-primary);
+  --field-invalid-border: #f87171;
+  --field-invalid-ring: #f87171;
+}
+
+* { box-sizing: border-box; padding: 0; margin: 0; }
+
+/* Hide body until client theme resolves to avoid FOUC */
+.body-theme-unresolved { opacity: 0; transition: opacity 0.2s; }
+.body-theme-resolved { opacity: 1; transition: opacity 0.2s; }
+
+/* Animación hero */
+@keyframes heroZoomMove { 0%{transform:scale(1)} 50%{transform:scale(1.06)} 100%{transform:scale(1.12)} }
+.animate-hero-zoom { animation: heroZoomMove 28s ease-in-out infinite alternate; }
+
+/* Interactive base */
+.interactive-scale { transition: transform 0.26s cubic-bezier(0.33,1,0.68,1); }
+.interactive-scale:hover { transform: scale(1.02); }
+
+/* Links */
+.link-base { display:inline-flex; align-items:center; font-weight:500; transition:color 0.2s, background-color 0.2s, transform 0.26s; border-radius:6px; }
+.link-plain { color:var(--text); }
+.link-primary { background:var(--color-primary); color:var(--color-on-primary); padding:0.4rem 1rem; border-radius:9999px; }
+
+/* (Legacy .btn-* system eliminado tras migración a componente <Button>) */
+/* Mantener helper select-inner-button si aún se usa en librerías externas */
+.select-inner-button { height:40px !important; min-height:40px !important; display:inline-flex; align-items:center !important; box-sizing: border-box !important; }
+
+/* Badges */
+.badge { display:inline-flex; align-items:center; padding:0.125rem 0.5rem; border-radius:9999px; font-size:0.75rem; font-weight:500; }
+.badge-soft { background:#f3f4f6; color:#111827; }
+.badge-primary { background:var(--color-primary); color:var(--color-on-primary); }
+
+/* Distintivos por tipo de lista */
+/* Variant D: pill with icon (brand-friendly, compact) */
+.badge-venta,
+.badge-arriendo,
+.badge-subasta {
+  display: inline-flex;
+  align-items: center;
+  /* gap eliminado para igualar a las etiquetas de ubicación */
+  padding: 0.08rem 0.52rem; /* ligeramente ajustado */
+  border-radius: 9999px;
+  font-weight: 600;
+  /* do not force uppercase; the markup uses `capitalize` so only the first letter will be capitalized */
+  letter-spacing: 0.02em;
+  font-size: 0.72rem;
+}
+
+/* Brand-aware pill colors (use CSS vars where possible to respect branding) */
+.badge-venta {
+  /* Soft variant to match other badges */
+  background: #ecfdf5;
+  color: #065f46;
+  border: 1px solid rgba(6, 95, 70, 0.06);
+}
+.badge-arriendo {
+  background: rgba(59,130,246,0.12); /* soft blue */
+  color: #1e40af; /* indigo-800 */
+  border: 1px solid rgba(59,130,246,0.18);
+}
+.badge-subasta {
+  background: rgba(249,115,22,0.12); /* soft amber */
+  color: #92400e; /* amber-800 */
+  border: 1px solid rgba(249,115,22,0.18);
+}
+
+/* Soft variants kept for low-contrast contexts */
+.badge-venta-soft { background:#ecfdf5; color:#065f46; border:1px solid rgba(6,95,70,0.06); }
+.badge-arriendo-soft { background:#eff6ff; color:#1e3a8a; border:1px solid rgba(30,58,138,0.06); }
+.badge-subasta-soft { background:#fff7ed; color:#92400e; border:1px solid rgba(146,64,14,0.06); }
+
+/* Dark mode: make low-contrast badges (estado / ubicacion) use a dark gray background for consistency */
+.dark .badge-soft {
+  background: #303030;
+  color: #ffffff;
+  border-color: transparent;
+}
+
+/* Dark mode: increase contrast for arriendo and subasta badges so icon/text remain visible */
+.dark .badge-arriendo {
+  background: rgba(59,130,246,0.18); /* slightly stronger blue on dark */
+  color: #bfdbfe; /* light blue for text/icon */
+  border-color: transparent;
+}
+.dark .badge-subasta {
+  background: rgba(249,115,22,0.18); /* slightly stronger amber on dark */
+  color: #ffd8a8; /* light amber for text/icon */
+  border-color: transparent;
+}
+
+
+/* Dark mode: los títulos y textos de las tarjetas usan solo los colores personalizados */
+.dark .card-auto h3 {
+  color: #fff;
+}
+.dark .card-auto .text-2xl {
+  color: #fff !important;
+}
+.dark .card-auto .grid svg,
+.dark .card-auto .grid span,
+.dark .card-auto .grid .truncate {
+  color: #ededed;
+}
+
+/* Ensure the price stands out in dark mode (keep it white) */
+.dark .card-auto .text-2xl {
+  color: #ffffff !important;
+}
+
+/* (Legacy field-* classes eliminadas tras migración a tokens y utilidades Tailwind) */
+
+/* Stepper */
+.step-wrapper { display:flex; align-items:center; gap:0.5rem; }
+.step-node { width:32px; height:32px; border-radius:9999px; display:flex; align-items:center; justify-content:center; font-size:0.875rem; }
+.step-node-active { background:var(--color-primary); color:var(--color-on-primary); }
+.step-node-inactive { background:#e5e7eb; color:#6b7280; }
+
+/* Utilities */
+.card-auto { min-height:380px; max-width:300px; min-width:240px; }
+
+
+/* ==========================
+  Nueva base unificada Intent Cards
+  Alineada a tailwind.config.js (primary #FF3600, light/dark tokens)
+  ========================== */
+.intent-card-base { position:relative; display:flex; flex-direction:column; align-items:center; text-align:center; gap:0.9rem; padding:1.6rem 1.25rem 1.5rem; border:1px solid theme('colors.lightborder'); background:theme('colors.lightcard'); color:theme('colors.lighttext'); border-radius:20px; box-shadow: theme('boxShadow.card'); transition:background .28s, border-color .28s, box-shadow .35s, transform .4s; }
+.dark .intent-card-base { background: theme('colors.darkcard'); border-color: theme('colors.darkborder'); color: theme('colors.darktext'); }
+.intent-card-base:hover { box-shadow: theme('boxShadow.card-hover'); transform:translateY(-2px); }
+.intent-card-base:focus-visible { outline:2px solid theme('colors.primary'); outline-offset:3px; }
+.intent-card-base-selected { border-color:#000; background:#fff; box-shadow: theme('boxShadow.card-hover'); }
+.dark .intent-card-base-selected { background:#1d1d1d; border-color:#fff; }
+.intent-card-base-icon { width:56px; height:56px; border-radius:16px; background:#f3f3f3; color:#222; display:flex; align-items:center; justify-content:center; transition:background .3s,color .3s, transform .45s; }
+.dark .intent-card-base-icon { background:#303030; color:#e1e1e1; }
+.intent-card-base:hover .intent-card-base-icon { transform:translateY(-2px); }
+.intent-card-base-selected .intent-card-base-icon { background:#000; color:#fff; }
+.dark .intent-card-base-selected .intent-card-base-icon { background:#fff; color:#000; }
+.intent-card-base-title { font-size:var(--font-size-md); font-weight:600; line-height:var(--line-snug); letter-spacing:.01em; }
+.intent-card-base-desc { font-size:var(--font-size-xs); line-height:1.38; max-width:210px; color:var(--color-text-soft); }
+.dark .intent-card-base-desc { color:#a7a7ab; }
+.intent-card-base-action { margin-top:.2rem; }
+.intent-card-base-check { position:absolute; top:10px; left:10px; width:26px; height:26px; border-radius:9999px; display:flex; align-items:center; justify-content:center; background:#FF3600; color:#fff; font-size:14px; font-weight:600; box-shadow:0 4px 14px -4px rgba(0,0,0,0.5); animation: popIn 360ms var(--ease-emphatic); }
+.dark .intent-card-base-check { background:#fff; color:#000; box-shadow:0 4px 14px -4px rgba(0,0,0,0.55); }
+
+
+
+
+/* Igualación de columnas controlada ahora vía utilidades Tailwind (grid, gap, w-full, h-10, px-4). */
+a { color: inherit; text-decoration: none; }
+
+/* Slider nav vertical centering tweak actualizado para CircleButton (usa clases utilitarias ahora) */
+.card-auto button.absolute.left-3,
+.card-auto button.absolute.right-3 {
+  top: calc(50% + 6px) !important;
+  transform: translateY(-50%) !important;
+}
+
+/* ==========================
+   Card Variants (Reusables)
+   ==========================
+   Uso: añadir clase a contenedor. Combinables con utilidades Tailwind.
+*/
+.card-surface {
+  background: var(--color-bg);
+  border: var(--border-subtle);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-sm);
+}
+.dark .card-surface {
+  background: var(--color-bg-alt);
+  border-color: var(--color-border);
+}
+
+.card-surface-raised {
+  background: var(--color-bg);
+  border: var(--border-subtle);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-md);
+}
+.dark .card-surface-raised { background: var(--color-bg-alt); }
+
+.card-glass {
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+  background: var(--glass-bg);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-2xl);
+  box-shadow: var(--shadow-glass);
+}
+.dark .card-glass { background: rgba(32,32,32,0.55); border-color: rgba(255,255,255,0.10); }
+
+/* .card-accent legacy removida (gradiente multicolor). Sustituir por card-surface + borde primary si se requiere énfasis. */
+
+/* === Dark Mode Refinements (Paso 12) === */
+.dark .card-glass { box-shadow: 0 4px 18px -4px rgba(0,0,0,0.6), 0 2px 8px -4px rgba(0,0,0,0.35); }
+.dark .focus-ring:focus-visible { box-shadow: 0 0 0 3px rgba(var(--color-primary-rgb)/0.65); }
+.dark .chip-base { background:#1d242b; border-color:rgba(255,255,255,0.08); }
+/* .chip-accent eliminada (usar .bg-primary-emphasis cuando aplique) */
+.dark .card-glass .chip-base { background:rgba(0,0,0,0.35); }
+.dark .text-soft { color: var(--color-text-soft); }
+.dark .text-faint { color: #8b99a7; }
+.dark .scroll-thin::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.28); }
+.dark .focus-ring:hover { background-color: rgba(255,255,255,0.04); }
+
+.card-interactive {
+  transition: transform var(--transition-base), box-shadow var(--transition-base), border-color var(--transition-fast);
+  will-change: transform;
+}
+.card-interactive:hover { transform: translateY(-3px); box-shadow: var(--shadow-md); }
+.card-interactive:active { transform: translateY(-1px) scale(.98); box-shadow: var(--shadow-sm); }
+.card-interactive:focus-visible { outline: 2px solid var(--color-primary); outline-offset: 3px; }
+
+.divider-fade {
+  width: 100%; height: 1px; border: 0; margin: 0; padding: 0;
+  background: linear-gradient(90deg, rgba(0,0,0,0), rgba(0,0,0,0.14), rgba(0,0,0,0));
+}
+.dark .divider-fade { background: linear-gradient(90deg, rgba(255,255,255,0), rgba(255,255,255,0.18), rgba(255,255,255,0)); }
+
+
+/* ==========================
+   Micro-interacciones & Motion
+   ==========================
+   - Utilidades declarativas para focus, hover elevate y estados activos.
+   - Evitan duplicar box-shadow / transform en múltiples componentes.
+*/
+.focus-ring {
+  outline: none !important;
+  box-shadow: 0 0 0 0px rgba(var(--color-primary-rgb)/0.0);
+  transition: box-shadow var(--transition-fast), background-color var(--transition-fast), transform var(--transition-base);
+}
+.focus-ring:focus-visible {
+  box-shadow: 0 0 0 3px rgba(var(--color-primary-rgb)/0.45);
+}
+.dark .focus-ring:focus-visible {
+  box-shadow: 0 0 0 3px rgba(var(--color-primary-rgb)/0.55);
+}
+
+.elevate-hover { transition: transform var(--transition-base), box-shadow var(--transition-base); }
+.elevate-hover:hover { transform: translateY(-3px); box-shadow: var(--shadow-md); }
+.elevate-hover:active { transform: translateY(-1px) scale(.985); box-shadow: var(--shadow-sm); }
+
+.tap-scale { transition: transform var(--transition-fast); }
+.tap-scale:active { transform: scale(.94); }
+
+/* Botón primario enfatizado (opcional) */
+.btn-emphasis { position:relative; overflow:hidden; }
+.btn-emphasis::after {
+  content:""; position:absolute; inset:0; background:linear-gradient(120deg, rgba(var(--color-primary-rgb)/0.15), rgba(var(--color-primary-rgb)/0.05)); opacity:0; transition:opacity var(--transition-fast);
+}
+.btn-emphasis:hover::after { opacity:1; }
+.btn-emphasis:active { transform: translateY(1px); }
+
+/* Transiciones uniformes para color / fondo / borde */
+.transition-colors-base { transition: background-color var(--transition-base), color var(--transition-base), border-color var(--transition-base); }
+
+/* Animación sutil de entrada para listas (stagger manual aplicable con delay-[X] utilities) */
+@keyframes fade-up-soft { 0% { opacity:0; transform: translateY(6px); } 100% { opacity:1; transform: translateY(0);} }
+.animate-fade-up-soft { animation: fade-up-soft 420ms var(--ease-standard); }
+
+/* Prefiere reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  .elevate-hover, .tap-scale, .interactive-scale, .animate-fade-scale-in, .animate-hero-zoom, .animate-fade-up-soft {
+    transition: none !important;
+    animation: none !important;
+    transform: none !important;
+  }
+}
+
+/* Focus para elementos dentro de tarjetas (accesibilidad) */
+.card-focus-within:focus-within { box-shadow: 0 0 0 2px rgba(var(--color-primary-rgb)/0.5), 0 0 0 4px rgba(var(--color-primary-rgb)/0.15); }
+.dark .card-focus-within:focus-within { box-shadow: 0 0 0 2px rgba(var(--color-primary-rgb)/0.6), 0 0 0 4px rgba(var(--color-primary-rgb)/0.25); }
+
+/* Scrollbar minimal (opt-in) */
+.scroll-thin { scrollbar-width: thin; }
+.scroll-thin::-webkit-scrollbar { width:8px; }
+.scroll-thin::-webkit-scrollbar-track { background: transparent; }
+.scroll-thin::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.18); border-radius: 20px; }
+.dark .scroll-thin::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.18); }
+
+/* ==========================
+   Animaciones Modernas
+   ========================== */
+
+@keyframes fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes scale-in {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.animate-fade-in {
+  animation: fade-in 0.3s ease-out;
+}
+
+.animate-scale-in {
+  animation: scale-in 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* Estilos personalizados para sliders de cropper */
+.slider-custom {
+  -webkit-appearance: none;
+  appearance: none;
+  background: transparent;
+  cursor: pointer;
+}
+
+.slider-custom::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  height: 20px;
+  width: 20px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #3b82f6, #1d4ed8);
+  border: 2px solid white;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.slider-custom::-webkit-slider-thumb:hover {
+  transform: scale(1.1);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+.slider-custom::-moz-range-thumb {
+  height: 20px;
+  width: 20px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #3b82f6, #1d4ed8);
+  border: 2px solid white;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.slider-custom::-moz-range-thumb:hover {
+  transform: scale(1.1);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+/* State pills for billing status */
+.state-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.25rem 0.75rem;
+  border-radius: 9999px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.state-pagada {
+  background: #ecfdf5;
+  color: #065f46;
+  border: 1px solid rgba(6, 95, 70, 0.1);
+}
+
+.state-pendiente {
+  background: #fef3c7;
+  color: #92400e;
+  border: 1px solid rgba(146, 64, 14, 0.1);
+}
+
+/* Dark mode variants */
+.dark .state-pagada {
+  background: rgba(6, 95, 70, 0.2);
+  color: #a7f3d0;
+  border-color: rgba(6, 95, 70, 0.3);
+}
+
+.dark .state-pendiente {
+  background: rgba(146, 64, 14, 0.2);
+  color: #fcd34d;
+  border-color: rgba(146, 64, 14, 0.3);
+}
+

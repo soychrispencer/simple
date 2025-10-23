@@ -1,0 +1,61 @@
+# Dependencies
+node_modules
+npm-debug.log
+yarn-error.log
+package-lock.json
+yarn.lock
+
+# Next.js
+.next
+out
+dist
+build
+
+# Environment
+.env
+.env.local
+.env*.local
+
+# Testing
+coverage
+.nyc_output
+
+# IDE
+.vscode
+.idea
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Git
+.git
+.gitignore
+.gitattributes
+
+# Documentation
+README.md
+*.md
+!README.md
+docs/
+
+# Scripts
+scripts/
+
+# Supabase migrations (solo en desarrollo)
+supabase/migrations/
+!supabase/migrations/00_SCHEMA_REFERENCE.sql
+
+# Temporales
+*.tmp
+*.bak
+*.backup
+*.log
+
+# Uploads
+public/uploads/
+uploads/
