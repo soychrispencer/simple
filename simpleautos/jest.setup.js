@@ -18,8 +18,8 @@ jest.mock('next/navigation', () => ({
 }))
 
 // Mock básico de Supabase
-jest.mock('@/lib/clientSupabase', () => ({
-  getSupabaseClient: jest.fn(() => ({
+jest.mock('@/lib/supabase/useSupabase', () => ({
+  useSupabase: jest.fn(() => ({
     from: jest.fn(() => ({
       select: jest.fn(() => ({
         eq: jest.fn(() => ({

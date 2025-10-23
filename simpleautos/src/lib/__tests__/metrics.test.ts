@@ -1,8 +1,8 @@
 import { describe, it, expect, beforeEach, jest } from '@jest/globals';
-import { DefaultMetricsService, MetricType, VehicleMetrics } from '../services/metrics.service';
+import { MetricsService, MetricType, VehicleMetrics, DefaultMetricsService } from '../metrics';
 import { SupabaseClient } from '@supabase/supabase-js';
-import { Logger } from '../logger';
-import { CacheManager } from '../cache';
+import logger from '../logger';
+import { cache as cacheInstance } from '../cache';
 
 jest.mock('@supabase/supabase-js');
 jest.mock('../logger');
@@ -11,8 +11,8 @@ jest.mock('../cache');
 describe('MetricsService', () => {
   let metricsService: DefaultMetricsService;
   let mockSupabase: jest.Mocked<SupabaseClient>;
-  let mockLogger: jest.Mocked<Logger>;
-  let mockCache: jest.Mocked<CacheManager>;
+  let mockLogger: any;
+  let mockCache: any;
 
   beforeEach(() => {
     mockSupabase = {
