@@ -16,5 +16,9 @@ export * from './components/Alert';
 export * from './components/Tag';
 export * from './components/Modal';
 
+// Components - Layout
+export * from './components/Header';
+export * from './components/Footer';
+
 // Utilities
 export { cn } from './lib/utils';
