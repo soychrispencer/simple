@@ -1,7 +1,7 @@
 # 📦 Fase 1: Foundation - En Progreso
 
 **Fecha Inicio:** 8 de enero de 2025  
-**Estado:** 🚀 En Progreso (60% completado)  
+**Estado:** 🚀 En Progreso (85% completado)  
 **Objetivo:** Crear los packages fundamentales que serán la base de todo el ecosistema
 
 ---
@@ -162,31 +162,31 @@ import { Input } from '@simple/ui'
 
 ### 🔄 Próximos Componentes (Pendiente)
 
-#### Fase 1.1 - Componentes de Formulario
-- [ ] **Select** - Dropdown con búsqueda
-- [ ] **Textarea** - Input multi-línea
-- [ ] **Checkbox** - Con label y states
-- [ ] **Radio** - Grupos de opciones
-- [ ] **Switch** - Toggle on/off
+#### Fase 1.1 - Componentes de Formulario ✅
+- [x] **Select** - Dropdown con búsqueda
+- [x] **Textarea** - Input multi-línea
+- [x] **Checkbox** - Con label y states
+- [x] **Radio** - Grupos de opciones
+- [x] **Switch** - Toggle on/off
 
-#### Fase 1.2 - Componentes de UI
-- [ ] **Modal/Dialog** - Overlay con backdrop
-- [ ] **Badge** - Labels pequeñas
-- [ ] **Tag** - Etiquetas removibles
-- [ ] **Tooltip** - Info hover
-- [ ] **Alert** - Notificaciones inline
+#### Fase 1.2 - Componentes de UI ✅
+- [x] **Modal/Dialog** - Overlay con backdrop
+- [x] **Badge** - Labels pequeñas
+- [x] **Tag** - Etiquetas removibles
+- [ ] **Tooltip** - Info hover (opcional, no crítico)
+- [x] **Alert** - Notificaciones inline
 
-#### Fase 1.3 - Componentes de Layout
-- [ ] **Header** - Adaptable por vertical
+#### Fase 1.3 - Componentes de Layout ✅
+- [x] **Header** - Adaptable por vertical
   - Logo dinámico según vertical
   - Color scheme automático
   - Navigation responsiva
   - User menu integrado
-- [ ] **Footer** - Reutilizable
+- [x] **Footer** - Reutilizable
   - Links estándar
   - Social media
   - Copyright dinámico
-- [ ] **Sidebar** - Navigation lateral
+- [ ] **Sidebar** - Navigation lateral (opcional para v1)
 
 #### Fase 1.4 - Componentes de Dominio
 - [ ] **ListingCard** - Card de vehículo/propiedad
