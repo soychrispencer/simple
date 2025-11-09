@@ -34,7 +34,7 @@
 
 ---
 
-##  Fase 1: Foundation - EN PROGRESO
+## Fase 1: Foundation - EN PROGRESO
 
 ### 1. @simple/ui (Design System) - ✅ 60% Completado
 
@@ -42,6 +42,7 @@
 **Ubicación:** `packages/ui/`
 
 **✅ Completado:**
+
 - ✅ Setup Tailwind CSS 4 con tokens Apple-inspired
 - ✅ CSS Variables para todos los verticales:
   - SimpleAutos: `#FF3600` (orange/red)
@@ -60,6 +61,7 @@
   - @tabler/icons-react ^3.34.1
 
 **🔄 Pendiente:**
+
 - [ ] Select, Textarea, Checkbox, Radio
 - [ ] Modal/Dialog
 - [ ] Badge, Tag
@@ -92,6 +94,7 @@ pnpm verify
 **Tiempo estimado:** 2-3 días
 
 **Estructura:**
+
 ```
 database/
 ├── src/
@@ -117,6 +120,7 @@ database/
 **Tiempo estimado:** 2-3 días
 
 **Tareas:**
+
 - [ ] AuthContext con Supabase Auth
 - [ ] Custom hooks:
   - [ ] `useAuth()` - Estado de autenticación
@@ -137,10 +141,12 @@ database/
 **Tiempo estimado:** 2-3 días
 
 **Pre-requisitos:**
+
 - ⚠️ Cuenta de MercadoPago
 - ⚠️ Access Token
 
 **Tareas:**
+
 - [ ] Instalar SDK `mercadopago`
 - [ ] Cliente MercadoPago
 - [ ] Crear preferencias de pago
@@ -155,6 +161,7 @@ database/
 **Tiempo estimado:** 1-2 días
 
 **Tareas:**
+
 - [ ] Formateo de precios (CLP, USD)
 - [ ] Formateo de fechas
 - [ ] Validaciones con Zod
@@ -169,17 +176,20 @@ database/
 Antes de comenzar Fase 1, asegúrate de tener:
 
 ### Supabase
+
 - [ ] Proyecto creado en supabase.com
 - [ ] URL del proyecto (`NEXT_PUBLIC_SUPABASE_URL`)
 - [ ] Anon Key (`NEXT_PUBLIC_SUPABASE_ANON_KEY`)
 - [ ] Service Role Key (`SUPABASE_SERVICE_ROLE_KEY`)
 
 ### MercadoPago
+
 - [ ] Cuenta creada
 - [ ] Access Token obtenido
 - [ ] Public Key obtenido
 
 ### Herramientas
+
 - [ ] Node.js 20+ instalado
 - [ ] PNPM 9+ instalado
 - [ ] Git configurado
@@ -257,11 +267,13 @@ Total del Proyecto: ████░░░░░░░░░░░░░░░░
 Este será el package más importante ya que todos los demás lo utilizarán.
 
 **Archivo a crear primero:**
+
 ```
 packages/ui/package.json
 ```
 
 **Dependencias principales:**
+
 - `react` y `react-dom` (peer dependencies)
 - `tailwindcss` (^4.0.0)
 - `clsx` y `tailwind-merge` (para composición de clases)
@@ -285,10 +297,11 @@ packages/ui/package.json
 El monorepo está perfectamente configurado y listo para comenzar el desarrollo real.
 
 **Próxima sesión:**
+
 - Crear @simple/ui package
 - Configurar Tailwind CSS
 - Implementar primeros componentes
 
 ---
 
-*¿Listo para continuar con Fase 1? 🚀*
+_¿Listo para continuar con Fase 1? 🚀_

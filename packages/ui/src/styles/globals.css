@@ -13,10 +13,10 @@
   --color-primary-light: #ff6b3d;
   --color-primary-dark: #cc2b00;
   --color-primary-rgb: 255, 54, 0;
-  
+
   /* Focus shadow */
   --shadow-focus-color: rgba(255, 54, 0, 0.45);
-  
+
   /* Timing */
   --ease-standard: cubic-bezier(0.33, 1, 0.68, 1);
   --ease-emphatic: cubic-bezier(0.83, 0, 0.17, 1);
@@ -26,7 +26,7 @@
 }
 
 /* SimplePropiedades */
-[data-vertical="propiedades"] {
+[data-vertical='propiedades'] {
   --color-primary: #2563eb;
   --color-primary-hover: #1d4ed8;
   --color-primary-light: #3b82f6;
@@ -36,7 +36,7 @@
 }
 
 /* CRM */
-[data-vertical="crm"] {
+[data-vertical='crm'] {
   --color-primary: #8b5cf6;
   --color-primary-hover: #7c3aed;
   --color-primary-light: #a78bfa;
@@ -46,7 +46,7 @@
 }
 
 /* Admin */
-[data-vertical="admin"] {
+[data-vertical='admin'] {
   --color-primary: #059669;
   --color-primary-hover: #047857;
   --color-primary-light: #10b981;

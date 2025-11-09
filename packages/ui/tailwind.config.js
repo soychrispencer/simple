@@ -75,8 +75,8 @@ module.exports = {
         focus: '0 0 0 3px var(--shadow-focus-color)',
       },
       transitionTimingFunction: {
-        'standard': 'cubic-bezier(0.33, 1, 0.68, 1)',
-        'emphatic': 'cubic-bezier(0.83, 0, 0.17, 1)',
+        standard: 'cubic-bezier(0.33, 1, 0.68, 1)',
+        emphatic: 'cubic-bezier(0.83, 0, 0.17, 1)',
       },
       transitionDuration: {
         fast: '120ms',

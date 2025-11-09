@@ -1,18 +1,18 @@
-import { HTMLAttributes, ReactNode } from 'react'
-import { cn } from '../../lib/utils'
+import { HTMLAttributes, ReactNode } from 'react';
+import { cn } from '../../lib/utils';
 
 export interface FooterProps extends HTMLAttributes<HTMLElement> {
-  logo?: ReactNode
-  description?: string
+  logo?: ReactNode;
+  description?: string;
   links?: Array<{
-    title: string
+    title: string;
     items: Array<{
-      label: string
-      href: string
-    }>
-  }>
-  social?: ReactNode
-  copyright?: string
+      label: string;
+      href: string;
+    }>;
+  }>;
+  social?: ReactNode;
+  copyright?: string;
 }
 
 export const Footer = ({
@@ -24,7 +24,7 @@ export const Footer = ({
   className,
   ...props
 }: FooterProps) => {
-  const currentYear = new Date().getFullYear()
+  const currentYear = new Date().getFullYear();
 
   return (
     <footer
@@ -43,9 +43,7 @@ export const Footer = ({
             <div className="lg:col-span-4">
               {logo && <div className="mb-4">{logo}</div>}
               {description && (
-                <p className="text-sm text-gray-600 dark:text-gray-400 max-w-sm">
-                  {description}
-                </p>
+                <p className="text-sm text-gray-600 dark:text-gray-400 max-w-sm">{description}</p>
               )}
               {social && <div className="mt-6">{social}</div>}
             </div>
@@ -89,7 +87,7 @@ export const Footer = ({
         </div>
       </div>
     </footer>
-  )
-}
+  );
+};
 
-Footer.displayName = 'Footer'
+Footer.displayName = 'Footer';

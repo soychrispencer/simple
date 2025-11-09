@@ -6,22 +6,22 @@ export interface InputProps extends React.InputHTMLAttributes<HTMLInputElement> 
    * Label del input
    */
   label?: string;
-  
+
   /**
    * Mensaje de error
    */
   error?: string;
-  
+
   /**
    * Texto de ayuda
    */
   helperText?: string;
-  
+
   /**
    * Ícono a la izquierda
    */
   leftIcon?: React.ReactNode;
-  
+
   /**
    * Ícono a la derecha
    */
@@ -37,14 +37,12 @@ const Input = React.forwardRef<HTMLInputElement, InputProps>(
             {label}
           </label>
         )}
-        
+
         <div className="relative">
           {leftIcon && (
-            <div className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
-              {leftIcon}
-            </div>
+            <div className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">{leftIcon}</div>
           )}
-          
+
           <input
             ref={ref}
             className={cn(
@@ -66,14 +64,14 @@ const Input = React.forwardRef<HTMLInputElement, InputProps>(
             )}
             {...props}
           />
-          
+
           {rightIcon && (
             <div className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400">
               {rightIcon}
             </div>
           )}
         </div>
-        
+
         {error && <p className="mt-1 text-sm text-error">{error}</p>}
         {helperText && !error && (
           <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">{helperText}</p>

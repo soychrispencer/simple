@@ -1,11 +1,11 @@
-import { HTMLAttributes, ReactNode } from 'react'
-import { cn } from '../../lib/utils'
+import { HTMLAttributes, ReactNode } from 'react';
+import { cn } from '../../lib/utils';
 
 export interface AlertProps extends HTMLAttributes<HTMLDivElement> {
-  variant?: 'default' | 'success' | 'warning' | 'danger' | 'info'
-  title?: string
-  icon?: ReactNode
-  onClose?: () => void
+  variant?: 'default' | 'success' | 'warning' | 'danger' | 'info';
+  title?: string;
+  icon?: ReactNode;
+  onClose?: () => void;
 }
 
 export const Alert = ({
@@ -27,7 +27,7 @@ export const Alert = ({
     danger:
       'bg-red-50 border-red-200 text-red-900 dark:bg-red-900/20 dark:border-red-800 dark:text-red-400',
     info: 'bg-blue-50 border-blue-200 text-blue-900 dark:bg-blue-900/20 dark:border-blue-800 dark:text-blue-400',
-  }
+  };
 
   const iconColorClasses = {
     default: 'text-gray-500 dark:text-gray-400',
@@ -35,7 +35,7 @@ export const Alert = ({
     warning: 'text-yellow-500 dark:text-yellow-400',
     danger: 'text-red-500 dark:text-red-400',
     info: 'text-blue-500 dark:text-blue-400',
-  }
+  };
 
   return (
     <div
@@ -49,16 +49,10 @@ export const Alert = ({
       {...props}
     >
       <div className="flex gap-3">
-        {icon && (
-          <div className={cn('flex-shrink-0', iconColorClasses[variant])}>
-            {icon}
-          </div>
-        )}
+        {icon && <div className={cn('flex-shrink-0', iconColorClasses[variant])}>{icon}</div>}
 
         <div className="flex-1">
-          {title && (
-            <h5 className="font-semibold mb-1 text-sm">{title}</h5>
-          )}
+          {title && <h5 className="font-semibold mb-1 text-sm">{title}</h5>}
           {children && <div className="text-sm">{children}</div>}
         </div>
 
@@ -90,7 +84,7 @@ export const Alert = ({
         )}
       </div>
     </div>
-  )
-}
+  );
+};
 
-Alert.displayName = 'Alert'
+Alert.displayName = 'Alert';

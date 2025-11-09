@@ -1,11 +1,10 @@
-import { forwardRef, InputHTMLAttributes } from 'react'
-import { cn } from '../../lib/utils'
+import { forwardRef, InputHTMLAttributes } from 'react';
+import { cn } from '../../lib/utils';
 
-export interface SwitchProps
-  extends Omit<InputHTMLAttributes<HTMLInputElement>, 'type' | 'size'> {
-  label?: string
-  description?: string
-  size?: 'sm' | 'md' | 'lg'
+export interface SwitchProps extends Omit<InputHTMLAttributes<HTMLInputElement>, 'type' | 'size'> {
+  label?: string;
+  description?: string;
+  size?: 'sm' | 'md' | 'lg';
 }
 
 export const Switch = forwardRef<HTMLInputElement, SwitchProps>(
@@ -26,13 +25,13 @@ export const Switch = forwardRef<HTMLInputElement, SwitchProps>(
         thumb: 'h-6 w-6',
         translate: 'translate-x-7',
       },
-    }
+    };
 
     const labelSizeClasses = {
       sm: 'text-sm',
       md: 'text-base',
       lg: 'text-lg',
-    }
+    };
 
     return (
       <label
@@ -97,8 +96,8 @@ export const Switch = forwardRef<HTMLInputElement, SwitchProps>(
           </div>
         )}
       </label>
-    )
+    );
   }
-)
+);
 
-Switch.displayName = 'Switch'
+Switch.displayName = 'Switch';

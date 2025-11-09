@@ -20,6 +20,7 @@
 ### ✅ Lo que se ha completado:
 
 #### Configuración Base
+
 ```bash
 packages/ui/
 ├── package.json          ✅ Configurado con deps correctas
@@ -36,12 +37,14 @@ packages/ui/
 #### Design Tokens Implementados
 
 **Colores de Verticales:**
+
 - 🚗 **SimpleAutos**: `#FF3600` (orange/red vibrante)
 - 🏠 **SimplePropiedades**: `#2563eb` (blue profesional)
 - 📊 **CRM**: `#8b5cf6` (purple moderno)
 - ⚙️ **Admin**: `#059669` (green confiable)
 
 **Escala de Grises (Apple-inspired):**
+
 ```javascript
 gray: {
   50: '#fafafa',
@@ -59,29 +62,33 @@ gray: {
 ```
 
 **Tipografía:**
+
 - Font: Inter (system-ui fallback)
 - Sizes: xs (0.75rem) → 9xl (8rem)
 - Line heights optimizados para legibilidad
 
 **Espaciado:**
+
 - Escala 4px: 0.5, 1, 1.5, 2, 2.5, 3, 3.5, 4 → 96
 - Generous spacing siguiendo principios Apple
 
 #### Componentes Implementados
 
 ##### 1. **Button** ✅
+
 ```typescript
 interface ButtonProps {
-  variant?: 'primary' | 'secondary' | 'ghost' | 'danger'
-  size?: 'sm' | 'md' | 'lg'
-  loading?: boolean
-  disabled?: boolean
-  leftIcon?: React.ReactNode
-  rightIcon?: React.ReactNode
+  variant?: 'primary' | 'secondary' | 'ghost' | 'danger';
+  size?: 'sm' | 'md' | 'lg';
+  loading?: boolean;
+  disabled?: boolean;
+  leftIcon?: React.ReactNode;
+  rightIcon?: React.ReactNode;
 }
 ```
 
 **Features:**
+
 - ✅ 4 variantes con estilos consistentes
 - ✅ 3 tamaños (sm: 32px, md: 40px, lg: 48px)
 - ✅ Estado loading con spinner
@@ -90,25 +97,28 @@ interface ButtonProps {
 - ✅ Hover/active/focus states
 
 **Uso:**
+
 ```tsx
-import { Button } from '@simple/ui'
+import { Button } from '@simple/ui';
 
 <Button variant="primary" size="md" loading={isSubmitting}>
   Guardar
-</Button>
+</Button>;
 ```
 
 ##### 2. **Card** ✅
+
 ```typescript
 interface CardProps {
-  variant?: 'default' | 'elevated' | 'outlined'
-  padding?: 'none' | 'sm' | 'md' | 'lg'
-  hoverable?: boolean
-  onClick?: () => void
+  variant?: 'default' | 'elevated' | 'outlined';
+  padding?: 'none' | 'sm' | 'md' | 'lg';
+  hoverable?: boolean;
+  onClick?: () => void;
 }
 ```
 
 **Features:**
+
 - ✅ 3 variantes visuales
 - ✅ 4 opciones de padding
 - ✅ Efecto hover opcional
@@ -116,28 +126,31 @@ interface CardProps {
 - ✅ Bordes redondeados consistentes
 
 **Uso:**
+
 ```tsx
-import { Card } from '@simple/ui'
+import { Card } from '@simple/ui';
 
 <Card variant="elevated" hoverable onClick={handleClick}>
   <h3>Título</h3>
   <p>Contenido...</p>
-</Card>
+</Card>;
 ```
 
 ##### 3. **Input** ✅
+
 ```typescript
 interface InputProps {
-  label?: string
-  error?: string
-  helperText?: string
-  leftIcon?: React.ReactNode
-  rightIcon?: React.ReactNode
-  disabled?: boolean
+  label?: string;
+  error?: string;
+  helperText?: string;
+  leftIcon?: React.ReactNode;
+  rightIcon?: React.ReactNode;
+  disabled?: boolean;
 }
 ```
 
 **Features:**
+
 - ✅ Label flotante opcional
 - ✅ Mensajes de error estilizados
 - ✅ Helper text para contexto
@@ -146,8 +159,9 @@ interface InputProps {
 - ✅ Focus states con ring
 
 **Uso:**
+
 ```tsx
-import { Input } from '@simple/ui'
+import { Input } from '@simple/ui';
 
 <Input
   label="Correo electrónico"
@@ -155,7 +169,7 @@ import { Input } from '@simple/ui'
   error={errors.email}
   helperText="Usaremos este correo para notificaciones"
   leftIcon={<IconMail />}
-/>
+/>;
 ```
 
 ---
@@ -163,6 +177,7 @@ import { Input } from '@simple/ui'
 ### 🔄 Próximos Componentes (Pendiente)
 
 #### Fase 1.1 - Componentes de Formulario ✅
+
 - [x] **Select** - Dropdown con búsqueda
 - [x] **Textarea** - Input multi-línea
 - [x] **Checkbox** - Con label y states
@@ -170,6 +185,7 @@ import { Input } from '@simple/ui'
 - [x] **Switch** - Toggle on/off
 
 #### Fase 1.2 - Componentes de UI ✅
+
 - [x] **Modal/Dialog** - Overlay con backdrop
 - [x] **Badge** - Labels pequeñas
 - [x] **Tag** - Etiquetas removibles
@@ -177,6 +193,7 @@ import { Input } from '@simple/ui'
 - [x] **Alert** - Notificaciones inline
 
 #### Fase 1.3 - Componentes de Layout ✅
+
 - [x] **Header** - Adaptable por vertical
   - Logo dinámico según vertical
   - Color scheme automático
@@ -189,6 +206,7 @@ import { Input } from '@simple/ui'
 - [ ] **Sidebar** - Navigation lateral (opcional para v1)
 
 #### Fase 1.4 - Componentes de Dominio
+
 - [ ] **ListingCard** - Card de vehículo/propiedad
   - Adaptable a SimpleAutos/SimplePropiedades
   - Imágenes optimizadas
@@ -229,6 +247,7 @@ Antes de marcar un componente como "completado":
 ## 🎨 Filosofía de Diseño
 
 ### Inspiración Apple
+
 - **Minimalismo**: Elementos justos y necesarios
 - **Espaciado generoso**: Respiro visual abundante
 - **Tipografía clara**: Inter con pesos apropiados
@@ -237,10 +256,12 @@ Antes de marcar un componente como "completado":
 - **Bordes redondeados**: lg (8px) para cards, md (6px) para inputs
 
 ### Adaptabilidad por Vertical
+
 Los componentes se adaptan automáticamente usando CSS variables:
+
 ```css
 /* SimpleAutos */
---color-primary: #FF3600;
+--color-primary: #ff3600;
 
 /* SimplePropiedades */
 --color-primary: #2563eb;
@@ -253,6 +274,7 @@ Los componentes usan `text-primary`, `bg-primary`, `border-primary` que se resue
 ## 🚀 Comandos Útiles
 
 ### Desarrollo
+
 ```bash
 # Navegar al package
 cd packages/ui
@@ -265,6 +287,7 @@ pnpm prettier --write "src/**/*.{ts,tsx}"
 ```
 
 ### Testing (futuro)
+
 ```bash
 # Unit tests
 pnpm test
@@ -278,15 +301,17 @@ pnpm storybook
 ## 📦 Dependencias
 
 ### Producción
+
 ```json
 {
-  "clsx": "^2.1.1",                    // Conditional classes
-  "tailwind-merge": "^2.6.0",          // Merge Tailwind classes
-  "@tabler/icons-react": "^3.34.1"     // Icon set
+  "clsx": "^2.1.1", // Conditional classes
+  "tailwind-merge": "^2.6.0", // Merge Tailwind classes
+  "@tabler/icons-react": "^3.34.1" // Icon set
 }
 ```
 
 ### Peer Dependencies
+
 ```json
 {
   "react": "^19.0.0",
@@ -296,6 +321,7 @@ pnpm storybook
 ```
 
 ### Dev Dependencies
+
 ```json
 {
   "@simple/typescript-config": "workspace:*",

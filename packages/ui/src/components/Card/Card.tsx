@@ -6,12 +6,12 @@ export interface CardProps extends React.HTMLAttributes<HTMLDivElement> {
    * Variante visual de la tarjeta
    */
   variant?: 'default' | 'elevated' | 'outlined';
-  
+
   /**
    * Padding interno
    */
   padding?: 'none' | 'sm' | 'md' | 'lg';
-  
+
   /**
    * Si la tarjeta debe tener efecto hover
    */
@@ -20,14 +20,7 @@ export interface CardProps extends React.HTMLAttributes<HTMLDivElement> {
 
 const Card = React.forwardRef<HTMLDivElement, CardProps>(
   (
-    {
-      className,
-      variant = 'default',
-      padding = 'md',
-      hoverable = false,
-      children,
-      ...props
-    },
+    { className, variant = 'default', padding = 'md', hoverable = false, children, ...props },
     ref
   ) => {
     const baseStyles = `

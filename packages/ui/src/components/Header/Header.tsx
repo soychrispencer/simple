@@ -1,12 +1,12 @@
-import { HTMLAttributes, ReactNode } from 'react'
-import { cn } from '../../lib/utils'
+import { HTMLAttributes, ReactNode } from 'react';
+import { cn } from '../../lib/utils';
 
 export interface HeaderProps extends HTMLAttributes<HTMLElement> {
-  logo?: ReactNode
-  navigation?: ReactNode
-  actions?: ReactNode
-  transparent?: boolean
-  sticky?: boolean
+  logo?: ReactNode;
+  navigation?: ReactNode;
+  actions?: ReactNode;
+  transparent?: boolean;
+  sticky?: boolean;
 }
 
 export const Header = ({
@@ -44,13 +44,11 @@ export const Header = ({
           )}
 
           {/* Actions */}
-          {actions && (
-            <div className="flex items-center gap-3">{actions}</div>
-          )}
+          {actions && <div className="flex items-center gap-3">{actions}</div>}
         </div>
       </div>
     </header>
-  )
-}
+  );
+};
 
-Header.displayName = 'Header'
+Header.displayName = 'Header';

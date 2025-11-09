@@ -11,11 +11,13 @@ pnpm add @simple/ui
 ## 🎨 Componentes Disponibles
 
 ### Componentes Base
+
 - **Button** - Botón con múltiples variantes y estados
 - **Card** - Tarjeta contenedora con variantes
 - **Input** - Input de texto con label, error e iconos
 
 ### Componentes de Formulario
+
 - **Select** - Dropdown select con opciones
 - **Textarea** - Área de texto multi-línea
 - **Checkbox** - Checkbox con label y descripción
@@ -23,40 +25,38 @@ pnpm add @simple/ui
 - **Switch** - Toggle switch moderno
 
 ### Componentes de UI
+
 - **Modal** - Modal/Dialog con backdrop
 - **Badge** - Badge con variantes de color
 - **Tag** - Tag removible con variantes
 - **Alert** - Alerta inline con iconos
 
 ### Componentes de Layout
+
 - **Header** - Header adaptable por vertical
 - **Footer** - Footer con links y copyright
 
 ## 🚀 Uso Básico
 
 ```tsx
-import { Button, Card, Input, Modal, Badge } from '@simple/ui'
+import { Button, Card, Input, Modal, Badge } from '@simple/ui';
 
 function App() {
   return (
     <Card variant="elevated" padding="lg">
       <h2>Formulario de Ejemplo</h2>
-      
-      <Input
-        label="Email"
-        type="email"
-        placeholder="tu@email.com"
-      />
-      
+
+      <Input label="Email" type="email" placeholder="tu@email.com" />
+
       <Button variant="primary" size="md">
         Enviar
       </Button>
-      
+
       <Badge variant="success" dot>
         Activo
       </Badge>
     </Card>
-  )
+  );
 }
 ```
 
@@ -76,7 +76,7 @@ Los componentes usan automáticamente el color primary configurado vía CSS vari
 ```css
 /* SimpleAutos */
 :root {
-  --color-primary: #FF3600;
+  --color-primary: #ff3600;
 }
 
 /* SimplePropiedades */
@@ -134,16 +134,16 @@ import { Button } from '@simple/ui'
 ### Modal
 
 ```tsx
-import { Modal, Button } from '@simple/ui'
-import { useState } from 'react'
+import { Modal, Button } from '@simple/ui';
+import { useState } from 'react';
 
 function Example() {
-  const [open, setOpen] = useState(false)
+  const [open, setOpen] = useState(false);
 
   return (
     <>
       <Button onClick={() => setOpen(true)}>Abrir Modal</Button>
-      
+
       <Modal
         open={open}
         onClose={() => setOpen(false)}
@@ -155,16 +155,14 @@ function Example() {
             <Button variant="ghost" onClick={() => setOpen(false)}>
               Cancelar
             </Button>
-            <Button variant="primary">
-              Confirmar
-            </Button>
+            <Button variant="primary">Confirmar</Button>
           </>
         }
       >
         <p>Contenido del modal...</p>
       </Modal>
     </>
-  )
+  );
 }
 ```
 
@@ -208,8 +206,8 @@ import { Badge, Tag } from '@simple/ui'
 ### Alert
 
 ```tsx
-import { Alert } from '@simple/ui'
-import { IconInfoCircle } from '@tabler/icons-react'
+import { Alert } from '@simple/ui';
+import { IconInfoCircle } from '@tabler/icons-react';
 
 <Alert
   variant="info"
@@ -218,7 +216,7 @@ import { IconInfoCircle } from '@tabler/icons-react'
   onClose={() => console.log('closed')}
 >
   Este es un mensaje informativo que puede ser cerrado.
-</Alert>
+</Alert>;
 ```
 
 ### Header & Footer
@@ -288,9 +286,7 @@ Todos los componentes soportan modo oscuro automáticamente usando la clase `dar
 // El modo oscuro funciona automáticamente basado en la preferencia del sistema
 // o puedes controlarlo manualmente agregando la clase "dark" al html/body
 
-<html className="dark">
-  {/* Todos los componentes se adaptan automáticamente */}
-</html>
+<html className="dark">{/* Todos los componentes se adaptan automáticamente */}</html>
 ```
 
 ## 🔧 Configuración Avanzada
@@ -301,7 +297,7 @@ Para usar Tailwind CSS correctamente, importa los estilos globales en tu app:
 
 ```tsx
 // app/layout.tsx o pages/_app.tsx
-import '@simple/ui/styles/globals.css'
+import '@simple/ui/styles/globals.css';
 ```
 
 ### Extender Tailwind Config
@@ -310,21 +306,18 @@ Si necesitas extender la configuración de Tailwind en tu app:
 
 ```javascript
 // tailwind.config.js
-const uiConfig = require('@simple/ui/tailwind.config')
+const uiConfig = require('@simple/ui/tailwind.config');
 
 module.exports = {
   ...uiConfig,
-  content: [
-    './src/**/*.{js,ts,jsx,tsx}',
-    './node_modules/@simple/ui/**/*.{js,ts,jsx,tsx}',
-  ],
+  content: ['./src/**/*.{js,ts,jsx,tsx}', './node_modules/@simple/ui/**/*.{js,ts,jsx,tsx}'],
   theme: {
     extend: {
       ...uiConfig.theme.extend,
       // Tus extensiones aquí
     },
   },
-}
+};
 ```
 
 ## 📚 Documentación Completa

@@ -1,38 +1,26 @@
-import { forwardRef, InputHTMLAttributes } from 'react'
-import { cn } from '../../lib/utils'
+import { forwardRef, InputHTMLAttributes } from 'react';
+import { cn } from '../../lib/utils';
 
-export interface RadioProps
-  extends Omit<InputHTMLAttributes<HTMLInputElement>, 'type' | 'size'> {
-  label?: string
-  description?: string
-  error?: string
-  size?: 'sm' | 'md' | 'lg'
+export interface RadioProps extends Omit<InputHTMLAttributes<HTMLInputElement>, 'type' | 'size'> {
+  label?: string;
+  description?: string;
+  error?: string;
+  size?: 'sm' | 'md' | 'lg';
 }
 
 export const Radio = forwardRef<HTMLInputElement, RadioProps>(
-  (
-    {
-      label,
-      description,
-      error,
-      size = 'md',
-      disabled,
-      className,
-      ...props
-    },
-    ref
-  ) => {
+  ({ label, description, error, size = 'md', disabled, className, ...props }, ref) => {
     const sizeClasses = {
       sm: 'h-4 w-4',
       md: 'h-5 w-5',
       lg: 'h-6 w-6',
-    }
+    };
 
     const labelSizeClasses = {
       sm: 'text-sm',
       md: 'text-base',
       lg: 'text-lg',
-    }
+    };
 
     return (
       <div className="w-full">
@@ -53,9 +41,7 @@ export const Radio = forwardRef<HTMLInputElement, RadioProps>(
               'cursor-pointer',
 
               // Border
-              error
-                ? 'border-red-500 dark:border-red-500'
-                : 'border-gray-300 dark:border-gray-700',
+              error ? 'border-red-500 dark:border-red-500' : 'border-gray-300 dark:border-gray-700',
 
               // Checked state
               'checked:bg-primary checked:border-primary',
@@ -97,14 +83,10 @@ export const Radio = forwardRef<HTMLInputElement, RadioProps>(
           )}
         </label>
 
-        {error && (
-          <p className="text-sm text-red-600 dark:text-red-500 mt-1.5">
-            {error}
-          </p>
-        )}
+        {error && <p className="text-sm text-red-600 dark:text-red-500 mt-1.5">{error}</p>}
       </div>
-    )
+    );
   }
-)
+);
 
-Radio.displayName = 'Radio'
+Radio.displayName = 'Radio';

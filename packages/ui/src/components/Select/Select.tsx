@@ -1,42 +1,31 @@
-import { forwardRef, SelectHTMLAttributes } from 'react'
-import { cn } from '../../lib/utils'
+import { forwardRef, SelectHTMLAttributes } from 'react';
+import { cn } from '../../lib/utils';
 
 export interface SelectOption {
-  value: string
-  label: string
-  disabled?: boolean
+  value: string;
+  label: string;
+  disabled?: boolean;
 }
 
-export interface SelectProps
-  extends Omit<SelectHTMLAttributes<HTMLSelectElement>, 'size'> {
-  label?: string
-  error?: string
-  helperText?: string
-  options: SelectOption[]
-  placeholder?: string
-  size?: 'sm' | 'md' | 'lg'
+export interface SelectProps extends Omit<SelectHTMLAttributes<HTMLSelectElement>, 'size'> {
+  label?: string;
+  error?: string;
+  helperText?: string;
+  options: SelectOption[];
+  placeholder?: string;
+  size?: 'sm' | 'md' | 'lg';
 }
 
 export const Select = forwardRef<HTMLSelectElement, SelectProps>(
   (
-    {
-      label,
-      error,
-      helperText,
-      options,
-      placeholder,
-      size = 'md',
-      disabled,
-      className,
-      ...props
-    },
+    { label, error, helperText, options, placeholder, size = 'md', disabled, className, ...props },
     ref
   ) => {
     const sizeClasses = {
       sm: 'h-9 text-sm',
       md: 'h-10 text-base',
       lg: 'h-12 text-lg',
-    }
+    };
 
     return (
       <div className="w-full">
@@ -63,12 +52,9 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(
               'focus:outline-none focus:ring-2 focus:ring-primary/20',
 
               // States
-              error
-                ? 'border-red-500 dark:border-red-500'
-                : 'border-gray-300 dark:border-gray-700',
+              error ? 'border-red-500 dark:border-red-500' : 'border-gray-300 dark:border-gray-700',
 
-              disabled &&
-                'opacity-50 cursor-not-allowed bg-gray-100 dark:bg-gray-800',
+              disabled && 'opacity-50 cursor-not-allowed bg-gray-100 dark:bg-gray-800',
 
               // Size
               sizeClasses[size],
@@ -83,11 +69,7 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(
               </option>
             )}
             {options.map((option) => (
-              <option
-                key={option.value}
-                value={option.value}
-                disabled={option.disabled}
-              >
+              <option key={option.value} value={option.value} disabled={option.disabled}>
                 {option.label}
               </option>
             ))}
@@ -114,17 +96,15 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(
           <p
             className={cn(
               'text-sm mt-1.5',
-              error
-                ? 'text-red-600 dark:text-red-500'
-                : 'text-gray-600 dark:text-gray-400'
+              error ? 'text-red-600 dark:text-red-500' : 'text-gray-600 dark:text-gray-400'
             )}
           >
             {error || helperText}
           </p>
         )}
       </div>
-    )
+    );
   }
-)
+);
 
-Select.displayName = 'Select'
+Select.displayName = 'Select';

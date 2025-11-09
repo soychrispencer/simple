@@ -1,14 +1,14 @@
-import { HTMLAttributes, ReactNode, useEffect } from 'react'
-import { cn } from '../../lib/utils'
+import { HTMLAttributes, ReactNode, useEffect } from 'react';
+import { cn } from '../../lib/utils';
 
 export interface ModalProps extends HTMLAttributes<HTMLDivElement> {
-  open: boolean
-  onClose: () => void
-  title?: string
-  description?: string
-  footer?: ReactNode
-  size?: 'sm' | 'md' | 'lg' | 'xl' | 'full'
-  closeOnBackdrop?: boolean
+  open: boolean;
+  onClose: () => void;
+  title?: string;
+  description?: string;
+  footer?: ReactNode;
+  size?: 'sm' | 'md' | 'lg' | 'xl' | 'full';
+  closeOnBackdrop?: boolean;
 }
 
 export const Modal = ({
@@ -29,28 +29,28 @@ export const Modal = ({
     lg: 'max-w-lg',
     xl: 'max-w-xl',
     full: 'max-w-full mx-4',
-  }
+  };
 
   // Cerrar modal con tecla Escape
   useEffect(() => {
     const handleEscape = (e: KeyboardEvent) => {
       if (e.key === 'Escape' && open) {
-        onClose()
+        onClose();
       }
-    }
+    };
 
     if (open) {
-      document.addEventListener('keydown', handleEscape)
-      document.body.style.overflow = 'hidden'
+      document.addEventListener('keydown', handleEscape);
+      document.body.style.overflow = 'hidden';
     }
 
     return () => {
-      document.removeEventListener('keydown', handleEscape)
-      document.body.style.overflow = 'unset'
-    }
-  }, [open, onClose])
+      document.removeEventListener('keydown', handleEscape);
+      document.body.style.overflow = 'unset';
+    };
+  }, [open, onClose]);
 
-  if (!open) return null
+  if (!open) return null;
 
   return (
     <div
@@ -93,10 +93,7 @@ export const Modal = ({
               </h2>
             )}
             {description && (
-              <p
-                id="modal-description"
-                className="mt-1 text-sm text-gray-600 dark:text-gray-400"
-              >
+              <p id="modal-description" className="mt-1 text-sm text-gray-600 dark:text-gray-400">
                 {description}
               </p>
             )}
@@ -135,13 +132,11 @@ export const Modal = ({
 
         {/* Footer */}
         {footer && (
-          <div className="px-6 py-4 border-t border-gray-200 dark:border-gray-800">
-            {footer}
-          </div>
+          <div className="px-6 py-4 border-t border-gray-200 dark:border-gray-800">{footer}</div>
         )}
       </div>
     </div>
-  )
-}
+  );
+};
 
-Modal.displayName = 'Modal'
+Modal.displayName = 'Modal';
