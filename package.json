@@ -17,7 +17,8 @@
     "format": "prettier --write \"**/*.{ts,tsx,md,json}\"",
     "test": "turbo run test",
     "clean": "turbo run clean && rm -rf node_modules",
-    "typecheck": "turbo run typecheck"
+    "typecheck": "turbo run typecheck",
+    "verify": "node scripts/verify-setup.js"
   },
   "devDependencies": {
     "prettier": "^3.4.2",
