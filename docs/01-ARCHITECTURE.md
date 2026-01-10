@@ -147,22 +147,22 @@ export const verticalThemes = {
   autos: {
     primary: '#FFB600',
     name: 'SimpleAutos',
-    domain: 'simpleautos.com',
+    domain: 'simpleautos.app',
   },
   properties: {
     primary: '#009BA3',
     name: 'SimplePropiedades',
-    domain: 'simplepropiedades.com',
+    domain: 'simplepropiedades.app',
   },
   stores: {
     primary: '#7A5CFF',
     name: 'SimpleTiendas',
-    domain: 'simpletiendas.com',
+    domain: 'simpletiendas.app',
   },
   food: {
     primary: '#FFB800',
     name: 'SimpleFood',
-    domain: 'simplefood.com',
+    domain: 'simplefood.app',
   },
 };
 
@@ -591,12 +591,12 @@ NEXT_PUBLIC_MERCADOPAGO_PUBLIC_KEY=xxx
 
 # Email
 SMTP_HOST=smtp.gmail.com
-SMTP_USER=noreply@simpleautos.com
+SMTP_USER=noreply@simpleautos.app
 SMTP_PASS=xxx
 
 # Vertical Specific
 NEXT_PUBLIC_VERTICAL=autos
-NEXT_PUBLIC_APP_URL=https://simpleautos.com
+NEXT_PUBLIC_APP_URL=https://simpleautos.app
 ```
 
 Cada vertical tiene su propio `.env.local` con su configuración específica.

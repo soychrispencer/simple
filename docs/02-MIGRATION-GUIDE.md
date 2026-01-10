@@ -202,22 +202,22 @@ export const verticalThemes = {
   autos: {
     name: 'SimpleAutos',
     primary: '#FFB600',
-    domain: 'simpleautos.com',
+    domain: 'simpleautos.app',
   },
   properties: {
     name: 'SimplePropiedades',
     primary: '#009BA3',
-    domain: 'simplepropiedades.com',
+    domain: 'simplepropiedades.app',
   },
   stores: {
     name: 'SimpleTiendas',
     primary: '#7A5CFF',
-    domain: 'simpletiendas.com',
+    domain: 'simpletiendas.app',
   },
   food: {
     name: 'SimpleFood',
     primary: '#FFB800',
-    domain: 'simplefood.com',
+    domain: 'simplefood.app',
   },
 } as const;
 

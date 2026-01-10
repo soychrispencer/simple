@@ -123,7 +123,7 @@ npm run build:props
 ## 🎨 Verticales
 
 ### SimpleAutos 🚗
-**URL:** https://simpleautos.com  
+**URL:** https://simpleautos.app  
 **Color:** `#FFB600` (Amarillo/Dorado)  
 **Descripción:** Plataforma para compra, venta, arriendo y subasta de vehículos nuevos y usados.
 
@@ -135,7 +135,7 @@ npm run build:props
 - CRM para concesionarias
 
 ### SimplePropiedades 🏡
-**URL:** https://simplepropiedades.com  
+**URL:** https://simplepropiedades.app  
 **Color:** `#009BA3` (Turquesa neón)  
 **Descripción:** Plataforma para compra y arriendo de propiedades.
 
