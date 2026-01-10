@@ -311,7 +311,17 @@ async function processSubscriptionPayment(externalReference: string, paymentData
     return;
   }
 
-  const periodStart = new Date();
+  // Calcular período: si ya existe un período vigente, extender desde ahí.
+  const now = new Date();
+  const { data: existingSub } = await admin
+    .from('subscriptions')
+    .select('id, current_period_end')
+    .eq('user_id', resolvedUserId)
+    .eq('status', 'active')
+    .maybeSingle();
+
+  const existingEnd = existingSub?.current_period_end ? new Date(existingSub.current_period_end as any) : null;
+  const periodStart = existingEnd && existingEnd > now ? existingEnd : now;
   const periodEnd = new Date(periodStart);
   periodEnd.setMonth(periodEnd.getMonth() + 1);
 
@@ -336,6 +346,19 @@ async function processSubscriptionPayment(externalReference: string, paymentData
 
   // Verificar currency (si viene)
   const currency = (paymentData.currency_id ?? planRow.currency ?? 'CLP') as string;
+
+  // Validar monto esperado contra el plan (si lo tenemos).
+  const expectedAmount = Number(planRow.price_monthly ?? 0);
+  if (Number.isFinite(expectedAmount) && expectedAmount > 0 && amount !== expectedAmount) {
+    logError('Subscription payment amount mismatch', {
+      externalReference,
+      amount,
+      expectedAmount,
+      plan: resolvedPlanKey,
+      paymentId: externalPaymentId,
+    });
+    return;
+  }
 
   const { data: subscription, error: subscriptionError } = await admin
     .from('subscriptions')

@@ -1,4 +1,4 @@
-﻿import { MercadoPagoConfig, Payment, Preference } from 'mercadopago';
+﻿import { MercadoPagoConfig, Payment, Preference, PreApproval } from 'mercadopago';
 import { SUBSCRIPTION_PLANS } from '@simple/config';
 
 let mpClient: MercadoPagoConfig | null = null;
@@ -26,6 +26,16 @@ export async function getMercadoPagoPayment(id: string | number) {
   const payment = new Payment(getMercadoPagoClient());
   const numericId = typeof id === 'string' ? Number(id) : id;
   return payment.get({ id: numericId } as any);
+}
+
+export async function createMercadoPagoPreapproval(body: Record<string, any>) {
+  const preapproval = new PreApproval(getMercadoPagoClient());
+  return preapproval.create({ body } as any);
+}
+
+export async function getMercadoPagoPreapproval(id: string) {
+  const preapproval = new PreApproval(getMercadoPagoClient());
+  return preapproval.get({ id } as any);
 }
 
 // Configuración de precios (en pesos chilenos)

@@ -4,6 +4,7 @@ import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs';
 import { createClient } from '@supabase/supabase-js';
 import {
   createMercadoPagoPreference,
+  createMercadoPagoPreapproval,
   getBoostPrice,
   getSubscriptionPrice,
   BoostSlotKey,
@@ -79,19 +80,22 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'NEXT_PUBLIC_APP_URL no configurado' }, { status: 500 });
     }
 
-    const preference: any = {
-      items: [],
-      back_urls: {
-        success: `${appUrl}/panel/mis-suscripciones?status=success`,
-        failure: `${appUrl}/panel/mis-suscripciones?status=failure`,
-        pending: `${appUrl}/panel/mis-suscripciones?status=pending`,
-      },
-      auto_return: 'approved',
-      notification_url: `${appUrl}/api/payments/webhook`,
-    };
+    const backUrlSuccess = `${appUrl}/panel/mis-suscripciones?status=success`;
+    const backUrlFailure = `${appUrl}/panel/mis-suscripciones?status=failure`;
+    const backUrlPending = `${appUrl}/panel/mis-suscripciones?status=pending`;
 
     if (type === 'boost') {
       // Pago para boost
+      const preference: any = {
+        items: [],
+        back_urls: {
+          success: backUrlSuccess,
+          failure: backUrlFailure,
+          pending: backUrlPending,
+        },
+        auto_return: 'approved',
+        notification_url: `${appUrl}/api/payments/webhook`,
+      };
       const {
         slotId,
         slotKey,
@@ -147,6 +151,16 @@ export async function POST(request: NextRequest) {
         user_id: user.id,
       };
 
+      // Crear preferencia en MercadoPago (pago único)
+      const result: any = await createMercadoPagoPreference(preference);
+      const payload = result?.body ?? result;
+
+      return NextResponse.json({
+        id: payload?.id,
+        init_point: payload?.init_point,
+        sandbox_init_point: payload?.sandbox_init_point,
+      });
+
     } else if (type === 'subscription') {
       // Pago para suscripción
       const { plan } = data as {
@@ -168,27 +182,34 @@ export async function POST(request: NextRequest) {
       const price = getSubscriptionPrice(plan);
       const planName = SUBSCRIPTION_PLANS[plan]?.name ?? plan;
 
-      preference.items.push({
-        id: `subscription_${user.id}_${plan}`,
-        title: `Plan ${planName} - Mensual`,
-        description: `Suscripción ${planName} (mensual)`,
-        quantity: 1,
-        currency_id: 'CLP',
-        unit_price: price,
+      // Suscripción recurrente mensual (MercadoPago PreApproval)
+      // Nota: a diferencia de Preference, el PreApproval no soporta notification_url por request;
+      // para renovaciones automáticas debes tener el webhook configurado a nivel de cuenta en MercadoPago.
+      const externalReference = `subscription_${user.id}_${plan}`;
+      const startDate = new Date();
+      startDate.setMinutes(startDate.getMinutes() + 2);
+
+      const preapprovalBody: any = {
+        reason: `Plan ${planName} - Mensual`,
+        external_reference: externalReference,
+        payer_email: user.email,
+        back_url: backUrlSuccess,
+        auto_recurring: {
+          frequency: 1,
+          frequency_type: 'months',
+          start_date: startDate.toISOString(),
+          transaction_amount: price,
+          currency_id: 'CLP',
+        },
+      };
+
+      const result: any = await createMercadoPagoPreapproval(preapprovalBody);
+      const payload = result?.body ?? result;
+
+      return NextResponse.json({
+        id: payload?.id,
+        init_point: payload?.init_point,
       });
-
-      preference.external_reference = `subscription_${user.id}_${plan}_${Date.now()}`;
-
-      preference.metadata = {
-        type: 'subscription',
-        user_id: user.id,
-        plan_key: plan,
-      };
-
-      // Para suscripciones, configurar pago recurrente
-      preference.payer = {
-        email: user.email,
-      };
 
     } else {
       return NextResponse.json(
@@ -196,16 +217,6 @@ export async function POST(request: NextRequest) {
         { status: 400 }
       );
     }
-
-    // Crear preferencia en MercadoPago
-    const result: any = await createMercadoPagoPreference(preference);
-    const payload = result?.body ?? result;
-
-    return NextResponse.json({
-      id: payload?.id,
-      init_point: payload?.init_point,
-      sandbox_init_point: payload?.sandbox_init_point,
-    });
 
   } catch (error) {
     logError('Error creando preferencia de pago', error);
