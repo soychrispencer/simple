@@ -10,6 +10,11 @@ const fallbackLogger = createConsoleLogger({ service: 'simpleautos' });
 // Inicializar winston solo en servidor
 if (typeof window === 'undefined') {
   const winston = require('winston');
+
+  const isProd = process.env.NODE_ENV === 'production';
+  const isVercel = !!process.env.VERCEL;
+  const logToFile = ['1', 'true', 'yes', 'on'].includes(String(process.env.LOG_TO_FILE || '').toLowerCase());
+
   winstonLogger = winston.createLogger({
     level: process.env.LOG_LEVEL || 'info',
     format: winston.format.combine(
@@ -20,35 +25,36 @@ if (typeof window === 'undefined') {
     defaultMeta: { service: 'simpleautos' },
     transports: [
       // En desarrollo, log a console con formato legible
-      ...(process.env.NODE_ENV !== 'production' ? [
-        new winston.transports.Console({
-          format: winston.format.combine(
-            winston.format.colorize(),
-            winston.format.simple()
-          )
-        })
-      ] : []),
-      // En producción, log a archivos
-      ...(process.env.NODE_ENV === 'production' ? [
-        new winston.transports.File({
-          filename: 'logs/error.log',
-          level: 'error'
-        }),
-        new winston.transports.File({
-          filename: 'logs/combined.log'
-        })
-      ] : [])
+      ...(!isProd
+        ? [
+            new winston.transports.Console({
+              format: winston.format.combine(winston.format.colorize(), winston.format.simple()),
+            }),
+          ]
+        : []),
+      // En producción, log a archivos SOLO si se habilita explícitamente y no estamos en Vercel.
+      // Vercel (y otros entornos serverless) pueden tener filesystem de solo lectura.
+      ...(isProd && logToFile && !isVercel
+        ? [
+            new winston.transports.File({
+              filename: 'logs/error.log',
+              level: 'error',
+            }),
+            new winston.transports.File({
+              filename: 'logs/combined.log',
+            }),
+          ]
+        : []),
     ]
   });
 
-  // Si estamos en producción pero no hay archivos de log, log a console
-  if (process.env.NODE_ENV === 'production' && !process.env.LOG_TO_FILE) {
-    winstonLogger.add(new winston.transports.Console({
-      format: winston.format.combine(
-        winston.format.timestamp(),
-        winston.format.json()
-      )
-    }));
+  // En producción, asegurar siempre Console logs (especialmente en Vercel)
+  if (isProd && (!logToFile || isVercel)) {
+    winstonLogger.add(
+      new winston.transports.Console({
+        format: winston.format.combine(winston.format.timestamp(), winston.format.json()),
+      })
+    );
   }
 }
 

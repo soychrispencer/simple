@@ -5,6 +5,10 @@ import { ensureListingBoost, syncListingBoostSlots } from '@simple/listings';
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import crypto from 'crypto';
 
+// Este endpoint usa dependencias Node-only (crypto, MercadoPago SDK, etc.).
+// En Vercel necesitamos runtime Node.js explícito.
+export const runtime = 'nodejs';
+
 const DURATION_IN_DAYS: Record<BoostDuration, number> = {
   '1_dia': 1,
   '3_dias': 3,

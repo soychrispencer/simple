@@ -12,6 +12,10 @@ import {
 import { SUBSCRIPTION_PLANS } from '@simple/config';
 import { logError } from '@/lib/logger';
 
+// Este endpoint usa dependencias Node-only (MercadoPago SDK, winston, etc.).
+// En Vercel puede intentar ejecutarse como Edge si no se especifica runtime.
+export const runtime = 'nodejs';
+
 export async function OPTIONS() {
   // Respuesta segura para cualquier preflight o verificación.
   return new NextResponse(null, { status: 204 });
