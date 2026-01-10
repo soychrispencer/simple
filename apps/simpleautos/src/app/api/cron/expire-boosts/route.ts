@@ -2,17 +2,25 @@
 import { createClient } from '@supabase/supabase-js';
 import { logError, logInfo } from '@/lib/logger';
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
-
 export async function GET(request: Request) {
-  // Verificar autorizaci�n del cron job
+  // Verificar autorizacin del cron job
+  const cronSecret = process.env.CRON_SECRET;
+  if (!cronSecret) {
+    return NextResponse.json({ error: 'CRON_SECRET no configurado' }, { status: 500 });
+  }
+
   const authHeader = request.headers.get('authorization');
-  if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
+  if (authHeader !== `Bearer ${cronSecret}`) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
+
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!supabaseUrl || !serviceRoleKey) {
+    return NextResponse.json({ error: 'Supabase env no configurado' }, { status: 500 });
+  }
+
+  const supabase = createClient(supabaseUrl, serviceRoleKey);
 
   try {
     // Llamar a la funci�n de Supabase que expira boosts
