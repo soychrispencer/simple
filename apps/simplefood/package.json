@@ -1,0 +1,27 @@
+{
+  "name": "simplefood",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "cross-env NEXT_DISABLE_TURBOPACK=1 next dev -p 3004",
+    "build": "next build",
+    "start": "next start -p 3004",
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@simple/auth": "*",
+    "@simple/config": "*",
+    "@simple/logging": "*",
+    "@simple/panel": "*",
+    "@simple/profile": "*",
+    "@simple/ui": "*",
+    "@supabase/supabase-js": "^2.47.10",
+    "dotenv": "^16.4.7"
+  },
+  "devDependencies": {
+    "@eslint/eslintrc": "^3.2.0",
+    "@types/node": "^22.10.5",
+    "cross-env": "^10.1.0"
+  }
+}

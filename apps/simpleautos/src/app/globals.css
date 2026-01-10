@@ -1,0 +1,471 @@
+@import '@simple/config/tokens.css';
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Estrella para destacados, tamaño 16px, color dorado */
+.badge-featured-star {
+  display: inline-flex;
+  align-items: center;
+  margin-right: 0.3em;
+  color: var(--color-warn);
+  vertical-align: middle;
+}
+
+@layer base {
+  :root {
+    /* En SimpleAutos el foco debe seguir el color primario de la vertical. */
+    --field-focus-ring: var(--color-primary-a40);
+  }
+
+  .dark:root {
+    --field-focus-ring: var(--color-primary-a50);
+  }
+}
+
+/* Helper classes de tokens (ópticas rápidas) */
+.shadow-token-sm { box-shadow: var(--shadow-sm); }
+.shadow-token-md { box-shadow: var(--shadow-md); }
+.shadow-token-lg { box-shadow: var(--shadow-lg); }
+.shadow-token-glass { box-shadow: var(--shadow-glass); }
+.shadow-token-raised { box-shadow: var(--shadow-raised); }
+
+.radius-sm { border-radius: var(--radius-sm); }
+.radius-md { border-radius: var(--radius-md); }
+.radius-lg { border-radius: var(--radius-lg); }
+.radius-xl { border-radius: var(--radius-xl); }
+.radius-2xl { border-radius: var(--radius-2xl); }
+
+.bg-surface { background: var(--color-bg); }
+.bg-alt { background: var(--color-bg-alt); }
+.bg-inset { background: var(--color-bg-inset); }
+.text-soft { color: var(--color-text-soft); }
+.text-faint { color: var(--color-text-faint); }
+/* Utilities acento legacy removidas; para énfasis usar text-primary-emphasis */
+.text-primary-emphasis { color: var(--color-primary); }
+.bg-primary-emphasis { background: var(--color-primary); color: var(--color-on-primary); }
+
+.glass-surface { backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px); background: var(--glass-bg); border: 1px solid var(--glass-border); }
+.dark .glass-surface { background: var(--glass-dark-bg); border-color: var(--glass-dark-border); }
+
+.transition-base { transition: var(--transition-base); }
+.transition-fast { transition: var(--transition-fast); }
+
+@keyframes fade-scale-in { 0% { opacity:0; transform:translateY(4px) scale(.98);} 100% { opacity:1; transform:translateY(0) scale(1);} }
+.animate-fade-scale-in { animation: fade-scale-in 300ms var(--ease-standard); }
+
+/* Generic fadeIn & popIn animations (para componentes interactivos ligeros) */
+@keyframes fadeIn { from { opacity:0; } to { opacity:1; } }
+@keyframes popIn { 0% { opacity:0; transform:scale(.92);} 60% { opacity:1; transform:scale(1.025);} 100% { transform:scale(1);} }
+.animate-fade-in { animation: fadeIn 260ms var(--ease-standard); }
+.animate-pop-in { animation: popIn 380ms var(--ease-emphatic); }
+
+/* Featured star next to price: tamaño igual a los números y alineación centrada */
+.price-with-star {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.32em;
+}
+.price-with-star .featured-star {
+  font-size: var(--font-size-xl);
+  line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  color: var(--color-warn);
+  margin-right: 0.12em;
+  margin-left: -0.2em; /* solapa levemente la estrella para que no desplace el precio */
+}
+.dark .price-with-star .featured-star {
+  color: var(--color-warn);
+}
+
+/* Global resets and theme visibility */
+html, body {
+  max-width: 100vw;
+  overflow-x: hidden;
+  font-family: var(--font-sans);
+  font-feature-settings: 'liga' 1, 'calt' 1;
+  color: var(--color-text);
+  background-color: var(--color-bg);
+  letter-spacing: -0.01em;
+}
+
+/* Tokens de campos provistos por @simple/config/tokens.css */
+
+* { box-sizing: border-box; padding: 0; margin: 0; }
+
+/* Hide body until client theme resolves to avoid FOUC */
+.body-theme-unresolved { opacity: 0; transition: opacity 0.2s; }
+.body-theme-resolved { opacity: 1; transition: opacity 0.2s; }
+
+/* Animación hero */
+@keyframes heroZoomMove { 0%{transform:scale(1)} 50%{transform:scale(1.06)} 100%{transform:scale(1.12)} }
+.animate-hero-zoom { animation: heroZoomMove 28s ease-in-out infinite alternate; }
+
+/* Interactive base */
+.interactive-scale { transition: transform 0.26s cubic-bezier(0.33,1,0.68,1); }
+.interactive-scale:hover { transform: scale(1.02); }
+
+/* Links */
+.link-base { display:inline-flex; align-items:center; font-weight:500; transition:color 0.2s, background-color 0.2s, transform 0.26s; border-radius:6px; }
+.link-plain { color:var(--text); }
+.link-primary { background:var(--color-primary); color:var(--color-on-primary); padding:0.4rem 1rem; border-radius:9999px; }
+
+/* (Legacy .btn-* system eliminado tras migración a componente <Button>) */
+/* Mantener helper select-inner-button si aún se usa en librerías externas */
+.select-inner-button { height:40px !important; min-height:40px !important; display:inline-flex; align-items:center !important; box-sizing: border-box !important; }
+
+/* Badges */
+.badge { display:inline-flex; align-items:center; padding:0.125rem 0.5rem; border-radius:9999px; font-size:var(--font-size-xs); font-weight:500; }
+.badge-soft { background: var(--field-bg); color: var(--text-primary); }
+.badge-primary { background:var(--color-primary); color:var(--color-on-primary); }
+
+/* Distintivos por tipo de lista */
+/* Variant D: pill with icon (brand-friendly, compact) */
+.badge-venta,
+.badge-arriendo,
+.badge-subasta {
+  display: inline-flex;
+  align-items: center;
+  /* gap eliminado para igualar a las etiquetas de ubicación */
+  padding: 0.08rem 0.52rem; /* ligeramente ajustado */
+  border-radius: 9999px;
+  font-weight: 600;
+  /* do not force uppercase; the markup uses `capitalize` so only the first letter will be capitalized */
+  letter-spacing: 0.02em;
+  font-size: var(--font-size-xs);
+}
+
+/* Brand-aware pill colors (use CSS vars where possible to respect branding) */
+.badge-venta {
+  background: var(--color-success-subtle-bg);
+  color: var(--color-success);
+  border: 1px solid var(--color-success-subtle-border);
+}
+.badge-arriendo {
+  background: var(--color-info-subtle-bg);
+  color: var(--color-info);
+  border: 1px solid var(--color-info-subtle-border);
+}
+.badge-subasta {
+  background: var(--color-warn-subtle-bg);
+  color: var(--color-warn);
+  border: 1px solid var(--color-warn-subtle-border);
+}
+
+/* Soft variants kept for low-contrast contexts */
+.badge-venta-soft { background: var(--color-success-subtle-bg); color: var(--color-success); border: 1px solid var(--color-success-subtle-border); }
+.badge-arriendo-soft { background: var(--color-info-subtle-bg); color: var(--color-info); border: 1px solid var(--color-info-subtle-border); }
+.badge-subasta-soft { background: var(--color-warn-subtle-bg); color: var(--color-warn); border: 1px solid var(--color-warn-subtle-border); }
+
+/* Dark mode: make low-contrast badges (estado / ubicacion) use a dark gray background for consistency */
+.dark .badge-soft {
+  background: var(--surface-neutral-hover);
+  color: var(--text-primary);
+  border-color: transparent;
+}
+
+/* Dark mode: increase contrast for arriendo and subasta badges so icon/text remain visible */
+.dark .badge-arriendo {
+  background: var(--color-info-subtle-bg);
+  color: var(--color-info);
+  border-color: transparent;
+}
+.dark .badge-subasta {
+  background: var(--color-warn-subtle-bg);
+  color: var(--color-warn);
+  border-color: transparent;
+}
+
+
+/* Dark mode: los títulos y textos de las tarjetas usan solo los colores personalizados */
+.dark .card-auto h3 {
+  color: var(--text-primary);
+}
+.dark .card-auto .text-2xl {
+  color: var(--text-primary) !important;
+}
+.dark .card-auto .grid svg,
+.dark .card-auto .grid span,
+.dark .card-auto .grid .truncate {
+  color: var(--text-secondary);
+}
+
+/* Ensure the price stands out in dark mode (keep it white) */
+.dark .card-auto .text-2xl {
+  color: var(--text-primary) !important;
+}
+
+/* (Legacy field-* classes eliminadas tras migración a tokens y utilidades Tailwind) */
+
+/* Stepper */
+.step-wrapper { display:flex; align-items:center; gap:0.5rem; }
+.step-node { width:32px; height:32px; border-radius:9999px; display:flex; align-items:center; justify-content:center; font-size:var(--font-size-base); }
+.step-node-active { background:var(--color-primary); color:var(--color-on-primary); }
+.step-node-inactive { background: var(--field-border); color: var(--text-tertiary); }
+
+/* Utilities */
+.card-auto { min-height:380px; max-width:300px; min-width:240px; }
+
+
+/* ==========================
+  Nueva base unificada Intent Cards
+  Alineada a tailwind.config.js (primary + tokens light/dark)
+  ========================== */
+.intent-card-base { position:relative; display:flex; flex-direction:column; align-items:center; text-align:center; gap:0.9rem; padding:1.6rem 1.25rem 1.5rem; border:1px solid theme('colors.lightborder'); background:theme('colors.lightcard'); color:theme('colors.lighttext'); border-radius:20px; box-shadow: theme('boxShadow.card'); transition:background .28s, border-color .28s, box-shadow .35s, transform .4s; cursor:pointer; user-select:none; }
+.dark .intent-card-base { background: theme('colors.darkcard'); border-color: theme('colors.darkborder'); color: theme('colors.darktext'); }
+.intent-card-base:hover { box-shadow: theme('boxShadow.card-hover'); transform:translateY(-2px); }
+.intent-card-base:focus-visible { outline:2px solid var(--color-primary); outline-offset:3px; }
+.intent-card-base-selected { border-color: var(--color-border-strong); background: var(--card-bg); box-shadow: theme('boxShadow.card-hover'); }
+.dark .intent-card-base-selected { background: var(--surface-3); border-color: var(--color-border-strong); }
+.intent-card-base-icon { width:56px; height:56px; border-radius:16px; background: var(--field-bg); color: var(--text-primary); display:flex; align-items:center; justify-content:center; transition:background .3s,color .3s, transform .45s; }
+.dark .intent-card-base-icon { background: var(--surface-neutral-hover); color: var(--text-primary); }
+.intent-card-base:hover .intent-card-base-icon { transform:translateY(-2px); }
+.intent-card-base-selected .intent-card-base-icon { background: var(--badge-inverted-text); color: var(--badge-inverted-bg); }
+.dark .intent-card-base-selected .intent-card-base-icon { background: var(--badge-inverted-bg); color: var(--badge-inverted-text); }
+.intent-card-base-title { font-size:var(--font-size-md); font-weight:600; line-height:var(--line-snug); letter-spacing:.01em; }
+.intent-card-base-desc { font-size:var(--font-size-xs); line-height:1.38; max-width:210px; color:var(--color-text-soft); }
+.dark .intent-card-base-desc { color: var(--text-tertiary); }
+.intent-card-base-action { margin-top:.2rem; }
+.intent-card-base-check { position:absolute; top:10px; left:10px; width:26px; height:26px; border-radius:9999px; display:flex; align-items:center; justify-content:center; background: var(--color-primary); color: var(--color-on-primary); font-size:var(--font-size-sm); font-weight:600; box-shadow:0 4px 14px -4px var(--overlay-scrim-50); animation: popIn 360ms var(--ease-emphatic); }
+.dark .intent-card-base-check { background: var(--color-primary); color: var(--color-on-primary); box-shadow:0 4px 14px -4px var(--overlay-scrim-60); }
+
+
+
+
+/* Igualación de columnas controlada ahora vía utilidades Tailwind (grid, gap, w-full, h-10, px-4). */
+a { color: inherit; text-decoration: none; }
+
+/* Slider nav vertical centering tweak actualizado para CircleButton (usa clases utilitarias ahora) */
+.card-auto button.absolute.left-3,
+.card-auto button.absolute.right-3 {
+  top: calc(50% + 6px) !important;
+  transform: translateY(-50%) !important;
+}
+
+/* ==========================
+   Card Variants (Reusables)
+   ==========================
+   Uso: añadir clase a contenedor. Combinables con utilidades Tailwind.
+*/
+.card-surface {
+  background: var(--card-bg);
+  border: 0;
+  border-radius: var(--card-radius);
+  box-shadow: var(--card-shadow);
+}
+
+.card-surface-raised {
+  background: var(--card-bg);
+  border: 0;
+  border-radius: var(--card-radius);
+  box-shadow: var(--card-shadow);
+}
+
+.card-glass {
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+  background: var(--glass-bg);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-2xl);
+  box-shadow: var(--shadow-glass);
+}
+.dark .card-glass { background: var(--glass-dark-bg); border-color: var(--glass-dark-border); }
+
+/* .card-accent legacy removida (gradiente multicolor). Sustituir por card-surface + borde primary si se requiere énfasis. */
+
+/* === Dark Mode Refinements (Paso 12) === */
+.dark .card-glass { box-shadow: var(--shadow-glass); }
+.dark .focus-ring:focus-visible { box-shadow: 0 0 0 3px var(--color-primary-a70); }
+.dark .chip-base { background: var(--field-bg); border-color: var(--field-border); }
+/* .chip-accent eliminada (usar .bg-primary-emphasis cuando aplique) */
+.dark .card-glass .chip-base { background: var(--overlay-scrim-30); }
+.dark .text-soft { color: var(--color-text-soft); }
+.dark .text-faint { color: var(--text-tertiary); }
+.dark .scroll-thin::-webkit-scrollbar-thumb:hover { background: var(--overlay-highlight-20); }
+.dark .focus-ring:hover { background-color: var(--overlay-highlight-4); }
+
+.card-interactive {
+  transition: transform var(--transition-base), box-shadow var(--transition-base), border-color var(--transition-fast);
+  will-change: transform;
+}
+.card-interactive:hover { transform: translateY(-3px); box-shadow: var(--shadow-md); }
+.card-interactive:active { transform: translateY(-1px) scale(.98); box-shadow: var(--shadow-sm); }
+.card-interactive:focus-visible { outline: 2px solid var(--color-primary); outline-offset: 3px; }
+
+.divider-fade {
+  width: 100%; height: 1px; border: 0; margin: 0; padding: 0;
+  background: linear-gradient(90deg, var(--overlay-scrim-0), var(--overlay-scrim-10), var(--overlay-scrim-0));
+}
+.dark .divider-fade { background: linear-gradient(90deg, transparent, var(--overlay-highlight-20), transparent); }
+
+
+/* ==========================
+   Micro-interacciones & Motion
+   ==========================
+   - Utilidades declarativas para focus, hover elevate y estados activos.
+   - Evitan duplicar box-shadow / transform en múltiples componentes.
+*/
+.focus-ring {
+  outline: none !important;
+  box-shadow: 0 0 0 0 var(--overlay-scrim-0);
+  transition: box-shadow var(--transition-fast), background-color var(--transition-fast), transform var(--transition-base);
+}
+.focus-ring:focus-visible {
+  box-shadow: 0 0 0 3px var(--color-primary-a40);
+}
+.dark .focus-ring:focus-visible {
+  box-shadow: 0 0 0 3px var(--color-primary-a50);
+}
+
+.elevate-hover { transition: transform var(--transition-base), box-shadow var(--transition-base); }
+.elevate-hover:hover { transform: translateY(-3px); box-shadow: var(--shadow-md); }
+.elevate-hover:active { transform: translateY(-1px) scale(.985); box-shadow: var(--shadow-sm); }
+
+.tap-scale { transition: transform var(--transition-fast); }
+.tap-scale:active { transform: scale(.94); }
+
+/* Botón primario enfatizado (opcional) */
+.btn-emphasis { position:relative; overflow:hidden; }
+.btn-emphasis::after {
+  content:""; position:absolute; inset:0; background:linear-gradient(120deg, var(--color-primary-a15), var(--color-primary-a05)); opacity:0; transition:opacity var(--transition-fast);
+}
+.btn-emphasis:hover::after { opacity:1; }
+.btn-emphasis:active { transform: translateY(1px); }
+
+/* Transiciones uniformes para color / fondo / borde */
+.transition-colors-base { transition: background-color var(--transition-base), color var(--transition-base), border-color var(--transition-base); }
+
+/* Animación sutil de entrada para listas (stagger manual aplicable con delay-[X] utilities) */
+@keyframes fade-up-soft { 0% { opacity:0; transform: translateY(6px); } 100% { opacity:1; transform: translateY(0);} }
+.animate-fade-up-soft { animation: fade-up-soft 420ms var(--ease-standard); }
+
+/* Prefiere reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  .elevate-hover, .tap-scale, .interactive-scale, .animate-fade-scale-in, .animate-hero-zoom, .animate-fade-up-soft {
+    transition: none !important;
+    animation: none !important;
+    transform: none !important;
+  }
+}
+
+/* Focus para elementos dentro de tarjetas (accesibilidad) */
+.card-focus-within:focus-within { box-shadow: 0 0 0 2px var(--color-primary-a50), 0 0 0 4px var(--color-primary-a15); }
+.dark .card-focus-within:focus-within { box-shadow: 0 0 0 2px var(--color-primary-a70), 0 0 0 4px var(--color-primary-a30); }
+
+/* Scrollbar minimal (opt-in) */
+.scroll-thin { scrollbar-width: thin; }
+.scroll-thin::-webkit-scrollbar { width:8px; }
+.scroll-thin::-webkit-scrollbar-track { background: transparent; }
+.scroll-thin::-webkit-scrollbar-thumb { background: var(--overlay-scrim-20); border-radius: 20px; }
+.dark .scroll-thin::-webkit-scrollbar-thumb { background: var(--overlay-highlight-20); }
+
+/* ==========================
+   Animaciones Modernas
+   ========================== */
+
+@keyframes fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes scale-in {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.animate-fade-in {
+  animation: fade-in 0.3s ease-out;
+}
+
+.animate-scale-in {
+  animation: scale-in 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* Estilos personalizados para sliders de cropper */
+.slider-custom {
+  -webkit-appearance: none;
+  appearance: none;
+  background: transparent;
+  cursor: pointer;
+}
+
+.slider-custom::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  height: 20px;
+  width: 20px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, rgb(var(--color-primary-rgb) / 1), rgb(var(--color-primary-rgb) / 0.65));
+  border: 2px solid var(--overlay-highlight-80);
+  box-shadow: 0 2px 6px var(--overlay-scrim-20);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.slider-custom::-webkit-slider-thumb:hover {
+  transform: scale(1.1);
+  box-shadow: 0 4px 12px var(--overlay-scrim-30);
+}
+
+.slider-custom::-moz-range-thumb {
+  height: 20px;
+  width: 20px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, rgb(var(--color-primary-rgb) / 1), rgb(var(--color-primary-rgb) / 0.65));
+  border: 2px solid var(--overlay-highlight-80);
+  box-shadow: 0 2px 6px var(--overlay-scrim-20);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.slider-custom::-moz-range-thumb:hover {
+  transform: scale(1.1);
+  box-shadow: 0 4px 12px var(--overlay-scrim-30);
+}
+
+/* State pills for billing status */
+.state-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.25rem 0.75rem;
+  border-radius: 9999px;
+  font-size: var(--font-size-xs);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.state-pagada {
+  background: var(--color-success-subtle-bg);
+  color: var(--color-success);
+  border: 1px solid var(--color-success-subtle-border);
+}
+
+.state-pendiente {
+  background: var(--color-warn-subtle-bg);
+  color: var(--color-warn);
+  border: 1px solid var(--color-warn-subtle-border);
+}
+
+/* Dark mode variants */
+.dark .state-pagada {
+  background: var(--color-success-subtle-bg);
+  color: var(--color-success);
+  border-color: var(--color-success-subtle-border);
+}
+
+.dark .state-pendiente {
+  background: var(--color-warn-subtle-bg);
+  color: var(--color-warn);
+  border-color: var(--color-warn-subtle-border);
+}
+

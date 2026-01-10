@@ -1,0 +1,29 @@
+{
+  "name": "@simple/auth",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Sistema de autenticación compartido para el ecosistema Simple",
+  "main": "./src/index.ts",
+  "module": "./src/index.ts",
+  "types": "./src/index.ts",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {},
+  "devDependencies": {
+    "typescript": "^5.7.3",
+    "@types/react": "^19.1.12",
+    "@types/react-dom": "^19.1.5"
+  },
+  "peerDependencies": {
+    "react": ">=18.0.0",
+    "react-dom": ">=18.0.0",
+    "@supabase/supabase-js": "^2.0.0",
+    "@supabase/ssr": "^0.7.0"
+  }
+}

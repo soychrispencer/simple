@@ -1,0 +1,28 @@
+{
+  "name": "@simple/profile",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Componentes de perfil compartidos para las verticales Simple",
+  "main": "./src/index.ts",
+  "module": "./src/index.ts",
+  "types": "./src/index.ts",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@simple/ui": "*"
+  },
+  "peerDependencies": {
+    "react": "^19.1.0",
+    "react-dom": "^19.1.0",
+    "next": "^16.0.0 || ^15.1.4"
+  },
+  "files": [
+    "src"
+  ]
+}

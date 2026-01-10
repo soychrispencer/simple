@@ -1,0 +1,97 @@
+@import '@simple/config/tokens.css';
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --color-primary: #009BA3;
+    --color-primary-rgb: 0 155 163;
+  }
+}
+
+/* ==========================
+   Design Tokens Base (Layer)
+   ==========================
+   Variables pensadas para escalabilidad y consistencia.
+*/
+
+/* Helper classes */
+.shadow-token-sm { box-shadow: var(--shadow-sm); }
+.shadow-token-md { box-shadow: var(--shadow-md); }
+.shadow-token-lg { box-shadow: var(--shadow-lg); }
+.shadow-token-glass { box-shadow: var(--shadow-glass); }
+.shadow-token-raised { box-shadow: var(--shadow-raised); }
+
+.radius-sm { border-radius: var(--radius-sm); }
+.radius-md { border-radius: var(--radius-md); }
+.radius-lg { border-radius: var(--radius-lg); }
+.radius-xl { border-radius: var(--radius-xl); }
+.radius-2xl { border-radius: var(--radius-2xl); }
+
+.bg-surface { background: var(--color-bg); }
+.bg-alt { background: var(--color-bg-alt); }
+.bg-inset { background: var(--color-bg-inset); }
+.text-soft { color: var(--color-text-soft); }
+.text-faint { color: var(--color-text-faint); }
+.text-primary-emphasis { color: var(--color-primary); }
+.bg-primary-emphasis { background: var(--color-primary); color: var(--color-on-primary); }
+
+.glass-surface { 
+  backdrop-filter: blur(16px); 
+  -webkit-backdrop-filter: blur(16px); 
+  background: var(--glass-bg); 
+  border: 1px solid var(--glass-border); 
+}
+.dark .glass-surface { 
+  background: var(--glass-dark-bg); 
+  border-color: var(--glass-dark-border); 
+}
+
+.transition-base { transition: var(--transition-base); }
+.transition-fast { transition: var(--transition-fast); }
+
+@keyframes fade-scale-in { 
+  0% { opacity:0; transform:translateY(4px) scale(.98);} 
+  100% { opacity:1; transform:translateY(0) scale(1);} 
+}
+.animate-fade-scale-in { animation: fade-scale-in 300ms var(--ease-standard); }
+
+@keyframes fadeIn { from { opacity:0; } to { opacity:1; } }
+@keyframes popIn { 
+  0% { opacity:0; transform:scale(.92);} 
+  60% { opacity:1; transform:scale(1.025);} 
+  100% { transform:scale(1);} 
+}
+.animate-fade-in { animation: fadeIn 260ms var(--ease-standard); }
+.animate-pop-in { animation: popIn 380ms var(--ease-emphatic); }
+
+/* Global resets */
+html, body {
+  max-width: 100vw;
+  overflow-x: hidden;
+  font-family: var(--font-sans);
+  font-feature-settings: 'liga' 1, 'calt' 1;
+  letter-spacing: -0.01em;
+  color: var(--color-text);
+  background-color: var(--color-bg);
+}
+
+body {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+* {
+  box-sizing: border-box;
+  padding: 0;
+  margin: 0;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+/* Tokens de campos provistos por @simple/config/tokens.css */

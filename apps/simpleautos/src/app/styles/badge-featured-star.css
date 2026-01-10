@@ -1,0 +1,8 @@
+/* Estrella para destacados, tamaño 16px, color dorado */
+.badge-featured-star {
+  display: inline-flex;
+  align-items: center;
+  margin-right: 0.3em;
+  color: var(--color-warn);
+  vertical-align: middle;
+}

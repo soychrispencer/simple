@@ -1,0 +1,157 @@
+Table,Column,Description,Frontend component(s),Connection status
+regions,id,"UUID de región",StepBasic.tsx; CompanyDataForm.tsx; PersonalDataForm.tsx; PublicPageForm.tsx,Connected
+regions,name,"Nombre región (label)",StepBasic.tsx; CompanyDataForm.tsx; PersonalDataForm.tsx; PublicPageForm.tsx,Connected
+regions,code,"Código región",No UI,GAP
+regions,created_at,"Marca de tiempo",No UI,GAP
+communes,id,"UUID de comuna",StepBasic.tsx; CompanyDataForm.tsx; PersonalDataForm.tsx; PublicPageForm.tsx,Connected
+communes,name,"Nombre comuna",StepBasic.tsx; CompanyDataForm.tsx; PersonalDataForm.tsx; PublicPageForm.tsx,Connected
+communes,region_id,"FK región",StepBasic.tsx; CompanyDataForm.tsx; PersonalDataForm.tsx; PublicPageForm.tsx,Connected
+communes,created_at,"Marca de tiempo",No UI,GAP
+verticals,id,"UUID vertical (autos/propiedades)",Resolved internally in useSubmitVehicle,Connected (backend only)
+verticals,name,"Nombre vertical",No UI,GAP
+verticals,key,"Slug vertical (""vehicles""|""autos"")",useSubmitVehicle.ts,Connected
+verticals,description,"Descripción",No UI,GAP
+verticals,is_active,"Bandera activo",No UI,GAP
+verticals,created_at,"Marca de tiempo",No UI,GAP
+vehicle_types,id,"UUID tipo vehículo",StepTypeSelect.tsx,Connected
+vehicle_types,name,"Etiqueta visible",StepTypeSelect.tsx,Connected
+vehicle_types,slug,"Slug usado para iconos/keys",StepTypeSelect.tsx,Connected
+vehicle_types,category,"Categoría canónica",StepTypeSelect.tsx (resolveSpecKey),Connected
+vehicle_types,created_at,"Marca de tiempo",No UI,GAP
+brands,id,"UUID marca",StepBasic.tsx,Connected
+brands,name,"Nombre marca (select)",StepBasic.tsx,Connected
+brands,logo_url,"Logo marca",No UI,GAP
+brands,is_active,"Bandera activo",No UI,GAP
+brands,created_at,"Marca tiempo",No UI,GAP
+brands,updated_at,"Marca tiempo",No UI,GAP
+models,id,"UUID modelo",StepBasic.tsx,Connected
+models,brand_id,"FK marca",StepBasic.tsx,Connected
+models,name,"Nombre modelo",StepBasic.tsx,Connected
+models,vehicle_type_id,"Filtra modelos por tipo",StepBasic.tsx,Connected
+models,year_from,"Rango año desde",No UI,GAP
+models,year_to,"Rango año hasta",No UI,GAP
+models,created_at,"Marca tiempo",No UI,GAP
+models,updated_at,"Marca tiempo",No UI,GAP
+profiles,id,"FK auth.users",PersonalDataForm.tsx; PublicPageForm.tsx; Suscripcion page,Connected
+profiles,username,"Slug público",PublicPageForm.tsx,Connected
+profiles,first_name,"Nombre",PersonalDataForm.tsx,Connected
+profiles,last_name,"Apellido",PersonalDataForm.tsx,Connected
+profiles,public_name,"Nombre público",PublicPageForm.tsx,Connected
+profiles,email,"Email (lectura/escritura modal)",PersonalDataForm.tsx,Connected
+profiles,phone,"Teléfono",PersonalDataForm.tsx,Connected
+profiles,whatsapp,"WhatsApp",PublicPageForm.tsx,Connected
+profiles,whatsapp_type,"Tipo whatsapp",PublicPageForm.tsx,Connected
+profiles,rut,"Documento",PersonalDataForm.tsx,Connected
+profiles,birth_date,"Fecha nacimiento",PersonalDataForm.tsx,Connected
+profiles,gender,"Género",PersonalDataForm.tsx,Connected
+profiles,nationality,"Nacionalidad",PersonalDataForm.tsx,Connected
+profiles,occupation,"Ocupación",PersonalDataForm.tsx,Connected
+profiles,years_experience,"Años experiencia",No UI,GAP
+profiles,bio,"Bio corta",No UI,GAP
+profiles,description,"Descripción pública",PublicPageForm.tsx,Connected
+profiles,address,"Dirección",PersonalDataForm.tsx; PublicPageForm.tsx,Connected
+profiles,location,"Texto libre ubicación",No UI,GAP
+profiles,ubicacion_mapa,"Coordenadas/mapa",No UI,GAP
+profiles,galeria,"JSON galería",PublicPageForm uploader,Connected
+profiles,website,"Sitio web",PublicPageForm.tsx,Connected
+profiles,avatar_url,"Avatar",ProfileAvatarUploader,Connected
+profiles,cover_url,"Cover",ProfileAvatarUploader/Gallery,Connected
+profiles,region_id,"FK región",PersonalDataForm.tsx; PublicPageForm.tsx,Connected
+profiles,commune_id,"FK comuna",PersonalDataForm.tsx; PublicPageForm.tsx,Connected
+profiles,social_links,"JSON enlaces",Not used (PublicPageForm usa tablas legacy),GAP
+profiles,tiktok/facebook/instagram/linkedin/youtube/twitter,"Redes sociales planas",PublicPageForm.tsx,Connected
+profiles,preferences,"JSON de preferencias",No UI,GAP
+profiles,user_type,"Tipo de usuario (individual/company)",Shown in empresa page stats,Connected (display)
+profiles,plan,"Plan actual",panel/suscripcion/page.tsx,Connected
+profiles,is_public,"Perfil público",No UI,GAP
+profiles,show_email|show_phone,"Flags visibilidad",No UI,GAP
+profiles,horario247,"Flag 24/7",PublicPageForm.tsx (switch),Connected
+profiles,is_verified|verification_status,"Verificación",Display only in profile page,Connected (read)
+profiles,subscription_status|subscription_expires_at,"Estado suscripción",No UI (backend/webhook),Backend only
+profiles,rating|review_count|visits,"Métricas perfil",Perfil público cards,Connected (read)
+profiles,created_at|updated_at,"Timestamps",No UI,GAP
+subscription_plans,all columns,"Catálogo de planes",No UI,GAP
+companies,id,"UUID",CompanyDataForm.tsx,Connected
+companies,name,"Razón social",CompanyDataForm.tsx,Connected
+companies,slug,"Slug empresa",No UI,GAP
+companies,description,"Descripción",CompanyDataForm.tsx (business_type),Connected
+companies,logo_url|cover_url,"Medios",No UI,GAP
+companies,website,"Sitio web",CompanyDataForm.tsx,Connected
+companies,email|phone|whatsapp,"Contacto",CompanyDataForm.tsx contact section,Connected
+companies,address,"Dirección",CompanyDataForm.tsx,Connected
+companies,location|ubicacion_mapa,"Ubicación libre/mapa",No UI,GAP
+companies,region_id|commune_id,"Ubicación",CompanyDataForm.tsx,Connected
+companies,rut,"Tax ID",CompanyDataForm.tsx,Connected
+companies,company_type,"Tipo empresa",CompanyDataForm.tsx,Connected
+companies,industry,"Giro",CompanyDataForm.tsx,Connected
+companies,founded_year|employee_count,"Fundación/empleados",No UI,GAP
+companies,social_links|tiktok|facebook|instagram|linkedin|youtube|twitter,"Social JSON y redes",No UI,GAP
+companies,is_verified|verification_status,"Estado verificación",Display only in empresa header,Connected (read)
+companies,rating|review_count|visits,"Métricas",Display only (empresa header),Connected (read)
+companies,is_active,"Bandera",No UI,GAP
+companies,created_at|updated_at,"Timestamps",No UI,GAP
+company_users,id,"Relación user-company",CompanyDataForm.tsx (fetch membership),Connected
+company_users,company_id|user_id,"FKs",CompanyDataForm.tsx (membership lookup),Connected
+company_users,role,"owner/admin/member",CompanyDataForm.tsx (read in stats),Connected (read)
+company_users,permissions,"JSON (contact_name usado)",CompanyDataForm.tsx contact form,Connected (partial)
+company_users,is_active,"Miembro activo",No UI,GAP
+company_users,joined_at,"Fecha unión",No UI,GAP
+listings,id,"UUID listing",Wizard submit & panel/publicaciones,Connected
+listings,vertical_id,"FK vertical",useSubmitVehicle.ts,Connected
+listings,company_id|user_id,"Ownership",useSubmitVehicle.ts,Connected
+listings,status,"draft/published/inactive/sold",StepReview publish + panel/publicaciones bulk,Connected
+listings,listing_type,"sale/rent/auction",Wizard intent,Connected
+listings,title,"Título aviso",StepBasic auto-built,Connected
+listings,description,"Descripción",StepBasic textarea,Connected
+listings,price|currency,"Precio CLP",StepCommercial,Connected
+listings,views,"Contador",panel/estadisticas/publicaciones (read),Connected (read)
+listings,published_at|expires_at|featured_until,"Fechas ciclo",panel/publicaciones cards (read),Connected (read)
+listings,is_featured|is_urgent,"Destacado/Urgente",panel/publicaciones badges (read),Connected (read)
+listings,contact_phone|contact_email|contact_whatsapp,"Contacto aviso",No UI,GAP
+listings,location|ubicacion_mapa,"Texto/mapa",No UI,GAP
+listings,region_id|commune_id,"Ubicación oficial",StepBasic,Connected
+listings,tags,"Etiquetas",No UI,GAP
+listings,metadata,"JSON con specs/gallery/condiciones",buildVehicleInsertPayload.ts,Connected (backend)
+listings,search_vector,"TSV",No UI,GAP
+listings,visibility,"normal/featured/hidden",StepCommercial,Connected
+listings,allow_financing|allow_exchange,"Toggles",StepCommercial,Connected
+listings,rent_daily_price|rent_weekly_price|rent_monthly_price|rent_security_deposit,"Arriendo",StepCommercial,Connected
+listings,auction_start_price|auction_start_at|auction_end_at,"Subasta",StepCommercial,Connected
+listings,video_url,"URL video",No UI,GAP
+listings,document_urls,"Docs adjuntos",No UI,GAP
+listings,created_at|updated_at,"Timestamps",No UI,GAP
+listings_vehicles,listing_id,"PK/FK",Wizard submit,Connected
+listings_vehicles,vehicle_type_id,"Tipo",StepTypeSelect,Connected
+listings_vehicles,brand_id|model_id,"Marca/Modelo",StepBasic,Connected
+listings_vehicles,year|mileage,"Año/Km",StepBasic,Connected
+listings_vehicles,transmission|fuel_type|traction|engine_size|color|body_type|doors|seats,"Especificaciones",StepSpecsDynamic,Connected
+listings_vehicles,license_plate|vin,"Patente/VIN",No UI,GAP
+listings_vehicles,features,"Equipamiento JSON",StepSpecsDynamic,Connected
+listings_vehicles,condition|state,"Condición/estado",StepBasic (estado) + Specs,Connected
+listings_vehicles,warranty|warranty_details,"Garantía",StepSpecsDynamic,Connected
+listings_vehicles,created_at|updated_at,"Timestamps",No UI,GAP
+listings_properties,listing_id,"PK/FK propiedades",No UI in SimpleAutos,GAP
+listings_properties,property_type|operation_type|bedrooms|bathrooms|parking_spaces|total_area|built_area|land_area|floor|building_floors|year_built|orientation|condition|furnished|pet_friendly|features|amenities,"Campos de propiedades",No UI (handled in simplepropiedades app),GAP (autos)
+listings_properties,created_at|updated_at,"Timestamps",No UI,GAP
+images,id,"UUID imagen",StepMedia uploader,Connected
+images,listing_id,"FK listing",StepMedia uploader,Connected
+images,url,"URL pública",StepMedia uploader,Connected
+images,alt_text|caption,"Texto alternativo",No UI,GAP
+images,position,"Orden",StepMedia drag controls,Connected
+images,is_primary,"Portada",StepMedia setMain,Connected
+images,created_at,"Timestamp",No UI,GAP
+documents,id|listing_id|user_id|name|url|file_type|file_size|created_at,"Documentos adjuntos",No UI,GAP
+favorites,id,"UUID favorito",Panel favoritos,Connected (read/delete)
+favorites,user_id|listing_id,"Relación",Panel favoritos + CTA favoritos,Connected
+favorites,created_at,"Fecha",Panel favoritos (read),Connected (read)
+messages,id|sender_id|receiver_id|listing_id|subject|content|is_read|created_at,"Mensajería",Panel/mensajes es placeholder (no BD real),GAP
+notifications,id|user_id|type|title|content|data|is_read|created_at,"Notificaciones",Header bell + /panel/mensajes + /api/notificaciones,Connected
+reviews,id|reviewer_id|reviewed_id|listing_id|rating|title|comment|is_public|created_at,"Reseñas",Perfil público lee/escribe pero AddReviewForm escribe campos incorrectos,Partial (needs fix)
+listing_metrics,listing_id|views|clicks|favorites|shares|created_at|updated_at,"Métricas",panel/estadisticas + panel/publicaciones (cards),Connected (read)
+subscriptions,id|user_id|plan|status|current_period_start|current_period_end|cancel_at_period_end|created_at|updated_at,"Suscripciones",Managed by webhook; shown indirectly via profile.plan,Backend-managed
+payments,id|user_id|subscription_id|amount|currency|status|payment_method|external_id|description|created_at|updated_at,"Pagos",Managed by MercadoPago webhook,Backend-managed
+boost_slots,id|vertical_id|key|title|description|placement|max_active|default_duration_days|price|currency|is_active|config|created_at|updated_at,"Catálogo de slots",BoostSlotsModal (read-only cards),Connected (read)
+listing_boosts,id|listing_id|company_id|user_id|status|starts_at|ends_at|payment_id|payment_amount|payment_currency|metadata|created_at|updated_at,"Orden de boost",Server actions create/update when guardando slots,Backend-managed
+listing_boost_slots,id|boost_id|slot_id|listing_id|priority|starts_at|ends_at|is_active|created_at|updated_at,"Asignación de slots",BoostSlotsModal save -> actions/boosts.ts,Connected
+subscription_plans (again),is_active|created_at|updated_at,"Metadatos plan",No UI,GAP
+vertical buckets (storage),avatars|covers|vehicles|properties|documents,"Buckets de Storage",Used via uploaders (avatars/covers/vehicles); properties/documents no UI,Partial

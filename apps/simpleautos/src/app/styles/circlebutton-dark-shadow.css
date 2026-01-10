@@ -1,0 +1,6 @@
+/* Sombra personalizada para CircleButton en modo oscuro (legacy .btn-base removido) */
+/* Aplica a cualquier botón con clase shadow dentro de modo oscuro y que tenga forma circular (w-10 h-10 rounded-full etc.).
+   Nota: Si se quisiera delimitar más, se podría añadir un data-attribute en el componente CircleButton. */
+.dark button.shadow {
+  box-shadow: var(--shadow-fab);
+}

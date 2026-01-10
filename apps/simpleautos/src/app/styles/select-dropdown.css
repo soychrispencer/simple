@@ -1,0 +1,12 @@
+/* Personalización avanzada del dropdown del select */
+
+select.rounded-full option {
+  border-radius: 9999px;
+}
+
+select.rounded-full option:hover, select.rounded-full option:focus {
+  background-color: var(--color-primary) !important;
+  color: var(--color-on-primary) !important;
+}
+
+/* Para navegadores que soportan ::part o ::slotted, se puede mejorar aún más con select[part] */

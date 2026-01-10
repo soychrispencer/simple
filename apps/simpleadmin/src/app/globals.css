@@ -1,0 +1,40 @@
+@import "@simple/config/tokens.css";
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* SimpleAdmin usa paleta en grises (sin naranja/verde/azul del preset global) */
+:root {
+	--color-primary: var(--color-text);
+	--color-primary-rgb: 12 12 12;
+	--color-on-primary: #FFFFFF;
+	--color-accent: var(--color-text);
+}
+
+.dark:root {
+	--color-primary: var(--color-text);
+	--color-primary-rgb: 244 244 245;
+	--color-on-primary: #0C0C0C;
+	--color-accent: var(--color-text);
+}
+
+/* Base global: asegura contraste y tipografía con tokens (light/dark) */
+* { box-sizing: border-box; padding: 0; margin: 0; }
+
+html, body {
+	height: 100%;
+	max-width: 100vw;
+	overflow-x: hidden;
+	font-family: var(--font-sans);
+	font-feature-settings: 'liga' 1, 'calt' 1;
+	color: var(--color-text);
+	background-color: var(--color-bg);
+	letter-spacing: -0.01em;
+}
+
+/* Helpers compartidos usados en UI */
+.card-surface {
+	background: var(--card-bg);
+	border: var(--border-subtle);
+}

@@ -1,0 +1,34 @@
+{
+  "name": "@simple/ui",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Componentes UI compartidos para el ecosistema Simple",
+  "main": "./src/index.ts",
+  "module": "./src/index.ts",
+  "types": "./src/index.ts",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@simple/auth": "*",
+    "@simple/config": "*",
+    "@simple/shared-types": "*"
+  },
+  "devDependencies": {
+    "@types/react": "^19.1.12",
+    "@types/react-dom": "^19.1.0"
+  },
+  "peerDependencies": {
+    "react": "^19.1.0",
+    "react-dom": "^19.1.0",
+    "next": "^15.1.4 || ^16.0.0"
+  },
+  "files": [
+    "src"
+  ]
+}
