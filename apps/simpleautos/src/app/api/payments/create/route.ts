@@ -12,6 +12,20 @@ import {
 import { SUBSCRIPTION_PLANS } from '@simple/config';
 import { logError } from '@/lib/logger';
 
+export async function OPTIONS() {
+  // Respuesta segura para cualquier preflight o verificación.
+  return new NextResponse(null, { status: 204 });
+}
+
+export async function GET() {
+  // Algunos clientes/herramientas pueden golpear este endpoint con GET.
+  // Respondemos con JSON para evitar fallos de parseo en el frontend.
+  return NextResponse.json(
+    { error: 'Method Not Allowed', details: 'Use POST /api/payments/create' },
+    { status: 405 }
+  );
+}
+
 export async function POST(request: NextRequest) {
   try {
     const cookieStore = await cookies();

@@ -39,14 +39,24 @@ export function useMercadoPago() {
         body: JSON.stringify(paymentData),
       });
 
-      const data = await response.json();
+      const contentType = response.headers.get('content-type') || '';
+      const isJson = contentType.includes('application/json');
+      const payload = isJson ? await response.json().catch(() => null) : null;
 
       if (!response.ok) {
-        throw new Error(data.error || 'Error creando pago');
+        const serverMessage = payload?.error || payload?.details;
+        const fallback = await response.text().catch(() => '');
+        throw new Error(
+          serverMessage || fallback || `Error creando pago (HTTP ${response.status})`
+        );
       }
 
-      // Redirigir a MercadoPago
-      window.location.href = data.init_point;
+      const initPoint = payload?.init_point;
+      if (!initPoint) {
+        throw new Error('Respuesta inválida: falta init_point');
+      }
+
+      window.location.href = initPoint;
 
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Error desconocido');
