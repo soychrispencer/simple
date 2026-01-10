@@ -177,7 +177,7 @@ WITH CHECK (
   public_profile_id IS NOT NULL AND EXISTS (
     SELECT 1 FROM public.public_profiles pp
     JOIN public.company_users cu ON cu.company_id = pp.company_id
-    WHERE pp.id = public.listings.public_listings.public_profile_id
+    WHERE pp.id = public.listings.public_profile_id
       AND cu.user_id = auth.uid()
       AND cu.role IN ('owner','admin')
       AND cu.status = 'active'
