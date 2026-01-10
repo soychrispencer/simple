@@ -1,6 +1,7 @@
 ﻿import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs';
+import { createClient } from '@supabase/supabase-js';
 import {
   createMercadoPagoPreference,
   getBoostPrice,
@@ -32,12 +33,39 @@ export async function GET() {
 
 export async function POST(request: NextRequest) {
   try {
+    // 1) Intentar auth por cookies (auth-helpers)
     const cookieStore = await cookies();
     const supabase = createRouteHandlerClient({ cookies: () => cookieStore as any });
-    const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser();
+    const cookieAuth = await supabase.auth.getUser();
+    let user = cookieAuth.data.user;
+    let authError = cookieAuth.error;
+
+    // 2) Fallback: auth por Bearer token (cuando la sesión vive en localStorage)
+    if (!user) {
+      const authHeader = request.headers.get('authorization') || request.headers.get('Authorization');
+      const match = authHeader?.match(/^Bearer\s+(.+)$/i);
+      const token = match?.[1];
+
+      if (token) {
+        const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+        const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+
+        if (!url || !anonKey) {
+          return NextResponse.json(
+            { error: 'Supabase no configurado (public env vars)' },
+            { status: 500 }
+          );
+        }
+
+        const bearerClient = createClient(url, anonKey, {
+          auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
+        });
+
+        const bearerAuth = await bearerClient.auth.getUser(token);
+        user = bearerAuth.data.user;
+        authError = bearerAuth.error;
+      }
+    }
 
     if (authError || !user) {
       return NextResponse.json({ error: 'No autenticado', details: authError?.message }, { status: 401 });
