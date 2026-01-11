@@ -61,6 +61,10 @@ interface AdminVehicleCardProps {
   onView?: (id: string) => void;
   onChangeStatus?: (id: string, newStatus: 'Publicado' | 'Pausado' | 'Borrador') => void;
   onBoost?: (id: string) => void;
+  canPublish?: boolean;
+  canDuplicate?: boolean;
+  publishDisabledTitle?: string;
+  duplicateDisabledTitle?: string;
   selectionMode?: boolean;
   selected?: boolean;
   onToggleSelected?: () => void;
@@ -77,6 +81,10 @@ export const AdminVehicleCard: React.FC<AdminVehicleCardProps> = ({
   onView,
   onChangeStatus,
   onBoost,
+  canPublish = true,
+  canDuplicate = true,
+  publishDisabledTitle,
+  duplicateDisabledTitle,
   selectionMode = false,
   selected = false,
   onToggleSelected,
@@ -238,6 +246,7 @@ export const AdminVehicleCard: React.FC<AdminVehicleCardProps> = ({
   const handleDuplicate = (e: React.MouseEvent) => {
     e.stopPropagation();
     if (selectionMode) return;
+    if (!canDuplicate) return;
     if (onDuplicate) onDuplicate(vehicle.id);
     setMenuOpen(false);
   };
@@ -252,6 +261,7 @@ export const AdminVehicleCard: React.FC<AdminVehicleCardProps> = ({
   const handlePublish = (e: React.MouseEvent) => {
     e.stopPropagation();
     if (selectionMode) return;
+    if (!canPublish) return;
     if (onChangeStatus) onChangeStatus(vehicle.id, 'Publicado');
     setMenuOpen(false);
   };
@@ -662,7 +672,14 @@ export const AdminVehicleCard: React.FC<AdminVehicleCardProps> = ({
           <div className="fixed z-[9999] w-44 card-surface shadow-card rounded-xl py-2 animate-fadeIn" style={{top: '50%', right: '1rem', transform: 'translateY(-50%)'}}>
             {/* Opciones de estado - PRIMERO */}
             {vehicle.estadoPublicacion === 'Borrador' && (
-              <button onClick={handlePublish} className="w-full flex items-center gap-2 px-3 py-2 text-sm hover:bg-[var(--field-bg-hover)] text-left transition">
+              <button
+                onClick={handlePublish}
+                disabled={!canPublish}
+                title={!canPublish ? (publishDisabledTitle || 'Acción no disponible') : undefined}
+                className={`w-full flex items-center gap-2 px-3 py-2 text-sm text-left transition ${
+                  canPublish ? 'hover:bg-[var(--field-bg-hover)]' : 'opacity-50 cursor-not-allowed'
+                }`}
+              >
                 <IconPlayerPlay size={16} className="text-[var(--color-success)]"/> Publicar
               </button>
             )}
@@ -673,7 +690,14 @@ export const AdminVehicleCard: React.FC<AdminVehicleCardProps> = ({
             )}
             {vehicle.estadoPublicacion === 'Pausado' && (
               <>
-                <button onClick={handlePublish} className="w-full flex items-center gap-2 px-3 py-2 text-sm hover:bg-[var(--field-bg-hover)] text-left transition">
+                <button
+                  onClick={handlePublish}
+                  disabled={!canPublish}
+                  title={!canPublish ? (publishDisabledTitle || 'Acción no disponible') : undefined}
+                  className={`w-full flex items-center gap-2 px-3 py-2 text-sm text-left transition ${
+                    canPublish ? 'hover:bg-[var(--field-bg-hover)]' : 'opacity-50 cursor-not-allowed'
+                  }`}
+                >
                   <IconPlayerPlay size={16} className="text-[var(--color-success)]"/> Publicar
                 </button>
                 <button onClick={handleDraft} className="w-full flex items-center gap-2 px-3 py-2 text-sm hover:bg-[var(--field-bg-hover)] text-left transition">
@@ -692,7 +716,14 @@ export const AdminVehicleCard: React.FC<AdminVehicleCardProps> = ({
             {/* Separador */}
             <div className="border-t border-border/60 dark:border-darkborder/35 my-1"></div>
 
-            <button onClick={handleDuplicate} className="w-full flex items-center gap-2 px-3 py-2 text-sm hover:bg-[var(--field-bg-hover)] text-left transition">
+            <button
+              onClick={handleDuplicate}
+              disabled={!canDuplicate}
+              title={!canDuplicate ? (duplicateDisabledTitle || 'Acción no disponible') : undefined}
+              className={`w-full flex items-center gap-2 px-3 py-2 text-sm text-left transition ${
+                canDuplicate ? 'hover:bg-[var(--field-bg-hover)]' : 'opacity-50 cursor-not-allowed'
+              }`}
+            >
               <IconCopy size={16}/> Duplicar
             </button>
             <button onClick={handleDelete} className="w-full flex items-center gap-2 px-3 py-2 text-sm hover:bg-[var(--color-danger-subtle-bg)] text-[var(--color-danger)] text-left transition">
@@ -1010,7 +1041,14 @@ export const AdminVehicleCard: React.FC<AdminVehicleCardProps> = ({
                 <div className="absolute bottom-full right-0 mb-1 z-[9999] w-44 card-surface shadow-card rounded-xl py-2 animate-fadeIn">
                 {/* Opciones de estado - PRIMERO */}
                 {vehicle.estadoPublicacion === 'Borrador' && (
-                  <button onClick={handlePublish} className="w-full flex items-center gap-2 px-3 py-2 text-sm hover:bg-[var(--field-bg-hover)] text-left transition">
+                  <button
+                    onClick={handlePublish}
+                    disabled={!canPublish}
+                    title={!canPublish ? (publishDisabledTitle || 'Acción no disponible') : undefined}
+                    className={`w-full flex items-center gap-2 px-3 py-2 text-sm text-left transition ${
+                      canPublish ? 'hover:bg-[var(--field-bg-hover)]' : 'opacity-50 cursor-not-allowed'
+                    }`}
+                  >
                     <IconPlayerPlay size={16} className="text-[var(--color-success)]"/> Publicar
                   </button>
                 )}
@@ -1021,7 +1059,14 @@ export const AdminVehicleCard: React.FC<AdminVehicleCardProps> = ({
                 )}
                 {vehicle.estadoPublicacion === 'Pausado' && (
                   <>
-                    <button onClick={handlePublish} className="w-full flex items-center gap-2 px-3 py-2 text-sm hover:bg-[var(--field-bg-hover)] text-left transition">
+                    <button
+                      onClick={handlePublish}
+                      disabled={!canPublish}
+                      title={!canPublish ? (publishDisabledTitle || 'Acción no disponible') : undefined}
+                      className={`w-full flex items-center gap-2 px-3 py-2 text-sm text-left transition ${
+                        canPublish ? 'hover:bg-[var(--field-bg-hover)]' : 'opacity-50 cursor-not-allowed'
+                      }`}
+                    >
                       <IconPlayerPlay size={16} className="text-[var(--color-success)]"/> Publicar
                     </button>
                     <button onClick={handleDraft} className="w-full flex items-center gap-2 px-3 py-2 text-sm hover:bg-[var(--field-bg-hover)] text-left transition">
@@ -1040,7 +1085,14 @@ export const AdminVehicleCard: React.FC<AdminVehicleCardProps> = ({
                 {/* Separador */}
                 <div className="border-t border-border/60 dark:border-darkborder/35 my-1"></div>
 
-                <button onClick={handleDuplicate} className="w-full flex items-center gap-2 px-3 py-2 text-sm hover:bg-[var(--field-bg-hover)] text-left transition">
+                <button
+                  onClick={handleDuplicate}
+                  disabled={!canDuplicate}
+                  title={!canDuplicate ? (duplicateDisabledTitle || 'Acción no disponible') : undefined}
+                  className={`w-full flex items-center gap-2 px-3 py-2 text-sm text-left transition ${
+                    canDuplicate ? 'hover:bg-[var(--field-bg-hover)]' : 'opacity-50 cursor-not-allowed'
+                  }`}
+                >
                   <IconCopy size={16}/> Duplicar
                 </button>
                 <button onClick={handleDelete} className="w-full flex items-center gap-2 px-3 py-2 text-sm hover:bg-[var(--color-danger-subtle-bg)] text-[var(--color-danger)] text-left transition">

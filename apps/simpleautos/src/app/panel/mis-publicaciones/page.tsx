@@ -16,6 +16,7 @@ import {
 } from "@simple/listings";
 import { IconPlus, IconCar, IconFilterX, IconSearch, IconTrash, IconChecks, IconX, IconPlayerPause } from '@tabler/icons-react';
 import { hasActiveBoost } from '@/lib/boostState';
+import { FREE_TIER_MAX_ACTIVE_LISTINGS } from '@simple/config';
 
 type Item = {
   id: string;
@@ -313,6 +314,12 @@ export default function MisPublicaciones() {
   const [items, setItems] = React.useState<Item[]>([]);
   const [mounted, setMounted] = React.useState(false);
   const [loading, setLoading] = React.useState(true);
+
+  const [limitsLoading, setLimitsLoading] = React.useState(true);
+  const [maxActiveListings, setMaxActiveListings] = React.useState<number>(FREE_TIER_MAX_ACTIVE_LISTINGS);
+  const [maxTotalListings, setMaxTotalListings] = React.useState<number>(1);
+  const [activePublishedCount, setActivePublishedCount] = React.useState<number>(0);
+  const [totalListingsCount, setTotalListingsCount] = React.useState<number>(0);
   
   // Estados de filtros
   const [searchQuery, setSearchQuery] = React.useState("");
@@ -349,6 +356,121 @@ export default function MisPublicaciones() {
   const userId = user?.id ?? null;
   const scopeColumn = scopeFilter?.column ?? null;
   const scopeValue = scopeFilter?.value ?? null;
+
+  const refreshLimits = React.useCallback(async () => {
+    if (!supabase) return;
+    if (!user?.id) return;
+    if (!scopeFilter) {
+      setLimitsLoading(false);
+      return;
+    }
+
+    setLimitsLoading(true);
+    try {
+      const { data: verticals, error: verticalError } = await supabase
+        .from('verticals')
+        .select('id, key')
+        .in('key', AUTOS_VERTICAL_KEYS as unknown as string[])
+        .limit(1);
+
+      if (verticalError || !verticals || verticals.length === 0) {
+        throw verticalError ?? new Error('No se encontró la vertical de autos.');
+      }
+
+      const verticalId = verticals[0].id as string;
+
+      let companyId: string | null = null;
+      if (scopeFilter.column === 'public_profile_id') {
+        const { data: pp, error: ppError } = await supabase
+          .from('public_profiles')
+          .select('company_id')
+          .eq('id', scopeFilter.value)
+          .maybeSingle();
+        if (ppError) throw ppError;
+        companyId = (pp as any)?.company_id ?? null;
+      }
+
+      let planLimits: any = null;
+      if (companyId) {
+        const { data: activeSub, error: subError } = await supabase
+          .from('subscriptions')
+          .select('status, current_period_end, subscription_plans(limits)')
+          .eq('company_id', companyId)
+          .eq('status', 'active')
+          .eq('vertical_id', verticalId)
+          .maybeSingle();
+
+        if (subError) throw subError;
+        const planSource = Array.isArray((activeSub as any)?.subscription_plans)
+          ? (activeSub as any)?.subscription_plans?.[0]
+          : (activeSub as any)?.subscription_plans;
+        planLimits = planSource?.limits ?? null;
+      } else {
+        const { data: activeSub, error: subError } = await supabase
+          .from('subscriptions')
+          .select('status, current_period_end, subscription_plans(limits)')
+          .eq('user_id', user.id)
+          .eq('status', 'active')
+          .eq('vertical_id', verticalId)
+          .maybeSingle();
+
+        if (subError) throw subError;
+        const planSource = Array.isArray((activeSub as any)?.subscription_plans)
+          ? (activeSub as any)?.subscription_plans?.[0]
+          : (activeSub as any)?.subscription_plans;
+        planLimits = planSource?.limits ?? null;
+      }
+
+      const parsedMaxActive = Number(planLimits?.max_active_listings ?? planLimits?.max_listings);
+      const parsedMaxTotal = Number(planLimits?.max_total_listings ?? planLimits?.max_listings);
+
+      const nextMaxActive = Number.isFinite(parsedMaxActive) ? parsedMaxActive : FREE_TIER_MAX_ACTIVE_LISTINGS;
+      // Para Free: queremos 1 publicación total (evita duplicados/drafts infinitos)
+      const nextMaxTotal = Number.isFinite(parsedMaxTotal) ? parsedMaxTotal : 1;
+
+      setMaxActiveListings(nextMaxActive);
+      setMaxTotalListings(nextMaxTotal);
+
+      let publishedQuery = supabase
+        .from('listings')
+        .select('id', { count: 'exact' })
+        .eq('vertical_id', verticalId)
+        .eq('status', 'published')
+        .eq(scopeFilter.column, scopeFilter.value)
+        .limit(1);
+
+      let totalQuery = supabase
+        .from('listings')
+        .select('id', { count: 'exact' })
+        .eq('vertical_id', verticalId)
+        .eq(scopeFilter.column, scopeFilter.value)
+        .limit(1);
+
+      const [{ count: publishedCount, error: pubErr }, { count: totalCount, error: totalErr }] = await Promise.all([
+        publishedQuery,
+        totalQuery,
+      ]);
+
+      if (pubErr) throw pubErr;
+      if (totalErr) throw totalErr;
+
+      setActivePublishedCount(typeof publishedCount === 'number' ? publishedCount : 0);
+      setTotalListingsCount(typeof totalCount === 'number' ? totalCount : 0);
+    } catch (err: any) {
+      logError('[Publicaciones] Error refrescando límites', err);
+      // Fallback seguro: Free
+      setMaxActiveListings(FREE_TIER_MAX_ACTIVE_LISTINGS);
+      setMaxTotalListings(1);
+      setActivePublishedCount(0);
+      setTotalListingsCount(0);
+    } finally {
+      setLimitsLoading(false);
+    }
+  }, [scopeFilter, supabase, user?.id]);
+
+  React.useEffect(() => {
+    refreshLimits();
+  }, [refreshLimits]);
 
   React.useEffect(() => {
     if (!supabase) {
@@ -451,6 +573,7 @@ export default function MisPublicaciones() {
       addToast(`"${vehicleToDelete.titulo}" eliminada`, { type: 'info' });
       setDeleteModalOpen(false);
       setVehicleToDelete(null);
+      refreshLimits();
     } catch (error: any) {
       logError('[Publicaciones] Error eliminando publicacion', error);
       addToast('Error eliminando publicacion: ' + (error?.message || 'Error desconocido'), { type: 'error' });
@@ -462,6 +585,17 @@ export default function MisPublicaciones() {
     if (!ensureScope() || !scopeFilter) return;
 
     try {
+      if (!limitsLoading && typeof maxTotalListings === 'number' && maxTotalListings > -1) {
+        // Para Free: maxTotalListings suele ser 1. Duplicar siempre implicaría crear una segunda.
+        if (totalListingsCount >= maxTotalListings) {
+          addToast(
+            `No puedes duplicar: alcanzaste el límite de ${maxTotalListings} publicación(es) para tu plan.`,
+            { type: 'error' }
+          );
+          return;
+        }
+      }
+
       const newListingId = await duplicateListingWithRelations(supabase, {
         listingId: id,
         userId: user.id,
@@ -484,6 +618,7 @@ export default function MisPublicaciones() {
       const newItem = mapListingRowToItem(refreshed as ListingRow);
       setItems((prev) => [newItem, ...prev]);
       addToast('Publicacion duplicada exitosamente', { type: 'success' });
+      refreshLimits();
     } catch (error: any) {
       logError('[duplicar] Error completo', error);
       const errorMsg = error?.message || error?.details || error?.hint || 'Error desconocido al duplicar';
@@ -526,6 +661,23 @@ export default function MisPublicaciones() {
     if (!ensureScope() || !scopeFilter) return;
 
     try {
+      if (nuevoEstado === 'Publicado' && !limitsLoading && typeof maxActiveListings === 'number' && maxActiveListings > -1) {
+        const current = items.find((i) => i.id === id);
+        // Solo bloqueamos si el listing NO está actualmente publicado.
+        if (current?.estadoPublicacion !== 'Publicado') {
+          const effectiveActive = activePublishedCount;
+          if (effectiveActive >= maxActiveListings) {
+            addToast(
+              maxActiveListings === 1
+                ? `En tu plan solo puedes tener ${maxActiveListings} publicación activa. Pausa la actual o mejora el plan.`
+                : `Has alcanzado el límite de ${maxActiveListings} publicaciones activas.`,
+              { type: 'error' }
+            );
+            return;
+          }
+        }
+      }
+
       const dbStatus = DB_STATUS_BY_LABEL[nuevoEstado];
 
       const { error } = await supabase
@@ -543,6 +695,7 @@ export default function MisPublicaciones() {
       );
 
       addToast(`Publicacion cambiada a ${nuevoEstado}`, { type: 'success' });
+      refreshLimits();
     } catch (error: any) {
       logError('[cambiarEstadoIndividual] Error', error, { listingId: id, nuevoEstado });
       addToast('Error cambiando estado: ' + (error?.message || 'Error desconocido'), { type: 'error' });
@@ -590,6 +743,7 @@ export default function MisPublicaciones() {
       addToast(`${ids.length} publicacion(es) eliminadas`, { type: 'success' });
       setSelectedIds(new Set());
       setSelectionMode(false);
+      refreshLimits();
     } catch (error: any) {
       logError('[Publicaciones] Error en eliminacion masiva', error, { count: selectedIds.size });
       addToast('Error eliminando publicaciones: ' + (error?.message || 'Error desconocido'), { type: 'error' });
@@ -604,6 +758,19 @@ export default function MisPublicaciones() {
 
     const dbStatus = DB_STATUS_BY_LABEL[newStatus] || 'draft';
 
+    if (newStatus === 'Publicado' && !limitsLoading && typeof maxActiveListings === 'number' && maxActiveListings > -1) {
+      const selected = Array.from(selectedIds);
+      const selectedItems = items.filter((i) => selected.includes(i.id));
+      const toPublishCount = selectedItems.filter((i) => i.estadoPublicacion !== 'Publicado').length;
+      if (activePublishedCount + toPublishCount > maxActiveListings) {
+        addToast(
+          `No puedes publicar ${toPublishCount} publicación(es): tu plan permite ${maxActiveListings} activa(s).`,
+          { type: 'error' }
+        );
+        return;
+      }
+    }
+
     setBulkActionLoading(true);
     try {
       const ids = Array.from(selectedIds);
@@ -615,6 +782,7 @@ export default function MisPublicaciones() {
       addToast(`${ids.length} publicacion(es) actualizadas a ${newStatus}`, { type: 'success' });
       setSelectedIds(new Set());
       setSelectionMode(false);
+      refreshLimits();
     } catch (error: any) {
       logError('[Publicaciones] Error en cambio de estado masivo', error, { count: selectedIds.size, newStatus });
       addToast('Error actualizando publicaciones: ' + (error?.message || 'Error desconocido'), { type: 'error' });
@@ -1003,6 +1171,18 @@ export default function MisPublicaciones() {
                   onDelete={(id: string) => confirmarEliminar(id, i.titulo)}
                   onChangeStatus={(id: string, newStatus: 'Publicado' | 'Pausado' | 'Borrador') => cambiarEstadoIndividual(id, newStatus)}
                   onBoost={(id: string) => impulsarPublicacion(id)}
+                  canPublish={!limitsLoading && (maxActiveListings < 0 || activePublishedCount < maxActiveListings)}
+                  canDuplicate={!limitsLoading && (maxTotalListings < 0 || totalListingsCount < maxTotalListings)}
+                  publishDisabledTitle={
+                    !limitsLoading && maxActiveListings > -1 && activePublishedCount >= maxActiveListings
+                      ? `Límite alcanzado: ${maxActiveListings} publicación(es) activa(s)`
+                      : undefined
+                  }
+                  duplicateDisabledTitle={
+                    !limitsLoading && maxTotalListings > -1 && totalListingsCount >= maxTotalListings
+                      ? `Límite alcanzado: ${maxTotalListings} publicación(es)`
+                      : undefined
+                  }
                 />
               </div>
             </div>
@@ -1031,6 +1211,18 @@ export default function MisPublicaciones() {
                   onDelete={(id: string) => confirmarEliminar(id, i.titulo)}
                   onChangeStatus={(id: string, newStatus: 'Publicado' | 'Pausado' | 'Borrador') => cambiarEstadoIndividual(id, newStatus)}
                   onBoost={(id: string) => impulsarPublicacion(id)}
+                  canPublish={!limitsLoading && (maxActiveListings < 0 || activePublishedCount < maxActiveListings)}
+                  canDuplicate={!limitsLoading && (maxTotalListings < 0 || totalListingsCount < maxTotalListings)}
+                  publishDisabledTitle={
+                    !limitsLoading && maxActiveListings > -1 && activePublishedCount >= maxActiveListings
+                      ? `Límite alcanzado: ${maxActiveListings} publicación(es) activa(s)`
+                      : undefined
+                  }
+                  duplicateDisabledTitle={
+                    !limitsLoading && maxTotalListings > -1 && totalListingsCount >= maxTotalListings
+                      ? `Límite alcanzado: ${maxTotalListings} publicación(es)`
+                      : undefined
+                  }
                 />
               </div>
             </div>
