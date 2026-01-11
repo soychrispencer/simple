@@ -38,3 +38,12 @@ html, body {
 	background: var(--card-bg);
 	border: var(--border-subtle);
 }
+
+/* SimpleAdmin only: logo + icono activo del sidebar en color "on-primary" (blanco en light) */
+.simpleadmin-app header a[href="/"] span.w-9 svg {
+	color: var(--color-on-primary) !important;
+}
+
+.simpleadmin-panel aside button.bg-primary svg.text-black {
+	color: var(--color-on-primary) !important;
+}

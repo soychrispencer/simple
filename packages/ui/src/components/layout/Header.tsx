@@ -119,7 +119,12 @@ export function Header({
   };
 
   const defaultNavItems: Record<VerticalName, NavItem[]> = {
-    admin: [],
+    admin: [
+      { label: "SimpleAutos", href: "/autos", icon: IconCar },
+      { label: "SimplePropiedades", href: "/properties", icon: IconBuilding },
+      { label: "SimpleTiendas", href: "/stores", icon: IconShoppingBag },
+      { label: "SimpleFood", href: "/food", icon: IconChefHat },
+    ],
     autos: [
       { label: "Ventas", href: "/ventas", icon: IconCar },
       { label: "Arriendos", href: "/arriendos", icon: IconCalendarTime },

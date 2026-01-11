@@ -336,13 +336,25 @@ export function useSubmitVehicle() {
         .maybeSingle(),
       supabase
         .from('profiles')
-        .select('email, phone, plan_key')
+        .select('email, phone')
         .eq('id', user.id)
         .maybeSingle(),
     ]);
 
     if (isPublishing) {
-      const planKey = String((profile as any)?.plan_key ?? 'free');
+      let subscriptionQuery = supabase
+        .from('subscriptions')
+        .select('status, subscription_plans(plan_key)')
+        .eq('user_id', user.id)
+        .eq('status', 'active')
+        .eq('vertical_id', verticalId);
+
+      const { data: activeSub } = await subscriptionQuery.maybeSingle();
+      const planSource = Array.isArray((activeSub as any)?.subscription_plans)
+        ? (activeSub as any)?.subscription_plans?.[0]
+        : (activeSub as any)?.subscription_plans;
+      const planKey = String(planSource?.plan_key ?? 'free');
+
       const maxActiveListings = planKey === 'pro'
         ? SUBSCRIPTION_PLANS.pro.maxActiveListings
         : FREE_TIER_MAX_ACTIVE_LISTINGS;

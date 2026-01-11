@@ -21,13 +21,12 @@ export default async function RootLayout({ children }: { children: React.ReactNo
 
   return (
     <html lang="es" suppressHydrationWarning>
-      <body className="bg-lightbg text-lighttext dark:bg-darkbg dark:text-darktext font-sans" suppressHydrationWarning>
+      <body className="bg-lightbg text-lighttext dark:bg-darkbg dark:text-darktext font-sans simpleadmin-app" suppressHydrationWarning>
         <ClientProviders>
           <Header
             vertical="admin"
             loading={false}
             user={undefined}
-            navItems={[]}
             showNotifications={false}
             showPublishButton={false}
             showAuthButton={false}

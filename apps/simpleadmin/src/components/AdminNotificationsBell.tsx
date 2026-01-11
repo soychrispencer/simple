@@ -113,7 +113,7 @@ export default function AdminNotificationsBell() {
 					</div>
 					<div className="px-4 py-3 text-sm">
 						<a
-							href="/?vertical=autos#pending-brands"
+							href="/autos/brands"
 							onClick={() => setOpen(false)}
 							className="flex items-center justify-between rounded-lg px-2 py-2 hover:bg-[var(--field-bg)]"
 						>
@@ -121,7 +121,7 @@ export default function AdminNotificationsBell() {
 							<span className="font-medium text-lighttext dark:text-darktext">{brandsPending}</span>
 						</a>
 						<a
-							href="/?vertical=autos#pending-models"
+							href="/autos/models"
 							onClick={() => setOpen(false)}
 							className="flex items-center justify-between rounded-lg px-2 py-2 hover:bg-[var(--field-bg)]"
 						>
@@ -129,7 +129,7 @@ export default function AdminNotificationsBell() {
 							<span className="font-medium text-lighttext dark:text-darktext">{modelsPending}</span>
 						</a>
 						<a
-							href="/?vertical=autos#vehicle-reports"
+							href="/autos/reports"
 							onClick={() => setOpen(false)}
 							className="flex items-center justify-between rounded-lg px-2 py-2 hover:bg-[var(--field-bg)]"
 						>

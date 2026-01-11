@@ -2,6 +2,7 @@
 -- Keeps plan_key stable; safe to re-run.
 
 INSERT INTO public.subscription_plans (
+  vertical_id,
   plan_key,
   name,
   description,
@@ -13,6 +14,7 @@ INSERT INTO public.subscription_plans (
   is_active
 ) VALUES
   (
+    (SELECT id FROM public.verticals WHERE key = 'vehicles' LIMIT 1),
     'pro',
     'Pro',
     'Publica más, activa tu página pública y accede a estadísticas.',
@@ -24,6 +26,7 @@ INSERT INTO public.subscription_plans (
     true
   ),
   (
+    (SELECT id FROM public.verticals WHERE key = 'vehicles' LIMIT 1),
     'business',
     'Empresa',
     'Próximamente disponible: pensado para equipos y operación multi-sucursal.',
@@ -34,10 +37,11 @@ INSERT INTO public.subscription_plans (
     'CLP',
     false
   )
-ON CONFLICT (plan_key) DO UPDATE
+ON CONFLICT (vertical_id, plan_key) DO UPDATE
 SET
   name = EXCLUDED.name,
   description = EXCLUDED.description,
+  vertical_id = EXCLUDED.vertical_id,
   target_type = EXCLUDED.target_type,
   limits = EXCLUDED.limits,
   features = EXCLUDED.features,

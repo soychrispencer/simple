@@ -138,6 +138,17 @@ export default function PanelPage() {
       }
       try {
         setLoading(true);
+
+        const { data: propertiesVertical, error: propertiesVerticalError } = await supabase
+          .from('verticals')
+          .select('id')
+          .eq('key', 'properties')
+          .maybeSingle();
+
+        const propertiesVerticalId = (propertiesVertical as any)?.id as string | undefined;
+        if (propertiesVerticalError) {
+          logError('Error resolviendo vertical properties', propertiesVerticalError);
+        }
         const statusPromise = supabase
           .from("listings")
           .select("status, verticals!inner(key)")
@@ -170,6 +181,10 @@ export default function PanelPage() {
           .eq("user_id", user.id)
           .eq("status", "active")
           .limit(1);
+
+        if (propertiesVerticalId) {
+          subscriptionPromise.eq('vertical_id', propertiesVerticalId);
+        }
 
         const [
           { data: statusRows, error: statusError },

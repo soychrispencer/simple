@@ -282,6 +282,18 @@ async function processBoostPayment(externalReference: string, paymentData: any) 
 async function processSubscriptionPayment(externalReference: string, paymentData: any) {
   const admin = getAdminClient();
 
+  const { data: vehiclesVertical, error: vehiclesVerticalError } = await admin
+    .from('verticals')
+    .select('id')
+    .eq('key', 'vehicles')
+    .maybeSingle();
+
+  const vehiclesVerticalId = (vehiclesVertical as any)?.id as string | undefined;
+  if (vehiclesVerticalError || !vehiclesVerticalId) {
+    logError('No se pudo resolver vertical vehicles para suscripción', vehiclesVerticalError || { vehiclesVerticalId });
+    return;
+  }
+
   const metadata = paymentData.metadata ?? {};
   const userId: string | undefined = metadata.user_id;
   const planKey: string | undefined = metadata.plan_key;
@@ -317,6 +329,7 @@ async function processSubscriptionPayment(externalReference: string, paymentData
     .from('subscriptions')
     .select('id, current_period_end')
     .eq('user_id', resolvedUserId)
+    .eq('vertical_id', vehiclesVerticalId)
     .eq('status', 'active')
     .maybeSingle();
 
@@ -336,6 +349,7 @@ async function processSubscriptionPayment(externalReference: string, paymentData
     .from('subscription_plans')
     .select('id, plan_key, name, currency, price_monthly')
     .eq('plan_key', resolvedPlanKey)
+    .eq('vertical_id', vehiclesVerticalId)
     .eq('is_active', true)
     .maybeSingle();
 
@@ -365,6 +379,7 @@ async function processSubscriptionPayment(externalReference: string, paymentData
     .upsert(
       {
         user_id: resolvedUserId,
+        vertical_id: vehiclesVerticalId,
         plan_id: planRow.id,
         status: 'active',
         current_period_start: periodStart.toISOString(),
@@ -377,7 +392,7 @@ async function processSubscriptionPayment(externalReference: string, paymentData
           mercadopago_payment_id: externalPaymentId,
         },
       },
-      { onConflict: 'user_id' }
+      { onConflict: 'user_id,vertical_id' }
     )
     .select()
     .single();

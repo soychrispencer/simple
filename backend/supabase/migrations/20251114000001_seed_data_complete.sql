@@ -1330,7 +1330,7 @@ BEGIN
             ),
             99990, NULL, 'CLP', true
         )
-    ON CONFLICT (plan_key) DO UPDATE
+    ON CONFLICT (vertical_id, plan_key) DO UPDATE
     SET
         name = EXCLUDED.name,
         description = EXCLUDED.description,

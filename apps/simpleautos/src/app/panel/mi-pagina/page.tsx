@@ -15,7 +15,50 @@ export default function PaginaPage() {
   const { addToast } = useToast();
   const [coverCropOpen, setCoverCropOpen] = React.useState(false);
 
-  const planKey = String((profile as any)?.plan_key ?? 'free');
+  const [activePlanKey, setActivePlanKey] = React.useState<string>(() =>
+    String((profile as any)?.plan_key ?? 'free')
+  );
+
+  React.useEffect(() => {
+    let cancelled = false;
+
+    async function loadPlanKey() {
+      if (!supabase || !user?.id) return;
+
+      const { data: vehiclesVertical } = await supabase
+        .from('verticals')
+        .select('id')
+        .eq('key', 'vehicles')
+        .maybeSingle();
+
+      const vehiclesVerticalId = (vehiclesVertical as any)?.id as string | undefined;
+
+      let subQuery = supabase
+        .from('subscriptions')
+        .select('status, subscription_plans(plan_key)')
+        .eq('user_id', user.id)
+        .eq('status', 'active');
+
+      if (vehiclesVerticalId) {
+        subQuery = subQuery.eq('vertical_id', vehiclesVerticalId);
+      }
+
+      const { data: activeSub } = await subQuery.maybeSingle();
+      const planSource = Array.isArray((activeSub as any)?.subscription_plans)
+        ? (activeSub as any)?.subscription_plans?.[0]
+        : (activeSub as any)?.subscription_plans;
+      const planKey = String(planSource?.plan_key ?? 'free');
+
+      if (!cancelled) setActivePlanKey(planKey);
+    }
+
+    void loadPlanKey();
+    return () => {
+      cancelled = true;
+    };
+  }, [supabase, user?.id]);
+
+  const planKey = activePlanKey || String((profile as any)?.plan_key ?? 'free');
   const canUsePublicPage = planKey !== 'free';
 
   const isPlaceholderUsername = React.useCallback((value?: string | null) => {

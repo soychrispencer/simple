@@ -53,6 +53,38 @@ function reasonLabel(reason: string): string {
   }
 }
 
+function formatAdminDateTime(value: string): string {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '—';
+
+  // Formato determinista para evitar hydration mismatch (Node vs Browser).
+  // Usamos hora de Chile para que el panel sea consistente.
+  const parts = new Intl.DateTimeFormat('es-CL', {
+    timeZone: 'America/Santiago',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: false,
+  })
+    .formatToParts(date)
+    .reduce<Record<string, string>>((acc, part) => {
+      if (part.type !== 'literal') acc[part.type] = part.value;
+      return acc;
+    }, {});
+
+  const yyyy = parts.year || '0000';
+  const mm = parts.month || '00';
+  const dd = parts.day || '00';
+  const hh = parts.hour || '00';
+  const mi = parts.minute || '00';
+  const ss = parts.second || '00';
+
+  return `${yyyy}-${mm}-${dd} ${hh}:${mi}:${ss}`;
+}
+
 export default function VehicleReportsSection({ initialReports }: { initialReports: ListingReport[] }) {
   const [reports, setReports] = useState<ListingReport[]>(initialReports);
   const [savingIds, setSavingIds] = useState<Set<string>>(() => new Set());
@@ -114,7 +146,7 @@ export default function VehicleReportsSection({ initialReports }: { initialRepor
                   </div>
                   <div className="text-right">
                     <div className="text-[11px] text-lighttext/60 dark:text-darktext/60 whitespace-nowrap">
-                      {new Date(r.created_at).toLocaleString()}
+                      {formatAdminDateTime(r.created_at)}
                     </div>
                     <div className="text-xs text-lighttext/70 dark:text-darktext/70 mt-1">Estado: {statusLabel(r.status)}</div>
                   </div>

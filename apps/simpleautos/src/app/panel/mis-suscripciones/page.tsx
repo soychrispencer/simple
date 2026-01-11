@@ -73,13 +73,30 @@ export default function Suscripcion() {
     }
 
     try {
+      const { data: vehiclesVertical, error: verticalError } = await supabase
+        .from('verticals')
+        .select('id')
+        .eq('key', 'vehicles')
+        .maybeSingle();
+
+      if (verticalError) {
+        logWarn('[MisSuscripciones] No se pudo resolver vertical vehicles');
+      }
+
+      const vehiclesVerticalId = (vehiclesVertical as any)?.id as string | undefined;
+
       // Obtener plan activo desde subscriptions (fuente real)
-      const { data: activeSub, error: subsError, status: subsStatus } = await supabase
+      let activeSubQuery = supabase
         .from('subscriptions')
         .select('status, current_period_end, subscription_plans(plan_key, name)')
         .eq('user_id', user.id)
-        .eq('status', 'active')
-        .maybeSingle();
+        .eq('status', 'active');
+
+      if (vehiclesVerticalId) {
+        activeSubQuery = activeSubQuery.eq('vertical_id', vehiclesVerticalId);
+      }
+
+      const { data: activeSub, error: subsError, status: subsStatus } = await activeSubQuery.maybeSingle();
 
       if (subsError && subsStatus !== 406) {
         logError('Error obteniendo suscripción', subsError, { scope: 'mis-suscripciones' });

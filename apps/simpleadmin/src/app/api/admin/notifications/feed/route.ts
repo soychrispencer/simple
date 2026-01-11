@@ -84,7 +84,7 @@ export async function GET() {
 			id: b.id,
 			title: b.name,
 			createdAt: asIso(b.created_at),
-			href: `/?vertical=autos&focus=brand:${b.id}#pending-brands`,
+			href: '/autos/brands',
 		});
 	}
 
@@ -99,7 +99,7 @@ export async function GET() {
 			title: m.name,
 			subtitle: subtitle || undefined,
 			createdAt: asIso(m.created_at),
-			href: `/?vertical=autos&focus=model:${m.id}#pending-models`,
+			href: '/autos/models',
 		});
 	}
 
@@ -111,7 +111,7 @@ export async function GET() {
 			title: listingTitle ? `Reporte: ${listingTitle}` : 'Reporte de publicación',
 			subtitle: reasonLabel(r.reason),
 			createdAt: asIso(r.created_at),
-			href: '/?vertical=autos#vehicle-reports',
+			href: '/autos/reports',
 		});
 	}
 

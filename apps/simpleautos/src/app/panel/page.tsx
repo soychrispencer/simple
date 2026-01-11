@@ -128,6 +128,7 @@ export default function PanelHome() {
         }
 
         const verticalIds = (verticalRows || []).map((v: any) => v.id).filter(Boolean);
+        const vehiclesVerticalId = (verticalRows || []).find((v: any) => v?.key === 'vehicles')?.id;
 
         const statusPromise = supabase
           .from('listings')
@@ -162,10 +163,14 @@ export default function PanelHome() {
 
         const subscriptionPromise = supabase
           .from('subscriptions')
-          .select('status, current_period_end, plan_id, subscription_plans(name, plan_key)')
+          .select('status, current_period_end, plan_id, vertical_id, subscription_plans(name, plan_key)')
           .eq('user_id', user.id)
           .eq('status', 'active')
           .limit(1);
+
+        if (vehiclesVerticalId) {
+          subscriptionPromise.eq('vertical_id', vehiclesVerticalId);
+        }
 
         const [{ data: statusRows, error: statusError }, { data: recentsRows, error: recentsError }, { data: subscriptions, error: subscriptionError }] = await Promise.all([
           statusPromise,
