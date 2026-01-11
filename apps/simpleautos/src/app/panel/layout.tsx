@@ -27,12 +27,14 @@ function PanelLayoutInner({ children }: { children: React.ReactNode }) {
   return (
     <PanelShell
       sidebar={({ expanded, setExpanded }) => (
-        <PanelSidebar
-          vertical="autos"
-          manifest={autosPanelManifest}
-          expanded={expanded}
-          setExpanded={setExpanded}
-        />
+        <div className="hidden md:block">
+          <PanelSidebar
+            vertical="autos"
+            manifest={autosPanelManifest}
+            expanded={expanded}
+            setExpanded={setExpanded}
+          />
+        </div>
       )}
       initialSidebarExpanded={false}
     >

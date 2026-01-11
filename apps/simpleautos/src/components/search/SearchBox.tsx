@@ -373,6 +373,7 @@ export const SearchBox: React.FC<SearchBoxProps> = ({ showListType = true, onSea
         region_id: '',
         commune_id: '',
       }))}
+      tabsClassName={showListType ? "hidden sm:flex" : undefined}
       panelProps={{
         as: 'form',
         onSubmit: (event) => {
@@ -383,6 +384,25 @@ export const SearchBox: React.FC<SearchBoxProps> = ({ showListType = true, onSea
       }}
     >
     <div className="grid w-full gap-2 grid-cols-1 sm:grid-cols-2 xl:[grid-template-columns:repeat(7,minmax(0,1fr))_auto]">
+      {showListType ? (
+        <div className="col-span-1 sm:hidden">
+          <Select
+            value={filters.listing_kind}
+            onChange={(val) =>
+              setFilters((f) => ({
+                ...f,
+                listing_kind: String(val),
+                brand_id: "",
+                model_id: "",
+                region_id: "",
+                commune_id: "",
+              }))
+            }
+            options={listTypes}
+            placeholder="Tipo de publicación"
+          />
+        </div>
+      ) : null}
       <div className="col-span-1">
             <Select
               value={filters.type_key}

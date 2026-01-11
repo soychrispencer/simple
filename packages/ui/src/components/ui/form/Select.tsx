@@ -16,6 +16,7 @@ export interface SelectProps {
   size?: 'sm' | 'md';
   colorHexMap?: Record<string, string>; // opcional: mostrar dot
   appearance?: 'filled' | 'line';
+  menuVariant?: 'overlay' | 'inline';
 }
 
 // Estilos compartidos con Input:
@@ -37,7 +38,7 @@ const shapeMap: Record<string, string> = {
 const lineBase = 'bg-transparent border-0 border-b border-[var(--field-border)] rounded-none px-0 pb-2 hover:border-[var(--field-border-hover)] focus-visible:border-primary focus-visible:ring-0 active:border-[var(--field-border-active)]';
 const filledBase = 'bg-[var(--field-bg)] text-[var(--field-text)] border border-[var(--field-border)] hover:bg-[var(--field-bg-hover)] hover:border-[var(--field-border-hover)] active:bg-[var(--field-bg-active)] active:border-[var(--field-border-active)]';
 
-export default function Select({ label, options, value, onChange, error, placeholder, className = "", disabled, shape='rounded', size='md', colorHexMap, appearance='line' }: SelectProps) {
+export default function Select({ label, options, value, onChange, error, placeholder, className = "", disabled, shape='rounded', size='md', colorHexMap, appearance='line', menuVariant='overlay' }: SelectProps) {
   const [open, setOpen] = useState(false);
   const [highlighted, setHighlighted] = useState<number>(-1);
   const ref = useRef<HTMLDivElement>(null);
@@ -117,6 +118,11 @@ export default function Select({ label, options, value, onChange, error, placeho
 
   const selected = options.find(opt => String(opt.value) === String(value));
 
+  const menuClassName =
+    menuVariant === 'inline'
+      ? `mt-2 w-full card-surface card-surface-raised rounded-2xl shadow-card overflow-hidden ${open ? '' : 'hidden'}`
+      : `absolute z-30 left-0 mt-2 w-full card-surface card-surface-raised rounded-2xl shadow-card overflow-hidden ${open ? '' : 'hidden'}`;
+
   return (
     <label className="block w-full">
       {label && <span className="block text-sm font-medium mb-1 text-[var(--text-primary)]">{label}</span>}
@@ -159,7 +165,7 @@ export default function Select({ label, options, value, onChange, error, placeho
         </button>
 
         <div
-          className={`absolute z-30 left-0 mt-2 w-full card-surface card-surface-raised rounded-2xl shadow-card overflow-hidden ${open ? '' : 'hidden'}`}
+          className={menuClassName}
         >
           <ul
             ref={listRef}

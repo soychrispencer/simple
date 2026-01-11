@@ -39,6 +39,7 @@ import {
   DropdownItem,
   DropdownSeparator,
   DropdownLabel,
+  FormSelect,
 } from "../ui";
 import { verticalThemes, type VerticalName } from "@simple/config";
 import { useOptionalAuth } from "@simple/auth";
@@ -91,10 +92,12 @@ export function Header({
 }: HeaderProps) {
   const [showAuth, setShowAuth] = useState(false);
   const [showMobileMenu, setShowMobileMenu] = useState(false);
+  const [themeMounted, setThemeMounted] = useState(false);
   const headerRef = useRef<HTMLElement | null>(null);
   const router = useRouter();
   const pathname = usePathname();
   const theme = verticalThemes[vertical];
+  const { setTheme, resolvedTheme } = useTheme();
   const auth = useOptionalAuth();
   const autoAvatarResolver = useAvatarUrl();
   const resolvedGetAvatarUrl = useMemo(
@@ -159,6 +162,16 @@ export function Header({
     window.addEventListener("resize", setHeaderHeight);
     return () => window.removeEventListener("resize", setHeaderHeight);
   }, []);
+
+  useEffect(() => {
+    setThemeMounted(true);
+  }, []);
+
+  const toggleTheme = () => {
+    if (!themeMounted) return;
+    const isDark = resolvedTheme === "dark";
+    setTheme(isDark ? "light" : "dark");
+  };
 
   const handleAuthClick = () => {
     if (onAuthClick) {
@@ -254,19 +267,21 @@ export function Header({
                 </div>
               </nav>
             <div className="flex items-center gap-2 md:gap-3 z-10 ml-auto">
-              {!loading && user && showNotifications && (
-                NotificationComponent ? (
-                  <NotificationComponent />
-                ) : (
-                  <CircleButton aria-label="Notificaciones" size={40} variant="default">
-                    <IconBell size={20} stroke={1} className="align-middle" />
-                  </CircleButton>
-                )
-              )}
+              <div className="hidden md:contents">
+                {!loading && user && showNotifications && (
+                  NotificationComponent ? (
+                    <NotificationComponent />
+                  ) : (
+                    <CircleButton aria-label="Notificaciones" size={40} variant="default">
+                      <IconBell size={20} stroke={1} className="align-middle" />
+                    </CircleButton>
+                  )
+                )}
 
-              {vertical === 'autos' ? <CurrencyToggle /> : null}
+                {vertical === 'autos' ? <CurrencyToggle /> : null}
 
-              <ThemeToggle />
+                <ThemeToggle />
+              </div>
 
               {!loading && user ? (
                 <UserMenu
@@ -287,7 +302,7 @@ export function Header({
                 ) : null
               )}
 
-              {rightActions}
+              <div className="hidden md:contents">{rightActions}</div>
 
               <CircleButton
                 aria-label="Menú"
@@ -303,7 +318,7 @@ export function Header({
                   onClick={handlePublish}
                   variant="primary"
                   size="md"
-                  className="group flex items-center gap-2 px-4 py-2 shadow-card hover:shadow-card-hover transition-all duration-300"
+                  className="group hidden md:flex items-center gap-2 px-4 py-2 shadow-card hover:shadow-card-hover transition-all duration-300"
                 >
                   <span className="relative flex items-center">
                     <IconPlus size={20} className="mr-1 transition-transform group-hover:rotate-180 duration-500" />
@@ -316,7 +331,7 @@ export function Header({
           </div>
 
           {showMobileMenu && (
-            <div className="lg:hidden mt-2 rounded-2xl bg-lightcard dark:bg-darkcard shadow-card border border-lightborder/70 dark:border-darkborder/50 overflow-hidden animate-fadeInSlide">
+            <div className="lg:hidden mt-2 rounded-2xl bg-lightcard dark:bg-darkcard shadow-card border border-lightborder/70 dark:border-darkborder/50 overflow-visible animate-fadeInSlide">
               <nav className="p-4" style={{ ['--nav-hover' as any]: theme.primary }}>
                 <div className="space-y-2">
                   {navItems.map((item) => (
@@ -357,6 +372,67 @@ export function Header({
                     </div>
                   </>
                 )}
+
+                <div className="h-px my-4 bg-lightborder/50 dark:bg-darkborder/40" />
+
+                <div className="space-y-2">
+                  {showPublishButton && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowMobileMenu(false);
+                        handlePublish();
+                      }}
+                      className="w-full flex items-center gap-3 px-4 py-3 text-[var(--text-primary)] rounded-lg transition-colors duration-200 hover:text-[var(--nav-hover)] hover:bg-lightbg/80 dark:hover:bg-darkbg/60"
+                    >
+                      <IconPlus size={20} stroke={1.5} />
+                      <span className="font-medium">{publishButtonText[vertical].full}</span>
+                    </button>
+                  )}
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      toggleTheme();
+                    }}
+                    className="w-full flex items-center gap-3 px-4 py-3 text-[var(--text-primary)] rounded-lg transition-colors duration-200 hover:text-[var(--nav-hover)] hover:bg-lightbg/80 dark:hover:bg-darkbg/60"
+                  >
+                    {(themeMounted && resolvedTheme === "dark") ? (
+                      <IconSun size={20} stroke={1.5} />
+                    ) : (
+                      <IconMoon size={20} stroke={1.5} />
+                    )}
+                    <span className="font-medium">Tema</span>
+                  </button>
+
+                  {vertical === "autos" ? (
+                    <div className="px-4 py-3 text-[var(--text-primary)] rounded-lg bg-lightbg/60 dark:bg-darkbg/40">
+                      <div className="flex items-center gap-3">
+                        <IconCurrencyDollar size={20} stroke={1.5} />
+                        <span className="font-medium">Moneda</span>
+                      </div>
+                      <div className="mt-2">
+                        <MobileCurrencyPicker onSelected={() => setShowMobileMenu(false)} />
+                      </div>
+                    </div>
+                  ) : null}
+
+                  {!loading && user && showNotifications && (
+                    <div className="flex items-center justify-between gap-3 px-4 py-3 text-[var(--text-primary)] rounded-lg bg-lightbg/60 dark:bg-darkbg/40">
+                      <div className="flex items-center gap-3">
+                        <IconBell size={20} stroke={1.5} />
+                        <span className="font-medium">Notificaciones</span>
+                      </div>
+                      {NotificationComponent ? (
+                        <NotificationComponent />
+                      ) : (
+                        <CircleButton aria-label="Notificaciones" size={40} variant="default">
+                          <IconBell size={20} stroke={1} className="align-middle" />
+                        </CircleButton>
+                      )}
+                    </div>
+                  )}
+                </div>
               </nav>
             </div>
           )}
@@ -445,6 +521,31 @@ function CurrencyToggle() {
         </DropdownMenu>
       </div>
     </Dropdown>
+  );
+}
+
+function MobileCurrencyPicker({ onSelected }: { onSelected?: () => void }) {
+  const { currency, setCurrency } = useDisplayCurrency();
+
+  const options = [
+    { value: "CLP", label: "$ Peso chileno (CLP)" },
+    { value: "USD", label: "US$ Dólar estadounidense (USD)" },
+  ];
+
+  return (
+    <FormSelect
+      options={options}
+      value={currency}
+      onChange={(value) => {
+        const next = String(value) === "USD" ? "USD" : "CLP";
+        setCurrency(next);
+        onSelected?.();
+      }}
+      appearance="filled"
+      shape="rounded"
+      size="md"
+      menuVariant="inline"
+    />
   );
 }
 

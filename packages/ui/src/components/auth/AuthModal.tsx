@@ -194,30 +194,32 @@ export const AuthModal = React.memo(function AuthModal({ open, mode, onClose, co
       onClose={handleOverlayClick}
       showClose={false}
       maxWidth="max-w-3xl"
-      containerClassName="p-0 min-w-[480px] md:min-w-[700px] max-h-[90vh]"
+      containerClassName="p-0 w-full max-h-[90vh]"
       contentClassName="p-0"
     >
       <div
         ref={modalRef}
-        className={`p-0 flex flex-col ${showSidePanel ? "" : "justify-center"}`}
+        className={`p-0 flex flex-col ${showSidePanel ? "" : "justify-center"} relative`}
         onClick={(e) => e.stopPropagation()}
       >
         <button
-          className="absolute top-3 right-3 w-9 h-9 inline-flex items-center justify-center rounded-full text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors focus:outline-none"
+          className="absolute top-3 right-3 z-20 w-9 h-9 inline-flex items-center justify-center rounded-full bg-[var(--field-bg)] text-[var(--text-secondary)] hover:bg-[var(--field-bg-hover)] hover:text-[var(--text-primary)] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--color-primary-a40)]"
           onClick={() => !isBusy && onClose()}
           aria-label="Cerrar modal"
           disabled={isBusy}
         >
           <IconX className="w-6 h-6" stroke={1.5} />
         </button>
-        {showSidePanel && (
-          <div className="w-full px-10 pt-10 pb-4 text-center">
-            <h1 className="text-2xl font-bold text-[var(--text-primary)] w-full whitespace-nowrap flex items-center justify-center gap-2">{heroIcon}{heroHeadline}</h1>
-          </div>
-        )}
-        <div className={`flex w-full ${showSidePanel ? "flex-col md:flex-row" : "justify-center"}`}>
-          {/* Lado izquierdo: login, registro o recuperación */}
-          <div className={`flex flex-col gap-6 justify-center p-8 ${showSidePanel ? "w-full md:flex-1 md:basis-1/2 md:min-w-[320px]" : "w-full max-w-md mx-auto"}`}>
+
+        <div className="max-h-[90vh] overflow-y-auto">
+          {showSidePanel && (
+            <div className="w-full px-6 sm:px-10 pt-8 sm:pt-10 pb-4 text-center">
+              <h1 className="text-2xl font-bold text-[var(--text-primary)] w-full flex items-center justify-center gap-2">{heroIcon}{heroHeadline}</h1>
+            </div>
+          )}
+          <div className={`flex w-full ${showSidePanel ? "flex-col md:flex-row" : "justify-center"}`}>
+            {/* Lado izquierdo: login, registro o recuperación */}
+            <div className={`flex flex-col gap-6 justify-center p-5 sm:p-8 ${showSidePanel ? "w-full md:flex-1 md:basis-1/2 md:min-w-[320px]" : "w-full max-w-md mx-auto"}`}>
             {showForgot ? (
               <ForgotForm
                 onBack={handleBackFromForgot}
@@ -281,6 +283,7 @@ export const AuthModal = React.memo(function AuthModal({ open, mode, onClose, co
             </div>
           ) : null}
         </div>
+      </div>
       </div>
     </Modal>
   );

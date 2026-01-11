@@ -346,10 +346,10 @@ export const VehicleCard: React.FC<VehicleCardProps> = ({
         className={`group relative card-surface rounded-2xl shadow-card hover:shadow-card transition ${preview ? 'cursor-default' : 'cursor-pointer'} ${className}`}
         onClick={preview ? undefined : navigate}
       >
-        <div className="flex items-stretch gap-0">
+        <div className="flex flex-row items-stretch gap-0">
           {/* Galería de imágenes con navegación */}
-          <div className="relative w-64 flex-shrink-0 card-surface/90 shadow-card rounded-l-2xl overflow-hidden">
-            <div className="relative w-full h-full aspect-[4/3] overflow-hidden">
+          <div className="relative w-40 sm:w-64 flex-shrink-0 card-surface/90 shadow-card rounded-l-2xl overflow-hidden">
+            <div className="relative w-full h-full aspect-[16/10] sm:aspect-[4/3] overflow-hidden">
               {renderImages()}
 
               {/* Controles de navegación de imágenes */}
@@ -400,36 +400,33 @@ export const VehicleCard: React.FC<VehicleCardProps> = ({
           </div>
 
           {/* Contenido principal */}
-          <div className="flex-1 flex flex-col p-4 min-w-0">
-            {/* Header: Título y Precio */}
-            <div className="flex items-start justify-between gap-4 mb-3">
-              <div className="flex-1 min-w-0">
-                <h3 className="font-bold text-lg leading-tight mb-2 line-clamp-2 text-lighttext dark:text-darktext">
-                  {vehicle.title}
-                </h3>
+          <div className="flex-1 flex flex-col p-2.5 sm:p-4 min-w-0">
+            {/* 1) Título */}
+            <h3 className="font-bold text-[15px] sm:text-lg leading-tight mb-2 line-clamp-1 sm:line-clamp-2 text-lighttext dark:text-darktext">
+              {vehicle.title}
+            </h3>
 
-                {/* Badges de tipo publicación, condición y ubicación */}
-                <div className="flex items-center gap-2 flex-wrap mb-2">
-                  <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${badgeColor}`}>{badgeLabel}</span>
-                  <span className="px-2 py-0.5 rounded-full text-xs font-medium card-surface shadow-card text-lighttext/80 dark:text-darktext/80">
-                    {estadoLabel}
-                  </span>
-                  <span className="px-2 py-0.5 rounded-full card-surface shadow-card text-lighttext/80 dark:text-darktext/80 text-xs font-medium flex items-center gap-1 min-w-0">
-                    <IconMapPin size={14} className="flex-shrink-0" />
-                    <span className="truncate max-w-[100px]">
-                      {(() => {
-                        const commune = vehicle.extra_specs?.legacy?.commune_name || (vehicle as any).commune_name;
-                        return commune || 'Sin ubicación';
-                      })()}
-                    </span>
-                  </span>
-                </div>
-              </div>
+            {/* 2) Etiquetas (tipo publicación, estado/condición, ubicación) */}
+            <div className="flex items-center gap-2 flex-wrap mb-2">
+              <span className={`px-2 py-0.5 rounded-full text-xs font-medium whitespace-nowrap ${badgeColor}`}>{badgeLabel}</span>
+              <span className="px-2 py-0.5 rounded-full text-xs font-medium whitespace-nowrap card-surface shadow-card text-lighttext/80 dark:text-darktext/80">
+                {estadoLabel}
+              </span>
+              <span className="px-2 py-0.5 rounded-full card-surface shadow-card text-lighttext/80 dark:text-darktext/80 text-xs font-medium flex items-center gap-1 min-w-0">
+                <IconMapPin size={14} className="flex-shrink-0" />
+                <span className="truncate max-w-[140px]">
+                  {(() => {
+                    const commune = vehicle.extra_specs?.legacy?.commune_name || (vehicle as any).commune_name;
+                    return commune || 'Sin ubicación';
+                  })()}
+                </span>
+              </span>
+            </div>
 
-              {/* Precio destacado */}
-              <div className="text-right flex-shrink-0">
-                {(() => {
-                  const listingType = vehicle.listing_type || vehicle.listing_kind;
+            {/* 3) Precio */}
+            <div className="mb-2">
+              {(() => {
+                const listingType = vehicle.listing_type || vehicle.listing_kind;
 
                   // Precio de arriendo
                   if (listingType === 'rent') {
@@ -451,19 +448,19 @@ export const VehicleCard: React.FC<VehicleCardProps> = ({
                     if (rentInfo && rentInfo.amount != null) {
                       const discountedAmount = discountInfo ? discountInfo.finalPrice : rentInfo.amount;
                       return (
-                          <div className="flex flex-col leading-tight items-end">
-                            <span className="text-2xl font-bold text-lighttext dark:text-darktext whitespace-nowrap">
-                              {formatDisplayPrice(discountedAmount)}
-                            </span>
-                            <div className="flex items-center justify-end gap-2 whitespace-nowrap">
-                              {discountInfo ? (
-                                <span className="text-xs text-lighttext/70 dark:text-darktext/70 whitespace-nowrap line-through">
-                                  {formatDisplayPrice(discountInfo.base)}
-                                </span>
-                              ) : null}
-                              <span className="text-xs text-lighttext/70 dark:text-darktext/70">{rentInfo.label}</span>
-                            </div>
+                        <div className="flex flex-col leading-tight items-start">
+                          <span className="text-lg sm:text-2xl font-bold text-lighttext dark:text-darktext whitespace-nowrap">
+                            {formatDisplayPrice(discountedAmount)}
+                          </span>
+                          <div className="flex items-center justify-start gap-2 whitespace-nowrap">
+                            {discountInfo ? (
+                              <span className="text-xs text-lighttext/70 dark:text-darktext/70 whitespace-nowrap line-through">
+                                {formatDisplayPrice(discountInfo.base)}
+                              </span>
+                            ) : null}
+                            <span className="text-xs text-lighttext/70 dark:text-darktext/70">{rentInfo.label}</span>
                           </div>
+                        </div>
                       );
                     }
                     return <span className="text-sm text-lighttext/70 dark:text-darktext/70">Consultar precio</span>;
@@ -475,11 +472,11 @@ export const VehicleCard: React.FC<VehicleCardProps> = ({
                     if (auctionStart != null) {
                       const discountedAmount = discountInfo ? discountInfo.finalPrice : auctionStart;
                       return (
-                        <div className="flex flex-col leading-tight items-end">
-                          <span className="text-2xl font-bold text-lighttext dark:text-darktext whitespace-nowrap">
+                        <div className="flex flex-col leading-tight items-start">
+                          <span className="text-lg sm:text-2xl font-bold text-lighttext dark:text-darktext whitespace-nowrap">
                             {formatDisplayPrice(discountedAmount)}
                           </span>
-                          <div className="flex items-center justify-end gap-2 whitespace-nowrap">
+                          <div className="flex items-center justify-start gap-2 whitespace-nowrap">
                             {discountInfo ? (
                               <span className="text-xs text-lighttext/70 dark:text-darktext/70 whitespace-nowrap line-through">
                                 {formatDisplayPrice(discountInfo.base)}
@@ -498,8 +495,8 @@ export const VehicleCard: React.FC<VehicleCardProps> = ({
 
                   if (discountInfo) {
                     return (
-                      <div className="flex flex-col leading-tight">
-                        <span className="text-2xl font-bold text-lighttext dark:text-darktext">{formatDisplayPrice(discountInfo.finalPrice)}</span>
+                      <div className="flex flex-col leading-tight items-start">
+                        <span className="text-lg sm:text-2xl font-bold text-lighttext dark:text-darktext">{formatDisplayPrice(discountInfo.finalPrice)}</span>
                         <span className="text-xs text-lighttext/70 dark:text-darktext/70 whitespace-nowrap line-through">
                           {formatDisplayPrice(discountInfo.base)}
                         </span>
@@ -508,20 +505,18 @@ export const VehicleCard: React.FC<VehicleCardProps> = ({
                   }
 
                   return (
-                    <div className="flex flex-col leading-tight">
-                      <span className="text-2xl font-bold text-lighttext dark:text-darktext">{formatDisplayPrice(base)}</span>
+                    <div className="flex flex-col leading-tight items-start">
+                      <span className="text-lg sm:text-2xl font-bold text-lighttext dark:text-darktext">{formatDisplayPrice(base)}</span>
                       <span className="text-xs text-lighttext/70 dark:text-darktext/70">&nbsp;</span>
                     </div>
                   );
                 })()}
-              </div>
             </div>
 
-            {/* Especificaciones principales */}
-              <div className="flex items-center justify-start gap-4 mb-3">
-              {/* Tipo de vehículo */}
-                <div className="flex items-center gap-2 text-sm text-lighttext/70 dark:text-darktext/70">
-                  <div className="w-8 h-8 rounded-full card-surface shadow-card flex items-center justify-center flex-shrink-0">
+            {/* 4) Iconos + Información */}
+            <div className="grid grid-cols-4 gap-2 mb-2">
+              <div className="flex flex-col items-center gap-1 min-w-0 text-[11px] sm:text-sm text-lighttext/70 dark:text-darktext/70">
+                <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-full card-surface shadow-card flex items-center justify-center flex-shrink-0">
                   {(() => {
                     const typeKey = vehicle.type_key || 'car';
                     if (typeKey === 'motorcycle') return <IconMotorbike size={16} stroke={1.5} />;
@@ -530,7 +525,7 @@ export const VehicleCard: React.FC<VehicleCardProps> = ({
                     return <IconCar size={16} stroke={1.5} />;
                   })()}
                 </div>
-                <span className="truncate">
+                <span className="truncate w-full text-center">
                   {(() => {
                     const label = (vehicle as any).type_label;
                     if (label) return label;
@@ -542,7 +537,6 @@ export const VehicleCard: React.FC<VehicleCardProps> = ({
                       machinery: 'Maquinaria',
                       aerial: 'Aéreo',
                       nautical: 'Náutico',
-                      // Back-compat (datos antiguos)
                       industrial: 'Maquinaria',
                       commercial: 'Auto',
                     };
@@ -550,94 +544,101 @@ export const VehicleCard: React.FC<VehicleCardProps> = ({
                   })()}
                 </span>
               </div>
-              {/* Kilometraje */}
-                <div className="flex items-center gap-2 text-sm text-lighttext/70 dark:text-darktext/70">
-                  <div className="w-8 h-8 rounded-full card-surface shadow-card flex items-center justify-center flex-shrink-0">
-                  <IconGauge size={16} />
+
+              <div className="flex flex-col items-center gap-1 min-w-0 text-[11px] sm:text-sm text-lighttext/70 dark:text-darktext/70">
+                <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-full card-surface shadow-card flex items-center justify-center flex-shrink-0">
+                  <IconGauge size={16} stroke={1.5} />
                 </div>
-                <span className="truncate">{((vehicle as any).mileage || vehicle.mileage_km || 0) >= 1000 ? `${Math.round(((vehicle as any).mileage || vehicle.mileage_km || 0) / 1000)}k km` : `${((vehicle as any).mileage || vehicle.mileage_km || 0)} km`}</span>
+                <span className="truncate w-full text-center">
+                  {((vehicle as any).mileage || vehicle.mileage_km || 0) >= 1000
+                    ? `${Math.round(((vehicle as any).mileage || vehicle.mileage_km || 0) / 1000)}k km`
+                    : `${((vehicle as any).mileage || vehicle.mileage_km || 0)} km`}
+                </span>
               </div>
-              {/* Combustible */}
-                <div className="flex items-center gap-2 text-sm text-lighttext/70 dark:text-darktext/70">
-                  <div className="w-8 h-8 rounded-full card-surface shadow-card flex items-center justify-center flex-shrink-0">
-                  <IconEngine size={16} />
+
+              <div className="flex flex-col items-center gap-1 min-w-0 text-[11px] sm:text-sm text-lighttext/70 dark:text-darktext/70">
+                <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-full card-surface shadow-card flex items-center justify-center flex-shrink-0">
+                  <IconEngine size={16} stroke={1.5} />
                 </div>
-                <span className="truncate">{capitalize(toSpanish(fuelTypeMap, vehicle.extra_specs?.legacy?.fuel_legacy || vehicle.extra_specs?.fuel_type) ?? '-')}</span>
+                <span className="truncate w-full text-center">
+                  {capitalize(toSpanish(fuelTypeMap, vehicle.extra_specs?.legacy?.fuel_legacy || vehicle.extra_specs?.fuel_type) ?? '-')}
+                </span>
               </div>
-              {/* Transmisión */}
-                <div className="flex items-center gap-2 text-sm text-lighttext/70 dark:text-darktext/70">
-                  <div className="w-8 h-8 rounded-full card-surface shadow-card flex items-center justify-center flex-shrink-0">
-                  <IconManualGearbox size={16} />
+
+              <div className="flex flex-col items-center gap-1 min-w-0 text-[11px] sm:text-sm text-lighttext/70 dark:text-darktext/70">
+                <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-full card-surface shadow-card flex items-center justify-center flex-shrink-0">
+                  <IconManualGearbox size={16} stroke={1.5} />
                 </div>
-                <span className="truncate">{capitalize(toSpanish(transmissionMap, vehicle.extra_specs?.legacy?.transmission_legacy || vehicle.extra_specs?.transmission) ?? '-')}</span>
+                <span className="truncate w-full text-center">
+                  {capitalize(toSpanish(transmissionMap, vehicle.extra_specs?.legacy?.transmission_legacy || vehicle.extra_specs?.transmission) ?? '-')}
+                </span>
               </div>
             </div>
-          </div>
 
-          {!preview && (
-            <>
-              {/* Panel de acciones lateral */}
-              <div className="relative flex flex-col items-center justify-center gap-2 p-4 border-l border-border/60 dark:border-darkborder/35 card-surface/80 rounded-r-2xl">
-                <CircleButton
-                  onClick={handleAvatarClick}
-                  aria-label="Ver perfil del vendedor"
-                  size={40}
-                  variant="default"
-                  className="relative z-30 flex-shrink-0"
-                >
-                  <UserAvatar
-                    src={sellerAvatarSrc}
-                    alt={seller?.nombre}
-                    size={40}
-                  />
-                </CircleButton>
-                <CircleButton
-                  type="button"
-                  onClick={(e) => { e.stopPropagation(); setContactModalOpen(true); }}
-                  aria-label="Contactar al vendedor"
-                  size={40}
-                  variant="default"
-                  className="relative z-30 flex-shrink-0"
-                >
-                  <IconMail size={18} stroke={1.5} />
-                </CircleButton>
-                <CircleButton
-                  type="button"
-                  onClick={toggleMenu}
-                  className="relative z-30 flex-shrink-0"
-                  aria-label="Más opciones"
-                  size={40}
-                  variant="default"
-                >
-                  <IconDots size={18} stroke={1.5} />
-                </CircleButton>
-              </div>
-
-              {/* Menú desplegable para layout horizontal */}
-              {menuOpen && (
-                <div className="absolute bottom-16 right-4 z-40 w-44 card-surface shadow-card rounded-xl py-2 animate-fadeIn">
-                  <button onClick={actView} className="w-full flex items-center gap-2 px-3 py-2 text-sm hover:bg-lightbg dark:hover:bg-darkbg text-left transition">
-                    <IconExternalLink size={16} stroke={1.5} /> Ver publicación
-                  </button>
-                  <button onClick={actFavFromMenu} className="w-full flex items-center gap-2 px-3 py-2 text-sm hover:bg-lightbg dark:hover:bg-darkbg text-left transition">
-                    {favorite ? <IconBookmarkFilled size={16} stroke={1.5} /> : <IconBookmark size={16} stroke={1.5} />} {favorite ? 'Quitar de favoritos' : 'Favoritos'}
-                  </button>
-                  <button onClick={actShare} className="w-full flex items-center gap-2 px-3 py-2 text-sm hover:bg-lightbg dark:hover:bg-darkbg text-left transition">
-                    <IconShare2 size={16} stroke={1.5} /> Compartir
-                  </button>
-                  <button onClick={actCopyLink} className="w-full flex items-center gap-2 px-3 py-2 text-sm hover:bg-lightbg dark:hover:bg-darkbg text-left transition">
-                    <IconLink size={16} stroke={1.5} /> Copiar enlace
-                  </button>
-                  <button onClick={actCompare} className="w-full flex items-center gap-2 px-3 py-2 text-sm hover:bg-lightbg dark:hover:bg-darkbg text-left transition">
-                    <IconScale size={16} stroke={1.5} /> Comparar
-                  </button>
-                  <button onClick={actReport} className="w-full flex items-center gap-2 px-3 py-2 text-sm hover:bg-lightbg dark:hover:bg-darkbg text-left transition">
-                    <IconFlag size={16} stroke={1.5} /> Reportar publicación
-                  </button>
+            {/* 5) Acciones abajo */}
+            {!preview && (
+              <>
+                <div className="mt-auto pt-1 flex items-center gap-2">
+                  <CircleButton
+                    onClick={handleAvatarClick}
+                    aria-label="Ver perfil del vendedor"
+                    size={36}
+                    variant="default"
+                    className="relative z-30 flex-shrink-0"
+                  >
+                    <UserAvatar
+                      src={sellerAvatarSrc}
+                      alt={seller?.nombre}
+                      size={36}
+                    />
+                  </CircleButton>
+                  <Button
+                    type="button"
+                    onClick={(e) => { e.stopPropagation(); setContactModalOpen(true); }}
+                    className="relative z-30 flex-1"
+                    variant="primary"
+                    size="sm"
+                  >
+                    Contactar
+                  </Button>
+                  <CircleButton
+                    type="button"
+                    onClick={toggleMenu}
+                    className="relative z-30 flex-shrink-0"
+                    aria-label="Más opciones"
+                    size={36}
+                    variant="default"
+                  >
+                    <IconDots size={18} stroke={1.5} />
+                  </CircleButton>
                 </div>
-              )}
-            </>
-          )}
+
+                {/* Menú desplegable para layout horizontal */}
+                {menuOpen && (
+                  <div className="absolute bottom-16 right-4 z-40 w-44 card-surface shadow-card rounded-xl py-2 animate-fadeIn">
+                    <button onClick={actView} className="w-full flex items-center gap-2 px-3 py-2 text-sm hover:bg-lightbg dark:hover:bg-darkbg text-left transition">
+                      <IconExternalLink size={16} stroke={1.5} /> Ver publicación
+                    </button>
+                    <button onClick={actFavFromMenu} className="w-full flex items-center gap-2 px-3 py-2 text-sm hover:bg-lightbg dark:hover:bg-darkbg text-left transition">
+                      {favorite ? <IconBookmarkFilled size={16} stroke={1.5} /> : <IconBookmark size={16} stroke={1.5} />} {favorite ? 'Quitar de favoritos' : 'Favoritos'}
+                    </button>
+                    <button onClick={actShare} className="w-full flex items-center gap-2 px-3 py-2 text-sm hover:bg-lightbg dark:hover:bg-darkbg text-left transition">
+                      <IconShare2 size={16} stroke={1.5} /> Compartir
+                    </button>
+                    <button onClick={actCopyLink} className="w-full flex items-center gap-2 px-3 py-2 text-sm hover:bg-lightbg dark:hover:bg-darkbg text-left transition">
+                      <IconLink size={16} stroke={1.5} /> Copiar enlace
+                    </button>
+                    <button onClick={actCompare} className="w-full flex items-center gap-2 px-3 py-2 text-sm hover:bg-lightbg dark:hover:bg-darkbg text-left transition">
+                      <IconScale size={16} stroke={1.5} /> Comparar
+                    </button>
+                    <button onClick={actReport} className="w-full flex items-center gap-2 px-3 py-2 text-sm hover:bg-lightbg dark:hover:bg-darkbg text-left transition">
+                      <IconFlag size={16} stroke={1.5} /> Reportar publicación
+                    </button>
+                  </div>
+                )}
+              </>
+            )}
+          </div>
         </div>
 
         {!preview && (

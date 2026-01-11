@@ -222,8 +222,8 @@ export default function Favoritos() {
         title: "Guardados",
         description: user?.id ? "Administra tus guardados y arma comparaciones (hasta 3 vehículos)." : "Inicia sesión para ver tus guardados.",
         actions: user?.id ? (
-          <div className="flex items-center gap-2">
-            <div className="text-sm text-lighttext/80 dark:text-darktext/80">
+          <div className="flex flex-col items-start gap-2 sm:flex-row sm:items-center sm:gap-3 w-full">
+            <div className="text-sm text-lighttext/80 dark:text-darktext/80 w-full sm:w-auto">
               Comparación: <span className="font-semibold">{compareIds.length}</span>/{maxItems}
             </div>
             <Button
@@ -231,6 +231,7 @@ export default function Favoritos() {
               size="sm"
               disabled={compareIds.length < 2}
               onClick={handleViewComparison}
+              className="w-full sm:w-auto"
             >
               Ver comparación
             </Button>
@@ -239,6 +240,7 @@ export default function Favoritos() {
               size="sm"
               disabled={compareIds.length === 0}
               onClick={clearCompare}
+              className="w-full sm:w-auto"
             >
               Limpiar
             </Button>

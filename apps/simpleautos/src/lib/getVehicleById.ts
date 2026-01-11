@@ -279,19 +279,22 @@ const LISTING_SELECT = `
 export async function getVehicleById(id: string): Promise<VehicleDetail | null> {
   const supabase = getSupabaseClient();
 
-  const { data: listing, error: listingError } = await supabase
+  // Nota: evitamos `.single()`/`.maybeSingle()` porque PostgREST responde 406
+  // cuando 0 filas pasan RLS/filters, lo que ensucia consola (aunque lo manejemos).
+  const { data: listings, error: listingError } = await supabase
     .from('listings')
     .select(LISTING_SELECT)
     .eq('id', id)
-    .single();
+    .limit(1);
 
   if (listingError) {
     logError('Error fetching listing', listingError, { listingId: id });
     return null;
   }
 
+  const listing = Array.isArray(listings) ? listings[0] : null;
+
   if (!listing) {
-    logError('No listing found with id', new Error('Listing not found'), { listingId: id });
     return null;
   }
 
