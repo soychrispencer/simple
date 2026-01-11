@@ -1193,11 +1193,11 @@ export default function MisPublicaciones() {
           {sortedItems.map((i) => (
             <div 
               key={i.id} 
-              className={`relative transition-all duration-200 ${selectionMode ? 'cursor-pointer' : ''} 
+              className={`relative w-full max-w-full overflow-hidden transition-all duration-200 ${selectionMode ? 'cursor-pointer' : ''} 
                          ${selectedIds.has(i.id) ? 'scale-[0.99]' : ''}`}
               onClick={() => selectionMode && toggleSelectItem(i.id)}
             >
-              <div className={`${selectedIds.has(i.id) ? 'opacity-75' : ''} transition-opacity`}>
+              <div className={`w-full max-w-full overflow-hidden ${selectedIds.has(i.id) ? 'opacity-75' : ''} transition-opacity`}>
                 <AdminVehicleCard
                   vehicle={i}
                   layout="horizontal"

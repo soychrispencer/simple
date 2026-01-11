@@ -360,7 +360,7 @@ export const AdminVehicleCard: React.FC<AdminVehicleCardProps> = ({
         className={`group relative w-full max-w-full overflow-hidden card-surface rounded-2xl shadow-card hover:shadow-card transition cursor-pointer ${className}`}
         onClick={handleCardClick}
       >
-        <div className="flex flex-row items-stretch gap-0">
+        <div className="flex w-full min-w-0 overflow-hidden flex-row items-stretch gap-0">
           {/* Galería de imágenes con navegación */}
           <div className="relative w-40 sm:w-72 flex-shrink-0 card-surface/90 shadow-card rounded-l-2xl overflow-hidden">
             <div className="relative w-full h-full aspect-[4/3] overflow-hidden">
@@ -508,11 +508,11 @@ export const AdminVehicleCard: React.FC<AdminVehicleCardProps> = ({
                 </div>
 
                 {/* Badges de tipo publicación, condición y ubicación - una sola línea */}
-                <div className="flex items-center gap-2 mb-2 overflow-hidden">
-                  <span className={`px-2.5 py-1 rounded-full text-xs font-medium whitespace-nowrap flex-shrink-0 ${listingTypeClasses}`}>
+                <div className="flex items-center gap-2 mb-2 max-w-full overflow-hidden">
+                  <span className={`px-2.5 py-1 rounded-full text-xs font-medium whitespace-nowrap ${listingTypeClasses}`}>
                     {listingTypeLabel}
                   </span>
-                  <span className="px-2.5 py-1 rounded-full text-xs font-medium card-surface shadow-card text-lighttext/80 dark:text-darktext/80 whitespace-nowrap flex-shrink-0">
+                  <span className="px-2.5 py-1 rounded-full text-xs font-medium card-surface shadow-card text-lighttext/80 dark:text-darktext/80 whitespace-nowrap">
                     {conditionLabel}
                   </span>
                   <span className="px-2.5 py-1 rounded-full text-xs font-medium card-surface shadow-card text-lighttext/80 dark:text-darktext/80 flex items-center gap-1 min-w-0 whitespace-nowrap flex-shrink max-w-[160px] sm:max-w-[260px]">
