@@ -99,7 +99,7 @@ export interface AuthModalProps {
   copy?: AuthModalCopyOverrides;
 }
 
-export const AuthModal = React.memo(function AuthModal({ open, mode, onClose, copy: copyOverrides }: AuthModalProps) {
+const AuthModal = React.memo(function AuthModal({ open, mode, onClose, copy: copyOverrides }: AuthModalProps) {
   const [internalMode, setInternalMode] = useState(mode);
   const [showForgot, setShowForgot] = useState(false);
   const [isBusy, setIsBusy] = useState(false);
@@ -685,4 +685,5 @@ const RegisterForm = React.memo(function RegisterForm({ copy, onSuccess, onBusyC
   );
 });
 
+export { AuthModal };
 export default AuthModal;
