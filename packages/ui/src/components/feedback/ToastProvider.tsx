@@ -145,7 +145,7 @@ export function ToastProvider({
       {children}
       {toasts.length > 0 && (
         <div 
-          className={`pointer-events-none fixed z-[60] flex flex-col gap-2 ${positionClasses[position]}`}
+          className={`pointer-events-none fixed z-[9999] flex flex-col gap-2 ${positionClasses[position]}`}
           role="region"
           aria-live="polite"
           aria-label="Notificaciones"
