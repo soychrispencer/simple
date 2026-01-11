@@ -4,18 +4,21 @@ import { logError, logInfo } from '@/lib/logger';
 import { ensureListingBoost, syncListingBoostSlots } from '@simple/listings';
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import crypto from 'crypto';
+import { getBoostCooldownHours } from '@/lib/boostRules';
+import { checkListingBoostCooldown } from '@/lib/boostCooldown';
 
 // Este endpoint usa dependencias Node-only (crypto, MercadoPago SDK, etc.).
 // En Vercel necesitamos runtime Node.js explícito.
 export const runtime = 'nodejs';
 
-const DURATION_IN_DAYS: Record<BoostDuration, number> = {
+const DURATION_IN_DAYS = {
   '1_dia': 1,
   '3_dias': 3,
   '7_dias': 7,
   '15_dias': 15,
   '30_dias': 30,
-};
+  '90_dias': 90,
+} as const satisfies Partial<Record<BoostDuration, number>>;
 
 const DEFAULT_DURATION_DAYS = 7;
 let adminClient: SupabaseClient | null = null;
@@ -33,17 +36,27 @@ function getAdminClient(): SupabaseClient {
 }
 
 function addDays(base: Date, days: number) {
-  const clone = new Date(base);
-  clone.setDate(clone.getDate() + days);
-  return clone;
+  // Sumamos por milisegundos para garantizar duración exacta (days * 24h),
+  // evitando recortes por cambios de horario (DST) en setDate().
+  const ms = Math.max(0, days) * 24 * 60 * 60 * 1000;
+  return new Date(base.getTime() + ms);
 }
 
 function resolveDurationDays(duration?: string | null) {
-  if (duration && DURATION_IN_DAYS[duration as BoostDuration]) {
-    return DURATION_IN_DAYS[duration as BoostDuration];
+  if (duration === 'indefinido') {
+    return null;
+  }
+  if (duration && Object.prototype.hasOwnProperty.call(DURATION_IN_DAYS, duration)) {
+    return (DURATION_IN_DAYS as any)[duration] as number;
   }
   const numeric = duration ? parseInt(duration, 10) : NaN;
   return Number.isFinite(numeric) ? numeric : DEFAULT_DURATION_DAYS;
+}
+
+function resolveWindowEnd(now: Date, duration?: string | null) {
+  const days = resolveDurationDays(duration);
+  if (days === null) return null;
+  return addDays(now, days);
 }
 
 function parseLegacyBoostReference(reference: string): {
@@ -195,18 +208,26 @@ async function processBoostPayment(externalReference: string, paymentData: any) 
 
     const listingId = metadata.listing_id ?? legacy.listingId ?? null;
     const slotKey = metadata.slot_key ?? legacy.slotKey ?? null;
+    const slotKeysFromMetadata = Array.isArray(metadata.slot_keys) ? (metadata.slot_keys as any[]) : null;
     const durationKey = metadata.duration ?? legacy.duration ?? null;
     const slotIdFromMetadata = metadata.slot_id ?? null;
+    const slotIdsFromMetadata = Array.isArray(metadata.slot_ids) ? (metadata.slot_ids as any[]) : null;
     const userId = metadata.user_id ?? null;
 
-    if (!listingId || !slotKey) {
+    const resolvedSlotKeys: string[] = slotKeysFromMetadata?.length
+      ? slotKeysFromMetadata.map((k) => String(k)).filter(Boolean)
+      : slotKey
+      ? [String(slotKey)]
+      : [];
+
+    if (!listingId || resolvedSlotKeys.length === 0) {
       logError('Boost payment missing identifiers', { externalReference, metadata });
       return;
     }
 
     const { data: listing, error: listingError } = await admin
       .from('listings')
-      .select('id, user_id, company_id, vertical_id')
+      .select('id, user_id, company_id, vertical_id, public_profile_id')
       .eq('id', listingId)
       .single();
 
@@ -215,15 +236,86 @@ async function processBoostPayment(externalReference: string, paymentData: any) 
       return;
     }
 
-    const slotId = await resolveSlotId(admin, slotIdFromMetadata, slotKey, listing.vertical_id);
-    if (!slotId) {
-      logError('Unable to resolve boost slot for payment', { listingId, slotKey });
+    const resolvedSlotIds: string[] = [];
+    const blocked: Array<{ slotKey: string; reason: string; endsAt?: string | null; nextAvailableAt?: string | null }> = [];
+
+    for (let i = 0; i < resolvedSlotKeys.length; i++) {
+      const key = resolvedSlotKeys[i];
+
+      // El slot "perfil vendedor" requiere perfil público activo y visible.
+      if (key === 'user_page') {
+        const publicProfileId = (listing as any)?.public_profile_id as string | null | undefined;
+        if (!publicProfileId) {
+          blocked.push({ slotKey: key, reason: 'no_public_profile' });
+          continue;
+        }
+
+        const { data: ppRow, error: ppError } = await admin
+          .from('public_profiles')
+          .select('id, is_public, status')
+          .eq('id', publicProfileId)
+          .maybeSingle();
+
+        if (ppError || !ppRow) {
+          blocked.push({ slotKey: key, reason: 'no_public_profile' });
+          continue;
+        }
+
+        const isActivePublic = Boolean((ppRow as any)?.is_public) && String((ppRow as any)?.status) === 'active';
+        if (!isActivePublic) {
+          blocked.push({ slotKey: key, reason: 'no_public_profile' });
+          continue;
+        }
+      }
+
+      const providedId = (slotIdsFromMetadata?.[i] ?? (i === 0 ? slotIdFromMetadata : null)) as string | null;
+      const slotId = await resolveSlotId(admin, providedId, key, listing.vertical_id);
+      if (!slotId) {
+        logError('Unable to resolve boost slot for payment', { listingId, slotKey: key });
+        continue;
+      }
+
+      // Enforce cooldown por publicación+slot (24h).
+      try {
+        const cooldownHours = getBoostCooldownHours(key as any);
+        const cooldown = await checkListingBoostCooldown({
+          supabase: admin,
+          listingId,
+          slotId,
+          cooldownHours,
+        });
+
+        if (!cooldown.allowed) {
+          blocked.push({
+            slotKey: key,
+            reason: cooldown.reason,
+            ...(cooldown.reason === 'active'
+              ? { endsAt: cooldown.endsAt }
+              : { nextAvailableAt: cooldown.nextAvailableAt }),
+          });
+          continue;
+        }
+      } catch (e) {
+        logError('Error enforcing boost cooldown (webhook)', e);
+        blocked.push({ slotKey: key, reason: 'error' });
+        continue;
+      }
+
+      resolvedSlotIds.push(slotId);
+    }
+
+    if (resolvedSlotIds.length === 0) {
+      logInfo('Boost payment had no applicable slots after validation', {
+        listingId,
+        externalReference,
+        paymentId: paymentData?.id,
+        blocked,
+      });
       return;
     }
 
     const now = new Date();
-    const durationDays = resolveDurationDays(durationKey);
-    const endsAt = addDays(now, durationDays);
+    const endsAt = resolveWindowEnd(now, durationKey);
 
     const boost = await ensureListingBoost({
       supabase: admin,
@@ -231,10 +323,10 @@ async function processBoostPayment(externalReference: string, paymentData: any) 
       companyId: listing.company_id,
       userId: userId ?? listing.user_id,
       startsAt: now.toISOString(),
-      endsAt: endsAt.toISOString(),
+      endsAt: endsAt ? endsAt.toISOString() : null,
       status: 'active',
       metadata: {
-        slotKey,
+        slotKeys: resolvedSlotKeys,
         duration: durationKey,
         source: 'mercadopago',
       },
@@ -244,16 +336,17 @@ async function processBoostPayment(externalReference: string, paymentData: any) 
       .from('listing_boosts')
       .update({
         starts_at: now.toISOString(),
-        ends_at: endsAt.toISOString(),
+        ends_at: endsAt ? endsAt.toISOString() : null,
         payment_id: paymentData.id,
         payment_amount: paymentData.transaction_amount,
         payment_currency: paymentData.currency_id ?? 'CLP',
         metadata: {
-          slotKey,
+          slotKeys: resolvedSlotKeys,
           duration: durationKey,
           source: 'mercadopago',
           paymentId: paymentData.id,
           externalReference,
+          blockedSlots: blocked,
         },
       })
       .eq('id', boost.id);
@@ -267,12 +360,16 @@ async function processBoostPayment(externalReference: string, paymentData: any) 
       supabase: admin,
       listingId,
       boostId: boost.id,
-      slotIds: [slotId],
+      slotIds: resolvedSlotIds,
       windowStart: now.toISOString(),
-      windowEnd: endsAt.toISOString(),
+      windowEnd: endsAt ? endsAt.toISOString() : null,
     });
 
-    logInfo(`Boost sincronizado: listing ${listingId}, slot ${slotKey}, vence ${endsAt.toISOString()}`);
+    logInfo(
+      endsAt
+        ? `Boost sincronizado: listing ${listingId}, slots ${resolvedSlotKeys.join(', ')}, vence ${endsAt.toISOString()}`
+        : `Boost sincronizado: listing ${listingId}, slots ${resolvedSlotKeys.join(', ')}, duración indefinida`
+    );
   } catch (error) {
     logError('Error procesando pago de boost', error);
     throw error;

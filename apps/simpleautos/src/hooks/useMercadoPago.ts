@@ -1,12 +1,15 @@
 ﻿'use client';
 
 import { useState } from 'react';
-import { BoostSlotKey, BoostDuration, SubscriptionPlan } from '@/lib/mercadopago';
+import type { BoostSlotKey, BoostDuration } from '@/lib/pricing';
+import type { SubscriptionPlan } from '@/lib/mercadopago';
 import { useSupabase } from '@/lib/supabase/useSupabase';
 
 interface BoostPaymentData {
-  slotId: string;
-  slotKey: BoostSlotKey;
+  slotId?: string;
+  slotIds?: string[];
+  slotKey?: BoostSlotKey;
+  slotKeys?: BoostSlotKey[];
   duration: BoostDuration;
   listingId: string;
   listingTitle: string;
@@ -47,12 +50,40 @@ export function useMercadoPago() {
       });
 
       const contentType = response.headers.get('content-type') || '';
-      const isJson = contentType.includes('application/json');
-      const payload = isJson ? await response.json().catch(() => null) : null;
+      const rawText = await response.text().catch(() => '');
+
+      let payload: any = null;
+      const looksLikeJson =
+        contentType.includes('application/json') ||
+        rawText.trim().startsWith('{') ||
+        rawText.trim().startsWith('[');
+
+      if (looksLikeJson && rawText) {
+        payload = JSON.parse(rawText);
+      }
 
       if (!response.ok) {
-        const serverMessage = payload?.error || payload?.details;
-        const fallback = await response.text().catch(() => '');
+        const serverMessage = payload?.details
+          ? `${payload?.error || 'Error'}: ${payload.details}`
+          : payload?.error || payload?.details;
+        const fallback = rawText;
+        // Debug útil en dev para ver el motivo real del 500 (aunque el overlay muestre objetos como `{}`).
+        // eslint-disable-next-line no-console
+        console.error(
+          '[useMercadoPago] Payment create failed',
+          'status=',
+          response.status,
+          'url=',
+          response.url,
+          'contentType=',
+          contentType,
+          'rawText=',
+          rawText?.slice?.(0, 2000) || '',
+          'payload=',
+          payload
+        );
+        // eslint-disable-next-line no-console
+        console.error('[useMercadoPago] Payment create request body (debug):', paymentData);
         throw new Error(
           serverMessage || fallback || `Error creando pago (HTTP ${response.status})`
         );
@@ -66,7 +97,9 @@ export function useMercadoPago() {
       window.location.href = initPoint;
 
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Error desconocido');
+      const message = err instanceof Error ? err.message : 'Error desconocido';
+      setError(message);
+      throw err;
     } finally {
       setLoading(false);
     }

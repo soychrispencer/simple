@@ -25,7 +25,7 @@ function mapVehicleRowToVehicle(row: VehicleRow): Vehicle {
 
   return {
     id: row.id,
-    owner_id: "",
+    owner_id: row.user_id ?? row.owner_id ?? "",
     type_id: row.type_id,
     type_key: row.vehicle_types?.slug || null,
     title: row.title,

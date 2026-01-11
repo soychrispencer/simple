@@ -209,6 +209,7 @@ const LISTING_SELECT = `
   id,
   vertical_id,
   user_id,
+  public_profile_id,
   status,
   listing_type,
   title,
@@ -301,20 +302,43 @@ export async function getVehicleById(id: string): Promise<VehicleDetail | null> 
   const { data: profile } = listing.user_id
     ? await supabase
         .from('profiles')
-        .select('id, username, public_name, avatar_url, description, website, address, plan')
+        // `profiles` es privado y no contiene campos públicos como public_name/avatar_url.
+        // Esos viven en `public_profiles`. Aquí sólo traemos fallback mínimo.
+        .select('id, first_name, last_name, plan_key')
         .eq('id', listing.user_id)
         .single()
     : { data: null };
 
-  const { data: publicProfile } = listing.user_id
+  const publicProfileId = (listing as any)?.public_profile_id as string | null | undefined;
+  const { data: publicProfile } = publicProfileId
     ? await supabase
         .from('public_profiles')
-        .select('id, slug, public_name, avatar_url, contact_email, contact_phone, whatsapp, whatsapp_type, status')
-        .eq('owner_profile_id', listing.user_id)
+        .select('id, slug, public_name, avatar_url, contact_email, contact_phone, whatsapp, whatsapp_type')
+        .eq('id', publicProfileId)
         .eq('status', 'active')
-        .limit(1)
+        .eq('is_public', true)
         .maybeSingle()
     : { data: null };
+
+  const fallbackName = (() => {
+    const first = typeof (profile as any)?.first_name === 'string' ? String((profile as any).first_name).trim() : '';
+    const last = typeof (profile as any)?.last_name === 'string' ? String((profile as any).last_name).trim() : '';
+    const full = `${first} ${last}`.replace(/\s+/g, ' ').trim();
+    return full || 'Vendedor';
+  })();
+
+  const profileForUI: VehicleDetail['profiles'] = listing.user_id
+    ? {
+        id: String(listing.user_id),
+        username: String(publicProfile?.slug ?? ''),
+        public_name: String(publicProfile?.public_name ?? fallbackName),
+        avatar_url: publicProfile?.avatar_url ?? null,
+        description: null,
+        website: null,
+        address: null,
+        plan: typeof (profile as any)?.plan_key === 'string' ? String((profile as any).plan_key) : ((profile as any)?.plan_key ?? null),
+      }
+    : null;
 
   const listingVehicle = firstOrNull<Record<string, any>>(listing.listings_vehicles);
   const vehicleType = firstOrNull<Record<string, any>>(listingVehicle?.vehicle_types);
@@ -448,7 +472,7 @@ export async function getVehicleById(id: string): Promise<VehicleDetail | null> 
     expires_at: listing.expires_at,
     images,
     image_urls: imageUrls,
-    profiles: profile ?? null,
+    profiles: profileForUI,
     public_profile: publicProfile ?? null,
     contact_email,
     contact_phone,

@@ -38,9 +38,9 @@ function formatUnknownErrorDetails(error: unknown) {
 }
 
 function addDays(start: Date, days: number) {
-  const copy = new Date(start);
-  copy.setDate(copy.getDate() + days);
-  return copy;
+  // Duración exacta (days * 24h) para evitar discrepancias por DST.
+  const ms = Math.max(0, days) * 24 * 60 * 60 * 1000;
+  return new Date(start.getTime() + ms);
 }
 
 function getAdminClient() {
@@ -56,7 +56,12 @@ function isUuid(value: string) {
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value);
 }
 
-export async function createVehicleBoost(listingId: string, userId: string, planId: number = 1) {
+export async function createVehicleBoost(
+  listingId: string,
+  userId: string,
+  planId: number = 1,
+  durationDays?: number | null
+) {
   try {
     if (!listingId || !isUuid(listingId)) {
       return { success: false, error: 'ID de publicación inválido', details: String(listingId) };
@@ -83,7 +88,10 @@ export async function createVehicleBoost(listingId: string, userId: string, plan
     }
 
     const now = new Date();
-    const endsAt = addDays(now, DEFAULT_DURATION_DAYS).toISOString();
+    const resolvedEndsAt =
+      durationDays === null
+        ? null
+        : addDays(now, typeof durationDays === 'number' ? durationDays : DEFAULT_DURATION_DAYS).toISOString();
 
     const companyId = (listing as any)?.public_profiles?.company_id ?? null;
 
@@ -93,7 +101,7 @@ export async function createVehicleBoost(listingId: string, userId: string, plan
       companyId,
       userId,
       startsAt: now.toISOString(),
-      endsAt,
+      endsAt: resolvedEndsAt,
       metadata: { planId },
     });
 
@@ -116,7 +124,8 @@ export async function createVehicleBoost(listingId: string, userId: string, plan
 export async function updateVehicleBoostSlots(
   listingId: string,
   userId: string,
-  activeSlotIds: string[]
+  activeSlotIds: string[],
+  durationDays?: number | null
 ) {
   try {
     if (!listingId || !isUuid(listingId)) {
@@ -143,8 +152,52 @@ export async function updateVehicleBoostSlots(
       return { success: false, error: 'No tienes permiso para modificar esta publicación' };
     }
 
+    // Defensa: user_page requiere que el perfil público esté realmente activo y visible.
+    if (Array.isArray(activeSlotIds) && activeSlotIds.length > 0) {
+      const { data: slotRows, error: slotRowsError } = await adminClient
+        .from('boost_slots')
+        .select('id, key')
+        .in('id', activeSlotIds as any);
+
+      if (slotRowsError) {
+        return { success: false, error: 'No pudimos validar los espacios destacados seleccionados' };
+      }
+
+      const includesUserPage = (slotRows || []).some((s: any) => s?.key === 'user_page');
+      if (includesUserPage) {
+        const publicProfileId = (listing as any)?.public_profile_id as string | null | undefined;
+        if (!publicProfileId) {
+          return {
+            success: false,
+            error: 'Tu plan no incluye perfil público. Activa un plan de pago para impulsar en tu perfil de vendedor.',
+          };
+        }
+
+        const { data: ppRow, error: ppError } = await adminClient
+          .from('public_profiles')
+          .select('id, is_public, status')
+          .eq('id', publicProfileId)
+          .maybeSingle();
+
+        if (ppError) {
+          return { success: false, error: 'No pudimos validar tu perfil público' };
+        }
+
+        const isActivePublic = Boolean((ppRow as any)?.is_public) && String((ppRow as any)?.status) === 'active';
+        if (!isActivePublic) {
+          return {
+            success: false,
+            error: 'Tu plan no incluye perfil público activo. Activa Pro para impulsar en tu perfil de vendedor.',
+          };
+        }
+      }
+    }
+
     const now = new Date();
-    const windowEnd = addDays(now, DEFAULT_DURATION_DAYS).toISOString();
+    const windowEnd =
+      durationDays === null
+        ? null
+        : addDays(now, typeof durationDays === 'number' ? durationDays : DEFAULT_DURATION_DAYS).toISOString();
 
     const companyId = (listing as any)?.public_profiles?.company_id ?? null;
 

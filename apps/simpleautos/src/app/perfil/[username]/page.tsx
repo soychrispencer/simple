@@ -25,7 +25,7 @@ import { useListingFilters } from "@/hooks/useListingFilters";
 
 export default function PublicProfilePage() {
   // Obtener usuario y cliente supabase una sola vez
-  const { supabase, user } = useAuth();
+  const { supabase, user, profile: authProfile } = useAuth();
   // Menú de opciones para compartir el perfil
   const { username } = useParams();
   const router = useRouter();
@@ -60,6 +60,8 @@ export default function PublicProfilePage() {
   // Filtros para vehículos
   const { filters, update } = useListingFilters('');
   const [totalVehicles, setTotalVehicles] = React.useState(0);
+  const viewerPlanKey = String((authProfile as any)?.plan_key ?? 'free');
+  const allowBoostOnPublicPage = viewerPlanKey !== 'free';
   const avatarUrl = profile?.avatar_url
     ? profile.avatar_url.startsWith('http')
       ? profile.avatar_url
@@ -568,7 +570,8 @@ export default function PublicProfilePage() {
           <UserFeaturedSlider 
             userId={(profile.owner_profile_id || profile.id) as any} 
             title="Vehículos Impulsados" 
-            limit={3} 
+            limit={3}
+            allowBoost={allowBoostOnPublicPage}
           />
         )}
 
@@ -593,6 +596,7 @@ export default function PublicProfilePage() {
                   publicProfileId={profile.id}
                   title="Vehículos del Vendedor"
                   showFilters={false}
+                  allowBoost={allowBoostOnPublicPage}
                   page={filters.page}
                   pageSize={filters.page_size}
                   onPageChange={(page) => update({ page }, true)}

@@ -12,7 +12,8 @@ import {
   SubscriptionPlan,
 } from '@/lib/mercadopago';
 import { SUBSCRIPTION_PLANS } from '@simple/config';
-import { logError } from '@/lib/logger';
+import { getBoostCooldownHours } from '@/lib/boostRules';
+import { checkListingBoostCooldown } from '@/lib/boostCooldown';
 
 // Este endpoint usa dependencias Node-only (MercadoPago SDK, winston, etc.).
 // En Vercel puede intentar ejecutarse como Edge si no se especifica runtime.
@@ -75,17 +76,42 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const { type, data } = body;
 
-    const appUrl = process.env.NEXT_PUBLIC_APP_URL;
-    if (!appUrl) {
-      return NextResponse.json({ error: 'NEXT_PUBLIC_APP_URL no configurado' }, { status: 500 });
+    const rawAppUrl = process.env.NEXT_PUBLIC_APP_URL || request.nextUrl?.origin;
+    if (!rawAppUrl) {
+      return NextResponse.json(
+        {
+          error: 'NEXT_PUBLIC_APP_URL no configurado',
+          details: 'No se pudo inferir el origin de la request',
+        },
+        { status: 500 }
+      );
     }
 
-    const backUrlSuccess = `${appUrl}/panel/mis-suscripciones?status=success`;
-    const backUrlFailure = `${appUrl}/panel/mis-suscripciones?status=failure`;
-    const backUrlPending = `${appUrl}/panel/mis-suscripciones?status=pending`;
+    // Asegurar que el base URL sea absoluto con esquema.
+    // Si NEXT_PUBLIC_APP_URL viene sin http(s), MercadoPago puede rechazar back_urls.
+    const appUrl = /^https?:\/\//i.test(rawAppUrl)
+      ? rawAppUrl
+      : `https://${rawAppUrl}`;
+
+    const makeBackUrl = (status: 'success' | 'failure' | 'pending') => {
+      const u = new URL('/panel/mis-suscripciones', appUrl);
+      u.searchParams.set('status', status);
+      return u.toString();
+    };
+
+    const backUrlSuccess = makeBackUrl('success');
+    const backUrlFailure = makeBackUrl('failure');
+    const backUrlPending = makeBackUrl('pending');
 
     if (type === 'boost') {
       // Pago para boost
+      const isLocalhost = (() => {
+        const origin = request.nextUrl?.origin || '';
+        return /localhost|127\.0\.0\.1/i.test(origin);
+      })();
+
+      const isHttpsAppUrl = /^https:\/\//i.test(appUrl);
+
       const preference: any = {
         items: [],
         back_urls: {
@@ -93,12 +119,18 @@ export async function POST(request: NextRequest) {
           failure: backUrlFailure,
           pending: backUrlPending,
         },
-        auto_return: 'approved',
-        notification_url: `${appUrl}/api/payments/webhook`,
+        // MercadoPago suele requerir back_urls válidas (y a veces https) cuando auto_return está presente.
+        // En localhost / http evitamos setear auto_return para no gatillar invalid_auto_return.
+        ...(isHttpsAppUrl ? { auto_return: 'approved' } : {}),
+        ...(isLocalhost
+          ? {}
+          : { notification_url: new URL('/api/payments/webhook', appUrl).toString() }),
       };
       const {
         slotId,
+        slotIds,
         slotKey,
+        slotKeys,
         slot,
         duration,
         listingId,
@@ -108,7 +140,9 @@ export async function POST(request: NextRequest) {
         userId,
       } = data as {
         slotId?: string;
+        slotIds?: string[];
         slotKey?: BoostSlotKey;
+        slotKeys?: BoostSlotKey[];
         slot?: BoostSlotKey;
         duration: BoostDuration;
         listingId?: string;
@@ -118,35 +152,176 @@ export async function POST(request: NextRequest) {
         userId?: string;
       };
 
+      if (duration === 'indefinido') {
+        return NextResponse.json(
+          { error: 'Duración inválida para pago', details: 'La opción indefinido es solo para el slot gratis (perfil vendedor).' },
+          { status: 400 }
+        );
+      }
+
       const resolvedSlotKey = (slotKey ?? slot) as BoostSlotKey | undefined;
+      const resolvedSlotKeys = (Array.isArray(slotKeys) && slotKeys.length > 0
+        ? slotKeys
+        : resolvedSlotKey
+        ? [resolvedSlotKey]
+        : []) as BoostSlotKey[];
       const resolvedListingId = listingId ?? vehicleId;
       const resolvedTitle = listingTitle ?? vehicleTitle ?? 'Publicación SimpleAutos';
 
-      if (!resolvedSlotKey || !resolvedListingId) {
+      if (!resolvedSlotKeys.length || !resolvedListingId) {
         return NextResponse.json(
           { error: 'Faltan datos para crear el pago de boost' },
           { status: 400 }
         );
       }
 
-      const price = getBoostPrice(resolvedSlotKey, duration);
+      if (resolvedSlotKeys.includes('user_page' as any)) {
+        return NextResponse.json(
+          { error: 'Slot no válido para pago', details: 'El impulso en perfil vendedor es gratis y requiere perfil público (plan de pago).' },
+          { status: 400 }
+        );
+      }
 
-      preference.items.push({
-        id: `boost_${resolvedListingId}_${resolvedSlotKey}_${duration}`,
-        title: `Boost: ${resolvedTitle} - ${resolvedSlotKey.replace('_', ' ').toUpperCase()} - ${duration.replace('_', ' ')}`,
-        description: `Destacado en ${resolvedSlotKey} por ${duration.replace('_', ' ')}`,
-        quantity: 1,
-        currency_id: 'CLP',
-        unit_price: price,
-      });
+      // Validar que el listing exista y sea del usuario (o que RLS permita verlo).
+      const { data: listing, error: listingError } = await supabase
+        .from('listings')
+        .select('id, user_id, vertical_id')
+        .eq('id', resolvedListingId)
+        .maybeSingle();
 
-      preference.external_reference = `boost_${resolvedListingId}_${resolvedSlotKey}_${duration}_${Date.now()}`;
+      if (listingError) {
+        return NextResponse.json(
+          { error: 'No se pudo validar la publicación', details: listingError.message },
+          { status: 400 }
+        );
+      }
+
+      if (!listing?.id) {
+        return NextResponse.json(
+          { error: 'Publicación no encontrada o sin acceso' },
+          { status: 404 }
+        );
+      }
+
+      if (listing.user_id !== user.id) {
+        return NextResponse.json(
+          { error: 'No tienes permiso para impulsar esta publicación' },
+          { status: 403 }
+        );
+      }
+
+      // Resolver slots y validar que existan para el vertical.
+      const { data: slotRows, error: slotError } = await supabase
+        .from('boost_slots')
+        .select('id, key, price')
+        .eq('is_active', true)
+        .eq('vertical_id', listing.vertical_id)
+        .in('key', resolvedSlotKeys as any);
+
+      if (slotError) {
+        return NextResponse.json(
+          { error: 'No se pudo validar el/los slot(s) de impulso', details: slotError.message },
+          { status: 400 }
+        );
+      }
+
+      const slotIdByKey = new Map<string, string>();
+      const slotPriceByKey = new Map<string, number>();
+      for (const r of slotRows || []) {
+        if (r?.key && r?.id) slotIdByKey.set(String(r.key), String(r.id));
+        slotPriceByKey.set(String(r.key), Number((r as any).price ?? 0));
+      }
+
+      const resolvedSlotIds: string[] = [];
+      for (const k of resolvedSlotKeys) {
+        const id = slotIdByKey.get(k);
+        if (!id) {
+          return NextResponse.json(
+            { error: `Slot de impulso inválido o no disponible (${k})` },
+            { status: 400 }
+          );
+        }
+        resolvedSlotIds.push(id);
+      }
+
+      // Cooldown por publicación+slot: 24h (se valida para todos los slots seleccionados)
+      try {
+        for (let i = 0; i < resolvedSlotKeys.length; i++) {
+          const key = resolvedSlotKeys[i];
+          const sid = resolvedSlotIds[i];
+          const cooldownHours = getBoostCooldownHours(key);
+          const cooldown = await checkListingBoostCooldown({
+            supabase: supabase as any,
+            listingId: resolvedListingId,
+            slotId: sid,
+            cooldownHours,
+          });
+
+          if (!cooldown.allowed) {
+            if (cooldown.reason === 'active') {
+              return NextResponse.json(
+                {
+                  error: 'Esta publicación ya está impulsada en este espacio',
+                  slot_key: key,
+                  ends_at: cooldown.endsAt,
+                },
+                { status: 409 }
+              );
+            }
+            return NextResponse.json(
+              {
+                error: 'Debes esperar antes de volver a impulsar esta publicación',
+                slot_key: key,
+                next_available_at: cooldown.nextAvailableAt,
+              },
+              { status: 409 }
+            );
+          }
+        }
+      } catch (e: any) {
+        return NextResponse.json(
+          { error: 'No se pudo validar el cooldown del impulso', details: e?.message },
+          { status: 400 }
+        );
+      }
+
+      // Items: solo cobramos slots "pagados" (según tabla boost_slots.price). Igual guardamos todos los slots en metadata.
+      const paidSlotKeys: BoostSlotKey[] = resolvedSlotKeys.filter((k) => (slotPriceByKey.get(k) ?? 0) > 0);
+
+      if (paidSlotKeys.length === 0) {
+        return NextResponse.json(
+          { error: 'No hay slots pagados para cobrar', details: 'Revisa boost_slots.price o la selección del usuario.' },
+          { status: 400 }
+        );
+      }
+
+      for (const key of paidSlotKeys) {
+        let price: number;
+        try {
+          price = getBoostPrice(key, duration);
+        } catch (e: any) {
+          return NextResponse.json(
+            { error: 'Precio no configurado', details: e?.message || String(e) },
+            { status: 400 }
+          );
+        }
+        preference.items.push({
+          id: `boost_${resolvedListingId}_${key}_${duration}`,
+          title: `Boost: ${resolvedTitle} - ${key.replace(/_/g, ' ').toUpperCase()} - ${duration.replace('_', ' ')}`,
+          description: `Destacado en ${key} por ${duration.replace('_', ' ')}`,
+          quantity: 1,
+          currency_id: 'CLP',
+          unit_price: price,
+        });
+      }
+
+      preference.external_reference = `boost_${resolvedListingId}_${Date.now()}`;
       preference.metadata = {
         type: 'boost',
         listing_id: resolvedListingId,
         listing_title: resolvedTitle,
-        slot_id: slotId ?? null,
-        slot_key: resolvedSlotKey,
+        slot_keys: resolvedSlotKeys,
+        slot_ids: resolvedSlotIds,
         duration,
         user_id: user.id,
       };
@@ -218,11 +393,86 @@ export async function POST(request: NextRequest) {
       );
     }
 
-  } catch (error) {
-    logError('Error creando preferencia de pago', error);
+  } catch (error: any) {
+    // Importante: este endpoint debe ser ultra-resiliente.
+    // Evitamos depender de un logger con sanitizers/transports que pueda fallar al cargar.
+    // eslint-disable-next-line no-console
+    console.error('Error creando preferencia de pago', error);
+
+    const safeStringify = (value: any) => {
+      try {
+        const seen = new WeakSet();
+        return JSON.stringify(
+          value,
+          (_key, val) => {
+            if (typeof val === 'bigint') return val.toString();
+            if (typeof val === 'object' && val !== null) {
+              if (seen.has(val)) return '[Circular]';
+              seen.add(val);
+            }
+            return val;
+          },
+          2
+        );
+      } catch {
+        try {
+          return String(value);
+        } catch {
+          return '[Unserializable]';
+        }
+      }
+    };
+
+    const message =
+      error instanceof Error
+        ? error.message
+        : typeof error === 'string'
+          ? error
+          : safeStringify(error);
+
+    const devDetails = (() => {
+      if (process.env.NODE_ENV === 'production') return undefined;
+      const parts: string[] = [];
+      if (message) parts.push(message);
+
+      const status =
+        (error as any)?.status ||
+        (error as any)?.statusCode ||
+        (error as any)?.response?.status ||
+        (error as any)?.response?.data?.status;
+      if (status) parts.push(`status=${status}`);
+
+      const cause = (error as any)?.cause;
+      if (cause) parts.push(`cause=${typeof cause === 'string' ? cause : safeStringify(cause)}`);
+
+      const mpResponse =
+        (error as any)?.response?.data ??
+        (error as any)?.response?.body ??
+        (error as any)?.response;
+      if (mpResponse) parts.push(`mp_response=${safeStringify(mpResponse)}`);
+
+      if (error && typeof error === 'object') {
+        const errName = (error as any)?.name;
+        if (errName) parts.push(`name=${errName}`);
+      }
+
+      return parts.filter(Boolean).join(' | ') || undefined;
+    })();
+
+    const upstreamStatus = Number(
+      (error as any)?.status ||
+        (error as any)?.statusCode ||
+        (error as any)?.response?.status ||
+        (error as any)?.response?.data?.status
+    );
+    const statusToReturn =
+      Number.isFinite(upstreamStatus) && upstreamStatus >= 400 && upstreamStatus < 500
+        ? upstreamStatus
+        : 500;
+
     return NextResponse.json(
-      { error: 'Error interno del servidor' },
-      { status: 500 }
+      { error: 'Error interno del servidor', ...(devDetails ? { details: devDetails } : {}) },
+      { status: statusToReturn }
     );
   }
 }

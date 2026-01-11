@@ -30,6 +30,8 @@ export interface VehicleRow {
   id: string;
   title: string;
   listing_type: string; // tipo de listado: 'sale' | 'rent' | 'auction'
+  user_id?: string | null;
+  owner_id?: string | null;
   price: number | null;
   year: number | null;
   mileage: number | null;
@@ -227,18 +229,7 @@ export async function searchVehicles(rawFilters: VehicleSearchFilters): Promise<
   let publicProfilesMap: Record<string, any> = {};
   
   if (ownerIds.length > 0) {
-    const { data: profilesData } = await supabase
-      .from('profiles')
-      .select('id,username,public_name,avatar_url')
-      .in('id', ownerIds);
-    
-    if (profilesData) {
-      profilesMap = Object.fromEntries(
-        profilesData.map(p => [p.id, p])
-      );
-    }
-
-    // Fallback: algunos vendedores usan avatar en `public_profiles` (perfil público/business)
+    // `profiles` no contiene username/public_name/avatar_url; usar `public_profiles`.
     const { data: publicProfilesData } = await supabase
       .from('public_profiles')
       .select('owner_profile_id,slug,public_name,avatar_url')
@@ -251,22 +242,16 @@ export async function searchVehicles(rawFilters: VehicleSearchFilters): Promise<
           .map((p: any) => [p.owner_profile_id, p])
       );
 
-      // Enriquecer profilesMap para que el resto de la UI (cards) vea el avatar aunque venga null en `profiles`.
+      // Construir un objeto compatible con la UI (mismo shape que antes esperaba de `profiles`).
       ownerIds.forEach((ownerId: string) => {
         const pub = publicProfilesMap[ownerId];
         if (!pub) return;
-        const current = profilesMap[ownerId];
-        if (current) {
-          if (!current.avatar_url && pub.avatar_url) current.avatar_url = pub.avatar_url;
-          if (!current.public_name && pub.public_name) current.public_name = pub.public_name;
-        } else {
-          profilesMap[ownerId] = {
-            id: ownerId,
-            username: pub.slug || '',
-            public_name: pub.public_name || '',
-            avatar_url: pub.avatar_url || null,
-          };
-        }
+        profilesMap[ownerId] = {
+          id: ownerId,
+          username: pub.slug || '',
+          public_name: pub.public_name || 'Vendedor',
+          avatar_url: pub.avatar_url || null,
+        };
       });
     }
   }

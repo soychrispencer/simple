@@ -235,6 +235,10 @@ export default function VehiculoDetallePage() {
     };
   }, [id]);
 
+  const hasActiveSellerPlan = !!vehicle?.profiles?.plan && vehicle.profiles.plan !== 'free';
+  const sellerSlug = vehicle?.public_profile?.slug || '';
+  const canShowPublicSellerCard = hasActiveSellerPlan && !!sellerSlug;
+
 
   if (loading) {
     return (
@@ -414,6 +418,17 @@ export default function VehiculoDetallePage() {
     return Boolean((publicDocs && publicDocs.length > 0) || (urls && urls.length > 0) || (legacyDocs && legacyDocs.length > 0));
   })();
 
+  const sectionOptions = [
+    { value: 'informacion-general', label: 'Información General' },
+    { value: 'descripcion', label: 'Descripción' },
+    { value: 'especificaciones', label: 'Especificaciones' },
+    { value: 'equipamiento', label: 'Equipamiento' },
+    ...(hasMoreInfo ? [{ value: 'mas-informacion', label: 'Más información' }] : []),
+    ...(hasVideo ? [{ value: 'video', label: 'Video' }] : []),
+    ...(hasDocs ? [{ value: 'documentacion', label: 'Documentación' }] : []),
+    { value: 'condiciones', label: 'Condiciones' },
+  ];
+
   const typeKey = (vehicle.metadata as any)?.type_key ?? null;
   const specCategory = getSpecCategory(typeof typeKey === 'string' ? typeKey : null);
   const bodyTypeLabel = (() => {
@@ -582,7 +597,30 @@ export default function VehiculoDetallePage() {
       <div className="max-w-7xl mx-auto px-4 py-8">
         {/* Barra de navegación por secciones (full width, sin scroll horizontal) */}
         <nav aria-label="Secciones del vehículo" className="card-surface shadow-card rounded-2xl px-4 py-3 mb-6">
-          <div className="flex flex-wrap items-center gap-2">
+          {/* Mobile: dropdown */}
+          <div className="md:hidden">
+            <Select
+              value={activeSection}
+              onChange={(val) => {
+                const next = String(val);
+                setActiveSection(next);
+                const el = document.getElementById(next);
+                if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                try {
+                  window.history.replaceState(null, '', `#${next}`);
+                } catch {
+                  // ignore
+                }
+              }}
+              options={sectionOptions}
+              placeholder="Sección"
+              appearance="filled"
+              className="w-full"
+            />
+          </div>
+
+          {/* Desktop: tabs */}
+          <div className="hidden md:flex flex-wrap items-center gap-2">
             <a
               className={`px-3 py-2 rounded-xl text-sm transition whitespace-nowrap inline-flex items-center gap-2 ${
                 activeSection === 'informacion-general'
@@ -1674,46 +1712,35 @@ export default function VehiculoDetallePage() {
                   >
                     Contactar vendedor
                   </Button>
-                  {vehicle.profiles?.username ? (
-                    <Button
-                      variant="outline"
-                      size="md"
-                      shape="rounded"
-                      className="w-full"
-                      onClick={() => router.push(`/perfil/${vehicle.profiles!.username}`)}
-                    >
-                      Ver perfil completo
-                    </Button>
-                  ) : null}
                 </div>
 
               </div>
 
               {/* Vendedor */}
-              {(vehicle.profiles || vehicle.listing_type === "rent") ? (
+              {(canShowPublicSellerCard || vehicle.listing_type === "rent" || vehicle.listing_type === "auction") ? (
                 <div className="card-surface shadow-card rounded-3xl p-6">
-                {vehicle.profiles ? (
+                {canShowPublicSellerCard ? (
                   <>
                     <div className="text-center mb-6">
                       {/* Avatar clickeable */}
                       <div 
                         className="mx-auto mb-3 flex justify-center cursor-pointer group"
-                        onClick={() => vehicle.profiles?.username && router.push(`/perfil/${vehicle.profiles.username}`)}
+                        onClick={() => sellerSlug && router.push(`/perfil/${sellerSlug}`)}
                       >
                         <div className="relative">
                           <UserAvatar
                             src={
-                              vehicle.profiles?.avatar_url
-                                ? (vehicle.profiles.avatar_url.startsWith('http')
-                                  ? vehicle.profiles.avatar_url
-                                  : getAvatarUrl(supabase as any, vehicle.profiles.avatar_url))
+                              vehicle.public_profile?.avatar_url
+                                ? (vehicle.public_profile.avatar_url.startsWith('http')
+                                  ? vehicle.public_profile.avatar_url
+                                  : getAvatarUrl(supabase as any, vehicle.public_profile.avatar_url))
                                 : undefined
                             }
-                            alt={vehicle.profiles.public_name}
+                            alt={vehicle.profiles?.public_name || vehicle.public_profile?.public_name || 'Vendedor'}
                             size={96}
                             className="transition-transform group-hover:scale-105"
                           />
-                          {vehicle.profiles.plan === 'premium' && (
+                          {vehicle.profiles?.plan === 'premium' && (
                             <span className="absolute -top-1 -right-1 text-2xl" title="Usuario Premium">⭐</span>
                           )}
                         </div>
@@ -1722,14 +1749,26 @@ export default function VehiculoDetallePage() {
                       {/* Nombre y username clickeables */}
                       <div 
                         className="cursor-pointer hover:opacity-80 transition-opacity"
-                        onClick={() => vehicle.profiles?.username && router.push(`/perfil/${vehicle.profiles.username}`)}
+                        onClick={() => sellerSlug && router.push(`/perfil/${sellerSlug}`)}
                       >
-                        <h3 className="text-lg font-bold">{vehicle.profiles.public_name}</h3>
-                        <p className="text-sm text-primary">@{vehicle.profiles.username}</p>
+                        <h3 className="text-lg font-bold">{vehicle.public_profile?.public_name || vehicle.profiles?.public_name}</h3>
+                        <p className="text-sm text-primary">@{sellerSlug}</p>
+                      </div>
+
+                      <div className="mt-4">
+                        <Button
+                          variant="outline"
+                          size="md"
+                          shape="rounded"
+                          className="w-full"
+                          onClick={() => router.push(`/perfil/${sellerSlug}`)}
+                        >
+                          Ver perfil público
+                        </Button>
                       </div>
                       
                       {/* Descripción del vendedor */}
-                      {vehicle.profiles.description && (
+                      {vehicle.profiles?.description && (
                         <p className="text-sm text-[var(--text-secondary)] mt-3 line-clamp-3">
                           {vehicle.profiles.description}
                         </p>
@@ -1737,13 +1776,13 @@ export default function VehiculoDetallePage() {
                       
                       {/* Información adicional */}
                       <div className="mt-4 space-y-2 text-sm">
-                        {vehicle.profiles.address && (
+                        {vehicle.profiles?.address && (
                           <div className="flex items-center justify-center gap-2 text-[var(--text-tertiary)]">
                             <IconMapPin size={16} />
                             <span className="truncate">{vehicle.profiles.address}</span>
                           </div>
                         )}
-                        {vehicle.profiles.website && (
+                        {vehicle.profiles?.website && (
                           <a 
                             href={vehicle.profiles.website.startsWith('http') ? vehicle.profiles.website : `https://${vehicle.profiles.website}`}
                             target="_blank"

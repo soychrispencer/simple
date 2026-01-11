@@ -196,18 +196,7 @@ export async function loadProfiles(ownerIds: string[]): Promise<Record<string, a
   const profilesMap: Record<string, any> = {};
 
   if (ownerIds.length > 0) {
-    const { data: profiles } = await supabase
-      .from('profiles')
-      .select('id, username, public_name, avatar_url')
-      .in('id', ownerIds);
-
-    if (profiles) {
-      profiles.forEach(p => {
-        profilesMap[p.id] = p;
-      });
-    }
-
-    // Fallback: completar avatar/nombre desde public_profiles si `profiles.avatar_url` viene null
+    // `profiles` no contiene username/public_name/avatar_url; eso vive en `public_profiles`.
     const { data: publicProfiles } = await supabase
       .from('public_profiles')
       .select('owner_profile_id, slug, public_name, avatar_url')
@@ -217,19 +206,13 @@ export async function loadProfiles(ownerIds: string[]): Promise<Record<string, a
       publicProfiles
         .filter((p: any) => p?.owner_profile_id)
         .forEach((p: any) => {
-          const ownerId = p.owner_profile_id as string;
-          const current = profilesMap[ownerId];
-          if (current) {
-            if (!current.avatar_url && p.avatar_url) current.avatar_url = p.avatar_url;
-            if (!current.public_name && p.public_name) current.public_name = p.public_name;
-          } else {
-            profilesMap[ownerId] = {
-              id: ownerId,
-              username: p.slug || undefined,
-              public_name: p.public_name || undefined,
-              avatar_url: p.avatar_url || undefined,
-            };
-          }
+          const ownerId = String(p.owner_profile_id);
+          profilesMap[ownerId] = {
+            id: ownerId,
+            username: p.slug || '',
+            public_name: p.public_name || 'Vendedor',
+            avatar_url: p.avatar_url || null,
+          };
         });
     }
   }

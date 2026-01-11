@@ -48,15 +48,15 @@ export default function DirectQueryPage() {
         });
 
         const { data: profilesRaw } = await supabase
-          .from('profiles')
-          .select('id, public_name, username')
+          .from('public_profiles')
+          .select('owner_profile_id, public_name, slug')
           .order('updated_at', { ascending: false })
           .limit(10);
 
         const profiles = (profilesRaw ?? []).map((p: any) => ({
-          id: String(p.id ?? ''),
+          id: String(p.owner_profile_id ?? ''),
           public_name: p.public_name ?? null,
-          username: p.username ?? null,
+          username: p.slug ?? null,
         }));
 
         const { data: vehiclesRaw } = await supabase

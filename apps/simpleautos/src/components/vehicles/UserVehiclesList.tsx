@@ -16,6 +16,7 @@ interface UserVehiclesListProps {
   publicProfileId?: string;
   title?: string;
   showFilters?: boolean;
+  allowBoost?: boolean;
   page?: number;
   pageSize?: number;
   onPageChange?: (page: number) => void;
@@ -30,7 +31,7 @@ interface UserVehiclesListProps {
 }
 
 
-export default function UserVehiclesList({ userId, publicProfileId, title = "Vehículos del Vendedor", showFilters = true, page = 1, pageSize = 24, onPageChange, total, sellerInfo }: UserVehiclesListProps) {
+export default function UserVehiclesList({ userId, publicProfileId, title = "Vehículos del Vendedor", showFilters = true, allowBoost = true, page = 1, pageSize = 24, onPageChange, total, sellerInfo }: UserVehiclesListProps) {
   const [vehicles, setVehicles] = useState<VehicleJoinedRow[]>([]);
   const [filteredVehicles, setFilteredVehicles] = useState<VehicleJoinedRow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -632,6 +633,7 @@ export default function UserVehiclesList({ userId, publicProfileId, title = "Veh
                     seller={seller}
                     layout={layout}
                     onClick={handleVehicleClick}
+                    allowBoost={allowBoost}
                   />
                 </div>
               );
@@ -644,6 +646,7 @@ export default function UserVehiclesList({ userId, publicProfileId, title = "Veh
                 seller={seller}
                 layout={layout}
                 onClick={handleVehicleClick}
+                allowBoost={allowBoost}
               />
             );
           })}

@@ -16,6 +16,7 @@ interface UserFeaturedSliderProps {
   userId: string;
   title?: string;
   limit?: number;
+  allowBoost?: boolean;
 }
 
 interface FeaturedVehicle {
@@ -30,7 +31,7 @@ interface FeaturedVehicle {
   };
 }
 
-export default function UserFeaturedSlider({ userId, title = "Vehículos Destacados", limit = 3 }: UserFeaturedSliderProps) {
+export default function UserFeaturedSlider({ userId, title = "Vehículos Destacados", limit = 3, allowBoost = true }: UserFeaturedSliderProps) {
   const [vehicles, setVehicles] = useState<FeaturedVehicle[]>([]);
   const [loading, setLoading] = useState(true);
   const router = useRouter();
@@ -175,6 +176,7 @@ export default function UserFeaturedSlider({ userId, title = "Vehículos Destaca
                     vehicle={vehicle} 
                     seller={seller}
                     onClick={handleVehicleClick}
+                    allowBoost={allowBoost}
                   />
                 </div>
               </SwiperSlide>

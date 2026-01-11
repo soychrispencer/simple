@@ -1,9 +1,15 @@
 ﻿'use client';
 
 import { useState, useEffect, useCallback } from 'react';
+import { useRouter } from 'next/navigation';
 import { getSupabaseClient } from '@/lib/supabase/supabase';
 import { useMercadoPago } from '@/hooks/useMercadoPago';
-import { getBoostPrice, BoostSlotKey, BoostDuration } from '@/lib/mercadopago';
+import {
+  getBoostPrice,
+  type BoostSlotKey,
+  type PaidBoostDuration,
+  type FreeProfileDuration,
+} from '@/lib/pricing';
 import { 
   IconCheck, 
   IconLoader2, 
@@ -47,10 +53,14 @@ interface BoostSlotsModalProps {
 export function BoostSlotsModal({ listingId, vehicleTitle, listingType, userId: propUserId, onClose, onSuccess }: BoostSlotsModalProps) {
   const [slots, setSlots] = useState<BoostSlot[]>([]);
   const [activeSlots, setActiveSlots] = useState<string[]>([]);
+  const [activeSlotEndsAt, setActiveSlotEndsAt] = useState<Record<string, string | null>>({});
+  const [hasPublicProfile, setHasPublicProfile] = useState<boolean>(true);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [mounted, setMounted] = useState(false);
-  const [selectedDuration, setSelectedDuration] = useState<BoostDuration>('7_dias');
+  const [paidDuration, setPaidDuration] = useState<PaidBoostDuration>('7_dias');
+  const [freeProfileDuration, setFreeProfileDuration] = useState<FreeProfileDuration>('7_dias');
+  const router = useRouter();
   const supabase = getSupabaseClient();
   const { addToast } = useToast();
   const { createBoostPayment } = useMercadoPago();
@@ -71,6 +81,34 @@ export function BoostSlotsModal({ listingId, vehicleTitle, listingType, userId: 
 
   const isPaidSlot = useCallback((slot: BoostSlot) => (slot.price ?? 0) > 0, []);
 
+  const formatRemaining = useCallback((endsAtIso: string | null) => {
+    if (!endsAtIso) {
+      return { label: 'Indefinido', state: 'active' as const };
+    }
+
+    const endsAtMs = new Date(endsAtIso).getTime();
+    if (!Number.isFinite(endsAtMs)) {
+      return { label: 'Desconocido', state: 'unknown' as const };
+    }
+
+    const diffMs = endsAtMs - Date.now();
+    if (diffMs <= 0) {
+      return { label: 'Venció', state: 'expired' as const };
+    }
+
+    const totalMinutes = Math.floor(diffMs / 60000);
+    const days = Math.floor(totalMinutes / (60 * 24));
+    const hours = Math.floor((totalMinutes - days * 60 * 24) / 60);
+    const minutes = totalMinutes % 60;
+
+    const parts: string[] = [];
+    if (days > 0) parts.push(`${days}d`);
+    if (hours > 0) parts.push(`${hours}h`);
+    if (days === 0 && hours === 0) parts.push(`${minutes}m`);
+
+    return { label: parts.join(' '), state: 'active' as const };
+  }, []);
+
   const loadSlotsAndActive = useCallback(async () => {
     try {
       setLoading(true);
@@ -83,16 +121,51 @@ export function BoostSlotsModal({ listingId, vehicleTitle, listingType, userId: 
         return;
       }
 
+      // Plan gratis puede tener public_profile_id, pero el perfil queda draft/private.
+      // Para habilitar el slot user_page exigimos public_profiles.is_public=true y status='active'.
+      const { data: listingRow, error: listingRowError } = await supabase
+        .from('listings')
+        .select('id, public_profile_id')
+        .eq('id', listingId)
+        .maybeSingle();
+
+      if (listingRowError) {
+        logError('Error loading listing public_profile_id', listingRowError);
+      }
+
+      const publicProfileId = (listingRow as any)?.public_profile_id as string | null | undefined;
+      if (!publicProfileId) {
+        setHasPublicProfile(false);
+      } else {
+        const { data: ppRow, error: ppError } = await supabase
+          .from('public_profiles')
+          .select('id, is_public, status')
+          .eq('id', publicProfileId)
+          .maybeSingle();
+
+        if (ppError) {
+          logError('Error loading public profile', ppError);
+          setHasPublicProfile(false);
+        } else {
+          setHasPublicProfile(Boolean((ppRow as any)?.is_public) && String((ppRow as any)?.status) === 'active');
+        }
+      }
+
       const { data: activeData, error: activeError } = await supabase
         .from('listing_boost_slots')
-        .select('slot_id')
+        .select('slot_id, ends_at')
         .eq('listing_id', listingId)
         .eq('is_active', true);
 
       if (activeError) throw activeError;
 
-      const activeSlotIds = (activeData || []).map((item: { slot_id: string }) => item.slot_id);
+      const endsMap: Record<string, string | null> = {};
+      const activeSlotIds = (activeData || []).map((item: { slot_id: string; ends_at?: string | null }) => {
+        endsMap[item.slot_id] = (item as any).ends_at ?? null;
+        return item.slot_id;
+      });
       setActiveSlots(activeSlotIds);
+      setActiveSlotEndsAt(endsMap);
     } catch (error) {
       logError('Error loading slots', error);
       addToast('No pudimos cargar los espacios destacados', { type: 'error' });
@@ -111,18 +184,21 @@ export function BoostSlotsModal({ listingId, vehicleTitle, listingType, userId: 
     };
   }, [mounted, loadSlotsAndActive]);
 
-  const toggleSlot = (slotId: string, isPaid: boolean) => {
-    // Por ahora, solo permitir slots gratuitos
-    if (isPaid) {
-      return; // No hacer nada si es pagado
-    }
-
-    setActiveSlots(prev => 
-      prev.includes(slotId) 
+  const toggleSlot = (slotId: string) => {
+    setActiveSlots(prev =>
+      prev.includes(slotId)
         ? prev.filter(id => id !== slotId)
         : [...prev, slotId]
     );
   };
+
+  const selectedSlots = slots.filter((slot) => activeSlots.includes(slot.id));
+  const selectedPaidSlots = selectedSlots.filter((slot) => isPaidSlot(slot));
+
+  const paidTotalClp = selectedPaidSlots.reduce((sum, slot) => {
+    const slotKey = slot.key as BoostSlotKey;
+    return sum + getBoostPrice(slotKey, paidDuration);
+  }, 0);
 
   const handleSave = async () => {
     setSaving(true);
@@ -155,35 +231,41 @@ export function BoostSlotsModal({ listingId, vehicleTitle, listingType, userId: 
       }
 
       // Verificar si hay slots pagados seleccionados
-      const selectedSlots = slots.filter(slot => activeSlots.includes(slot.id));
-      const paidSlots = selectedSlots.filter((slot) => isPaidSlot(slot));
+      const paidSlots = selectedPaidSlots;
 
       if (paidSlots.length > 0) {
         // Hay slots pagados - redirigir a pago
-        if (paidSlots.length > 1) {
-          addToast('Solo puedes seleccionar un slot pagado a la vez', { type: 'error' });
-          return;
-        }
-
-        const slot = paidSlots[0];
-        const slotKey = slot.key as BoostSlotKey;
+        const allSelectedSlotKeys = paidSlots.map((slot) => slot.key as BoostSlotKey);
+        const allSelectedSlotIds = paidSlots.map((slot) => slot.id);
 
         // Crear pago con MercadoPago
-        await createBoostPayment({
-          slotId: slot.id,
-          slotKey,
-          duration: selectedDuration,
-          listingId,
-          listingTitle: vehicleTitle,
-          userId,
-        });
+        try {
+          await createBoostPayment({
+            slotIds: allSelectedSlotIds,
+            slotKeys: allSelectedSlotKeys,
+            duration: paidDuration,
+            listingId,
+            listingTitle: vehicleTitle,
+            userId,
+          });
+        } catch (e: any) {
+          addToast(e?.message || 'No se pudo iniciar el pago', { type: 'error' });
+        }
         // La función redirigirá automáticamente a MercadoPago
         return;
       }
 
       // Solo slots gratuitos - aplicar directamente
       // 1. Crear/obtener boost usando Server Action
-      const boostResult = await createVehicleBoost(listingId, userId, 1);
+      const durationDays = freeProfileDuration === 'indefinido'
+        ? null
+        : freeProfileDuration === '30_dias'
+          ? 30
+          : freeProfileDuration === '15_dias'
+            ? 15
+            : 7;
+
+      const boostResult = await createVehicleBoost(listingId, userId, 1, durationDays);
       
       if (!boostResult.success || !boostResult.boost?.id) {
         logError('[BoostSlotsModal] Error en createVehicleBoost', {
@@ -200,7 +282,7 @@ export function BoostSlotsModal({ listingId, vehicleTitle, listingType, userId: 
 
       // 2. Actualizar slots usando Server Action
       logDebug('[BoostSlotsModal] Calling updateVehicleBoostSlots');
-      const slotsResult = await updateVehicleBoostSlots(listingId, userId, activeSlots);
+      const slotsResult = await updateVehicleBoostSlots(listingId, userId, activeSlots, durationDays);
 
       if (!slotsResult.success) {
         logError('[BoostSlotsModal] Error en updateVehicleBoostSlots', slotsResult.error);
@@ -281,11 +363,8 @@ export function BoostSlotsModal({ listingId, vehicleTitle, listingType, userId: 
             ) : (
               <span className="inline-flex items-center gap-2">
                 <IconCheck size={18} />
-                {slots.some(slot => isPaidSlot(slot) && activeSlots.includes(slot.id)) ? (
-                  `Pagar ${getBoostPrice(
-                    slots.find(slot => isPaidSlot(slot) && activeSlots.includes(slot.id))!.key as BoostSlotKey,
-                    selectedDuration
-                  ).toLocaleString()} CLP`
+                    {selectedPaidSlots.length > 0 ? (
+                      `Pagar ${paidTotalClp.toLocaleString()} CLP`
                 ) : (
                   'Guardar cambios'
                 )}
@@ -334,134 +413,233 @@ export function BoostSlotsModal({ listingId, vehicleTitle, listingType, userId: 
                 <>
                   {slots.map(slot => {
                     const isActive = activeSlots.includes(slot.id);
+                    const hasExistingBoost = Object.prototype.hasOwnProperty.call(activeSlotEndsAt, slot.id);
                     const paidSlot = isPaidSlot(slot);
-                    const canToggle = !paidSlot;
                     const SlotIcon = getSlotIcon(slot);
+                    const isUserPageSlot = slot.key === 'user_page';
+                    const userPageDisabled = !paidSlot && isUserPageSlot && !hasPublicProfile;
 
                     return (
-                      <button
-                        key={slot.id}
-                        onClick={() => canToggle && toggleSlot(slot.id, paidSlot)}
-                        disabled={!canToggle || paidSlot}
-                        className={`w-full p-4 rounded-2xl transition-all duration-200 text-left relative overflow-hidden shadow-card card-surface ${
-                          isActive
-                            ? 'ring-[color:var(--color-primary)] bg-[var(--color-primary-a10)] shadow-token-md'
-                            : paidSlot
-                            ? 'card-surface/80 ring-border/40 opacity-75 cursor-not-allowed'
-                            : 'hover:ring-[color:var(--color-primary-a40)] hover:shadow-token-md'
-                        } ${!canToggle || paidSlot ? 'cursor-not-allowed' : 'hover:scale-[1.01] active:scale-[0.99]'}`}
-                      >
-                        {/* Badge "Próximamente" */}
-                        {paidSlot && (
-                          <div className="absolute top-3 right-3 z-10">
-                            <span className="px-3 py-1 bg-[var(--color-warn)] text-[var(--color-on-primary)] rounded-full text-xs font-bold flex items-center gap-1">
-                              <IconClock size={14} />
-                              PRÓXIMAMENTE
-                            </span>
+                      <div key={slot.id}>
+                        <div
+                          onClick={() => {
+                            if (userPageDisabled) return;
+                            toggleSlot(slot.id);
+                          }}
+                          onKeyDown={(e) => {
+                            if (userPageDisabled) return;
+                            if (e.key === 'Enter' || e.key === ' ') {
+                              e.preventDefault();
+                              toggleSlot(slot.id);
+                            }
+                          }}
+                          aria-disabled={userPageDisabled}
+                          role="button"
+                          tabIndex={userPageDisabled ? -1 : 0}
+                          className={`w-full p-4 rounded-2xl transition-all duration-200 text-left relative overflow-hidden shadow-card card-surface ${
+                            isActive
+                              ? 'ring-[color:var(--color-primary)] bg-[var(--color-primary-a10)] shadow-token-md'
+                              : 'hover:ring-[color:var(--color-primary-a40)] hover:shadow-token-md'
+                          } ${userPageDisabled ? 'opacity-60 cursor-not-allowed hover:ring-transparent hover:shadow-none hover:scale-100 active:scale-100' : 'hover:scale-[1.01] active:scale-[0.99]'}`}
+                        >
+                          <div className="flex items-start justify-between">
+                            <div className="flex-1">
+                              <div className="flex items-center gap-3 mb-2">
+                                <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${
+                                  isActive
+                                    ? 'bg-[var(--color-primary-a10)] text-primary ring-1 ring-[color:var(--color-primary)]'
+                                    : 'card-surface shadow-card text-lighttext dark:text-darktext'
+                                }`}>
+                                  <SlotIcon size={24} />
+                                </div>
+                                <div>
+                                  <h3 className={`font-bold text-base ${
+                                    'text-lighttext dark:text-darktext'
+                                  }`}>
+                                    {slot.title}
+                                  </h3>
+                                  <p className={`text-sm mt-0.5 ${
+                                    'text-lighttext/70 dark:text-darktext/70'
+                                  }`}>
+                                    {slot.description}
+                                  </p>
+
+                                  {isActive && hasExistingBoost && (
+                                    <p className="text-xs mt-1">
+                                      {(() => {
+                                        const remaining = formatRemaining(activeSlotEndsAt[slot.id] ?? null);
+                                        const cls =
+                                          remaining.state === 'expired'
+                                            ? 'text-[var(--color-warn)]'
+                                            : remaining.state === 'unknown'
+                                              ? 'text-lighttext/60 dark:text-darktext/60'
+                                              : 'text-primary';
+                                        return <span className={cls}>Te queda: {remaining.label}</span>;
+                                      })()}
+                                    </p>
+                                  )}
+                                </div>
+                              </div>
+
+                              {/* Badges */}
+                              <div className="flex items-center gap-2 mt-3 flex-wrap">
+                                <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${getSlotBadgeColor(slot)}`}>
+                                  {paidSlot ? 'PAGADO' : 'GRATIS'}
+                                </span>
+
+                                {userPageDisabled && (
+                                  <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-[var(--color-warn-subtle-bg)] border border-[var(--color-warn-subtle-border)] text-[var(--color-warn)] inline-flex items-center gap-1">
+                                    <IconClock size={12} />
+                                    Requiere perfil público
+                                  </span>
+                                )}
+
+                                {slot.key === 'home_main' && (
+                                  <span className="px-2 py-0.5 bg-[var(--color-warn)] text-[var(--color-on-primary)] rounded-full text-xs font-medium flex items-center gap-1">
+                                    <IconSparkles size={12} />
+                                    +50% VISIBILIDAD
+                                  </span>
+                                )}
+
+                              </div>
+
+                              {userPageDisabled && (
+                                <div className="mt-3">
+                                  <Button
+                                    type="button"
+                                    variant="primary"
+                                    size="sm"
+                                    onClick={(e) => {
+                                      e.preventDefault();
+                                      e.stopPropagation();
+                                      onClose();
+                                      router.push('/panel/mis-suscripciones');
+                                    }}
+                                  >
+                                    Activar Pro
+                                  </Button>
+                                </div>
+                              )}
+                            </div>
+
+                            {/* Checkmark */}
+                            {isActive && (
+                              <div className="flex-shrink-0 ml-3">
+                                <div className="w-10 h-10 rounded-full bg-primary flex items-center justify-center">
+                                  <IconCheck size={22} className="text-[var(--color-on-primary)]" />
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Selector de días/precios (solo debajo del slot pagado seleccionado) */}
+                        {paidSlot && isActive && (
+                          <div className="mt-2 p-3 card-surface ring-1 ring-[color:var(--color-primary-a20)] rounded-xl">
+                            <div className="grid grid-cols-2 gap-2">
+                              {[
+                                { key: '1_dia' as PaidBoostDuration, label: '1 Día' },
+                                { key: '3_dias' as PaidBoostDuration, label: '3 Días' },
+                                { key: '7_dias' as PaidBoostDuration, label: '7 Días' },
+                                { key: '15_dias' as PaidBoostDuration, label: '15 Días' },
+                                { key: '30_dias' as PaidBoostDuration, label: '30 Días' },
+                                { key: '90_dias' as PaidBoostDuration, label: '90 Días' },
+                              ].map((duration) => {
+                                const price = getBoostPrice(slot.key as BoostSlotKey, duration.key);
+                                return (
+                                  <button
+                                    key={duration.key}
+                                    onClick={(e) => {
+                                      e.preventDefault();
+                                      e.stopPropagation();
+                                      setPaidDuration(duration.key);
+                                    }}
+                                    className={`p-3 rounded-lg text-left transition-all shadow-card card-surface ${
+                                      paidDuration === duration.key
+                                        ? 'ring-[color:var(--color-primary)] bg-[var(--color-primary-a10)] text-primary shadow-token-sm'
+                                        : 'hover:ring-[color:var(--color-primary-a40)] hover:shadow-token-sm'
+                                    }`}
+                                  >
+                                    <div className="font-medium text-sm">{duration.label}</div>
+                                    <div className="text-xs text-lighttext/60 dark:text-darktext/60">
+                                      ${price.toLocaleString()} CLP
+                                    </div>
+                                  </button>
+                                );
+                              })}
+                            </div>
                           </div>
                         )}
-                        
-                        <div className="flex items-start justify-between">
-                          <div className="flex-1">
-                            <div className="flex items-center gap-3 mb-2">
-                              <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${
-                                isActive 
-                                  ? 'bg-[var(--color-primary-a10)] text-primary ring-1 ring-[color:var(--color-primary)]'
-                                  : paidSlot
-                                  ? 'card-surface/60 ring-1 ring-border/40 text-lighttext/40 dark:text-darktext/40'
-                                  : 'card-surface shadow-card text-lighttext dark:text-darktext'
-                              }`}>
-                                <SlotIcon size={24} />
-                              </div>
-                              <div>
-                                <h3 className={`font-bold text-base ${
-                                  paidSlot 
-                                    ? 'text-lighttext/50 dark:text-darktext/50'
-                                    : 'text-lighttext dark:text-darktext'
-                                }`}>
-                                  {slot.title}
-                                </h3>
-                                <p className={`text-sm mt-0.5 ${
-                                  paidSlot
-                                    ? 'text-lighttext/40 dark:text-darktext/40'
-                                    : 'text-lighttext/70 dark:text-darktext/70'
-                                }`}>
-                                  {slot.description}
-                                </p>
-                              </div>
-                            </div>
-                            
-                            {/* Badges */}
-                            <div className="flex items-center gap-2 mt-3 flex-wrap">
-                              {!paidSlot && (
-                                <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${getSlotBadgeColor(slot)}`}>
-                                  GRATIS
-                                </span>
-                              )}
-                              
-                              {slot.key === 'home_main' && !paidSlot && (
-                                <span className="px-2 py-0.5 bg-[var(--color-warn)] text-[var(--color-on-primary)] rounded-full text-xs font-medium flex items-center gap-1">
-                                  <IconSparkles size={12} />
-                                  +50% VISIBILIDAD
-                                </span>
-                              )}
-                              
-                              <span className={`text-xs ${
-                                paidSlot
-                                  ? 'text-lighttext/40 dark:text-darktext/40'
-                                  : 'text-lighttext/60 dark:text-darktext/60'
-                              }`}>
-                                Máx. {slot.max_active ?? '∞'} publicaciones
-                              </span>
+
+                        {/* Selector gratis (perfil vendedor): 7d / 15d / 30d / indefinido */}
+                        {!paidSlot && isActive && slot.key === 'user_page' && (
+                          <div className="mt-2 p-3 card-surface ring-1 ring-[color:var(--color-primary-a20)] rounded-xl">
+                            <div className="grid grid-cols-2 gap-2">
+                              {[
+                                { key: '7_dias' as FreeProfileDuration, label: '7 Días' },
+                                { key: '15_dias' as FreeProfileDuration, label: '15 Días' },
+                                { key: '30_dias' as FreeProfileDuration, label: '30 Días' },
+                                { key: 'indefinido' as FreeProfileDuration, label: 'Indefinido' },
+                              ].map((duration) => (
+                                <button
+                                  key={duration.key}
+                                  onClick={(e) => {
+                                    e.preventDefault();
+                                    e.stopPropagation();
+                                    setFreeProfileDuration(duration.key);
+                                  }}
+                                  className={`p-3 rounded-lg text-left transition-all shadow-card card-surface ${
+                                    freeProfileDuration === duration.key
+                                      ? 'ring-[color:var(--color-primary)] bg-[var(--color-primary-a10)] text-primary shadow-token-sm'
+                                      : 'hover:ring-[color:var(--color-primary-a40)] hover:shadow-token-sm'
+                                  }`}
+                                >
+                                  <div className="font-medium text-sm">{duration.label}</div>
+                                </button>
+                              ))}
                             </div>
                           </div>
-                          
-                          {/* Checkmark */}
-                          {isActive && (
-                            <div className="flex-shrink-0 ml-3">
-                              <div className="w-10 h-10 rounded-full bg-primary flex items-center justify-center">
-                                <IconCheck size={22} className="text-[var(--color-on-primary)]" />
-                              </div>
-                            </div>
-                          )}
-                        </div>
-                      </button>
+                        )}
+                      </div>
                     );
                   })}
                 </>
               )}
             </div>
 
-            {/* Selección de duración para slots pagados */}
-            {slots.some(slot => isPaidSlot(slot) && activeSlots.includes(slot.id)) && (
+            {/* Resumen (desglose + total) */}
+            {selectedPaidSlots.length > 0 && (
               <div className="mt-6 p-4 card-surface ring-1 ring-[color:var(--color-primary-a20)] rounded-xl">
-                <h3 className="text-sm font-semibold text-lighttext dark:text-darktext mb-3 flex items-center gap-2">
-                  <IconClock size={16} />
-                  Duración del destacado
-                </h3>
-                <div className="grid grid-cols-2 gap-2">
-                  {[
-                    { key: '1_dia' as BoostDuration, label: '1 Día', price: getBoostPrice('home_main', '1_dia') },
-                    { key: '3_dias' as BoostDuration, label: '3 Días', price: getBoostPrice('home_main', '3_dias') },
-                    { key: '7_dias' as BoostDuration, label: '7 Días', price: getBoostPrice('home_main', '7_dias') },
-                    { key: '15_dias' as BoostDuration, label: '15 Días', price: getBoostPrice('home_main', '15_dias') },
-                    { key: '30_dias' as BoostDuration, label: '30 Días', price: getBoostPrice('home_main', '30_dias') },
-                  ].map((duration) => (
-                    <button
-                      key={duration.key}
-                      onClick={() => setSelectedDuration(duration.key)}
-                      className={`p-3 rounded-lg text-left transition-all shadow-card card-surface ${
-                        selectedDuration === duration.key
-                          ? 'ring-[color:var(--color-primary)] bg-[var(--color-primary-a10)] text-primary shadow-token-sm'
-                          : 'hover:ring-[color:var(--color-primary-a40)] hover:shadow-token-sm'
-                      }`}
-                    >
-                      <div className="font-medium text-sm">{duration.label}</div>
-                      <div className="text-xs text-lighttext/60 dark:text-darktext/60">
-                        ${duration.price.toLocaleString()} CLP
+                <div className="text-xs font-semibold text-lighttext/80 dark:text-darktext/80 mb-2">
+                  Resumen
+                </div>
+                <div className="space-y-1">
+                  {selectedPaidSlots.map((slot) => {
+                    const price = getBoostPrice(slot.key as BoostSlotKey, paidDuration);
+                    return (
+                      <div
+                        key={slot.id}
+                        className="flex items-center justify-between text-xs text-lighttext/70 dark:text-darktext/70"
+                      >
+                        <span className="truncate pr-2">{slot.title}</span>
+                        <span className="font-medium">${price.toLocaleString()} CLP</span>
                       </div>
-                    </button>
-                  ))}
+                    );
+                  })}
+                </div>
+
+                <div className="mt-3 pt-3 border-t border-border/60 flex items-center justify-between">
+                  <span className="text-xs font-semibold text-lighttext dark:text-darktext">
+                    Total
+                  </span>
+                  <span className="text-sm font-semibold text-lighttext dark:text-darktext">
+                    ${selectedPaidSlots
+                      .reduce((acc, slot) => {
+                        const price = getBoostPrice(slot.key as BoostSlotKey, paidDuration);
+                        return acc + price;
+                      }, 0)
+                      .toLocaleString()} CLP
+                  </span>
                 </div>
               </div>
             )}

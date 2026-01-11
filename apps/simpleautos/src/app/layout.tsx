@@ -14,12 +14,22 @@ import { CompareProvider } from "@/context/CompareContext";
 
 export const metadata: Metadata = {
   title: {
-    default: "SimpleAutos",
+    default: "SimpleAutos | Marketplace Automotriz",
     template: "%s | SimpleAutos",
   },
   description: "Publica y encuentra vehículos en SimpleAutos.",
   icons: {
-    icon: [{ url: "/icon.svg", type: "image/svg+xml" }],
+    icon: [
+      { url: "/favicon.png", type: "image/png", sizes: "2048x2048" },
+      { url: "/icon.svg", type: "image/svg+xml" },
+      { url: "/favicon.ico", type: "image/x-icon" },
+    ],
+    shortcut: [
+      { url: "/favicon.png", type: "image/png", sizes: "2048x2048" },
+      { url: "/icon.svg", type: "image/svg+xml" },
+      { url: "/favicon.ico", type: "image/x-icon" },
+    ],
+    apple: [{ url: "/favicon.png", type: "image/png", sizes: "2048x2048" }],
   },
 };
 

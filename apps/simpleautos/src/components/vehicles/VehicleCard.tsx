@@ -6,12 +6,13 @@ import { useFavorites } from "@/context/FavoritesContext";
 import { useCompare } from "@/context/CompareContext";
 import { UserAvatar, Button, CircleButton, ContactModal, useToast, useDisplayCurrency } from '@simple/ui';
 import { Vehicle } from "@/types/vehicle";
-import { IconChevronLeft, IconChevronRight, IconMapPin, IconGauge, IconEngine, IconManualGearbox, IconDots, IconBookmark, IconBookmarkFilled, IconShare2, IconScale, IconCar, IconMotorbike, IconTruck, IconBus, IconMail, IconFlag, IconLink, IconExternalLink } from '@tabler/icons-react';
+import { IconChevronLeft, IconChevronRight, IconMapPin, IconGauge, IconEngine, IconManualGearbox, IconDots, IconBookmark, IconBookmarkFilled, IconShare2, IconScale, IconCar, IconMotorbike, IconTruck, IconBus, IconMail, IconFlag, IconLink, IconExternalLink, IconBolt } from '@tabler/icons-react';
 import { toSpanish, conditionMap, capitalize, fuelTypeMap, transmissionMap } from '@/lib/vehicleTranslations';
 import { formatPrice } from '@/lib/format';
 import { convertFromClp } from '@/lib/displayCurrency';
 import { useSupabase } from "@/lib/supabase/useSupabase";
 import { getAvatarUrl } from "@/lib/supabaseStorage";
+import { BoostSlotsModal } from "@/components/boost/BoostSlotsModal";
 
 
 interface Seller {
@@ -29,6 +30,7 @@ export interface VehicleCardProps {
   className?: string;
   layout?: 'vertical' | 'horizontal';
   preview?: boolean;
+  allowBoost?: boolean;
   onClick?: (id: string) => void;
   onToggleFavorite?: (vehicle: Vehicle, favorite: boolean) => void;
   onShare?: (vehicle: Vehicle) => void;
@@ -41,6 +43,7 @@ export const VehicleCard: React.FC<VehicleCardProps> = ({
   className = "", 
   layout = 'vertical',
   preview = false,
+  allowBoost = true,
   onClick, 
   onToggleFavorite, 
   onShare, 
@@ -55,6 +58,7 @@ export const VehicleCard: React.FC<VehicleCardProps> = ({
   const [index, setIndex] = useState(0);
   const [menuOpen, setMenuOpen] = useState(false);
   const [contactModalOpen, setContactModalOpen] = useState(false);
+  const [boostModalOpen, setBoostModalOpen] = useState(false);
   const cardRef = useRef<HTMLDivElement>(null);
   const total = vehicle.image_urls?.length || 0;
   const go = (dir: number) => {
@@ -203,6 +207,14 @@ export const VehicleCard: React.FC<VehicleCardProps> = ({
     setMenuOpen(false);
   };
   const actFavFromMenu = (e: React.MouseEvent) => { toggleFav(e); setMenuOpen(false); };
+
+  const canBoost = Boolean(allowBoost && userId && vehicle.owner_id && userId === vehicle.owner_id);
+  const actBoost = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!canBoost) return;
+    setMenuOpen(false);
+    setBoostModalOpen(true);
+  };
   
   const { currency: displayCurrency } = useDisplayCurrency();
   const listingType = vehicle.listing_type || vehicle.listing_kind;
@@ -348,8 +360,8 @@ export const VehicleCard: React.FC<VehicleCardProps> = ({
       >
         <div className="flex flex-row items-stretch gap-0">
           {/* Galería de imágenes con navegación */}
-          <div className="relative w-40 sm:w-64 flex-shrink-0 card-surface/90 shadow-card rounded-l-2xl overflow-hidden">
-            <div className="relative w-full h-full aspect-[16/10] sm:aspect-[4/3] overflow-hidden">
+          <div className="relative w-40 sm:w-72 flex-shrink-0 card-surface/90 shadow-card rounded-l-2xl overflow-hidden">
+            <div className="relative w-full h-full aspect-[4/3] overflow-hidden">
               {renderImages()}
 
               {/* Controles de navegación de imágenes */}
@@ -400,33 +412,16 @@ export const VehicleCard: React.FC<VehicleCardProps> = ({
           </div>
 
           {/* Contenido principal */}
-          <div className="flex-1 flex flex-col p-2.5 sm:p-4 min-w-0">
-            {/* 1) Título */}
-            <h3 className="font-bold text-[15px] sm:text-lg leading-tight mb-2 line-clamp-1 sm:line-clamp-2 text-lighttext dark:text-darktext">
-              {vehicle.title}
-            </h3>
+          <div className="flex-1 flex flex-col p-4 min-w-0">
+            {/* Header: Título + Precio */}
+            <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2 sm:gap-3 mb-2">
+              <h3 className="font-bold text-[15px] sm:text-lg leading-tight line-clamp-2 text-lighttext dark:text-darktext min-w-0">
+                {vehicle.title}
+              </h3>
 
-            {/* 2) Etiquetas (tipo publicación, estado/condición, ubicación) */}
-            <div className="flex items-center gap-2 flex-wrap mb-2">
-              <span className={`px-2 py-0.5 rounded-full text-xs font-medium whitespace-nowrap ${badgeColor}`}>{badgeLabel}</span>
-              <span className="px-2 py-0.5 rounded-full text-xs font-medium whitespace-nowrap card-surface shadow-card text-lighttext/80 dark:text-darktext/80">
-                {estadoLabel}
-              </span>
-              <span className="px-2 py-0.5 rounded-full card-surface shadow-card text-lighttext/80 dark:text-darktext/80 text-xs font-medium flex items-center gap-1 min-w-0">
-                <IconMapPin size={14} className="flex-shrink-0" />
-                <span className="truncate max-w-[140px]">
-                  {(() => {
-                    const commune = vehicle.extra_specs?.legacy?.commune_name || (vehicle as any).commune_name;
-                    return commune || 'Sin ubicación';
-                  })()}
-                </span>
-              </span>
-            </div>
-
-            {/* 3) Precio */}
-            <div className="mb-2">
-              {(() => {
-                const listingType = vehicle.listing_type || vehicle.listing_kind;
+              <div className="text-left sm:text-right flex-shrink-0">
+                {(() => {
+                  const listingType = vehicle.listing_type || vehicle.listing_kind;
 
                   // Precio de arriendo
                   if (listingType === 'rent') {
@@ -448,22 +443,15 @@ export const VehicleCard: React.FC<VehicleCardProps> = ({
                     if (rentInfo && rentInfo.amount != null) {
                       const discountedAmount = discountInfo ? discountInfo.finalPrice : rentInfo.amount;
                       return (
-                        <div className="flex flex-col leading-tight items-start">
+                        <div className="flex flex-col leading-tight items-start sm:items-end">
                           <span className="text-lg sm:text-2xl font-bold text-lighttext dark:text-darktext whitespace-nowrap">
                             {formatDisplayPrice(discountedAmount)}
                           </span>
-                          <div className="flex items-center justify-start gap-2 whitespace-nowrap">
-                            {discountInfo ? (
-                              <span className="text-xs text-lighttext/70 dark:text-darktext/70 whitespace-nowrap line-through">
-                                {formatDisplayPrice(discountInfo.base)}
-                              </span>
-                            ) : null}
-                            <span className="text-xs text-lighttext/70 dark:text-darktext/70">{rentInfo.label}</span>
-                          </div>
+                          <span className="text-xs text-lighttext/70 dark:text-darktext/70 whitespace-nowrap">{rentInfo.label}</span>
                         </div>
                       );
                     }
-                    return <span className="text-sm text-lighttext/70 dark:text-darktext/70">Consultar precio</span>;
+                    return <span className="text-sm text-lighttext/70 dark:text-darktext/70">Consultar</span>;
                   }
 
                   // Precio de subasta
@@ -472,18 +460,11 @@ export const VehicleCard: React.FC<VehicleCardProps> = ({
                     if (auctionStart != null) {
                       const discountedAmount = discountInfo ? discountInfo.finalPrice : auctionStart;
                       return (
-                        <div className="flex flex-col leading-tight items-start">
+                        <div className="flex flex-col leading-tight items-start sm:items-end">
                           <span className="text-lg sm:text-2xl font-bold text-lighttext dark:text-darktext whitespace-nowrap">
                             {formatDisplayPrice(discountedAmount)}
                           </span>
-                          <div className="flex items-center justify-start gap-2 whitespace-nowrap">
-                            {discountInfo ? (
-                              <span className="text-xs text-lighttext/70 dark:text-darktext/70 whitespace-nowrap line-through">
-                                {formatDisplayPrice(discountInfo.base)}
-                              </span>
-                            ) : null}
-                            <span className="text-xs text-lighttext/70 dark:text-darktext/70">precio base</span>
-                          </div>
+                          <span className="text-xs text-lighttext/70 dark:text-darktext/70 whitespace-nowrap">precio base</span>
                         </div>
                       );
                     }
@@ -491,32 +472,41 @@ export const VehicleCard: React.FC<VehicleCardProps> = ({
 
                   // Precio de venta normal
                   const base = vehicle.price;
-                  if (base == null) return <span className="text-sm text-lighttext/70 dark:text-darktext/70">Consultar precio</span>;
-
-                  if (discountInfo) {
-                    return (
-                      <div className="flex flex-col leading-tight items-start">
-                        <span className="text-lg sm:text-2xl font-bold text-lighttext dark:text-darktext">{formatDisplayPrice(discountInfo.finalPrice)}</span>
-                        <span className="text-xs text-lighttext/70 dark:text-darktext/70 whitespace-nowrap line-through">
-                          {formatDisplayPrice(discountInfo.base)}
-                        </span>
-                      </div>
-                    );
-                  }
-
+                  if (base == null) return <span className="text-sm text-lighttext/70 dark:text-darktext/70">Consultar</span>;
+                  const shown = discountInfo ? discountInfo.finalPrice : base;
                   return (
-                    <div className="flex flex-col leading-tight items-start">
-                      <span className="text-lg sm:text-2xl font-bold text-lighttext dark:text-darktext">{formatDisplayPrice(base)}</span>
+                    <div className="flex flex-col leading-tight items-start sm:items-end">
+                      <span className="text-lg sm:text-2xl font-bold text-lighttext dark:text-darktext whitespace-nowrap">
+                        {formatDisplayPrice(shown)}
+                      </span>
                       <span className="text-xs text-lighttext/70 dark:text-darktext/70">&nbsp;</span>
                     </div>
                   );
                 })()}
+              </div>
             </div>
 
-            {/* 4) Iconos + Información */}
-            <div className="grid grid-cols-4 gap-2 mb-2">
-              <div className="flex flex-col items-center gap-1 min-w-0 text-[11px] sm:text-sm text-lighttext/70 dark:text-darktext/70">
-                <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-full card-surface shadow-card flex items-center justify-center flex-shrink-0">
+            {/* 2) Etiquetas (tipo publicación, estado/condición, ubicación) */}
+            <div className="flex items-center gap-2 mb-2 overflow-hidden">
+              <span className={`px-2 py-0.5 rounded-full text-xs font-medium whitespace-nowrap flex-shrink-0 ${badgeColor}`}>{badgeLabel}</span>
+              <span className="px-2 py-0.5 rounded-full text-xs font-medium whitespace-nowrap flex-shrink-0 card-surface shadow-card text-lighttext/80 dark:text-darktext/80">
+                {estadoLabel}
+              </span>
+              <span className="px-2 py-0.5 rounded-full card-surface shadow-card text-lighttext/80 dark:text-darktext/80 text-xs font-medium flex items-center gap-1 min-w-0 whitespace-nowrap flex-shrink max-w-[140px] sm:max-w-[240px]">
+                <IconMapPin size={14} className="flex-shrink-0" />
+                <span className="truncate">
+                  {(() => {
+                    const commune = vehicle.extra_specs?.legacy?.commune_name || (vehicle as any).commune_name;
+                    return commune || 'Sin ubicación';
+                  })()}
+                </span>
+              </span>
+            </div>
+
+            {/* 4) Especificaciones (compactas) */}
+            <div className="flex items-center gap-3 mb-2 overflow-hidden">
+              <div className="flex items-center gap-2 min-w-0 text-xs sm:text-sm text-lighttext/70 dark:text-darktext/70">
+                <div className="w-7 h-7 rounded-full card-surface shadow-card flex items-center justify-center flex-shrink-0">
                   {(() => {
                     const typeKey = vehicle.type_key || 'car';
                     if (typeKey === 'motorcycle') return <IconMotorbike size={16} stroke={1.5} />;
@@ -525,7 +515,7 @@ export const VehicleCard: React.FC<VehicleCardProps> = ({
                     return <IconCar size={16} stroke={1.5} />;
                   })()}
                 </div>
-                <span className="truncate w-full text-center">
+                <span className="truncate">
                   {(() => {
                     const label = (vehicle as any).type_label;
                     if (label) return label;
@@ -545,31 +535,31 @@ export const VehicleCard: React.FC<VehicleCardProps> = ({
                 </span>
               </div>
 
-              <div className="flex flex-col items-center gap-1 min-w-0 text-[11px] sm:text-sm text-lighttext/70 dark:text-darktext/70">
-                <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-full card-surface shadow-card flex items-center justify-center flex-shrink-0">
+              <div className="flex items-center gap-2 min-w-0 text-xs sm:text-sm text-lighttext/70 dark:text-darktext/70">
+                <div className="w-7 h-7 rounded-full card-surface shadow-card flex items-center justify-center flex-shrink-0">
                   <IconGauge size={16} stroke={1.5} />
                 </div>
-                <span className="truncate w-full text-center">
+                <span className="truncate">
                   {((vehicle as any).mileage || vehicle.mileage_km || 0) >= 1000
                     ? `${Math.round(((vehicle as any).mileage || vehicle.mileage_km || 0) / 1000)}k km`
                     : `${((vehicle as any).mileage || vehicle.mileage_km || 0)} km`}
                 </span>
               </div>
 
-              <div className="flex flex-col items-center gap-1 min-w-0 text-[11px] sm:text-sm text-lighttext/70 dark:text-darktext/70">
-                <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-full card-surface shadow-card flex items-center justify-center flex-shrink-0">
+              <div className="hidden sm:flex items-center gap-2 min-w-0 text-xs sm:text-sm text-lighttext/70 dark:text-darktext/70">
+                <div className="w-7 h-7 rounded-full card-surface shadow-card flex items-center justify-center flex-shrink-0">
                   <IconEngine size={16} stroke={1.5} />
                 </div>
-                <span className="truncate w-full text-center">
+                <span className="truncate">
                   {capitalize(toSpanish(fuelTypeMap, vehicle.extra_specs?.legacy?.fuel_legacy || vehicle.extra_specs?.fuel_type) ?? '-')}
                 </span>
               </div>
 
-              <div className="flex flex-col items-center gap-1 min-w-0 text-[11px] sm:text-sm text-lighttext/70 dark:text-darktext/70">
-                <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-full card-surface shadow-card flex items-center justify-center flex-shrink-0">
+              <div className="hidden sm:flex items-center gap-2 min-w-0 text-xs sm:text-sm text-lighttext/70 dark:text-darktext/70">
+                <div className="w-7 h-7 rounded-full card-surface shadow-card flex items-center justify-center flex-shrink-0">
                   <IconManualGearbox size={16} stroke={1.5} />
                 </div>
-                <span className="truncate w-full text-center">
+                <span className="truncate">
                   {capitalize(toSpanish(transmissionMap, vehicle.extra_specs?.legacy?.transmission_legacy || vehicle.extra_specs?.transmission) ?? '-')}
                 </span>
               </div>
@@ -578,7 +568,7 @@ export const VehicleCard: React.FC<VehicleCardProps> = ({
             {/* 5) Acciones abajo */}
             {!preview && (
               <>
-                <div className="mt-auto pt-1 flex items-center gap-2">
+                <div className="mt-auto pt-2 flex items-center gap-2">
                   <CircleButton
                     onClick={handleAvatarClick}
                     aria-label="Ver perfil del vendedor"
@@ -596,10 +586,13 @@ export const VehicleCard: React.FC<VehicleCardProps> = ({
                     type="button"
                     onClick={(e) => { e.stopPropagation(); setContactModalOpen(true); }}
                     className="relative z-30 flex-1"
-                    variant="primary"
-                    size="sm"
+                    variant="outline"
+                    size="md"
                   >
-                    Contactar
+                    <span className="inline-flex items-center gap-2">
+                      <IconMail size={18} stroke={1.5} />
+                      Contactar
+                    </span>
                   </Button>
                   <CircleButton
                     type="button"
@@ -619,6 +612,11 @@ export const VehicleCard: React.FC<VehicleCardProps> = ({
                     <button onClick={actView} className="w-full flex items-center gap-2 px-3 py-2 text-sm hover:bg-lightbg dark:hover:bg-darkbg text-left transition">
                       <IconExternalLink size={16} stroke={1.5} /> Ver publicación
                     </button>
+                    {canBoost && (
+                      <button onClick={actBoost} className="w-full flex items-center gap-2 px-3 py-2 text-sm hover:bg-lightbg dark:hover:bg-darkbg text-left transition">
+                        <IconBolt size={16} stroke={1.5} /> Impulsar
+                      </button>
+                    )}
                     <button onClick={actFavFromMenu} className="w-full flex items-center gap-2 px-3 py-2 text-sm hover:bg-lightbg dark:hover:bg-darkbg text-left transition">
                       {favorite ? <IconBookmarkFilled size={16} stroke={1.5} /> : <IconBookmark size={16} stroke={1.5} />} {favorite ? 'Quitar de favoritos' : 'Favoritos'}
                     </button>
@@ -650,6 +648,17 @@ export const VehicleCard: React.FC<VehicleCardProps> = ({
             email={seller?.email}
             phone={seller?.phone}
             contextType="vehicle"
+          />
+        )}
+
+        {boostModalOpen && canBoost && (
+          <BoostSlotsModal
+            listingId={vehicle.id}
+            vehicleTitle={vehicle.title}
+            listingType={((vehicle.listing_type as any) || 'sale')}
+            userId={userId}
+            onClose={() => setBoostModalOpen(false)}
+            onSuccess={() => setBoostModalOpen(false)}
           />
         )}
       </div>
@@ -894,6 +903,11 @@ export const VehicleCard: React.FC<VehicleCardProps> = ({
                 <button onClick={actView} className="w-full flex items-center gap-2 px-3 py-2 text-sm hover:bg-lightbg dark:hover:bg-darkbg text-left transition">
                   <IconExternalLink size={16} stroke={1.5} /> Ver publicación
                 </button>
+                {canBoost && (
+                  <button onClick={actBoost} className="w-full flex items-center gap-2 px-3 py-2 text-sm hover:bg-lightbg dark:hover:bg-darkbg text-left transition">
+                    <IconBolt size={16} stroke={1.5} /> Impulsar
+                  </button>
+                )}
                 <button onClick={actFavFromMenu} className="w-full flex items-center gap-2 px-3 py-2 text-sm hover:bg-lightbg dark:hover:bg-darkbg text-left transition">
                   {favorite ? <IconBookmarkFilled size={16} stroke={1.5} /> : <IconBookmark size={16} stroke={1.5} />} {favorite ? 'Quitar de favoritos' : 'Favoritos'}
                 </button>
@@ -924,6 +938,17 @@ export const VehicleCard: React.FC<VehicleCardProps> = ({
           email={seller?.email}
           phone={seller?.phone}
           contextType="vehicle"
+        />
+      )}
+
+      {boostModalOpen && canBoost && (
+        <BoostSlotsModal
+          listingId={vehicle.id}
+          vehicleTitle={vehicle.title}
+          listingType={((vehicle.listing_type as any) || 'sale')}
+          userId={userId}
+          onClose={() => setBoostModalOpen(false)}
+          onSuccess={() => setBoostModalOpen(false)}
         />
       )}
     </div>
