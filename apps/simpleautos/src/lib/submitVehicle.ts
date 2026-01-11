@@ -362,10 +362,13 @@ export function useSubmitVehicle() {
       if (typeof maxActiveListings === 'number' && maxActiveListings > -1) {
         let countQuery = supabase
           .from('listings')
-          .select('id', { count: 'exact', head: true })
+          .select('id', { count: 'exact' })
           .eq('user_id', user.id)
           .eq('status', 'published')
           .eq('vertical_id', verticalId);
+
+        // No necesitamos los rows; solo el count.
+        countQuery = countQuery.limit(1);
 
         if (listingId) {
           countQuery = countQuery.neq('id', listingId);
@@ -376,7 +379,13 @@ export function useSubmitVehicle() {
           return { error: countError };
         }
 
-        const activeCount = typeof count === 'number' ? count : 0;
+        if (typeof count !== 'number') {
+          return {
+            error: new Error('No pudimos validar el límite de publicaciones. Intenta nuevamente.'),
+          };
+        }
+
+        const activeCount = count;
         if (activeCount >= maxActiveListings) {
           return {
             error: new Error(
