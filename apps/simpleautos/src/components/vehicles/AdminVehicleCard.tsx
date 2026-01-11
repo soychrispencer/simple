@@ -1,6 +1,6 @@
 ﻿import React, { useState, useRef, useEffect } from "react";
 import { Button, CircleButton, Chip, useDisplayCurrency } from '@simple/ui';
-import { IconChevronLeft, IconChevronRight, IconMapPin, IconGauge, IconEngine, IconManualGearbox, IconDots, IconTrash, IconCopy, IconEye, IconCar, IconMotorbike, IconTruck, IconBus, IconPointer, IconPlayerPlay, IconPlayerPause, IconFileText, IconEdit, IconCreditCard, IconGift, IconTag, IconBolt, IconShare2 } from '@tabler/icons-react';
+import { IconChevronLeft, IconChevronRight, IconMapPin, IconGauge, IconEngine, IconManualGearbox, IconDots, IconTrash, IconCopy, IconEye, IconCar, IconMotorbike, IconTruck, IconBus, IconPointer, IconPlayerPlay, IconPlayerPause, IconFileText, IconEdit, IconCreditCard, IconGift, IconTag, IconShare2 } from '@tabler/icons-react';
 import { conditionMap, toSpanish, capitalize, fuelTypeMap, transmissionMap } from '@/lib/vehicleTranslations';
 import { formatPrice } from '@/lib/format';
 import { convertFromClp } from '@/lib/displayCurrency';
@@ -701,18 +701,24 @@ export const AdminVehicleCard: React.FC<AdminVehicleCardProps> = ({
                   size={40}
                   variant="default"
                 >
-                  <IconBolt size={20} stroke={1.5} />
+                  <span className={`text-lg drop-shadow-md select-none text-[var(--color-warn)] ${vehicle.featured ? '' : 'opacity-40 grayscale'}`}>
+                    {'\u26A1'}
+                  </span>
                 </CircleButton>
 
-                <CircleButton
+                <Button
                   type="button"
                   onClick={handleEdit}
-                  aria-label="Editar"
-                  size={40}
-                  variant="default"
+                  className="flex-1"
+                  variant="outline"
+                  size="md"
+                  shape="rounded"
                 >
-                  <IconEdit size={20} stroke={1.5} />
-                </CircleButton>
+                  <span className="inline-flex items-center gap-2">
+                    <IconEdit size={18} stroke={1.5} />
+                    Editar
+                  </span>
+                </Button>
 
                 <CircleButton
                   type="button"
