@@ -1,21 +1,219 @@
 ﻿"use client";
 import React from "react";
 import { loadVehicleWithSpecs } from '@/lib/loadVehicleWithSpecs';
-import { PanelPageLayout, useToast } from "@simple/ui";
+import { Button, PanelPageLayout, useToast } from "@simple/ui";
 import { WizardProvider, useWizard } from "@/components/vehicle-wizard/context/WizardContext";
 import { VehicleWizard } from "@/components/vehicle-wizard/VehicleWizard";
 import { logError } from "@/lib/logger";
 import { useSearchParams } from 'next/navigation';
 import { getSupabaseClient } from "@/lib/supabase/supabase";
+import { useSupabase } from "@/lib/supabase/useSupabase";
+import { useListingsScope } from "@simple/listings";
+import { FREE_TIER_MAX_ACTIVE_LISTINGS } from "@simple/config";
 
 export default function NuevaPublicacion() {
   return <WizardWithStorageKey />;
+}
+
+const AUTOS_VERTICAL_KEYS = ["vehicles", "autos"] as const;
+
+function BlockedPublishScreen({ message }: { message: string }) {
+  return (
+    <PanelPageLayout
+      header={{
+        title: "Publicar",
+        description: "Completa los pasos y publica tu anuncio.",
+      }}
+    >
+      <div className="w-full mt-8">
+        <div className="card-surface shadow-card rounded-3xl p-6 sm:p-8">
+          <div className="rounded-lg border border-[var(--color-warn-subtle-border)] bg-[var(--color-warn-subtle-bg)] px-4 py-3 text-sm text-[var(--color-warn)] flex flex-col gap-3">
+            <div className="flex flex-col gap-1">
+              <span className="font-semibold">No puedes publicar una nueva publicación ahora.</span>
+              <span className="text-[12px] text-lighttext/80 dark:text-darktext/80">{message}</span>
+            </div>
+            <div className="flex gap-2 flex-wrap">
+              <Button type="button" variant="neutral" size="sm" onClick={() => { window.location.href = '/panel/mis-publicaciones'; }}>
+                Ir a Mis Publicaciones
+              </Button>
+              <Button type="button" variant="primary" size="sm" onClick={() => { window.location.href = '/panel/mis-suscripciones'; }}>
+                Ver planes
+              </Button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </PanelPageLayout>
+  );
+}
+
+function LoadingGateScreen() {
+  return (
+    <PanelPageLayout
+      header={{
+        title: "Publicar",
+        description: "Completa los pasos y publica tu anuncio.",
+      }}
+    >
+      <div className="w-full mt-8">
+        <div className="card-surface shadow-card rounded-3xl p-6 sm:p-8">
+          <div className="text-sm text-lighttext/80 dark:text-darktext/80">Validando tu plan...</div>
+        </div>
+      </div>
+    </PanelPageLayout>
+  );
 }
 
 function WizardWithStorageKey() {
   const searchParams = useSearchParams();
   const id = searchParams.get('id');
   const forceNew = !id && searchParams.get('new') === '1';
+
+  const supabase = useSupabase();
+  const { user, loading: scopeLoading, scopeFilter } = useListingsScope({ toastOnMissing: false });
+  const isCreating = !id;
+
+  const [gateLoading, setGateLoading] = React.useState(isCreating);
+  const [blockedMessage, setBlockedMessage] = React.useState<string | null>(null);
+
+  React.useEffect(() => {
+    if (!isCreating) {
+      setGateLoading(false);
+      setBlockedMessage(null);
+      return;
+    }
+
+    if (!supabase) return;
+    if (!user?.id) {
+      // Sin usuario no hacemos gate; el wizard ya maneja auth al enviar.
+      setGateLoading(false);
+      setBlockedMessage(null);
+      return;
+    }
+
+    if (scopeLoading) return;
+    if (!scopeFilter) {
+      // Sin scope válido, no bloqueamos acá (el wizard puede guiar/mostrar error cuando corresponda).
+      setGateLoading(false);
+      setBlockedMessage(null);
+      return;
+    }
+
+    let cancelled = false;
+    (async () => {
+      setGateLoading(true);
+      try {
+        const { data: verticals, error: verticalError } = await supabase
+          .from('verticals')
+          .select('id, key')
+          .in('key', AUTOS_VERTICAL_KEYS as unknown as string[])
+          .limit(1);
+
+        if (verticalError || !verticals || verticals.length === 0) {
+          throw verticalError ?? new Error('No se encontró la vertical de autos.');
+        }
+        const verticalId = verticals[0].id as string;
+
+        let companyId: string | null = null;
+        if (scopeFilter.column === 'public_profile_id') {
+          const { data: pp, error: ppError } = await supabase
+            .from('public_profiles')
+            .select('company_id')
+            .eq('id', scopeFilter.value)
+            .maybeSingle();
+          if (ppError) throw ppError;
+          companyId = (pp as any)?.company_id ?? null;
+        }
+
+        let planLimits: any = null;
+        if (companyId) {
+          const { data: activeSub, error: subError } = await supabase
+            .from('subscriptions')
+            .select('subscription_plans(limits)')
+            .eq('company_id', companyId)
+            .eq('status', 'active')
+            .eq('vertical_id', verticalId)
+            .maybeSingle();
+          if (subError) throw subError;
+          const planSource = Array.isArray((activeSub as any)?.subscription_plans)
+            ? (activeSub as any)?.subscription_plans?.[0]
+            : (activeSub as any)?.subscription_plans;
+          planLimits = planSource?.limits ?? null;
+        } else {
+          const { data: activeSub, error: subError } = await supabase
+            .from('subscriptions')
+            .select('subscription_plans(limits)')
+            .eq('user_id', user.id)
+            .eq('status', 'active')
+            .eq('vertical_id', verticalId)
+            .maybeSingle();
+          if (subError) throw subError;
+          const planSource = Array.isArray((activeSub as any)?.subscription_plans)
+            ? (activeSub as any)?.subscription_plans?.[0]
+            : (activeSub as any)?.subscription_plans;
+          planLimits = planSource?.limits ?? null;
+        }
+
+        const parsedMaxActive = Number(planLimits?.max_active_listings ?? planLimits?.max_listings);
+        const parsedMaxTotal = Number(planLimits?.max_total_listings ?? planLimits?.max_listings);
+
+        const maxActive = Number.isFinite(parsedMaxActive) ? parsedMaxActive : FREE_TIER_MAX_ACTIVE_LISTINGS;
+        const maxTotal = Number.isFinite(parsedMaxTotal) ? parsedMaxTotal : 1;
+
+        const [{ count: publishedCount, error: pubErr }, { count: totalCount, error: totalErr }] = await Promise.all([
+          supabase
+            .from('listings')
+            .select('id', { count: 'exact' })
+            .eq('vertical_id', verticalId)
+            .eq('status', 'published')
+            .eq(scopeFilter.column, scopeFilter.value)
+            .limit(1),
+          supabase
+            .from('listings')
+            .select('id', { count: 'exact' })
+            .eq('vertical_id', verticalId)
+            .eq(scopeFilter.column, scopeFilter.value)
+            .limit(1),
+        ]);
+
+        if (pubErr) throw pubErr;
+        if (totalErr) throw totalErr;
+
+        const activePublished = typeof publishedCount === 'number' ? publishedCount : 0;
+        const totalListings = typeof totalCount === 'number' ? totalCount : 0;
+
+        const blockedByTotal = maxTotal > -1 && totalListings >= maxTotal;
+        const blockedByActive = maxActive > -1 && activePublished >= maxActive;
+
+        if (!cancelled && (blockedByTotal || blockedByActive)) {
+          const reason = blockedByTotal
+            ? `Tu plan permite hasta ${maxTotal} publicación(es) en total. Elimina la actual o mejora tu plan para crear otra.`
+            : `Tu plan permite hasta ${maxActive} publicación(es) activa(s). Pausa la actual o mejora tu plan para publicar otra.`;
+          setBlockedMessage(reason);
+        } else if (!cancelled) {
+          setBlockedMessage(null);
+        }
+      } catch (e: any) {
+        // Ante cualquier error de gate, no bloqueamos el flujo.
+        if (!cancelled) setBlockedMessage(null);
+      } finally {
+        if (!cancelled) setGateLoading(false);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [isCreating, scopeFilter, scopeLoading, supabase, user?.id]);
+
+  if (isCreating && gateLoading) {
+    return <LoadingGateScreen />;
+  }
+
+  if (isCreating && blockedMessage) {
+    return <BlockedPublishScreen message={blockedMessage} />;
+  }
+
   // Aislamos el borrador por publicación cuando es edición, para no mezclar progreso
   // entre distintos IDs.
   const storageKey = id
