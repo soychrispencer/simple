@@ -191,3 +191,5 @@ export function ToastProvider({
     </ToastContext.Provider>
   );
 }
+
+export default ToastProvider;
