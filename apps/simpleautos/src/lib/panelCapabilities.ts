@@ -9,12 +9,15 @@ export interface PanelCapabilities {
   hasInteractions: boolean;
   hasGrowth: boolean;
   hasPublicPage: boolean;
+  isAdmin: boolean;
   onboardingStatus?: string | null;
 }
 
 function deriveCapabilities(profile: Profile | null | undefined, planKey: string): PanelCapabilities {
   const hasBusiness = Boolean(profile?.has_business);
   const onboardingStatus = profile?.onboarding_status ?? null;
+  const role = String((profile as any)?.user_role || '').trim().toLowerCase();
+  const isAdmin = Boolean((profile as any)?.is_admin) || role === 'admin' || role === 'staff' || role === 'superadmin';
 
   return {
     hasBusiness,
@@ -22,12 +25,13 @@ function deriveCapabilities(profile: Profile | null | undefined, planKey: string
     hasInteractions: true, // mensajes/guardados disponibles para usuarios logueados
     hasGrowth: hasBusiness && planKey !== "free",
     hasPublicPage: hasBusiness && planKey !== "free",
+    isAdmin,
     onboardingStatus,
   };
 }
 
 export function buildPanelManifest(capabilities: PanelCapabilities): PanelManifest {
-  const { hasBusiness, canPublish, hasInteractions, hasGrowth, hasPublicPage } = capabilities;
+  const { hasBusiness, canPublish, hasInteractions, hasGrowth, hasPublicPage, isAdmin } = capabilities;
 
   const sidebarSections: PanelManifest["sidebar"] = [];
 
@@ -124,6 +128,24 @@ export function buildPanelManifest(capabilities: PanelCapabilities): PanelManife
           href: "/panel/guardados",
           icon: "favorites",
           description: "Usuarios interesados",
+          status: "active",
+        },
+      ],
+    });
+  }
+
+  // Admin
+  if (isAdmin) {
+    sidebarSections.push({
+      id: "admin",
+      title: "Admin",
+      items: [
+        {
+          id: "venta-asistida-leads",
+          label: "Venta asistida (Leads)",
+          href: "/panel/admin/venta-asistida",
+          icon: "messages",
+          description: "Solicitudes y estados del servicio",
           status: "active",
         },
       ],

@@ -19,7 +19,8 @@ const Footer = () => {
       { label: 'Comprar Vehículos', href: '/ventas' },
       { label: 'Alquilar Vehículos', href: '/arriendos' },
       { label: 'Subastas', href: '/subastas' },
-      { label: 'Vender mi Auto', href: '/panel/publicar-vehiculo?new=1' }
+      { label: 'Publicar mi Vehículo', href: '/panel/publicar-vehiculo?new=1' },
+      { label: 'Venta asistida', href: '/servicios/venta-asistida' }
     ],
     empresa: [
       { label: 'Sobre Nosotros', href: '/empresa' },

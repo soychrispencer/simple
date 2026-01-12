@@ -509,13 +509,13 @@ export const AdminVehicleCard: React.FC<AdminVehicleCardProps> = ({
 
                 {/* Badges de tipo publicación, condición y ubicación - una sola línea */}
                 <div className="flex items-center gap-2 mb-2 max-w-full overflow-hidden">
-                  <span className={`px-2.5 py-1 rounded-full text-xs font-medium whitespace-nowrap ${listingTypeClasses}`}>
+                  <span className={`px-2 py-0.5 sm:px-2.5 sm:py-1 rounded-full text-[11px] sm:text-xs font-medium whitespace-nowrap min-w-0 max-w-[86px] sm:max-w-none truncate ${listingTypeClasses}`}>
                     {listingTypeLabel}
                   </span>
-                  <span className="px-2.5 py-1 rounded-full text-xs font-medium card-surface shadow-card text-lighttext/80 dark:text-darktext/80 whitespace-nowrap">
+                  <span className="px-2 py-0.5 sm:px-2.5 sm:py-1 rounded-full text-[11px] sm:text-xs font-medium card-surface shadow-card text-lighttext/80 dark:text-darktext/80 whitespace-nowrap min-w-0 max-w-[86px] sm:max-w-none truncate">
                     {conditionLabel}
                   </span>
-                  <span className="px-2.5 py-1 rounded-full text-xs font-medium card-surface shadow-card text-lighttext/80 dark:text-darktext/80 flex items-center gap-1 min-w-0 whitespace-nowrap flex-shrink max-w-[160px] sm:max-w-[260px]">
+                  <span className="px-2 py-0.5 sm:px-2.5 sm:py-1 rounded-full text-[11px] sm:text-xs font-medium card-surface shadow-card text-lighttext/80 dark:text-darktext/80 flex items-center gap-1 min-w-0 whitespace-nowrap flex-shrink max-w-[160px] sm:max-w-[260px]">
                     <IconMapPin size={14} stroke={1.5} className="flex-shrink-0" />
                     <span className="truncate">{vehicle.commune || 'Sin ubicación'}</span>
                   </span>

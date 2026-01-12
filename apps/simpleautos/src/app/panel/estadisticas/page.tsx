@@ -7,6 +7,7 @@ import { Select, LineChart } from "@simple/ui";
 import { IconEye, IconPhone, IconBookmark, IconShare, IconTrendingUp, IconTrophy, IconChartBar, IconChartLine } from '@tabler/icons-react';
 import { useListingsScope } from "@simple/listings";
 import { logError } from "@/lib/logger";
+import { usePanelCapabilities } from "@/lib/panelCapabilities";
 
 const AUTOS_VERTICAL_KEYS = ["vehicles", "autos"] as const;
 const AUTOS_VERTICAL_FILTER = [...AUTOS_VERTICAL_KEYS];
@@ -21,7 +22,10 @@ type ListingRow = {
   status: string;
   published_at: string | null;
   created_at: string | null;
-  listing_metrics?: { views?: number; clicks?: number; favorites?: number; shares?: number } | null;
+  listing_metrics?:
+    | { views?: number | null; clicks?: number | null; favorites?: number | null; shares?: number | null }
+    | { views?: number | null; clicks?: number | null; favorites?: number | null; shares?: number | null }[]
+    | null;
   listings_vehicles?: {
     vehicle_type_id?: string | null;
     vehicle_types?: { slug?: string | null } | null;
@@ -69,11 +73,12 @@ function getPreviousRange(period: PeriodFilter): { start: Date; end: Date } | nu
 }
 
 function normalizeMetrics(metrics?: ListingRow['listing_metrics']) {
+  const resolved = Array.isArray(metrics) ? metrics[0] : metrics;
   return {
-    views: metrics?.views ?? 0,
-    clicks: metrics?.clicks ?? 0,
-    favorites: metrics?.favorites ?? 0,
-    shares: metrics?.shares ?? 0,
+    views: typeof resolved?.views === 'number' ? resolved.views : 0,
+    clicks: typeof resolved?.clicks === 'number' ? resolved.clicks : 0,
+    favorites: typeof resolved?.favorites === 'number' ? resolved.favorites : 0,
+    shares: typeof resolved?.shares === 'number' ? resolved.shares : 0,
   };
 }
 
@@ -113,6 +118,8 @@ function sortImages(images?: ListingRow['images']) {
 export default function Estadisticas(): React.ReactElement {
   const supabase = useSupabase();
   const { user, scopeFilter, loading: scopeLoading } = useListingsScope({ verticalKey: 'autos' });
+  const { capabilities, loading: capabilitiesLoading } = usePanelCapabilities();
+  const canViewStats = capabilities?.hasGrowth ?? false;
   
   const [metrics, setMetrics] = React.useState<Metrics>({
     views: 0,
@@ -138,7 +145,18 @@ export default function Estadisticas(): React.ReactElement {
   const [vehicleType, setVehicleType] = React.useState<VehicleFilter>('all');
 
   const fetchMetrics = React.useCallback(async () => {
-    if (!supabase || scopeLoading) return;
+    if (!supabase || scopeLoading || capabilitiesLoading) return;
+    if (!canViewStats) {
+      setMetrics({ views: 0, contacts: 0, favorites: 0, shares: 0, conversionRate: 0 });
+      setPreviousMetrics({ views: 0, contacts: 0, favorites: 0, shares: 0 });
+      setBars([]);
+      setBarLabels([]);
+      setRecentVehicles([]);
+      setChartData([]);
+      setChartLabels([]);
+      setLoading(false);
+      return;
+    }
 
     if (!user || !scopeFilter) {
       setMetrics({ views: 0, contacts: 0, favorites: 0, shares: 0, conversionRate: 0 });
@@ -291,7 +309,7 @@ export default function Estadisticas(): React.ReactElement {
     } finally {
       setLoading(false);
     }
-  }, [supabase, scopeFilter, scopeLoading, user, period, vehicleType]);
+  }, [supabase, scopeFilter, scopeLoading, capabilitiesLoading, canViewStats, user, period, vehicleType]);
 
   React.useEffect(() => {
     void fetchMetrics();
@@ -299,9 +317,9 @@ export default function Estadisticas(): React.ReactElement {
 
   const periodOptions = [
     { value: 'all', label: 'Todo el tiempo' },
-    { value: 'week', label: '�ltima semana' },
-    { value: 'month', label: '�ltimo mes' },
-    { value: 'year', label: '�ltimo a�o' },
+    { value: 'week', label: 'Última semana (publicadas)' },
+    { value: 'month', label: 'Último mes (publicadas)' },
+    { value: 'year', label: 'Último año (publicadas)' },
   ];
 
   const vehicleTypeOptions = [
@@ -352,9 +370,23 @@ export default function Estadisticas(): React.ReactElement {
     <PanelPageLayout
       header={{
         title: "Estadísticas",
-        description: "Resumen de rendimiento de tus publicaciones."
+        description: "Resumen de rendimiento de tus publicaciones (métricas acumuladas por publicación)."
       }}
     >
+      {!capabilitiesLoading && !canViewStats ? (
+        <div className="card-surface shadow-card p-6">
+          <div className="text-lg font-semibold text-lighttext dark:text-darktext mb-2">
+            Disponible en Pro
+          </div>
+          <div className="text-sm text-lighttext/70 dark:text-darktext/70 mb-4">
+            Las estadísticas avanzadas están incluidas en el plan Pro. Activa tu plan para ver vistas, contactos y rendimiento.
+          </div>
+          <Button variant="primary" size="md" onClick={() => { window.location.href = '/panel/mis-suscripciones'; }}>
+            Activar Pro
+          </Button>
+        </div>
+      ) : (
+        <>
       <div className="card-surface shadow-card p-4 mb-6 flex flex-wrap gap-3 items-center">
         <Select
           label=""
@@ -417,7 +449,7 @@ export default function Estadisticas(): React.ReactElement {
               <div className="text-3xl font-bold text-lighttext dark:text-darktext mb-1">{m.value}</div>
               {m.growth !== null && (
                 <div className={`text-sm ${m.growth >= 0 ? 'text-[var(--color-success)]' : 'text-[var(--color-danger)]'}`}>
-                  {formatGrowth(m.growth)} vs periodo anterior
+                  {formatGrowth(m.growth)} vs publicaciones del período anterior
                 </div>
               )}
             </div>
@@ -425,7 +457,7 @@ export default function Estadisticas(): React.ReactElement {
         )}
       </div>
       <div className="card-surface shadow-card p-6">
-        <div className="text-lighttext dark:text-darktext font-semibold mb-4">Vistas en ultimas 7 publicaciones</div>
+        <div className="text-lighttext dark:text-darktext font-semibold mb-4">Vistas en últimas 7 publicaciones</div>
         {loading ? (
           <div>Cargando grafico...</div>
         ) : (
@@ -448,7 +480,7 @@ export default function Estadisticas(): React.ReactElement {
               ))}
             </div>
             <div className="text-sm text-lighttext/70 dark:text-darktext/70 text-center">
-              Numero de vistas por publicacion
+              Número de vistas por publicación
             </div>
           </div>
         )}
@@ -459,7 +491,7 @@ export default function Estadisticas(): React.ReactElement {
           <div className="flex items-center justify-between mb-6">
           <div>
             <h3 className="text-lg font-semibold text-lighttext dark:text-darktext">Tendencia de Vistas</h3>
-            <p className="text-sm text-lighttext/70 dark:text-darktext/70">Ultimas 2 semanas de actividad</p>
+            <p className="text-sm text-lighttext/70 dark:text-darktext/70">Distribución de vistas acumuladas por fecha de publicación (últimas 2 semanas)</p>
           </div>
           <div className="flex gap-2">
             <Button
@@ -468,7 +500,7 @@ export default function Estadisticas(): React.ReactElement {
               onClick={() => setChartType('line')}
             >
               <IconChartLine size={16} stroke={1.7} className="mr-2" />
-              L�nea
+              Línea
             </Button>
             <Button
               variant={chartType === 'bar' ? 'primary' : 'neutral'}
@@ -481,7 +513,7 @@ export default function Estadisticas(): React.ReactElement {
           </div>
         </div>
 
-        {/* Estad�sticas r�pidas */}
+        {/* Estadísticas rápidas */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
           <div className="text-center p-3 card-surface shadow-card rounded-lg">
             <div className="text-lg font-bold text-primary">{chartStats.promedio}</div>
@@ -503,11 +535,11 @@ export default function Estadisticas(): React.ReactElement {
           </div>
         </div>
 
-        {/* Gr�fica principal */}
+        {/* Gráfica principal */}
         <div className="flex justify-center">
           <div className="w-full max-w-4xl h-96">
             {loading ? (
-              <div className="h-full flex items-center justify-center">Cargando gr�fica...</div>
+              <div className="h-full flex items-center justify-center">Cargando gráfica...</div>
             ) : chartType === 'line' ? (
               <LineChart
                 data={chartData}
@@ -523,7 +555,7 @@ export default function Estadisticas(): React.ReactElement {
         </div>
 
         <div className="mt-4 text-sm text-lighttext/70 dark:text-darktext/70 text-center">
-          Vistas diarias en las �ltimas 2 semanas
+          Vistas acumuladas agrupadas por fecha de publicación
         </div>
       </div>
 
@@ -546,13 +578,15 @@ export default function Estadisticas(): React.ReactElement {
                     </div>
                     <div>
                       <div className="font-medium text-[var(--text-primary)] text-sm">
-                        {vehicle.title || 'Sin t�tulo'}
+                        {vehicle.title || 'Sin título'}
                       </div>
                       <div className="text-xs text-lighttext/70 dark:text-darktext/70">
-                        {new Date(vehicle.published_at).toLocaleDateString('es-ES', {
-                          day: 'numeric',
-                          month: 'short'
-                        })}
+                        {vehicle.published_at
+                          ? new Date(vehicle.published_at).toLocaleDateString('es-ES', {
+                              day: 'numeric',
+                              month: 'short',
+                            })
+                          : 'Sin fecha'}
                       </div>
                     </div>
                   </div>
@@ -568,12 +602,14 @@ export default function Estadisticas(): React.ReactElement {
               ))}
             {recentVehicles.filter(v => v.views > 0).length === 0 && (
               <div className="text-center text-lighttext/70 dark:text-darktext/70 py-4">
-                No hay publicaciones con vistas a�n
+                No hay publicaciones con vistas aún
               </div>
             )}
           </div>
         )}
       </div>
+        </>
+      )}
     </PanelPageLayout>
   );
 }

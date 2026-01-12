@@ -1,0 +1,66 @@
+{
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"label": "SimpleAutos: build",
+			"type": "shell",
+			"command": "npm",
+			"args": [
+				"-w",
+				"apps/simpleautos",
+				"run",
+				"build"
+			],
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "build"
+		},
+		{
+			"label": "SimpleAutos: typecheck",
+			"type": "shell",
+			"command": "npm",
+			"args": [
+				"-w",
+				"apps/simpleautos",
+				"run",
+				"typecheck"
+			],
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "test"
+		},
+		{
+			"label": "Supabase: db push (linked)",
+			"type": "shell",
+			"command": "npm",
+			"args": [
+				"run",
+				"supabase:db:push"
+			],
+			"isBackground": false,
+			"problemMatcher": []
+		},
+		{
+			"label": "Supabase: db push (staging)",
+			"type": "shell",
+			"command": "npm",
+			"args": [
+				"run",
+				"supabase:db:push:staging"
+			],
+			"isBackground": false,
+			"problemMatcher": []
+		},
+		{
+			"label": "Supabase: db push (prod)",
+			"type": "shell",
+			"command": "npm",
+			"args": [
+				"run",
+				"supabase:db:push:prod"
+			],
+			"isBackground": false,
+			"problemMatcher": []
+		}
+	]
+}

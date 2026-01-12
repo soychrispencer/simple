@@ -14,6 +14,7 @@ const TABS: Tab[] = [
 	{ label: 'Marcas', href: '/autos/brands', match: (p) => p === '/autos/brands' },
 	{ label: 'Modelos', href: '/autos/models', match: (p) => p === '/autos/models' },
 	{ label: 'Reportes', href: '/autos/reports', match: (p) => p === '/autos/reports' },
+	{ label: 'Venta asistida', href: '/autos/venta-asistida', match: (p) => p === '/autos/venta-asistida' },
 ];
 
 export default function AutosHeaderTabs() {

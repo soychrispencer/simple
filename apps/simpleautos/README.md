@@ -135,6 +135,21 @@ RESEND_API_KEY=your_resend_key
 
 # App
 NEXT_PUBLIC_APP_URL=http://localhost:3000
+
+# Servicios / Venta asistida (opcional)
+VENTA_ASISTIDA_MAX_PER_HOUR=3
+VENTA_ASISTIDA_MAX_PER_DAY=10
+
+# Si defines el secret, el endpoint exige captchaToken
+HCAPTCHA_SECRET_KEY=
+
+# Notificación interna de leads (SMTP) - opcional
+SMTP_HOST=
+SMTP_PORT=587
+SMTP_USER=
+SMTP_PASS=
+SMTP_FROM=
+LEADS_NOTIFY_TO=
 ```
 
 ### Configuración de Supabase
