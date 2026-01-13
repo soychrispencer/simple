@@ -9,7 +9,6 @@ import {
   IconBrandWhatsapp,
   IconBrandYoutube,
   IconMail,
-  IconPhone,
   IconMapPin,
   IconCar,
   IconHome,
@@ -36,6 +35,11 @@ export interface ContactInfo {
   phone?: string;
   email?: string;
 }
+
+const toWhatsAppHref = (phone: string) => {
+  const digits = phone.replace(/\D/g, '');
+  return digits ? `https://wa.me/${digits}` : 'https://wa.me/56978623828';
+};
 
 export interface NavigationColumn {
   title: string;
@@ -95,7 +99,7 @@ const getDefaultConfig = (vertical: VerticalName) => {
             icon: IconCar,
             links: [
               { label: 'Comprar Vehículos', href: '/ventas' },
-              { label: 'Alquilar Vehículos', href: '/arriendos' },
+              { label: 'Arrendar Vehículos', href: '/arriendos' },
               { label: 'Subastas', href: '/subastas' },
               { label: 'Vender mi Auto', href: '/panel/nueva-publicacion' },
             ],
@@ -281,14 +285,14 @@ const Footer: React.FC<FooterProps> = ({
   vertical,
   contactInfo = {
     location: 'Santiago, Chile',
-    phone: '+56 9 1234 5678',
+    phone: '+56 9 7862 3828',
     email: 'hola@simple.app',
   },
   socialLinks = {
     instagram: `https://instagram.com/${SOCIAL_HANDLES[vertical]}.app`,
     tiktok: `https://tiktok.com/@${SOCIAL_HANDLES[vertical]}.app`,
     facebook: `https://facebook.com/${SOCIAL_HANDLES[vertical]}.app`,
-    whatsapp: 'https://wa.me/56912345678',
+    whatsapp: 'https://wa.me/56978623828',
     youtube: `https://youtube.com/@${SOCIAL_HANDLES[vertical]}.app`,
   },
   navigationColumns,
@@ -346,8 +350,15 @@ const Footer: React.FC<FooterProps> = ({
                   )}
                   {contactInfo.phone && (
                     <div className="flex items-center gap-2 text-lighttext/70 dark:text-darktext/70">
-                      <IconPhone size={16} />
-                      <span>{contactInfo.phone}</span>
+                      <IconBrandWhatsapp size={16} />
+                      <a
+                        href={toWhatsAppHref(contactInfo.phone)}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="hover:text-lighttext dark:hover:text-darktext transition-colors"
+                      >
+                        {contactInfo.phone}
+                      </a>
                     </div>
                   )}
                   {contactInfo.email && (

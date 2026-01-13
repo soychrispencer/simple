@@ -1,9 +1,10 @@
 "use client";
 
-import { Header, Footer, NotificationsBell, AuthModalMount } from "@simple/ui";
+import { Header, Footer, NotificationsBell, AuthModalMount, AuthCallbackToasts } from "@simple/ui";
 import { useAuth } from "@simple/auth";
 import { storesPanelManifest } from "@simple/panel";
 import { tiendasAuthCopy } from "@/config/authCopy";
+import { usePathname } from "next/navigation";
 
 interface LayoutContentProps {
   children: React.ReactNode;
@@ -15,6 +16,11 @@ export function LayoutContent({
   showNotifications = true,
 }: LayoutContentProps) {
   const { user, loading, signOut } = useAuth();
+  const pathname = usePathname();
+
+  const hideChrome =
+    !!pathname &&
+    (pathname.startsWith("/reset") || pathname.startsWith("/auth/confirm") || pathname.startsWith("/forgot"));
 
   const handleLogout = async () => {
     await signOut();
@@ -22,18 +28,25 @@ export function LayoutContent({
 
   return (
     <>
-      <Header
-        vertical="stores"
-        user={user}
-        loading={loading}
-        onLogout={handleLogout}
-        NotificationComponent={NotificationsBell}
-        showNotifications={showNotifications}
-        panelManifest={storesPanelManifest}
-      />
+      <AuthCallbackToasts redirectTo="/panel" />
       <AuthModalMount copy={tiendasAuthCopy} />
-      <div className="mt-[10px]">{children}</div>
-      <Footer vertical="stores" />
+      {hideChrome ? (
+        <>{children}</>
+      ) : (
+        <>
+          <Header
+            vertical="stores"
+            user={user}
+            loading={loading}
+            onLogout={handleLogout}
+            NotificationComponent={NotificationsBell}
+            showNotifications={showNotifications}
+            panelManifest={storesPanelManifest}
+          />
+          <div className="mt-[10px]">{children}</div>
+          <Footer vertical="stores" />
+        </>
+      )}
     </>
   );
 }

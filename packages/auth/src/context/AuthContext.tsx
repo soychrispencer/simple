@@ -29,6 +29,10 @@ export interface AuthContextValue {
   loading: boolean;
   supabase: SupabaseClient;
   signIn: (email: string, password: string, remember?: boolean) => Promise<AuthResult>;
+  signInWithOAuth: (
+    provider: 'google',
+    options?: { redirectTo?: string }
+  ) => Promise<AuthResult>;
   signUp: (email: string, password: string, data?: Record<string, any>) => Promise<AuthResult>;
   signOut: () => Promise<void>;
   refresh: (force?: boolean) => Promise<void>;
@@ -333,7 +337,17 @@ export function AuthProvider({
         password
       });
 
-      if (error) return { ok: false, error: error.message };
+      if (error) {
+        const msg = String(error.message || 'Error al iniciar sesión');
+        const lowered = msg.toLowerCase();
+        if (lowered.includes('not confirmed') || lowered.includes('email not confirmed') || lowered.includes('confirm your email')) {
+          return {
+            ok: false,
+            error: 'Debes confirmar tu correo antes de iniciar sesión. Revisa tu bandeja (y spam) o solicita un nuevo correo de confirmación.'
+          };
+        }
+        return { ok: false, error: msg };
+      }
 
       // Si "recordarme" está activado, almacenar la preferencia
       if (remember) {
@@ -352,18 +366,60 @@ export function AuthProvider({
     }
   }, [supabaseClient, refresh]);
 
+  const signInWithOAuth = useCallback(async (
+    provider: 'google',
+    options?: { redirectTo?: string }
+  ): Promise<AuthResult> => {
+    try {
+      const defaultRedirectTo = typeof window !== 'undefined'
+        ? `${window.location.origin}/auth/confirm`
+        : undefined;
+
+      const redirectTo = options?.redirectTo ?? defaultRedirectTo;
+
+      const { error } = await supabaseClient.auth.signInWithOAuth({
+        provider,
+        options: redirectTo ? { redirectTo } : undefined,
+      });
+
+      if (error) return { ok: false, error: error.message };
+      return { ok: true };
+    } catch (e: any) {
+      return { ok: false, error: e?.message || 'Error inesperado' };
+    }
+  }, [supabaseClient]);
+
   const signUp = useCallback(async (email: string, password: string, data?: Record<string, any>): Promise<AuthResult> => {
     try {
       console.log('[AuthContext] signUp called with:', { email, data });
-      const { data: res, error } = await supabaseClient.auth.signUp({ 
-        email, 
-        password, 
-        options: { data } 
+      const emailRedirectTo = typeof window !== 'undefined'
+        ? `${window.location.origin}/auth/confirm?email=${encodeURIComponent(email)}`
+        : undefined;
+
+      const { data: res, error } = await supabaseClient.auth.signUp({
+        email,
+        password,
+        options: {
+          data,
+          ...(emailRedirectTo ? { emailRedirectTo } : {}),
+        }
       });
       if (error) {
         console.error('[AuthContext] Auth signup error:', error);
         return { ok: false, error: error.message };
       }
+
+      // Supabase puede devolver "éxito" aunque el usuario ya exista (para evitar enumeración).
+      // En ese caso típicamente viene sin sesión y con `identities` vacío.
+      const identities = (res as any)?.user?.identities as any[] | undefined;
+      const hasSession = !!(res as any)?.session;
+      if (!hasSession && Array.isArray(identities) && identities.length === 0) {
+        return {
+          ok: false,
+          error: 'Este correo ya está registrado. Intenta iniciar sesión o recuperar tu contraseña.',
+        };
+      }
+
       console.log('[AuthContext] Auth signup successful, user:', res.user?.id);
       await refresh(true);
       return { ok: true };
@@ -439,6 +495,7 @@ export function AuthProvider({
     loading: status === 'initial' || status === 'checking',
     supabase: supabaseClient,
     signIn,
+    signInWithOAuth,
     signUp,
     signOut,
     refresh,
@@ -457,6 +514,7 @@ export function AuthProvider({
     profile, 
     supabaseClient, 
     signIn, 
+    signInWithOAuth,
     signUp, 
     signOut, 
     refresh, 

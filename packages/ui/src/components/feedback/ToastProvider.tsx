@@ -80,7 +80,11 @@ export function ToastProvider({
   const [toasts, setToasts] = useState<Toast[]>([]);
 
   const addToast = useCallback((message: React.ReactNode, opts?: ToastOptions) => {
-    const id = crypto.randomUUID();
+    const id =
+      typeof crypto !== "undefined" &&
+      typeof (crypto as any).randomUUID === "function"
+        ? (crypto as any).randomUUID()
+        : `${Date.now()}-${Math.random().toString(16).slice(2)}`;
     const toast: Toast = { 
       id, 
       message, 

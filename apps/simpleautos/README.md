@@ -367,7 +367,7 @@ Cuando despliegues la aplicación, **recuerda cambiar** el parámetro `redirect_
 
 ### Áreas de Mejora Identificadas ⚠️
 - Falta implementar RLS policies en Supabase (ya implementado)
-- OAuth (Google/Apple) no funcional (botones presentes pero sin implementación)
+- OAuth (Google): requiere configuración en Supabase (ya está cableado en UI)
 - Validación de RUT chileno mejorable
 - Accesibilidad (aria-labels, lectores de pantalla)
 - Sistema de pagos para slots de impulso no implementado
@@ -379,6 +379,30 @@ Cuando despliegues la aplicación, **recuerda cambiar** el parámetro `redirect_
 - **Persistencia de sesión:** `persistSession: true`, `autoRefreshToken: true`
 - **Validaciones:** Contraseñas coincidentes, campos obligatorios
 - **Feedback visual:** Toasts para errores y éxito
+
+---
+
+## 🔐 OAuth (Google)
+
+### Estado
+- ✅ UI: botón conectado (Google) vía `supabase.auth.signInWithOAuth`
+- ✅ Callback/confirm: `/auth/confirm` soporta `code` (PKCE) y `access_token`
+- ⚠️ Falta: habilitar proveedores y redirects en Supabase (Dashboard)
+
+### Configuración en Supabase (obligatorio)
+En `Auth → Providers`:
+- Activa **Google** y configura `Client ID` + `Client Secret`.
+
+En `Auth → URL Configuration`:
+- **Site URL**: tu dominio (p.ej. `https://tudominio.com`)
+- **Redirect URLs** (allow-list): agrega al menos:
+   - `https://tudominio.com/auth/confirm`
+   - (opcional) `http://localhost:3000/auth/confirm` para desarrollo
+
+
+
+### Alternativa popular (sin programa de pago)
+Si quieres otro proveedor social además de Google, una opción muy común y gratuita es **GitHub OAuth** (Supabase lo soporta nativamente en `Auth → Providers`).
 
 ---
 

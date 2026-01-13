@@ -5,7 +5,7 @@ import { useAuth } from "@simple/auth";
 import Input from "../forms/Input";
 import { Button } from "../ui/Button";
 import Modal from "../ui/modal/Modal";
-import { GoogleIcon, AppleIcon } from "./SocialIcons";
+import { GoogleIcon } from "./SocialIcons";
 
 type DeepPartial<T> = {
   [K in keyof T]?: T[K] extends Record<string, any> ? DeepPartial<T[K]> : T[K];
@@ -19,7 +19,6 @@ export interface AuthModalCopy {
     rememberLabel: string;
     forgotLinkLabel: string;
     googleButtonLabel: string;
-    appleButtonLabel: string;
     sideTitle: string;
     sideDescription: string;
     sideButtonLabel: string;
@@ -29,7 +28,6 @@ export interface AuthModalCopy {
     submitLabel: string;
     successMessage: string;
     googleButtonLabel: string;
-    appleButtonLabel: string;
     sideTitle: string;
     sideDescription: string;
     sideButtonLabel: string;
@@ -53,7 +51,6 @@ const defaultCopy: AuthModalCopy = {
     rememberLabel: 'Recordarme',
     forgotLinkLabel: 'Olvidé mi contraseña',
     googleButtonLabel: 'Continuar con Google',
-    appleButtonLabel: 'Continuar con Apple',
     sideTitle: '¿Aún no tienes cuenta?',
     sideDescription: 'Regístrate gratis y comienza a publicar o gestionar.',
     sideButtonLabel: 'Registrarse como usuario',
@@ -63,7 +60,6 @@ const defaultCopy: AuthModalCopy = {
     submitLabel: 'Crear cuenta',
     successMessage: '¡Registro exitoso! Revisa tu correo para confirmar tu cuenta. Si no lo ves en tu bandeja de entrada, revisa la carpeta de spam o promociones.',
     googleButtonLabel: 'Registrarse con Google',
-    appleButtonLabel: 'Registrarse con Apple',
     sideTitle: '¿Ya tienes cuenta?',
     sideDescription: 'Inicia sesión para acceder a tu panel y gestionar.',
     sideButtonLabel: 'Iniciar sesión',
@@ -103,6 +99,7 @@ const AuthModal = React.memo(function AuthModal({ open, mode, onClose, copy: cop
   const [internalMode, setInternalMode] = useState(mode);
   const [showForgot, setShowForgot] = useState(false);
   const [isBusy, setIsBusy] = useState(false);
+  const [pendingVerificationEmail, setPendingVerificationEmail] = useState<string | null>(null);
   const copy = useMemo(() => resolveCopy(copyOverrides), [copyOverrides]);
   const brandLabel = useMemo(() => deriveBrandLabel(copy.login.headline), [copy.login.headline]);
   const heroHeadline = copy.login.headline || copy.register.headline;
@@ -112,6 +109,7 @@ const AuthModal = React.memo(function AuthModal({ open, mode, onClose, copy: cop
     if (open) {
       setInternalMode(mode);
       setShowForgot(false);
+      setPendingVerificationEmail(null);
     }
   }, [mode, open]);
 
@@ -119,9 +117,10 @@ const AuthModal = React.memo(function AuthModal({ open, mode, onClose, copy: cop
   const handleBackFromForgot = useCallback(() => setShowForgot(false), []);
   const handleSwitchToRegister = useCallback(() => setInternalMode("register"), []);
   const handleSwitchToLogin = useCallback(() => {
+    if (pendingVerificationEmail) return;
     setShowForgot(false);
     setInternalMode("login");
-  }, []);
+  }, [pendingVerificationEmail]);
 
   useEffect(() => {
     if (!open) return;
@@ -239,6 +238,7 @@ const AuthModal = React.memo(function AuthModal({ open, mode, onClose, copy: cop
               <RegisterForm
                 copy={copy}
                 onSuccess={handleSwitchToLogin}
+                onVerificationPending={setPendingVerificationEmail}
                 onBusyChange={setIsBusy}
                 hideTitle={showSidePanel}
               />
@@ -266,19 +266,36 @@ const AuthModal = React.memo(function AuthModal({ open, mode, onClose, copy: cop
           ) : showSidePanel && internalMode === "register" ? (
             <div className="hidden md:flex md:flex-1 md:basis-1/2 min-w-[320px] p-2">
               <div className="flex flex-col justify-center items-center text-center gap-4 bg-[var(--surface-1)] text-[var(--text-primary)] w-full h-full px-8 py-10 rounded-[var(--card-radius)]">
-                <span className="px-3 py-1 rounded-full text-xs font-semibold bg-[var(--badge-inverted-bg)] text-[var(--badge-inverted-text)] shadow-token-sm">¿Ya tienes cuenta?</span>
-                <div className="space-y-3">
-                  <div className="text-2xl font-semibold leading-tight">{copy.register.sideTitle}</div>
-                  <div className="text-sm text-[var(--text-secondary)] leading-relaxed">{copy.register.sideDescription}</div>
-                </div>
-                <Button
-                  variant="neutral"
-                  size="md"
-                  className="w-full"
-                  onClick={handleSwitchToLogin}
-                >
-                  {copy.register.sideButtonLabel}
-                </Button>
+                {pendingVerificationEmail ? (
+                  <>
+                    <span className="px-3 py-1 rounded-full text-xs font-semibold bg-[var(--badge-inverted-bg)] text-[var(--badge-inverted-text)] shadow-token-sm">Pendiente de verificación</span>
+                    <div className="space-y-3">
+                      <div className="text-2xl font-semibold leading-tight">Revisa tu correo</div>
+                      <div className="text-sm text-[var(--text-secondary)] leading-relaxed">
+                        Te enviamos un correo a <strong>{pendingVerificationEmail}</strong>. Confírmalo para activar tu cuenta.
+                      </div>
+                    </div>
+                    <Button variant="neutral" size="md" className="w-full" onClick={() => onClose()}>
+                      Cerrar
+                    </Button>
+                  </>
+                ) : (
+                  <>
+                    <span className="px-3 py-1 rounded-full text-xs font-semibold bg-[var(--badge-inverted-bg)] text-[var(--badge-inverted-text)] shadow-token-sm">¿Ya tienes cuenta?</span>
+                    <div className="space-y-3">
+                      <div className="text-2xl font-semibold leading-tight">{copy.register.sideTitle}</div>
+                      <div className="text-sm text-[var(--text-secondary)] leading-relaxed">{copy.register.sideDescription}</div>
+                    </div>
+                    <Button
+                      variant="neutral"
+                      size="md"
+                      className="w-full"
+                      onClick={handleSwitchToLogin}
+                    >
+                      {copy.register.sideButtonLabel}
+                    </Button>
+                  </>
+                )}
               </div>
             </div>
           ) : null}
@@ -303,8 +320,9 @@ const LoginForm = React.memo(function LoginForm({ onForgot, onClose, copy, onBus
   const [showPassword, setShowPassword] = useState(false);
   const [remember, setRemember] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [oauthLoading, setOauthLoading] = useState<'google' | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const { signIn } = useAuth();
+  const { signIn, signInWithOAuth } = useAuth();
 
   useEffect(() => {
     const savedRemember = localStorage.getItem('simple_auth_remember') === 'true';
@@ -314,9 +332,9 @@ const LoginForm = React.memo(function LoginForm({ onForgot, onClose, copy, onBus
   }, []);
 
   useEffect(() => {
-    onBusyChange(loading);
+    onBusyChange(loading || !!oauthLoading);
     return () => onBusyChange(false);
-  }, [loading, onBusyChange]);
+  }, [loading, oauthLoading, onBusyChange]);
 
   const handleSubmit = useCallback(async (e: React.FormEvent) => {
     e.preventDefault();
@@ -338,6 +356,21 @@ const LoginForm = React.memo(function LoginForm({ onForgot, onClose, copy, onBus
       onClose();
     }
   }, [email, password, remember, signIn, onClose, onBusyChange]);
+
+  const handleOAuth = useCallback(async (provider: 'google') => {
+    setError(null);
+    setOauthLoading(provider);
+    try {
+      const redirectTo = `${window.location.origin}/auth/confirm`;
+      const res = await signInWithOAuth(provider, { redirectTo });
+      if (!res.ok) {
+        setError(res.error || 'No pudimos continuar con Google.');
+      }
+      // En caso de éxito, Supabase redirige fuera del sitio.
+    } finally {
+      setOauthLoading(null);
+    }
+  }, [signInWithOAuth]);
 
   const handleEmailChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => setEmail(e.target.value), []);
   const handlePasswordChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => setPassword(e.target.value), []);
@@ -416,13 +449,17 @@ const LoginForm = React.memo(function LoginForm({ onForgot, onClose, copy, onBus
         <div className="h-px flex-1 bg-lightborder/20 dark:bg-darkborder/20" /> o <div className="h-px flex-1 bg-lightborder/20 dark:bg-darkborder/20" />
       </div>
       <div className="flex flex-col gap-2">
-        <Button variant="outline" size="md" className="flex items-center justify-center gap-2 w-full">
+        <Button
+          type="button"
+          variant="outline"
+          size="md"
+          className="flex items-center justify-center gap-2 w-full"
+          onClick={() => handleOAuth('google')}
+          loading={oauthLoading === 'google'}
+          disabled={loading || !!oauthLoading}
+        >
           <GoogleIcon />
           <span className="font-medium">{copy.login.googleButtonLabel}</span>
-        </Button>
-        <Button variant="outline" size="md" className="flex items-center justify-center gap-2 w-full">
-          <AppleIcon />
-          <span className="font-medium">{copy.login.appleButtonLabel}</span>
         </Button>
       </div>
     </div>
@@ -441,7 +478,7 @@ const ForgotForm = React.memo(function ForgotForm({ onBack, onSuccess, copy, onB
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
-  const [cooldownUntil, setCooldownUntil] = useState<number | null>(null);
+  const [cooldown, setCooldown] = useState(0);
   const { supabase } = useAuth();
 
   useEffect(() => {
@@ -449,31 +486,48 @@ const ForgotForm = React.memo(function ForgotForm({ onBack, onSuccess, copy, onB
     return () => onBusyChange(false);
   }, [loading, onBusyChange]);
 
-  const handleSubmit = useCallback(async (e: React.FormEvent) => {
-    e.preventDefault();
+  useEffect(() => {
+    if (cooldown <= 0) return;
+    const id = setInterval(() => setCooldown((c) => c - 1), 1000);
+    return () => clearInterval(id);
+  }, [cooldown]);
+
+  const sendResetEmail = useCallback(async () => {
     if (!email.trim()) {
       setError('Debes ingresar un correo válido.');
       return;
     }
-    if (cooldownUntil && Date.now() < cooldownUntil) {
+    if (cooldown > 0) {
       setError('Por favor espera unos segundos antes de intentar nuevamente.');
       return;
     }
+
     setError(null);
-    setSuccess(null);
     setLoading(true);
     onBusyChange(true);
-    const { error } = await supabase.auth.resetPasswordForEmail(email);
+
+    const redirectTo = typeof window !== 'undefined'
+      ? `${window.location.origin}/reset`
+      : undefined;
+
+    const { error } = await supabase.auth.resetPasswordForEmail(email, redirectTo ? { redirectTo } : undefined);
     setLoading(false);
     onBusyChange(false);
+
     if (error) {
       setError(error.message);
-    } else {
-      setSuccess(copy.forgot.successMessage);
-      setCooldownUntil(Date.now() + 30000);
-      setTimeout(onSuccess, 2200);
+      return;
     }
-  }, [email, supabase, cooldownUntil, onSuccess, onBusyChange, copy.forgot.successMessage]);
+
+    setSuccess(copy.forgot.successMessage);
+    setCooldown(30);
+  }, [email, supabase, cooldown, onBusyChange, copy.forgot.successMessage]);
+
+  const handleSubmit = useCallback(async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSuccess(null);
+    await sendResetEmail();
+  }, [sendResetEmail]);
 
   const handleEmailChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => setEmail(e.target.value), []);
 
@@ -488,24 +542,49 @@ const ForgotForm = React.memo(function ForgotForm({ onBack, onSuccess, copy, onB
         </h2>
         <p className="text-lighttext/70 dark:text-darktext/70 text-sm">{copy.forgot.description}</p>
       </div>
-      <form className="space-y-4" onSubmit={handleSubmit}>
-        <div>
-          <label className="block text-sm font-medium mb-1 text-lighttext dark:text-darktext">Correo</label>
-          <Input
-            type="email"
-            placeholder="correo@ejemplo.com"
-            required
-            value={email}
-            onChange={handleEmailChange}
-            shape="pill"
-            data-modal-initial-focus="true"
-          />
+      {success ? (
+        <div className="text-center">
+          <div className="text-[var(--color-success)] text-sm mb-3">{success}</div>
+          <div className="text-sm text-lighttext/70 dark:text-darktext/70 mb-4">
+            Si no lo ves, revisa spam/promociones. Cuando abras el enlace, podrás crear una nueva contraseña.
+          </div>
+          {error && <div className="text-[var(--color-danger)] text-xs text-center mb-3">{error}</div>}
+          <div className="flex flex-col gap-2">
+            <Button
+              type="button"
+              className="w-full"
+              variant="outline"
+              onClick={sendResetEmail}
+              disabled={loading || cooldown > 0}
+              loading={loading}
+            >
+              {cooldown > 0 ? `Reenviar en ${cooldown}s` : 'Reenviar correo'}
+            </Button>
+            <Button type="button" className="w-full" onClick={onBack}>Entendido</Button>
+          </div>
         </div>
-        {error && <div className="text-[var(--color-danger)] text-xs text-center">{error}</div>}
-        {success && <div className="text-[var(--color-success)] text-xs text-center">{success}</div>}
-        <Button type="submit" className="w-full" loading={loading} disabled={loading}>{copy.forgot.submitLabel}</Button>
-      </form>
-      <button type="button" className="text-primary hover:underline font-medium text-sm mt-2" onClick={onBack}>{copy.forgot.backLabel}</button>
+      ) : (
+        <form className="space-y-4" onSubmit={handleSubmit}>
+          <div>
+            <label className="block text-sm font-medium mb-1 text-lighttext dark:text-darktext">Correo</label>
+            <Input
+              type="email"
+              placeholder="correo@ejemplo.com"
+              required
+              value={email}
+              onChange={handleEmailChange}
+              shape="pill"
+              data-modal-initial-focus="true"
+            />
+          </div>
+          {error && <div className="text-[var(--color-danger)] text-xs text-center">{error}</div>}
+          <Button type="submit" className="w-full" loading={loading} disabled={loading}>{copy.forgot.submitLabel}</Button>
+        </form>
+      )}
+
+      {!success ? (
+        <button type="button" className="text-primary hover:underline font-medium text-sm mt-2" onClick={onBack}>{copy.forgot.backLabel}</button>
+      ) : null}
     </div>
   );
 });
@@ -513,6 +592,7 @@ const ForgotForm = React.memo(function ForgotForm({ onBack, onSuccess, copy, onB
 interface RegisterFormProps {
   copy: AuthModalCopy;
   onSuccess: () => void;
+  onVerificationPending?: (email: string | null) => void;
   onBusyChange: (busy: boolean) => void;
   hideTitle?: boolean;
 }
@@ -524,7 +604,7 @@ const passwordValidationMessage = (value: string): string | null => {
   return null;
 };
 
-const RegisterForm = React.memo(function RegisterForm({ copy, onSuccess, onBusyChange, hideTitle }: RegisterFormProps) {
+const RegisterForm = React.memo(function RegisterForm({ copy, onSuccess, onVerificationPending, onBusyChange, hideTitle }: RegisterFormProps) {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -532,14 +612,23 @@ const RegisterForm = React.memo(function RegisterForm({ copy, onSuccess, onBusyC
   const [showPassword, setShowPassword] = useState(false);
   const [showPassword2, setShowPassword2] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [oauthLoading, setOauthLoading] = useState<'google' | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
-  const { signUp } = useAuth();
+  const { signUp, signInWithOAuth, supabase } = useAuth();
+  const [resendCooldown, setResendCooldown] = useState(0);
+  const [resending, setResending] = useState(false);
 
   useEffect(() => {
-    onBusyChange(loading);
+    onBusyChange(loading || !!oauthLoading);
     return () => onBusyChange(false);
-  }, [loading, onBusyChange]);
+  }, [loading, oauthLoading, onBusyChange]);
+
+  useEffect(() => {
+    if (resendCooldown <= 0) return;
+    const id = setInterval(() => setResendCooldown((c) => c - 1), 1000);
+    return () => clearInterval(id);
+  }, [resendCooldown]);
 
   const handleSubmit = useCallback(async (e: React.FormEvent) => {
     e.preventDefault();
@@ -565,14 +654,61 @@ const RegisterForm = React.memo(function RegisterForm({ copy, onSuccess, onBusyC
           : res.error;
         throw new Error(formatted || 'Error en registro');
       }
+      const normalizedEmail = String(email || '').trim().toLowerCase();
+      try {
+        localStorage.setItem('simple_pending_verification_email', normalizedEmail);
+      } catch {
+        // ignore
+      }
+      onVerificationPending?.(normalizedEmail);
       setSuccess(copy.register.successMessage);
-      setTimeout(onSuccess, 2500);
     } catch (err: any) {
       setError(err.message);
     }
     setLoading(false);
     onBusyChange(false);
-  }, [name, email, password, password2, signUp, onSuccess, onBusyChange, copy.register.successMessage]);
+  }, [name, email, password, password2, signUp, onVerificationPending, onBusyChange, copy.register.successMessage]);
+
+  const handleResendConfirmation = useCallback(async () => {
+    const targetEmail = String(email || '').trim();
+    if (!targetEmail) {
+      setError('Ingresa tu correo para reenviar la confirmación.');
+      return;
+    }
+    setError(null);
+    setResending(true);
+    try {
+      const emailRedirectTo = `${window.location.origin}/auth/confirm?email=${encodeURIComponent(targetEmail)}`;
+      const { error } = await supabase.auth.resend({
+        type: 'signup',
+        email: targetEmail,
+        options: { emailRedirectTo },
+      });
+      if (error) {
+        setError(error.message || 'No pudimos reenviar el correo.');
+      } else {
+        setResendCooldown(60);
+      }
+    } catch (e: any) {
+      setError(e?.message || 'No pudimos reenviar el correo.');
+    } finally {
+      setResending(false);
+    }
+  }, [email, supabase]);
+
+  const handleOAuth = useCallback(async (provider: 'google') => {
+    setError(null);
+    setOauthLoading(provider);
+    try {
+      const redirectTo = `${window.location.origin}/auth/confirm`;
+      const res = await signInWithOAuth(provider, { redirectTo });
+      if (!res.ok) {
+        setError(res.error || 'No pudimos continuar con Google.');
+      }
+    } finally {
+      setOauthLoading(null);
+    }
+  }, [signInWithOAuth]);
 
   const handleNameChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => setName(e.target.value), []);
   const handleEmailChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => setEmail(e.target.value), []);
@@ -594,7 +730,29 @@ const RegisterForm = React.memo(function RegisterForm({ copy, onSuccess, onBusyC
         </div>
       )}
       {success ? (
-        <div className="text-[var(--color-success)] text-center text-sm mb-4">{success}</div>
+        <div className="text-center">
+          <div className="text-[var(--color-success)] text-sm mb-3">{success}</div>
+          <div className="text-sm text-lighttext/70 dark:text-darktext/70 mb-4">
+            Te enviamos un correo a <strong>{String(email || '').trim()}</strong>. Confírmalo para activar tu cuenta.
+          </div>
+          {error && <div className="text-[var(--color-danger)] text-xs text-center mb-3">{error}</div>}
+          <div className="flex flex-col gap-2">
+            <Button
+              type="button"
+              className="w-full"
+              variant="outline"
+              onClick={handleResendConfirmation}
+              disabled={resending || resendCooldown > 0}
+              loading={resending}
+            >
+              {resendCooldown > 0 ? `Reenviar en ${resendCooldown}s` : 'Reenviar correo'}
+            </Button>
+            <Button type="button" className="w-full" onClick={onSuccess}>Entendido</Button>
+          </div>
+          <div className="text-xs text-lighttext/60 dark:text-darktext/60 mt-4">
+            Si no llegó, revisa spam o espera unos minutos.
+          </div>
+        </div>
       ) : (
         <form className="space-y-3" onSubmit={handleSubmit}>
           <Input
@@ -658,29 +816,27 @@ const RegisterForm = React.memo(function RegisterForm({ copy, onSuccess, onBusyC
           <Button type="submit" className="w-full" loading={loading} disabled={loading}>{copy.register.submitLabel}</Button>
         </form>
       )}
-      <div className="my-4 flex items-center gap-3 text-xs text-lighttext/60 dark:text-darktext/60">
-        <div className="h-px flex-1 bg-lightborder/20 dark:bg-darkborder/20" /> o <div className="h-px flex-1 bg-lightborder/20 dark:bg-darkborder/20" />
-      </div>
-      <div className="flex flex-col gap-2">
-        <Button
-          type="button"
-          variant="outline"
-          size="md"
-          className="flex items-center justify-center gap-2 w-full"
-        >
-          <GoogleIcon />
-          <span className="font-medium">{copy.register.googleButtonLabel}</span>
-        </Button>
-        <Button
-          type="button"
-          variant="outline"
-          size="md"
-          className="flex items-center justify-center gap-2 w-full"
-        >
-          <AppleIcon />
-          <span className="font-medium">{copy.register.appleButtonLabel}</span>
-        </Button>
-      </div>
+      {!success ? (
+        <>
+          <div className="my-4 flex items-center gap-3 text-xs text-lighttext/60 dark:text-darktext/60">
+            <div className="h-px flex-1 bg-lightborder/20 dark:bg-darkborder/20" /> o <div className="h-px flex-1 bg-lightborder/20 dark:bg-darkborder/20" />
+          </div>
+          <div className="flex flex-col gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              size="md"
+              className="flex items-center justify-center gap-2 w-full"
+              onClick={() => handleOAuth('google')}
+              loading={oauthLoading === 'google'}
+              disabled={loading || !!oauthLoading}
+            >
+              <GoogleIcon />
+              <span className="font-medium">{copy.register.googleButtonLabel}</span>
+            </Button>
+          </div>
+        </>
+      ) : null}
     </div>
   );
 });

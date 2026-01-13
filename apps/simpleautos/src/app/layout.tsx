@@ -3,9 +3,8 @@ import { ThemeHydration } from "@/components/layout/ThemeHydration";
 import "./globals.css";
 import "./styles/select-dropdown.css";
 
-import Header from "@/components/layout/Header";
-import Footer from "@/components/layout/Footer";
-import { ToastProvider, NotificationsProvider, AuthModalMount, DisplayCurrencyProvider } from "@simple/ui";
+import { Chrome } from "@/components/layout/Chrome";
+import { ToastProvider, NotificationsProvider, AuthModalMount, DisplayCurrencyProvider, AuthCallbackToasts } from "@simple/ui";
 import { ThemeProvider } from "next-themes";
 import { AuthProvider } from "@/context/AuthContext";
 import { autosAuthCopy } from "@/config/authCopy";
@@ -52,15 +51,13 @@ export default function RootLayout({
           <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
             <AuthProvider>
               <ToastProvider>
+                <AuthCallbackToasts redirectTo="/panel" />
                 <FavoritesProvider>
                   <CompareProvider>
                     <NotificationsProvider>
                       <DisplayCurrencyProvider>
-                        <Header />
                         <AuthModalMount copy={autosAuthCopy} />
-                        {/* Mantener todo el contenido 10px por debajo del header */}
-                        <div className="mt-[10px]">{children}</div>
-                        <Footer />
+                        <Chrome>{children}</Chrome>
                       </DisplayCurrencyProvider>
                     </NotificationsProvider>
                   </CompareProvider>

@@ -1,6 +1,6 @@
 ﻿import React from 'react';
 import Link from 'next/link';
-import { IconBrandInstagram, IconBrandTiktok, IconBrandFacebook, IconBrandWhatsapp, IconBrandYoutube, IconMail, IconPhone, IconMapPin, IconCar, IconHeart, IconShield, IconHelp } from '@tabler/icons-react';
+import { IconBrandInstagram, IconBrandTiktok, IconBrandFacebook, IconBrandWhatsapp, IconBrandYoutube, IconMail, IconMapPin, IconCar, IconHeart, IconShield, IconHelp } from '@tabler/icons-react';
 import { verticalThemes } from '@simple/config';
 
 const Footer = () => {
@@ -10,14 +10,14 @@ const Footer = () => {
     instagram: 'https://instagram.com/simpleautos.app',
     tiktok: 'https://tiktok.com/@simpleautos.app',
     facebook: 'https://facebook.com/simpleautos.app',
-    whatsapp: 'https://wa.me/56912345678',
+    whatsapp: 'https://wa.me/56978623828',
     youtube: 'https://youtube.com/@simpleautos.app'
   };
 
   const navigationLinks = {
     vehiculos: [
       { label: 'Comprar Vehículos', href: '/ventas' },
-      { label: 'Alquilar Vehículos', href: '/arriendos' },
+      { label: 'Arrendar Vehículos', href: '/arriendos' },
       { label: 'Subastas', href: '/subastas' },
       { label: 'Publicar mi Vehículo', href: '/panel/publicar-vehiculo?new=1' },
       { label: 'Venta asistida', href: '/servicios/venta-asistida' }
@@ -71,8 +71,16 @@ const Footer = () => {
                     <span>Santiago, Chile</span>
                   </div>
                   <div className="flex items-center gap-2 text-lighttext/80 dark:text-darktext/80">
-                    <IconPhone size={16} />
-                    <span>+56 9 1234 5678</span>
+                    <IconBrandWhatsapp size={16} />
+                    <a
+                      href={socialLinks.whatsapp}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="hover:text-primary dark:hover:text-primary transition-colors"
+                      aria-label="WhatsApp"
+                    >
+                      +56 9 7862 3828
+                    </a>
                   </div>
                   <div className="flex items-center gap-2 text-lighttext/80 dark:text-darktext/80">
                     <IconMail size={16} />

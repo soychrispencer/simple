@@ -14,8 +14,13 @@ export async function POST(req: NextRequest) {
   const cookiesObj = await getCookies();
   const supabase = createServerComponentClient({ cookies: () => (cookiesObj as any) });
 
-  const redirectTo = "http://localhost:3000/auth/confirm"; // Ajustar dominio en producci�n
-  const signUpOptions: any = { data: { nombre, apellido }, emailRedirectTo: redirectTo };
+  const origin = req.headers.get('origin')
+    || process.env.NEXT_PUBLIC_SITE_URL
+    || process.env.NEXT_PUBLIC_AUTOS_DOMAIN
+    || 'http://localhost:3000';
+
+  const emailRedirectTo = new URL(`/auth/confirm?email=${encodeURIComponent(String(email).trim())}`, origin).toString();
+  const signUpOptions: any = { data: { nombre, apellido }, emailRedirectTo };
 
   const { data, error } = await supabase.auth.signUp({ email, password, options: signUpOptions });
   if (error) return NextResponse.json({ error: error.message || 'Error al crear usuario' }, { status: 500 });

@@ -1,22 +1,31 @@
 ﻿"use client";
 import React, { useState } from 'react';
 import { Button, Input } from '@simple/ui';
-import Link from 'next/link';
+import { getSupabaseClient } from '@/lib/supabase/supabase';
 
 export default function Forgot() {
   const [email, setEmail] = useState('');
   const [loading, setLoading] = useState(false);
   const [ok, setOk] = useState(false);
-  const [token, setToken] = useState<string | null>(null);
+  const [err, setErr] = useState<string | null>(null);
 
   const submit = async (e: React.FormEvent) => {
-    e.preventDefault(); setLoading(true); setOk(false); setToken(null);
+    e.preventDefault();
+    setLoading(true);
+    setOk(false);
+    setErr(null);
     try {
-      const res = await fetch('/api/auth/forgot', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ email }) });
-      const data = await res.json();
+      const supabase = getSupabaseClient();
+      const redirectTo = `${window.location.origin}/reset`;
+      const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), { redirectTo });
+      if (error) {
+        setErr(error.message);
+        return;
+      }
       setOk(true);
-      if (data.token) setToken(data.token);
-    } finally { setLoading(false); }
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -34,16 +43,14 @@ export default function Forgot() {
         />
         <Button type="submit" loading={loading} className="w-full" shape="rounded">Enviar enlace</Button>
       </form>
+      {err && (
+        <div className="mt-4 text-sm text-[var(--color-danger)] bg-[var(--color-danger-subtle-bg)] border border-[var(--color-danger-subtle-border)] p-3 rounded-lg">
+          {err}
+        </div>
+      )}
       {ok && (
         <div className="mt-4 text-sm text-[var(--color-success)] bg-[var(--color-success-subtle-bg)] border border-[var(--color-success-subtle-border)] p-3 rounded-lg">
           Si el correo existe, recibirás un enlace para restablecer tu contraseña.
-        </div>
-      )}
-      {token && (
-        <div className="mt-3 text-xs text-lighttext/70 dark:text-darktext/70">
-          En desarrollo: usa este token para pruebas. <br/>
-          <span className="break-all font-mono">{token}</span><br/>
-          <Link href={`/reset?token=${token}`} className="link-base link-plain">Ir a restablecer</Link>
         </div>
       )}
     </div>

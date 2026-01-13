@@ -7,13 +7,22 @@ export async function POST(req: NextRequest) {
     const { email } = await req.json();
     if (!email) return NextResponse.json({ error: 'Falta email' }, { status: 400 });
 
-  const cookiesObj = await getCookies();
-  const supabase = createServerComponentClient({ cookies: () => (cookiesObj as any) });
+    const cookiesObj = await getCookies();
+    const supabase = createServerComponentClient({ cookies: () => (cookiesObj as any) });
 
-    // Usamos resetPasswordForEmail para enviar un email que permita verificar la propiedad del correo
-    const { data, error } = await supabase.auth.resetPasswordForEmail(email, {
-      // opcional: redirectTo: process.env.NEXT_PUBLIC_APP_URL
+    const origin = req.headers.get('origin')
+      || process.env.NEXT_PUBLIC_SITE_URL
+      || process.env.NEXT_PUBLIC_AUTOS_DOMAIN
+      || 'http://localhost:3000';
+
+    const emailRedirectTo = new URL(`/auth/confirm?email=${encodeURIComponent(String(email).trim())}`, origin).toString();
+
+    const { data, error } = await supabase.auth.resend({
+      type: 'signup',
+      email: String(email).trim(),
+      options: { emailRedirectTo },
     });
+
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
     return NextResponse.json({ ok: true, info: data });
   } catch (e: any) {
