@@ -55,7 +55,15 @@ export function buildMetaOAuthUrl(config: MetaOAuthConfig) {
   url.searchParams.set("redirect_uri", config.redirectUri);
   url.searchParams.set("state", config.state);
   url.searchParams.set("response_type", "code");
-  url.searchParams.set("scope", config.scopes.join(","));
+  // Meta acepta scopes separados por espacios (OAuth estándar). Esto evita problemas
+  // cuando algún scope llega con espacios accidentales tras una coma.
+  url.searchParams.set(
+    "scope",
+    config.scopes
+      .map((s) => s.trim())
+      .filter(Boolean)
+      .join(" ")
+  );
   return url.toString();
 }
 
