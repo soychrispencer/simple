@@ -6,7 +6,7 @@
 - **Engine:** PostgreSQL 15 managed by Supabase with Row Level Security en todas las tablas.
 - **Language:** Todo el dominio backend está en inglés para mantener consistencia con el frontend y los packages compartidos.
 - **Access:** Next.js Route Handlers y funciones server-only usan el Supabase Service Key; los clientes usan el browser client con RLS.
-- **Migrations:** Se crean con `npm run supabase:migration:new -- --name <nombre>` y se aplican con `npm run supabase:db:push`. Todos los archivos viven en `backend/supabase/migrations` con timestamp y nombre descriptivo.
+- **Migrations/Baseline (repo):** Se crean con `npm run supabase:migration:new -- --name <nombre>`. En este repo se mantienen principalmente para **contexto** (baseline + snapshots). Aplicarlas con `npm run supabase:db:push` solo corresponde cuando estás creando/reset un entorno (no para un remoto ya aplicado).
 - **Environments:** Local (Supabase CLI), Staging y Production. Siempre aplicar migraciones primero en staging.
 
 ## 2. Schema Snapshot (resumen)
@@ -19,7 +19,7 @@
 | **Compliance** | `vehicle_selected_equipment`, `vehicle_documentation`, `vehicle_history` | Capturan equipamiento, documentos legales y eventos históricos. |
 | **Analytics** | `listing_metrics`, `vehicle_price_history` | Alimentan dashboards y reportes en el panel Pro. |
 
-> Para ver la definición exacta ejecutar `supabase db dump --linked` o revisar las migraciones `20251113*.sql`.
+> Para ver la definición exacta ejecutar `supabase db dump --linked` o revisar el baseline en `backend/supabase/migrations/*_baseline_*.sql`.
 
 ### 2.1 Columnas esenciales por tabla
 - **profiles**: `public_name`, `plan`, `avatar_url`, `phone`, toggles `email_verified`/`phone_verified`, `preferences` JSONB. Ya no guarda `company_id`; la relación es indirecta mediante `company_users`.
@@ -34,48 +34,42 @@
 - **sso_tokens**: `token`, `user_id`, `target_domain`, `expires_at`, `used_at`, `metadata`. Tokens one-time que permiten saltar entre dominios con RPCs `init_sso_token` y `validate_sso_token`.
 - **listing_metrics**: `views`, `clicks`, `favorites`, `shares` + timestamps para snapshot.
 
-## 3. Audit & Fix Log
-Las auditorías de noviembre 2025 detectaron faltantes críticos (campos adicionales, tablas auxiliares y políticas). Todo fue integrado en los dos archivos principales:
+## 3. Baseline (contexto)
+Este repo mantiene el backend alineado con el estado actual de Supabase principalmente para **contexto y referencia**.
 
-1. `20251113000000_complete_backend_schema.sql`
-   - Agrega columnas nuevas (`profiles.public_name`, `vehicles.version`, etc.).
-   - Crea tablas auxiliares (`vehicle_selected_equipment`, `subscriptions`, ...).
-   - Declara constraints, defaults y checks.
-2. `20251113000001_complete_backend_data_and_policies.sql`
-   - Índices adicionales (`idx_vehicles_transmission`, `idx_properties_hoa_fee`, ...).
-   - Vistas `vehicles_detailed` y `properties_detailed` actualizadas.
-   - Triggers (`sync_profile_plan`, `update_vehicle_documentation_timestamp`).
-   - Políticas RLS completas para cada tabla nueva.
-
-3. `20251204090000_add_sso_support.sql`
-   - Crea `user_verticals` y `sso_tokens` + índices/RLS.
-   - Publica funciones `generate_sso_token`, `init_sso_token`, `validate_sso_token` para el paquete `packages/auth/src/sso`.
-
-> Resultado: backend 100% alineado con el frontend y las shared types. Las migraciones posteriores a noviembre 2025 sólo agregan capacidades SSO y cualquier cambio nuevo debe partir desde estos archivos.
+- **Baseline (2 migraciones):** `backend/supabase/migrations/*_baseline_schema.sql` + `backend/supabase/migrations/*_baseline_seed.sql`.
 
 ## 4. Operativa
+
+> Nota importante: en este repo las migraciones/baselines se mantienen principalmente para **contexto del schema**.
+> Si tu Supabase remoto ya tiene todo aplicado, evita ejecutar `supabase:db:push:*` sobre ese remoto.
+> Usa esos comandos solo cuando estés **recreando/reset** la base (por ejemplo, un entorno nuevo) y tengas claro el impacto.
 
 ### 4.1 Aplicar cambios localmente
 ```bash
 npm run supabase:start        # inicia stack local (docker)
-npm run supabase:db:reset     # recrea esquema usando migrations + seed.sql
-npm run supabase:db:push      # aplica migraciones pendientes en el proyecto vinculado
+npm run supabase:db:reset     # recrea esquema usando migrations (seeds versionados como migraciones)
+npm run supabase:db:push      # (solo si estás recreando/reset el entorno vinculado)
 ```
+
+> Nota: si tu Supabase remoto ya tiene el backend aplicado, estas migraciones se usan principalmente para mantener el **contexto del schema** (no para re-aplicar cambios sobre el remoto existente).
 
 > Ejecuta `npm run supabase:login` una sola vez por máquina y luego `npm run supabase:link` para asociar el proyecto local al ref `ogmbjczfqvkpmodhsfjp`. A partir de ahí cualquier `supabase:db:*` usa esa referencia. Los comandos que necesitan base local (`supabase:db:diff`, `supabase:start`, `supabase:db:reset`) requieren Docker Desktop activo, pero los pushes remotos descritos abajo no dependen de Docker.
 
 ### 4.2 Despliegue
-1. **Revisar migraciones:** `cat backend/supabase/migrations/*.sql` (orden cronológico). Si tienes Docker disponible puedes correr `npm run supabase:db:diff` para comparar contra una shadow DB local.
-2. **Staging:** `npm run supabase:db:push:staging` (requiere definir `SUPABASE_STAGING_DB_URL` en `.env`).
-3. **Producción:** `npm run supabase:db:push:prod` (requiere `SUPABASE_PROD_DB_URL`).
+Solo para **entornos nuevos** o cuando vas a **resetear/recrear** la DB:
+
+1. **Revisar baseline:** `cat backend/supabase/migrations/*.sql`.
+2. **Staging (si corresponde):** `npm run supabase:db:push:staging` (requiere `SUPABASE_STAGING_DB_URL`).
+3. **Producción (si corresponde):** `npm run supabase:db:push:prod` (requiere `SUPABASE_PROD_DB_URL`).
 
 ### 4.3 Troubleshooting rápido
-- `profiles` vacíos en local → ejecutar `npm run supabase:db:reset` para cargar `seed.sql` nuevamente (requiere Docker).
+- `profiles` vacíos en local → ejecutar `npm run supabase:db:reset` para re-aplicar migraciones + seeds versionados (requiere Docker).
 
 ### 4.4 Conexión directa a Supabase (sin Docker)
 - Copia `.env.example` → `.env` (en la raíz o dentro de `backend/supabase/`) y completa `SUPABASE_STAGING_DB_URL` / `SUPABASE_PROD_DB_URL` con las cadenas que entrega Supabase (Project Settings → Database → Connection string → `psql`). Los scripts leen ambos archivos si existen, sin necesidad de `dotenv` manual.
-- Usa `npm run supabase:db:push:staging` o `npm run supabase:db:push:prod` para aplicar las migraciones directamente sobre el entorno remoto real. El script valida que la variable necesaria esté definida y ejecuta `supabase db push --db-url=<...>` desde `backend/supabase`.
-- **Advertencia:** el archivo `20251114000000_complete_backend_migration.sql` hace un wipe completo (`DROP TABLE ... CASCADE`). Asegúrate de tener backups y de estar apuntando al entorno correcto antes de lanzar los comandos de producción.
+- Si vas a **recrear/reset** un entorno remoto, puedes usar `npm run supabase:db:push:staging` o `npm run supabase:db:push:prod`. El script valida que la variable necesaria esté definida y ejecuta `supabase db push --db-url=<...>` desde `backend/supabase`.
+- **Advertencia:** el baseline de schema (`*_baseline_schema.sql`) hace un wipe completo (`DROP TABLE ... CASCADE`). Asegúrate de tener backups y de estar apuntando al entorno correcto antes de lanzar comandos contra producción.
 - Error RLS al leer listados → confirmar que `status = 'active'` o que el token pertenece al owner.
 - Campos faltantes en API → chequear versión de `packages/shared-types` y regenerar build.
 

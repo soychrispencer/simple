@@ -4,7 +4,7 @@
 
 Plataforma web para compra, venta, arriendo y subasta de vehículos en Chile. Base para un futuro ecosistema de verticales (SimpleTiendas, SimplePropiedades, etc.).
 
-[![Next.js](https://img.shields.io/badge/Next.js-15-black)](https://nextjs.org/) [![React](https://img.shields.io/badge/React-19-blue)](https://react.dev/) [![TypeScript](https://img.shields.io/badge/TypeScript-5-blue)](https://www.typescriptlang.org/) [![Supabase](https://img.shields.io/badge/Supabase-Latest-green)](https://supabase.com/)
+[![Next.js](https://img.shields.io/badge/Next.js-16-black)](https://nextjs.org/) [![React](https://img.shields.io/badge/React-19-blue)](https://react.dev/) [![TypeScript](https://img.shields.io/badge/TypeScript-5-blue)](https://www.typescriptlang.org/) [![Supabase](https://img.shields.io/badge/Supabase-Latest-green)](https://supabase.com/)
 
 ---
 
@@ -97,7 +97,7 @@ Plataforma web para compra, venta, arriendo y subasta de vehículos en Chile. Ba
 ### 1. Clonar repositorio
 ```bash
 git clone <repository-url>
-cd simpleautos
+cd Simple
 ```
 
 ### 2. Instalar dependencias
@@ -107,16 +107,23 @@ npm install
 
 ### 3. Configurar entorno
 ```bash
-cp .env.example .env.local
-# Editar .env.local con tus credenciales
+# Opción A: copiar y editar (solo para esta app)
+cp apps/simpleautos/.env.example apps/simpleautos/.env.local
+
+# Opción B (Windows): propagar variables a backend + apps desde el root
+npm run env:setup
 ```
 
 ### 4. Iniciar desarrollo
 ```bash
-npm run dev
+# Desde el root del monorepo
+npm run dev:autos
+
+# Alternativa (desde apps/simpleautos)
+# npm run dev
 ```
 
-Aplicación disponible en `http://localhost:3000`
+Aplicación disponible en `http://localhost:3001`
 
 ---
 
@@ -134,7 +141,7 @@ SUPABASE_SERVICE_ROLE_KEY=your_service_role_key
 RESEND_API_KEY=your_resend_key
 
 # App
-NEXT_PUBLIC_APP_URL=http://localhost:3000
+NEXT_PUBLIC_APP_URL=http://localhost:3001
 
 # Servicios / Venta asistida (opcional)
 VENTA_ASISTIDA_MAX_PER_HOUR=3
@@ -170,7 +177,7 @@ LEADS_NOTIFY_TO=
 
 ### Esquema Completo
 El esquema completo con tablas, índices, RLS policies y funciones está en:
-`supabase/migrations/20251021120000_final_consolidated_schema.sql`
+`backend/supabase/migrations/*_baseline_schema.sql`
 
 ### Tablas Principales
 
@@ -208,12 +215,16 @@ Todas las tablas tienen Row Level Security habilitado:
 - **SELECT**: Dueño O perfiles públicos con `username IS NOT NULL`
 
 ### Migración
-Archivo: `supabase/migrations/20251021120000_final_consolidated_schema.sql`
+Archivo (baseline actual para referencia): `backend/supabase/migrations/*_baseline_schema.sql`
 - DROP de tablas antiguas (español)
 - CREATE de tablas nuevas (inglés)
 - Índices para performance
 - Triggers para `updated_at`
 - Políticas RLS completas
+
+### Seeds
+Datos iniciales (catálogo/verticales/etc.) están versionados como migración:
+`backend/supabase/migrations/*_baseline_seed.sql`
 
 ### Datos Iniciales Incluidos
 - 16 regiones chilenas
@@ -228,39 +239,18 @@ Archivo: `supabase/migrations/20251021120000_final_consolidated_schema.sql`
 ## 📁 Estructura del Proyecto
 
 ```
-simpleautos/
-├── public/                     # Estáticos
-├── scripts/                    # Scripts de mantenimiento
-│   ├── seed-fake-data.js      # Seed de datos
-│   └── ...
-├── src/
-│   ├── app/                   # App Router
-│   │   ├── actions/          # Server Actions
-│   │   ├── api/              # API Routes
-│   │   ├── auth/             # Páginas de autenticación
-│   │   ├── panel/            # Dashboard
-│   │   ├── perfil/           # Perfiles públicos
-│   │   ├── vehiculo/         # Páginas de vehículos
-│   │   └── ...
-│   ├── components/           # Componentes
-│   │   ├── ui/              # UI reutilizables
-│   │   ├── boost/           # Sistema de boosts
-│   │   ├── filters/         # Filtros
-│   │   ├── vehicles/        # Componentes de vehículos
-│   │   └── ...
-│   ├── context/             # React Context
-│   ├── hooks/               # Custom Hooks
-│   ├── lib/                 # Utilidades
-│   │   ├── marketplaces/    # Sistema de sincronización
-│   │   └── ...
-│   └── types/               # TypeScript types
-├── supabase/
-│   └── migrations/          # Migraciones de BD
-├── .env.example
-├── next.config.ts
-├── tailwind.config.js
-├── tsconfig.json
-└── README.md
+Simple/
+├── apps/
+│   └── simpleautos/
+│       ├── public/                 # Estáticos
+│       ├── src/                    # Next.js App Router + UI
+│       ├── .env.example
+│       └── README.md
+├── backend/
+│   └── supabase/
+│       └── migrations/             # Baselines (schema + seed) para referencia
+├── scripts/                        # Utilidades (seed, supabase, etc.)
+└── docs/                           # Guías del ecosistema (ver docs/README.md)
 ```
 
 ---
@@ -269,11 +259,15 @@ simpleautos/
 
 ### Comandos
 ```bash
-npm run dev          # Desarrollo
+# Desde apps/simpleautos/
+npm run dev          # Desarrollo (http://localhost:3001)
 npm run build        # Build producción
 npm run start        # Servidor producción
 npm run lint         # Linting
-npx tsc --noEmit    # Type checking
+npm run typecheck    # Type checking
+
+# Desde el root del monorepo
+# npm run dev:autos
 ```
 
 ### Convenciones

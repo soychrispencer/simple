@@ -2,6 +2,7 @@
 import React, { useEffect, useState } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { getVehicleById, VehicleDetail } from "@/lib/getVehicleById";
+import { getDemoVehicleDetail, isDemoListingsEnabled } from "@/lib/demo/demoVehicles";
 import { Button, CircleButton, ContactModal, Modal, Select, Textarea, UserAvatar, useToast, useDisplayCurrency } from "@simple/ui";
 import { createPortal } from "react-dom";
 import {
@@ -212,7 +213,9 @@ export default function VehiculoDetallePage() {
       setError(null);
 
       try {
-        const data = await getVehicleById(id);
+        const data = id?.startsWith('demo-') && isDemoListingsEnabled()
+          ? getDemoVehicleDetail(id)
+          : await getVehicleById(id);
         if (cancelled) return;
 
         if (!data) {

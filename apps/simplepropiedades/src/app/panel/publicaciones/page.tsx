@@ -1,6 +1,7 @@
 "use client";
 import React from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useSupabase, PanelPageLayout, Button, Input, Select } from "@simple/ui";
 import { useToast } from "@simple/ui";
 import {
@@ -21,10 +22,18 @@ import {
   IconStar,
   IconStarFilled,
   IconEye,
+  IconBrandInstagram,
 } from "@tabler/icons-react";
 import type { Property } from "@/types/property";
 import { logError } from "@/lib/logger";
+import { InstagramPublishModal, type InstagramPublishProperty } from "@/components/instagram/InstagramPublishModal";
 type ListingDbStatus = "published" | "inactive" | "draft" | "sold";
+
+type InstagramStatus = {
+  connected: boolean;
+  ig_username?: string | null;
+  page_name?: string | null;
+};
 
 type ListingRow = {
   id: string;
@@ -293,11 +302,13 @@ interface PropertyCardProps {
   onStatusChange: (id: string, next: ListingDbStatus) => void;
   onDelete: (id: string) => void;
   actionState: { id: string | null; type: ActionType | null };
+  onInstagramPublish?: (item: PropertyListingItem) => void;
 }
 
-function PropertyListingCard({ item, onDuplicate, onToggleFeatured, onStatusChange, onDelete, actionState }: PropertyCardProps) {
+function PropertyListingCard({ item, onDuplicate, onToggleFeatured, onStatusChange, onDelete, actionState, onInstagramPublish }: PropertyCardProps) {
   const statusConfig = STATUS_META[item.status] ?? STATUS_META.draft;
   const isActionPending = (type: ActionType) => actionState.id === item.property.id && actionState.type === type;
+  const instagramEnabled = String(process.env.NEXT_PUBLIC_ENABLE_INSTAGRAM_PUBLISH || "").toLowerCase() === "true";
 
   return (
     <div className="card-surface shadow-card p-5 space-y-4">
@@ -345,6 +356,11 @@ function PropertyListingCard({ item, onDuplicate, onToggleFeatured, onStatusChan
                 <IconEye size={16} /> Editar
               </Link>
             </Button>
+            {instagramEnabled && onInstagramPublish ? (
+              <Button variant="outline" size="sm" onClick={() => onInstagramPublish(item)}>
+                <IconBrandInstagram size={16} /> Instagram
+              </Button>
+            ) : null}
             <Button
               variant="subtle"
               size="sm"
@@ -397,12 +413,56 @@ function PropertyListingCard({ item, onDuplicate, onToggleFeatured, onStatusChan
 export default function PropertyListingsPage() {
   const supabase = useSupabase();
   const { addToast } = useToast();
+  const router = useRouter();
   const { user, scopeFilter, loading: scopeLoading, ensureScope } = useListingsScope({ verticalKey: "properties" });
 
   const [listings, setListings] = React.useState<PropertyListingItem[]>([]);
   const [loading, setLoading] = React.useState(true);
   const [filters, setFilters] = React.useState<FiltersState>({ search: "", status: "all", type: "all", featured: "all" });
   const [actionState, setActionState] = React.useState<{ id: string | null; type: ActionType | null }>({ id: null, type: null });
+  const [instagramOpen, setInstagramOpen] = React.useState(false);
+  const [instagramProperty, setInstagramProperty] = React.useState<InstagramPublishProperty | null>(null);
+
+  const instagramEnabled = String(process.env.NEXT_PUBLIC_ENABLE_INSTAGRAM_PUBLISH || "").toLowerCase() === "true";
+  const [igStatus, setIgStatus] = React.useState<InstagramStatus>({ connected: false });
+
+  const loadInstagram = React.useCallback(async () => {
+    try {
+      const res = await fetch("/api/instagram/status");
+      const json = await res.json();
+      setIgStatus({
+        connected: !!json?.connected,
+        ig_username: json?.ig_username ?? null,
+        page_name: json?.page_name ?? null,
+      });
+    } catch {
+      setIgStatus({ connected: false });
+    }
+  }, []);
+
+  React.useEffect(() => {
+    if (!instagramEnabled) return;
+    loadInstagram();
+  }, [instagramEnabled, loadInstagram]);
+
+  const openInstagram = (item: PropertyListingItem) => {
+    const p = item.property;
+    setInstagramProperty({
+      id: p.id,
+      title: p.title,
+      price: p.price ?? null,
+      currency: p.currency ?? null,
+      listing_type: p.listing_type ?? null,
+      bedrooms: p.bedrooms ?? null,
+      bathrooms: p.bathrooms ?? null,
+      area_m2: p.area_m2 ?? null,
+      city: p.city ?? null,
+      region: p.region ?? null,
+      thumbnail_url: p.thumbnail_url ?? null,
+      image_urls: p.image_urls ?? null,
+    });
+    setInstagramOpen(true);
+  };
 
   const loadListings = React.useCallback(async () => {
     if (!scopeFilter || scopeLoading) {
@@ -563,6 +623,41 @@ export default function PropertyListingsPage() {
           <StatCard label="Borradores" value={stats.drafts} helper="Pendientes de publicación" loading={loading} />
         </div>
 
+        {instagramEnabled ? (
+          <div className="card-surface shadow-card rounded-2xl p-5">
+            <div className="flex items-start justify-between gap-4">
+              <div className="flex items-start gap-3">
+                <div
+                  className={`w-12 h-12 rounded-xl flex items-center justify-center ${
+                    igStatus.connected ? "bg-[var(--color-success-subtle-bg)]" : "bg-[var(--field-bg)] dark:bg-darkbg"
+                  }`}
+                >
+                  <IconBrandInstagram
+                    size={24}
+                    className={igStatus.connected ? "text-[var(--color-success)]" : "text-lighttext/60 dark:text-darktext/60"}
+                  />
+                </div>
+                <div>
+                  <div className="text-sm font-semibold text-lighttext dark:text-darktext">Instagram</div>
+                  <div className="text-xs text-lighttext/70 dark:text-darktext/70">
+                    {igStatus.connected ? "Conectado" : "Sin conectar"}
+                    {igStatus.ig_username ? ` · @${igStatus.ig_username}` : ""}
+                    {igStatus.page_name ? ` · ${igStatus.page_name}` : ""}
+                  </div>
+                  <div className="text-xs text-lighttext/60 dark:text-darktext/60 mt-1">
+                    Para publicar, necesitas cuenta Profesional vinculada a una Página de Facebook.
+                  </div>
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <Button size="sm" asChild>
+                  <Link href="/panel/configuraciones#integraciones">Gestionar</Link>
+                </Button>
+              </div>
+            </div>
+          </div>
+        ) : null}
+
         <div className="card-surface shadow-card p-4 flex flex-wrap gap-3">
           <Input
             placeholder="Buscar por titulo o ubicacion"
@@ -611,11 +706,18 @@ export default function PropertyListingsPage() {
                 onStatusChange={handleStatusChange}
                 onDelete={handleDelete}
                 actionState={actionState}
+                onInstagramPublish={openInstagram}
               />
             ))}
           </div>
         )}
       </div>
+
+      <InstagramPublishModal
+        open={instagramOpen}
+        onClose={() => setInstagramOpen(false)}
+        property={instagramProperty}
+      />
     </PanelPageLayout>
   );
 }

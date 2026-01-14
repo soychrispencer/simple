@@ -1,5 +1,5 @@
 ﻿"use client";
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import AdvancedFiltersSidebar from "@/components/filters/AdvancedFiltersSidebar";
 import { Button, ViewToggle } from "@simple/ui";
 import { VehicleCard } from "@/components/vehicles/VehicleCard";
@@ -9,6 +9,7 @@ import { ListingFiltersState, useListingFilters } from "@/hooks/useListingFilter
 import { useRouter } from "next/navigation";
 import { ensureLegacyFormat } from "@/lib/normalizeVehicleSpecs";
 import { buildSearchUrl } from "@/lib/builders/buildSearchUrl";
+import { getDemoListingsMode, getDemoVehicleRows } from "@/lib/demo/demoVehicles";
 
 // Función para convertir VehicleRow a Vehicle
 function mapVehicleRowToVehicle(row: VehicleRow): Vehicle {
@@ -36,8 +37,10 @@ function mapVehicleRowToVehicle(row: VehicleRow): Vehicle {
     mileage_km: row.mileage,
     brand_id: null,
     model_id: null,
-    condition: null,
-    color: null,
+    condition: (row.specs as any)?.condition ?? null,
+    fuel_type: (row.specs as any)?.fuel_type ?? null,
+    transmission: (row.specs as any)?.transmission ?? null,
+    color: (row.specs as any)?.color ?? null,
     region_id: null,
     commune_id: null,
     image_urls: imagePaths,
@@ -157,6 +160,15 @@ export default function SubastasPage() {
   const canPrev = filters.page > 1;
   const canNext = filters.page < totalPages;
 
+  const demoMode = getDemoListingsMode();
+  const showDemo = demoMode === 'always' || (!loading && vehicles.length === 0 && demoMode === 'fallback');
+  const demoRows = useMemo(() => {
+    if (!showDemo) return [];
+    return getDemoVehicleRows({ count: 50, includeFeaturedMix: true }).filter(r => r.listing_type === 'auction');
+  }, [showDemo]);
+  const effectiveTotal = showDemo ? demoRows.length : total;
+  const effectiveVehicles = showDemo ? demoRows : vehicles;
+
   // Removido: if (loading) return <p>Cargando...</p>; para evitar intermitencia visual
   if (error) return <p className="text-center py-8 text-[var(--color-danger)]">Error: {error}</p>;
 
@@ -210,11 +222,11 @@ export default function SubastasPage() {
         <div className="flex items-baseline justify-between mb-4 gap-4 flex-wrap">
           <h1 className="text-2xl font-bold">Vehículos en subastas</h1>
           <div className="hidden md:flex items-center gap-4">
-            <div className="text-sm text-lighttext/70 dark:text-darktext/70">{total} resultado{total!==1?'s':''}</div>
+            <div className="text-sm text-lighttext/70 dark:text-darktext/70">{effectiveTotal} resultado{effectiveTotal!==1?'s':''}</div>
             <ViewToggle layout={layout} onLayoutChange={setLayout} />
           </div>
         </div>
-        {!loading && vehicles.length === 0 ? (
+        {!loading && effectiveVehicles.length === 0 ? (
           <div className="text-center py-16 border border-dashed rounded-xl border-border/60">
             <p className="text-lg font-medium mb-2">Sin resultados</p>
             <p className="text-sm text-lighttext/70 dark:text-darktext/70">No hay subastas que coincidan. Ajusta los filtros.</p>
@@ -230,7 +242,7 @@ export default function SubastasPage() {
                 : 'grid gap-6 mb-8 grid-cols-1'
             }
           >
-            {vehicles.map((auto) => {
+            {effectiveVehicles.map((auto) => {
               const vehicle = mapVehicleRowToVehicle(auto);
               const seller = auto.profiles ? {
                 id: auto.profiles.username || '',

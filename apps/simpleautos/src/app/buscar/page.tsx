@@ -5,6 +5,7 @@ import { useSearchParams } from "next/navigation";
 import { getSupabaseClient } from '@/lib/supabase/supabase';
 import { LISTING_CARD_SELECT, listingRowToVehicleRow } from '@/lib/listings/queryHelpers';
 import { logError } from "@/lib/logger";
+import { getDemoListingsMode, getDemoVehicleRows } from "@/lib/demo/demoVehicles";
 
 interface Vehicle {
   id: string;
@@ -36,6 +37,43 @@ function SearchContent() {
       try {
         setLoading(true);
         setError("");
+
+        const demoMode = getDemoListingsMode();
+        const q = query.trim();
+        const demoMatches = (() => {
+          if (!q) return [];
+          const demoRows = getDemoVehicleRows({ count: 80, includeFeaturedMix: true });
+          return demoRows
+            .filter((r) => String(r.title || '').toLowerCase().includes(q.toLowerCase()))
+            .slice(0, 50)
+            .map((listing) => {
+              const location = [listing.communes?.name, listing.regions?.name]
+                .filter(Boolean)
+                .join(', ') || null;
+              const imageArray = Array.isArray((listing as any).image_paths)
+                ? ((listing as any).image_paths as string[])
+                : (listing as any).image_paths
+                ? [String((listing as any).image_paths)]
+                : [];
+              return {
+                id: listing.id,
+                title: listing.title,
+                price: listing.price ?? null,
+                year: listing.year ?? null,
+                mileage: listing.mileage ?? null,
+                location,
+                images: imageArray,
+                created_at: listing.created_at,
+                user_id: listing.owner_id || '',
+              } as Vehicle;
+            });
+        })();
+
+        // Modo demo forzado: no consultar BD.
+        if (demoMode === 'always') {
+          setVehicles(demoMatches);
+          return;
+        }
 
         const supabase = getSupabaseClient();
 
@@ -72,7 +110,8 @@ function SearchContent() {
           };
         });
 
-        setVehicles(normalized);
+        // Fallback demo: si no hay resultados reales, usar demo.
+        setVehicles(normalized.length === 0 ? demoMatches : normalized);
       } catch (err) {
         logError("Error searching vehicles", err);
         setError("Error al buscar vehículos");

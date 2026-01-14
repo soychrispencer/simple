@@ -9,6 +9,7 @@ coverage/
 
 # Next.js
 .next/
+.swc/
 out/
 build/
 dist/
@@ -82,7 +83,11 @@ backend/supabase/.temp/
 
 # Supabase CLI (artefactos locales)
 backend/supabase/supabase.exe
-backend/supabase/supabase/
+
+# No ignorar el proyecto de Supabase (templates/seed/etc.)
+# Solo ignorar artefactos temporales dentro de esa carpeta.
+backend/supabase/supabase/.temp/
+backend/supabase/supabase/.branches/
 
 # Temporales backend
 backend/.tmp_remote_public_schema.sql

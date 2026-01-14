@@ -35,7 +35,10 @@ Simple/
 │   ├── 05-DEVELOPMENT-GUIDE.md
 │   ├── 06-ROADMAP.md
 │   ├── 07-LOGO-SYSTEM.md
-│   └── 08-DEPLOYMENT-VERCEL.md
+│   ├── 08-DEPLOYMENT-VERCEL.md
+│   ├── catalog/               # SQL operativos + auditorías generadas
+│   ├── meta/                  # Reglas internas / onboarding / resúmenes
+│   └── archive/               # Documentos históricos
 │
 ├── apps/                      # 🚀 Verticales (aplicaciones Next.js)
 │   ├── simpleautos/          # Vertical de vehículos
@@ -219,6 +222,15 @@ Toda la documentación está centralizada en la carpeta `/docs`:
 - **[Development Guide](./docs/05-DEVELOPMENT-GUIDE.md)** - Guía para desarrolladores
 - **[Roadmap](./docs/06-ROADMAP.md)** - Próximos hitos
 - **[Logo System](./docs/07-LOGO-SYSTEM.md)** - Identidad visual del ecosistema
+- **[Deploy (Vercel)](./docs/08-DEPLOYMENT-VERCEL.md)** - Deploy y configuración en Vercel
+
+Docs internos/operativos:
+
+- **[Regla de contacto segura](./docs/meta/CONTACT-RULES.md)**
+- **[Estados de onboarding](./docs/meta/ONBOARDING-STATES.md)**
+- **[Resumen implementación Fase 1](./docs/meta/IMPLEMENTATION-SUMMARY.md)**
+- **[Catalog audit SQL](./docs/catalog/catalog-audit.sql)**
+- **[Catalog moderation SQL](./docs/catalog/catalog-moderation.sql)**
 
 ---
 

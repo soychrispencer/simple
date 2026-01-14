@@ -8,6 +8,7 @@ jest.mock('../cache');
 
 describe('MetricsService', () => {
   let metricsService: DefaultMetricsService;
+  const TEST_UUID = '00000000-0000-0000-0000-000000000001';
   type RpcResponse = { data: any; error: any };
   type SupabaseMock = {
     rpc: jest.MockedFunction<(fn: string, params?: object) => Promise<RpcResponse>>;
@@ -59,15 +60,23 @@ describe('MetricsService', () => {
     it('should successfully increment a metric', async () => {
       mockSupabase.rpc.mockResolvedValue({ data: null, error: null });
 
-      const result = await metricsService.incrementMetric('test-id', 'views');
+      const result = await metricsService.incrementMetric(TEST_UUID, 'views');
 
       expect(result).toBe(true);
       expect(mockSupabase.rpc).toHaveBeenCalledWith('increment_listing_metric', {
-        p_listing_id: 'test-id',
+        p_listing_id: TEST_UUID,
         p_metric: 'views',
         p_amount: 1
       });
-      expect(mockCache.del).toHaveBeenCalledWith('metrics-test-id');
+      expect(mockCache.del).toHaveBeenCalledWith(`metrics-${TEST_UUID}`);
+    });
+
+    it('should ignore demo listing ids', async () => {
+      const result = await metricsService.incrementMetric('demo-auction-4', 'views');
+
+      expect(result).toBe(true);
+      expect(mockSupabase.rpc).not.toHaveBeenCalled();
+      expect(mockSupabase.from).not.toHaveBeenCalled();
     });
 
     it('should handle errors from Supabase', async () => {
@@ -81,20 +90,20 @@ describe('MetricsService', () => {
         })
       } as any);
 
-      const result = await metricsService.incrementMetric('test-id', 'views');
+      const result = await metricsService.incrementMetric(TEST_UUID, 'views');
 
       expect(result).toBe(false);
       expect(mockLogger.error).toHaveBeenCalledWith(
         'RPC increment_listing_metric failed',
         expect.objectContaining({ message: mockError.message }),
-        { listingId: 'test-id', metric: 'views', amount: 1 }
+        { listingId: TEST_UUID, metric: 'views', amount: 1 }
       );
     });
 
     it('should handle unexpected errors', async () => {
       mockSupabase.rpc.mockRejectedValue(new Error('Unexpected error'));
 
-      const result = await metricsService.incrementMetric('test-id', 'views');
+      const result = await metricsService.incrementMetric(TEST_UUID, 'views');
 
       expect(result).toBe(false);
       expect(mockLogger.error).toHaveBeenCalled();
@@ -114,7 +123,7 @@ describe('MetricsService', () => {
     it('should return cached metrics if available', async () => {
       mockCache.get.mockReturnValue(mockMetrics);
 
-      const result = await metricsService.getMetrics('test-id');
+      const result = await metricsService.getMetrics(TEST_UUID);
 
       expect(result).toEqual(mockMetrics);
       expect(mockSupabase.from).not.toHaveBeenCalled();
@@ -130,10 +139,10 @@ describe('MetricsService', () => {
         })
       } as any);
 
-      const result = await metricsService.getMetrics('test-id');
+      const result = await metricsService.getMetrics(TEST_UUID);
 
       expect(result).toEqual(mockMetrics);
-      expect(mockCache.set).toHaveBeenCalledWith('metrics-test-id', mockMetrics, expect.any(Number));
+      expect(mockCache.set).toHaveBeenCalledWith(`metrics-${TEST_UUID}`, mockMetrics, expect.any(Number));
     });
   });
 });

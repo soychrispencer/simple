@@ -920,8 +920,8 @@ content: [
 ## ⚙️ Migrar boosts legacy al nuevo esquema
 
 1. **Preparar entorno**: exporta/define `SUPABASE_URL` y `SUPABASE_SERVICE_ROLE_KEY` antes de ejecutar.
-2. **Dry run**: `node scripts/migrate_vehicle_boosts.mjs` valida cuántos boosts se migrarán y si existen slots sin mapping.
-3. **Aplicar**: `node scripts/migrate_vehicle_boosts.mjs --apply` crea/actualiza filas en `listing_boosts` y sincroniza `listing_boost_slots` usando las fechas del boost legacy.
+2. **Dry run**: `node scripts/supabase/migrate_vehicle_boosts.mjs` valida cuántos boosts se migrarán y si existen slots sin mapping.
+3. **Aplicar**: `node scripts/supabase/migrate_vehicle_boosts.mjs --apply` crea/actualiza filas en `listing_boosts` y sincroniza `listing_boost_slots` usando las fechas del boost legacy.
 4. **Verificar**: el script imprime un resumen; confirma que los registros migrados poseen `metadata.legacy_boost_id`.
 5. **Ajustar slots**: si se listan slots desconocidos, edita `LEGACY_SLOT_KEY_MAP` dentro del script y repite.
 

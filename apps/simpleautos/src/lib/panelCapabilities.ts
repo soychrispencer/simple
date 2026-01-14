@@ -169,7 +169,7 @@ export function buildPanelManifest(capabilities: PanelCapabilities): PanelManife
         {
           id: "integrations",
           label: "Integraciones",
-          href: "/panel/integraciones",
+          href: "/panel/configuraciones#integraciones",
           icon: "integrations",
           description: "Portales y apps externas",
           status: "active",

@@ -28,6 +28,13 @@ NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
 NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-key
 SUPABASE_SERVICE_ROLE_KEY=your-service-key
 
+# Meta (Instagram publishing)
+# Server-only (NO NEXT_PUBLIC). Se obtienen desde Meta for Developers.
+FACEBOOK_APP_ID=your-meta-app-id
+FACEBOOK_APP_SECRET=your-meta-app-secret
+# Opcional: si tu callback público difiere del origin actual
+# INSTAGRAM_OAUTH_REDIRECT_URI=https://simpleautos.cl/api/instagram/oauth/callback
+
 # App Config
 NEXT_PUBLIC_VERTICAL=autos
 NEXT_PUBLIC_APP_URL=http://localhost:3000
@@ -49,6 +56,32 @@ SMTP_PASS=your-app-password
 NEXT_PUBLIC_VERTICAL=properties
 NEXT_PUBLIC_APP_URL=http://localhost:3001
 ```
+
+### Meta / Instagram (OAuth + publicar)
+
+Para que el flujo real funcione (conectar Instagram y publicar desde el panel), necesitas crear una app en **Meta for Developers** y configurar el OAuth.
+
+1. Crear una app en https://developers.facebook.com/
+2. Agregar producto **Facebook Login** (tipo Web)
+3. En **Facebook Login → Settings**:
+  - **Valid OAuth Redirect URIs**: agrega el callback de cada vertical
+    - `https://<tu-dominio>/api/instagram/oauth/callback`
+  - Asegúrate que el dominio sea accesible públicamente (en local usa túnel tipo ngrok/cloudflared)
+4. Permisos / scopes usados por Simple:
+  - `pages_show_list`
+  - `instagram_basic`
+  - `instagram_content_publish`
+
+Luego agrega estos env vars (en `.env.local` y en el hosting, por ejemplo Vercel):
+
+```bash
+FACEBOOK_APP_ID=...
+FACEBOOK_APP_SECRET=...
+```
+
+Notas:
+- `FACEBOOK_APP_SECRET` nunca debe ir como `NEXT_PUBLIC_*`.
+- Para publicar imágenes, la URL de la imagen debe ser alcanzable por Meta desde internet.
 
 3. **Run Development Servers**
 
@@ -78,7 +111,7 @@ npm run dev:all
 # Inicia stack local (requiere Docker)
 npm run supabase:start
 
-# Resetea base local y vuelve a aplicar migrations + seed.sql (requiere Docker)
+# Resetea base local y vuelve a aplicar migrations (seeds versionados como migraciones)
 npm run supabase:db:reset
 
 # Empuja migraciones a staging (usa SUPABASE_STAGING_DB_URL)
@@ -704,7 +737,7 @@ export default function HomePage() {
 
 1. **Create migration file**
 ```sql
--- backend/supabase/migrations/002_add_feature.sql
+-- backend/supabase/migrations/20260112120000_add_feature.sql
 BEGIN;
 
 ALTER TABLE public.vehicles

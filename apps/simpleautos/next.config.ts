@@ -29,7 +29,7 @@ const nextConfig: NextConfig = {
       { source: '/panel/publicaciones', destination: '/panel/mis-publicaciones', permanent: true },
       { source: '/panel/mensajes', destination: '/panel/mis-mensajes', permanent: true },
       { source: '/panel/favoritos', destination: '/panel/guardados', permanent: true },
-      { source: '/panel/marketplaces', destination: '/panel/integraciones', permanent: true },
+      { source: '/panel/marketplaces', destination: '/panel/configuraciones', permanent: true },
       { source: '/panel/planes', destination: '/panel/mis-suscripciones', permanent: true },
       { source: '/panel/facturacion', destination: '/panel/mis-suscripciones', permanent: true },
     ];

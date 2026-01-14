@@ -25,6 +25,7 @@
     "@simple/panel": "*",
     "@simple/profile": "*",
     "@simple/shared-types": "*",
+    "@simple/instagram": "*",
     "@simple/ui": "*",
     "@supabase/auth-helpers-nextjs": "^0.10.0",
     "@supabase/ssr": "^0.7.0",

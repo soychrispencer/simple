@@ -117,7 +117,7 @@ En Supabase Dashboard → Authentication → URL Configuration:
 
 ### 5.2 Aplicar migraciones/seed a producción
 Este repo trae un helper para empujar migraciones a producción:
-- Script: `scripts/supabase-push.mjs`
+- Script: `scripts/supabase/supabase-push.mjs`
 - Comando: `npm run supabase:db:push:prod`
 
 Necesitas definir `SUPABASE_PROD_DB_URL` en tu `.env` local (en la raíz del repo, NO en Vercel).

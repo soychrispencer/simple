@@ -5,6 +5,8 @@ import { VehicleCard } from '@/components/vehicles/VehicleCard';
 import { useRouter } from 'next/navigation';
 import { fetchFeaturedBySlot, BoostSlotKey } from '@/lib/fetchFeaturedBySlot';
 import { FeaturedVehicleRow } from '@/lib/vehicleUtils';
+import type { VehicleRow } from '@/lib/searchVehicles';
+import { getDemoFeaturedVehicleRows, getDemoListingsMode, isDemoListingsEnabled } from '@/lib/demo/demoVehicles';
 import { Swiper, SwiperSlide } from 'swiper/react';
 import { Navigation, Autoplay } from 'swiper/modules';
 import 'swiper/css';
@@ -26,12 +28,14 @@ interface CategoryVehicle {
   region_name: string | null;
   commune_name: string | null;
   owner_id: string;
+  featured?: boolean;
+  visibility?: string | null;
+  extra_specs?: any;
   rent_daily_price?: number | null;
   rent_weekly_price?: number | null;
   rent_monthly_price?: number | null;
   rent_price_period?: string | null;
   auction_start_price?: number | null;
-  specs?: any;
 }
 
 type SellerProfile = {
@@ -75,7 +79,44 @@ function mapFeaturedRowToCategoryVehicle(row: FeaturedVehicleRow): CategoryVehic
     rent_monthly_price: row.rent_monthly_price ?? null,
     rent_price_period: row.rent_price_period ?? null,
     auction_start_price: row.auction_start_price ?? null,
-    specs: row.extra_specs ?? undefined,
+    featured: true,
+    visibility: 'featured',
+    extra_specs: row.extra_specs ?? undefined,
+  };
+}
+
+function mapDemoRowToCategoryVehicle(row: VehicleRow): CategoryVehicle {
+  const imagePaths: string[] = Array.isArray((row as any).image_paths)
+    ? ((row as any).image_paths as string[])
+    : (row as any).image_paths
+    ? [String((row as any).image_paths)].filter(Boolean)
+    : Array.isArray(row.specs?.gallery)
+    ? row.specs.gallery
+    : Array.isArray(row.specs?.legacy?.gallery)
+    ? row.specs.legacy.gallery
+    : [];
+
+  return {
+    id: row.id,
+    title: row.title,
+    listing_type: row.listing_type,
+    price: row.price ?? null,
+    year: row.year ?? null,
+    mileage: row.mileage ?? null,
+    image_urls: imagePaths,
+    type_key: row.vehicle_types?.slug || null,
+    type_label: (row.vehicle_types as any)?.label || null,
+    region_name: row.regions?.name || row.specs?.legacy?.region_name || null,
+    commune_name: row.communes?.name || row.specs?.legacy?.commune_name || null,
+    owner_id: row.owner_id ?? row.user_id ?? '',
+    featured: true,
+    visibility: 'featured',
+    extra_specs: row.specs ?? undefined,
+    rent_daily_price: row.rent_daily_price ?? null,
+    rent_weekly_price: row.rent_weekly_price ?? null,
+    rent_monthly_price: row.rent_monthly_price ?? null,
+    rent_price_period: row.rent_price_period ?? null,
+    auction_start_price: row.auction_start_price ?? null,
   };
 }
 
@@ -93,10 +134,68 @@ export default function CategoryFeaturedSlider({
   const loadFeaturedVehicles = useCallback(async () => {
     try {
       setLoading(true);
+
+      const demoMode = getDemoListingsMode();
+      if (demoMode === 'always') {
+        const demoRows = getDemoFeaturedVehicleRows({ listingType, count: limit });
+        const mappedVehicles = demoRows.map(mapDemoRowToCategoryVehicle);
+
+        const profilesMap: Record<string, SellerProfile> = {};
+        demoRows.forEach((vehicle) => {
+          const ownerId = (vehicle.owner_id ?? vehicle.user_id) || '';
+          if (!ownerId || !vehicle.profiles) return;
+          profilesMap[ownerId] = {
+            id: ownerId,
+            public_name: vehicle.profiles.public_name ?? null,
+            username: vehicle.profiles.username ?? null,
+            avatar_url: vehicle.profiles.avatar_url ?? null,
+            email: vehicle.contact_email ?? null,
+            phone: vehicle.contact_phone ?? vehicle.contact_whatsapp ?? null,
+          };
+        });
+
+        logInfo(`Showing demo featured vehicles (always) for type ${listingType}`, {
+          listingType,
+          limit,
+          demoCount: mappedVehicles.length,
+        });
+        setVehicles(mappedVehicles);
+        setProfiles(profilesMap);
+        return;
+      }
+
       const slotKey = SLOT_BY_LISTING_TYPE[listingType];
       const featuredVehicles = await fetchFeaturedBySlot(slotKey, limit);
 
       if (!featuredVehicles.length) {
+        if (isDemoListingsEnabled()) {
+          const demoRows = getDemoFeaturedVehicleRows({ listingType, count: limit });
+          const mappedVehicles = demoRows.map(mapDemoRowToCategoryVehicle);
+
+          const profilesMap: Record<string, SellerProfile> = {};
+          demoRows.forEach((vehicle) => {
+            const ownerId = (vehicle.owner_id ?? vehicle.user_id) || '';
+            if (!ownerId || !vehicle.profiles) return;
+            profilesMap[ownerId] = {
+              id: ownerId,
+              public_name: vehicle.profiles.public_name ?? null,
+              username: vehicle.profiles.username ?? null,
+              avatar_url: vehicle.profiles.avatar_url ?? null,
+              email: vehicle.contact_email ?? null,
+              phone: vehicle.contact_phone ?? vehicle.contact_whatsapp ?? null,
+            };
+          });
+
+          logInfo(`No featured vehicles found for type ${listingType}; showing demo`, {
+            listingType,
+            limit,
+            demoCount: mappedVehicles.length,
+          });
+          setVehicles(mappedVehicles);
+          setProfiles(profilesMap);
+          return;
+        }
+
         logInfo(`No featured vehicles found for type ${listingType}`, { listingType, limit });
         setVehicles([]);
         setProfiles({});

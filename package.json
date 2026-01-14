@@ -38,9 +38,14 @@
     "supabase:db:diff": "cd backend/supabase && supabase db diff --linked",
     "supabase:db:push": "cd backend/supabase && supabase db push",
     "supabase:db:reset": "cd backend/supabase && supabase db reset --linked",
-    "supabase:db:push:staging": "node scripts/supabase-push.mjs staging",
-    "supabase:db:push:prod": "node scripts/supabase-push.mjs prod",
-    "catalog:audit": "node scripts/catalog_audit.mjs --out docs/catalog-audit-output.md"
+    "supabase:db:push:staging": "node scripts/supabase/supabase-push.mjs staging",
+    "supabase:db:push:prod": "node scripts/supabase/supabase-push.mjs prod",
+    "catalog:audit": "node scripts/catalog/catalog_audit.mjs --out docs/catalog/catalog-audit-output.md",
+    "seed:validate-models": "node scripts/seed/validate_seed_models.js",
+    "seed:check-communes": "node scripts/seed/check_communes.js",
+    "seed:reorder-models": "node scripts/seed/reorder_models.mjs",
+    "seed:all": "npm run seed:validate-models && npm run seed:check-communes",
+    "env:setup": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/dev/setup-env.ps1"
   },
   "devDependencies": {
       "rimraf": "^6.0.1",

@@ -1,5 +1,5 @@
 "use client";
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import AdvancedFiltersSidebar from "@/components/filters/AdvancedFiltersSidebar";
 import { Button, ViewToggle } from "@simple/ui";
 import { VehicleCard } from "@/components/vehicles/VehicleCard";
@@ -9,6 +9,7 @@ import { ListingFiltersState, useListingFilters } from "@/hooks/useListingFilter
 import { useRouter } from "next/navigation";
 import { ensureLegacyFormat } from "@/lib/normalizeVehicleSpecs";
 import { buildSearchUrl } from "@/lib/builders/buildSearchUrl";
+import { getDemoListingsMode, getDemoVehicleRows } from "@/lib/demo/demoVehicles";
 
 function mapVehicleRowToVehicle(row: VehicleRow): Vehicle {
   const imagePaths: string[] = Array.isArray((row as any).image_paths)
@@ -35,8 +36,10 @@ function mapVehicleRowToVehicle(row: VehicleRow): Vehicle {
     mileage_km: row.mileage,
     brand_id: null,
     model_id: null,
-    condition: null,
-    color: null,
+    condition: (row.specs as any)?.condition ?? null,
+    fuel_type: (row.specs as any)?.fuel_type ?? null,
+    transmission: (row.specs as any)?.transmission ?? null,
+    color: (row.specs as any)?.color ?? null,
     region_id: null,
     commune_id: null,
     image_urls: imagePaths,
@@ -163,6 +166,14 @@ export default function VehiculosPage() {
   const canPrev = filters.page > 1;
   const canNext = filters.page < totalPages;
 
+  const demoMode = getDemoListingsMode();
+  const showDemo = demoMode === 'always' || (!loading && vehicles.length === 0 && demoMode === 'fallback');
+  const demoRows = useMemo(() => {
+    if (!showDemo) return [];
+    return getDemoVehicleRows({ count: 50, includeFeaturedMix: true });
+  }, [showDemo]);
+  const effectiveTotal = showDemo ? demoRows.length : total;
+
   if (error) return <p className="text-center py-8 text-[var(--color-danger)]">Error: {error}</p>;
 
   return (
@@ -217,11 +228,53 @@ export default function VehiculosPage() {
               <h1 className="text-2xl font-bold">Todos los vehículos publicados</h1>
             </div>
             <div className="hidden md:flex items-center gap-4">
-              <div className="text-sm text-lighttext/70 dark:text-darktext/70">{total} resultado{total !== 1 ? "s" : ""}</div>
+              <div className="text-sm text-lighttext/70 dark:text-darktext/70">{effectiveTotal} resultado{effectiveTotal !== 1 ? "s" : ""}</div>
               <ViewToggle layout={layout} onLayoutChange={setLayout} />
             </div>
           </div>
-          {!loading && vehicles.length === 0 ? (
+          {showDemo ? (
+            <>
+              <div
+                className={
+                  layout === 'vertical'
+                    ? 'grid gap-6 mb-8 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 justify-items-center'
+                    : 'grid gap-6 mb-8 grid-cols-1'
+                }
+              >
+                {demoRows.map((auto) => {
+                  const vehicle = mapVehicleRowToVehicle(auto);
+                  const seller = auto.profiles
+                    ? {
+                        id: auto.profiles.username || "",
+                        username: auto.profiles.username,
+                        nombre: auto.profiles.public_name || "Vendedor",
+                        avatar: auto.profiles.avatar_url || undefined,
+                        email: auto.contact_email || undefined,
+                        phone: auto.contact_phone || auto.contact_whatsapp || undefined,
+                      }
+                    : undefined;
+
+                  if (layout === 'vertical') {
+                    return (
+                      <div key={auto.id} className="w-full max-w-[360px]">
+                        <VehicleCard vehicle={vehicle} seller={seller} layout={layout} onClick={handleVehicleClick} />
+                      </div>
+                    );
+                  }
+
+                  return (
+                    <VehicleCard
+                      key={auto.id}
+                      vehicle={vehicle}
+                      seller={seller}
+                      layout={layout}
+                      onClick={handleVehicleClick}
+                    />
+                  );
+                })}
+              </div>
+            </>
+          ) : !loading && vehicles.length === 0 ? (
             <div className="text-center py-16 border border-dashed rounded-xl border-border/60">
               <p className="text-lg font-medium mb-2">Sin resultados</p>
               <p className="text-sm text-lighttext/70 dark:text-darktext/70">Ajusta los filtros o intenta con otros términos.</p>
@@ -305,7 +358,7 @@ export default function VehiculosPage() {
         <div className="md:hidden fixed bottom-0 left-0 right-0 z-40 px-4 pb-5 pt-3 card-surface/95 backdrop-blur shadow-card">
           <div className="flex items-center gap-3">
             <div className="flex-1 min-w-0">
-              <div className="text-sm font-semibold leading-tight">{total} resultado{total !== 1 ? 's' : ''}</div>
+              <div className="text-sm font-semibold leading-tight">{effectiveTotal} resultado{effectiveTotal !== 1 ? 's' : ''}</div>
               <div className="text-xs text-lighttext/70 dark:text-darktext/70">Ajusta los filtros sin perder la lista</div>
             </div>
             <Button size="sm" className="flex-1" onClick={() => setFiltersOpen(true)}>

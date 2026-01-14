@@ -1,6 +1,6 @@
 ﻿import React, { useState, useRef, useEffect } from "react";
 import { Button, CircleButton, Chip, useDisplayCurrency } from '@simple/ui';
-import { IconChevronLeft, IconChevronRight, IconMapPin, IconGauge, IconEngine, IconManualGearbox, IconDots, IconTrash, IconCopy, IconEye, IconCar, IconMotorbike, IconTruck, IconBus, IconPointer, IconPlayerPlay, IconPlayerPause, IconFileText, IconEdit, IconCreditCard, IconGift, IconTag, IconShare2 } from '@tabler/icons-react';
+import { IconChevronLeft, IconChevronRight, IconMapPin, IconGauge, IconEngine, IconManualGearbox, IconDots, IconTrash, IconCopy, IconEye, IconCar, IconMotorbike, IconTruck, IconBus, IconPointer, IconPlayerPlay, IconPlayerPause, IconFileText, IconEdit, IconCreditCard, IconGift, IconTag, IconShare2, IconBrandInstagram } from '@tabler/icons-react';
 import { conditionMap, toSpanish, capitalize, fuelTypeMap, transmissionMap } from '@/lib/vehicleTranslations';
 import { formatPrice } from '@/lib/format';
 import { convertFromClp } from '@/lib/displayCurrency';
@@ -61,6 +61,7 @@ interface AdminVehicleCardProps {
   onView?: (id: string) => void;
   onChangeStatus?: (id: string, newStatus: 'Publicado' | 'Pausado' | 'Borrador') => void;
   onBoost?: (id: string) => void;
+  onInstagramPublish?: (id: string) => void;
   canPublish?: boolean;
   canDuplicate?: boolean;
   publishDisabledTitle?: string;
@@ -81,6 +82,7 @@ export const AdminVehicleCard: React.FC<AdminVehicleCardProps> = ({
   onView,
   onChangeStatus,
   onBoost,
+  onInstagramPublish,
   canPublish = true,
   canDuplicate = true,
   publishDisabledTitle,
@@ -303,6 +305,16 @@ export const AdminVehicleCard: React.FC<AdminVehicleCardProps> = ({
     } finally {
       setMenuOpen(false);
     }
+  };
+
+  const instagramEnabled = String(process.env.NEXT_PUBLIC_ENABLE_INSTAGRAM_PUBLISH || '').toLowerCase() === 'true';
+
+  const handleInstagramPublish = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (selectionMode) return;
+    if (!instagramEnabled) return;
+    if (onInstagramPublish) onInstagramPublish(vehicle.id);
+    setMenuOpen(false);
   };
 
   const handleSlotsModalClose = () => {
@@ -784,6 +796,12 @@ export const AdminVehicleCard: React.FC<AdminVehicleCardProps> = ({
               <IconShare2 size={16}/> Compartir
             </button>
 
+            {instagramEnabled && onInstagramPublish ? (
+              <button onClick={handleInstagramPublish} className="w-full flex items-center gap-2 px-3 py-2 text-sm hover:bg-[var(--field-bg-hover)] text-left transition">
+                <IconBrandInstagram size={16}/> Publicar en Instagram
+              </button>
+            ) : null}
+
             {/* Separador */}
             <div className="border-t border-border/60 dark:border-darkborder/35 my-1"></div>
 
@@ -1152,6 +1170,16 @@ export const AdminVehicleCard: React.FC<AdminVehicleCardProps> = ({
                 <button onClick={handleView} className="w-full flex items-center gap-2 px-3 py-2 text-sm hover:bg-[var(--field-bg-hover)] text-left transition">
                   <IconEye size={16}/> Ver publicación
                 </button>
+
+                <button onClick={handleShare} className="w-full flex items-center gap-2 px-3 py-2 text-sm hover:bg-[var(--field-bg-hover)] text-left transition">
+                  <IconShare2 size={16}/> Compartir
+                </button>
+
+                {instagramEnabled && onInstagramPublish ? (
+                  <button onClick={handleInstagramPublish} className="w-full flex items-center gap-2 px-3 py-2 text-sm hover:bg-[var(--field-bg-hover)] text-left transition">
+                    <IconBrandInstagram size={16}/> Publicar en Instagram
+                  </button>
+                ) : null}
 
                 {/* Separador */}
                 <div className="border-t border-border/60 dark:border-darkborder/35 my-1"></div>

@@ -6,6 +6,7 @@ import { Button, CircleButton, ViewToggle, useToast, Input, Select, Modal } from
 import { PanelPageLayout } from "@simple/ui";
 import { useSupabase } from "@/lib/supabase/useSupabase";
 import { AdminVehicleCard } from "@/components/vehicles/AdminVehicleCard";
+import { InstagramPublishModal } from "@/components/instagram/InstagramPublishModal";
 import { ensureLegacyFormat } from "@/lib/normalizeVehicleSpecs";
 import { logError } from "@/lib/logger";
 import {
@@ -337,10 +338,18 @@ export default function MisPublicaciones() {
   const [deleteModalOpen, setDeleteModalOpen] = React.useState(false);
   const [vehicleToDelete, setVehicleToDelete] = React.useState<{ id: string; titulo: string } | null>(null);
   const [modalMounted, setModalMounted] = React.useState(false);
+  const [instagramModalOpen, setInstagramModalOpen] = React.useState(false);
+  const [instagramVehicle, setInstagramVehicle] = React.useState<Item | null>(null);
 
   React.useEffect(() => {
     setModalMounted(true);
   }, []);
+
+  const openInstagramFor = (id: string) => {
+    const found = items.find((it) => it.id === id) || null;
+    setInstagramVehicle(found);
+    setInstagramModalOpen(true);
+  };
 
   React.useEffect(() => {
     setMounted(true);
@@ -1171,6 +1180,7 @@ export default function MisPublicaciones() {
                   onDelete={(id: string) => confirmarEliminar(id, i.titulo)}
                   onChangeStatus={(id: string, newStatus: 'Publicado' | 'Pausado' | 'Borrador') => cambiarEstadoIndividual(id, newStatus)}
                   onBoost={(id: string) => impulsarPublicacion(id)}
+                  onInstagramPublish={(id: string) => openInstagramFor(id)}
                   canPublish={!limitsLoading && (maxActiveListings < 0 || activePublishedCount < maxActiveListings)}
                   canDuplicate={!limitsLoading && (maxTotalListings < 0 || totalListingsCount < maxTotalListings)}
                   publishDisabledTitle={
@@ -1211,6 +1221,7 @@ export default function MisPublicaciones() {
                   onDelete={(id: string) => confirmarEliminar(id, i.titulo)}
                   onChangeStatus={(id: string, newStatus: 'Publicado' | 'Pausado' | 'Borrador') => cambiarEstadoIndividual(id, newStatus)}
                   onBoost={(id: string) => impulsarPublicacion(id)}
+                  onInstagramPublish={(id: string) => openInstagramFor(id)}
                   canPublish={!limitsLoading && (maxActiveListings < 0 || activePublishedCount < maxActiveListings)}
                   canDuplicate={!limitsLoading && (maxTotalListings < 0 || totalListingsCount < maxTotalListings)}
                   publishDisabledTitle={
@@ -1292,6 +1303,34 @@ export default function MisPublicaciones() {
             </div>
           </div>
         </Modal>,
+        document.body
+      )}
+
+      {/* Modal Publicar en Instagram */}
+      {modalMounted && createPortal(
+        <InstagramPublishModal
+          open={instagramModalOpen}
+          onClose={() => {
+            setInstagramModalOpen(false);
+            setInstagramVehicle(null);
+          }}
+          vehicle={
+            instagramVehicle
+              ? {
+                  id: instagramVehicle.id,
+                  titulo: instagramVehicle.titulo,
+                  precio: instagramVehicle.precio ?? null,
+                  listing_type: instagramVehicle.listing_type ?? null,
+                  year: instagramVehicle.year ?? null,
+                  mileage: instagramVehicle.mileage ?? null,
+                  region: instagramVehicle.region ?? null,
+                  commune: instagramVehicle.commune ?? null,
+                  portada: instagramVehicle.portada ?? null,
+                  imagenes: instagramVehicle.imagenes ?? null,
+                }
+              : null
+          }
+        />,
         document.body
       )}
     </PanelPageLayout>

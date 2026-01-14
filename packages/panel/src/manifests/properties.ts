@@ -110,7 +110,7 @@ export const propertiesPanelManifest: PanelManifest = {
           href: "/panel/configuraciones",
           icon: "settings",
           description: "Preferencias del marketplace",
-          status: "planned",
+          status: "active",
         },
       ],
     },

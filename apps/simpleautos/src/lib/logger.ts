@@ -9,11 +9,21 @@ const fallbackLogger = createConsoleLogger({ service: 'simpleautos' });
 
 // Inicializar winston solo en servidor
 if (typeof window === 'undefined') {
+  const fs = require('node:fs');
+  const path = require('node:path');
   const winston = require('winston');
 
   const isProd = process.env.NODE_ENV === 'production';
   const isVercel = !!process.env.VERCEL;
   const logToFile = ['1', 'true', 'yes', 'on'].includes(String(process.env.LOG_TO_FILE || '').toLowerCase());
+
+  if (isProd && logToFile && !isVercel) {
+    try {
+      fs.mkdirSync(path.resolve(process.cwd(), 'logs'), { recursive: true });
+    } catch {
+      // Si no se puede crear (p.ej. FS read-only), Winston seguirá con Console (según configuración).
+    }
+  }
 
   winstonLogger = winston.createLogger({
     level: process.env.LOG_LEVEL || 'info',

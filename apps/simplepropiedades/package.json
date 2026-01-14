@@ -12,6 +12,7 @@
   "dependencies": {
     "@simple/auth": "*",
     "@simple/config": "*",
+    "@simple/instagram": "*",
     "@simple/listings": "*",
     "@simple/logging": "*",
     "@simple/panel": "*",

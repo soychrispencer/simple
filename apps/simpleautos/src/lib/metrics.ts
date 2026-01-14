@@ -37,6 +37,12 @@ const noopLogger: Logger = {
 // Flag para permitir deshabilitar métricas en entornos donde la tabla no exista
 const METRICS_ENABLED = process.env.METRICS_ENABLED !== 'false';
 
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+function isUuid(id: string): boolean {
+  return UUID_RE.test(id);
+}
+
 // Helper seguro para serializar errores/objetos para logging sin fallos
 const safeSerialize = (v: any) => {
   try {
@@ -82,8 +88,18 @@ export class DefaultMetricsService implements MetricsService {
       return false;
     }
 
+    // IDs demo no existen en la BD y no son UUID; ignorar silenciosamente.
+    if (typeof listingId === 'string' && listingId.startsWith('demo-')) {
+      return true;
+    }
+
     if (!listingId || typeof listingId !== 'string') {
       (this.logger || noopLogger).error('Invalid listingId provided', { listingId });
+      return false;
+    }
+
+    // Evita errores del tipo "invalid input syntax for type uuid" en RPC/queries.
+    if (!isUuid(listingId)) {
       return false;
     }
 
@@ -189,6 +205,14 @@ export class DefaultMetricsService implements MetricsService {
     try {
       if (!METRICS_ENABLED) {
         (this.logger || noopLogger).error('Metrics disabled via METRICS_ENABLED=false');
+        return null;
+      }
+
+      if (typeof listingId === 'string' && listingId.startsWith('demo-')) {
+        return null;
+      }
+
+      if (!listingId || typeof listingId !== 'string' || !isUuid(listingId)) {
         return null;
       }
 
