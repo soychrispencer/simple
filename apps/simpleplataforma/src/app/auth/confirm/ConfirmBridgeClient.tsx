@@ -8,6 +8,13 @@ function isAllowedRedirectHost(hostname: string) {
     "www.simpleautos.app",
     "simplepropiedades.app",
     "www.simplepropiedades.app",
+    "simpletiendas.app",
+    "www.simpletiendas.app",
+    "simplefood.app",
+    "www.simplefood.app",
+    "simpleadmin.app",
+    "www.simpleadmin.app",
+    "admin.simpleplataforma.app",
     "localhost",
   ];
   return allowed.includes(hostname);
@@ -33,7 +40,7 @@ function pickTargetBase(): string {
 }
 
 export default function ConfirmBridgeClient() {
-  const [dest, setDest] = useState<string | null>(null);
+  const [didRedirect, setDidRedirect] = useState(false);
 
   const destination = useMemo(() => {
     if (typeof window === "undefined") return null;
@@ -48,7 +55,7 @@ export default function ConfirmBridgeClient() {
 
   useEffect(() => {
     if (!destination) return;
-    setDest(destination);
+    setDidRedirect(true);
     window.location.replace(destination);
   }, [destination]);
 
@@ -58,11 +65,11 @@ export default function ConfirmBridgeClient() {
       <p style={{ color: "#555", lineHeight: 1.5 }}>
         Redirigiendo a la vertical para completar el inicio de sesión.
       </p>
-      {dest ? (
-        <p style={{ marginTop: 16, fontSize: 12, color: "#777" }}>
-          Si no te redirige automáticamente, abre: <a href={dest}>{dest}</a>
-        </p>
-      ) : null}
+      <p style={{ marginTop: 16, fontSize: 12, color: "#777" }}>
+        {didRedirect
+          ? "Si esta pantalla no se cierra, vuelve atrás e intenta nuevamente."
+          : "Preparando redirección…"}
+      </p>
     </main>
   );
 }
