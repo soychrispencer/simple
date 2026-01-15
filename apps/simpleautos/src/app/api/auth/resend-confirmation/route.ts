@@ -11,11 +11,16 @@ export async function POST(req: NextRequest) {
     const supabase = createServerComponentClient({ cookies: () => (cookiesObj as any) });
 
     const origin = req.headers.get('origin')
-      || process.env.NEXT_PUBLIC_SITE_URL
       || process.env.NEXT_PUBLIC_AUTOS_DOMAIN
       || 'http://localhost:3000';
 
-    const emailRedirectTo = new URL(`/auth/confirm?email=${encodeURIComponent(String(email).trim())}`, origin).toString();
+    const platformOrigin = process.env.NEXT_PUBLIC_SITE_URL || origin;
+    const verticalOrigin = process.env.NEXT_PUBLIC_AUTOS_DOMAIN || origin;
+
+    const emailRedirectToUrl = new URL('/auth/confirm', platformOrigin);
+    emailRedirectToUrl.searchParams.set('email', String(email).trim());
+    emailRedirectToUrl.searchParams.set('redirect_to', verticalOrigin);
+    const emailRedirectTo = emailRedirectToUrl.toString();
 
     const { data, error } = await supabase.auth.resend({
       type: 'signup',

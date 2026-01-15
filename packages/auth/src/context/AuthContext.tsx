@@ -438,9 +438,57 @@ export function AuthProvider({
   }, [user?.id, loadProfile]);
 
   const signOut = useCallback(async () => {
-    // Limpiar la preferencia de "remember me" al cerrar sesión
-    localStorage.removeItem('simple_auth_remember');
-    await supabaseClient.auth.signOut();
+    // Limpieza defensiva: en algunos casos el storage queda con tokens y al refrescar la sesión reaparece.
+    try {
+      localStorage.removeItem('simple_auth_remember');
+      localStorage.removeItem('simple_auth_email');
+      localStorage.removeItem('simple_pending_verification_email');
+    } catch {
+      // ignore
+    }
+
+    // Intentar cerrar sesión en Supabase (global para invalidar refresh tokens).
+    try {
+      await supabaseClient.auth.signOut({ scope: 'global' } as any);
+    } catch (e) {
+      console.warn('[AuthContext] signOut error (ignored):', e);
+    }
+
+    // Borrar keys de Supabase en localStorage (sb-<projectRef>-auth-token*).
+    try {
+      const supabaseUrl: string | undefined = (supabaseClient as any)?.supabaseUrl;
+      const ref = supabaseUrl ? new URL(supabaseUrl).hostname.split('.')[0] : null;
+      const exactKeys = ref
+        ? [
+            `sb-${ref}-auth-token`,
+            `sb-${ref}-auth-token-code-verifier`,
+            `sb-${ref}-auth-token-refresh`,
+          ]
+        : [];
+
+      for (const k of exactKeys) {
+        try {
+          localStorage.removeItem(k);
+        } catch {
+          // ignore
+        }
+      }
+
+      // Limpieza genérica por si cambia el nombre de la key.
+      for (let i = localStorage.length - 1; i >= 0; i--) {
+        const key = localStorage.key(i);
+        if (!key) continue;
+
+        const looksLikeSupabaseAuthKey = key.includes('supabase.auth') || key.includes('-auth-token');
+        const matchesProject = ref ? key.includes(ref) : true;
+        if (looksLikeSupabaseAuthKey && matchesProject) {
+          localStorage.removeItem(key);
+        }
+      }
+    } catch {
+      // ignore
+    }
+
     applyState(null, null);
   }, [supabaseClient, applyState]);
 
