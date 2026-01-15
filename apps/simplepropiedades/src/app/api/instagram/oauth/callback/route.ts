@@ -29,8 +29,8 @@ function getRedirectUri(req: NextRequest) {
 
 export async function GET(req: NextRequest) {
   try {
-    const appId = process.env.FACEBOOK_APP_ID;
-    const appSecret = process.env.FACEBOOK_APP_SECRET;
+    const appId = process.env.FACEBOOK_APP_ID || process.env.META_APP_ID;
+    const appSecret = process.env.FACEBOOK_APP_SECRET || process.env.META_APP_SECRET;
     if (!appId || !appSecret) {
       return NextResponse.redirect(new URL("/panel/configuraciones?error=instagram", req.nextUrl.origin));
     }

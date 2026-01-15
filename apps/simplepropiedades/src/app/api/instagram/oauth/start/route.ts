@@ -12,17 +12,34 @@ function getRedirectUri(req: NextRequest) {
 }
 
 export async function GET(req: NextRequest) {
-  const appId = process.env.FACEBOOK_APP_ID;
-  if (!appId) return NextResponse.json({ error: "FACEBOOK_APP_ID not configured" }, { status: 500 });
+  const appId = process.env.FACEBOOK_APP_ID || process.env.META_APP_ID;
+  if (!appId) {
+    return NextResponse.json(
+      { error: "META app id not configured (use FACEBOOK_APP_ID or META_APP_ID)" },
+      { status: 500 }
+    );
+  }
 
   const state = crypto.randomBytes(16).toString("hex");
   const redirectUri = getRedirectUri(req);
+
+  const scopes = ["pages_show_list", "instagram_basic", "instagram_content_publish"];
+
+  if (req.nextUrl.searchParams.get("debug") === "1") {
+    return NextResponse.json({
+      origin: req.nextUrl.origin,
+      client_id: appId,
+      redirect_uri: redirectUri,
+      scope: scopes.join(" "),
+      note: "client_id must be the main Meta App ID (not the Instagram app id from the use case)",
+    });
+  }
 
   const url = buildMetaOAuthUrl({
     appId,
     redirectUri,
     state,
-    scopes: ["pages_show_list", "instagram_basic", "instagram_content_publish"],
+    scopes,
   });
 
   const cookieStore = await cookies();

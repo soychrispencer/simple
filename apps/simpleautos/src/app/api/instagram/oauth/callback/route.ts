@@ -40,11 +40,17 @@ export async function GET(req: NextRequest) {
     const user = data?.user;
     if (!user) return redirectError();
 
-    const appId = process.env.FACEBOOK_APP_ID;
-    const appSecret = process.env.FACEBOOK_APP_SECRET;
+    const appId = process.env.FACEBOOK_APP_ID || process.env.META_APP_ID;
+    const appSecret = process.env.FACEBOOK_APP_SECRET || process.env.META_APP_SECRET;
     const redirectOverride = process.env.INSTAGRAM_OAUTH_REDIRECT_URI;
     if (!appId || !appSecret) {
-      return NextResponse.json({ error: "FACEBOOK_APP_ID/FACEBOOK_APP_SECRET no configurados" }, { status: 500 });
+      return NextResponse.json(
+        {
+          error:
+            "Credenciales Meta no configuradas (usa FACEBOOK_APP_ID/FACEBOOK_APP_SECRET o META_APP_ID/META_APP_SECRET)",
+        },
+        { status: 500 }
+      );
     }
 
     const redirectUri = redirectOverride || `${origin}/api/instagram/oauth/callback`;
