@@ -66,8 +66,20 @@ export default function Configuraciones() {
     }
   }, [searchParams, addToast, router, loadInstagram]);
 
-  const connectInstagram = () => {
-    window.location.href = "/api/instagram/oauth/start";
+  const connectInstagram = async () => {
+    try {
+      const res = await fetch("/api/me", { cache: "no-store" });
+      const json = await res.json();
+      if (!json?.user?.id) {
+        addToast("Debes iniciar sesión para conectar Instagram", { type: "error" });
+        router.push("/login?next=/panel/configuraciones#integraciones");
+        return;
+      }
+
+      window.location.href = "/api/instagram/oauth/start";
+    } catch {
+      addToast("No se pudo validar tu sesión", { type: "error" });
+    }
   };
 
   const disconnectInstagram = async () => {

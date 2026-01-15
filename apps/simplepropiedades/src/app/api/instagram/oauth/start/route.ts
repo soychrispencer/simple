@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import crypto from "crypto";
 import { buildMetaOAuthUrl } from "@simple/instagram/server";
+import { createRouteHandlerClient } from "@supabase/auth-helpers-nextjs";
 
 export const runtime = "nodejs";
 
@@ -20,6 +21,15 @@ export async function GET(req: NextRequest) {
     );
   }
 
+  const origin = req.nextUrl.origin;
+  const cookieStoreForSupabase = await cookies();
+  const supabase = createRouteHandlerClient({ cookies: () => (cookieStoreForSupabase as any) });
+  const { data: authData } = await supabase.auth.getUser();
+  const authedUser = authData?.user || null;
+  if (!authedUser) {
+    return NextResponse.redirect(`${origin}/login?next=/panel/configuraciones#integraciones`);
+  }
+
   const state = crypto.randomBytes(16).toString("hex");
   const redirectUri = getRedirectUri(req);
 
@@ -27,10 +37,11 @@ export async function GET(req: NextRequest) {
 
   if (req.nextUrl.searchParams.get("debug") === "1") {
     return NextResponse.json({
-      origin: req.nextUrl.origin,
+      origin,
       client_id: appId,
       redirect_uri: redirectUri,
       scope: scopes.join(" "),
+      user: { id: authedUser.id, email: authedUser.email },
       note: "client_id must be the main Meta App ID (not the Instagram app id from the use case)",
     });
   }

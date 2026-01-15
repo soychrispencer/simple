@@ -41,7 +41,10 @@ export async function GET(req: NextRequest) {
     const supabase = createRouteHandlerClient({ cookies: () => (cookieStoreForSupabase as any) });
     const { data } = await supabase.auth.getUser();
     const user = data?.user;
-    if (!user) return redirectError("not_logged_in");
+    if (!user) {
+      console.error("instagram_oauth_callback: not_logged_in");
+      return redirectError("not_logged_in");
+    }
 
     const appId = process.env.FACEBOOK_APP_ID || process.env.META_APP_ID;
     const appSecret = process.env.FACEBOOK_APP_SECRET || process.env.META_APP_SECRET;

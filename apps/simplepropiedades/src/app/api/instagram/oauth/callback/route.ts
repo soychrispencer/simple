@@ -47,6 +47,7 @@ export async function GET(req: NextRequest) {
     const { data } = await supabase.auth.getUser();
     const user = data?.user;
     if (!user) {
+      console.error("instagram_oauth_callback: not_logged_in");
       return NextResponse.redirect(new URL("/login", req.nextUrl.origin));
     }
 
