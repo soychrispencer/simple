@@ -41,6 +41,7 @@ export default function Configuraciones() {
   React.useEffect(() => {
     const connected = searchParams.get("connected");
     const error = searchParams.get("error");
+    const reason = searchParams.get("reason") || "";
     if (connected === "instagram") {
       addToast("Instagram conectado", { type: "success" });
       loadInstagram();
@@ -48,7 +49,19 @@ export default function Configuraciones() {
       return;
     }
     if (error === "instagram") {
-      addToast("No se pudo conectar Instagram", { type: "error" });
+      const reasonMap: Record<string, string> = {
+        missing_code: "No se recibió el código de autorización.",
+        invalid_state: "Sesión expirada o inválida. Intenta nuevamente.",
+        not_logged_in: "Debes iniciar sesión en SimpleAutos antes de conectar.",
+        token_exchange_failed: "Meta rechazó el intercambio del token. Revisa permisos y App ID.",
+        pages_fetch_failed: "No se pudieron leer tus Páginas de Facebook.",
+        no_instagram_account_linked: "No encontramos un Instagram profesional vinculado a una Página.",
+        supabase_admin_not_configured: "Error de configuración del servidor (Supabase service role).",
+        integration_upsert_failed: "No se pudo guardar la conexión (integrations).",
+        provider_upsert_failed: "No se pudo guardar la conexión (instagram).",
+      };
+
+      addToast(reasonMap[reason] || "No se pudo conectar Instagram", { type: "error" });
       router.replace("/panel/configuraciones#integraciones");
     }
   }, [searchParams, addToast, router, loadInstagram]);
