@@ -48,8 +48,11 @@ export interface AuthContextValue {
 }
 
 function resolvePublicBaseUrl(): string | undefined {
+  // En el browser SIEMPRE usamos el origin actual.
+  // NEXT_PUBLIC_APP_URL puede ser un valor "global" del monorepo (ej. simpleplataforma.app)
+  // y romper redirects OAuth dentro de una vertical.
   const raw = typeof window !== 'undefined'
-    ? (process.env.NEXT_PUBLIC_APP_URL || window.location.origin)
+    ? window.location.origin
     : process.env.NEXT_PUBLIC_APP_URL;
 
   if (!raw) return undefined;
