@@ -38,7 +38,12 @@ export function getSupabaseClient(): SupabaseClient<any> {
     }
 
     supabaseClient = createClient(url, key, {
-      auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true },
+      auth: {
+        persistSession: true,
+        autoRefreshToken: true,
+        detectSessionInUrl: true,
+        flowType: 'pkce',
+      },
       global: { headers: { 'x-simpleautos-auth': '1' } }
     });
   }

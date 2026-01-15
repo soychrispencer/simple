@@ -47,6 +47,17 @@ export interface AuthContextValue {
   switchToVertical: (verticalId: string) => Promise<void>;
 }
 
+function resolvePublicBaseUrl(): string | undefined {
+  const raw = typeof window !== 'undefined'
+    ? (process.env.NEXT_PUBLIC_APP_URL || window.location.origin)
+    : process.env.NEXT_PUBLIC_APP_URL;
+
+  if (!raw) return undefined;
+  // Normaliza para asegurar esquema.
+  if (/^https?:\/\//i.test(raw)) return raw;
+  return `https://${raw}`;
+}
+
 export const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 
 /**
@@ -371,9 +382,8 @@ export function AuthProvider({
     options?: { redirectTo?: string }
   ): Promise<AuthResult> => {
     try {
-      const defaultRedirectTo = typeof window !== 'undefined'
-        ? `${window.location.origin}/auth/confirm`
-        : undefined;
+      const base = resolvePublicBaseUrl();
+      const defaultRedirectTo = base ? `${base}/auth/confirm` : undefined;
 
       const redirectTo = options?.redirectTo ?? defaultRedirectTo;
 
@@ -392,8 +402,9 @@ export function AuthProvider({
   const signUp = useCallback(async (email: string, password: string, data?: Record<string, any>): Promise<AuthResult> => {
     try {
       console.log('[AuthContext] signUp called with:', { email, data });
-      const emailRedirectTo = typeof window !== 'undefined'
-        ? `${window.location.origin}/auth/confirm?email=${encodeURIComponent(email)}`
+      const base = resolvePublicBaseUrl();
+      const emailRedirectTo = base
+        ? `${base}/auth/confirm?email=${encodeURIComponent(email)}`
         : undefined;
 
       const { data: res, error } = await supabaseClient.auth.signUp({
