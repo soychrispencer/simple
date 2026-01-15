@@ -23,12 +23,9 @@ export async function POST(req: NextRequest) {
       process.env.NEXT_PUBLIC_PROPIEDADES_DOMAIN ||
       'http://localhost:3002';
 
-    const platformOrigin = process.env.NEXT_PUBLIC_SITE_URL || origin;
     const verticalOrigin = process.env.NEXT_PUBLIC_PROPIEDADES_DOMAIN || origin;
-
-    const emailRedirectToUrl = new URL('/auth/confirm', platformOrigin);
+    const emailRedirectToUrl = new URL('/auth/confirm', verticalOrigin);
     emailRedirectToUrl.searchParams.set('email', String(email).trim());
-    emailRedirectToUrl.searchParams.set('redirect_to', verticalOrigin);
     const emailRedirectTo = emailRedirectToUrl.toString();
 
     const { data, error } = await supabase.auth.resend({

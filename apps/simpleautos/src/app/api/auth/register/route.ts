@@ -18,12 +18,9 @@ export async function POST(req: NextRequest) {
     || process.env.NEXT_PUBLIC_AUTOS_DOMAIN
     || 'http://localhost:3000';
 
-  const platformOrigin = process.env.NEXT_PUBLIC_SITE_URL || origin;
-  const verticalOrigin = process.env.NEXT_PUBLIC_AUTOS_DOMAIN || origin;
-
-  const emailRedirectToUrl = new URL('/auth/confirm', platformOrigin);
+  // Mantener UX: el usuario se registra y confirma dentro de la misma vertical.
+  const emailRedirectToUrl = new URL('/auth/confirm', origin);
   emailRedirectToUrl.searchParams.set('email', String(email).trim());
-  emailRedirectToUrl.searchParams.set('redirect_to', verticalOrigin);
   const emailRedirectTo = emailRedirectToUrl.toString();
   const signUpOptions: any = { data: { nombre, apellido }, emailRedirectTo };
 
