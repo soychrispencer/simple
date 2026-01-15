@@ -55,6 +55,36 @@ export default function ConfirmClient({ emailFromQuery = '', confirmedFlag = fal
       setProcessing(true);
       setConfirmError(null);
       try {
+        // 0) Si llega desde un dominio puente (simpleplataforma) con hash #access_token/#refresh_token,
+        // en esta vertical debemos crear la sesión explícitamente (la sesión no se comparte entre orígenes).
+        try {
+          if (typeof window !== 'undefined' && window.location.hash) {
+            const hash = window.location.hash.substring(1);
+            const params = new URLSearchParams(hash);
+            const hashAccess = params.get('access_token');
+            const hashRefresh = params.get('refresh_token');
+            if (hashAccess && hashRefresh) {
+              const { data: { session: existing } } = await supabase.auth.getSession();
+              if (!existing?.user) {
+                const { error: setErr } = await supabase.auth.setSession({
+                  access_token: hashAccess,
+                  refresh_token: hashRefresh,
+                });
+                if (!setErr) {
+                  // limpiar hash para evitar re-procesos / leaks en URLs compartidas
+                  try {
+                    window.history.replaceState(null, '', window.location.pathname + window.location.search);
+                  } catch {
+                    // ignore
+                  }
+                }
+              }
+            }
+          }
+        } catch {
+          // ignore
+        }
+
         // 0) Si llega como `token_hash` (algunas configuraciones), verificar OTP para obtener sesión.
         if (tokenHash && authType) {
           try {
