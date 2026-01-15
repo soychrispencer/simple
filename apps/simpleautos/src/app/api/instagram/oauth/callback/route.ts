@@ -32,16 +32,25 @@ export async function GET(req: NextRequest) {
 
     const cookieStore = await cookies();
     const expectedState = cookieStore.get("ig_oauth_state")?.value;
+    const cookieUserId = cookieStore.get("ig_oauth_user")?.value;
     cookieStore.delete("ig_oauth_state");
+    cookieStore.delete("ig_oauth_user");
     if (!expectedState || !state || expectedState !== state) {
       return redirectError("invalid_state");
     }
 
-    const cookieStoreForSupabase = await cookies();
-    const supabase = createRouteHandlerClient({ cookies: () => (cookieStoreForSupabase as any) });
-    const { data } = await supabase.auth.getUser();
-    const user = data?.user;
-    if (!user) {
+    // Preferimos el userId guardado al iniciar el OAuth (sirve cuando la sesión vive en localStorage).
+    let userId: string | null = cookieUserId ? String(cookieUserId) : null;
+
+    if (!userId) {
+      const cookieStoreForSupabase = await cookies();
+      const supabase = createRouteHandlerClient({ cookies: () => (cookieStoreForSupabase as any) });
+      const { data } = await supabase.auth.getUser();
+      const user = data?.user;
+      if (user?.id) userId = user.id;
+    }
+
+    if (!userId) {
       console.error("instagram_oauth_callback: not_logged_in");
       return redirectError("not_logged_in");
     }
@@ -103,7 +112,7 @@ export async function GET(req: NextRequest) {
       .from("integrations")
       .upsert(
         {
-          user_id: user.id,
+          user_id: userId,
           provider: "instagram",
           status: "connected",
           connected_at: new Date().toISOString(),

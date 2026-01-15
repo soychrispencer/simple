@@ -2,6 +2,7 @@
 
 import React, { useEffect, useMemo, useState } from "react";
 import { InstagramPublishModalBase } from "@simple/instagram/modal";
+import { useSupabase } from "@/lib/supabase/useSupabase";
 
 export type InstagramPublishVehicle = {
   id: string;
@@ -52,6 +53,8 @@ export function InstagramPublishModal(props: {
 }) {
   const { open, onClose, vehicle } = props;
 
+  const supabase = useSupabase();
+
   const [igConnected, setIgConnected] = useState(false);
 
   useEffect(() => {
@@ -59,7 +62,12 @@ export function InstagramPublishModal(props: {
     let cancelled = false;
     (async () => {
       try {
-        const res = await fetch("/api/instagram/status");
+        const { data } = await supabase.auth.getSession();
+        const accessToken = data?.session?.access_token;
+        const res = await fetch("/api/instagram/status", {
+          headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : undefined,
+          cache: "no-store",
+        });
         const json = await res.json();
         if (!cancelled) setIgConnected(!!json?.connected);
       } catch {
@@ -88,9 +96,14 @@ export function InstagramPublishModal(props: {
   }, [vehicle]);
 
   const publish = async (input: { imageUrl: string; caption: string }) => {
+    const { data } = await supabase.auth.getSession();
+    const accessToken = data?.session?.access_token;
     const res = await fetch("/api/instagram/publish", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : null),
+      } as any,
       body: JSON.stringify({ imageUrl: input.imageUrl, caption: input.caption }),
     });
 
