@@ -144,8 +144,8 @@ El detalle operativo vive ahora en `06-ROADMAP.md`. Resumen de foco inmediato:
 
 ```bash
 # Desarrollo
-npm run dev:autos              # SimpleAutos en puerto 3000
-npm run dev:props              # SimplePropiedades en puerto 3001 (cuando esté)
+npm run dev:autos              # SimpleAutos en puerto 3001
+npm run dev:props              # SimplePropiedades en puerto 3002
 
 # Build
 npm run build:autos            # Build de SimpleAutos

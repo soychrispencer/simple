@@ -49,11 +49,11 @@ export interface AuthContextValue {
 
 function resolvePublicBaseUrl(): string | undefined {
   // En el browser SIEMPRE usamos el origin actual.
-  // NEXT_PUBLIC_APP_URL puede ser un valor "global" del monorepo (ej. simpleplataforma.app)
+  // NEXT_PUBLIC_APP_URL/NEXT_PUBLIC_SITE_URL pueden ser valores "globales" del monorepo
   // y romper redirects OAuth dentro de una vertical.
   const raw = typeof window !== 'undefined'
     ? window.location.origin
-    : process.env.NEXT_PUBLIC_APP_URL;
+    : process.env.NEXT_PUBLIC_SITE_URL || process.env.NEXT_PUBLIC_APP_URL;
 
   if (!raw) return undefined;
   // Normaliza para asegurar esquema.
@@ -531,11 +531,11 @@ export function AuthProvider({
     if (!user?.id) return;
 
     const verticals = [
-      { id: 'autos', domain: process.env.NEXT_PUBLIC_AUTOS_DOMAIN || 'http://localhost:3000' },
-      { id: 'propiedades', domain: process.env.NEXT_PUBLIC_PROPIEDADES_DOMAIN || 'http://localhost:3001' },
+      { id: 'autos', domain: process.env.NEXT_PUBLIC_AUTOS_DOMAIN || 'http://localhost:3001' },
+      { id: 'propiedades', domain: process.env.NEXT_PUBLIC_PROPIEDADES_DOMAIN || 'http://localhost:3002' },
       { id: 'tiendas', domain: process.env.NEXT_PUBLIC_TIENDAS_DOMAIN || 'http://localhost:3003' },
       { id: 'food', domain: process.env.NEXT_PUBLIC_FOOD_DOMAIN || 'http://localhost:3004' },
-      { id: 'crm', domain: process.env.NEXT_PUBLIC_CRM_DOMAIN || 'http://localhost:3002' }
+      { id: 'crm', domain: process.env.NEXT_PUBLIC_CRM_DOMAIN || 'http://localhost:3000' }
     ];
 
     const targetVertical = verticals.find(v => v.id === verticalId);

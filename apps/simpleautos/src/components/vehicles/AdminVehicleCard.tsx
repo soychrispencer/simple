@@ -446,7 +446,7 @@ export const AdminVehicleCard: React.FC<AdminVehicleCardProps> = ({
               ) : null}
 
               {discountInfo ? (
-                <span className="absolute top-2 right-2 z-30 text-[11px] font-semibold px-2.5 py-1.5 rounded-md border bg-primary text-black border-[var(--color-primary-a90)] shadow-card select-none pointer-events-none">
+                <span className="absolute top-2 right-2 z-30 text-[11px] font-semibold px-2.5 py-1.5 rounded-md border bg-primary text-[var(--color-on-primary)] border-[var(--color-primary-a90)] shadow-card select-none pointer-events-none">
                   {discountInfo.badgeText}
                 </span>
               ) : null}
@@ -871,7 +871,7 @@ export const AdminVehicleCard: React.FC<AdminVehicleCardProps> = ({
         )}
 
         {discountInfo ? (
-          <span className="absolute top-2 right-2 z-20 text-[11px] font-semibold px-2.5 py-1.5 rounded-md border bg-primary text-black border-[var(--color-primary-a90)] shadow-card select-none">
+          <span className="absolute top-2 right-2 z-20 text-[11px] font-semibold px-2.5 py-1.5 rounded-md border bg-primary text-[var(--color-on-primary)] border-[var(--color-primary-a90)] shadow-card select-none">
             {discountInfo.badgeText}
           </span>
         ) : null}

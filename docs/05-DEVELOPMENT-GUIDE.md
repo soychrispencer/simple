@@ -33,11 +33,11 @@ SUPABASE_SERVICE_ROLE_KEY=your-service-key
 FACEBOOK_APP_ID=your-meta-app-id
 FACEBOOK_APP_SECRET=your-meta-app-secret
 # Opcional: si tu callback público difiere del origin actual
-# INSTAGRAM_OAUTH_REDIRECT_URI=https://simpleautos.cl/api/instagram/oauth/callback
+# INSTAGRAM_OAUTH_REDIRECT_URI=https://simpleautos.app/api/instagram/oauth/callback
 
 # App Config
 NEXT_PUBLIC_VERTICAL=autos
-NEXT_PUBLIC_APP_URL=http://localhost:3000
+NEXT_PUBLIC_APP_URL=http://localhost:3001
 
 # MercadoPago
 MERCADOPAGO_ACCESS_TOKEN=your-token
@@ -54,7 +54,7 @@ SMTP_PASS=your-app-password
 ```bash
 # Same as above but with:
 NEXT_PUBLIC_VERTICAL=properties
-NEXT_PUBLIC_APP_URL=http://localhost:3001
+NEXT_PUBLIC_APP_URL=http://localhost:3002
 ```
 
 ### Meta / Instagram (OAuth + publicar)
@@ -86,16 +86,16 @@ Notas:
 3. **Run Development Servers**
 
 ```bash
-# Terminal 1 · SimpleAutos → http://localhost:3000
+# Terminal 1 · SimpleAutos → http://localhost:3001
 npm run dev:autos
 
-# Terminal 2 · SimplePropiedades → http://localhost:3001
+# Terminal 2 · SimplePropiedades → http://localhost:3002
 npm run dev:props
 
-# Terminal 3 · SimpleTiendas → http://localhost:3002
+# Terminal 3 · SimpleTiendas → http://localhost:3003
 npm run dev:tiendas
 
-# Terminal 4 · SimpleFood → http://localhost:3003
+# Terminal 4 · SimpleFood → http://localhost:3004
 npm run dev:food
 
 # O bien levanta todo junto
@@ -836,7 +836,7 @@ Create `.vscode/launch.json`:
       "name": "Next.js: debug client-side",
       "type": "chrome",
       "request": "launch",
-      "url": "http://localhost:3000"
+      "url": "http://localhost:3001"
     }
   ]
 }

@@ -40,7 +40,7 @@ import { NotificationsProvider, ToastProvider } from '@simple/ui';
 ### 2.2 Resultados por vertical
 | Vertical | Color | Botón Publicar | Menu label |
 | --- | --- | --- | --- |
-| `autos` | `#FFB600` (amarillo/dorado) | "Publicar Vehículo" | "Publicaciones" |
+| `autos` | `#ffd400` (amarillo/dorado) | "Publicar Vehículo" | "Publicaciones" |
 | `properties` | `#009BA3` (turquesa) | "Publicar Propiedad" | "Propiedades" |
 | `stores` | `#7A5CFF` (violeta tech) | "Publicar Producto" | "Productos" |
 | `food` | `#FFB800` (amarillo gourmet) | "Publicar Restaurante" | "Restaurantes" |

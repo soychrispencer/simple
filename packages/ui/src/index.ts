@@ -16,7 +16,6 @@ export { Button, CircleButton, UserAvatar, Chip, RatingChip, Input, Select, Card
 export { default as Modal } from './components/ui/modal/Modal';
 export { default as ContactModal } from './components/ui/modal/ContactModal';
 export { default as LineChart } from './components/ui/LineChart';
-export { default as TextArea } from './components/ui/form/TextArea';
 export { default as ProfileCoverUploader } from './components/ui/uploader/ProfileCoverUploader';
 export { default as FormStepper } from './components/ui/form/FormStepper';
 export type { StepStatus } from './components/ui/form/FormStepper';

@@ -44,6 +44,6 @@ html, body {
 	color: var(--color-on-primary) !important;
 }
 
-.simpleadmin-panel aside button.bg-primary svg.text-black {
+.simpleadmin-panel aside button.bg-primary svg {
 	color: var(--color-on-primary) !important;
 }

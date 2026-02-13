@@ -1,7 +1,9 @@
 'use client';
 
-import React from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
+import { useTheme } from 'next-themes';
 import {
   IconBrandInstagram,
   IconBrandTiktok,
@@ -20,6 +22,7 @@ import {
   IconHelp,
 } from '@tabler/icons-react';
 import { VERTICALS, type VerticalName } from '@simple/config';
+import type { BrandLogoConfig } from './Header';
 
 // Tipos
 export interface SocialLinks {
@@ -74,6 +77,7 @@ export interface FooterProps {
 
   // Footer adicional personalizado
   bottomContent?: React.ReactNode;
+  brandLogo?: BrandLogoConfig;
 }
 
 // Configuración por defecto para cada vertical
@@ -283,26 +287,52 @@ const SOCIAL_HANDLES: Record<VerticalName, string> = {
 
 const Footer: React.FC<FooterProps> = ({
   vertical,
-  contactInfo = {
-    location: 'Santiago, Chile',
-    phone: '+56 9 7862 3828',
-    email: 'hola@simple.app',
-  },
-  socialLinks = {
-    instagram: `https://instagram.com/${SOCIAL_HANDLES[vertical]}.app`,
-    tiktok: `https://tiktok.com/@${SOCIAL_HANDLES[vertical]}.app`,
-    facebook: `https://facebook.com/${SOCIAL_HANDLES[vertical]}.app`,
-    whatsapp: 'https://wa.me/56978623828',
-    youtube: `https://youtube.com/@${SOCIAL_HANDLES[vertical]}.app`,
-  },
+  contactInfo,
+  socialLinks,
   navigationColumns,
   description,
   badges,
   bottomContent,
+  brandLogo,
 }) => {
+  const { resolvedTheme } = useTheme();
+  const [brandLogoLoadError, setBrandLogoLoadError] = useState(false);
+
   // Obtener configuración por defecto
   const defaultConfig = getDefaultConfig(vertical);
   const verticalConfig = VERTICALS[vertical];
+  const defaultContactInfo = useMemo<ContactInfo>(
+    () => ({
+      location: 'Santiago, Chile',
+      phone: '+56 9 7862 3828',
+      email: `hola@${SOCIAL_HANDLES[vertical]}.app`,
+    }),
+    [vertical]
+  );
+  const defaultSocialLinks = useMemo<SocialLinks>(
+    () => ({
+      instagram: `https://instagram.com/${SOCIAL_HANDLES[vertical]}.app`,
+      tiktok: `https://tiktok.com/@${SOCIAL_HANDLES[vertical]}.app`,
+      facebook: `https://facebook.com/${SOCIAL_HANDLES[vertical]}.app`,
+      whatsapp: 'https://wa.me/56978623828',
+      youtube: `https://youtube.com/@${SOCIAL_HANDLES[vertical]}.app`,
+    }),
+    [vertical]
+  );
+  const finalContactInfo: ContactInfo = { ...defaultContactInfo, ...contactInfo };
+  const finalSocialLinks: SocialLinks = { ...defaultSocialLinks, ...socialLinks };
+  const brandLogoSrc = useMemo(() => {
+    if (!brandLogo) return null;
+    if (resolvedTheme === 'dark') {
+      return brandLogo.dark || brandLogo.light || brandLogo.color || null;
+    }
+    return brandLogo.light || brandLogo.dark || brandLogo.color || null;
+  }, [brandLogo, resolvedTheme]);
+  const brandLogoAlt = brandLogo?.alt ?? verticalConfig.name;
+
+  useEffect(() => {
+    setBrandLogoLoadError(false);
+  }, [brandLogoSrc]);
 
   // Usar valores por defecto si no se proporcionan
   const finalDescription = description || defaultConfig.description;
@@ -325,46 +355,62 @@ const Footer: React.FC<FooterProps> = ({
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8 mb-8">
               {/* Columna 1: Información de la empresa */}
               <div className="lg:col-span-1">
-                <div className="flex items-center gap-2 mb-4">
-                  <span
-                    className="flex items-center justify-center w-8 h-8 rounded-full"
-                    style={{ backgroundColor: verticalConfig.color }}
-                  >
-                    <span className="select-none font-extrabold text-[16px] leading-[1] text-black">
-                      S
+                {brandLogoSrc && !brandLogoLoadError ? (
+                  <div className="mb-4 flex items-center gap-2">
+                    <Image
+                      src={brandLogoSrc}
+                      alt={brandLogoAlt}
+                      width={brandLogo?.width ?? 48}
+                      height={brandLogo?.height ?? 48}
+                      className="h-12 w-12 object-contain shrink-0"
+                      onError={() => setBrandLogoLoadError(true)}
+                    />
+                    <h3 className="text-lg font-bold text-lighttext dark:text-darktext">
+                      {verticalConfig.name}
+                    </h3>
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-2 mb-4">
+                    <span
+                      className="flex items-center justify-center w-8 h-8 rounded-full"
+                      style={{ backgroundColor: verticalConfig.color }}
+                    >
+                      <span className="select-none font-extrabold text-[16px] leading-[1] text-black">
+                        S
+                      </span>
                     </span>
-                  </span>
-                  <h3 className="text-lg font-bold text-lighttext dark:text-darktext">
-                    {verticalConfig.name}
-                  </h3>
-                </div>
+                    <h3 className="text-lg font-bold text-lighttext dark:text-darktext">
+                      {verticalConfig.name}
+                    </h3>
+                  </div>
+                )}
                 <p className="text-sm text-lighttext/70 dark:text-darktext/70 mb-4 leading-relaxed">
                   {finalDescription}
                 </p>
                 <div className="space-y-2 text-sm">
-                  {contactInfo.location && (
+                  {finalContactInfo.location && (
                     <div className="flex items-center gap-2 text-lighttext/70 dark:text-darktext/70">
                       <IconMapPin size={16} />
-                      <span>{contactInfo.location}</span>
+                      <span>{finalContactInfo.location}</span>
                     </div>
                   )}
-                  {contactInfo.phone && (
+                  {finalContactInfo.phone && (
                     <div className="flex items-center gap-2 text-lighttext/70 dark:text-darktext/70">
                       <IconBrandWhatsapp size={16} />
                       <a
-                        href={toWhatsAppHref(contactInfo.phone)}
+                        href={toWhatsAppHref(finalContactInfo.phone)}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="hover:text-lighttext dark:hover:text-darktext transition-colors"
                       >
-                        {contactInfo.phone}
+                        {finalContactInfo.phone}
                       </a>
                     </div>
                   )}
-                  {contactInfo.email && (
+                  {finalContactInfo.email && (
                     <div className="flex items-center gap-2 text-lighttext/70 dark:text-darktext/70">
                       <IconMail size={16} />
-                      <span>{contactInfo.email}</span>
+                      <span>{finalContactInfo.email}</span>
                     </div>
                   )}
                 </div>
@@ -414,9 +460,9 @@ const Footer: React.FC<FooterProps> = ({
                     <span className="text-sm font-medium text-lighttext/70 dark:text-darktext/70 mr-2">
                       Síguenos:
                     </span>
-                    {socialLinks.instagram && (
+                    {finalSocialLinks.instagram && (
                       <a
-                        href={socialLinks.instagram}
+                        href={finalSocialLinks.instagram}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="text-lighttext/70 dark:text-darktext/70 hover:text-[var(--footer-hover)] transition-all duration-200 hover:scale-110"
@@ -426,9 +472,9 @@ const Footer: React.FC<FooterProps> = ({
                         <IconBrandInstagram size={20} stroke={1.5} />
                       </a>
                     )}
-                    {socialLinks.tiktok && (
+                    {finalSocialLinks.tiktok && (
                       <a
-                        href={socialLinks.tiktok}
+                        href={finalSocialLinks.tiktok}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="text-lighttext/70 dark:text-darktext/70 hover:text-[var(--footer-hover)] transition-all duration-200 hover:scale-110"
@@ -438,9 +484,9 @@ const Footer: React.FC<FooterProps> = ({
                         <IconBrandTiktok size={20} stroke={1.5} />
                       </a>
                     )}
-                    {socialLinks.facebook && (
+                    {finalSocialLinks.facebook && (
                       <a
-                        href={socialLinks.facebook}
+                        href={finalSocialLinks.facebook}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="text-lighttext/70 dark:text-darktext/70 hover:text-[var(--footer-hover)] transition-all duration-200 hover:scale-110"
@@ -450,9 +496,9 @@ const Footer: React.FC<FooterProps> = ({
                         <IconBrandFacebook size={20} stroke={1.5} />
                       </a>
                     )}
-                    {socialLinks.whatsapp && (
+                    {finalSocialLinks.whatsapp && (
                       <a
-                        href={socialLinks.whatsapp}
+                        href={finalSocialLinks.whatsapp}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="text-lighttext/70 dark:text-darktext/70 hover:text-[var(--footer-hover)] transition-all duration-200 hover:scale-110"
@@ -462,9 +508,9 @@ const Footer: React.FC<FooterProps> = ({
                         <IconBrandWhatsapp size={20} stroke={1.5} />
                       </a>
                     )}
-                    {socialLinks.youtube && (
+                    {finalSocialLinks.youtube && (
                       <a
-                        href={socialLinks.youtube}
+                        href={finalSocialLinks.youtube}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="text-lighttext/70 dark:text-darktext/70 hover:text-[var(--footer-hover)] transition-all duration-200 hover:scale-110"

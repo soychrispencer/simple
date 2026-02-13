@@ -88,7 +88,7 @@ export type LogoTokens = {
 
 const baseWordmark: LogoWordmarkTokens = {
 	text: 'SIMPLE',
-	fontFamily: '"Poppins", "Space Grotesk", "Outfit", system-ui, -apple-system, BlinkMacSystemFont, sans-serif',
+	fontFamily: '"Urbane Rounded", "Avenir Next Rounded", system-ui, -apple-system, BlinkMacSystemFont, sans-serif',
 	weight: 620,
 	letterSpacing: '0.28em',
 	textTransform: 'uppercase',

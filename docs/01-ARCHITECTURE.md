@@ -145,7 +145,7 @@ packages/ui/
 // packages/config/src/theme.ts
 export const verticalThemes = {
   autos: {
-    primary: '#FFB600',
+    primary: '#ffd400',
     name: 'SimpleAutos',
     domain: 'simpleautos.app',
   },
@@ -453,7 +453,7 @@ module.exports = {
   theme: {
     extend: {
       colors: {
-        primary: '#FFB600', // Color específico de SimpleAutos
+        primary: '#ffd400', // Color específico de SimpleAutos
       },
     },
   },

@@ -44,8 +44,8 @@ const sharedPreset = {
         darkborder: '#2A2A2F',
       },
       fontFamily: {
-        sans: ['"Poppins"', 'system-ui', 'sans-serif'],
-        display: ['"Poppins"', 'system-ui', 'sans-serif'],
+        sans: ['"Urbane Rounded"', '"Avenir Next Rounded"', 'system-ui', 'sans-serif'],
+        display: ['"Urbane Rounded"', '"Avenir Next Rounded"', 'system-ui', 'sans-serif'],
       },
       borderRadius: {
         xs: 'var(--radius-xs)',

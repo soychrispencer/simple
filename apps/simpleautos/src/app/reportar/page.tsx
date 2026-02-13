@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { AUTOS_BRANDING } from "@/config/branding";
 
 export const metadata: Metadata = {
   title: "Reportar Problema",
@@ -7,7 +8,7 @@ export const metadata: Metadata = {
 };
 
 export default function ReportarPage() {
-  const whatsappHref = "https://wa.me/56978623828";
+  const whatsappHref = `https://wa.me/${AUTOS_BRANDING.supportWhatsAppDigits}`;
   return (
     <main className="mx-auto max-w-4xl px-4 py-10">
       <h1 className="text-2xl font-semibold tracking-tight">Reportar Problema</h1>
@@ -32,7 +33,14 @@ export default function ReportarPage() {
             <p>
               Atendemos por WhatsApp (no llamadas):{" "}
               <a className="underline" href={whatsappHref} target="_blank" rel="noopener noreferrer">
-                +56 9 7862 3828
+                {AUTOS_BRANDING.supportWhatsAppDisplay}
+              </a>
+              .
+            </p>
+            <p className="mt-2">
+              También puedes reportar por correo en{" "}
+              <a className="underline" href={`mailto:${AUTOS_BRANDING.supportEmail}`}>
+                {AUTOS_BRANDING.supportEmail}
               </a>
               .
             </p>

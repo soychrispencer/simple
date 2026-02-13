@@ -55,6 +55,15 @@ export interface NavItem {
   icon: React.ComponentType<{ size?: number; stroke?: number }>;
 }
 
+export interface BrandLogoConfig {
+  light?: string;
+  dark?: string;
+  color?: string;
+  alt?: string;
+  width?: number;
+  height?: number;
+}
+
 export interface HeaderProps {
   vertical: VerticalName;
   user?: any;
@@ -71,6 +80,7 @@ export interface HeaderProps {
   AuthModalComponent?: React.ComponentType<any>;
   NotificationComponent?: React.ComponentType<any>;
   getAvatarUrl?: (user: any) => string;
+  brandLogo?: BrandLogoConfig;
 }
 
 export function Header({
@@ -89,9 +99,11 @@ export function Header({
   AuthModalComponent,
   NotificationComponent,
   getAvatarUrl,
+  brandLogo,
 }: HeaderProps) {
   const [showAuth, setShowAuth] = useState(false);
   const [showMobileMenu, setShowMobileMenu] = useState(false);
+  const [brandLogoLoadError, setBrandLogoLoadError] = useState(false);
   const [themeMounted, setThemeMounted] = useState(false);
   const headerRef = useRef<HTMLElement | null>(null);
   const router = useRouter();
@@ -119,6 +131,13 @@ export function Header({
     properties: { prefix: "Simple", suffix: "Propiedades" },
     stores: { prefix: "Simple", suffix: "Tiendas" },
     food: { prefix: "Simple", suffix: "Food" },
+  };
+  const brandTitles: Record<VerticalName, string> = {
+    admin: "SimpleAdmin",
+    autos: "SimpleAutos",
+    properties: "SimplePropiedades",
+    stores: "SimpleTiendas",
+    food: "SimpleFood",
   };
 
   const defaultNavItems: Record<VerticalName, NavItem[]> = {
@@ -150,6 +169,15 @@ export function Header({
   };
 
   const navItems = customNavItems || defaultNavItems[vertical];
+  const brandLogoSrc = useMemo(() => {
+    if (!brandLogo) return null;
+    if (!themeMounted) return brandLogo.color || brandLogo.light || brandLogo.dark || null;
+    return resolvedTheme === "dark"
+      ? (brandLogo.dark || brandLogo.color || brandLogo.light || null)
+      : (brandLogo.light || brandLogo.color || brandLogo.dark || null);
+  }, [brandLogo, themeMounted, resolvedTheme]);
+  const brandLogoAlt =
+    brandLogo?.alt ?? `${brandNameParts[vertical].prefix}${brandNameParts[vertical].suffix}`;
 
   useEffect(() => {
     const setHeaderHeight = () => {
@@ -166,6 +194,10 @@ export function Header({
   useEffect(() => {
     setThemeMounted(true);
   }, []);
+
+  useEffect(() => {
+    setBrandLogoLoadError(false);
+  }, [brandLogoSrc]);
 
   const toggleTheme = () => {
     if (!themeMounted) return;
@@ -228,18 +260,37 @@ export function Header({
               href="/"
               className="flex items-center gap-2 font-bold text-lg z-10 ml-1 md:ml-2 link-base link-plain"
             >
-              <span
-                className="flex items-center justify-center w-9 h-9 rounded-full shadow-card ring-2 ring-[color:var(--overlay-highlight-80)] ring-offset-2 ring-offset-transparent"
-                style={{ backgroundColor: theme.primary }}
-              >
-                <span className="flex items-center justify-center" aria-hidden>
-                  {brandIcons[vertical]}
-                </span>
-              </span>
-              <span className="select-none text-lg leading-8 text-lighttext dark:text-darktext whitespace-nowrap">
-                <span className="font-normal tracking-tight">{brandNameParts[vertical].prefix}</span>
-                <span className="font-bold tracking-tight">{brandNameParts[vertical].suffix}</span>
-              </span>
+              {brandLogoSrc && !brandLogoLoadError ? (
+                <>
+                  <Image
+                    src={brandLogoSrc}
+                    alt={brandLogoAlt}
+                    width={brandLogo?.width ?? 48}
+                    height={brandLogo?.height ?? 48}
+                    className="h-12 w-12 object-contain shrink-0"
+                    priority
+                    onError={() => setBrandLogoLoadError(true)}
+                  />
+                  <span className="select-none text-lg leading-8 font-bold tracking-tight text-lighttext dark:text-darktext whitespace-nowrap">
+                    {brandTitles[vertical]}
+                  </span>
+                </>
+              ) : (
+                <>
+                  <span
+                    className="flex items-center justify-center w-9 h-9 rounded-full shadow-card ring-2 ring-[color:var(--overlay-highlight-80)] ring-offset-2 ring-offset-transparent"
+                    style={{ backgroundColor: theme.primary }}
+                  >
+                    <span className="flex items-center justify-center" aria-hidden>
+                      {brandIcons[vertical]}
+                    </span>
+                  </span>
+                  <span className="select-none text-lg leading-8 text-lighttext dark:text-darktext whitespace-nowrap">
+                    <span className="font-normal tracking-tight">{brandNameParts[vertical].prefix}</span>
+                    <span className="font-bold tracking-tight">{brandNameParts[vertical].suffix}</span>
+                  </span>
+                </>
+              )}
             </Link>
 
               <nav className="hidden lg:flex gap-6 absolute left-0 right-0 justify-center pointer-events-none">

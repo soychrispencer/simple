@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { PROPERTIES_BRANDING } from "@/config/branding";
 
 export const metadata: Metadata = {
   title: "Contacto",
@@ -7,7 +8,7 @@ export const metadata: Metadata = {
 };
 
 export default function ContactoPage() {
-  const whatsappHref = "https://wa.me/56978623828";
+  const whatsappHref = `https://wa.me/${PROPERTIES_BRANDING.supportWhatsAppDigits}`;
 
   return (
     <main className="mx-auto max-w-4xl px-4 py-10">
@@ -21,8 +22,15 @@ export default function ContactoPage() {
           <h2 className="text-base font-semibold">WhatsApp</h2>
           <p className="mt-2 text-sm text-lighttext/80 dark:text-darktext/80 leading-relaxed">
             <a className="underline" href={whatsappHref} target="_blank" rel="noopener noreferrer">
-              +56 9 7862 3828
+              {PROPERTIES_BRANDING.supportWhatsAppDisplay}
             </a>
+          </p>
+          <p className="mt-3 text-sm text-lighttext/80 dark:text-darktext/80 leading-relaxed">
+            Correo oficial:{" "}
+            <a className="underline" href={`mailto:${PROPERTIES_BRANDING.supportEmail}`}>
+              {PROPERTIES_BRANDING.supportEmail}
+            </a>
+            .
           </p>
           <p className="mt-3 text-sm text-lighttext/80 dark:text-darktext/80 leading-relaxed">
             Para ayudarte más rápido, incluye: link de la publicación (si aplica), tu correo de cuenta y una breve

@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { Button } from '@simple/ui';
+import { useOptionalAuth } from '@simple/auth';
 import { AuctionBid } from '@/types/property';
 import { placeAuctionBid, getAuctionBids, canUserBid } from '@/app/actions/auctionActions';
 import { IconGavel, IconClock, IconTrendingUp } from '@tabler/icons-react';
@@ -21,6 +22,8 @@ export const AuctionBidding: React.FC<AuctionBiddingProps> = ({
   endTime,
   onBidPlaced
 }) => {
+  const auth = useOptionalAuth();
+  const userId = auth?.user?.id ?? null;
   const [bids, setBids] = useState<AuctionBid[]>([]);
   const [loading, setLoading] = useState(false);
   const [bidAmount, setBidAmount] = useState('');
@@ -71,22 +74,31 @@ export const AuctionBidding: React.FC<AuctionBiddingProps> = ({
   // Verificar si puede ofertar
   useEffect(() => {
     const checkCanBid = async () => {
-      const result = await canUserBid(propertyId, 'current-user-id'); // TODO: Obtener ID real del usuario
+      if (!userId) {
+        setCanBid(false);
+        return;
+      }
+      const result = await canUserBid(propertyId, userId);
       setCanBid(result.canBid);
     };
     checkCanBid();
-  }, [propertyId]);
+  }, [propertyId, userId]);
 
   const handlePlaceBid = async () => {
+    if (!userId) {
+      alert('Debes iniciar sesión para ofertar');
+      return;
+    }
+
     const amount = parseInt(bidAmount.replace(/\./g, '').replace(/\$/g, ''));
-    if (!amount || amount <= currentBid) {
-      alert('La oferta debe ser mayor a la oferta actual');
+    if (!amount || amount < nextMinBid) {
+      alert(`La oferta debe ser al menos ${formatCurrency(nextMinBid)}`);
       return;
     }
 
     setLoading(true);
     try {
-      const result = await placeAuctionBid(propertyId, 'current-user-id', amount); // TODO: ID real
+      const result = await placeAuctionBid(propertyId, userId, amount);
 
       if (result.success && result.bid) {
         setBids(prev => [result.bid!, ...prev]);

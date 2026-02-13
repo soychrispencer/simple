@@ -109,6 +109,9 @@ export async function canUserBid(
   userId: string
 ): Promise<{ canBid: boolean; reason?: string }> {
   try {
+    if (!userId) {
+      return { canBid: false, reason: 'Usuario no autenticado' };
+    }
     void propertyId;
     void userId;
     // Aquí iría la lógica para verificar:

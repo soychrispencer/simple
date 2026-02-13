@@ -76,7 +76,7 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const { type, data } = body;
 
-    const rawAppUrl = process.env.NEXT_PUBLIC_APP_URL || request.nextUrl?.origin;
+    const rawAppUrl = process.env.NEXT_PUBLIC_SITE_URL || process.env.NEXT_PUBLIC_APP_URL || request.nextUrl?.origin;
     if (!rawAppUrl) {
       return NextResponse.json(
         {
@@ -396,7 +396,6 @@ export async function POST(request: NextRequest) {
   } catch (error: any) {
     // Importante: este endpoint debe ser ultra-resiliente.
     // Evitamos depender de un logger con sanitizers/transports que pueda fallar al cargar.
-    // eslint-disable-next-line no-console
     console.error('Error creando preferencia de pago', error);
 
     const safeStringify = (value: any) => {

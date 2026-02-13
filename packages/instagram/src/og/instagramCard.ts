@@ -21,17 +21,18 @@ function formatClp(value: number | null) {
 async function fetchImageAsDataUrl(url: string): Promise<string | null> {
   try {
     const res = await fetch(url);
-    if (!res.ok) return null;
+    if (!res.ok) {
+      console.error(`Failed to fetch image: ${res.status} ${res.statusText}`, { url });
+      return null;
+    }
     const arrayBuffer = await res.arrayBuffer();
     const contentType = res.headers.get("content-type") || "image/jpeg";
 
     // Convert to base64 (Edge runtime)
-    const uint8 = new Uint8Array(arrayBuffer);
-    let binary = "";
-    for (let i = 0; i < uint8.byteLength; i++) binary += String.fromCharCode(uint8[i]);
-    const base64 = btoa(binary);
+    const base64 = Buffer.from(arrayBuffer).toString("base64");
     return `data:${contentType};base64,${base64}`;
-  } catch {
+  } catch (error) {
+    console.error("Error fetching or converting image:", { url, error });
     return null;
   }
 }
@@ -63,7 +64,7 @@ export async function handleInstagramCardGET(req: Request, options: InstagramCar
         color: "#FFFFFF",
         padding: 48,
         position: "relative",
-        fontFamily: "ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial",
+        fontFamily: "Urbane Rounded, Avenir Next Rounded, ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif",
       },
     },
     photoDataUrl

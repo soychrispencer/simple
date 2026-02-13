@@ -13,8 +13,8 @@ interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
 
 const focusRing = 'focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--field-focus-ring)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--surface-1)]';
 
-const primaryBase = 'bg-black text-[var(--color-on-primary)] shadow-card dark:bg-white dark:text-black';
-const primaryHover = 'hover:bg-black/90 active:bg-black/80 dark:hover:bg-white/90 dark:active:bg-white/80';
+const primaryBase = 'bg-primary text-[var(--color-on-primary)] shadow-card';
+const primaryHover = 'hover:bg-[var(--color-primary-a90)] active:bg-[var(--color-primary-a80)]';
 
 const neutralBase = 'bg-[var(--field-bg)] text-[var(--field-text)] border border-[var(--field-border)]';
 const neutralHover = 'hover:bg-[var(--field-bg-hover)] hover:border-[var(--field-border-hover)] active:bg-[var(--field-bg-active)] active:border-[var(--field-border-active)]';

@@ -1,6 +1,6 @@
 ﻿import React, { useEffect, useState } from "react";
 const diasSemana = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"];
-import { Input, Select, Button, Modal, useToast, TextArea } from "@simple/ui";
+import { Input, Select, Button, Modal, useToast, Textarea } from "@simple/ui";
 import { useSupabase } from "@/lib/supabase/useSupabase";
 import { useAuth } from "@/context/AuthContext";
 import { IconUser, IconGlobe, IconMapPin, IconShare, IconClock } from "@tabler/icons-react";
@@ -960,7 +960,7 @@ const PublicPageForm: React.FC<{ user: any; onSave?: (data: any) => void; coverM
             </div>
 
             <div className="space-y-1 md:col-span-3">
-              <TextArea
+              <Textarea
                 label="Descripción breve / Biografía"
                 value={form.descripcion}
                 onChange={e => {

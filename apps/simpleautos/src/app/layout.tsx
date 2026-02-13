@@ -10,6 +10,14 @@ import { AuthProvider } from "@/context/AuthContext";
 import { autosAuthCopy } from "@/config/authCopy";
 import { FavoritesProvider } from "@/context/FavoritesContext";
 import { CompareProvider } from "@/context/CompareContext";
+import { AUTOS_BRANDING } from "@/config/branding";
+
+function resolveSiteUrl() {
+  const raw = process.env.NEXT_PUBLIC_SITE_URL || process.env.NEXT_PUBLIC_APP_URL || AUTOS_BRANDING.siteUrl;
+  return raw.startsWith("http") ? raw : `https://${raw}`;
+}
+
+const siteUrl = resolveSiteUrl();
 
 export const metadata: Metadata = {
   title: {
@@ -17,18 +25,30 @@ export const metadata: Metadata = {
     template: "%s | SimpleAutos",
   },
   description: "Publica y encuentra vehículos en SimpleAutos.",
+  metadataBase: new URL(siteUrl),
+  alternates: {
+    canonical: "/",
+  },
+  openGraph: {
+    type: "website",
+    url: siteUrl,
+    siteName: AUTOS_BRANDING.appName,
+    title: "SimpleAutos | Marketplace Automotriz",
+    description: "Publica y encuentra vehículos en SimpleAutos.",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "SimpleAutos | Marketplace Automotriz",
+    description: "Publica y encuentra vehículos en SimpleAutos.",
+  },
   icons: {
     icon: [
-      { url: "/favicon.png", type: "image/png", sizes: "2048x2048" },
-      { url: "/icon.svg", type: "image/svg+xml" },
-      { url: "/favicon.ico", type: "image/x-icon" },
+      { url: "/brand/favicon.png?v=20260213", type: "image/png", sizes: "32x32" },
     ],
     shortcut: [
-      { url: "/favicon.png", type: "image/png", sizes: "2048x2048" },
-      { url: "/icon.svg", type: "image/svg+xml" },
-      { url: "/favicon.ico", type: "image/x-icon" },
+      { url: "/brand/favicon.png?v=20260213", type: "image/png" },
     ],
-    apple: [{ url: "/favicon.png", type: "image/png", sizes: "2048x2048" }],
+    apple: [{ url: "/brand/favicon.png?v=20260213", type: "image/png", sizes: "180x180" }],
   },
 };
 

@@ -94,16 +94,16 @@ cp apps/simplepropiedades/.env.example apps/simplepropiedades/.env.local
 ### Desarrollo
 
 ```bash
-# Correr SimpleAutos (puerto 3000)
+# Correr SimpleAutos (puerto 3001)
 npm run dev:autos
 
-# Correr SimplePropiedades (puerto 3001)
+# Correr SimplePropiedades (puerto 3002)
 npm run dev:props
 
-# Correr SimpleTiendas (puerto 3002)
+# Correr SimpleTiendas (puerto 3003)
 npm run dev:tiendas
 
-# Correr SimpleFood (puerto 3003)
+# Correr SimpleFood (puerto 3004)
 npm run dev:food
 
 # Correr todas las verticales (en paralelo)
@@ -127,7 +127,7 @@ npm run build:props
 
 ### SimpleAutos 🚗
 **URL:** https://simpleautos.app  
-**Color:** `#FFB600` (Amarillo/Dorado)  
+**Color:** `#FF3600` (Rojo intenso)  
 **Descripción:** Plataforma para compra, venta, arriendo y subasta de vehículos nuevos y usados.
 
 **Funcionalidades:**
@@ -139,7 +139,7 @@ npm run build:props
 
 ### SimplePropiedades 🏡
 **URL:** https://simplepropiedades.app  
-**Color:** `#009BA3` (Turquesa neón)  
+**Color:** `#0043FF` (Azul eléctrico)  
 **Descripción:** Plataforma para compra y arriendo de propiedades.
 
 **Funcionalidades:**
@@ -190,7 +190,7 @@ Configuraciones, temas y constantes compartidas.
 
 ```typescript
 import { verticalThemes } from '@simple/config';
-const theme = verticalThemes.autos; // { primary: '#FFB600', ... }
+const theme = verticalThemes.autos; // { primary: '#FF3600', ... }
 ```
 
 ### @simple/auth
@@ -223,6 +223,7 @@ Toda la documentación está centralizada en la carpeta `/docs`:
 - **[Roadmap](./docs/06-ROADMAP.md)** - Próximos hitos
 - **[Logo System](./docs/07-LOGO-SYSTEM.md)** - Identidad visual del ecosistema
 - **[Deploy (Vercel)](./docs/08-DEPLOYMENT-VERCEL.md)** - Deploy y configuración en Vercel
+- **[Deploy (Coolify)](./docs/09-DEPLOYMENT-COOLIFY.md)** - Deploy en VPS con Coolify
 
 Docs internos/operativos:
 
@@ -275,6 +276,9 @@ npm run test:watch
 
 # Coverage
 npm run test:coverage
+
+# Quality gate (limpia cache + typecheck + lint + tests)
+npm run quality:ci
 ```
 
 ---
@@ -313,17 +317,17 @@ NEXT_PUBLIC_MERCADOPAGO_PUBLIC_KEY=
 - [x] Documentación completa del ecosistema
 - [x] Análisis de arquitectura
 - [x] Plan de migración definido
+- [x] Setup de monorepo
+- [x] Estructura física de apps/packages/backend
 
 ### En Progreso ⏳
-- [ ] Creación de estructura física
-- [ ] Setup de monorepo
-- [ ] Extracción de componentes compartidos
+- [ ] Consolidación de componentes compartidos en `packages/`
+- [ ] Homologación de variables de entorno entre verticales
+- [ ] Endurecimiento de checks automáticos (typecheck/lint/test)
 
 ### Pendiente 📋
-- [ ] Backend en inglés
-- [ ] SimplePropiedades
 - [ ] CRM empresarial
-- [ ] Deployment en producción
+- [ ] Deployment en producción multi-vertical
 
 Ver [Roadmap completo](./docs/06-ROADMAP.md) para más detalles.
 
@@ -366,4 +370,4 @@ Gracias a todas las tecnologías y herramientas que hacen posible este ecosistem
 
 ---
 
-**Última actualización:** 11 de noviembre de 2025
+**Última actualización:** 13 de febrero de 2026

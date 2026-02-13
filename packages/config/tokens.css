@@ -1,4 +1,72 @@
-@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap');
+@font-face {
+  font-family: 'Urbane Rounded';
+  src: local('Urbane Rounded Thin'), local('UrbaneRounded-Thin'),
+    url('/brand/font/UrbaneRounded-Thin.woff2') format('woff2'),
+    url('/brand/font/UrbaneRounded-Thin.woff') format('woff');
+  font-style: normal;
+  font-weight: 100;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Urbane Rounded';
+  src: local('Urbane Rounded Extra Light'), local('UrbaneRounded-ExtraLight'),
+    url('/brand/font/UrbaneRounded-ExtraLight.woff2') format('woff2'),
+    url('/brand/font/UrbaneRounded-ExtraLight.woff') format('woff');
+  font-style: normal;
+  font-weight: 200;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Urbane Rounded';
+  src: local('Urbane Rounded Light'), local('UrbaneRounded-Light'),
+    url('/brand/font/UrbaneRounded-Light.woff2') format('woff2'),
+    url('/brand/font/UrbaneRounded-Light.woff') format('woff');
+  font-style: normal;
+  font-weight: 300;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Urbane Rounded';
+  src: local('Urbane Rounded Medium'), local('UrbaneRounded-Medium'),
+    url('/brand/font/UrbaneRounded-Medium.woff2') format('woff2'),
+    url('/brand/font/UrbaneRounded-Medium.woff') format('woff');
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Urbane Rounded';
+  src: local('Urbane Rounded Demi Bold'), local('UrbaneRounded-DemiBold'),
+    url('/brand/font/UrbaneRounded-DemiBold.woff2') format('woff2'),
+    url('/brand/font/UrbaneRounded-DemiBold.woff') format('woff');
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Urbane Rounded';
+  src: local('Urbane Rounded Bold'), local('UrbaneRounded-Bold'),
+    url('/brand/font/UrbaneRounded-Bold.woff2') format('woff2'),
+    url('/brand/font/UrbaneRounded-Bold.woff') format('woff');
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Urbane Rounded';
+  src: local('Urbane Rounded Heavy'), local('UrbaneRounded-Heavy'),
+    url('/brand/font/UrbaneRounded-Heavy.woff2') format('woff2'),
+    url('/brand/font/UrbaneRounded-Heavy.woff') format('woff');
+  font-style: normal;
+  font-weight: 800;
+  font-display: swap;
+}
 
 :root {
   /* Espaciado base */
@@ -28,8 +96,8 @@
   --font-size-2xl: 1.83rem;
   --font-size-3xl: clamp(2.05rem, 2.95vw, 2.75rem);
 
-  --font-sans: 'Poppins', system-ui, sans-serif;
-  --font-display: 'Poppins', system-ui, sans-serif;
+  --font-sans: 'Urbane Rounded', 'Avenir Next Rounded', system-ui, sans-serif;
+  --font-display: 'Urbane Rounded', 'Avenir Next Rounded', system-ui, sans-serif;
 
   --line-tight: 1.1;
   --line-snug: 1.25;

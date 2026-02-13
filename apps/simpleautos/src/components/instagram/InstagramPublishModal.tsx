@@ -77,7 +77,7 @@ export function InstagramPublishModal(props: {
     return () => {
       cancelled = true;
     };
-  }, [open]);
+  }, [open, supabase]);
 
   const imageUrl = useMemo(() => {
     if (!vehicle) return "";
@@ -89,11 +89,16 @@ export function InstagramPublishModal(props: {
     if (typeof vehicle.precio === "number") params.set("price", String(vehicle.precio));
     if (vehicle.listing_type) params.set("listing_type", String(vehicle.listing_type));
 
-    const photo = (vehicle.portada || (vehicle.imagenes?.[0] ?? ""))?.trim();
-    if (photo) params.set("photo", photo);
+    const photoPath = (vehicle.portada || (vehicle.imagenes?.[0] ?? ""))?.trim();
+    if (photoPath) {
+      const {
+        data: { publicUrl },
+      } = supabase.storage.from("vehicles").getPublicUrl(photoPath);
+      params.set("photo", publicUrl);
+    }
 
     return `/api/instagram/card?${params.toString()}`;
-  }, [vehicle]);
+  }, [vehicle, supabase]);
 
   const publish = async (input: { imageUrl: string; caption: string }) => {
     const { data } = await supabase.auth.getSession();

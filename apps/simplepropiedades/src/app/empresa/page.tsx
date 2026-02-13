@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { PROPERTIES_BRANDING } from "@/config/branding";
 
 export const metadata: Metadata = {
   title: "Sobre Nosotros",
@@ -7,7 +8,7 @@ export const metadata: Metadata = {
 };
 
 export default function EmpresaPage() {
-  const whatsappHref = "https://wa.me/56978623828";
+  const whatsappHref = `https://wa.me/${PROPERTIES_BRANDING.supportWhatsAppDigits}`;
 
   return (
     <main className="mx-auto max-w-4xl px-4 py-10">
@@ -32,7 +33,11 @@ export default function EmpresaPage() {
           <p className="mt-2 text-sm text-lighttext/80 dark:text-darktext/80 leading-relaxed">
             Atendemos exclusivamente por WhatsApp (no llamadas):{" "}
             <a className="underline" href={whatsappHref} target="_blank" rel="noopener noreferrer">
-              +56 9 7862 3828
+              {PROPERTIES_BRANDING.supportWhatsAppDisplay}
+            </a>
+            . Correo oficial:{" "}
+            <a className="underline" href={`mailto:${PROPERTIES_BRANDING.supportEmail}`}>
+              {PROPERTIES_BRANDING.supportEmail}
             </a>
             . Revisa también el{" "}
             <Link className="underline" href="/ayuda">

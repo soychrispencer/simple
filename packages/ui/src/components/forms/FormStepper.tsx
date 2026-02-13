@@ -47,9 +47,9 @@ export const FormStepper: React.FC<FormStepperProps> = ({
                     isError
                       ? 'bg-[var(--color-danger)] text-[var(--color-on-primary)]'
                       : isCompleted
-                      ? 'bg-primary text-black'
+                      ? 'bg-primary text-[var(--color-on-primary)]'
                       : isCurrent
-                      ? 'bg-primary text-black'
+                      ? 'bg-primary text-[var(--color-on-primary)]'
                       : 'bg-[var(--field-bg)] border border-[var(--field-border)] text-lighttext/70 dark:text-darktext/70'
                   }`}
                   onClick={() => handleStepClick(step.key)}

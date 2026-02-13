@@ -1,0 +1,6 @@
+{
+    "CodeGPT.apiKey": "Google AI Studio",
+    "geminicodeassist.agentDebugMode": false,
+    "geminicodeassist.agentYoloMode": false,
+    "geminicodeassist.chat.defaultCodeBlockDisplay": "Preview"
+}

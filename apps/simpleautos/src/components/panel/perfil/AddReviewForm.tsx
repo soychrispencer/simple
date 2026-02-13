@@ -1,6 +1,6 @@
 ﻿import React, { useState } from "react";
 import { useSupabase } from "@/lib/supabase/useSupabase";
-import { Button, TextArea } from "@simple/ui";
+import { Button, Textarea } from "@simple/ui";
 import { IconCheck, IconStar, IconStarFilled } from "@tabler/icons-react";
 
 const AddReviewForm: React.FC<{ profileId?: string; onSubmit?: (data: { calificacion: number; comentario: string }) => void }> = ({ profileId, onSubmit }) => {
@@ -81,7 +81,7 @@ const AddReviewForm: React.FC<{ profileId?: string; onSubmit?: (data: { califica
             <span className="text-sm font-semibold text-lighttext dark:text-darktext">Comentario</span>
             <span className="text-xs text-lighttext/70 dark:text-darktext/70">(opcional)</span>
           </div>
-          <TextArea
+          <Textarea
             label=""
             value={comentario}
             onChange={e => setComentario(e.target.value)}

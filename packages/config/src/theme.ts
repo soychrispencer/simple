@@ -15,14 +15,14 @@ export const verticalThemes = {
   },
   autos: {
     name: 'SimpleAutos',
-    primary: '#FFB600',
+    primary: '#FF3600',
     domain: 'simpleautos.app',
     tagline: 'Compra, vende y arrienda vehículos',
     region: 'cl' as RegionCode,
   },
   properties: {
     name: 'SimplePropiedades',
-    primary: '#009BA3',
+    primary: '#0043FF',
     domain: 'simplepropiedades.app',
     tagline: 'Encuentra tu hogar ideal',
     region: 'cl' as RegionCode,
@@ -57,14 +57,14 @@ export const VERTICALS = {
   },
   autos: {
     name: 'SimpleAutos',
-    color: '#FFB600',
+    color: '#FF3600',
     domain: 'simpleautos.app',
     tagline: 'Compra, vende y arrienda vehículos',
     region: 'cl' as RegionCode,
   },
   properties: {
     name: 'SimplePropiedades',
-    color: '#009BA3',
+    color: '#0043FF',
     domain: 'simplepropiedades.app',
     tagline: 'Encuentra tu hogar ideal',
     region: 'cl' as RegionCode,

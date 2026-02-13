@@ -68,7 +68,6 @@ export function useMercadoPago() {
           : payload?.error || payload?.details;
         const fallback = rawText;
         // Debug útil en dev para ver el motivo real del 500 (aunque el overlay muestre objetos como `{}`).
-        // eslint-disable-next-line no-console
         console.error(
           '[useMercadoPago] Payment create failed',
           'status=',
@@ -82,7 +81,6 @@ export function useMercadoPago() {
           'payload=',
           payload
         );
-        // eslint-disable-next-line no-console
         console.error('[useMercadoPago] Payment create request body (debug):', paymentData);
         throw new Error(
           serverMessage || fallback || `Error creando pago (HTTP ${response.status})`

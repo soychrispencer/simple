@@ -11,8 +11,10 @@ export async function POST(req: NextRequest) {
     const supabase = createServerComponentClient({ cookies: () => (cookiesObj as any) });
 
     const origin = req.headers.get('origin')
+      || process.env.NEXT_PUBLIC_SITE_URL
       || process.env.NEXT_PUBLIC_AUTOS_DOMAIN
-      || 'http://localhost:3000';
+      || process.env.NEXT_PUBLIC_APP_URL
+      || 'http://localhost:3001';
 
     // Mantener UX: confirmación dentro de la misma vertical.
     const emailRedirectToUrl = new URL('/auth/confirm', origin);

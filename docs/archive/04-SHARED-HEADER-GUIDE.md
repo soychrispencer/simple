@@ -1,4 +1,4 @@
-﻿# GuÃ­a de Uso: Header Compartido (@simple/ui)
+﻿﻿# GuÃ­a de Uso: Header Compartido (@simple/ui)
 
 ## ðŸŽ¯ Objetivo
 
@@ -269,7 +269,7 @@ El Header se adapta automÃ¡ticamente segÃºn la prop `vertical`:
 
 ### SimpleAutos (`vertical="autos"`)
 ```tsx
-- Color: #FFB600 (Amarillo/Dorado)
+- Color: #ffd400 (Amarillo/Dorado)
 - Logo: "SimpleAutos"
 - Nav Default: Inicio, Ventas, Arriendos, Subastas
 - BotÃ³n: "Publicar VehÃ­culo"
@@ -465,4 +465,3 @@ Si tienes dudas o encuentras problemas:
 
 **Ãšltima ActualizaciÃ³n:** 11 de noviembre de 2025  
 **VersiÃ³n de @simple/ui:** 1.0.0
-

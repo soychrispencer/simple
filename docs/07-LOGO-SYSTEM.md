@@ -22,7 +22,7 @@
 
 | Vertical | Token | Hex | Uso permitido |
 | --- | --- | --- | --- |
-| SimpleAutos | `primary` | `#FFB600` | CTA principal, price tags, gráficos. |
+| SimpleAutos | `primary` | `#ffd400` | CTA principal, price tags, gráficos. |
 | SimplePropiedades | `primary` | `#009BA3` | CTA, filtros activos, elementos interactivos. |
 | SimpleTiendas | `primary` | `#7A5CFF` | CTA, indicadores de inventario. |
 | SimpleFood | `primary` | `#FFB800` | CTA, etiquetas de delivery, KPI principales. |

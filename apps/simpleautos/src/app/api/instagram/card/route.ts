@@ -5,6 +5,6 @@ export const runtime = "edge";
 export async function GET(req: Request) {
   return handleInstagramCardGET(req, {
     brandName: "SimpleAutos",
-    domain: "simpleautos.cl",
+    domain: "simpleautos.app",
   });
 }

@@ -151,7 +151,7 @@ npm install
 npm run dev
 ```
 
-**✅ Checkpoint:** La app debe correr en http://localhost:3000 igual que antes
+**✅ Checkpoint:** La app debe correr en http://localhost:3001 igual que antes
 
 #### Paso 2.4: Commit
 ```bash
@@ -201,7 +201,7 @@ Crear `packages\config\src\theme.ts`:
 export const verticalThemes = {
   autos: {
     name: 'SimpleAutos',
-    primary: '#FFB600',
+    primary: '#ffd400',
     domain: 'simpleautos.app',
   },
   properties: {
@@ -846,10 +846,10 @@ export function PropertyCard({ property }: { property: PropertyListing }) {
 ```bash
 cd apps\simplepropiedades
 npm install
-npm run dev -- --port 3001
+npm run dev -- --port 3002
 ```
 
-**✅ Checkpoint:** SimplePropiedades debe funcionar en http://localhost:3001
+**✅ Checkpoint:** SimplePropiedades debe funcionar en http://localhost:3002
 
 ---
 

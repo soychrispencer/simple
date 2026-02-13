@@ -16,13 +16,13 @@ const AVAILABLE_VERTICALS: Vertical[] = [
   {
     id: 'autos',
     name: 'Simple Autos',
-    domain: process.env.NEXT_PUBLIC_AUTOS_DOMAIN || 'http://localhost:3000',
+    domain: process.env.NEXT_PUBLIC_AUTOS_DOMAIN || 'http://localhost:3001',
     description: 'Compra y venta de vehículos'
   },
   {
     id: 'propiedades',
     name: 'Simple Propiedades',
-    domain: process.env.NEXT_PUBLIC_PROPIEDADES_DOMAIN || 'http://localhost:3001',
+    domain: process.env.NEXT_PUBLIC_PROPIEDADES_DOMAIN || 'http://localhost:3002',
     description: 'Inmuebles en venta y alquiler'
   },
   {
@@ -40,7 +40,7 @@ const AVAILABLE_VERTICALS: Vertical[] = [
   {
     id: 'crm',
     name: 'Simple CRM',
-    domain: process.env.NEXT_PUBLIC_CRM_DOMAIN || 'http://localhost:3002',
+    domain: process.env.NEXT_PUBLIC_CRM_DOMAIN || 'http://localhost:3000',
     description: 'Gestión de clientes y ventas'
   }
 ];

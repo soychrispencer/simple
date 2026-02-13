@@ -17,7 +17,7 @@ O dentro del vertical:
 - `npm run dev`
 
 Puertos:
-- Dev/Start: `3001`
+- Dev/Start: `3002`
 
 ## 🧩 Packages compartidos
 Importa siempre desde entrypoints:

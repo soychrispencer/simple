@@ -4,7 +4,7 @@ import React, { useEffect, useState } from 'react';
 import { IconBrandWhatsapp, IconMail, IconPhone, IconUser, IconX } from '@tabler/icons-react';
 import Modal from './Modal';
 import { Button } from '../Button';
-import TextArea from '../form/TextArea';
+import Textarea from '../../forms/Textarea';
 
 interface ContactModalProps {
   isOpen: boolean;
@@ -186,7 +186,7 @@ const ContactModal: React.FC<ContactModalProps> = ({
                 </p>
               </div>
 
-              <TextArea
+              <Textarea
                 rows={4}
                 value={message}
                 onChange={(e) => setMessage(e.target.value)}

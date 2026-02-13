@@ -63,7 +63,7 @@ export function SearchBoxLayout({
                 className={join(
                   "min-w-[92px]",
                   isActive
-                    ? "text-black border shadow-card"
+                    ? "text-[var(--color-on-primary)] border shadow-card"
                     : "bg-transparent text-white border border-[var(--glass-border)] shadow-none hover:border-primary",
                   tab.className
                 )}

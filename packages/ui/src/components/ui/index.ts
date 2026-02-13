@@ -18,7 +18,7 @@ export { default as ContactModal } from './modal/ContactModal';
 export { ToastProvider, useToast } from './toast/ToastProvider';
 export { default as FormInput } from './form/Input';
 export { default as FormSelect } from './form/Select';
-export { default as FormTextArea } from './form/TextArea';
+export { default as FormTextArea } from '../forms/Textarea';
 export {
 	Dropdown,
 	DropdownTrigger,

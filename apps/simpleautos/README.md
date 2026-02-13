@@ -391,7 +391,7 @@ En `Auth → URL Configuration`:
 - **Site URL**: tu dominio (p.ej. `https://tudominio.com`)
 - **Redirect URLs** (allow-list): agrega al menos:
    - `https://tudominio.com/auth/confirm`
-   - (opcional) `http://localhost:3000/auth/confirm` para desarrollo
+   - (opcional) `http://localhost:3001/auth/confirm` para desarrollo
 
 
 

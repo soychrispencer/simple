@@ -1,5 +1,6 @@
 import PropertySearchBox from '@/components/search/PropertySearchBox';
 import CategoryFeaturedSlider from '@/components/slider/CategoryFeaturedSlider';
+import Image from 'next/image';
 
 export default async function Home() {
 
@@ -10,9 +11,16 @@ export default async function Home() {
         <div className="w-full px-4 md:px-8 lg:px-8">
           <div className="relative mb-16">
             <div className="hero-shell hero-card relative w-full text-center">
-              <div className="absolute inset-0 bg-lightcard/70 dark:bg-darkcard/70" />
+              <Image
+                src="/hero.jpg"
+                alt="Vista destacada de propiedades"
+                fill
+                priority
+                className="object-cover"
+              />
+              <div className="absolute inset-0 bg-black/45 dark:bg-black/60" />
               <div className="hero-content relative z-10 flex flex-col items-center gap-6 text-center">
-                <h1 className="text-4xl md:text-6xl font-extrabold text-lighttext dark:text-darktext">
+                <h1 className="text-4xl md:text-6xl font-extrabold text-white">
                   <span className="drop-shadow-none">Encuentra tu hogar ideal</span>
                 </h1>
                 

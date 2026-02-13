@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { AUTOS_BRANDING } from "@/config/branding";
 
 export const metadata: Metadata = {
   title: "Sobre Nosotros",
@@ -7,7 +8,7 @@ export const metadata: Metadata = {
 };
 
 export default function EmpresaPage() {
-  const whatsappHref = "https://wa.me/56978623828";
+  const whatsappHref = `https://wa.me/${AUTOS_BRANDING.supportWhatsAppDigits}`;
   return (
     <main className="mx-auto max-w-4xl px-4 py-10">
       <h1 className="text-2xl font-semibold tracking-tight">Sobre Nosotros</h1>
@@ -39,7 +40,11 @@ export default function EmpresaPage() {
           <p className="mt-2 text-sm text-lighttext/80 dark:text-darktext/80 leading-relaxed">
             Nuestro canal de atención es vía WhatsApp (no atendemos llamadas):{" "}
             <a className="underline" href={whatsappHref} target="_blank" rel="noopener noreferrer">
-              +56 9 7862 3828
+              {AUTOS_BRANDING.supportWhatsAppDisplay}
+            </a>
+            . Correo oficial:{" "}
+            <a className="underline" href={`mailto:${AUTOS_BRANDING.supportEmail}`}>
+              {AUTOS_BRANDING.supportEmail}
             </a>
             . También puedes revisar el{" "}
             <Link className="underline" href="/ayuda">

@@ -1,0 +1,14 @@
+.git
+.github
+.vscode
+node_modules
+**/node_modules
+**/.next
+**/dist
+**/coverage
+**/.turbo
+**/tsconfig.tsbuildinfo
+*.log
+.env
+.env.local
+**/.env.local

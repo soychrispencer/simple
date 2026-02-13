@@ -2,11 +2,15 @@ import type { Metadata } from 'next';
 import { createServerClient } from '@/lib/supabase/serverSupabase';
 
 function getAppOrigin(): string {
-  const raw = process.env.NEXT_PUBLIC_APP_URL || process.env.PUBLIC_APP_URL || 'https://www.simpleautos.app';
+  const raw =
+    process.env.NEXT_PUBLIC_SITE_URL ||
+    process.env.NEXT_PUBLIC_APP_URL ||
+    process.env.PUBLIC_APP_URL ||
+    'https://simpleautos.app';
   try {
     return new URL(raw.startsWith('http') ? raw : `https://${raw}`).origin;
   } catch {
-    return 'https://www.simpleautos.app';
+    return 'https://simpleautos.app';
   }
 }
 
@@ -60,7 +64,7 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
 
   let title = 'Vehículo | SimpleAutos';
   let description = 'Publica y encuentra vehículos en SimpleAutos.';
-  let imageUrl = toAbsoluteUrl('/favicon.png', origin);
+  let imageUrl = toAbsoluteUrl('/brand/logo.png', origin);
 
   try {
     if (id) {

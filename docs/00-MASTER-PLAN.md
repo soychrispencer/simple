@@ -175,7 +175,7 @@ Simple/
 ## 🎨 Sistema de Identidad Visual por Vertical
 
 ### SimpleAutos
-- **Color Principal:** `#FFB600` (Amarillo/Dorado vibrante)
+- **Color Principal:** `#ffd400` (Amarillo/Dorado vibrante)
 - **Dominio:** `simpleautos.app`
 - **Tema:** Velocidad, potencia, modernidad
 

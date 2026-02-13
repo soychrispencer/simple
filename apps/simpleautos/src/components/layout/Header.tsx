@@ -6,6 +6,7 @@ import { useAuth } from "@/context/AuthContext";
 import { useSupabase } from "@/lib/supabase/useSupabase";
 import { getAvatarUrl } from "@/lib/supabaseStorage";
 import { autosPanelManifest } from "@simple/panel";
+import { AUTOS_BRANDING } from "@/config/branding";
 
 const headerFeatures = {
   showNotifications: true,
@@ -85,6 +86,12 @@ export default function Header() {
       onLogout={handleLogout}
       NotificationComponent={NotificationsBell}
       getAvatarUrl={resolveAvatarUrl}
+      brandLogo={{
+        light: AUTOS_BRANDING.logos.light,
+        dark: AUTOS_BRANDING.logos.dark,
+        color: AUTOS_BRANDING.logos.color,
+        alt: AUTOS_BRANDING.appName,
+      }}
       showNotifications={headerFeatures.showNotifications}
       panelManifest={autosPanelManifest}
     />

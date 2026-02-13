@@ -53,6 +53,8 @@ Agregar a cada aplicación:
 # Dominios de las verticales
 NEXT_PUBLIC_AUTOS_DOMAIN=https://autos.simple.com
 NEXT_PUBLIC_PROPIEDADES_DOMAIN=https://propiedades.simple.com
+NEXT_PUBLIC_TIENDAS_DOMAIN=https://tiendas.simple.com
+NEXT_PUBLIC_FOOD_DOMAIN=https://food.simple.com
 NEXT_PUBLIC_CRM_DOMAIN=https://crm.simple.com
 
 # Vertical actual

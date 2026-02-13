@@ -248,7 +248,7 @@ export function getDemoVehicleRows(options?: {
       allow_exchange: rng() < 0.18,
       featured: isFeatured,
       visibility,
-      contact_email: 'demo@simpleautos.cl',
+      contact_email: 'demo@simpleautos.app',
       contact_phone: null,
       contact_whatsapp: null,
       rent_daily_price: listing_type === 'rent' ? priceBase : null,

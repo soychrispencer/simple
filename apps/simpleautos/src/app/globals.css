@@ -15,6 +15,8 @@
 
 @layer base {
   :root {
+    --color-primary: #ff3600;
+    --color-primary-rgb: 255 54 0;
     /* En SimpleAutos el foco debe seguir el color primario de la vertical. */
     --field-focus-ring: var(--color-primary-a40);
   }
@@ -468,4 +470,3 @@ a { color: inherit; text-decoration: none; }
   color: var(--color-warn);
   border-color: var(--color-warn-subtle-border);
 }
-

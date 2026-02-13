@@ -82,7 +82,7 @@ function renderIcon(iconId: PanelIconId, isActive: boolean) {
     <IconComponent
       size={22}
       stroke={1}
-      className={isActive ? "text-black" : "text-current"}
+      className={isActive ? "text-[var(--color-on-primary)]" : "text-current"}
     />
   );
 }
