@@ -54,7 +54,7 @@ export default function RootLayout({ children }) {
 ```
 
 **Resultado:** 
-- Logo "SimpleAutos" en amarillo/dorado (#FFB600)
+- Logo "SimpleAutos" en naranja intenso (#FF3600)
 - Navegación: Vehículos, Empresa, Soporte
 - Badges: "Compra Segura", "100% Confiable", "+10,000 Vehículos"
 - Redes sociales: @simpleautos.app
@@ -193,7 +193,7 @@ export default function Layout({ children }) {
 ```
 
 **Resultado:**
-- Logo "SimplePropiedades" en turquesa (#009BA3)
+- Logo "SimplePropiedades" en azul eléctrico (#3232FF)
 - Navegación: Propiedades, Empresa, Soporte
 - Badges: "Transacciones Seguras", "100% Confiable", "+5,000 Propiedades"
 - Descripción adaptada a propiedades
@@ -248,7 +248,7 @@ export default function Layout({ children }) {
 ### SimpleAutos (`vertical="autos"`)
 
 ```tsx
-Color: #FFB600 (Amarillo/Dorado)
+Color: #FF3600 (Naranja intenso)
 Logo: "SimpleAutos"
 
 Descripción Default:
@@ -271,7 +271,7 @@ Redes Default:
 ### SimplePropiedades (`vertical="properties"`)
 
 ```tsx
-Color: #009BA3 (Turquesa)
+Color: #3232FF (Azul eléctrico)
 Logo: "SimplePropiedades"
 
 Descripción Default:

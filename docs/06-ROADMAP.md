@@ -121,7 +121,7 @@ Crear segunda vertical usando componentes compartidos.
 
 #### ✅ Setup Inicial
 - [x] Copiar estructura base de SimpleAutos
-- [x] Configurar vertical config (tema verde)
+- [x] Configurar vertical config (tema azul `#3232FF`)
 - [x] Setup de variables de entorno
 - [x] Configurar Tailwind con color primario
 
@@ -140,7 +140,7 @@ Crear segunda vertical usando componentes compartidos.
 #### 🔄 Testing & Refinamiento
 - [ ] Testing de funcionalidades
 - [ ] Ajustes de diseño
-- [ ] Validar tema verde consistente
+- [ ] Validar tema azul consistente
 - [ ] SEO básico
 
 ### Entregables

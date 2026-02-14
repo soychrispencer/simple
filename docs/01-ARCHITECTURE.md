@@ -20,10 +20,10 @@ El ecosistema Simple sigue una arquitectura de **Monorepo Modular** donde:
     │  apps/  │      │packages/│     │backend/ │
     └─────────┘      └─────────┘     └─────────┘
          │                │                │
-    ┌────┼────┐      ┌────┼────────────┐  │
-    │    │    │      │    │    │    │  │  │
-    ▼    ▼    ▼      ▼    ▼    ▼    ▼  ▼  ▼
- autos props stores ui auth db utils  supabase
+    ┌────┼────┐      ┌────┼──────────────────────┐  │
+    │    │    │      │    │    │    │    │    │  │  │
+    ▼    ▼    ▼      ▼    ▼    ▼    ▼    ▼    ▼  ▼  ▼
+ autos props stores  ui config auth listings panel logging supabase
 ```
 
 ---
@@ -145,12 +145,12 @@ packages/ui/
 // packages/config/src/theme.ts
 export const verticalThemes = {
   autos: {
-    primary: '#ffd400',
+    primary: '#FF3600',
     name: 'SimpleAutos',
     domain: 'simpleautos.app',
   },
   properties: {
-    primary: '#009BA3',
+    primary: '#3232FF',
     name: 'SimplePropiedades',
     domain: 'simplepropiedades.app',
   },
@@ -453,7 +453,7 @@ module.exports = {
   theme: {
     extend: {
       colors: {
-        primary: '#ffd400', // Color específico de SimpleAutos
+        primary: '#FF3600', // Color específico de SimpleAutos
       },
     },
   },

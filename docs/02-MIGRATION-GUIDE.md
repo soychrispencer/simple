@@ -32,7 +32,7 @@ Migrar SimpleAutos desde su estructura actual a la nueva arquitectura de monorep
 
 #### Paso 0.1: Crear backup
 ```bash
-cd c:\Users\chris\OneDrive\Desktop\Simple
+cd c:\Users\chris\Desktop\Simple
 # Crear copia de seguridad
 xcopy simpleautos simpleautos-backup /E /I /H /Y
 ```
@@ -57,7 +57,7 @@ git commit -m "checkpoint: pre-migration state"
 
 #### Paso 1.1: Crear carpetas del monorepo
 ```bash
-cd c:\Users\chris\OneDrive\Desktop\Simple
+cd c:\Users\chris\Desktop\Simple
 
 # Crear estructura
 mkdir apps
@@ -68,7 +68,7 @@ mkdir scripts
 ```
 
 #### Paso 1.2: Crear package.json raíz
-Crear `c:\Users\chris\OneDrive\Desktop\Simple\package.json`
+Crear `c:\Users\chris\Desktop\Simple\package.json`
 
 ```json
 {
@@ -166,7 +166,7 @@ git commit -m "chore: move simpleautos to apps/ directory"
 #### Paso 3.1: Crear estructura de @simple/config
 
 ```bash
-cd c:\Users\chris\OneDrive\Desktop\Simple
+cd c:\Users\chris\Desktop\Simple
 mkdir packages\config
 cd packages\config
 ```
@@ -201,12 +201,12 @@ Crear `packages\config\src\theme.ts`:
 export const verticalThemes = {
   autos: {
     name: 'SimpleAutos',
-    primary: '#ffd400',
+    primary: '#FF3600',
     domain: 'simpleautos.app',
   },
   properties: {
     name: 'SimplePropiedades',
-    primary: '#009BA3',
+    primary: '#3232FF',
     domain: 'simplepropiedades.app',
   },
   stores: {
@@ -274,7 +274,7 @@ Crear `packages\config\tsconfig.json`:
 
 #### Paso 3.2: Instalar en root
 ```bash
-cd c:\Users\chris\OneDrive\Desktop\Simple
+cd c:\Users\chris\Desktop\Simple
 npm install
 ```
 
@@ -287,7 +287,7 @@ npm install
 #### Paso 4.1: Crear estructura de @simple/ui
 
 ```bash
-cd c:\Users\chris\OneDrive\Desktop\Simple\packages
+cd c:\Users\chris\Desktop\Simple\packages
 mkdir ui
 cd ui
 mkdir src
@@ -411,7 +411,7 @@ Agregar dependencia en `apps\simpleautos\package.json`:
 
 Instalar:
 ```bash
-cd c:\Users\chris\OneDrive\Desktop\Simple
+cd c:\Users\chris\Desktop\Simple
 npm install
 ```
 
@@ -562,7 +562,7 @@ export default function RootLayout({ children }) {
 
 #### Paso 7.1: Mover configuración de Supabase
 ```bash
-cd c:\Users\chris\OneDrive\Desktop\Simple
+cd c:\Users\chris\Desktop\Simple
 mkdir backend\supabase
 move apps\simpleautos\supabase\* backend\supabase\
 ```
@@ -731,7 +731,7 @@ COMMIT;
 
 #### Paso 8.1: Copiar estructura de SimpleAutos
 ```bash
-cd c:\Users\chris\OneDrive\Desktop\Simple\apps
+cd c:\Users\chris\Desktop\Simple\apps
 xcopy simpleautos simplepropiedades /E /I /H
 ```
 
@@ -893,7 +893,7 @@ npm run dev -- --port 3002
 
 **Solución:**
 ```bash
-cd c:\Users\chris\OneDrive\Desktop\Simple
+cd c:\Users\chris\Desktop\Simple
 npm install
 ```
 

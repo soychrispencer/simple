@@ -52,80 +52,21 @@ Simple/
 │
 ├── apps/                              # 🚀 Verticales (aplicaciones)
 │   ├── simpleautos/                   # Vertical de vehículos
-│   │   ├── src/
-│   │   │   ├── app/                   # App Router de Next.js
-│   │   │   ├── components/            # Componentes específicos de autos
-│   │   │   ├── hooks/                 # Hooks específicos de autos
-│   │   │   ├── lib/                   # Utilidades específicas de autos
-│   │   │   └── config/                # Configuración de la vertical
-│   │   ├── public/
-│   │   ├── package.json
-│   │   └── next.config.ts
-│   │
-│   └── simplepropiedades/             # Vertical de propiedades
-│       ├── src/
-│       │   ├── app/
-│       │   ├── components/            # Componentes específicos de propiedades
-│       │   ├── hooks/
-│       │   ├── lib/
-│       │   └── config/
-│       ├── public/
-│       ├── package.json
-│       └── next.config.ts
+│   ├── simplepropiedades/             # Vertical de propiedades
+│   ├── simpletiendas/                 # Vertical de comercios
+│   ├── simplefood/                    # Vertical gastronómica
+│   └── simpleadmin/                   # Panel administrativo
 │
 ├── packages/                          # 📦 Código compartido
 │   ├── ui/                            # Componentes UI compartidos
-│   │   ├── src/
-│   │   │   ├── components/
-│   │   │   │   ├── layout/           # Header, Footer, Navigation
-│   │   │   │   ├── forms/            # Input, Select, Button, Form
-│   │   │   │   ├── cards/            # ListingCard genérica
-│   │   │   │   ├── modals/           # AuthModal, ConfirmModal
-│   │   │   │   ├── panel/            # Panel de usuario genérico
-│   │   │   │   └── toast/            # Sistema de notificaciones
-│   │   │   ├── styles/
-│   │   │   └── index.ts
-│   │   ├── package.json
-│   │   └── tsconfig.json
-│   │
-│   ├── config/                        # Configuraciones compartidas
-│   │   ├── src/
-│   │   │   ├── theme.ts              # Sistema de temas
-│   │   │   ├── colors.ts             # Paletas por vertical
-│   │   │   ├── constants.ts          # Constantes globales
-│   │   │   └── index.ts
-│   │   └── package.json
-│   │
-│   ├── auth/                          # Sistema de autenticación
-│   │   ├── src/
-│   │   │   ├── context/              # AuthContext
-│   │   │   ├── hooks/                # useAuth, useSession
-│   │   │   ├── utils/                # Validación, helpers
-│   │   │   └── index.ts
-│   │   └── package.json
-│   │
-│   ├── database/                      # Tipos y cliente de Supabase
-│   │   ├── src/
-│   │   │   ├── client/               # Clientes de Supabase
-│   │   │   ├── types/                # Tipos generados
-│   │   │   ├── queries/              # Queries reutilizables
-│   │   │   └── index.ts
-│   │   └── package.json
-│   │
-│   ├── payments/                      # Sistema de pagos
-│   │   ├── src/
-│   │   │   ├── mercadopago/          # Integración MercadoPago
-│   │   │   ├── types/
-│   │   │   └── index.ts
-│   │   └── package.json
-│   │
-│   └── utils/                         # Utilidades compartidas
-│       ├── src/
-│       │   ├── format.ts             # Formateo de datos
-│       │   ├── validation.ts         # Validaciones Zod
-│       │   ├── logger.ts             # Sistema de logs
-│       │   └── index.ts
-│       └── package.json
+│   ├── config/                        # Configuraciones + tokens + temas
+│   ├── auth/                          # Sistema de autenticación compartido
+│   ├── shared-types/                  # Tipos compartidos
+│   ├── listings/                      # Helpers de listados
+│   ├── panel/                         # Capas de panel modular
+│   ├── profile/                       # Módulos de perfil
+│   ├── logging/                       # Logging compartido
+│   └── instagram/                     # Integraciones OG/Instagram
 │
 ├── backend/                           # 🔧 Backend unificado (inglés)
 │   ├── supabase/
@@ -175,16 +116,16 @@ Simple/
 ## 🎨 Sistema de Identidad Visual por Vertical
 
 ### SimpleAutos
-- **Color Principal:** `#ffd400` (Amarillo/Dorado vibrante)
+- **Color Principal:** `#FF3600` (Naranja intenso)
 - **Dominio:** `simpleautos.app`
 - **Tema:** Velocidad, potencia, modernidad
 
 ### SimplePropiedades
-- **Color Principal:** `#009BA3` (Turquesa neón)
+- **Color Principal:** `#3232FF` (Azul eléctrico)
 - **Dominio:** `simplepropiedades.app`
 - **Tema:** Estabilidad, crecimiento, hogar
 
-### SimpleTiendas (futuro)
+### SimpleTiendas
 - **Color Principal:** `#7A5CFF` (Violeta tech)
 - **Dominio:** `simpletiendas.app`
 - **Tema:** Creatividad, comercio, diversidad
@@ -255,7 +196,7 @@ Simple/
 ### **FASE 5: Creación de SimplePropiedades**
 1. Clonar estructura de SimpleAutos
 2. Adaptar tipos específicos de propiedades
-3. Configurar tema verde
+3. Configurar tema azul (`#3232FF`)
 4. Crear componentes específicos de propiedades
 5. Conectar con backend compartido
 

@@ -114,15 +114,15 @@ Simple/
 import { verticalThemes, getPrimaryColor } from '@simple/config';
 
 const autosTheme = verticalThemes.autos;
-// { name: 'SimpleAutos', primary: '#FFB600', ... }
+// { name: 'SimpleAutos', primary: '#FF3600', ... }
 
 const primaryColor = getPrimaryColor('autos');
-// '#FFB600'
+// '#FF3600'
 ```
 
 **Verticales configuradas:**
-- 🚗 **SimpleAutos** - `#FFB600` (Amarillo/Dorado)
-- 🏡 **SimplePropiedades** - `#009BA3` (Turquesa)
+- 🚗 **SimpleAutos** - `#FF3600` (Naranja intenso)
+- 🏡 **SimplePropiedades** - `#3232FF` (Azul eléctrico)
 - 🏪 **SimpleTiendas** - `#7A5CFF` (Violeta tech)
 
 ---

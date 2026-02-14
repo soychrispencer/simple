@@ -13,7 +13,7 @@
 
 1. **Clone and Install**
 ```bash
-cd c:\Users\chris\OneDrive\Desktop\Simple
+cd c:\Users\chris\Desktop\Simple
 npm install
 ```
 

@@ -81,7 +81,7 @@ Simple/
 
 ```bash
 # Clonar repositorio
-cd c:\Users\chris\OneDrive\Desktop\Simple
+cd c:\Users\chris\Desktop\Simple
 
 # Instalar dependencias
 npm install
@@ -139,7 +139,7 @@ npm run build:props
 
 ### SimplePropiedades 🏡
 **URL:** https://simplepropiedades.app  
-**Color:** `#0043FF` (Azul eléctrico)  
+**Color:** `#3232FF` (Azul eléctrico)  
 **Descripción:** Plataforma para compra y arriendo de propiedades.
 
 **Funcionalidades:**

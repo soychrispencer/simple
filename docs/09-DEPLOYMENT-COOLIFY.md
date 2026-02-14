@@ -53,7 +53,7 @@ Variables de entorno:
 
 Branding esperado:
 
-- Color primario: `#0043ff`.
+- Color primario: `#3232ff`.
 - WhatsApp: `+56 9 7862 3828`.
 - Correo: `hola@simplepropiedades.app`.
 - Logos PNG: `apps/simplepropiedades/public/brand/`.
@@ -70,7 +70,7 @@ Branding esperado:
 - Footer/contacto muestran WhatsApp y correo correctos.
 - Colores de marca aplicados:
   - Autos: `#ff3600`
-  - Propiedades: `#0043ff`
+  - Propiedades: `#3232ff`
 - Logos cargando desde:
   - `/brand/logo.png` (en cada vertical)
   - `/brand/favicon.png` (en cada vertical)

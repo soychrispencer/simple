@@ -1,4 +1,4 @@
-﻿﻿# GuÃ­a de Uso: Header Compartido (@simple/ui)
+# GuÃ­a de Uso: Header Compartido (@simple/ui)
 
 ## ðŸŽ¯ Objetivo
 
@@ -47,7 +47,7 @@ En `apps/simpleautos/package.json`:
 ### 2. Instalar
 
 ```bash
-cd c:\Users\chris\OneDrive\Desktop\Simple
+cd c:\Users\chris\Desktop\Simple
 npm install
 ```
 
@@ -222,7 +222,7 @@ export default function Layout({ children }) {
 ```
 
 - Logo dice "SimplePropiedades"
-- Color primario es turquesa (#009BA3)
+- Color primario es azul eléctrico (#3232FF)
 - BotÃ³n dice "Publicar Propiedad"
 - Â¡Todo lo demÃ¡s funciona igual!
 
@@ -269,7 +269,7 @@ El Header se adapta automÃ¡ticamente segÃºn la prop `vertical`:
 
 ### SimpleAutos (`vertical="autos"`)
 ```tsx
-- Color: #ffd400 (Amarillo/Dorado)
+- Color: #FF3600 (Naranja intenso)
 - Logo: "SimpleAutos"
 - Nav Default: Inicio, Ventas, Arriendos, Subastas
 - BotÃ³n: "Publicar VehÃ­culo"
@@ -278,7 +278,7 @@ El Header se adapta automÃ¡ticamente segÃºn la prop `vertical`:
 
 ### SimplePropiedades (`vertical="properties"`)
 ```tsx
-- Color: #009BA3 (Turquesa)
+- Color: #3232FF (Azul eléctrico)
 - Logo: "SimplePropiedades"
 - Nav Default: Inicio, Comprar, Arrendar
 - BotÃ³n: "Publicar Propiedad"
@@ -399,7 +399,7 @@ import { Header } from '@simple/ui';
 
 **SoluciÃ³n:**
 ```bash
-cd c:\Users\chris\OneDrive\Desktop\Simple
+cd c:\Users\chris\Desktop\Simple
 npm install
 ```
 
