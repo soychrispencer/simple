@@ -22,14 +22,18 @@ FROM node:20-bookworm-slim AS runner
 ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
 ENV HOSTNAME=0.0.0.0
-ENV PORT=3001
+ENV PORT=3000
 
 WORKDIR /app
+
+RUN apt-get update \
+  && apt-get install -y --no-install-recommends curl ca-certificates \
+  && rm -rf /var/lib/apt/lists/*
 
 COPY --from=builder /app/apps/simpleautos/.next/standalone ./
 COPY --from=builder /app/apps/simpleautos/.next/static ./apps/simpleautos/.next/static
 COPY --from=builder /app/apps/simpleautos/public ./apps/simpleautos/public
 
-EXPOSE 3001
+EXPOSE 3000
 
 CMD ["sh", "-c", "node apps/simpleautos/server.js || node server.js"]
