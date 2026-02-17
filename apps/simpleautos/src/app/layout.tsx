@@ -20,6 +20,17 @@ function resolveSiteUrl() {
 
 const siteUrl = resolveSiteUrl();
 
+const runtimePublicEnv = {
+  NEXT_PUBLIC_SUPABASE_URL: process.env.NEXT_PUBLIC_SUPABASE_URL || "",
+  NEXT_PUBLIC_SUPABASE_ANON_KEY: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "",
+  NEXT_PUBLIC_APP_URL: process.env.NEXT_PUBLIC_APP_URL || "",
+  NEXT_PUBLIC_VERTICAL: process.env.NEXT_PUBLIC_VERTICAL || "",
+};
+
+function getRuntimeEnvScript() {
+  return `window.__SIMPLE_RUNTIME_ENV__=${JSON.stringify(runtimePublicEnv).replace(/</g, "\\u003c")};`;
+}
+
 export const metadata: Metadata = {
   title: {
     default: "SimpleAutos | Marketplace Automotriz",
@@ -63,6 +74,7 @@ export default function RootLayout({
       <head>
         <meta charSet="utf-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <script dangerouslySetInnerHTML={{ __html: getRuntimeEnvScript() }} />
       </head>
       <body
         className="bg-lightbg text-lighttext dark:bg-darkbg dark:text-darktext font-sans"

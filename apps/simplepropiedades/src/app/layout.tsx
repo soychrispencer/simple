@@ -15,6 +15,17 @@ function resolveSiteUrl() {
 
 const siteUrl = resolveSiteUrl();
 
+const runtimePublicEnv = {
+  NEXT_PUBLIC_SUPABASE_URL: process.env.NEXT_PUBLIC_SUPABASE_URL || "",
+  NEXT_PUBLIC_SUPABASE_ANON_KEY: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "",
+  NEXT_PUBLIC_APP_URL: process.env.NEXT_PUBLIC_APP_URL || "",
+  NEXT_PUBLIC_VERTICAL: process.env.NEXT_PUBLIC_VERTICAL || "",
+};
+
+function getRuntimeEnvScript() {
+  return `window.__SIMPLE_RUNTIME_ENV__=${JSON.stringify(runtimePublicEnv).replace(/</g, "\\u003c")};`;
+}
+
 export const metadata: Metadata = {
   title: "SimplePropiedades - Encuentra tu hogar ideal",
   description: "Compra y arrienda propiedades de forma simple, rápida y segura",
@@ -48,6 +59,9 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="es" suppressHydrationWarning>
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: getRuntimeEnvScript() }} />
+      </head>
       <body
         className="bg-lightbg text-lighttext dark:bg-darkbg dark:text-darktext font-sans"
         suppressHydrationWarning
