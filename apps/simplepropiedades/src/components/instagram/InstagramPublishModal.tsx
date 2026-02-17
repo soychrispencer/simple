@@ -2,6 +2,7 @@
 
 import React, { useEffect, useMemo, useState } from "react";
 import { InstagramPublishModalBase } from "@simple/instagram/modal";
+import { useSupabase } from "@simple/ui";
 
 export type InstagramPublishProperty = {
   id: string;
@@ -62,6 +63,7 @@ export function InstagramPublishModal(props: {
   property: InstagramPublishProperty | null;
 }) {
   const { open, onClose, property } = props;
+  const supabase = useSupabase();
 
   const [igConnected, setIgConnected] = useState(false);
 
@@ -70,7 +72,12 @@ export function InstagramPublishModal(props: {
     let cancelled = false;
     (async () => {
       try {
-        const res = await fetch("/api/instagram/status");
+        const { data } = await supabase.auth.getSession();
+        const accessToken = data?.session?.access_token;
+        const res = await fetch("/api/instagram/status", {
+          headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : undefined,
+          cache: "no-store",
+        });
         const json = await res.json();
         if (!cancelled) setIgConnected(!!json?.connected);
       } catch {
@@ -80,28 +87,43 @@ export function InstagramPublishModal(props: {
     return () => {
       cancelled = true;
     };
-  }, [open]);
+  }, [open, supabase]);
 
   const imageUrl = useMemo(() => {
     if (!property) return "";
+
+    const photoRaw = (property.thumbnail_url || (property.image_urls?.[0] ?? ""))?.trim();
+    if (photoRaw) {
+      const photoPublicUrl = /^https?:\/\//i.test(photoRaw)
+        ? photoRaw
+        : supabase.storage.from("properties").getPublicUrl(photoRaw).data.publicUrl;
+      return `/api/instagram/media?src=${encodeURIComponent(photoPublicUrl)}`;
+    }
 
     const params = new URLSearchParams();
     params.set("id", property.id);
     params.set("title", property.title || "");
     if (typeof property.price === "number") params.set("price", String(property.price));
     if (property.listing_type) params.set("listing_type", String(property.listing_type));
-
-    const photo = (property.thumbnail_url || (property.image_urls?.[0] ?? ""))?.trim();
-    if (photo) params.set("photo", photo);
-
-    return `/api/instagram/card?${params.toString()}`;
-  }, [property]);
+    const cardUrl = `/api/instagram/card?${params.toString()}`;
+    return `/api/instagram/media?src=${encodeURIComponent(cardUrl)}`;
+  }, [property, supabase]);
 
   const publish = async (input: { imageUrl: string; caption: string }) => {
+    const { data } = await supabase.auth.getSession();
+    const accessToken = data?.session?.access_token;
     const res = await fetch("/api/instagram/publish", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ imageUrl: input.imageUrl, caption: input.caption }),
+      headers: {
+        "Content-Type": "application/json",
+        ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : null),
+      } as any,
+      body: JSON.stringify({
+        imageUrl: input.imageUrl,
+        caption: input.caption,
+        listingId: property?.id ?? null,
+        vertical: "properties",
+      }),
     });
 
     let json: any = null;

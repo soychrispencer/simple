@@ -82,22 +82,22 @@ export function InstagramPublishModal(props: {
   const imageUrl = useMemo(() => {
     if (!vehicle) return "";
 
+    const photoRaw = (vehicle.portada || (vehicle.imagenes?.[0] ?? ""))?.trim();
+    if (photoRaw) {
+      const photoPublicUrl = /^https?:\/\//i.test(photoRaw)
+        ? photoRaw
+        : supabase.storage.from("vehicles").getPublicUrl(photoRaw).data.publicUrl;
+      return `/api/instagram/media?src=${encodeURIComponent(photoPublicUrl)}`;
+    }
+
     const params = new URLSearchParams();
     params.set("id", vehicle.id);
     params.set("title", vehicle.titulo || "");
     if (vehicle.year) params.set("year", String(vehicle.year));
     if (typeof vehicle.precio === "number") params.set("price", String(vehicle.precio));
     if (vehicle.listing_type) params.set("listing_type", String(vehicle.listing_type));
-
-    const photoPath = (vehicle.portada || (vehicle.imagenes?.[0] ?? ""))?.trim();
-    if (photoPath) {
-      const {
-        data: { publicUrl },
-      } = supabase.storage.from("vehicles").getPublicUrl(photoPath);
-      params.set("photo", publicUrl);
-    }
-
-    return `/api/instagram/card?${params.toString()}`;
+    const cardUrl = `/api/instagram/card?${params.toString()}`;
+    return `/api/instagram/media?src=${encodeURIComponent(cardUrl)}`;
   }, [vehicle, supabase]);
 
   const publish = async (input: { imageUrl: string; caption: string }) => {
@@ -109,7 +109,12 @@ export function InstagramPublishModal(props: {
         "Content-Type": "application/json",
         ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : null),
       } as any,
-      body: JSON.stringify({ imageUrl: input.imageUrl, caption: input.caption }),
+      body: JSON.stringify({
+        imageUrl: input.imageUrl,
+        caption: input.caption,
+        listingId: vehicle?.id ?? null,
+        vertical: "autos",
+      }),
     });
 
     let json: any = null;

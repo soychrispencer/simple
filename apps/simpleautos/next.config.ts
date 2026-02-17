@@ -8,6 +8,7 @@ const transpiledPackages = [
   "@simple/listings",
   "@simple/shared-types",
   "@simple/config",
+  "@simple/instagram",
 ];
 
 const nextConfig: NextConfig = {

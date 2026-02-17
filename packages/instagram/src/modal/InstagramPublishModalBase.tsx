@@ -92,8 +92,21 @@ export function InstagramPublishModalBase(props: InstagramPublishModalBaseProps)
     try {
       setPublishing(true);
       const result = await onPublish({ imageUrl, caption });
+      const status = String(result?.status || "");
+      if (status === "failed") {
+        throw new Error(result?.error || "No se pudo publicar en Instagram");
+      }
+      if (status === "retrying" || result?.queued) {
+        addToast("Publicación en cola. Reintentaremos automáticamente.", { type: "success" });
+        return;
+      }
       const mediaId = result?.mediaId ? String(result.mediaId) : "";
-      addToast(mediaId ? `Publicado en Instagram (ID: ${mediaId})` : "Publicado en Instagram", { type: "success" });
+      const permalink = result?.permalink ? String(result.permalink) : "";
+      if (mediaId && permalink) {
+        addToast(`Publicado en Instagram (ID: ${mediaId})`, { type: "success" });
+      } else {
+        addToast(mediaId ? `Publicado en Instagram (ID: ${mediaId})` : "Publicado en Instagram", { type: "success" });
+      }
     } catch (e: any) {
       addToast(e?.message || "No se pudo publicar en Instagram", { type: "error" });
     } finally {

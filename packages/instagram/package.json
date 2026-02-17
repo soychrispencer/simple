@@ -18,7 +18,9 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@simple/ui": "*"
+    "@simple/ui": "*",
+    "@supabase/auth-helpers-nextjs": "^0.10.0",
+    "@supabase/supabase-js": "^2.47.10"
   },
   "devDependencies": {
     "@types/react": "^19.1.12",

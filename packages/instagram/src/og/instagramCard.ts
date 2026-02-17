@@ -18,6 +18,22 @@ function formatClp(value: number | null) {
   return value.toLocaleString("es-CL");
 }
 
+function arrayBufferToBase64(arrayBuffer: ArrayBuffer): string {
+  if (typeof Buffer !== "undefined") {
+    return Buffer.from(arrayBuffer).toString("base64");
+  }
+  if (typeof btoa === "function") {
+    const bytes = new Uint8Array(arrayBuffer);
+    let binary = "";
+    const chunkSize = 0x8000;
+    for (let i = 0; i < bytes.length; i += chunkSize) {
+      binary += String.fromCharCode(...bytes.subarray(i, i + chunkSize));
+    }
+    return btoa(binary);
+  }
+  throw new Error("No base64 encoder available");
+}
+
 async function fetchImageAsDataUrl(url: string): Promise<string | null> {
   try {
     const res = await fetch(url);
@@ -26,10 +42,15 @@ async function fetchImageAsDataUrl(url: string): Promise<string | null> {
       return null;
     }
     const arrayBuffer = await res.arrayBuffer();
-    const contentType = res.headers.get("content-type") || "image/jpeg";
+    const contentType = (res.headers.get("content-type") || "image/jpeg").toLowerCase();
 
-    // Convert to base64 (Edge runtime)
-    const base64 = Buffer.from(arrayBuffer).toString("base64");
+    // next/og can fail with some source formats (notably webp) when embedded as data URL.
+    // For those cases we simply omit background photo and still render a valid card.
+    if (!contentType.startsWith("image/") || contentType.includes("webp") || contentType.includes("avif")) {
+      return null;
+    }
+
+    const base64 = arrayBufferToBase64(arrayBuffer);
     return `data:${contentType};base64,${base64}`;
   } catch (error) {
     console.error("Error fetching or converting image:", { url, error });
@@ -37,22 +58,17 @@ async function fetchImageAsDataUrl(url: string): Promise<string | null> {
   }
 }
 
-export async function handleInstagramCardGET(req: Request, options: InstagramCardOptions) {
-  const { searchParams } = new URL(req.url);
+function buildCardElement(input: {
+  title: string;
+  year: string | null;
+  priceText: string | null;
+  typeLabel: string;
+  photoDataUrl: string | null;
+  options: InstagramCardOptions;
+}) {
+  const { title, year, priceText, typeLabel, photoDataUrl, options } = input;
 
-  const title = clampText(searchParams.get("title") || "Publicación", 60);
-  const year = searchParams.get("year");
-  const priceRaw = searchParams.get("price");
-  const listingType = searchParams.get("listing_type") || "sale";
-  const photo = searchParams.get("photo") || "";
-
-  const price = priceRaw ? Number(priceRaw) : null;
-  const priceText = formatClp(price);
-  const typeLabel = listingType === "rent" ? "ARRIENDO" : listingType === "auction" ? "SUBASTA" : "VENTA";
-
-  const photoDataUrl = photo ? await fetchImageAsDataUrl(photo) : null;
-
-  const root = React.createElement(
+  return React.createElement(
     "div",
     {
       style: {
@@ -64,7 +80,7 @@ export async function handleInstagramCardGET(req: Request, options: InstagramCar
         color: "#FFFFFF",
         padding: 48,
         position: "relative",
-        fontFamily: "Urbane Rounded, Avenir Next Rounded, ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif",
+        fontFamily: "Poppins, ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif",
       },
     },
     photoDataUrl
@@ -197,9 +213,49 @@ export async function handleInstagramCardGET(req: Request, options: InstagramCar
       React.createElement("div", { style: { fontSize: 18, opacity: 0.9 } }, options.domain)
     )
   );
+}
 
-  return new ImageResponse(root, {
-    width: 1080,
-    height: 1080,
-  });
+export async function handleInstagramCardGET(req: Request, options: InstagramCardOptions) {
+  try {
+    const { searchParams } = new URL(req.url);
+
+    const title = clampText(searchParams.get("title") || "Publicación", 60);
+    const year = searchParams.get("year");
+    const priceRaw = searchParams.get("price");
+    const listingType = searchParams.get("listing_type") || "sale";
+    const photo = searchParams.get("photo") || "";
+
+    const price = priceRaw ? Number(priceRaw) : null;
+    const priceText = formatClp(price);
+    const typeLabel = listingType === "rent" ? "ARRIENDO" : listingType === "auction" ? "SUBASTA" : "VENTA";
+
+    const photoDataUrl = photo ? await fetchImageAsDataUrl(photo) : null;
+    const root = buildCardElement({
+      title,
+      year,
+      priceText,
+      typeLabel,
+      photoDataUrl,
+      options,
+    });
+
+    return new ImageResponse(root, {
+      width: 1080,
+      height: 1080,
+    });
+  } catch (error) {
+    console.error("Error rendering instagram card. Falling back to safe card.", error);
+    const fallback = buildCardElement({
+      title: "Publicación",
+      year: null,
+      priceText: null,
+      typeLabel: "VENTA",
+      photoDataUrl: null,
+      options,
+    });
+    return new ImageResponse(fallback, {
+      width: 1080,
+      height: 1080,
+    });
+  }
 }

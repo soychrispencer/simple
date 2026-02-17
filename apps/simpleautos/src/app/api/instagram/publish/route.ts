@@ -1,94 +1,107 @@
 import { NextRequest, NextResponse } from "next/server";
-import { cookies } from "next/headers";
-import { createRouteHandlerClient } from "@supabase/auth-helpers-nextjs";
-import { createClient, type SupabaseClient } from "@supabase/supabase-js";
-import { publishImageToInstagram } from "@simple/instagram/server";
+import crypto from "node:crypto";
+import { createClient } from "@supabase/supabase-js";
+import {
+  getInstagramFlowReason,
+  publishInstagramForUser,
+  resolveAuthUserId,
+} from "@simple/instagram/server";
 
 export const runtime = "nodejs";
 
 type Body = {
   imageUrl: string;
   caption: string;
+  listingId?: string;
+  vertical?: string;
 };
 
-let adminClient: SupabaseClient | null = null;
-function getAdminClient() {
-  if (!adminClient) {
-    const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-    const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
-    if (!url || !key) throw new Error("Supabase service credentials not configured");
-    adminClient = createClient(url, key);
-  }
-  return adminClient;
+function isLocalHost(hostname: string) {
+  return hostname === "localhost" || hostname === "127.0.0.1" || hostname === "::1";
 }
 
-function getBearerToken(req: NextRequest): string | null {
-  const authHeader = req.headers.get("authorization") || req.headers.get("Authorization") || "";
-  const match = authHeader.match(/^Bearer\s+(.+)$/i);
-  return match?.[1] ? String(match[1]) : null;
-}
-
-async function getAuthedUserId(req: NextRequest): Promise<string | null> {
-  try {
-    const cookieStore = await cookies();
-    const supabase = createRouteHandlerClient({ cookies: () => (cookieStore as any) });
-    const { data } = await supabase.auth.getUser();
-    if (data?.user?.id) return data.user.id;
-  } catch {
-    // ignore
+function getSupabaseAdmin() {
+  const url = String(process.env.NEXT_PUBLIC_SUPABASE_URL || "").trim();
+  const key = String(process.env.SUPABASE_SERVICE_ROLE_KEY || "").trim();
+  if (!url || !key) {
+    throw new Error("Supabase service role no configurado");
   }
-
-  const token = getBearerToken(req);
-  if (!token) return null;
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-  if (!url || !anonKey) return null;
-  const bearerClient = createClient(url, anonKey, {
+  return createClient(url, key, {
     auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
-    global: { headers: { "x-simpleautos-auth": "1" } },
   });
-  const { data } = await bearerClient.auth.getUser(token);
-  return data?.user?.id ?? null;
+}
+
+async function materializePublicJpeg(input: {
+  origin: string;
+  sourceUrl: string;
+  bucket: string;
+}) {
+  const absoluteSource = new URL(input.sourceUrl, input.origin);
+
+  const sourceRes = await fetch(absoluteSource.toString(), { method: "GET", cache: "no-store" });
+  if (!sourceRes.ok) {
+    throw new Error(`No se pudo preparar imagen (HTTP ${sourceRes.status})`);
+  }
+  const contentType = String(sourceRes.headers.get("content-type") || "").toLowerCase();
+  if (!contentType.startsWith("image/")) {
+    throw new Error("La URL de imagen no devolvió contenido de imagen");
+  }
+
+  const sourceBuffer = Buffer.from(await sourceRes.arrayBuffer());
+  const sharp = (await import("sharp")).default;
+  const jpegBuffer = await sharp(sourceBuffer).jpeg({ quality: 90, mozjpeg: true }).toBuffer();
+
+  const path = `instagram/${new Date().toISOString().slice(0, 10)}/${crypto.randomUUID()}.jpg`;
+  const supabase = getSupabaseAdmin();
+  const upload = await supabase.storage.from(input.bucket).upload(path, jpegBuffer, {
+    upsert: false,
+    contentType: "image/jpeg",
+    cacheControl: "3600",
+  });
+  if (upload.error || !upload.data?.path) {
+    throw new Error(upload.error?.message || "No se pudo subir imagen pública para Instagram");
+  }
+  return supabase.storage.from(input.bucket).getPublicUrl(upload.data.path).data.publicUrl;
 }
 
 export async function POST(req: NextRequest) {
   try {
-    const userId = await getAuthedUserId(req);
+    const userId = await resolveAuthUserId(req);
     if (!userId) return NextResponse.json({ error: "No auth" }, { status: 401 });
 
     const body = (await req.json()) as Partial<Body>;
-    const imageUrl = String(body.imageUrl || "");
+    const imageUrl = String(body.imageUrl || "").trim();
     const caption = String(body.caption || "");
     if (!imageUrl || !caption) return NextResponse.json({ error: "Missing imageUrl/caption" }, { status: 400 });
 
-    const origin = req.nextUrl.origin;
-    const absoluteImageUrl = new URL(imageUrl, origin).toString();
+    const normalizedImageUrl = imageUrl.includes("/api/instagram/media")
+      ? imageUrl
+      : `/api/instagram/media?src=${encodeURIComponent(imageUrl)}`;
+    const normalizedAbsolute = new URL(normalizedImageUrl, req.nextUrl.origin);
+    const publishImageUrl =
+      normalizedAbsolute.protocol === "https:" && !isLocalHost(normalizedAbsolute.hostname)
+        ? normalizedAbsolute.toString()
+        : await materializePublicJpeg({
+            origin: req.nextUrl.origin,
+            sourceUrl: normalizedAbsolute.toString(),
+            bucket: String(process.env.INSTAGRAM_MEDIA_BUCKET || "vehicles"),
+          });
 
-    const admin = getAdminClient();
-    const { data: row, error } = await admin
-      .from("integrations")
-      .select("id, integration_instagram(access_token, ig_user_id)")
-      .eq("user_id", userId)
-      .eq("provider", "instagram")
-      .maybeSingle();
-
-    const provider = Array.isArray((row as any)?.integration_instagram)
-      ? (row as any)?.integration_instagram?.[0]
-      : (row as any)?.integration_instagram;
-
-    if (error || !provider?.access_token || !provider?.ig_user_id) {
-      return NextResponse.json({ error: "Instagram no conectado" }, { status: 400 });
-    }
-
-    const result = await publishImageToInstagram({
-      igUserId: String(provider.ig_user_id),
-      accessToken: String(provider.access_token),
-      imageUrl: absoluteImageUrl,
+    const result = await publishInstagramForUser({
+      userId,
+      origin: req.nextUrl.origin,
+      imageUrl: publishImageUrl,
       caption,
+      listingId: body.listingId ? String(body.listingId) : undefined,
+      vertical: body.vertical ? String(body.vertical) : undefined,
     });
 
-    return NextResponse.json({ ok: true, ...result });
+    const httpStatus =
+      result.status === "failed" ? 500 : result.status === "retrying" || result.status === "queued" ? 202 : 200;
+    return NextResponse.json(result, { status: httpStatus });
   } catch (e: any) {
-    return NextResponse.json({ error: e?.message || "publish failed" }, { status: 500 });
+    const reason = getInstagramFlowReason(e);
+    const status = reason === "instagram_not_connected" ? 400 : 500;
+    return NextResponse.json({ error: e?.message || "publish failed", reason }, { status });
   }
 }
