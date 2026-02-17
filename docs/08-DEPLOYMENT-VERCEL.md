@@ -162,8 +162,8 @@ En el dashboard de MercadoPago, confirma que tu app reciba webhooks de tipo `pay
 
 Para ejecutar reintentos y refresh de tokens automáticamente:
 
-1) Asegura que exista `apps/simpleautos/vercel.json` con cron al endpoint:
-- `GET /api/instagram/publish/worker?limit=25` cada 5 minutos.
+1) Si tu plan de Vercel soporta Cron Jobs, configura cron al endpoint:
+- `GET /api/instagram/publish/worker` cada 5 minutos.
 
 2) En Vercel, define `CRON_SECRET` (y opcional `INSTAGRAM_QUEUE_WORKER_SECRET`).
 
@@ -172,6 +172,14 @@ Para ejecutar reintentos y refresh de tokens automáticamente:
 El endpoint acepta `Authorization: Bearer <secret>` y valida contra:
 - `INSTAGRAM_QUEUE_WORKER_SECRET`
 - `CRON_SECRET`
+
+Si tu plan no soporta Vercel Cron, usa cron externo (VPS, EasyCron, UptimeRobot):
+
+```bash
+curl -X GET \
+  -H "Authorization: Bearer <CRON_SECRET>" \
+  "https://simpleautos.app/api/instagram/publish/worker?limit=25"
+```
 
 ---
 
