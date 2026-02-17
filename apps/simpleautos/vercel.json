@@ -1,7 +1,7 @@
 {
   "crons": [
     {
-      "path": "/api/instagram/publish/worker?limit=25",
+      "path": "/api/instagram/publish/worker",
       "schedule": "*/5 * * * *"
     }
   ]
