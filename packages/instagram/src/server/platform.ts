@@ -752,9 +752,13 @@ export async function publishInstagramForUser(input: {
 }
 
 export async function processInstagramPublishQueueWorker(input?: { secret?: string | null; limit?: number }) {
-  const workerSecret = process.env.INSTAGRAM_QUEUE_WORKER_SECRET || "";
-  if (workerSecret) {
-    if (!input?.secret || input.secret !== workerSecret) {
+  const configuredSecrets = [
+    String(process.env.INSTAGRAM_QUEUE_WORKER_SECRET || "").trim(),
+    String(process.env.CRON_SECRET || "").trim(),
+  ].filter(Boolean);
+
+  if (configuredSecrets.length > 0) {
+    if (!input?.secret || !configuredSecrets.includes(String(input.secret).trim())) {
       throw new InstagramFlowError("worker_unauthorized", "Invalid worker secret");
     }
   }

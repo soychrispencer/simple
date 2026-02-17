@@ -33,3 +33,18 @@ export async function POST(req: NextRequest) {
   }
 }
 
+export async function GET(req: NextRequest) {
+  try {
+    const limitRaw = Number(req.nextUrl.searchParams.get("limit") || 25);
+    const limit = Number.isFinite(limitRaw) ? Math.min(Math.max(limitRaw, 1), 100) : 25;
+    const summary = await processInstagramPublishQueueWorker({
+      secret: resolveSecret(req),
+      limit,
+    });
+    return NextResponse.json({ ok: true, ...summary });
+  } catch (e: any) {
+    const reason = getInstagramFlowReason(e);
+    const status = reason === "worker_unauthorized" ? 401 : 500;
+    return NextResponse.json({ ok: false, reason, error: e?.message || "worker failed" }, { status });
+  }
+}

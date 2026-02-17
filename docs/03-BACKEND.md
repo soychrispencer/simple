@@ -38,6 +38,8 @@
 Este repo mantiene el backend alineado con el estado actual de Supabase principalmente para **contexto y referencia**.
 
 - **Baseline (2 migraciones):** `backend/supabase/migrations/*_baseline_schema.sql` + `backend/supabase/migrations/*_baseline_seed.sql`.
+- **Índice obligatorio de migraciones:** `docs/08-DB-MIGRATIONS.md`.
+- **Contrato de schema activo:** `docs/db/SCHEMA-CONTRACT.md`.
 
 ## 4. Operativa
 
@@ -73,10 +75,18 @@ Solo para **entornos nuevos** o cuando vas a **resetear/recrear** la DB:
 - Error RLS al leer listados → confirmar que `status = 'active'` o que el token pertenece al owner.
 - Campos faltantes en API → chequear versión de `packages/shared-types` y regenerar build.
 
+### 4.5 Gobernanza mínima obligatoria
+- Verificar documentación de migraciones: `npm run db:check-migration-docs`.
+- Auditoría del schema (requiere URL DB): `npm run db:audit`.
+- Regla de lifecycle: antes de eliminar una columna/tabla, registrar deprecación en `public.schema_deprecations`.
+- El pipeline `quality:ci` ejecuta `db:check-migration-docs` para bloquear merges sin documentación.
+- Instagram queue worker: configurar `CRON_SECRET` y/o `INSTAGRAM_QUEUE_WORKER_SECRET` y ejecutar `GET /api/instagram/publish/worker` desde cron para reintentos automáticos.
+- Instagram token refresh: el mismo worker refresca tokens próximos a expirar usando `INSTAGRAM_TOKEN_REFRESH_WINDOW_MS` (por defecto 7 días) y `INSTAGRAM_TOKEN_REFRESH_BATCH_LIMIT`.
+
 ## 5. Futuras Iteraciones
 - **Observability:** agregar ingestión de logs a Logflare / Sentry Performance para queries pesadas.
 - **Data retention:** mover `vehicle_history` antiguos a tabla particionada cada 12 meses.
 - **Automation:** publicar dashboard cron `listing_metrics` → `analytics.listing_daily_snapshot`.
 
 ---
-Última actualización: 30 de noviembre de 2025
+Última actualización: 15 de febrero de 2026

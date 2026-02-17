@@ -96,6 +96,14 @@ Configura al menos en **Production**:
 ### MercadoPago
 - `MERCADOPAGO_ACCESS_TOKEN=<prod_access_token>`
 
+### Instagram (automatización)
+- `NEXT_PUBLIC_ENABLE_INSTAGRAM_PUBLISH=true`
+- `FACEBOOK_APP_ID=<meta_app_id>`
+- `FACEBOOK_APP_SECRET=<meta_app_secret>`
+- `CRON_SECRET=<strong-secret>`
+- `INSTAGRAM_QUEUE_WORKER_SECRET=<strong-secret>` (puede ser igual a `CRON_SECRET`)
+- `INSTAGRAM_MEDIA_BUCKET=vehicles`
+
 Opcionales (recomendados en prod):
 - `SESSION_COOKIE_DOMAIN=.simpleautos.app`
 - `SESSION_COOKIE_SECURE=true`
@@ -147,6 +155,23 @@ Checklist mínimo:
   - `notification_url` → `https://simpleautos.app/api/payments/webhook`
 
 En el dashboard de MercadoPago, confirma que tu app reciba webhooks de tipo `payment`.
+
+---
+
+## Paso 6.1 — Cron de Instagram en Vercel
+
+Para ejecutar reintentos y refresh de tokens automáticamente:
+
+1) Asegura que exista `apps/simpleautos/vercel.json` con cron al endpoint:
+- `GET /api/instagram/publish/worker?limit=25` cada 5 minutos.
+
+2) En Vercel, define `CRON_SECRET` (y opcional `INSTAGRAM_QUEUE_WORKER_SECRET`).
+
+3) Redeploy del proyecto para que Vercel aplique el cron nuevo.
+
+El endpoint acepta `Authorization: Bearer <secret>` y valida contra:
+- `INSTAGRAM_QUEUE_WORKER_SECRET`
+- `CRON_SECRET`
 
 ---
 
