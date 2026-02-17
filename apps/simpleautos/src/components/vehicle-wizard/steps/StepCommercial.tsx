@@ -555,12 +555,16 @@ const StepCommercial: React.FC = () => {
   const { submit } = useSubmitVehicle();
   const { listing_type, commercial } = state;
   const condiciones = commercial.condiciones ?? DEFAULT_CONDICIONES;
+  const promotionsAvailable = Boolean((commercial as any).promotions_available);
+  const discountsAvailable = Boolean((commercial as any).discounts_available);
+  const exchangeAcceptsRaw = (commercial as any).exchange_accepts;
+  const exchangeBalanceRaw = (commercial as any).exchange_balance;
   const showRent = listing_type === 'rent';
   const showAuction = listing_type === 'auction';
   const currency: 'CLP' = 'CLP';
   const requiresFinancing = !showRent && !!commercial.financing_available;
-  const requiresBonuses = !showRent && !!(commercial as any).promotions_available;
-  const requiresDiscounts = !showRent && !!(commercial as any).discounts_available;
+  const requiresBonuses = !showRent && promotionsAvailable;
+  const requiresDiscounts = !showRent && discountsAvailable;
   const requiresExchangeOptions = !showRent && !!commercial.exchange_considered;
 
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -608,27 +612,27 @@ const StepCommercial: React.FC = () => {
     const hasPromotionsDetails =
       (Array.isArray(advanced.bonuses) && advanced.bonuses.length > 0) ||
       (Array.isArray(advanced.discounts) && advanced.discounts.length > 0);
-    if (hasPromotionsDetails && !(commercial as any).promotions_available && Array.isArray(advanced.bonuses) && advanced.bonuses.length > 0) {
+    if (hasPromotionsDetails && !promotionsAvailable && Array.isArray(advanced.bonuses) && advanced.bonuses.length > 0) {
       patch('commercial', { promotions_available: true } as Partial<WizardCommercial>);
     }
 
     const hasDiscountsDetails = Array.isArray(advanced.discounts) && advanced.discounts.length > 0;
-    if (hasDiscountsDetails && !(commercial as any).discounts_available) {
+    if (hasDiscountsDetails && !discountsAvailable) {
       patch('commercial', { discounts_available: true } as Partial<WizardCommercial>);
     }
-  }, [advanced.bonuses, advanced.discounts, advanced.financing, commercial.financing_available, commercial, patch]);
+  }, [advanced.bonuses, advanced.discounts, advanced.financing, commercial.financing_available, discountsAvailable, patch, promotionsAvailable]);
 
   useEffect(() => {
     if (!commercial.exchange_considered) return;
-    const accepts = normalizeExchangeAccepts((commercial as any).exchange_accepts);
-    const balance = normalizeExchangeBalance((commercial as any).exchange_balance);
+    const accepts = normalizeExchangeAccepts(exchangeAcceptsRaw);
+    const balance = normalizeExchangeBalance(exchangeBalanceRaw);
     if (!accepts || !balance) {
       patch('commercial', {
         exchange_accepts: accepts ?? 'depends',
         exchange_balance: balance ?? 'negotiable',
       } as Partial<WizardCommercial>);
     }
-  }, [commercial.exchange_considered, (commercial as any).exchange_accepts, (commercial as any).exchange_balance, patch]);
+  }, [commercial.exchange_considered, exchangeAcceptsRaw, exchangeBalanceRaw, patch]);
 
   const advancedErrors = useMemo(() => {
     const hasAnyAdvanced = !!(

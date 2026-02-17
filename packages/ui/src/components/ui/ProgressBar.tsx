@@ -9,7 +9,8 @@ interface ProgressBarProps {
 }
 
 export function ProgressBar({ current, total, labels, className = '' }: ProgressBarProps) {
-  const percentage = (current / total) * 100;
+  const safeTotal = total > 0 ? total : 1;
+  const percentage = Math.max(0, Math.min(100, (current / safeTotal) * 100));
 
   return (
     <div className={`w-full ${className}`}>
@@ -23,11 +24,23 @@ export function ProgressBar({ current, total, labels, className = '' }: Progress
           </span>
         )}
       </div>
-      <div className="w-full bg-lightborder/20 dark:bg-darkborder/20 rounded-full h-2">
-        <div
-          className="bg-primary h-2 rounded-full transition-all duration-300 ease-out"
-          style={{ width: `${percentage}%` }}
-        />
+      <div className="w-full h-2">
+        <svg
+          viewBox="0 0 100 8"
+          preserveAspectRatio="none"
+          className="block w-full h-2 rounded-full overflow-hidden"
+          aria-hidden
+        >
+          <rect x="0" y="0" width="100" height="8" rx="4" className="fill-lightborder/20 dark:fill-darkborder/20" />
+          <rect
+            x="0"
+            y="0"
+            width={percentage}
+            height="8"
+            rx="4"
+            className="fill-primary transition-all duration-300 ease-out"
+          />
+        </svg>
       </div>
     </div>
   );

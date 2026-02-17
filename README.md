@@ -35,7 +35,7 @@ Simple/
 │   ├── 05-DEVELOPMENT-GUIDE.md
 │   ├── 06-ROADMAP.md
 │   ├── 07-LOGO-SYSTEM.md
-│   ├── 08-DEPLOYMENT-VERCEL.md
+│   ├── 09-DEPLOYMENT-COOLIFY.md
 │   ├── catalog/               # SQL operativos + auditorías generadas
 │   ├── meta/                  # Reglas internas / onboarding / resúmenes
 │   └── archive/               # Documentos históricos
@@ -169,10 +169,10 @@ npm run build:props
 - **Logs:** Winston
 
 ### DevOps
-- **Hosting:** Vercel
+- **Hosting:** VPS con Coolify
 - **CI/CD:** GitHub Actions
 - **Monitoring:** Sentry
-- **Analytics:** Vercel Analytics
+- **Analytics:** Google Analytics (u otro proveedor self-hosted)
 
 ---
 
@@ -222,7 +222,6 @@ Toda la documentación está centralizada en la carpeta `/docs`:
 - **[Development Guide](./docs/05-DEVELOPMENT-GUIDE.md)** - Guía para desarrolladores
 - **[Roadmap](./docs/06-ROADMAP.md)** - Próximos hitos
 - **[Logo System](./docs/07-LOGO-SYSTEM.md)** - Identidad visual del ecosistema
-- **[Deploy (Vercel)](./docs/08-DEPLOYMENT-VERCEL.md)** - Deploy y configuración en Vercel
 - **[Deploy (Coolify)](./docs/09-DEPLOYMENT-COOLIFY.md)** - Deploy en VPS con Coolify
 
 Docs internos/operativos:
@@ -285,21 +284,16 @@ npm run quality:ci
 
 ## 🚢 Deployment
 
-### Vercel (Recomendado)
+### Coolify (Recomendado)
 
 ```bash
-# Deploy SimpleAutos
-cd apps/simpleautos
-vercel
-
-# Deploy SimplePropiedades
-cd apps/simplepropiedades
-vercel
+# Ver guía detallada
+cat docs/09-DEPLOYMENT-COOLIFY.md
 ```
 
 ### Variables de Entorno
 
-Configurar en Vercel o en `.env.local`:
+Configurar en Coolify (Environment Variables) o en `.env.local`:
 
 ```bash
 NEXT_PUBLIC_SUPABASE_URL=
@@ -364,7 +358,6 @@ Todos los derechos reservados.
 Gracias a todas las tecnologías y herramientas que hacen posible este ecosistema:
 - Next.js Team
 - Supabase Team
-- Vercel
 - Tailwind CSS
 - Y toda la comunidad open source
 

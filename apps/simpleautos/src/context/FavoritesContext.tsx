@@ -50,7 +50,7 @@ export function FavoritesProvider({ children }: { children: React.ReactNode }) {
         if (id) next.add(String(id));
       }
       setFavoritesSet(next);
-    } catch (e: any) {
+    } catch {
       // Fallback silencioso: no rompemos UI si falta tabla o permisos.
       setFavoritesSet(new Set());
       addToast(
@@ -116,7 +116,7 @@ export function FavoritesProvider({ children }: { children: React.ReactNode }) {
           if (error && (error as any).code !== "23505") throw error;
           addToast("Guardado en favoritos", { type: "success" });
         }
-      } catch (e: any) {
+      } catch {
         // Revertir
         setFavoritesSet((prev) => {
           const next = new Set(prev);

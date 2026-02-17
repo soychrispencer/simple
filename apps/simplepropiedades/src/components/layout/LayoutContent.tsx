@@ -38,7 +38,7 @@ export function LayoutContent({
       <>
         <AuthCallbackToasts redirectTo="/panel" />
         <AuthModalMount copy={propiedadesAuthCopy} />
-        {hideChrome ? <>{children}</> : <div className="mt-[10px]">{children}</div>}
+        {children}
       </>
     );
   }
@@ -66,8 +66,7 @@ export function LayoutContent({
               alt: PROPERTIES_BRANDING.appName,
             }}
           />
-          {/* Mantener todo el contenido 10px por debajo del header */}
-          <div className="mt-[10px]">{children}</div>
+          {children}
           <Footer
             vertical="properties"
             contactInfo={{

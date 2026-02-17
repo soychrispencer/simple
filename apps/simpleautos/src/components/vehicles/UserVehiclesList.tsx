@@ -659,7 +659,7 @@ export default function UserVehiclesList({ userId, publicProfileId, title = "Veh
           <button
             onClick={() => onPageChange(page - 1)}
             disabled={page <= 1}
-            className="px-4 py-2 text-sm font-medium text-lighttext dark:text-darktext bg-lightcard dark:bg-darkcard shadow-card rounded-lg hover:bg-lightbg dark:hover:bg-darkbg disabled:opacity-50 disabled:cursor-not-allowed"
+            className="px-4 py-2 text-sm font-medium text-lighttext dark:text-darktext bg-lightcard dark:bg-darkcard shadow-card rounded-lg hover:bg-[var(--field-bg-hover)] disabled:opacity-50 disabled:cursor-not-allowed"
           >
             Anterior
           </button>
@@ -671,7 +671,7 @@ export default function UserVehiclesList({ userId, publicProfileId, title = "Veh
           <button
             onClick={() => onPageChange(page + 1)}
             disabled={page >= Math.ceil(totalForPagination / pageSize)}
-            className="px-4 py-2 text-sm font-medium text-lighttext dark:text-darktext bg-lightcard dark:bg-darkcard shadow-card rounded-lg hover:bg-lightbg dark:hover:bg-darkbg disabled:opacity-50 disabled:cursor-not-allowed"
+            className="px-4 py-2 text-sm font-medium text-lighttext dark:text-darktext bg-lightcard dark:bg-darkcard shadow-card rounded-lg hover:bg-[var(--field-bg-hover)] disabled:opacity-50 disabled:cursor-not-allowed"
           >
             Siguiente
           </button>

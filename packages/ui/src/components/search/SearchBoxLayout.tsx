@@ -1,6 +1,7 @@
 "use client";
 import React from "react";
 import { Button } from "../ui/Button";
+import { cn } from "../../lib/cn";
 
 type ElementTag = keyof React.JSX.IntrinsicElements | React.JSXElementConstructor<any>;
 
@@ -22,9 +23,6 @@ export interface SearchBoxLayoutProps {
   panelProps?: (React.HTMLAttributes<HTMLElement> & { as?: ElementTag });
 }
 
-const join = (...classes: Array<string | undefined | null | false>) =>
-  classes.filter(Boolean).join(" ");
-
 export function SearchBoxLayout({
   children,
   tabs,
@@ -40,10 +38,10 @@ export function SearchBoxLayout({
   const { as: _ignored, className: panelClassName, ...restPanelProps } = panelProps ?? {};
 
   return (
-    <div className={join("relative w-full max-w-[2000px] px-6 mx-auto z-20", className)}>
+    <div className={cn("relative w-full max-w-[2000px] px-6 mx-auto z-20", className)}>
       {hasTabs && (
         <div
-          className={join("search-tabs", tabsClassName)}
+          className={cn("search-tabs", tabsClassName)}
           role="tablist"
           aria-label={tabsAriaLabel}
         >
@@ -60,18 +58,13 @@ export function SearchBoxLayout({
                 shape="rounded"
                 variant="ghost"
                 type="button"
-                className={join(
+                className={cn(
                   "min-w-[92px]",
                   isActive
-                    ? "text-[var(--color-on-primary)] border shadow-card"
-                    : "bg-transparent text-white border border-[var(--glass-border)] shadow-none hover:border-primary",
+                    ? "bg-primary text-white border border-[var(--color-primary-a90)] ring-1 ring-[var(--color-primary-a20)] shadow-card hover:bg-[var(--color-primary-a90)]"
+                    : "bg-transparent text-white border border-[var(--glass-border)] shadow-none hover:border-white/90 hover:text-white",
                   tab.className
                 )}
-                style={
-                  isActive
-                    ? { backgroundColor: "var(--color-primary)", borderColor: "var(--color-primary)" }
-                    : undefined
-                }
                 aria-pressed={isActive}
                 aria-current={isActive ? "true" : undefined}
                 disabled={tab.disabled}
@@ -84,7 +77,7 @@ export function SearchBoxLayout({
         </div>
       )}
       <PanelTag
-        className={join("search-panel card-surface w-full", panelClassName)}
+        className={cn("search-panel card-surface w-full", panelClassName)}
         {...restPanelProps}
       >
         {children}

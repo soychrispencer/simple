@@ -197,8 +197,6 @@ export const AdminVehicleCard: React.FC<AdminVehicleCardProps> = ({
     };
   })();
 
-  const hasStatusBadge = vehicle.estadoPublicacion === 'Publicado' || vehicle.estadoPublicacion === 'Borrador' || vehicle.estadoPublicacion === 'Pausado';
-
   // Estado del vehículo (nuevo/usado/etc)
   const conditionCanon = (
     extraSpecs.estado ??
@@ -748,7 +746,7 @@ export const AdminVehicleCard: React.FC<AdminVehicleCardProps> = ({
 
         {/* Menú desplegable para layout horizontal */}
         {!selectionMode && menuOpen && (
-          <div className="fixed z-[9999] w-44 card-surface shadow-card rounded-xl py-2 animate-fadeIn" style={{top: '50%', right: '1rem', transform: 'translateY(-50%)'}}>
+          <div className="fixed top-1/2 right-4 -translate-y-1/2 z-[9999] w-44 card-surface shadow-card rounded-xl py-2 animate-fadeIn">
             {/* Opciones de estado - PRIMERO */}
             {vehicle.estadoPublicacion === 'Borrador' && (
               <button

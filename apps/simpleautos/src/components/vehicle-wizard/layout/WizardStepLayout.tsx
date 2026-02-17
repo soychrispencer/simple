@@ -57,15 +57,15 @@ export function WizardStepLayout({
     >
       <header className={cn('flex flex-col gap-3 sm:gap-4', headerAlign)}>
         {eyebrow && (
-          <span className="uppercase tracking-[0.35em] text-[11px] text-[var(--color-primary-a70)] dark:text-[var(--color-primary-a80)]">
+          <span className="type-label text-[var(--color-primary-a70)] dark:text-[var(--color-primary-a80)]">
             {eyebrow}
           </span>
         )}
         <div className="flex w-full items-start justify-between gap-6">
           <div className={cn('flex flex-col gap-3 flex-1', align === 'center' ? 'items-center' : '')}>
-            <h1 className="text-3xl sm:text-4xl font-bold tracking-tight text-lighttext dark:text-darktext">{title}</h1>
+            <h1 className="type-title-1 sm:text-4xl font-bold text-lighttext dark:text-darktext">{title}</h1>
             {description && (
-              <p className="text-base sm:text-lg text-lighttext/70 dark:text-darktext/70">
+              <p className="type-body-md sm:text-lg text-lighttext/70 dark:text-darktext/70">
                 {description}
               </p>
             )}
@@ -77,7 +77,7 @@ export function WizardStepLayout({
             )}
 
             {summary && (
-              <div className="text-[12px] text-lighttext/60 dark:text-darktext/60">
+              <div className="type-caption text-lighttext/60 dark:text-darktext/60">
                 {summary}
               </div>
             )}

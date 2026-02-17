@@ -1,5 +1,6 @@
 "use client";
 import React from "react";
+import { cn } from "../../lib/cn";
 
 export interface PanelShellSidebarRenderProps {
   expanded: boolean;
@@ -42,37 +43,31 @@ export default function PanelShell({
 
   return (
     <div
-      className={[
-        "min-h-screen bg-lightbg dark:bg-darkbg flex flex-row px-4 md:px-8 gap-6",
-        className,
-      ]
-        .filter(Boolean)
-        .join(" ")}
+      className={cn(
+        "min-h-screen flex flex-row px-4 md:px-8 gap-6",
+        className
+      )}
     >
       {sidebarNode}
       <div className="flex-1 flex flex-col transition-all duration-200">
         {header && (
           <div
-            className={[
+            className={cn(
               "pt-4 pb-2",
               stickyHeader
                 ? "sticky top-0 z-20 bg-lightbg/95 dark:bg-darkbg/95 backdrop-blur"
                 : "",
-              headerClassName,
-            ]
-              .filter(Boolean)
-              .join(" ")}
+              headerClassName
+            )}
           >
             {header}
           </div>
         )}
         <main
-          className={[
+          className={cn(
             "flex-1 pb-6 md:pb-10",
-            contentClassName,
-          ]
-            .filter(Boolean)
-            .join(" ")}
+            contentClassName
+          )}
         >
           {children}
         </main>

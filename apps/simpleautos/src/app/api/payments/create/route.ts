@@ -16,7 +16,7 @@ import { getBoostCooldownHours } from '@/lib/boostRules';
 import { checkListingBoostCooldown } from '@/lib/boostCooldown';
 
 // Este endpoint usa dependencias Node-only (MercadoPago SDK, winston, etc.).
-// En Vercel puede intentar ejecutarse como Edge si no se especifica runtime.
+// Fuerza runtime Node.js para evitar ejecución en Edge.
 export const runtime = 'nodejs';
 
 export async function OPTIONS() {
@@ -127,8 +127,6 @@ export async function POST(request: NextRequest) {
           : { notification_url: new URL('/api/payments/webhook', appUrl).toString() }),
       };
       const {
-        slotId,
-        slotIds,
         slotKey,
         slotKeys,
         slot,
@@ -137,10 +135,7 @@ export async function POST(request: NextRequest) {
         vehicleId,
         listingTitle,
         vehicleTitle,
-        userId,
       } = data as {
-        slotId?: string;
-        slotIds?: string[];
         slotKey?: BoostSlotKey;
         slotKeys?: BoostSlotKey[];
         slot?: BoostSlotKey;
@@ -149,7 +144,6 @@ export async function POST(request: NextRequest) {
         vehicleId?: string;
         listingTitle?: string;
         vehicleTitle?: string;
-        userId?: string;
       };
 
       if (duration === 'indefinido') {

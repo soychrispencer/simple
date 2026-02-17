@@ -5,7 +5,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 let supabaseClient: SupabaseClient<any> | null = null;
 
 function createServerStubClient(): SupabaseClient<any> {
-  // Durante SSR/prerender (incluyendo Vercel build), no queremos inicializar
+  // Durante SSR/prerender no queremos inicializar
   // Supabase con env vars públicas (y mucho menos reventar el build si faltan).
   // Este stub sólo evita que el render server falle; cualquier uso real
   // debe ocurrir en el browser.

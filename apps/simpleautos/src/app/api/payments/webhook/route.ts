@@ -8,7 +8,7 @@ import { getBoostCooldownHours } from '@/lib/boostRules';
 import { checkListingBoostCooldown } from '@/lib/boostCooldown';
 
 // Este endpoint usa dependencias Node-only (crypto, MercadoPago SDK, etc.).
-// En Vercel necesitamos runtime Node.js explícito.
+// Fuerza runtime Node.js para evitar ejecución en Edge.
 export const runtime = 'nodejs';
 
 const DURATION_IN_DAYS = {

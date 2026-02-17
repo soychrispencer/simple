@@ -14,10 +14,9 @@ if (typeof window === 'undefined') {
   const winston = require('winston');
 
   const isProd = process.env.NODE_ENV === 'production';
-  const isVercel = !!process.env.VERCEL;
   const logToFile = ['1', 'true', 'yes', 'on'].includes(String(process.env.LOG_TO_FILE || '').toLowerCase());
 
-  if (isProd && logToFile && !isVercel) {
+  if (isProd && logToFile) {
     try {
       fs.mkdirSync(path.resolve(process.cwd(), 'logs'), { recursive: true });
     } catch {
@@ -42,9 +41,8 @@ if (typeof window === 'undefined') {
             }),
           ]
         : []),
-      // En producción, log a archivos SOLO si se habilita explícitamente y no estamos en Vercel.
-      // Vercel (y otros entornos serverless) pueden tener filesystem de solo lectura.
-      ...(isProd && logToFile && !isVercel
+      // En producción, log a archivos solo si se habilita explícitamente.
+      ...(isProd && logToFile
         ? [
             new winston.transports.File({
               filename: 'logs/error.log',
@@ -58,8 +56,8 @@ if (typeof window === 'undefined') {
     ]
   });
 
-  // En producción, asegurar siempre Console logs (especialmente en Vercel)
-  if (isProd && (!logToFile || isVercel)) {
+  // En producción, asegurar siempre Console logs cuando no se persiste a archivo.
+  if (isProd && !logToFile) {
     winstonLogger.add(
       new winston.transports.Console({
         format: winston.format.combine(winston.format.timestamp(), winston.format.json()),

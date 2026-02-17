@@ -67,21 +67,33 @@ Para que el flujo real funcione (conectar Instagram y publicar desde el panel), 
   - **Valid OAuth Redirect URIs**: agrega el callback de cada vertical
     - `https://<tu-dominio>/api/instagram/oauth/callback`
   - Asegúrate que el dominio sea accesible públicamente (en local usa túnel tipo ngrok/cloudflared)
-4. Permisos / scopes usados por Simple:
-  - `pages_show_list`
-  - `instagram_basic`
-  - `instagram_content_publish`
+4. Permisos / scopes usados por Simple (depende del modo OAuth):
+  - Modo `legacy`:
+    - `pages_show_list`
+    - `pages_read_engagement`
+    - `instagram_basic`
+    - `instagram_content_publish`
+  - Modo `business`:
+    - `pages_show_list`
+    - `pages_read_engagement`
+    - `instagram_business_basic`
+    - `instagram_business_content_publish`
 
-Luego agrega estos env vars (en `.env.local` y en el hosting, por ejemplo Vercel):
+Luego agrega estos env vars (en `.env.local` y en el hosting, por ejemplo Coolify):
 
 ```bash
 FACEBOOK_APP_ID=...
 FACEBOOK_APP_SECRET=...
+INSTAGRAM_LOGIN_MODE=legacy
+# Si necesitas forzar scopes exactos:
+# INSTAGRAM_OAUTH_SCOPES=instagram_basic,instagram_content_publish,pages_show_list,pages_read_engagement
 ```
 
 Notas:
 - `FACEBOOK_APP_SECRET` nunca debe ir como `NEXT_PUBLIC_*`.
 - Para publicar imágenes, la URL de la imagen debe ser alcanzable por Meta desde internet.
+- Si ves `Invalid Scopes: instagram_content_publish`, cambia a `INSTAGRAM_LOGIN_MODE=business`
+  o define `INSTAGRAM_OAUTH_SCOPES` explícitamente con scopes válidos para tu app Meta.
 
 3. **Run Development Servers**
 

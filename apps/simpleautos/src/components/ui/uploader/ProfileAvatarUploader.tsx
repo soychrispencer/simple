@@ -108,13 +108,14 @@ export default function ProfileAvatarUploader({ hide = false, noBorder = false, 
 		}
 	};
 	if (hide) return null;
+	const avatarSizeClass = inline ? "w-40 h-40" : "w-32 h-32";
 	return (
 		<div className={inline ? "relative flex flex-col items-center" : "absolute left-12 -bottom-24 z-20 flex flex-col items-center"}>
 			<CircleButton aria-label="Avatar" size={inline ? 160 : 128} variant="default" className={`${noBorder ? '' : 'border-4 border-[var(--card-bg)]'} shadow-card`}>
 				{avatar?.url ? (
-					<img src={avatar.url} alt="avatar" className="object-cover rounded-full" style={{ width: inline ? 160 : 128, height: inline ? 160 : 128 }} />
+					<img src={avatar.url} alt="avatar" className={`object-cover rounded-full ${avatarSizeClass}`} />
 				) : (
-					<div className="flex items-center justify-center" style={{ width: inline ? 160 : 128, height: inline ? 160 : 128 }}>
+					<div className={`flex items-center justify-center ${avatarSizeClass}`}>
 						<IconUser size={inline ? 64 : 64} stroke={1.5} className="text-primary" />
 					</div>
 				)}

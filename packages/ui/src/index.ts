@@ -57,6 +57,7 @@ export type {
 // Shared hooks/helpers
 export { useSupabase } from './lib/supabase';
 export { useAvatarUrl, getAvatarUrl } from './lib/storage';
+export { cn } from './lib/cn';
 
 // Global preferences
 export { DisplayCurrencyProvider, useDisplayCurrency } from './context/DisplayCurrencyContext';

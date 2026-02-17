@@ -21,6 +21,8 @@ import {
   IconPlane,
 } from '@tabler/icons-react';
 
+const STAGGER_CLASSES = ['wizard-stagger-0', 'wizard-stagger-1', 'wizard-stagger-2', 'wizard-stagger-3', 'wizard-stagger-4', 'wizard-stagger-5'];
+
 const normalizeSlug = (value: string) => value.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
 
 const iconForSlug = (slug: string, label: string) => {
@@ -270,8 +272,7 @@ export const StepTypeSelect: React.FC = () => {
               <button
                 type="button"
                 key={opt.key}
-                className={`intent-card-base animate-fade-up-soft ${active ? 'intent-card-base-selected' : ''}`}
-                style={{ animationDelay: `${idx * 40}ms` }}
+                className={`intent-card-base animate-fade-up-soft ${STAGGER_CLASSES[idx % STAGGER_CLASSES.length]} ${active ? 'intent-card-base-selected' : ''}`}
                 role="radio"
                 aria-checked={active}
                 onClick={() => choose(opt.key)}

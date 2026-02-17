@@ -275,7 +275,7 @@ export default function Mensajes() {
               <button
                 key={t.threadId}
                 onClick={() => setActiveThreadId(t.threadId)}
-                className={`w-full text-left px-3 py-2 rounded-xl transition border border-transparent hover:border-border/60 ${
+                className={`w-full text-left px-3 py-2 rounded-xl transition border border-transparent hover:border-[color:var(--color-primary-a40)] ${
                   activeThreadId === t.threadId ? "bg-[var(--color-primary-a10)] border-[var(--color-primary-a40)]" : "card-surface"
                 }`}
               >

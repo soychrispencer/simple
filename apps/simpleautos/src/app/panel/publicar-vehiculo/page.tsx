@@ -25,8 +25,8 @@ function BlockedPublishScreen({ message }: { message: string }) {
         description: "Completa los pasos y publica tu anuncio.",
       }}
     >
-      <div className="w-full mt-8">
-        <div className="card-surface shadow-card rounded-3xl p-6 sm:p-8">
+      <div className="w-full mt-6 sm:mt-8">
+        <div className="card-surface shadow-card rounded-panel p-5 sm:p-7 border border-border/60">
           <div className="rounded-lg border border-[var(--color-warn-subtle-border)] bg-[var(--color-warn-subtle-bg)] px-4 py-3 text-sm text-[var(--color-warn)] flex flex-col gap-3">
             <div className="flex flex-col gap-1">
               <span className="font-semibold">No puedes publicar una nueva publicación ahora.</span>
@@ -55,8 +55,8 @@ function LoadingGateScreen() {
         description: "Completa los pasos y publica tu anuncio.",
       }}
     >
-      <div className="w-full mt-8">
-        <div className="card-surface shadow-card rounded-3xl p-6 sm:p-8">
+      <div className="w-full mt-6 sm:mt-8">
+        <div className="card-surface shadow-card rounded-panel p-5 sm:p-7 border border-border/60">
           <div className="text-sm text-lighttext/80 dark:text-darktext/80">Validando tu plan...</div>
         </div>
       </div>
@@ -193,7 +193,7 @@ function WizardWithStorageKey() {
         } else if (!cancelled) {
           setBlockedMessage(null);
         }
-      } catch (e: any) {
+      } catch {
         // Ante cualquier error de gate, no bloqueamos el flujo.
         if (!cancelled) setBlockedMessage(null);
       } finally {
@@ -310,13 +310,6 @@ function Hydrator() {
             return Number.isFinite(num) ? num : null;
           }
           return null;
-        };
-
-        const normalizeVisibility = (value: unknown): 'featured' | 'normal' | 'hidden' => {
-          if (value === 'featured' || value === 'normal' || value === 'hidden') return value;
-          if (value === 'destacado') return 'featured';
-          if (value === 'oculto') return 'hidden';
-          return 'normal';
         };
 
         const normalizeRentPeriod = (value: unknown): 'daily' | 'weekly' | 'monthly' | null => {
@@ -494,7 +487,18 @@ function Hydrator() {
       }
     })();
     return () => { cancelled = true; };
-  }, [patch, setStep, state.vehicle_id]);
+  }, [
+    addToast,
+    patch,
+    setStep,
+    state.basic?.brand_id,
+    state.basic?.model_id,
+    state.basic?.title,
+    state.listing_type,
+    state.media?.images?.length,
+    state.vehicle?.type_key,
+    state.vehicle_id,
+  ]);
   return null;
 }
 
@@ -520,8 +524,8 @@ function ActionsHeaderWrapper() {
         description: "Completa los pasos y publica tu anuncio.",
       }}
     >
-      <div className="w-full mt-8">
-        <div className="card-surface shadow-card rounded-3xl p-6 sm:p-8">
+      <div className="w-full mt-6 sm:mt-8">
+        <div className="card-surface shadow-card rounded-panel p-5 sm:p-7 border border-border/60">
           <VehicleWizard />
         </div>
       </div>

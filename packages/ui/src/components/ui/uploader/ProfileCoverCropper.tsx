@@ -30,9 +30,9 @@ export default function ProfileCoverCropper({ open, imageSrc, onClose, onCropped
 
 	// Prevent body scroll when modal is open
 	useEffect(() => {
-		document.body.style.overflow = 'hidden';
+		document.body.classList.add('overflow-hidden');
 		return () => {
-			document.body.style.overflow = 'unset';
+			document.body.classList.remove('overflow-hidden');
 		};
 	}, []);
 

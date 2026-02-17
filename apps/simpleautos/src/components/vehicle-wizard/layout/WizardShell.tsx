@@ -1,54 +1,45 @@
-﻿"use client";
-import React from 'react';
-import { useWizard } from '../context/WizardContext';
-import IntentChooser from '../steps/IntentChooser';
-import StepBasic from '../steps/StepBasic';
-import StepTypeSelect from '../steps/StepTypeSelect';
-import StepSpecsDynamic from '../steps/StepSpecsDynamic';
-import StepMedia from '../steps/StepMedia';
-import StepCommercial from '../steps/StepCommercial';
+"use client";
+
+import React from "react";
+import { useWizard, type WizardStep } from "../context/WizardContext";
+import IntentChooser from "../steps/IntentChooser";
+import StepBasic from "../steps/StepBasic";
+import StepTypeSelect from "../steps/StepTypeSelect";
+import StepSpecsDynamic from "../steps/StepSpecsDynamic";
+import StepMedia from "../steps/StepMedia";
+import StepCommercial from "../steps/StepCommercial";
+import { WizardContainer } from "./WizardContainer";
 
 interface WizardShellProps {
   className?: string;
 }
 
-// Mapeo simple de step -> componente (iremos llenando)
-const StepRenderer: React.FC = () => {
-  const { state } = useWizard();
-  switch (state.step) {
-    case 'intent':
-      return <IntentChooser />;
-    case 'type':
-      return <StepTypeSelect />;
-    case 'basic':
-      return <StepBasic />;
-    case 'specs':
-      return <StepSpecsDynamic />;
-    case 'media':
-      return <StepMedia />;
-    case 'commercial':
-      return <StepCommercial />;
-    // TODO: agregar casos siguientes
-    default:
-      return <div className="text-sm text-lighttext/70 dark:text-darktext/70">Paso no implementado aún: {state.step}</div>;
-  }
+const STEP_COMPONENTS: Record<WizardStep, React.FC> = {
+  intent: IntentChooser,
+  type: StepTypeSelect,
+  basic: StepBasic,
+  specs: StepSpecsDynamic,
+  media: StepMedia,
+  commercial: StepCommercial,
 };
 
 export const WizardShell: React.FC<WizardShellProps> = ({ className }) => {
-  // Quitamos la barra de progreso "Paso X de Y" porque ya existe un stepper en el header.
+  const { state } = useWizard();
+  const StepComponent = STEP_COMPONENTS[state.step];
 
   return (
-    <div className={"w-full flex flex-col " + (className || '')}>
-      <StepRenderer />
+    <div className={["w-full flex flex-col", className].filter(Boolean).join(" ")}>
+      <WizardContainer stepKey={state.step}>
+        {StepComponent ? (
+          <StepComponent />
+        ) : (
+          <div className="text-sm text-lighttext/70 dark:text-darktext/70">
+            Paso no implementado aun: {state.step}
+          </div>
+        )}
+      </WizardContainer>
     </div>
   );
 };
 
 export default WizardShell;
-
-
-
-
-
-
-

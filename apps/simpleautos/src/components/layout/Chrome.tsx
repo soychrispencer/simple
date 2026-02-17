@@ -24,7 +24,7 @@ export function Chrome({ children }: { children: React.ReactNode }) {
   return (
     <>
       <Header />
-      <div className="mt-[10px]">{children}</div>
+      {children}
       <Footer />
     </>
   );

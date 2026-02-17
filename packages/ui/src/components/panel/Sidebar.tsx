@@ -121,7 +121,7 @@ export default function PanelSidebar({ vertical, manifest, expanded, setExpanded
         </CircleButton>
         <nav className={`flex flex-col items-center w-full ${expanded ? "gap-4" : "gap-2"} flex-1`}>
           {sections.length === 0 && (
-            <p className="text-center text-sm text-[var(--text-secondary)] px-4">Sin módulos disponibles</p>
+            <p className="text-center type-body-sm text-[var(--text-secondary)] px-4">Sin módulos disponibles</p>
           )}
           {sections.map((section) => (
             <div key={section.id} className="flex flex-col items-center w-full">
@@ -130,7 +130,7 @@ export default function PanelSidebar({ vertical, manifest, expanded, setExpanded
                 if (isSummarySection) return null;
                 if (!section.title) return null;
                 return (
-                  <p className="w-full px-4 pb-1 text-xs font-semibold uppercase text-[var(--text-tertiary)]">
+                  <p className="w-full px-4 pb-1 type-label text-[var(--text-tertiary)]">
                     {section.title}
                   </p>
                 );
@@ -157,7 +157,7 @@ export default function PanelSidebar({ vertical, manifest, expanded, setExpanded
                     </CircleButton>
                     {expanded && (
                       <span
-                        className={`ml-4 font-medium text-base truncate ${
+                        className={`ml-4 type-nav-item truncate ${
                           isActive
                             ? "text-primary"
                             : "text-lighttext dark:text-darktext group-hover:text-primary transition-colors"

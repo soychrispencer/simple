@@ -88,7 +88,7 @@ Plataforma web para compra, venta, arriendo y subasta de vehículos en Chile. Ba
 
 **Frontend**: Next.js 16 (App Router) · React 19 · TypeScript 5 · Tailwind CSS 3
 **Backend**: Supabase (PostgreSQL + Auth + Storage + Realtime)
-**Tools**: Vercel · ESLint · Swiper · React Hot Toast · Lucide Icons
+**Tools**: ESLint · Swiper · React Hot Toast · Lucide Icons
 
 ---
 
@@ -328,11 +328,12 @@ export async function myAction(data: FormData) {
 
 ## 🚢 Despliegue
 
-### Vercel (Recomendado)
+### Coolify / VPS (Recomendado)
 
-1. Conectar repo en [vercel.com](https://vercel.com)
-2. Configurar variables de entorno
-3. Deploy automático en cada push
+1. Conectar el repo en tu instancia de Coolify
+2. Crear un servicio por vertical (`apps/simpleautos`, `apps/simplepropiedades`, etc.)
+3. Configurar variables de entorno y dominio por servicio
+4. Deploy automático en cada push
 
 ### Build Manual
 ```bash

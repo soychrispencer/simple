@@ -15,6 +15,16 @@ Scripts de utilidad para operar/mantener el repo. La idea es que no haya “one-
 - `migrate_vehicle_boosts.mjs` — migración puntual legacy → nuevo esquema de boosts.
   - Dry run: `node scripts/supabase/migrate_vehicle_boosts.mjs`
   - Apply: `node scripts/supabase/migrate_vehicle_boosts.mjs --apply`
+- `check-migration-docs.mjs` — valida que todas las migraciones SQL estén documentadas en `docs/08-DB-MIGRATIONS.md`.
+  - Ejecuta: `npm run db:check-migration-docs`
+- `db-audit.mjs` — auditoría automática del schema (tablas vacías, columnas sospechosas sin uso, deprecaciones activas).
+  - Ejecuta: `npm run db:audit`
+  - Enfoque frontend-only (para limpieza sin usuarios): `npm run db:audit:frontend`
+  - Si tu entorno tiene proxy/certificado self-signed: `npm run db:audit:insecure`
+  - Variante frontend + self-signed: `npm run db:audit:frontend:insecure`
+  - Variables: `SUPABASE_AUDIT_DB_URL` (o fallback `SUPABASE_STAGING_DB_URL` / `SUPABASE_PROD_DB_URL`)
+    - Opcional: `SUPABASE_AUDIT_SSL_NO_VERIFY=true`
+  - Output default: `docs/db/db-audit-latest.md`
 
 ## `seed/`
 

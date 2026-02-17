@@ -1,5 +1,5 @@
 ﻿"use client";
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useWizard } from '../context/WizardContext';
 import { getSpecCategory, resolveSpecKey, validateSpecsWithRules } from '../specDescriptors';
@@ -27,8 +27,8 @@ export const StepSpecsDynamic: React.FC = () => {
   const rawType = state.vehicle.type_key;
   const cat = getSpecCategory(rawType ? resolveSpecKey(rawType) : rawType);
   const specs = state.vehicle.specs || {};
-  const featureSet: string[] = (state.vehicle.features || []);
-  const historialTags: string[] = (state.vehicle.historial || []);
+  const featureSet = useMemo(() => (state.vehicle.features || []) as string[], [state.vehicle.features]);
+  const historialTags = useMemo(() => (state.vehicle.historial || []) as string[], [state.vehicle.historial]);
   const bodyType = cat?.type_key === 'car' ? ((specs as any)?.body_type ?? null) : null;
   const { features, loading: featuresLoading, error: featuresError } = useFeaturesCatalog({ typeSlug: rawType || null, bodyType });
 

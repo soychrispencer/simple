@@ -6,8 +6,61 @@
 
 @layer base {
   :root {
-    --color-primary: #0043ff;
-    --color-primary-rgb: 0 67 255;
+    --primary-color: #3232FF;
+    --primary-color-rgb: 50 50 255;
+    --color-primary: #3232ff;
+    --color-primary-rgb: 50 50 255;
+    --lightbg-rgb: 246 247 249;
+    --lightcard-rgb: 255 255 255;
+    --lighttext-rgb: 23 23 23;
+    --lightborder-rgb: 225 229 234;
+    --darkbg-rgb: 17 17 19;
+    --darkcard-rgb: 26 26 29;
+    --darktext-rgb: 244 244 245;
+    --darkborder-rgb: 64 64 74;
+    --color-bg: rgb(var(--lightbg-rgb));
+    --color-bg-alt: #F1F4F7;
+    --color-bg-inset: #E8EDF2;
+    --color-card: rgb(var(--lightcard-rgb));
+    --card-bg: var(--color-card);
+    --color-text: rgb(var(--lighttext-rgb));
+    --color-text-soft: #52525B;
+    --color-text-faint: #71717A;
+    --text-primary: var(--color-text);
+    --text-secondary: #52525B;
+    --text-tertiary: #71717A;
+    --color-border-rgb: var(--lightborder-rgb);
+    --color-border: rgb(var(--color-border-rgb));
+    --card-border: transparent;
+    --field-bg: #FFFFFF;
+    --field-bg-hover: #F7F8FA;
+    --field-border: #D9DEE5;
+    --field-border-hover: #BCC6D2;
+    --field-focus-ring: var(--color-primary-a40);
+    --font-sans: "Poppins", sans-serif;
+    --font-display: "Poppins", sans-serif;
+  }
+
+  .dark:root {
+    --color-bg: rgb(var(--darkbg-rgb));
+    --color-bg-alt: #18181C;
+    --color-bg-inset: #202027;
+    --color-card: rgb(var(--darkcard-rgb));
+    --card-bg: var(--color-card);
+    --color-text: rgb(var(--darktext-rgb));
+    --color-text-soft: #C2C7D1;
+    --color-text-faint: #9AA1AE;
+    --text-primary: var(--color-text);
+    --text-secondary: #C2C7D1;
+    --text-tertiary: #9AA1AE;
+    --color-border-rgb: var(--darkborder-rgb);
+    --color-border: rgb(var(--color-border-rgb));
+    --card-border: transparent;
+    --field-bg: #17181D;
+    --field-bg-hover: #1E2129;
+    --field-border: #3D4452;
+    --field-border-hover: #586277;
+    --field-focus-ring: var(--color-primary-a50);
   }
 }
 
@@ -52,6 +105,24 @@
 .transition-base { transition: var(--transition-base); }
 .transition-fast { transition: var(--transition-fast); }
 
+.card-surface {
+  background: var(--card-bg);
+  border: 0;
+  border-radius: var(--card-radius);
+  box-shadow: var(--card-shadow);
+  --tw-ring-color: transparent;
+  --tw-ring-shadow: 0 0 #0000;
+}
+
+.card-surface-raised {
+  background: var(--card-bg);
+  border: 0;
+  border-radius: var(--card-radius);
+  box-shadow: var(--shadow-md);
+  --tw-ring-color: transparent;
+  --tw-ring-shadow: 0 0 #0000;
+}
+
 @keyframes fade-scale-in { 
   0% { opacity:0; transform:translateY(4px) scale(.98);} 
   100% { opacity:1; transform:translateY(0) scale(1);} 
@@ -75,7 +146,8 @@ html, body {
   font-feature-settings: 'liga' 1, 'calt' 1;
   letter-spacing: -0.01em;
   color: var(--color-text);
-  background-color: var(--color-bg);
+  background: var(--color-bg);
+  line-height: var(--line-normal);
 }
 
 body {

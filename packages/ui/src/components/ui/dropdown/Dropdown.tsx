@@ -1,5 +1,6 @@
 "use client";
 import React, { createContext, useContext, useEffect, useId, useMemo, useRef, useState } from "react";
+import { cn } from "../../../lib/cn";
 
 type Placement = "bottom-start" | "bottom-end" | "bottom-center";
 
@@ -145,7 +146,7 @@ export function DropdownTrigger({ children, className = "", asChild = false, ...
 		return (
 			<span
 				ref={triggerRef}
-				className={["inline-flex items-center", className].join(" ").trim()}
+				className={cn("inline-flex items-center", className)}
 				onMouseEnter={handleMouseEnter}
 				onMouseLeave={handleMouseLeave}
 			>
@@ -168,7 +169,7 @@ export function DropdownTrigger({ children, className = "", asChild = false, ...
 			}}
 			onMouseEnter={handleMouseEnter}
 			onMouseLeave={handleMouseLeave}
-			className={["inline-flex items-center", className].join(" ").trim()}
+			className={cn("inline-flex items-center", className)}
 			{...props}
 		>
 			{children}
@@ -176,11 +177,11 @@ export function DropdownTrigger({ children, className = "", asChild = false, ...
 	);
 }
 
-interface DropdownMenuProps extends React.HTMLAttributes<HTMLDivElement> {
+interface DropdownMenuProps extends Omit<React.HTMLAttributes<HTMLDivElement>, "style"> {
 	widthClassName?: string;
 }
 
-export function DropdownMenu({ children, className = "", widthClassName = "min-w-[200px]", style, ...props }: DropdownMenuProps) {
+export function DropdownMenu({ children, className = "", widthClassName = "min-w-[200px]", ...props }: DropdownMenuProps) {
 	const { open, menuId, triggerId, menuRef, placement, handleMouseEnter, handleMouseLeave } = useDropdownContext();
 
 	const alignment =
@@ -190,26 +191,25 @@ export function DropdownMenu({ children, className = "", widthClassName = "min-w
 				? "left-1/2 -translate-x-1/2"
 				: "left-0";
 
-	return (
-		<div
-			ref={menuRef}
-			id={menuId}
-			role="menu"
-			aria-labelledby={triggerId}
-			className={[
-				"absolute top-full mt-2 z-50",
-				alignment,
-				"card-surface card-surface-raised shadow-card rounded-2xl overflow-hidden py-2",
-				"text-sm text-[var(--text-primary)]", // usa tokens para texto
-				widthClassName,
-				open ? "" : "hidden",
-				className,
-			].join(" ").replace(/\s+/g, " ").trim()}
-			style={style}
-			onMouseEnter={handleMouseEnter}
-			onMouseLeave={handleMouseLeave}
-			{...props}
-		>
+		return (
+			<div
+				ref={menuRef}
+				id={menuId}
+				role="menu"
+				aria-labelledby={triggerId}
+				className={cn(
+					"absolute top-full mt-2 z-50",
+					alignment,
+					"card-surface card-surface-raised shadow-card rounded-2xl overflow-hidden py-2",
+					"type-body-sm text-[var(--text-primary)]", // usa tokens para texto
+					widthClassName,
+					!open && "hidden",
+					className
+				)}
+				onMouseEnter={handleMouseEnter}
+				onMouseLeave={handleMouseLeave}
+				{...props}
+			>
 			{children}
 		</div>
 	);
@@ -240,17 +240,15 @@ export function DropdownItem({
 				props.onClick?.(e);
 				setOpen(false);
 			}}
-			className={[
-				"w-full px-3 py-2 text-left flex items-center gap-3",
-				"rounded-md transition-colors",
-				danger
-					? "text-[var(--color-danger)] hover:bg-[var(--color-danger-subtle-bg)]"
-					: disableHoverBg
-						? ""
-						: "hover:bg-[var(--field-bg-hover)]",
-				"text-sm font-medium text-[var(--text-primary)]",
-				className,
-			].join(" ").replace(/\s+/g, " ").trim()}
+				className={cn(
+					"w-full px-3 py-2 text-left flex items-center gap-3",
+					"rounded-md transition-colors",
+					danger
+						? "text-[var(--color-danger)] hover:bg-[var(--color-danger-subtle-bg)]"
+						: !disableHoverBg && "hover:bg-[var(--field-bg-hover)]",
+					"type-body-sm font-medium text-[var(--text-primary)]",
+					className
+				)}
 			{...props}
 		>
 			{leftIcon ? <span className="flex items-center text-current">{leftIcon}</span> : null}
@@ -261,11 +259,11 @@ export function DropdownItem({
 }
 
 export function DropdownSeparator({ className = "" }: { className?: string }) {
-	return <div className={["my-2 h-px bg-border/60", className].join(" ").trim()} />;
+	return <div className={cn("my-2 h-px bg-border/60", className)} />;
 }
 
 export const DropdownLabel: React.FC<{ children: React.ReactNode; className?: string }> = ({ children, className = "" }) => (
-	<div className={["px-3 py-1 text-xs font-semibold uppercase tracking-wide text-lighttext/60 dark:text-darktext/60", className].join(" ").trim()}>
+	<div className={cn("px-3 py-1 type-label text-lighttext/60 dark:text-darktext/60", className)}>
 		{children}
 	</div>
 );

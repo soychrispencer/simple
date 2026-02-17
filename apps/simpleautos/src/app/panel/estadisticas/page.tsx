@@ -4,7 +4,7 @@ import { Button } from "@simple/ui";
 import { PanelPageLayout } from "@simple/ui";
 import { useSupabase } from "@/lib/supabase/useSupabase";
 import { Select, LineChart } from "@simple/ui";
-import { IconEye, IconPhone, IconBookmark, IconShare, IconTrendingUp, IconTrophy, IconChartBar, IconChartLine } from '@tabler/icons-react';
+import { IconEye, IconPhone, IconBookmark, IconShare, IconTrendingUp, IconChartBar, IconChartLine } from '@tabler/icons-react';
 import { useListingsScope } from "@simple/listings";
 import { logError } from "@/lib/logger";
 import { usePanelCapabilities } from "@/lib/panelCapabilities";
@@ -41,6 +41,39 @@ type Metrics = {
   shares: number;
   conversionRate: number;
 };
+
+const BAR_HEIGHT_CLASS: Record<number, string> = {
+  0: 'bar-h-0',
+  5: 'bar-h-5',
+  10: 'bar-h-10',
+  15: 'bar-h-15',
+  20: 'bar-h-20',
+  25: 'bar-h-25',
+  30: 'bar-h-30',
+  35: 'bar-h-35',
+  40: 'bar-h-40',
+  45: 'bar-h-45',
+  50: 'bar-h-50',
+  55: 'bar-h-55',
+  60: 'bar-h-60',
+  65: 'bar-h-65',
+  70: 'bar-h-70',
+  75: 'bar-h-75',
+  80: 'bar-h-80',
+  85: 'bar-h-85',
+  90: 'bar-h-90',
+  95: 'bar-h-95',
+  100: 'bar-h-100',
+};
+
+function toBarHeightClass(value: number, maxValue: number) {
+  if (!Number.isFinite(value) || !Number.isFinite(maxValue) || maxValue <= 0) {
+    return BAR_HEIGHT_CLASS[0];
+  }
+  const percent = Math.min(100, Math.max(0, (value / maxValue) * 100));
+  const bucket = Math.round(percent / 5) * 5;
+  return BAR_HEIGHT_CLASS[bucket] ?? BAR_HEIGHT_CLASS[0];
+}
 
 function getPeriodStart(period: PeriodFilter): Date | null {
   if (period === 'all') return null;
@@ -343,8 +376,7 @@ export default function Estadisticas(): React.ReactElement {
         {data.map((value, index) => (
           <div key={index} className="flex-1 flex flex-col items-center">
             <div
-              className="w-full bg-primary rounded-t transition-all hover:bg-[var(--color-primary-a90)]"
-              style={{ height: `${(value / maxValue) * 100}%` }}
+              className={`w-full bg-primary rounded-t transition-all hover:bg-[var(--color-primary-a90)] ${toBarHeightClass(value, maxValue)}`}
               title={`${labels[index]}: ${value} vistas`}
             />
             <div className="text-xs text-lighttext/70 dark:text-darktext/70 mt-2 text-center max-w-full truncate">
@@ -466,8 +498,7 @@ export default function Estadisticas(): React.ReactElement {
               {bars.map((height, i) => (
                 <div key={i} className="flex-1 flex flex-col items-center">
                   <div
-                    className="w-full bg-primary rounded-t transition-all hover:bg-[var(--color-primary-a90)]"
-                    style={{ height: `${Math.min((height / Math.max(...bars, 1)) * 100, 100)}%` }}
+                    className={`w-full bg-primary rounded-t transition-all hover:bg-[var(--color-primary-a90)] ${toBarHeightClass(height, Math.max(...bars, 1))}`}
                     title={`${barLabels[i]}: ${height} vistas`}
                   />
                   <div className="text-xs text-lighttext/70 dark:text-darktext/70 mt-2 text-center leading-tight max-w-full truncate">

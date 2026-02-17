@@ -43,7 +43,7 @@ export function LayoutContent({
             showNotifications={showNotifications}
             panelManifest={storesPanelManifest}
           />
-          <div className="mt-[10px]">{children}</div>
+          {children}
           <Footer vertical="stores" />
         </>
       )}

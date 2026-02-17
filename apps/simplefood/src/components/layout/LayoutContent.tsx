@@ -32,7 +32,7 @@ export function LayoutContent({
         panelManifest={foodPanelManifest}
       />
       <AuthModalMount copy={foodAuthCopy} />
-      <div className="mt-[10px]">{children}</div>
+      {children}
       <Footer vertical="food" />
     </>
   );

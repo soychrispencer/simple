@@ -1,5 +1,6 @@
 "use client";
 import React from "react";
+import { cn } from "../../lib/cn";
 
 interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
   variant?: 'primary' | 'neutral' | 'ghost' | 'danger' | 'outline' | 'subtle';
@@ -13,8 +14,8 @@ interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
 
 const focusRing = 'focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--field-focus-ring)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--surface-1)]';
 
-const primaryBase = 'bg-primary text-[var(--color-on-primary)] shadow-card';
-const primaryHover = 'hover:bg-[var(--color-primary-a90)] active:bg-[var(--color-primary-a80)]';
+const primaryBase = 'bg-neutral-900 dark:bg-neutral-100 text-white dark:text-neutral-900 border border-neutral-900/80 dark:border-neutral-200 shadow-card ring-1 ring-[var(--color-primary-a20)]';
+const primaryHover = 'hover:bg-neutral-800 dark:hover:bg-white hover:ring-[var(--color-primary-a40)] active:ring-[var(--color-primary-a50)]';
 
 const neutralBase = 'bg-[var(--field-bg)] text-[var(--field-text)] border border-[var(--field-border)]';
 const neutralHover = 'hover:bg-[var(--field-bg-hover)] hover:border-[var(--field-border-hover)] active:bg-[var(--field-bg-active)] active:border-[var(--field-border-active)]';
@@ -25,13 +26,13 @@ const outlineHover = 'hover:bg-[var(--surface-neutral-hover)] hover:border-[var(
 const ghostBase = 'bg-transparent text-[var(--text-primary)]';
 const ghostHover = 'hover:bg-[var(--surface-neutral-hover)] active:bg-[var(--surface-neutral-active)]';
 
-const subtleBase = 'bg-[var(--color-primary-a10)] text-primary';
-const subtleHover = 'hover:bg-[var(--color-primary-a15)] active:bg-[var(--color-primary-a20)]';
+const subtleBase = 'bg-[var(--field-bg)] text-[var(--text-primary)] border border-[var(--color-primary-a20)]';
+const subtleHover = 'hover:bg-[var(--field-bg-hover)] hover:border-[var(--color-primary-a40)] active:bg-[var(--field-bg-active)] active:border-[var(--color-primary-a50)]';
 
 const dangerBase = 'bg-[var(--color-danger)] text-[var(--color-on-primary)] shadow-card';
 const dangerHover = 'hover:opacity-95 active:opacity-90';
 
-const transitionFx = 'transition-colors duration-200';
+const transitionFx = 'transition-[background-color,border-color,color,box-shadow,transform] duration-200';
 const variantMap: Record<string,string> = {
   primary: `${primaryBase} ${primaryHover} ${transitionFx}`,
   neutral: `${neutralBase} ${neutralHover} ${transitionFx}`,
@@ -52,6 +53,7 @@ export const Button = ({
   variant = 'primary',
   shape = 'rounded',
   size = 'md',
+  asChild = false,
   className = '',
   children,
   loading = false,
@@ -63,28 +65,30 @@ export const Button = ({
   const shapeClass = shape === 'pill' ? 'rounded-full' : 'rounded-md';
   const variantClass = variantMap[variant] || variantMap.primary;
   const sizeClass = sizeMap[size] || sizeMap.md;
-  const classes = [base, shapeClass, variantClass, sizeClass, loading ? 'opacity-90 pointer-events-none' : '', className]
-    .join(' ')
-    .replace(/\s+/g,' ')
-    .trim();
+  const classes = cn(base, shapeClass, variantClass, sizeClass, loading && 'opacity-90 pointer-events-none', className);
 
-  if ((props as any).asChild && React.isValidElement(children)) {
-    const child = children as React.ReactElement;
-    const childProps: any = { ...(child.props || {}) };
-    childProps.className = [childProps.className || '', classes].filter(Boolean).join(' ');
+  if (asChild && React.isValidElement(children)) {
+    const child = children as React.ReactElement<Record<string, unknown>>;
+    const childClassName = typeof child.props.className === 'string' ? child.props.className : '';
+    const mergedClassName = cn(childClassName, classes);
+    const forwardedProps: Omit<ButtonProps, 'asChild' | 'children' | 'leftIcon' | 'rightIcon' | 'loading'> = { ...props };
+    delete forwardedProps.type;
+    const nextProps: Record<string, unknown> = {
+      ...child.props,
+      ...forwardedProps,
+      className: mergedClassName,
+    };
     if (loading || props.disabled) {
-      childProps['aria-disabled'] = true;
+      nextProps['aria-disabled'] = true;
     }
-    const cleanedProps = { ...props } as any;
-    delete cleanedProps.asChild;
-    delete cleanedProps.type;
-    Object.assign(childProps, cleanedProps);
-    return React.cloneElement(child, childProps);
+    return React.cloneElement(child, {
+      ...nextProps,
+    });
   }
 
   return (
     <button
-      className={classes + ' relative'}
+      className={cn(classes, 'relative')}
       disabled={loading || props.disabled}
       {...props}
     >

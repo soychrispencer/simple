@@ -5,7 +5,7 @@ export const PROPERTIES_BRANDING = {
   supportEmail: 'hola@simplepropiedades.app',
   supportWhatsAppDigits: '56978623828',
   supportWhatsAppDisplay: '+56 9 7862 3828',
-  primaryColor: '#0043ff',
+  primaryColor: '#3232ff',
   logos: {
     light: '/brand/logo.png',
     dark: '/brand/logo.png',

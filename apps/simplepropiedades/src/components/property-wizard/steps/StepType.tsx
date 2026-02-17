@@ -26,8 +26,8 @@ function StepType() {
     <div className="space-y-8">
       <section className="space-y-4">
         <div>
-          <h3 className="text-lg font-semibold text-lighttext dark:text-darktext">Tipo de publicación</h3>
-          <p className="text-sm text-lighttext/70 dark:text-darktext/70">
+          <h3 className="type-title-3 text-lighttext dark:text-darktext">Tipo de publicación</h3>
+          <p className="type-body-sm text-lighttext/70 dark:text-darktext/70">
             Elige el formato que mejor se ajuste a tu operación actual.
           </p>
         </div>
@@ -44,8 +44,8 @@ function StepType() {
                   : "card-surface ring-border/60",
               ].join(" ")}
             >
-              <span className="text-sm font-semibold text-lighttext dark:text-darktext">{option.label}</span>
-              <span className="text-xs text-lighttext/70 dark:text-darktext/70">{option.description}</span>
+              <span className="type-body-sm font-semibold text-lighttext dark:text-darktext">{option.label}</span>
+              <span className="type-caption text-lighttext/70 dark:text-darktext/70">{option.description}</span>
             </button>
           ))}
         </div>
@@ -53,8 +53,8 @@ function StepType() {
 
       <section className="space-y-4">
         <div>
-          <h3 className="text-lg font-semibold text-lighttext dark:text-darktext">Categoría de propiedad</h3>
-          <p className="text-sm text-lighttext/70 dark:text-darktext/70">
+          <h3 className="type-title-3 text-lighttext dark:text-darktext">Categoría de propiedad</h3>
+          <p className="type-body-sm text-lighttext/70 dark:text-darktext/70">
             Escoge la categoría que mejor describe tu propiedad.
           </p>
         </div>
@@ -71,20 +71,20 @@ function StepType() {
                   : "card-surface ring-border/60",
               ].join(" ")}
             >
-              <span className="text-2xl" aria-hidden>
-                {option.icon}
-              </span>
-              <div className="flex flex-col">
-                <span className="text-sm font-medium text-lighttext dark:text-darktext">{option.label}</span>
-                <span className="text-xs text-lighttext/70 dark:text-darktext/70">{option.value}</span>
-              </div>
-            </button>
-          ))}
-        </div>
+                <span className="text-2xl" aria-hidden>
+                  {option.icon}
+                </span>
+                <div className="flex flex-col">
+                <span className="type-body-sm font-medium text-lighttext dark:text-darktext">{option.label}</span>
+                <span className="type-caption text-lighttext/70 dark:text-darktext/70">{option.value}</span>
+                </div>
+              </button>
+            ))}
+          </div>
       </section>
 
-      <div className="card-surface ring-1 ring-border/60 rounded-xl p-4 text-sm text-lighttext/70 dark:text-darktext/70">
-        <p className="font-medium text-lighttext dark:text-darktext">¿Qué sigue?</p>
+      <div className="card-surface ring-1 ring-border/60 rounded-xl p-4 type-body-sm text-lighttext/70 dark:text-darktext/70">
+        <p className="type-body-sm font-medium text-lighttext dark:text-darktext">¿Qué sigue?</p>
         <p>
           Luego completaremos los detalles de la propiedad, ubicación y medios. Puedes modificar el tipo seleccionado en cualquier
           momento antes de publicar.

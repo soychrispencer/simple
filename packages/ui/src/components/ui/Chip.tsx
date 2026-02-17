@@ -69,7 +69,12 @@ export const RatingChip: React.FC<RatingChipProps> = ({
             {star <= Math.floor(average) ? (
               <IconStarFilled size={12} fill="currentColor" />
             ) : star - 0.5 <= average ? (
-              <IconStarFilled size={12} fill="currentColor" style={{ clipPath: 'inset(0 50% 0 0)' }} />
+              <span className="relative inline-flex w-3 h-3">
+                <IconStar size={12} className="absolute inset-0" />
+                <span className="absolute inset-y-0 left-0 w-1.5 overflow-hidden">
+                  <IconStarFilled size={12} fill="currentColor" />
+                </span>
+              </span>
             ) : (
               <IconStar size={12} />
             )}

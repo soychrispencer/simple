@@ -21,6 +21,16 @@ html, body {
   color: var(--color-text);
 }
 
+.card-surface,
+.card-surface-raised,
+.card-inset,
+.hero-card,
+.section-card {
+  border: 0 !important;
+  --tw-ring-color: transparent;
+  --tw-ring-shadow: 0 0 #0000;
+}
+
 * {
   box-sizing: border-box;
   margin: 0;

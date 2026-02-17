@@ -22,7 +22,7 @@ export const verticalThemes = {
   },
   properties: {
     name: 'SimplePropiedades',
-    primary: '#0043FF',
+    primary: '#3232FF',
     domain: 'simplepropiedades.app',
     tagline: 'Encuentra tu hogar ideal',
     region: 'cl' as RegionCode,
@@ -64,7 +64,7 @@ export const VERTICALS = {
   },
   properties: {
     name: 'SimplePropiedades',
-    color: '#0043FF',
+    color: '#3232FF',
     domain: 'simplepropiedades.app',
     tagline: 'Encuentra tu hogar ideal',
     region: 'cl' as RegionCode,

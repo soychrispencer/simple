@@ -5,7 +5,7 @@ import CategoryFeaturedSlider from "@/components/slider/CategoryFeaturedSlider";
 export default function Home() {
 
   return (
-  <main className="min-h-screen flex flex-col bg-lightbg dark:bg-darkbg">
+  <main className="min-h-screen flex flex-col">
       {/* Hero con buscador principal */}
   <section className="hero-stack w-full flex flex-col items-center justify-center pb-6">
         <div className="w-full px-4 md:px-8 lg:px-8">
@@ -16,7 +16,7 @@ export default function Home() {
                 <div className="absolute inset-0 bg-[var(--overlay-scrim-60)] dark:bg-[var(--overlay-scrim-70)] backdrop-blur-[1px]" />
               </div>
               <div className="hero-content relative z-10 flex flex-col items-center gap-6 text-center text-[var(--color-on-primary)]">
-                <h1 className="text-4xl md:text-6xl font-extrabold text-[var(--color-on-primary)]">
+                <h1 className="type-display-hero text-[var(--color-on-primary)]">
                   <span className="drop-shadow-none">Encuentra el vehículo perfecto</span>
                 </h1>
                 

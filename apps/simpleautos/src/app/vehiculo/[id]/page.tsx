@@ -762,7 +762,7 @@ export default function VehiculoDetallePage() {
                           className={`relative aspect-square w-full rounded-xl overflow-hidden border-3 transition-all ${
                             idx === currentImageIndex
                               ? "border-primary shadow-card"
-                              : "border-transparent hover:border-border/60"
+                              : "border-transparent hover:border-[color:var(--color-primary-a40)]"
                                 } focus-visible:outline-none focus-visible:shadow-focus dark:focus-visible:shadow-focus-dark`}
                                 title={`Imagen ${idx + 1}`}
                                 aria-label={`Ver imagen ${idx + 1}`}
@@ -833,7 +833,7 @@ export default function VehiculoDetallePage() {
                         className={`relative aspect-square rounded-xl overflow-hidden border-3 transition-all ${
                           idx === currentImageIndex
                             ? "border-primary scale-105 shadow-card"
-                            : "border-transparent hover:border-border/60 hover:scale-105"
+                            : "border-transparent hover:border-[color:var(--color-primary-a40)] hover:scale-105"
                         } focus-visible:outline-none focus-visible:shadow-focus dark:focus-visible:shadow-focus-dark`}
                         aria-label={`Ver imagen ${idx + 1}`}
                       >

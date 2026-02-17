@@ -272,7 +272,7 @@ export const StepBasic: React.FC = () => {
       }
       lastTypeRef.current = typeSignature;
     }
-  }, [typeSignature, basic.brand_id, basic.model_id, patch]);
+  }, [basic, patch, typeSignature]);
 
   // Cargar marcas filtradas por type_id real (si existe) usando modelos asociados
   useEffect(() => {
@@ -325,7 +325,7 @@ export const StepBasic: React.FC = () => {
     }
     loadBrands();
     return () => { active = false; };
-  }, [typeKey, typeId, typeIds, supabase, basic.brand_id, patch]);
+  }, [basic, supabase, typeId, typeIds, typeKey]);
 
   // Cargar modelos cuando cambia brand_id
   useEffect(() => {
@@ -361,13 +361,13 @@ export const StepBasic: React.FC = () => {
     }
     loadModels();
     return () => { active = false; };
-  }, [basic.brand_id, supabase, typeId, typeIds]);
+  }, [basic, supabase, typeId, typeIds]);
 
   const update = (field: string, value: any) => {
     patch('basic', { [field]: value } as any);
   };
 
-  const specs = state.vehicle.specs || {};
+  const specs = useMemo(() => state.vehicle.specs || {}, [state.vehicle.specs]);
   const carBodyTypeOptions = useMemo(() => {
     const cat = getSpecCategory(typeKey || null);
     const field = cat?.fields?.find((f) => f.id === 'body_type');

@@ -45,13 +45,12 @@ export function SharePopover({ open, onClose, anchorEl, username }: SharePopover
 
   const baseUrl = window.location.origin;
   const shareUrl = `${baseUrl}/perfil/${username}`;
-  const btnCls = 'flex items-center gap-2 w-full px-3 py-2 rounded-lg text-sm font-medium text-lighttext dark:text-darktext hover:bg-lightbg dark:hover:bg-darkbg transition-base';
+  const btnCls = 'flex items-center gap-2 w-full px-3 py-2 rounded-lg text-sm font-medium text-lighttext dark:text-darktext hover:bg-[var(--field-bg-hover)] transition-base';
 
   return createPortal(
     <div
       ref={popRef}
-      style={{ position: 'absolute', left: 0, top: 'calc(100% + 8px)', zIndex: 50 }}
-      className="min-w-[220px] rounded-2xl card-surface shadow-card p-3 animate-fade-scale-in origin-top"
+      className="absolute left-0 top-[calc(100%+8px)] z-50 min-w-[220px] rounded-2xl card-surface shadow-card p-3 animate-fade-scale-in origin-top"
       role="dialog"
       aria-label="Compartir perfil"
       aria-modal="true"

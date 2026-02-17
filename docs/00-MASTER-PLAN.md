@@ -48,7 +48,8 @@ Simple/
 │   ├── 04-COMPONENT-GUIDE.md         # Header/Footer compartidos
 │   ├── 05-DEVELOPMENT-GUIDE.md       # Guía para desarrolladores
 │   ├── 06-ROADMAP.md                 # Roadmap y siguientes pasos
-│   └── 07-LOGO-SYSTEM.md             # Sistema de marca y uso de logos
+│   ├── 07-LOGO-SYSTEM.md             # Sistema de marca y uso de logos
+│   └── 08-DB-MIGRATIONS.md           # Índice y gobernanza de migraciones SQL
 │
 ├── apps/                              # 🚀 Verticales (aplicaciones)
 │   ├── simpleautos/                   # Vertical de vehículos
@@ -148,6 +149,7 @@ Simple/
 6. `05-DEVELOPMENT-GUIDE.md` — setup local, convenciones y APIs.
 7. `06-ROADMAP.md` — hitos próximos con fechas.
 8. `07-LOGO-SYSTEM.md` — identidad visual y uso de isotipos.
+9. `08-DB-MIGRATIONS.md` — índice obligatorio de migraciones + control de cambios DB.
 
 > Todos los archivos legacy (auditorías, guías duplicadas, resúmenes de fase) se consolidaron aquí para reducir ruido.
 
@@ -211,7 +213,7 @@ Simple/
 1. Optimización de rendimiento
 2. SEO para cada vertical
 3. Setup de CI/CD
-4. Deployment en Vercel/otros
+4. Deployment en VPS (Coolify)
 5. Monitoreo y analytics
 
 ---
@@ -421,10 +423,10 @@ public.notifications
 - **Logs:** Winston
 
 ### DevOps
-- **Hosting:** Vercel (apps) + Supabase Cloud (backend)
+- **Hosting:** VPS con Coolify (apps) + Supabase Cloud (backend)
 - **CI/CD:** GitHub Actions
 - **Monitoring:** Sentry
-- **Analytics:** Google Analytics / Vercel Analytics
+- **Analytics:** Google Analytics (u opción self-hosted)
 
 ---
 

@@ -241,7 +241,7 @@ export default function PaginaPage() {
     } finally {
       setCreatingPage(false);
     }
-  }, [addToast, availableUsername, creatingPage, refreshAuth, supabase, user?.id, user?.username, usernameInput, usernameStatus]);
+  }, [addToast, availableUsername, creatingPage, isPlaceholderUsername, refreshAuth, supabase, user?.id, user?.username, usernameInput, usernameStatus]);
 
   const handleViewPage = React.useCallback(() => {
     if (!effectiveUsername) return;
@@ -394,8 +394,7 @@ export default function PaginaPage() {
           {showBuilder ? (
             <>
               <section
-                className="relative w-full aspect-[32/10] md:aspect-[32/9] overflow-hidden group shadow-card card-surface mt-6"
-                style={{ borderRadius: 'var(--card-radius)' }}
+                className="relative w-full aspect-[32/10] md:aspect-[32/9] overflow-hidden group shadow-card card-surface rounded-[var(--card-radius)] mt-6"
               >
                 <ProfileCoverUploader cropOpen={coverCropOpen} setCropOpen={setCoverCropOpen} />
               </section>

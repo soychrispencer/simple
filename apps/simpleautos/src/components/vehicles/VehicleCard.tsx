@@ -609,27 +609,27 @@ export const VehicleCard: React.FC<VehicleCardProps> = ({
                 {/* Menú desplegable para layout horizontal */}
                 {menuOpen && (
                   <div className="absolute bottom-16 right-4 z-40 w-44 card-surface shadow-card rounded-xl py-2 animate-fadeIn">
-                    <button onClick={actView} className="w-full flex items-center gap-2 px-3 py-2 text-sm hover:bg-lightbg dark:hover:bg-darkbg text-left transition">
+                    <button onClick={actView} className="w-full flex items-center gap-2 px-3 py-2 text-sm hover:bg-[var(--field-bg-hover)] text-left transition">
                       <IconExternalLink size={16} stroke={1.5} /> Ver publicación
                     </button>
                     {canBoost && (
-                      <button onClick={actBoost} className="w-full flex items-center gap-2 px-3 py-2 text-sm hover:bg-lightbg dark:hover:bg-darkbg text-left transition">
+                      <button onClick={actBoost} className="w-full flex items-center gap-2 px-3 py-2 text-sm hover:bg-[var(--field-bg-hover)] text-left transition">
                         <IconBolt size={16} stroke={1.5} /> Impulsar
                       </button>
                     )}
-                    <button onClick={actFavFromMenu} className="w-full flex items-center gap-2 px-3 py-2 text-sm hover:bg-lightbg dark:hover:bg-darkbg text-left transition">
+                    <button onClick={actFavFromMenu} className="w-full flex items-center gap-2 px-3 py-2 text-sm hover:bg-[var(--field-bg-hover)] text-left transition">
                       {favorite ? <IconBookmarkFilled size={16} stroke={1.5} /> : <IconBookmark size={16} stroke={1.5} />} {favorite ? 'Quitar de favoritos' : 'Favoritos'}
                     </button>
-                    <button onClick={actShare} className="w-full flex items-center gap-2 px-3 py-2 text-sm hover:bg-lightbg dark:hover:bg-darkbg text-left transition">
+                    <button onClick={actShare} className="w-full flex items-center gap-2 px-3 py-2 text-sm hover:bg-[var(--field-bg-hover)] text-left transition">
                       <IconShare2 size={16} stroke={1.5} /> Compartir
                     </button>
-                    <button onClick={actCopyLink} className="w-full flex items-center gap-2 px-3 py-2 text-sm hover:bg-lightbg dark:hover:bg-darkbg text-left transition">
+                    <button onClick={actCopyLink} className="w-full flex items-center gap-2 px-3 py-2 text-sm hover:bg-[var(--field-bg-hover)] text-left transition">
                       <IconLink size={16} stroke={1.5} /> Copiar enlace
                     </button>
-                    <button onClick={actCompare} className="w-full flex items-center gap-2 px-3 py-2 text-sm hover:bg-lightbg dark:hover:bg-darkbg text-left transition">
+                    <button onClick={actCompare} className="w-full flex items-center gap-2 px-3 py-2 text-sm hover:bg-[var(--field-bg-hover)] text-left transition">
                       <IconScale size={16} stroke={1.5} /> Comparar
                     </button>
-                    <button onClick={actReport} className="w-full flex items-center gap-2 px-3 py-2 text-sm hover:bg-lightbg dark:hover:bg-darkbg text-left transition">
+                    <button onClick={actReport} className="w-full flex items-center gap-2 px-3 py-2 text-sm hover:bg-[var(--field-bg-hover)] text-left transition">
                       <IconFlag size={16} stroke={1.5} /> Reportar publicación
                     </button>
                   </div>
@@ -900,27 +900,27 @@ export const VehicleCard: React.FC<VehicleCardProps> = ({
             {/* Menú desplegable */}
             {menuOpen && (
               <div className="absolute bottom-16 right-4 z-40 w-44 card-surface shadow-card rounded-xl py-2 animate-fadeIn">
-                <button onClick={actView} className="w-full flex items-center gap-2 px-3 py-2 text-sm hover:bg-lightbg dark:hover:bg-darkbg text-left transition">
+                <button onClick={actView} className="w-full flex items-center gap-2 px-3 py-2 text-sm hover:bg-[var(--field-bg-hover)] text-left transition">
                   <IconExternalLink size={16} stroke={1.5} /> Ver publicación
                 </button>
                 {canBoost && (
-                  <button onClick={actBoost} className="w-full flex items-center gap-2 px-3 py-2 text-sm hover:bg-lightbg dark:hover:bg-darkbg text-left transition">
+                  <button onClick={actBoost} className="w-full flex items-center gap-2 px-3 py-2 text-sm hover:bg-[var(--field-bg-hover)] text-left transition">
                     <IconBolt size={16} stroke={1.5} /> Impulsar
                   </button>
                 )}
-                <button onClick={actFavFromMenu} className="w-full flex items-center gap-2 px-3 py-2 text-sm hover:bg-lightbg dark:hover:bg-darkbg text-left transition">
+                <button onClick={actFavFromMenu} className="w-full flex items-center gap-2 px-3 py-2 text-sm hover:bg-[var(--field-bg-hover)] text-left transition">
                   {favorite ? <IconBookmarkFilled size={16} stroke={1.5} /> : <IconBookmark size={16} stroke={1.5} />} {favorite ? 'Quitar de favoritos' : 'Favoritos'}
                 </button>
-                <button onClick={actShare} className="w-full flex items-center gap-2 px-3 py-2 text-sm hover:bg-lightbg dark:hover:bg-darkbg text-left transition">
+                <button onClick={actShare} className="w-full flex items-center gap-2 px-3 py-2 text-sm hover:bg-[var(--field-bg-hover)] text-left transition">
                   <IconShare2 size={16} stroke={1.5} /> Compartir
                 </button>
-                <button onClick={actCopyLink} className="w-full flex items-center gap-2 px-3 py-2 text-sm hover:bg-lightbg dark:hover:bg-darkbg text-left transition">
+                <button onClick={actCopyLink} className="w-full flex items-center gap-2 px-3 py-2 text-sm hover:bg-[var(--field-bg-hover)] text-left transition">
                   <IconLink size={16} stroke={1.5} /> Copiar enlace
                 </button>
-                <button onClick={actCompare} className="w-full flex items-center gap-2 px-3 py-2 text-sm hover:bg-lightbg dark:hover:bg-darkbg text-left transition">
+                <button onClick={actCompare} className="w-full flex items-center gap-2 px-3 py-2 text-sm hover:bg-[var(--field-bg-hover)] text-left transition">
                   <IconScale size={16} stroke={1.5} /> Comparar
                 </button>
-                <button onClick={actReport} className="w-full flex items-center gap-2 px-3 py-2 text-sm hover:bg-lightbg dark:hover:bg-darkbg text-left transition">
+                <button onClick={actReport} className="w-full flex items-center gap-2 px-3 py-2 text-sm hover:bg-[var(--field-bg-hover)] text-left transition">
                   <IconFlag size={16} stroke={1.5} /> Reportar publicación
                 </button>
               </div>

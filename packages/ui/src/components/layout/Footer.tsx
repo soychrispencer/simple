@@ -345,8 +345,7 @@ const Footer: React.FC<FooterProps> = ({
       <div className="relative w-full card-surface shadow-card overflow-hidden">
         {/* Gradiente sutil en la parte superior con el color de la vertical */}
         <div
-          className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-transparent via-current to-transparent opacity-20"
-          style={{ color: verticalConfig.color }}
+          className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-transparent via-primary to-transparent opacity-25"
         ></div>
 
         <div className="px-6 py-8">
@@ -365,29 +364,28 @@ const Footer: React.FC<FooterProps> = ({
                       className="h-12 w-12 object-contain shrink-0"
                       onError={() => setBrandLogoLoadError(true)}
                     />
-                    <h3 className="text-lg font-bold text-lighttext dark:text-darktext">
+                    <h3 className="type-title-3 text-lighttext dark:text-darktext">
                       {verticalConfig.name}
                     </h3>
                   </div>
                 ) : (
                   <div className="flex items-center gap-2 mb-4">
                     <span
-                      className="flex items-center justify-center w-8 h-8 rounded-full"
-                      style={{ backgroundColor: verticalConfig.color }}
+                      className="flex items-center justify-center w-8 h-8 rounded-full bg-[var(--color-primary-a15)] ring-1 ring-[var(--color-primary-a30)]"
                     >
-                      <span className="select-none font-extrabold text-[16px] leading-[1] text-black">
+                      <span className="select-none font-extrabold text-[16px] leading-[1] text-primary">
                         S
                       </span>
                     </span>
-                    <h3 className="text-lg font-bold text-lighttext dark:text-darktext">
+                    <h3 className="type-title-3 text-lighttext dark:text-darktext">
                       {verticalConfig.name}
                     </h3>
                   </div>
                 )}
-                <p className="text-sm text-lighttext/70 dark:text-darktext/70 mb-4 leading-relaxed">
+                <p className="type-body-sm text-lighttext/70 dark:text-darktext/70 mb-4">
                   {finalDescription}
                 </p>
-                <div className="space-y-2 text-sm">
+                <div className="space-y-2 type-body-sm">
                   {finalContactInfo.location && (
                     <div className="flex items-center gap-2 text-lighttext/70 dark:text-darktext/70">
                       <IconMapPin size={16} />
@@ -421,7 +419,7 @@ const Footer: React.FC<FooterProps> = ({
                 const ColumnIcon = column.icon;
                 return (
                   <div key={index}>
-                    <h4 className="text-base font-semibold mb-4 text-lighttext dark:text-darktext flex items-center gap-2">
+                    <h4 className="type-title-4 mb-4 text-lighttext dark:text-darktext flex items-center gap-2">
                       {ColumnIcon && <ColumnIcon size={18} />}
                       {column.title}
                     </h4>
@@ -430,16 +428,7 @@ const Footer: React.FC<FooterProps> = ({
                         <li key={link.href}>
                           <Link
                             href={link.href}
-                            className="text-sm text-lighttext/70 dark:text-darktext/70 hover:text-lighttext dark:hover:text-darktext transition-colors"
-                            style={{
-                              '--hover-color': verticalConfig.color,
-                            } as React.CSSProperties}
-                            onMouseEnter={(e) => {
-                              e.currentTarget.style.color = verticalConfig.color;
-                            }}
-                            onMouseLeave={(e) => {
-                              e.currentTarget.style.color = '';
-                            }}
+                            className="type-body-sm text-lighttext/70 dark:text-darktext/70 hover:text-primary transition-colors"
                           >
                             {link.label}
                           </Link>
@@ -457,7 +446,7 @@ const Footer: React.FC<FooterProps> = ({
                 {/* Redes sociales */}
                 <div className="flex flex-col items-center md:items-start gap-3">
                   <div className="flex items-center gap-4">
-                    <span className="text-sm font-medium text-lighttext/70 dark:text-darktext/70 mr-2">
+                    <span className="type-body-sm font-medium text-lighttext/70 dark:text-darktext/70 mr-2">
                       Síguenos:
                     </span>
                     {finalSocialLinks.instagram && (
@@ -465,8 +454,7 @@ const Footer: React.FC<FooterProps> = ({
                         href={finalSocialLinks.instagram}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="text-lighttext/70 dark:text-darktext/70 hover:text-[var(--footer-hover)] transition-all duration-200 hover:scale-110"
-                        style={{ ['--footer-hover' as any]: verticalConfig.color }}
+                        className="text-lighttext/70 dark:text-darktext/70 hover:text-primary transition-all duration-200 hover:scale-110"
                         aria-label="Instagram"
                       >
                         <IconBrandInstagram size={20} stroke={1.5} />
@@ -477,8 +465,7 @@ const Footer: React.FC<FooterProps> = ({
                         href={finalSocialLinks.tiktok}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="text-lighttext/70 dark:text-darktext/70 hover:text-[var(--footer-hover)] transition-all duration-200 hover:scale-110"
-                        style={{ ['--footer-hover' as any]: verticalConfig.color }}
+                        className="text-lighttext/70 dark:text-darktext/70 hover:text-primary transition-all duration-200 hover:scale-110"
                         aria-label="TikTok"
                       >
                         <IconBrandTiktok size={20} stroke={1.5} />
@@ -489,8 +476,7 @@ const Footer: React.FC<FooterProps> = ({
                         href={finalSocialLinks.facebook}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="text-lighttext/70 dark:text-darktext/70 hover:text-[var(--footer-hover)] transition-all duration-200 hover:scale-110"
-                        style={{ ['--footer-hover' as any]: verticalConfig.color }}
+                        className="text-lighttext/70 dark:text-darktext/70 hover:text-primary transition-all duration-200 hover:scale-110"
                         aria-label="Facebook"
                       >
                         <IconBrandFacebook size={20} stroke={1.5} />
@@ -501,8 +487,7 @@ const Footer: React.FC<FooterProps> = ({
                         href={finalSocialLinks.whatsapp}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="text-lighttext/70 dark:text-darktext/70 hover:text-[var(--footer-hover)] transition-all duration-200 hover:scale-110"
-                        style={{ ['--footer-hover' as any]: verticalConfig.color }}
+                        className="text-lighttext/70 dark:text-darktext/70 hover:text-primary transition-all duration-200 hover:scale-110"
                         aria-label="WhatsApp"
                       >
                         <IconBrandWhatsapp size={20} stroke={1.5} />
@@ -513,8 +498,7 @@ const Footer: React.FC<FooterProps> = ({
                         href={finalSocialLinks.youtube}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="text-lighttext/70 dark:text-darktext/70 hover:text-[var(--footer-hover)] transition-all duration-200 hover:scale-110"
-                        style={{ ['--footer-hover' as any]: verticalConfig.color }}
+                        className="text-lighttext/70 dark:text-darktext/70 hover:text-primary transition-all duration-200 hover:scale-110"
                         aria-label="YouTube"
                       >
                         <IconBrandYoutube size={20} stroke={1.5} />
@@ -523,7 +507,7 @@ const Footer: React.FC<FooterProps> = ({
                   </div>
 
                   {/* Características destacadas (badges) */}
-                  <div className="flex items-center gap-6 text-xs text-lighttext/70 dark:text-darktext/70">
+                  <div className="flex items-center gap-6 type-caption text-lighttext/70 dark:text-darktext/70">
                     {finalBadges.map((badge, index) => {
                       const BadgeIcon = badge.icon;
                       return (
@@ -540,26 +524,17 @@ const Footer: React.FC<FooterProps> = ({
                 <div className="flex flex-col items-center md:items-end gap-2">
                   {bottomContent || (
                     <>
-                      <p className="text-xs text-lighttext/60 dark:text-darktext/60 text-center md:text-right">
+                      <p className="type-caption text-lighttext/60 dark:text-darktext/60 text-center md:text-right">
                         © {new Date().getFullYear()} {verticalConfig.name}. Todos los derechos
                         reservados.
                       </p>
-                      <p className="text-xs text-lighttext/60 dark:text-darktext/60 text-center md:text-right">
+                      <p className="type-caption text-lighttext/60 dark:text-darktext/60 text-center md:text-right">
                         Creado con <span className="text-[var(--color-danger)]">♥</span> por{' '}
                         <a
                           href="https://www.artestudio.cl"
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="text-lighttext dark:text-darktext hover:text-current transition-colors font-medium"
-                          style={{
-                            '--hover-color': verticalConfig.color,
-                          } as React.CSSProperties}
-                          onMouseEnter={(e) => {
-                            e.currentTarget.style.color = verticalConfig.color;
-                          }}
-                          onMouseLeave={(e) => {
-                            e.currentTarget.style.color = '';
-                          }}
+                          className="text-lighttext dark:text-darktext hover:text-primary transition-colors font-medium"
                         >
                           Artestudio
                         </a>

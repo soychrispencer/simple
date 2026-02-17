@@ -109,7 +109,7 @@ export default function ProfileCoverUploader({ cropOpen, setCropOpen }: { cropOp
   };
   return (
     <div className="absolute left-0 top-0 w-full z-10 flex flex-col items-center">
-      <div className="w-full aspect-[32/10] md:aspect-[32/9] bg-[var(--field-bg)] overflow-hidden border border-[var(--field-border)] group relative" style={{ borderRadius: 'var(--card-radius)' }}>
+      <div className="w-full aspect-[32/10] md:aspect-[32/9] bg-[var(--field-bg)] overflow-hidden border border-[var(--field-border)] group relative rounded-[var(--card-radius)]">
         {cover?.url ? (
           <img src={cover.url} alt="portada" className="w-full h-full object-cover" />
         ) : (

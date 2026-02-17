@@ -12,7 +12,6 @@ Este directorio contiene la documentación del ecosistema Simple.
 - [05-DEVELOPMENT-GUIDE.md](05-DEVELOPMENT-GUIDE.md) — guía de desarrollo (DX, tooling)
 - [06-ROADMAP.md](06-ROADMAP.md) — roadmap operativo
 - [07-LOGO-SYSTEM.md](07-LOGO-SYSTEM.md) — identidad visual
-- [08-DEPLOYMENT-VERCEL.md](08-DEPLOYMENT-VERCEL.md) — despliegue
 - [09-DEPLOYMENT-COOLIFY.md](09-DEPLOYMENT-COOLIFY.md) — despliegue en VPS/Coolify
 
 ## Operativo (SQL + outputs)

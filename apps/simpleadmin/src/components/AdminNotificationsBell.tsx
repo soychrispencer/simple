@@ -102,11 +102,10 @@ export default function AdminNotificationsBell() {
 				)}
 			</CircleButton>
 
-			{open && (
-				<div
-					className="absolute right-0 top-full w-72 rounded-xl card-surface card-surface-raised border border-[var(--field-border)] shadow-card py-2 z-[9999]"
-					style={{ marginTop: 0 }}
-				>
+				{open && (
+					<div
+						className="absolute right-0 top-full w-72 rounded-xl card-surface card-surface-raised border border-[var(--field-border)] shadow-card py-2 z-[9999]"
+					>
 					<div className="px-4 py-3 border-b border-lightborder/10 dark:border-darkborder/10">
 						<p className="font-semibold text-lighttext dark:text-darktext">Pendientes</p>
 						<p className="text-xs text-lighttext/70 dark:text-darktext/70 mt-1">Moderación pendiente por módulo</p>

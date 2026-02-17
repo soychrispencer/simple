@@ -15,13 +15,65 @@
 
 @layer base {
   :root {
+    --primary-color: #FF3600;
+    --primary-color-rgb: 255 54 0;
     --color-primary: #ff3600;
     --color-primary-rgb: 255 54 0;
+    --lightbg-rgb: 246 247 249;
+    --lightcard-rgb: 255 255 255;
+    --lighttext-rgb: 23 23 23;
+    --lightborder-rgb: 225 229 234;
+    --darkbg-rgb: 17 17 19;
+    --darkcard-rgb: 26 26 29;
+    --darktext-rgb: 244 244 245;
+    --darkborder-rgb: 64 64 74;
+    --color-bg: rgb(var(--lightbg-rgb));
+    --color-bg-alt: #F1F4F7;
+    --color-bg-inset: #E8EDF2;
+    --color-card: rgb(var(--lightcard-rgb));
+    --card-bg: var(--color-card);
+    --color-text: rgb(var(--lighttext-rgb));
+    --color-text-soft: #52525B;
+    --color-text-faint: #71717A;
+    --text-primary: var(--color-text);
+    --text-secondary: #52525B;
+    --text-tertiary: #71717A;
+    --color-border-rgb: var(--lightborder-rgb);
+    --color-border: rgb(var(--color-border-rgb));
+    --card-border: transparent;
+    --field-bg: #FFFFFF;
+    --field-bg-hover: rgb(255 54 0 / 0.18);
+    --field-border: #D9DEE5;
+    --field-border-hover: rgb(255 54 0 / 0.56);
+    --surface-neutral-hover: rgb(255 54 0 / 0.16);
+    --surface-neutral-active: rgb(255 54 0 / 0.24);
+    --font-sans: "Poppins", sans-serif;
+    --font-display: "Poppins", sans-serif;
     /* En SimpleAutos el foco debe seguir el color primario de la vertical. */
     --field-focus-ring: var(--color-primary-a40);
   }
 
   .dark:root {
+    --color-bg: rgb(var(--darkbg-rgb));
+    --color-bg-alt: #18181C;
+    --color-bg-inset: #202027;
+    --color-card: rgb(var(--darkcard-rgb));
+    --card-bg: var(--color-card);
+    --color-text: rgb(var(--darktext-rgb));
+    --color-text-soft: #C2C7D1;
+    --color-text-faint: #9AA1AE;
+    --text-primary: var(--color-text);
+    --text-secondary: #C2C7D1;
+    --text-tertiary: #9AA1AE;
+    --color-border-rgb: var(--darkborder-rgb);
+    --color-border: rgb(var(--color-border-rgb));
+    --card-border: transparent;
+    --field-bg: #17181D;
+    --field-bg-hover: rgb(255 54 0 / 0.28);
+    --field-border: #3D4452;
+    --field-border-hover: rgb(255 54 0 / 0.70);
+    --surface-neutral-hover: rgb(255 54 0 / 0.26);
+    --surface-neutral-active: rgb(255 54 0 / 0.36);
     --field-focus-ring: var(--color-primary-a50);
   }
 }
@@ -90,8 +142,9 @@ html, body {
   font-family: var(--font-sans);
   font-feature-settings: 'liga' 1, 'calt' 1;
   color: var(--color-text);
-  background-color: var(--color-bg);
+  background: var(--color-bg);
   letter-spacing: -0.01em;
+  line-height: var(--line-normal);
 }
 
 /* Tokens de campos provistos por @simple/config/tokens.css */
@@ -112,6 +165,7 @@ html, body {
 
 /* Links */
 .link-base { display:inline-flex; align-items:center; font-weight:500; transition:color 0.2s, background-color 0.2s, transform 0.26s; border-radius:6px; }
+.link-base:hover { color: var(--color-primary); }
 .link-plain { color:var(--text); }
 .link-primary { background:var(--color-primary); color:var(--color-on-primary); padding:0.4rem 1rem; border-radius:9999px; }
 
@@ -216,12 +270,13 @@ html, body {
   Nueva base unificada Intent Cards
   Alineada a tailwind.config.js (primary + tokens light/dark)
   ========================== */
-.intent-card-base { position:relative; display:flex; flex-direction:column; align-items:center; text-align:center; gap:0.9rem; padding:1.6rem 1.25rem 1.5rem; border:1px solid theme('colors.lightborder'); background:theme('colors.lightcard'); color:theme('colors.lighttext'); border-radius:20px; box-shadow: theme('boxShadow.card'); transition:background .28s, border-color .28s, box-shadow .35s, transform .4s; cursor:pointer; user-select:none; }
-.dark .intent-card-base { background: theme('colors.darkcard'); border-color: theme('colors.darkborder'); color: theme('colors.darktext'); }
-.intent-card-base:hover { box-shadow: theme('boxShadow.card-hover'); transform:translateY(-2px); }
+.intent-card-base { position:relative; display:flex; flex-direction:column; align-items:center; text-align:center; gap:0.9rem; padding:1.6rem 1.25rem 1.5rem; border:0; background:theme('colors.lightcard'); color:theme('colors.lighttext'); border-radius:20px; box-shadow: theme('boxShadow.card'); transition:background .28s, border-color .28s, box-shadow .35s, transform .4s; cursor:pointer; user-select:none; }
+.dark .intent-card-base { background: theme('colors.darkcard'); color: theme('colors.darktext'); }
+.intent-card-base:hover { box-shadow: theme('boxShadow.card-hover'); transform:translateY(-2px); background: var(--color-primary-a05); }
+.dark .intent-card-base:hover { background: var(--color-primary-a10); }
 .intent-card-base:focus-visible { outline:2px solid var(--color-primary); outline-offset:3px; }
-.intent-card-base-selected { border-color: var(--color-border-strong); background: var(--card-bg); box-shadow: theme('boxShadow.card-hover'); }
-.dark .intent-card-base-selected { background: var(--surface-3); border-color: var(--color-border-strong); }
+.intent-card-base-selected { background: var(--card-bg); box-shadow: theme('boxShadow.card-hover'); }
+.dark .intent-card-base-selected { background: var(--surface-3); }
 .intent-card-base-icon { width:56px; height:56px; border-radius:16px; background: var(--field-bg); color: var(--text-primary); display:flex; align-items:center; justify-content:center; transition:background .3s,color .3s, transform .45s; }
 .dark .intent-card-base-icon { background: var(--surface-neutral-hover); color: var(--text-primary); }
 .intent-card-base:hover .intent-card-base-icon { transform:translateY(-2px); }
@@ -257,6 +312,8 @@ a { color: inherit; text-decoration: none; }
   border: 0;
   border-radius: var(--card-radius);
   box-shadow: var(--card-shadow);
+  --tw-ring-color: transparent;
+  --tw-ring-shadow: 0 0 #0000;
 }
 
 .card-surface-raised {
@@ -264,6 +321,8 @@ a { color: inherit; text-decoration: none; }
   border: 0;
   border-radius: var(--card-radius);
   box-shadow: var(--card-shadow);
+  --tw-ring-color: transparent;
+  --tw-ring-shadow: 0 0 #0000;
 }
 
 .card-glass {
@@ -343,6 +402,33 @@ a { color: inherit; text-decoration: none; }
 /* Animación sutil de entrada para listas (stagger manual aplicable con delay-[X] utilities) */
 @keyframes fade-up-soft { 0% { opacity:0; transform: translateY(6px); } 100% { opacity:1; transform: translateY(0);} }
 .animate-fade-up-soft { animation: fade-up-soft 420ms var(--ease-standard); }
+.wizard-stagger-0 { animation-delay: 0ms; }
+.wizard-stagger-1 { animation-delay: 50ms; }
+.wizard-stagger-2 { animation-delay: 100ms; }
+.wizard-stagger-3 { animation-delay: 150ms; }
+.wizard-stagger-4 { animation-delay: 200ms; }
+.wizard-stagger-5 { animation-delay: 250ms; }
+.bar-h-0 { height: 0%; }
+.bar-h-5 { height: 5%; }
+.bar-h-10 { height: 10%; }
+.bar-h-15 { height: 15%; }
+.bar-h-20 { height: 20%; }
+.bar-h-25 { height: 25%; }
+.bar-h-30 { height: 30%; }
+.bar-h-35 { height: 35%; }
+.bar-h-40 { height: 40%; }
+.bar-h-45 { height: 45%; }
+.bar-h-50 { height: 50%; }
+.bar-h-55 { height: 55%; }
+.bar-h-60 { height: 60%; }
+.bar-h-65 { height: 65%; }
+.bar-h-70 { height: 70%; }
+.bar-h-75 { height: 75%; }
+.bar-h-80 { height: 80%; }
+.bar-h-85 { height: 85%; }
+.bar-h-90 { height: 90%; }
+.bar-h-95 { height: 95%; }
+.bar-h-100 { height: 100%; }
 
 /* Prefiere reduced motion */
 @media (prefers-reduced-motion: reduce) {

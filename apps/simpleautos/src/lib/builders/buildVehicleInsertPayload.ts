@@ -1,5 +1,4 @@
 ﻿import { legacyToCanon } from '../../types/vehicle';
-import { toEnglish, visibilityMap } from '../vehicleTranslations';
 
 interface BuildOptions {
   state: any;

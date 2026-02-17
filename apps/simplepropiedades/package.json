@@ -18,7 +18,8 @@
     "@simple/panel": "*",
     "@simple/profile": "*",
     "@simple/ui": "*",
-    "dotenv": "^16.4.7"
+    "dotenv": "^16.4.7",
+    "framer-motion": "^12.23.24"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3.2.0",

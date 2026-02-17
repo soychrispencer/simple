@@ -12,3 +12,6 @@ export * from './properties';
 
 // Tipos del panel (sidebar/dashboard/manifests)
 export * from './panel';
+
+// Tipos de UI compartidos (header, permisos livianos)
+export * from './ui';

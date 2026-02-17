@@ -41,9 +41,11 @@ import {
   DropdownLabel,
   FormSelect,
 } from "../ui";
-import { verticalThemes, type VerticalName } from "@simple/config";
+import { type VerticalName } from "@simple/config";
+import type { HeaderUser, HeaderUserPermissions } from "@simple/shared-types";
 import { useOptionalAuth } from "@simple/auth";
 import { useAvatarUrl } from "../../lib/storage";
+import { cn } from "../../lib/cn";
 import type { PanelManifest, PanelModuleStatus, PanelSidebarItem } from "../panel/panelManifest";
 import { useVerticalContext } from "../panel/useVerticalContext";
 import { getPanelIcon } from "../panel/panelIconMap";
@@ -66,7 +68,7 @@ export interface BrandLogoConfig {
 
 export interface HeaderProps {
   vertical: VerticalName;
-  user?: any;
+  user?: HeaderUser | null;
   loading?: boolean;
   navItems?: NavItem[];
   onAuthClick?: () => void;
@@ -77,9 +79,9 @@ export interface HeaderProps {
   rightActions?: React.ReactNode;
   showNotifications?: boolean;
   panelManifest?: PanelManifest;
-  AuthModalComponent?: React.ComponentType<any>;
-  NotificationComponent?: React.ComponentType<any>;
-  getAvatarUrl?: (user: any) => string;
+  AuthModalComponent?: React.ComponentType<{ open: boolean; mode?: string; onClose: () => void }>;
+  NotificationComponent?: React.ComponentType;
+  getAvatarUrl?: (user: HeaderUser | null) => string;
   brandLogo?: BrandLogoConfig;
 }
 
@@ -108,7 +110,6 @@ export function Header({
   const headerRef = useRef<HTMLElement | null>(null);
   const router = useRouter();
   const pathname = usePathname();
-  const theme = verticalThemes[vertical];
   const { setTheme, resolvedTheme } = useTheme();
   const auth = useOptionalAuth();
   const autoAvatarResolver = useAvatarUrl();
@@ -118,11 +119,11 @@ export function Header({
   );
 
   const brandIcons: Record<VerticalName, React.ReactNode> = {
-    admin: <IconLayoutDashboard size={22} stroke={1.8} className="text-black" />,
-    autos: <IconCar size={22} stroke={1.8} className="text-black" />,
-    properties: <IconBuilding size={22} stroke={1.8} className="text-black" />,
-    stores: <IconShoppingBag size={22} stroke={1.8} className="text-black" />,
-    food: <IconChefHat size={22} stroke={1.8} className="text-black" />,
+    admin: <IconLayoutDashboard size={22} stroke={1.8} className="text-primary" />,
+    autos: <IconCar size={22} stroke={1.8} className="text-primary" />,
+    properties: <IconBuilding size={22} stroke={1.8} className="text-primary" />,
+    stores: <IconShoppingBag size={22} stroke={1.8} className="text-primary" />,
+    food: <IconChefHat size={22} stroke={1.8} className="text-primary" />,
   };
 
   const brandNameParts: Record<VerticalName, { prefix: string; suffix: string }> = {
@@ -132,14 +133,6 @@ export function Header({
     stores: { prefix: "Simple", suffix: "Tiendas" },
     food: { prefix: "Simple", suffix: "Food" },
   };
-  const brandTitles: Record<VerticalName, string> = {
-    admin: "SimpleAdmin",
-    autos: "SimpleAutos",
-    properties: "SimplePropiedades",
-    stores: "SimpleTiendas",
-    food: "SimpleFood",
-  };
-
   const defaultNavItems: Record<VerticalName, NavItem[]> = {
     admin: [
       { label: "SimpleAutos", href: "/autos", icon: IconCar },
@@ -253,12 +246,12 @@ export function Header({
 
   return (
     <>
-      <header ref={headerRef} className="w-full bg-transparent shadow-none relative z-[100]">
-        <div className="w-full px-4 md:px-8 py-1">
+      <header ref={headerRef} className="w-full relative z-[100] bg-transparent shadow-none">
+        <div className="w-full px-4 md:px-8 py-1 bg-transparent">
           <div className="relative w-full h-[56px] md:h-[64px] flex items-center px-4 gap-4">
             <Link
               href="/"
-              className="flex items-center gap-2 font-bold text-lg z-10 ml-1 md:ml-2 link-base link-plain"
+              className="flex items-center gap-0.5 z-10 ml-1 md:ml-2 link-base link-plain"
             >
               {brandLogoSrc && !brandLogoLoadError ? (
                 <>
@@ -271,21 +264,21 @@ export function Header({
                     priority
                     onError={() => setBrandLogoLoadError(true)}
                   />
-                  <span className="select-none text-lg leading-8 font-bold tracking-tight text-lighttext dark:text-darktext whitespace-nowrap">
-                    {brandTitles[vertical]}
+                  <span className="select-none type-brand text-lighttext dark:text-darktext whitespace-nowrap">
+                    <span className="font-normal tracking-tight">{brandNameParts[vertical].prefix}</span>
+                    <span className="font-bold tracking-tight">{brandNameParts[vertical].suffix}</span>
                   </span>
                 </>
               ) : (
                 <>
                   <span
-                    className="flex items-center justify-center w-9 h-9 rounded-full shadow-card ring-2 ring-[color:var(--overlay-highlight-80)] ring-offset-2 ring-offset-transparent"
-                    style={{ backgroundColor: theme.primary }}
+                    className="flex items-center justify-center w-12 h-12 rounded-full shadow-card bg-[var(--field-bg)] ring-1 ring-[var(--field-border)]"
                   >
                     <span className="flex items-center justify-center" aria-hidden>
                       {brandIcons[vertical]}
                     </span>
                   </span>
-                  <span className="select-none text-lg leading-8 text-lighttext dark:text-darktext whitespace-nowrap">
+                  <span className="select-none type-brand text-lighttext dark:text-darktext whitespace-nowrap">
                     <span className="font-normal tracking-tight">{brandNameParts[vertical].prefix}</span>
                     <span className="font-bold tracking-tight">{brandNameParts[vertical].suffix}</span>
                   </span>
@@ -294,7 +287,7 @@ export function Header({
             </Link>
 
               <nav className="hidden lg:flex gap-6 absolute left-0 right-0 justify-center pointer-events-none">
-                <div className="flex gap-6 pointer-events-auto" style={{ ['--nav-hover' as any]: theme.primary }}>
+                <div className="flex gap-6 pointer-events-auto">
                   {navItems.map((item) => (
                     (() => {
                       const currentPath = pathname ?? "";
@@ -304,10 +297,10 @@ export function Header({
                     <Link
                       key={item.label}
                       href={item.href}
-                      className={[
-                        "text-[var(--text-primary)] font-medium text-base transition-colors duration-200 flex items-center gap-2 hover:text-[var(--nav-hover)]",
-                        isActive ? "text-[var(--nav-hover)]" : "",
-                      ].join(" ").trim()}
+                      className={cn(
+                        "text-[var(--text-primary)] text-[0.98rem] font-medium tracking-tight transition-colors duration-200 flex items-center gap-2 hover:text-primary",
+                        isActive && "text-primary"
+                      )}
                     >
                       <item.icon size={18} stroke={1.5} />
                       {item.label}
@@ -339,7 +332,6 @@ export function Header({
                   user={user}
                   logout={handleLogout}
                   getAvatarUrl={resolvedGetAvatarUrl}
-                  theme={theme}
                   vertical={vertical}
                   onPublishClick={handlePublish}
                   publishLabel={publishLabel}
@@ -383,7 +375,7 @@ export function Header({
 
           {showMobileMenu && (
             <div className="lg:hidden mt-2 rounded-2xl bg-lightcard dark:bg-darkcard shadow-card border border-lightborder/70 dark:border-darkborder/50 overflow-visible animate-fadeInSlide">
-              <nav className="p-4" style={{ ['--nav-hover' as any]: theme.primary }}>
+              <nav className="p-4">
                 <div className="space-y-2">
                   {navItems.map((item) => (
                     (() => {
@@ -395,13 +387,13 @@ export function Header({
                       key={item.label}
                       href={item.href}
                       onClick={() => setShowMobileMenu(false)}
-                      className={[
-                        "flex items-center gap-3 px-4 py-3 text-[var(--text-primary)] rounded-lg transition-colors duration-200 hover:text-[var(--nav-hover)] hover:bg-lightbg/80 dark:hover:bg-darkbg/60",
-                        isActive ? "text-[var(--nav-hover)]" : "",
-                      ].join(" ").trim()}
+                      className={cn(
+                        "flex items-center gap-3 px-4 py-3 text-[var(--text-primary)] rounded-lg transition-colors duration-200 hover:text-primary hover:bg-[var(--field-bg-hover)]",
+                        isActive && "text-primary"
+                      )}
                     >
                       <item.icon size={20} stroke={1.5} />
-                      <span className="font-medium">{item.label}</span>
+                      <span className="type-body-md font-medium">{item.label}</span>
                     </Link>
                       );
                     })()
@@ -415,10 +407,10 @@ export function Header({
                       <Link
                         href="/panel"
                         onClick={() => setShowMobileMenu(false)}
-                        className="flex items-center gap-3 px-4 py-3 text-[var(--text-primary)] rounded-lg transition-colors duration-200 hover:text-[var(--nav-hover)] hover:bg-lightbg/80 dark:hover:bg-darkbg/60"
+                        className="flex items-center gap-3 px-4 py-3 text-[var(--text-primary)] rounded-lg transition-colors duration-200 hover:text-primary hover:bg-[var(--field-bg-hover)]"
                       >
                         <IconLayoutDashboard size={20} stroke={1.5} />
-                        <span className="font-medium">{panelLabel}</span>
+                        <span className="type-body-md font-medium">{panelLabel}</span>
                       </Link>
                     </div>
                   </>
@@ -434,10 +426,10 @@ export function Header({
                         setShowMobileMenu(false);
                         handlePublish();
                       }}
-                      className="w-full flex items-center gap-3 px-4 py-3 text-[var(--text-primary)] rounded-lg transition-colors duration-200 hover:text-[var(--nav-hover)] hover:bg-lightbg/80 dark:hover:bg-darkbg/60"
+                      className="w-full flex items-center gap-3 px-4 py-3 text-[var(--text-primary)] rounded-lg transition-colors duration-200 hover:text-primary hover:bg-[var(--field-bg-hover)]"
                     >
                       <IconPlus size={20} stroke={1.5} />
-                      <span className="font-medium">{publishButtonText[vertical].full}</span>
+                      <span className="type-body-md font-medium">{publishButtonText[vertical].full}</span>
                     </button>
                   )}
 
@@ -446,21 +438,21 @@ export function Header({
                     onClick={() => {
                       toggleTheme();
                     }}
-                    className="w-full flex items-center gap-3 px-4 py-3 text-[var(--text-primary)] rounded-lg transition-colors duration-200 hover:text-[var(--nav-hover)] hover:bg-lightbg/80 dark:hover:bg-darkbg/60"
-                  >
+                    className="w-full flex items-center gap-3 px-4 py-3 text-[var(--text-primary)] rounded-lg transition-colors duration-200 hover:text-primary hover:bg-[var(--field-bg-hover)]"
+                    >
                     {(themeMounted && resolvedTheme === "dark") ? (
                       <IconSun size={20} stroke={1.5} />
                     ) : (
                       <IconMoon size={20} stroke={1.5} />
                     )}
-                    <span className="font-medium">Tema</span>
+                    <span className="type-body-md font-medium">Tema</span>
                   </button>
 
                   {vertical === "autos" ? (
                     <div className="px-4 py-3 text-[var(--text-primary)] rounded-lg bg-lightbg/60 dark:bg-darkbg/40">
                       <div className="flex items-center gap-3">
                         <IconCurrencyDollar size={20} stroke={1.5} />
-                        <span className="font-medium">Moneda</span>
+                        <span className="type-body-md font-medium">Moneda</span>
                       </div>
                       <div className="mt-2">
                         <MobileCurrencyPicker onSelected={() => setShowMobileMenu(false)} />
@@ -472,7 +464,7 @@ export function Header({
                     <div className="flex items-center justify-between gap-3 px-4 py-3 text-[var(--text-primary)] rounded-lg bg-lightbg/60 dark:bg-darkbg/40">
                       <div className="flex items-center gap-3">
                         <IconBell size={20} stroke={1.5} />
-                        <span className="font-medium">Notificaciones</span>
+                        <span className="type-body-md font-medium">Notificaciones</span>
                       </div>
                       {NotificationComponent ? (
                         <NotificationComponent />
@@ -521,7 +513,7 @@ function ThemeToggle() {
 function CurrencyToggle() {
   const { currency, setCurrency } = useDisplayCurrency();
 
-  const dropdownHoverNoBgClass = "hover:text-primary";
+  const dropdownHoverNoBgClass = "hover:text-primary hover:bg-[var(--field-bg-hover)]";
 
   const options = useMemo(
     () => [
@@ -561,7 +553,6 @@ function CurrencyToggle() {
                     ? "text-primary bg-[var(--color-primary-a10)]"
                     : dropdownHoverNoBgClass
                 }
-                disableHoverBg
                 onClick={() => setCurrency(opt.code)}
                 aria-pressed={isActive}
               >
@@ -601,25 +592,25 @@ function MobileCurrencyPicker({ onSelected }: { onSelected?: () => void }) {
 }
 
 interface UserMenuProps {
-  user: any;
+  user: HeaderUser;
   logout: () => Promise<void>;
-  getAvatarUrl?: (user: any) => string;
-  theme: any;
+  getAvatarUrl?: (user: HeaderUser | null) => string;
   vertical: VerticalName;
   onPublishClick: () => void;
   publishLabel: string;
   panelManifest?: PanelManifest;
 }
 
-function UserMenu({ user, logout, getAvatarUrl, theme, vertical, onPublishClick, publishLabel, panelManifest }: UserMenuProps) {
+function UserMenu({ user, logout, getAvatarUrl, vertical, onPublishClick, publishLabel, panelManifest }: UserMenuProps) {
   const router = useRouter();
   const pathname = usePathname();
   const [menuOpen, setMenuOpen] = React.useState(false);
+  const [avatarLoadFailed, setAvatarLoadFailed] = React.useState(false);
 
-  const dropdownHoverNoBgClass = "hover:text-primary";
+  const dropdownHoverNoBgClass = "hover:text-primary hover:bg-[var(--field-bg-hover)]";
 
   const { currentCompany } = useVerticalContext(vertical);
-  const permissions = (currentCompany?.permissions ?? null) as Record<string, any> | null;
+  const permissions = (currentCompany?.permissions ?? null) as HeaderUserPermissions | null;
 
   const hiddenStatuses: PanelModuleStatus[] = ["planned", "deprecated"];
 
@@ -645,9 +636,11 @@ function UserMenu({ user, logout, getAvatarUrl, theme, vertical, onPublishClick,
     }
 
     if (typeof bucket === "object") {
-      if (bucket[action] === true) return true;
-      if (Array.isArray(bucket.actions)) {
-        return bucket.actions.includes(action);
+      const bucketRecord = bucket as Record<string, unknown>;
+      if (bucketRecord[action] === true) return true;
+      const actions = bucketRecord.actions;
+      if (Array.isArray(actions)) {
+        return actions.includes(action);
       }
     }
 
@@ -691,7 +684,11 @@ function UserMenu({ user, logout, getAvatarUrl, theme, vertical, onPublishClick,
     food: IconChefHat,
   }[vertical];
 
-  const avatarSrc = user && getAvatarUrl ? getAvatarUrl(user) : undefined;
+  const avatarSrc = getAvatarUrl ? getAvatarUrl(user) : undefined;
+
+  React.useEffect(() => {
+    setAvatarLoadFailed(false);
+  }, [avatarSrc]);
 
   const displayName = React.useMemo(() => {
     const asTrimmedString = (value: unknown): string | null => {
@@ -759,7 +756,6 @@ function UserMenu({ user, logout, getAvatarUrl, theme, vertical, onPublishClick,
                   ? "text-primary bg-[var(--color-primary-a10)] hover:bg-[var(--color-primary-a10)]"
                   : dropdownHoverNoBgClass
               }
-              disableHoverBg={!isActive}
               leftIcon={leftIcon}
               onClick={() => goTo(item.href)}
             >
@@ -789,7 +785,6 @@ function UserMenu({ user, logout, getAvatarUrl, theme, vertical, onPublishClick,
               ? "text-primary bg-[var(--color-primary-a10)] hover:bg-[var(--color-primary-a10)]"
               : dropdownHoverNoBgClass
           }
-          disableHoverBg={(pathname ?? "") !== "/resumen"}
           leftIcon={<IconLayoutDashboard size={18} stroke={1.5} />}
           onClick={() => goTo("/resumen")}
         >
@@ -801,7 +796,6 @@ function UserMenu({ user, logout, getAvatarUrl, theme, vertical, onPublishClick,
               ? "text-primary bg-[var(--color-primary-a10)] hover:bg-[var(--color-primary-a10)]"
               : dropdownHoverNoBgClass
           }
-          disableHoverBg={!( (pathname ?? "") === "/panel/perfil" || (pathname ?? "").startsWith("/panel/perfil/") )}
           leftIcon={<IconUser size={18} stroke={1.5} />}
           onClick={() => goTo("/panel/perfil")}
         >
@@ -814,17 +808,13 @@ function UserMenu({ user, logout, getAvatarUrl, theme, vertical, onPublishClick,
               ? "text-primary bg-[var(--color-primary-a10)] hover:bg-[var(--color-primary-a10)]"
               : dropdownHoverNoBgClass
           }
-          disableHoverBg={!(
-            (pathname ?? "") === (fallbackListingsHref[vertical] ?? "/panel/publicaciones") ||
-            (pathname ?? "").startsWith(`${fallbackListingsHref[vertical] ?? "/panel/publicaciones"}/`)
-          )}
           leftIcon={<DefaultMenuIcon size={18} stroke={1.5} />}
           onClick={() => goTo(fallbackListingsHref[vertical] ?? "/panel/publicaciones")}
         >
           Publicaciones
         </DropdownItem>
         <DropdownSeparator />
-        <DropdownItem className={`text-primary ${dropdownHoverNoBgClass}`} disableHoverBg leftIcon={<IconPlus size={18} stroke={1.5} />} onClick={onPublishClick}>
+        <DropdownItem className={`text-primary ${dropdownHoverNoBgClass}`} leftIcon={<IconPlus size={18} stroke={1.5} />} onClick={onPublishClick}>
           {publishLabel}
         </DropdownItem>
       </>
@@ -841,16 +831,14 @@ function UserMenu({ user, logout, getAvatarUrl, theme, vertical, onPublishClick,
       <div id="user-menu" className="relative flex items-center h-full">
         <DropdownTrigger asChild>
           <CircleButton aria-label="Menú de usuario" size={40} variant="default" className="relative overflow-hidden">
-            {avatarSrc ? (
+            {avatarSrc && !avatarLoadFailed ? (
               <Image
                 src={avatarSrc}
                 alt="Avatar"
                 fill
                 sizes="40px"
                 className="object-cover object-center"
-                onError={(e) => {
-                  (e.currentTarget as HTMLImageElement).style.display = "none";
-                }}
+                onError={() => setAvatarLoadFailed(true)}
                 priority={false}
               />
             ) : (
@@ -880,7 +868,6 @@ function UserMenu({ user, logout, getAvatarUrl, theme, vertical, onPublishClick,
                     ? "text-primary bg-[var(--color-primary-a10)] hover:bg-[var(--color-primary-a10)]"
                     : dropdownHoverNoBgClass
                 }
-                disableHoverBg={(pathname ?? "") !== `/perfil/${user.username}`}
                 leftIcon={<IconUser size={18} stroke={1.5} />}
                 onClick={() => goTo(`/perfil/${user.username}`)}
               >
@@ -901,3 +888,5 @@ function UserMenu({ user, logout, getAvatarUrl, theme, vertical, onPublishClick,
 }
 
 export default Header;
+
+

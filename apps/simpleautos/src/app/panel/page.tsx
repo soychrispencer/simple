@@ -359,12 +359,12 @@ export default function PanelHome() {
       <div className="card-surface shadow-card p-6">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <h3 className="font-semibold text-lighttext dark:text-darktext">Tus publicaciones</h3>
-            <p className="text-xs text-lighttext/70 dark:text-darktext/70">Lo esencial para tomar decisiones rápido.</p>
+            <h3 className="type-title-3 text-lighttext dark:text-darktext">Tus publicaciones</h3>
+            <p className="type-body-sm text-lighttext/70 dark:text-darktext/70">Lo esencial para tomar decisiones rápido.</p>
           </div>
           <div className="flex items-center gap-2">
-            <Button variant="outline" size="sm" onClick={() => router.push("/panel/mis-publicaciones")}>Ver publicaciones</Button>
-            <Button variant="primary" size="sm" onClick={() => router.push("/panel/publicar-vehiculo?new=1")}>Publicar</Button>
+            <Button variant="outline" size="md" onClick={() => router.push("/panel/mis-publicaciones")}>Ver publicaciones</Button>
+            <Button variant="primary" size="md" onClick={() => router.push("/panel/publicar-vehiculo?new=1")}>Publicar</Button>
           </div>
         </div>
 
@@ -376,8 +376,8 @@ export default function PanelHome() {
             { label: "Borradores", value: kpiStats.drafts },
           ].map((stat) => (
             <div key={stat.label} className="card-inset p-4">
-              <div className="text-xs uppercase tracking-wide text-lighttext/70 dark:text-darktext/70">{stat.label}</div>
-              <div className="text-2xl font-semibold text-lighttext dark:text-darktext">{loading ? "..." : stat.value}</div>
+              <div className="type-label text-lighttext/70 dark:text-darktext/70">{stat.label}</div>
+              <div className="mt-1 type-kpi text-lighttext dark:text-darktext">{loading ? "..." : stat.value}</div>
             </div>
           ))}
         </div>
@@ -386,19 +386,19 @@ export default function PanelHome() {
       <section className="grid grid-cols-1 lg:grid-cols-2 gap-4 mt-4">
         <div className="card-surface shadow-card p-6">
           <div className="flex items-center justify-between">
-            <h3 className="font-semibold text-lighttext dark:text-darktext">Lo importante</h3>
-            <span className="text-xs text-lighttext/60 dark:text-darktext/60">Resumen del panel</span>
+            <h3 className="type-title-4 text-lighttext dark:text-darktext">Lo importante</h3>
+            <span className="type-caption text-lighttext/60 dark:text-darktext/60">Resumen del panel</span>
           </div>
 
           <div className="mt-4">
-            <div className="text-xs uppercase tracking-wide text-lighttext/60 dark:text-darktext/60 mb-2">Próximos pasos</div>
+            <div className="type-label text-lighttext/60 dark:text-darktext/60 mb-2">Próximos pasos</div>
             {pendingSteps.length === 0 ? (
-              <div className="text-sm text-lighttext/70 dark:text-darktext/70">Todo listo por ahora.</div>
+              <div className="type-body-md text-lighttext/70 dark:text-darktext/70">Todo listo por ahora.</div>
             ) : (
               <div className="divide-y divide-lightborder/10 dark:divide-darkborder/10">
                 {pendingSteps.map((step) => (
                   <div key={step.id} className="py-3 flex items-center justify-between gap-3">
-                    <div className="text-sm font-medium text-lighttext dark:text-darktext">{step.label}</div>
+                    <div className="type-body-md font-medium text-lighttext dark:text-darktext">{step.label}</div>
                     <Button size="sm" variant="outline" onClick={() => router.push(step.href)}>{step.actionLabel}</Button>
                   </div>
                 ))}
@@ -409,13 +409,13 @@ export default function PanelHome() {
 
         <div className="card-surface shadow-card p-6">
           <div className="flex items-center justify-between">
-            <h3 className="font-semibold text-lighttext dark:text-darktext">Publicaciones recientes</h3>
-            <Link className="link-base link-plain text-sm" href="/panel/mis-publicaciones">Ver todas</Link>
+            <h3 className="type-title-4 text-lighttext dark:text-darktext">Publicaciones recientes</h3>
+            <Link className="link-base link-plain type-body-md font-medium" href="/panel/mis-publicaciones">Ver todas</Link>
           </div>
-          <p className="mt-1 text-xs text-lighttext/70 dark:text-darktext/70">Actividad reciente y métricas clave.</p>
+          <p className="mt-1 type-body-sm text-lighttext/70 dark:text-darktext/70">Actividad reciente y métricas clave.</p>
 
           {!mounted || loading || recientes.length === 0 ? (
-            <div className="mt-4 text-sm text-lighttext/80 dark:text-darktext/80">
+            <div className="mt-4 type-body-md text-lighttext/80 dark:text-darktext/80">
               {loading ? "Cargando..." : "Aún no tienes publicaciones."}
             </div>
           ) : (
@@ -432,12 +432,12 @@ export default function PanelHome() {
 
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 min-w-0">
-                      <div className="font-semibold text-lighttext dark:text-darktext truncate">{i.titulo}</div>
+                      <div className="type-body-md font-semibold text-lighttext dark:text-darktext truncate">{i.titulo}</div>
                       <span className={`text-[11px] px-2 py-0.5 rounded-full ${getStatusChipClasses(i.estadoKey)}`}>
                         {i.estado}
                       </span>
                     </div>
-                    <div className="mt-1 text-xs text-lighttext/70 dark:text-darktext/70">
+                    <div className="mt-1 type-caption text-lighttext/70 dark:text-darktext/70">
                       <span className="font-medium text-lighttext dark:text-darktext">${i.precio}</span>
                       <span className="mx-2">·</span>
                       <span className="inline-flex items-center gap-1">

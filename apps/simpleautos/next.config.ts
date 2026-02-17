@@ -1,4 +1,5 @@
 import type { NextConfig } from "next";
+import path from "node:path";
 
 const SUPABASE_PROJECT = process.env.NEXT_PUBLIC_SUPABASE_URL?.replace(/^https?:\/\//, '') || '';
 const transpiledPackages = [
@@ -12,6 +13,8 @@ const transpiledPackages = [
 ];
 
 const nextConfig: NextConfig = {
+  output: "standalone",
+  outputFileTracingRoot: path.join(__dirname, "../../"),
   // Desactivar React StrictMode temporalmente para debug multi-tab
   reactStrictMode: false,
   transpilePackages: transpiledPackages,
@@ -66,11 +69,11 @@ const nextConfig: NextConfig = {
             key: 'Content-Security-Policy',
             value: [
               "default-src 'self'",
-              "script-src 'self' 'unsafe-inline' 'unsafe-eval' *.vercel-analytics.com *.supabase.co",
+              "script-src 'self' 'unsafe-inline' 'unsafe-eval' *.supabase.co",
               "style-src 'self' 'unsafe-inline' fonts.googleapis.com",
               "font-src 'self' fonts.gstatic.com data:",
               "img-src 'self' data: blob: https: *.supabase.co",
-              "connect-src 'self' *.supabase.co *.vercel-analytics.com wss://*.supabase.co",
+              "connect-src 'self' *.supabase.co wss://*.supabase.co",
               "frame-src 'self' https://www.youtube.com https://youtube.com https://www.youtube-nocookie.com https://player.vimeo.com",
               "object-src 'none'",
               "base-uri 'self'",

@@ -154,10 +154,9 @@ export default function Select({ label, options, value, onChange, error, placeho
         >
           <span className={selected ? 'flex items-center gap-2' : 'text-[var(--text-secondary)]'}>
             {selected && colorHexMap && colorHexMap[String(selected.value)] && (
-              <span
-                className="inline-block w-3 h-3 rounded-full"
-                style={{ backgroundColor: colorHexMap[String(selected.value)] }}
-              />
+              <svg className="w-3 h-3 shrink-0" viewBox="0 0 12 12" aria-hidden>
+                <circle cx="6" cy="6" r="5" fill={colorHexMap[String(selected.value)]} />
+              </svg>
             )}
             {selected ? selected.label : (placeholder || 'Selecciona una opción')}
           </span>
@@ -199,10 +198,9 @@ export default function Select({ label, options, value, onChange, error, placeho
                   }}
                 >
                   {hex && (
-                    <span
-                      className="inline-block w-3 h-3 rounded-full"
-                      style={{ backgroundColor: hex }}
-                    />
+                    <svg className="w-3 h-3 shrink-0" viewBox="0 0 12 12" aria-hidden>
+                      <circle cx="6" cy="6" r="5" fill={hex} />
+                    </svg>
                   )}
                   {opt.label}
                 </li>

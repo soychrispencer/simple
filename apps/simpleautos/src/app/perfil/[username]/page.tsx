@@ -506,7 +506,7 @@ export default function PublicProfilePage() {
     <>
       <div className="w-full px-4 md:px-8">
           {/* Hero Portada Modernizado */}
-        <section className="relative w-full aspect-[32/10] md:aspect-[32/9] overflow-hidden group card-surface shadow-card" style={{ borderRadius: 'var(--card-radius)' }}>
+        <section className="relative w-full aspect-[32/10] md:aspect-[32/9] overflow-hidden group card-surface shadow-card rounded-[var(--card-radius)]">
           {/* Imagen */}
           {profile.cover_url ? (
             <Image

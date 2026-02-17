@@ -1,5 +1,5 @@
 ﻿"use client";
-import React, { useCallback, useRef, useState } from 'react';
+import React, { useCallback, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useWizard } from '../context/WizardContext';
 import { validateStepData } from '../schemas';
@@ -23,7 +23,6 @@ import {
   useSortable,
   arrayMove,
 } from '@dnd-kit/sortable';
-import { CSS } from '@dnd-kit/utilities';
 
 const dropZoneBase = "flex flex-col items-center justify-center gap-2 border-2 border-dashed rounded-lg p-8 text-center transition cursor-pointer card-surface shadow-card hover:border-[var(--color-primary-a50)]";
 
@@ -71,18 +70,14 @@ function normalizeImages(list: LocalImage[]): LocalImage[] {
 
 function SortableMediaItem({
   img,
-  index,
-  total,
   onRemove,
   onSetMain,
 }: {
   img: LocalImage;
-  index: number;
-  total: number;
   onRemove: (id: string) => void;
   onSetMain: (id: string) => void;
 }) {
-  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
+  const { attributes, listeners, setNodeRef, isDragging } = useSortable({
     id: img.id,
   });
 
@@ -91,17 +86,10 @@ function SortableMediaItem({
     e.stopPropagation();
   };
 
-  const style: React.CSSProperties = {
-    transform: CSS.Transform.toString(transform),
-    transition,
-    opacity: isDragging ? 0.85 : 1,
-  };
-
   return (
     <li
       ref={setNodeRef}
-      style={{ ...style, touchAction: img.main ? undefined : 'none' }}
-      className="relative group"
+      className={`relative group transition-opacity ${img.main ? 'touch-auto' : 'touch-none'} ${isDragging ? 'opacity-90' : 'opacity-100'}`}
       {...dragProps}
     >
       <div
@@ -162,7 +150,7 @@ const StepMedia: React.FC = () => {
   const { state, patch, setStep } = useWizard();
   const router = useRouter();
   const images = state.media.images as LocalImage[];
-  const documents = (state.media.documents || []) as LocalDocument[];
+  const documents = useMemo(() => (state.media.documents || []) as LocalDocument[], [state.media.documents]);
   const videoUrl = state.media.video_url || '';
   const maxImages = getMaxImagesPerListing({ vertical: 'autos', vehicleTypeKey: state.vehicle.type_key });
   const inputRef = useRef<HTMLInputElement | null>(null);
@@ -406,12 +394,10 @@ const StepMedia: React.FC = () => {
           <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onDragEnd}>
             <SortableContext items={images.map((i) => i.id)} strategy={rectSortingStrategy}>
               <ul className="grid sm:grid-cols-3 md:grid-cols-4 gap-4">
-                {images.map((img, i) => (
+                {images.map((img) => (
                   <SortableMediaItem
                     key={img.id}
                     img={img}
-                    index={i}
-                    total={images.length}
                     onRemove={removeImage}
                     onSetMain={setMain}
                   />

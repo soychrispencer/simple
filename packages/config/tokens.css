@@ -1,72 +1,4 @@
-@font-face {
-  font-family: 'Urbane Rounded';
-  src: local('Urbane Rounded Thin'), local('UrbaneRounded-Thin'),
-    url('/brand/font/UrbaneRounded-Thin.woff2') format('woff2'),
-    url('/brand/font/UrbaneRounded-Thin.woff') format('woff');
-  font-style: normal;
-  font-weight: 100;
-  font-display: swap;
-}
-
-@font-face {
-  font-family: 'Urbane Rounded';
-  src: local('Urbane Rounded Extra Light'), local('UrbaneRounded-ExtraLight'),
-    url('/brand/font/UrbaneRounded-ExtraLight.woff2') format('woff2'),
-    url('/brand/font/UrbaneRounded-ExtraLight.woff') format('woff');
-  font-style: normal;
-  font-weight: 200;
-  font-display: swap;
-}
-
-@font-face {
-  font-family: 'Urbane Rounded';
-  src: local('Urbane Rounded Light'), local('UrbaneRounded-Light'),
-    url('/brand/font/UrbaneRounded-Light.woff2') format('woff2'),
-    url('/brand/font/UrbaneRounded-Light.woff') format('woff');
-  font-style: normal;
-  font-weight: 300;
-  font-display: swap;
-}
-
-@font-face {
-  font-family: 'Urbane Rounded';
-  src: local('Urbane Rounded Medium'), local('UrbaneRounded-Medium'),
-    url('/brand/font/UrbaneRounded-Medium.woff2') format('woff2'),
-    url('/brand/font/UrbaneRounded-Medium.woff') format('woff');
-  font-style: normal;
-  font-weight: 500;
-  font-display: swap;
-}
-
-@font-face {
-  font-family: 'Urbane Rounded';
-  src: local('Urbane Rounded Demi Bold'), local('UrbaneRounded-DemiBold'),
-    url('/brand/font/UrbaneRounded-DemiBold.woff2') format('woff2'),
-    url('/brand/font/UrbaneRounded-DemiBold.woff') format('woff');
-  font-style: normal;
-  font-weight: 600;
-  font-display: swap;
-}
-
-@font-face {
-  font-family: 'Urbane Rounded';
-  src: local('Urbane Rounded Bold'), local('UrbaneRounded-Bold'),
-    url('/brand/font/UrbaneRounded-Bold.woff2') format('woff2'),
-    url('/brand/font/UrbaneRounded-Bold.woff') format('woff');
-  font-style: normal;
-  font-weight: 700;
-  font-display: swap;
-}
-
-@font-face {
-  font-family: 'Urbane Rounded';
-  src: local('Urbane Rounded Heavy'), local('UrbaneRounded-Heavy'),
-    url('/brand/font/UrbaneRounded-Heavy.woff2') format('woff2'),
-    url('/brand/font/UrbaneRounded-Heavy.woff') format('woff');
-  font-style: normal;
-  font-weight: 800;
-  font-display: swap;
-}
+@import url("https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&display=swap");
 
 :root {
   /* Espaciado base */
@@ -95,13 +27,22 @@
   --font-size-xl: 1.46rem;
   --font-size-2xl: 1.83rem;
   --font-size-3xl: clamp(2.05rem, 2.95vw, 2.75rem);
+  --font-size-hero: clamp(2.15rem, 5.4vw, 3.75rem);
 
-  --font-sans: 'Urbane Rounded', 'Avenir Next Rounded', system-ui, sans-serif;
-  --font-display: 'Urbane Rounded', 'Avenir Next Rounded', system-ui, sans-serif;
+  --font-sans: 'Poppins', sans-serif;
+  --font-display: 'Poppins', sans-serif;
+  --font-weight-regular: 400;
+  --font-weight-medium: 500;
+  --font-weight-semibold: 600;
+  --font-weight-bold: 700;
+  --font-weight-extrabold: 800;
 
   --line-tight: 1.1;
   --line-snug: 1.25;
   --line-normal: 1.45;
+  --tracking-tight: -0.012em;
+  --tracking-title: -0.02em;
+  --tracking-label: 0.12em;
 
   /* Colores y superficies */
   --color-bg: #F8F8F8;
@@ -113,8 +54,8 @@
   --color-text: #0C0C0C;
   --color-text-soft: #5B5B5B;
   --color-text-faint: #8C8A84;
-  --color-primary: #FFB600;
-  --color-primary-rgb: 255 182 0;
+  --color-primary: #111111;
+  --color-primary-rgb: 17 17 17;
   --color-on-primary: #FFFFFF;
   --color-primary-a05: rgb(var(--color-primary-rgb) / 0.05);
   --color-primary-a10: rgb(var(--color-primary-rgb) / 0.10);
@@ -160,7 +101,7 @@
 
   /* Card tokens */
   --card-bg: var(--color-card);
-  --card-border: var(--color-border);
+  --card-border: transparent;
   --card-radius: var(--radius-xl);
   --card-shadow: var(--shadow-sm);
 
@@ -232,7 +173,7 @@
   --field-border-focus: #C7C9CE;
   --field-text: #0C0C0C;
   --field-placeholder: #8C8A84;
-  --field-focus-ring: var(--color-accent);
+  --field-focus-ring: var(--color-primary-a40);
   --field-invalid-border: #D92D20;
   --field-invalid-ring: #D92D20;
 }
@@ -322,7 +263,7 @@
   --field-invalid-ring: #F97066;
 
   --card-bg: var(--color-card);
-  --card-border: var(--color-border);
+  --card-border: transparent;
   --card-radius: var(--radius-xl);
   --card-shadow: var(--shadow-sm);
 
@@ -336,6 +277,104 @@
   --shadow-fab: 0 34px 92px -38px rgba(0, 0, 0, 0.78), 0 18px 44px -26px rgba(120, 150, 200, 0.34);
   --shadow-fab-hover: 0 44px 120px -46px rgba(0, 0, 0, 0.82), 0 22px 54px -30px rgba(120, 150, 200, 0.38);
   --shadow-fab-inset: inset 0 1px 0 rgba(255, 255, 255, 0.10), inset 0 -1px 0 rgba(0, 0, 0, 0.38);
+}
+
+/* ==========================
+   Typographic system
+   ========================== */
+.type-display-hero {
+  font-family: var(--font-display);
+  font-size: var(--font-size-hero);
+  line-height: 1.05;
+  font-weight: var(--font-weight-bold);
+  letter-spacing: var(--tracking-title);
+  text-wrap: balance;
+}
+
+.type-title-1 {
+  font-family: var(--font-display);
+  font-size: var(--font-size-2xl);
+  line-height: var(--line-snug);
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: var(--tracking-title);
+  text-wrap: balance;
+}
+
+.type-title-2 {
+  font-family: var(--font-display);
+  font-size: var(--font-size-xl);
+  line-height: var(--line-snug);
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: -0.016em;
+}
+
+.type-title-3 {
+  font-family: var(--font-display);
+  font-size: var(--font-size-lg);
+  line-height: 1.3;
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: var(--tracking-tight);
+}
+
+.type-title-4 {
+  font-family: var(--font-display);
+  font-size: var(--font-size-md);
+  line-height: 1.34;
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: var(--tracking-tight);
+}
+
+.type-body-md {
+  font-size: var(--font-size-base);
+  line-height: var(--line-normal);
+  font-weight: var(--font-weight-regular);
+  letter-spacing: var(--tracking-tight);
+}
+
+.type-body-sm {
+  font-size: var(--font-size-sm);
+  line-height: 1.5;
+  font-weight: var(--font-weight-regular);
+  letter-spacing: -0.006em;
+}
+
+.type-caption {
+  font-size: var(--font-size-xs);
+  line-height: 1.35;
+  font-weight: var(--font-weight-medium);
+  letter-spacing: 0;
+}
+
+.type-label {
+  font-size: var(--font-size-xs);
+  line-height: 1.25;
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: var(--tracking-label);
+  text-transform: uppercase;
+}
+
+.type-nav-item {
+  font-size: var(--font-size-md);
+  line-height: 1.35;
+  font-weight: var(--font-weight-medium);
+  letter-spacing: var(--tracking-tight);
+}
+
+.type-brand {
+  font-family: var(--font-display);
+  font-size: var(--font-size-lg);
+  line-height: 1.2;
+  font-weight: var(--font-weight-bold);
+  letter-spacing: var(--tracking-title);
+}
+
+.type-kpi {
+  font-family: var(--font-display);
+  font-size: var(--font-size-2xl);
+  line-height: var(--line-tight);
+  font-weight: var(--font-weight-bold);
+  letter-spacing: var(--tracking-title);
+  font-variant-numeric: tabular-nums;
 }
 
 /* ==========================
@@ -383,14 +422,13 @@
 .hero-card {
   border-radius: var(--card-radius);
   background: var(--card-bg);
-  border: 1px solid var(--card-border);
+  border: 0;
   box-shadow: var(--card-shadow);
   overflow: hidden;
 }
 
 .dark .hero-card {
   background: var(--card-bg);
-  border-color: var(--card-border);
   box-shadow: var(--card-shadow);
 }
 
@@ -466,7 +504,7 @@
 */
 .card-surface .card-surface {
   background: var(--field-bg);
-  border: 1px solid var(--field-border);
+  border: 0;
   box-shadow: none;
 }
 
@@ -486,7 +524,7 @@
 /* Clase explícita para paneles internos (cuando no hay nesting directo) */
 .card-inset {
   background: var(--field-bg);
-  border: 1px solid var(--field-border);
+  border: 0;
   border-radius: var(--card-radius);
   box-shadow: none !important;
 }

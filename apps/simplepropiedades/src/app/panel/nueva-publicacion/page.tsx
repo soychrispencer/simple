@@ -29,7 +29,7 @@ function WizardScreen() {
         description: "Completa los pasos para publicar en SimplePropiedades",
       }}
     >
-      <div className="flex flex-wrap items-center gap-3 mb-4 text-sm">
+      <div className="card-surface rounded-panel border border-border/60 px-4 py-3 mb-4 flex flex-wrap items-center gap-3 text-sm">
         <AutoSaveStatus iso={state.meta.lastAutoSave} />
         <span className="text-xs text-lighttext/60 dark:text-darktext/60">Progreso: {computeProgress()}%</span>
         <div className="flex items-center gap-2">

@@ -100,7 +100,6 @@ export function NotificationsBell({ panelClassName = "", badgeClassName = "" }: 
       {open && (
         <div
           className={`absolute right-0 top-full w-80 rounded-xl card-surface card-surface-raised border border-[var(--field-border)] shadow-card py-2 z-[9999] animate-fadeInSlide ${panelClassName}`.trim()}
-          style={{ marginTop: 0 }}
         >
           <div className="px-4 py-3 border-b border-lightborder/10 dark:border-darkborder/10 flex flex-wrap items-center justify-between gap-2">
             <p className="font-semibold text-lighttext dark:text-darktext">Notificaciones</p>

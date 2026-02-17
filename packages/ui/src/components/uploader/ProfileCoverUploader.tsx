@@ -38,16 +38,14 @@ export const ProfileCoverUploader: React.FC<ProfileCoverUploaderProps> = ({
   return (
     <div className={`relative ${className}`}>
       <div
-        className="w-full h-32 bg-[var(--field-bg)] border-2 border-dashed border-[var(--field-border)] hover:border-[var(--field-border-hover)] flex items-center justify-center cursor-pointer transition-colors"
-        style={{ borderRadius: 'var(--card-radius)' }}
+        className="w-full h-32 bg-[var(--field-bg)] border-2 border-dashed border-[var(--field-border)] hover:border-[var(--field-border-hover)] flex items-center justify-center cursor-pointer transition-colors rounded-[var(--card-radius)]"
         onClick={handleUploadClick}
       >
         {value ? (
           <img
             src={value}
             alt="Cover"
-            className="w-full h-full object-cover"
-            style={{ borderRadius: 'var(--card-radius)' }}
+            className="w-full h-full object-cover rounded-[var(--card-radius)]"
           />
         ) : (
           <div className="text-center">

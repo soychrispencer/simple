@@ -231,7 +231,7 @@ const ContactModal: React.FC<ContactModalProps> = ({
             )
           ) : (
             <div className="p-4 rounded-xl bg-[var(--field-bg)] border border-[var(--field-border)]">
-              <div className="grid gap-2" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(92px, 1fr))' }}>
+              <div className="grid gap-2 grid-cols-[repeat(auto-fit,minmax(92px,1fr))]">
                 {(whatsapp || phone) ? (
                   <Button
                     type="button"

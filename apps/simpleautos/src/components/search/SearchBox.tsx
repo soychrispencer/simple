@@ -32,14 +32,6 @@ type VehicleTypeRow = {
   category?: string | null;
 };
 
-type VehicleTypeOption = {
-  value: string;
-  label: string;
-  id: string;
-  category?: string | null;
-};
-
-
 // The listTypes declaration has been moved to its original position.
 
 export interface SearchBoxProps {

@@ -14,20 +14,34 @@ export const UserAvatar: React.FC<UserAvatarProps> = ({
   size = 'md',
   className = ''
 }) => {
-  const getSizeClasses = (size: 'sm' | 'md' | 'lg') => {
-    const sizeClasses = {
-      sm: 'w-8 h-8',
-      md: 'w-10 h-10',
-      lg: 'w-12 h-12'
-    };
-    return sizeClasses[size];
+  const namedSizeClasses: Record<'sm' | 'md' | 'lg', string> = {
+    sm: 'w-8 h-8',
+    md: 'w-10 h-10',
+    lg: 'w-12 h-12'
   };
-
-  const wrapperStyle = typeof size === 'number' ? { width: `${size}px`, height: `${size}px` } : undefined;
-  const wrapperClasses = typeof size === 'number' ? '' : getSizeClasses(size);
+  const numericSizeClasses: Record<number, string> = {
+    24: 'w-6 h-6',
+    28: 'w-7 h-7',
+    32: 'w-8 h-8',
+    36: 'w-9 h-9',
+    40: 'w-10 h-10',
+    44: 'w-11 h-11',
+    48: 'w-12 h-12',
+    56: 'w-14 h-14',
+    64: 'w-16 h-16',
+    72: 'w-[72px] h-[72px]',
+    80: 'w-20 h-20',
+    96: 'w-24 h-24',
+    112: 'w-28 h-28',
+    128: 'w-32 h-32',
+    160: 'w-40 h-40'
+  };
+  const wrapperClasses = typeof size === 'number'
+    ? (numericSizeClasses[size] || namedSizeClasses.md)
+    : namedSizeClasses[size];
 
   return (
-    <div style={wrapperStyle} className={`rounded-full overflow-hidden ${wrapperClasses} ${className}`}>
+    <div className={`rounded-full overflow-hidden ${wrapperClasses} ${className}`}>
       {src ? (
         <img src={src} alt={alt} className="w-full h-full object-cover" />
       ) : (

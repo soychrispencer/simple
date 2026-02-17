@@ -11,8 +11,8 @@
   <rect width="1200" height="800" fill="url(#g)"/>
   <rect x="70" y="80" width="1060" height="640" rx="42" fill="rgba(255,255,255,0.14)" stroke="rgba(255,255,255,0.28)" stroke-width="2" filter="url(#s)"/>
   <g fill="rgba(255,255,255,0.92)">
-    <text x="120" y="180" font-size="44" font-family="Urbane Rounded, Avenir Next Rounded, system-ui, sans-serif" font-weight="700">Foto demo</text>
-    <text x="120" y="235" font-size="22" font-family="Urbane Rounded, Avenir Next Rounded, system-ui, sans-serif" opacity="0.85">SimpleAutos • Imagen generada</text>
+    <text x="120" y="180" font-size="44" font-family="Poppins, sans-serif" font-weight="700">Foto demo</text>
+    <text x="120" y="235" font-size="22" font-family="Poppins, sans-serif" opacity="0.85">SimpleAutos • Imagen generada</text>
   </g>
   <g transform="translate(140,330)" opacity="0.95">
     <rect x="0" y="110" width="920" height="32" rx="16" fill="rgba(255,255,255,0.55)"/>

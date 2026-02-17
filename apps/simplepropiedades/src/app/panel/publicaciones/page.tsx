@@ -1,7 +1,6 @@
 "use client";
 import React from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { useSupabase, PanelPageLayout, Button, Input, Select } from "@simple/ui";
 import { useToast } from "@simple/ui";
 import {
@@ -413,7 +412,6 @@ function PropertyListingCard({ item, onDuplicate, onToggleFeatured, onStatusChan
 export default function PropertyListingsPage() {
   const supabase = useSupabase();
   const { addToast } = useToast();
-  const router = useRouter();
   const { user, scopeFilter, loading: scopeLoading, ensureScope } = useListingsScope({ verticalKey: "properties" });
 
   const [listings, setListings] = React.useState<PropertyListingItem[]>([]);
@@ -428,7 +426,12 @@ export default function PropertyListingsPage() {
 
   const loadInstagram = React.useCallback(async () => {
     try {
-      const res = await fetch("/api/instagram/status");
+      const { data } = await supabase.auth.getSession();
+      const accessToken = data?.session?.access_token;
+      const res = await fetch("/api/instagram/status", {
+        headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : undefined,
+        cache: "no-store",
+      });
       const json = await res.json();
       setIgStatus({
         connected: !!json?.connected,
@@ -438,7 +441,7 @@ export default function PropertyListingsPage() {
     } catch {
       setIgStatus({ connected: false });
     }
-  }, []);
+  }, [supabase]);
 
   React.useEffect(() => {
     if (!instagramEnabled) return;

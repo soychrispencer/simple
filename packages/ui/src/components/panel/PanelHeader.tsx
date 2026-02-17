@@ -1,9 +1,6 @@
 "use client";
 import React from "react";
-
-function cn(...classes: Array<string | false | null | undefined>) {
-  return classes.filter(Boolean).join(" ");
-}
+import { cn } from "../../lib/cn";
 
 export interface PanelHeaderProps {
   title: string;
@@ -25,7 +22,7 @@ export default function PanelHeader({
   return (
     <div
       className={cn(
-          "card-surface shadow-card flex flex-col",
+        "card-surface shadow-card flex flex-col",
         compact ? "p-4" : "p-6",
         children ? "gap-4" : "gap-3",
         className
@@ -33,9 +30,9 @@ export default function PanelHeader({
     >
       <div className="flex items-center justify-between gap-6">
         <div className="flex flex-col">
-          <h1 className="text-2xl font-semibold tracking-tight">{title}</h1>
+          <h1 className="type-title-1 text-[var(--text-primary)]">{title}</h1>
           {description && (
-            <p className="mt-1 text-sm leading-relaxed text-[var(--text-secondary)]">
+            <p className="mt-1 type-body-sm text-[var(--text-secondary)]">
               {description}
             </p>
           )}

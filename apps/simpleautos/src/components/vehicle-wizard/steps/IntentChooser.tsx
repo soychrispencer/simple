@@ -42,6 +42,8 @@ const CARDS: IntentCard[] = [
   },
 ];
 
+const STAGGER_CLASSES = ['wizard-stagger-0', 'wizard-stagger-1', 'wizard-stagger-2'];
+
 export const IntentChooser: React.FC = () => {
   const { setListingType, state, setStep } = useWizard();
   const [cancelOpen, setCancelOpen] = React.useState(false);
@@ -76,7 +78,7 @@ export const IntentChooser: React.FC = () => {
               disabled={!state.listing_type}
             >Continuar</Button>
           </div>
-          <div className="text-[11px] text-lighttext/70 dark:text-darktext/70 text-center">
+          <div className="type-caption text-lighttext/70 dark:text-darktext/70 text-center">
             {state.listing_type ? 'Puedes cambiar la selección haciendo clic en otra tarjeta.' : 'Selecciona una opción para continuar.'}
           </div>
         </div>
@@ -101,8 +103,7 @@ export const IntentChooser: React.FC = () => {
             <div
               key={card.key}
               onClick={() => handleSelect(card.key)}
-              className={`intent-card-base animate-fade-up-soft ${selected ? 'intent-card-base-selected' : ''}`}
-              style={{ animationDelay: `${idx * 50}ms` }}
+              className={`intent-card-base animate-fade-up-soft ${STAGGER_CLASSES[idx] || ''} ${selected ? 'intent-card-base-selected' : ''}`}
               tabIndex={0}
               onKeyDown={(e: React.KeyboardEvent) => {
                 if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleSelect(card.key); }

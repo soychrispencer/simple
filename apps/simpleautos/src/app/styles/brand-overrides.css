@@ -1,0 +1,19 @@
+:root {
+  --primary-color: #ff3600;
+  --primary-color-rgb: 255 54 0;
+  --color-primary: #ff3600;
+  --color-primary-rgb: 255 54 0;
+  --field-bg-hover: rgb(255 54 0 / 0.18);
+  --field-border-hover: rgb(255 54 0 / 0.56);
+  --surface-neutral-hover: rgb(255 54 0 / 0.16);
+  --surface-neutral-active: rgb(255 54 0 / 0.24);
+  --field-focus-ring: var(--color-primary-a40);
+}
+
+.dark:root {
+  --field-bg-hover: rgb(255 54 0 / 0.28);
+  --field-border-hover: rgb(255 54 0 / 0.7);
+  --surface-neutral-hover: rgb(255 54 0 / 0.26);
+  --surface-neutral-active: rgb(255 54 0 / 0.36);
+  --field-focus-ring: var(--color-primary-a50);
+}

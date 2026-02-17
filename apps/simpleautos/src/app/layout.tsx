@@ -2,6 +2,7 @@
 import { ThemeHydration } from "@/components/layout/ThemeHydration";
 import "./globals.css";
 import "./styles/select-dropdown.css";
+import "./styles/brand-overrides.css";
 
 import { Chrome } from "@/components/layout/Chrome";
 import { ToastProvider, NotificationsProvider, AuthModalMount, DisplayCurrencyProvider, AuthCallbackToasts } from "@simple/ui";
