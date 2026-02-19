@@ -6,7 +6,8 @@
   "type": "module",
   "workspaces": [
     "apps/*",
-    "packages/*"
+    "packages/*",
+    "services/*"
   ],
   "scripts": {
     "dev": "npm run dev --workspaces --if-present",
@@ -16,12 +17,14 @@
     "dev:tiendas": "npm run dev --workspace=simpletiendas",
     "dev:food": "npm run dev --workspace=simplefood",
     "dev:admin": "npm run dev --workspace=simpleadmin",
+    "dev:api": "npm run dev --workspace=simple-api",
     "build": "npm run build --workspaces --if-present",
     "build:autos": "npm run build --workspace=simpleautos",
     "build:props": "npm run build --workspace=simplepropiedades",
     "build:tiendas": "npm run build --workspace=simpletiendas",
     "build:food": "npm run build --workspace=simplefood",
     "build:admin": "npm run build --workspace=simpleadmin",
+    "build:api": "npm run build --workspace=simple-api",
     "lint": "npm run lint --workspaces --if-present",
     "quality:ci": "npm run db:check-migration-docs && npm run clean:cache && npm run typecheck && npm run lint && npm run test",
     "test": "npm run test --workspaces --if-present",
@@ -31,6 +34,8 @@
     "clean:cache": "rimraf --glob \".next\" \".turbo\" \"apps/*/.next\" \"apps/*/.turbo\" \"apps/*/dist\" \"packages/*/.next\" \"packages/*/.turbo\" \"packages/*/dist\"",
     "typecheck": "npm run typecheck --workspaces --if-present",
     "typecheck:admin": "npm run typecheck --workspace=simpleadmin",
+    "typecheck:api": "npm run typecheck --workspace=simple-api",
+    "api:smoke": "node scripts/api/smoke-simple-api.mjs",
     "db:check-migration-docs": "node scripts/supabase/check-migration-docs.mjs",
     "db:audit": "node scripts/supabase/db-audit.mjs --out=docs/db/db-audit-latest.md",
     "db:audit:insecure": "node scripts/supabase/db-audit.mjs --ssl-no-verify=true --out=docs/db/db-audit-latest.md",
@@ -52,14 +57,15 @@
     "seed:check-communes": "node scripts/seed/check_communes.js",
     "seed:reorder-models": "node scripts/seed/reorder_models.mjs",
     "seed:all": "npm run seed:validate-models && npm run seed:check-communes",
-    "env:setup": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/dev/setup-env.ps1"
+    "env:setup": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/dev/setup-env.ps1 -Target local",
+    "env:setup:prod": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/dev/setup-env.ps1 -Target production"
   },
   "devDependencies": {
     "@types/node": "^22.10.5",
     "@types/react": "^19.1.12",
     "@types/react-dom": "^19.1.5",
     "autoprefixer": "^10.4.21",
-    "baseline-browser-mapping": "^2.9.7",
+    "baseline-browser-mapping": "^2.9.19",
     "concurrently": "^9.2.1",
     "eslint": "^9.17.0",
     "eslint-config-next": "16.0.10",
