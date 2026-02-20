@@ -7,6 +7,10 @@ import { fetchFeaturedBySlot, BoostSlotKey } from '@/lib/fetchFeaturedBySlot';
 import { FeaturedVehicleRow } from '@/lib/vehicleUtils';
 import type { VehicleRow } from '@/lib/searchVehicles';
 import { getDemoFeaturedVehicleRows, getDemoListingsMode, isDemoListingsEnabled } from '@/lib/demo/demoVehicles';
+import {
+  fetchFeaturedAutosFromSimpleApi,
+  isSimpleApiListingsEnabled
+} from '@/lib/simpleApiListings';
 import { Swiper, SwiperSlide } from 'swiper/react';
 import { Navigation, Autoplay } from 'swiper/modules';
 import 'swiper/css';
@@ -162,6 +166,36 @@ export default function CategoryFeaturedSlider({
         setVehicles(mappedVehicles);
         setProfiles(profilesMap);
         return;
+      }
+
+      if (isSimpleApiListingsEnabled()) {
+        try {
+          const simpleApiVehicles = await fetchFeaturedAutosFromSimpleApi({
+            listingType,
+            limit
+          });
+
+          if (simpleApiVehicles.length) {
+            logInfo(`Using simple-api featured vehicles for type ${listingType}`, {
+              listingType,
+              limit,
+              count: simpleApiVehicles.length
+            });
+            setVehicles(simpleApiVehicles);
+            setProfiles({});
+            return;
+          }
+
+          logInfo(`Simple API returned no vehicles for type ${listingType}; fallback to boosts`, {
+            listingType,
+            limit
+          });
+        } catch (error) {
+          logError('Simple API featured fetch failed; fallback to boosts', error, {
+            listingType,
+            limit
+          });
+        }
       }
 
       const slotKey = SLOT_BY_LISTING_TYPE[listingType];

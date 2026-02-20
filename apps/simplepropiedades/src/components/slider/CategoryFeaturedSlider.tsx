@@ -11,10 +11,14 @@ import 'swiper/css/autoplay';
 import { IconChevronLeft, IconChevronRight, IconSparkles } from "@tabler/icons-react";
 import { fetchFeaturedProperties } from '@/app/actions/fetchFeaturedProperties';
 import type { Property } from '@/types/property';
-import { logError } from '@/lib/logger';
+import { logError, logInfo } from '@/lib/logger';
+import {
+  fetchFeaturedPropertiesFromSimpleApi,
+  isSimpleApiListingsEnabled
+} from '@/lib/simpleApiListings';
 
 interface CategoryFeaturedSliderProps {
-  listingType: 'sale' | 'rent' | 'auction';
+  listingType: 'sale' | 'rent';
   title?: string;
   limit?: number;
   slidesPerView?: number;
@@ -34,7 +38,32 @@ export default function CategoryFeaturedSlider({
     try {
       setLoading(true);
 
-      // Usar Server Action para obtener los datos
+      if (isSimpleApiListingsEnabled()) {
+        try {
+          const simpleApiProperties = await fetchFeaturedPropertiesFromSimpleApi({
+            listingType,
+            limit
+          });
+
+          if (simpleApiProperties.length) {
+            logInfo(`Using simple-api featured properties for type ${listingType}`, {
+              listingType,
+              limit,
+              count: simpleApiProperties.length
+            });
+            setProperties(simpleApiProperties);
+            return;
+          }
+
+          logInfo(`Simple API returned no properties for type ${listingType}; fallback to current flow`, {
+            listingType,
+            limit
+          });
+        } catch (error) {
+          logError('Simple API featured fetch failed; fallback to current flow', error);
+        }
+      }
+
       const data = await fetchFeaturedProperties(listingType, limit);
 
       setProperties(data);
@@ -61,8 +90,7 @@ export default function CategoryFeaturedSlider({
 
   const titleText = title || `Propiedades Impulsadas en ${
     listingType === 'sale' ? 'Venta' :
-    listingType === 'rent' ? 'Arriendo' :
-    'Subasta'
+    'Arriendo'
   }`;
 
   return (
@@ -105,9 +133,10 @@ export default function CategoryFeaturedSlider({
             {properties.map((property) => {
               return (
                 <SwiperSlide key={property.id} className="h-auto flex">
-                  <div onClick={() => handlePropertyClick(property.id)} className="cursor-pointer">
+                  <div className="w-full max-w-[360px] mx-auto">
                     <PropertyCard
                       property={property}
+                      onClick={() => handlePropertyClick(property.id)}
                     />
                   </div>
                 </SwiperSlide>
@@ -119,13 +148,13 @@ export default function CategoryFeaturedSlider({
           {properties.length > 1 && (
             <>
               <button
-                className="category-featured-prev absolute left-0 top-1/2 -translate-y-1/2 z-10 w-10 h-10 rounded-full card-surface ring-1 ring-border/60 shadow-card flex items-center justify-center text-lighttext dark:text-darktext hover:bg-primary hover:text-[var(--color-on-primary)] transition-all opacity-0 group-hover:opacity-100 disabled:opacity-0 -translate-x-1/2"
+                className="category-featured-prev absolute left-0 top-1/2 -translate-y-1/2 z-10 w-10 h-10 rounded-full card-surface shadow-card flex items-center justify-center text-lighttext dark:text-darktext hover:bg-primary hover:text-[var(--color-on-primary)] transition-all opacity-0 group-hover:opacity-100 disabled:opacity-0 -translate-x-1/2"
                 aria-label="Anterior"
               >
                 <IconChevronLeft size={20} />
               </button>
               <button
-                className="category-featured-next absolute right-0 top-1/2 -translate-y-1/2 z-10 w-10 h-10 rounded-full card-surface ring-1 ring-border/60 shadow-card flex items-center justify-center text-lighttext dark:text-darktext hover:bg-primary hover:text-[var(--color-on-primary)] transition-all opacity-0 group-hover:opacity-100 disabled:opacity-0 translate-x-1/2"
+                className="category-featured-next absolute right-0 top-1/2 -translate-y-1/2 z-10 w-10 h-10 rounded-full card-surface shadow-card flex items-center justify-center text-lighttext dark:text-darktext hover:bg-primary hover:text-[var(--color-on-primary)] transition-all opacity-0 group-hover:opacity-100 disabled:opacity-0 translate-x-1/2"
                 aria-label="Siguiente"
               >
                 <IconChevronRight size={20} />
