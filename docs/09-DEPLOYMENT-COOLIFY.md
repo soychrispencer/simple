@@ -1,6 +1,6 @@
 # Deploy en VPS con Coolify
 
-Guía para desplegar `simpleautos` y `simplepropiedades` desde el monorepo.
+Guia para desplegar `simpleautos`, `simplepropiedades` y `simple-api` desde el monorepo.
 
 ## 1) DNS y dominios
 
@@ -19,14 +19,14 @@ Espera propagación antes de generar certificados.
 Crear un servicio en Coolify:
 
 - Build Pack: `Dockerfile`.
-- Dockerfile Path: `deploy/coolify/simpleautos.Dockerfile`
+- Dockerfile Path: `apps/simpleautos/Dockerfile`
 - Build Context: raíz del repo.
-- Port: `3001`.
+- Port: `3000`.
 - Domain: `https://simpleautos.app`.
 
 Variables de entorno:
 
-- Usa como base `apps/simpleautos/.env.production.example`.
+- Usa como base `.env.production.example` (root, fuente central).
 - Claves mínimas: `NEXT_PUBLIC_SITE_URL`, `NEXT_PUBLIC_APP_URL`, `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, `MERCADOPAGO_ACCESS_TOKEN`.
 
 Branding esperado:
@@ -41,14 +41,14 @@ Branding esperado:
 Crear un segundo servicio en Coolify:
 
 - Build Pack: `Dockerfile`.
-- Dockerfile Path: `deploy/coolify/simplepropiedades.Dockerfile`
+- Dockerfile Path: `apps/simplepropiedades/Dockerfile`
 - Build Context: raíz del repo.
-- Port: `3002`.
+- Port: `3000`.
 - Domain: `https://simplepropiedades.app`.
 
 Variables de entorno:
 
-- Usa como base `apps/simplepropiedades/.env.production.example`.
+- Usa como base `.env.production.example` (root, fuente central).
 - Claves mínimas: `NEXT_PUBLIC_SITE_URL`, `NEXT_PUBLIC_APP_URL`, `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`.
 
 Branding esperado:
@@ -58,12 +58,53 @@ Branding esperado:
 - Correo: `hola@simplepropiedades.app`.
 - Logos PNG: `apps/simplepropiedades/public/brand/`.
 
-## 5) SSL y health check
+## 5) Servicio: simple-api (staging recomendado)
+
+Crear un tercer servicio en Coolify:
+
+- Build Pack: `Dockerfile`.
+- Dockerfile Path: `services/api/Dockerfile`
+- Build Context: raiz del repo.
+- Port: `4000`.
+- Domain (staging): `https://api-staging.simpleplataforma.app`.
+
+Variables de entorno minimas:
+
+- `NODE_ENV=production`
+- `API_HOST=0.0.0.0`
+- `API_PORT=4000`
+- `CORS_ORIGIN=https://staging.simpleautos.app,https://www.simpleautos.app`
+- `LISTINGS_REPOSITORY=supabase`
+- `SUPABASE_URL=<tu supabase url>`
+- `SUPABASE_SERVICE_ROLE_KEY=<service role key>`
+
+Healthcheck recomendado:
+
+- `GET /api/health`
+
+Smoke test desde local:
+
+```bash
+npm run api:smoke -- --base=https://api-staging.simpleplataforma.app
+```
+
+Si el smoke falla, no habilitar el feature flag en frontend.
+
+## 6) Activar flag solo en staging (simpleautos)
+
+En el servicio staging de `simpleautos`:
+
+- `NEXT_PUBLIC_ENABLE_SIMPLE_API_LISTINGS=true`
+- `NEXT_PUBLIC_SIMPLE_API_BASE_URL=https://api-staging.simpleplataforma.app`
+
+Luego redeploy y validar home sliders (`venta`, `arriendo`, `subasta`).
+
+## 7) SSL y health check
 
 - Habilita SSL automático en ambos dominios desde Coolify.
-- Healthcheck recomendado: `GET /`.
+- Healthcheck recomendado: `GET /api/health`.
 
-## 6) Checklist post deploy
+## 8) Checklist post deploy
 
 - Home responde en ambos dominios.
 - Login/registro/confirmación de correo con URL correcta del dominio.
@@ -74,3 +115,6 @@ Branding esperado:
 - Logos cargando desde:
   - `/brand/logo.png` (en cada vertical)
   - `/brand/favicon.png` (en cada vertical)
+- `simple-api` responde:
+  - `/api/health`
+  - `/v1/listings?vertical=autos&type=sale&limit=3`

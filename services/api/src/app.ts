@@ -1,4 +1,5 @@
 import Fastify, { type FastifyInstance } from "fastify";
+import cors from "@fastify/cors";
 import type { Env } from "./config/env.js";
 import { registerHealthRoutes } from "./modules/health/routes.js";
 import { registerListingRoutes } from "./modules/listings/routes.js";
@@ -12,6 +13,17 @@ export function buildServer(env: Env): FastifyInstance {
     }
   });
   const listingRepository = buildListingRepository(env, app.log);
+  const corsOrigins = (env.CORS_ORIGIN ?? "")
+    .split(",")
+    .map((value) => value.trim())
+    .filter(Boolean);
+
+  const corsConfig =
+    corsOrigins.length > 0
+      ? { origin: corsOrigins, credentials: true }
+      : { origin: true, credentials: true };
+
+  app.register(cors, corsConfig);
 
   app.register(registerHealthRoutes);
   app.register(async (instance) => {

@@ -25,6 +25,7 @@ Fastify + TypeScript + Zod bootstrap for the 2026 backend migration.
 - `SUPABASE_SERVICE_ROLE_KEY` (required when `LISTINGS_REPOSITORY=supabase`)
 - `API_HOST` (default: `0.0.0.0`)
 - `API_PORT` (default: `4000`)
+- `CORS_ORIGIN` (optional comma-separated allowlist, e.g. `https://staging.simpleautos.app,https://www.simpleautos.app`)
 
 For staging smoke validation:
 
