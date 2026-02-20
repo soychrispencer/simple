@@ -4,8 +4,9 @@ Guia para desplegar `simpleautos`, `simplepropiedades` y `simple-api` desde el m
 
 ## 1) DNS y dominios
 
-- `simpleautos.app` -> A/AAAA al VPS con Coolify.
-- `simplepropiedades.app` -> A/AAAA al VPS con Coolify.
+- `www.simpleautos.app` -> A/AAAA al VPS con Coolify.
+- `www.simplepropiedades.app` -> A/AAAA al VPS con Coolify.
+- (Opcional) `simpleautos.app` y `simplepropiedades.app` redirigidos a `www`.
 
 Espera propagación antes de generar certificados.
 
@@ -58,7 +59,7 @@ Branding esperado:
 - Correo: `hola@simplepropiedades.app`.
 - Logos PNG: `apps/simplepropiedades/public/brand/`.
 
-## 5) Servicio: simple-api (staging recomendado)
+## 5) Servicio: simple-api
 
 Crear un tercer servicio en Coolify:
 
@@ -66,14 +67,14 @@ Crear un tercer servicio en Coolify:
 - Dockerfile Path: `services/api/Dockerfile`
 - Build Context: raiz del repo.
 - Port: `4000`.
-- Domain (staging): `https://api-staging.simpleplataforma.app`.
+- Domain: `https://api.simpleplataforma.app` (o el que definas para API).
 
 Variables de entorno minimas:
 
 - `NODE_ENV=production`
 - `API_HOST=0.0.0.0`
 - `API_PORT=4000`
-- `CORS_ORIGIN=https://staging.simpleautos.app,https://www.simpleautos.app`
+- `CORS_ORIGIN=https://www.simpleautos.app,https://www.simplepropiedades.app`
 - `LISTINGS_REPOSITORY=supabase`
 - `SUPABASE_URL=<tu supabase url>`
 - `SUPABASE_SERVICE_ROLE_KEY=<service role key>`
@@ -85,24 +86,33 @@ Healthcheck recomendado:
 Smoke test desde local:
 
 ```bash
-npm run api:smoke -- --base=https://api-staging.simpleplataforma.app
+npm run api:smoke -- --base=https://api.simpleplataforma.app
 ```
 
 Si el smoke falla, no habilitar el feature flag en frontend.
 
-## 6) Activar flag solo en staging (simpleautos)
+## 6) Activar flag en frontends
 
-En el servicio staging de `simpleautos`:
+En el servicio de `simpleautos`:
 
-- `NEXT_PUBLIC_ENABLE_SIMPLE_API_LISTINGS=true`
-- `NEXT_PUBLIC_SIMPLE_API_BASE_URL=https://api-staging.simpleplataforma.app`
+- `NEXT_PUBLIC_SIMPLE_API_BASE_URL=https://api.simpleplataforma.app`
+- (Opcional) `NEXT_PUBLIC_ENABLE_SIMPLE_API_LISTINGS=true` o `false`
 
-Luego redeploy y validar home sliders (`venta`, `arriendo`, `subasta`).
+En el servicio de `simplepropiedades`:
+
+- `NEXT_PUBLIC_SIMPLE_API_BASE_URL=https://api.simpleplataforma.app`
+- (Opcional) `NEXT_PUBLIC_ENABLE_SIMPLE_API_LISTINGS=true` o `false`
+
+Luego redeploy y validar home sliders:
+
+- Autos: `venta`, `arriendo`, `subasta`
+- Propiedades: `venta`, `arriendo`
 
 ## 7) SSL y health check
 
 - Habilita SSL automático en ambos dominios desde Coolify.
-- Healthcheck recomendado: `GET /api/health`.
+- Healthcheck recomendado para `simple-api`: `http://localhost:4000/api/health` (interno del contenedor, sin HTTPS).
+- Si Coolify marca `wget/curl not found`, usa una imagen que incluya una de esas herramientas o desactiva healthcheck temporalmente en UI.
 
 ## 8) Checklist post deploy
 
@@ -118,3 +128,4 @@ Luego redeploy y validar home sliders (`venta`, `arriendo`, `subasta`).
 - `simple-api` responde:
   - `/api/health`
   - `/v1/listings?vertical=autos&type=sale&limit=3`
+  - `/v1/listings?vertical=properties&type=sale&limit=3`

@@ -36,9 +36,19 @@ function guessPropertyType(title: string): PropertyType {
 }
 
 export function isSimpleApiListingsEnabled(): boolean {
-  return String(process.env.NEXT_PUBLIC_ENABLE_SIMPLE_API_LISTINGS || "")
+  const raw = String(process.env.NEXT_PUBLIC_ENABLE_SIMPLE_API_LISTINGS || "")
     .toLowerCase()
-    .trim() === "true";
+    .trim();
+
+  if (["true", "1", "yes", "on"].includes(raw)) {
+    return true;
+  }
+
+  if (["false", "0", "no", "off"].includes(raw)) {
+    return false;
+  }
+
+  return Boolean(getSimpleApiBaseUrl());
 }
 
 export function getSimpleApiBaseUrl(): string | null {

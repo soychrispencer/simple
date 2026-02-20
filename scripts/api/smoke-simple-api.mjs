@@ -40,17 +40,36 @@ async function run() {
   assertCondition(health.json?.ok === true, "Health payload invalid");
   console.log("[ok] /api/health");
 
-  const listings = await requestJson("/v1/listings?vertical=autos&limit=3");
-  assertCondition(listings.response.status === 200, "Listings endpoint failed");
-  assertCondition(Array.isArray(listings.json?.items), "Listings payload invalid");
-  console.log(`[ok] /v1/listings (items=${listings.json.items.length})`);
+  const autosListings = await requestJson("/v1/listings?vertical=autos&type=sale&limit=3");
+  assertCondition(autosListings.response.status === 200, "Autos listings endpoint failed");
+  assertCondition(Array.isArray(autosListings.json?.items), "Autos listings payload invalid");
+  console.log(`[ok] /v1/listings autos (items=${autosListings.json.items.length})`);
 
-  if (!listings.json.items.length) {
+  const propertiesListings = await requestJson(
+    "/v1/listings?vertical=properties&type=sale&limit=3"
+  );
+  assertCondition(
+    propertiesListings.response.status === 200,
+    "Properties listings endpoint failed"
+  );
+  assertCondition(
+    Array.isArray(propertiesListings.json?.items),
+    "Properties listings payload invalid"
+  );
+  console.log(
+    `[ok] /v1/listings properties (items=${propertiesListings.json.items.length})`
+  );
+
+  const first =
+    autosListings.json.items[0] ||
+    propertiesListings.json.items[0] ||
+    null;
+
+  if (!first) {
     console.log("[warn] listings returned 0 rows; skipping media/queue checks");
     return;
   }
 
-  const first = listings.json.items[0];
   const media = await requestJson(`/v1/listings/${first.id}/media`);
   assertCondition(media.response.status === 200, "Listing media endpoint failed");
   assertCondition(Array.isArray(media.json?.items), "Listing media payload invalid");

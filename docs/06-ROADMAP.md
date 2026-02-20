@@ -51,7 +51,7 @@ Estrategia: un entorno productivo controlado con feature flags y rollback rapido
 ## P0 - Critico (hacer ya)
 
 1. Rotacion de `SUPABASE_SERVICE_ROLE_KEY` y secretos relacionados.
-2. Encender `NEXT_PUBLIC_ENABLE_SIMPLE_API_LISTINGS=true` en Autos.
+2. Definir `NEXT_PUBLIC_SIMPLE_API_BASE_URL` en Autos (la lectura API se activa automaticamente con esa URL, salvo override manual).
 3. Verificar CORS/API base URL en produccion.
 4. Checklist de deploy directo documentado y obligatorio.
 
