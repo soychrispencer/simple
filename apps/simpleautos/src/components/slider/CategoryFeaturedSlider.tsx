@@ -17,7 +17,7 @@ import 'swiper/css';
 import 'swiper/css/navigation';
 import 'swiper/css/autoplay';
 import { IconChevronLeft, IconChevronRight, IconSparkles } from "@tabler/icons-react";
-import { logError, logInfo } from '../../lib/logger';
+import { logError, logInfo, logWarn } from '../../lib/logger';
 
 interface CategoryVehicle {
   id: string;
@@ -191,7 +191,8 @@ export default function CategoryFeaturedSlider({
             limit
           });
         } catch (error) {
-          logError('Simple API featured fetch failed; fallback to boosts', error, {
+          logWarn('Simple API featured fetch failed; fallback to boosts', {
+            error,
             listingType,
             limit
           });

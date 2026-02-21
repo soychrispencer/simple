@@ -11,7 +11,7 @@ import 'swiper/css/autoplay';
 import { IconChevronLeft, IconChevronRight, IconSparkles } from "@tabler/icons-react";
 import { fetchFeaturedProperties } from '@/app/actions/fetchFeaturedProperties';
 import type { Property } from '@/types/property';
-import { logError, logInfo } from '@/lib/logger';
+import { logError, logInfo, logWarn } from '@/lib/logger';
 import {
   fetchFeaturedPropertiesFromSimpleApi,
   isSimpleApiListingsEnabled
@@ -60,7 +60,7 @@ export default function CategoryFeaturedSlider({
             limit
           });
         } catch (error) {
-          logError('Simple API featured fetch failed; fallback to current flow', error);
+          logWarn('Simple API featured fetch failed; fallback to current flow', error);
         }
       }
 
