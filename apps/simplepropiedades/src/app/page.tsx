@@ -129,10 +129,11 @@ export default async function Home() {
         </div>
       </section>
 
-      {/* Sliders de Propiedades Destacadas */}
-      <CategoryFeaturedSlider listingType="sale" limit={8} slidesPerView={4} />
-      <CategoryFeaturedSlider listingType="rent" limit={8} slidesPerView={4} />
-      <CategoryFeaturedSlider listingType="auction" limit={8} slidesPerView={4} />
+      {/* Sliders de propiedades por tipo de publicación */}
+      <div className="space-y-12 px-4 md:px-8 lg:px-8">
+        <CategoryFeaturedSlider listingType="sale" limit={12} />
+        <CategoryFeaturedSlider listingType="rent" limit={12} />
+      </div>
 
       {/* Sección de características */}
       <section className="w-full px-4 py-16">
