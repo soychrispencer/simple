@@ -51,6 +51,38 @@ export function isSimpleApiListingsEnabled(): boolean {
   return Boolean(getSimpleApiBaseUrl());
 }
 
+export function isSimpleApiWriteEnabled(): boolean {
+  const raw = String(process.env.NEXT_PUBLIC_ENABLE_SIMPLE_API_WRITES || "")
+    .toLowerCase()
+    .trim();
+
+  if (["true", "1", "yes", "on"].includes(raw)) {
+    return true;
+  }
+
+  if (["false", "0", "no", "off"].includes(raw)) {
+    return false;
+  }
+
+  return false;
+}
+
+export function isSimpleApiStrictWriteEnabled(): boolean {
+  const raw = String(process.env.NEXT_PUBLIC_SIMPLE_API_STRICT_WRITES || "")
+    .toLowerCase()
+    .trim();
+
+  if (["true", "1", "yes", "on"].includes(raw)) {
+    return true;
+  }
+
+  if (["false", "0", "no", "off"].includes(raw)) {
+    return false;
+  }
+
+  return false;
+}
+
 export function getSimpleApiBaseUrl(): string | null {
   const explicit = String(process.env.NEXT_PUBLIC_SIMPLE_API_BASE_URL || "").trim();
   if (explicit) {

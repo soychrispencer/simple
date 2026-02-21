@@ -3,7 +3,9 @@ import type {
   ListListingsQuery,
   ListingMedia,
   ListingRepository,
-  ListingSummary
+  ListingSummary,
+  UpsertListingInput,
+  UpsertListingResult
 } from "./types.js";
 
 export class MemoryListingRepository implements ListingRepository {
@@ -32,5 +34,13 @@ export class MemoryListingRepository implements ListingRepository {
     const media =
       LISTING_MEDIA_FIXTURES[listingId as keyof typeof LISTING_MEDIA_FIXTURES] ?? [];
     return media.map((item) => ({ ...item }));
+  }
+
+  async resolveAuthUserId(_accessToken: string): Promise<string | null> {
+    return null;
+  }
+
+  async upsertListing(_input: UpsertListingInput): Promise<UpsertListingResult> {
+    throw new Error("Listing writes are not supported with LISTINGS_REPOSITORY=memory");
   }
 }

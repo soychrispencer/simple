@@ -177,6 +177,21 @@ Includes:
 - `GET /v1/listings/:id`
 - `GET /v1/listings/:id/media`
 - `POST /v1/publish/queue` (accepted only, async path)
+- `POST /v1/listings/upsert` (write path for wizard submit, bearer auth)
+
+### Current implementation note (2026-02-21)
+
+- `services/api` now supports `POST /v1/listings/upsert` with:
+  - bearer token validation against Supabase auth,
+  - create/update in `listings`,
+  - detail upsert in `listings_vehicles` / `listings_properties`,
+  - image replacement in `images`,
+  - metrics bootstrap in `listing_metrics`,
+  - publish-limit enforcement by active plan (`max_active_listings` / `max_listings`) with free fallback.
+- Frontend rollout is feature-flagged:
+  - `NEXT_PUBLIC_ENABLE_SIMPLE_API_WRITES=true`
+  - `NEXT_PUBLIC_SIMPLE_API_STRICT_WRITES=false` (default fallback to legacy on error)
+  - currently wired in autos/properties submit hooks with legacy fallback on error, documents sync and create/publish limit mapping.
 
 ## 6.5 Exit criteria
 
@@ -193,6 +208,15 @@ Includes:
 2. Enable in production only for one flow/vertical.
 3. Validate KPI tecnico y UX.
 4. Expand progressively.
+
+### Write cutover flags (wizard submit)
+
+- `NEXT_PUBLIC_ENABLE_SIMPLE_API_WRITES=false`
+  - legacy write path only.
+- `NEXT_PUBLIC_ENABLE_SIMPLE_API_WRITES=true` + `NEXT_PUBLIC_SIMPLE_API_STRICT_WRITES=false`
+  - preferred migration mode: simple-api write first, fallback to legacy if fails.
+- `NEXT_PUBLIC_ENABLE_SIMPLE_API_WRITES=true` + `NEXT_PUBLIC_SIMPLE_API_STRICT_WRITES=true`
+  - cutover mode: no legacy fallback; fail fast if simple-api write fails.
 
 If errors exceed threshold:
 - disable flag

@@ -4,8 +4,13 @@ import { v4 as uuid } from 'uuid';
 import { useSupabase } from './supabase/useSupabase';
 import { buildVehicleInsertPayload } from './builders/buildVehicleInsertPayload';
 import { uploadVehicleImage, deleteVehicleImages } from './supabaseStorage';
-import { logError } from './logger';
+import { logError, logWarn } from './logger';
 import { FREE_TIER_MAX_ACTIVE_LISTINGS, SUBSCRIPTION_PLANS } from '@simple/config';
+import {
+  getSimpleApiBaseUrl,
+  isSimpleApiStrictWriteEnabled,
+  isSimpleApiWriteEnabled,
+} from './simpleApiListings';
 
 const AUTOS_VERTICAL_KEYS = ['vehicles', 'autos'] as const;
 const AUTOS_VERTICAL_SLUGS = [...AUTOS_VERTICAL_KEYS];
@@ -14,6 +19,17 @@ type PreparedImage = {
   url: string;
   is_primary: boolean;
   position: number;
+};
+
+type PreparedDocument = {
+  id: unknown;
+  record_id: string | null;
+  name: string;
+  type: string;
+  size: number;
+  is_public: boolean;
+  path: string | null;
+  file: File | null;
 };
 
 let cachedAutosVerticalId: string | null = null;
@@ -46,6 +62,66 @@ const REMOTE_PROTOCOLS = ['http://', 'https://'];
 function isRemoteUrl(value?: string | null) {
   if (!value) return false;
   return REMOTE_PROTOCOLS.some((prefix) => value.startsWith(prefix));
+}
+
+async function submitVehicleViaSimpleApi(params: {
+  supabase: any;
+  listingId: string | null;
+  listingPayload: Record<string, unknown>;
+  vehiclePayload: Record<string, unknown>;
+  images: PreparedImage[];
+  documents: Array<{
+    record_id?: string;
+    name: string;
+    type?: string | null;
+    size?: number | null;
+    is_public?: boolean;
+    path: string;
+  }>;
+}) {
+  const { supabase, listingId, listingPayload, vehiclePayload, images, documents } = params;
+  if (!isSimpleApiWriteEnabled()) return null;
+
+  const baseUrl = getSimpleApiBaseUrl();
+  if (!baseUrl) return null;
+
+  const { data: sessionData } = await supabase.auth.getSession();
+  const accessToken = sessionData?.session?.access_token;
+  if (!accessToken) {
+    throw new Error('No hay sesión activa para autorizar simple-api');
+  }
+
+  const response = await fetch(`${baseUrl}/v1/listings/upsert`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${accessToken}`,
+    },
+    body: JSON.stringify({
+      vertical: 'autos',
+      listingId: listingId ?? undefined,
+      listing: listingPayload,
+      detail: vehiclePayload,
+      images,
+      documents,
+      replaceImages: true,
+      source: 'vehicle_wizard',
+    }),
+  });
+
+  const payload = await response.json().catch(() => null);
+  if (!response.ok || !payload?.id) {
+    const reason = payload?.message || payload?.error || `HTTP ${response.status}`;
+    if (
+      String(reason).toLowerCase().includes('publish_limit_exceeded') ||
+      String(reason).toLowerCase().includes('create_limit_exceeded')
+    ) {
+      throw new Error(String(reason));
+    }
+    throw new Error(`simple-api upsert autos failed: ${reason}`);
+  }
+
+  return String(payload.id);
 }
 
 const DOCUMENT_BUCKET = 'documents';
@@ -478,7 +554,7 @@ export function useSubmitVehicle() {
     // la visibilidad por archivo en `public.documents.is_public`.
     const rawDocuments = (state?.media as any)?.documents;
     const documentItems: any[] = Array.isArray(rawDocuments) ? rawDocuments : [];
-    const desiredDocuments = documentItems
+    const desiredDocuments: PreparedDocument[] = documentItems
       .filter((it) => it && typeof it === 'object')
       .map((it) => ({
         id: it.id,
@@ -491,13 +567,117 @@ export function useSubmitVehicle() {
         file: it.file instanceof File ? (it.file as File) : null,
       }));
 
+    const preparedDocuments: PreparedDocument[] = await Promise.all(
+      desiredDocuments.map(async (item) => {
+        if (item.path) {
+          return item;
+        }
+        if (!item.file) {
+          return item;
+        }
+        const uploadedPath = await uploadDocumentFile(supabase, user.id, listingId, item.file);
+        return {
+          ...item,
+          path: uploadedPath,
+        };
+      })
+    );
+
+    const apiDocuments = preparedDocuments
+      .filter((d) => !!d.path)
+      .map((d) => ({
+        record_id: d.record_id ?? undefined,
+        name: d.name,
+        type: d.type || null,
+        size: d.size || null,
+        is_public: !!d.is_public,
+        path: String(d.path),
+      }));
+
     // Solo guardamos públicos en listings.document_urls (para no filtrar privados)
-    (listing as any).document_urls = desiredDocuments
+    (listing as any).document_urls = preparedDocuments
       .filter((d) => d.is_public)
       .map((d) => d.path)
       .filter(Boolean);
 
     try {
+      try {
+        const previousImageUrls: string[] =
+          isEditing && listingId
+            ? await (async () => {
+                const { data } = await supabase.from('images').select('url').eq('listing_id', listingId);
+                return (data || []).map((img: any) => String(img.url)).filter(Boolean);
+              })()
+            : [];
+
+        const previousDocumentPaths: string[] =
+          isEditing && listingId
+            ? await (async () => {
+                const { data } = await supabase.from('documents').select('url').eq('listing_id', listingId);
+                return (data || [])
+                  .map((doc: any) => (typeof doc?.url === 'string' ? extractDocumentPath(doc.url) : null))
+                  .filter(Boolean) as string[];
+              })()
+            : [];
+
+        const apiListingId = await submitVehicleViaSimpleApi({
+          supabase,
+          listingId,
+          listingPayload: listing as Record<string, unknown>,
+          vehiclePayload: vehicle as Record<string, unknown>,
+          images: preparedImages,
+          documents: apiDocuments,
+        });
+
+        if (apiListingId) {
+          const nextUrls = preparedImages.map((img) => img.url);
+          const removedUrls = previousImageUrls.filter((url) => !nextUrls.includes(url));
+          if (removedUrls.length > 0) {
+            await deleteVehicleImages(supabase, removedUrls);
+          }
+
+          const nextDocumentPaths = new Set(
+            apiDocuments.map((doc) => extractDocumentPath(doc.path)).filter(Boolean) as string[]
+          );
+          const removedDocumentPaths = previousDocumentPaths.filter((path) => !nextDocumentPaths.has(path));
+          if (removedDocumentPaths.length > 0) {
+            await removeDocumentsFromStorage(supabase, removedDocumentPaths);
+          }
+
+          return { id: apiListingId };
+        }
+      } catch (apiError) {
+        const raw = String((apiError as any)?.message || '');
+        if (raw.toLowerCase().includes('publish_limit_exceeded')) {
+          const limit = Number(raw.split(':')[1]);
+          if (Number.isFinite(limit) && limit > -1) {
+            return {
+              error: new Error(`Has alcanzado el límite de ${limit} publicaciones activas para tu plan.`),
+            };
+          }
+          return { error: new Error('Has alcanzado el límite de publicaciones activas para tu plan.') };
+        }
+        if (raw.toLowerCase().includes('create_limit_exceeded')) {
+          const limit = Number(raw.split(':')[1]);
+          if (Number.isFinite(limit) && limit > -1) {
+            return {
+              error: new Error(`Has alcanzado el límite de ${limit} publicaciones totales para tu plan.`),
+            };
+          }
+          return { error: new Error('Has alcanzado el límite de publicaciones para tu plan.') };
+        }
+
+        if (isSimpleApiStrictWriteEnabled()) {
+          return {
+            error: new Error(
+              raw || 'No pudimos guardar la publicación en el backend principal. Intenta nuevamente.'
+            ),
+          };
+        }
+
+        logWarn('[submitVehicle] simple-api fallback to legacy submit', apiError);
+      }
+
       if (isEditing && listingId) {
         const { data: existingListing, error: fetchListingError } = await supabase
           .from('listings')
@@ -531,7 +711,7 @@ export function useSubmitVehicle() {
 
         const existingRows: any[] = Array.isArray(existingDocs) ? existingDocs : [];
         const existingById = new Map(existingRows.map((d) => [String(d.id), d] as const));
-        const desiredIds = new Set(desiredDocuments.map((d) => d.record_id).filter(Boolean) as string[]);
+        const desiredIds = new Set(preparedDocuments.map((d) => d.record_id).filter(Boolean) as string[]);
 
         const removedRows = existingRows.filter((d) => !desiredIds.has(String(d.id)));
         if (removedRows.length > 0) {
@@ -543,7 +723,7 @@ export function useSubmitVehicle() {
         }
 
         // Updates de visibilidad/nombre para existentes
-        for (const d of desiredDocuments) {
+        for (const d of preparedDocuments) {
           if (!d.record_id) continue;
           const row = existingById.get(d.record_id);
           if (!row) continue;
@@ -556,10 +736,9 @@ export function useSubmitVehicle() {
         }
 
         // Inserts de nuevos documentos (con file)
-        for (const d of desiredDocuments) {
+        for (const d of preparedDocuments) {
           if (d.record_id) continue;
-          if (!d.file) continue;
-          const uploaded = await uploadDocumentFile(supabase, user.id, listingId, d.file);
+          const uploaded = d.path ?? (d.file ? await uploadDocumentFile(supabase, user.id, listingId, d.file) : null);
           if (!uploaded) continue;
           await supabase.from('documents').insert({
             listing_id: listingId,
@@ -649,9 +828,9 @@ export function useSubmitVehicle() {
         listingId = insertResult.data.id;
 
         // Insert de documentos nuevos
-        for (const d of desiredDocuments) {
-          if (!d.file) continue;
-          const uploaded = await uploadDocumentFile(supabase, user.id, listingId, d.file);
+        for (const d of preparedDocuments) {
+          if (d.record_id) continue;
+          const uploaded = d.path ?? (d.file ? await uploadDocumentFile(supabase, user.id, listingId, d.file) : null);
           if (!uploaded) continue;
           await supabase.from('documents').insert({
             listing_id: listingId,

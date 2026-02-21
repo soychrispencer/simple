@@ -87,6 +87,27 @@ async function run() {
   assertCondition(queue.response.status === 202, "Publish queue endpoint failed");
   assertCondition(queue.json?.status === "accepted", "Queue payload invalid");
   console.log("[ok] /v1/publish/queue");
+
+  const upsertUnauthorized = await requestJson("/v1/listings/upsert", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      vertical: "autos",
+      listing: {
+        title: "smoke unauthorized check",
+        listing_type: "sale",
+        status: "draft"
+      },
+      detail: {},
+      images: [],
+      replaceImages: true
+    })
+  });
+  assertCondition(
+    upsertUnauthorized.response.status === 401,
+    "Listings upsert auth guard failed"
+  );
+  console.log("[ok] /v1/listings/upsert auth guard");
 }
 
 run()

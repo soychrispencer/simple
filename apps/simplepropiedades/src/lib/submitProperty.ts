@@ -4,7 +4,12 @@ import { useSupabase, useVerticalContext } from "@simple/ui";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { dataURLToFile } from "@/lib/media";
 import type { WizardState, PropertyWizardData, WizardImage } from "@/components/property-wizard/context/WizardContext";
-import { logError } from "@/lib/logger";
+import { logError, logWarn } from "@/lib/logger";
+import {
+  getSimpleApiBaseUrl,
+  isSimpleApiStrictWriteEnabled,
+  isSimpleApiWriteEnabled,
+} from "@/lib/simpleApiListings";
 
 const PROPERTY_BUCKET = "properties";
 const VERTICAL_SLUGS = ["properties", "propiedades"] as const;
@@ -14,6 +19,63 @@ type PreparedImage = {
   is_primary: boolean;
   position: number;
 };
+
+async function ensureOwnerPublicProfileId(
+  supabase: SupabaseClient,
+  userId: string,
+  preferredPublicProfileId?: string | null
+) {
+  if (preferredPublicProfileId) return preferredPublicProfileId;
+
+  const { data: activeProfile, error: activeError } = await supabase
+    .from("public_profiles")
+    .select("id")
+    .eq("owner_profile_id", userId)
+    .eq("status", "active")
+    .limit(1)
+    .maybeSingle();
+
+  if (activeError) throw activeError;
+  if (activeProfile?.id) return activeProfile.id as string;
+
+  const { data: draftProfile, error: draftError } = await supabase
+    .from("public_profiles")
+    .select("id")
+    .eq("owner_profile_id", userId)
+    .eq("status", "draft")
+    .limit(1)
+    .maybeSingle();
+
+  if (draftError) throw draftError;
+  if (draftProfile?.id) return draftProfile.id as string;
+
+  const slug = `u-${userId}`;
+  const { data: created, error: createError } = await supabase
+    .from("public_profiles")
+    .insert({
+      owner_profile_id: userId,
+      slug,
+      status: "draft",
+      is_public: false,
+    })
+    .select("id")
+    .single();
+
+  if (createError) {
+    // Si hubo carrera por slug/insert, reintentar lectura draft.
+    const { data: fallbackDraft } = await supabase
+      .from("public_profiles")
+      .select("id")
+      .eq("owner_profile_id", userId)
+      .eq("status", "draft")
+      .limit(1)
+      .maybeSingle();
+    if (fallbackDraft?.id) return fallbackDraft.id as string;
+    throw createError;
+  }
+
+  return created.id as string;
+}
 
 function randomId() {
   if (typeof crypto !== "undefined" && crypto.randomUUID) {
@@ -144,11 +206,12 @@ function buildListingPayload(params: {
   state: WizardState;
   verticalId: string;
   userId: string;
+  publicProfileId: string;
   companyId: string | null;
   preparedImages: PreparedImage[];
   publishNow: boolean;
 }) {
-  const { state, verticalId, userId, preparedImages, publishNow } = params;
+  const { state, verticalId, userId, publicProfileId, companyId, preparedImages, publishNow } = params;
   const listingType = state.data.type.listing_type ?? "sale";
   const listingPrice = listingType === "rent" ? state.data.pricing.rent_price : state.data.pricing.price;
   const now = new Date().toISOString();
@@ -156,6 +219,7 @@ function buildListingPayload(params: {
   const payload = {
     vertical_id: verticalId,
     user_id: userId,
+    public_profile_id: publicProfileId,
     listing_type: listingType,
     title: state.data.basic.title.trim(),
     description: state.data.basic.description || null,
@@ -167,7 +231,12 @@ function buildListingPayload(params: {
     region_id: state.data.location.region_id,
     commune_id: state.data.location.commune_id,
     tags: [],
-    metadata,
+    metadata: {
+      ...metadata,
+      owner_id: userId,
+      company_id: companyId ?? null,
+      scope: companyId ? "company" : "individual",
+    },
     video_url: state.data.media.video_url ?? null,
     created_at: now,
     updated_at: now,
@@ -197,6 +266,60 @@ function buildDetailPayload(state: WizardState) {
   };
 }
 
+async function submitPropertyViaSimpleApi(params: {
+  supabase: SupabaseClient;
+  state: WizardState;
+  listingId: string | null;
+  listingPayload: Record<string, unknown>;
+  detailPayload: Record<string, unknown>;
+  preparedImages: PreparedImage[];
+}) {
+  const { supabase, state, listingId, listingPayload, detailPayload, preparedImages } = params;
+  if (!isSimpleApiWriteEnabled()) return null;
+
+  const baseUrl = getSimpleApiBaseUrl();
+  if (!baseUrl) return null;
+
+  const { data: sessionData } = await supabase.auth.getSession();
+  const accessToken = sessionData?.session?.access_token;
+  if (!accessToken) {
+    throw new Error("No hay sesión activa para autorizar simple-api");
+  }
+
+  const response = await fetch(`${baseUrl}/v1/listings/upsert`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${accessToken}`,
+    },
+    body: JSON.stringify({
+      vertical: "properties",
+      listingId: listingId ?? undefined,
+      listing: listingPayload,
+      detail: detailPayload,
+      images: preparedImages,
+      replaceImages: true,
+      // Referencia útil en logs y trazabilidad futura.
+      source: "property_wizard",
+      mode: state.data.type.listing_type,
+    }),
+  });
+
+  const payload = await response.json().catch(() => null);
+  if (!response.ok || !payload?.id) {
+    const reason = payload?.message || payload?.error || `HTTP ${response.status}`;
+    if (
+      String(reason).toLowerCase().includes("publish_limit_exceeded") ||
+      String(reason).toLowerCase().includes("create_limit_exceeded")
+    ) {
+      throw new Error(String(reason));
+    }
+    throw new Error(`simple-api upsert properties failed: ${reason}`);
+  }
+
+  return String(payload.id);
+}
+
 export function useSubmitProperty() {
   const supabase = useSupabase();
   const { user, currentCompany } = useVerticalContext("properties");
@@ -206,17 +329,27 @@ export function useSubmitProperty() {
       if (!supabase) return { error: new Error("Supabase no está disponible") };
       if (!user?.id) return { error: new Error("Debes iniciar sesión para publicar") };
       if (!state.data.type.listing_type) return { error: new Error("Selecciona el tipo de publicación") };
+      if (state.data.type.listing_type === "auction") {
+        return { error: new Error("Subastas está temporalmente deshabilitado en SimplePropiedades") };
+      }
 
       try {
-        const [verticalId, preparedImages] = await Promise.all([
+        const preferredPublicProfileId =
+          (currentCompany?.company as any)?.public_profile?.id ??
+          (currentCompany?.company as any)?.public_profile_id ??
+          null;
+
+        const [verticalId, preparedImages, publicProfileId] = await Promise.all([
           resolveVerticalId(supabase),
           buildImageRows(supabase, state.data.media.images),
+          ensureOwnerPublicProfileId(supabase, user.id, preferredPublicProfileId),
         ]);
         const publishNow = typeof publishOverride === "boolean" ? publishOverride : state.data.review.publish_now;
         const listingPayload = buildListingPayload({
           state,
           verticalId,
           userId: user.id,
+          publicProfileId,
           companyId: currentCompany?.companyId ?? null,
           preparedImages,
           publishNow,
@@ -224,6 +357,64 @@ export function useSubmitProperty() {
         const detailPayload = buildDetailPayload(state);
         const isEditing = Boolean(state.propertyId);
         let listingId = state.propertyId as string | null;
+
+        try {
+          const previousImageUrls =
+            isEditing && listingId
+              ? await (async () => {
+                  const { data } = await supabase.from("images").select("url").eq("listing_id", listingId);
+                  return (data || []).map((img: any) => String(img.url)).filter(Boolean);
+                })()
+              : [];
+
+          const apiListingId = await submitPropertyViaSimpleApi({
+            supabase,
+            state,
+            listingId,
+            listingPayload: listingPayload as Record<string, unknown>,
+            detailPayload: detailPayload as Record<string, unknown>,
+            preparedImages,
+          });
+
+          if (apiListingId) {
+            const nextUrls = preparedImages.map((img) => img.url);
+            const removed = previousImageUrls.filter((url) => !nextUrls.includes(url));
+            if (removed.length > 0) {
+              await deletePropertyImages(supabase, removed);
+            }
+            return { id: apiListingId };
+          }
+        } catch (apiError) {
+          const raw = String((apiError as any)?.message || "");
+          if (raw.toLowerCase().includes("publish_limit_exceeded")) {
+            const limit = Number(raw.split(":")[1]);
+            if (Number.isFinite(limit) && limit > -1) {
+              return {
+                error: new Error(`Has alcanzado el límite de ${limit} publicaciones activas para tu plan.`),
+              };
+            }
+            return { error: new Error("Has alcanzado el límite de publicaciones activas para tu plan.") };
+          }
+          if (raw.toLowerCase().includes("create_limit_exceeded")) {
+            const limit = Number(raw.split(":")[1]);
+            if (Number.isFinite(limit) && limit > -1) {
+              return {
+                error: new Error(`Has alcanzado el límite de ${limit} publicaciones totales para tu plan.`),
+              };
+            }
+            return { error: new Error("Has alcanzado el límite de publicaciones para tu plan.") };
+          }
+
+          if (isSimpleApiStrictWriteEnabled()) {
+            return {
+              error: new Error(
+                raw || "No pudimos guardar la publicación en el backend principal. Intenta nuevamente."
+              ),
+            };
+          }
+
+          logWarn("[useSubmitProperty] simple-api fallback to legacy submit", apiError);
+        }
 
         if (isEditing && listingId) {
           const { data: existing, error } = await supabase

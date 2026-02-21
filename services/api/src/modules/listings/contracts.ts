@@ -51,6 +51,40 @@ export const ListingMediaResponseSchema = z.object({
   items: z.array(ListingMediaSchema)
 });
 
+export const ListingWriteImageSchema = z.object({
+  url: z.string().url(),
+  is_primary: z.boolean().optional(),
+  position: z.number().int().min(0).optional()
+});
+export type ListingWriteImage = z.infer<typeof ListingWriteImageSchema>;
+
+export const ListingWriteDocumentSchema = z.object({
+  record_id: z.string().uuid().optional(),
+  name: z.string().min(1),
+  type: z.string().optional().nullable(),
+  size: z.number().int().min(0).optional().nullable(),
+  is_public: z.boolean().default(false),
+  path: z.string().min(1)
+});
+export type ListingWriteDocument = z.infer<typeof ListingWriteDocumentSchema>;
+
+export const UpsertListingBodySchema = z.object({
+  vertical: VerticalSchema,
+  listingId: z.string().uuid().optional(),
+  listing: z.record(z.unknown()),
+  detail: z.record(z.unknown()).optional(),
+  images: z.array(ListingWriteImageSchema).default([]),
+  documents: z.array(ListingWriteDocumentSchema).optional(),
+  replaceImages: z.boolean().default(true)
+});
+export type UpsertListingBody = z.infer<typeof UpsertListingBodySchema>;
+
+export const UpsertListingResponseSchema = z.object({
+  id: z.string().uuid(),
+  created: z.boolean(),
+  updatedAt: z.string().datetime()
+});
+
 export const PublishQueueBodySchema = z.object({
   listingId: z.string().uuid(),
   vertical: VerticalSchema,
