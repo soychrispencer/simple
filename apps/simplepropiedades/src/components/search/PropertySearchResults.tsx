@@ -8,12 +8,12 @@ import { fetchPropertyListings } from '@/lib/search/fetchPropertyListings';
 import { logError } from "@/lib/logger";
 
 interface PropertySearchResultsProps {
-  defaultListingType?: "sale" | "rent" | "auction" | "all";
+  defaultListingType?: "sale" | "rent" | "all";
   initialProperties?: Property[];
   initialCount?: number;
 }
 
-const isAllListing = (value?: string | null) => !value || value === 'all' || value === 'todos';
+const isAllListing = (value?: string | null) => !value || value === 'all' || value === 'todos' || value === 'auction';
 
 const parseNumericParam = (value: string | null) => {
   if (!value) return null;

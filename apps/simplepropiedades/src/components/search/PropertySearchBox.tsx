@@ -5,7 +5,6 @@ import { Button, FormSelect as Select, FormInput as Input } from '@simple/ui';
 import { getCurrencyOptions, getVerticalRegion } from '@simple/config';
 import { SearchBoxLayout } from '@simple/ui';
 import { PROPERTY_TYPE_OPTIONS } from '@/types/property';
-import { getSupabaseClient } from '@/lib/supabase/supabase';
 
 const listTypes = [
   { value: "todos", label: "Todos" },
@@ -81,15 +80,13 @@ export default function PropertySearchBox() {
     async function fetchRegions() {
       try {
         setLoadingRegions(true);
-        const supabase = getSupabaseClient();
-        const { data, error } = await supabase
-          .from('regions')
-          .select('id,name')
-          .order('name');
+        const response = await fetch('/api/geo?mode=regions', { cache: 'no-store' });
+        const payload = await response.json().catch(() => ({} as Record<string, unknown>));
         if (!active) return;
-        if (!error && data) {
-          setRegions([{ value: '', label: 'Región' }, ...data.map((r: any) => ({ value: r.id, label: r.name }))]);
-        }
+        const rows = Array.isArray((payload as { regions?: unknown[] }).regions)
+          ? ((payload as { regions: Array<{ id: string | number; name: string }> }).regions ?? [])
+          : [];
+        setRegions([{ value: '', label: 'Región' }, ...rows.map((r) => ({ value: String(r.id), label: r.name }))]);
       } finally {
         if (active) setLoadingRegions(false);
       }
@@ -112,18 +109,17 @@ export default function PropertySearchBox() {
     async function fetchCommunes(regionId: string) {
       try {
         setLoadingCommunes(true);
-        const supabase = getSupabaseClient();
-        const { data, error } = await supabase
-          .from('communes')
-          .select('id,name')
-          .eq('region_id', regionId)
-          .order('name');
+        const params = new URLSearchParams({
+          mode: 'communes',
+          region_id: regionId,
+        });
+        const response = await fetch(`/api/geo?${params.toString()}`, { cache: 'no-store' });
+        const payload = await response.json().catch(() => ({} as Record<string, unknown>));
         if (!active) return;
-        if (!error && data) {
-          setCommunes([{ value: '', label: 'Comuna' }, ...data.map((c: any) => ({ value: c.id, label: c.name }))]);
-        } else {
-          setCommunes([{ value: '', label: 'Comuna' }]);
-        }
+        const rows = Array.isArray((payload as { communes?: unknown[] }).communes)
+          ? ((payload as { communes: Array<{ id: string | number; name: string }> }).communes ?? [])
+          : [];
+        setCommunes([{ value: '', label: 'Comuna' }, ...rows.map((c) => ({ value: String(c.id), label: c.name }))]);
       } finally {
         if (active) setLoadingCommunes(false);
       }

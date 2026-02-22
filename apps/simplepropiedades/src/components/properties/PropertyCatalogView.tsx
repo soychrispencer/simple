@@ -1,30 +1,16 @@
 import { Suspense } from "react";
 import PropertyAdvancedFilters from "@/components/filters/PropertyAdvancedFilters";
 import PropertySearchResults from "@/components/search/PropertySearchResults";
-import { fetchPropertyListings } from "@/lib/search/fetchPropertyListings";
-import { logError } from "@/lib/logger";
 
 interface PropertyCatalogViewProps {
-  defaultListingType?: "sale" | "rent" | "auction" | "all" | "todos";
+  defaultListingType?: "sale" | "rent" | "all" | "todos";
 }
 
-type ListingFilter = "sale" | "rent" | "auction";
+type ListingFilter = "sale" | "rent";
 
 export default async function PropertyCatalogView({ defaultListingType = "all" }: PropertyCatalogViewProps) {
   const normalizedDefault = (defaultListingType === "todos" ? "all" : defaultListingType) as ListingFilter | "all";
-
-  const listingFilter: ListingFilter | undefined =
-    normalizedDefault === "all"
-      ? undefined
-      : normalizedDefault;
-  let initialData;
-
-  try {
-    initialData = await fetchPropertyListings({ listingType: listingFilter, limit: 24 });
-  } catch (error) {
-    logError('Error precargando propiedades:', error);
-    initialData = { properties: [], count: 0 };
-  }
+  const initialData = { properties: [], count: 0 };
 
   return (
     <div className="w-full px-4 md:px-8 lg:px-8">

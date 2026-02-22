@@ -1,7 +1,7 @@
 import type { Property } from '@/types/property';
-import { getSupabaseClient } from '@/lib/supabase/supabase';
-
-const VERTICAL_KEY = 'properties';
+import { isSimpleApiListingsEnabled } from '@simple/config';
+import { listListings, type SdkListingSummary, type SdkListingType } from '@simple/sdk';
+import { logWarn } from '@/lib/logger';
 
 export interface PropertyListingFilters {
   keyword?: string;
@@ -35,184 +35,134 @@ export interface PropertyListingResponse {
   count: number;
 }
 
-function mapListingsToProperties(listings: any[] = []): Property[] {
-  return listings.map((listing: any) => {
-    const props = Array.isArray(listing.listings_properties)
-      ? listing.listings_properties[0]
-      : listing.listings_properties;
-    const region = Array.isArray(listing.regions)
-      ? listing.regions[0]?.name
-      : listing.regions?.name || '';
-    const commune = Array.isArray(listing.communes)
-      ? listing.communes[0]?.name
-      : listing.communes?.name || '';
+function guessPropertyTypeFromTitle(title: string): Property['property_type'] {
+  const normalized = String(title || '').toLowerCase();
+  if (normalized.includes('casa')) return 'house';
+  if (normalized.includes('terreno')) return 'land';
+  if (normalized.includes('oficina')) return 'office';
+  if (normalized.includes('bodega')) return 'warehouse';
+  if (normalized.includes('local') || normalized.includes('comercial')) return 'commercial';
+  return 'apartment';
+}
 
-    const sortedImages = (listing.images || [])
-      .sort((a: any, b: any) => {
-        if (a.is_primary && !b.is_primary) return -1;
-        if (!a.is_primary && b.is_primary) return 1;
-        return (a.position || 0) - (b.position || 0);
-      })
-      .map((img: any) => img.url);
+function normalizePropertyType(value: unknown, title?: string): Property['property_type'] {
+  const normalized = String(value || '').trim().toLowerCase();
+  if (normalized === 'house' || normalized === 'casa') return 'house';
+  if (
+    normalized === 'apartment' ||
+    normalized === 'departamento' ||
+    normalized === 'depto' ||
+    normalized === 'apartamento'
+  ) {
+    return 'apartment';
+  }
+  if (normalized === 'commercial' || normalized === 'comercial' || normalized === 'local') {
+    return 'commercial';
+  }
+  if (normalized === 'land' || normalized === 'terreno') return 'land';
+  if (normalized === 'office' || normalized === 'oficina') return 'office';
+  if (normalized === 'warehouse' || normalized === 'bodega') return 'warehouse';
+  return guessPropertyTypeFromTitle(title || '');
+}
 
-    return {
-      id: listing.id,
-      title: listing.title,
-      description: listing.description || '',
-      property_type: props?.property_type as Property['property_type'],
-      listing_type: listing.listing_type as Property['listing_type'],
-      status: 'available',
-      price: listing.price || 0,
-      currency: listing.currency || 'CLP',
-      country: 'Chile',
-      region,
-      city: commune,
-      bedrooms: props?.bedrooms || 0,
-      bathrooms: props?.bathrooms || 0,
-      area_m2: props?.total_area || 0,
-      area_built_m2: props?.built_area || null,
-      parking_spaces: props?.parking_spaces || 0,
-      floor: props?.floor || null,
-      total_floors: props?.building_floors || null,
-      has_pool: props?.features?.includes('pool') || false,
-      has_garden: props?.features?.includes('garden') || false,
-      has_elevator: props?.amenities?.includes('elevator') || false,
-      has_balcony: props?.features?.includes('balcony') || false,
-      has_terrace: props?.features?.includes('terrace') || false,
-      has_gym: props?.amenities?.includes('gym') || false,
-      has_security: props?.amenities?.includes('security') || false,
-      is_furnished: props?.furnished || false,
-      allows_pets: props?.pet_friendly || false,
-      image_urls: sortedImages,
-      owner_id: listing.user_id,
-      views_count: 0,
-      featured: listing.is_featured || false,
-      created_at: listing.created_at,
-      updated_at: listing.created_at,
-    } as Property;
+function mapSimpleApiListingToProperty(item: SdkListingSummary): Property {
+  const now = new Date().toISOString();
+  const features = Array.isArray(item.features) ? item.features : [];
+  const amenities = Array.isArray(item.amenities) ? item.amenities : [];
+
+  return {
+    id: item.id,
+    title: item.title,
+    description: item.description || '',
+    property_type: normalizePropertyType(item.propertyType, item.title),
+    listing_type: item.type,
+    status: 'available',
+    price: Number(item.price || 0),
+    currency: item.currency || 'CLP',
+    rent_price: item.type === 'rent' ? Number(item.price || 0) : null,
+    country: 'Chile',
+    region: item.region || '',
+    city: item.city || '',
+    bedrooms: Number(item.bedrooms || 0),
+    bathrooms: Number(item.bathrooms || 0),
+    area_m2: Number(item.areaM2 || 0),
+    area_built_m2: Number(item.areaBuiltM2 || 0) || null,
+    parking_spaces: Number(item.parkingSpaces || 0),
+    floor: Number.isFinite(Number(item.floor)) ? Number(item.floor) : null,
+    total_floors: Number.isFinite(Number(item.totalFloors)) ? Number(item.totalFloors) : null,
+    has_pool: features.includes('pool'),
+    has_garden: features.includes('garden'),
+    has_elevator: amenities.includes('elevator'),
+    has_balcony: features.includes('balcony'),
+    has_terrace: features.includes('terrace'),
+    has_gym: amenities.includes('gym'),
+    has_security: amenities.includes('security'),
+    is_furnished: Boolean(item.isFurnished),
+    allows_pets: Boolean(item.allowsPets),
+    image_urls: item.imageUrl ? [item.imageUrl] : [],
+    owner_id: item.ownerId || '',
+    views_count: 0,
+    featured: false,
+    created_at: item.createdAt || item.publishedAt || now,
+    updated_at: item.createdAt || item.publishedAt || now
+  } as Property;
+}
+
+async function fetchPropertyListingsFromSimpleApi(
+  filters: PropertyListingFilters = {}
+): Promise<PropertyListingResponse> {
+  const limit = filters.limit ?? 50;
+  const offset = filters.offset ?? 0;
+  const listingType =
+    filters.listingType === 'sale' || filters.listingType === 'rent'
+      ? (filters.listingType as SdkListingType)
+      : undefined;
+
+  const payload = await listListings({
+    vertical: 'properties',
+    type: listingType,
+    keyword: filters.keyword,
+    city: filters.city,
+    regionId: filters.regionId,
+    communeId: filters.communeId,
+    currency: filters.currency,
+    minPrice: typeof filters.minPrice === 'number' ? filters.minPrice : undefined,
+    maxPrice: typeof filters.maxPrice === 'number' ? filters.maxPrice : undefined,
+    propertyType: filters.propertyType,
+    minBedrooms: typeof filters.minBedrooms === 'number' ? filters.minBedrooms : undefined,
+    minBathrooms: typeof filters.minBathrooms === 'number' ? filters.minBathrooms : undefined,
+    minArea: typeof filters.minArea === 'number' ? filters.minArea : undefined,
+    maxArea: typeof filters.maxArea === 'number' ? filters.maxArea : undefined,
+    hasPool: filters.hasPool,
+    hasGarden: filters.hasGarden,
+    hasTerrace: filters.hasTerrace,
+    hasBalcony: filters.hasBalcony,
+    hasElevator: filters.hasElevator,
+    hasSecurity: filters.hasSecurity,
+    hasParking: filters.hasParking,
+    isFurnished: filters.isFurnished,
+    allowsPets: filters.allowsPets,
+    limit,
+    offset
   });
+
+  const items = Array.isArray(payload.items) ? payload.items : [];
+  return {
+    properties: items.map(mapSimpleApiListingToProperty),
+    count: Number(payload.meta?.total ?? items.length)
+  };
 }
 
 export async function fetchPropertyListings(filters: PropertyListingFilters = {}): Promise<PropertyListingResponse> {
-  const supabase = getSupabaseClient();
-  const limit = filters.limit ?? 50;
-  const offset = filters.offset ?? 0;
-
-  const { data: verticalData, error: verticalError } = await supabase
-    .from('verticals')
-    .select('id')
-    .eq('key', VERTICAL_KEY)
-    .single();
-
-  if (verticalError || !verticalData) {
-    throw new Error('Error fetching properties vertical');
+  if (!isSimpleApiListingsEnabled()) {
+    logWarn('Simple API listings disabled for properties; returning empty state');
+    return { properties: [], count: 0 };
   }
 
-  let queryBuilder = supabase
-    .from('listings')
-    .select(
-      `
-        id,
-        title,
-        description,
-        listing_type,
-        price,
-        currency,
-        status,
-        published_at,
-        is_featured,
-        contact_phone,
-        contact_email,
-        location,
-        region_id,
-        commune_id,
-        created_at,
-        user_id,
-        listings_properties(
-          property_type,
-          operation_type,
-          bedrooms,
-          bathrooms,
-          parking_spaces,
-          total_area,
-          built_area,
-          land_area,
-          floor,
-          building_floors,
-          year_built,
-          furnished,
-          pet_friendly,
-          features,
-          amenities
-        ),
-        regions(name),
-        communes(name),
-        images(url, is_primary, position)
-      `,
-      { count: 'exact' }
-    )
-    .eq('vertical_id', verticalData.id)
-    .eq('status', 'published')
-    .order('published_at', { ascending: false })
-    .range(offset, offset + limit - 1);
-
-  const {
-    keyword,
-    propertyType,
-    listingType,
-    city,
-    regionId,
-    communeId,
-    currency,
-    minPrice,
-    maxPrice,
-    minBedrooms,
-    minBathrooms,
-    minArea,
-    maxArea,
-    hasPool,
-    hasGarden,
-    hasTerrace,
-    hasBalcony,
-    hasElevator,
-    hasSecurity,
-    hasParking,
-    isFurnished,
-    allowsPets,
-  } = filters;
-
-  if (keyword?.trim()) queryBuilder = queryBuilder.ilike('title', `%${keyword.trim()}%`);
-  if (propertyType) queryBuilder = queryBuilder.eq('listings_properties.property_type', propertyType);
-  if (listingType) queryBuilder = queryBuilder.eq('listing_type', listingType);
-  if (city?.trim()) queryBuilder = queryBuilder.ilike('location', `%${city.trim()}%`);
-  if (regionId) queryBuilder = queryBuilder.eq('region_id', regionId);
-  if (communeId) queryBuilder = queryBuilder.eq('commune_id', communeId);
-  if (currency) queryBuilder = queryBuilder.eq('currency', currency);
-  if (typeof minPrice === 'number') queryBuilder = queryBuilder.gte('price', minPrice);
-  if (typeof maxPrice === 'number') queryBuilder = queryBuilder.lte('price', maxPrice);
-  if (typeof minBedrooms === 'number') queryBuilder = queryBuilder.gte('listings_properties.bedrooms', minBedrooms);
-  if (typeof minBathrooms === 'number') queryBuilder = queryBuilder.gte('listings_properties.bathrooms', minBathrooms);
-  if (typeof minArea === 'number') queryBuilder = queryBuilder.gte('listings_properties.total_area', minArea);
-  if (typeof maxArea === 'number') queryBuilder = queryBuilder.lte('listings_properties.total_area', maxArea);
-
-  if (isFurnished) queryBuilder = queryBuilder.eq('listings_properties.furnished', true);
-  if (allowsPets) queryBuilder = queryBuilder.eq('listings_properties.pet_friendly', true);
-  if (hasParking) queryBuilder = queryBuilder.gte('listings_properties.parking_spaces', 1);
-  if (hasPool) queryBuilder = queryBuilder.contains('listings_properties.features', ['pool']);
-  if (hasGarden) queryBuilder = queryBuilder.contains('listings_properties.features', ['garden']);
-  if (hasTerrace) queryBuilder = queryBuilder.contains('listings_properties.features', ['terrace']);
-  if (hasBalcony) queryBuilder = queryBuilder.contains('listings_properties.features', ['balcony']);
-  if (hasElevator) queryBuilder = queryBuilder.contains('listings_properties.amenities', ['elevator']);
-  if (hasSecurity) queryBuilder = queryBuilder.contains('listings_properties.amenities', ['security']);
-
-  const { data, error, count } = await queryBuilder;
-
-  if (error) {
-    throw error;
+  try {
+    return await fetchPropertyListingsFromSimpleApi(filters);
+  } catch (error) {
+    logWarn('Simple API property listing fetch failed; returning empty state', error);
+    return { properties: [], count: 0 };
   }
-
-  return {
-    properties: mapListingsToProperties(data || []),
-    count: count || 0,
-  };
 }

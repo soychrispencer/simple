@@ -1,29 +1,40 @@
 import type { Property, PropertyType } from "@/types/property";
 import { logWarn } from "@/lib/logger";
+import {
+  getSimpleApiBaseUrl,
+  isSimpleApiListingsEnabled,
+  isSimpleApiStrictWriteEnabled,
+  isSimpleApiWriteEnabled
+} from "@simple/config";
+import { getListingMedia, listListings, type SdkListingType } from "@simple/sdk";
 
-export type SimpleApiListingType = "sale" | "rent" | "auction";
+export {
+  getSimpleApiBaseUrl,
+  isSimpleApiListingsEnabled,
+  isSimpleApiStrictWriteEnabled,
+  isSimpleApiWriteEnabled
+};
+export type SimpleApiListingType = SdkListingType;
 
 type SimpleApiListingItem = {
   id: string;
   vertical: string;
   type: SimpleApiListingType;
   title: string;
+  description?: string;
   price: number;
   currency: string;
   city: string;
+  region?: string;
+  imageUrl?: string;
+  ownerId?: string;
+  createdAt?: string;
+  publishedAt?: string;
 };
 
 type SimpleApiListingsResponse = {
   items?: SimpleApiListingItem[];
 };
-
-type SimpleApiMediaResponse = {
-  items?: Array<{ url?: string; kind?: "image" | "video" }>;
-};
-
-function normalizeBaseUrl(url: string): string {
-  return url.trim().replace(/\/+$/, "");
-}
 
 function guessPropertyType(title: string): PropertyType {
   const normalized = title.toLowerCase();
@@ -35,82 +46,16 @@ function guessPropertyType(title: string): PropertyType {
   return "apartment";
 }
 
-export function isSimpleApiListingsEnabled(): boolean {
-  const raw = String(process.env.NEXT_PUBLIC_ENABLE_SIMPLE_API_LISTINGS || "")
-    .toLowerCase()
-    .trim();
-
-  if (["true", "1", "yes", "on"].includes(raw)) {
-    return true;
-  }
-
-  if (["false", "0", "no", "off"].includes(raw)) {
-    return false;
-  }
-
-  return Boolean(getSimpleApiBaseUrl());
-}
-
-export function isSimpleApiWriteEnabled(): boolean {
-  const raw = String(process.env.NEXT_PUBLIC_ENABLE_SIMPLE_API_WRITES || "")
-    .toLowerCase()
-    .trim();
-
-  if (["true", "1", "yes", "on"].includes(raw)) {
-    return true;
-  }
-
-  if (["false", "0", "no", "off"].includes(raw)) {
-    return false;
-  }
-
-  return false;
-}
-
-export function isSimpleApiStrictWriteEnabled(): boolean {
-  const raw = String(process.env.NEXT_PUBLIC_SIMPLE_API_STRICT_WRITES || "")
-    .toLowerCase()
-    .trim();
-
-  if (["true", "1", "yes", "on"].includes(raw)) {
-    return true;
-  }
-
-  if (["false", "0", "no", "off"].includes(raw)) {
-    return false;
-  }
-
-  return false;
-}
-
-export function getSimpleApiBaseUrl(): string | null {
-  const explicit = String(process.env.NEXT_PUBLIC_SIMPLE_API_BASE_URL || "").trim();
-  if (explicit) {
-    return normalizeBaseUrl(explicit);
-  }
-
-  if (typeof window !== "undefined" && window.location.hostname === "localhost") {
-    return "http://localhost:4000";
-  }
-
-  return null;
-}
-
-async function fetchListingMedia(baseUrl: string, listingId: string): Promise<string[]> {
-  const res = await fetch(`${baseUrl}/v1/listings/${listingId}/media`, {
-    method: "GET",
-    cache: "no-store"
-  });
-
-  if (!res.ok) {
+async function fetchListingMedia(listingId: string): Promise<string[]> {
+  try {
+    const payload = await getListingMedia(listingId);
+    const media = Array.isArray(payload.items) ? payload.items : [];
+    return media
+      .filter((item: { kind?: string; url?: unknown }) => item?.kind === "image" && typeof item.url === "string")
+      .map((item: { url?: unknown }) => String(item.url));
+  } catch {
     return [];
   }
-
-  const payload = (await res.json()) as SimpleApiMediaResponse;
-  const media = Array.isArray(payload.items) ? payload.items : [];
-  return media
-    .filter((item) => item?.kind === "image" && typeof item.url === "string")
-    .map((item) => String(item.url));
 }
 
 export async function fetchFeaturedPropertiesFromSimpleApi(options: {
@@ -124,30 +69,22 @@ export async function fetchFeaturedPropertiesFromSimpleApi(options: {
     );
   }
 
-  const query = new URLSearchParams({
+  const payload = (await listListings({
     vertical: "properties",
     type: options.listingType,
-    limit: String(options.limit),
-    offset: "0"
-  });
-
-  const res = await fetch(`${baseUrl}/v1/listings?${query.toString()}`, {
-    method: "GET",
-    cache: "no-store"
-  });
-
-  if (!res.ok) {
-    throw new Error(`Simple API listings failed (${res.status})`);
-  }
-
-  const payload = (await res.json()) as SimpleApiListingsResponse;
+    limit: options.limit,
+    offset: 0
+  })) as SimpleApiListingsResponse;
   const items = Array.isArray(payload.items) ? payload.items : [];
   const propertyItems = items.filter((item) => item.vertical === "properties");
 
   const mediaMatrix = await Promise.all(
     propertyItems.map(async (item) => {
+      if (item.imageUrl) {
+        return [String(item.imageUrl)];
+      }
       try {
-        return await fetchListingMedia(baseUrl, item.id);
+        return await fetchListingMedia(item.id);
       } catch {
         logWarn("Simple API media fetch failed for property listing", { listingId: item.id });
         return [];
@@ -160,7 +97,7 @@ export async function fetchFeaturedPropertiesFromSimpleApi(options: {
   return propertyItems.map((item, idx) => ({
     id: item.id,
     title: item.title,
-    description: "",
+    description: item.description || "",
     property_type: guessPropertyType(item.title),
     listing_type: item.type,
     status: "available",
@@ -168,7 +105,7 @@ export async function fetchFeaturedPropertiesFromSimpleApi(options: {
     currency: item.currency || "CLP",
     rent_price: item.type === "rent" ? item.price : null,
     country: "Chile",
-    region: item.city || "",
+    region: item.region || "",
     city: item.city || "",
     bedrooms: 0,
     bathrooms: 0,
@@ -187,10 +124,10 @@ export async function fetchFeaturedPropertiesFromSimpleApi(options: {
     is_furnished: false,
     allows_pets: false,
     image_urls: mediaMatrix[idx] ?? [],
-    owner_id: "",
+    owner_id: item.ownerId || "",
     views_count: 0,
     featured: true,
-    created_at: now,
-    updated_at: now
+    created_at: item.createdAt || item.publishedAt || now,
+    updated_at: item.createdAt || item.publishedAt || now
   }));
 }

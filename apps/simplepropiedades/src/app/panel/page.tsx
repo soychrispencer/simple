@@ -1,7 +1,8 @@
 "use client";
 import React from "react";
 import Link from "next/link";
-import { PanelPageLayout, Button, useSupabase } from "@simple/ui";
+import { PanelPageLayout, Button } from "@simple/ui";
+import { normalizeSubscriptionPlanId } from "@simple/config";
 import { useRouter } from "next/navigation";
 import { useListingsScope } from "@simple/listings";
 import { logError } from "@/lib/logger";
@@ -22,6 +23,21 @@ type PropertyItem = {
   favorites: number;
 };
 
+type PanelListingRow = {
+  id: string;
+  title: string;
+  price?: number | null;
+  currency?: string | null;
+  status: string;
+  published_at?: string | null;
+  created_at?: string | null;
+  listing_metrics?:
+    | { views?: number | null; favorites?: number | null }
+    | { views?: number | null; favorites?: number | null }[]
+    | null;
+  images?: { url?: string | null; position?: number | null; is_primary?: boolean | null }[] | null;
+};
+
 type KpiStats = {
   total: number;
   active: number;
@@ -35,9 +51,6 @@ const EMPTY_KPI_STATS: KpiStats = {
   paused: 0,
   drafts: 0,
 };
-
-const PROPERTIES_VERTICAL_KEYS = ["properties"] as const;
-const PROPERTIES_VERTICAL_FILTER = [...PROPERTIES_VERTICAL_KEYS];
 
 const STATUS_LABEL_BY_DB: Record<string, string> = {
   published: "Publicada",
@@ -106,11 +119,10 @@ export default function PanelPage() {
     }
   );
   const { user, loading: scopeLoading, scopeFilter } = useListingsScope({ verticalKey: "properties" });
-  const supabase = useSupabase();
   const router = useRouter();
 
   React.useEffect(() => {
-    if (!supabase || scopeLoading) {
+    if (scopeLoading) {
       return;
     }
 
@@ -139,65 +151,46 @@ export default function PanelPage() {
       try {
         setLoading(true);
 
-        const { data: propertiesVertical, error: propertiesVerticalError } = await supabase
-          .from('verticals')
-          .select('id')
-          .eq('key', 'properties')
-          .maybeSingle();
+        const propertiesPromise = (async (): Promise<PanelListingRow[]> => {
+          const params = new URLSearchParams({
+            scopeColumn: scopeFilter.column,
+            scopeValue: scopeFilter.value,
+          });
+          const response = await fetch(`/api/properties?${params.toString()}`, {
+            cache: "no-store",
+          });
+          const payload = await response.json().catch(() => ({} as Record<string, unknown>));
+          if (!response.ok) {
+            throw new Error(String(payload?.error || "No se pudieron cargar las propiedades"));
+          }
+          return Array.isArray((payload as { listings?: unknown[] }).listings)
+            ? ((payload as { listings: PanelListingRow[] }).listings ?? [])
+            : [];
+        })();
 
-        const propertiesVerticalId = (propertiesVertical as any)?.id as string | undefined;
-        if (propertiesVerticalError) {
-          logError('Error resolviendo vertical properties', propertiesVerticalError);
-        }
-        const statusPromise = supabase
-          .from("listings")
-          .select("status, verticals!inner(key)")
-          .eq(scopeFilter.column, scopeFilter.value)
-          .in("verticals.key", PROPERTIES_VERTICAL_FILTER);
+        const subscriptionPromise = (async () => {
+          const response = await fetch("/api/properties?mode=subscription", {
+            cache: "no-store",
+          });
+          const payload = await response.json().catch(() => ({} as Record<string, unknown>));
+          if (!response.ok) {
+            throw new Error(String(payload?.error || "No se pudo cargar la suscripción"));
+          }
+          return payload as {
+            status?: string | null;
+            plan?: string | null;
+            planKey?: string | null;
+            renewalDate?: string | null;
+          };
+        })();
 
-        const recentsPromise = supabase
-          .from("listings")
-          .select(`
-            id,
-            title,
-            price,
-            currency,
-            status,
-            published_at,
-            created_at,
-            listing_metrics(views, favorites),
-            images:images(url, position, is_primary),
-            verticals!inner(key)
-          `)
-          .eq(scopeFilter.column, scopeFilter.value)
-          .eq("status", "published")
-          .in("verticals.key", PROPERTIES_VERTICAL_FILTER)
-          .order("published_at", { ascending: false, nullsFirst: false })
-          .limit(5);
-
-        const subscriptionPromise = supabase
-          .from("subscriptions")
-          .select("status, current_period_end, plan_id, subscription_plans(name, plan_key)")
-          .eq("user_id", user.id)
-          .eq("status", "active")
-          .limit(1);
-
-        if (propertiesVerticalId) {
-          subscriptionPromise.eq('vertical_id', propertiesVerticalId);
-        }
-
-        const [
-          { data: statusRows, error: statusError },
-          { data: recentsRows, error: recentsError },
-          { data: subscriptions, error: subscriptionError },
-        ] = await Promise.all([statusPromise, recentsPromise, subscriptionPromise]);
-
-        if (statusError) {
-          throw statusError;
-        }
+        const [listingRows, subscriptionData] = await Promise.all([
+          propertiesPromise,
+          subscriptionPromise,
+        ]);
 
         if (!cancelled) {
-          const statsSnapshot = (statusRows || []).reduce((acc: KpiStats, row: { status: string }) => {
+          const statsSnapshot = (listingRows || []).reduce((acc: KpiStats, row: { status: string }) => {
             acc.total += 1;
             if (row.status === "published") {
               acc.active += 1;
@@ -211,12 +204,17 @@ export default function PanelPage() {
           setKpiStats(statsSnapshot);
         }
 
-        if (recentsError) {
-          throw recentsError;
-        }
-
         if (!cancelled) {
-          const mappedRecientes: PropertyItem[] = (recentsRows || []).map((row: any) => {
+          const recentsRows = [...(listingRows || [])]
+            .filter((row) => row.status === "published")
+            .sort((a, b) => {
+              const aTs = Date.parse(a.published_at || a.created_at || "1970-01-01T00:00:00.000Z");
+              const bTs = Date.parse(b.published_at || b.created_at || "1970-01-01T00:00:00.000Z");
+              return bTs - aTs;
+            })
+            .slice(0, 5);
+
+          const mappedRecientes: PropertyItem[] = recentsRows.map((row) => {
             const orderedImages = [...(row.images || [])].sort((a, b) => {
               if (!!a.is_primary === !!b.is_primary) {
                 return (a.position ?? 0) - (b.position ?? 0);
@@ -243,18 +241,11 @@ export default function PanelPage() {
           setRecientes(mappedRecientes);
         }
 
-        if (subscriptionError) {
-          logError("Error verificando suscripción:", subscriptionError?.message || subscriptionError);
-        }
-
-        const activeSubscription = subscriptions && subscriptions.length > 0 ? subscriptions[0] : null;
-        const planActive = !!(activeSubscription && activeSubscription.status === "active");
-        const planSource = Array.isArray(activeSubscription?.subscription_plans)
-          ? activeSubscription?.subscription_plans[0]
-          : activeSubscription?.subscription_plans;
-        const planLabel = planSource?.name
-          || planSource?.plan_key
-          || activeSubscription?.plan_id
+        const planStatus = typeof subscriptionData?.status === "string" ? subscriptionData.status : "inactive";
+        const planActive = planStatus === "active";
+        const normalizedPlan = normalizeSubscriptionPlanId(subscriptionData?.planKey || null);
+        const planLabel = subscriptionData?.plan
+          || normalizedPlan
           || null;
         const profileComplete = !!(user?.user_metadata?.full_name && user?.user_metadata?.phone);
         const accountVerified = !!user?.email_confirmed_at;
@@ -268,9 +259,9 @@ export default function PanelPage() {
             documentsVerified,
           });
           setSubscriptionInfo({
-            status: activeSubscription?.status || "inactive",
+            status: planStatus,
             plan: planLabel,
-            renewalDate: activeSubscription?.current_period_end || null,
+            renewalDate: subscriptionData?.renewalDate || null,
           });
         }
       } catch (error) {
@@ -292,7 +283,7 @@ export default function PanelPage() {
     return () => {
       cancelled = true;
     };
-  }, [supabase, scopeFilter, user, scopeLoading]);
+  }, [scopeFilter, user, scopeLoading]);
 
   const displayName = React.useMemo(() => {
     const asTrimmedString = (value: unknown): string | null => {

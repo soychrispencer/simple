@@ -3,15 +3,42 @@ import React from "react";
 import { PROPERTY_TYPE_OPTIONS, type ListingType } from "@/types/property";
 import { Button } from "@simple/ui";
 import { useWizard, type PropertyWizardData } from "../context/WizardContext";
+import { wizardSectionDescriptionClass, wizardSectionTitleClass, wizardHintCardClass } from "../styles";
+import {
+  IconBuildingSkyscraper,
+  IconBuildingStore,
+  IconBuildingWarehouse,
+  IconHome,
+  IconMap2,
+  IconBuildingCommunity,
+} from "@tabler/icons-react";
 
 const listingTypeOptions: Array<{ value: ListingType; label: string; description: string }> = [
   { value: "sale", label: "Venta", description: "Publicación tradicional para vender" },
   { value: "rent", label: "Arriendo", description: "Propiedades en arriendo mensual" },
-  { value: "auction", label: "Subasta", description: "Ventas rápidas con puja" },
 ];
 
-const cardBaseClass =
-  "rounded-2xl ring-1 p-4 flex flex-col gap-2 cursor-pointer transition hover:ring-primary hover:bg-[var(--color-primary-a05)]";
+const STAGGER_CLASSES = ["wizard-stagger-0", "wizard-stagger-1", "wizard-stagger-2", "wizard-stagger-3", "wizard-stagger-4", "wizard-stagger-5"];
+
+function propertyIcon(value: string) {
+  const iconProps = { size: 34, stroke: 1.5 } as const;
+  switch (value) {
+    case "house":
+      return <IconHome {...iconProps} />;
+    case "apartment":
+      return <IconBuildingCommunity {...iconProps} />;
+    case "commercial":
+      return <IconBuildingStore {...iconProps} />;
+    case "land":
+      return <IconMap2 {...iconProps} />;
+    case "office":
+      return <IconBuildingSkyscraper {...iconProps} />;
+    case "warehouse":
+      return <IconBuildingWarehouse {...iconProps} />;
+    default:
+      return <IconHome {...iconProps} />;
+  }
+}
 
 function StepType() {
   const { state, patchSection } = useWizard();
@@ -26,26 +53,29 @@ function StepType() {
     <div className="space-y-8">
       <section className="space-y-4">
         <div>
-          <h3 className="type-title-3 text-lighttext dark:text-darktext">Tipo de publicación</h3>
-          <p className="type-body-sm text-lighttext/70 dark:text-darktext/70">
+          <h3 className={wizardSectionTitleClass}>Tipo de publicación</h3>
+          <p className={wizardSectionDescriptionClass}>
             Elige el formato que mejor se ajuste a tu operación actual.
           </p>
         </div>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          {listingTypeOptions.map((option) => (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {listingTypeOptions.map((option, idx) => (
             <button
               key={option.value}
               type="button"
               onClick={() => handleListingChange(option.value)}
               className={[
-                cardBaseClass,
-                selectedListing === option.value
-                  ? "ring-primary bg-[var(--color-primary-a05)] shadow-inner"
-                  : "card-surface ring-border/60",
+                "intent-card-base animate-fade-up-soft",
+                STAGGER_CLASSES[idx % STAGGER_CLASSES.length],
+                selectedListing === option.value ? "intent-card-base-selected" : "",
               ].join(" ")}
             >
-              <span className="type-body-sm font-semibold text-lighttext dark:text-darktext">{option.label}</span>
+              <div className={`intent-card-base-icon ${selectedListing === option.value ? "animate-pop-in" : ""}`}>
+                {option.value === "sale" ? "V" : "A"}
+              </div>
+              <span className="intent-card-base-title">{option.label}</span>
               <span className="type-caption text-lighttext/70 dark:text-darktext/70">{option.description}</span>
+              {selectedListing === option.value ? <div className="intent-card-base-check">✓</div> : null}
             </button>
           ))}
         </div>
@@ -53,37 +83,35 @@ function StepType() {
 
       <section className="space-y-4">
         <div>
-          <h3 className="type-title-3 text-lighttext dark:text-darktext">Categoría de propiedad</h3>
-          <p className="type-body-sm text-lighttext/70 dark:text-darktext/70">
+          <h3 className={wizardSectionTitleClass}>Categoría de propiedad</h3>
+          <p className={wizardSectionDescriptionClass}>
             Escoge la categoría que mejor describe tu propiedad.
           </p>
         </div>
         <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-          {PROPERTY_TYPE_OPTIONS.map((option) => (
+          {PROPERTY_TYPE_OPTIONS.map((option, idx) => (
             <button
               key={option.value}
               type="button"
               onClick={() => patchSection("type", { property_type: option.value })}
               className={[
-                cardBaseClass,
-                selectedType === option.value
-                  ? "ring-primary bg-[var(--color-primary-a05)] shadow-inner"
-                  : "card-surface ring-border/60",
+                "intent-card-base animate-fade-up-soft",
+                STAGGER_CLASSES[idx % STAGGER_CLASSES.length],
+                selectedType === option.value ? "intent-card-base-selected" : "",
               ].join(" ")}
             >
-                <span className="text-2xl" aria-hidden>
-                  {option.icon}
-                </span>
-                <div className="flex flex-col">
-                <span className="type-body-sm font-medium text-lighttext dark:text-darktext">{option.label}</span>
-                <span className="type-caption text-lighttext/70 dark:text-darktext/70">{option.value}</span>
-                </div>
-              </button>
-            ))}
-          </div>
+              <div className={`intent-card-base-icon ${selectedType === option.value ? "animate-pop-in" : ""}`}>
+                {propertyIcon(option.value)}
+              </div>
+              <span className="intent-card-base-title">{option.label}</span>
+              <span className="intent-card-base-desc">{option.value}</span>
+              {selectedType === option.value ? <div className="intent-card-base-check">✓</div> : null}
+            </button>
+          ))}
+        </div>
       </section>
 
-      <div className="card-surface ring-1 ring-border/60 rounded-xl p-4 type-body-sm text-lighttext/70 dark:text-darktext/70">
+      <div className={`${wizardHintCardClass} type-body-sm text-lighttext/70 dark:text-darktext/70`}>
         <p className="type-body-sm font-medium text-lighttext dark:text-darktext">¿Qué sigue?</p>
         <p>
           Luego completaremos los detalles de la propiedad, ubicación y medios. Puedes modificar el tipo seleccionado en cualquier

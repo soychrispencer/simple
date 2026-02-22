@@ -3,6 +3,7 @@ import React from "react";
 import { Button, useToast } from "@simple/ui";
 import { useWizard, WIZARD_STEPS } from "../context/WizardContext";
 import { useSubmitProperty } from "@/lib/submitProperty";
+import { wizardFieldClass, wizardHintCardClass, wizardLabelMutedClass } from "../styles";
 
 function StepReview() {
   const { state, patchSection, validateStep, setPropertyId } = useWizard();
@@ -66,7 +67,7 @@ function StepReview() {
     <div className="space-y-6">
       <div className="grid md:grid-cols-2 gap-4">
         {summary.map((item) => (
-          <div key={item.label} className="rounded-xl card-surface ring-1 ring-border/60 p-4">
+          <div key={item.label} className={wizardHintCardClass}>
             <p className="text-xs uppercase tracking-wide text-lighttext/60 dark:text-darktext/60">{item.label}</p>
             <p className="text-sm font-medium text-lighttext dark:text-darktext">{item.value}</p>
           </div>
@@ -74,11 +75,11 @@ function StepReview() {
       </div>
 
       <label className="space-y-1 block">
-        <span className="text-xs font-medium text-lighttext/80 dark:text-darktext/80">Visibilidad</span>
+        <span className={wizardLabelMutedClass}>Visibilidad</span>
         <select
           value={state.data.review.visibility}
           onChange={(event) => patchSection("review", { visibility: event.target.value as typeof state.data.review.visibility })}
-          className="w-full rounded-xl bg-[var(--field-bg)] border border-[var(--field-border)] px-4 py-3 text-sm text-[var(--field-text)] transition focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-border/60 hover:bg-[var(--field-bg-hover)] hover:border-[var(--field-border-hover)]"
+          className={wizardFieldClass}
         >
           <option value="normal">Normal</option>
           <option value="featured">Destacada (requiere cupos)</option>

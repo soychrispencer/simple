@@ -29,20 +29,24 @@ function WizardScreen() {
         description: "Completa los pasos para publicar en SimplePropiedades",
       }}
     >
-      <div className="card-surface rounded-panel border border-border/60 px-4 py-3 mb-4 flex flex-wrap items-center gap-3 text-sm">
-        <AutoSaveStatus iso={state.meta.lastAutoSave} />
-        <span className="text-xs text-lighttext/60 dark:text-darktext/60">Progreso: {computeProgress()}%</span>
-        <div className="flex items-center gap-2">
-          <Button variant="neutral" size="sm" onClick={forceSave}>
-            Guardar ahora
-          </Button>
-          <Button variant="ghost" size="sm" onClick={reset}>
-            Reiniciar
-          </Button>
+      <div className="w-full mt-6 sm:mt-8">
+        <div className="card-surface shadow-card rounded-panel p-5 sm:p-7 border border-border/60 space-y-5">
+          <div className="rounded-xl ring-1 ring-border/60 px-4 py-3 flex flex-wrap items-center gap-3 text-sm">
+            <AutoSaveStatus iso={state.meta.lastAutoSave} />
+            <span className="text-xs text-lighttext/60 dark:text-darktext/60">Progreso: {computeProgress()}%</span>
+            <div className="flex items-center gap-2">
+              <Button variant="neutral" size="sm" onClick={forceSave}>
+                Guardar ahora
+              </Button>
+              <Button variant="ghost" size="sm" onClick={reset}>
+                Reiniciar
+              </Button>
+            </div>
+          </div>
+          <Hydrator />
+          <PropertyWizard />
         </div>
       </div>
-      <Hydrator />
-      <PropertyWizard />
     </PanelPageLayout>
   );
 }

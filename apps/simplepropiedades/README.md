@@ -7,7 +7,7 @@ Vertical de propiedades dentro del monorepo **Simple Ecosystem**.
 - React 19
 - TypeScript 5.7
 - Tailwind CSS (preset compartido)
-- Supabase (cliente en `src/lib/supabase/*`)
+- Simple API + PostgreSQL (backend unificado)
 
 ## ▶️ Desarrollo
 Desde la raíz del monorepo:

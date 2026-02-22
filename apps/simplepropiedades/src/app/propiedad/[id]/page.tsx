@@ -1,16 +1,83 @@
 "use client";
 import React, { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { getSupabaseClient } from '@/lib/supabase/supabase';
 import type { Property } from '@/types/property';
 import { Button } from "@simple/ui";
+import { isSimpleApiListingsEnabled } from "@simple/config";
+import { getListingById, getListingMedia, type SdkListingSummary } from "@simple/sdk";
 import {
   IconArrowLeft, IconMapPin, IconBed, IconBath, IconRuler2,
   IconCar, IconBookmark, IconShare, IconChevronLeft, IconChevronRight
 } from "@tabler/icons-react";
-import { LeadContactModal } from "@simple/ui";
+import { ContactModal } from "@simple/ui";
 
-const VERTICAL_KEY = 'properties';
+function normalizePropertyType(value: unknown, title = ''): Property['property_type'] {
+  const normalized = String(value || '').trim().toLowerCase();
+  if (normalized === 'house' || normalized === 'casa') return 'house';
+  if (
+    normalized === 'apartment' ||
+    normalized === 'departamento' ||
+    normalized === 'depto' ||
+    normalized === 'apartamento'
+  ) {
+    return 'apartment';
+  }
+  if (normalized === 'commercial' || normalized === 'comercial' || normalized === 'local') {
+    return 'commercial';
+  }
+  if (normalized === 'land' || normalized === 'terreno') return 'land';
+  if (normalized === 'office' || normalized === 'oficina') return 'office';
+  if (normalized === 'warehouse' || normalized === 'bodega') return 'warehouse';
+
+  const lowerTitle = String(title || '').toLowerCase();
+  if (lowerTitle.includes('casa')) return 'house';
+  if (lowerTitle.includes('terreno')) return 'land';
+  if (lowerTitle.includes('oficina')) return 'office';
+  if (lowerTitle.includes('bodega')) return 'warehouse';
+  if (lowerTitle.includes('local') || lowerTitle.includes('comercial')) return 'commercial';
+  return 'apartment';
+}
+
+function mapSimpleApiItemToProperty(item: SdkListingSummary, imageUrls: string[]): Property {
+  const features = Array.isArray(item.features) ? item.features : [];
+  const amenities = Array.isArray(item.amenities) ? item.amenities : [];
+
+  return {
+    id: item.id,
+    title: item.title,
+    description: item.description || '',
+    property_type: normalizePropertyType(item.propertyType, item.title),
+    listing_type: item.type as Property['listing_type'],
+    status: 'available',
+    price: Number(item.price || 0),
+    currency: item.currency || 'CLP',
+    country: 'Chile',
+    region: item.region || '',
+    city: item.city || '',
+    bedrooms: Number(item.bedrooms || 0),
+    bathrooms: Number(item.bathrooms || 0),
+    area_m2: Number(item.areaM2 || 0),
+    area_built_m2: Number(item.areaBuiltM2 || 0) || null,
+    parking_spaces: Number(item.parkingSpaces || 0),
+    floor: Number.isFinite(Number(item.floor)) ? Number(item.floor) : null,
+    total_floors: Number.isFinite(Number(item.totalFloors)) ? Number(item.totalFloors) : null,
+    has_pool: features.includes('pool'),
+    has_garden: features.includes('garden'),
+    has_elevator: amenities.includes('elevator'),
+    has_balcony: features.includes('balcony'),
+    has_terrace: features.includes('terrace'),
+    has_gym: amenities.includes('gym'),
+    has_security: amenities.includes('security'),
+    is_furnished: Boolean(item.isFurnished),
+    allows_pets: Boolean(item.allowsPets),
+    image_urls: imageUrls,
+    owner_id: item.ownerId || '',
+    views_count: 0,
+    featured: Boolean(item.featured),
+    created_at: item.createdAt || item.publishedAt || new Date().toISOString(),
+    updated_at: item.createdAt || item.publishedAt || new Date().toISOString()
+  };
+}
 
 export default function PropiedadDetallePage() {
   const params = useParams();
@@ -24,148 +91,38 @@ export default function PropiedadDetallePage() {
   const [contactModalOpen, setContactModalOpen] = useState(false);
   const [favorite, setFavorite] = useState(false);
 
-  const supabase = getSupabaseClient();
-
   useEffect(() => {
     async function load() {
       if (!id) return;
       setLoading(true);
       try {
-        const supabase = getSupabaseClient();
-
-        // Obtener el ID del vertical de propiedades
-        const { data: verticalData, error: verticalError } = await supabase
-          .from('verticals')
-          .select('id')
-          .eq('key', VERTICAL_KEY)
-          .single();
-
-        if (verticalError || !verticalData) {
-          throw new Error('Error getting vertical');
+        if (!isSimpleApiListingsEnabled()) {
+          setError("Detalle no disponible: simple-api listings deshabilitado.");
+          return;
         }
 
-        const { data, error } = await supabase
-          .from("listings")
-          .select(`
-            id,
-            title,
-            description,
-            listing_type,
-            price,
-            currency,
-            status,
-            published_at,
-            is_featured,
-            contact_phone,
-            contact_email,
-            location,
-            region_id,
-            commune_id,
-            created_at,
-            user_id,
-            views,
-            listings_properties(
-              property_type,
-              operation_type,
-              bedrooms,
-              bathrooms,
-              parking_spaces,
-              total_area,
-              built_area,
-              land_area,
-              floor,
-              building_floors,
-              year_built,
-              furnished,
-              pet_friendly,
-              features,
-              amenities
-            ),
-            regions(name),
-            communes(name),
-            images!inner(url, is_primary, position),
-            profiles:user_id (
-              id,
-              username,
-              first_name,
-              last_name,
-              public_name,
-              email,
-              phone,
-              whatsapp
-            )
-          `)
-          .eq('vertical_id', verticalData.id)
-          .eq('id', id)
-          .eq('status', 'published')
-          .single();
-
-        if (error) throw error;
-
-        if (!data) {
+        const { item } = await getListingById(id);
+        if (!item || item.vertical !== 'properties') {
           setError("Propiedad no encontrada");
-        } else {
-          // Map to Property interface
-          const listing = data;
-          const props = listing.listings_properties[0];
-          const region = listing.regions?.[0]?.name || '';
-          const commune = listing.communes?.[0]?.name || '';
-
-          // Sort images by position and primary
-          const sortedImages = listing.images
-            ?.sort((a: any, b: any) => {
-              if (a.is_primary && !b.is_primary) return -1;
-              if (!a.is_primary && b.is_primary) return 1;
-              return a.position - b.position;
-            })
-            .map((img: any) => img.url) || [];
-
-          const mappedProperty: Property = {
-            id: listing.id,
-            title: listing.title,
-            description: listing.description || '',
-            property_type: props.property_type as Property['property_type'],
-            listing_type: listing.listing_type as Property['listing_type'],
-            status: 'available' as Property['status'],
-            price: listing.price || 0,
-            currency: listing.currency || 'CLP',
-            country: 'Chile',
-            region: region,
-            city: commune,
-            bedrooms: props.bedrooms || 0,
-            bathrooms: props.bathrooms || 0,
-            area_m2: props.total_area || 0,
-            area_built_m2: props.built_area || null,
-            parking_spaces: props.parking_spaces || 0,
-            floor: props.floor || null,
-            total_floors: props.building_floors || null,
-            has_pool: props.features?.includes('pool') || false,
-            has_garden: props.features?.includes('garden') || false,
-            has_elevator: props.amenities?.includes('elevator') || false,
-            has_balcony: props.features?.includes('balcony') || false,
-            has_terrace: props.features?.includes('terrace') || false,
-            has_gym: props.amenities?.includes('gym') || false,
-            has_security: props.amenities?.includes('security') || false,
-            is_furnished: props.furnished || false,
-            allows_pets: props.pet_friendly || false,
-            image_urls: sortedImages,
-            owner_id: listing.user_id,
-            views_count: listing.views || 0,
-            featured: listing.is_featured || false,
-            created_at: listing.created_at,
-            updated_at: listing.created_at,
-            // Add profile info
-            profiles: listing.profiles ? {
-              id: listing.profiles[0].id,
-              full_name: listing.profiles[0].public_name || `${listing.profiles[0].first_name} ${listing.profiles[0].last_name}`,
-              email: listing.profiles[0].email,
-              phone: listing.profiles[0].phone,
-              whatsapp: listing.profiles[0].whatsapp
-            } : undefined
-          };
-
-          setProperty(mappedProperty);
+          return;
         }
+
+        const mediaPayload = await getListingMedia(id).catch(() => ({ items: [] as any[] }));
+        const mediaImageUrls = Array.isArray(mediaPayload.items)
+          ? mediaPayload.items
+              .filter((entry: any) => entry?.kind === 'image' && typeof entry?.url === 'string')
+              .sort((a: any, b: any) => Number(a?.order ?? 0) - Number(b?.order ?? 0))
+              .map((entry: any) => String(entry.url))
+          : [];
+
+        const imageUrls = mediaImageUrls.length
+          ? mediaImageUrls
+          : item.imageUrl
+            ? [item.imageUrl]
+            : [];
+
+        setProperty(mapSimpleApiItemToProperty(item, imageUrls));
+        setError(null);
       } catch (e: unknown) {
         setError(e instanceof Error ? e.message : "Error al cargar la propiedad");
       } finally {
@@ -350,18 +307,15 @@ export default function PropiedadDetallePage() {
       </div>
 
       {/* Modal de contacto */}
-      <LeadContactModal
+      <ContactModal
         isOpen={contactModalOpen}
         onClose={() => setContactModalOpen(false)}
         contactName={property.profiles?.full_name || 'Propietario'}
         email={property.profiles?.email}
         phone={property.profiles?.phone}
         whatsapp={property.profiles?.whatsapp}
-        contextType="property"
-        itemId={property.id}
-        itemType="property"
-        itemTitle={property.title}
-        supabaseClient={supabase}
+        contextTitle={property.title}
+        contextType="profile"
       />
     </div>
   );

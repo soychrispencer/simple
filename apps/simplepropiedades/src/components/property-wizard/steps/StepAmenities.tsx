@@ -1,6 +1,7 @@
 "use client";
 import React from "react";
 import { useWizard } from "../context/WizardContext";
+import { wizardSectionTitleClass } from "../styles";
 
 const amenityGroups = [
   {
@@ -43,7 +44,7 @@ function StepAmenities() {
     <div className="space-y-6">
       {amenityGroups.map((group) => (
         <section key={group.title} className="space-y-3">
-          <h4 className="text-sm font-semibold text-lighttext dark:text-darktext">{group.title}</h4>
+          <h4 className={wizardSectionTitleClass}>{group.title}</h4>
           <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
             {group.items.map((item) => (
               <button

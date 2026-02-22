@@ -1,7 +1,7 @@
 "use client";
 import React from "react";
-import { useSupabase } from "@simple/ui";
 import { useWizard } from "../context/WizardContext";
+import { wizardFieldClass, wizardLabelMutedClass } from "../styles";
 
 interface RegionOption {
   id: string;
@@ -15,7 +15,6 @@ interface CommuneOption {
 }
 
 function StepLocation() {
-  const supabase = useSupabase();
   const { state, patchSection } = useWizard();
   const location = state.data.location;
   const [regions, setRegions] = React.useState<RegionOption[]>([]);
@@ -26,17 +25,24 @@ function StepLocation() {
   React.useEffect(() => {
     let active = true;
     async function run() {
-      setLoadingRegions(true);
-      const { data } = await supabase.from("regions").select("id,name").order("name");
-      if (!active) return;
-      setRegions((data || []).map((row) => ({ id: String(row.id), name: row.name })));
-      setLoadingRegions(false);
+      try {
+        setLoadingRegions(true);
+        const response = await fetch("/api/geo?mode=regions", { cache: "no-store" });
+        const payload = await response.json().catch(() => ({} as Record<string, unknown>));
+        if (!active) return;
+        const rows = Array.isArray((payload as { regions?: unknown[] }).regions)
+          ? ((payload as { regions: Array<{ id: string | number; name: string }> }).regions ?? [])
+          : [];
+        setRegions(rows.map((row) => ({ id: String(row.id), name: row.name })));
+      } finally {
+        if (active) setLoadingRegions(false);
+      }
     }
     run();
     return () => {
       active = false;
     };
-  }, [supabase]);
+  }, []);
 
   React.useEffect(() => {
     if (!location.region_id) {
@@ -45,27 +51,36 @@ function StepLocation() {
     }
     let active = true;
     async function fetchCommunes() {
-      setLoadingCommunes(true);
-      const { data } = await supabase
-        .from("communes")
-        .select("id,name,region_id")
-        .eq("region_id", location.region_id)
-        .order("name");
-      if (!active) return;
-      setCommunes((data || []).map((row) => ({ id: String(row.id), name: row.name, region_id: String(row.region_id) })));
-      setLoadingCommunes(false);
+      try {
+        setLoadingCommunes(true);
+        const params = new URLSearchParams({
+          mode: "communes",
+          region_id: String(location.region_id || ""),
+        });
+        const response = await fetch(`/api/geo?${params.toString()}`, { cache: "no-store" });
+        const payload = await response.json().catch(() => ({} as Record<string, unknown>));
+        if (!active) return;
+        const rows = Array.isArray((payload as { communes?: unknown[] }).communes)
+          ? ((payload as { communes: Array<{ id: string | number; name: string; region_id: string | number }> }).communes ?? [])
+          : [];
+        setCommunes(
+          rows.map((row) => ({ id: String(row.id), name: row.name, region_id: String(row.region_id) }))
+        );
+      } finally {
+        if (active) setLoadingCommunes(false);
+      }
     }
     fetchCommunes();
     return () => {
       active = false;
     };
-  }, [location.region_id, supabase]);
+  }, [location.region_id]);
 
   return (
     <div className="space-y-6">
       <div className="grid md:grid-cols-2 gap-4">
         <label className="space-y-1">
-          <span className="text-xs font-medium text-lighttext/80 dark:text-darktext/80">Región</span>
+          <span className={wizardLabelMutedClass}>Región</span>
           <select
             value={location.region_id ?? ""}
             onChange={(event) =>
@@ -78,7 +93,7 @@ function StepLocation() {
                 commune_name: null,
               })
             }
-            className="w-full rounded-xl bg-[var(--field-bg)] border border-[var(--field-border)] px-4 py-3 text-sm text-[var(--field-text)] transition focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-border/60 hover:bg-[var(--field-bg-hover)] hover:border-[var(--field-border-hover)]"
+            className={wizardFieldClass}
           >
             <option value="" disabled>
               {loadingRegions ? "Cargando regiones..." : "Selecciona una región"}
@@ -91,7 +106,7 @@ function StepLocation() {
           </select>
         </label>
         <label className="space-y-1">
-          <span className="text-xs font-medium text-lighttext/80 dark:text-darktext/80">Comuna</span>
+          <span className={wizardLabelMutedClass}>Comuna</span>
           <select
             value={location.commune_id ?? ""}
             onChange={(event) =>
@@ -103,7 +118,7 @@ function StepLocation() {
               })
             }
             disabled={!location.region_id}
-            className="w-full rounded-xl bg-[var(--field-bg)] border border-[var(--field-border)] px-4 py-3 text-sm text-[var(--field-text)] transition focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-border/60 hover:bg-[var(--field-bg-hover)] hover:border-[var(--field-border-hover)] disabled:opacity-50"
+            className={`${wizardFieldClass} disabled:opacity-50`}
           >
             <option value="" disabled>
               {!location.region_id
@@ -122,13 +137,13 @@ function StepLocation() {
       </div>
 
       <label className="space-y-1 block">
-        <span className="text-xs font-medium text-lighttext/80 dark:text-darktext/80">Dirección (opcional)</span>
+        <span className={wizardLabelMutedClass}>Dirección (opcional)</span>
         <input
           type="text"
           value={location.address}
           onChange={(event) => patchSection("location", { address: event.target.value })}
           placeholder="Av. Italia 1234, Ñuñoa"
-          className="w-full rounded-xl bg-[var(--field-bg)] border border-[var(--field-border)] px-4 py-3 text-sm text-[var(--field-text)] placeholder:text-[var(--field-placeholder)] transition focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-border/60 hover:bg-[var(--field-bg-hover)] hover:border-[var(--field-border-hover)]"
+          className={wizardFieldClass}
         />
       </label>
 

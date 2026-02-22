@@ -6,7 +6,6 @@ import type { ReadonlyURLSearchParams } from "next/navigation";
 import { Button, FormInput as Input, FormSelect as Select } from "@simple/ui";
 import { filterSectionLabelClass } from "@simple/ui";
 import { getCurrencyOptions, getVerticalRegion } from "@simple/config";
-import { getSupabaseClient } from "@/lib/supabase/supabase";
 import {
   BEDROOM_OPTIONS,
   BATHROOM_OPTIONS,
@@ -14,7 +13,7 @@ import {
 } from "@/types/property";
 
 interface PropertyAdvancedFiltersProps {
-  defaultListingType?: "sale" | "rent" | "auction" | "all" | "todos" | string;
+  defaultListingType?: "sale" | "rent" | "all" | "todos" | string;
 }
 
 interface RegionOption {
@@ -56,11 +55,17 @@ const PRICE_CURRENCY_OPTIONS = [
   ...PROPERTY_CURRENCY_OPTIONS.map((option) => ({ value: option.value, label: option.label })),
 ];
 
+const normalizeListingType = (value: string | null | undefined, fallback: string) => {
+  if (!value) return fallback;
+  if (value === "sale" || value === "rent" || value === "all" || value === "todos") return value;
+  return fallback;
+};
+
 const buildFilterState = (
   params: URLSearchParams | ReadonlyURLSearchParams,
   fallbackListingType: string
 ) => ({
-  listing_type: params.get("listing_type") || fallbackListingType,
+  listing_type: normalizeListingType(params.get("listing_type"), fallbackListingType),
   property_type: params.get("property_type") || "",
   keyword: params.get("keyword") || params.get("q") || "",
   city: params.get("city") || "",
@@ -88,7 +93,6 @@ export function PropertyAdvancedFilters({ defaultListingType = "all" }: Property
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
-  const supabase = getSupabaseClient();
 
   const normalizedDefault = defaultListingType === "todos" ? "all" : defaultListingType || "all";
   const paramsSignature = searchParams.toString();
@@ -105,15 +109,25 @@ export function PropertyAdvancedFilters({ defaultListingType = "all" }: Property
     let active = true;
     async function loadGeo() {
       try {
-        const [{ data: regionRows }, { data: communeRows }] = await Promise.all([
-          supabase.from("regions").select("id, name").order("name"),
-          supabase.from("communes").select("id, name, region_id").order("name"),
+        const [regionsResponse, communesResponse] = await Promise.all([
+          fetch("/api/geo?mode=regions", { cache: "no-store" }),
+          fetch("/api/geo?mode=communes", { cache: "no-store" }),
         ]);
+        const regionsPayload = await regionsResponse.json().catch(() => ({} as Record<string, unknown>));
+        const communesPayload = await communesResponse.json().catch(() => ({} as Record<string, unknown>));
         if (!active) return;
-        if (regionRows) {
+
+        const regionRows = Array.isArray((regionsPayload as { regions?: unknown[] }).regions)
+          ? ((regionsPayload as { regions: Array<{ id: string | number; name: string }> }).regions ?? [])
+          : [];
+        const communeRows = Array.isArray((communesPayload as { communes?: unknown[] }).communes)
+          ? ((communesPayload as { communes: Array<{ id: string | number; name: string; region_id: string | number }> }).communes ?? [])
+          : [];
+
+        if (regionRows.length > 0) {
           setRegions(regionRows.map((r) => ({ id: String(r.id), name: r.name })));
         }
-        if (communeRows) {
+        if (communeRows.length > 0) {
           setCommunes(
             communeRows.map((c) => ({
               id: String(c.id),
@@ -130,7 +144,7 @@ export function PropertyAdvancedFilters({ defaultListingType = "all" }: Property
     return () => {
       active = false;
     };
-  }, [supabase]);
+  }, []);
 
   const filteredCommunes = useMemo(() => {
     if (!localFilters.region_id) return communes;

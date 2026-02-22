@@ -17,6 +17,7 @@
     "@simple/logging": "*",
     "@simple/panel": "*",
     "@simple/profile": "*",
+    "@simple/sdk": "*",
     "@simple/ui": "*",
     "dotenv": "^16.4.7",
     "framer-motion": "^12.23.24"

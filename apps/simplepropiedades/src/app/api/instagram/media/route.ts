@@ -9,13 +9,13 @@ function isAllowedSourcePath(pathname: string) {
 }
 
 function isAllowedExternalSource(sourceUrl: URL) {
-  const supabaseUrl = String(process.env.NEXT_PUBLIC_SUPABASE_URL || "").trim();
-  if (!supabaseUrl) return false;
+  const storagePublicUrl = String(process.env.NEXT_PUBLIC_STORAGE_PUBLIC_URL || "").trim();
+  if (!storagePublicUrl) return false;
   try {
-    const supabaseOrigin = new URL(supabaseUrl).origin;
+    const storageOrigin = new URL(storagePublicUrl).origin;
     return (
-      sourceUrl.origin === supabaseOrigin &&
-      sourceUrl.pathname.startsWith("/storage/v1/object/public/")
+      sourceUrl.origin === storageOrigin &&
+      sourceUrl.pathname.startsWith("/")
     );
   } catch {
     return false;
@@ -32,8 +32,8 @@ export async function GET(req: NextRequest) {
     const sourceUrl = new URL(src, req.nextUrl.origin);
     const isSameOriginCard =
       sourceUrl.origin === req.nextUrl.origin && isAllowedSourcePath(sourceUrl.pathname);
-    const isAllowedSupabase = isAllowedExternalSource(sourceUrl);
-    if (!isSameOriginCard && !isAllowedSupabase) {
+    const isAllowedStorage = isAllowedExternalSource(sourceUrl);
+    if (!isSameOriginCard && !isAllowedStorage) {
       return NextResponse.json({ error: "Invalid src" }, { status: 400 });
     }
 

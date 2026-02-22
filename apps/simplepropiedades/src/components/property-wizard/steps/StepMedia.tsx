@@ -3,6 +3,7 @@ import React from "react";
 import { Button } from "@simple/ui";
 import { fileToDataURL } from "@/lib/media";
 import { useWizard, type WizardImage } from "../context/WizardContext";
+import { wizardFieldClass, wizardLabelMutedClass } from "../styles";
 
 function StepMedia() {
   const { state, patchSection } = useWizard();
@@ -75,23 +76,23 @@ function StepMedia() {
 
       <div className="grid md:grid-cols-2 gap-4">
         <label className="space-y-1">
-          <span className="text-xs font-medium text-[var(--text-secondary)]">Video (opcional)</span>
+          <span className={wizardLabelMutedClass}>Video (opcional)</span>
           <input
             type="url"
             placeholder="https://..."
             value={state.data.media.video_url ?? ""}
             onChange={(event) => patchSection("media", { video_url: event.target.value || null })}
-            className="w-full rounded-xl bg-[var(--field-bg)] border border-[var(--field-border)] px-4 py-3 text-sm text-[var(--field-text)] placeholder:text-[var(--field-placeholder)] transition focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-border/60 hover:bg-[var(--field-bg-hover)] hover:border-[var(--field-border-hover)]"
+            className={wizardFieldClass}
           />
         </label>
         <label className="space-y-1">
-          <span className="text-xs font-medium text-[var(--text-secondary)]">Tour virtual (opcional)</span>
+          <span className={wizardLabelMutedClass}>Tour virtual (opcional)</span>
           <input
             type="url"
             placeholder="https://..."
             value={state.data.media.virtual_tour_url ?? ""}
             onChange={(event) => patchSection("media", { virtual_tour_url: event.target.value || null })}
-            className="w-full rounded-xl bg-[var(--field-bg)] border border-[var(--field-border)] px-4 py-3 text-sm text-[var(--field-text)] placeholder:text-[var(--field-placeholder)] transition focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-border/60 hover:bg-[var(--field-bg-hover)] hover:border-[var(--field-border-hover)]"
+            className={wizardFieldClass}
           />
         </label>
       </div>

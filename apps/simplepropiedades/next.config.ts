@@ -1,7 +1,18 @@
 import type { NextConfig } from "next";
 import path from "node:path";
 
-const SUPABASE_PROJECT = process.env.NEXT_PUBLIC_SUPABASE_URL?.replace(/^https?:\/\//, '') || '';
+function getHostname(value: string | undefined): string {
+  const raw = String(value || "").trim();
+  if (!raw) return "";
+  try {
+    return new URL(raw).hostname;
+  } catch {
+    return raw.replace(/^https?:\/\//, "").replace(/\/.*$/, "");
+  }
+}
+
+const SIMPLE_API_HOST = getHostname(process.env.NEXT_PUBLIC_SIMPLE_API_BASE_URL);
+const STORAGE_HOST = getHostname(process.env.NEXT_PUBLIC_STORAGE_PUBLIC_URL);
 const transpiledPackages = [
   "@simple/ui",
   "@simple/panel",
@@ -56,11 +67,11 @@ const nextConfig: NextConfig = {
             key: 'Content-Security-Policy',
             value: [
               "default-src 'self'",
-              "script-src 'self' 'unsafe-inline' 'unsafe-eval' *.supabase.co",
+              "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
               "style-src 'self' 'unsafe-inline' fonts.googleapis.com",
               "font-src 'self' fonts.gstatic.com data:",
-              "img-src 'self' data: https: *.supabase.co",
-              "connect-src 'self' *.supabase.co wss://*.supabase.co",
+              "img-src 'self' data: https:",
+              `connect-src 'self'${SIMPLE_API_HOST ? ` https://${SIMPLE_API_HOST}` : ""}`,
               "frame-src 'none'",
               "object-src 'none'",
               "base-uri 'self'",
@@ -71,16 +82,19 @@ const nextConfig: NextConfig = {
       }
     ];
   },
-  // Configuración de imágenes optimizadas
-  images: {
-    remotePatterns: [
-      {
-        protocol: 'https',
-        hostname: SUPABASE_PROJECT,
-        pathname: '/storage/v1/object/public/**',
-      },
-    ],
-  },
+  images:
+    STORAGE_HOST || SIMPLE_API_HOST
+      ? {
+          remotePatterns: [
+            ...(STORAGE_HOST
+              ? [{ protocol: "https" as const, hostname: STORAGE_HOST, pathname: "/**" }]
+              : []),
+            ...(SIMPLE_API_HOST
+              ? [{ protocol: "https" as const, hostname: SIMPLE_API_HOST, pathname: "/**" }]
+              : [])
+          ]
+        }
+      : undefined,
 };
 
 export default nextConfig;

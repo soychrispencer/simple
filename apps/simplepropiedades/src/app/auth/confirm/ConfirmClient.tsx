@@ -11,7 +11,7 @@ export default function ConfirmClient({
   emailFromQuery?: string;
   confirmedFlag?: boolean;
 }) {
-  const { openAuthModal, supabase } = useAuth();
+  const { openAuthModal } = useAuth();
   const router = useRouter();
   const searchParams = useSearchParams();
   const { addToast } = useToast();
@@ -28,7 +28,7 @@ export default function ConfirmClient({
   const [confirmed, setConfirmed] = useState(confirmedFlag);
 
   const authType = searchParams.get('type') || hashType;
-  // Supabase puede redirigir sin `email` en query (ej: `type=signup&code=...`).
+  // backend legado puede redirigir sin `email` en query (ej: `type=signup&code=...`).
   // Si no hay `type` ni `email`, este flujo suele ser callback OAuth (Google).
   const isEmailConfirmationFlow =
     !!email ||
@@ -69,80 +69,45 @@ export default function ConfirmClient({
       setProcessing(true);
       setConfirmError(null);
       try {
-        // 0) Si llega como `token_hash` (algunas configuraciones), verificar OTP para obtener sesión.
-        if (tokenHash && authType) {
+        const tokenFromHash = (() => {
+          if (typeof window === "undefined") return "";
+          const hash = window.location.hash.startsWith("#") ? window.location.hash.slice(1) : window.location.hash;
+          const params = new URLSearchParams(hash);
+          return String(params.get("access_token") || "").trim();
+        })();
+
+        const resolvedAccessToken = String(accessToken || tokenFromHash || "").trim();
+
+        if (resolvedAccessToken) {
+          const bridgeResponse = await fetch("/api/auth/session", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ accessToken: resolvedAccessToken }),
+          });
+
+          if (!bridgeResponse.ok) {
+            if (active) {
+              setConfirmError("No pudimos validar tu acceso. Intenta nuevamente o solicita un nuevo correo.");
+            }
+            return;
+          }
+
           try {
-            const { error: verifyError } = await (supabase.auth as any).verifyOtp({
-              token_hash: tokenHash,
-              type: authType,
-            });
-            if (verifyError) {
-              // seguimos intentando con otros mecanismos
+            localStorage.setItem("simple_access_token", resolvedAccessToken);
+            if (typeof window !== "undefined") {
+              window.history.replaceState(null, "", window.location.pathname + window.location.search);
             }
           } catch {
             // ignore
           }
         }
 
-        // 1) Si detectSessionInUrl ya funcionó (hash access_token), esto debe estar listo.
-        const {
-          data: { session },
-        } = await supabase.auth.getSession();
-        if (session?.user) {
-          if (!active) return;
-          if (isEmailConfirmationFlow) {
-            if (cameFromConfirmationEvent) {
-              try {
-                const key = `simple:email-confirmation-seen:${session.user.id}`;
-                const alreadySeen = typeof window !== 'undefined' && window.localStorage.getItem(key) === '1';
-                if (alreadySeen) {
-                  router.replace('/panel');
-                  return;
-                }
-                if (typeof window !== 'undefined') window.localStorage.setItem(key, '1');
-              } catch {
-                // ignore
-              }
-            }
-            setConfirmed(true);
-          } else {
-            router.replace('/panel');
-          }
-          return;
-        }
+        if (!active) return;
 
-        // 2) Si viene con PKCE (code=...), intercambiar por sesión.
-        if (code) {
-          const { error } = await supabase.auth.exchangeCodeForSession(code);
-          if (error) {
-            if (active)
-              setConfirmError('No pudimos validar tu acceso. Intenta nuevamente o solicita un nuevo correo.');
-            return;
-          }
-          const {
-            data: { session: sessionAfter },
-          } = await supabase.auth.getSession();
-          if (!active) return;
-          if (sessionAfter?.user) {
-            if (isEmailConfirmationFlow) {
-              if (cameFromConfirmationEvent) {
-                try {
-                  const key = `simple:email-confirmation-seen:${sessionAfter.user.id}`;
-                  const alreadySeen = typeof window !== 'undefined' && window.localStorage.getItem(key) === '1';
-                  if (alreadySeen) {
-                    router.replace('/panel');
-                    return;
-                  }
-                  if (typeof window !== 'undefined') window.localStorage.setItem(key, '1');
-                } catch {
-                  // ignore
-                }
-              }
-              setConfirmed(true);
-            } else {
-              router.replace('/panel');
-            }
-          }
+        if (isEmailConfirmationFlow) {
+          setConfirmed(true);
+        } else {
+          router.replace("/panel");
         }
       } catch {
         if (active) setConfirmError('Ocurrió un problema al confirmar. Intenta nuevamente.');
@@ -153,7 +118,7 @@ export default function ConfirmClient({
     return () => {
       active = false;
     };
-  }, [accessToken, authType, cameFromConfirmationEvent, code, hashConfirmed, confirmedFlag, supabase, router, isEmailConfirmationFlow, tokenHash]);
+  }, [accessToken, cameFromConfirmationEvent, code, confirmedFlag, hashConfirmed, isEmailConfirmationFlow, router, tokenHash]);
 
   const isConfirmed = confirmed && isEmailConfirmationFlow;
 
@@ -277,3 +242,4 @@ export default function ConfirmClient({
     </div>
   );
 }
+

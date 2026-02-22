@@ -1,6 +1,7 @@
 "use client";
 import React from "react";
 import { useWizard, type PropertyWizardData } from "../context/WizardContext";
+import { wizardFieldClass, wizardHintCardClass, wizardLabelMutedClass } from "../styles";
 
 const featureFields: Array<{
   key: keyof PropertyWizardData["features"];
@@ -33,7 +34,7 @@ function StepFeatures() {
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         {featureFields.map((field) => (
           <label key={field.key} className="space-y-1">
-            <span className="text-xs font-medium text-lighttext/80 dark:text-darktext/80">{field.label}</span>
+            <span className={wizardLabelMutedClass}>{field.label}</span>
             <div className="relative">
               <input
                 type="number"
@@ -41,7 +42,7 @@ function StepFeatures() {
                 min={field.min ?? undefined}
                 value={values[field.key] ?? ""}
                 onChange={(event) => handleChange(field.key, event.target.value)}
-                className="w-full rounded-xl bg-[var(--field-bg)] border border-[var(--field-border)] px-4 py-3 text-sm text-[var(--field-text)] placeholder:text-[var(--field-placeholder)] transition focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-border/60 hover:bg-[var(--field-bg-hover)] hover:border-[var(--field-border-hover)]"
+                className={wizardFieldClass}
               />
               {field.suffix ? (
                 <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-lighttext/70 dark:text-darktext/70">{field.suffix}</span>
@@ -51,7 +52,7 @@ function StepFeatures() {
         ))}
       </div>
 
-      <div className="rounded-xl card-surface ring-1 ring-border/60 p-4 text-sm text-lighttext/70 dark:text-darktext/70">
+      <div className={`${wizardHintCardClass} text-sm text-lighttext/70 dark:text-darktext/70`}>
         <p className="font-medium text-lighttext dark:text-darktext">Consejo</p>
         <p>
           Completar superficies y año de construcción ayuda a posicionar mejor la propiedad en portales externos y cruces internos.

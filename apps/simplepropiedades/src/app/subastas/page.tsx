@@ -1,10 +1,5 @@
-import { Suspense } from "react";
-import PropertyCatalogView from "@/components/properties/PropertyCatalogView";
+import { redirect } from "next/navigation";
 
 export default function SubastasPage() {
-  return (
-    <Suspense fallback={<div className="p-6">Cargando propiedades...</div>}>
-      <PropertyCatalogView defaultListingType="auction" />
-    </Suspense>
-  );
+  redirect("/propiedades");
 }

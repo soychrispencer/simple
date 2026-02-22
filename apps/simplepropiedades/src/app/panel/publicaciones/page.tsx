@@ -1,14 +1,10 @@
 "use client";
 import React from "react";
 import Link from "next/link";
-import { useSupabase, PanelPageLayout, Button, Input, Select } from "@simple/ui";
+import { PanelPageLayout, Button, Input, Select } from "@simple/ui";
 import { useToast } from "@simple/ui";
 import {
   useListingsScope,
-  duplicateListingWithRelations,
-  bulkToggleFeaturedListings,
-  bulkDeleteListings,
-  bulkUpdateListingStatus,
 } from "@simple/listings";
 import type { ScopeFilter } from "@simple/listings";
 import {
@@ -98,66 +94,6 @@ interface PropertyListingItem {
 
 type ActionType = "duplicate" | "status" | "feature" | "delete";
 
-const LISTING_SELECT = `
-  id,
-  title,
-  description,
-  listing_type,
-  price,
-  currency,
-  status,
-  published_at,
-  created_at,
-  updated_at,
-  user_id,
-  is_featured,
-  views,
-  listing_metrics(views),
-  regions(name),
-  communes(name),
-  images:images(url, position, is_primary),
-  listings_properties(
-    property_type,
-    operation_type,
-    bedrooms,
-    bathrooms,
-    parking_spaces,
-    total_area,
-    built_area,
-    land_area,
-    floor,
-    building_floors,
-    year_built,
-    furnished,
-    pet_friendly,
-    features,
-    amenities
-  ),
-  verticals!inner(key)
-`;
-
-const DETAIL_CONFIG = {
-  table: "listings_properties",
-  alias: "listings_properties",
-  select: `
-    property_type,
-    operation_type,
-    bedrooms,
-    bathrooms,
-    parking_spaces,
-    total_area,
-    built_area,
-    land_area,
-    floor,
-    building_floors,
-    year_built,
-    furnished,
-    pet_friendly,
-    features,
-    amenities
-  `,
-} as const;
-
 const STATUS_META: Record<
   ListingDbStatus,
   { label: string; badgeClass: string; next?: ListingDbStatus; actionLabel: string }
@@ -199,7 +135,6 @@ const LISTING_TYPE_FILTERS = [
   { value: "all", label: "Todos los tipos" },
   { value: "sale", label: "Venta" },
   { value: "rent", label: "Arriendo" },
-  { value: "auction", label: "Subasta" },
 ] as const;
 
 type StatusFilterValue = "all" | ListingDbStatus;
@@ -387,12 +322,12 @@ function PropertyListingCard({ item, onDuplicate, onToggleFeatured, onStatusChan
               </Button>
             )}
             <Button
-              variant={item.featured ? "primary" : "ghost"}
+              variant={item.featured ? "primary" : "outline"}
               size="sm"
               onClick={() => onToggleFeatured(item.property.id, !item.featured)}
               loading={isActionPending("feature")}
             >
-              {item.featured ? <IconStarFilled size={16} /> : <IconStar size={16} />} {item.featured ? "Quitar destacado" : "Destacar"}
+              {item.featured ? <IconStarFilled size={16} /> : <IconStar size={16} />} {item.featured ? "Quitar destacado" : "Solicitar destacado"}
             </Button>
             <Button
               variant="danger"
@@ -410,7 +345,6 @@ function PropertyListingCard({ item, onDuplicate, onToggleFeatured, onStatusChan
 }
 
 export default function PropertyListingsPage() {
-  const supabase = useSupabase();
   const { addToast } = useToast();
   const { user, scopeFilter, loading: scopeLoading, ensureScope } = useListingsScope({ verticalKey: "properties" });
 
@@ -426,10 +360,7 @@ export default function PropertyListingsPage() {
 
   const loadInstagram = React.useCallback(async () => {
     try {
-      const { data } = await supabase.auth.getSession();
-      const accessToken = data?.session?.access_token;
       const res = await fetch("/api/instagram/status", {
-        headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : undefined,
         cache: "no-store",
       });
       const json = await res.json();
@@ -441,7 +372,7 @@ export default function PropertyListingsPage() {
     } catch {
       setIgStatus({ connected: false });
     }
-  }, [supabase]);
+  }, []);
 
   React.useEffect(() => {
     if (!instagramEnabled) return;
@@ -478,15 +409,21 @@ export default function PropertyListingsPage() {
 
     try {
       setLoading(true);
-      const { data, error } = await supabase
-        .from("listings")
-        .select(LISTING_SELECT)
-        .eq(scopeFilter.column, scopeFilter.value)
-        .eq("verticals.key", "properties")
-        .order("created_at", { ascending: false });
-
-      if (error) throw error;
-      const mapped = (data as ListingRow[] | null | undefined)?.map(mapRowToListing) ?? [];
+      const params = new URLSearchParams({
+        scopeColumn: scopeFilter.column,
+        scopeValue: scopeFilter.value,
+      });
+      const response = await fetch(`/api/properties?${params.toString()}`, {
+        cache: "no-store",
+      });
+      const payload = await response.json().catch(() => ({} as Record<string, unknown>));
+      if (!response.ok) {
+        throw new Error(String(payload?.error || "Error cargando publicaciones"));
+      }
+      const rows = Array.isArray((payload as { listings?: unknown[] }).listings)
+        ? ((payload as { listings: ListingRow[] }).listings ?? [])
+        : [];
+      const mapped = rows.map(mapRowToListing);
       setListings(mapped);
     } catch (err: any) {
       logError("[PropertyListings] Error loading listings", err);
@@ -494,7 +431,7 @@ export default function PropertyListingsPage() {
     } finally {
       setLoading(false);
     }
-  }, [addToast, scopeFilter, scopeLoading, supabase]);
+  }, [addToast, scopeFilter, scopeLoading]);
 
   React.useEffect(() => {
     if (scopeLoading) return;
@@ -566,12 +503,22 @@ export default function PropertyListingsPage() {
       id,
       "duplicate",
       async (scoped) => {
-        await duplicateListingWithRelations(supabase, {
-          listingId: id,
-          userId: user.id,
-          scopeFilter: scoped,
-          detail: DETAIL_CONFIG,
+        const params = new URLSearchParams({
+          scopeColumn: scoped.column,
+          scopeValue: scoped.value,
         });
+        const response = await fetch(`/api/properties?${params.toString()}`, {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({
+            action: "duplicate",
+            id,
+          }),
+        });
+        const payload = await response.json().catch(() => ({} as Record<string, unknown>));
+        if (!response.ok) {
+          throw new Error(String(payload?.error || "No se pudo duplicar la publicación"));
+        }
       },
       "Publicación duplicada"
     );
@@ -580,20 +527,95 @@ export default function PropertyListingsPage() {
   const handleStatusChange = (id: string, next: ListingDbStatus) => {
     const target: "published" | "inactive" | "draft" =
       next === "published" ? "published" : next === "inactive" ? "inactive" : "draft";
-    withAction(id, "status", (scoped) => bulkUpdateListingStatus(supabase, [id], target, scoped), "Estado actualizado");
+    withAction(
+      id,
+      "status",
+      async (scoped) => {
+        const params = new URLSearchParams({
+          scopeColumn: scoped.column,
+          scopeValue: scoped.value,
+        });
+        const response = await fetch(`/api/properties?${params.toString()}`, {
+          method: "PATCH",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ id, status: target }),
+        });
+        const payload = await response.json().catch(() => ({} as Record<string, unknown>));
+        if (!response.ok) {
+          throw new Error(String(payload?.error || "No se pudo actualizar el estado"));
+        }
+      },
+      "Estado actualizado"
+    );
   };
 
   const handleToggleFeatured = (id: string, next: boolean) => {
+    if (next) {
+      withAction(
+        id,
+        "feature",
+        async () => {
+          const response = await fetch("/api/payments/manual-requests", {
+            method: "POST",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify({
+              requestType: "featured_listing",
+              listingId: id,
+              proofNote: "Solicitud creada desde Publicaciones"
+            })
+          });
+          const payload = await response.json().catch(() => ({}));
+          if (!response.ok) {
+            throw new Error(payload?.error || "No se pudo crear la solicitud");
+          }
+        },
+        "Solicitud de destacado enviada"
+      );
+      return;
+    }
+
     withAction(
       id,
       "feature",
-      (scoped) => bulkToggleFeaturedListings(supabase, [id], next, scoped),
-      next ? "Publicación destacada" : "Destacado desactivado"
+      async (scoped) => {
+        const params = new URLSearchParams({
+          scopeColumn: scoped.column,
+          scopeValue: scoped.value,
+        });
+        const response = await fetch(`/api/properties?${params.toString()}`, {
+          method: "PATCH",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ id, featured: false }),
+        });
+        const payload = await response.json().catch(() => ({} as Record<string, unknown>));
+        if (!response.ok) {
+          throw new Error(String(payload?.error || "No se pudo desactivar destacado"));
+        }
+      },
+      "Destacado desactivado"
     );
   };
 
   const handleDelete = (id: string) => {
-    withAction(id, "delete", (scoped) => bulkDeleteListings(supabase, [id], scoped), "Publicación eliminada");
+    withAction(
+      id,
+      "delete",
+      async (scoped) => {
+        const params = new URLSearchParams({
+          id,
+          scopeColumn: scoped.column,
+          scopeValue: scoped.value,
+        });
+        const response = await fetch(`/api/properties?${params.toString()}`, {
+          method: "DELETE",
+        });
+        const payload = await response.json().catch(() => ({} as Record<string, unknown>));
+        if (!response.ok) {
+          throw new Error(String(payload?.error || "No se pudo eliminar la publicación"));
+        }
+      },
+      "Publicación eliminada"
+    );
   };
 
   const resetFilters = () => setFilters({ search: "", status: "all", type: "all", featured: "all" });

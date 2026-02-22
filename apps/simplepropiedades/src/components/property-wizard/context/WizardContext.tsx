@@ -1,7 +1,7 @@
 "use client";
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import type { ListingType, PropertyType } from "@/types/property";
-import { logError } from "@/lib/logger";
+import { logError, logWarn } from "@/lib/logger";
 
 export type WizardStep =
   | "type"
@@ -303,22 +303,60 @@ function mergeWizardData(base: PropertyWizardData, incoming?: Partial<PropertyWi
   return next;
 }
 
-function serializeDraft(state: WizardState) {
-  const safeImages = (state.data.media.images || []).map((img) => ({
+function buildDraftImages(images: WizardImage[], dropImages = false) {
+  if (dropImages) return [];
+  return (images || []).map((img) => ({
     id: img.id,
-    dataUrl: img.dataUrl ?? null,
-    url: img.url ?? null,
+    // Nunca guardar dataUrl/file en localStorage: rompe cuota rápidamente.
+    url: img.url ?? undefined,
     remoteUrl: img.remoteUrl ?? null,
     main: !!img.main,
   }));
+}
+
+function serializeDraft(state: WizardState, options?: { dropImages?: boolean }) {
   return JSON.stringify({
     step: state.step,
     propertyId: state.propertyId,
     data: {
       ...state.data,
-      media: { ...state.data.media, images: safeImages },
+      media: {
+        ...state.data.media,
+        images: buildDraftImages(state.data.media.images || [], options?.dropImages === true),
+      },
     },
   });
+}
+
+function isQuotaExceededError(error: unknown) {
+  if (typeof DOMException !== "undefined" && error instanceof DOMException) {
+    return error.name === "QuotaExceededError" || error.name === "NS_ERROR_DOM_QUOTA_REACHED" || error.code === 22;
+  }
+  if (typeof error === "object" && error !== null) {
+    const maybe = error as { name?: string; code?: number };
+    return maybe.name === "QuotaExceededError" || maybe.code === 22;
+  }
+  return false;
+}
+
+function persistDraftToStorage(state: WizardState) {
+  if (typeof window === "undefined") return false;
+  try {
+    window.localStorage.setItem(STORAGE_KEY, serializeDraft(state));
+    return true;
+  } catch (error) {
+    if (!isQuotaExceededError(error)) {
+      throw error;
+    }
+    try {
+      // Fallback: conservar draft sin imágenes para no bloquear el flujo.
+      window.localStorage.setItem(STORAGE_KEY, serializeDraft(state, { dropImages: true }));
+      logWarn("[WizardProvider] Draft guardado sin imágenes por límite de localStorage");
+      return true;
+    } catch (fallbackError) {
+      throw fallbackError;
+    }
+  }
 }
 
 function loadDraft(): WizardState {
@@ -328,10 +366,17 @@ function loadDraft(): WizardState {
     if (!raw) return createInitialState();
     const parsed = JSON.parse(raw);
     const draftData = mergeWizardData(createInitialData(), parsed?.data || {});
+    const sanitizedImages = buildDraftImages(draftData.media.images || []);
     const step: WizardStep = WIZARD_STEPS.includes(parsed?.step) ? parsed.step : "type";
     return {
       step,
-      data: draftData,
+      data: {
+        ...draftData,
+        media: {
+          ...draftData.media,
+          images: sanitizedImages,
+        },
+      },
       propertyId: parsed?.propertyId ?? null,
       meta: {
         createdAt: parsed?.meta?.createdAt || new Date().toISOString(),
@@ -348,23 +393,28 @@ function loadDraft(): WizardState {
 
 export const WizardProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [state, setState] = useState<WizardState>(() => loadDraft());
+  const draftPayloadFingerprint = useMemo(
+    () => `${state.step}|${state.propertyId ?? ""}|${serializeDraft(state)}`,
+    [state.step, state.propertyId, state.data]
+  );
 
   useEffect(() => {
     if (typeof window === "undefined") return;
-    const payload = serializeDraft(state);
     const timeout = window.setTimeout(() => {
       try {
-        window.localStorage.setItem(STORAGE_KEY, payload);
-        setState((prev) => ({
-          ...prev,
-          meta: { ...prev.meta, lastAutoSave: new Date().toISOString() },
-        }));
+        const saved = persistDraftToStorage(state);
+        if (saved) {
+          setState((prev) => ({
+            ...prev,
+            meta: { ...prev.meta, lastAutoSave: new Date().toISOString() },
+          }));
+        }
       } catch (error) {
         logError("[WizardProvider] Error guardando draft", error);
       }
     }, 400);
     return () => window.clearTimeout(timeout);
-  }, [state]);
+  }, [draftPayloadFingerprint]);
 
   const validity = useMemo(() => {
     const result: Partial<Record<WizardStep, boolean>> = {};
@@ -461,12 +511,13 @@ export const WizardProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const forceSave = useCallback(() => {
     if (typeof window === "undefined") return;
     try {
-      const payload = serializeDraft(state);
-      window.localStorage.setItem(STORAGE_KEY, payload);
-      setState((prev) => ({
-        ...prev,
-        meta: { ...prev.meta, lastAutoSave: new Date().toISOString() },
-      }));
+      const saved = persistDraftToStorage(state);
+      if (saved) {
+        setState((prev) => ({
+          ...prev,
+          meta: { ...prev.meta, lastAutoSave: new Date().toISOString() },
+        }));
+      }
     } catch (error) {
       logError("[WizardProvider] Error haciendo forceSave", error);
     }

@@ -2,7 +2,6 @@
 
 import React, { useEffect, useMemo, useState } from "react";
 import { InstagramPublishModalBase } from "@simple/instagram/modal";
-import { useSupabase } from "@simple/ui";
 
 export type InstagramPublishProperty = {
   id: string;
@@ -19,6 +18,24 @@ export type InstagramPublishProperty = {
   image_urls?: string[] | null;
 };
 
+function resolvePublicStorageUrl(raw: string, bucket: string): string {
+  const value = raw.trim();
+  if (!value) return "";
+  if (/^https?:\/\//i.test(value)) return value;
+
+  const base = String(
+    process.env.NEXT_PUBLIC_STORAGE_PUBLIC_URL || process.env.NEXT_PUBLIC_APP_URL || ""
+  ).replace(/\/+$/, "");
+  if (!base) return value;
+
+  if (value.startsWith("/")) {
+    return `${base}${value}`;
+  }
+
+  const withoutBucketPrefix = value.startsWith(`${bucket}/`) ? value.slice(bucket.length + 1) : value;
+  return `${base}/${bucket}/${withoutBucketPrefix}`;
+}
+
 function formatCurrency(value: number | null | undefined, currency: string | null | undefined): string {
   if (typeof value !== "number" || !Number.isFinite(value)) return "";
   const curr = currency || "CLP";
@@ -34,7 +51,7 @@ function buildCaption(p: InstagramPublishProperty): string {
   parts.push(p.title);
 
   const lt = String(p.listing_type || "");
-  const typeLabel = lt === "rent" ? "Arriendo" : lt === "auction" ? "Subasta" : "Venta";
+  const typeLabel = lt === "rent" ? "Arriendo" : "Venta";
   parts.push(typeLabel);
 
   if (typeof p.price === "number") {
@@ -63,7 +80,6 @@ export function InstagramPublishModal(props: {
   property: InstagramPublishProperty | null;
 }) {
   const { open, onClose, property } = props;
-  const supabase = useSupabase();
 
   const [igConnected, setIgConnected] = useState(false);
 
@@ -72,10 +88,7 @@ export function InstagramPublishModal(props: {
     let cancelled = false;
     (async () => {
       try {
-        const { data } = await supabase.auth.getSession();
-        const accessToken = data?.session?.access_token;
         const res = await fetch("/api/instagram/status", {
-          headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : undefined,
           cache: "no-store",
         });
         const json = await res.json();
@@ -87,16 +100,14 @@ export function InstagramPublishModal(props: {
     return () => {
       cancelled = true;
     };
-  }, [open, supabase]);
+  }, [open]);
 
   const imageUrl = useMemo(() => {
     if (!property) return "";
 
     const photoRaw = (property.thumbnail_url || (property.image_urls?.[0] ?? ""))?.trim();
     if (photoRaw) {
-      const photoPublicUrl = /^https?:\/\//i.test(photoRaw)
-        ? photoRaw
-        : supabase.storage.from("properties").getPublicUrl(photoRaw).data.publicUrl;
+      const photoPublicUrl = resolvePublicStorageUrl(photoRaw, "properties");
       return `/api/instagram/media?src=${encodeURIComponent(photoPublicUrl)}`;
     }
 
@@ -107,16 +118,13 @@ export function InstagramPublishModal(props: {
     if (property.listing_type) params.set("listing_type", String(property.listing_type));
     const cardUrl = `/api/instagram/card?${params.toString()}`;
     return `/api/instagram/media?src=${encodeURIComponent(cardUrl)}`;
-  }, [property, supabase]);
+  }, [property]);
 
   const publish = async (input: { imageUrl: string; caption: string }) => {
-    const { data } = await supabase.auth.getSession();
-    const accessToken = data?.session?.access_token;
     const res = await fetch("/api/instagram/publish", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : null),
       } as any,
       body: JSON.stringify({
         imageUrl: input.imageUrl,

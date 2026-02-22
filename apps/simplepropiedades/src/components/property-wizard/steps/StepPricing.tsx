@@ -1,6 +1,7 @@
 "use client";
 import React from "react";
 import { useWizard, type PropertyWizardData } from "../context/WizardContext";
+import { wizardFieldClass, wizardHintCardClass, wizardLabelMutedClass } from "../styles";
 
 const currencyOptions = [
   { value: "CLP", label: "CLP" },
@@ -29,11 +30,11 @@ function StepPricing() {
     <div className="space-y-6">
       <div className="grid md:grid-cols-3 gap-4">
         <label className="space-y-1">
-          <span className="text-xs font-medium text-lighttext/80 dark:text-darktext/80">Moneda</span>
+          <span className={wizardLabelMutedClass}>Moneda</span>
           <select
             value={currency}
             onChange={(event) => patchSection("pricing", { currency: event.target.value as typeof currency })}
-            className="w-full rounded-xl bg-[var(--field-bg)] border border-[var(--field-border)] px-4 py-3 text-sm text-[var(--field-text)] transition focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-border/60 hover:bg-[var(--field-bg-hover)] hover:border-[var(--field-border-hover)]"
+            className={wizardFieldClass}
           >
             {currencyOptions.map((option) => (
               <option key={option.value} value={option.value}>
@@ -44,11 +45,11 @@ function StepPricing() {
         </label>
         {listingType === "rent" ? (
           <label className="space-y-1">
-            <span className="text-xs font-medium text-lighttext/80 dark:text-darktext/80">Periodo</span>
+            <span className={wizardLabelMutedClass}>Periodo</span>
             <select
               value={rent_period ?? "monthly"}
               onChange={(event) => patchSection("pricing", { rent_period: event.target.value as RentPeriod })}
-              className="w-full rounded-xl bg-[var(--field-bg)] border border-[var(--field-border)] px-4 py-3 text-sm text-[var(--field-text)] transition focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-border/60 hover:bg-[var(--field-bg-hover)] hover:border-[var(--field-border-hover)]"
+              className={wizardFieldClass}
             >
               {rentPeriodOptions.map((option) => (
                 <option key={option.value} value={option.value}>
@@ -76,7 +77,7 @@ function StepPricing() {
         />
       )}
 
-      <div className="rounded-xl card-surface ring-1 ring-border/60 p-4 text-sm text-lighttext/70 dark:text-darktext/70">
+      <div className={`${wizardHintCardClass} text-sm text-lighttext/70 dark:text-darktext/70`}>
         <p className="font-medium text-lighttext dark:text-darktext">Reglas de visibilidad</p>
         <p>
           El precio se sincroniza con Simple y portales externos. Podrás activar promociones o descuentos desde el panel comercial en los próximos lanzamientos.
@@ -99,14 +100,14 @@ function PriceInput({
 }) {
   return (
     <label className="space-y-1 block">
-      <span className="text-xs font-medium text-lighttext/80 dark:text-darktext/80">{label}</span>
+      <span className={wizardLabelMutedClass}>{label}</span>
       <input
         type="number"
         inputMode="decimal"
         value={value}
         onChange={(event) => onChange(event.target.value)}
         placeholder={placeholder}
-        className="w-full rounded-xl bg-[var(--field-bg)] border border-[var(--field-border)] px-4 py-3 text-sm text-[var(--field-text)] placeholder:text-[var(--field-placeholder)] transition focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-border/60 hover:bg-[var(--field-bg-hover)] hover:border-[var(--field-border-hover)]"
+        className={wizardFieldClass}
       />
     </label>
   );
