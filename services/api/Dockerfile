@@ -15,6 +15,7 @@ COPY *.md ./
 
 RUN npm ci
 RUN npm run build --workspace=simple-api
+RUN npm prune --omit=dev --workspace=simple-api --include-workspace-root
 
 FROM node:20-bookworm-slim AS runner
 
@@ -28,10 +29,8 @@ RUN apt-get update \
   && apt-get install -y --no-install-recommends curl ca-certificates \
   && rm -rf /var/lib/apt/lists/*
 
-COPY package*.json ./
-COPY services/api/package.json ./services/api/package.json
-RUN npm ci --omit=dev --workspace=simple-api --include-workspace-root
-
+COPY --from=builder /app/node_modules ./node_modules
+COPY --from=builder /app/services/api/package.json ./services/api/package.json
 COPY --from=builder /app/services/api/dist ./services/api/dist
 
 EXPOSE 4000
