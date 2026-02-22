@@ -1,6 +1,6 @@
 import React from "react";
 import { IconCheck, IconUser, IconPhone, IconMail, IconId, IconCalendar, IconChevronLeft, IconChevronRight, IconChevronDown } from "@tabler/icons-react";
-import { useSupabase, useToast, Button, FormInput as Input, FormSelect as Select } from "@simple/ui";
+import { useToast, Button, FormInput as Input, FormSelect as Select } from "@simple/ui";
 
 type PersonalFormState = {
   firstName: string;
@@ -97,7 +97,6 @@ const validateClPhone = (value: string) => {
 };
 
 const PersonalDataForm: React.FC<{ user: any; onSave?: (data: any) => void }> = ({ user, onSave }) => {
-  const supabase = useSupabase();
   const { addToast } = useToast();
   const formattedInitialPhone = React.useMemo(() => formatClPhone(user?.phone || ""), [user?.phone]);
   const formattedInitialWhatsapp = React.useMemo(() => formatClPhone(user?.whatsapp || ""), [user?.whatsapp]);
@@ -337,15 +336,20 @@ const PersonalDataForm: React.FC<{ user: any; onSave?: (data: any) => void }> = 
         user_role: form.userRole || null,
       };
 
-      const { error } = await supabase.from("profiles").upsert(payload, { onConflict: "id" });
-      if (error) {
-        console.error("[PersonalDataForm] save error", error);
+      const response = await fetch("/api/profile/personal", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        console.error("[PersonalDataForm] save error", result);
         const fieldError: { [k: string]: string } = {};
-        if (error.message?.toLowerCase().includes("document")) {
+        if (String(result?.error || "").toLowerCase().includes("document")) {
           fieldError.documentNumber = "Número ya registrado";
         }
         setErrors(fieldError);
-        addToast(error.message || "No se pudo guardar el perfil", { type: "error" });
+        addToast(String(result?.error || "No se pudo guardar el perfil"), { type: "error" });
         return;
       }
 

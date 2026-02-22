@@ -2,7 +2,6 @@
 
 import React from "react";
 import {
-  useSupabase,
   useToast,
   Button,
   FormInput as Input,
@@ -120,7 +119,6 @@ const mapToForm = (c: CompanyMembership): CompanyForm => {
 };
 
 const CompanyManager: React.FC<{ userId?: string; autoOpenCreate?: boolean }> = ({ userId, autoOpenCreate }) => {
-  const supabase = useSupabase();
   const { addToast } = useToast();
   const [loading, setLoading] = React.useState(false);
   const [saving, setSaving] = React.useState(false);
@@ -138,16 +136,17 @@ const CompanyManager: React.FC<{ userId?: string; autoOpenCreate?: boolean }> = 
   const [deleteTarget, setDeleteTarget] = React.useState<{ companyId: string; membershipId: string; companyName?: string; isOwner: boolean } | null>(null);
 
   const fetchRegions = React.useCallback(async () => {
-    const { data, error } = await supabase.from("regions").select("id,name,code").order("name");
-    if (error) {
-      console.error("[CompanyManager] regiones", error);
+    const response = await fetch("/api/geo?mode=regions", { cache: "no-store" });
+    const result = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      console.error("[CompanyManager] regiones", result);
       addToast("No pudimos cargar regiones", { type: "error" });
       return;
     }
-    const sorted = sortRegionsNorthToSouth((data || []) as any);
+    const sorted = sortRegionsNorthToSouth((Array.isArray(result?.regions) ? result.regions : []) as any);
     const opts = sorted.map((r: any) => ({ label: r.name, value: String(r.id) }));
     setRegions(opts);
-  }, [supabase, addToast]);
+  }, [addToast]);
 
   const loadCommunes = React.useCallback(
     async (regionId: string, mode: "create" | "edit") => {
@@ -155,59 +154,45 @@ const CompanyManager: React.FC<{ userId?: string; autoOpenCreate?: boolean }> = 
         mode === "create" ? setCommunesCreate([]) : setCommunesEdit([]);
         return;
       }
-      const { data, error } = await supabase
-        .from("communes")
-        .select("id,name")
-        .eq("region_id", regionId)
-        .order("name");
-      if (error) {
-        console.error(`[CompanyManager] comunas ${mode}`, error);
+      const response = await fetch(`/api/geo?mode=communes&region_id=${encodeURIComponent(regionId)}`, { cache: "no-store" });
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        console.error(`[CompanyManager] comunas ${mode}`, result);
         addToast("No pudimos cargar comunas", { type: "error" });
         mode === "create" ? setCommunesCreate([]) : setCommunesEdit([]);
         return;
       }
-      const opts = (data || []).map((c: any) => ({ label: c.name, value: String(c.id) }));
+      const opts = (Array.isArray(result?.communes) ? result.communes : []).map((c: any) => ({ label: c.name, value: String(c.id) }));
       mode === "create" ? setCommunesCreate(opts) : setCommunesEdit(opts);
     },
-    [supabase, addToast]
+    [addToast]
   );
 
   const fetchCompanies = React.useCallback(async () => {
     if (!userId) return;
     setLoading(true);
-    const { data, error } = await supabase
-      .from("company_users")
-      .select(
-        `id, role, permissions, status,
-         company:companies(
-           id, legal_name, rut, company_type, industry, billing_email, billing_phone, address_legal,
-           region_id, commune_id, billing_data, created_at, updated_at,
-           region:region_id(name),
-           commune:commune_id(name)
-         )`
-      )
-      .eq("user_id", userId)
-      .order("created_at", { foreignTable: "companies", ascending: false });
+    const response = await fetch("/api/profile/companies", { cache: "no-store" });
+    const result = await response.json().catch(() => ({}));
 
-    if (error) {
-      console.error("[CompanyManager] fetch", error);
+    if (!response.ok) {
+      console.error("[CompanyManager] fetch", result);
       addToast("No pudimos cargar tus negocios", { type: "error" });
       setLoading(false);
       return;
     }
 
-    const mapped: CompanyMembership[] = (data || [])
-      .filter((row: any) => !!row?.company)
+    const mapped: CompanyMembership[] = (Array.isArray(result?.companies) ? result.companies : [])
+      .filter((row: any) => !!row?.company && !!row?.membershipId)
       .map((row: any) => ({
-        membershipId: row.id,
-        role: row.role,
+        membershipId: String(row.membershipId),
+        role: row.role || "member",
         permissions: row.permissions || {},
-        status: row.status,
+        status: row.status || "active",
         company: row.company,
       }));
     setCompanies(mapped);
     setLoading(false);
-  }, [supabase, userId, addToast]);
+  }, [userId, addToast]);
 
   React.useEffect(() => {
     fetchRegions();
@@ -268,19 +253,6 @@ const CompanyManager: React.FC<{ userId?: string; autoOpenCreate?: boolean }> = 
     setCommunesEdit([]);
   };
 
-  const clearPrimary = async (exceptMembershipId?: string | null) => {
-    const primaryMemberships = companies.filter((c) => c.permissions?.primary && c.membershipId !== exceptMembershipId);
-    if (!primaryMemberships.length) return;
-    await Promise.all(
-      primaryMemberships.map(async (m) => {
-        const nextPerms = { ...(m.permissions || {}) };
-        delete nextPerms.primary;
-        const { error } = await supabase.from("company_users").update({ permissions: nextPerms }).eq("id", m.membershipId);
-        if (error) throw new Error(error.message || error.hint || error.details || "No se pudo limpiar negocio principal");
-      })
-    );
-  };
-
   const extractErrorMessage = (err: unknown) => {
     if (!err) return "";
     if (typeof err === "string") return err;
@@ -327,21 +299,23 @@ const CompanyManager: React.FC<{ userId?: string; autoOpenCreate?: boolean }> = 
     try {
       const payload = buildPayload(form);
       debugPayload = payload;
-      if (form.isPrimary) {
-        lastStep = 'clear_primary';
-        await clearPrimary(null);
-      }
       const permissions: Record<string, any> = {};
       if (form.isPrimary) permissions.primary = true;
       if (form.contactName?.trim()) permissions.contact_name = form.contactName.trim();
-      lastStep = 'rpc_create_company';
-      const { data: created, error: rpcError } = await supabase
-        .rpc('create_company_with_owner', { input: payload, perms: permissions });
-      debugRpcResponse = { created, rpcError };
-      if (rpcError || !created) {
-        const rpcErrAny = rpcError as any;
-        const baseMessage = rpcErrAny?.message || rpcErrAny?.hint || rpcErrAny?.details;
-        throw new Error(baseMessage || "No se insertó el negocio (respuesta vacía)");
+      lastStep = "rpc_create_company";
+      const response = await fetch("/api/profile/companies", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "create",
+          company: payload,
+          permissions,
+        }),
+      });
+      const result = await response.json().catch(() => ({}));
+      debugRpcResponse = result;
+      if (!response.ok) {
+        throw new Error(String(result?.error || "No se insertó el negocio (respuesta vacía)"));
       }
       addToast("Negocio guardado", { type: "success" });
       resetForm();
@@ -376,23 +350,24 @@ const CompanyManager: React.FC<{ userId?: string; autoOpenCreate?: boolean }> = 
     setSaving(true);
     try {
       const payload = buildPayload(editForm);
-      if (editForm.isPrimary) {
-        await clearPrimary(editingMembershipId);
-      }
-      const { error: updateError } = await supabase.from("companies").update(payload).eq("id", editingId);
-      if (updateError) throw updateError;
+      const currentPerms = companies.find((c) => c.membershipId === editingMembershipId)?.permissions || {};
+      const perms: Record<string, any> = { ...currentPerms };
+      if (editForm.isPrimary) perms.primary = true; else delete perms.primary;
+      if (editForm.contactName?.trim()) perms.contact_name = editForm.contactName.trim(); else delete perms.contact_name;
 
-      if (editingMembershipId) {
-        const currentPerms = companies.find((c) => c.membershipId === editingMembershipId)?.permissions || {};
-        const perms: Record<string, any> = { ...currentPerms };
-        if (editForm.isPrimary) perms.primary = true; else delete perms.primary;
-        if (editForm.contactName?.trim()) perms.contact_name = editForm.contactName.trim(); else delete perms.contact_name;
-        const { error: permError } = await supabase
-          .from("company_users")
-          .update({ permissions: perms })
-          .eq("id", editingMembershipId);
-        if (permError) throw permError;
-      }
+      const response = await fetch("/api/profile/companies", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "update",
+          companyId: editingId,
+          membershipId: editingMembershipId,
+          company: payload,
+          permissions: perms,
+        }),
+      });
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(String(result?.error || "No se pudo actualizar el negocio"));
 
       addToast("Negocio actualizado", { type: "success" });
       resetEdit();
@@ -409,11 +384,19 @@ const CompanyManager: React.FC<{ userId?: string; autoOpenCreate?: boolean }> = 
     if (!companyId || !membershipId) return;
     setSaving(true);
     try {
-      if (isOwner) {
-        await supabase.from("companies").delete().eq("id", companyId);
-        await supabase.from("company_users").delete().eq("id", membershipId);
-      } else {
-        await supabase.from("company_users").delete().eq("id", membershipId);
+      const response = await fetch("/api/profile/companies", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "delete",
+          companyId,
+          membershipId,
+          hardDelete: isOwner,
+        }),
+      });
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw new Error(String(result?.error || "No se pudo eliminar"));
       }
       addToast(isOwner ? "Negocio eliminado" : "Membresía eliminada", { type: "success" });
       await fetchCompanies();

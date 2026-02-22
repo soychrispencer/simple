@@ -1,6 +1,6 @@
 import React from "react";
 import { IconMapPin, IconHome, IconTrash, IconCheck, IconPlus, IconChevronDown, IconPencil, IconX } from "@tabler/icons-react";
-import { useSupabase, useToast, Button, FormInput as Input, FormSelect as Select } from "@simple/ui";
+import { useToast, Button, FormInput as Input, FormSelect as Select } from "@simple/ui";
 import { sortRegionsNorthToSouth } from "../utils/sortRegionsNorthToSouth";
 
 type AddressForm = {
@@ -34,7 +34,6 @@ const latamCountries = [
 ].map((c) => ({ label: c, value: c }));
 
 const ProfileAddresses: React.FC<{ userId?: string }> = ({ userId }) => {
-  const supabase = useSupabase();
   const { addToast } = useToast();
   const [loading, setLoading] = React.useState(false);
   const [saving, setSaving] = React.useState(false);
@@ -66,87 +65,73 @@ const ProfileAddresses: React.FC<{ userId?: string }> = ({ userId }) => {
   const fetchAddresses = React.useCallback(async () => {
     if (!userId) return;
     setLoading(true);
-    const { data, error } = await supabase
-      .from("profile_addresses")
-      .select("id,type,label,line1,line2,country,region_id,commune_id,region:region_id(name),commune:commune_id(name),postal_code,is_default,created_at")
-      .eq("profile_id", userId)
-      .order("is_default", { ascending: false })
-      .order("created_at", { ascending: false });
-
-    if (error) {
-      console.error("[ProfileAddresses] fetch", error?.message || error);
-      addToast(error?.message || "No pudimos cargar direcciones", { type: "error" });
-    } else {
-      const mapped = (data || []).map((addr: any) => ({
-        ...addr,
-        region_name: addr.region?.name,
-        commune_name: addr.commune?.name,
-      }));
-      setAddresses(mapped);
+    const response = await fetch("/api/profile/addresses", { cache: "no-store" });
+    const result = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      console.error("[ProfileAddresses] fetch", result);
+      addToast(String(result?.error || "No pudimos cargar direcciones"), { type: "error" });
+      setLoading(false);
+      return;
     }
+    setAddresses(Array.isArray(result?.addresses) ? result.addresses : []);
     setLoading(false);
-  }, [supabase, userId, addToast]);
+  }, [userId, addToast]);
 
   React.useEffect(() => {
     let active = true;
     const loadRegions = async () => {
       setLoadingRegions(true);
-      const { data, error } = await supabase.from("regions").select("id,name,code").order("name", { ascending: true });
+      const response = await fetch("/api/geo?mode=regions", { cache: "no-store" });
+      const result = await response.json().catch(() => ({}));
       if (!active) return;
-      if (error) {
-        console.error("[ProfileAddresses] regiones", error);
+      if (!response.ok) {
+        console.error("[ProfileAddresses] regiones", result);
         addToast("No pudimos cargar regiones", { type: "error" });
         setLoadingRegions(false);
         return;
       }
-      const sorted = sortRegionsNorthToSouth((data || []) as any);
+      const sorted = sortRegionsNorthToSouth((Array.isArray(result?.regions) ? result.regions : []) as any);
       const opts = sorted.map((r: any) => ({ label: r.name, value: r.id }));
       setRegions(opts);
       setLoadingRegions(false);
     };
     loadRegions();
     return () => { active = false; };
-  }, [supabase, addToast]);
+  }, [addToast]);
 
   const loadCommunesCreate = React.useCallback(async (regionId: string) => {
     if (!regionId) { setCommunesCreate([]); return; }
     setLoadingCommunesCreate(true);
-    const { data, error } = await supabase
-      .from("communes")
-      .select("id,name")
-      .eq("region_id", regionId)
-      .order("name", { ascending: true });
-    if (error) {
-      console.error("[ProfileAddresses] comunas", error);
+    const response = await fetch(`/api/geo?mode=communes&region_id=${encodeURIComponent(regionId)}`, { cache: "no-store" });
+    const result = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      console.error("[ProfileAddresses] comunas", result);
       addToast("No pudimos cargar comunas", { type: "error" });
       setCommunesCreate([]);
       setLoadingCommunesCreate(false);
       return;
     }
-    const opts = (data || []).map((c: any) => ({ label: c.name, value: c.id }));
+    const opts = (Array.isArray(result?.communes) ? result.communes : []).map((c: any) => ({ label: c.name, value: c.id }));
     setCommunesCreate(opts);
     setLoadingCommunesCreate(false);
-  }, [supabase, addToast]);
+  }, [addToast]);
 
   const loadCommunesEdit = React.useCallback(async (regionId: string) => {
     if (!regionId) { setCommunesEdit([]); return; }
     setLoadingCommunesEdit(true);
-    const { data, error } = await supabase
-      .from("communes")
-      .select("id,name")
-      .eq("region_id", regionId)
-      .order("name", { ascending: true });
-    if (error) {
-      console.error("[ProfileAddresses] comunas edit", error);
+    const response = await fetch(`/api/geo?mode=communes&region_id=${encodeURIComponent(regionId)}`, { cache: "no-store" });
+    const result = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      console.error("[ProfileAddresses] comunas edit", result);
       addToast("No pudimos cargar comunas", { type: "error" });
       setCommunesEdit([]);
       setLoadingCommunesEdit(false);
       return;
     }
-    const opts = (data || []).map((c: any) => ({ label: c.name, value: c.id }));
+    const opts = (Array.isArray(result?.communes) ? result.communes : []).map((c: any) => ({ label: c.name, value: c.id }));
     setCommunesEdit(opts);
     setLoadingCommunesEdit(false);
-  }, [supabase, addToast]);
+  }, [addToast]);
 
   React.useEffect(() => {
     if (form.regionId) {
@@ -207,17 +192,19 @@ const ProfileAddresses: React.FC<{ userId?: string }> = ({ userId }) => {
       is_default: form.isDefault,
     };
     try {
-      if (form.isDefault) {
-        await supabase.from("profile_addresses").update({ is_default: false }).eq("profile_id", userId);
-      }
-      const { error } = await supabase.from("profile_addresses").insert(payload);
-      if (error) {
-        console.error("[ProfileAddresses] insert", error);
-        addToast("No se pudo guardar la dirección", { type: "error" });
+      const response = await fetch("/api/profile/addresses", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        console.error("[ProfileAddresses] insert", result);
+        addToast(String(result?.error || "No se pudo guardar la dirección"), { type: "error" });
       } else {
         addToast("Dirección guardada", { type: "success" });
         resetForm();
-        fetchAddresses();
+        setAddresses(Array.isArray(result?.addresses) ? result.addresses : []);
       }
     } finally {
       setSaving(false);
@@ -225,14 +212,19 @@ const ProfileAddresses: React.FC<{ userId?: string }> = ({ userId }) => {
   };
 
   const handleDelete = async (id: string) => {
-    const { error } = await supabase.from("profile_addresses").delete().eq("id", id);
-    if (error) {
-      console.error("[ProfileAddresses] delete", error);
-      addToast("No se pudo eliminar", { type: "error" });
-    } else {
-      addToast("Dirección eliminada", { type: "success" });
-      fetchAddresses();
+    const response = await fetch("/api/profile/addresses", {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id }),
+    });
+    const result = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      console.error("[ProfileAddresses] delete", result);
+      addToast(String(result?.error || "No se pudo eliminar"), { type: "error" });
+      return;
     }
+    addToast("Dirección eliminada", { type: "success" });
+    setAddresses(Array.isArray(result?.addresses) ? result.addresses : []);
   };
 
   const handleEditStart = async (addr: any) => {
@@ -285,17 +277,19 @@ const ProfileAddresses: React.FC<{ userId?: string }> = ({ userId }) => {
       is_default: editForm.isDefault,
     };
     try {
-      if (editForm.isDefault) {
-        await supabase.from("profile_addresses").update({ is_default: false }).eq("profile_id", userId);
-      }
-      const { error } = await supabase.from("profile_addresses").update(payload).eq("id", editingId);
-      if (error) {
-        console.error("[ProfileAddresses] update", error);
-        addToast("No se pudo actualizar la dirección", { type: "error" });
+      const response = await fetch("/api/profile/addresses", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: editingId, ...payload }),
+      });
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        console.error("[ProfileAddresses] update", result);
+        addToast(String(result?.error || "No se pudo actualizar la dirección"), { type: "error" });
       } else {
         addToast("Dirección actualizada", { type: "success" });
         handleCancelEdit();
-        fetchAddresses();
+        setAddresses(Array.isArray(result?.addresses) ? result.addresses : []);
       }
     } finally {
       setSaving(false);
