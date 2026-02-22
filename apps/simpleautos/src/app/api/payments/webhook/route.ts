@@ -17,6 +17,7 @@ const DURATION_IN_DAYS = {
 } as const satisfies Partial<Record<BoostDuration, number>>;
 
 const DEFAULT_DURATION_DAYS = 7;
+type ActiveBoostSlot = { id: string; slotId: string };
 
 function addDays(base: Date, days: number) {
   const ms = Math.max(0, days) * 24 * 60 * 60 * 1000;
@@ -196,17 +197,17 @@ async function syncSlots(params: {
     [params.listingId]
   );
 
-  const current = currentRows.rows.map((row: any) => ({ id: String(row.id), slotId: String(row.slot_id) }));
-  const currentSet = new Set(current.map((row) => row.slotId));
+  const current: ActiveBoostSlot[] = currentRows.rows.map((row: any) => ({ id: String(row.id), slotId: String(row.slot_id) }));
+  const currentSet = new Set(current.map((row: ActiveBoostSlot) => row.slotId));
   const toAdd = normalized.filter((slotId) => !currentSet.has(slotId));
-  const toRemove = current.filter((row) => !normalized.includes(row.slotId));
+  const toRemove = current.filter((row: ActiveBoostSlot) => !normalized.includes(row.slotId));
 
   if (toRemove.length > 0) {
     await db.query(
       `UPDATE listing_boost_slots
        SET is_active = false, ends_at = $2
        WHERE id = ANY($1::uuid[])`,
-      [toRemove.map((row) => row.id), params.endsAt ?? new Date().toISOString()]
+      [toRemove.map((row: ActiveBoostSlot) => row.id), params.endsAt ?? new Date().toISOString()]
     );
   }
 
