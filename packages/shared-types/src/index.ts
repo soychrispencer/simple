@@ -15,3 +15,6 @@ export * from './panel';
 
 // Tipos de UI compartidos (header, permisos livianos)
 export * from './ui';
+
+// Contratos de dominio (planes/roles/capacidades)
+export * from './domain';
