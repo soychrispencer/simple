@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 import React, { useEffect, useState } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { getVehicleById, VehicleDetail } from "@/lib/getVehicleById";
@@ -20,11 +20,10 @@ import {
 import { toSpanish, fuelTypeMap, transmissionMap, conditionMap } from "@/lib/vehicleTranslations";
 import { capitalize, formatPrice } from "@/lib/format";
 import { getSpecCategory } from "@/components/vehicle-wizard/specDescriptors";
-import { useSupabase } from "@/lib/supabase/useSupabase";
 import { useAuth } from "@/context/AuthContext";
 import { useFavorites } from "@/context/FavoritesContext";
 import { convertFromClp } from "@/lib/displayCurrency";
-import { getAvatarUrl } from "@/lib/supabaseStorage";
+import { getAvatarUrl } from "@/lib/storageMedia";
 
 type IconCmp = React.ComponentType<{ size?: number; className?: string }>;
 type DetailRow = { label: string; value: string; iconCmp?: IconCmp };
@@ -103,7 +102,6 @@ export default function VehiculoDetallePage() {
   const searchParams = useSearchParams();
   const id = params?.id as string;
 
-  const supabase = useSupabase();
   const { user, openAuthModal } = useAuth();
   const { isFavorite, toggleFavorite } = useFavorites();
   const { currency: displayCurrency } = useDisplayCurrency();
@@ -172,10 +170,6 @@ export default function VehiculoDetallePage() {
       addToast("No pudimos identificar la publicación.", { type: "error" });
       return;
     }
-    if (!supabase) {
-      addToast("No se pudo enviar (sin conexión).", { type: "error" });
-      return;
-    }
     if (!reportReason) {
       addToast("Selecciona un motivo para reportar.", { type: "error" });
       return;
@@ -187,12 +181,19 @@ export default function VehiculoDetallePage() {
 
     setReportSubmitting(true);
     try {
-      const { error } = await supabase
-        .from("listing_reports")
-        .insert({ listing_id: id, reason: reportReason, details: reportDetails.trim() });
+      const response = await fetch("/api/reports/listing", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          listingId: id,
+          reason: reportReason,
+          details: reportDetails.trim(),
+        }),
+      });
 
-      if (error) {
-        addToast(error.message || "No se pudo enviar el reporte.", { type: "error" });
+      if (!response.ok) {
+        const payload = await response.json().catch(() => ({} as { error?: string }));
+        addToast(payload.error || "No se pudo enviar el reporte.", { type: "error" });
         return;
       }
 
@@ -466,9 +467,9 @@ export default function VehiculoDetallePage() {
   };
 
   const isOwnListing = Boolean(user?.id && vehicle?.owner_id && vehicle.owner_id === user.id);
-  const canSendDirectMessage = Boolean(supabase && user?.id && vehicle?.owner_id && !isOwnListing);
+  const canSendDirectMessage = Boolean(user?.id && vehicle?.owner_id && !isOwnListing);
   const onSendDirectMessage = async (content: string) => {
-    if (!supabase || !user?.id) {
+    if (!user?.id) {
       throw new Error('Debes iniciar sesión para enviar un mensaje.');
     }
     if (!vehicle?.owner_id) {
@@ -484,15 +485,21 @@ export default function VehiculoDetallePage() {
     } catch {}
     const sanitized = DOMPurify ? DOMPurify.sanitize(content) : content;
 
-    const { error } = await supabase.from('messages').insert({
-      sender_id: user.id,
-      receiver_id: vehicle.owner_id,
-      listing_id: vehicle.id,
-      subject: vehicle.title,
-      content: sanitized,
-      is_read: false,
+    const response = await fetch('/api/messages', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        action: 'send',
+        listing_id: vehicle.id,
+        counterparty_id: vehicle.owner_id,
+        subject: vehicle.title,
+        content: sanitized,
+      }),
     });
-    if (error) throw error;
+    if (!response.ok) {
+      const payload = await response.json().catch(() => ({} as { error?: string }));
+      throw new Error(payload.error || 'No se pudo enviar el mensaje.');
+    }
 
     addToast('Mensaje enviado', { type: 'success' });
   };
@@ -1736,7 +1743,7 @@ export default function VehiculoDetallePage() {
                               vehicle.public_profile?.avatar_url
                                 ? (vehicle.public_profile.avatar_url.startsWith('http')
                                   ? vehicle.public_profile.avatar_url
-                                  : getAvatarUrl(supabase as any, vehicle.public_profile.avatar_url))
+                                  : getAvatarUrl(null as any, vehicle.public_profile.avatar_url))
                                 : undefined
                             }
                             alt={vehicle.profiles?.public_name || vehicle.public_profile?.public_name || 'Vendedor'}

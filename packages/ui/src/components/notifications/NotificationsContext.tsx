@@ -95,8 +95,8 @@ const NotificationsContext = createContext<NotificationsContextValue | null>(nul
 
 function normalizeNotificationRow(row: any): NotificationItem {
   return {
-    id: row.id,
-    type: row.type as NotificationType,
+    id: String(row.id || ""),
+    type: (row.type || "system") as NotificationType,
     title: row.title,
     body: row.body ?? row.content,
     data: row.data,
@@ -106,11 +106,25 @@ function normalizeNotificationRow(row: any): NotificationItem {
   };
 }
 
+async function requestNotificationsApi<T = any>(path: string, init?: RequestInit): Promise<{ ok: boolean; status: number; data: T | null }> {
+  try {
+    const response = await fetch(path, {
+      cache: "no-store",
+      credentials: "include",
+      ...init,
+    });
+    const data = (await response.json().catch(() => null)) as T | null;
+    return { ok: response.ok, status: response.status, data };
+  } catch {
+    return { ok: false, status: 0, data: null };
+  }
+}
+
 export function NotificationsProvider({ children }: { children: React.ReactNode }) {
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
-  const channelRef = useRef<any>(null);
-  const { user, supabase } = useAuth();
+  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const { user } = useAuth();
   const { addToast } = useToast();
 
   const computeUnread = useCallback(
@@ -125,57 +139,48 @@ export function NotificationsProvider({ children }: { children: React.ReactNode 
       return;
     }
 
-    const { data, error } = await supabase
-      .from("notifications")
-      .select("*")
-      .eq("user_id", user.id)
-      .order("created_at", { ascending: false })
-      .limit(50);
+    const response = await requestNotificationsApi<{ notifications?: unknown[]; unreadCount?: number }>(
+      "/api/notificaciones?limit=50",
+      { method: "GET" }
+    );
 
-    if (error) {
-      console.error("[Notifications] fetch error", error);
+    if (!response.ok) {
+      if (response.status === 404 || response.status === 401) {
+        setNotifications([]);
+        setUnreadCount(0);
+      }
       return;
     }
 
-    const next = (data || []).map(normalizeNotificationRow);
+    const rows = Array.isArray(response.data?.notifications) ? response.data?.notifications : [];
+    const next = rows.map(normalizeNotificationRow);
     setNotifications(next);
-    setUnreadCount(computeUnread(next));
-  }, [computeUnread, supabase, user]);
+    const explicitUnread = Number(response.data?.unreadCount);
+    setUnreadCount(Number.isFinite(explicitUnread) ? explicitUnread : computeUnread(next));
+  }, [computeUnread, user]);
 
   const markAll = useCallback(async () => {
     if (!user) return;
-
-    const { error } = await supabase
-      .from("notifications")
-      .update({ is_read: true })
-      .eq("user_id", user.id)
-      .eq("is_read", false);
-
-    if (error) {
-      console.error("[Notifications] markAll error", error);
-      return;
-    }
-
-    setNotifications((list) => {
-      const next = list.map((n) => ({ ...n, read: true }));
-      setUnreadCount(0);
-      return next;
+    const response = await requestNotificationsApi("/api/notificaciones", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ markAll: true }),
     });
-  }, [supabase, user]);
+    if (!response.ok) return;
+
+    setNotifications((list) => list.map((n) => ({ ...n, read: true })));
+    setUnreadCount(0);
+  }, [user]);
 
   const markIds = useCallback(
     async (ids: string[]) => {
       if (!user || ids.length === 0) return;
-      const { error } = await supabase
-        .from("notifications")
-        .update({ is_read: true })
-        .eq("user_id", user.id)
-        .in("id", ids);
-
-      if (error) {
-        console.error("[Notifications] markIds error", error);
-        return;
-      }
+      const response = await requestNotificationsApi("/api/notificaciones", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ids }),
+      });
+      if (!response.ok) return;
 
       setNotifications((list) => {
         const next = list.map((n) => (ids.includes(n.id) ? { ...n, read: true } : n));
@@ -183,27 +188,29 @@ export function NotificationsProvider({ children }: { children: React.ReactNode 
         return next;
       });
     },
-    [computeUnread, supabase, user]
+    [computeUnread, user]
   );
 
   const createNotification = useCallback(
     async (type: NotificationType, title: string, body?: string, data?: any) => {
       if (!user) return;
-
-      const { error } = await supabase.from("notifications").insert({
-        user_id: user.id,
-        type,
-        title,
-        content: body,
-        data,
-        is_read: false,
+      const response = await requestNotificationsApi<{ notification?: unknown }>("/api/notificaciones", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ type, title, body, data }),
       });
+      if (!response.ok) return;
 
-      if (error) {
-        console.error("[Notifications] create error", error);
-      }
+      const created = response.data?.notification ? normalizeNotificationRow(response.data.notification) : null;
+      if (!created) return;
+
+      setNotifications((list) => {
+        const next = [created, ...list];
+        setUnreadCount(computeUnread(next));
+        return next;
+      });
     },
-    [supabase, user]
+    [computeUnread, user]
   );
 
   const pushLocal = useCallback(
@@ -213,88 +220,48 @@ export function NotificationsProvider({ children }: { children: React.ReactNode 
         setUnreadCount(computeUnread(next));
         return next;
       });
+
+      const config = NOTIFICATION_CONFIGS[notification.type];
+      if (config?.showToast) {
+        addToast(
+          <div className="flex items-center gap-2">
+            <span>{config.icon}</span>
+            <div>
+              <div className="font-medium">{notification.title}</div>
+              <div className="text-sm opacity-90">{notification.body}</div>
+            </div>
+          </div>,
+          { type: notification.priority === "urgent" ? "error" : "info" }
+        );
+      }
     },
-    [computeUnread]
+    [addToast, computeUnread]
   );
 
   useEffect(() => {
-    let mounted = true;
-
-    const disposeChannel = () => {
-      if (channelRef.current) {
-        supabase.removeChannel(channelRef.current);
-        channelRef.current = null;
-      }
-    };
-
     if (!user) {
-      disposeChannel();
+      if (pollRef.current) {
+        clearInterval(pollRef.current);
+        pollRef.current = null;
+      }
       setNotifications([]);
       setUnreadCount(0);
       return;
     }
 
-    const channel = supabase
-      .channel("notifications")
-      .on(
-        "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "notifications",
-          filter: `user_id=eq.${user.id}`,
-        },
-        (payload: any) => {
-          if (!mounted) return;
-
-          if (payload.eventType === "INSERT") {
-            const newNotification = normalizeNotificationRow(payload.new);
-            setNotifications((prev) => {
-              const next = [newNotification, ...prev];
-              setUnreadCount(computeUnread(next));
-              return next;
-            });
-
-            const config = NOTIFICATION_CONFIGS[newNotification.type];
-            if (config?.showToast) {
-              addToast(
-                <div className="flex items-center gap-2">
-                  <span>{config.icon}</span>
-                  <div>
-                    <div className="font-medium">{newNotification.title}</div>
-                    <div className="text-sm opacity-90">{newNotification.body}</div>
-                  </div>
-                </div>,
-                { type: newNotification.priority === "urgent" ? "error" : "info" }
-              );
-            }
-          } else if (payload.eventType === "UPDATE") {
-            const updated = normalizeNotificationRow(payload.new);
-            setNotifications((prev) => {
-              const next = prev.map((n) => (n.id === updated.id ? updated : n));
-              setUnreadCount(computeUnread(next));
-              return next;
-            });
-          } else if (payload.eventType === "DELETE") {
-            const deletedId = payload.old.id;
-            setNotifications((prev) => {
-              const next = prev.filter((n) => n.id !== deletedId);
-              setUnreadCount(computeUnread(next));
-              return next;
-            });
-          }
-        }
-      )
-      .subscribe();
-
-    channelRef.current = channel;
-    fetchAll();
+    void fetchAll();
+    if (pollRef.current) clearInterval(pollRef.current);
+    pollRef.current = setInterval(() => {
+      void fetchAll();
+    }, 30000);
 
     return () => {
-      mounted = false;
-      disposeChannel();
+      if (pollRef.current) {
+        clearInterval(pollRef.current);
+        pollRef.current = null;
+      }
     };
-  }, [addToast, computeUnread, fetchAll, supabase, user]);
+  }, [fetchAll, user]);
 
   const value = useMemo(
     () => ({ notifications, unreadCount, refresh: fetchAll, markAll, markIds, pushLocal, createNotification }),
@@ -309,3 +276,4 @@ export function useNotifications() {
   if (!ctx) throw new Error("NotificationsProvider missing");
   return ctx;
 }
+

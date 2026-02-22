@@ -1,6 +1,19 @@
 import { logWarn } from "@/lib/logger";
+import {
+  getSimpleApiBaseUrl,
+  isSimpleApiListingsEnabled,
+  isSimpleApiStrictWriteEnabled,
+  isSimpleApiWriteEnabled
+} from "@simple/config";
+import { getListingMedia, listListings, type SdkListingType } from "@simple/sdk";
 
-export type SimpleApiListingType = "sale" | "rent" | "auction";
+export {
+  getSimpleApiBaseUrl,
+  isSimpleApiListingsEnabled,
+  isSimpleApiStrictWriteEnabled,
+  isSimpleApiWriteEnabled
+};
+export type SimpleApiListingType = SdkListingType;
 
 export interface SimpleApiFeaturedVehicle {
   id: string;
@@ -30,99 +43,47 @@ type SimpleApiListingItem = {
   vertical: string;
   type: SimpleApiListingType;
   title: string;
+  description?: string;
   price: number;
   currency: string;
   city: string;
+  region?: string;
+  imageUrl?: string;
+  ownerId?: string;
+  createdAt?: string;
+  publishedAt?: string;
+  typeKey?: string;
+  typeLabel?: string;
+  year?: number;
+  mileage?: number;
+  bodyType?: string;
+  condition?: string;
+  fuelType?: string;
+  transmission?: string;
+  color?: string;
+  visibility?: string;
+  featured?: boolean;
+  rentDailyPrice?: number;
+  rentWeeklyPrice?: number;
+  rentMonthlyPrice?: number;
+  rentPricePeriod?: "daily" | "weekly" | "monthly";
+  auctionStartPrice?: number;
 };
 
 type SimpleApiListingsResponse = {
   items?: SimpleApiListingItem[];
 };
 
-type SimpleApiMediaResponse = {
-  items?: Array<{ url?: string; kind?: "image" | "video" }>;
-};
-
-function normalizeBaseUrl(url: string): string {
-  return url.trim().replace(/\/+$/, "");
-}
-
-export function isSimpleApiListingsEnabled(): boolean {
-  const raw = String(process.env.NEXT_PUBLIC_ENABLE_SIMPLE_API_LISTINGS || "")
-    .toLowerCase()
-    .trim();
-
-  if (["true", "1", "yes", "on"].includes(raw)) {
-    return true;
-  }
-
-  if (["false", "0", "no", "off"].includes(raw)) {
-    return false;
-  }
-
-  return Boolean(getSimpleApiBaseUrl());
-}
-
-export function isSimpleApiWriteEnabled(): boolean {
-  const raw = String(process.env.NEXT_PUBLIC_ENABLE_SIMPLE_API_WRITES || "")
-    .toLowerCase()
-    .trim();
-
-  if (["true", "1", "yes", "on"].includes(raw)) {
-    return true;
-  }
-
-  if (["false", "0", "no", "off"].includes(raw)) {
-    return false;
-  }
-
-  return false;
-}
-
-export function isSimpleApiStrictWriteEnabled(): boolean {
-  const raw = String(process.env.NEXT_PUBLIC_SIMPLE_API_STRICT_WRITES || "")
-    .toLowerCase()
-    .trim();
-
-  if (["true", "1", "yes", "on"].includes(raw)) {
-    return true;
-  }
-
-  if (["false", "0", "no", "off"].includes(raw)) {
-    return false;
-  }
-
-  return false;
-}
-
-export function getSimpleApiBaseUrl(): string | null {
-  const explicit = String(process.env.NEXT_PUBLIC_SIMPLE_API_BASE_URL || "").trim();
-  if (explicit) {
-    return normalizeBaseUrl(explicit);
-  }
-
-  if (typeof window !== "undefined" && window.location.hostname === "localhost") {
-    return "http://localhost:4000";
-  }
-
-  return null;
-}
-
-async function fetchListingMedia(baseUrl: string, listingId: string): Promise<string[]> {
-  const res = await fetch(`${baseUrl}/v1/listings/${listingId}/media`, {
-    method: "GET",
-    cache: "no-store"
-  });
-
-  if (!res.ok) {
+async function fetchListingMedia(listingId: string): Promise<string[]> {
+  try {
+    const payload = await getListingMedia(listingId);
+    const media = Array.isArray(payload.items) ? payload.items : [];
+    return media
+      .filter((item: { kind?: string; url?: unknown }) => item?.kind === "image" && typeof item.url === "string")
+      .map((item: { url?: unknown }) => String(item.url));
+  } catch {
     return [];
   }
-
-  const payload = (await res.json()) as SimpleApiMediaResponse;
-  const media = Array.isArray(payload.items) ? payload.items : [];
-  return media
-    .filter((item) => item?.kind === "image" && typeof item.url === "string")
-    .map((item) => String(item.url));
 }
 
 export async function fetchFeaturedAutosFromSimpleApi(options: {
@@ -136,30 +97,22 @@ export async function fetchFeaturedAutosFromSimpleApi(options: {
     );
   }
 
-  const query = new URLSearchParams({
+  const payload = (await listListings({
     vertical: "autos",
     type: options.listingType,
-    limit: String(options.limit),
-    offset: "0"
-  });
-
-  const res = await fetch(`${baseUrl}/v1/listings?${query.toString()}`, {
-    method: "GET",
-    cache: "no-store"
-  });
-
-  if (!res.ok) {
-    throw new Error(`Simple API listings failed (${res.status})`);
-  }
-
-  const payload = (await res.json()) as SimpleApiListingsResponse;
+    limit: options.limit,
+    offset: 0
+  })) as SimpleApiListingsResponse;
   const items = Array.isArray(payload.items) ? payload.items : [];
   const autosItems = items.filter((item) => item.vertical === "autos");
 
   const mediaMatrix = await Promise.all(
     autosItems.map(async (item) => {
+      if (item.imageUrl) {
+        return [String(item.imageUrl)];
+      }
       try {
-        return await fetchListingMedia(baseUrl, item.id);
+        return await fetchListingMedia(item.id);
       } catch {
         logWarn("Simple API media fetch failed for listing", { listingId: item.id });
         return [];
@@ -172,24 +125,31 @@ export async function fetchFeaturedAutosFromSimpleApi(options: {
     title: item.title,
     listing_type: item.type,
     price: typeof item.price === "number" ? item.price : null,
-    year: null,
-    mileage: null,
+    year: typeof item.year === "number" ? item.year : null,
+    mileage: typeof item.mileage === "number" ? item.mileage : null,
     image_urls: mediaMatrix[idx] ?? [],
-    type_key: "car",
-    type_label: "Auto",
-    region_name: null,
+    type_key: item.typeKey || "car",
+    type_label: item.typeLabel || "Auto",
+    region_name: item.region || null,
     commune_name: item.city || null,
-    owner_id: "",
-    featured: true,
-    visibility: "featured",
-    rent_daily_price: item.type === "rent" ? item.price : null,
-    rent_weekly_price: null,
-    rent_monthly_price: null,
-    rent_price_period: item.type === "rent" ? "daily" : null,
-    auction_start_price: item.type === "auction" ? item.price : null,
+    owner_id: item.ownerId || "",
+    featured: Boolean(item.featured),
+    visibility: item.visibility || "featured",
+    rent_daily_price:
+      item.type === "rent" ? item.rentDailyPrice ?? item.price ?? null : null,
+    rent_weekly_price: item.type === "rent" ? item.rentWeeklyPrice ?? null : null,
+    rent_monthly_price: item.type === "rent" ? item.rentMonthlyPrice ?? null : null,
+    rent_price_period: item.type === "rent" ? item.rentPricePeriod ?? "daily" : null,
+    auction_start_price:
+      item.type === "auction" ? item.auctionStartPrice ?? item.price ?? null : null,
     extra_specs: {
-      condition: "used",
+      condition: item.condition || "used",
+      body_type: item.bodyType || null,
+      fuel_type: item.fuelType || null,
+      transmission: item.transmission || null,
+      color: item.color || null,
       legacy: {
+        region_name: item.region || null,
         commune_name: item.city || null
       }
     }

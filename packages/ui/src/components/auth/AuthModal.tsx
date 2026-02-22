@@ -366,7 +366,7 @@ const LoginForm = React.memo(function LoginForm({ onForgot, onClose, copy, onBus
       if (!res.ok) {
         setError(res.error || 'No pudimos continuar con Google.');
       }
-      // En caso de éxito, Supabase redirige fuera del sitio.
+      // En caso de éxito, backend legado redirige fuera del sitio.
     } finally {
       setOauthLoading(null);
     }
@@ -479,7 +479,6 @@ const ForgotForm = React.memo(function ForgotForm({ onBack, onSuccess, copy, onB
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [cooldown, setCooldown] = useState(0);
-  const { supabase } = useAuth();
 
   useEffect(() => {
     onBusyChange(loading);
@@ -510,18 +509,23 @@ const ForgotForm = React.memo(function ForgotForm({ onBack, onSuccess, copy, onB
       ? `${window.location.origin}/reset`
       : undefined;
 
-    const { error } = await supabase.auth.resetPasswordForEmail(email, redirectTo ? { redirectTo } : undefined);
+    const response = await fetch("/api/auth/forgot", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email, redirectTo }),
+    });
+    const payload = await response.json().catch(() => ({}));
     setLoading(false);
     onBusyChange(false);
 
-    if (error) {
-      setError(error.message);
+    if (!response.ok) {
+      setError(String((payload as any)?.error || "No se pudo enviar el correo de recuperación"));
       return;
     }
 
     setSuccess(copy.forgot.successMessage);
     setCooldown(30);
-  }, [email, supabase, cooldown, onBusyChange, copy.forgot.successMessage]);
+  }, [email, cooldown, onBusyChange, copy.forgot.successMessage]);
 
   const handleSubmit = useCallback(async (e: React.FormEvent) => {
     e.preventDefault();
@@ -615,7 +619,7 @@ const RegisterForm = React.memo(function RegisterForm({ copy, onSuccess, onVerif
   const [oauthLoading, setOauthLoading] = useState<'google' | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
-  const { signUp, signInWithOAuth, supabase } = useAuth();
+  const { signUp, signInWithOAuth } = useAuth();
   const [resendCooldown, setResendCooldown] = useState(0);
   const [resending, setResending] = useState(false);
 
@@ -679,13 +683,18 @@ const RegisterForm = React.memo(function RegisterForm({ copy, onSuccess, onVerif
     setResending(true);
     try {
       const emailRedirectTo = `${window.location.origin}/auth/confirm?email=${encodeURIComponent(targetEmail)}`;
-      const { error } = await supabase.auth.resend({
-        type: 'signup',
-        email: targetEmail,
-        options: { emailRedirectTo },
+      const response = await fetch("/api/auth/resend-confirmation", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          type: "signup",
+          email: targetEmail,
+          options: { emailRedirectTo },
+        }),
       });
-      if (error) {
-        setError(error.message || 'No pudimos reenviar el correo.');
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        setError(String((payload as any)?.error || 'No pudimos reenviar el correo.'));
       } else {
         setResendCooldown(60);
       }
@@ -694,7 +703,7 @@ const RegisterForm = React.memo(function RegisterForm({ copy, onSuccess, onVerif
     } finally {
       setResending(false);
     }
-  }, [email, supabase]);
+  }, [email]);
 
   const handleOAuth = useCallback(async (provider: 'google') => {
     setError(null);
@@ -843,3 +852,4 @@ const RegisterForm = React.memo(function RegisterForm({ copy, onSuccess, onVerif
 
 export { AuthModal };
 export default AuthModal;
+

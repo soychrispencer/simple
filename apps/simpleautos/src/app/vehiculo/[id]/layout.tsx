@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
-import { createServerClient } from '@/lib/supabase/serverSupabase';
+import { getSimpleApiBaseUrl } from '@simple/config';
+import { getListingById, getListingMedia } from '@simple/sdk';
 
 function getAppOrigin(): string {
   const raw =
@@ -31,32 +32,13 @@ function toAbsoluteUrl(input: string, origin: string): string {
     // continue
   }
 
-  // 2) Posible path de Supabase Storage (bucket vehicles)
-  // Guardamos compatibilidad si en DB guardan solo el path.
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  if (supabaseUrl) {
-    const normalized = input.replace(/^\//, '');
-    const bucketPrefix = 'vehicles/';
-    const path = normalized.startsWith(bucketPrefix) ? normalized.slice(bucketPrefix.length) : normalized;
-    if (path && /\.(webp|jpg|jpeg|png)$/i.test(path)) {
-      try {
-        const base = new URL(supabaseUrl);
-        return new URL(`/storage/v1/object/public/vehicles/${path}`, base.origin).toString();
-      } catch {
-        // continue
-      }
-    }
-  }
-
-  // 3) Relativa al sitio
+  // 2) Relativa al sitio
   try {
     return new URL(input.startsWith('/') ? input : `/${input}`, origin).toString();
   } catch {
     return origin;
   }
 }
-
-type ListingImage = { url: string; position: number | null; is_primary: boolean | null };
 
 export async function generateMetadata({ params }: { params: Promise<{ id: string }> }): Promise<Metadata> {
   const origin = getAppOrigin();
@@ -68,33 +50,39 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
 
   try {
     if (id) {
-      const supabase = await createServerClient();
-      const { data, error } = await supabase
-        .from('listings')
-        .select('id, title, description, images(url, position, is_primary)')
-        .eq('id', id)
-        .limit(1);
+      let resolvedViaSimpleApi = false;
 
-      if (!error) {
-        const listing = Array.isArray(data) ? (data[0] as any) : null;
-        const rawTitle = safeText(listing?.title, 90);
-        if (rawTitle) title = `${rawTitle} | SimpleAutos`;
+      if (getSimpleApiBaseUrl()) {
+        try {
+          const { item } = await getListingById(id);
+          if (item?.vertical === 'autos') {
+            const rawTitle = safeText(item?.title, 90);
+            if (rawTitle) title = `${rawTitle} | SimpleAutos`;
 
-        const rawDesc = safeText(listing?.description, 180);
-        if (rawDesc) description = rawDesc;
+            const rawDesc = safeText(item?.description, 180);
+            if (rawDesc) description = rawDesc;
 
-        const images: ListingImage[] = Array.isArray(listing?.images) ? listing.images : [];
-        const sorted = images
-          .slice()
-          .sort((a, b) => {
-            const ap = a?.position ?? 9999;
-            const bp = b?.position ?? 9999;
-            return ap - bp;
-          });
-        const primary = images.find((img) => img?.is_primary) ?? sorted[0];
-        if (primary?.url) {
-          imageUrl = toAbsoluteUrl(primary.url, origin);
+            const mediaPayload = await getListingMedia(id).catch(() => ({ items: [] as any[] }));
+            const imageEntries = Array.isArray(mediaPayload.items)
+              ? mediaPayload.items
+                  .filter((entry: any) => entry?.kind === 'image' && typeof entry?.url === 'string')
+                  .sort((a: any, b: any) => Number(a?.order ?? 0) - Number(b?.order ?? 0))
+                  .map((entry: any) => String(entry.url))
+              : [];
+
+            const primary = imageEntries[0] || item?.imageUrl || null;
+            if (primary) {
+              imageUrl = toAbsoluteUrl(primary, origin);
+            }
+            resolvedViaSimpleApi = true;
+          }
+        } catch {
+          // fallback silencioso al backend legacy
         }
+      }
+
+      if (!resolvedViaSimpleApi) {
+        imageUrl = toAbsoluteUrl('/brand/logo.png', origin);
       }
     }
   } catch {

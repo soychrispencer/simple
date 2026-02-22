@@ -1,9 +1,9 @@
-﻿"use client";
+"use client";
 
 import React from "react";
 import { useParams } from "next/navigation";
 import { useRouter } from "next/navigation";
-import { getPortadaUrl, getAvatarUrl } from "@/lib/supabaseStorage";
+import { getPortadaUrl, getAvatarUrl } from "@/lib/storageMedia";
 import Image from 'next/image';
 // IconMapPin, IconWorld eliminados (no uso directo tras refactor de ubicación)
 import { useAuth } from "@/context/AuthContext";
@@ -24,8 +24,7 @@ import { useListingFilters } from "@/hooks/useListingFilters";
 // Eliminado ProfileOptionsMenu legacy en favor de SharePopover
 
 export default function PublicProfilePage() {
-  // Obtener usuario y cliente supabase una sola vez
-  const { supabase, user, profile: authProfile } = useAuth();
+  const { user, profile: authProfile } = useAuth();
   // Menú de opciones para compartir el perfil
   const { username } = useParams();
   const router = useRouter();
@@ -65,7 +64,7 @@ export default function PublicProfilePage() {
   const avatarUrl = profile?.avatar_url
     ? profile.avatar_url.startsWith('http')
       ? profile.avatar_url
-      : getAvatarUrl(supabase, profile.avatar_url)
+      : getAvatarUrl(null, profile.avatar_url)
     : '';
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
@@ -118,62 +117,35 @@ export default function PublicProfilePage() {
     setShowMenu(false);
   };
 
-  // Inicializar reseñas desde el perfil al cargar
-  React.useEffect(() => {
-    if (profile && profile.reseñas && Array.isArray(profile.reseñas)) {
-      setReseñas(profile.reseñas);
-    }
-  }, [profile]);
-
-  // Cargar reseñas (reviews) desde Supabase al cargar el perfil
-  React.useEffect(() => {
-    async function fetchReseñas() {
-      if (!profile?.id) return;
-      const { data, error } = await (supabase.from('reviews') as any)
-        .select('id, rating, comment, created_at, reviewer_id, reviewed_profile_id')
-        .eq('reviewed_profile_id', profile.id)
-        .order('created_at', { ascending: false });
-      if (!error && Array.isArray(data)) {
-        // Puedes mostrar el usuario como 'Anónimo' o buscar el nombre si lo deseas
-        setReseñas((data as any[]).map((r: AnyRecord) => ({
-          id: r.id,
-          usuario: 'Anónimo',
-          calificacion: r.rating,
-          comentario: r.comment,
-          fecha: r.created_at ? new Date(r.created_at).toLocaleDateString() : ''
-        })));
-      }
-    }
-    fetchReseñas();
-  }, [profile?.id, supabase]);
-
-  // Función para agregar reseña en Supabase
+  // Función para agregar reseña
   async function handleAddReview(data: { calificacion: number; comentario: string }) {
     if (!profile?.id) return;
-    // Si tienes usuario autenticado, puedes obtener el user_id
-    let userId = null;
-    try {
-      const { data: authUser } = await supabase.auth.getUser();
-      userId = authUser?.user?.id || null;
-    } catch {}
-    const { error } = await (supabase.from('reviews') as any)
-      .insert({ reviewed_profile_id: profile.id, reviewer_id: userId, rating: data.calificacion, comment: data.comentario });
-    if (!error) {
-      // Refrescar reseñas
-      const { data: nuevasReseñas } = await (supabase.from('reviews') as any)
-        .select('id, rating, comment, created_at, reviewer_id, reviewed_profile_id')
-        .eq('reviewed_profile_id', profile.id)
-        .order('created_at', { ascending: false });
-      if (Array.isArray(nuevasReseñas)) {
-        setReseñas((nuevasReseñas as any[]).map((r: AnyRecord) => ({
-          id: r.id,
-          usuario: 'Anónimo',
-          calificacion: r.rating,
-          comentario: r.comment,
-          fecha: r.created_at ? new Date(r.created_at).toLocaleDateString() : ''
-        })));
-      }
-    }
+    await fetch("/api/public-profile", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        action: "add_review",
+        profileId: profile.id,
+        rating: data.calificacion,
+        comment: data.comentario,
+      }),
+    });
+
+    const reviewsResponse = await fetch(
+      `/api/public-profile?mode=reviews&profile_id=${encodeURIComponent(String(profile.id))}`,
+      { cache: "no-store" }
+    );
+    const reviewsPayload = await reviewsResponse.json().catch(() => ({} as Record<string, unknown>));
+    const reviewsRows = Array.isArray((reviewsPayload as any)?.reviews)
+      ? (reviewsPayload as any).reviews
+      : [];
+    setReseñas((reviewsRows as any[]).map((r: AnyRecord) => ({
+      id: r.id,
+      usuario: "Anónimo",
+      calificacion: r.rating,
+      comentario: r.comment,
+      fecha: r.created_at ? new Date(r.created_at).toLocaleDateString() : "",
+    })));
   }
 
   React.useEffect(() => {
@@ -183,61 +155,69 @@ export default function PublicProfilePage() {
       const rawParam = Array.isArray(username) ? username[0] : (username as any);
       const param = typeof rawParam === 'string' ? rawParam.trim() : '';
 
-      const baseSelect = `*, commune:commune_id(*), region:region_id(*), company:company_id(*, commune:commune_id(*), region:region_id(*))`;
-      const uuidRe = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-      const placeholderRe = /^u-([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$/i;
-
-      let data: any = null;
-      let fetchError: any = null;
-
-      // 1) Buscar por slug
-      {
-        const res = await (supabase.from("public_profiles") as any)
-          .select(baseSelect)
-          .eq("slug", param)
-          .maybeSingle();
-        data = res?.data ?? null;
-        fetchError = res?.error ?? null;
-      }
-
-      // 2) Fallback: si viene un id o placeholder u-<uuid>, buscar por owner_profile_id
-      if (!data) {
-        const maybeUserId = placeholderRe.test(param) ? param.match(placeholderRe)?.[1] : (uuidRe.test(param) ? param : null);
-        if (maybeUserId) {
-          const res = await (supabase.from("public_profiles") as any)
-            .select(baseSelect)
-            .eq("owner_profile_id", maybeUserId)
-            .order('created_at', { ascending: false })
-            .maybeSingle();
-          data = res?.data ?? null;
-          fetchError = res?.error ?? null;
-          // Si encontramos un slug real, normalizamos la URL
-          if (data?.slug && data.slug !== param) {
-            router.replace(`/perfil/${data.slug}`);
-          }
-        }
-      }
-
-      if (fetchError || !data) {
+      const response = await fetch(
+        `/api/public-profile?username=${encodeURIComponent(param)}&increment=1`,
+        { cache: "no-store" }
+      );
+      const payload = await response.json().catch(() => ({} as Record<string, unknown>));
+      if (!response.ok) {
         setError("Perfil no encontrado");
         setProfile(null);
-      } else {
-        setProfile(data);
-        await (supabase.from("public_profiles") as any)
-          .update({ visits: (data.visits || 0) + 1 })
-          .eq("id", data.id);
+        setHorarioSemanal([]);
+        setDiasEspeciales([]);
+        setReseñas([]);
+        setListingContact(null);
+        setLoading(false);
+        return;
       }
+
+      const data = (payload as any)?.profile || null;
+      if (!data) {
+        setError("Perfil no encontrado");
+        setProfile(null);
+        setLoading(false);
+        return;
+      }
+
+      if (data?.slug && data.slug !== param && !/^u-/i.test(param)) {
+        router.replace(`/perfil/${data.slug}`);
+      }
+
+      setProfile(data);
+
+      const weekly = Array.isArray((payload as any)?.schedules) ? (payload as any).schedules : [];
+      const specials = Array.isArray((payload as any)?.specialSchedules) ? (payload as any).specialSchedules : [];
+      const reviewsRows = Array.isArray((payload as any)?.reviews) ? (payload as any).reviews : [];
+      setHorarioSemanal((weekly as any[]).map((h: any) => ({
+        id: h.id,
+        dia: h.weekday,
+        inicio: h.start_time || null,
+        fin: h.end_time || null,
+        cerrado: !!h.closed,
+      })));
+      setDiasEspeciales((specials as any[]).map((s: any) => ({
+        id: s.id,
+        fecha: s.date,
+        inicio: s.start_time || null,
+        fin: s.end_time || null,
+        cerrado: !!s.closed,
+      })));
+      setReseñas((reviewsRows as any[]).map((r: AnyRecord) => ({
+        id: r.id,
+        usuario: "Anónimo",
+        calificacion: r.rating,
+        comentario: r.comment,
+        fecha: r.created_at ? new Date(r.created_at).toLocaleDateString() : "",
+      })));
+      setListingContact((payload as any)?.listingContact || null);
       setLoading(false);
     }
-    if (username) fetchProfileAndIncrementVisits();
-  }, [username, supabase, router]);
+    if (username) void fetchProfileAndIncrementVisits();
+  }, [username, router]);
 
   React.useEffect(() => {
     if (!profile) {
-      setHorarioSemanal([]);
-      setDiasEspeciales([]);
       setRedes({});
-      setListingContact(null);
       return;
     }
 
@@ -251,88 +231,7 @@ export default function PublicProfilePage() {
       whatsapp: profile.whatsapp,
       whatsapp_type: profile.whatsapp_type,
     });
-
-    async function fetchSchedules() {
-      if (!profile.id) return;
-      const [{ data: weekly }, { data: specials }] = await Promise.all([
-        supabase.from('schedules').select('*').eq('public_profile_id', profile.id),
-        supabase.from('special_schedules').select('*').eq('public_profile_id', profile.id).order('date', { ascending: true }),
-      ]);
-
-      const WEEKDAY_MAP: Record<string, string> = {
-        monday: 'lunes', tuesday: 'martes', wednesday: 'miércoles', thursday: 'jueves', friday: 'viernes', saturday: 'sábado', sunday: 'domingo',
-        lunes: 'lunes', martes: 'martes', miércoles: 'miércoles', jueves: 'jueves', viernes: 'viernes', sábado: 'sábado', domingo: 'domingo'
-      };
-      const weeklyMapped = Array.isArray(weekly)
-        ? weekly.map((h: any) => ({
-            id: h.id,
-            dia: WEEKDAY_MAP[h.weekday?.toLowerCase()] || h.weekday,
-            inicio: h.start_time || null,
-            fin: h.end_time || null,
-            cerrado: !!h.closed,
-          }))
-        : [];
-      setHorarioSemanal(weeklyMapped);
-
-      const specialsMapped = Array.isArray(specials)
-        ? specials.map((e: any) => ({
-            id: e.id,
-            fecha: e.date,
-            inicio: e.start_time || null,
-            fin: e.end_time || null,
-            cerrado: !!e.closed,
-          }))
-        : [];
-      setDiasEspeciales(specialsMapped);
-    }
-
-    fetchSchedules();
-  }, [profile, supabase]);
-
-  // Fallback público: tomar contacto desde el último aviso publicado del usuario/perfil.
-  // Esto explica por qué en detalle de vehículo aparecen datos que el perfil público puede no tener configurados.
-  React.useEffect(() => {
-    async function fetchListingContact() {
-      if (!profile?.id && !profile?.owner_profile_id) {
-        setListingContact(null);
-        return;
-      }
-
-      try {
-        let q = (supabase.from('listings') as any)
-          .select('id, title, contact_email, contact_phone, contact_whatsapp')
-          .eq('status', 'published')
-          .neq('visibility', 'hidden')
-          .order('created_at', { ascending: false })
-          .limit(1);
-
-        if (profile?.id) {
-          q = q.eq('public_profile_id', profile.id);
-        } else if (profile?.owner_profile_id) {
-          q = q.eq('user_id', profile.owner_profile_id);
-        }
-
-        const { data, error } = await q;
-        if (error) {
-          setListingContact(null);
-          return;
-        }
-
-        const row = Array.isArray(data) ? data[0] : null;
-        setListingContact({
-          id: row?.id ?? null,
-          title: row?.title ?? null,
-          email: row?.contact_email ?? null,
-          phone: row?.contact_phone ?? null,
-          whatsapp: row?.contact_whatsapp ?? null,
-        });
-      } catch {
-        setListingContact(null);
-      }
-    }
-
-    void fetchListingContact();
-  }, [profile?.id, profile?.owner_profile_id, supabase]);
+  }, [profile]);
 
   // Contar total de vehículos del usuario
   const profileId = profile?.id;
@@ -341,27 +240,20 @@ export default function PublicProfilePage() {
   React.useEffect(() => {
     async function fetchTotalVehicles() {
       if (!profileId) return;
-      let query = supabase
-        .from('listings')
-        .select('id', { count: 'exact', head: true })
-        .eq('status', 'published')
-        .neq('visibility', 'hidden');
-
-      // Preferimos el vínculo por perfil público cuando está bien seteado;
-      // como fallback, contamos por el dueño (user_id) para no mostrar 0 si hay data histórica.
-      if (ownerId) {
-        query = query.or(`public_profile_id.eq.${profileId},user_id.eq.${ownerId}`);
-      } else {
-        query = query.eq('public_profile_id', profileId);
-      }
-
-      const { count } = await query;
-      if (count !== null) {
-        setTotalVehicles(count);
-      }
+      const params = new URLSearchParams({
+        page: "1",
+        page_size: "1",
+      });
+      if (profileId) params.set("public_profile_id", profileId);
+      if (ownerId) params.set("user_id", ownerId);
+      const response = await fetch(`/api/profile-vehicles?${params.toString()}`, { cache: "no-store" });
+      const payload = await response.json().catch(() => ({} as Record<string, unknown>));
+      if (!response.ok) return;
+      const total = Number((payload as any)?.total ?? 0);
+      setTotalVehicles(Number.isFinite(total) ? total : 0);
     }
-    fetchTotalVehicles();
-  }, [profileId, ownerId, supabase]);
+    void fetchTotalVehicles();
+  }, [profileId, ownerId]);
 
   if (loading) return <div className="p-8 text-center">Cargando perfil...</div>;
   if (error) return <div className="p-8 text-center text-[var(--color-danger)]">{error}</div>;
@@ -460,7 +352,7 @@ export default function PublicProfilePage() {
 
   const receiverId = (profile as any)?.owner_profile_id as string | undefined;
   const isOwnProfile = Boolean(user?.id && receiverId && user.id === receiverId);
-  const canSendDirectMessage = Boolean(supabase && user?.id && receiverId && listingContact?.id && !isOwnProfile);
+  const canSendDirectMessage = Boolean(user?.id && receiverId && listingContact?.id && !isOwnProfile);
   const messageDisabledHint = !user?.id
     ? 'Debes iniciar sesión para enviar un mensaje.'
     : !receiverId
@@ -472,7 +364,7 @@ export default function PublicProfilePage() {
           : undefined;
 
   const onSendDirectMessage = async (content: string) => {
-    if (!supabase || !user?.id) {
+    if (!user?.id) {
       throw new Error('Debes iniciar sesión para enviar un mensaje.');
     }
     if (!receiverId) {
@@ -491,15 +383,20 @@ export default function PublicProfilePage() {
     } catch {}
     const sanitized = DOMPurify ? DOMPurify.sanitize(content) : content;
 
-    const { error } = await supabase.from('messages').insert({
-      sender_id: user.id,
-      receiver_id: receiverId,
-      listing_id: listingContact.id,
-      subject: listingContact.title || `Perfil: ${name}`,
-      content: sanitized,
-      is_read: false,
+    const response = await fetch('/api/messages', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        receiver_id: receiverId,
+        listing_id: listingContact.id,
+        subject: listingContact.title || `Perfil: ${name}`,
+        content: sanitized,
+      }),
     });
-    if (error) throw error;
+    if (!response.ok) {
+      const payload = await response.json().catch(() => ({} as Record<string, unknown>));
+      throw new Error(String((payload as any)?.error || 'No se pudo enviar el mensaje'));
+    }
   };
 
   return (
@@ -510,7 +407,7 @@ export default function PublicProfilePage() {
           {/* Imagen */}
           {profile.cover_url ? (
             <Image
-              src={profile.cover_url.startsWith('http') ? profile.cover_url : getPortadaUrl(supabase, profile.cover_url)}
+              src={profile.cover_url.startsWith('http') ? profile.cover_url : getPortadaUrl(null, profile.cover_url)}
               alt="Portada del perfil"
               fill
               /* Ajuste responsive: siempre ocupa ancho completo del viewport */

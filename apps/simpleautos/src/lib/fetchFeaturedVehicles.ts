@@ -1,74 +1,108 @@
-﻿import { getSupabaseClient } from './supabase/supabase';
-import { FeaturedVehicleRow, mapVehicleToFeaturedRow, loadProfiles, VehicleJoinedRow } from './vehicleUtils';
+import { listListings, type SdkListingSummary, type SdkListingType } from '@simple/sdk';
+import { FeaturedVehicleRow } from './vehicleUtils';
 import { logError } from './logger';
 
-/**
- * Obtiene vehículos destacados con información completa.
- * Busca vehículos con featured = true (independiente de visibility)
- * Hace JOIN con vehicle_types, regions y communes para obtener datos reales
- */
-export async function fetchFeaturedVehicles(limit = 45): Promise<FeaturedVehicleRow[]> {
-  const supabase = getSupabaseClient();
+function mapSdkItem(item: SdkListingSummary): FeaturedVehicleRow {
+  const rentPeriod = (item.rentPricePeriod ??
+    (item.rentDailyPrice != null
+      ? 'daily'
+      : item.rentWeeklyPrice != null
+      ? 'weekly'
+      : item.rentMonthlyPrice != null
+      ? 'monthly'
+      : null)) as FeaturedVehicleRow['rent_price_period'];
 
-  // Obtener el ID del vertical de vehicles
-  const { data: verticalData, error: verticalError } = await supabase
-    .from('verticals')
-    .select('id')
-    .eq('key', 'vehicles')
-    .single();
+  const rentDerivedPrice = rentPeriod === 'daily'
+    ? item.rentDailyPrice ?? null
+    : rentPeriod === 'weekly'
+    ? item.rentWeeklyPrice ?? null
+    : rentPeriod === 'monthly'
+    ? item.rentMonthlyPrice ?? null
+    : null;
 
-  if (verticalError || !verticalData) {
-    logError('Error fetching vehicles vertical', verticalError, { scope: 'fetchFeaturedVehicles' });
-    return [];
-  }
+  const effectivePrice = rentDerivedPrice ?? (typeof item.price === 'number' ? item.price : null);
 
-  const select = [
-    'id',
-    'title',
-    'listing_type',
-    'price',
-    'user_id',
-    'region_id',
-    'commune_id',
-    'created_at',
-    'visibility',
-    'contact_email',
-    'contact_phone',
-    'contact_whatsapp',
-    'allow_financing',
-    'allow_exchange',
-    'is_featured as featured',
-    'rent_daily_price',
-    'rent_weekly_price',
-    'rent_monthly_price',
-    'rent_security_deposit',
-    'auction_start_price',
-    'auction_start_at',
-    'auction_end_at',
-    'listings_vehicles!inner(year, mileage, brand_id, model_id, transmission, fuel_type, brands!inner(name), models!inner(name, vehicle_types!inner(category)))',
-    'regions(name)',
-    'communes(name)'
-  ].join(',');
-
-  const { data, error } = await supabase
-    .from('listings')
-    .select(select)
-    .eq('status', 'published')
-    .eq('is_featured', true)
-    .eq('vertical_id', verticalData.id)
-    .order('created_at', { ascending: false })
-    .limit(limit);
-
-  if (error) throw new Error(error.message);
-  if (!data) return [];
-
-  // Compat: algunos backends pueden devolver `owner_id` o `user_id`.
-  // Aseguramos `owner_id` en cada fila y luego cargamos los profiles.
-  const normalized = (data as any[]).map((r) => ({ ...(r || {}), owner_id: (r as any).owner_id || (r as any).user_id }));
-  const ownerIds = [...new Set(normalized.map(v => v.owner_id).filter(Boolean))];
-  const profilesMap = await loadProfiles(ownerIds);
-
-  return (normalized as unknown as VehicleJoinedRow[]).map((r) => mapVehicleToFeaturedRow(r, profilesMap));
+  return {
+    id: item.id,
+    title: item.title,
+    listing_type: (item.type || 'sale') as FeaturedVehicleRow['listing_type'],
+    price: effectivePrice,
+    year: typeof item.year === 'number' ? item.year : null,
+    mileage: typeof item.mileage === 'number' ? item.mileage : null,
+    image_urls: item.imageUrl ? [item.imageUrl] : [],
+    type_id: item.typeId || null,
+    type_key: item.typeKey || null,
+    type_label: item.typeLabel || null,
+    region_name: item.region || null,
+    commune_name: item.city || null,
+    owner_id: item.ownerId || null,
+    created_at: item.createdAt || item.publishedAt || new Date().toISOString(),
+    visibility: item.visibility || 'normal',
+    allow_financing: Boolean(item.allowFinancing),
+    allow_exchange: Boolean(item.allowExchange),
+    featured: Boolean(item.featured),
+    contact_email: null,
+    contact_phone: null,
+    contact_whatsapp: null,
+    rent_daily_price: item.rentDailyPrice ?? null,
+    rent_weekly_price: item.rentWeeklyPrice ?? null,
+    rent_monthly_price: item.rentMonthlyPrice ?? null,
+    rent_price_period: rentPeriod,
+    rent_security_deposit: item.rentSecurityDeposit ?? null,
+    auction_start_price: item.auctionStartPrice ?? null,
+    auction_start_at: item.auctionStartAt ?? null,
+    auction_end_at: item.auctionEndAt ?? null,
+    profiles: null,
+    extra_specs: {
+      condition: item.condition || null,
+      body_type: item.bodyType || null,
+      fuel_type: item.fuelType || null,
+      transmission: item.transmission || null,
+      color: item.color || null,
+    },
+  };
 }
 
+export async function fetchFeaturedVehicles(limit = 45): Promise<FeaturedVehicleRow[]> {
+  try {
+    const payload = await listListings({
+      vertical: 'autos',
+      limit,
+      offset: 0,
+    });
 
+    const items = Array.isArray(payload.items) ? payload.items : [];
+    const autos = items.filter((item) => item.vertical === 'autos');
+    const featured = autos.filter((item) => item.featured);
+    const selected = (featured.length > 0 ? featured : autos).slice(0, limit);
+
+    return selected.map(mapSdkItem);
+  } catch (error) {
+    logError('Error fetching featured vehicles from simple-api', error, { scope: 'fetchFeaturedVehicles' });
+    return [];
+  }
+}
+
+export async function fetchFeaturedVehiclesByType(
+  listingType: SdkListingType,
+  limit = 12,
+): Promise<FeaturedVehicleRow[]> {
+  try {
+    const payload = await listListings({
+      vertical: 'autos',
+      type: listingType,
+      limit,
+      offset: 0,
+    });
+
+    const items = Array.isArray(payload.items) ? payload.items : [];
+    const autos = items.filter((item) => item.vertical === 'autos');
+    const featured = autos.filter((item) => item.featured);
+    const selected = (featured.length > 0 ? featured : autos).slice(0, limit);
+
+    return selected.map(mapSdkItem);
+  } catch (error) {
+    logError('Error fetching featured vehicles by type from simple-api', error, { listingType, scope: 'fetchFeaturedVehiclesByType' });
+    return [];
+  }
+}

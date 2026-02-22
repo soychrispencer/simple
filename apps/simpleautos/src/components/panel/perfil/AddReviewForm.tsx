@@ -1,5 +1,4 @@
 ﻿import React, { useState } from "react";
-import { useSupabase } from "@/lib/supabase/useSupabase";
 import { Button, Textarea } from "@simple/ui";
 import { IconCheck, IconStar, IconStarFilled } from "@tabler/icons-react";
 
@@ -9,31 +8,39 @@ const AddReviewForm: React.FC<{ profileId?: string; onSubmit?: (data: { califica
   const [enviando, setEnviando] = useState(false);
   const [success, setSuccess] = useState(false);
 
-  const supabase = useSupabase();
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!calificacion) return;
     setEnviando(true);
-    // Sanitizar comentario antes de guardar
-    let DOMPurify: any = null;
     try {
-      DOMPurify = require('isomorphic-dompurify');
-    } catch {}
-    const sanitizedComentario = DOMPurify ? DOMPurify.sanitize(comentario) : comentario;
-    // Guardar reseña en Supabase
-    const { data: { user } } = await supabase.auth.getUser();
-    await supabase.from('reviews').insert({
-      profile_id: profileId,
-      user_id: user?.id,
-      rating: calificacion,
-      comment: sanitizedComentario
-    });
-    setEnviando(false);
-    setSuccess(true);
-    setComentario("");
-    setCalificacion(0);
-    if (onSubmit) onSubmit({ calificacion, comentario });
-    setTimeout(() => setSuccess(false), 2000);
+      // Sanitizar comentario antes de guardar
+      let DOMPurify: any = null;
+      try {
+        DOMPurify = require('isomorphic-dompurify');
+      } catch {}
+      const sanitizedComentario = DOMPurify ? DOMPurify.sanitize(comentario) : comentario;
+      const response = await fetch("/api/public-profile", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "add_review",
+          profileId,
+          rating: calificacion,
+          comment: sanitizedComentario
+        })
+      });
+      if (!response.ok) {
+        throw new Error("No se pudo enviar la opinión");
+      }
+
+      setSuccess(true);
+      setComentario("");
+      setCalificacion(0);
+      if (onSubmit) onSubmit({ calificacion, comentario });
+      setTimeout(() => setSuccess(false), 2000);
+    } finally {
+      setEnviando(false);
+    }
   }
 
   return (

@@ -9,7 +9,7 @@ El sistema de SSO permite a los usuarios autenticarse una vez y acceder automát
 ### Componentes Principales
 
 1. **Cliente SSO** (`packages/auth/src/sso/client.ts`)
-   - Cliente Supabase compartido para SSO
+   - Cliente HTTP compartido para `simple-api`
    - Utilidades para generar y validar tokens de SSO
 
 2. **Vertical Switcher** (`packages/auth/src/sso/VerticalSwitcher.tsx`)
@@ -27,11 +27,10 @@ sequenceDiagram
     participant U as Usuario
     participant A as Simple Autos
     participant P as Simple Propiedades
-    participant S as Supabase
+    participant S as simple-api
 
     U->>A: Login en autos.simple.com
-    A->>S: Autenticar usuario
-    S-->>A: Sesión creada
+    A-->>U: Sesión local activa
     A-->>U: Usuario logueado
 
     U->>A: Click "Ir a Propiedades"
@@ -61,18 +60,20 @@ NEXT_PUBLIC_CRM_DOMAIN=https://crm.simple.com
 NEXT_PUBLIC_VERTICAL=autos
 ```
 
-### 2. Base de Datos
+### 2. Backend (simple-api)
 
-La migración `20251204090000_add_sso_support.sql` ya provisiona todo el backend necesario:
+SSO opera por endpoints del backend unificado:
 
-- `user_verticals`: vínculo `user_id ↔ vertical` con permisos JSON y políticas RLS para que cada usuario sólo lea sus verticales. El service role puede administrar filas.
-- `sso_tokens`: almacena tokens one-time con `expires_at`, `used_at` y metadatos para auditoría.
-- RPCs:
-  - `generate_sso_token(p_user_id, p_target_domain, p_expires_in)` → sólo service role.
-  - `init_sso_token(p_target_domain, p_expires_in)` → usuarios autenticados; wrap de `generate_sso_token` que infiere `auth.uid()`.
-  - `validate_sso_token(p_token, p_domain)` → valida/consume tokens (disponible para `anon`/`authenticated`).
-
-> No repitas manualmente estas definiciones; simplemente corre `npm run supabase:db:push` para aplicar la migración en el entorno correspondiente.
+- `POST /v1/sso/verticals`
+  - Authorization: `Bearer <access_token>`
+  - respuesta: `{ items: [{ vertical, permissions, active }] }`
+- `POST /v1/sso/token`
+  - Authorization: `Bearer <access_token>`
+  - body: `{ targetDomain, expiresIn }`
+  - respuesta: `{ token, expiresIn }`
+- `POST /v1/sso/validate`
+  - body: `{ token, domain? }`
+  - respuesta: `{ valid, reason?, userId?, targetDomain?, expiresAt? }`
 
 ### 3. Integración en la UI
 
@@ -96,10 +97,9 @@ export default function UserPanel() {
 ### Medidas Implementadas
 
 1. **Tokens de corta duración** (5 minutos por defecto)
-2. **Uso único** de tokens SSO
+2. **Firmados HMAC** (verificados en backend)
 3. **Validación de dominio** de destino
-4. **Row Level Security** en permisos de vertical
-5. **PKCE flow** en Supabase Auth
+4. **Backend único** desacoplado de RPCs de backend legado
 
 ### Mejores Prácticas
 
@@ -127,9 +127,9 @@ export default function UserPanel() {
 ## 📋 Checklist de Implementación
 
 - [ ] Configurar variables de entorno en todas las verticales
-- [ ] Crear tablas de base de datos para SSO
-- [ ] Implementar funciones de base de datos
+- [x] Exponer endpoints SSO en `simple-api`
 - [ ] Agregar VerticalSwitcher a la UI
 - [ ] Crear páginas /auth/sso en cada vertical
 - [ ] Probar flujo completo de SSO
 - [ ] Configurar dominios de producción
+

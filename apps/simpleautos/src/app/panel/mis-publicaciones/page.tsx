@@ -4,15 +4,11 @@ import React from "react";
 import { createPortal } from "react-dom";
 import { Button, CircleButton, ViewToggle, useToast, Input, Select, Modal } from "@simple/ui";
 import { PanelPageLayout } from "@simple/ui";
-import { useSupabase } from "@/lib/supabase/useSupabase";
 import { AdminVehicleCard } from "@/components/vehicles/AdminVehicleCard";
 import { InstagramPublishModal } from "@/components/instagram/InstagramPublishModal";
 import { ensureLegacyFormat } from "@/lib/normalizeVehicleSpecs";
 import { logError } from "@/lib/logger";
 import {
-  bulkDeleteListings,
-  bulkUpdateListingStatus,
-  duplicateListingWithRelations,
   useListingsScope,
 } from "@simple/listings";
 import { IconPlus, IconCar, IconFilterX, IconSearch, IconTrash, IconChecks, IconX, IconPlayerPause } from '@tabler/icons-react';
@@ -200,6 +196,36 @@ type ListingRow = {
   regions?: { name?: string | null } | null;
 };
 
+type ApiVehicleRow = {
+  id: string;
+  title?: string | null;
+  price?: number | null;
+  currency?: string | null;
+  status?: string | null;
+  created_at?: string | null;
+  listing_type?: string | null;
+  year?: number | null;
+  mileage?: number | null;
+  fuel?: string | null;
+  transmission?: string | null;
+  condition?: string | null;
+  commune?: string | null;
+  region?: string | null;
+  type_slug?: string | null;
+  type_label?: string | null;
+  featured?: boolean | null;
+  views?: number | null;
+  clicks?: number | null;
+  rent_daily_price?: number | null;
+  rent_weekly_price?: number | null;
+  rent_monthly_price?: number | null;
+  rent_price_period?: Item["rent_price_period"];
+  auction_start_price?: number | null;
+  auction_start_at?: string | null;
+  auction_end_at?: string | null;
+  images?: Array<{ url?: string | null; is_cover?: boolean | null; position?: number | null }>;
+};
+
 function extractMetrics(row: ListingRow) {
   const metrics = Array.isArray(row.listing_metrics)
     ? row.listing_metrics[0]
@@ -300,9 +326,65 @@ function mapListingRowToItem(row: ListingRow): Item {
   } satisfies Item;
 }
 
+function mapApiVehicleToItem(row: ApiVehicleRow): Item {
+  const images = Array.isArray(row.images)
+    ? [...row.images]
+        .filter((img): img is { url: string; is_cover?: boolean | null; position?: number | null } => !!img?.url)
+        .sort((a, b) => {
+          if (!!a.is_cover === !!b.is_cover) {
+            return (a.position ?? 0) - (b.position ?? 0);
+          }
+          return a.is_cover ? -1 : 1;
+        })
+    : [];
+
+  const primaryImage = images[0]?.url || "/file.svg";
+  const statusLabel = STATUS_LABEL_BY_DB[String(row.status || "draft")] ?? "Borrador";
+  const fallbackRentPeriod = (
+    row.rent_daily_price != null
+      ? 'daily'
+      : row.rent_weekly_price != null
+      ? 'weekly'
+      : row.rent_monthly_price != null
+      ? 'monthly'
+      : null
+  ) as Item["rent_price_period"];
+
+  return {
+    id: row.id,
+    titulo: String(row.title || ""),
+    precio: Number(row.price ?? 0),
+    currency: row.currency ?? "CLP",
+    estadoPublicacion: statusLabel,
+    condicionVehiculo: row.condition ?? undefined,
+    portada: primaryImage,
+    imagenes: images.map((img) => img.url),
+    vistas: Number(row.views ?? 0),
+    clics: Number(row.clicks ?? 0),
+    year: typeof row.year === "number" ? row.year : undefined,
+    mileage: typeof row.mileage === "number" ? row.mileage : undefined,
+    fuel: row.fuel ?? undefined,
+    transmission: row.transmission ?? undefined,
+    commune: row.commune ?? undefined,
+    region: row.region ?? undefined,
+    listing_type: row.listing_type ?? undefined,
+    featured: Boolean(row.featured),
+    type_key: row.type_slug ?? undefined,
+    type_label: row.type_label ?? undefined,
+    extra_specs: null,
+    rent_daily_price: row.rent_daily_price ?? null,
+    rent_weekly_price: row.rent_weekly_price ?? null,
+    rent_monthly_price: row.rent_monthly_price ?? null,
+    rent_price_period: row.rent_price_period ?? fallbackRentPeriod ?? undefined,
+    auction_start_price: row.auction_start_price ?? null,
+    auction_start_at: row.auction_start_at ?? null,
+    auction_end_at: row.auction_end_at ?? null,
+    commercial_conditions: null,
+  };
+}
+
 export default function MisPublicaciones() {
   const { addToast } = useToast();
-  const supabase = useSupabase();
   const { user, loading: scopeLoading, scopeFilter, ensureScope } = useListingsScope();
 
   // Evitar que cambios de identidad del toast disparen efectos de fetch.
@@ -367,7 +449,6 @@ export default function MisPublicaciones() {
   const scopeValue = scopeFilter?.value ?? null;
 
   const refreshLimits = React.useCallback(async () => {
-    if (!supabase) return;
     if (!user?.id) return;
     if (!scopeFilter) {
       setLimitsLoading(false);
@@ -376,95 +457,28 @@ export default function MisPublicaciones() {
 
     setLimitsLoading(true);
     try {
-      const { data: verticals, error: verticalError } = await supabase
-        .from('verticals')
-        .select('id, key')
-        .in('key', AUTOS_VERTICAL_KEYS as unknown as string[])
-        .limit(1);
-
-      if (verticalError || !verticals || verticals.length === 0) {
-        throw verticalError ?? new Error('No se encontró la vertical de autos.');
+      const params = new URLSearchParams({
+        mode: 'limits',
+        scopeColumn: scopeFilter.column,
+        scopeValue: scopeFilter.value,
+      });
+      const response = await fetch(`/api/vehicles?${params.toString()}`, {
+        cache: 'no-store',
+      });
+      const payload = await response.json().catch(() => ({} as Record<string, unknown>));
+      if (!response.ok) {
+        throw new Error(String(payload?.error || 'No se pudieron cargar los límites'));
       }
 
-      const verticalId = verticals[0].id as string;
+      const nextMaxActive = Number((payload as any)?.maxActiveListings);
+      const nextMaxTotal = Number((payload as any)?.maxTotalListings);
+      const nextPublished = Number((payload as any)?.activePublishedCount);
+      const nextTotal = Number((payload as any)?.totalListingsCount);
 
-      let companyId: string | null = null;
-      if (scopeFilter.column === 'public_profile_id') {
-        const { data: pp, error: ppError } = await supabase
-          .from('public_profiles')
-          .select('company_id')
-          .eq('id', scopeFilter.value)
-          .maybeSingle();
-        if (ppError) throw ppError;
-        companyId = (pp as any)?.company_id ?? null;
-      }
-
-      let planLimits: any = null;
-      if (companyId) {
-        const { data: activeSub, error: subError } = await supabase
-          .from('subscriptions')
-          .select('status, current_period_end, subscription_plans(limits)')
-          .eq('company_id', companyId)
-          .eq('status', 'active')
-          .eq('vertical_id', verticalId)
-          .maybeSingle();
-
-        if (subError) throw subError;
-        const planSource = Array.isArray((activeSub as any)?.subscription_plans)
-          ? (activeSub as any)?.subscription_plans?.[0]
-          : (activeSub as any)?.subscription_plans;
-        planLimits = planSource?.limits ?? null;
-      } else {
-        const { data: activeSub, error: subError } = await supabase
-          .from('subscriptions')
-          .select('status, current_period_end, subscription_plans(limits)')
-          .eq('user_id', user.id)
-          .eq('status', 'active')
-          .eq('vertical_id', verticalId)
-          .maybeSingle();
-
-        if (subError) throw subError;
-        const planSource = Array.isArray((activeSub as any)?.subscription_plans)
-          ? (activeSub as any)?.subscription_plans?.[0]
-          : (activeSub as any)?.subscription_plans;
-        planLimits = planSource?.limits ?? null;
-      }
-
-      const parsedMaxActive = Number(planLimits?.max_active_listings ?? planLimits?.max_listings);
-      const parsedMaxTotal = Number(planLimits?.max_total_listings ?? planLimits?.max_listings);
-
-      const nextMaxActive = Number.isFinite(parsedMaxActive) ? parsedMaxActive : FREE_TIER_MAX_ACTIVE_LISTINGS;
-      // Para Free: queremos 1 publicación total (evita duplicados/drafts infinitos)
-      const nextMaxTotal = Number.isFinite(parsedMaxTotal) ? parsedMaxTotal : 1;
-
-      setMaxActiveListings(nextMaxActive);
-      setMaxTotalListings(nextMaxTotal);
-
-      let publishedQuery = supabase
-        .from('listings')
-        .select('id', { count: 'exact' })
-        .eq('vertical_id', verticalId)
-        .eq('status', 'published')
-        .eq(scopeFilter.column, scopeFilter.value)
-        .limit(1);
-
-      let totalQuery = supabase
-        .from('listings')
-        .select('id', { count: 'exact' })
-        .eq('vertical_id', verticalId)
-        .eq(scopeFilter.column, scopeFilter.value)
-        .limit(1);
-
-      const [{ count: publishedCount, error: pubErr }, { count: totalCount, error: totalErr }] = await Promise.all([
-        publishedQuery,
-        totalQuery,
-      ]);
-
-      if (pubErr) throw pubErr;
-      if (totalErr) throw totalErr;
-
-      setActivePublishedCount(typeof publishedCount === 'number' ? publishedCount : 0);
-      setTotalListingsCount(typeof totalCount === 'number' ? totalCount : 0);
+      setMaxActiveListings(Number.isFinite(nextMaxActive) ? nextMaxActive : FREE_TIER_MAX_ACTIVE_LISTINGS);
+      setMaxTotalListings(Number.isFinite(nextMaxTotal) ? nextMaxTotal : 1);
+      setActivePublishedCount(Number.isFinite(nextPublished) ? nextPublished : 0);
+      setTotalListingsCount(Number.isFinite(nextTotal) ? nextTotal : 0);
     } catch (err: any) {
       logError('[Publicaciones] Error refrescando límites', err);
       // Fallback seguro: Free
@@ -475,17 +489,13 @@ export default function MisPublicaciones() {
     } finally {
       setLimitsLoading(false);
     }
-  }, [scopeFilter, supabase, user?.id]);
+  }, [scopeFilter, user?.id]);
 
   React.useEffect(() => {
     refreshLimits();
   }, [refreshLimits]);
 
   React.useEffect(() => {
-    if (!supabase) {
-      return;
-    }
-
     if (!userId) {
       if (!scopeLoading) {
         setItems([]);
@@ -507,33 +517,23 @@ export default function MisPublicaciones() {
     const fetchListings = async () => {
       try {
         setLoading(true);
-        const { data: verticalRows, error: verticalError } = await supabase
-          .from('verticals')
-          .select('id, key')
-          .in('key', Array.from(AUTOS_VERTICAL_KEYS));
-
-        if (verticalError) {
-          logError('[Publicaciones] Error cargando verticals', verticalError);
+        const params = new URLSearchParams({
+          scopeColumn,
+          scopeValue,
+        });
+        const response = await fetch(`/api/vehicles?${params.toString()}`, {
+          cache: 'no-store',
+        });
+        const payload = await response.json().catch(() => ({} as Record<string, unknown>));
+        if (!response.ok) {
+          throw new Error(String(payload?.error || 'Error cargando publicaciones'));
         }
-
-        const verticalIds = (verticalRows || []).map((v: any) => v.id).filter(Boolean);
-
-        let query = supabase
-          .from('listings')
-          .select(LISTING_SELECT)
-          .eq(scopeColumn, scopeValue)
-          .order('created_at', { ascending: false });
-
-        if (verticalIds.length > 0) {
-          query = query.in('vertical_id', verticalIds);
-        }
-
-        const { data, error } = await query;
-
-        if (error) throw error;
+        const rows = Array.isArray((payload as { vehicles?: unknown[] }).vehicles)
+          ? ((payload as { vehicles: ApiVehicleRow[] }).vehicles ?? [])
+          : [];
 
         if (!cancelled) {
-          const mapped = (data as ListingRow[] | null | undefined)?.map(mapListingRowToItem) ?? [];
+          const mapped = rows.map(mapApiVehicleToItem);
           setItems(mapped);
         }
       } catch (err: any) {
@@ -553,7 +553,7 @@ export default function MisPublicaciones() {
     return () => {
       cancelled = true;
     };
-  }, [scopeColumn, scopeValue, supabase, userId, scopeLoading]);
+  }, [scopeColumn, scopeValue, userId, scopeLoading]);
   
   React.useEffect(() => { if (mounted) setJSON("pub:view", view); }, [mounted, view]);
 
@@ -563,19 +563,21 @@ export default function MisPublicaciones() {
   };
 
   const eliminar = async () => {
-    if (!vehicleToDelete || !supabase) return;
+    if (!vehicleToDelete) return;
     if (!ensureScope() || !scopeFilter) return;
 
     try {
-      const { error } = await supabase
-        .from('listings')
-        .delete()
-        .eq('id', vehicleToDelete.id)
-        .eq(scopeFilter.column, scopeFilter.value);
-
-      if (error) {
-        logError('[Publicaciones] Error eliminando', error);
-        throw error;
+      const params = new URLSearchParams({
+        id: vehicleToDelete.id,
+        scopeColumn: scopeFilter.column,
+        scopeValue: scopeFilter.value,
+      });
+      const response = await fetch(`/api/vehicles?${params.toString()}`, {
+        method: 'DELETE',
+      });
+      const payload = await response.json().catch(() => ({} as Record<string, unknown>));
+      if (!response.ok) {
+        throw new Error(String(payload?.error || 'Error eliminando publicación'));
       }
 
       setItems((arr) => arr.filter((i) => i.id !== vehicleToDelete.id));
@@ -590,7 +592,7 @@ export default function MisPublicaciones() {
   };
   
   const duplicar = async (id: string) => {
-    if (!supabase || !user?.id) return;
+    if (!user?.id) return;
     if (!ensureScope() || !scopeFilter) return;
 
     try {
@@ -605,27 +607,39 @@ export default function MisPublicaciones() {
         }
       }
 
-      const newListingId = await duplicateListingWithRelations(supabase, {
-        listingId: id,
-        userId: user.id,
-        scopeFilter,
-        detail: {
-          table: 'listings_vehicles',
-        },
+      const params = new URLSearchParams({
+        scopeColumn: scopeFilter.column,
+        scopeValue: scopeFilter.value,
       });
-
-      const { data: refreshed, error: refreshError } = await supabase
-        .from('listings')
-        .select(LISTING_SELECT)
-        .eq('id', newListingId)
-        .single();
-
-      if (refreshError || !refreshed) {
-        throw refreshError ?? new Error('No se pudo cargar la copia');
+      const duplicateResponse = await fetch(`/api/vehicles?${params.toString()}`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          action: 'duplicate',
+          id,
+        }),
+      });
+      const duplicatePayload = await duplicateResponse.json().catch(() => ({} as Record<string, unknown>));
+      if (!duplicateResponse.ok) {
+        throw new Error(String(duplicatePayload?.error || 'No se pudo duplicar la publicación'));
+      }
+      const newListingId = String(duplicatePayload?.id || '').trim();
+      if (!newListingId) {
+        throw new Error('La API no devolvió id de la copia');
       }
 
-      const newItem = mapListingRowToItem(refreshed as ListingRow);
-      setItems((prev) => [newItem, ...prev]);
+      const refreshResponse = await fetch(`/api/vehicles?${params.toString()}`, {
+        cache: 'no-store',
+      });
+      const refreshPayload = await refreshResponse.json().catch(() => ({} as Record<string, unknown>));
+      if (!refreshResponse.ok) {
+        throw new Error(String(refreshPayload?.error || 'No se pudo refrescar el listado'));
+      }
+      const refreshedRows = Array.isArray((refreshPayload as { vehicles?: unknown[] }).vehicles)
+        ? ((refreshPayload as { vehicles: ApiVehicleRow[] }).vehicles ?? [])
+        : [];
+      const mapped = refreshedRows.map(mapApiVehicleToItem);
+      setItems(mapped);
       addToast('Publicacion duplicada exitosamente', { type: 'success' });
       refreshLimits();
     } catch (error: any) {
@@ -641,17 +655,25 @@ export default function MisPublicaciones() {
 
   // Sincronizar estado de impulso desde listing_boost_slots
   const impulsarPublicacion = async (id: string) => {
-    if (!supabase) return;
+    if (!ensureScope() || !scopeFilter) return;
 
     try {
-      const { data, error } = await supabase
-        .from('listing_boost_slots')
-        .select('is_active, ends_at')
-        .eq('listing_id', id);
-
-      if (error) throw error;
-
-      const featured = hasActiveBoost(data);
+      const params = new URLSearchParams({
+        scopeColumn: scopeFilter.column,
+        scopeValue: scopeFilter.value,
+      });
+      const response = await fetch(`/api/vehicles?${params.toString()}`, {
+        cache: 'no-store',
+      });
+      const payload = await response.json().catch(() => ({} as Record<string, unknown>));
+      if (!response.ok) {
+        throw new Error(String(payload?.error || 'No se pudo sincronizar el impulso'));
+      }
+      const rows = Array.isArray((payload as { vehicles?: unknown[] }).vehicles)
+        ? ((payload as { vehicles: ApiVehicleRow[] }).vehicles ?? [])
+        : [];
+      const found = rows.find((row) => row.id === id);
+      const featured = Boolean(found?.featured);
       setItems((prevItems) =>
         prevItems.map((item) =>
           item.id === id ? { ...item, featured } : item
@@ -664,9 +686,35 @@ export default function MisPublicaciones() {
     }
   };
 
+  const solicitarDestacadoManual = async (id: string) => {
+    try {
+      const res = await fetch("/api/payments/manual-requests", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          requestType: "featured_listing",
+          listingId: id,
+          proofNote: "Solicitud creada desde Mis Publicaciones"
+        })
+      });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        const message =
+          json?.error ||
+          (res.status === 409
+            ? "Ya tienes una solicitud pendiente para esta publicación"
+            : "No se pudo crear la solicitud");
+        addToast(message, { type: "error" });
+        return;
+      }
+      addToast("Solicitud de destacado enviada. Te contactaremos para activarla.", { type: "success" });
+    } catch (error: any) {
+      addToast(error?.message || "No se pudo crear la solicitud", { type: "error" });
+    }
+  };
+
   // Cambiar estado de un solo veh�culo
   const cambiarEstadoIndividual = async (id: string, nuevoEstado: 'Publicado' | 'Pausado' | 'Borrador') => {
-    if (!supabase) return;
     if (!ensureScope() || !scopeFilter) return;
 
     try {
@@ -688,14 +736,19 @@ export default function MisPublicaciones() {
       }
 
       const dbStatus = DB_STATUS_BY_LABEL[nuevoEstado];
-
-      const { error } = await supabase
-        .from('listings')
-        .update({ status: dbStatus })
-        .eq('id', id)
-        .eq(scopeFilter.column, scopeFilter.value);
-
-      if (error) throw error;
+      const params = new URLSearchParams({
+        scopeColumn: scopeFilter.column,
+        scopeValue: scopeFilter.value,
+      });
+      const response = await fetch(`/api/vehicles?${params.toString()}`, {
+        method: 'PATCH',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ id, status: dbStatus }),
+      });
+      const payload = await response.json().catch(() => ({} as Record<string, unknown>));
+      if (!response.ok) {
+        throw new Error(String(payload?.error || 'Error cambiando estado'));
+      }
 
       setItems((prevItems) =>
         prevItems.map((item) =>
@@ -736,7 +789,7 @@ export default function MisPublicaciones() {
   };
 
   const bulkDelete = async () => {
-    if (selectedIds.size === 0 || !supabase) return;
+    if (selectedIds.size === 0) return;
     if (!ensureScope() || !scopeFilter) return;
 
     if (!window.confirm(`Estas seguro de eliminar ${selectedIds.size} publicacion(es)?`)) {
@@ -746,7 +799,22 @@ export default function MisPublicaciones() {
     setBulkActionLoading(true);
     try {
       const ids = Array.from(selectedIds);
-      await bulkDeleteListings(supabase, ids, scopeFilter);
+      await Promise.all(
+        ids.map(async (id) => {
+          const params = new URLSearchParams({
+            id,
+            scopeColumn: scopeFilter.column,
+            scopeValue: scopeFilter.value,
+          });
+          const response = await fetch(`/api/vehicles?${params.toString()}`, {
+            method: 'DELETE',
+          });
+          if (!response.ok) {
+            const payload = await response.json().catch(() => ({} as Record<string, unknown>));
+            throw new Error(String(payload?.error || `No se pudo eliminar ${id}`));
+          }
+        })
+      );
 
       setItems((arr) => arr.filter((i) => !selectedIds.has(i.id)));
       addToast(`${ids.length} publicacion(es) eliminadas`, { type: 'success' });
@@ -762,7 +830,7 @@ export default function MisPublicaciones() {
   };
 
   const bulkChangeStatus = async (newStatus: UiStatus) => {
-    if (selectedIds.size === 0 || !supabase) return;
+    if (selectedIds.size === 0) return;
     if (!ensureScope() || !scopeFilter) return;
 
     const dbStatus = DB_STATUS_BY_LABEL[newStatus] || 'draft';
@@ -783,7 +851,23 @@ export default function MisPublicaciones() {
     setBulkActionLoading(true);
     try {
       const ids = Array.from(selectedIds);
-      await bulkUpdateListingStatus(supabase, ids, dbStatus, scopeFilter);
+      await Promise.all(
+        ids.map(async (id) => {
+          const params = new URLSearchParams({
+            scopeColumn: scopeFilter.column,
+            scopeValue: scopeFilter.value,
+          });
+          const response = await fetch(`/api/vehicles?${params.toString()}`, {
+            method: 'PATCH',
+            headers: { 'content-type': 'application/json' },
+            body: JSON.stringify({ id, status: dbStatus }),
+          });
+          if (!response.ok) {
+            const payload = await response.json().catch(() => ({} as Record<string, unknown>));
+            throw new Error(String(payload?.error || `No se pudo actualizar ${id}`));
+          }
+        })
+      );
 
       setItems((arr) => arr.map((i) =>
         selectedIds.has(i.id) ? { ...i, estadoPublicacion: newStatus } : i
@@ -1181,6 +1265,7 @@ export default function MisPublicaciones() {
                   onChangeStatus={(id: string, newStatus: 'Publicado' | 'Pausado' | 'Borrador') => cambiarEstadoIndividual(id, newStatus)}
                   onBoost={(id: string) => impulsarPublicacion(id)}
                   onInstagramPublish={(id: string) => openInstagramFor(id)}
+                  onRequestManualFeature={(id: string) => void solicitarDestacadoManual(id)}
                   canPublish={!limitsLoading && (maxActiveListings < 0 || activePublishedCount < maxActiveListings)}
                   canDuplicate={!limitsLoading && (maxTotalListings < 0 || totalListingsCount < maxTotalListings)}
                   publishDisabledTitle={
@@ -1222,6 +1307,7 @@ export default function MisPublicaciones() {
                   onChangeStatus={(id: string, newStatus: 'Publicado' | 'Pausado' | 'Borrador') => cambiarEstadoIndividual(id, newStatus)}
                   onBoost={(id: string) => impulsarPublicacion(id)}
                   onInstagramPublish={(id: string) => openInstagramFor(id)}
+                  onRequestManualFeature={(id: string) => void solicitarDestacadoManual(id)}
                   canPublish={!limitsLoading && (maxActiveListings < 0 || activePublishedCount < maxActiveListings)}
                   canDuplicate={!limitsLoading && (maxTotalListings < 0 || totalListingsCount < maxTotalListings)}
                   publishDisabledTitle={

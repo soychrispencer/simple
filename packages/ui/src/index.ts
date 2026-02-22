@@ -55,7 +55,6 @@ export type {
 } from './components/panel/panelManifest';
 
 // Shared hooks/helpers
-export { useSupabase } from './lib/supabase';
 export { useAvatarUrl, getAvatarUrl } from './lib/storage';
 export { cn } from './lib/cn';
 

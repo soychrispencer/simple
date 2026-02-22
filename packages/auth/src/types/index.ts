@@ -1,5 +1,3 @@
-import type { User, Session } from '@supabase/supabase-js';
-
 /**
  * Estados posibles de autenticación
  */
@@ -27,7 +25,11 @@ export interface Profile {
 /**
  * Usuario combinado con perfil
  */
-export type UserWithProfile = User & Profile;
+export interface UserWithProfile extends Profile {
+  id: string;
+  email?: string | null;
+  [key: string]: any;
+}
 
 /**
  * Resultado de operaciones de autenticación

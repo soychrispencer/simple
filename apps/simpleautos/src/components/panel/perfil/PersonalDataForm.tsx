@@ -1,5 +1,4 @@
 ﻿import React from "react";
-import { useSupabase } from "@/lib/supabase/useSupabase";
 import { Input, Select, Button, useToast } from "@simple/ui";
 import { IconCheck, IconUser, IconPhone, IconMail, IconId, IconCalendar, IconChevronLeft, IconChevronRight, IconChevronDown } from "@tabler/icons-react";
 import { logError } from "@/lib/logger";
@@ -99,7 +98,6 @@ const validateClPhone = (value: string) => {
 };
 
 const PersonalDataForm: React.FC<{ user: any; onSave?: (data: any) => void }> = ({ user, onSave }) => {
-  const supabase = useSupabase();
   const { addToast } = useToast();
   const formattedInitialPhone = React.useMemo(() => formatClPhone(user?.phone || ""), [user?.phone]);
   const formattedInitialWhatsapp = React.useMemo(() => formatClPhone(user?.whatsapp || ""), [user?.whatsapp]);
@@ -326,7 +324,6 @@ const PersonalDataForm: React.FC<{ user: any; onSave?: (data: any) => void }> = 
       const normalizedPhone = form.phone ? normalizePhoneE164(form.phone) : "";
       const normalizedWhatsapp = form.whatsapp ? normalizePhoneE164(form.whatsapp) : "";
       const payload = {
-        id: user.id,
         first_name: form.firstName.trim(),
         last_name: form.lastName.trim(),
         phone: normalizedPhone || null,
@@ -339,15 +336,20 @@ const PersonalDataForm: React.FC<{ user: any; onSave?: (data: any) => void }> = 
         user_role: form.userRole || null,
       };
 
-      const { error } = await supabase.from("profiles").upsert(payload, { onConflict: "id" });
-      if (error) {
-        logError("[PersonalDataForm] save error", error);
+      const response = await fetch("/api/profile/personal", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      const result = await response.json().catch(() => ({} as Record<string, unknown>));
+      if (!response.ok) {
+        logError("[PersonalDataForm] save error", result);
         const fieldError: { [k: string]: string } = {};
-        if (error.message?.toLowerCase().includes("document")) {
+        if (String((result as any)?.error || "").toLowerCase().includes("document")) {
           fieldError.documentNumber = "Número ya registrado";
         }
         setErrors(fieldError);
-        addToast(error.message || "No se pudo guardar el perfil", { type: "error" });
+        addToast(String((result as any)?.error || "No se pudo guardar el perfil"), { type: "error" });
         return;
       }
 

@@ -2,10 +2,9 @@
 
 import React, { useState, useEffect, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
-import { getSupabaseClient } from '@/lib/supabase/supabase';
-import { LISTING_CARD_SELECT, listingRowToVehicleRow } from '@/lib/listings/queryHelpers';
 import { logError } from "@/lib/logger";
 import { getDemoListingsMode, getDemoVehicleRows } from "@/lib/demo/demoVehicles";
+import { listListings } from "@simple/sdk";
 
 interface Vehicle {
   id: string;
@@ -75,38 +74,28 @@ function SearchContent() {
           return;
         }
 
-        const supabase = getSupabaseClient();
+        const listings = await listListings({
+          vertical: 'autos',
+          limit: 100,
+          offset: 0,
+        });
 
-        // Búsqueda básica por título
-        const { data, error } = await supabase
-          .from("listings")
-          .select(LISTING_CARD_SELECT)
-          .ilike("title", `%${query}%`)
-          .neq('status', 'draft')
-          .neq('visibility', 'hidden')
-          .order("created_at", { ascending: false })
-          .limit(50);
-
-        if (error) throw error;
-
-        const normalized = (data || []).map((row) => {
-          const listing = listingRowToVehicleRow(row);
-          const location = [listing.commune_name, listing.region_name].filter(Boolean).join(', ') || null;
-          const imageArray = Array.isArray(listing.image_paths)
-            ? listing.image_paths
-            : listing.image_paths
-              ? [listing.image_paths]
-              : [];
+        const normalized = (Array.isArray(listings.items) ? listings.items : [])
+          .filter((item) => String(item.title || '').toLowerCase().includes(q.toLowerCase()))
+          .slice(0, 50)
+          .map((item) => {
+          const location = [item.city, item.region].filter(Boolean).join(', ') || null;
+          const imageArray = item.imageUrl ? [item.imageUrl] : [];
           return {
-            id: listing.id,
-            title: listing.title,
-            price: listing.price ?? null,
-            year: listing.year ?? null,
-            mileage: listing.mileage ?? null,
+            id: item.id,
+            title: item.title,
+            price: item.price ?? null,
+            year: item.year ?? null,
+            mileage: item.mileage ?? null,
             location,
             images: imageArray,
-            created_at: listing.created_at,
-            user_id: listing.owner_id || '',
+            created_at: item.createdAt || new Date().toISOString(),
+            user_id: item.ownerId || '',
           };
         });
 

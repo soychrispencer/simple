@@ -4,7 +4,6 @@ import React from "react";
 import Link from "next/link";
 import { PanelPageLayout } from "@simple/ui";
 import { Button, useToast } from "@simple/ui";
-import { useSupabase } from "@/lib/supabase/useSupabase";
 import { useListingsScope } from "@simple/listings";
 import { logError } from "@/lib/logger";
 import { useFavorites } from "@/context/FavoritesContext";
@@ -20,7 +19,6 @@ type FavoriteCard = {
 };
 
 export default function Favoritos() {
-  const supabase = useSupabase();
   const { user } = useListingsScope({ verticalKey: 'autos', toastOnMissing: false });
   const { addToast } = useToast();
   const { refresh: refreshFavorites } = useFavorites();
@@ -34,7 +32,6 @@ export default function Favoritos() {
   const [compareVehicles, setCompareVehicles] = React.useState<VehicleDetail[]>([]);
 
   const fetchFavorites = React.useCallback(async () => {
-    if (!supabase) return;
     if (!user?.id) {
       setFavorites([]);
       setLoading(false);
@@ -43,23 +40,12 @@ export default function Favoritos() {
 
     setLoading(true);
     try {
-      const { data, error } = await supabase
-        .from('favorites')
-        .select(`
-          id,
-          listing_id,
-          listings:listings (
-            id,
-            title,
-            price,
-            metadata,
-            images:images(url, position, is_primary)
-          )
-        `)
-        .eq('user_id', user.id)
-        .order('created_at', { ascending: false });
-
-      if (error) throw error;
+      const response = await fetch('/api/favorites', { cache: 'no-store' });
+      const payload = await response.json().catch(() => ({} as Record<string, unknown>));
+      if (!response.ok) {
+        throw new Error(String(payload?.error || 'Error cargando favoritos'));
+      }
+      const data = Array.isArray((payload as any).favorites) ? (payload as any).favorites : [];
 
       const mapped = (data || []).map((row: any) => {
         const listing = row.listings;
@@ -89,7 +75,7 @@ export default function Favoritos() {
     } finally {
       setLoading(false);
     }
-  }, [addToast, supabase, user?.id]);
+  }, [addToast, user?.id]);
 
   React.useEffect(() => {
     void fetchFavorites();
@@ -124,11 +110,15 @@ export default function Favoritos() {
   }, [compareIds]);
 
   const handleRemove = async (favoriteId: string) => {
-    if (!supabase) return;
     try {
       const listingId = favorites.find((f) => f.favoriteId === favoriteId)?.listingId;
-      const { error } = await supabase.from('favorites').delete().eq('id', favoriteId);
-      if (error) throw error;
+      const response = await fetch(`/api/favorites?id=${encodeURIComponent(favoriteId)}`, {
+        method: 'DELETE',
+      });
+      const payload = await response.json().catch(() => ({} as Record<string, unknown>));
+      if (!response.ok) {
+        throw new Error(String(payload?.error || 'No se pudo quitar favorito'));
+      }
       setFavorites((prev) => prev.filter((fav) => fav.favoriteId !== favoriteId));
       addToast('Publicación eliminada de favoritos', { type: 'info' });
       void refreshFavorites();

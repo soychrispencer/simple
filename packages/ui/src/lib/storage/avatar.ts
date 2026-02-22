@@ -1,20 +1,13 @@
 "use client";
 import { useCallback } from "react";
-import type { SupabaseClient } from "@supabase/supabase-js";
-import { useOptionalSupabase } from "../supabase";
+type DatabaseClient = any;
 
-const AVATAR_BUCKET = "avatars";
-
-function buildPublicUrl(client: SupabaseClient, path: string) {
-  return client.storage.from(AVATAR_BUCKET).getPublicUrl(path).data.publicUrl;
-}
-
-export function getAvatarUrl(client: SupabaseClient, path?: string | null): string {
+export function getAvatarUrl(_client: DatabaseClient, path?: string | null): string {
   if (!path) return "";
   if (/^https?:\/\//i.test(path)) {
     return path;
   }
-  return buildPublicUrl(client, path);
+  return path.startsWith("/") ? path : `/${path}`;
 }
 
 type AvatarLike =
@@ -28,12 +21,10 @@ type AvatarLike =
     };
 
 /**
- * Returns a memoized function that can resolve Supabase avatar URLs from either
+ * Returns a memoized function that can resolve backend legado avatar URLs from either
  * a direct path or from a user/profile object.
  */
 export function useAvatarUrl() {
-  const supabase = useOptionalSupabase();
-
   return useCallback(
     (input?: AvatarLike) => {
       if (!input) return "";
@@ -47,14 +38,9 @@ export function useAvatarUrl() {
       if (/^https?:\/\//i.test(raw)) {
         return raw;
       }
-
-      // Si no tenemos Supabase (p.ej. app sin <AuthProvider>), no podemos resolver paths del bucket.
-      if (!supabase) {
-        return "";
-      }
-
-      return getAvatarUrl(supabase, raw);
+      return getAvatarUrl(null, raw);
     },
-    [supabase]
+    []
   );
 }
+

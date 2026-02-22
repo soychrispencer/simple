@@ -2,7 +2,6 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import { getSupabaseClient } from '@/lib/supabase/supabase';
 import { useMercadoPago } from '@/hooks/useMercadoPago';
 import {
   getBoostPrice,
@@ -24,9 +23,9 @@ import {
 } from '@tabler/icons-react';
 import { useToast, Modal, Button } from '@simple/ui';
 import { createVehicleBoost, updateVehicleBoostSlots } from '@/app/actions/boosts';
-import { listAutosBoostSlots } from '@/lib/boosts';
 import { logDebug } from '@/lib/logger';
 import { logError } from '@/lib/logger';
+import { useAuth } from '@/context/AuthContext';
 
 interface BoostSlot {
   id: string;
@@ -51,6 +50,7 @@ interface BoostSlotsModalProps {
 }
 
 export function BoostSlotsModal({ listingId, vehicleTitle, listingType, userId: propUserId, onClose, onSuccess }: BoostSlotsModalProps) {
+  const { user } = useAuth();
   const [slots, setSlots] = useState<BoostSlot[]>([]);
   const [activeSlots, setActiveSlots] = useState<string[]>([]);
   const [activeSlotEndsAt, setActiveSlotEndsAt] = useState<Record<string, string | null>>({});
@@ -61,7 +61,6 @@ export function BoostSlotsModal({ listingId, vehicleTitle, listingType, userId: 
   const [paidDuration, setPaidDuration] = useState<PaidBoostDuration>('7_dias');
   const [freeProfileDuration, setFreeProfileDuration] = useState<FreeProfileDuration>('7_dias');
   const router = useRouter();
-  const supabase = getSupabaseClient();
   const { addToast } = useToast();
   const { createBoostPayment } = useMercadoPago();
 
@@ -112,67 +111,34 @@ export function BoostSlotsModal({ listingId, vehicleTitle, listingType, userId: 
   const loadSlotsAndActive = useCallback(async () => {
     try {
       setLoading(true);
-      const slotsData = await listAutosBoostSlots(supabase);
-      const filteredSlots = (slotsData || []).filter((slot) => isSlotAvailableForListingType(slot));
-      setSlots(filteredSlots);
 
       if (!listingId) {
         addToast('No encontramos el ID de la publicación', { type: 'error' });
         return;
       }
 
-      // Plan gratis puede tener public_profile_id, pero el perfil queda draft/private.
-      // Para habilitar el slot user_page exigimos public_profiles.is_public=true y status='active'.
-      const { data: listingRow, error: listingRowError } = await supabase
-        .from('listings')
-        .select('id, public_profile_id')
-        .eq('id', listingId)
-        .maybeSingle();
-
-      if (listingRowError) {
-        logError('Error loading listing public_profile_id', listingRowError);
+      const params = new URLSearchParams({ listingId, listingType });
+      const response = await fetch(`/api/boosts/slots?${params.toString()}`, { cache: 'no-store' });
+      const payload = await response.json().catch(() => ({} as Record<string, any>));
+      if (!response.ok) {
+        throw new Error(String((payload as any)?.error || 'Error loading boost slots'));
       }
 
-      const publicProfileId = (listingRow as any)?.public_profile_id as string | null | undefined;
-      if (!publicProfileId) {
-        setHasPublicProfile(false);
-      } else {
-        const { data: ppRow, error: ppError } = await supabase
-          .from('public_profiles')
-          .select('id, is_public, status')
-          .eq('id', publicProfileId)
-          .maybeSingle();
-
-        if (ppError) {
-          logError('Error loading public profile', ppError);
-          setHasPublicProfile(false);
-        } else {
-          setHasPublicProfile(Boolean((ppRow as any)?.is_public) && String((ppRow as any)?.status) === 'active');
-        }
-      }
-
-      const { data: activeData, error: activeError } = await supabase
-        .from('listing_boost_slots')
-        .select('slot_id, ends_at')
-        .eq('listing_id', listingId)
-        .eq('is_active', true);
-
-      if (activeError) throw activeError;
-
-      const endsMap: Record<string, string | null> = {};
-      const activeSlotIds = (activeData || []).map((item: { slot_id: string; ends_at?: string | null }) => {
-        endsMap[item.slot_id] = (item as any).ends_at ?? null;
-        return item.slot_id;
-      });
-      setActiveSlots(activeSlotIds);
-      setActiveSlotEndsAt(endsMap);
+      const slotsData = Array.isArray((payload as any)?.slots) ? (payload as any).slots : [];
+      const filteredSlots = (slotsData || []).filter((slot: BoostSlot) => isSlotAvailableForListingType(slot));
+      setSlots(filteredSlots);
+      setHasPublicProfile(Boolean((payload as any)?.hasPublicProfile));
+      setActiveSlots(Array.isArray((payload as any)?.activeSlotIds) ? (payload as any).activeSlotIds : []);
+      setActiveSlotEndsAt((payload as any)?.activeSlotEndsAt && typeof (payload as any).activeSlotEndsAt === 'object'
+        ? (payload as any).activeSlotEndsAt
+        : {});
     } catch (error) {
       logError('Error loading slots', error);
       addToast('No pudimos cargar los espacios destacados', { type: 'error' });
     } finally {
       setLoading(false);
     }
-  }, [addToast, isSlotAvailableForListingType, supabase, listingId]);
+  }, [addToast, isSlotAvailableForListingType, listingId, listingType]);
 
   useEffect(() => {
     if (mounted) {
@@ -208,22 +174,8 @@ export function BoostSlotsModal({ listingId, vehicleTitle, listingType, userId: 
         return;
       }
 
-      // 0. Obtener el userId (de prop o de sesión)
-      let userId = propUserId;
-      
-      if (!userId) {
-        logDebug('[BoostSlotsModal] No userId from props; getting from session');
-        const { data: { session }, error: sessionError } = await supabase.auth.getSession();
-        
-        if (sessionError || !session?.user) {
-          logError('Error getting session', sessionError);
-          addToast('Debes iniciar sesión para impulsar vehículos', { type: 'error' });
-          return;
-        }
-        
-        userId = session.user.id;
-        logDebug('[BoostSlotsModal] Got userId from session', { userId });
-      }
+      // 0. Obtener el userId (de prop o de auth context)
+      const userId = propUserId || user?.id || '';
 
       if (!userId) {
         addToast('No pudimos validar tu sesión, intenta nuevamente', { type: 'error' });

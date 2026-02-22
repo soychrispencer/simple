@@ -1,122 +1,143 @@
-import { createClient } from '@supabase/supabase-js';
-import type { SupabaseClient } from '@supabase/supabase-js';
-
-// Configuración centralizada para SSO
-const SUPABASE_CONFIG = {
-  url: process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  anonKey: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-  serviceRoleKey: process.env.SUPABASE_SERVICE_ROLE_KEY,
+type SSOVerticalAccess = {
+  vertical: "autos" | "propiedades" | "tiendas" | "food" | "crm";
+  permissions: Record<string, unknown>;
+  active: boolean;
 };
 
-// Cliente compartido para SSO
-const isBrowser = typeof window !== 'undefined';
-let browserSSOClient: SupabaseClient | null = null;
-let serviceSSOClient: SupabaseClient | null = null;
+type ValidateSSOTokenResponse = {
+  valid: boolean;
+  reason?: string;
+  userId?: string;
+  targetDomain?: string;
+  expiresAt?: number;
+  session?: {
+    accessToken: string;
+    refreshToken?: string;
+  };
+};
 
-export function getSSOClient(): SupabaseClient {
-  if (!browserSSOClient) {
-    browserSSOClient = createClient(SUPABASE_CONFIG.url, SUPABASE_CONFIG.anonKey, {
-      auth: {
-        persistSession: true,
-        autoRefreshToken: true,
-        detectSessionInUrl: true,
-        flowType: 'pkce', // Más seguro para múltiples dominios
-      },
-      global: {
-        headers: {
-          'x-simple-sso': '1',
-          'x-vertical': process.env.NEXT_PUBLIC_VERTICAL || 'unknown'
-        }
-      }
-    });
-  }
-  return browserSSOClient;
+const DEFAULT_SSO_VERTICALS: SSOVerticalAccess[] = [
+  { vertical: "autos", permissions: {}, active: true },
+  { vertical: "propiedades", permissions: {}, active: true },
+  { vertical: "tiendas", permissions: {}, active: true },
+  { vertical: "food", permissions: {}, active: true },
+  { vertical: "crm", permissions: {}, active: true }
+];
+
+function normalizeBaseUrl(url: string): string {
+  return String(url || "").trim().replace(/\/+$/, "");
 }
 
-function getServiceSSOClient(): SupabaseClient {
-  if (!SUPABASE_CONFIG.serviceRoleKey) {
-    throw new Error('SUPABASE_SERVICE_ROLE_KEY is required for server-side SSO operations.');
+function resolveSimpleApiBaseUrl(): string {
+  const explicit = normalizeBaseUrl(
+    process.env.NEXT_PUBLIC_SIMPLE_API_BASE_URL || process.env.SIMPLE_API_BASE_URL || ""
+  );
+  if (explicit) return explicit;
+
+  const win = (globalThis as any)?.window;
+  if (win && win.location?.hostname === "localhost") {
+    return "http://localhost:4000";
   }
 
-  if (!serviceSSOClient) {
-    serviceSSOClient = createClient(SUPABASE_CONFIG.url, SUPABASE_CONFIG.serviceRoleKey, {
-      auth: {
-        persistSession: false,
-        autoRefreshToken: false,
-        detectSessionInUrl: false,
-      },
-      global: {
-        headers: {
-          'x-simple-sso': '1',
-          'x-vertical': process.env.NEXT_PUBLIC_VERTICAL || 'unknown'
-        }
-      }
-    });
-  }
+  throw new Error(
+    "Simple API base URL no configurada para SSO. Define NEXT_PUBLIC_SIMPLE_API_BASE_URL."
+  );
+}
 
-  return serviceSSOClient;
+async function requestSimpleApi<T>(
+  path: string,
+  options: {
+    method?: "GET" | "POST";
+    body?: unknown;
+    authToken?: string;
+  } = {}
+): Promise<T> {
+  const baseUrl = resolveSimpleApiBaseUrl();
+  const response = await fetch(`${baseUrl}${path}`, {
+    method: options.method || "GET",
+    headers: {
+      "content-type": "application/json",
+      ...(options.authToken
+        ? {
+            authorization: `Bearer ${options.authToken}`
+          }
+        : {})
+    },
+    body: options.body !== undefined ? JSON.stringify(options.body) : undefined
+  });
+
+  if (!response.ok) {
+    const text = await response.text().catch(() => "");
+    throw new Error(`SSO API ${path} failed (${response.status}) ${text.slice(0, 180)}`.trim());
+  }
+  return (await response.json()) as T;
+}
+
+/**
+ * Compatibilidad legacy. Ya no existe cliente backend legado para SSO.
+ */
+export function getSSOClient(): null {
+  return null;
 }
 
 // Utilidades para SSO entre verticales
 export const ssoUtils = {
-  // Generar token de acceso para otras verticales
-  async generateCrossDomainToken(userId: string | null, targetDomain: string, expiresIn = 300) {
+  async generateCrossDomainToken(
+    authToken: string,
+    targetDomain: string,
+    expiresIn = 300,
+    refreshToken?: string
+  ) {
+    const token = String(authToken || "").trim();
+    if (!token) {
+      throw new Error("auth access token is required to generate an SSO token");
+    }
     if (!targetDomain) {
-      throw new Error('targetDomain is required to generate an SSO token');
+      throw new Error("targetDomain is required to generate an SSO token");
     }
 
-    const canUseServiceClient = Boolean(SUPABASE_CONFIG.serviceRoleKey && !isBrowser && userId);
-
-    if (canUseServiceClient) {
-      const client = getServiceSSOClient();
-      const { data, error } = await client.rpc('generate_sso_token', {
-        p_user_id: userId,
-        p_target_domain: targetDomain,
-        p_expires_in: expiresIn
-      });
-
-      if (error) throw error;
-      if (!data?.token) {
-        throw new Error('Supabase generate_sso_token returned an empty payload');
+    const payload = await requestSimpleApi<{ token: string; expiresIn: number }>("/v1/sso/token", {
+      method: "POST",
+      authToken: token,
+      body: {
+        targetDomain,
+        expiresIn,
+        ...(refreshToken ? { refreshToken } : {})
       }
-      return data.token;
-    }
-
-    const client = getSSOClient();
-    const { data, error } = await client.rpc('init_sso_token', {
-      p_target_domain: targetDomain,
-      p_expires_in: expiresIn
     });
 
-    if (error) throw error;
-    if (!data?.token) {
-      throw new Error('Supabase init_sso_token returned an empty payload');
+    if (!payload?.token) {
+      throw new Error("SSO token payload is empty");
     }
-    return data.token;
+    return payload.token;
   },
 
-  // Validar token de SSO
-  async validateSSOToken(token: string, domain: string) {
-    const client = getSSOClient();
-    const { data, error } = await client.rpc('validate_sso_token', {
-      p_token: token,
-      p_domain: domain
+  async validateSSOToken(token: string, domain?: string): Promise<ValidateSSOTokenResponse> {
+    return await requestSimpleApi<ValidateSSOTokenResponse>("/v1/sso/validate", {
+      method: "POST",
+      body: {
+        token,
+        ...(domain ? { domain } : {})
+      }
     });
-
-    if (error) throw error;
-    return data;
   },
 
-  // Obtener lista de verticales disponibles para el usuario
-  async getAvailableVerticals(userId: string) {
-    const client = getSSOClient();
-    const { data, error } = await client
-      .from('user_verticals')
-      .select('vertical, permissions')
-      .eq('user_id', userId)
-      .eq('active', true);
+  async getAvailableVerticals(authToken: string): Promise<SSOVerticalAccess[]> {
+    const token = String(authToken || "").trim();
+    if (!token) {
+      return [];
+    }
 
-    if (error) throw error;
-    return data;
+    try {
+      const payload = await requestSimpleApi<{ items?: SSOVerticalAccess[] }>("/v1/sso/verticals", {
+        method: "POST",
+        authToken: token
+      });
+      const items = Array.isArray(payload?.items) ? payload.items : [];
+      return items.length > 0 ? items : [];
+    } catch {
+      return [];
+    }
   }
 };
+

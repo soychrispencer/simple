@@ -1,5 +1,9 @@
 import { useEffect, useMemo, useState } from "react";
 import type { PanelManifest } from "@simple/ui";
+import {
+  getPlanCapabilitiesByPlan,
+  normalizeSubscriptionPlanId
+} from "@simple/config";
 import type { Profile } from "@/context/AuthContext";
 import { useAuth } from "@/context/AuthContext";
 
@@ -18,13 +22,14 @@ function deriveCapabilities(profile: Profile | null | undefined, planKey: string
   const onboardingStatus = profile?.onboarding_status ?? null;
   const role = String((profile as any)?.user_role || '').trim().toLowerCase();
   const isAdmin = Boolean((profile as any)?.is_admin) || role === 'admin' || role === 'staff' || role === 'superadmin';
+  const planCapabilities = getPlanCapabilitiesByPlan(planKey);
 
   return {
     hasBusiness,
     canPublish: hasBusiness, // publicar requiere negocio activo
     hasInteractions: true, // mensajes/guardados disponibles para usuarios logueados
-    hasGrowth: hasBusiness && planKey !== "free",
-    hasPublicPage: hasBusiness && planKey !== "free",
+    hasGrowth: hasBusiness && planCapabilities.canUseAdvancedStats,
+    hasPublicPage: hasBusiness && planCapabilities.canUsePublicPage,
     isAdmin,
     onboardingStatus,
   };
@@ -243,47 +248,32 @@ export function buildPanelManifest(capabilities: PanelCapabilities): PanelManife
 }
 
 export function usePanelCapabilities() {
-  const { profile, loading, user, supabase } = useAuth() as any;
+  const { profile, loading, user } = useAuth() as any;
 
-  const [planKey, setPlanKey] = useState<string>(() => String(profile?.plan_key ?? "free"));
+  const [planKey, setPlanKey] = useState<string>(() =>
+    normalizeSubscriptionPlanId(String(profile?.plan_key ?? "free"))
+  );
 
   useEffect(() => {
     let cancelled = false;
 
     async function loadPlanKey() {
-      if (!supabase || !user?.id) return;
-
-      const { data: vehiclesVertical } = await supabase
-        .from('verticals')
-        .select('id')
-        .eq('key', 'vehicles')
-        .maybeSingle();
-      const vehiclesVerticalId = (vehiclesVertical as any)?.id as string | undefined;
-
-      let subQuery = supabase
-        .from('subscriptions')
-        .select('status, subscription_plans(plan_key)')
-        .eq('user_id', user.id)
-        .eq('status', 'active');
-
-      if (vehiclesVerticalId) {
-        subQuery = subQuery.eq('vertical_id', vehiclesVerticalId);
+      if (!user?.id) return;
+      try {
+        const response = await fetch('/api/vehicles?mode=subscription', { cache: 'no-store' });
+        const payload = await response.json().catch(() => ({} as Record<string, unknown>));
+        const resolvedPlanKey = normalizeSubscriptionPlanId(String((payload as any)?.planKey || 'free'));
+        if (!cancelled) setPlanKey(resolvedPlanKey);
+      } catch {
+        if (!cancelled) setPlanKey('free');
       }
-
-      const { data: activeSub } = await subQuery.maybeSingle();
-      const planSource = Array.isArray((activeSub as any)?.subscription_plans)
-        ? (activeSub as any)?.subscription_plans?.[0]
-        : (activeSub as any)?.subscription_plans;
-      const resolvedPlanKey = String(planSource?.plan_key ?? 'free');
-
-      if (!cancelled) setPlanKey(resolvedPlanKey);
     }
 
     void loadPlanKey();
     return () => {
       cancelled = true;
     };
-  }, [supabase, user?.id]);
+  }, [user?.id]);
 
   const capabilities = useMemo(() => deriveCapabilities(profile, planKey), [profile, planKey]);
   const manifest = useMemo(() => buildPanelManifest(capabilities), [capabilities]);

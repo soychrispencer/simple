@@ -19,8 +19,8 @@ export const CircleButton = ({
 }: CircleButtonProps) => {
   const base = 'inline-flex items-center justify-center p-0 rounded-full select-none focus:outline-none focus-visible:ring-0 disabled:opacity-50 disabled:cursor-not-allowed transition-transform duration-80 ease-out hover:scale-[1.02] active:scale-[0.985]';
   const variants: Record<string,string> = {
-    default: 'bg-[var(--card-bg)] text-[var(--text-primary)] border border-[var(--field-border)] shadow-token-sm hover:border-[var(--color-primary-a30)]',
-    primary: 'bg-neutral-900 dark:bg-neutral-100 text-white dark:text-neutral-900 border border-neutral-900/80 dark:border-neutral-200 shadow-card ring-1 ring-[var(--color-primary-a20)] hover:ring-[var(--color-primary-a40)]',
+    default: 'bg-[var(--card-bg)] text-[var(--text-primary)] shadow-token-sm',
+    primary: 'bg-neutral-900 dark:bg-neutral-100 text-white dark:text-neutral-900 shadow-card',
     ghost: 'bg-transparent text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--surface-neutral-hover)] active:bg-[var(--surface-neutral-active)]'
   };
   const sizeClasses: Record<number, string> = {
@@ -38,7 +38,7 @@ export const CircleButton = ({
     <button
       type="button"
       aria-label={ariaLabel}
-      className={cn(base, variants[variant] || variants.default, sizeClass, className, '!rounded-full aspect-square')}
+      className={cn(base, variants[variant] || variants.default, sizeClass, className, '!rounded-full aspect-square !border-0 !ring-0')}
       {...props}
     >
       {children}

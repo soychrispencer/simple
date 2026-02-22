@@ -1,68 +1,46 @@
-﻿import { ensureListingBoost } from '@simple/listings';
-import { createServerComponentClient } from '@supabase/auth-helpers-nextjs';
-import { cookies } from 'next/headers';
 import { NextRequest, NextResponse } from 'next/server';
-import { logError } from '@/lib/logger';
-
-const DEFAULT_DURATION_DAYS = 15;
+import { createVehicleBoost } from '@/app/actions/boosts';
+import { requireAuthUserId } from '@/lib/server/requireAuth';
 
 export async function POST(request: NextRequest) {
   try {
-    const cookieStore = await cookies();
-    const supabase = createServerComponentClient({ cookies: () => cookieStore as any });
-
-    const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser();
-
-    if (authError || !user) {
-      return NextResponse.json({ error: 'No autenticado', details: authError?.message }, { status: 401 });
+    const auth = requireAuthUserId(request);
+    if ('error' in auth) {
+      return NextResponse.json({ error: auth.error }, { status: 401 });
     }
 
-    const body = await request.json();
-    const { listing_id, plan_id = 1 } = body;
+    const body = await request.json().catch(() => ({} as Record<string, unknown>));
+    const listingId = String(body?.listing_id || body?.listingId || '').trim();
+    const planId = Number(body?.plan_id || body?.planId || 1);
+    const durationDaysRaw = body?.durationDays;
+    const durationDays =
+      durationDaysRaw === null || durationDaysRaw === undefined
+        ? undefined
+        : Number.isFinite(Number(durationDaysRaw))
+          ? Number(durationDaysRaw)
+          : undefined;
 
-    if (!listing_id) {
+    if (!listingId) {
       return NextResponse.json({ error: 'listing_id es requerido' }, { status: 400 });
     }
 
-    const { data: listing, error: listingError } = await supabase
-      .from('listings')
-      .select('id, user_id, company_id')
-      .eq('id', listing_id)
-      .single();
-
-    if (listingError || !listing) {
-      return NextResponse.json({ error: 'Publicación no encontrada', details: listingError?.message }, { status: 404 });
+    const result = await createVehicleBoost(listingId, auth.userId, planId, durationDays);
+    if (!result.success) {
+      return NextResponse.json(
+        { error: result.error || 'No se pudo crear boost', details: (result as any)?.details },
+        { status: 400 }
+      );
     }
 
-    if (listing.user_id !== user.id) {
-      return NextResponse.json({ error: 'No tienes permiso para impulsar esta publicación' }, { status: 403 });
-    }
-
-    const now = new Date();
-    const endsAt = new Date(now);
-    endsAt.setDate(endsAt.getDate() + DEFAULT_DURATION_DAYS);
-
-    const boost = await ensureListingBoost({
-      supabase,
-      listingId: listing_id,
-      companyId: listing.company_id,
-      userId: user.id,
-      startsAt: now.toISOString(),
-      endsAt: endsAt.toISOString(),
-      metadata: { planId: plan_id },
+    return NextResponse.json({
+      success: true,
+      boost: result.boost,
+      message: 'Boost creado exitosamente',
     });
-
-    return NextResponse.json({ success: true, boost, message: 'Boost creado exitosamente' });
-  } catch (error) {
-    logError('[API /boosts/create] error', error);
+  } catch (error: any) {
     return NextResponse.json(
-      { error: 'Error interno del servidor', details: error instanceof Error ? error.message : 'Unknown error' },
+      { error: 'Error interno del servidor', details: error?.message || 'Unknown error' },
       { status: 500 }
     );
   }
 }
-
-

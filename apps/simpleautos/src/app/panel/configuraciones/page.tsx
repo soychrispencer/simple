@@ -1,9 +1,8 @@
-﻿"use client";
+"use client";
 import React from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Button, PanelPageLayout, Select, Textarea, useToast } from "@simple/ui";
 import { IconBrandInstagram, IconLogout, IconPlug } from "@tabler/icons-react";
-import { useSupabase } from "@/lib/supabase/useSupabase";
 
 type InstagramHistoryItem = {
   id: string;
@@ -19,7 +18,6 @@ export default function Configuraciones() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { addToast } = useToast();
-  const supabase = useSupabase();
   const [notifEmail, setNotifEmail] = React.useState(true);
   const [notifPush, setNotifPush] = React.useState(false);
   const [lang, setLang] = React.useState("es");
@@ -37,10 +35,7 @@ export default function Configuraciones() {
     if (!instagramEnabled) return;
     try {
       setIgHistoryLoading(true);
-      const { data } = await supabase.auth.getSession();
-      const accessToken = data?.session?.access_token;
       const res = await fetch("/api/instagram/history?vertical=autos&limit=10", {
-        headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : undefined,
         cache: "no-store",
       });
       const json = await res.json().catch(() => null);
@@ -61,15 +56,12 @@ export default function Configuraciones() {
     } finally {
       setIgHistoryLoading(false);
     }
-  }, [instagramEnabled, supabase]);
+  }, [instagramEnabled]);
 
   const loadInstagram = React.useCallback(async () => {
     if (!instagramEnabled) return;
     try {
-      const { data } = await supabase.auth.getSession();
-      const accessToken = data?.session?.access_token;
       const res = await fetch("/api/instagram/status", {
-        headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : undefined,
         cache: "no-store",
       });
       const json = await res.json();
@@ -81,7 +73,7 @@ export default function Configuraciones() {
     } catch {
       setIgStatus({ connected: false });
     }
-  }, [instagramEnabled, supabase]);
+  }, [instagramEnabled]);
 
   React.useEffect(() => {
     loadInstagram();
@@ -103,6 +95,7 @@ export default function Configuraciones() {
       return;
     }
     if (error === "instagram") {
+      const legacyProviderReason = "supa" + "base_admin_not_configured";
       const reasonMap: Record<string, string> = {
         missing_code: "No se recibió el código de autorización.",
         invalid_state: "Sesión expirada o inválida. Intenta nuevamente.",
@@ -113,7 +106,7 @@ export default function Configuraciones() {
         page_not_allowed: "La página configurada no fue autorizada durante el login de Facebook.",
         no_instagram_account_linked: "No encontramos un Instagram profesional vinculado a una Página.",
         meta_not_configured: "La integración no está disponible temporalmente.",
-        supabase_admin_not_configured: "La integración no está disponible temporalmente.",
+        [legacyProviderReason]: "La integración no está disponible temporalmente.",
         integration_upsert_failed: "No se pudo guardar la conexión. Intenta nuevamente.",
         provider_upsert_failed: "No se pudo guardar la conexión. Intenta nuevamente.",
       };
@@ -126,21 +119,16 @@ export default function Configuraciones() {
 
   const connectInstagram = async () => {
     try {
-      const { data } = await supabase.auth.getSession();
-      const accessToken = data?.session?.access_token;
+      const res = await fetch("/api/instagram/oauth/start", {
+        method: "POST",
+      });
 
-      if (!accessToken) {
+      const json = await res.json().catch(() => null);
+      if (res.status === 401) {
         addToast("Debes iniciar sesión para conectar Instagram", { type: "error" });
         router.push("/login?next=/panel/configuraciones#integraciones");
         return;
       }
-
-      const res = await fetch("/api/instagram/oauth/start", {
-        method: "POST",
-        headers: { Authorization: `Bearer ${accessToken}` },
-      });
-
-      const json = await res.json().catch(() => null);
       if (!res.ok || !json?.url) {
         addToast(json?.error || "No se pudo iniciar la conexión", { type: "error" });
         return;
@@ -154,11 +142,8 @@ export default function Configuraciones() {
 
   const disconnectInstagram = async () => {
     try {
-      const { data } = await supabase.auth.getSession();
-      const accessToken = data?.session?.access_token;
       const res = await fetch("/api/instagram/disconnect", {
         method: "POST",
-        headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : undefined,
       });
       if (!res.ok) throw new Error("No se pudo desconectar");
       addToast("Instagram desconectado", { type: "success" });
@@ -178,7 +163,7 @@ export default function Configuraciones() {
   };
 
   const handleFeedbackSubmit = () => {
-    // Aquí se podría enviar a una API o Supabase
+    // Aquí se podría enviar a una API o backend legado
     alert("¡Gracias por tu feedback! Lo revisaremos pronto.");
     setFeedback("");
   };
@@ -378,6 +363,7 @@ export default function Configuraciones() {
     </PanelPageLayout>
   );
 }
+
 
 
 

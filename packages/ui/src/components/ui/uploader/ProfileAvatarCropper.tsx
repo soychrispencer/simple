@@ -217,7 +217,7 @@ export default function ProfileAvatarCropper({ open, imageSrc, onClose, onCroppe
 								<div className="relative px-6 pt-6 pb-4">
 									{/* Avatar preview circular */}
 									<div className="flex justify-center mb-4">
-										<div className="relative w-32 h-32 rounded-full overflow-hidden border-2 border-[var(--field-border)]">
+										<div className="relative w-32 h-32 rounded-full overflow-hidden">
 											{previewUrl ? (
 												<img
 													src={previewUrl}

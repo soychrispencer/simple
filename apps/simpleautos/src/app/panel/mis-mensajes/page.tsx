@@ -1,7 +1,6 @@
 ﻿"use client";
 import React from "react";
 import { Button, PanelPageLayout, Input, Badge } from "@simple/ui";
-import { useSupabase } from "@/lib/supabase/useSupabase";
 import { useAuth } from "@/context/AuthContext";
 import { logError } from "@/lib/logger";
 import { IconMessageCircle2, IconAlertCircle, IconLock, IconLockOpen } from "@tabler/icons-react";
@@ -38,7 +37,6 @@ type Thread = {
 };
 
 export default function Mensajes() {
-  const supabase = useSupabase();
   const { user } = useAuth();
 
   const [threads, setThreads] = React.useState<Thread[]>([]);
@@ -52,21 +50,19 @@ export default function Mensajes() {
   const activeThread = React.useMemo(() => threads.find((t) => t.threadId === activeThreadId) || null, [threads, activeThreadId]);
 
   const loadMessages = React.useCallback(async () => {
-    if (!supabase || !user?.id) return;
+    if (!user?.id) return;
     setLoading(true);
     setError(null);
     try {
-      const { data, error } = await supabase
-        .from("messages_inbox_user")
-        .select(
-          `listing_id, company_id, vertical_key, listing_title, context, counterparty_id, last_message_at, last_event_at, last_message_content, status, unread, role, user_id`
-        )
-        .eq("user_id", user.id)
-        .eq("vertical_key", "autos")
-        .order("last_event_at", { ascending: false });
+      const response = await fetch("/api/messages?mode=threads&vertical=autos", {
+        cache: "no-store",
+      });
+      const payload = await response.json().catch(() => ({} as Record<string, unknown>));
+      if (!response.ok) {
+        throw new Error(String(payload?.error || "No pudimos cargar tus mensajes."));
+      }
 
-      if (error) throw error;
-      const rows = (data || []) as any[];
+      const rows = Array.isArray((payload as any).threads) ? ((payload as any).threads as any[]) : [];
 
       const threadsArr: Thread[] = rows.map((row) => ({
         threadId: `${row.listing_id}-${row.counterparty_id}`,
@@ -107,61 +103,57 @@ export default function Mensajes() {
     } finally {
       setLoading(false);
     }
-  }, [supabase, user?.id, activeThreadId]);
+  }, [user?.id, activeThreadId]);
 
   React.useEffect(() => {
     void loadMessages();
   }, [loadMessages]);
 
   React.useEffect(() => {
-    if (!supabase || !user?.id) return;
-    const channel = supabase
-      .channel("messages-inbox")
-      .on(
-        "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "messages",
-          filter: `or=(sender_id.eq.${user.id},receiver_id.eq.${user.id})`,
-        },
-        () => {
-          void loadMessages();
-        }
-      );
-    channel.subscribe();
+    if (!user?.id) return;
+    const interval = setInterval(() => {
+      void loadMessages();
+    }, 15000);
     return () => {
-      channel.unsubscribe();
+      clearInterval(interval);
     };
-  }, [supabase, user?.id, loadMessages]);
+  }, [user?.id, loadMessages]);
 
   const markRead = React.useCallback(async (thread: Thread) => {
-    if (!supabase || !user?.id || !thread.counterpartyId) return;
+    if (!user?.id || !thread.counterpartyId) return;
     try {
-      await supabase
-        .from("messages")
-        .update({ is_read: true })
-        .match({ listing_id: thread.listingId, receiver_id: user.id, sender_id: thread.counterpartyId });
+      await fetch("/api/messages", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          action: "mark_read",
+          listing_id: thread.listingId,
+          counterparty_id: thread.counterpartyId,
+        }),
+      });
       setThreads((prev) => prev.map((t) => (t.threadId === thread.threadId ? { ...t, unread: 0 } : t)));
     } catch (err) {
       logError("[Mensajes] mark read", err);
     }
-  }, [supabase, user?.id]);
+  }, [user?.id]);
 
   const loadThreadMessages = React.useCallback(
     async (thread: Thread) => {
-      if (!supabase || !user?.id) return;
+      if (!user?.id) return;
       try {
-        const { data, error } = await supabase
-          .from("messages")
-          .select("id, sender_id, receiver_id, listing_id, subject, content, is_read, status, created_at")
-          .eq("listing_id", thread.listingId)
-          .or(
-            `and(sender_id.eq.${user.id},receiver_id.eq.${thread.counterpartyId}),and(sender_id.eq.${thread.counterpartyId},receiver_id.eq.${user.id})`
-          )
-          .order("created_at", { ascending: true });
-
-        if (error) throw error;
+        const params = new URLSearchParams({
+          mode: "thread",
+          listing_id: thread.listingId,
+          counterparty_id: thread.counterpartyId,
+        });
+        const response = await fetch(`/api/messages?${params.toString()}`, {
+          cache: "no-store",
+        });
+        const payload = await response.json().catch(() => ({} as Record<string, unknown>));
+        if (!response.ok) {
+          throw new Error(String(payload?.error || "No pudimos cargar el detalle del hilo."));
+        }
+        const data = Array.isArray((payload as any).messages) ? ((payload as any).messages as MessageRow[]) : [];
 
         setThreads((prev) =>
           prev.map((t) => (t.threadId === thread.threadId ? { ...t, messages: (data || []) as MessageRow[] } : t))
@@ -171,7 +163,7 @@ export default function Mensajes() {
         setError("No pudimos cargar el detalle del hilo.");
       }
     },
-    [supabase, user?.id]
+    [user?.id]
   );
 
   React.useEffect(() => {
@@ -182,7 +174,7 @@ export default function Mensajes() {
   }, [activeThread, markRead, loadThreadMessages]);
 
   const sendMessage = React.useCallback(async () => {
-    if (!supabase || !user?.id || !activeThread) return;
+    if (!user?.id || !activeThread) return;
     const content = input.trim();
     if (!content) return;
     setSending(true);
@@ -192,15 +184,21 @@ export default function Mensajes() {
         DOMPurify = require("isomorphic-dompurify");
       } catch {}
       const sanitized = DOMPurify ? DOMPurify.sanitize(content) : content;
-      const { error } = await supabase.from("messages").insert({
-        sender_id: user.id,
-        receiver_id: activeThread.counterpartyId,
-        listing_id: activeThread.listingId,
-        content: sanitized,
-        subject: activeThread.listingTitle,
-        is_read: false,
+      const response = await fetch("/api/messages", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          action: "send",
+          listing_id: activeThread.listingId,
+          counterparty_id: activeThread.counterpartyId,
+          subject: activeThread.listingTitle,
+          content: sanitized,
+        }),
       });
-      if (error) throw error;
+      const payload = await response.json().catch(() => ({} as Record<string, unknown>));
+      if (!response.ok) {
+        throw new Error(String(payload?.error || "No pudimos enviar el mensaje."));
+      }
       setInput("");
       await loadMessages();
     } catch (err: any) {
@@ -209,17 +207,26 @@ export default function Mensajes() {
     } finally {
       setSending(false);
     }
-  }, [supabase, user?.id, activeThread, input, loadMessages]);
+  }, [user?.id, activeThread, input, loadMessages]);
 
   const toggleStatus = React.useCallback(async () => {
-    if (!supabase || !user?.id || !activeThread) return;
+    if (!user?.id || !activeThread) return;
     const nextStatus = activeThread.status === "closed" ? "open" : "closed";
     try {
-      await supabase
-        .from("messages")
-        .update({ status: nextStatus, last_event_at: new Date().toISOString() })
-        .eq("listing_id", activeThread.listingId)
-        .or(`sender_id.eq.${activeThread.counterpartyId},receiver_id.eq.${activeThread.counterpartyId}`);
+      const response = await fetch("/api/messages", {
+        method: "PATCH",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          action: "toggle_status",
+          listing_id: activeThread.listingId,
+          counterparty_id: activeThread.counterpartyId,
+          status: nextStatus,
+        }),
+      });
+      const payload = await response.json().catch(() => ({} as Record<string, unknown>));
+      if (!response.ok) {
+        throw new Error(String(payload?.error || "No pudimos actualizar el estado del hilo."));
+      }
 
       setThreads((prev) =>
         prev.map((t) => (t.threadId === activeThread.threadId ? { ...t, status: nextStatus } : t))
@@ -228,7 +235,7 @@ export default function Mensajes() {
       logError("[Mensajes] toggle status", err);
       setError("No pudimos actualizar el estado del hilo.");
     }
-  }, [supabase, user?.id, activeThread]);
+  }, [user?.id, activeThread]);
 
   const filteredThreads = React.useMemo(() => {
     if (filter === "all") return threads;

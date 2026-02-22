@@ -3,7 +3,6 @@
 import React from "react";
 import { useToast } from "@simple/ui";
 import { useAuth } from "@/context/AuthContext";
-import { useSupabase } from "@/lib/supabase/useSupabase";
 
 type FavoritesContextValue = {
   loading: boolean;
@@ -15,7 +14,6 @@ type FavoritesContextValue = {
 const FavoritesContext = React.createContext<FavoritesContextValue | null>(null);
 
 export function FavoritesProvider({ children }: { children: React.ReactNode }) {
-  const supabase = useSupabase();
   const { user } = useAuth();
   const { addToast } = useToast();
 
@@ -23,12 +21,6 @@ export function FavoritesProvider({ children }: { children: React.ReactNode }) {
   const [favoritesSet, setFavoritesSet] = React.useState<Set<string>>(() => new Set());
 
   const refresh = React.useCallback(async () => {
-    if (!supabase) {
-      setFavoritesSet(new Set());
-      setLoading(false);
-      return;
-    }
-
     if (!user?.id) {
       setFavoritesSet(new Set());
       setLoading(false);
@@ -37,12 +29,12 @@ export function FavoritesProvider({ children }: { children: React.ReactNode }) {
 
     setLoading(true);
     try {
-      const { data, error } = await supabase
-        .from("favorites")
-        .select("listing_id")
-        .eq("user_id", user.id);
-
-      if (error) throw error;
+      const response = await fetch("/api/favorites", { cache: "no-store" });
+      const payload = await response.json().catch(() => ({} as Record<string, unknown>));
+      if (!response.ok) {
+        throw new Error(String(payload?.error || "No se pudieron cargar favoritos"));
+      }
+      const data = Array.isArray((payload as any).favorites) ? ((payload as any).favorites as any[]) : [];
 
       const next = new Set<string>();
       for (const row of data || []) {
@@ -60,7 +52,7 @@ export function FavoritesProvider({ children }: { children: React.ReactNode }) {
     } finally {
       setLoading(false);
     }
-  }, [addToast, supabase, user?.id]);
+  }, [addToast, user?.id]);
 
   React.useEffect(() => {
     void refresh();
@@ -83,10 +75,6 @@ export function FavoritesProvider({ children }: { children: React.ReactNode }) {
         addToast("Inicia sesión para guardar en favoritos.", { type: "info" });
         return;
       }
-      if (!supabase) {
-        addToast("No se pudo guardar (sin conexión).", { type: "error" });
-        return;
-      }
 
       const currently = favoritesSet.has(id);
 
@@ -100,20 +88,24 @@ export function FavoritesProvider({ children }: { children: React.ReactNode }) {
 
       try {
         if (currently) {
-          const { error } = await supabase
-            .from("favorites")
-            .delete()
-            .eq("user_id", user.id)
-            .eq("listing_id", id);
-          if (error) throw error;
+          const response = await fetch(`/api/favorites?listingId=${encodeURIComponent(id)}`, {
+            method: "DELETE",
+          });
+          const payload = await response.json().catch(() => ({} as Record<string, unknown>));
+          if (!response.ok) {
+            throw new Error(String(payload?.error || "No se pudo quitar favorito"));
+          }
           addToast("Eliminado de favoritos", { type: "info" });
         } else {
-          const { error } = await supabase
-            .from("favorites")
-            .insert({ user_id: user.id, listing_id: id });
-
-          // Si hay unique constraint, ignoramos el duplicado.
-          if (error && (error as any).code !== "23505") throw error;
+          const response = await fetch("/api/favorites", {
+            method: "POST",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify({ listingId: id }),
+          });
+          const payload = await response.json().catch(() => ({} as Record<string, unknown>));
+          if (!response.ok) {
+            throw new Error(String(payload?.error || "No se pudo guardar favorito"));
+          }
           addToast("Guardado en favoritos", { type: "success" });
         }
       } catch {
@@ -127,7 +119,7 @@ export function FavoritesProvider({ children }: { children: React.ReactNode }) {
         addToast("No se pudo actualizar favoritos.", { type: "error" });
       }
     },
-    [addToast, favoritesSet, supabase, user?.id]
+    [addToast, favoritesSet, user?.id]
   );
 
   const value = React.useMemo<FavoritesContextValue>(

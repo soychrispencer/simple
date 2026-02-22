@@ -1,27 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient, type SupabaseClient } from '@supabase/supabase-js';
-
-let adminClient: SupabaseClient | null = null;
-
-function getAdminClient(): SupabaseClient {
-  if (!adminClient) {
-    const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-    const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
-    if (!url || !key) {
-      throw new Error('Supabase service credentials not configured');
-    }
-    adminClient = createClient(url, key);
-  }
-  return adminClient;
-}
+import { getDbPool } from '@/lib/server/db';
 
 function isRemoteUrl(value?: string | null) {
   if (!value) return false;
   return value.startsWith('http://') || value.startsWith('https://');
 }
 
-const DOCUMENT_BUCKET = 'documents';
-const SIGNED_URL_SECONDS = 60 * 15; // 15 min
+function toPublicPath(urlOrPath: string): string {
+  if (urlOrPath.startsWith('/')) return urlOrPath;
+  if (urlOrPath.startsWith('uploads/')) return `/${urlOrPath}`;
+  if (urlOrPath.startsWith('documents/')) return `/uploads/${urlOrPath}`;
+  return `/uploads/${urlOrPath}`;
+}
 
 export async function GET(req: NextRequest) {
   try {
@@ -33,27 +23,29 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: 'Missing id or path' }, { status: 400 });
     }
 
-    const supabase = getAdminClient();
+    const db = getDbPool();
+    const result = id
+      ? await db.query(
+          `SELECT id, url, is_public
+           FROM documents
+           WHERE id = $1
+           LIMIT 1`,
+          [id]
+        )
+      : await db.query(
+          `SELECT id, url, is_public
+           FROM documents
+           WHERE url = $1
+           LIMIT 1`,
+          [path]
+        );
 
-    // Resolver documento desde DB para asegurar que sea público.
-    const query = supabase
-      .from('documents')
-      .select('id, url, is_public')
-      .limit(1);
-
-    const { data: doc, error } = id
-      ? await query.eq('id', id).maybeSingle()
-      : await query.eq('url', path).maybeSingle();
-
-    if (error) {
-      return NextResponse.json({ error: error.message }, { status: 500 });
-    }
-
+    const doc = result.rows[0] as any;
     if (!doc || !doc.is_public) {
       return NextResponse.json({ error: 'Not found' }, { status: 404 });
     }
 
-    const urlOrPath = String((doc as any).url || '');
+    const urlOrPath = String(doc.url || '');
     if (!urlOrPath) {
       return NextResponse.json({ error: 'Not found' }, { status: 404 });
     }
@@ -62,16 +54,7 @@ export async function GET(req: NextRequest) {
       return NextResponse.redirect(urlOrPath);
     }
 
-    const { data, error: signError } = await supabase.storage
-      .from(DOCUMENT_BUCKET)
-      .createSignedUrl(urlOrPath, SIGNED_URL_SECONDS);
-
-    if (signError || !data?.signedUrl) {
-      const message = signError?.message || 'Could not create signed URL';
-      return NextResponse.json({ error: message }, { status: 404 });
-    }
-
-    return NextResponse.redirect(data.signedUrl);
+    return NextResponse.redirect(toPublicPath(urlOrPath));
   } catch (e: unknown) {
     return NextResponse.json(
       { error: e instanceof Error ? e.message : 'Unexpected error' },

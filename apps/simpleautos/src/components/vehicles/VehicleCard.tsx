@@ -10,8 +10,6 @@ import { IconChevronLeft, IconChevronRight, IconMapPin, IconGauge, IconEngine, I
 import { toSpanish, conditionMap, capitalize, fuelTypeMap, transmissionMap } from '@/lib/vehicleTranslations';
 import { formatPrice } from '@/lib/format';
 import { convertFromClp } from '@/lib/displayCurrency';
-import { useSupabase } from "@/lib/supabase/useSupabase";
-import { getAvatarUrl } from "@/lib/supabaseStorage";
 import { BoostSlotsModal } from "@/components/boost/BoostSlotsModal";
 
 
@@ -51,7 +49,6 @@ export const VehicleCard: React.FC<VehicleCardProps> = ({
 }) => {
   const router = useRouter();
   const { user } = useAuth();
-  const supabase = useSupabase();
   const { isFavorite, toggleFavorite } = useFavorites();
   const { toggle: toggleCompare } = useCompare();
   const { addToast } = useToast();
@@ -70,13 +67,29 @@ export const VehicleCard: React.FC<VehicleCardProps> = ({
   const userId = user?.id;
   const userAvatarUrl = (user as any)?.avatar_url as string | undefined;
 
+  const resolvePublicStorageUrl = React.useCallback((raw: string, bucket: string) => {
+    const value = raw.trim();
+    if (!value) return "";
+    if (/^https?:\/\//i.test(value)) return value;
+
+    const base = String(
+      process.env.NEXT_PUBLIC_STORAGE_PUBLIC_URL || process.env.NEXT_PUBLIC_APP_URL || ""
+    ).replace(/\/+$/, "");
+    if (!base) return value;
+
+    if (value.startsWith("/")) {
+      return `${base}${value}`;
+    }
+
+    const withoutBucketPrefix = value.startsWith(`${bucket}/`) ? value.slice(bucket.length + 1) : value;
+    return `${base}/${bucket}/${withoutBucketPrefix}`;
+  }, []);
+
   const sellerAvatarSrc = useMemo(() => {
     const raw = sellerAvatar || (sellerId === userId ? userAvatarUrl : undefined);
     if (!raw) return undefined;
-    if (typeof raw === 'string' && raw.startsWith('http')) return raw;
-    if (!supabase) return undefined;
-    return getAvatarUrl(supabase as any, String(raw));
-  }, [sellerAvatar, sellerId, userId, userAvatarUrl, supabase]);
+    return resolvePublicStorageUrl(String(raw), "avatars");
+  }, [resolvePublicStorageUrl, sellerAvatar, sellerId, userId, userAvatarUrl]);
   
   const navigate = () => { 
     if (preview) return;

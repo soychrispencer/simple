@@ -1,6 +1,7 @@
-﻿import { getSupabaseClient } from './supabase/supabase';
 import { hasActiveBoost } from './boostState';
-import { logError } from './logger';
+import { logError, logWarn } from './logger';
+import { isSimpleApiListingsEnabled } from '@simple/config';
+import { getListingById, getListingMedia, type SdkListingSummary } from '@simple/sdk';
 
 interface VehicleImageRow {
   url: string;
@@ -15,87 +16,6 @@ function firstOrNull<T>(value: T | T[] | null | undefined): T | null {
     return value.length > 0 ? value[0] : null;
   }
   return value ?? null;
-}
-
-async function resolveEquipmentLabels(supabase: any, featureCodes: string[]): Promise<string[]> {
-  const codes = Array.from(new Set((featureCodes || []).filter(Boolean)));
-  if (codes.length === 0) return [];
-
-  try {
-    const { data, error } = await supabase
-      .from('features_catalog')
-      .select('code,label,sort_order')
-      .in('code', codes);
-
-    if (error) {
-      // Tabla puede no existir en algunos entornos; en ese caso, fallback silencioso.
-      const missingTable = /features_catalog/i.test(error.message || '') || error.code === 'PGRST116' || error.code === '42P01' || error.code === '404';
-      if (missingTable) return codes;
-      return codes;
-    }
-
-    const rows: { code: string; label: string; sort_order: number | null }[] = (data || []) as any;
-    const byCode = new Map(rows.map(r => [r.code, r.label] as const));
-    const known = rows
-      .slice()
-      .sort((a, b) => {
-        const ao = a.sort_order ?? 9999;
-        const bo = b.sort_order ?? 9999;
-        if (ao !== bo) return ao - bo;
-        return String(a.label).localeCompare(String(b.label));
-      })
-      .map(r => r.label);
-
-    const unknown = codes
-      .filter(c => !byCode.has(c))
-      // si viene como label (legacy) lo dejamos tal cual
-      .map(c => c);
-
-    return Array.from(new Set([...known, ...unknown]));
-  } catch {
-    return codes;
-  }
-}
-
-type EquipmentItem = { code: string; label: string; category: string | null; sort_order: number | null };
-
-async function resolveEquipmentItems(supabase: any, featureCodes: string[]): Promise<EquipmentItem[]> {
-  const codes = Array.from(new Set((featureCodes || []).filter(Boolean)));
-  if (codes.length === 0) return [];
-
-  try {
-    const { data, error } = await supabase
-      .from('features_catalog')
-      .select('code,label,category,sort_order')
-      .in('code', codes);
-
-    if (error) {
-      const missingTable = /features_catalog/i.test(error.message || '') || error.code === 'PGRST116' || error.code === '42P01' || error.code === '404';
-      if (missingTable) {
-        return codes.map((c) => ({ code: c, label: c, category: null, sort_order: null }));
-      }
-      return codes.map((c) => ({ code: c, label: c, category: null, sort_order: null }));
-    }
-
-    const rows: EquipmentItem[] = (data || []) as any;
-    const byCode = new Map(rows.map((r) => [r.code, r] as const));
-    const known = rows
-      .slice()
-      .sort((a, b) => {
-        const ao = a.sort_order ?? 9999;
-        const bo = b.sort_order ?? 9999;
-        if (ao !== bo) return ao - bo;
-        return String(a.label).localeCompare(String(b.label));
-      });
-
-    const unknown = codes
-      .filter((c) => !byCode.has(c))
-      .map((c) => ({ code: c, label: c, category: null, sort_order: null }));
-
-    return [...known, ...unknown];
-  } catch {
-    return codes.map((c) => ({ code: c, label: c, category: null, sort_order: null }));
-  }
 }
 
 export interface VehicleDetail {
@@ -205,6 +125,139 @@ export interface VehicleDetail {
   } | null;
 }
 
+function mapSimpleApiItemToVehicleDetail(item: SdkListingSummary, imageUrls: string[]): VehicleDetail {
+  const now = new Date().toISOString();
+  const publishedAt = item.publishedAt || item.createdAt || now;
+  const features = Array.isArray(item.features) ? item.features : [];
+
+  return {
+    id: item.id,
+    owner_id: item.ownerId || null,
+    vertical_id: null,
+    company_id: null,
+    listing_type: item.type,
+    status: item.status || 'published',
+    title: item.title,
+    description: item.description || null,
+    price: typeof item.price === 'number' ? item.price : null,
+    currency: item.currency || 'CLP',
+    visibility: item.visibility || 'normal',
+    is_featured: Boolean(item.featured),
+    is_urgent: false,
+    allow_financing: Boolean(item.allowFinancing),
+    allow_exchange: Boolean(item.allowExchange),
+    region_id: item.regionId || null,
+    commune_id: item.communeId || null,
+    tags: null,
+    metadata: {
+      specs: {
+        body_type: item.bodyType || null,
+        fuel_type: item.fuelType || null,
+        transmission: item.transmission || null,
+        color: item.color || null,
+      },
+      features,
+      location: {
+        region_name: item.region || null,
+        commune_name: item.city || null,
+      },
+    },
+    specs: {
+      body_type: item.bodyType || null,
+      fuel_type: item.fuelType || null,
+      transmission: item.transmission || null,
+      color: item.color || null,
+      equipment_items: [],
+      equipment: [],
+    },
+    features,
+    year: typeof item.year === 'number' ? item.year : null,
+    mileage: typeof item.mileage === 'number' ? item.mileage : null,
+    color: item.color || null,
+    condition: item.condition || null,
+    vehicle_type_id: item.typeId || null,
+    brand_id: item.brandId || null,
+    model_id: item.modelId || null,
+    traction: null,
+    transmission: item.transmission || null,
+    fuel_type: item.fuelType || null,
+    engine_size: null,
+    body_type: item.bodyType || null,
+    doors: null,
+    seats: null,
+    state: null,
+    warranty: null,
+    warranty_details: null,
+    rent_price_period: item.rentPricePeriod ?? null,
+    rent_daily_price: item.rentDailyPrice ?? null,
+    rent_weekly_price: item.rentWeeklyPrice ?? null,
+    rent_monthly_price: item.rentMonthlyPrice ?? null,
+    rent_security_deposit: item.rentSecurityDeposit ?? null,
+    rent_min_days: null,
+    rent_max_days: null,
+    auction_start_price: item.auctionStartPrice ?? null,
+    auction_start_at: item.auctionStartAt ?? null,
+    auction_end_at: item.auctionEndAt ?? null,
+    auction_current_bid: null,
+    auction_bid_count: null,
+    video_url: null,
+    document_urls: null,
+    public_documents: [],
+    created_at: item.createdAt || publishedAt,
+    updated_at: item.createdAt || publishedAt,
+    published_at: publishedAt,
+    expires_at: null,
+    images: imageUrls.map((url, index) => ({
+      url,
+      position: index,
+      is_primary: index === 0,
+      alt_text: null,
+      caption: null,
+    })),
+    image_urls: imageUrls,
+    profiles: null,
+    public_profile: null,
+    contact_email: null,
+    contact_phone: null,
+    contact_whatsapp: null,
+    vehicle_types: item.typeId || item.typeLabel || item.typeKey
+      ? {
+          id: item.typeId || '',
+          name: item.typeLabel || item.typeKey || '',
+          category: undefined,
+          label: item.typeLabel || item.typeKey || null,
+        }
+      : null,
+    brands: item.brandId || item.brandName ? { id: item.brandId || '', name: item.brandName || '' } : null,
+    models: item.modelId || item.modelName ? { id: item.modelId || '', name: item.modelName || '' } : null,
+    regions: item.region ? { id: item.regionId || '', name: item.region } : null,
+    communes: item.city ? { id: item.communeId || '', name: item.city } : null,
+  };
+}
+
+async function getVehicleByIdFromSimpleApi(id: string): Promise<VehicleDetail | null> {
+  const { item } = await getListingById(id);
+  if (!item || item.vertical !== 'autos') {
+    return null;
+  }
+
+  const mediaPayload = await getListingMedia(id).catch(() => ({ items: [] as any[] }));
+  const mediaImageUrls = Array.isArray(mediaPayload.items)
+    ? mediaPayload.items
+        .filter((entry: any) => entry?.kind === 'image' && typeof entry?.url === 'string')
+        .sort((a: any, b: any) => Number(a?.order ?? 0) - Number(b?.order ?? 0))
+        .map((entry: any) => String(entry.url))
+    : [];
+
+  const imageUrls = mediaImageUrls.length
+    ? mediaImageUrls
+    : item.imageUrl
+      ? [item.imageUrl]
+      : [];
+
+  return mapSimpleApiItemToVehicleDetail(item, imageUrls);
+}
+
 const LISTING_SELECT = `
   id,
   vertical_id,
@@ -278,218 +331,16 @@ const LISTING_SELECT = `
 `;
 
 export async function getVehicleById(id: string): Promise<VehicleDetail | null> {
-  const supabase = getSupabaseClient();
-
-  // Nota: evitamos `.single()`/`.maybeSingle()` porque PostgREST responde 406
-  // cuando 0 filas pasan RLS/filters, lo que ensucia consola (aunque lo manejemos).
-  const { data: listings, error: listingError } = await supabase
-    .from('listings')
-    .select(LISTING_SELECT)
-    .eq('id', id)
-    .limit(1);
-
-  if (listingError) {
-    logError('Error fetching listing', listingError, { listingId: id });
+  if (!isSimpleApiListingsEnabled()) {
+    logWarn('Simple API vehicle detail disabled; returning null', { listingId: id });
     return null;
   }
 
-  const listing = Array.isArray(listings) ? listings[0] : null;
-
-  if (!listing) {
-    return null;
-  }
-
-  const { data: profile } = listing.user_id
-    ? await supabase
-        .from('profiles')
-        // `profiles` es privado y no contiene campos públicos como public_name/avatar_url.
-        // Esos viven en `public_profiles`. Aquí sólo traemos fallback mínimo.
-        .select('id, first_name, last_name, plan_key')
-        .eq('id', listing.user_id)
-        .single()
-    : { data: null };
-
-  const publicProfileId = (listing as any)?.public_profile_id as string | null | undefined;
-  const { data: publicProfile } = publicProfileId
-    ? await supabase
-        .from('public_profiles')
-        .select('id, slug, public_name, avatar_url, contact_email, contact_phone, whatsapp, whatsapp_type')
-        .eq('id', publicProfileId)
-        .eq('status', 'active')
-        .eq('is_public', true)
-        .maybeSingle()
-    : { data: null };
-
-  const fallbackName = (() => {
-    const first = typeof (profile as any)?.first_name === 'string' ? String((profile as any).first_name).trim() : '';
-    const last = typeof (profile as any)?.last_name === 'string' ? String((profile as any).last_name).trim() : '';
-    const full = `${first} ${last}`.replace(/\s+/g, ' ').trim();
-    return full || 'Vendedor';
-  })();
-
-  const profileForUI: VehicleDetail['profiles'] = listing.user_id
-    ? {
-        id: String(listing.user_id),
-        username: String(publicProfile?.slug ?? ''),
-        public_name: String(publicProfile?.public_name ?? fallbackName),
-        avatar_url: publicProfile?.avatar_url ?? null,
-        description: null,
-        website: null,
-        address: null,
-        plan: typeof (profile as any)?.plan_key === 'string' ? String((profile as any).plan_key) : ((profile as any)?.plan_key ?? null),
-      }
-    : null;
-
-  const listingVehicle = firstOrNull<Record<string, any>>(listing.listings_vehicles);
-  const vehicleType = firstOrNull<Record<string, any>>(listingVehicle?.vehicle_types);
-  const brand = firstOrNull<Record<string, any>>(listingVehicle?.brands);
-  const model = firstOrNull<Record<string, any>>(listingVehicle?.models);
-  const region = firstOrNull<Record<string, any>>(listing.regions);
-  const commune = firstOrNull<Record<string, any>>(listing.communes);
-
-  const images: VehicleImageRow[] = (listing.images || []).sort((a: VehicleImageRow, b: VehicleImageRow) => {
-    const posA = a.position ?? 0;
-    const posB = b.position ?? 0;
-    return posA - posB;
-  });
-
-  const imageUrls = images.map((img) => img.url);
-
-  const metadata = listing.metadata || {};
-  const specs = metadata?.specs || {};
-  const features = metadata?.features || listingVehicle?.features || [];
-
-  // Para la ficha pública: traducir códigos de equipamiento a labels desde features_catalog.
-  // Mantener compatibilidad: si ya existe specs.equipment como strings (legacy), no lo pisamos.
-  const featureCodes = Array.isArray(features) ? features : [];
-  const equipmentLabels = await resolveEquipmentLabels(supabase, featureCodes);
-  const equipmentItems = await resolveEquipmentItems(supabase, featureCodes);
-  const computedSpecs = {
-    ...specs,
-    equipment_items: Array.isArray((specs as any)?.equipment_items) && (specs as any).equipment_items.length > 0
-      ? (specs as any).equipment_items
-      : equipmentItems,
-    equipment: Array.isArray((specs as any)?.equipment) && (specs as any).equipment.length > 0
-      ? (specs as any).equipment
-      : equipmentLabels,
-  };
-  const rentMinDays = metadata?.rent_min_days ?? metadata?.rent?.min_days ?? metadata?.rent_terms?.min_days ?? null;
-  const rentMaxDays = metadata?.rent_max_days ?? metadata?.rent?.max_days ?? metadata?.rent_terms?.max_days ?? null;
-  const auctionCurrentBid = metadata?.auction_current_bid ?? metadata?.auction?.current_bid ?? null;
-  const auctionBidCount = metadata?.auction_bid_count ?? metadata?.auction?.bid_count ?? null;
-  const isFeatured = hasActiveBoost(listing.listing_boost_slots);
-  const rentPricePeriod = (metadata?.rent_price_period ??
-    (listing.rent_daily_price != null
-      ? 'daily'
-      : listing.rent_weekly_price != null
-      ? 'weekly'
-      : listing.rent_monthly_price != null
-      ? 'monthly'
-      : null)) as VehicleDetail['rent_price_period'];
-
-  const contact_email = listing.contact_email ?? publicProfile?.contact_email ?? null;
-  const contact_phone = listing.contact_phone ?? publicProfile?.contact_phone ?? null;
-  const contact_whatsapp = listing.contact_whatsapp ?? publicProfile?.whatsapp ?? null;
-
-  let public_documents: VehicleDetail['public_documents'] = [];
   try {
-    const { data: docs } = await supabase
-      .from('documents')
-      .select('id, name, url, file_type, file_size')
-      .eq('listing_id', listing.id)
-      .eq('is_public', true)
-      .order('created_at', { ascending: true });
-    if (Array.isArray(docs)) {
-      public_documents = docs.map((d: any) => ({
-        id: String(d.id),
-        name: d.name || 'documento',
-        url: String(d.url || ''),
-        file_type: d.file_type ?? null,
-        file_size: typeof d.file_size === 'number' ? d.file_size : null,
-      }));
-    }
-  } catch {
-    public_documents = [];
+    return await getVehicleByIdFromSimpleApi(id);
+  } catch (error) {
+    logError('Simple API vehicle detail fetch failed', error, { listingId: id });
+    return null;
   }
-
-  return {
-    id: listing.id,
-    owner_id: listing.user_id,
-    vertical_id: listing.vertical_id,
-    company_id: (listing as any).company_id ?? null,
-    listing_type: listing.listing_type,
-    status: listing.status,
-    title: listing.title,
-    description: listing.description,
-    price: listing.price,
-    currency: listing.currency,
-    visibility: listing.visibility,
-    is_featured: isFeatured,
-    is_urgent: listing.is_urgent,
-    allow_financing: listing.allow_financing,
-    allow_exchange: listing.allow_exchange,
-    region_id: listing.region_id,
-    commune_id: listing.commune_id,
-    tags: listing.tags,
-    metadata,
-    specs: computedSpecs,
-    features,
-    year: listingVehicle?.year ?? null,
-    mileage: listingVehicle?.mileage ?? null,
-    color: listingVehicle?.color ?? null,
-    condition: listingVehicle?.condition ?? null,
-    vehicle_type_id: listingVehicle?.vehicle_type_id ?? null,
-    brand_id: listingVehicle?.brand_id ?? null,
-    model_id: listingVehicle?.model_id ?? null,
-    traction: listingVehicle?.traction ?? null,
-    transmission: listingVehicle?.transmission ?? null,
-    fuel_type: listingVehicle?.fuel_type ?? null,
-    engine_size: listingVehicle?.engine_size ?? null,
-    body_type: listingVehicle?.body_type ?? null,
-    doors: listingVehicle?.doors != null ? Number(listingVehicle.doors) : null,
-    seats: listingVehicle?.seats != null ? Number(listingVehicle.seats) : null,
-    state: listingVehicle?.state ?? null,
-    warranty: listingVehicle?.warranty ?? null,
-    warranty_details: listingVehicle?.warranty_details ?? null,
-    rent_price_period: rentPricePeriod,
-    rent_daily_price: listing.rent_daily_price,
-    rent_weekly_price: listing.rent_weekly_price,
-    rent_monthly_price: listing.rent_monthly_price,
-    rent_security_deposit: listing.rent_security_deposit,
-    rent_min_days: rentMinDays,
-    rent_max_days: rentMaxDays,
-    auction_start_price: listing.auction_start_price,
-    auction_start_at: listing.auction_start_at,
-    auction_end_at: listing.auction_end_at,
-    auction_current_bid: auctionCurrentBid,
-    auction_bid_count: auctionBidCount,
-    video_url: listing.video_url,
-    document_urls: listing.document_urls,
-    public_documents,
-    created_at: listing.created_at,
-    updated_at: listing.updated_at,
-    published_at: listing.published_at,
-    expires_at: listing.expires_at,
-    images,
-    image_urls: imageUrls,
-    profiles: profileForUI,
-    public_profile: publicProfile ?? null,
-    contact_email,
-    contact_phone,
-    contact_whatsapp,
-    vehicle_types: vehicleType
-      ? {
-          id: String(vehicleType.id),
-          name: vehicleType.name ?? '',
-          category: vehicleType.category ?? null,
-          label: vehicleType.label ?? vehicleType.name ?? null,
-        }
-      : null,
-    brands: brand ? { id: String(brand.id), name: brand.name ?? '' } : null,
-    models: model ? { id: String(model.id), name: model.name ?? '' } : null,
-    regions: region ? { id: String(region.id), name: region.name ?? '' } : null,
-    communes: commune ? { id: String(commune.id), name: commune.name ?? '' } : null,
-  };
 }
-
 

@@ -133,6 +133,12 @@ export default function AdminVentaAsistidaPage() {
         description: "Revisa solicitudes, cambia estado y deja notas.",
       }}
     >
+      <div className="mt-6 mb-4 flex justify-end">
+        <Button variant="outline" size="sm" onClick={() => (window.location.href = "/panel/admin/pagos-manuales")}>
+          Ir a pagos manuales
+        </Button>
+      </div>
+
       <div className="mt-6 card-surface shadow-card p-6 rounded-2xl">
         <div className="flex flex-col md:flex-row gap-3 md:items-end md:justify-between">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-3 w-full">

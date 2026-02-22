@@ -62,6 +62,7 @@ interface AdminVehicleCardProps {
   onChangeStatus?: (id: string, newStatus: 'Publicado' | 'Pausado' | 'Borrador') => void;
   onBoost?: (id: string) => void;
   onInstagramPublish?: (id: string) => void;
+  onRequestManualFeature?: (id: string) => void;
   canPublish?: boolean;
   canDuplicate?: boolean;
   publishDisabledTitle?: string;
@@ -83,6 +84,7 @@ export const AdminVehicleCard: React.FC<AdminVehicleCardProps> = ({
   onChangeStatus,
   onBoost,
   onInstagramPublish,
+  onRequestManualFeature,
   canPublish = true,
   canDuplicate = true,
   publishDisabledTitle,
@@ -323,6 +325,14 @@ export const AdminVehicleCard: React.FC<AdminVehicleCardProps> = ({
     setShowSlotsModal(false);
     // Recargar datos si es necesario
     if (onBoost) onBoost(vehicle.id);
+  };
+
+  const handleRequestManualFeature = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    e.preventDefault();
+    if (selectionMode) return;
+    if (onRequestManualFeature) onRequestManualFeature(vehicle.id);
+    setMenuOpen(false);
   };
 
   const handleCardClick = () => {
@@ -800,6 +810,12 @@ export const AdminVehicleCard: React.FC<AdminVehicleCardProps> = ({
               </button>
             ) : null}
 
+            {onRequestManualFeature ? (
+              <button onClick={handleRequestManualFeature} className="w-full flex items-center gap-2 px-3 py-2 text-sm hover:bg-[var(--field-bg-hover)] text-left transition">
+                <IconCreditCard size={16}/> Solicitar destacado
+              </button>
+            ) : null}
+
             {/* Separador */}
             <div className="border-t border-border/60 dark:border-darkborder/35 my-1"></div>
 
@@ -1176,6 +1192,12 @@ export const AdminVehicleCard: React.FC<AdminVehicleCardProps> = ({
                 {instagramEnabled && onInstagramPublish ? (
                   <button onClick={handleInstagramPublish} className="w-full flex items-center gap-2 px-3 py-2 text-sm hover:bg-[var(--field-bg-hover)] text-left transition">
                     <IconBrandInstagram size={16}/> Publicar en Instagram
+                  </button>
+                ) : null}
+
+                {onRequestManualFeature ? (
+                  <button onClick={handleRequestManualFeature} className="w-full flex items-center gap-2 px-3 py-2 text-sm hover:bg-[var(--field-bg-hover)] text-left transition">
+                    <IconCreditCard size={16}/> Solicitar destacado
                   </button>
                 ) : null}
 

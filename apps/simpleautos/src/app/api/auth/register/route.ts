@@ -1,38 +1,56 @@
-﻿import { NextRequest, NextResponse } from 'next/server';
-import { createServerComponentClient } from '@supabase/auth-helpers-nextjs';
-import { cookies as getCookies } from 'next/headers';
-
-// Endpoint mantenido �nicamente para flujos de confirmaci�n por correo.
-// El registro est�ndar ocurre en el cliente usando Supabase Auth (signUp) dentro del nuevo AuthContext.
-// Si migras a magic links o eliminas confirmaciones server-side, este archivo puede eliminarse.
+import { NextRequest, NextResponse } from "next/server";
+import { createSessionToken, loadProfileById, registerLocalUser } from "@simple/auth/server";
+import { setSessionCookie } from "@/lib/server/sessionCookie";
 
 export async function POST(req: NextRequest) {
-  const { email, password, nombre, apellido } = await req.json();
-  if (!email || !password || !nombre || !apellido)
-    return NextResponse.json({ error: 'Faltan campos' }, { status: 400 });
+  const body = await req.json().catch(() => ({} as Record<string, unknown>));
+  const email = String(body.email || "").trim();
+  const password = String(body.password || "");
+  const firstName = String(body.nombre || body.firstName || body.name || "").trim();
+  const lastName = String(body.apellido || body.lastName || "").trim();
 
-  const cookiesObj = await getCookies();
-  const supabase = createServerComponentClient({ cookies: () => (cookiesObj as any) });
+  if (!email || !password || !firstName || !lastName) {
+    return NextResponse.json({ error: "Faltan campos" }, { status: 400 });
+  }
 
-  const origin = req.headers.get('origin')
-    || process.env.NEXT_PUBLIC_SITE_URL
-    || process.env.NEXT_PUBLIC_AUTOS_DOMAIN
-    || process.env.NEXT_PUBLIC_APP_URL
-    || 'http://localhost:3001';
+  try {
+    const user = await registerLocalUser({
+      email,
+      password,
+      firstName,
+      lastName
+    });
 
-  // Mantener UX: el usuario se registra y confirma dentro de la misma vertical.
-  const emailRedirectToUrl = new URL('/auth/confirm', origin);
-  emailRedirectToUrl.searchParams.set('email', String(email).trim());
-  const emailRedirectTo = emailRedirectToUrl.toString();
-  const signUpOptions: any = { data: { nombre, apellido }, emailRedirectTo };
+    const token = createSessionToken({
+      sub: user.id,
+      email: user.email
+    });
 
-  const { data, error } = await supabase.auth.signUp({ email, password, options: signUpOptions });
-  if (error) return NextResponse.json({ error: error.message || 'Error al crear usuario' }, { status: 500 });
+    const profile = await loadProfileById(user.id);
+    const response = NextResponse.json({
+      ok: true,
+      accessToken: token,
+      user: {
+        id: user.id,
+        email: user.email,
+        name:
+          profile?.display_name ||
+          [profile?.first_name, profile?.last_name].filter(Boolean).join(" ").trim() ||
+          user.email
+      },
+      profile: profile || null
+    });
 
-  if (!data.user) return NextResponse.json({ ok: true, message: 'Revisa tu correo para confirmar el registro.' });
-
-  // El perfil se crea/actualiza tras el primer login desde el frontend (on-demand en AuthContext).
-  return NextResponse.json({ ok: true, user: { id: data.user.id, email: data.user.email, nombre, apellido } });
+    setSessionCookie(response, token);
+    return response;
+  } catch (error: any) {
+    const message = String(error?.message || "Error al crear usuario");
+    if (message.includes("EMAIL_ALREADY_EXISTS")) {
+      return NextResponse.json(
+        { error: "Este correo ya está registrado. Intenta iniciar sesión." },
+        { status: 409 }
+      );
+    }
+    return NextResponse.json({ error: message }, { status: 500 });
+  }
 }
-
-

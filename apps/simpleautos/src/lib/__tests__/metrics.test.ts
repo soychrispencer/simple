@@ -1,8 +1,6 @@
-﻿import { describe, it, expect, beforeEach, jest } from '@jest/globals';
+import { describe, it, expect, beforeEach, jest } from '@jest/globals';
 import { DefaultMetricsService, VehicleMetrics } from '../metrics';
-import type { SupabaseClient } from '@supabase/supabase-js';
 
-jest.mock('@supabase/supabase-js');
 jest.mock('../logger');
 jest.mock('../cache');
 
@@ -10,7 +8,7 @@ describe('MetricsService', () => {
   let metricsService: DefaultMetricsService;
   const TEST_UUID = '00000000-0000-0000-0000-000000000001';
   type RpcResponse = { data: any; error: any };
-  type SupabaseMock = {
+  type MetricsStoreMock = {
     rpc: jest.MockedFunction<(fn: string, params?: object) => Promise<RpcResponse>>;
     from: jest.MockedFunction<(table: string) => any>;
   };
@@ -26,15 +24,15 @@ describe('MetricsService', () => {
     del: jest.Mock;
   };
 
-  let mockSupabase: SupabaseMock;
+  let mockStore: MetricsStoreMock;
   let mockLogger: LoggerMock;
   let mockCache: CacheMock;
 
   beforeEach(() => {
-    mockSupabase = {
+    mockStore = {
       rpc: jest.fn(),
       from: jest.fn()
-    } as unknown as SupabaseMock;
+    } as unknown as MetricsStoreMock;
 
     mockLogger = {
       error: jest.fn(),
@@ -50,7 +48,7 @@ describe('MetricsService', () => {
     } as any;
 
     metricsService = new DefaultMetricsService(
-      mockSupabase as unknown as SupabaseClient,
+      mockStore as any,
       mockLogger as any,
       mockCache as any
     );
@@ -58,12 +56,12 @@ describe('MetricsService', () => {
 
   describe('incrementMetric', () => {
     it('should successfully increment a metric', async () => {
-      mockSupabase.rpc.mockResolvedValue({ data: null, error: null });
+      mockStore.rpc.mockResolvedValue({ data: null, error: null });
 
       const result = await metricsService.incrementMetric(TEST_UUID, 'views');
 
       expect(result).toBe(true);
-      expect(mockSupabase.rpc).toHaveBeenCalledWith('increment_listing_metric', {
+      expect(mockStore.rpc).toHaveBeenCalledWith('increment_listing_metric', {
         p_listing_id: TEST_UUID,
         p_metric: 'views',
         p_amount: 1
@@ -75,14 +73,14 @@ describe('MetricsService', () => {
       const result = await metricsService.incrementMetric('demo-auction-4', 'views');
 
       expect(result).toBe(true);
-      expect(mockSupabase.rpc).not.toHaveBeenCalled();
-      expect(mockSupabase.from).not.toHaveBeenCalled();
+      expect(mockStore.rpc).not.toHaveBeenCalled();
+      expect(mockStore.from).not.toHaveBeenCalled();
     });
 
-    it('should handle errors from Supabase', async () => {
+    it('should handle errors from metrics store', async () => {
       const mockError = new Error('Test error');
-      mockSupabase.rpc.mockResolvedValue({ data: null, error: mockError });
-      mockSupabase.from.mockReturnValue({
+      mockStore.rpc.mockResolvedValue({ data: null, error: mockError });
+      mockStore.from.mockReturnValue({
         select: jest.fn().mockReturnValue({
           eq: jest.fn().mockReturnValue({
             single: jest.fn(async () => ({ data: null, error: null }))
@@ -101,7 +99,7 @@ describe('MetricsService', () => {
     });
 
     it('should handle unexpected errors', async () => {
-      mockSupabase.rpc.mockRejectedValue(new Error('Unexpected error'));
+      mockStore.rpc.mockRejectedValue(new Error('Unexpected error'));
 
       const result = await metricsService.incrementMetric(TEST_UUID, 'views');
 
@@ -126,12 +124,12 @@ describe('MetricsService', () => {
       const result = await metricsService.getMetrics(TEST_UUID);
 
       expect(result).toEqual(mockMetrics);
-      expect(mockSupabase.from).not.toHaveBeenCalled();
+      expect(mockStore.from).not.toHaveBeenCalled();
     });
 
     it('should fetch and cache metrics if not in cache', async () => {
       mockCache.get.mockReturnValue(null);
-      mockSupabase.from.mockReturnValue({
+      mockStore.from.mockReturnValue({
         select: jest.fn().mockReturnValue({
           eq: jest.fn().mockReturnValue({
             single: jest.fn(async () => ({ data: mockMetrics, error: null }))
@@ -146,4 +144,5 @@ describe('MetricsService', () => {
     });
   });
 });
+
 

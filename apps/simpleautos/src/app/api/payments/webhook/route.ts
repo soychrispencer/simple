@@ -1,14 +1,10 @@
-﻿import { NextRequest, NextResponse } from 'next/server';
-import { BoostDuration, getMercadoPagoPayment } from '@/lib/mercadopago';
-import { logError, logInfo } from '@/lib/logger';
-import { ensureListingBoost, syncListingBoostSlots } from '@simple/listings';
-import { createClient, type SupabaseClient } from '@supabase/supabase-js';
+import { NextRequest, NextResponse } from 'next/server';
 import crypto from 'crypto';
+import { BoostDuration, getMercadoPagoPayment } from '@/lib/mercadopago';
 import { getBoostCooldownHours } from '@/lib/boostRules';
-import { checkListingBoostCooldown } from '@/lib/boostCooldown';
+import { logError, logInfo } from '@/lib/logger';
+import { getDbPool } from '@/lib/server/db';
 
-// Este endpoint usa dependencias Node-only (crypto, MercadoPago SDK, etc.).
-// Fuerza runtime Node.js para evitar ejecución en Edge.
 export const runtime = 'nodejs';
 
 const DURATION_IN_DAYS = {
@@ -21,31 +17,14 @@ const DURATION_IN_DAYS = {
 } as const satisfies Partial<Record<BoostDuration, number>>;
 
 const DEFAULT_DURATION_DAYS = 7;
-let adminClient: SupabaseClient | null = null;
-
-function getAdminClient(): SupabaseClient {
-  if (!adminClient) {
-    const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-    const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
-    if (!url || !key) {
-      throw new Error('Supabase service credentials not configured');
-    }
-    adminClient = createClient(url, key);
-  }
-  return adminClient;
-}
 
 function addDays(base: Date, days: number) {
-  // Sumamos por milisegundos para garantizar duración exacta (days * 24h),
-  // evitando recortes por cambios de horario (DST) en setDate().
   const ms = Math.max(0, days) * 24 * 60 * 60 * 1000;
   return new Date(base.getTime() + ms);
 }
 
 function resolveDurationDays(duration?: string | null) {
-  if (duration === 'indefinido') {
-    return null;
-  }
+  if (duration === 'indefinido') return null;
   if (duration && Object.prototype.hasOwnProperty.call(DURATION_IN_DAYS, duration)) {
     return (DURATION_IN_DAYS as any)[duration] as number;
   }
@@ -77,111 +56,76 @@ function parseLegacyBoostReference(reference: string): {
   const duration = `${durationPartA}_${durationPartB}`;
   const listingId = parts.shift() ?? null;
   const slotKey = parts.length ? parts.join('_') : null;
-  return {
-    listingId,
-    slotKey,
-    duration,
-  };
+  return { listingId, slotKey, duration };
 }
 
-async function resolveSlotId(
-  supabase: SupabaseClient,
-  providedSlotId: string | null | undefined,
-  slotKey: string | undefined,
-  verticalId: string | null
-): Promise<string | null> {
-  if (providedSlotId) {
-    return providedSlotId;
-  }
+async function resolveSlotId(providedSlotId: string | null | undefined, slotKey: string | undefined, verticalId: string | null) {
+  if (providedSlotId) return providedSlotId;
   if (!slotKey) return null;
-  const query = supabase
-    .from('boost_slots')
-    .select('id')
-    .eq('key', slotKey)
-    .eq('is_active', true)
-    .limit(1);
-  const finalQuery = verticalId ? query.eq('vertical_id', verticalId) : query;
-  const { data, error } = await finalQuery.maybeSingle();
-  if (error) {
-    logError('Error resolving boost slot', error);
-    return null;
-  }
-  return data?.id || null;
+  const db = getDbPool();
+  const query = verticalId
+    ? await db.query(
+        `SELECT id
+         FROM boost_slots
+         WHERE key = $1 AND is_active = true AND vertical_id = $2
+         LIMIT 1`,
+        [slotKey, verticalId]
+      )
+    : await db.query(
+        `SELECT id
+         FROM boost_slots
+         WHERE key = $1 AND is_active = true
+         LIMIT 1`,
+        [slotKey]
+      );
+  return query.rows[0]?.id ? String(query.rows[0].id) : null;
 }
 
-export async function POST(request: NextRequest) {
-  try {
-    const body = await request.json();
+async function checkListingBoostCooldown(params: { listingId: string; slotId: string; cooldownHours: number }) {
+  const db = getDbPool();
+  const result = await db.query(
+    `SELECT starts_at, ends_at, is_active
+     FROM listing_boost_slots
+     WHERE listing_id = $1 AND slot_id = $2
+     ORDER BY starts_at DESC
+     LIMIT 1`,
+    [params.listingId, params.slotId]
+  );
+  const row = result.rows[0] as any;
+  if (!row) return { allowed: true as const };
 
-    // Verificar que sea un webhook válido de MercadoPago
-    const isValidWebhook = await verifyWebhookSignature(request);
+  const now = Date.now();
+  const startsAt = row.starts_at ? new Date(row.starts_at).getTime() : null;
+  const endsAt = row.ends_at ? new Date(row.ends_at).getTime() : null;
 
-    if (!isValidWebhook) {
-      logError('Webhook signature verification failed');
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
-    const { type, data } = body;
-
-    if (type === 'payment') {
-      const paymentId = data.id;
-
-      // Obtener detalles del pago desde MercadoPago
-      const payment: any = await getMercadoPagoPayment(paymentId);
-      const paymentBody = payment?.body ?? payment;
-
-      if (paymentBody.status === 'approved') {
-        const externalReference = paymentBody.external_reference;
-        if (!externalReference) {
-          logError('Pago aprobado sin external_reference', { paymentId });
-          return NextResponse.json({ received: true });
-        }
-
-        if (externalReference.startsWith('boost_')) {
-          // Procesar boost pagado
-          await processBoostPayment(externalReference, paymentBody);
-        } else if (externalReference.startsWith('subscription_')) {
-          // Procesar suscripción pagada
-          await processSubscriptionPayment(externalReference, paymentBody);
-        }
-
-        logInfo(`Pago aprobado procesado: ${externalReference}`);
-      }
-    }
-
-    return NextResponse.json({ received: true });
-
-  } catch (error) {
-    logError('Error procesando webhook', error);
-    return NextResponse.json(
-      { error: 'Error interno del servidor' },
-      { status: 500 }
-    );
+  if (row.is_active && !endsAt) return { allowed: false as const, reason: 'active' as const, endsAt: null };
+  if (row.is_active && endsAt && endsAt > now) {
+    return { allowed: false as const, reason: 'active' as const, endsAt: new Date(endsAt).toISOString() };
   }
+
+  if (startsAt) {
+    const next = startsAt + Math.max(0, params.cooldownHours) * 60 * 60 * 1000;
+    if (now < next) {
+      return { allowed: false as const, reason: 'cooldown' as const, nextAvailableAt: new Date(next).toISOString() };
+    }
+  }
+  return { allowed: true as const };
 }
 
 async function verifyWebhookSignature(request: NextRequest): Promise<boolean> {
-  // Seguridad práctica:
-  // - Siempre confirmamos el pago consultando la API de MercadoPago con nuestro access token.
-  // - En producción, además exigimos algún indicador de origen (user-agent o firma si se configuró secret).
-  // Si se configura un secret, validamos x-signature.
   const secret = process.env.MERCADOPAGO_WEBHOOK_SECRET;
   const signatureHeader = request.headers.get('x-signature');
   const requestId = request.headers.get('x-request-id');
 
   if (secret && signatureHeader && requestId) {
-    // Formato típico: ts=...,v1=...
     const parts = signatureHeader.split(',').reduce<Record<string, string>>((acc, part) => {
       const [k, v] = part.split('=');
       if (k && v) acc[k.trim()] = v.trim();
       return acc;
     }, {});
-
     const ts = parts.ts;
     const v1 = parts.v1;
     if (ts && v1) {
-      // Nota: MercadoPago documenta un esquema de firma específico. Sin la spec exacta, validamos un
-      // HMAC mínimo basado en request-id + ts (best-effort). Igual se valida contra la API al procesar.
       const payload = `${requestId}.${ts}`;
       const digest = crypto.createHmac('sha256', secret).update(payload).digest('hex');
       const a = Buffer.from(digest);
@@ -192,202 +136,287 @@ async function verifyWebhookSignature(request: NextRequest): Promise<boolean> {
     }
   }
 
-  // Si no hay secret configurado, aceptamos el webhook y confiamos en la verificación
-  // contra la API de MercadoPago (solo procesamos pagos aprobados).
   if (!secret) return true;
-
-  // Con secret configurado, si no pudimos validar firma en producción, rechazamos.
   return process.env.NODE_ENV !== 'production';
 }
 
-async function processBoostPayment(externalReference: string, paymentData: any) {
-  try {
-    const admin = getAdminClient();
-    const metadata = paymentData.metadata ?? {};
-    const legacy = parseLegacyBoostReference(externalReference);
+async function ensureBoost(params: {
+  listingId: string;
+  companyId: string | null;
+  userId: string | null;
+  startsAt: string;
+  endsAt: string | null;
+  metadata: Record<string, unknown>;
+}) {
+  const db = getDbPool();
+  const existing = await db.query(
+    `SELECT id, starts_at, ends_at
+     FROM listing_boosts
+     WHERE listing_id = $1 AND status = 'active'
+     LIMIT 1`,
+    [params.listingId]
+  );
 
-    const listingId = metadata.listing_id ?? legacy.listingId ?? null;
-    const slotKey = metadata.slot_key ?? legacy.slotKey ?? null;
-    const slotKeysFromMetadata = Array.isArray(metadata.slot_keys) ? (metadata.slot_keys as any[]) : null;
-    const durationKey = metadata.duration ?? legacy.duration ?? null;
-    const slotIdFromMetadata = metadata.slot_id ?? null;
-    const slotIdsFromMetadata = Array.isArray(metadata.slot_ids) ? (metadata.slot_ids as any[]) : null;
-    const userId = metadata.user_id ?? null;
+  if (existing.rows[0]?.id) {
+    return {
+      id: String(existing.rows[0].id),
+      startsAt: existing.rows[0].starts_at ?? null,
+      endsAt: existing.rows[0].ends_at ?? null,
+    };
+  }
 
-    const resolvedSlotKeys: string[] = slotKeysFromMetadata?.length
-      ? slotKeysFromMetadata.map((k) => String(k)).filter(Boolean)
-      : slotKey
-      ? [String(slotKey)]
-      : [];
+  const inserted = await db.query(
+    `INSERT INTO listing_boosts (listing_id, company_id, user_id, status, starts_at, ends_at, metadata)
+     VALUES ($1,$2,$3,'active',$4,$5,$6::jsonb)
+     RETURNING id, starts_at, ends_at`,
+    [params.listingId, params.companyId, params.userId, params.startsAt, params.endsAt, JSON.stringify(params.metadata)]
+  );
 
-    if (!listingId || resolvedSlotKeys.length === 0) {
-      logError('Boost payment missing identifiers', { externalReference, metadata });
-      return;
-    }
+  const row = inserted.rows[0] as any;
+  return {
+    id: String(row.id),
+    startsAt: row.starts_at ?? null,
+    endsAt: row.ends_at ?? null,
+  };
+}
 
-    const { data: listing, error: listingError } = await admin
-      .from('listings')
-      .select('id, user_id, company_id, vertical_id, public_profile_id')
-      .eq('id', listingId)
-      .single();
+async function syncSlots(params: {
+  listingId: string;
+  boostId: string;
+  slotIds: string[];
+  startsAt: string;
+  endsAt: string | null;
+}) {
+  const db = getDbPool();
+  const normalized = Array.from(new Set((params.slotIds || []).filter(Boolean)));
+  const currentRows = await db.query(
+    `SELECT id, slot_id
+     FROM listing_boost_slots
+     WHERE listing_id = $1 AND is_active = true`,
+    [params.listingId]
+  );
 
-    if (listingError || !listing) {
-      logError('Listing not found for boost payment', listingError || { listingId });
-      return;
-    }
+  const current = currentRows.rows.map((row: any) => ({ id: String(row.id), slotId: String(row.slot_id) }));
+  const currentSet = new Set(current.map((row) => row.slotId));
+  const toAdd = normalized.filter((slotId) => !currentSet.has(slotId));
+  const toRemove = current.filter((row) => !normalized.includes(row.slotId));
 
-    const resolvedSlotIds: string[] = [];
-    const blocked: Array<{ slotKey: string; reason: string; endsAt?: string | null; nextAvailableAt?: string | null }> = [];
-
-    for (let i = 0; i < resolvedSlotKeys.length; i++) {
-      const key = resolvedSlotKeys[i];
-
-      // El slot "perfil vendedor" requiere perfil público activo y visible.
-      if (key === 'user_page') {
-        const publicProfileId = (listing as any)?.public_profile_id as string | null | undefined;
-        if (!publicProfileId) {
-          blocked.push({ slotKey: key, reason: 'no_public_profile' });
-          continue;
-        }
-
-        const { data: ppRow, error: ppError } = await admin
-          .from('public_profiles')
-          .select('id, is_public, status')
-          .eq('id', publicProfileId)
-          .maybeSingle();
-
-        if (ppError || !ppRow) {
-          blocked.push({ slotKey: key, reason: 'no_public_profile' });
-          continue;
-        }
-
-        const isActivePublic = Boolean((ppRow as any)?.is_public) && String((ppRow as any)?.status) === 'active';
-        if (!isActivePublic) {
-          blocked.push({ slotKey: key, reason: 'no_public_profile' });
-          continue;
-        }
-      }
-
-      const providedId = (slotIdsFromMetadata?.[i] ?? (i === 0 ? slotIdFromMetadata : null)) as string | null;
-      const slotId = await resolveSlotId(admin, providedId, key, listing.vertical_id);
-      if (!slotId) {
-        logError('Unable to resolve boost slot for payment', { listingId, slotKey: key });
-        continue;
-      }
-
-      // Enforce cooldown por publicación+slot (24h).
-      try {
-        const cooldownHours = getBoostCooldownHours(key as any);
-        const cooldown = await checkListingBoostCooldown({
-          supabase: admin,
-          listingId,
-          slotId,
-          cooldownHours,
-        });
-
-        if (!cooldown.allowed) {
-          blocked.push({
-            slotKey: key,
-            reason: cooldown.reason,
-            ...(cooldown.reason === 'active'
-              ? { endsAt: cooldown.endsAt }
-              : { nextAvailableAt: cooldown.nextAvailableAt }),
-          });
-          continue;
-        }
-      } catch (e) {
-        logError('Error enforcing boost cooldown (webhook)', e);
-        blocked.push({ slotKey: key, reason: 'error' });
-        continue;
-      }
-
-      resolvedSlotIds.push(slotId);
-    }
-
-    if (resolvedSlotIds.length === 0) {
-      logInfo('Boost payment had no applicable slots after validation', {
-        listingId,
-        externalReference,
-        paymentId: paymentData?.id,
-        blocked,
-      });
-      return;
-    }
-
-    const now = new Date();
-    const endsAt = resolveWindowEnd(now, durationKey);
-
-    const boost = await ensureListingBoost({
-      supabase: admin,
-      listingId,
-      companyId: listing.company_id,
-      userId: userId ?? listing.user_id,
-      startsAt: now.toISOString(),
-      endsAt: endsAt ? endsAt.toISOString() : null,
-      status: 'active',
-      metadata: {
-        slotKeys: resolvedSlotKeys,
-        duration: durationKey,
-        source: 'mercadopago',
-      },
-    });
-
-    const { error: updateError } = await admin
-      .from('listing_boosts')
-      .update({
-        starts_at: now.toISOString(),
-        ends_at: endsAt ? endsAt.toISOString() : null,
-        payment_id: paymentData.id,
-        payment_amount: paymentData.transaction_amount,
-        payment_currency: paymentData.currency_id ?? 'CLP',
-        metadata: {
-          slotKeys: resolvedSlotKeys,
-          duration: durationKey,
-          source: 'mercadopago',
-          paymentId: paymentData.id,
-          externalReference,
-          blockedSlots: blocked,
-        },
-      })
-      .eq('id', boost.id);
-
-    if (updateError) {
-      logError('Error updating listing boost payment info', updateError);
-      throw updateError;
-    }
-
-    await syncListingBoostSlots({
-      supabase: admin,
-      listingId,
-      boostId: boost.id,
-      slotIds: resolvedSlotIds,
-      windowStart: now.toISOString(),
-      windowEnd: endsAt ? endsAt.toISOString() : null,
-    });
-
-    logInfo(
-      endsAt
-        ? `Boost sincronizado: listing ${listingId}, slots ${resolvedSlotKeys.join(', ')}, vence ${endsAt.toISOString()}`
-        : `Boost sincronizado: listing ${listingId}, slots ${resolvedSlotKeys.join(', ')}, duración indefinida`
+  if (toRemove.length > 0) {
+    await db.query(
+      `UPDATE listing_boost_slots
+       SET is_active = false, ends_at = $2
+       WHERE id = ANY($1::uuid[])`,
+      [toRemove.map((row) => row.id), params.endsAt ?? new Date().toISOString()]
     );
-  } catch (error) {
-    logError('Error procesando pago de boost', error);
-    throw error;
+  }
+
+  for (const slotId of toAdd) {
+    await db.query(
+      `INSERT INTO listing_boost_slots (boost_id, slot_id, listing_id, starts_at, ends_at, is_active)
+       VALUES ($1,$2,$3,$4,$5,true)`,
+      [params.boostId, slotId, params.listingId, params.startsAt, params.endsAt]
+    );
   }
 }
 
+export async function POST(request: NextRequest) {
+  try {
+    const body = await request.json();
+    const isValidWebhook = await verifyWebhookSignature(request);
+    if (!isValidWebhook) {
+      logError('Webhook signature verification failed');
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const { type, data } = body as any;
+    if (type === 'payment') {
+      const paymentId = data?.id;
+      const payment: any = await getMercadoPagoPayment(paymentId);
+      const paymentBody = payment?.body ?? payment;
+
+      if (paymentBody?.status === 'approved') {
+        const externalReference = String(paymentBody.external_reference || '');
+        if (externalReference.startsWith('boost_')) {
+          await processBoostPayment(externalReference, paymentBody);
+        } else if (externalReference.startsWith('subscription_')) {
+          await processSubscriptionPayment(externalReference, paymentBody);
+        }
+        logInfo(`Pago aprobado procesado: ${externalReference}`);
+      }
+    }
+
+    return NextResponse.json({ received: true });
+  } catch (error) {
+    logError('Error procesando webhook', error);
+    return NextResponse.json({ error: 'Error interno del servidor' }, { status: 500 });
+  }
+}
+
+async function processBoostPayment(externalReference: string, paymentData: any) {
+  const db = getDbPool();
+  const metadata = paymentData.metadata ?? {};
+  const legacy = parseLegacyBoostReference(externalReference);
+
+  const listingId = metadata.listing_id ?? legacy.listingId ?? null;
+  const slotKey = metadata.slot_key ?? legacy.slotKey ?? null;
+  const slotKeysFromMetadata = Array.isArray(metadata.slot_keys) ? (metadata.slot_keys as any[]) : null;
+  const durationKey = metadata.duration ?? legacy.duration ?? null;
+  const slotIdFromMetadata = metadata.slot_id ?? null;
+  const slotIdsFromMetadata = Array.isArray(metadata.slot_ids) ? (metadata.slot_ids as any[]) : null;
+  const userId = metadata.user_id ?? null;
+
+  const resolvedSlotKeys: string[] = slotKeysFromMetadata?.length
+    ? slotKeysFromMetadata.map((k) => String(k)).filter(Boolean)
+    : slotKey
+      ? [String(slotKey)]
+      : [];
+
+  if (!listingId || resolvedSlotKeys.length === 0) {
+    logError('Boost payment missing identifiers', { externalReference, metadata });
+    return;
+  }
+
+  const listingRes = await db.query(
+    `SELECT id, user_id, company_id, company_profile_id, vertical_id, public_profile_id
+     FROM listings
+     WHERE id = $1
+     LIMIT 1`,
+    [listingId]
+  );
+  const listing = listingRes.rows[0] as any;
+  if (!listing?.id) {
+    logError('Listing not found for boost payment', { listingId });
+    return;
+  }
+
+  const resolvedSlotIds: string[] = [];
+  const blocked: Array<{ slotKey: string; reason: string; endsAt?: string | null; nextAvailableAt?: string | null }> = [];
+
+  for (let i = 0; i < resolvedSlotKeys.length; i++) {
+    const key = resolvedSlotKeys[i];
+    if (key === 'user_page') {
+      const publicProfileId = String(listing.public_profile_id || '');
+      if (!publicProfileId) {
+        blocked.push({ slotKey: key, reason: 'no_public_profile' });
+        continue;
+      }
+      const ppRes = await db.query(
+        `SELECT id, is_public, status
+         FROM public_profiles
+         WHERE id = $1
+         LIMIT 1`,
+        [publicProfileId]
+      );
+      const pp = ppRes.rows[0] as any;
+      const isActivePublic = Boolean(pp?.is_public) && String(pp?.status || '') === 'active';
+      if (!isActivePublic) {
+        blocked.push({ slotKey: key, reason: 'no_public_profile' });
+        continue;
+      }
+    }
+
+    const providedId = (slotIdsFromMetadata?.[i] ?? (i === 0 ? slotIdFromMetadata : null)) as string | null;
+    const slotId = await resolveSlotId(providedId, key, listing.vertical_id ?? null);
+    if (!slotId) {
+      blocked.push({ slotKey: key, reason: 'slot_not_found' });
+      continue;
+    }
+
+    const cooldown = await checkListingBoostCooldown({
+      listingId,
+      slotId,
+      cooldownHours: getBoostCooldownHours(key as any),
+    });
+
+    if (!cooldown.allowed) {
+      blocked.push({
+        slotKey: key,
+        reason: cooldown.reason,
+        ...(cooldown.reason === 'active'
+          ? { endsAt: (cooldown as any).endsAt ?? null }
+          : { nextAvailableAt: (cooldown as any).nextAvailableAt ?? null }),
+      });
+      continue;
+    }
+
+    resolvedSlotIds.push(slotId);
+  }
+
+  if (resolvedSlotIds.length === 0) {
+    logInfo('Boost payment had no applicable slots after validation', {
+      listingId,
+      externalReference,
+      paymentId: paymentData?.id,
+      blocked,
+    });
+    return;
+  }
+
+  const now = new Date();
+  const endsAt = resolveWindowEnd(now, durationKey);
+  const companyId = listing.company_id ?? listing.company_profile_id ?? null;
+  const boost = await ensureBoost({
+    listingId,
+    companyId,
+    userId: userId ?? listing.user_id ?? null,
+    startsAt: now.toISOString(),
+    endsAt: endsAt ? endsAt.toISOString() : null,
+    metadata: {
+      slotKeys: resolvedSlotKeys,
+      duration: durationKey,
+      source: 'mercadopago',
+    },
+  });
+
+  await db.query(
+    `UPDATE listing_boosts
+     SET starts_at = $2,
+         ends_at = $3,
+         payment_id = $4,
+         payment_amount = $5,
+         payment_currency = $6,
+         metadata = $7::jsonb
+     WHERE id = $1`,
+    [
+      boost.id,
+      now.toISOString(),
+      endsAt ? endsAt.toISOString() : null,
+      paymentData.id,
+      paymentData.transaction_amount,
+      paymentData.currency_id ?? 'CLP',
+      JSON.stringify({
+        slotKeys: resolvedSlotKeys,
+        duration: durationKey,
+        source: 'mercadopago',
+        paymentId: paymentData.id,
+        externalReference,
+        blockedSlots: blocked,
+      }),
+    ]
+  );
+
+  await syncSlots({
+    listingId,
+    boostId: boost.id,
+    slotIds: resolvedSlotIds,
+    startsAt: now.toISOString(),
+    endsAt: endsAt ? endsAt.toISOString() : null,
+  });
+}
+
 async function processSubscriptionPayment(externalReference: string, paymentData: any) {
-  const admin = getAdminClient();
+  const db = getDbPool();
 
-  const { data: vehiclesVertical, error: vehiclesVerticalError } = await admin
-    .from('verticals')
-    .select('id')
-    .eq('key', 'vehicles')
-    .maybeSingle();
-
-  const vehiclesVerticalId = (vehiclesVertical as any)?.id as string | undefined;
-  if (vehiclesVerticalError || !vehiclesVerticalId) {
-    logError('No se pudo resolver vertical vehicles para suscripción', vehiclesVerticalError || { vehiclesVerticalId });
+  const verticalRes = await db.query(
+    `SELECT id
+     FROM verticals
+     WHERE key IN ('vehicles','autos')
+     ORDER BY key = 'vehicles' DESC
+     LIMIT 1`
+  );
+  const vehiclesVerticalId = verticalRes.rows[0]?.id;
+  if (!vehiclesVerticalId) {
+    logError('No se pudo resolver vertical vehicles para suscripción');
     return;
   }
 
@@ -395,70 +424,57 @@ async function processSubscriptionPayment(externalReference: string, paymentData
   const userId: string | undefined = metadata.user_id;
   const planKey: string | undefined = metadata.plan_key;
 
-  // Fallback a external_reference: subscription_<userId>_<planKey>_<timestamp>
   const fallbackParts = externalReference.split('_');
   const fallbackUserId = fallbackParts[1];
   const fallbackPlanKey = fallbackParts[2];
 
   const resolvedUserId = userId || fallbackUserId;
   const resolvedPlanKey = planKey || fallbackPlanKey;
-
   if (!resolvedUserId || !resolvedPlanKey) {
-    logError('Subscription payment missing identifiers', {
-      externalReference,
-      resolvedUserId,
-      resolvedPlanKey,
-      metadata,
-    });
+    logError('Subscription payment missing identifiers', { externalReference, metadata });
     return;
   }
 
-  // Validar monto esperado (siempre que tengamos unit_price o transaction_amount)
   const amount = Number(paymentData.transaction_amount ?? paymentData.total_paid_amount ?? 0);
   if (!Number.isFinite(amount) || amount <= 0) {
     logError('Subscription payment missing/invalid amount', { externalReference, amount });
     return;
   }
 
-  // Calcular período: si ya existe un período vigente, extender desde ahí.
+  const existingSubRes = await db.query(
+    `SELECT id, current_period_end
+     FROM subscriptions
+     WHERE user_id = $1 AND vertical_id = $2 AND status = 'active'
+     LIMIT 1`,
+    [resolvedUserId, vehiclesVerticalId]
+  );
   const now = new Date();
-  const { data: existingSub } = await admin
-    .from('subscriptions')
-    .select('id, current_period_end')
-    .eq('user_id', resolvedUserId)
-    .eq('vertical_id', vehiclesVerticalId)
-    .eq('status', 'active')
-    .maybeSingle();
-
-  const existingEnd = existingSub?.current_period_end ? new Date(existingSub.current_period_end as any) : null;
+  const existingEnd = existingSubRes.rows[0]?.current_period_end ? new Date(existingSubRes.rows[0].current_period_end as any) : null;
   const periodStart = existingEnd && existingEnd > now ? existingEnd : now;
   const periodEnd = new Date(periodStart);
   periodEnd.setMonth(periodEnd.getMonth() + 1);
 
   const externalPaymentId = paymentData.id?.toString();
-
   if (!externalPaymentId) {
     logError('Subscription payment missing external payment id', { externalReference, paymentId: paymentData.id });
     return;
   }
 
-  const { data: planRow, error: planError } = await admin
-    .from('subscription_plans')
-    .select('id, plan_key, name, currency, price_monthly')
-    .eq('plan_key', resolvedPlanKey)
-    .eq('vertical_id', vehiclesVerticalId)
-    .eq('is_active', true)
-    .maybeSingle();
-
-  if (planError || !planRow?.id) {
-    logError('Subscription plan not found', planError || { resolvedPlanKey });
+  const planRes = await db.query(
+    `SELECT id, plan_key, name, currency, price_monthly
+     FROM subscription_plans
+     WHERE plan_key = $1
+       AND vertical_id = $2
+       AND is_active = true
+     LIMIT 1`,
+    [resolvedPlanKey, vehiclesVerticalId]
+  );
+  const planRow = planRes.rows[0] as any;
+  if (!planRow?.id) {
+    logError('Subscription plan not found', { resolvedPlanKey });
     return;
   }
 
-  // Verificar currency (si viene)
-  const currency = (paymentData.currency_id ?? planRow.currency ?? 'CLP') as string;
-
-  // Validar monto esperado contra el plan (si lo tenemos).
   const expectedAmount = Number(planRow.price_monthly ?? 0);
   if (Number.isFinite(expectedAmount) && expectedAmount > 0 && amount !== expectedAmount) {
     logError('Subscription payment amount mismatch', {
@@ -471,65 +487,49 @@ async function processSubscriptionPayment(externalReference: string, paymentData
     return;
   }
 
-  const { data: subscription, error: subscriptionError } = await admin
-    .from('subscriptions')
-    .upsert(
-      {
-        user_id: resolvedUserId,
-        vertical_id: vehiclesVerticalId,
-        plan_id: planRow.id,
-        status: 'active',
-        current_period_start: periodStart.toISOString(),
-        current_period_end: periodEnd.toISOString(),
-        cancel_at_period_end: false,
-        metadata: {
-          provider: 'mercadopago',
-          plan_key: resolvedPlanKey,
-          external_reference: externalReference,
-          mercadopago_payment_id: externalPaymentId,
-        },
-      },
-      { onConflict: 'user_id,vertical_id' }
-    )
-    .select()
-    .single();
+  const metadataPayload = JSON.stringify({
+    provider: 'mercadopago',
+    plan_key: resolvedPlanKey,
+    external_reference: externalReference,
+    mercadopago_payment_id: externalPaymentId,
+  });
 
-  if (subscriptionError || !subscription) {
-    logError('Error creating/updating subscription', subscriptionError || { externalReference });
-    throw subscriptionError;
-  }
-
-  const { data: existingPayment, error: fetchPaymentError } = await admin
-    .from('payments')
-    .select('id')
-    .eq('external_id', externalPaymentId)
-    .maybeSingle();
-
-  if (fetchPaymentError) {
-    logError('Error checking existing payment record', fetchPaymentError);
-    throw fetchPaymentError;
-  }
-
-  if (!existingPayment) {
-    const { error: paymentError } = await admin.from('payments').insert({
-      user_id: resolvedUserId,
-      subscription_id: subscription.id,
-      amount,
-      currency,
-      status: paymentData.status ?? 'approved',
-      payment_method: paymentData.payment_type_id ?? paymentData.payment_method_id ?? 'mercadopago',
-      external_id: externalPaymentId,
-      description: paymentData.description ?? `Suscripción ${planRow.name}`,
-    });
-
-    if (paymentError) {
-      logError('Error creating subscription payment record', paymentError);
-      throw paymentError;
-    }
-  }
-
-  logInfo(
-    `Suscripción registrada: user ${resolvedUserId}, plan ${resolvedPlanKey}, vence ${periodEnd.toISOString()}`
+  const upsertSub = await db.query(
+    `INSERT INTO subscriptions
+      (user_id, vertical_id, plan_id, status, current_period_start, current_period_end, cancel_at_period_end, metadata)
+     VALUES ($1,$2,$3,'active',$4,$5,false,$6::jsonb)
+     ON CONFLICT (user_id, vertical_id)
+     DO UPDATE SET
+       plan_id = EXCLUDED.plan_id,
+       status = EXCLUDED.status,
+       current_period_start = EXCLUDED.current_period_start,
+       current_period_end = EXCLUDED.current_period_end,
+       cancel_at_period_end = EXCLUDED.cancel_at_period_end,
+       metadata = EXCLUDED.metadata
+     RETURNING id`,
+    [resolvedUserId, vehiclesVerticalId, planRow.id, periodStart.toISOString(), periodEnd.toISOString(), metadataPayload]
   );
-}
+  const subscriptionId = upsertSub.rows[0]?.id;
+  if (!subscriptionId) return;
 
+  const existingPayment = await db.query(`SELECT id FROM payments WHERE external_id = $1 LIMIT 1`, [externalPaymentId]);
+  if (!existingPayment.rows[0]?.id) {
+    await db.query(
+      `INSERT INTO payments
+       (user_id, subscription_id, amount, currency, status, payment_method, external_id, description)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8)`,
+      [
+        resolvedUserId,
+        subscriptionId,
+        amount,
+        paymentData.currency_id ?? planRow.currency ?? 'CLP',
+        paymentData.status ?? 'approved',
+        paymentData.payment_type_id ?? paymentData.payment_method_id ?? 'mercadopago',
+        externalPaymentId,
+        paymentData.description ?? `Suscripción ${planRow.name}`,
+      ]
+    );
+  }
+
+  logInfo(`Suscripción registrada: user ${resolvedUserId}, plan ${resolvedPlanKey}, vence ${periodEnd.toISOString()}`);
+}

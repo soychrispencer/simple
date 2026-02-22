@@ -3,7 +3,6 @@
 import { useState } from 'react';
 import type { BoostSlotKey, BoostDuration } from '@/lib/pricing';
 import type { SubscriptionPlan } from '@/lib/mercadopago';
-import { useSupabase } from '@/lib/supabase/useSupabase';
 
 interface BoostPaymentData {
   slotId?: string;
@@ -27,7 +26,6 @@ type PaymentData =
   | { type: 'subscription'; data: SubscriptionPaymentData };
 
 export function useMercadoPago() {
-  const supabase = useSupabase();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -36,8 +34,10 @@ export function useMercadoPago() {
     setError(null);
 
     try {
-      const { data: sessionData } = await supabase?.auth?.getSession?.();
-      const accessToken: string | undefined = sessionData?.session?.access_token;
+      const accessToken =
+        typeof window !== 'undefined'
+          ? String(localStorage.getItem('simple_access_token') || '').trim() || undefined
+          : undefined;
 
       const response = await fetch('/api/payments/create', {
         method: 'POST',

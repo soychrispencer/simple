@@ -4,7 +4,6 @@
 
 Plataforma web para compra, venta, arriendo y subasta de vehículos en Chile. Base para un futuro ecosistema de verticales (SimpleTiendas, SimplePropiedades, etc.).
 
-[![Next.js](https://img.shields.io/badge/Next.js-16-black)](https://nextjs.org/) [![React](https://img.shields.io/badge/React-19-blue)](https://react.dev/) [![TypeScript](https://img.shields.io/badge/TypeScript-5-blue)](https://www.typescriptlang.org/) [![Supabase](https://img.shields.io/badge/Supabase-Latest-green)](https://supabase.com/)
 
 ---
 
@@ -49,7 +48,6 @@ Plataforma web para compra, venta, arriendo y subasta de vehículos en Chile. Ba
 
 ### Arquitectura y Componentes Clave
 - Contexto global de usuario único (`UserContext.tsx`).
-- Uploader y cropper de avatar/portada sincronizados con Supabase Storage.
 - Componentes desacoplados y reutilizables (`UserAvatar`, `Card`, `Header`, `Button`, etc.).
 - Formularios robustos y validados.
 - Tokens CSS globales para diseño consistente.
@@ -70,13 +68,11 @@ Plataforma web para compra, venta, arriendo y subasta de vehículos en Chile. Ba
 - [x] Refactor para evitar duplicidad y facilitar mantenimiento
 - [x] Sistema de perfiles completo (profiles, companies, social_links, schedules, reviews)
 - [x] Migración SQL limpia con RLS policies
-- [x] API de vehículos conectado a Supabase (/api/vehicles)
 - [x] Panel de publicaciones muestra datos reales
 - [x] Corrección de mapeo de columnas (owner_id, public_name, description)
 
 #### En progreso / Pendiente 🚧
 - [ ] Implementar edición de vehículos en panel
-- [ ] Implementar duplicar vehículos (POST a Supabase)
 - [ ] Métricas reales (vistas, clics) en publicaciones
 - [ ] Filtros y búsqueda en panel de publicaciones
 - [ ] Terminar todas las integraciones de perfil público
@@ -87,7 +83,6 @@ Plataforma web para compra, venta, arriendo y subasta de vehículos en Chile. Ba
 ## 🛠️ Stack Tecnológico
 
 **Frontend**: Next.js 16 (App Router) · React 19 · TypeScript 5 · Tailwind CSS 3
-**Backend**: Supabase (PostgreSQL + Auth + Storage + Realtime)
 **Tools**: ESLint · Swiper · React Hot Toast · Lucide Icons
 
 ---
@@ -107,11 +102,9 @@ npm install
 
 ### 3. Configurar entorno
 ```bash
-# Opción A: copiar y editar (solo para esta app)
-cp apps/simpleautos/.env.example apps/simpleautos/.env.local
-
-# Opción B (Windows): propagar variables a backend + apps desde el root
-npm run env:setup
+# Fuente central en root (recomendado)
+cp .env.example .env
+npm run env:setup -- --force
 ```
 
 ### 4. Iniciar desarrollo
@@ -132,10 +125,6 @@ Aplicación disponible en `http://localhost:3001`
 ### Variables de Entorno Requeridas
 
 ```env
-# Supabase
-NEXT_PUBLIC_SUPABASE_URL=your_supabase_url
-NEXT_PUBLIC_SUPABASE_ANON_KEY=your_anon_key
-SUPABASE_SERVICE_ROLE_KEY=your_service_role_key
 
 # Email (Resend)
 RESEND_API_KEY=your_resend_key
@@ -159,7 +148,6 @@ SMTP_FROM=
 LEADS_NOTIFY_TO=
 ```
 
-### Configuración de Supabase
 
 #### Storage Buckets (públicos):
 - `avatars` - Avatares de usuarios
@@ -177,7 +165,6 @@ LEADS_NOTIFY_TO=
 
 ### Esquema Completo
 El esquema completo con tablas, índices, RLS policies y funciones está en:
-`backend/supabase/migrations/*_baseline_schema.sql`
 
 ### Tablas Principales
 
@@ -215,7 +202,6 @@ Todas las tablas tienen Row Level Security habilitado:
 - **SELECT**: Dueño O perfiles públicos con `username IS NOT NULL`
 
 ### Migración
-Archivo (baseline actual para referencia): `backend/supabase/migrations/*_baseline_schema.sql`
 - DROP de tablas antiguas (español)
 - CREATE de tablas nuevas (inglés)
 - Índices para performance
@@ -224,7 +210,6 @@ Archivo (baseline actual para referencia): `backend/supabase/migrations/*_baseli
 
 ### Seeds
 Datos iniciales (catálogo/verticales/etc.) están versionados como migración:
-`backend/supabase/migrations/*_baseline_seed.sql`
 
 ### Datos Iniciales Incluidos
 - 16 regiones chilenas
@@ -247,9 +232,7 @@ Simple/
 │       ├── .env.example
 │       └── README.md
 ├── backend/
-│   └── supabase/
 │       └── migrations/             # Baselines (schema + seed) para referencia
-├── scripts/                        # Utilidades (seed, supabase, etc.)
 └── docs/                           # Guías del ecosistema (ver docs/README.md)
 ```
 
@@ -307,7 +290,6 @@ export async function myAction(data: FormData) {
    - Backup y control de versiones en GitHub
    - Eliminar código y dependencias obsoletas
 
-2. **Migración a Supabase**
    - Crear y versionar migraciones
    - Separar entornos dev/prod
    - Mantener seeds solo en local
@@ -361,8 +343,6 @@ Cuando despliegues la aplicación, **recuerda cambiar** el parámetro `redirect_
 - Estados de carga para evitar flash de mensajes
 
 ### Áreas de Mejora Identificadas ⚠️
-- Falta implementar RLS policies en Supabase (ya implementado)
-- OAuth (Google): requiere configuración en Supabase (ya está cableado en UI)
 - Validación de RUT chileno mejorable
 - Accesibilidad (aria-labels, lectores de pantalla)
 - Sistema de pagos para slots de impulso no implementado
@@ -380,11 +360,8 @@ Cuando despliegues la aplicación, **recuerda cambiar** el parámetro `redirect_
 ## 🔐 OAuth (Google)
 
 ### Estado
-- ✅ UI: botón conectado (Google) vía `supabase.auth.signInWithOAuth`
 - ✅ Callback/confirm: `/auth/confirm` soporta `code` (PKCE) y `access_token`
-- ⚠️ Falta: habilitar proveedores y redirects en Supabase (Dashboard)
 
-### Configuración en Supabase (obligatorio)
 En `Auth → Providers`:
 - Activa **Google** y configura `Client ID` + `Client Secret`.
 
@@ -397,7 +374,6 @@ En `Auth → URL Configuration`:
 
 
 ### Alternativa popular (sin programa de pago)
-Si quieres otro proveedor social además de Google, una opción muy común y gratuita es **GitHub OAuth** (Supabase lo soporta nativamente en `Auth → Providers`).
 
 ---
 
@@ -405,17 +381,14 @@ Si quieres otro proveedor social además de Google, una opción muy común y gra
 
 ### Estado Actual
 - ✅ **Código frontend**: Ya implementado correctamente en `PersonalDataForm.tsx`
-- ✅ **Variables de entorno**: Configuradas en `.env.local`
-- ❌ **Problema**: Supabase no tiene SMTP configurado → no envía correos
+- ✅ **Variables de entorno**: Configuradas desde `.env` central
 
 ### Funcionamiento del Flujo
-1. **Registro de usuario (`signUp`)**: Supabase envía automáticamente un correo de verificación
 2. **Cambio de correo (`updateUser`)**: Requiere confirmación del nuevo email
 
 ### Configuración SMTP (Obligatorio)
 
 #### Opción Recomendada: Gmail (Desarrollo Rápido)
-1. Ve a: `https://app.supabase.com/project/[tu-project]/settings/auth`
 2. Scroll hasta "SMTP Settings"
 3. Activa "Enable Custom SMTP"
 4. Configura:
@@ -427,7 +400,6 @@ Si quieres otro proveedor social además de Google, una opción muy común y gra
    ```
 
 ### Email Templates
-Personalizar en Supabase Dashboard:
 - **Confirm signup**: Mensaje de bienvenida
 - **Email change**: Confirmación de cambio de correo
 - **Invite**: Invitaciones de usuario
@@ -543,7 +515,7 @@ SELECT increment_vehicle_metric('vehicle_id', 'metric_name');
 - ✅ RLS policies en todas las tablas
 - ✅ Validación frontend + backend
 - ✅ Sanitización de inputs
-- ✅ `.env.local` NO commitear
+- ✅ `.env` NO commitear
 - ✅ `service_role_key` solo en Server Actions
 
 ---
@@ -602,7 +574,6 @@ Variables CSS en `globals.css` para light/dark mode automático.
 
 #### Publicaciones no aparecen en panel
 **Causa:** Problema de autenticación con cookies del servidor en API routes.  
-**Solución:** Ahora usa Supabase client-side directamente (sin API route).
 
 #### Error "Could not find 'bio' column"
 **Causa:** Frontend usa nombres antiguos en español.  

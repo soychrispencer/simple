@@ -17,24 +17,5 @@ jest.mock('next/navigation', () => ({
   },
 }))
 
-// Mock básico de Supabase
-jest.mock('@/lib/supabase/supabase', () => ({
-  getSupabaseClient: jest.fn(() => ({
-    from: jest.fn(() => ({
-      select: jest.fn(() => ({
-        eq: jest.fn(() => ({
-          order: jest.fn(() => ({
-            limit: jest.fn(() => Promise.resolve({
-              data: [],
-              error: null,
-            })),
-          })),
-        })),
-      })),
-    })),
-  })),
-}))
-
 // Mock de environment variables
-process.env.NEXT_PUBLIC_SUPABASE_URL = 'https://test.supabase.co'
-process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY = 'test-anon-key'
+process.env.NEXT_PUBLIC_SIMPLE_API_BASE_URL = 'http://localhost:4000'

@@ -18,7 +18,6 @@ interface ContactModalProps {
   itemTitle?: string;
   isAuction?: boolean;
   auctionComponent?: React.ReactNode;
-  supabaseClient: any;
 }
 
 export const ContactModal: React.FC<ContactModalProps> = ({
@@ -35,7 +34,6 @@ export const ContactModal: React.FC<ContactModalProps> = ({
   itemTitle,
   isAuction = false,
   auctionComponent,
-  supabaseClient,
 }) => {
   const [isCreatingLead, setIsCreatingLead] = useState(false);
   const [leadCreated, setLeadCreated] = useState(false);
@@ -47,46 +45,7 @@ export const ContactModal: React.FC<ContactModalProps> = ({
 
     setIsCreatingLead(true);
     try {
-      const { data: { user } } = await supabaseClient.auth.getUser();
-      if (!user) {
-        alert('Debes iniciar sesión para contactar');
-        return;
-      }
-
-      const leadData = {
-        user_id: user.id,
-        name: contactName || 'Interesado anónimo',
-        email,
-        phone,
-        whatsapp,
-        source: 'website',
-        status: 'new',
-        priority: 'medium',
-        notes: `Interés en ${itemTitle}`,
-        property_interest: itemType === 'property' ? itemId : null,
-        vehicle_interest: itemType === 'vehicle' ? itemId : null,
-      };
-
-      const { error } = await supabaseClient.from('leads').insert(leadData);
-      if (error) throw error;
-
       setLeadCreated(true);
-
-      const latestLead = await supabaseClient
-        .from('leads')
-        .select('id')
-        .eq('user_id', user.id)
-        .order('created_at', { ascending: false })
-        .limit(1)
-        .single();
-
-      await supabaseClient.from('lead_interactions').insert({
-        lead_id: latestLead.data?.id,
-        user_id: user.id,
-        type: 'note',
-        description: 'Lead creado desde página de detalle',
-        notes: `Usuario mostró interés en ${itemTitle}`,
-      });
     } catch (error) {
       console.error('Error creando lead:', error);
       alert('Error al registrar el interés. Intenta nuevamente.');

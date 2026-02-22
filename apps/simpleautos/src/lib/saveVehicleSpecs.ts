@@ -1,4 +1,14 @@
-﻿import { createPagesBrowserClient } from '@supabase/auth-helpers-nextjs';
+import { upsertListing } from "@simple/sdk";
+
+function readAccessToken(): string | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const value = localStorage.getItem("simple_access_token");
+    return value && value.trim() ? value.trim() : null;
+  } catch {
+    return null;
+  }
+}
 
 export interface SaveSpecsParams {
   vehicleId: string;
@@ -12,51 +22,38 @@ export interface SaveSpecsResult {
 }
 
 export async function saveVehicleSpecs({ vehicleId, specs }: SaveSpecsParams): Promise<SaveSpecsResult> {
-  const supabase = createPagesBrowserClient();
+  const accessToken = readAccessToken();
+  if (!accessToken) return { ok: false, error: "No hay sesión activa" };
 
-  const { data: listingRow, error: fetchError } = await supabase
-    .from('listings')
-    .select('metadata')
-    .eq('id', vehicleId)
-    .maybeSingle();
-
-  if (fetchError) {
-    return { ok: false, error: fetchError.message };
+  try {
+    await upsertListing({
+      accessToken,
+      vertical: "autos",
+      listingId: vehicleId,
+      listing: { metadata: { specs } },
+      replaceImages: false
+    });
+    return { ok: true };
+  } catch (error: any) {
+    return { ok: false, error: String(error?.message || "No se pudo guardar specs") };
   }
-
-  const metadata = {
-    ...(listingRow?.metadata || {}),
-    specs,
-  };
-
-  const { error: updateError } = await supabase
-    .from('listings')
-    .update({ metadata, updated_at: new Date().toISOString() })
-    .eq('id', vehicleId);
-
-  if (updateError) {
-    return { ok: false, error: updateError.message };
-  }
-
-  return { ok: true };
 }
 
 export async function saveVehicleFeatures(vehicleId: string, featureCodes: string[]): Promise<SaveSpecsResult> {
-  const supabase = createPagesBrowserClient();
-  const payload = {
-    listing_id: vehicleId,
-    features: featureCodes,
-  };
+  const accessToken = readAccessToken();
+  if (!accessToken) return { ok: false, error: "No hay sesión activa" };
 
-  const { error } = await supabase
-    .from('listings_vehicles')
-    .upsert(payload, { onConflict: 'listing_id' });
-
-  if (error) {
-    return { ok: false, error: error.message };
+  try {
+    await upsertListing({
+      accessToken,
+      vertical: "autos",
+      listingId: vehicleId,
+      listing: {},
+      detail: { features: featureCodes },
+      replaceImages: false
+    });
+    return { ok: true };
+  } catch (error: any) {
+    return { ok: false, error: String(error?.message || "No se pudo guardar features") };
   }
-
-  return { ok: true };
 }
-
-

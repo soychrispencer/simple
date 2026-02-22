@@ -1,112 +1,151 @@
-﻿"use client";
+"use client";
 import React from "react";
 import ProfileCoverCropper from "./ProfileCoverCropper";
-import { IconPlus, IconX } from '@tabler/icons-react';
+import { IconPlus, IconX } from "@tabler/icons-react";
 import { useToast } from "../toast/ToastProvider";
-import { useSupabase } from "../../../lib/supabase";
 import { uploadPortada, deletePortada, getPortadaUrl } from "../../../lib/storage";
 import { useAuth } from "@simple/auth";
-// import duplicado eliminado
 
-export default function ProfileCoverUploader({ cropOpen, setCropOpen }: { cropOpen?: boolean, setCropOpen?: (open: boolean) => void }) {
+function resolveCoverUrl(path?: string | null): string | null {
+  const raw = String(path || "").trim();
+  if (!raw) return null;
+  if (raw.startsWith("http")) return raw;
+  return getPortadaUrl(null, raw);
+}
+
+export default function ProfileCoverUploader({
+  cropOpen,
+  setCropOpen,
+}: {
+  cropOpen?: boolean;
+  setCropOpen?: (open: boolean) => void;
+}) {
   const { addToast } = useToast();
-  const supabase = useSupabase();
   const { user, refresh } = useAuth();
   const [cover, setCover] = React.useState<{ url: string; blob: Blob | null } | null>(null);
   const [internalCropOpen, internalSetCropOpen] = React.useState(false);
-  // Si se pasan props externas, usarlas, si no, usar estado interno
-  const isControlled = typeof cropOpen === 'boolean' && typeof setCropOpen === 'function';
+  const isControlled = typeof cropOpen === "boolean" && typeof setCropOpen === "function";
   const open = isControlled ? cropOpen : internalCropOpen;
   const setOpen = isControlled ? setCropOpen! : internalSetCropOpen;
   const [src, setSrc] = React.useState<string | null>(null);
 
-  // Cargar cover actual al montar (cover_url)
   React.useEffect(() => {
+    let active = true;
     async function loadCover() {
-      const path = (user as any)?.cover_url;
-      if (path) {
-        const url = path.startsWith('http') ? path : (path ? getPortadaUrl(supabase, path) : null);
-        if (url) setCover({ url, blob: null });
+      const direct = resolveCoverUrl((user as any)?.cover_url);
+      if (direct) {
+        if (active) setCover({ url: direct, blob: null });
         return;
       }
 
-      if (!user?.id) return;
-      const { data } = await supabase
-        .from('public_profiles')
-        .select('cover_url')
-        .eq('owner_profile_id', user.id)
-        .maybeSingle();
-      const p = data?.cover_url;
-      if (!p) return;
-      const url = p.startsWith?.('http') ? p : getPortadaUrl(supabase, p);
-      if (url) setCover({ url, blob: null });
+      try {
+        const response = await fetch("/api/public-profile", { method: "GET", cache: "no-store" });
+        if (!response.ok) return;
+        const payload = await response.json().catch(() => ({} as Record<string, unknown>));
+        const path = String(((payload as any)?.profile?.cover_url || ""));
+        const resolved = resolveCoverUrl(path);
+        if (resolved && active) setCover({ url: resolved, blob: null });
+      } catch {
+        // silent
+      }
     }
-    loadCover();
-  }, [user?.cover_url, supabase, user]);
-
-  // Eliminado efecto de restauración desde localStorage
+    void loadCover();
+    return () => {
+      active = false;
+    };
+  }, [user]);
 
   const openFor = (file: File) => {
     const url = URL.createObjectURL(file);
     setSrc(url);
     setOpen(true);
   };
+
   const handleFile = (ev: React.ChangeEvent<HTMLInputElement>) => {
     const f = ev.target.files?.[0];
     if (f) openFor(f);
   };
+
   const onCropped = async (blob: Blob) => {
-    const url = URL.createObjectURL(blob);
-    const view = { url, blob };
-    if (cover?.url && typeof cover.url !== "string") URL.revokeObjectURL(cover.url);
-    setCover(view);
-    // Subir a Supabase y actualizar el perfil
+    const previewUrl = URL.createObjectURL(blob);
+    if (cover?.url && !cover.url.startsWith("http")) URL.revokeObjectURL(cover.url);
+    setCover({ url: previewUrl, blob });
+
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error("No autenticado");
-      const { data: publicProfile, error: publicErr } = await supabase
-        .from('public_profiles')
-        .select('id, cover_url, slug')
-        .eq('owner_profile_id', user.id)
-        .maybeSingle();
-      if (publicErr) throw new Error(publicErr.message);
-      const file = new File([blob], `portada-${user.id}.webp`, { type: 'image/webp' });
-      const path = await uploadPortada(supabase, file, user.id);
-      if (!path) {
-        throw new Error('No se recibió la ruta de la portada subida');
+      const userId = String((user as any)?.id || "").trim();
+      if (!userId) throw new Error("No autenticado");
+
+      let previousPath = "";
+      try {
+        const current = await fetch("/api/public-profile", { method: "GET", cache: "no-store" });
+        const currentPayload = await current.json().catch(() => ({} as Record<string, unknown>));
+        previousPath = String(((currentPayload as any)?.profile?.cover_url || ""));
+      } catch {
+        previousPath = "";
       }
 
-      if (publicProfile?.cover_url && publicProfile.cover_url !== path) {
-        await deletePortada(supabase, publicProfile.cover_url);
+      const file = new File([blob], `portada-${userId}.webp`, { type: "image/webp" });
+      const path = await uploadPortada(null, file, userId);
+      if (!path) throw new Error("No se pudo subir la portada");
+
+      const persist = await fetch("/api/public-profile", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "save_public",
+          cover_url: path,
+        }),
+      });
+      if (!persist.ok) throw new Error("No se pudo guardar la portada");
+
+      if (previousPath && previousPath !== path) {
+        await deletePortada(null, previousPath);
       }
 
-      if (publicProfile?.id) {
-        const { error: updateError } = await supabase
-          .from('public_profiles')
-          .update({ cover_url: path })
-          .eq('id', publicProfile.id);
-        if (updateError) throw updateError;
-      } else {
-        const slug = publicProfile?.slug || (user as any)?.username || user.id;
-        const { error: insertError } = await supabase
-          .from('public_profiles')
-          .insert({ owner_profile_id: user.id, profile_type: 'business', slug, cover_url: path });
-        if (insertError) throw insertError;
-      }
-
-      const publicUrl = path.startsWith('http') ? path : getPortadaUrl(supabase, path);
-      setCover({ url: publicUrl, blob: null });
-
+      const resolved = resolveCoverUrl(path);
+      if (resolved) setCover({ url: resolved, blob: null });
       if (typeof refresh === "function") {
         await refresh(true);
       }
       addToast("Portada actualizada", { type: "success" });
     } catch (err) {
-      const msg = err instanceof Error ? err.message : JSON.stringify(err);
-      console.error('cover upload error', err, { message: (err as any)?.message, status: (err as any)?.status, code: (err as any)?.code });
-      addToast(`Error al actualizar portada: ${msg}`, { type: "error" });
+      const msg = err instanceof Error ? err.message : "Error al actualizar portada";
+      addToast(msg, { type: "error" });
     }
   };
+
+  const handleDelete = async () => {
+    const currentPath =
+      cover?.url && !cover.url.startsWith("http") ? cover.url.replace(/^\/+/, "") : String((user as any)?.cover_url || "");
+
+    if (cover?.url && !cover.url.startsWith("http")) URL.revokeObjectURL(cover.url);
+    setCover(null);
+    setSrc(null);
+
+    try {
+      const persist = await fetch("/api/public-profile", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "save_public",
+          cover_url: null,
+        }),
+      });
+      if (!persist.ok) throw new Error("No se pudo eliminar la portada");
+
+      if (currentPath) {
+        await deletePortada(null, currentPath);
+      }
+      if (typeof refresh === "function") {
+        await refresh(true);
+      }
+      addToast("Eliminada con éxito", { type: "success" });
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "No se pudo eliminar";
+      addToast(msg, { type: "error" });
+    }
+  };
+
   return (
     <div className="absolute left-0 top-0 w-full z-10 flex flex-col items-center">
       <div className="w-full aspect-[32/10] md:aspect-[32/9] bg-[var(--field-bg)] overflow-hidden border border-[var(--field-border)] group relative rounded-[var(--card-radius)]">
@@ -118,58 +157,25 @@ export default function ProfileCoverUploader({ cropOpen, setCropOpen }: { cropOp
           </div>
         )}
       </div>
-      {/* Botón + en la esquina inferior derecha de la portada */}
-  	  <label className="absolute bottom-3 right-3 card-surface card-surface-raised bg-[var(--field-bg)] hover:bg-[var(--field-bg-hover)] text-[var(--field-text)] rounded-full w-8 h-8 flex items-center justify-center cursor-pointer transition-all duration-150 pointer-events-auto z-30">
+
+      <label className="absolute bottom-3 right-3 card-surface card-surface-raised bg-[var(--field-bg)] hover:bg-[var(--field-bg-hover)] text-[var(--field-text)] rounded-full w-8 h-8 flex items-center justify-center cursor-pointer transition-all duration-150 pointer-events-auto z-30">
         <input id="cover-file-inline" type="file" accept="image/*" className="hidden" onChange={handleFile} />
         <IconPlus size={16} className="text-[var(--field-text)]" />
       </label>
-      {/* Botón X para eliminar en la esquina superior derecha de la portada */}
-      {cover && (
+
+      {cover ? (
         <button
           type="button"
           className="absolute top-3 right-3 bg-[var(--color-danger)] hover:opacity-95 active:opacity-90 text-[var(--color-on-primary)] rounded-full w-7 h-7 flex items-center justify-center shadow-md transition-opacity duration-150 pointer-events-auto z-30"
-          onClick={async () => {
-            if (cover?.url && typeof cover.url !== "string") URL.revokeObjectURL(cover.url);
-            setCover(null);
-            // Eliminado almacenamiento local
-            setSrc(null);
-            try {
-              const { data: { user } } = await supabase.auth.getUser();
-              if (user) {
-                // Obtener el path actual de la portada
-                const { data, error } = await supabase
-                  .from('public_profiles')
-                  .select('id, cover_url')
-                  .eq('owner_profile_id', user.id)
-                  .maybeSingle();
-                if (error) throw error;
-                if (data?.cover_url) await deletePortada(supabase, data.cover_url);
-                if (data?.id) {
-                  await supabase.from('public_profiles').update({ cover_url: null }).eq('id', data.id);
-                }
-              }
-              } catch {}
-            addToast("Eliminada con éxito", { type: "success" });
-            // Para reflejar globalmente, un refreshAuth(true) externo puede emplearse si es necesario.
-          }}
+          onClick={handleDelete}
           aria-label="Eliminar portada"
         >
           <IconX size={13} />
         </button>
-      )}
-      <ProfileCoverCropper
-        open={open}
-        onClose={() => setOpen(false)}
-        imageSrc={src}
-        onCropped={onCropped}
-      />
+      ) : null}
+
+      <ProfileCoverCropper open={open} onClose={() => setOpen(false)} imageSrc={src} onCropped={onCropped} />
     </div>
   );
 }
-
-
-
-
-
-
 

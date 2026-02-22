@@ -4,62 +4,48 @@ import React from "react";
 import { useRouter } from "next/navigation";
 import { PanelPageLayout, Input } from "@simple/ui";
 import { Button, ProfileCoverUploader, useToast } from "@simple/ui";
+import {
+  getPlanCapabilitiesByPlan,
+  normalizeSubscriptionPlanId
+} from "@simple/config";
 import PublicPageForm from "@/components/panel/perfil/PublicPageForm";
 import { useAuth } from "@/context/AuthContext";
 import { IconEye, IconCheck, IconX, IconLoader, IconCircleCheck } from "@tabler/icons-react";
 import { logError } from "@/lib/logger";
 
 export default function PaginaPage() {
-  const { user, profile, refresh: refreshAuth, loading, supabase } = useAuth();
+  const { user, profile, refresh: refreshAuth, loading } = useAuth();
   const router = useRouter();
   const { addToast } = useToast();
   const [coverCropOpen, setCoverCropOpen] = React.useState(false);
 
   const [activePlanKey, setActivePlanKey] = React.useState<string>(() =>
-    String((profile as any)?.plan_key ?? 'free')
+    normalizeSubscriptionPlanId((profile as any)?.plan_key)
   );
 
   React.useEffect(() => {
     let cancelled = false;
 
     async function loadPlanKey() {
-      if (!supabase || !user?.id) return;
-
-      const { data: vehiclesVertical } = await supabase
-        .from('verticals')
-        .select('id')
-        .eq('key', 'vehicles')
-        .maybeSingle();
-
-      const vehiclesVerticalId = (vehiclesVertical as any)?.id as string | undefined;
-
-      let subQuery = supabase
-        .from('subscriptions')
-        .select('status, subscription_plans(plan_key)')
-        .eq('user_id', user.id)
-        .eq('status', 'active');
-
-      if (vehiclesVerticalId) {
-        subQuery = subQuery.eq('vertical_id', vehiclesVerticalId);
+      if (!user?.id) return;
+      try {
+        const response = await fetch("/api/vehicles?mode=subscription", { cache: "no-store" });
+        const payload = await response.json().catch(() => ({} as Record<string, unknown>));
+        const planKey = normalizeSubscriptionPlanId(String((payload as any)?.planKey || "free"));
+        if (!cancelled) setActivePlanKey(planKey);
+      } catch {
+        if (!cancelled) setActivePlanKey("free");
       }
-
-      const { data: activeSub } = await subQuery.maybeSingle();
-      const planSource = Array.isArray((activeSub as any)?.subscription_plans)
-        ? (activeSub as any)?.subscription_plans?.[0]
-        : (activeSub as any)?.subscription_plans;
-      const planKey = String(planSource?.plan_key ?? 'free');
-
-      if (!cancelled) setActivePlanKey(planKey);
     }
 
     void loadPlanKey();
     return () => {
       cancelled = true;
     };
-  }, [supabase, user?.id]);
+  }, [user?.id]);
 
-  const planKey = activePlanKey || String((profile as any)?.plan_key ?? 'free');
-  const canUsePublicPage = planKey !== 'free';
+  const planKey = activePlanKey || normalizeSubscriptionPlanId((profile as any)?.plan_key);
+  const canUsePublicPage = getPlanCapabilitiesByPlan(planKey).canUsePublicPage;
 
   const isPlaceholderUsername = React.useCallback((value?: string | null) => {
     if (!value) return false;
@@ -111,24 +97,24 @@ export default function PaginaPage() {
       if (!user?.id) return;
       // Si ya tenemos un slug real en memoria, no hacemos nada
       if (cleanedPublicSlug || cleanedUserUsername) return;
-      const { data, error } = await supabase
-        .from("public_profiles")
-        .select("id, slug")
-        .eq("owner_profile_id", user.id)
-        .maybeSingle();
 
-      if (error || !data?.id) return;
+      const response = await fetch("/api/public-profile?mode=mine", { cache: "no-store" });
+      const payload = await response.json().catch(() => ({} as Record<string, unknown>));
+      if (!response.ok) return;
+
+      const profileRow = (payload as any)?.profile;
+      if (!profileRow?.id) return;
       setShowBuilder(true);
 
-      const dbSlug = (data as any)?.slug as string | null | undefined;
+      const dbSlug = profileRow?.slug as string | null | undefined;
       if (!dbSlug || isPlaceholderUsername(dbSlug)) return;
       setAvailableUsername(dbSlug);
       setUsernameInput(dbSlug);
       setUsernameStatus("available");
       setUsernameMessage(null);
     }
-    restoreSlug();
-  }, [cleanedPublicSlug, cleanedUserUsername, isPlaceholderUsername, supabase, user?.id, user?.public_profile?.slug, user?.username]);
+    void restoreSlug();
+  }, [cleanedPublicSlug, cleanedUserUsername, isPlaceholderUsername, user?.id, user?.public_profile?.slug, user?.username]);
 
   const handleCheckUsername = React.useCallback(async () => {
     const candidate = usernameInput.trim().toLowerCase();
@@ -141,38 +127,25 @@ export default function PaginaPage() {
       return;
     }
 
-    if (!supabase) {
-      setUsernameStatus("unavailable");
-      setUsernameMessage("No pudimos validar ahora. Intenta de nuevo.");
-      setAvailableUsername(null);
-      return;
-    }
-
     setUsernameStatus("checking");
     setUsernameMessage(null);
     setAvailableUsername(null);
 
     try {
-      let query = supabase
-        .from("public_profiles")
-        .select("id, owner_profile_id")
-        .eq("slug", candidate)
-        .limit(1);
-
-      if (user?.id) {
-        query = query.neq("owner_profile_id", user.id);
-      }
-
-      const { data, error } = await query.maybeSingle();
-
-      if (error) {
-        logError("Username check error", error);
+      const response = await fetch(
+        `/api/public-profile?mode=username-check&username=${encodeURIComponent(candidate)}`,
+        { cache: "no-store" }
+      );
+      const payload = await response.json().catch(() => ({} as Record<string, unknown>));
+      if (!response.ok) {
+        logError("Username check error", payload);
         setUsernameStatus("unavailable");
         setUsernameMessage("No pudimos validar ahora. Intenta de nuevo.");
         return;
       }
 
-      if (data) {
+      const available = Boolean((payload as any)?.available);
+      if (!available) {
         setUsernameStatus("unavailable");
         setUsernameMessage("Nombre de usuario no disponible.");
       } else {
@@ -185,7 +158,7 @@ export default function PaginaPage() {
       setUsernameStatus("unavailable");
       setUsernameMessage("No pudimos validar ahora. Intenta de nuevo.");
     }
-  }, [supabase, user?.id, usernameInput]);
+  }, [usernameInput]);
 
   const usernameIcon = usernameStatus === "available"
     ? <IconCheck size={16} className="text-[var(--color-success)]" />
@@ -203,33 +176,24 @@ export default function PaginaPage() {
   const handleStartBuilder = React.useCallback(async () => {
     const hasRealUsername = !!user?.username && !isPlaceholderUsername(user?.username);
     if ((usernameStatus !== "available" && !hasRealUsername) || creatingPage) return;
-    if (!supabase || !user?.id) return;
+    if (!user?.id) return;
 
     const slug = ((hasRealUsername ? user?.username : "") || availableUsername || usernameInput).trim().toLowerCase();
     if (!slug) return;
 
     try {
       setCreatingPage(true);
-      const { data: existing, error: fetchError } = await supabase
-        .from("public_profiles")
-        .select("id")
-        .eq("owner_profile_id", user.id)
-        .maybeSingle();
-      if (fetchError) throw new Error(fetchError.message);
-
-      if (!existing?.id) {
-        const { error: insertError } = await supabase
-          .from("public_profiles")
-          .insert({ owner_profile_id: user.id, profile_type: "business", slug })
-          .select("id")
-          .single();
-        if (insertError) throw new Error(insertError.message);
-      } else {
-        const { error: updateError } = await supabase
-          .from("public_profiles")
-          .update({ slug })
-          .eq("id", existing.id);
-        if (updateError) throw new Error(updateError.message);
+      const response = await fetch("/api/public-profile", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "save_slug",
+          username: slug,
+        }),
+      });
+      const payload = await response.json().catch(() => ({} as Record<string, unknown>));
+      if (!response.ok) {
+        throw new Error(String((payload as any)?.error || "No se pudo guardar el nombre de usuario"));
       }
 
       setShowBuilder(true);
@@ -241,7 +205,7 @@ export default function PaginaPage() {
     } finally {
       setCreatingPage(false);
     }
-  }, [addToast, availableUsername, creatingPage, isPlaceholderUsername, refreshAuth, supabase, user?.id, user?.username, usernameInput, usernameStatus]);
+  }, [addToast, availableUsername, creatingPage, isPlaceholderUsername, refreshAuth, user?.id, user?.username, usernameInput, usernameStatus]);
 
   const handleViewPage = React.useCallback(() => {
     if (!effectiveUsername) return;

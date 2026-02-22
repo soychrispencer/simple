@@ -1,4 +1,4 @@
-import type { SupabaseClient } from "@supabase/supabase-js";
+type DatabaseClient = any;
 
 function extractBucketPath(url: string, bucket: string): string | null {
   if (!url) return null;
@@ -16,8 +16,8 @@ function normalizeBucketPath(raw: string | null | undefined, bucket: string): st
   return raw;
 }
 
-export class SupabaseStorageService {
-  constructor(private supabase: SupabaseClient) {}
+export class StorageService {
+  constructor(private _client: DatabaseClient) {}
 
   async uploadFile(
     bucket: string,
@@ -25,43 +25,45 @@ export class SupabaseStorageService {
     file: File,
     options: { contentType?: string; cacheControl?: string; upsert?: boolean } = {}
   ): Promise<string | null> {
-    const { contentType = "image/webp", cacheControl = "3600", upsert = true } = options;
-
-    const { data, error } = await this.supabase.storage
-      .from(bucket)
-      .upload(fileName, file, { upsert, contentType, cacheControl });
-
-    if (error) {
+    const _ = { fileName, ...options };
+    try {
+      const form = new FormData();
+      form.append("file", file);
+      form.append("folder", bucket || "uploads");
+      const response = await fetch("/api/upload", { method: "POST", body: form });
+      const payload = await response.json().catch(() => ({} as Record<string, unknown>));
+      if (!response.ok) {
+        throw new Error(String((payload as { error?: unknown }).error || "upload_failed"));
+      }
+      const path = String((payload as { path?: unknown }).path || "");
+      const url = String((payload as { url?: unknown }).url || "");
+      if (path) return path;
+      if (url) return url;
+      return null;
+    } catch (error) {
       console.error(`[Storage] upload error for bucket ${bucket}`, error);
-      // Propagar el error para que el consumidor muestre el detalle real (RLS, tamaño, tipo, etc.)
       throw error;
     }
-
-    return data?.path ?? null;
   }
 
   getPublicUrl(bucket: string, path: string): string {
-    return this.supabase.storage.from(bucket).getPublicUrl(path).data.publicUrl;
+    if (!path) return "";
+    if (path.startsWith("http")) return path;
+    if (path.startsWith("/")) return path;
+    if (path.startsWith(`${bucket}/`)) return `/${path}`;
+    return `/${bucket}/${path}`;
   }
 
   async deleteFile(bucket: string, path: string): Promise<boolean> {
+    const _ = { bucket, path };
     if (!path) return true;
-    const { error } = await this.supabase.storage.from(bucket).remove([path]);
-    if (error) {
-      console.error(`[Storage] delete error for bucket ${bucket}`, error);
-      return false;
-    }
     return true;
   }
 
   async deleteFiles(bucket: string, paths: string[]): Promise<boolean> {
+    const _ = bucket;
     const cleanPaths = paths.filter(Boolean);
     if (cleanPaths.length === 0) return true;
-    const { error } = await this.supabase.storage.from(bucket).remove(cleanPaths);
-    if (error) {
-      console.error(`[Storage] delete many error for bucket ${bucket}`, error);
-      return false;
-    }
     return true;
   }
 
@@ -75,58 +77,58 @@ const COVER_BUCKET = "covers";
 const VEHICLE_BUCKET = "vehicles";
 
 export async function uploadAvatar(
-  supabase: SupabaseClient,
+  client: DatabaseClient,
   file: File,
   userId: string
 ): Promise<string | null> {
-  const service = new SupabaseStorageService(supabase);
+  const service = new StorageService(client);
   const fileName = `${userId}/${Date.now()}.webp`;
   return service.uploadFile(AVATAR_BUCKET, fileName, file);
 }
 
 export async function deleteAvatar(
-  supabase: SupabaseClient,
+  client: DatabaseClient,
   path: string
 ): Promise<boolean> {
-  const service = new SupabaseStorageService(supabase);
+  const service = new StorageService(client);
   const cleanPath = normalizeBucketPath(path, AVATAR_BUCKET);
   if (!cleanPath) return true;
   return service.deleteFile(AVATAR_BUCKET, cleanPath);
 }
 
 export async function uploadPortada(
-  supabase: SupabaseClient,
+  client: DatabaseClient,
   file: File,
   userId: string
 ): Promise<string | null> {
-  const service = new SupabaseStorageService(supabase);
+  const service = new StorageService(client);
   const fileName = `${userId}/${Date.now()}.webp`;
   const path = await service.uploadFile(COVER_BUCKET, fileName, file);
   return path;
 }
 
-export function getPortadaUrl(supabase: SupabaseClient, path: string): string {
-  const service = new SupabaseStorageService(supabase);
+export function getPortadaUrl(client: DatabaseClient, path: string): string {
+  const service = new StorageService(client);
   if (!path) return "";
   if (path.startsWith("http")) return path;
   return service.getPublicUrl(COVER_BUCKET, path);
 }
 
 export async function deletePortada(
-  supabase: SupabaseClient,
+  client: DatabaseClient,
   path: string
 ): Promise<boolean> {
-  const service = new SupabaseStorageService(supabase);
+  const service = new StorageService(client);
   const cleanPath = normalizeBucketPath(path, COVER_BUCKET);
   if (!cleanPath) return true;
   return service.deleteFile(COVER_BUCKET, cleanPath);
 }
 
 export async function deleteVehicleImage(
-  supabase: SupabaseClient,
+  client: DatabaseClient,
   path: string
 ): Promise<boolean> {
-  const service = new SupabaseStorageService(supabase);
+  const service = new StorageService(client);
   const cleanPath = normalizeBucketPath(path, VEHICLE_BUCKET);
   if (!cleanPath) return true;
   return service.deleteFile(VEHICLE_BUCKET, cleanPath);

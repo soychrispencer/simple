@@ -2,37 +2,14 @@
 import React from "react";
 import { Button } from "@simple/ui";
 import { PanelPageLayout } from "@simple/ui";
-import { useSupabase } from "@/lib/supabase/useSupabase";
 import { Select, LineChart } from "@simple/ui";
 import { IconEye, IconPhone, IconBookmark, IconShare, IconTrendingUp, IconChartBar, IconChartLine } from '@tabler/icons-react';
 import { useListingsScope } from "@simple/listings";
 import { logError } from "@/lib/logger";
 import { usePanelCapabilities } from "@/lib/panelCapabilities";
 
-const AUTOS_VERTICAL_KEYS = ["vehicles", "autos"] as const;
-const AUTOS_VERTICAL_FILTER = [...AUTOS_VERTICAL_KEYS];
-
 type PeriodFilter = 'all' | 'week' | 'month' | 'year';
 type VehicleFilter = 'all' | 'car' | 'motorcycle' | 'truck';
-
-type ListingRow = {
-  id: string;
-  title: string | null;
-  price: number | null;
-  status: string;
-  published_at: string | null;
-  created_at: string | null;
-  listing_metrics?:
-    | { views?: number | null; clicks?: number | null; favorites?: number | null; shares?: number | null }
-    | { views?: number | null; clicks?: number | null; favorites?: number | null; shares?: number | null }[]
-    | null;
-  listings_vehicles?: {
-    vehicle_type_id?: string | null;
-    vehicle_types?: { slug?: string | null } | null;
-  } | null;
-  metadata?: Record<string, any> | null;
-  images?: { url?: string | null; position?: number | null; is_primary?: boolean | null }[] | null;
-};
 
 type Metrics = {
   views: number;
@@ -40,6 +17,17 @@ type Metrics = {
   favorites: number;
   shares: number;
   conversionRate: number;
+};
+
+type StatsApiPayload = {
+  metrics?: Metrics;
+  previousMetrics?: Omit<Metrics, 'conversionRate'>;
+  bars?: number[];
+  barLabels?: string[];
+  chartData?: number[];
+  chartLabels?: string[];
+  recentVehicles?: any[];
+  error?: string;
 };
 
 const BAR_HEIGHT_CLASS: Record<number, string> = {
@@ -75,81 +63,8 @@ function toBarHeightClass(value: number, maxValue: number) {
   return BAR_HEIGHT_CLASS[bucket] ?? BAR_HEIGHT_CLASS[0];
 }
 
-function getPeriodStart(period: PeriodFilter): Date | null {
-  if (period === 'all') return null;
-  const now = new Date();
-  if (period === 'week') {
-    return new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-  }
-  if (period === 'month') {
-    return new Date(now.getFullYear(), now.getMonth() - 1, now.getDate());
-  }
-  return new Date(now.getFullYear() - 1, now.getMonth(), now.getDate());
-}
-
-function getPreviousRange(period: PeriodFilter): { start: Date; end: Date } | null {
-  if (period === 'all') return null;
-  const now = new Date();
-  if (period === 'week') {
-    const end = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-    const start = new Date(now.getTime() - 14 * 24 * 60 * 60 * 1000);
-    return { start, end };
-  }
-  if (period === 'month') {
-    const end = new Date(now.getFullYear(), now.getMonth() - 1, now.getDate());
-    const start = new Date(now.getFullYear(), now.getMonth() - 2, now.getDate());
-    return { start, end };
-  }
-  const end = new Date(now.getFullYear() - 1, now.getMonth(), now.getDate());
-  const start = new Date(now.getFullYear() - 2, now.getMonth(), now.getDate());
-  return { start, end };
-}
-
-function normalizeMetrics(metrics?: ListingRow['listing_metrics']) {
-  const resolved = Array.isArray(metrics) ? metrics[0] : metrics;
-  return {
-    views: typeof resolved?.views === 'number' ? resolved.views : 0,
-    clicks: typeof resolved?.clicks === 'number' ? resolved.clicks : 0,
-    favorites: typeof resolved?.favorites === 'number' ? resolved.favorites : 0,
-    shares: typeof resolved?.shares === 'number' ? resolved.shares : 0,
-  };
-}
-
-function aggregateMetrics(rows: ListingRow[]) {
-  return rows.reduce(
-    (acc, row) => {
-      const metrics = normalizeMetrics(row.listing_metrics);
-      acc.views += metrics.views;
-      acc.contacts += metrics.clicks;
-      acc.favorites += metrics.favorites;
-      acc.shares += metrics.shares;
-      return acc;
-    },
-    { views: 0, contacts: 0, favorites: 0, shares: 0 }
-  );
-}
-
-function matchesVehicleFilter(row: ListingRow, filter: VehicleFilter) {
-  if (filter === 'all') return true;
-  const slug = row.listings_vehicles?.vehicle_types?.slug ?? row.metadata?.type_key ?? null;
-  if (!slug) return false;
-  return slug === filter;
-}
-
-function sortImages(images?: ListingRow['images']) {
-  if (!Array.isArray(images)) return [];
-  return [...images]
-    .filter((img): img is { url: string; position?: number | null; is_primary?: boolean | null } => !!img?.url)
-    .sort((a, b) => {
-      if (!!a.is_primary === !!b.is_primary) {
-        return (a.position ?? 0) - (b.position ?? 0);
-      }
-      return a.is_primary ? -1 : 1;
-    });
-}
 
 export default function Estadisticas(): React.ReactElement {
-  const supabase = useSupabase();
   const { user, scopeFilter, loading: scopeLoading } = useListingsScope({ verticalKey: 'autos' });
   const { capabilities, loading: capabilitiesLoading } = usePanelCapabilities();
   const canViewStats = capabilities?.hasGrowth ?? false;
@@ -178,7 +93,7 @@ export default function Estadisticas(): React.ReactElement {
   const [vehicleType, setVehicleType] = React.useState<VehicleFilter>('all');
 
   const fetchMetrics = React.useCallback(async () => {
-    if (!supabase || scopeLoading || capabilitiesLoading) return;
+    if (scopeLoading || capabilitiesLoading) return;
     if (!canViewStats) {
       setMetrics({ views: 0, contacts: 0, favorites: 0, shares: 0, conversionRate: 0 });
       setPreviousMetrics({ views: 0, contacts: 0, favorites: 0, shares: 0 });
@@ -206,130 +121,25 @@ export default function Estadisticas(): React.ReactElement {
     setLoading(true);
 
     try {
-      const periodStart = getPeriodStart(period);
-      let listingsQuery = supabase
-        .from('listings')
-        .select(`
-          id,
-          title,
-          price,
-          status,
-          published_at,
-          created_at,
-          metadata,
-          listing_metrics(views, clicks, favorites, shares),
-          listings_vehicles(vehicle_type_id, vehicle_types(slug)),
-          images:images(url, position, is_primary),
-          verticals!inner(key)
-        `)
-        .eq(scopeFilter.column, scopeFilter.value)
-        .in('verticals.key', AUTOS_VERTICAL_FILTER);
-
-      if (periodStart) {
-        listingsQuery = listingsQuery.gte('published_at', periodStart.toISOString());
-      }
-
-      const { data: listingsData, error } = await listingsQuery;
-      if (error) throw error;
-
-      const filteredListings = (listingsData || []).filter((row: ListingRow) => matchesVehicleFilter(row, vehicleType));
-      const aggregates = aggregateMetrics(filteredListings);
-      const conversionRate = aggregates.views > 0 ? (aggregates.contacts / aggregates.views) * 100 : 0;
-
-      setMetrics({
-        views: aggregates.views,
-        contacts: aggregates.contacts,
-        favorites: aggregates.favorites,
-        shares: aggregates.shares,
-        conversionRate,
+      const params = new URLSearchParams({
+        period,
+        vehicleType,
+        scopeColumn: scopeFilter.column,
+        scopeValue: scopeFilter.value,
       });
-
-      type EnrichedVehicle = {
-        id: string;
-        title: string;
-        published_at: string | null;
-        price: number;
-        views: number;
-        clicks: number;
-        favorites: number;
-        shares: number;
-        cover: string | null;
-      };
-
-      const enrichedVehicles: EnrichedVehicle[] = filteredListings
-        .map((row: ListingRow): EnrichedVehicle => {
-          const metrics = normalizeMetrics(row.listing_metrics);
-          const orderedImages = sortImages(row.images);
-          return {
-            id: row.id,
-            title: row.title || 'Sin título',
-            published_at: row.published_at,
-            price: row.price ?? 0,
-            views: metrics.views,
-            clicks: metrics.clicks,
-            favorites: metrics.favorites,
-            shares: metrics.shares,
-            cover: orderedImages[0]?.url || null,
-          };
-        })
-        .sort((a: EnrichedVehicle, b: EnrichedVehicle) => {
-          const dateA = a.published_at ? new Date(a.published_at).getTime() : 0;
-          const dateB = b.published_at ? new Date(b.published_at).getTime() : 0;
-          return dateB - dateA;
-        });
-
-      setRecentVehicles(enrichedVehicles);
-      setBars(enrichedVehicles.slice(0, 7).map((v: EnrichedVehicle) => v.views));
-      setBarLabels(enrichedVehicles.slice(0, 7).map((v: EnrichedVehicle) => v.title));
-
-      const chartStart = new Date();
-      chartStart.setDate(chartStart.getDate() - 13);
-      const chartBuckets = new Map<string, number>();
-      enrichedVehicles.forEach((vehicle: EnrichedVehicle) => {
-        if (!vehicle.published_at) return;
-        const publishedDate = new Date(vehicle.published_at);
-        if (publishedDate < chartStart) return;
-        const key = publishedDate.toISOString().split('T')[0];
-        chartBuckets.set(key, (chartBuckets.get(key) || 0) + vehicle.views);
-      });
-
-      const nextChartData: number[] = [];
-      const nextChartLabels: string[] = [];
-      for (let i = 13; i >= 0; i--) {
-        const date = new Date();
-        date.setDate(date.getDate() - i);
-        const key = date.toISOString().split('T')[0];
-        nextChartData.push(chartBuckets.get(key) || 0);
-        nextChartLabels.push(date.toLocaleDateString('es-ES', { month: 'short', day: 'numeric' }));
+      const response = await fetch(`/api/vehicles/stats?${params.toString()}`, { cache: 'no-store' });
+      const payload = await response.json().catch(() => ({} as StatsApiPayload));
+      if (!response.ok) {
+        throw new Error(payload?.error || 'stats_fetch_failed');
       }
-      setChartData(nextChartData);
-      setChartLabels(nextChartLabels);
 
-      const previousRange = getPreviousRange(period);
-      if (previousRange) {
-        let previousQuery = supabase
-          .from('listings')
-          .select(`
-            id,
-            listing_metrics(views, clicks, favorites, shares),
-            listings_vehicles(vehicle_type_id, vehicle_types(slug)),
-            metadata,
-            verticals!inner(key)
-          `)
-          .eq(scopeFilter.column, scopeFilter.value)
-          .in('verticals.key', AUTOS_VERTICAL_FILTER)
-          .gte('published_at', previousRange.start.toISOString())
-          .lt('published_at', previousRange.end.toISOString());
-
-        const { data: previousRows, error: previousError } = await previousQuery;
-        if (previousError) throw previousError;
-        const prevAggregates = aggregateMetrics(
-          (previousRows || []).filter((row: ListingRow) => matchesVehicleFilter(row, vehicleType))
-        );
-        setPreviousMetrics(prevAggregates);
-      } else {
-        setPreviousMetrics(aggregates);
-      }
+      setMetrics(payload.metrics || { views: 0, contacts: 0, favorites: 0, shares: 0, conversionRate: 0 });
+      setPreviousMetrics(payload.previousMetrics || { views: 0, contacts: 0, favorites: 0, shares: 0 });
+      setBars(Array.isArray(payload.bars) ? payload.bars : []);
+      setBarLabels(Array.isArray(payload.barLabels) ? payload.barLabels : []);
+      setRecentVehicles(Array.isArray(payload.recentVehicles) ? payload.recentVehicles : []);
+      setChartData(Array.isArray(payload.chartData) ? payload.chartData : []);
+      setChartLabels(Array.isArray(payload.chartLabels) ? payload.chartLabels : []);
     } catch (error) {
       logError('Error en fetchMetrics', error, { scope: 'estadisticas' });
       setMetrics({ views: 0, contacts: 0, favorites: 0, shares: 0, conversionRate: 0 });
@@ -342,7 +152,7 @@ export default function Estadisticas(): React.ReactElement {
     } finally {
       setLoading(false);
     }
-  }, [supabase, scopeFilter, scopeLoading, capabilitiesLoading, canViewStats, user, period, vehicleType]);
+  }, [scopeFilter, scopeLoading, capabilitiesLoading, canViewStats, user, period, vehicleType]);
 
   React.useEffect(() => {
     void fetchMetrics();

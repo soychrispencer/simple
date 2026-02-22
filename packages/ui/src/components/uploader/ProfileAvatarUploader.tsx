@@ -43,9 +43,7 @@ const ProfileAvatarUploader: React.FC<ProfileAvatarUploaderProps> = ({
     ? `relative inline-block ${className}`
     : `relative flex justify-center ${className}`;
 
-  const avatarClasses = noBorder
-    ? ''
-    : 'ring-2 ring-[var(--field-border)]';
+  const avatarClasses = noBorder ? '' : '';
 
   return (
     <div className={containerClasses}>
@@ -56,7 +54,7 @@ const ProfileAvatarUploader: React.FC<ProfileAvatarUploaderProps> = ({
         <UserAvatar
           src={value}
           size="lg"
-          className={`${avatarClasses} hover:ring-[color:var(--color-primary-a30)] transition-colors`}
+          className={`${avatarClasses} transition-colors`}
         />
         {!value && (
           <div className="absolute inset-0 flex items-center justify-center bg-[var(--overlay-scrim-50)] rounded-full">

@@ -3,8 +3,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { Header as SharedHeader, NotificationsBell } from "@simple/ui";
 import { useAuth } from "@/context/AuthContext";
-import { useSupabase } from "@/lib/supabase/useSupabase";
-import { getAvatarUrl } from "@/lib/supabaseStorage";
+import { getAvatarUrl } from "@/lib/storageMedia";
 import { autosPanelManifest } from "@simple/panel";
 import { AUTOS_BRANDING } from "@/config/branding";
 
@@ -14,7 +13,6 @@ const headerFeatures = {
 
 export default function Header() {
   const { user, loading, signOut } = useAuth();
-  const supabase = useSupabase();
   const [publicAvatar, setPublicAvatar] = useState<{ userId: string; path: string }>({
     userId: "",
     path: "",
@@ -31,7 +29,7 @@ export default function Header() {
   useEffect(() => {
     let cancelled = false;
 
-    if (!user?.id || !supabase) {
+    if (!user?.id) {
       return;
     }
 
@@ -39,24 +37,25 @@ export default function Header() {
     if (userHasAnyAvatar) return;
 
     (async () => {
-      const { data, error } = await (supabase as any)
-        .from("public_profiles")
-        .select("avatar_url")
-        .eq("owner_profile_id", user.id)
-        .maybeSingle();
+      const response = await fetch("/api/profile/avatar", {
+        method: "GET",
+        cache: "no-store",
+      });
+      const payload = await response.json().catch(() => ({} as Record<string, unknown>));
 
       if (cancelled) return;
-      if (error) {
+      if (!response.ok) {
         setPublicAvatar({ userId: user.id, path: "" });
         return;
       }
-      setPublicAvatar({ userId: user.id, path: data?.avatar_url || "" });
+      const avatarPath = String((payload as { avatar_url?: unknown }).avatar_url || "");
+      setPublicAvatar({ userId: user.id, path: avatarPath });
     })();
 
     return () => {
       cancelled = true;
     };
-  }, [user?.id, supabase, userHasAnyAvatar]);
+  }, [user?.id, userHasAnyAvatar]);
 
   const resolveAvatarUrl = (currentUser: any) => {
     const fallbackPublicPath =
@@ -70,8 +69,7 @@ export default function Header() {
 
     if (!raw) return "";
     if (/^https?:\/\//i.test(raw)) return raw;
-    if (!supabase) return "";
-    return getAvatarUrl(supabase, raw);
+    return getAvatarUrl(null, raw);
   };
 
   const handleLogout = async () => {

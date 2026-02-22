@@ -1,7 +1,6 @@
+import { Buffer } from "node:buffer";
 import { cookies } from "next/headers";
 import { NextRequest } from "next/server";
-import { createRouteHandlerClient } from "@supabase/auth-helpers-nextjs";
-import { createClient } from "@supabase/supabase-js";
 import {
   buildMetaOAuthUrl,
   exchangeCodeForToken,
@@ -126,6 +125,58 @@ function getBearerToken(req: NextRequest): string | null {
   return match?.[1] ? String(match[1]) : null;
 }
 
+const UUID_REGEX =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+function decodeJwtSub(token: string): string | null {
+  const parts = token.split(".");
+  if (parts.length < 2) return null;
+  const payloadPart = parts[1];
+  if (!payloadPart) return null;
+  const normalized = payloadPart.replace(/-/g, "+").replace(/_/g, "/");
+  const padded = normalized + "=".repeat((4 - (normalized.length % 4)) % 4);
+  try {
+    const json = Buffer.from(padded, "base64").toString("utf8");
+    const payload = JSON.parse(json) as { sub?: unknown };
+    const sub = typeof payload.sub === "string" ? payload.sub : "";
+    return UUID_REGEX.test(sub) ? sub : null;
+  } catch {
+    return null;
+  }
+}
+
+function resolveUserIdFromToken(token: string | null | undefined) {
+  const raw = String(token || "").trim();
+  if (!raw) return null;
+  if (UUID_REGEX.test(raw)) return raw;
+  return decodeJwtSub(raw);
+}
+
+function extractTokenFromCookieValue(rawValue: string | undefined): string | null {
+  const value = decodeURIComponent(String(rawValue || "").trim());
+  if (!value) return null;
+  const direct = resolveUserIdFromToken(value);
+  if (direct) return value;
+  try {
+    const parsed = JSON.parse(value);
+    if (Array.isArray(parsed)) {
+      const [accessToken] = parsed;
+      return typeof accessToken === "string" ? accessToken : null;
+    }
+    if (parsed && typeof parsed === "object") {
+      const fromCurrentSession = (parsed as any)?.currentSession?.access_token;
+      if (typeof fromCurrentSession === "string") return fromCurrentSession;
+      const fromSession = (parsed as any)?.session?.access_token;
+      if (typeof fromSession === "string") return fromSession;
+      const fromToken = (parsed as any)?.access_token;
+      if (typeof fromToken === "string") return fromToken;
+    }
+  } catch {
+    return null;
+  }
+  return null;
+}
+
 function getInstagramRedirectUri(origin: string) {
   return process.env.INSTAGRAM_OAUTH_REDIRECT_URI || `${origin}/api/instagram/oauth/callback`;
 }
@@ -165,9 +216,11 @@ function isRetryableInstagramError(message: string) {
 async function tryResolveCookieUserId() {
   try {
     const cookieStore = await cookies();
-    const supabase = createRouteHandlerClient({ cookies: () => (cookieStore as any) });
-    const { data } = await supabase.auth.getUser();
-    return data?.user?.id ?? null;
+    const authTokenCookie = cookieStore
+      .getAll()
+      .find((cookie) => cookie.name.includes("auth-token"));
+    const token = extractTokenFromCookieValue(authTokenCookie?.value);
+    return resolveUserIdFromToken(token);
   } catch {
     return null;
   }
@@ -176,21 +229,7 @@ async function tryResolveCookieUserId() {
 async function tryResolveBearerUserId(req: NextRequest) {
   const token = getBearerToken(req);
   if (!token) return null;
-
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-  if (!url || !anonKey) return null;
-
-  try {
-    const bearerClient = createClient(url, anonKey, {
-      auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
-      global: { headers: { "x-simple-auth": "1" } },
-    });
-    const { data } = await bearerClient.auth.getUser(token);
-    return data?.user?.id ?? null;
-  } catch {
-    return null;
-  }
+  return resolveUserIdFromToken(token);
 }
 
 async function refreshIntegrationTokenIfNeeded(input: {

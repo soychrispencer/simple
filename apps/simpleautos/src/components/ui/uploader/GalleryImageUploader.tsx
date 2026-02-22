@@ -1,9 +1,8 @@
-﻿"use client";
+"use client";
 import React from "react";
 import { Button, useToast } from "@simple/ui";
 import { fileToWebp } from "@/lib/image";
-import { deleteVehicleImage, extractPathFromUrl } from "@/lib/supabaseStorage";
-import { useSupabase } from "@/lib/supabase/useSupabase";
+import { deleteVehicleImage, extractPathFromUrl } from "@/lib/storageMedia";
 import { logDebug } from "@/lib/logger";
 
 type ImageItem = {
@@ -12,7 +11,7 @@ type ImageItem = {
 	file: File;
 	cover?: boolean;
 	dataUrl?: string; // persisted base64 for reloads
-	remoteUrl?: string; // URL de Supabase si ya está subida
+	remoteUrl?: string; // URL de backend legado si ya está subida
 };
 
 type Props = {
@@ -24,7 +23,6 @@ type Props = {
 
 export default function GalleryImageUploader({ value = [], onChange, multiple = true, max = 12 }: Props) {
 	const inputRef = React.useRef<HTMLInputElement>(null);
-	const supabase = useSupabase();
 	const [items, setItems] = React.useState<ImageItem[]>(() => {
 		// reconstruct object URLs from persisted dataUrl if present
 		return (value || []).map((v: any) => ({ ...v }));
@@ -73,11 +71,11 @@ export default function GalleryImageUploader({ value = [], onChange, multiple = 
 	const onRemove = async (id: string) => {
 		const removed = items.find((it) => it.id === id);
 		
-		// Si la imagen ya está subida a Supabase, eliminarla
+		// Si la imagen ya está subida a backend legado, eliminarla
 		if (removed?.remoteUrl) {
 			const path = extractPathFromUrl(removed.remoteUrl);
 			if (path) {
-				await deleteVehicleImage(supabase, path);
+				await deleteVehicleImage(null, path);
 				logDebug('[GalleryImageUploader] Imagen eliminada del storage', { path });
 			}
 		}
@@ -153,6 +151,7 @@ export default function GalleryImageUploader({ value = [], onChange, multiple = 
 		</div>
 	);
 }
+
 
 
 

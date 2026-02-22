@@ -3,6 +3,15 @@
  */
 
 import type { VerticalName } from './theme';
+import {
+  DOMAIN_PLAN_CAPABILITIES,
+  getPlanCapabilities,
+  getPlanMaxActiveListings,
+  normalizePlanKey,
+  type AnyPlanKey,
+  type PlanCapabilities,
+  type UnifiedPlanKey
+} from '@simple/shared-types';
 
 export const APP_NAME = 'Simple';
 export const SUPPORT_EMAIL = 'support@simple.com';
@@ -19,7 +28,7 @@ export const MAX_TITLE_LENGTH = 200;
 export const MAX_DESCRIPTION_LENGTH = 5000;
 
 // Free tier limits
-export const FREE_TIER_MAX_ACTIVE_LISTINGS = 1;
+export const FREE_TIER_MAX_ACTIVE_LISTINGS = getPlanMaxActiveListings('free');
 export const FREE_TIER_MAX_IMAGES_PER_LISTING = 10;
 
 // Subscription plans
@@ -40,8 +49,20 @@ export const SUBSCRIPTION_PLANS = {
     id: 'business',
     name: 'Empresa',
     price: 39990, // CLP/mes
-    maxActiveListings: -1, // Ilimitado
-    maxImagesPerListing: 20,
+    maxActiveListings: DOMAIN_PLAN_CAPABILITIES.enterprise.maxActiveListings, // Ilimitado
+    maxImagesPerListing: DOMAIN_PLAN_CAPABILITIES.enterprise.maxImagesPerListing,
+    features: [
+      'Próximamente: multiusuario (equipo)',
+      'Próximamente: branding avanzado',
+      'Próximamente: integraciones reales',
+    ],
+  },
+  enterprise: {
+    id: 'enterprise',
+    name: 'Empresa',
+    price: 39990,
+    maxActiveListings: DOMAIN_PLAN_CAPABILITIES.enterprise.maxActiveListings,
+    maxImagesPerListing: DOMAIN_PLAN_CAPABILITIES.enterprise.maxImagesPerListing,
     features: [
       'Próximamente: multiusuario (equipo)',
       'Próximamente: branding avanzado',
@@ -51,6 +72,20 @@ export const SUBSCRIPTION_PLANS = {
 } as const;
 
 export type SubscriptionPlanId = keyof typeof SUBSCRIPTION_PLANS;
+
+export function normalizeSubscriptionPlanId(input: AnyPlanKey | null | undefined): UnifiedPlanKey {
+  return normalizePlanKey(input);
+}
+
+export function getMaxActiveListingsByPlan(input: AnyPlanKey | null | undefined): number {
+  return getPlanMaxActiveListings(input);
+}
+
+export function getPlanCapabilitiesByPlan(
+  input: AnyPlanKey | null | undefined
+): PlanCapabilities {
+  return getPlanCapabilities(input);
+}
 
 // Currencies
 export const SUPPORTED_CURRENCIES = ['CLP', 'USD', 'EUR', 'UF'] as const;

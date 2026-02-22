@@ -1,7 +1,8 @@
-﻿import { toEnglish, listingKindMap, vehicleTypeKeyMap, visibilityMap } from './vehicleTranslations';
-import { getSupabaseClient } from './supabase/supabase';
-import { normalizeVehicleTypeSlug, isUuid } from './vehicleTypeLegacyMap';
-import { logError } from './logger';
+import { toEnglish, listingKindMap, vehicleTypeKeyMap, visibilityMap } from './vehicleTranslations';
+import { isUuid } from './vehicleTypeLegacyMap';
+import { logError, logWarn } from './logger';
+import { listListings, type SdkListingSummary, type SdkListingType } from '@simple/sdk';
+import { isSimpleApiListingsEnabled } from './simpleApiListings';
 
 export interface VehicleSearchFilters {
   listing_kind?: string; // venta|arriendo|subasta (UI) => sale|rent|auction (DB listing_type)
@@ -104,209 +105,130 @@ function normalizeFilters(f: VehicleSearchFilters) {
   };
 }
 
-export async function searchVehicles(rawFilters: VehicleSearchFilters): Promise<VehicleSearchResult> {
-  const supabase = getSupabaseClient();
-  const filters = normalizeFilters(rawFilters);
-  const page = rawFilters.page && rawFilters.page > 0 ? rawFilters.page : 1;
-  const page_size = rawFilters.page_size && rawFilters.page_size > 0 ? Math.min(rawFilters.page_size, 60) : 24;
-  const from = (page - 1) * page_size;
-  const to = from + page_size - 1;
+function isValidSdkListingType(value: unknown): value is SdkListingType {
+  return value === 'sale' || value === 'rent' || value === 'auction';
+}
 
-  // Resolver verticales de autos (tolerante a setups donde el key no exista o sea distinto).
-  const { data: verticalRows, error: verticalError } = await supabase
-    .from('verticals')
-    .select('id, key')
-    .in('key', ['vehicles', 'autos']);
-
-  if (verticalError) {
-    // No bloqueamos la búsqueda: el JOIN listings_vehicles ya acota a autos.
-    logError('Error fetching vehicles vertical', verticalError, { scope: 'searchVehicles' });
-  }
-
-  const verticalIds = (verticalRows || []).map((v: any) => v.id).filter(Boolean);
-
-  // Incluir JOINs con communes, regions, vehicle_types y listings_vehicles
-  // Nota: evitamos `!inner` en brands/models porque muchos listings legacy pueden tener esos campos NULL.
-  const baseSelect = 'id,title,listing_type,price,created_at,metadata,allow_financing,allow_exchange,is_featured,visibility,contact_email,contact_phone,contact_whatsapp,rent_daily_price,rent_weekly_price,rent_monthly_price,rent_security_deposit,auction_start_price,auction_start_at,auction_end_at,region_id,commune_id,user_id,communes(name),regions(name),images:images!images_listing_id_fkey(url,position,is_primary),listings_vehicles!inner(vehicle_type_id,body_type,year,mileage,brand_id,model_id,transmission,fuel_type,color,condition,vehicle_types(slug,name),brands(name),models(name))';
-  let query = supabase
-    .from('listings')
-    .select(baseSelect, { count: 'exact' });
-
-  if (verticalIds.length > 0) {
-    query = query.in('vertical_id', verticalIds);
-  }
-
-  // CRÍTICO: Solo mostrar vehículos publicados (no borradores ni pausados)
-  // El enum `listing_status` usa 'published' en la DB, no 'active'.
-  query = query.eq('status', 'published');
-
-  // Filtrar por visibilidad - si es 'normal' o 'publica', incluir también 'featured'
-  if (filters.visibility === 'normal') {
-    query = query.in('visibility', ['normal', 'featured']);
-  } else if (filters.visibility) {
-    query = query.eq('visibility', filters.visibility);
-  }
-
-  if (filters.listing_kind) query = query.eq('listing_type', filters.listing_kind);
-
-  // Resolver tipo:
-  // - Si llega category base (car/bus/...), filtramos por todos los vehicle_types de esa category.
-  // - Si llega slug legacy (auto/suv/...), resolvemos a un ID único.
-  // - Si llega UUID type_id, se usa directo.
-  const typeKeyRaw = (filters.type_key ?? '') as string;
-
-  let resolvedTypeId = filters.type_id && isUuid(filters.type_id) ? filters.type_id : undefined;
-  let resolvedTypeIds: string[] | undefined;
-
-  if (!resolvedTypeId && typeKeyRaw) {
-    const { data: vtData } = await supabase
-      .from('vehicle_types')
-      .select('id, category')
-      .in('category', [typeKeyRaw, typeKeyRaw === 'machinery' ? 'industrial' : typeKeyRaw]);
-
-    resolvedTypeIds = (vtData || [])
-      .map((t: any) => t?.id)
-      .filter(Boolean) as string[];
-  }
-
-  if (!resolvedTypeId && (!resolvedTypeIds || resolvedTypeIds.length === 0)) {
-    const normalizedTypeSlug = normalizeVehicleTypeSlug(filters.type_id) || normalizeVehicleTypeSlug(filters.type_key);
-    if (normalizedTypeSlug) {
-      const { data: vtData } = await supabase.from('vehicle_types').select('id, slug');
-      const match = (vtData || []).find((t: any) => t.slug === normalizedTypeSlug);
-      if (match) {
-        resolvedTypeId = match.id;
-      }
-    }
-  }
-
-  if (resolvedTypeIds && resolvedTypeIds.length > 0) {
-    query = query.in('listings_vehicles.vehicle_type_id', resolvedTypeIds);
-  } else if (resolvedTypeId) {
-    query = query.eq('listings_vehicles.vehicle_type_id', resolvedTypeId);
-  }
-
-  if (filters.brand_id) query = query.eq('listings_vehicles.brand_id', filters.brand_id);
-  if (filters.model_id) query = query.eq('listings_vehicles.model_id', filters.model_id);
-  if (filters.region_id) query = query.eq('region_id', filters.region_id);
-  if (filters.commune_id) query = query.eq('commune_id', filters.commune_id);
-  if (filters.body_type) query = query.eq('listings_vehicles.body_type', filters.body_type);
-
-  if (filters.price_min) query = query.gte('price', Number(filters.price_min));
-  if (filters.price_max) query = query.lte('price', Number(filters.price_max));
-  if (filters.year_min) query = query.gte('listings_vehicles.year', Number(filters.year_min));
-  if (filters.year_max) query = query.lte('listings_vehicles.year', Number(filters.year_max));
-
-  // Filtros avanzados (listings_vehicles campos directos)
-  if (filters.transmission) {
-    query = query.eq('listings_vehicles.transmission', filters.transmission);
-  }
-  if (filters.fuel_type) {
-    query = query.eq('listings_vehicles.fuel_type', filters.fuel_type);
-  }
-  if (filters.color) {
-    query = query.eq('listings_vehicles.color', filters.color);
-  }
-  if (filters.estado) {
-    query = query.eq('listings_vehicles.condition', filters.estado);
-  }
-
-  // Filtros de condiciones comerciales
-  if (filters.financing_available === 'true') {
-    query = query.eq('allow_financing', true);
-  }
-
-  query = query.order('created_at', { ascending: false }).range(from, to);
-
-  const { data, error, count } = await query;
-  if (error) throw error;
-
-  // Obtener los profiles de los owner_ids
-  // Compat: some responses include `owner_id` and others only `user_id`.
-  const normalizedRows = (data || []).map((v: any) => ({ ...(v || {}), owner_id: v.owner_id || v.user_id }));
-  const ownerIds = [...new Set(normalizedRows.map((v: any) => v.owner_id).filter(Boolean))];
-  let profilesMap: Record<string, any> = {};
-  let publicProfilesMap: Record<string, any> = {};
-  
-  if (ownerIds.length > 0) {
-    // `profiles` no contiene username/public_name/avatar_url; usar `public_profiles`.
-    const { data: publicProfilesData } = await supabase
-      .from('public_profiles')
-      .select('owner_profile_id,slug,public_name,avatar_url')
-      .in('owner_profile_id', ownerIds);
-
-    if (publicProfilesData) {
-      publicProfilesMap = Object.fromEntries(
-        publicProfilesData
-          .filter((p: any) => p?.owner_profile_id)
-          .map((p: any) => [p.owner_profile_id, p])
-      );
-
-      // Construir un objeto compatible con la UI (mismo shape que antes esperaba de `profiles`).
-      ownerIds.forEach((ownerId: string) => {
-        const pub = publicProfilesMap[ownerId];
-        if (!pub) return;
-        profilesMap[ownerId] = {
-          id: ownerId,
-          username: pub.slug || '',
-          public_name: pub.public_name || 'Vendedor',
-          avatar_url: pub.avatar_url || null,
-        };
-      });
-    }
-  }
-
-  // Agregar profile a cada vehículo y normalizar communes/regions/vehicle_types
-  const vehiclesWithProfiles = normalizedRows.map((v: any) => {
-    const listingVehicle = Array.isArray(v.listings_vehicles) ? v.listings_vehicles[0] : v.listings_vehicles || null;
-    const rawVehicleType = listingVehicle && listingVehicle.vehicle_types && !Array.isArray(listingVehicle.vehicle_types)
-      ? listingVehicle.vehicle_types
-      : null;
-
-    const metadata = (v.metadata ?? {}) as Record<string, any>;
-    const gallery = Array.isArray(metadata.gallery) ? metadata.gallery : [];
-    const rawImages = Array.isArray(v.images) ? v.images : [];
-    const orderedImages = [...rawImages].sort((a: any, b: any) => {
-      const aPrimary = a?.is_primary ? 0 : 1;
-      const bPrimary = b?.is_primary ? 0 : 1;
-      if (aPrimary === bPrimary) return (a?.position ?? 0) - (b?.position ?? 0);
-      return aPrimary - bPrimary;
-    });
-    const relationImages = orderedImages.map((img: any) => img?.url).filter(Boolean);
-    const imagePaths = (gallery.length ? gallery : relationImages) as string[];
-
-    return {
-      ...v,
-      type_id: v.type_id || listingVehicle?.vehicle_type_id || '',
-      body_type: v.body_type || listingVehicle?.body_type || null,
-      year: v.year ?? listingVehicle?.year ?? null,
-      mileage: v.mileage ?? listingVehicle?.mileage ?? null,
-      image_paths: imagePaths,
-      specs: metadata,
-      listings_vehicles: listingVehicle,
-      vehicle_types: rawVehicleType
-        ? {
-            slug: rawVehicleType.slug,
-            label: rawVehicleType.name || rawVehicleType.slug,
-          }
-        : null,
-      profiles: profilesMap[v.owner_id] || null,
-      public_profile: publicProfilesMap[v.owner_id] || null,
-      communes: (v.communes && typeof v.communes === 'object' && !Array.isArray(v.communes)) ? v.communes : null,
-      regions: (v.regions && typeof v.regions === 'object' && !Array.isArray(v.regions)) ? v.regions : null,
-      featured: !!v.is_featured || v.visibility === 'featured',
-    };
-  });
+function mapSimpleApiListingToVehicleRow(item: SdkListingSummary): VehicleRow {
+  const createdAt = item.createdAt || item.publishedAt || new Date().toISOString();
 
   return {
-    data: vehiclesWithProfiles.map(r => ({
-      ...r,
-      price: r.price === null ? null : Number(r.price),
-    })) as VehicleRow[],
-    count: count || 0,
+    id: item.id,
+    title: item.title,
+    listing_type: item.type,
+    user_id: item.ownerId || null,
+    owner_id: item.ownerId || null,
+    price: typeof item.price === 'number' ? item.price : null,
+    year: typeof item.year === 'number' ? item.year : null,
+    mileage: typeof item.mileage === 'number' ? item.mileage : null,
+    type_id: item.typeId || '',
+    body_type: item.bodyType || null,
+    created_at: createdAt,
+    image_paths: item.imageUrl ? [item.imageUrl] : [],
+    specs: {
+      condition: item.condition || null,
+      fuel_type: item.fuelType || null,
+      transmission: item.transmission || null,
+      color: item.color || null,
+      rent_daily_price: item.rentDailyPrice ?? null,
+      rent_weekly_price: item.rentWeeklyPrice ?? null,
+      rent_monthly_price: item.rentMonthlyPrice ?? null,
+      rent_price_period: item.rentPricePeriod ?? null,
+      auction_start_price: item.auctionStartPrice ?? null,
+      legacy: {
+        region_name: item.region || null,
+        commune_name: item.city || null,
+      }
+    },
+    allow_financing: Boolean(item.allowFinancing),
+    allow_exchange: Boolean(item.allowExchange),
+    featured: Boolean(item.featured),
+    visibility: item.visibility || null,
+    contact_email: null,
+    contact_phone: null,
+    contact_whatsapp: null,
+    rent_daily_price: item.rentDailyPrice ?? null,
+    rent_weekly_price: item.rentWeeklyPrice ?? null,
+    rent_monthly_price: item.rentMonthlyPrice ?? null,
+    rent_price_period: item.rentPricePeriod ?? null,
+    rent_security_deposit: item.rentSecurityDeposit ?? null,
+    auction_start_price: item.auctionStartPrice ?? null,
+    auction_start_at: item.auctionStartAt ?? null,
+    auction_end_at: item.auctionEndAt ?? null,
+    region_id: item.regionId ? Number(item.regionId) || null : null,
+    commune_id: item.communeId ? Number(item.communeId) || null : null,
+    profiles: null,
+    public_profile: null,
+    communes: item.city ? { name: item.city } : null,
+    regions: item.region ? { name: item.region } : null,
+    vehicle_types: item.typeKey
+      ? {
+          slug: item.typeKey,
+          label: item.typeLabel || item.typeKey,
+        }
+      : null,
+  };
+}
+
+async function searchVehiclesFromSimpleApi(
+  filters: ReturnType<typeof normalizeFilters>,
+  page: number,
+  page_size: number,
+  from: number
+): Promise<VehicleSearchResult> {
+  const listingType = isValidSdkListingType(filters.listing_kind)
+    ? (filters.listing_kind as SdkListingType)
+    : undefined;
+
+  const payload = await listListings({
+    vertical: 'autos',
+    type: listingType,
+    typeId: filters.type_id && isUuid(filters.type_id) ? filters.type_id : undefined,
+    typeKey: filters.type_key || undefined,
+    brandId: filters.brand_id || undefined,
+    modelId: filters.model_id || undefined,
+    bodyType: filters.body_type || undefined,
+    regionId: filters.region_id || undefined,
+    communeId: filters.commune_id || undefined,
+    minPrice: filters.price_min ? Number(filters.price_min) : undefined,
+    maxPrice: filters.price_max ? Number(filters.price_max) : undefined,
+    yearMin: filters.year_min ? Number(filters.year_min) : undefined,
+    yearMax: filters.year_max ? Number(filters.year_max) : undefined,
+    visibility: filters.visibility || undefined,
+    transmission: filters.transmission || undefined,
+    fuelType: filters.fuel_type || undefined,
+    color: filters.color || undefined,
+    estado: filters.estado || undefined,
+    financingAvailable: filters.financing_available === 'true' ? true : undefined,
+    limit: page_size,
+    offset: from,
+  });
+
+  const items = Array.isArray(payload.items) ? payload.items : [];
+
+  return {
+    data: items.map(mapSimpleApiListingToVehicleRow),
+    count: Number(payload.meta?.total ?? items.length),
     page,
     page_size,
   };
 }
 
+export async function searchVehicles(rawFilters: VehicleSearchFilters): Promise<VehicleSearchResult> {
+  const filters = normalizeFilters(rawFilters);
+  const page = rawFilters.page && rawFilters.page > 0 ? rawFilters.page : 1;
+  const page_size = rawFilters.page_size && rawFilters.page_size > 0 ? Math.min(rawFilters.page_size, 60) : 24;
+  const from = (page - 1) * page_size;
 
+  if (!isSimpleApiListingsEnabled()) {
+    logWarn('Simple API vehicle search disabled; returning empty dataset');
+    return { data: [], count: 0, page, page_size };
+  }
+
+  try {
+    return await searchVehiclesFromSimpleApi(filters, page, page_size, from);
+  } catch (error) {
+    logError('Simple API vehicle search failed', error, { filters });
+    return { data: [], count: 0, page, page_size };
+  }
+}

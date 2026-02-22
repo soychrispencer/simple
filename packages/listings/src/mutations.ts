@@ -1,10 +1,11 @@
-import type { SupabaseClient } from '@supabase/supabase-js';
 import type {
   DetailCopyConfig,
   DuplicateListingOptions,
   ScopeFilter,
   BulkStatus,
 } from './types';
+
+type DatabaseClient = any;
 
 function buildSelectClause(detail?: DetailCopyConfig) {
   const base = `
@@ -24,11 +25,11 @@ function buildSelectClause(detail?: DetailCopyConfig) {
 }
 
 async function fetchListingWithRelations(
-  supabase: SupabaseClient,
+  client: DatabaseClient,
   options: DuplicateListingOptions
 ): Promise<Record<string, any>> {
   const { listingId, scopeFilter, detail } = options;
-  let query = supabase
+  let query = client
     .from('listings')
     .select(buildSelectClause(detail))
     .eq('id', listingId);
@@ -71,10 +72,10 @@ function buildDetailRows(
 }
 
 export async function duplicateListingWithRelations(
-  supabase: SupabaseClient,
+  client: DatabaseClient,
   options: DuplicateListingOptions
 ): Promise<string> {
-  const original = await fetchListingWithRelations(supabase, options);
+  const original = await fetchListingWithRelations(client, options);
   const { userId, detail } = options;
 
   const inferredPublicProfileId =
@@ -127,7 +128,7 @@ export async function duplicateListingWithRelations(
     updated_at: new Date().toISOString(),
   };
 
-  const { data: insertResult, error: insertError } = await supabase
+  const { data: insertResult, error: insertError } = await client
     .from('listings')
     .insert(basePayload)
     .select('id')
@@ -141,7 +142,7 @@ export async function duplicateListingWithRelations(
   const detailRows = buildDetailRows(detail, original, listingId);
 
   if (detail && detailRows.length) {
-    const { error: detailError } = await supabase.from(detail.table).insert(detailRows);
+    const { error: detailError } = await client.from(detail.table).insert(detailRows);
     if (detailError) {
       throw detailError;
     }
@@ -157,13 +158,13 @@ export async function duplicateListingWithRelations(
   }));
 
   if (imageRows.length > 0) {
-    const { error: imageError } = await supabase.from('images').insert(imageRows);
+    const { error: imageError } = await client.from('images').insert(imageRows);
     if (imageError) {
       throw imageError;
     }
   }
 
-  await supabase
+  await client
     .from('listing_metrics')
     .upsert({ listing_id: listingId, views: 0, clicks: 0 }, { onConflict: 'listing_id' });
 
@@ -171,12 +172,12 @@ export async function duplicateListingWithRelations(
 }
 
 export async function bulkDeleteListings(
-  supabase: SupabaseClient,
+  client: DatabaseClient,
   ids: string[],
   scopeFilter?: ScopeFilter
 ) {
   if (!ids.length) return;
-  let query = supabase.from('listings').delete().in('id', ids);
+  let query = client.from('listings').delete().in('id', ids);
   if (scopeFilter) {
     query = query.eq(scopeFilter.column, scopeFilter.value);
   }
@@ -185,14 +186,14 @@ export async function bulkDeleteListings(
 }
 
 export async function bulkUpdateListingStatus(
-  supabase: SupabaseClient,
+  client: DatabaseClient,
   ids: string[],
   status: BulkStatus,
   scopeFilter?: ScopeFilter
 ) {
   if (!ids.length) return;
   const now = new Date().toISOString();
-  let query = supabase
+  let query = client
     .from('listings')
     .update({
       status,
@@ -210,13 +211,13 @@ export async function bulkUpdateListingStatus(
 }
 
 export async function bulkToggleFeaturedListings(
-  supabase: SupabaseClient,
+  client: DatabaseClient,
   ids: string[],
   featured: boolean,
   scopeFilter?: ScopeFilter
 ) {
   if (!ids.length) return;
-  let query = supabase
+  let query = client
     .from('listings')
     .update({ is_featured: featured, updated_at: new Date().toISOString() })
     .in('id', ids);

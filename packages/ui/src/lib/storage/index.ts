@@ -1,6 +1,6 @@
 export { useAvatarUrl, getAvatarUrl } from "./avatar";
 export {
-	SupabaseStorageService,
+	StorageService,
 	uploadAvatar,
 	deleteAvatar,
 	uploadPortada,

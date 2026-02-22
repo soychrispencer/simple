@@ -59,7 +59,7 @@ function filterByVertical(
 }
 
 export function useVerticalContext(vertical?: VerticalName): VerticalContextValue {
-  const { supabase, user, profile } = useAuth();
+  const { user, profile } = useAuth();
   const [memberships, setMemberships] = React.useState<CompanyMembership[]>([]);
   const [loading, setLoading] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
@@ -70,7 +70,7 @@ export function useVerticalContext(vertical?: VerticalName): VerticalContextValu
   }, [vertical]);
 
   const refreshMemberships = React.useCallback(async () => {
-    if (!user?.id || !supabase) {
+    if (!user?.id) {
       setMemberships([]);
       return;
     }
@@ -78,37 +78,27 @@ export function useVerticalContext(vertical?: VerticalName): VerticalContextValu
     setLoading(true);
     setError(null);
 
-    const { data, error } = await supabase
-      .from("company_users")
-      .select(
-        `id, role, permissions, status, company_id, company:companies(
-          id, legal_name, billing_email, billing_phone, address_legal, region_id, commune_id, billing_data, plan_key, is_active,
-          public_profile:public_profiles!company_id(*),
-          commune:commune_id(name),
-          region:region_id(name)
-        )`
-      )
-      .eq("user_id", user.id)
-      .eq("status", "active");
+    const response = await fetch("/api/profile/companies", { cache: "no-store" });
+    const result = await response.json().catch(() => ({}));
 
-    if (error) {
-      console.error("[useVerticalContext] memberships query error", error);
-      setError(error.message);
+    if (!response.ok) {
+      console.error("[useVerticalContext] memberships query error", result);
+      setError(String(result?.error || "No se pudo cargar membresías"));
       setMemberships([]);
     } else {
-      const mapped: CompanyMembership[] = (data || []).map((row: any) => ({
-        id: row.id,
-        role: row.role,
+      const mapped: CompanyMembership[] = (Array.isArray(result?.companies) ? result.companies : []).map((row: any) => ({
+        id: String(row.membershipId || row.id || ""),
+        role: String(row.role || "member"),
         permissions: row.permissions || {},
-        isActive: row.status === "active",
-        companyId: row.company_id,
+        isActive: String(row.status || "active") === "active",
+        companyId: String(row.companyId || row.company_id || ""),
         company: row.company ?? null,
       }));
-      setMemberships(mapped);
+      setMemberships(mapped.filter((item) => item.id && item.companyId));
     }
 
     setLoading(false);
-  }, [supabase, user?.id]);
+  }, [user?.id]);
 
   React.useEffect(() => {
     refreshMemberships();

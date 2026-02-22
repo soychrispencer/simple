@@ -1,7 +1,6 @@
 ﻿import React, { useEffect, useState } from "react";
 const diasSemana = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"];
 import { Input, Select, Button, Modal, useToast, Textarea } from "@simple/ui";
-import { useSupabase } from "@/lib/supabase/useSupabase";
 import { useAuth } from "@/context/AuthContext";
 import { IconUser, IconGlobe, IconMapPin, IconShare, IconClock } from "@tabler/icons-react";
 import ProfileAvatarUploader from "../../ui/uploader/ProfileAvatarUploader";
@@ -58,7 +57,6 @@ type FormState = {
 const PublicPageForm: React.FC<{ user: any; onSave?: (data: any) => void; coverModalOpen?: boolean }> = ({ user: userProp, onSave: _onSave, coverModalOpen = false }) => {
   const { addToast } = useToast();
   const { user: ctxUser, refresh: _refreshAuth } = useAuth();
-  const supabase = useSupabase();
 
   const hasCompanyInfo = Boolean(
     userProp?.company_id ||
@@ -122,17 +120,14 @@ const PublicPageForm: React.FC<{ user: any; onSave?: (data: any) => void; coverM
       const effectiveUserId = userProp?.id || ctxUser?.id;
       if (!effectiveUserId) return;
 
-      const { data: publicProfile, error } = await supabase
-        .from('public_profiles')
-        .select('*')
-        .eq('owner_profile_id', effectiveUserId)
-        .maybeSingle();
-
-      if (error) {
-        logError('Error cargando perfil público', error);
+      const response = await fetch('/api/public-profile?mode=mine', { cache: 'no-store' });
+      const payload = await response.json().catch(() => ({} as Record<string, unknown>));
+      if (!response.ok) {
+        logError('Error cargando perfil público', payload);
         return;
       }
 
+      const publicProfile = (payload as any)?.profile;
       if (!publicProfile?.id) return;
 
       setPublicProfileId(publicProfile.id);
@@ -140,27 +135,22 @@ const PublicPageForm: React.FC<{ user: any; onSave?: (data: any) => void; coverM
       setPublicPreferences(preferences);
       setHorario247(Boolean(preferences?.horario247));
 
-      const [especialesRes, horarioRes] = await Promise.all([
-        supabase
-          .from('special_schedules')
-          .select('id, date, start_time, end_time, closed')
-          .eq('public_profile_id', publicProfile.id)
-          .order('date', { ascending: true }),
-        supabase
-          .from('schedules')
-          .select('*')
-          .eq('public_profile_id', publicProfile.id),
-      ]);
+      const horarioRes = Array.isArray((payload as any)?.schedules)
+        ? (payload as any).schedules
+        : [];
+      const especialesRes = Array.isArray((payload as any)?.specialSchedules)
+        ? (payload as any).specialSchedules
+        : [];
 
       const horarioObj: { [dia: string]: { inicio: string; fin: string; cerrado: boolean } } = {};
-      const horarioData: any[] | null = Array.isArray(horarioRes.data) ? horarioRes.data : null;
+      const horarioData: any[] | null = Array.isArray(horarioRes) ? horarioRes : null;
       if (horarioData) {
         for (const h of horarioData) {
           horarioObj[h.weekday] = { inicio: h.start_time || '', fin: h.end_time || '', cerrado: !!h.closed };
         }
       }
 
-      const especialesData: any[] | null = Array.isArray(especialesRes.data) ? especialesRes.data : null;
+      const especialesData: any[] | null = Array.isArray(especialesRes) ? especialesRes : null;
       const especiales: Especial[] = [];
       if (especialesData) {
         const uniq: Record<string, Especial> = {};
@@ -205,11 +195,10 @@ const PublicPageForm: React.FC<{ user: any; onSave?: (data: any) => void; coverM
       }));
     }
 
-    fetchData();
-  }, [hasCompanyInfo, userProp, ctxUser, supabase]);
+    void fetchData();
+  }, [hasCompanyInfo, userProp, ctxUser]);
 
   async function handleCheckUsernameAvailability() {
-    const effectiveUserId = userProp?.id || ctxUser?.id;
     const candidate = normalizeSlug(form.username || '');
 
     if (!candidate) {
@@ -227,20 +216,18 @@ const PublicPageForm: React.FC<{ user: any; onSave?: (data: any) => void; coverM
     setUsernameStatus('checking');
     setUsernameMessage(null);
 
-    const { data, error } = await supabase
-      .from('public_profiles')
-      .select('owner_profile_id')
-      .eq('slug', candidate)
-      .maybeSingle();
-
-    if (error) {
+    const response = await fetch(
+      `/api/public-profile?mode=username-check&username=${encodeURIComponent(candidate)}`,
+      { cache: 'no-store' }
+    );
+    const payload = await response.json().catch(() => ({} as Record<string, unknown>));
+    if (!response.ok) {
       setUsernameStatus('idle');
       setUsernameMessage('No se pudo verificar. Intenta nuevamente.');
       return;
     }
 
-    const ownerId = (data as any)?.owner_profile_id as string | null | undefined;
-    if (!ownerId || (effectiveUserId && ownerId === effectiveUserId)) {
+    if (Boolean((payload as any)?.available)) {
       setUsernameStatus('available');
       setUsernameMessage('Disponible');
       // Normalizamos el input para que lo que se guarde sea coherente
@@ -270,45 +257,20 @@ const PublicPageForm: React.FC<{ user: any; onSave?: (data: any) => void; coverM
         return;
       }
 
-      // Find or create public profile
-      let targetId = publicProfileId;
-      if (!targetId) {
-        const { data: existing } = await supabase
-          .from('public_profiles')
-          .select('id')
-          .eq('owner_profile_id', effectiveUserId)
-          .maybeSingle();
-        targetId = existing?.id || null;
+      const response = await fetch('/api/public-profile', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'save_slug',
+          username: candidate,
+        }),
+      });
+      const payload = await response.json().catch(() => ({} as Record<string, unknown>));
+      if (!response.ok) {
+        throw new Error(String((payload as any)?.error || 'No se pudo guardar el nombre de usuario'));
       }
 
-      if (!targetId) {
-        const { data: created, error: insertError } = await supabase
-          .from('public_profiles')
-          .insert({
-            owner_profile_id: effectiveUserId,
-            profile_type: 'business',
-            slug: candidate,
-          })
-          .select('id')
-          .single();
-        if (insertError || !created?.id) {
-          throw new Error(insertError?.message || 'No se pudo crear el perfil público');
-        }
-        targetId = created.id;
-      } else {
-        const { error: updateError } = await supabase
-          .from('public_profiles')
-          .update({ slug: candidate })
-          .eq('id', targetId);
-        if (updateError) throw new Error(updateError.message);
-      }
-
-      // Sync profiles.username (para que links no vuelvan a u-<uuid>)
-      await supabase
-        .from('profiles')
-        .upsert({ id: effectiveUserId, username: candidate }, { onConflict: 'id' });
-
-      setPublicProfileId(targetId);
+      setPublicProfileId((payload as any)?.publicProfileId || publicProfileId);
       setUsernameEditorOpen(false);
       addToast('Nombre de usuario guardado', { type: 'success' });
       await _refreshAuth?.(true);
@@ -323,104 +285,53 @@ const PublicPageForm: React.FC<{ user: any; onSave?: (data: any) => void; coverM
 
   // Guardar redes sociales en la tabla redes_sociales (flujo robusto con verificación de user_id y profile_id)
 
+  async function savePublicProfile() {
+    const response = await fetch('/api/public-profile', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        action: 'save_public',
+        username: form.username,
+        nombre_publico: form.nombre_publico,
+        pagina_web: form.pagina_web,
+        descripcion: form.descripcion,
+        direccion: form.direccion,
+        region_id: form.region_id || null,
+        commune_id: form.commune_id || null,
+        whatsapp: form.whatsapp || null,
+        whatsapp_type: form.whatsapp_type || 'personal',
+        facebook: form.facebook || null,
+        instagram: form.instagram || null,
+        linkedin: form.linkedin || null,
+        tiktok: form.tiktok || null,
+        twitter: form.twitter || null,
+        youtube: form.youtube || null,
+      }),
+    });
+    const payload = await response.json().catch(() => ({} as Record<string, unknown>));
+    if (!response.ok) {
+      throw new Error(String((payload as any)?.error || 'No se pudo guardar el perfil público'));
+    }
+    return payload as any;
+  }
+
   async function handleSaveSocial(e?: React.FormEvent) {
     if (e) e.preventDefault();
     if (savingSocial) return;
     setSavingSocial(true);
 
     try {
-      const effectiveUserId = userProp?.id || ctxUser?.id;
-      if (!effectiveUserId) {
+      if (!(userProp?.id || ctxUser?.id)) {
         addToast('Usuario no disponible aún.', { type: 'error' });
         setSavingSocial(false);
         return;
       }
 
-      const candidate = normalizeSlug(form.username || '');
-      const slug = isValidSlug(candidate) ? candidate : null;
-
-      // Ensure the base profile exists with core fields
-      await supabase
-        .from('profiles')
-        .upsert({
-          id: effectiveUserId,
-          whatsapp: form.whatsapp || null,
-          ...(slug ? { username: slug } : {}),
-        }, { onConflict: 'id' });
-
-      // Find or create a public_profile row
-      let targetId = publicProfileId;
-      if (!targetId) {
-        const { data: existing } = await supabase
-          .from('public_profiles')
-          .select('id')
-          .eq('owner_profile_id', effectiveUserId)
-          .maybeSingle();
-        targetId = existing?.id || null;
-      }
-
-      if (!targetId) {
-        if (!slug) {
-          addToast('Define un nombre de usuario válido en Información Pública.', { type: 'error' });
-          setSavingSocial(false);
-          return;
-        }
-        const { data: created, error: insertError } = await supabase
-          .from('public_profiles')
-          .insert({
-            owner_profile_id: effectiveUserId,
-            profile_type: 'business',
-            slug,
-            public_name: form.nombre_publico || userProp?.public_name || null,
-            headline: form.descripcion || null,
-            bio: form.descripcion || null,
-            website: form.pagina_web || null,
-            address: form.direccion || null,
-            region_id: form.region_id || null,
-            commune_id: form.commune_id || null,
-            whatsapp: form.whatsapp || null,
-            whatsapp_type: form.whatsapp_type || 'personal',
-            facebook: form.facebook || null,
-            instagram: form.instagram || null,
-            linkedin: form.linkedin || null,
-            tiktok: form.tiktok || null,
-            twitter: form.twitter || null,
-            youtube: form.youtube || null,
-          })
-          .select('id')
-          .single();
-        if (insertError || !created?.id) {
-          throw new Error(insertError?.message || 'No se pudo crear el perfil público');
-        }
-        targetId = created.id;
-      } else {
-        const { error: updateError } = await supabase
-          .from('public_profiles')
-          .update({
-            ...(slug ? { slug } : {}),
-            public_name: form.nombre_publico || null,
-            headline: form.descripcion || null,
-            bio: form.descripcion || null,
-            website: form.pagina_web || null,
-            address: form.direccion || null,
-            region_id: form.region_id || null,
-            commune_id: form.commune_id || null,
-            whatsapp: form.whatsapp || null,
-            whatsapp_type: form.whatsapp_type || 'personal',
-            facebook: form.facebook || null,
-            instagram: form.instagram || null,
-            linkedin: form.linkedin || null,
-            tiktok: form.tiktok || null,
-            twitter: form.twitter || null,
-            youtube: form.youtube || null,
-          })
-          .eq('id', targetId);
-        if (updateError) throw new Error(updateError.message);
-      }
-
-      setPublicProfileId(targetId);
+      const result = await savePublicProfile();
+      const nextId = (result as any)?.publicProfileId as string | undefined;
+      if (nextId) setPublicProfileId(nextId);
       addToast('Redes sociales actualizadas', { type: 'success' });
-      _onSave?.({ slug: slug || undefined });
+      _onSave?.({ slug: (result as any)?.slug || undefined });
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Error desconocido';
       addToast('Error guardando redes: ' + message, { type: 'error' });
@@ -435,99 +346,17 @@ const PublicPageForm: React.FC<{ user: any; onSave?: (data: any) => void; coverM
     setSavingPublic(true);
 
     try {
-      const effectiveUserId = userProp?.id || ctxUser?.id;
-      if (!effectiveUserId) {
+      if (!(userProp?.id || ctxUser?.id)) {
         addToast('Usuario no disponible aún.', { type: 'error' });
         setSavingPublic(false);
         return;
       }
 
-      const candidate = normalizeSlug(form.username || '');
-      const slug = isValidSlug(candidate) ? candidate : null;
-
-      // Upsert base profile
-      const { error: profileError } = await supabase
-        .from('profiles')
-        .upsert({
-          id: effectiveUserId,
-          whatsapp: form.whatsapp || null,
-          ...(slug ? { username: slug } : {}),
-        }, { onConflict: 'id' });
-      if (profileError) throw new Error(profileError.message);
-
-      // Find or create public profile
-      let targetId = publicProfileId;
-      if (!targetId) {
-        const { data: existing } = await supabase
-          .from('public_profiles')
-          .select('id')
-          .eq('owner_profile_id', effectiveUserId)
-          .maybeSingle();
-        targetId = existing?.id || null;
-      }
-
-      if (!targetId) {
-        if (!slug) {
-          addToast('Define un nombre de usuario válido en Información Pública.', { type: 'error' });
-          setSavingPublic(false);
-          return;
-        }
-        const { data: created, error: insertError } = await supabase
-          .from('public_profiles')
-          .insert({
-            owner_profile_id: effectiveUserId,
-            profile_type: 'business',
-            slug,
-            public_name: form.nombre_publico || userProp?.public_name || null,
-            headline: form.descripcion || null,
-            bio: form.descripcion || null,
-            website: form.pagina_web || null,
-            address: form.direccion || null,
-            region_id: form.region_id || null,
-            commune_id: form.commune_id || null,
-            whatsapp: form.whatsapp || null,
-            whatsapp_type: form.whatsapp_type || 'personal',
-            facebook: form.facebook || null,
-            instagram: form.instagram || null,
-            linkedin: form.linkedin || null,
-            tiktok: form.tiktok || null,
-            twitter: form.twitter || null,
-            youtube: form.youtube || null,
-          })
-          .select('id')
-          .single();
-        if (insertError || !created?.id) {
-          throw new Error(insertError?.message || 'No se pudo crear el perfil público');
-        }
-        targetId = created.id;
-      } else {
-        const { error: updateError } = await supabase
-          .from('public_profiles')
-          .update({
-            ...(slug ? { slug } : {}),
-            public_name: form.nombre_publico || null,
-            headline: form.descripcion || null,
-            bio: form.descripcion || null,
-            website: form.pagina_web || null,
-            address: form.direccion || null,
-            region_id: form.region_id || null,
-            commune_id: form.commune_id || null,
-            whatsapp: form.whatsapp || null,
-            whatsapp_type: form.whatsapp_type || 'personal',
-            facebook: form.facebook || null,
-            instagram: form.instagram || null,
-            linkedin: form.linkedin || null,
-            tiktok: form.tiktok || null,
-            twitter: form.twitter || null,
-            youtube: form.youtube || null,
-          })
-          .eq('id', targetId);
-        if (updateError) throw new Error(updateError.message);
-      }
-
-      setPublicProfileId(targetId);
+      const result = await savePublicProfile();
+      const nextId = (result as any)?.publicProfileId as string | undefined;
+      if (nextId) setPublicProfileId(nextId);
       addToast('Información pública actualizada', { type: 'success' });
-      _onSave?.({ slug: slug || undefined });
+      _onSave?.({ slug: (result as any)?.slug || undefined });
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Error desconocido';
       addToast('Error guardando información pública: ' + message, { type: 'error' });
@@ -539,61 +368,25 @@ const PublicPageForm: React.FC<{ user: any; onSave?: (data: any) => void; coverM
   async function handleRemoveEspecial(idx: number) {
     const target = form.horarioEspecial[idx];
     if (!target) return;
-    if (!publicProfileId) {
-      addToast('Primero guarda tu información pública.', { type: 'error' });
-      return;
+    setForm((f) => ({
+      ...f,
+      horarioEspecial: f.horarioEspecial.filter((h) => {
+        if (target.id) return h.id !== target.id;
+        return h.fecha !== target.fecha;
+      }),
+    }));
+    if (target.fecha) {
+      setEliminadosEspecial((arr) => [...arr, target.fecha]);
     }
-    let delErr = null;
-    let eliminado = false;
-    if (target.id) {
-      // Eliminar por id
-      const { error } = await supabase
-        .from('special_schedules')
-        .delete()
-        .eq('id', target.id)
-        .eq('public_profile_id', publicProfileId);
-      delErr = error;
-      eliminado = !error;
-    } else if (target.fecha) {
-      // Eliminar por fecha si no hay id
-      const { error } = await supabase
-        .from('special_schedules')
-        .delete()
-        .eq('public_profile_id', publicProfileId)
-        .eq('date', target.fecha);
-      delErr = error;
-      eliminado = !error;
-    }
-    if (delErr) {
-      addToast('Error eliminando día especial: ' + delErr.message, { type: 'error' });
-    } else if (eliminado) {
-      addToast('Día especial eliminado', { type: 'success' });
-      // Eliminar del estado local inmediatamente y marcar como eliminado
-      setForm(f => ({
-        ...f,
-  horarioEspecial: f.horarioEspecial.filter((h) => {
-          if (target.id) return h.id !== target.id;
-          return h.fecha !== target.fecha;
-        })
-      }));
-      setEliminadosEspecial(arr => [...arr, target.fecha]);
-    }
+    addToast('Día especial eliminado', { type: 'success' });
   }
 
   // Función para guardar el horario (simulada)
   async function handleSaveHorario() {
     if (savingHorario) return;
     setSavingHorario(true);
-    
     try {
-      if (!publicProfileId) {
-        addToast('Primero crea y guarda tu página pública.', { type: 'error' });
-        setSavingHorario(false);
-        return;
-      }
-
       const dias = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo'];
-      // Si está en modo 24/7, setear todos los días abiertos y sin duplicados
       let horarioFinal = { ...form.horario };
       if (horario247) {
         horarioFinal = {};
@@ -601,8 +394,7 @@ const PublicPageForm: React.FC<{ user: any; onSave?: (data: any) => void; coverM
           horarioFinal[dia] = { inicio: '00:00', fin: '23:59', cerrado: false };
         }
       }
-      
-      // Validar horarios
+
       for (const dia of dias) {
         const h = horarioFinal?.[dia];
         if (h && !h.cerrado && h.inicio && h.fin && h.inicio >= h.fin) {
@@ -611,190 +403,58 @@ const PublicPageForm: React.FC<{ user: any; onSave?: (data: any) => void; coverM
           return;
         }
       }
-      // Guardar horario semanal en tabla horario
-      // Esperar a que la eliminación se complete antes de insertar
-      const { error: errorDeleteHorario } = await supabase
-        .from('schedules')
-        .delete()
-        .eq('public_profile_id', publicProfileId);
-    if (errorDeleteHorario) {
-      addToast('Error eliminando horario anterior: ' + errorDeleteHorario.message, { type: 'error' });
-      setSavingHorario(false);
-      return;
-    }
-    
-    const horarioInsert = diasSemana.map(dia => ({
-      public_profile_id: publicProfileId,
-      weekday: dia,
-      start_time: horarioFinal?.[dia]?.inicio || null,
-      end_time: horarioFinal?.[dia]?.fin || null,
-      closed: !!horarioFinal?.[dia]?.cerrado
-    }));
-    
-  const { error: errorHorarioInsert } = await supabase.from('schedules').insert(horarioInsert);
-    if (errorHorarioInsert) {
-      addToast('Error guardando horario semanal: ' + errorHorarioInsert.message, { type: 'error' });
-      setSavingHorario(false);
-      return;
-    }
-    
-    // Guardar días especiales en horario_especial
-    // Obtener días especiales actuales de la base de datos
-    const { data: actuales, error: actualesError } = await supabase
-      .from('special_schedules')
-      .select('id, date, public_profile_id')
-      .eq('public_profile_id', publicProfileId);
 
-    if (actualesError) {
-      addToast('Error consultando días especiales: ' + actualesError.message, { type: 'error' });
-      setSavingHorario(false);
-      return;
-    }
-
-    // Eliminar días especiales que fueron eliminados localmente
-    if (eliminadosEspecial.length > 0) {
-      const { error: errorEliminar } = await supabase
-        .from('special_schedules')
-        .delete()
-        .eq('public_profile_id', publicProfileId)
-        .in('date', eliminadosEspecial);
-      
-      // Si no funcionó eliminar por fecha, intentar eliminar por ID directamente
-      if (errorEliminar) {
-        // Buscar IDs de registros que coincidan con las fechas a eliminar
-  const registrosParaEliminar = (actuales || []).filter((item: any) =>
-    eliminadosEspecial.includes(item.date)
-        );
-        
-        if (registrosParaEliminar.length > 0) {
-          const idsParaEliminar = registrosParaEliminar.map((item: any) => item.id);
-          
-          const { error: errorEliminarId } = await supabase
-            .from('special_schedules')
-            .delete()
-            .in('id', idsParaEliminar);
-          
-          if (errorEliminarId) {
-            addToast('Error eliminando días especiales: ' + errorEliminarId.message, { type: 'error' });
-            setSavingHorario(false);
-            return;
-          }
-        }
+      const response = await fetch('/api/public-profile', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'save_schedule',
+          publicProfileId,
+          horario: horarioFinal,
+          horarioEspecial: form.horarioEspecial,
+          horario247,
+          eliminadosEspecial,
+        }),
+      });
+      const payload = await response.json().catch(() => ({} as Record<string, unknown>));
+      if (!response.ok) {
+        throw new Error(String((payload as any)?.error || 'No se pudo guardar el horario'));
       }
-      
-      if (errorEliminar) {
-        addToast('Error eliminando días especiales: ' + errorEliminar.message, { type: 'error' });
-        setSavingHorario(false);
-        return;
-      }
-    }
 
-    // Obtener fechas que actualmente están en el estado local
-    const fechasLocales = (form.horarioEspecial || []).map(h => h.fecha);
-    
-    // Eliminar de la base de datos cualquier día que no está en el estado local
-    // (esto maneja eliminaciones que podrían haberse perdido)
-    const idsEliminarExtra = (actuales || [])
-  .filter((e: any) => !fechasLocales.includes(e.date))
-  .map((e: any) => e.id);
-    
-    if (idsEliminarExtra.length > 0) {
-  const { error: errorEliminarExtra } = await supabase.from('special_schedules').delete().in('id', idsEliminarExtra);
-      if (errorEliminarExtra) {
-        addToast('Error eliminando registros extra: ' + errorEliminarExtra.message, { type: 'error' });
-        setSavingHorario(false);
-        return;
-      }
-    }
+      const horarioActualizado = Array.isArray((payload as any)?.schedules)
+        ? (payload as any).schedules
+        : [];
+      const especialesActualizados = Array.isArray((payload as any)?.specialSchedules)
+        ? (payload as any).specialSchedules
+        : [];
 
-    // Insertar solo los días nuevos (sin id)
-    const vistos = new Set();
-    const nuevos = (form.horarioEspecial || []).filter(h => 
-      !h.id && 
-      h.fecha && 
-      !vistos.has(h.fecha) && 
-      (vistos.add(h.fecha) || true)
-    );
-    
-    if (nuevos.length > 0) {
-      const especialesInsert = nuevos.map(h => ({
-        public_profile_id: publicProfileId,
-        date: h.fecha,
-        start_time: h.inicio || null,
-        end_time: h.fin || null,
-        closed: !!h.cerrado
-      }));
-      const { error: errorInsertEspeciales } = await supabase.from('special_schedules').insert(especialesInsert);
-      if (errorInsertEspeciales) {
-        addToast('Error insertando días especiales: ' + errorInsertEspeciales.message, { type: 'error' });
-        setSavingHorario(false);
-        return;
-      }
-    }
-
-    // Guardar el estado de horario247 en preferencias del perfil público (jsonb)
-    const mergedPreferences = { ...(publicPreferences || {}), horario247 };
-    const { error: errorUpdatePreferences } = await supabase
-      .from('public_profiles')
-      .update({ preferences: mergedPreferences })
-      .eq('id', publicProfileId);
-    if (errorUpdatePreferences) {
-      addToast('Error guardando estado 24/7: ' + errorUpdatePreferences.message, { type: 'error' });
-      setSavingHorario(false);
-      return;
-    }
-    setPublicPreferences(mergedPreferences);
-
-    // Recargar datos desde Supabase y actualizar estado (robusto)
-    const { data: horarioActualizado, error: errorHorarioActualizado } = await supabase
-      .from('schedules')
-      .select('*')
-      .eq('public_profile_id', publicProfileId);
-      
-    if (errorHorarioActualizado) {
-      addToast('Error recargando horario: ' + errorHorarioActualizado.message, { type: 'error' });
-      setSavingHorario(false);
-      return;
-    }
-    
-    const horarioObj: { [dia: string]: { inicio: string; fin: string; cerrado: boolean } } = {};
-    if (Array.isArray(horarioActualizado)) {
-      for (const h of horarioActualizado) {
+      const horarioObj: { [dia: string]: { inicio: string; fin: string; cerrado: boolean } } = {};
+      for (const h of horarioActualizado as any[]) {
         horarioObj[h.weekday] = {
           inicio: h.start_time || '',
           fin: h.end_time || '',
-          cerrado: !!h.closed
+          cerrado: !!h.closed,
         };
       }
-    }
-    
-    // Refrescar días especiales desde la base, nunca desde el estado local
-    const { data: especialesActualizados, error: errorEspecialesActualizados } = await supabase
-      .from('special_schedules')
-      .select('id, date, start_time, end_time, closed')
-      .eq('public_profile_id', publicProfileId)
-      .order('date', { ascending: true });
-      
-    if (errorEspecialesActualizados) {
-      addToast('Error recargando días especiales: ' + errorEspecialesActualizados.message, { type: 'error' });
-      setSavingHorario(false);
-      return;
-    }
-      
-    const especialesClean: any[] = [];
-    if (Array.isArray(especialesActualizados)) {
-      const vistos = new Set();
-      for (const e of especialesActualizados) {
-        if (!e.date || vistos.has(e.date)) continue;
-        vistos.add(e.date);
-        especialesClean.push({ id: e.id, fecha: e.date, inicio: e.start_time || '', fin: e.end_time || '', cerrado: !!e.closed });
+
+      const especialesClean: Especial[] = [];
+      const seen = new Set<string>();
+      for (const e of especialesActualizados as any[]) {
+        if (!e?.date || seen.has(e.date)) continue;
+        seen.add(e.date);
+        especialesClean.push({
+          id: e.id,
+          fecha: e.date,
+          inicio: e.start_time || '',
+          fin: e.end_time || '',
+          cerrado: !!e.closed,
+        });
       }
-    }
-    setForm(f => ({ ...f, horario: horarioObj, horarioEspecial: especialesClean }));
-    // Limpiar el array de eliminados ya que se procesaron exitosamente
-    setEliminadosEspecial([]);
-    addToast("Horario actualizado", { type: "success" });
-    
+
+      setForm((f) => ({ ...f, horario: horarioObj, horarioEspecial: especialesClean }));
+      setEliminadosEspecial([]);
+      setPublicPreferences((prev) => ({ ...prev, horario247 }));
+      addToast("Horario actualizado", { type: "success" });
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Error desconocido';
       addToast('Error inesperado al guardar el horario: ' + errorMessage, { type: 'error' });
@@ -804,32 +464,38 @@ const PublicPageForm: React.FC<{ user: any; onSave?: (data: any) => void; coverM
   }
   useEffect(() => {
     async function fetchRegiones() {
-      const { data } = await supabase.from('regions').select('id, name, code').order('name');
-      if (data) {
-        const sorted = sortRegionsNorthToSouth(data as any);
-        setRegiones(sorted.map((r: any) => ({ label: r.name, value: String(r.id) })));
-      }
+      const response = await fetch('/api/geo?mode=regions', { cache: 'no-store' });
+      const payload = await response.json().catch(() => ({} as Record<string, unknown>));
+      if (!response.ok) return;
+      const rows = Array.isArray((payload as { regions?: unknown[] }).regions)
+        ? ((payload as { regions: Array<{ id: string | number; name: string; code?: string | null }> }).regions ?? [])
+        : [];
+      const sorted = sortRegionsNorthToSouth(rows as any);
+      setRegiones(sorted.map((r: any) => ({ label: r.name, value: String(r.id) })));
     }
     fetchRegiones();
-  }, [supabase]);
+  }, []);
 
   useEffect(() => {
     async function fetchComunas() {
       if (form.region_id) {
-        const { data } = await supabase
-          .from('communes')
-          .select('id, name')
-          .eq('region_id', form.region_id)
-          .order('name');
-        if (data) {
-          setComunas(data.map((c: any) => ({ label: c.name, value: String(c.id) })));
-        }
+        const params = new URLSearchParams({
+          mode: 'communes',
+          region_id: form.region_id
+        });
+        const response = await fetch(`/api/geo?${params.toString()}`, { cache: 'no-store' });
+        const payload = await response.json().catch(() => ({} as Record<string, unknown>));
+        if (!response.ok) return;
+        const rows = Array.isArray((payload as { communes?: unknown[] }).communes)
+          ? ((payload as { communes: Array<{ id: string | number; name: string }> }).communes ?? [])
+          : [];
+        setComunas(rows.map((c) => ({ label: c.name, value: String(c.id) })));
       } else {
         setComunas([]);
       }
     }
     fetchComunas();
-  }, [form.region_id, supabase]);
+  }, [form.region_id]);
 
   return (
     <div className="w-full space-y-6">

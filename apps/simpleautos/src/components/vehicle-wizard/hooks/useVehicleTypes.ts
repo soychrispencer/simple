@@ -1,6 +1,5 @@
-﻿"use client";
+"use client";
 import { useEffect, useState } from 'react';
-import { useSupabase } from '@/lib/supabase/useSupabase';
 
 export interface VehicleTypeRow {
   id: string;
@@ -16,7 +15,6 @@ interface UseVehicleTypesOptions {
 }
 
 export function useVehicleTypes(opts: UseVehicleTypesOptions = {}) {
-  const supabase = useSupabase();
   const [data, setData] = useState<VehicleTypeRow[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
@@ -32,28 +30,23 @@ export function useVehicleTypes(opts: UseVehicleTypesOptions = {}) {
     };
 
     async function load() {
-      setLoading(true); setError(null);
-      let response = await supabase
-        .from('vehicle_types')
-        .select('*')
-        .order('sort_order', { ascending: true });
+      setLoading(true);
+      setError(null);
 
-      // En entornos donde aún no existe sort_order, repetimos sin ese ORDER.
-      if (response.error && /sort_order/i.test(response.error.message)) {
-        response = await supabase
-          .from('vehicle_types')
-          .select('*')
-          .order('name', { ascending: true });
-      }
+      const response = await fetch('/api/vehicle-catalog?mode=types', { cache: 'no-store' });
+      const payload = await response.json().catch(() => ({} as Record<string, unknown>));
+      const rowsRaw = Array.isArray((payload as { types?: unknown[] }).types)
+        ? ((payload as { types: Record<string, unknown>[] }).types ?? [])
+        : [];
 
       if (!mounted) return;
-      if (response.error) {
-        setError(response.error.message);
+      if (!response.ok) {
+        setError('No se pudieron cargar los tipos de vehiculo');
         setLoading(false);
         return;
       }
 
-      const rows = (response.data || []).map((row: any): VehicleTypeRow => {
+      const rows = rowsRaw.map((row: any): VehicleTypeRow => {
         const fallbackLabel = row.label ?? row.name ?? row.slug ?? 'Otro';
         return {
           id: row.id,
@@ -71,10 +64,10 @@ export function useVehicleTypes(opts: UseVehicleTypesOptions = {}) {
     }
 
     load();
-    return () => { mounted = false; };
-  }, [supabase, opts.includeInactive]);
+    return () => {
+      mounted = false;
+    };
+  }, [opts.includeInactive]);
 
   return { vehicleTypes: data, loading, error };
 }
-
-

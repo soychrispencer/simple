@@ -15,17 +15,14 @@ import type {
   SignInOptions,
   SignUpOptions,
 } from "@simple/auth";
-import { getSupabaseClient } from "@/lib/supabase/supabase";
 
-type AutosAuthProviderProps = Omit<SharedAuthProviderProps, "supabaseClient"> & {
+type AutosAuthProviderProps = SharedAuthProviderProps & {
   children: ReactNode;
 };
 
 export function AuthProvider({ children, ...props }: AutosAuthProviderProps) {
-  const supabaseClient = getSupabaseClient();
-
   return (
-    <SharedAuthProvider supabaseClient={supabaseClient} {...props}>
+    <SharedAuthProvider {...props}>
       {children}
     </SharedAuthProvider>
   );

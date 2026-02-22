@@ -1,4 +1,3 @@
-﻿import { getSupabaseClient } from './supabase/supabase';
 import { Vehicle, RentPricePeriod, ListingKind, VehicleCategory, Visibility } from "@/types/vehicle";
 
 // Tipos para registros de base de datos
@@ -74,7 +73,7 @@ interface Profile {
   avatar_url?: string;
 }
 
-// Tipo de fila destacada obtenida desde Supabase.
+// Tipo de fila destacada obtenida desde backend legado.
 export interface FeaturedVehicleRow {
   id: string;
   title: string;
@@ -192,29 +191,27 @@ export function mapVehicleToFeaturedRow(r: VehicleJoinedRow, profilesMap: Record
  * Funci�n com�n para cargar perfiles de propietarios
  */
 export async function loadProfiles(ownerIds: string[]): Promise<Record<string, any>> {
-  const supabase = getSupabaseClient();
   const profilesMap: Record<string, any> = {};
 
   if (ownerIds.length > 0) {
-    // `profiles` no contiene username/public_name/avatar_url; eso vive en `public_profiles`.
-    const { data: publicProfiles } = await supabase
-      .from('public_profiles')
-      .select('owner_profile_id, slug, public_name, avatar_url')
-      .in('owner_profile_id', ownerIds);
+    const params = new URLSearchParams({ owner_ids: ownerIds.join(',') });
+    const response = await fetch(`/api/public-profiles?${params.toString()}`, { cache: 'no-store' });
+    const payload = await response.json().catch(() => ({} as Record<string, unknown>));
+    const publicProfiles = response.ok && Array.isArray((payload as any)?.profiles)
+      ? (payload as any).profiles
+      : [];
 
-    if (publicProfiles) {
-      publicProfiles
-        .filter((p: any) => p?.owner_profile_id)
-        .forEach((p: any) => {
-          const ownerId = String(p.owner_profile_id);
-          profilesMap[ownerId] = {
-            id: ownerId,
-            username: p.slug || '',
-            public_name: p.public_name || 'Vendedor',
-            avatar_url: p.avatar_url || null,
-          };
-        });
-    }
+    publicProfiles
+      .filter((p: any) => p?.owner_profile_id)
+      .forEach((p: any) => {
+        const ownerId = String(p.owner_profile_id);
+        profilesMap[ownerId] = {
+          id: ownerId,
+          username: p.slug || '',
+          public_name: p.public_name || 'Vendedor',
+          avatar_url: p.avatar_url || null,
+        };
+      });
   }
 
   return profilesMap;
@@ -339,4 +336,7 @@ export function mapVehicleRowToVehicle(row: VehicleRowForMapping): Vehicle {
     extra_specs: row.specs || row.extra_specs || null,
   };
 }
+
+
+
 

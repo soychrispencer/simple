@@ -3,7 +3,6 @@ import React from "react";
 import Link from "next/link";
 import { Button, PanelPageLayout } from "@simple/ui";
 import { useRouter } from "next/navigation";
-import { useSupabase } from "@/lib/supabase/useSupabase";
 import { useListingsScope } from "@simple/listings";
 import { logError } from "@/lib/logger";
 import {
@@ -35,9 +34,6 @@ const EMPTY_KPI_STATS: KpiStats = {
   paused: 0,
   drafts: 0,
 };
-
-const AUTOS_VERTICAL_KEYS = ["vehicles", "autos"] as const;
-const AUTOS_VERTICAL_FILTER = [...AUTOS_VERTICAL_KEYS];
 
 const STATUS_LABEL_BY_DB: Record<string, string> = {
   published: "Publicado",
@@ -74,6 +70,18 @@ const getStatusChipClasses = (status: string) => {
   return `${style.bg} ${style.text}`;
 };
 
+type VehiclePanelRow = {
+  id: string;
+  title: string;
+  price?: number | null;
+  status?: string | null;
+  created_at?: string | null;
+  updated_at?: string | null;
+  views?: number | null;
+  clicks?: number | null;
+  images?: { url?: string | null; position?: number | null; is_cover?: boolean | null }[] | null;
+};
+
 export default function PanelHome() {
   const [mounted, setMounted] = React.useState(false);
   const [recientes, setRecientes] = React.useState<PubItem[]>([]);
@@ -86,11 +94,10 @@ export default function PanelHome() {
     documentsVerified: false
   });
   const { user, loading: scopeLoading, scopeFilter } = useListingsScope({ verticalKey: 'autos' });
-  const supabase = useSupabase();
   const router = useRouter();
 
   React.useEffect(() => {
-    if (!supabase || scopeLoading) {
+    if (scopeLoading) {
       return;
     }
 
@@ -118,76 +125,48 @@ export default function PanelHome() {
       }
       try {
         setLoading(true);
-        const { data: verticalRows, error: verticalError } = await supabase
-          .from('verticals')
-          .select('id, key')
-          .in('key', AUTOS_VERTICAL_FILTER);
+        const listingsPromise = (async (): Promise<VehiclePanelRow[]> => {
+          const params = new URLSearchParams({
+            scopeColumn: scopeFilter.column,
+            scopeValue: scopeFilter.value
+          });
+          const response = await fetch(`/api/vehicles?${params.toString()}`, {
+            cache: 'no-store'
+          });
+          const payload = await response.json().catch(() => ({} as Record<string, unknown>));
+          if (!response.ok) {
+            throw new Error(String(payload?.error || 'No se pudieron cargar los vehículos'));
+          }
+          return Array.isArray((payload as { vehicles?: unknown[] }).vehicles)
+            ? ((payload as { vehicles: VehiclePanelRow[] }).vehicles ?? [])
+            : [];
+        })();
 
-        if (verticalError) {
-          logError('Error cargando verticals', verticalError, { scope: 'panel-home' });
-        }
+        const subscriptionPromise = (async () => {
+          const response = await fetch('/api/vehicles?mode=subscription', {
+            cache: 'no-store'
+          });
+          const payload = await response.json().catch(() => ({} as Record<string, unknown>));
+          if (!response.ok) {
+            throw new Error(String(payload?.error || 'No se pudo cargar la suscripción'));
+          }
+          return payload as {
+            status?: string | null;
+          };
+        })();
 
-        const verticalIds = (verticalRows || []).map((v: any) => v.id).filter(Boolean);
-        const vehiclesVerticalId = (verticalRows || []).find((v: any) => v?.key === 'vehicles')?.id;
-
-        const statusPromise = supabase
-          .from('listings')
-          .select('status')
-          .eq(scopeFilter.column, scopeFilter.value);
-
-        if (verticalIds.length > 0) {
-          statusPromise.in('vertical_id', verticalIds);
-        }
-
-        const recentsPromise = supabase
-          .from('listings')
-          .select(`
-            id,
-            title,
-            price,
-            status,
-            published_at,
-            created_at,
-            listing_metrics(views, favorites),
-            images:images(url, position, is_primary),
-            vertical_id
-          `)
-          .eq(scopeFilter.column, scopeFilter.value)
-          .eq('status', 'published')
-          .order('published_at', { ascending: false, nullsFirst: false })
-          .limit(5);
-
-        if (verticalIds.length > 0) {
-          recentsPromise.in('vertical_id', verticalIds);
-        }
-
-        const subscriptionPromise = supabase
-          .from('subscriptions')
-          .select('status, current_period_end, plan_id, vertical_id, subscription_plans(name, plan_key)')
-          .eq('user_id', user.id)
-          .eq('status', 'active')
-          .limit(1);
-
-        if (vehiclesVerticalId) {
-          subscriptionPromise.eq('vertical_id', vehiclesVerticalId);
-        }
-
-        const [{ data: statusRows, error: statusError }, { data: recentsRows, error: recentsError }, { data: subscriptions, error: subscriptionError }] = await Promise.all([
-          statusPromise,
-          recentsPromise,
-          subscriptionPromise,
+        const [listingRows, subscriptionData] = await Promise.all([
+          listingsPromise,
+          subscriptionPromise
         ]);
 
-        if (statusError) {
-          throw statusError;
-        }
-
         if (!cancelled) {
-          const statsSnapshot = (statusRows || []).reduce((acc: KpiStats, row: { status: string }) => {
+          const statsSnapshot = (listingRows || []).reduce((acc: KpiStats, row: { status?: string | null }) => {
+            const status = String(row.status || 'draft');
             acc.total += 1;
-            if (row.status === 'published') {
+            if (status === 'published') {
               acc.active += 1;
-            } else if (row.status === 'inactive' || row.status === 'sold') {
+            } else if (status === 'inactive' || status === 'sold') {
               acc.paused += 1;
             } else {
               acc.drafts += 1;
@@ -197,29 +176,30 @@ export default function PanelHome() {
           setKpiStats(statsSnapshot);
         }
 
-        if (recentsError) {
-          throw recentsError;
-        }
-
         if (!cancelled) {
-          const mappedRecientes: PubItem[] = (recentsRows || []).map((row: any) => {
+          const mappedRecientes: PubItem[] = [...(listingRows || [])]
+            .filter((row) => String(row.status || '') === 'published')
+            .sort((a, b) => {
+              const aTs = Date.parse(a.created_at || a.updated_at || '1970-01-01T00:00:00.000Z');
+              const bTs = Date.parse(b.created_at || b.updated_at || '1970-01-01T00:00:00.000Z');
+              return bTs - aTs;
+            })
+            .slice(0, 5)
+            .map((row) => {
             const orderedImages = [...(row.images || [])].sort((a, b) => {
-              if (!!a.is_primary === !!b.is_primary) {
+              if (!!a.is_cover === !!b.is_cover) {
                 return (a.position ?? 0) - (b.position ?? 0);
               }
-              return a.is_primary ? -1 : 1;
+              return a.is_cover ? -1 : 1;
             });
-            const metrics = Array.isArray(row.listing_metrics)
-              ? row.listing_metrics[0]
-              : row.listing_metrics;
-            const views = typeof metrics?.views === 'number' ? metrics.views : 0;
-            const favorites = typeof metrics?.favorites === 'number' ? metrics.favorites : 0;
+            const views = typeof row.views === 'number' ? row.views : 0;
+            const favorites = typeof row.clicks === 'number' ? row.clicks : 0;
             return {
               id: row.id,
               titulo: row.title,
               precio: row.price || 0,
-              estado: STATUS_LABEL_BY_DB[row.status] || 'Desconocido',
-              estadoKey: row.status || 'default',
+              estado: STATUS_LABEL_BY_DB[String(row.status || '')] || 'Desconocido',
+              estadoKey: String(row.status || 'default'),
               portada: orderedImages[0]?.url || '',
               views,
               favorites,
@@ -228,12 +208,7 @@ export default function PanelHome() {
           setRecientes(mappedRecientes);
         }
 
-        if (subscriptionError) {
-          logError('Error verificando suscripción', subscriptionError, { scope: 'panel-home' });
-        }
-
-        const activeSubscription = subscriptions && subscriptions.length > 0 ? subscriptions[0] : null;
-        const planActive = !!(activeSubscription && activeSubscription.status === 'active');
+        const planActive = String(subscriptionData?.status || 'inactive') === 'active';
         const profileComplete = !!(user?.user_metadata?.full_name && user?.user_metadata?.phone);
         const accountVerified = !!user?.email_confirmed_at;
         const documentsVerified = false; // TODO: implementar verificación de documentos
@@ -266,7 +241,7 @@ export default function PanelHome() {
     return () => {
       cancelled = true;
     };
-  }, [supabase, scopeFilter, user, scopeLoading]);
+  }, [scopeFilter, user, scopeLoading]);
 
   const displayName = React.useMemo(() => {
     const asTrimmedString = (value: unknown): string | null => {

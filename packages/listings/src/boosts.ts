@@ -1,4 +1,4 @@
-import type { SupabaseClient } from '@supabase/supabase-js';
+type DatabaseClient = any;
 
 export interface BoostSlotRecord {
   id: string;
@@ -14,7 +14,7 @@ export interface BoostSlotRecord {
 }
 
 export interface FetchBoostedListingsParams {
-  supabase: SupabaseClient;
+  client: DatabaseClient;
   slotKey: string;
   verticalKey: string;
   limit?: number;
@@ -34,7 +34,7 @@ export interface BoostedListingRow<TListing = Record<string, any>> {
 }
 
 export interface EnsureListingBoostParams {
-  supabase: SupabaseClient;
+  client: DatabaseClient;
   listingId: string;
   companyId?: string | null;
   userId?: string | null;
@@ -51,7 +51,7 @@ export interface EnsureListingBoostResult {
 }
 
 export interface SyncListingBoostSlotsParams {
-  supabase: SupabaseClient;
+  client: DatabaseClient;
   listingId: string;
   boostId: string;
   slotIds: string[];
@@ -80,11 +80,11 @@ const DEFAULT_LISTING_SELECT = `
 `;
 
 async function resolveSlotId(
-  supabase: SupabaseClient,
+  client: DatabaseClient,
   slotKey: string,
   verticalKey: string
 ): Promise<{ id: string } | null> {
-  const { data, error } = await supabase
+  const { data, error } = await client
     .from('boost_slots')
     .select('id, verticals!inner(key)')
     .eq('key', slotKey)
@@ -105,10 +105,10 @@ async function resolveSlotId(
 }
 
 export async function getBoostSlotsByVertical(
-  supabase: SupabaseClient,
+  client: DatabaseClient,
   verticalKey: string
 ): Promise<BoostSlotRecord[]> {
-  const { data, error } = await supabase
+  const { data, error } = await client
     .from('boost_slots')
     .select('id, key, title, description, placement, max_active, default_duration_days, price, currency, config, verticals!inner(key)')
     .eq('verticals.key', verticalKey)
@@ -120,7 +120,7 @@ export async function getBoostSlotsByVertical(
     throw error;
   }
 
-  return (data || []).map((row) => ({
+  return (data || []).map((row: any) => ({
     id: row.id,
     key: row.key,
     title: row.title,
@@ -135,7 +135,7 @@ export async function getBoostSlotsByVertical(
 }
 
 export async function fetchBoostedListings<TListing = Record<string, any>>({
-  supabase,
+  client,
   slotKey,
   verticalKey,
   limit = 10,
@@ -145,12 +145,12 @@ export async function fetchBoostedListings<TListing = Record<string, any>>({
   companyId,
   companyProfileId,
 }: FetchBoostedListingsParams): Promise<BoostedListingRow<TListing>[]> {
-  const slot = await resolveSlotId(supabase, slotKey, verticalKey);
+  const slot = await resolveSlotId(client, slotKey, verticalKey);
   if (!slot?.id) {
     return [];
   }
 
-  let query = supabase
+  let query = client
     .from('listing_boost_slots')
     .select(
       `
@@ -193,7 +193,7 @@ export async function fetchBoostedListings<TListing = Record<string, any>>({
 }
 
 export async function ensureListingBoost({
-  supabase,
+  client,
   listingId,
   companyId = null,
   userId = null,
@@ -202,7 +202,7 @@ export async function ensureListingBoost({
   status = 'active',
   metadata = {},
 }: EnsureListingBoostParams): Promise<EnsureListingBoostResult> {
-  const { data: existing, error: existingError } = await supabase
+  const { data: existing, error: existingError } = await client
     .from('listing_boosts')
     .select('id, starts_at, ends_at')
     .eq('listing_id', listingId)
@@ -233,7 +233,7 @@ export async function ensureListingBoost({
     metadata: metadata || {},
   };
 
-  const { data, error } = await supabase
+  const { data, error } = await client
     .from('listing_boosts')
     .insert(payload)
     .select('id, starts_at, ends_at')
@@ -252,7 +252,7 @@ export async function ensureListingBoost({
 }
 
 export async function syncListingBoostSlots({
-  supabase,
+  client,
   listingId,
   boostId,
   slotIds,
@@ -260,7 +260,7 @@ export async function syncListingBoostSlots({
   windowEnd,
 }: SyncListingBoostSlotsParams): Promise<SyncListingBoostSlotsResult> {
   const normalized = Array.from(new Set(slotIds || [])).filter(Boolean);
-  const { data: currentRows, error: currentError } = await supabase
+  const { data: currentRows, error: currentError } = await client
     .from('listing_boost_slots')
     .select('id, slot_id')
     .eq('listing_id', listingId)
@@ -272,17 +272,17 @@ export async function syncListingBoostSlots({
   }
 
   const current = currentRows || [];
-  const currentSlotIds = current.map((row) => row.slot_id);
+  const currentSlotIds = current.map((row: any) => row.slot_id);
 
   const toAdd = normalized.filter((slotId) => !currentSlotIds.includes(slotId));
-  const toRemove = current.filter((row) => !normalized.includes(row.slot_id));
+  const toRemove = current.filter((row: any) => !normalized.includes(row.slot_id));
 
   let added = 0;
   let removed = 0;
 
   if (toRemove.length) {
-    const ids = toRemove.map((row) => row.id);
-    const { error: deactivateError } = await supabase
+    const ids = toRemove.map((row: any) => row.id);
+    const { error: deactivateError } = await client
       .from('listing_boost_slots')
       .update({ is_active: false, ends_at: windowEnd ?? new Date().toISOString() })
       .in('id', ids);
@@ -305,7 +305,7 @@ export async function syncListingBoostSlots({
       is_active: true,
     }));
 
-    const { error: insertError } = await supabase.from('listing_boost_slots').insert(payload);
+    const { error: insertError } = await client.from('listing_boost_slots').insert(payload);
     if (insertError) {
       console.error('[boosts] syncListingBoostSlots insert error', insertError);
       throw insertError;

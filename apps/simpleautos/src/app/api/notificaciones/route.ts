@@ -1,89 +1,93 @@
-﻿import { createServerComponentClient } from '@supabase/auth-helpers-nextjs';
-import { cookies as getCookies } from 'next/headers';
 import { NextRequest, NextResponse } from 'next/server';
+import { getDbPool } from '@/lib/server/db';
+import { requireAuthUserId } from '@/lib/server/requireAuth';
 
-
-// GET /api/notificaciones?limit=20&unreadOnly=1
 export async function GET(req: NextRequest) {
-  const cookiesObj = await getCookies();
-  const supabase = createServerComponentClient({ cookies: () => (cookiesObj as any) });
-  const {
-    data: { user },
-    error: userError
-  } = await supabase.auth.getUser();
-  if (userError || !user) {
+  const auth = requireAuthUserId(req);
+  if ('error' in auth) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
+
   const { searchParams } = new URL(req.url);
-  const limit = Math.min(parseInt(searchParams.get('limit') || '20', 10), 100);
+  const rawLimit = Number(searchParams.get('limit') || 20);
+  const limit = Number.isFinite(rawLimit) ? Math.min(Math.max(rawLimit, 1), 100) : 20;
   const unreadOnly = searchParams.get('unreadOnly') === '1';
-  let query = supabase
-    .from('notifications')
-    .select('*')
-    .eq('user_id', user.id)
-    .order('created_at', { ascending: false })
-    .limit(limit);
-  if (unreadOnly) query = query.eq('is_read', false);
-  const { data: notifications, error } = await query;
-  if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+
+  const db = getDbPool();
+  const params: any[] = [auth.userId];
+  let where = `user_id = $1`;
+  if (unreadOnly) {
+    params.push(false);
+    where += ` AND is_read = $2`;
   }
-  const { count: unreadCount } = await supabase
-    .from('notifications')
-    .select('*', { count: 'exact', head: true })
-    .eq('user_id', user.id)
-    .eq('is_read', false);
-  return NextResponse.json({ notifications: notifications || [], unreadCount: unreadCount || 0 });
+  params.push(limit);
+
+  const listQuery = await db.query(
+    `SELECT *
+     FROM notifications
+     WHERE ${where}
+     ORDER BY created_at DESC
+     LIMIT $${params.length}`,
+    params
+  );
+
+  const unreadQuery = await db.query(
+    `SELECT COUNT(*)::int AS count
+     FROM notifications
+     WHERE user_id = $1 AND is_read = false`,
+    [auth.userId]
+  );
+
+  return NextResponse.json({
+    notifications: listQuery.rows || [],
+    unreadCount: Number(unreadQuery.rows[0]?.count || 0),
+  });
 }
 
-// PATCH /api/notificaciones (marcar todas como le�das o por ids)
 export async function PATCH(req: NextRequest) {
-  const cookiesObj = await getCookies();
-  const supabase = createServerComponentClient({ cookies: () => (cookiesObj as any) });
-  const {
-    data: { user },
-    error: userError
-  } = await supabase.auth.getUser();
-  if (userError || !user) {
+  const auth = requireAuthUserId(req);
+  if ('error' in auth) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
-  const { markAll, ids } = await req.json();
+
+  const body = await req.json().catch(() => ({} as Record<string, unknown>));
+  const markAll = Boolean(body?.markAll);
+  const ids = Array.isArray(body?.ids)
+    ? body.ids.map((id: unknown) => String(id)).filter(Boolean)
+    : [];
+  const db = getDbPool();
+
   if (markAll) {
-    const { error } = await supabase
-      .from('notifications')
-      .update({ is_read: true })
-      .eq('user_id', user.id);
-    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+    await db.query(`UPDATE notifications SET is_read = true WHERE user_id = $1`, [auth.userId]);
     return NextResponse.json({ ok: true });
   }
-  if (Array.isArray(ids) && ids.length > 0) {
-    const { error } = await supabase
-      .from('notifications')
-      .update({ is_read: true })
-      .in('id', ids)
-      .eq('user_id', user.id);
-    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+
+  if (ids.length > 0) {
+    await db.query(
+      `UPDATE notifications
+       SET is_read = true
+       WHERE user_id = $1
+         AND id = ANY($2::uuid[])`,
+      [auth.userId, ids]
+    );
     return NextResponse.json({ ok: true });
   }
+
   return NextResponse.json({ error: 'Nada que actualizar' }, { status: 400 });
 }
 
-// POST /api/notificaciones  body: { type, title?, body?, data? }
 export async function POST(req: NextRequest) {
-  const cookiesObj = await getCookies();
-  const supabase = createServerComponentClient({ cookies: () => (cookiesObj as any) });
-  const {
-    data: { user },
-    error: userError
-  } = await supabase.auth.getUser();
-  if (userError || !user) {
+  const auth = requireAuthUserId(req);
+  if ('error' in auth) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
-  const body = await req.json();
-  if (!body.type) return NextResponse.json({ error: 'type requerido' }, { status: 400 });
+
+  const body = await req.json().catch(() => ({} as Record<string, unknown>));
+  const type = String(body?.type || '').trim();
+  if (!type) return NextResponse.json({ error: 'type requerido' }, { status: 400 });
 
   let dataJson: any = null;
-  if (body.data != null) {
+  if (body?.data != null) {
     if (typeof body.data === 'string') {
       try {
         dataJson = JSON.parse(body.data);
@@ -95,22 +99,19 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  const { data: notification, error } = await supabase
-    .from('notifications')
-    .insert([
-      {
-        user_id: user.id,
-        type: body.type,
-        title: body.title || 'Notificación',
-        content: body.body ?? body.content ?? null,
-        data: dataJson,
-        is_read: false
-      }
-    ])
-    .select()
-    .single();
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-  return NextResponse.json({ notification });
+  const db = getDbPool();
+  const inserted = await db.query(
+    `INSERT INTO notifications (user_id, type, title, content, data, is_read)
+     VALUES ($1, $2, $3, $4, $5::jsonb, false)
+     RETURNING *`,
+    [
+      auth.userId,
+      type,
+      String(body?.title || 'Notificación'),
+      body?.body ?? body?.content ?? null,
+      JSON.stringify(dataJson),
+    ]
+  );
+
+  return NextResponse.json({ notification: inserted.rows[0] || null });
 }
-
-

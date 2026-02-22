@@ -1,5 +1,4 @@
 ﻿import React from "react";
-import { useSupabase } from "@/lib/supabase/useSupabase";
 import { Input, Select, Button, useToast } from "@simple/ui";
 import { IconBuildingStore, IconPhone, IconMail, IconMapPin, IconId, IconGlobe } from "@tabler/icons-react";
 import { logError } from "@/lib/logger";
@@ -62,8 +61,14 @@ const mapCompanyToContactState = (
   contact_name: permissions?.contact_name || "",
 });
 
+type CompanyApiPayload = {
+  company?: CompanyRecord | null;
+  membershipId?: string | null;
+  permissions?: Record<string, any> | null;
+  error?: string;
+};
+
 const CompanyDataForm: React.FC<{ empresa: any; onSave?: (data: any) => void }> = ({ empresa, onSave }) => {
-  const supabase = useSupabase();
   const { addToast } = useToast();
   const [savingCompany, setSavingCompany] = React.useState(false);
   const [savingContact, setSavingContact] = React.useState(false);
@@ -94,38 +99,26 @@ const CompanyDataForm: React.FC<{ empresa: any; onSave?: (data: any) => void }> 
 
   const [missingFields, setMissingFields] = React.useState<Record<string, boolean>>({});
   const [missingContactFields, setMissingContactFields] = React.useState<Record<string, boolean>>({});
-  const getUserId = React.useCallback(async () => {
-    let userId = empresa?.user_id;
-    if (!userId) {
-      const { data: authUser } = await supabase.auth.getUser();
-      userId = authUser?.user?.id;
-    }
-    return userId;
-  }, [empresa?.user_id, supabase]);
 
   React.useEffect(() => {
+    let active = true;
+
     async function fetchCompany() {
-      const userId = await getUserId();
-      if (!userId) return;
-
-      const { data, error } = await supabase
-        .from('company_users')
-        .select('id, permissions, company:companies(*)')
-        .eq('user_id', userId)
-        .maybeSingle();
-
-      if (error) {
-        logError('[CompanyDataForm] Error fetching company', error);
+      const response = await fetch('/api/profile/company', { cache: 'no-store' });
+      const payload = await response.json().catch(() => ({} as CompanyApiPayload));
+      if (!active) return;
+      if (!response.ok) {
+        logError('[CompanyDataForm] Error fetching company', payload);
         return;
       }
 
-      if (data?.company) {
-        setCompanyId(data.company.id ?? null);
-        setMembershipId(data.id ?? null);
-        setMembershipPermissions(data.permissions || {});
-        setCompanyForm(mapCompanyToFormState(data.company));
-        setContactForm(mapCompanyToContactState(data.company, data.permissions));
-        onSave?.(data.company);
+      if (payload?.company) {
+        setCompanyId(payload.company.id ?? null);
+        setMembershipId(payload.membershipId ?? null);
+        setMembershipPermissions(payload.permissions || {});
+        setCompanyForm(mapCompanyToFormState(payload.company));
+        setContactForm(mapCompanyToContactState(payload.company, payload.permissions));
+        onSave?.(payload.company);
       } else {
         setCompanyId(null);
         setMembershipId(null);
@@ -133,27 +126,32 @@ const CompanyDataForm: React.FC<{ empresa: any; onSave?: (data: any) => void }> 
       }
     }
 
-    fetchCompany();
-  }, [getUserId, onSave, supabase]);
+    void fetchCompany();
+    return () => {
+      active = false;
+    };
+  }, [onSave]);
 
   const [regions, setRegions] = React.useState<{ label: string; value: string }[]>([]);
   const [communes, setCommunes] = React.useState<{ label: string; value: string }[]>([]);
 
   React.useEffect(() => {
     async function fetchRegions() {
-      const { data, error } = await supabase.from('regions').select('id, name, code').order('name');
-      if (error) {
-        logError('[CompanyDataForm] Error fetching regions', error);
+      const response = await fetch('/api/geo?mode=regions', { cache: 'no-store' });
+      const payload = await response.json().catch(() => ({} as Record<string, unknown>));
+      if (!response.ok) {
+        logError('[CompanyDataForm] Error fetching regions', payload);
         return;
       }
-      if (data) {
-        const sorted = sortRegionsNorthToSouth(data as any);
-        setRegions(sorted.map((r: any) => ({ label: r.name, value: String(r.id) })));
-      }
+      const rows = Array.isArray((payload as { regions?: unknown[] }).regions)
+        ? ((payload as { regions: Array<{ id: string | number; name: string; code?: string | null }> }).regions ?? [])
+        : [];
+      const sorted = sortRegionsNorthToSouth(rows as any);
+      setRegions(sorted.map((r: any) => ({ label: r.name, value: String(r.id) })));
     }
 
     fetchRegions();
-  }, [supabase]);
+  }, []);
 
   React.useEffect(() => {
     async function fetchCommunes() {
@@ -162,22 +160,24 @@ const CompanyDataForm: React.FC<{ empresa: any; onSave?: (data: any) => void }> 
         return;
       }
 
-      const { data, error } = await supabase
-        .from('communes')
-        .select('id, name')
-        .eq('region_id', companyForm.region_id)
-        .order('name');
-
-      if (error) {
-        logError('[CompanyDataForm] Error fetching communes', error);
+      const params = new URLSearchParams({
+        mode: 'communes',
+        region_id: companyForm.region_id
+      });
+      const response = await fetch(`/api/geo?${params.toString()}`, { cache: 'no-store' });
+      const payload = await response.json().catch(() => ({} as Record<string, unknown>));
+      if (!response.ok) {
+        logError('[CompanyDataForm] Error fetching communes', payload);
         return;
       }
-
-      setCommunes(data?.map((c: any) => ({ label: c.name, value: String(c.id) })) || []);
+      const rows = Array.isArray((payload as { communes?: unknown[] }).communes)
+        ? ((payload as { communes: Array<{ id: string | number; name: string }> }).communes ?? [])
+        : [];
+      setCommunes(rows.map((c) => ({ label: c.name, value: String(c.id) })));
     }
 
     fetchCommunes();
-  }, [companyForm.region_id, supabase]);
+  }, [companyForm.region_id]);
 
   const handleCompanySubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -206,14 +206,6 @@ const CompanyDataForm: React.FC<{ empresa: any; onSave?: (data: any) => void }> 
 
     setMissingFields({});
 
-    const userId = await getUserId();
-    if (!userId) {
-      setErrorMsg('Error: usuario no autenticado');
-      addToast('No se pudo identificar el usuario para guardar el negocio.', { type: 'error' });
-      setSavingCompany(false);
-      return;
-    }
-
     let DOMPurify: any = null;
     try {
       DOMPurify = require('isomorphic-dompurify');
@@ -221,10 +213,10 @@ const CompanyDataForm: React.FC<{ empresa: any; onSave?: (data: any) => void }> 
     const sanitize = (val: string) => DOMPurify && typeof val === 'string' ? DOMPurify.sanitize(val.trim()) : (val && val.trim() !== "" ? val.trim() : null);
 
     const cleanCompanyForm = {
-      name: sanitize(companyForm.legal_name),
-      rut: sanitize(companyForm.tax_id),
-      industry: sanitize(companyForm.business_activity),
-      description: sanitize(companyForm.business_type),
+      legal_name: sanitize(companyForm.legal_name),
+      tax_id: sanitize(companyForm.tax_id),
+      business_activity: sanitize(companyForm.business_activity),
+      business_type: sanitize(companyForm.business_type),
       address: sanitize(companyForm.address),
       region_id: companyForm.region_id || null,
       commune_id: companyForm.commune_id || null,
@@ -232,94 +224,28 @@ const CompanyDataForm: React.FC<{ empresa: any; onSave?: (data: any) => void }> 
       company_type: sanitize(companyForm.company_type)
     };
 
-    const { data: membership, error: membershipError } = await supabase
-      .from('company_users')
-      .select('id, company_id, permissions')
-      .eq('user_id', userId)
-      .maybeSingle();
-
-    if (membershipError) {
-      logError('[CompanyDataForm] Error fetching company membership', membershipError);
-      addToast('No se pudieron guardar los datos del negocio.', { type: 'error' });
+    const response = await fetch('/api/profile/company', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        action: 'upsert_company',
+        companyId,
+        company: cleanCompanyForm,
+      }),
+    });
+    const payload = await response.json().catch(() => ({} as CompanyApiPayload));
+    if (!response.ok) {
+      logError('[CompanyDataForm] Error saving company', payload);
+      setErrorMsg(`Error al guardar datos de empresa: ${payload?.error || 'error desconocido'}`);
+      addToast('No se pudieron guardar los datos de empresa.', { type: 'error' });
       setSavingCompany(false);
       return;
     }
 
-    let targetCompanyId = membership?.company_id || companyId;
-    let updatedCompany: CompanyRecord | null = null;
-
-    if (!targetCompanyId) {
-      const { data: insertedCompany, error: insertError } = await supabase
-        .from('companies')
-        .insert({
-          ...cleanCompanyForm
-        })
-        .select('*')
-        .single();
-
-      if (insertError) {
-        logError('[CompanyDataForm] Error creating company', insertError);
-        setErrorMsg('Error al guardar datos de empresa: ' + insertError.message);
-        addToast('No se pudieron guardar los datos de empresa.', { type: 'error' });
-        setSavingCompany(false);
-        return;
-      }
-
-      updatedCompany = insertedCompany;
-      targetCompanyId = insertedCompany.id;
-      setCompanyId(targetCompanyId);
-
-      if (!membership?.id) {
-        const { data: newMembership, error: linkError } = await supabase
-          .from('company_users')
-          .insert({
-            company_id: targetCompanyId,
-            user_id: userId,
-            role: 'owner',
-            permissions: membership?.permissions || membershipPermissions || {}
-          })
-          .select('*')
-          .single();
-
-        if (linkError) {
-          logError('[CompanyDataForm] Error linking company to user', linkError);
-          addToast('No se pudieron guardar los datos de empresa.', { type: 'error' });
-          setSavingCompany(false);
-          return;
-        }
-
-        setMembershipId(newMembership.id);
-        setMembershipPermissions(newMembership.permissions || {});
-      }
-    } else {
-      const { error: updateError } = await supabase
-        .from('companies')
-        .update({
-          ...cleanCompanyForm
-        })
-        .eq('id', targetCompanyId);
-
-      if (updateError) {
-        logError('[CompanyDataForm] Error saving company', updateError);
-        setErrorMsg('Error al guardar datos de empresa: ' + updateError.message);
-        addToast('No se pudieron guardar los datos de empresa.', { type: 'error' });
-        setSavingCompany(false);
-        return;
-      }
-    }
-
-    if (!updatedCompany && targetCompanyId) {
-      const { data: companyData, error: retrieveError } = await supabase
-        .from('companies')
-        .select('*')
-        .eq('id', targetCompanyId)
-        .maybeSingle();
-
-      if (retrieveError) {
-        logError('[CompanyDataForm] Error reloading company', retrieveError);
-      }
-      updatedCompany = companyData || updatedCompany;
-    }
+    const updatedCompany = payload?.company || null;
+    setCompanyId(payload?.company?.id ?? companyId);
+    setMembershipId(payload?.membershipId ?? membershipId);
+    setMembershipPermissions(payload?.permissions || {});
 
     if (updatedCompany) {
       setCompanyForm(mapCompanyToFormState(updatedCompany));
@@ -361,14 +287,6 @@ const CompanyDataForm: React.FC<{ empresa: any; onSave?: (data: any) => void }> 
 
     setMissingContactFields({});
 
-    const userId = await getUserId();
-    if (!userId) {
-      setErrorMsg('Error: usuario no autenticado');
-      addToast('No se pudo identificar el usuario para guardar contacto.', { type: 'error' });
-      setSavingContact(false);
-      return;
-    }
-
     const trimmed = (value: string) => (value && value.trim() !== "" ? value.trim() : null);
 
     if (!companyId) {
@@ -380,75 +298,32 @@ const CompanyDataForm: React.FC<{ empresa: any; onSave?: (data: any) => void }> 
     const contactPayload = {
       phone: trimmed(contactForm.phone),
       whatsapp: trimmed(contactForm.whatsapp),
-      email: contactForm.email.trim()
+      email: contactForm.email.trim(),
+      contact_name: trimmed(contactForm.contact_name),
     };
 
-    const { error: updateError } = await supabase
-      .from('companies')
-      .update(contactPayload)
-      .eq('id', companyId);
-
-    if (updateError) {
-      logError('[CompanyDataForm] Error saving contacts', updateError);
-      setErrorMsg('Error al guardar contacto empresa: ' + updateError.message);
+    const response = await fetch('/api/profile/company', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        action: 'update_contact',
+        companyId,
+        contact: contactPayload,
+      }),
+    });
+    const payload = await response.json().catch(() => ({} as CompanyApiPayload));
+    if (!response.ok) {
+      logError('[CompanyDataForm] Error saving contacts', payload);
+      setErrorMsg(`Error al guardar contacto empresa: ${payload?.error || 'error desconocido'}`);
       addToast('No se pudieron guardar los datos de contacto.', { type: 'error' });
       setSavingContact(false);
       return;
     }
 
-    const nextPermissions: Record<string, any> = { ...(membershipPermissions || {}) };
-    const contactNameValue = trimmed(contactForm.contact_name);
-    if (contactNameValue) {
-      nextPermissions.contact_name = contactNameValue;
-    } else {
-      delete nextPermissions.contact_name;
-    }
-
-    let activeMembershipId = membershipId;
-
-    if (activeMembershipId) {
-      const { data: updatedMembership, error: membershipUpdateError } = await supabase
-        .from('company_users')
-        .update({ permissions: nextPermissions })
-        .eq('id', activeMembershipId)
-        .select('id, permissions')
-        .single();
-
-      if (membershipUpdateError) {
-        logError('[CompanyDataForm] Error updating contact permissions', membershipUpdateError);
-      } else {
-        setMembershipPermissions(updatedMembership.permissions || {});
-      }
-    } else {
-      const { data: newMembership, error: membershipInsertError } = await supabase
-        .from('company_users')
-        .insert({
-          company_id: companyId,
-          user_id: userId,
-          role: 'owner',
-          permissions: nextPermissions
-        })
-        .select('id, permissions')
-        .single();
-
-      if (membershipInsertError) {
-        logError('[CompanyDataForm] Error creating contact permissions', membershipInsertError);
-      } else {
-        activeMembershipId = newMembership.id;
-        setMembershipId(newMembership.id);
-        setMembershipPermissions(newMembership.permissions || {});
-      }
-    }
-
-    const { data: companyUpdated, error: fetchUpdatedError } = await supabase
-      .from('companies')
-      .select('*')
-      .eq('id', companyId)
-      .maybeSingle();
-
-    if (fetchUpdatedError) {
-      logError('[CompanyDataForm] Error reloading contact info', fetchUpdatedError);
-    }
+    const nextPermissions = payload.permissions || {};
+    const companyUpdated = payload.company || null;
+    setMembershipPermissions(nextPermissions);
+    setMembershipId(payload.membershipId ?? membershipId);
 
     if (companyUpdated) {
       setContactForm(mapCompanyToContactState(companyUpdated, nextPermissions));

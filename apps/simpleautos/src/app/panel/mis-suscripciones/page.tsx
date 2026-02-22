@@ -1,14 +1,17 @@
 ﻿"use client";
 import React from "react";
 import { useSearchParams } from "next/navigation";
-import { Button, PanelPageLayout } from "@simple/ui";
+import { Button, PanelPageLayout, Select, Textarea, useToast } from "@simple/ui";
 import { useAuth } from "@/context/AuthContext";
-import { useSupabase } from "@/lib/supabase/useSupabase";
 import { logError, logWarn } from "@/lib/logger";
 import { IconDownload, IconCalendar, IconCheck, IconX, IconCreditCard } from '@tabler/icons-react';
 import { useMercadoPago } from '@/hooks/useMercadoPago';
 import type { SubscriptionPlan } from '@/lib/mercadopago';
-import { FREE_TIER_MAX_ACTIVE_LISTINGS, SUBSCRIPTION_PLANS } from '@simple/config';
+import {
+  FREE_TIER_MAX_ACTIVE_LISTINGS,
+  SUBSCRIPTION_PLANS,
+  normalizeSubscriptionPlanId
+} from '@simple/config';
 
 interface Plan {
   id: string;
@@ -29,9 +32,22 @@ interface Factura {
   descripcion: string;
 }
 
+type ManualPaymentRequest = {
+  id: string;
+  created_at: string;
+  request_type: string;
+  plan_key: string | null;
+  amount: number;
+  currency: string;
+  status: "pending" | "proof_uploaded" | "approved" | "rejected" | "cancelled";
+  proof_note: string | null;
+  admin_note: string | null;
+  reviewed_at: string | null;
+};
+
 export default function Suscripcion() {
   const { user } = useAuth();
-  const supabase = useSupabase();
+  const { addToast } = useToast();
   const { createSubscriptionPayment, loading: mpLoading, error: mpError } = useMercadoPago();
   const searchParams = useSearchParams();
   const checkoutStatus = searchParams.get('status');
@@ -39,6 +55,10 @@ export default function Suscripcion() {
   const [currentPlan, setCurrentPlan] = React.useState<string>('free');
   const [currentPeriodEnd, setCurrentPeriodEnd] = React.useState<string | null>(null);
   const [facturas, setFacturas] = React.useState<Factura[]>([]);
+  const [manualRequests, setManualRequests] = React.useState<ManualPaymentRequest[]>([]);
+  const [manualSubmitting, setManualSubmitting] = React.useState(false);
+  const [manualPlan, setManualPlan] = React.useState<string>("pro");
+  const [manualNote, setManualNote] = React.useState("");
 
   const formatCLP = React.useCallback((amount: number) => {
     return amount.toLocaleString('es-CL');
@@ -66,61 +86,33 @@ export default function Suscripcion() {
 
   const fetchData = React.useCallback(async () => {
     if (!user) return;
-    if (!supabase) {
-      logWarn('[MisSuscripciones] Supabase no disponible');
-      setCurrentPlan('free');
-      return;
-    }
 
     try {
-      const { data: vehiclesVertical, error: verticalError } = await supabase
-        .from('verticals')
-        .select('id')
-        .eq('key', 'vehicles')
-        .maybeSingle();
+      const [subscriptionRes, paymentsRes] = await Promise.all([
+        fetch('/api/vehicles?mode=subscription', { cache: 'no-store' }),
+        fetch('/api/vehicles?mode=payments&limit=20', { cache: 'no-store' })
+      ]);
 
-      if (verticalError) {
-        logWarn('[MisSuscripciones] No se pudo resolver vertical vehicles');
-      }
-
-      const vehiclesVerticalId = (vehiclesVertical as any)?.id as string | undefined;
-
-      // Obtener plan activo desde subscriptions (fuente real)
-      let activeSubQuery = supabase
-        .from('subscriptions')
-        .select('status, current_period_end, subscription_plans(plan_key, name)')
-        .eq('user_id', user.id)
-        .eq('status', 'active');
-
-      if (vehiclesVerticalId) {
-        activeSubQuery = activeSubQuery.eq('vertical_id', vehiclesVerticalId);
-      }
-
-      const { data: activeSub, error: subsError, status: subsStatus } = await activeSubQuery.maybeSingle();
-
-      if (subsError && subsStatus !== 406) {
-        logError('Error obteniendo suscripción', subsError, { scope: 'mis-suscripciones' });
+      const subscriptionPayload = await subscriptionRes.json().catch(() => ({} as Record<string, unknown>));
+      if (!subscriptionRes.ok) {
+        logError('Error obteniendo suscripción', subscriptionPayload, { scope: 'mis-suscripciones' });
         setCurrentPlan('free');
         setCurrentPeriodEnd(null);
       } else {
-        const planKey = (activeSub as any)?.subscription_plans?.plan_key || 'free';
+        const planKey = normalizeSubscriptionPlanId(String(subscriptionPayload?.planKey || 'free'));
         setCurrentPlan(planKey || 'free');
-        setCurrentPeriodEnd((activeSub as any)?.current_period_end || null);
+        setCurrentPeriodEnd(String(subscriptionPayload?.renewalDate || '') || null);
       }
 
-      // Obtener pagos reales
-      const { data: paymentRows, error: paymentsError, status: paymentsStatus } = await supabase
-        .from('payments')
-        .select('id, created_at, amount, status, description')
-        .eq('user_id', user.id)
-        .order('created_at', { ascending: false })
-        .limit(20);
-
-      if (paymentsError && paymentsStatus !== 406) {
-        logError('Error obteniendo pagos', paymentsError, { scope: 'mis-suscripciones' });
+      const paymentsPayload = await paymentsRes.json().catch(() => ({} as Record<string, unknown>));
+      if (!paymentsRes.ok) {
+        logError('Error obteniendo pagos', paymentsPayload, { scope: 'mis-suscripciones' });
         setFacturas([]);
       } else {
-        const mapped: Factura[] = (paymentRows || []).map((row: any) => {
+        const rows = Array.isArray((paymentsPayload as { invoices?: unknown[] }).invoices)
+          ? ((paymentsPayload as { invoices: any[] }).invoices ?? [])
+          : [];
+        const mapped: Factura[] = rows.map((row: any) => {
           const rawStatus = String(row.status || '').toLowerCase();
           const estado: Factura['estado'] =
             rawStatus === 'approved' || rawStatus === 'completed' || rawStatus === 'paid'
@@ -143,12 +135,33 @@ export default function Suscripcion() {
     } catch (error) {
       logError('Error cargando datos de suscripción', error, { scope: 'mis-suscripciones' });
     }
-  }, [user, supabase]);
+  }, [user]);
 
   React.useEffect(() => {
     void fetchData();
     // Si vuelve desde MercadoPago con status=success/failure/pending, re-consultamos.
   }, [fetchData, checkoutStatus]);
+
+  const loadManualRequests = React.useCallback(async () => {
+    if (!user) return;
+    try {
+      const res = await fetch("/api/payments/manual-requests", { cache: "no-store" });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        logWarn("[MisSuscripciones] No se pudieron cargar solicitudes manuales", json);
+        setManualRequests([]);
+        return;
+      }
+      setManualRequests((json?.data || []) as ManualPaymentRequest[]);
+    } catch (error) {
+      logWarn("[MisSuscripciones] Error cargando solicitudes manuales", error);
+      setManualRequests([]);
+    }
+  }, [user]);
+
+  React.useEffect(() => {
+    void loadManualRequests();
+  }, [loadManualRequests, checkoutStatus]);
 
   const handleSelectPlan = async (plan: Plan) => {
     if (!user) return;
@@ -173,6 +186,32 @@ export default function Suscripcion() {
     alert(`Descarga de factura ${facturaId} próximamente disponible`);
   };
 
+  const handleCreateManualRequest = async () => {
+    if (!user || manualSubmitting) return;
+    setManualSubmitting(true);
+    try {
+      const res = await fetch("/api/payments/manual-requests", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          requestType: "subscription_upgrade",
+          planKey: manualPlan,
+          proofNote: manualNote || undefined
+        })
+      });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        addToast(json?.error || "No se pudo crear la solicitud manual", { type: "error" });
+        return;
+      }
+      addToast("Solicitud enviada. Te contactaremos para validar el pago manual.", { type: "success" });
+      setManualNote("");
+      await loadManualRequests();
+    } finally {
+      setManualSubmitting(false);
+    }
+  };
+
   const getEstadoFactura = (estado: string) => {
     switch (estado) {
       case 'pagada':
@@ -186,9 +225,17 @@ export default function Suscripcion() {
     }
   };
 
+  const getManualStatusLabel = (status: ManualPaymentRequest["status"]) => {
+    if (status === "approved") return "Aprobada";
+    if (status === "rejected") return "Rechazada";
+    if (status === "cancelled") return "Cancelada";
+    if (status === "proof_uploaded") return "Comprobante recibido";
+    return "Pendiente";
+  };
+
   const planActual = planes.find(p => p.id === currentPlan);
   const proximaFactura = currentPeriodEnd ? new Date(currentPeriodEnd) : null;
-  const isPaidPlan = currentPlan !== 'free';
+  const isPaidPlan = normalizeSubscriptionPlanId(currentPlan) !== 'free';
 
   return (
     <PanelPageLayout
@@ -327,6 +374,81 @@ export default function Suscripcion() {
                 Próximamente
               </span>
             </div>
+          </div>
+        </div>
+
+        {/* Historial de Pagos */}
+        <div className="card-surface shadow-card p-6">
+          <h3 className="text-lg font-semibold text-lighttext dark:text-darktext mb-2">
+            Pago manual (transferencia)
+          </h3>
+          <p className="text-sm text-lighttext/70 dark:text-darktext/70 mb-4">
+            Si prefieres no usar checkout inmediato, puedes solicitar activación manual del plan.
+          </p>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+            <Select
+              label="Plan solicitado"
+              value={manualPlan}
+              onChange={(value) => setManualPlan(String(value || "pro"))}
+              options={[
+                { value: "pro", label: "Pro" },
+                { value: "business", label: "Empresa" }
+              ]}
+            />
+            <div className="md:col-span-2">
+              <Textarea
+                label="Nota (opcional)"
+                value={manualNote}
+                onChange={(event) => setManualNote(String(event.target.value || ""))}
+                placeholder="Ej: método de pago, horario de contacto, referencia..."
+              />
+            </div>
+          </div>
+
+          <div className="mt-4 flex justify-end">
+            <Button
+              variant="outline"
+              size="md"
+              onClick={() => void handleCreateManualRequest()}
+              disabled={manualSubmitting}
+            >
+              {manualSubmitting ? "Enviando..." : "Solicitar activación manual"}
+            </Button>
+          </div>
+
+          <div className="mt-6 rounded-xl border border-border/60 overflow-hidden">
+            <div className="px-4 py-3 border-b border-border/60 text-sm font-medium text-lighttext dark:text-darktext">
+              Mis solicitudes manuales
+            </div>
+            {manualRequests.length === 0 ? (
+              <div className="px-4 py-4 text-sm text-lighttext/70 dark:text-darktext/70">
+                Aún no tienes solicitudes manuales.
+              </div>
+            ) : (
+              <div className="divide-y divide-border/60">
+                {manualRequests.map((item) => (
+                  <div key={item.id} className="px-4 py-3 flex items-center justify-between gap-4">
+                    <div>
+                      <div className="text-sm font-medium text-lighttext dark:text-darktext">
+                        {item.plan_key || "Plan"} · {Number(item.amount || 0).toLocaleString("es-CL")} {item.currency}
+                      </div>
+                      <div className="text-xs text-lighttext/70 dark:text-darktext/70">
+                        {new Date(item.created_at).toLocaleString("es-CL")}
+                      </div>
+                      {item.admin_note ? (
+                        <div className="text-xs text-lighttext/80 dark:text-darktext/80 mt-1">
+                          Nota admin: {item.admin_note}
+                        </div>
+                      ) : null}
+                    </div>
+                    <span className="text-xs px-2 py-1 rounded-full card-surface ring-1 ring-border/60 text-lighttext/80 dark:text-darktext/80">
+                      {getManualStatusLabel(item.status)}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         </div>
 

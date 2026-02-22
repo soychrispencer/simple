@@ -6,16 +6,12 @@ import { WizardProvider, useWizard } from "@/components/vehicle-wizard/context/W
 import { VehicleWizard } from "@/components/vehicle-wizard/VehicleWizard";
 import { logError } from "@/lib/logger";
 import { useSearchParams } from 'next/navigation';
-import { getSupabaseClient } from "@/lib/supabase/supabase";
-import { useSupabase } from "@/lib/supabase/useSupabase";
 import { useListingsScope } from "@simple/listings";
 import { FREE_TIER_MAX_ACTIVE_LISTINGS } from "@simple/config";
 
 export default function NuevaPublicacion() {
   return <WizardWithStorageKey />;
 }
-
-const AUTOS_VERTICAL_KEYS = ["vehicles", "autos"] as const;
 
 function BlockedPublishScreen({ message }: { message: string }) {
   return (
@@ -69,7 +65,6 @@ function WizardWithStorageKey() {
   const id = searchParams.get('id');
   const forceNew = !id && searchParams.get('new') === '1';
 
-  const supabase = useSupabase();
   const { user, loading: scopeLoading, scopeFilter } = useListingsScope({ toastOnMissing: false });
   const isCreating = !id;
 
@@ -83,7 +78,6 @@ function WizardWithStorageKey() {
       return;
     }
 
-    if (!supabase) return;
     if (!user?.id) {
       // Sin usuario no hacemos gate; el wizard ya maneja auth al enviar.
       setGateLoading(false);
@@ -103,87 +97,38 @@ function WizardWithStorageKey() {
     (async () => {
       setGateLoading(true);
       try {
-        const { data: verticals, error: verticalError } = await supabase
-          .from('verticals')
-          .select('id, key')
-          .in('key', AUTOS_VERTICAL_KEYS as unknown as string[])
-          .limit(1);
-
-        if (verticalError || !verticals || verticals.length === 0) {
-          throw verticalError ?? new Error('No se encontró la vertical de autos.');
+        const params = new URLSearchParams({
+          mode: 'limits',
+          scopeColumn: scopeFilter.column,
+          scopeValue: scopeFilter.value,
+        });
+        const response = await fetch(`/api/vehicles?${params.toString()}`, {
+          method: 'GET',
+          cache: 'no-store',
+        });
+        if (!response.ok) {
+          throw new Error(`No se pudieron obtener límites (${response.status})`);
         }
-        const verticalId = verticals[0].id as string;
+        const payload = await response.json() as {
+          maxActiveListings?: number;
+          maxTotalListings?: number;
+          activePublishedCount?: number;
+          totalListingsCount?: number;
+        };
+        const parsedMaxActive = Number(payload.maxActiveListings);
+        const parsedMaxTotal = Number(payload.maxTotalListings);
+        const activePublished = Number(payload.activePublishedCount);
+        const totalListings = Number(payload.totalListingsCount);
 
-        let companyId: string | null = null;
-        if (scopeFilter.column === 'public_profile_id') {
-          const { data: pp, error: ppError } = await supabase
-            .from('public_profiles')
-            .select('company_id')
-            .eq('id', scopeFilter.value)
-            .maybeSingle();
-          if (ppError) throw ppError;
-          companyId = (pp as any)?.company_id ?? null;
-        }
-
-        let planLimits: any = null;
-        if (companyId) {
-          const { data: activeSub, error: subError } = await supabase
-            .from('subscriptions')
-            .select('subscription_plans(limits)')
-            .eq('company_id', companyId)
-            .eq('status', 'active')
-            .eq('vertical_id', verticalId)
-            .maybeSingle();
-          if (subError) throw subError;
-          const planSource = Array.isArray((activeSub as any)?.subscription_plans)
-            ? (activeSub as any)?.subscription_plans?.[0]
-            : (activeSub as any)?.subscription_plans;
-          planLimits = planSource?.limits ?? null;
-        } else {
-          const { data: activeSub, error: subError } = await supabase
-            .from('subscriptions')
-            .select('subscription_plans(limits)')
-            .eq('user_id', user.id)
-            .eq('status', 'active')
-            .eq('vertical_id', verticalId)
-            .maybeSingle();
-          if (subError) throw subError;
-          const planSource = Array.isArray((activeSub as any)?.subscription_plans)
-            ? (activeSub as any)?.subscription_plans?.[0]
-            : (activeSub as any)?.subscription_plans;
-          planLimits = planSource?.limits ?? null;
-        }
-
-        const parsedMaxActive = Number(planLimits?.max_active_listings ?? planLimits?.max_listings);
-        const parsedMaxTotal = Number(planLimits?.max_total_listings ?? planLimits?.max_listings);
-
-        const maxActive = Number.isFinite(parsedMaxActive) ? parsedMaxActive : FREE_TIER_MAX_ACTIVE_LISTINGS;
+        const maxActive = Number.isFinite(parsedMaxActive)
+          ? parsedMaxActive
+          : FREE_TIER_MAX_ACTIVE_LISTINGS;
         const maxTotal = Number.isFinite(parsedMaxTotal) ? parsedMaxTotal : 1;
+        const safeActivePublished = Number.isFinite(activePublished) ? activePublished : 0;
+        const safeTotalListings = Number.isFinite(totalListings) ? totalListings : 0;
 
-        const [{ count: publishedCount, error: pubErr }, { count: totalCount, error: totalErr }] = await Promise.all([
-          supabase
-            .from('listings')
-            .select('id', { count: 'exact' })
-            .eq('vertical_id', verticalId)
-            .eq('status', 'published')
-            .eq(scopeFilter.column, scopeFilter.value)
-            .limit(1),
-          supabase
-            .from('listings')
-            .select('id', { count: 'exact' })
-            .eq('vertical_id', verticalId)
-            .eq(scopeFilter.column, scopeFilter.value)
-            .limit(1),
-        ]);
-
-        if (pubErr) throw pubErr;
-        if (totalErr) throw totalErr;
-
-        const activePublished = typeof publishedCount === 'number' ? publishedCount : 0;
-        const totalListings = typeof totalCount === 'number' ? totalCount : 0;
-
-        const blockedByTotal = maxTotal > -1 && totalListings >= maxTotal;
-        const blockedByActive = maxActive > -1 && activePublished >= maxActive;
+        const blockedByTotal = maxTotal > -1 && safeTotalListings >= maxTotal;
+        const blockedByActive = maxActive > -1 && safeActivePublished >= maxActive;
 
         if (!cancelled && (blockedByTotal || blockedByActive)) {
           const reason = blockedByTotal
@@ -204,7 +149,7 @@ function WizardWithStorageKey() {
     return () => {
       cancelled = true;
     };
-  }, [isCreating, scopeFilter, scopeLoading, supabase, user?.id]);
+  }, [isCreating, scopeFilter, scopeLoading, user?.id]);
 
   if (isCreating && gateLoading) {
     return <LoadingGateScreen />;
@@ -291,7 +236,6 @@ function Hydrator() {
     let cancelled = false;
     (async () => {
       try {
-        const supabase = getSupabaseClient();
         const loaded = await loadVehicleWithSpecs({ id });
         if (!loaded) {
           addToast('No se pudo cargar la publicación para editar.', { type: 'error' });
@@ -323,18 +267,39 @@ function Hydrator() {
           return match ? match[1] : null;
         };
         
-        // Cargar nombres de región y comuna si existen los IDs
+        // Resolver nombres de región/comuna mediante API interna.
         let regionName: string | null = null;
         let communeName: string | null = null;
-        
+
         if (vehicle.region_id) {
-          const { data: reg } = await supabase.from('regions').select('name').eq('id', vehicle.region_id).single();
-          if (reg) regionName = reg.name;
+          try {
+            const regionsResponse = await fetch('/api/geo?mode=regions', { cache: 'no-store' });
+            if (regionsResponse.ok) {
+              const payload = await regionsResponse.json() as { regions?: Array<{ id: number | string; name: string }> };
+              const targetRegionId = Number(vehicle.region_id);
+              const match = (payload.regions || []).find((region) => Number(region.id) === targetRegionId);
+              regionName = match?.name || null;
+            }
+          } catch {
+            regionName = null;
+          }
         }
-        
+
         if (vehicle.commune_id) {
-          const { data: com } = await supabase.from('communes').select('name').eq('id', vehicle.commune_id).single();
-          if (com) communeName = com.name;
+          try {
+            const query = vehicle.region_id
+              ? `/api/geo?mode=communes&region_id=${encodeURIComponent(String(vehicle.region_id))}`
+              : '/api/geo?mode=communes';
+            const communesResponse = await fetch(query, { cache: 'no-store' });
+            if (communesResponse.ok) {
+              const payload = await communesResponse.json() as { communes?: Array<{ id: number | string; name: string }> };
+              const targetCommuneId = Number(vehicle.commune_id);
+              const match = (payload.communes || []).find((commune) => Number(commune.id) === targetCommuneId);
+              communeName = match?.name || null;
+            }
+          } catch {
+            communeName = null;
+          }
         }
         
         // Basic
@@ -385,11 +350,14 @@ function Hydrator() {
 
         // Documentos (tabla public.documents)
         try {
-          const { data: docs } = await supabase
-            .from('documents')
-            .select('id, name, url, file_type, file_size, is_public')
-            .eq('listing_id', id)
-            .order('created_at', { ascending: true });
+          const response = await fetch(`/api/documents?listing_id=${encodeURIComponent(id)}`, {
+            method: 'GET',
+            cache: 'no-store',
+          });
+          const payload = await response.json().catch(() => ({} as Record<string, unknown>));
+          const docs = response.ok && Array.isArray((payload as { documents?: unknown[] }).documents)
+            ? ((payload as { documents: Array<{ id: string | number; name?: string | null; url?: string | null; file_type?: string | null; file_size?: number | null; is_public?: boolean | null }> }).documents ?? [])
+            : [];
 
           const documents = (docs || []).map((d: any) => ({
             id: crypto.randomUUID(),

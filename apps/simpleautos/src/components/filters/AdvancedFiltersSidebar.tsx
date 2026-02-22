@@ -1,9 +1,8 @@
-﻿"use client";
+"use client";
 import React, { useEffect, useState, useMemo } from "react";
 import { Button, FormSelect as Select, FormInput as Input } from "@simple/ui";
 import { filterSectionLabelClass } from "@simple/ui";
 import { getColorOptions, VEHICLE_COLOR_HEX } from '@/lib/colors';
-import { getSupabaseClient } from '@/lib/supabase/supabase';
 import { normalizeVehicleTypeSlug } from '@/lib/vehicleTypeLegacyMap';
 import { sortRegionsNorthToSouth } from '@/lib/geo/sortRegionsNorthToSouth';
 import {
@@ -45,7 +44,6 @@ const BODY_TYPE_OPTIONS = [
 ];
 
 const AdvancedFiltersSidebar: React.FC<AdvancedFiltersProps> = ({ filters, onChange, onColorChange, onMultiChange, onSyncChange, onClearFilters, onApplyFilters, applyDisabled }) => {
-  const supabase = getSupabaseClient();
   const [regions, setRegions] = useState<Array<{ id: string; name: string; code?: string | null }>>([]);
   const [communes, setCommunes] = useState<Array<{ id: string; name: string; region_id: string }>>([]);
   const [vehicleTypes, setVehicleTypes] = useState<Array<{ id: string; slug: string; name: string; category: string | null }>>([]);
@@ -60,14 +58,6 @@ const AdvancedFiltersSidebar: React.FC<AdvancedFiltersProps> = ({ filters, onCha
         .map((t: any) => ({ id: t.id, slug: t.slug, name: t.name, category: t.category, sort_order: (t as any).sort_order }))
     );
   }, [vehicleTypes]);
-
-  const typeIdsByCategory = useMemo(() => {
-    const map: Record<string, string[]> = {};
-    for (const opt of categoryOptions) {
-      map[opt.key] = opt.ids;
-    }
-    return map;
-  }, [categoryOptions]);
 
   const selectedBaseKey = useMemo(() => {
     const raw = typeof filters.type_key === 'string' ? filters.type_key : '';
@@ -86,31 +76,37 @@ const AdvancedFiltersSidebar: React.FC<AdvancedFiltersProps> = ({ filters, onCha
     ...brands.map(b => ({ value: String(b.id), label: b.name }))
   ], [brands]);
 
-  // Cargar datos desde Supabase
+  // Cargar datos desde backend legado
   useEffect(() => {
     let active = true;
     async function loadData() {
-      // Regiones
-      const { data: regionsData } = await supabase
-        .from('regions')
-        .select('id, name, code')
-        .order('name');
-      if (active && regionsData) setRegions(sortRegionsNorthToSouth(regionsData as any));
+      const [regionsResponse, communesResponse, typesResponse] = await Promise.all([
+        fetch('/api/geo?mode=regions', { cache: 'no-store' }),
+        fetch('/api/geo?mode=communes', { cache: 'no-store' }),
+        fetch('/api/vehicle-catalog?mode=types', { cache: 'no-store' }),
+      ]);
 
-      // Comunas
-      const { data: communesData } = await supabase
-        .from('communes')
-        .select('id, name, region_id')
-        .order('name');
-      if (active && communesData) setCommunes(communesData);
+      const regionsPayload = await regionsResponse.json().catch(() => ({} as Record<string, unknown>));
+      const communesPayload = await communesResponse.json().catch(() => ({} as Record<string, unknown>));
+      const regionsData = Array.isArray((regionsPayload as { regions?: unknown[] }).regions)
+        ? ((regionsPayload as { regions: Array<{ id: string | number; name: string; code?: string | null }> }).regions ?? [])
+        : [];
+      const communesData = Array.isArray((communesPayload as { communes?: unknown[] }).communes)
+        ? ((communesPayload as { communes: Array<{ id: string | number; name: string; region_id: string | number }> }).communes ?? [])
+        : [];
 
-      // Tipos de vehículos
-      const { data: typesData } = await supabase
-        .from('vehicle_types')
-        .select('id, slug, name, category, sort_order')
-        .order('sort_order', { ascending: true })
-        .order('name');
-      if (active && typesData) setVehicleTypes(typesData);
+      if (active && regionsData.length > 0) setRegions(sortRegionsNorthToSouth(regionsData as any));
+      if (active && communesData.length > 0) {
+        setCommunes(
+          communesData.map((c) => ({ id: String(c.id), name: c.name, region_id: String(c.region_id) }))
+        );
+      }
+
+      const typesPayload = await typesResponse.json().catch(() => ({} as Record<string, unknown>));
+      const typesData = Array.isArray((typesPayload as { types?: unknown[] }).types)
+        ? ((typesPayload as { types: Array<{ id: string; slug: string; name: string; category?: string | null }> }).types ?? [])
+        : [];
+      if (active && typesResponse.ok && typesData) setVehicleTypes(typesData as any);
     }
     loadData().finally(() => {
       if (active) setLoading(false);
@@ -118,48 +114,28 @@ const AdvancedFiltersSidebar: React.FC<AdvancedFiltersProps> = ({ filters, onCha
     return () => {
       active = false;
     };
-  }, [supabase]);
+  }, []);
 
   // Marcas: si hay categoría seleccionada, cargar sólo marcas con modelos en esa categoría.
   useEffect(() => {
     let active = true;
     async function loadBrands() {
-      const allowedTypeIds = selectedBaseKey ? (typeIdsByCategory[selectedBaseKey] || []) : [];
-
-      if (allowedTypeIds.length > 0) {
-        const { data, error } = await supabase
-          .from('models')
-          .select('brand_id, brands!inner(id,name)')
-          .in('vehicle_type_id', allowedTypeIds);
-
-        if (!active) return;
-        if (error || !data) {
-          setBrands([]);
-          return;
-        }
-
-        const brandMap = new Map<string, string>();
-        data.forEach((row: any) => {
-          const b = row.brands;
-          if (b?.id && b?.name) brandMap.set(String(b.id), String(b.name));
-        });
-        const next = Array.from(brandMap.entries())
-          .sort((a, b) => a[1].localeCompare(b[1], 'es'))
-          .map(([id, name]) => ({ id, name }));
-        setBrands(next);
-        return;
-      }
-
-      const { data: brandsData } = await supabase.from('brands').select('id, name').order('name');
+      const params = new URLSearchParams({ mode: 'brands' });
+      if (selectedBaseKey) params.set('type_key', selectedBaseKey);
+      const response = await fetch(`/api/vehicle-catalog?${params.toString()}`, { cache: 'no-store' });
+      const payload = await response.json().catch(() => ({} as Record<string, unknown>));
+      const brandsData = Array.isArray((payload as { brands?: unknown[] }).brands)
+        ? ((payload as { brands: Array<{ id: string | number; name: string }> }).brands ?? [])
+        : [];
       if (!active) return;
-      setBrands(brandsData || []);
+      setBrands(brandsData.map((b) => ({ id: String(b.id), name: b.name })));
     }
 
     loadBrands();
     return () => {
       active = false;
     };
-  }, [supabase, selectedBaseKey, typeIdsByCategory]);
+  }, [selectedBaseKey]);
 
   // Modelos: dependen de marca + (opcional) categoría
   useEffect(() => {
@@ -170,31 +146,31 @@ const AdvancedFiltersSidebar: React.FC<AdvancedFiltersProps> = ({ filters, onCha
         return;
       }
 
-      const allowedTypeIds = selectedBaseKey ? (typeIdsByCategory[selectedBaseKey] || []) : [];
-      let query = supabase
-        .from('models')
-        .select('id, name, brand_id')
-        .eq('brand_id', filters.brand_id)
-        .order('name');
+      const params = new URLSearchParams({
+        mode: 'models',
+        brand_id: String(filters.brand_id),
+      });
+      if (selectedBaseKey) params.set('type_key', selectedBaseKey);
 
-      if (allowedTypeIds.length > 0) {
-        query = query.in('vehicle_type_id', allowedTypeIds);
-      }
-
-      const { data, error } = await query;
+      const response = await fetch(`/api/vehicle-catalog?${params.toString()}`, { cache: 'no-store' });
+      const payload = await response.json().catch(() => ({} as Record<string, unknown>));
+      const data = Array.isArray((payload as { models?: unknown[] }).models)
+        ? ((payload as { models: Array<{ id: string | number; name: string; brand_id: string | number }> }).models ?? [])
+        : [];
+      const error = !response.ok ? new Error('models_fetch_failed') : null;
       if (!active) return;
       if (error || !data) {
         setModels([]);
         return;
       }
-      setModels(data as any);
+      setModels(data.map((m) => ({ id: String(m.id), name: m.name, brand_id: String(m.brand_id) })) as any);
     }
 
     loadModels();
     return () => {
       active = false;
     };
-  }, [supabase, filters.brand_id, selectedBaseKey, typeIdsByCategory]);
+  }, [filters.brand_id, selectedBaseKey]);
 
   // Compat: si llegan URLs legacy con type_id (uuid) o type_key (auto/suv/...) los normalizamos a categoría base.
   useEffect(() => {
@@ -596,6 +572,7 @@ const AdvancedFiltersSidebar: React.FC<AdvancedFiltersProps> = ({ filters, onCha
 };
 
 export default AdvancedFiltersSidebar;
+
 
 
 

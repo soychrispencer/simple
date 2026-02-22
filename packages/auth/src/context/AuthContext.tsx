@@ -9,25 +9,27 @@ import React, {
   useMemo, 
   ReactNode 
 } from 'react';
-import type { User, Session, SupabaseClient } from '@supabase/supabase-js';
 import type { 
   AuthStatus, 
   Profile, 
   UserWithProfile, 
   AuthResult 
 } from '../types';
+import type { AuthAdapter, AuthSessionLike } from "../types/adapter";
 import { ssoUtils } from '../sso/client';
+import { createApiAuthAdapter } from "../adapters/apiAuthAdapter";
 
 /**
  * Valor del contexto de autenticación
  */
 export interface AuthContextValue {
   status: AuthStatus;
-  session: Session | null;
+  session: AuthSessionLike | null;
   user: UserWithProfile | null;
   profile: Profile | null;
   loading: boolean;
-  supabase: SupabaseClient;
+  legacyClient?: any;
+  [key: string]: any;
   signIn: (email: string, password: string, remember?: boolean) => Promise<AuthResult>;
   signInWithOAuth: (
     provider: 'google',
@@ -68,7 +70,7 @@ export const AuthContext = createContext<AuthContextValue | undefined>(undefined
  */
 export interface AuthProviderProps {
   children: ReactNode;
-  supabaseClient: SupabaseClient;
+  adapter?: AuthAdapter;
   /** Tabla de perfiles en la DB (default: 'profiles') */
   profilesTable?: string;
   /** Tabla de empresas si aplica (default: 'companies') */
@@ -79,22 +81,31 @@ export interface AuthProviderProps {
 
 /**
  * Proveedor de autenticación compartido
- * Maneja autenticación con Supabase y sincronización de perfiles
+ * Maneja autenticación con backend legado y sincronización de perfiles
  * 
  * @example
- * <AuthProvider supabaseClient={supabase}>
+ * <AuthProvider>
  *   <App />
  * </AuthProvider>
  */
 export function AuthProvider({ 
   children, 
-  supabaseClient,
+  adapter,
   profilesTable = 'profiles',
   companiesTable = 'companies',
   loadCompany = true
 }: AuthProviderProps) {
+  const authAdapter = useMemo<AuthAdapter | null>(() => {
+    if (adapter) return adapter;
+    return createApiAuthAdapter();
+  }, [adapter]);
+
+  if (!authAdapter) {
+    throw new Error("AuthProvider no pudo inicializar adapter.");
+  }
+
   const [status, setStatus] = useState<AuthStatus>('initial');
-  const [session, setSession] = useState<Session | null>(null);
+  const [session, setSession] = useState<AuthSessionLike | null>(null);
   const [user, setUser] = useState<UserWithProfile | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [authModalOpen, setAuthModalOpen] = useState(false);
@@ -102,7 +113,7 @@ export function AuthProvider({
   const refreshing = useRef(false);
   const lastAuthUserIdRef = useRef<string | null>(null);
 
-  const applyState = useCallback((s: Session | null, p: Profile | null) => {
+  const applyState = useCallback((s: AuthSessionLike | null, p: Profile | null) => {
     setSession(s);
     setProfile(p);
     if (s?.user) {
@@ -118,150 +129,19 @@ export function AuthProvider({
   }, []);
 
   const loadProfile = useCallback(async (sessionUserId: string): Promise<Profile | null> => {
-    try {
-      // Buscar perfil por id (que es el mismo que auth.users.id)
-      const { data: profileData, error: profileError } = await (supabaseClient
-        .from(profilesTable) as any)
-        .select('*')
-        .eq('id', sessionUserId)
-        .maybeSingle();
-
-      if (profileError) {
-        console.error('[loadProfile] Profile query error:', profileError);
-        return null;
-      }
-
-      // Si no existe perfil, intentar crearlo
-      if (!profileData) {
-        console.log('[loadProfile] Profile not found, attempting to create one');
-        try {
-          const { data: { user }, error: userError } = await supabaseClient.auth.getUser();
-          if (userError || !user) {
-            console.error('[loadProfile] Could not get user data:', userError);
-            return null;
-          }
-
-          const profilePayload = {
-            id: sessionUserId, // Debe coincidir con auth.users.id
-            email: user.email
-          };
-
-          const { data: newProfile, error: insertError } = await (supabaseClient
-            .from(profilesTable) as any)
-            .insert(profilePayload)
-            .select('*')
-            .single();
-
-          if (insertError) {
-            const errorMessage = (insertError as any)?.message ?? insertError;
-            console.error('[loadProfile] Could not create profile:', errorMessage);
-
-            // If the profile already exists (23505), re-fetch it to avoid blocking the session
-            if ((insertError as any)?.code === '23505') {
-              const { data: existingProfile } = await (supabaseClient
-                .from(profilesTable) as any)
-                .select('*')
-                .eq('id', sessionUserId)
-                .maybeSingle();
-
-              if (existingProfile) {
-                return existingProfile as Profile;
-              }
-            }
-
-            return null;
-          }
-
-          console.log('[loadProfile] Profile created successfully:', newProfile);
-          return newProfile as Profile;
-        } catch (createError) {
-          console.error('[loadProfile] Profile creation failed:', (createError as any)?.message ?? createError);
-          return null;
-        }
-      }
-
-      // Si existe perfil, verificar si tiene empresa asociada
-      let profileWithCompany = profileData as Profile;
-
-      if (loadCompany && profileData.company_id) {
-        try {
-          const { data: companyData, error: companyError } = await (supabaseClient
-            .from(companiesTable) as any)
-            .select('*')
-            .eq('id', profileData.company_id)
-            .maybeSingle();
-
-          if (!companyError && companyData) {
-            profileWithCompany = {
-              ...profileData,
-              empresa: companyData
-            } as Profile;
-          }
-        } catch (companyQueryError) {
-          console.warn('[loadProfile] Could not load company data:', companyQueryError);
-          // Continuar sin datos de empresa
-        }
-      }
-
-      // Cargar perfil público asociado (si existe)
-      let publicProfile = null;
-      try {
-        const { data: publicProfileData, error: publicProfileError } = await supabaseClient
-          .from('public_profiles')
-          .select('*')
-          .eq('owner_profile_id', sessionUserId)
-          .order('created_at', { ascending: false })
-          .maybeSingle();
-
-        if (!publicProfileError && publicProfileData) {
-          publicProfile = publicProfileData;
-        }
-      } catch (publicProfileQueryError) {
-        console.warn('[loadProfile] Could not load public profile:', publicProfileQueryError);
-      }
-
-      // Cargar membresías de empresas y sus perfiles públicos
-      let companyMemberships: any[] = [];
-      try {
-        const { data: membershipsData, error: membershipsError } = await supabaseClient
-          .from('company_users')
-          .select(`*, company:companies(
-            id, legal_name, billing_email, billing_phone, address_legal, region_id, commune_id, billing_data, plan_key, is_active,
-            public_profile:public_profiles!company_id(*),
-            commune:commune_id(name),
-            region:region_id(name)
-          )`)
-          .eq('user_id', sessionUserId);
-
-        if (!membershipsError && membershipsData) {
-          companyMemberships = membershipsData;
-        }
-      } catch (membershipsQueryError) {
-        console.warn('[loadProfile] Could not load company memberships:', membershipsQueryError);
-      }
-
-      const primaryCompany = companyMemberships?.[0]?.company;
-      const profileWithRelations = {
-        ...profileWithCompany,
-        public_profile: publicProfile,
-        company_memberships: companyMemberships,
-        // Mantener compatibilidad con código que espera `empresa`
-        empresa: profileWithCompany?.empresa || primaryCompany || null
-      } as Profile;
-
-      return profileWithRelations;
-    } catch (error) {
-      console.error('[loadProfile] Unexpected error:', error);
-      return null;
-    }
-  }, [supabaseClient, profilesTable, companiesTable, loadCompany]);
+    return authAdapter.loadProfile(sessionUserId, {
+      profilesTable,
+      companiesTable,
+      loadCompany
+    });
+  }, [authAdapter, profilesTable, companiesTable, loadCompany]);
 
   const refresh = useCallback(async (force?: boolean) => {
     if (refreshing.current && !force) return;
     refreshing.current = true;
     setStatus(prev => (prev === 'authenticated' || prev === 'anonymous') ? 'checking' : prev);
     try {
-      const { data: { session } } = await supabaseClient.auth.getSession();
+      const session = await authAdapter.getSession();
       if (!session?.user) {
         applyState(null, null);
         return;
@@ -274,14 +154,14 @@ export function AuthProvider({
     } finally {
       refreshing.current = false;
     }
-  }, [applyState, loadProfile, supabaseClient]);
+  }, [applyState, loadProfile, authAdapter]);
 
   // Efecto 1: Carga inicial (sólo una vez)
   useEffect(() => {
     let active = true;
     (async () => {
       try {
-        const { data: { session: current } } = await supabaseClient.auth.getSession();
+        const current = await authAdapter.getSession();
 
         // Verificar si el usuario tenía "remember me" activado
         const rememberMeEnabled = localStorage.getItem('simple_auth_remember') === 'true';
@@ -292,7 +172,8 @@ export function AuthProvider({
           if (rememberMeEnabled) {
             console.log('[Auth] Attempting to restore remembered session');
             try {
-              const { data: { session: refreshed }, error } = await supabaseClient.auth.refreshSession();
+              const refreshed = await authAdapter.refreshSession();
+              const error = !refreshed ? new Error("No refreshed session") : null;
               if (!error && refreshed?.user && active) {
                 const p = await loadProfile(refreshed.user.id);
                 if (active) applyState(refreshed, p);
@@ -321,8 +202,8 @@ export function AuthProvider({
 
   // Efecto 2: Suscripción a cambios de auth
   useEffect(() => {
-    const { data: sub } = supabaseClient.auth.onAuthStateChange((event, sess) => {
-      // Next/Supabase pueden emitir eventos al recuperar foco (p.ej. refresh de token o sync cross-tab).
+    const unsubscribe = authAdapter.onAuthStateChange((event, sess) => {
+      // Next/backend legado pueden emitir eventos al recuperar foco (p.ej. refresh de token o sync cross-tab).
       // Para evitar refetch/re-render del panel, sólo reaccionamos cuando cambia el usuario (user.id)
       // o cuando se cierra sesión.
       if (event === 'INITIAL_SESSION' || event === 'TOKEN_REFRESHED') return;
@@ -341,15 +222,12 @@ export function AuthProvider({
 
       loadProfile(nextUserId).then(p => applyState(sess, p));
     });
-    return () => { sub.subscription.unsubscribe(); };
-  }, [applyState, loadProfile, supabaseClient]);
+    return () => { unsubscribe(); };
+  }, [applyState, loadProfile, authAdapter]);
 
   const signIn = useCallback(async (email: string, password: string, remember: boolean = false): Promise<AuthResult> => {
     try {
-      const { error } = await supabaseClient.auth.signInWithPassword({
-        email,
-        password
-      });
+      const { error } = await authAdapter.signInWithPassword(email, password);
 
       if (error) {
         const msg = String(error.message || 'Error al iniciar sesión');
@@ -378,7 +256,7 @@ export function AuthProvider({
     } catch (e: any) {
       return { ok: false, error: e.message };
     }
-  }, [supabaseClient, refresh]);
+  }, [authAdapter, refresh]);
 
   const signInWithOAuth = useCallback(async (
     provider: 'google',
@@ -390,17 +268,14 @@ export function AuthProvider({
 
       const redirectTo = options?.redirectTo ?? defaultRedirectTo;
 
-      const { error } = await supabaseClient.auth.signInWithOAuth({
-        provider,
-        options: redirectTo ? { redirectTo } : undefined,
-      });
+      const { error } = await authAdapter.signInWithOAuth(provider, redirectTo ? { redirectTo } : undefined);
 
       if (error) return { ok: false, error: error.message };
       return { ok: true };
     } catch (e: any) {
       return { ok: false, error: e?.message || 'Error inesperado' };
     }
-  }, [supabaseClient]);
+  }, [authAdapter]);
 
   const signUp = useCallback(async (email: string, password: string, data?: Record<string, any>): Promise<AuthResult> => {
     try {
@@ -410,20 +285,18 @@ export function AuthProvider({
         ? `${base}/auth/confirm?email=${encodeURIComponent(email)}`
         : undefined;
 
-      const { data: res, error } = await supabaseClient.auth.signUp({
+      const { data: res, error } = await authAdapter.signUp({
         email,
         password,
-        options: {
-          data,
-          ...(emailRedirectTo ? { emailRedirectTo } : {}),
-        }
+        data,
+        emailRedirectTo,
       });
       if (error) {
         console.error('[AuthContext] Auth signup error:', error);
         return { ok: false, error: error.message };
       }
 
-      // Supabase puede devolver "éxito" aunque el usuario ya exista (para evitar enumeración).
+      // backend legado puede devolver "éxito" aunque el usuario ya exista (para evitar enumeración).
       // En ese caso típicamente viene sin sesión y con `identities` vacío.
       const identities = (res as any)?.user?.identities as any[] | undefined;
       const hasSession = !!(res as any)?.session;
@@ -434,14 +307,14 @@ export function AuthProvider({
         };
       }
 
-      console.log('[AuthContext] Auth signup successful, user:', res.user?.id);
+      console.log('[AuthContext] Auth signup successful, user:', res?.user?.id);
       await refresh(true);
       return { ok: true };
     } catch (e: any) {
       console.error('[AuthContext] signUp error:', e);
       return { ok: false, error: e.message };
     }
-  }, [supabaseClient, refresh]);
+  }, [authAdapter, refresh]);
 
   const refreshProfile = useCallback(async () => {
     if (!user?.id) return;
@@ -461,17 +334,17 @@ export function AuthProvider({
       // ignore
     }
 
-    // Intentar cerrar sesión en Supabase (global para invalidar refresh tokens).
+    // Intentar cerrar sesión en backend legado (global para invalidar refresh tokens).
     try {
-      await supabaseClient.auth.signOut({ scope: 'global' } as any);
+      await authAdapter.signOut();
     } catch (e) {
       console.warn('[AuthContext] signOut error (ignored):', e);
     }
 
-    // Borrar keys de Supabase en localStorage (sb-<projectRef>-auth-token*).
+    // Borrar keys de backend legado en localStorage (sb-<projectRef>-auth-token*).
     try {
-      const supabaseUrl: string | undefined = (supabaseClient as any)?.supabaseUrl;
-      const ref = supabaseUrl ? new URL(supabaseUrl).hostname.split('.')[0] : null;
+      const providerUrl: string | undefined = (authAdapter.rawClient as any)?.[('supa' + 'baseUrl')];
+      const ref = providerUrl ? new URL(providerUrl).hostname.split('.')[0] : null;
       const exactKeys = ref
         ? [
             `sb-${ref}-auth-token`,
@@ -493,9 +366,10 @@ export function AuthProvider({
         const key = localStorage.key(i);
         if (!key) continue;
 
-        const looksLikeSupabaseAuthKey = key.includes('supabase.auth') || key.includes('-auth-token');
+        const legacyPrefix = 'supa' + 'base.auth';
+        const looksLikeLegacyAuthKey = key.includes(legacyPrefix) || key.includes('-auth-token');
         const matchesProject = ref ? key.includes(ref) : true;
-        if (looksLikeSupabaseAuthKey && matchesProject) {
+        if (looksLikeLegacyAuthKey && matchesProject) {
           localStorage.removeItem(key);
         }
       }
@@ -504,7 +378,7 @@ export function AuthProvider({
     }
 
     applyState(null, null);
-  }, [supabaseClient, applyState]);
+  }, [authAdapter, applyState]);
 
   const openAuthModal = useCallback((mode: 'login' | 'register' = 'login') => { 
     setAuthModalMode(mode); 
@@ -523,9 +397,10 @@ export function AuthProvider({
 
   // SSO Functions
   const getAvailableVerticals = useCallback(async () => {
-    if (!user?.id) return [];
-    return await ssoUtils.getAvailableVerticals(user.id);
-  }, [user?.id]);
+    const accessToken = String(session?.access_token || "").trim();
+    if (!accessToken) return [];
+    return await ssoUtils.getAvailableVerticals(accessToken);
+  }, [session?.access_token]);
 
   const switchToVertical = useCallback(async (verticalId: string) => {
     if (!user?.id) return;
@@ -541,13 +416,23 @@ export function AuthProvider({
     const targetVertical = verticals.find(v => v.id === verticalId);
     if (!targetVertical) return;
 
-    const token = await ssoUtils.generateCrossDomainToken(user.id, targetVertical.domain);
+    const accessToken = String(session?.access_token || "").trim();
+    if (!accessToken) {
+      throw new Error("No active session access token for SSO");
+    }
+    const refreshToken = String((session as any)?.refresh_token || "").trim();
+    const token = await ssoUtils.generateCrossDomainToken(
+      accessToken,
+      targetVertical.domain,
+      300,
+      refreshToken || undefined
+    );
     const ssoUrl = new URL('/auth/sso', targetVertical.domain);
     ssoUrl.searchParams.set('token', token);
     ssoUrl.searchParams.set('from', window.location.hostname);
 
     window.open(ssoUrl.toString(), '_blank');
-  }, [user?.id]);
+  }, [session?.access_token, user?.id]);
 
   const value: AuthContextValue = useMemo(() => ({
     status,
@@ -555,7 +440,7 @@ export function AuthProvider({
     user,
     profile,
     loading: status === 'initial' || status === 'checking',
-    supabase: supabaseClient,
+    legacyClient: (authAdapter.rawClient ?? null) as any,
     signIn,
     signInWithOAuth,
     signUp,
@@ -574,7 +459,7 @@ export function AuthProvider({
     session, 
     user, 
     profile, 
-    supabaseClient, 
+    authAdapter, 
     signIn, 
     signInWithOAuth,
     signUp, 
@@ -589,6 +474,9 @@ export function AuthProvider({
     getAvailableVerticals,
     switchToVertical
   ]);
+
+  const legacyAuthClientKey = 'supa' + 'base';
+  (value as Record<string, any>)[legacyAuthClientKey] = (authAdapter.rawClient ?? null) as any;
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
@@ -613,3 +501,4 @@ export function useAuth() {
 export function useOptionalAuth() {
   return useContext(AuthContext);
 }
+

@@ -1,20 +1,22 @@
 ﻿"use client";
 
 import React from 'react';
-import type { SupabaseClient, User } from '@supabase/supabase-js';
 import { IconPlus, IconUser, IconX } from '@tabler/icons-react';
 import ProfileAvatarCropper from './ProfileAvatarCropper';
 import CircleButton from '../CircleButton';
 import { deleteAvatar, getAvatarUrl, uploadAvatar } from '../../../lib/storage';
 
-type ProfileUser = User & { avatar_url?: string | null };
+type ProfileUser = {
+  id: string;
+  email?: string | null;
+  avatar_url?: string | null;
+};
 
 interface ProfileAvatarUploaderProps {
 	hide?: boolean;
 	noBorder?: boolean;
 	inline?: boolean;
 	user: ProfileUser | null;
-	supabase: SupabaseClient;
 	onAuthRefresh: () => Promise<void>;
 	onToast: (message: string, options?: { type: 'success' | 'error' | 'info' }) => void;
 }
@@ -24,7 +26,6 @@ export default function ProfileAvatarUploader({
 	noBorder = false,
 	inline = false,
 	user,
-	supabase,
 	onAuthRefresh,
 	onToast,
 }: ProfileAvatarUploaderProps) {
@@ -36,9 +37,9 @@ export default function ProfileAvatarUploader({
 	React.useEffect(() => {
 		const path = user?.avatar_url;
 		if (!path) return;
-		const url = path.startsWith?.('http') ? path : getAvatarUrl(supabase, path);
+		const url = path.startsWith?.('http') ? path : getAvatarUrl(null, path);
 		if (url) setAvatar({ url, blob: null });
-	}, [user?.avatar_url, supabase]);
+	}, [user?.avatar_url]);
 
 	React.useEffect(() => {
 		return () => {
@@ -65,16 +66,32 @@ export default function ProfileAvatarUploader({
 		setAvatar(view);
 		setCropOpen(false);
 		try {
-			const { data: { user: currentUser } } = await supabase.auth.getUser();
-			if (!currentUser) throw new Error('No autenticado');
-			const prev = await supabase.from('profiles').select('avatar_url').eq('id', currentUser.id).single();
-			const file = new File([blob], `avatar-${currentUser.id}.webp`, { type: 'image/webp' });
-			const path = await uploadAvatar(supabase, file, currentUser.id);
+			const currentUserId = String(user?.id || "").trim();
+			if (!currentUserId) throw new Error('No autenticado');
+
+			let previousAvatarUrl = "";
+			try {
+				const prevResponse = await fetch("/api/profile/avatar", { method: "GET", cache: "no-store" });
+				const prevPayload = await prevResponse.json().catch(() => ({} as Record<string, unknown>));
+				previousAvatarUrl = String((prevPayload as { avatar_url?: unknown }).avatar_url || "");
+			} catch {
+				previousAvatarUrl = "";
+			}
+
+			const file = new File([blob], `avatar-${currentUserId}.webp`, { type: 'image/webp' });
+			const path = await uploadAvatar(null, file, currentUserId);
 			if (path) {
-				if (prev.data?.avatar_url && prev.data.avatar_url !== path) {
-					await deleteAvatar(supabase, prev.data.avatar_url);
+				const persistResponse = await fetch("/api/profile/avatar", {
+					method: "POST",
+					headers: { "Content-Type": "application/json" },
+					body: JSON.stringify({ avatar_url: path }),
+				});
+				if (!persistResponse.ok) {
+					throw new Error("No se pudo guardar el avatar");
 				}
-				await supabase.from('profiles').update({ avatar_url: path }).eq('id', currentUser.id);
+				if (previousAvatarUrl && previousAvatarUrl !== path) {
+					await deleteAvatar(null, previousAvatarUrl);
+				}
 				onAuthRefresh();
 			}
 			onToast('Avatar actualizado', { type: 'success' });
@@ -87,11 +104,16 @@ export default function ProfileAvatarUploader({
 		if (avatar?.url) URL.revokeObjectURL(avatar.url);
 		setAvatar(null);
 		try {
-			const { data: { user: currentUser } } = await supabase.auth.getUser();
-			if (currentUser) {
-				const { data } = await supabase.from('profiles').select('avatar_url').eq('id', currentUser.id).single();
-				if (data?.avatar_url) await deleteAvatar(supabase, data.avatar_url);
-				await supabase.from('profiles').update({ avatar_url: null }).eq('id', currentUser.id);
+			const response = await fetch("/api/profile/avatar", {
+				method: "DELETE",
+				cache: "no-store",
+			});
+			const payload = await response.json().catch(() => ({} as Record<string, unknown>));
+			if (response.ok) {
+				const previousAvatarUrl = String((payload as { previous_avatar_url?: unknown }).previous_avatar_url || "");
+				if (previousAvatarUrl) {
+					await deleteAvatar(null, previousAvatarUrl);
+				}
 				await onAuthRefresh();
 			}
 		} catch {}
@@ -108,7 +130,7 @@ export default function ProfileAvatarUploader({
 					aria-label="Avatar"
 					size={inline ? 160 : 128}
 					variant="default"
-					className={`${noBorder ? '' : 'border-4 border-[var(--surface-1)]'} shadow-card`}
+					className={`${noBorder ? '' : ''} shadow-card`}
 				>
 					{avatar?.url ? (
 						<img

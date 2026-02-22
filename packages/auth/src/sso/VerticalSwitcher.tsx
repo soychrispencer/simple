@@ -46,17 +46,21 @@ const AVAILABLE_VERTICALS: Vertical[] = [
 ];
 
 export function VerticalSwitcher() {
-  const { user } = useAuth();
+  const { user, session } = useAuth();
   const [availableVerticals, setAvailableVerticals] = useState<Vertical[]>([]);
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     if (!user?.id) return;
-    const userId = user.id;
+    const accessToken = String(session?.access_token || "").trim();
+    if (!accessToken) {
+      setAvailableVerticals([]);
+      return;
+    }
 
     const loadAvailableVerticals = async () => {
       try {
-        const verticals = await ssoUtils.getAvailableVerticals(userId);
+        const verticals = await ssoUtils.getAvailableVerticals(accessToken);
         const filtered = AVAILABLE_VERTICALS.filter((v) =>
           verticals.some((av: any) => av.vertical === v.id)
         );
@@ -69,7 +73,7 @@ export function VerticalSwitcher() {
     };
 
     loadAvailableVerticals();
-  }, [user?.id]);
+  }, [user?.id, session?.access_token]);
 
   const switchToVertical = async (vertical: Vertical) => {
     if (!user) return;
@@ -77,7 +81,17 @@ export function VerticalSwitcher() {
     setLoading(true);
     try {
       // Generar token de SSO para el dominio destino
-      const token = await ssoUtils.generateCrossDomainToken(user.id, vertical.domain);
+      const accessToken = String(session?.access_token || "").trim();
+      if (!accessToken) {
+        throw new Error("No active session access token for SSO");
+      }
+      const refreshToken = String((session as any)?.refresh_token || "").trim();
+      const token = await ssoUtils.generateCrossDomainToken(
+        accessToken,
+        vertical.domain,
+        300,
+        refreshToken || undefined
+      );
 
       // Redirigir con token de SSO
       const ssoUrl = new URL('/auth/sso', vertical.domain);

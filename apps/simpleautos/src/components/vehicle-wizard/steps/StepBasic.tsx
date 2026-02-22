@@ -7,7 +7,6 @@ import { Input, Select, Button } from '@simple/ui';
 import { WizardStepLayout } from '../layout/WizardStepLayout';
 import { ConfirmCancelModal } from '../components/ConfirmCancelModal';
 import { getColorOptions, VEHICLE_COLOR_HEX } from '@/lib/colors';
-import { useSupabase } from '@/lib/supabase/useSupabase';
 import { upsertBrand, upsertModel } from '@/app/actions/catalog';
 import { getSpecCategory } from '../specDescriptors';
 
@@ -37,7 +36,6 @@ export const StepBasic: React.FC = () => {
 
   const [brandPending, setBrandPending] = useState(false);
   const [modelPending, setModelPending] = useState(false);
-  const supabase = useSupabase();
   // Eliminamos edición manual de título: ahora es siempre canónico
   const canonicalRef = useRef<string>('');
 
@@ -223,10 +221,14 @@ export const StepBasic: React.FC = () => {
         return;
       }
       setLoadingRegions(true);
-      const { data, error } = await supabase.from('regions').select('id,name,code').order('name');
+      const response = await fetch('/api/geo?mode=regions', { cache: 'no-store' });
+      const payload = await response.json().catch(() => ({} as Record<string, unknown>));
       if (!active) return;
-      if (!error) {
-        const ordered = sortRegionsNorthToSouth(data || []);
+      if (response.ok) {
+        const rows = Array.isArray((payload as { regions?: unknown[] }).regions)
+          ? ((payload as { regions: RegionRow[] }).regions ?? [])
+          : [];
+        const ordered = sortRegionsNorthToSouth(rows || []);
         setRegions(ordered);
         regionsCacheRef.current = ordered;
       } else {
@@ -235,7 +237,7 @@ export const StepBasic: React.FC = () => {
       setLoadingRegions(false);
     })();
     return () => { active = false; };
-  }, [supabase, sortRegionsNorthToSouth]);
+  }, [sortRegionsNorthToSouth]);
 
   useEffect(() => {
     let active = true;
@@ -246,22 +248,23 @@ export const StepBasic: React.FC = () => {
       const cache = communesCacheRef.current;
       if (cache[regionId]) { setCommunes(cache[regionId]); return; }
       setLoadingCommunes(true);
-      const { data, error } = await supabase
-        .from('communes')
-        .select('id,region_id,name')
-        .eq('region_id', regionId)
-        .order('name');
+      const params = new URLSearchParams({ mode: 'communes', region_id: regionId });
+      const response = await fetch(`/api/geo?${params.toString()}`, { cache: 'no-store' });
+      const payload = await response.json().catch(() => ({} as Record<string, unknown>));
       if (!active) return;
-      if (!error) {
-        setCommunes(data || []);
-        communesCacheRef.current = { ...cache, [regionId]: data || [] };
+      if (response.ok) {
+        const rows = Array.isArray((payload as { communes?: unknown[] }).communes)
+          ? ((payload as { communes: CommuneRow[] }).communes ?? [])
+          : [];
+        setCommunes(rows);
+        communesCacheRef.current = { ...cache, [regionId]: rows };
       } else {
         setCommunes([]);
       }
       setLoadingCommunes(false);
     })();
     return () => { active = false; };
-  }, [basic.region, supabase]);
+  }, [basic.region]);
 
   // Reset de marca/modelo cuando cambia el tipo (para UX consistente)
   useEffect(() => {
@@ -274,41 +277,29 @@ export const StepBasic: React.FC = () => {
     }
   }, [basic, patch, typeSignature]);
 
-  // Cargar marcas filtradas por type_id real (si existe) usando modelos asociados
+  // Cargar marcas por categoria de vehiculo usando API interna
   useEffect(() => {
     let active = true;
+
     async function loadBrands() {
-      if (!typeKey) { setBrandOptions([{ label: 'Marca', value: '' }]); return; }
-      setLoadingBrands(true);
-      let opts: { label: string; value: string }[] = [];
-      const allowedTypeIds = (typeIds && typeIds.length) ? typeIds : (typeId ? [typeId] : null);
-      if (allowedTypeIds) {
-        const { data, error } = await supabase
-          .from('models')
-          .select('brand_id, brands!inner(id,name)')
-          .eq('brands.is_verified', true)
-          .in('vehicle_type_id', allowedTypeIds);
-        if (!active) return;
-        if (!error && data) {
-          const brandMap = new Map<string, string>();
-          data.forEach((row: any) => {
-            const brand = row.brands;
-            if (brand?.id && brand?.name) {
-              brandMap.set(brand.id, brand.name);
-            }
-          });
-          opts = Array.from(brandMap.entries())
-            .sort((a, b) => a[1].localeCompare(b[1], 'es'))
-            .map(([id, name]) => ({ label: name, value: id }));
-        }
-      } else {
-        const { data, error } = await supabase.from('brands').select('id,name').eq('is_verified', true).order('name');
-        if (!active) return;
-        if (!error && data) {
-          opts = data.map((b: any) => ({ label: b.name, value: b.id }));
-        }
+      if (!typeKey) {
+        setBrandOptions([{ label: 'Marca', value: '' }]);
+        return;
       }
+
+      setLoadingBrands(true);
+      const params = new URLSearchParams({ mode: 'brands', type_key: String(typeKey) });
+      const response = await fetch(`/api/vehicle-catalog?${params.toString()}`, { cache: 'no-store' });
+      const payload = await response.json().catch(() => ({} as Record<string, unknown>));
+      const rawBrands = Array.isArray((payload as { brands?: unknown[] }).brands)
+        ? ((payload as { brands: Array<{ id: string; name: string }> }).brands ?? [])
+        : [];
+
       if (!active) return;
+      const opts: Array<{ label: string; value: string }> = response.ok
+        ? rawBrands.map((b) => ({ label: b.name, value: String(b.id) }))
+        : [];
+
       if (!opts.length) {
         setBrandOptions([{ label: 'Marca', value: '' }]);
       } else {
@@ -319,35 +310,43 @@ export const StepBasic: React.FC = () => {
         if (selectedBrandId && selectedBrandName && !merged.some(o => o.value === selectedBrandId)) {
           merged.unshift({ label: selectedBrandName, value: selectedBrandId });
         }
+
         setBrandOptions([{ label: 'Marca', value: '' }, ...merged]);
       }
       setLoadingBrands(false);
     }
+
     loadBrands();
     return () => { active = false; };
-  }, [basic, supabase, typeId, typeIds, typeKey]);
+  }, [basic.brand_id, basic.brand_name, typeKey]);
 
   // Cargar modelos cuando cambia brand_id
   useEffect(() => {
     let active = true;
+
     async function loadModels() {
-      if (!basic.brand_id) { setModelOptions([{ label: 'Modelo', value: '' }]); return; }
-      setLoadingModels(true);
-      let query = supabase
-        .from('models')
-        .select('id,name,brand_id')
-        .eq('brand_id', basic.brand_id)
-        .eq('is_verified', true)
-        .order('name');
-      const allowedTypeIds = (typeIds && typeIds.length) ? typeIds : (typeId ? [typeId] : null);
-      if (allowedTypeIds) {
-        query = query.in('vehicle_type_id', allowedTypeIds);
+      if (!basic.brand_id) {
+        setModelOptions([{ label: 'Modelo', value: '' }]);
+        return;
       }
-      const { data, error } = await query;
+
+      setLoadingModels(true);
+      const params = new URLSearchParams({
+        mode: 'models',
+        brand_id: String(basic.brand_id),
+      });
+      if (typeKey) params.set('type_key', String(typeKey));
+      const response = await fetch(`/api/vehicle-catalog?${params.toString()}`, { cache: 'no-store' });
+      const payload = await response.json().catch(() => ({} as Record<string, unknown>));
+      const rawModels = Array.isArray((payload as { models?: unknown[] }).models)
+        ? ((payload as { models: Array<{ id: string; name: string }> }).models ?? [])
+        : [];
+
       if (!active) return;
-      if (error) { setModelOptions([{ label: 'Modelo', value: '' }]); }
-      else {
-        const opts = data.map((m: any) => ({ label: m.name, value: m.id }));
+      if (!response.ok) {
+        setModelOptions([{ label: 'Modelo', value: '' }]);
+      } else {
+        const opts = rawModels.map((m) => ({ label: m.name, value: String(m.id) }));
         // Preservar selección si el modelo recién se creó y aún no aparece.
         const selectedModelId = basic.model_id;
         const selectedModelName = (basic as any).model_name as string | null | undefined;
@@ -359,9 +358,10 @@ export const StepBasic: React.FC = () => {
       }
       setLoadingModels(false);
     }
+
     loadModels();
     return () => { active = false; };
-  }, [basic, supabase, typeId, typeIds]);
+  }, [basic.brand_id, basic.model_id, basic.model_name, typeKey]);
 
   const update = (field: string, value: any) => {
     patch('basic', { [field]: value } as any);

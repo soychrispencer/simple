@@ -16,7 +16,9 @@
     "lint": "eslint .",
     "typecheck": "tsc --noEmit"
   },
-  "dependencies": {},
+  "dependencies": {
+    "@simple/shared-types": "*"
+  },
   "devDependencies": {
     "typescript": "^5.7.3"
   },

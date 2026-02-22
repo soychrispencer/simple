@@ -45,7 +45,7 @@ export const UserAvatar: React.FC<UserAvatarProps> = ({
       {src ? (
         <img src={src} alt={alt} className="w-full h-full object-cover" />
       ) : (
-        <div className="w-full h-full bg-[var(--field-bg)] border border-[var(--field-border)] flex items-center justify-center">
+        <div className="w-full h-full bg-[var(--field-bg)] flex items-center justify-center">
           <IconUser size={18} stroke={1.5} className="text-lighttext/70 dark:text-darktext/70" />
         </div>
       )}

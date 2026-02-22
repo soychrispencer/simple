@@ -1,7 +1,7 @@
 ﻿"use client";
 import React from "react";
 import { useRouter } from 'next/navigation';
-import { PersonalDataForm, ProfileAddresses } from "@simple/profile";
+import PersonalDataForm from "@/components/panel/perfil/PersonalDataForm";
 import { useAuth } from "@/context/AuthContext";
 import { PanelPageLayout } from "@simple/ui";
 // Eliminado getJSON y cualquier uso de localStorage
@@ -30,11 +30,6 @@ export default function Perfil() {
          <div className="w-full mt-8" id="datos-personales">
           <div className="card-surface shadow-card p-6">
             <PersonalDataForm user={user} onSave={handleProfileSave} />
-          </div>
-        </div>
-          <div className="w-full mt-8" id="direcciones">
-          <div className="card-surface shadow-card p-6">
-            <ProfileAddresses userId={user?.id} />
           </div>
         </div>
      </PanelPageLayout>

@@ -712,7 +712,7 @@ function UserMenu({ user, logout, getAvatarUrl, vertical, onPublishClick, publis
       firstToken(user?.public_name),
       firstToken(user?.nombre),
       firstToken(user?.name),
-      // Supabase: metadata típica
+      // backend legado: metadata típica
       firstToken(user?.user_metadata?.first_name),
       firstToken(user?.user_metadata?.full_name),
       firstToken(user?.user_metadata?.name),
@@ -888,5 +888,6 @@ function UserMenu({ user, logout, getAvatarUrl, vertical, onPublishClick, publis
 }
 
 export default Header;
+
 
 

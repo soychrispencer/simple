@@ -2,10 +2,9 @@
 
 import React, { useEffect, useState } from "react";
 import { VehicleCard } from "@/components/vehicles/VehicleCard";
-import { getSupabaseClient } from '@/lib/supabase/supabase';
 import { Vehicle } from "@/types/vehicle";
 import { mapVehicleRowToVehicle, type VehicleJoinedRow } from '@/lib/vehicleUtils';
-import { LISTING_CARD_SELECT, listingRowToVehicleRow } from '@/lib/listings/queryHelpers';
+import { listingRowToVehicleRow } from '@/lib/listings/queryHelpers';
 import { useRouter } from "next/navigation";
 import { logDebug, logError } from "@/lib/logger";
 import { ViewToggle, Button, Input, Select } from "@simple/ui";
@@ -58,7 +57,6 @@ export default function UserVehiclesList({ userId, publicProfileId, title = "Veh
   const [brands, setBrands] = useState<Array<{ id: number; name: string }>>([]);
   const [models, setModels] = useState<Array<{ id: number; name: string; brand_id: number }>>([]);
   const [totalVehicles, setTotalVehicles] = useState<number | null>(typeof total === 'number' ? total : null);
-  const supabase = getSupabaseClient();
   const router = useRouter();
 
   useEffect(() => {
@@ -82,42 +80,35 @@ export default function UserVehiclesList({ userId, publicProfileId, title = "Veh
       try {
         setLoading(true);
 
-        // Obtener vehículos activos del usuario con paginación
-        const from = (page - 1) * pageSize;
-        const to = from + pageSize - 1;
+        const params = new URLSearchParams({
+          page: String(page),
+          page_size: String(pageSize),
+        });
+        if (publicProfileId) params.set('public_profile_id', publicProfileId);
+        if (!publicProfileId && userId) params.set('user_id', userId);
 
-        let query = supabase
-          .from('listings')
-          .select(LISTING_CARD_SELECT, { count: 'exact' })
-          .eq('status', 'published')
-          .neq('visibility', 'hidden')
-          .order('created_at', { ascending: false })
-          .range(from, to);
+        const response = await fetch(`/api/profile-vehicles?${params.toString()}`, {
+          cache: 'no-store',
+        });
 
-        if (publicProfileId) {
-          query = query.eq('public_profile_id', publicProfileId);
-        } else if (userId) {
-          query = query.eq('user_id', userId);
-        }
-
-        const { data: listingsData, error: vehiclesError, count } = await query;
-
-        if (typeof count === 'number') {
-          setTotalVehicles(count);
-        }
-
-        if (vehiclesError) {
-          logError('Error fetching user vehicles', vehiclesError);
+        if (!response.ok) {
+          logError('[UserVehiclesList] Error fetching profile vehicles', {
+            status: response.status,
+            statusText: response.statusText,
+          });
           setVehicles([]);
           return;
         }
 
-        if (!listingsData || listingsData.length === 0) {
-          setVehicles([]);
-          return;
+        const payload = await response.json() as {
+          items?: Array<Record<string, any>>;
+          total?: number;
+        };
+        const items = Array.isArray(payload.items) ? payload.items : [];
+        const mappedRows = items.map((listing) => listingRowToVehicleRow(listing));
+        if (typeof payload.total === 'number') {
+          setTotalVehicles(payload.total);
         }
-
-        const mappedRows = listingsData.map((listing) => listingRowToVehicleRow(listing));
         setVehicles(mappedRows);
       } catch (error) {
         logError('Error loading user vehicles', error);
@@ -130,46 +121,71 @@ export default function UserVehiclesList({ userId, publicProfileId, title = "Veh
     if (publicProfileId || userId) {
       loadUserVehicles();
     }
-  }, [userId, publicProfileId, page, pageSize, supabase]);
+  }, [userId, publicProfileId, page, pageSize]);
 
   // Cargar datos adicionales para filtros
   useEffect(() => {
     async function loadFilterData() {
       try {
-        // Regiones
-        const { data: regionsData } = await supabase
-          .from('regions')
-          .select('id, name')
-          .order('name');
-        if (regionsData) setRegions(regionsData);
+        const [regionsResponse, communesResponse] = await Promise.all([
+          fetch('/api/geo?mode=regions', { cache: 'no-store' }),
+          fetch('/api/geo?mode=communes', { cache: 'no-store' }),
+        ]);
 
-        // Comunas
-        const { data: communesData } = await supabase
-          .from('communes')
-          .select('id, name, region_id')
-          .order('name');
-        if (communesData) setCommunes(communesData);
+        if (regionsResponse.ok) {
+          const payload = await regionsResponse.json() as { regions?: Array<{ id: number | string; name: string }> };
+          const normalized = (payload.regions || [])
+            .map((region) => ({
+              id: Number(region.id),
+              name: region.name,
+            }))
+            .filter((region) => Number.isFinite(region.id));
+          setRegions(normalized);
+        }
 
-        // Marcas
-        const { data: brandsData } = await supabase
-          .from('brands')
-          .select('id, name')
-          .order('name');
-        if (brandsData) setBrands(brandsData);
+        if (communesResponse.ok) {
+          const payload = await communesResponse.json() as { communes?: Array<{ id: number | string; name: string; region_id: number | string }> };
+          const normalized = (payload.communes || [])
+            .map((commune) => ({
+              id: Number(commune.id),
+              name: commune.name,
+              region_id: Number(commune.region_id),
+            }))
+            .filter((commune) => Number.isFinite(commune.id) && Number.isFinite(commune.region_id));
+          setCommunes(normalized);
+        }
 
-        // Modelos
-        const { data: modelsData } = await supabase
-          .from('models')
-          .select('id, name, brand_id')
-          .order('name');
-        if (modelsData) setModels(modelsData);
+        const [brandsResponse, modelsResponse] = await Promise.all([
+          fetch('/api/vehicle-catalog?mode=brands', { cache: 'no-store' }),
+          fetch('/api/vehicle-catalog?mode=models', { cache: 'no-store' }),
+        ]);
+
+        if (brandsResponse.ok) {
+          const payload = await brandsResponse.json() as { brands?: Array<{ id: number | string; name: string }> };
+          const normalized = (payload.brands || [])
+            .map((brand) => ({ id: Number(brand.id), name: brand.name }))
+            .filter((brand) => Number.isFinite(brand.id));
+          setBrands(normalized);
+        }
+
+        if (modelsResponse.ok) {
+          const payload = await modelsResponse.json() as { models?: Array<{ id: number | string; name: string; brand_id: number | string }> };
+          const normalized = (payload.models || [])
+            .map((model) => ({
+              id: Number(model.id),
+              name: model.name,
+              brand_id: Number(model.brand_id),
+            }))
+            .filter((model) => Number.isFinite(model.id) && Number.isFinite(model.brand_id));
+          setModels(normalized);
+        }
       } catch (error) {
         logError('Error loading filter data', error);
       }
     }
 
     loadFilterData();
-  }, [supabase]);
+  }, []);
 
   // Aplicar filtros cuando cambian los vehículos o los filtros
   useEffect(() => {

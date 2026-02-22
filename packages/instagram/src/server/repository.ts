@@ -1,4 +1,4 @@
-import { createClient, type SupabaseClient } from "@supabase/supabase-js";
+import { Pool } from "pg";
 import { InstagramFlowError } from "./errors";
 
 export type InstagramIntegrationRecord = {
@@ -79,57 +79,49 @@ type InstagramPublishJobInsert = {
   maxAttempts?: number;
 };
 
-let adminClientCache: { cacheKey: string; client: SupabaseClient } | null = null;
+type DbRow = Record<string, unknown>;
 
-export function getSupabaseAdminClient() {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+let poolCache: { url: string; pool: Pool } | null = null;
 
-  if (!url || !key) {
+function getPool() {
+  const url = String(process.env.DATABASE_URL || "").trim();
+  if (!url) {
     throw new InstagramFlowError(
-      "supabase_admin_not_configured",
-      "Supabase service credentials not configured"
+      "database_not_configured",
+      "DATABASE_URL no configurada para integración de Instagram"
     );
   }
-
-  const cacheKey = `${url}::${key.slice(0, 12)}`;
-  if (adminClientCache?.cacheKey === cacheKey) return adminClientCache.client;
-
-  const client = createClient(url, key);
-  adminClientCache = { cacheKey, client };
-  return client;
+  if (poolCache?.url === url) return poolCache.pool;
+  const pool = new Pool({ connectionString: url });
+  poolCache = { url, pool };
+  return pool;
 }
 
-function parseProviderRow(row: any): InstagramIntegrationRecord | null {
-  if (!row?.id) return null;
-  const provider = Array.isArray(row?.integration_instagram)
-    ? row.integration_instagram[0]
-    : row?.integration_instagram;
+function toIso(value: unknown): string | null {
+  if (!value) return null;
+  if (value instanceof Date) return value.toISOString();
+  const parsed = new Date(String(value));
+  return Number.isNaN(parsed.getTime()) ? String(value) : parsed.toISOString();
+}
 
-  if (!provider) return null;
-
+function mapIntegrationRow(row: DbRow | undefined): InstagramIntegrationRecord | null {
+  if (!row?.integration_id) return null;
   return {
-    integrationId: String(row.id),
-    accessToken: provider.access_token ? String(provider.access_token) : null,
-    igUserId: provider.ig_user_id ? String(provider.ig_user_id) : null,
-    igUsername: provider.ig_username ? String(provider.ig_username) : null,
-    pageName: provider.page_name ? String(provider.page_name) : null,
-    expiresAt: provider.expires_at ? String(provider.expires_at) : null,
+    integrationId: String(row.integration_id),
+    accessToken: row.access_token ? String(row.access_token) : null,
+    igUserId: row.ig_user_id ? String(row.ig_user_id) : null,
+    igUsername: row.ig_username ? String(row.ig_username) : null,
+    pageName: row.page_name ? String(row.page_name) : null,
+    expiresAt: toIso(row.expires_at),
   };
 }
 
-function parsePublishJobRow(row: any): InstagramPublishJobRecord | null {
-  if (!row?.id || !row?.integration_id || !row?.image_url || !row?.caption) return null;
-
-  const integration = Array.isArray(row?.integrations) ? row.integrations[0] : row?.integrations;
-  const provider = Array.isArray(integration?.integration_instagram)
-    ? integration.integration_instagram[0]
-    : integration?.integration_instagram;
-
+function mapPublishJobRow(row: DbRow | undefined): InstagramPublishJobRecord | null {
+  if (!row?.id || !row?.integration_id || !row?.caption || !row?.image_url) return null;
   return {
     id: String(row.id),
     integrationId: String(row.integration_id),
-    userId: integration?.user_id ? String(integration.user_id) : "",
+    userId: String(row.user_id || ""),
     listingId: row.listing_id ? String(row.listing_id) : null,
     vertical: row.vertical ? String(row.vertical) : null,
     caption: String(row.caption),
@@ -142,94 +134,103 @@ function parsePublishJobRow(row: any): InstagramPublishJobRecord | null {
     errorCode: row.error_code ? String(row.error_code) : null,
     attemptCount: Number(row.attempt_count || 0),
     maxAttempts: Number(row.max_attempts || 5),
-    nextRetryAt: row.next_retry_at ? String(row.next_retry_at) : null,
-    lastAttemptAt: row.last_attempt_at ? String(row.last_attempt_at) : null,
-    publishedAt: row.published_at ? String(row.published_at) : null,
-    createdAt: String(row.created_at || new Date().toISOString()),
-    updatedAt: String(row.updated_at || new Date().toISOString()),
-    accessToken: provider?.access_token ? String(provider.access_token) : null,
-    igUserId: provider?.ig_user_id ? String(provider.ig_user_id) : null,
-    tokenExpiresAt: provider?.expires_at ? String(provider.expires_at) : null,
+    nextRetryAt: toIso(row.next_retry_at),
+    lastAttemptAt: toIso(row.last_attempt_at),
+    publishedAt: toIso(row.published_at),
+    createdAt: toIso(row.created_at) || new Date().toISOString(),
+    updatedAt: toIso(row.updated_at) || new Date().toISOString(),
+    accessToken: row.provider_access_token ? String(row.provider_access_token) : null,
+    igUserId: row.provider_ig_user_id ? String(row.provider_ig_user_id) : null,
+    tokenExpiresAt: toIso(row.provider_expires_at),
   };
 }
 
-export async function fetchInstagramIntegrationByUser(userId: string): Promise<InstagramIntegrationRecord | null> {
-  const admin = getSupabaseAdminClient();
-  const { data, error } = await admin
-    .from("integrations")
-    .select("id, integration_instagram(access_token, ig_user_id, ig_username, page_name, expires_at)")
-    .eq("user_id", userId)
-    .eq("provider", "instagram")
-    .maybeSingle();
-
-  if (error) {
-    throw new InstagramFlowError("integration_lookup_failed", error.message || "Failed to fetch integration");
-  }
-
-  return parseProviderRow(data);
+export async function fetchInstagramIntegrationByUser(
+  userId: string
+): Promise<InstagramIntegrationRecord | null> {
+  const pool = getPool();
+  const { rows } = await pool.query(
+    `SELECT i.id AS integration_id,
+            ig.access_token,
+            ig.ig_user_id,
+            ig.ig_username,
+            ig.page_name,
+            ig.expires_at
+       FROM integrations i
+       LEFT JOIN integration_instagram ig ON ig.integration_id = i.id
+      WHERE i.user_id = $1
+        AND i.provider = 'instagram'
+      ORDER BY i.created_at DESC
+      LIMIT 1`,
+    [userId]
+  );
+  return mapIntegrationRow(rows[0] as DbRow | undefined);
 }
 
-export async function fetchInstagramIntegrationById(integrationId: string): Promise<InstagramIntegrationRecord | null> {
-  const admin = getSupabaseAdminClient();
-  const { data, error } = await admin
-    .from("integrations")
-    .select("id, integration_instagram(access_token, ig_user_id, ig_username, page_name, expires_at)")
-    .eq("id", integrationId)
-    .eq("provider", "instagram")
-    .maybeSingle();
-
-  if (error) {
-    throw new InstagramFlowError("integration_lookup_failed", error.message || "Failed to fetch integration");
-  }
-
-  return parseProviderRow(data);
+export async function fetchInstagramIntegrationById(
+  integrationId: string
+): Promise<InstagramIntegrationRecord | null> {
+  const pool = getPool();
+  const { rows } = await pool.query(
+    `SELECT i.id AS integration_id,
+            ig.access_token,
+            ig.ig_user_id,
+            ig.ig_username,
+            ig.page_name,
+            ig.expires_at
+       FROM integrations i
+       LEFT JOIN integration_instagram ig ON ig.integration_id = i.id
+      WHERE i.id = $1
+        AND i.provider = 'instagram'
+      LIMIT 1`,
+    [integrationId]
+  );
+  return mapIntegrationRow(rows[0] as DbRow | undefined);
 }
 
 export async function upsertInstagramIntegration(userId: string) {
-  const admin = getSupabaseAdminClient();
-  const { data, error } = await admin
-    .from("integrations")
-    .upsert(
-      {
-        user_id: userId,
-        provider: "instagram",
-        status: "connected",
-        connected_at: new Date().toISOString(),
-      },
-      { onConflict: "user_id,provider" }
-    )
-    .select("id")
-    .single();
-
-  if (error || !data?.id) {
-    throw new InstagramFlowError(
-      "integration_upsert_failed",
-      error?.message || "Failed to upsert integration"
-    );
+  const pool = getPool();
+  const { rows } = await pool.query<{ id: string }>(
+    `INSERT INTO integrations (user_id, provider, status, connected_at)
+     VALUES ($1, 'instagram', 'connected', NOW())
+     ON CONFLICT (user_id, provider)
+     DO UPDATE SET status = 'connected', connected_at = EXCLUDED.connected_at, updated_at = NOW()
+     RETURNING id`,
+    [userId]
+  );
+  const id = rows[0]?.id;
+  if (!id) {
+    throw new InstagramFlowError("integration_upsert_failed", "Failed to upsert integration");
   }
-
-  return String(data.id);
+  return String(id);
 }
 
 export async function upsertInstagramProvider(input: InstagramProviderUpsertInput) {
-  const admin = getSupabaseAdminClient();
-  const { error } = await admin.from("integration_instagram").upsert(
-    {
-      integration_id: input.integrationId,
-      access_token: input.accessToken,
-      token_type: input.tokenType,
-      expires_at: input.expiresAt,
-      page_id: input.pageId,
-      page_name: input.pageName,
-      ig_user_id: input.igUserId,
-      ig_username: input.igUsername,
-    },
-    { onConflict: "integration_id" }
+  const pool = getPool();
+  await pool.query(
+    `INSERT INTO integration_instagram
+      (integration_id, access_token, token_type, expires_at, page_id, page_name, ig_user_id, ig_username)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+     ON CONFLICT (integration_id)
+     DO UPDATE SET access_token = EXCLUDED.access_token,
+                   token_type = EXCLUDED.token_type,
+                   expires_at = EXCLUDED.expires_at,
+                   page_id = EXCLUDED.page_id,
+                   page_name = EXCLUDED.page_name,
+                   ig_user_id = EXCLUDED.ig_user_id,
+                   ig_username = EXCLUDED.ig_username,
+                   updated_at = NOW()`,
+    [
+      input.integrationId,
+      input.accessToken,
+      input.tokenType,
+      input.expiresAt,
+      input.pageId,
+      input.pageName,
+      input.igUserId,
+      input.igUsername,
+    ]
   );
-
-  if (error) {
-    throw new InstagramFlowError("provider_upsert_failed", error.message || "Failed to upsert provider");
-  }
 }
 
 export async function updateInstagramProviderToken(input: {
@@ -238,155 +239,134 @@ export async function updateInstagramProviderToken(input: {
   tokenType?: string | null;
   expiresAt?: string | null;
 }) {
-  const admin = getSupabaseAdminClient();
-  const { error } = await admin
-    .from("integration_instagram")
-    .update({
-      access_token: input.accessToken,
-      token_type: input.tokenType ?? null,
-      expires_at: input.expiresAt ?? null,
-    })
-    .eq("integration_id", input.integrationId);
-
-  if (error) {
-    throw new InstagramFlowError("provider_upsert_failed", error.message || "Failed to update provider token");
-  }
+  const pool = getPool();
+  await pool.query(
+    `UPDATE integration_instagram
+        SET access_token = $2,
+            token_type = $3,
+            expires_at = $4,
+            updated_at = NOW()
+      WHERE integration_id = $1`,
+    [input.integrationId, input.accessToken, input.tokenType ?? null, input.expiresAt ?? null]
+  );
 }
 
 export async function fetchInstagramExpiringTokens(input?: { expiresBefore?: string; limit?: number }) {
-  const admin = getSupabaseAdminClient();
-  const expiresBefore = input?.expiresBefore || new Date().toISOString();
-  const { data, error } = await admin
-    .from("integration_instagram")
-    .select("integration_id, access_token, expires_at")
-    .not("expires_at", "is", null)
-    .lte("expires_at", expiresBefore)
-    .order("expires_at", { ascending: true })
-    .limit(input?.limit ?? 25);
-
-  if (error) {
-    throw new InstagramFlowError(
-      "integration_lookup_failed",
-      error.message || "Failed to fetch expiring Instagram tokens"
-    );
-  }
-
-  return (Array.isArray(data) ? data : [])
-    .map((row: any) => {
-      if (!row?.integration_id || !row?.access_token) return null;
+  const pool = getPool();
+  const { rows } = await pool.query(
+    `SELECT integration_id, access_token, expires_at
+       FROM integration_instagram
+      WHERE expires_at IS NOT NULL
+        AND expires_at <= $1
+      ORDER BY expires_at ASC
+      LIMIT $2`,
+    [input?.expiresBefore || new Date().toISOString(), input?.limit ?? 25]
+  );
+  return rows
+    .map((row: DbRow) => {
+      if (!row.integration_id || !row.access_token) return null;
       return {
         integrationId: String(row.integration_id),
         accessToken: String(row.access_token),
-        expiresAt: row.expires_at ? String(row.expires_at) : null,
+        expiresAt: toIso(row.expires_at),
       } satisfies InstagramExpiringTokenRecord;
     })
     .filter(Boolean) as InstagramExpiringTokenRecord[];
 }
 
 export async function deleteInstagramIntegration(userId: string) {
-  const admin = getSupabaseAdminClient();
-  const { error } = await admin
-    .from("integrations")
-    .delete()
-    .eq("user_id", userId)
-    .eq("provider", "instagram");
-
-  if (error) {
-    throw new InstagramFlowError("disconnect_failed", error.message || "Failed to disconnect");
-  }
+  const pool = getPool();
+  await pool.query(
+    `DELETE FROM integrations
+      WHERE user_id = $1
+        AND provider = 'instagram'`,
+    [userId]
+  );
 }
 
 export async function enqueueInstagramPublishJob(input: InstagramPublishJobInsert) {
-  const admin = getSupabaseAdminClient();
-  const now = new Date().toISOString();
-  const { data, error } = await admin
-    .from("integration_instagram_posts")
-    .insert({
-      integration_id: input.integrationId,
-      listing_id: input.listingId ?? null,
-      vertical: input.vertical ?? null,
-      caption: input.caption,
-      image_url: input.imageUrl,
-      status: "queued",
-      attempt_count: 0,
-      max_attempts: input.maxAttempts ?? 5,
-      next_retry_at: now,
-    })
-    .select("id")
-    .single();
-
-  if (error || !data?.id) {
-    throw new InstagramFlowError("queue_enqueue_failed", error?.message || "Failed to enqueue Instagram publish job");
+  const pool = getPool();
+  const { rows } = await pool.query<{ id: string }>(
+    `INSERT INTO integration_instagram_posts
+      (integration_id, listing_id, vertical, caption, image_url, status, attempt_count, max_attempts, next_retry_at)
+     VALUES ($1, $2, $3, $4, $5, 'queued', 0, $6, NOW())
+     RETURNING id`,
+    [
+      input.integrationId,
+      input.listingId ?? null,
+      input.vertical ?? null,
+      input.caption,
+      input.imageUrl,
+      input.maxAttempts ?? 5,
+    ]
+  );
+  const id = rows[0]?.id;
+  if (!id) {
+    throw new InstagramFlowError("queue_enqueue_failed", "Failed to enqueue Instagram publish job");
   }
-
-  return String(data.id);
+  return String(id);
 }
 
-export async function fetchInstagramPublishJobById(jobId: string): Promise<InstagramPublishJobRecord | null> {
-  const admin = getSupabaseAdminClient();
-  const { data, error } = await admin
-    .from("integration_instagram_posts")
-    .select(
-      "id, integration_id, listing_id, vertical, media_id, creation_id, permalink, caption, image_url, status, error, error_code, published_at, created_at, updated_at, attempt_count, max_attempts, next_retry_at, last_attempt_at, integrations!inner(user_id, integration_instagram(access_token, ig_user_id, expires_at))"
-    )
-    .eq("id", jobId)
-    .maybeSingle();
-
-  if (error) {
-    throw new InstagramFlowError("queue_fetch_failed", error.message || "Failed to fetch publish job");
-  }
-
-  return parsePublishJobRow(data);
+export async function fetchInstagramPublishJobById(
+  jobId: string
+): Promise<InstagramPublishJobRecord | null> {
+  const pool = getPool();
+  const { rows } = await pool.query(
+    `SELECT p.*,
+            i.user_id,
+            ig.access_token AS provider_access_token,
+            ig.ig_user_id AS provider_ig_user_id,
+            ig.expires_at AS provider_expires_at
+       FROM integration_instagram_posts p
+       JOIN integrations i ON i.id = p.integration_id
+       LEFT JOIN integration_instagram ig ON ig.integration_id = i.id
+      WHERE p.id = $1
+      LIMIT 1`,
+    [jobId]
+  );
+  return mapPublishJobRow(rows[0] as DbRow | undefined);
 }
 
 export async function fetchDueInstagramPublishJobs(input?: { limit?: number; userId?: string }) {
-  const admin = getSupabaseAdminClient();
-  const now = new Date().toISOString();
-
-  let query = admin
-    .from("integration_instagram_posts")
-    .select(
-      "id, integration_id, listing_id, vertical, media_id, creation_id, permalink, caption, image_url, status, error, error_code, published_at, created_at, updated_at, attempt_count, max_attempts, next_retry_at, last_attempt_at, integrations!inner(user_id, integration_instagram(access_token, ig_user_id, expires_at))"
-    )
-    .in("status", ["queued", "retrying"])
-    .or(`next_retry_at.is.null,next_retry_at.lte.${now}`)
-    .order("created_at", { ascending: true })
-    .limit(input?.limit ?? 10);
-
-  if (input?.userId) {
-    query = query.eq("integrations.user_id", input.userId);
-  }
-
-  const { data, error } = await query;
-  if (error) {
-    throw new InstagramFlowError("queue_fetch_failed", error.message || "Failed to fetch due publish jobs");
-  }
-
-  return (Array.isArray(data) ? data : []).map(parsePublishJobRow).filter(Boolean) as InstagramPublishJobRecord[];
+  const pool = getPool();
+  const { rows } = await pool.query(
+    `SELECT p.*,
+            i.user_id,
+            ig.access_token AS provider_access_token,
+            ig.ig_user_id AS provider_ig_user_id,
+            ig.expires_at AS provider_expires_at
+       FROM integration_instagram_posts p
+       JOIN integrations i ON i.id = p.integration_id
+       LEFT JOIN integration_instagram ig ON ig.integration_id = i.id
+      WHERE p.status = ANY($1::text[])
+        AND (p.next_retry_at IS NULL OR p.next_retry_at <= NOW())
+        AND ($2::uuid IS NULL OR i.user_id = $2::uuid)
+      ORDER BY p.created_at ASC
+      LIMIT $3`,
+    [["queued", "retrying"], input?.userId ?? null, input?.limit ?? 10]
+  );
+  return rows
+    .map((row: DbRow) => mapPublishJobRow(row))
+    .filter(Boolean) as InstagramPublishJobRecord[];
 }
 
 export async function markInstagramPublishJobProcessing(jobId: string, nextAttemptCount: number) {
-  const admin = getSupabaseAdminClient();
-  const { data, error } = await admin
-    .from("integration_instagram_posts")
-    .update({
-      status: "processing",
-      attempt_count: nextAttemptCount,
-      last_attempt_at: new Date().toISOString(),
-      error: null,
-      error_code: null,
-      next_retry_at: null,
-    })
-    .eq("id", jobId)
-    .in("status", ["queued", "retrying"])
-    .select("id")
-    .maybeSingle();
-
-  if (error) {
-    throw new InstagramFlowError("queue_update_failed", error.message || "Failed to mark job processing");
-  }
-
-  return !!data?.id;
+  const pool = getPool();
+  const { rows } = await pool.query<{ id: string }>(
+    `UPDATE integration_instagram_posts
+        SET status = 'processing',
+            attempt_count = $2,
+            last_attempt_at = NOW(),
+            error = NULL,
+            error_code = NULL,
+            next_retry_at = NULL,
+            updated_at = NOW()
+      WHERE id = $1
+        AND status = ANY($3::text[])
+    RETURNING id`,
+    [jobId, nextAttemptCount, ["queued", "retrying"]]
+  );
+  return Boolean(rows[0]?.id);
 }
 
 export async function completeInstagramPublishJob(input: {
@@ -396,24 +376,21 @@ export async function completeInstagramPublishJob(input: {
   permalink?: string | null;
   publishedAt?: string | null;
 }) {
-  const admin = getSupabaseAdminClient();
-  const { error } = await admin
-    .from("integration_instagram_posts")
-    .update({
-      status: "published",
-      media_id: input.mediaId,
-      creation_id: input.creationId,
-      permalink: input.permalink ?? null,
-      error: null,
-      error_code: null,
-      next_retry_at: null,
-      published_at: input.publishedAt ?? new Date().toISOString(),
-    })
-    .eq("id", input.jobId);
-
-  if (error) {
-    throw new InstagramFlowError("queue_update_failed", error.message || "Failed to complete publish job");
-  }
+  const pool = getPool();
+  await pool.query(
+    `UPDATE integration_instagram_posts
+        SET status = 'published',
+            media_id = $2,
+            creation_id = $3,
+            permalink = $4,
+            error = NULL,
+            error_code = NULL,
+            next_retry_at = NULL,
+            published_at = COALESCE($5::timestamptz, NOW()),
+            updated_at = NOW()
+      WHERE id = $1`,
+    [input.jobId, input.mediaId, input.creationId, input.permalink ?? null, input.publishedAt ?? null]
+  );
 }
 
 export async function scheduleInstagramPublishRetry(input: {
@@ -422,20 +399,17 @@ export async function scheduleInstagramPublishRetry(input: {
   error: string;
   errorCode?: string | null;
 }) {
-  const admin = getSupabaseAdminClient();
-  const { error } = await admin
-    .from("integration_instagram_posts")
-    .update({
-      status: "retrying",
-      error: input.error,
-      error_code: input.errorCode ?? null,
-      next_retry_at: input.nextRetryAt,
-    })
-    .eq("id", input.jobId);
-
-  if (error) {
-    throw new InstagramFlowError("queue_update_failed", error.message || "Failed to schedule retry");
-  }
+  const pool = getPool();
+  await pool.query(
+    `UPDATE integration_instagram_posts
+        SET status = 'retrying',
+            error = $2,
+            error_code = $3,
+            next_retry_at = $4::timestamptz,
+            updated_at = NOW()
+      WHERE id = $1`,
+    [input.jobId, input.error, input.errorCode ?? null, input.nextRetryAt]
+  );
 }
 
 export async function failInstagramPublishJob(input: {
@@ -443,20 +417,17 @@ export async function failInstagramPublishJob(input: {
   error: string;
   errorCode?: string | null;
 }) {
-  const admin = getSupabaseAdminClient();
-  const { error } = await admin
-    .from("integration_instagram_posts")
-    .update({
-      status: "failed",
-      error: input.error,
-      error_code: input.errorCode ?? null,
-      next_retry_at: null,
-    })
-    .eq("id", input.jobId);
-
-  if (error) {
-    throw new InstagramFlowError("queue_update_failed", error.message || "Failed to mark job failed");
-  }
+  const pool = getPool();
+  await pool.query(
+    `UPDATE integration_instagram_posts
+        SET status = 'failed',
+            error = $2,
+            error_code = $3,
+            next_retry_at = NULL,
+            updated_at = NOW()
+      WHERE id = $1`,
+    [input.jobId, input.error, input.errorCode ?? null]
+  );
 }
 
 export async function listInstagramPublishHistoryByUser(input: {
@@ -464,27 +435,31 @@ export async function listInstagramPublishHistoryByUser(input: {
   vertical?: string;
   limit?: number;
 }) {
-  const admin = getSupabaseAdminClient();
-
-  let query = admin
-    .from("integration_instagram_posts")
-    .select(
-      "id, listing_id, vertical, media_id, permalink, status, error, error_code, attempt_count, max_attempts, next_retry_at, last_attempt_at, published_at, created_at, integrations!inner(user_id)"
-    )
-    .eq("integrations.user_id", input.userId)
-    .order("created_at", { ascending: false })
-    .limit(input.limit ?? 20);
-
-  if (input.vertical) {
-    query = query.eq("vertical", input.vertical);
-  }
-
-  const { data, error } = await query;
-  if (error) {
-    throw new InstagramFlowError("history_fetch_failed", error.message || "Failed to fetch Instagram history");
-  }
-
-  return (Array.isArray(data) ? data : []).map((row: any) => ({
+  const pool = getPool();
+  const { rows } = await pool.query(
+    `SELECT p.id,
+            p.listing_id,
+            p.vertical,
+            p.media_id,
+            p.permalink,
+            p.status,
+            p.error,
+            p.error_code,
+            p.attempt_count,
+            p.max_attempts,
+            p.next_retry_at,
+            p.last_attempt_at,
+            p.published_at,
+            p.created_at
+       FROM integration_instagram_posts p
+       JOIN integrations i ON i.id = p.integration_id
+      WHERE i.user_id = $1
+        AND ($2::text IS NULL OR p.vertical = $2::text)
+      ORDER BY p.created_at DESC
+      LIMIT $3`,
+    [input.userId, input.vertical ?? null, input.limit ?? 20]
+  );
+  return rows.map((row: DbRow) => ({
     id: String(row.id),
     listingId: row.listing_id ? String(row.listing_id) : null,
     vertical: row.vertical ? String(row.vertical) : null,
@@ -495,9 +470,9 @@ export async function listInstagramPublishHistoryByUser(input: {
     errorCode: row.error_code ? String(row.error_code) : null,
     attemptCount: Number(row.attempt_count || 0),
     maxAttempts: Number(row.max_attempts || 5),
-    nextRetryAt: row.next_retry_at ? String(row.next_retry_at) : null,
-    lastAttemptAt: row.last_attempt_at ? String(row.last_attempt_at) : null,
-    publishedAt: row.published_at ? String(row.published_at) : null,
-    createdAt: String(row.created_at || new Date().toISOString()),
+    nextRetryAt: toIso(row.next_retry_at),
+    lastAttemptAt: toIso(row.last_attempt_at),
+    publishedAt: toIso(row.published_at),
+    createdAt: toIso(row.created_at) || new Date().toISOString(),
   })) as InstagramPublishHistoryItem[];
 }

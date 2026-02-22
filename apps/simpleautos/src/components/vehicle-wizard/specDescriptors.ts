@@ -1,4 +1,4 @@
-﻿import { z } from 'zod';
+import { z } from 'zod';
 
 export type SpecFieldType = 'number' | 'select' | 'boolean' | 'text';
 
@@ -400,7 +400,7 @@ export function validateAdvancedVehicle(ctx: { basic: any; commercial?: any; spe
 }
 
 /*
-Persistencia recomendada (Supabase):
+Persistencia recomendada (backend legado):
 Opción A (rápida / flexible): columna JSONB `extra_specs` en tabla `vehicles`.
   - Al guardar: patch('vehicle', { specs }) se envía como extra_specs.
 
@@ -429,5 +429,6 @@ Luego, para índices específicos (ej: combustible):
   CREATE INDEX IF NOT EXISTS idx_vehicles_extra_specs_fuel ON vehicles ((extra_specs->>'fuel_type'));
 
 */
+
 
 

@@ -2,7 +2,6 @@
 
 import React, { useEffect, useMemo, useState } from "react";
 import { InstagramPublishModalBase } from "@simple/instagram/modal";
-import { useSupabase } from "@/lib/supabase/useSupabase";
 
 export type InstagramPublishVehicle = {
   id: string;
@@ -16,6 +15,24 @@ export type InstagramPublishVehicle = {
   portada?: string | null;
   imagenes?: string[] | null;
 };
+
+function resolvePublicStorageUrl(raw: string, bucket: string): string {
+  const value = raw.trim();
+  if (!value) return "";
+  if (/^https?:\/\//i.test(value)) return value;
+
+  const base = String(
+    process.env.NEXT_PUBLIC_STORAGE_PUBLIC_URL || process.env.NEXT_PUBLIC_APP_URL || ""
+  ).replace(/\/+$/, "");
+  if (!base) return value;
+
+  if (value.startsWith("/")) {
+    return `${base}${value}`;
+  }
+
+  const withoutBucketPrefix = value.startsWith(`${bucket}/`) ? value.slice(bucket.length + 1) : value;
+  return `${base}/${bucket}/${withoutBucketPrefix}`;
+}
 
 function formatClp(value: number | null | undefined): string {
   if (typeof value !== "number" || !Number.isFinite(value)) return "";
@@ -53,8 +70,6 @@ export function InstagramPublishModal(props: {
 }) {
   const { open, onClose, vehicle } = props;
 
-  const supabase = useSupabase();
-
   const [igConnected, setIgConnected] = useState(false);
 
   useEffect(() => {
@@ -62,10 +77,7 @@ export function InstagramPublishModal(props: {
     let cancelled = false;
     (async () => {
       try {
-        const { data } = await supabase.auth.getSession();
-        const accessToken = data?.session?.access_token;
         const res = await fetch("/api/instagram/status", {
-          headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : undefined,
           cache: "no-store",
         });
         const json = await res.json();
@@ -77,16 +89,14 @@ export function InstagramPublishModal(props: {
     return () => {
       cancelled = true;
     };
-  }, [open, supabase]);
+  }, [open]);
 
   const imageUrl = useMemo(() => {
     if (!vehicle) return "";
 
     const photoRaw = (vehicle.portada || (vehicle.imagenes?.[0] ?? ""))?.trim();
     if (photoRaw) {
-      const photoPublicUrl = /^https?:\/\//i.test(photoRaw)
-        ? photoRaw
-        : supabase.storage.from("vehicles").getPublicUrl(photoRaw).data.publicUrl;
+      const photoPublicUrl = resolvePublicStorageUrl(photoRaw, "vehicles");
       return `/api/instagram/media?src=${encodeURIComponent(photoPublicUrl)}`;
     }
 
@@ -98,16 +108,13 @@ export function InstagramPublishModal(props: {
     if (vehicle.listing_type) params.set("listing_type", String(vehicle.listing_type));
     const cardUrl = `/api/instagram/card?${params.toString()}`;
     return `/api/instagram/media?src=${encodeURIComponent(cardUrl)}`;
-  }, [vehicle, supabase]);
+  }, [vehicle]);
 
   const publish = async (input: { imageUrl: string; caption: string }) => {
-    const { data } = await supabase.auth.getSession();
-    const accessToken = data?.session?.access_token;
     const res = await fetch("/api/instagram/publish", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : null),
       } as any,
       body: JSON.stringify({
         imageUrl: input.imageUrl,

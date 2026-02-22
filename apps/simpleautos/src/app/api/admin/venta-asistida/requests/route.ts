@@ -1,34 +1,29 @@
 import { NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
 import { z } from 'zod';
-import { createServerClient } from '@/lib/supabase/serverSupabase';
+import { getDbPool } from '@/lib/server/db';
+import { requireAuthUserId } from '@/lib/server/requireAuth';
 
 function isAdminRole(value: unknown) {
   const v = String(value || '').trim().toLowerCase();
   return v === 'admin' || v === 'staff' || v === 'superadmin';
 }
 
-async function assertAdminUser(adminSupabase: any) {
-  const sessionSupabase = await createServerClient();
-  const { data } = await sessionSupabase.auth.getUser();
-  const authUserId = data?.user?.id ?? null;
+async function assertAdminUser(request: Request) {
+  const auth = requireAuthUserId(request);
+  if ('error' in auth) return { ok: false as const, status: 401 as const, error: 'No autenticado' };
 
-  if (!authUserId) {
-    return { ok: false as const, status: 401 as const, error: 'No autenticado' };
-  }
-
-  const { data: profileRow } = await adminSupabase
-    .from('profiles')
-    .select('user_role,is_admin')
-    .eq('id', authUserId)
-    .maybeSingle();
-
-  const isAdmin = Boolean((profileRow as any)?.is_admin) || isAdminRole((profileRow as any)?.user_role);
-  if (!isAdmin) {
-    return { ok: false as const, status: 403 as const, error: 'Sin permisos' };
-  }
-
-  return { ok: true as const, authUserId };
+  const db = getDbPool();
+  const profile = await db.query(
+    `SELECT user_role, is_admin
+     FROM profiles
+     WHERE id = $1
+     LIMIT 1`,
+    [auth.userId]
+  );
+  const row = profile.rows[0] as any;
+  const isAdmin = Boolean(row?.is_admin) || isAdminRole(row?.user_role);
+  if (!isAdmin) return { ok: false as const, status: 403 as const, error: 'Sin permisos' };
+  return { ok: true as const, authUserId: auth.userId };
 }
 
 const QuerySchema = z.object({
@@ -38,14 +33,7 @@ const QuerySchema = z.object({
 });
 
 export async function GET(request: Request) {
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  if (!supabaseUrl || !serviceRoleKey) {
-    return NextResponse.json({ error: 'Supabase env no configurado' }, { status: 500 });
-  }
-
-  const adminSupabase = createClient(supabaseUrl, serviceRoleKey);
-  const adminCheck = await assertAdminUser(adminSupabase);
+  const adminCheck = await assertAdminUser(request);
   if (!adminCheck.ok) {
     return NextResponse.json({ error: adminCheck.error }, { status: adminCheck.status });
   }
@@ -56,37 +44,38 @@ export async function GET(request: Request) {
     q: url.searchParams.get('q') || undefined,
     limit: url.searchParams.get('limit') || undefined,
   });
-
   if (!parsed.success) {
     return NextResponse.json({ error: 'Query inválida' }, { status: 400 });
   }
 
   const { status, q, limit } = parsed.data;
+  const db = getDbPool();
 
-  let query = adminSupabase
-    .from('vehicle_sale_service_requests')
-    .select(
-      'id,created_at,status,source,reference_code,owner_name,owner_email,owner_phone,owner_city,listing_id,vehicle_type,vehicle_brand,vehicle_model,vehicle_year,vehicle_mileage_km,desired_price,notes,admin_notes,contacted_at',
-      { count: 'exact' }
-    )
-    .order('created_at', { ascending: false })
-    .limit(limit);
-
+  const params: any[] = [];
+  const where: string[] = [];
   if (status) {
-    query = query.eq('status', status);
+    params.push(status);
+    where.push(`status = $${params.length}`);
   }
-
   if (q) {
     const like = `%${q}%`;
-    query = query.or(
-      `reference_code.ilike.${like},owner_name.ilike.${like},owner_email.ilike.${like},owner_phone.ilike.${like}`
+    params.push(like, like, like, like);
+    where.push(
+      `(reference_code ILIKE $${params.length - 3} OR owner_name ILIKE $${params.length - 2} OR owner_email ILIKE $${params.length - 1} OR owner_phone ILIKE $${params.length})`
     );
   }
+  params.push(limit);
 
-  const { data, error, count } = await query;
-  if (error) {
-    return NextResponse.json({ error: 'No se pudo cargar' }, { status: 500 });
-  }
+  const query = await db.query(
+    `SELECT id, created_at, status, source, reference_code, owner_name, owner_email, owner_phone, owner_city,
+            listing_id, vehicle_type, vehicle_brand, vehicle_model, vehicle_year, vehicle_mileage_km,
+            desired_price, notes, admin_notes, contacted_at
+     FROM vehicle_sale_service_requests
+     ${where.length ? `WHERE ${where.join(' AND ')}` : ''}
+     ORDER BY created_at DESC
+     LIMIT $${params.length}`,
+    params
+  );
 
-  return NextResponse.json({ ok: true, count: count ?? null, data: data ?? [] }, { status: 200 });
+  return NextResponse.json({ ok: true, count: query.rows.length, data: query.rows || [] }, { status: 200 });
 }

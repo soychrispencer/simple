@@ -53,7 +53,7 @@ const initialState: FormState = {
 export default function VentaAsistidaServicePage() {
   const { addToast } = useToast();
   const router = useRouter();
-  const { user, profile, supabase, loading } = useAuth() as any;
+  const { user, profile, loading } = useAuth() as any;
   const [form, setForm] = React.useState<FormState>(initialState);
   const [submitting, setSubmitting] = React.useState(false);
   const [submittedCode, setSubmittedCode] = React.useState<string | null>(null);
@@ -106,22 +106,32 @@ export default function VentaAsistidaServicePage() {
     let cancelled = false;
 
     async function loadMyListings() {
-      if (!isLoggedIn || !supabase) return;
+      if (!isLoggedIn) return;
       setListingsLoading(true);
       try {
-        const { data, error } = await supabase
-          .from("listings")
-          .select("id,title,status")
-          .eq("user_id", user.id)
-          .order("created_at", { ascending: false })
-          .limit(50);
+        const response = await fetch("/api/vehicles", {
+          method: "GET",
+          cache: "no-store",
+        });
+        const payload = await response.json().catch(() => ({} as Record<string, unknown>));
 
         if (cancelled) return;
-        if (error) {
+        if (!response.ok) {
           setMyListings([]);
           return;
         }
-        setMyListings((data || []).map((r: any) => ({ id: String(r.id), title: r.title ?? null, status: r.status ?? null })));
+
+        const vehicles = Array.isArray((payload as { vehicles?: unknown[] }).vehicles)
+          ? ((payload as { vehicles: Array<{ id: string | number; title?: string | null; status?: string | null }> }).vehicles ?? [])
+          : [];
+
+        setMyListings(
+          vehicles.map((item) => ({
+            id: String(item.id),
+            title: item.title ?? null,
+            status: item.status ?? null,
+          }))
+        );
       } finally {
         if (!cancelled) setListingsLoading(false);
       }
@@ -131,7 +141,7 @@ export default function VentaAsistidaServicePage() {
     return () => {
       cancelled = true;
     };
-  }, [isLoggedIn, supabase, user?.id]);
+  }, [isLoggedIn, user?.id]);
 
   const onChange = (key: keyof FormState) => (e: any) => {
     const value = e?.target?.type === "checkbox" ? Boolean(e.target.checked) : String(e.target.value);
