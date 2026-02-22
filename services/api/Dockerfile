@@ -6,7 +6,6 @@ COPY package*.json ./
 COPY apps ./apps
 COPY packages ./packages
 COPY services ./services
-COPY backend ./backend
 COPY scripts ./scripts
 COPY docs ./docs
 COPY *.mjs ./
