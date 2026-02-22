@@ -19,8 +19,7 @@
   },
   "dependencies": {
     "@simple/ui": "*",
-    "@supabase/auth-helpers-nextjs": "^0.10.0",
-    "@supabase/supabase-js": "^2.47.10"
+    "pg": "^8.16.3"
   },
   "devDependencies": {
     "@types/react": "^19.1.12",

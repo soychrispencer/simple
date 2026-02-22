@@ -16,7 +16,6 @@
     "@simple/panel": "*",
     "@simple/profile": "*",
     "@simple/ui": "*",
-    "@supabase/supabase-js": "^2.47.10",
     "dotenv": "^16.4.7"
   },
   "devDependencies": {
