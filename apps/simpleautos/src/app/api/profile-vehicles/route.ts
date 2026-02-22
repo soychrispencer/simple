@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { getDbPool } from "@/lib/server/db";
 import { logError } from "@/lib/logger";
 
+type ProfileVehicleRow = Record<string, unknown> & { total: number };
+
 function toPositiveInt(value: string | null, fallback: number, max: number): number {
   const parsed = Number.parseInt(String(value || ""), 10);
   if (!Number.isFinite(parsed) || parsed <= 0) return fallback;
@@ -28,7 +30,7 @@ export async function GET(request: Request) {
       : "l.user_id = $1";
     const scopeValue = publicProfileId || userId;
 
-    const result = await db.query(
+    const result = await db.query<ProfileVehicleRow>(
       `
       WITH filtered AS (
         SELECT l.*
@@ -125,9 +127,8 @@ export async function GET(request: Request) {
 
     const rows = result.rows || [];
     const total = Number(rows[0]?.total ?? 0);
-    const items = rows.map((row) => {
-      const next = { ...row };
-      delete (next as any).total;
+    const items = rows.map((row: ProfileVehicleRow) => {
+      const { total: _total, ...next } = row;
       return next;
     });
 
