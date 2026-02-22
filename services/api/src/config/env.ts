@@ -5,9 +5,10 @@ const EnvSchema = z.object({
   API_PORT: z.coerce.number().int().positive().default(4000),
   API_HOST: z.string().min(1).default("0.0.0.0"),
   CORS_ORIGIN: z.string().optional(),
-  LISTINGS_REPOSITORY: z.enum(["memory", "supabase"]).default("memory"),
-  SUPABASE_URL: z.string().url().optional(),
-  SUPABASE_SERVICE_ROLE_KEY: z.string().min(1).optional()
+  LISTINGS_REPOSITORY: z.enum(["memory", "postgres"]).default("postgres"),
+  DATABASE_URL: z.string().min(1).optional(),
+  SSO_SHARED_SECRET: z.string().min(1).optional(),
+  SSO_ISSUER: z.string().min(1).default("simple-api")
 });
 
 export type Env = z.infer<typeof EnvSchema>;
