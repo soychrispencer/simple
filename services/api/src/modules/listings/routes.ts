@@ -5,6 +5,7 @@ import {
   ListingDetailResponseSchema,
   ListingMediaResponseSchema,
   ListListingsQuerySchema,
+  MyListingsQuerySchema,
   ListingsResponseSchema,
   UpsertListingBodySchema,
   UpsertListingResponseSchema
@@ -26,6 +27,36 @@ export async function registerListingRoutes(
     }
 
     const result = await listingRepository.list(query);
+    const payload = ListingsResponseSchema.parse({
+      items: result.items,
+      meta: {
+        total: result.total,
+        limit: query.limit,
+        offset: query.offset
+      }
+    });
+
+    return reply.send(payload);
+  });
+
+  app.get("/v1/listings/mine", async (request, reply) => {
+    const query = parseOrReply(reply, MyListingsQuerySchema, request.query, "query");
+    if (!query) {
+      return;
+    }
+
+    const authHeader = String(request.headers.authorization || "").trim();
+    if (!authHeader.toLowerCase().startsWith("bearer ")) {
+      return reply.status(401).send({ error: "unauthorized", message: "Missing bearer token" });
+    }
+
+    const accessToken = authHeader.slice(7).trim();
+    const authUserId = await listingRepository.resolveAuthUserId(accessToken);
+    if (!authUserId) {
+      return reply.status(401).send({ error: "unauthorized", message: "Invalid auth token" });
+    }
+
+    const result = await listingRepository.listMine(authUserId, query);
     const payload = ListingsResponseSchema.parse({
       items: result.items,
       meta: {
@@ -62,6 +93,31 @@ export async function registerListingRoutes(
     const media = await listingRepository.listMedia(params.id);
     const payload = ListingMediaResponseSchema.parse({ items: media });
     return reply.send(payload);
+  });
+
+  app.delete("/v1/listings/:id", async (request, reply) => {
+    const params = parseOrReply(reply, ListingIdParamsSchema, request.params, "params");
+    if (!params) {
+      return;
+    }
+
+    const authHeader = String(request.headers.authorization || "").trim();
+    if (!authHeader.toLowerCase().startsWith("bearer ")) {
+      return reply.status(401).send({ error: "unauthorized", message: "Missing bearer token" });
+    }
+
+    const accessToken = authHeader.slice(7).trim();
+    const authUserId = await listingRepository.resolveAuthUserId(accessToken);
+    if (!authUserId) {
+      return reply.status(401).send({ error: "unauthorized", message: "Invalid auth token" });
+    }
+
+    const deleted = await listingRepository.deleteOwnedListing(authUserId, params.id);
+    if (!deleted) {
+      return reply.status(404).send({ error: "not_found", message: "Listing not found" });
+    }
+
+    return reply.send({ deleted: true, id: params.id });
   });
 
   app.post("/v1/listings/upsert", async (request, reply) => {

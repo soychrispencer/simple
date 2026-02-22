@@ -11,6 +11,8 @@ export const LISTING_FIXTURES: ListingSummary[] = [
     price: 5790000,
     currency: "CLP",
     city: "Santiago",
+    ownerId: "11111111-1111-4111-8111-111111111111",
+    status: "published",
     publishedAt: PUBLISHED_AT
   },
   {
@@ -21,6 +23,8 @@ export const LISTING_FIXTURES: ListingSummary[] = [
     price: 850000,
     currency: "CLP",
     city: "Santiago",
+    ownerId: "22222222-2222-4222-8222-222222222222",
+    status: "draft",
     publishedAt: PUBLISHED_AT
   }
 ];
