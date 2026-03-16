@@ -1,0 +1,30 @@
+{
+  "name": "simple-v2",
+  "version": "1.0.0",
+  "private": true,
+  "workspaces": [
+    "packages/*",
+    "apps/simple*",
+    "services/*"
+  ],
+  "scripts": {
+    "dev:autos": "npm run dev --workspace=@simple/autos",
+    "dev:propiedades": "npm run dev --workspace=@simple/propiedades",
+    "dev:simpleadmin": "npm run dev --workspace=@simple/simpleadmin",
+    "dev:simpleplataforma": "npm run dev --workspace=@simple/simpleplataforma",
+    "dev:api": "npm run dev --workspace=@simple/api",
+    "dev:all": "concurrently --kill-others-on-fail --names autos,propiedades,simpleadmin,simpleplataforma,api --prefix-colors cyan,green,magenta,yellow,blue \"npm run dev:autos\" \"npm run dev:propiedades\" \"npm run dev:simpleadmin\" \"npm run dev:simpleplataforma\" \"npm run dev:api\"",
+    "build": "npm run build --workspaces",
+    "build:autos": "npm run build --workspace=@simple/autos",
+    "lint": "npm run lint --workspaces --if-present",
+    "db:generate": "npm run db:generate --workspace=@simple/api",
+    "db:migrate": "npm run db:migrate --workspace=@simple/api",
+    "db:seed": "npm run db:seed --workspace=@simple/api"
+  },
+  "devDependencies": {
+    "concurrently": "^9.2.1"
+  },
+  "engines": {
+    "node": ">=22.0.0"
+  }
+}

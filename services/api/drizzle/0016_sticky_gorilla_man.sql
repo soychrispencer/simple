@@ -1,0 +1,2 @@
+ALTER TABLE "public_profile_team_members" ADD COLUMN "receives_leads" boolean DEFAULT true NOT NULL;--> statement-breakpoint
+ALTER TABLE "public_profiles" ADD COLUMN "lead_routing_cursor" integer DEFAULT 0 NOT NULL;

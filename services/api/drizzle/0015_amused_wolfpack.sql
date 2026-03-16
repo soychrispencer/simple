@@ -1,0 +1,1 @@
+ALTER TABLE "public_profiles" ADD COLUMN "lead_routing_mode" varchar(20) DEFAULT 'round_robin' NOT NULL;

@@ -1,0 +1,33 @@
+{
+    "name": "@simple/ui",
+    "version": "1.0.0",
+    "private": true,
+    "main": "dist/index.js",
+    "types": "dist/index.d.ts",
+    "files": [
+        "dist"
+    ],
+    "exports": {
+        ".": {
+            "types": "./dist/index.d.ts",
+            "default": "./dist/index.js"
+        }
+    },
+    "scripts": {
+        "build": "tsc",
+        "typecheck": "tsc --noEmit"
+    },
+    "dependencies": {
+        "@simple/types": "*",
+        "clsx": "^2.1.1",
+        "tailwind-merge": "^3.5.0"
+    },
+    "peerDependencies": {
+        "react": "^19.2.4",
+        "react-dom": "^19.2.4"
+    },
+    "devDependencies": {
+        "typescript": "^5.9.3",
+        "@types/react": "^19.1.8"
+    }
+}

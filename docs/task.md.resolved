@@ -1,0 +1,58 @@
+# Simple V2 — Plan Maestro
+
+## Fase 0: Auditoría y Planificación
+- [x] Auditar repositorio Simple existente (estructura, páginas, wizard, DB, API)
+- [x] Auditar web de referencia simpleautos.app
+- [x] Documentar inventario funcional completo
+- [x] Crear plan de implementación por etapas
+- [x] Revisión y aprobación del usuario
+
+## Fase 1: Fundación del Monorepo (Etapa 1)
+- [x] Inicializar monorepo SimpleV2 con estructura base
+- [x] Configurar packages compartidos (ui, types, config, utils)
+- [x] Configurar base de datos PostgreSQL con esquema Drizzle completo
+- [x] Backend API unificado Hono con auth y endpoints core
+- [x] Sistema de diseño: modo claro/oscuro premium
+
+## Fase 2: SimpleAutos MVP (Etapa 2)  
+- [x] Landing/Home con búsqueda y filtros (diseño ultra-moderno)
+- [x] Listados ventas con sidebar filters, grid/list, pagination
+- [x] Listados arriendos con filtros de periodo
+- [x] Listados subastas con indicadores en vivo
+- [x] Página de detalle de vehículo (gallery, specs, pricing sidebar)
+- [x] Wizard de publicación completo (4 pasos)
+- [x] Auth modal (login/registro/recuperación + Google)
+- [x] Dashboard de usuario (stats, listings, activity)
+- [x] Favoritos/guardados
+- [x] Verificación y testing visual + polish Antigravity
+
+## Fase 3: SimplePropiedades MVP (Etapa 3)
+- [x] Scaffolding app + config + layout + design system (#3232FF)
+- [x] Landing/Home con búsqueda y filtros  
+- [x] Listados (ventas, arriendos, proyectos nuevos)
+- [x] Página de detalle de propiedad
+- [x] Wizard de publicación de propiedades
+- [x] Dashboard adaptado a propiedades
+- [x] Favoritos/guardados propiedades
+- [x] Verificación: 8/8 páginas HTTP 200, ambas apps en paralelo
+
+## Fase 4: Features Avanzadas (Etapa 4)
+- [x] Perfil público profesional (mini-sitio) — ambas verticales
+- [x] Feed vertical tipo red social
+- [x] CRM modular (panel/crm)
+- [x] Colaboración universal
+- [x] Sistema de monetización y boost/destacados
+
+## Fase 5: Admin + Integraciones (Etapa 5)
+- [x] Panel admin global (apps/admin port 3002)
+- [x] SimplePlataforma landing (apps/plataforma port 3003)
+- [x] Notificaciones y alertas (ambas verticales)
+- [x] Integración Instagram (modo simulación)
+- [x] Social-ready assets
+- [x] Verificación: 12/12 páginas HTTP 200 en 4 apps
+
+## Fase 6: Polish y Documentación (Etapa 6)
+- [x] Verificación completa del ecosistema: 34/34 rutas HTTP 200
+- [x] README.md con documentación completa
+- [x] Walkthrough final
+- [x] Base preparada para SimpleTiendas
