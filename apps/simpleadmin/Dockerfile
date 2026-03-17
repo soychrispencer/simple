@@ -7,6 +7,10 @@ ENV PORT=3000
 
 WORKDIR /app
 
+RUN apt-get update \
+  && apt-get install -y --no-install-recommends curl ca-certificates \
+  && rm -rf /var/lib/apt/lists/*
+
 COPY package*.json ./
 COPY apps ./apps
 COPY packages ./packages
