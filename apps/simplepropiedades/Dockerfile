@@ -11,7 +11,6 @@ COPY package*.json ./
 COPY apps ./apps
 COPY packages ./packages
 COPY services ./services
-COPY scripts ./scripts
 COPY docs ./docs
 COPY *.mjs ./
 COPY *.cjs ./
