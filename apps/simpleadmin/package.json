@@ -15,7 +15,8 @@
         "@tabler/icons-react": "^3.31.0",
         "@simple/types": "*",
         "@simple/config": "*",
-        "@simple/utils": "*"
+        "@simple/utils": "*",
+        "@simple/ui": "*"
     },
     "devDependencies": {
         "@tailwindcss/postcss": "^4.2.1",
