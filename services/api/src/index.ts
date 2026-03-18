@@ -12015,7 +12015,11 @@ void refreshValuationFeeds();
 
 // Load data from DB into Maps on startup
 (async () => {
-    await loadDataFromDB();
+    try {
+        await loadDataFromDB();
+    } catch (error) {
+        console.error('[simple-api] failed to preload DB data', error);
+    }
 })();
 
 serve(
