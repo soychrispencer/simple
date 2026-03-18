@@ -8620,6 +8620,17 @@ async function listAdminListingsSnapshot(): Promise<Array<{
 
 const app = new Hono();
 
+app.onError((error, c) => {
+    console.error('[simple-api] unhandled request error', error);
+    return c.json(
+        {
+            ok: false,
+            error: 'Internal server error',
+        },
+        500
+    );
+});
+
 app.use(
     '*',
     cors({
@@ -8641,13 +8652,15 @@ app.get('/', (c) =>
     })
 );
 
-app.get('/health', (c) =>
+const handleHealthcheck = (c: Context) =>
     c.json({
         ok: true,
         service: 'simple-v2-api',
         timestamp: new Date().toISOString(),
-    })
-);
+    });
+
+app.get('/health', handleHealthcheck);
+app.get('/api/health', handleHealthcheck);
 
 app.post('/api/auth/login', async (c) => {
     const payload = await c.req.json().catch(() => null);
