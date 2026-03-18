@@ -1,8 +1,7 @@
 FROM node:22-bookworm-slim
 
-ENV NODE_ENV=production
 ENV API_HOST=0.0.0.0
-ENV API_PORT=4000
+ENV PORT=4000
 
 WORKDIR /app
 
@@ -19,8 +18,10 @@ COPY *.cjs ./
 COPY *.json ./
 COPY *.md ./
 
-RUN npm install
+RUN npm install --include=dev
 RUN npm run build --workspace=@simple/api
+
+ENV NODE_ENV=production
 
 EXPOSE 4000
 
