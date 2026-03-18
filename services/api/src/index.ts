@@ -5964,6 +5964,80 @@ async function sendEmailVerificationEmail(email: string, verificationUrl: string
     });
 }
 
+async function sendPasswordChangedEmail(email: string, origin: string): Promise<void> {
+    const transporter = getAuthMailerTransporter();
+    const brand = getAuthBrandProfile(origin);
+    if (!transporter) {
+        if (process.env.NODE_ENV === 'production') {
+            throw new Error('Password changed email delivery is not configured');
+        }
+        console.info(`Password changed notice for ${email} on ${brand.appName}`);
+        return;
+    }
+    const heading = `Tu contrasena de ${brand.appName} fue actualizada.`;
+    const body = 'Este correo confirma que el acceso a tu cuenta fue actualizado correctamente. Si no realizaste este cambio, contacta soporte de inmediato.';
+    const footnote = 'Por seguridad, revisa tus dispositivos activos y cambia nuevamente la clave si detectas algo fuera de lo normal.';
+    await transporter.sendMail({
+        from: formatAuthFromAddress(brand),
+        to: email,
+        subject: `${brand.appName}: cambio de contrasena confirmado`,
+        text: buildAuthEmailText({
+            heading,
+            body,
+            buttonLabel: 'Abrir plataforma',
+            actionUrl: origin,
+            footnote,
+            supportEmail: brand.supportEmail,
+        }),
+        html: buildAuthEmailHtml({
+            brand,
+            eyebrow: 'Seguridad de cuenta',
+            heading,
+            body,
+            buttonLabel: 'Abrir plataforma',
+            actionUrl: origin,
+            footnote,
+        }),
+    });
+}
+
+async function sendWelcomeEmail(email: string, name: string, origin: string): Promise<void> {
+    const transporter = getAuthMailerTransporter();
+    const brand = getAuthBrandProfile(origin);
+    if (!transporter) {
+        if (process.env.NODE_ENV === 'production') {
+            throw new Error('Welcome email delivery is not configured');
+        }
+        console.info(`Welcome email for ${email} on ${brand.appName}`);
+        return;
+    }
+    const heading = `Tu cuenta de ${brand.appName} ya esta lista.`;
+    const body = `Hola ${name}. Tu correo quedo confirmado y ya puedes usar tu cuenta con la experiencia completa de ${brand.appName}.`;
+    const footnote = 'Si necesitas ayuda con tu cuenta o con la publicacion de tus contenidos, nuestro equipo de soporte esta disponible.';
+    await transporter.sendMail({
+        from: formatAuthFromAddress(brand),
+        to: email,
+        subject: `${brand.appName}: bienvenida a tu cuenta`,
+        text: buildAuthEmailText({
+            heading,
+            body,
+            buttonLabel: 'Entrar ahora',
+            actionUrl: origin,
+            footnote,
+            supportEmail: brand.supportEmail,
+        }),
+        html: buildAuthEmailHtml({
+            brand,
+            eyebrow: 'Cuenta activada',
+            heading,
+            body,
+            buttonLabel: 'Entrar ahora',
+            actionUrl: origin,
+            footnote,
+        }),
+    });
+}
+
 async function issueEmailVerification(userId: string, email: string, origin: string): Promise<void> {
     const rawToken = randomBytes(32).toString('hex');
     const now = new Date();
@@ -9321,6 +9395,15 @@ app.post('/api/auth/email-verification/confirm', async (c) => {
         isNull(emailVerificationTokens.usedAt),
     ));
 
+    const origin = resolveBrowserOrigin(c);
+    if (origin) {
+        try {
+            await sendWelcomeEmail(user.email, user.name, origin);
+        } catch (error) {
+            console.error('Welcome email delivery error:', error);
+        }
+    }
+
     setSession(c, user.id);
     return c.json({
         ok: true,
@@ -9376,6 +9459,16 @@ app.post('/api/auth/password-reset/confirm', async (c) => {
     ));
 
     clearRateLimit(`auth:reset-confirm:ip:${clientId}`);
+
+    const origin = resolveBrowserOrigin(c);
+    if (origin) {
+        try {
+            await sendPasswordChangedEmail(user.email, origin);
+        } catch (error) {
+            console.error('Password changed email error:', error);
+        }
+    }
+
     setSession(c, user.id);
     return c.json({
         ok: true,
