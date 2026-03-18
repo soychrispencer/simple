@@ -49,6 +49,7 @@ import {
     follows,
     boostOrders,
     passwordResetTokens,
+    emailVerificationTokens,
     instagramAccounts,
     instagramPublications,
     publicProfiles,
@@ -777,6 +778,7 @@ const OAUTH_STATE_COOKIE = 'simple_oauth_state';
 const INSTAGRAM_STATE_COOKIE = 'simple_instagram_state';
 const SESSION_SECRET = asString(process.env.SESSION_SECRET);
 const PASSWORD_RESET_TOKEN_TTL_MS = 1000 * 60 * 60;
+const EMAIL_VERIFICATION_TOKEN_TTL_MS = 1000 * 60 * 60 * 24 * 3;
 const AUTH_RATE_LIMIT_WINDOW_MS = 1000 * 60 * 15;
 const authCookieSameSite = (() => {
     const raw = asString(process.env.AUTH_COOKIE_SAMESITE).toLowerCase();
@@ -1288,6 +1290,14 @@ const pipelineColumnUpdateSchema = z.object({
 
 const pipelineColumnReorderSchema = z.object({
     columnIds: z.array(z.string().uuid()).min(1),
+});
+
+const emailVerificationRequestSchema = z.object({
+    email: z.string().email().optional(),
+});
+
+const emailVerificationConfirmSchema = z.object({
+    token: z.string().trim().min(1),
 });
 
 const messageEntryCreateSchema = z.object({
@@ -5733,13 +5743,78 @@ function buildPasswordResetUrl(origin: string, token: string): string {
     return `${origin}/auth/reset-password?token=${encodeURIComponent(token)}`;
 }
 
-function isPasswordResetEmailConfigured(): boolean {
+function buildEmailVerificationUrl(origin: string, token: string): string {
+    return `${origin}/auth/verify-email?token=${encodeURIComponent(token)}`;
+}
+
+type AuthBrandProfile = {
+    appName: string;
+    productName: string;
+    accent: string;
+    accentSoft: string;
+    surface: string;
+    title: string;
+    supportLabel: string;
+    supportEmail: string;
+};
+
+function getAuthBrandProfile(origin: string): AuthBrandProfile {
+    const host = new URL(origin).hostname.toLowerCase();
+    if (host.includes('simpleautos')) {
+        return {
+            appName: 'SimpleAutos',
+            productName: 'Simple',
+            accent: '#ff5a2f',
+            accentSoft: '#fff1eb',
+            surface: '#10141d',
+            title: 'SimpleAutos',
+            supportLabel: 'equipo SimpleAutos',
+            supportEmail: 'soporte@simpleautos.app',
+        };
+    }
+    if (host.includes('simplepropiedades')) {
+        return {
+            appName: 'SimplePropiedades',
+            productName: 'Simple',
+            accent: '#2563eb',
+            accentSoft: '#eff6ff',
+            surface: '#0f172a',
+            title: 'SimplePropiedades',
+            supportLabel: 'equipo SimplePropiedades',
+            supportEmail: 'soporte@simplepropiedades.app',
+        };
+    }
+    if (host.includes('admin.simpleplataforma.app')) {
+        return {
+            appName: 'SimpleAdmin',
+            productName: 'Simple',
+            accent: '#111827',
+            accentSoft: '#f3f4f6',
+            surface: '#111827',
+            title: 'SimpleAdmin',
+            supportLabel: 'equipo SimpleAdmin',
+            supportEmail: 'soporte@simpleplataforma.app',
+        };
+    }
+    return {
+        appName: 'SimplePlataforma',
+        productName: 'Simple',
+        accent: '#0f172a',
+        accentSoft: '#eff6ff',
+        surface: '#0f172a',
+        title: 'SimplePlataforma',
+        supportLabel: 'equipo Simple',
+        supportEmail: 'soporte@simpleplataforma.app',
+    };
+}
+
+function isAuthEmailConfigured(): boolean {
     return Boolean(asString(process.env.SMTP_HOST) && asString(process.env.SMTP_FROM));
 }
 
-function getPasswordResetTransporter() {
+function getAuthMailerTransporter() {
     if (passwordResetTransporter !== undefined) return passwordResetTransporter;
-    if (!isPasswordResetEmailConfigured()) {
+    if (!isAuthEmailConfigured()) {
         passwordResetTransporter = null;
         return passwordResetTransporter;
     }
@@ -5757,8 +5832,67 @@ function getPasswordResetTransporter() {
     return passwordResetTransporter;
 }
 
-async function sendPasswordResetEmail(email: string, resetUrl: string): Promise<void> {
-    const transporter = getPasswordResetTransporter();
+function buildAuthEmailHtml(input: {
+    brand: AuthBrandProfile;
+    eyebrow: string;
+    heading: string;
+    body: string;
+    buttonLabel: string;
+    actionUrl: string;
+    footnote: string;
+}) {
+    return `
+    <div style="margin:0;padding:32px 16px;background:#f5f7fb;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;color:#0f172a;">
+      <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:640px;margin:0 auto;">
+        <tr>
+          <td style="padding:0 0 16px 0;text-align:center;">
+            <div style="display:inline-block;padding:10px 14px;border-radius:999px;background:${input.brand.accentSoft};color:${input.brand.accent};font-size:12px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;">${input.eyebrow}</div>
+          </td>
+        </tr>
+        <tr>
+          <td style="background:#ffffff;border-radius:24px;overflow:hidden;border:1px solid #e5e7eb;">
+            <div style="padding:28px 32px;background:${input.brand.surface};color:#ffffff;">
+              <div style="font-size:24px;font-weight:700;letter-spacing:-0.02em;">${input.brand.title}</div>
+              <div style="margin-top:8px;font-size:14px;line-height:1.6;color:rgba(255,255,255,.78);">${input.heading}</div>
+            </div>
+            <div style="padding:32px;">
+              <p style="margin:0 0 20px 0;font-size:15px;line-height:1.7;color:#334155;">${input.body}</p>
+              <div style="margin:0 0 24px 0;">
+                <a href="${input.actionUrl}" style="display:inline-block;padding:14px 20px;border-radius:14px;background:${input.brand.accent};color:#ffffff;text-decoration:none;font-weight:700;font-size:14px;">${input.buttonLabel}</a>
+              </div>
+              <p style="margin:0 0 12px 0;font-size:13px;line-height:1.6;color:#64748b;">${input.footnote}</p>
+              <p style="margin:0;font-size:12px;line-height:1.6;color:#94a3b8;">Si el botón no funciona, copia y pega este enlace en tu navegador:<br /><a href="${input.actionUrl}" style="color:${input.brand.accent};word-break:break-all;">${input.actionUrl}</a></p>
+            </div>
+          </td>
+        </tr>
+        <tr>
+          <td style="padding:16px 8px 0;text-align:center;font-size:12px;color:#94a3b8;">
+            Enviado por ${input.brand.supportLabel}. Respuestas en ${input.brand.supportEmail}.
+          </td>
+        </tr>
+      </table>
+    </div>`;
+}
+
+function buildAuthEmailText(input: {
+    heading: string;
+    body: string;
+    buttonLabel: string;
+    actionUrl: string;
+    footnote: string;
+    supportEmail: string;
+}) {
+    return `${input.heading}\n\n${input.body}\n\n${input.buttonLabel}: ${input.actionUrl}\n\n${input.footnote}\n\nSoporte: ${input.supportEmail}`;
+}
+
+function formatAuthFromAddress(brand: AuthBrandProfile): string {
+    const smtpFrom = asString(process.env.SMTP_FROM);
+    return `${brand.appName} <${smtpFrom}>`;
+}
+
+async function sendPasswordResetEmail(email: string, resetUrl: string, origin: string): Promise<void> {
+    const transporter = getAuthMailerTransporter();
+    const brand = getAuthBrandProfile(origin);
     if (!transporter) {
         if (process.env.NODE_ENV === 'production') {
             throw new Error('Password reset email delivery is not configured');
@@ -5766,13 +5900,80 @@ async function sendPasswordResetEmail(email: string, resetUrl: string): Promise<
         console.info(`Password reset link for ${email}: ${resetUrl}`);
         return;
     }
+    const heading = `Restablece el acceso a tu cuenta de ${brand.appName}.`;
+    const body = 'Recibimos una solicitud para cambiar tu contraseña. Si fuiste tú, usa el botón de abajo para definir una nueva contraseña segura.';
+    const footnote = 'Si no solicitaste este cambio, puedes ignorar este correo. Tu cuenta seguirá protegida.';
     await transporter.sendMail({
-        from: asString(process.env.SMTP_FROM),
+        from: formatAuthFromAddress(brand),
         to: email,
-        subject: 'Restablece tu contraseña en Simple',
-        text: `Restablece tu contraseña usando este enlace: ${resetUrl}`,
-        html: `<p>Restablece tu contraseña usando este enlace:</p><p><a href="${resetUrl}">${resetUrl}</a></p>`,
+        subject: `${brand.appName}: restablece tu contraseña`,
+        text: buildAuthEmailText({
+            heading,
+            body,
+            buttonLabel: 'Restablecer contraseña',
+            actionUrl: resetUrl,
+            footnote,
+            supportEmail: brand.supportEmail,
+        }),
+        html: buildAuthEmailHtml({
+            brand,
+            eyebrow: 'Seguridad de cuenta',
+            heading,
+            body,
+            buttonLabel: 'Restablecer contraseña',
+            actionUrl: resetUrl,
+            footnote,
+        }),
     });
+}
+
+async function sendEmailVerificationEmail(email: string, verificationUrl: string, origin: string): Promise<void> {
+    const transporter = getAuthMailerTransporter();
+    const brand = getAuthBrandProfile(origin);
+    if (!transporter) {
+        if (process.env.NODE_ENV === 'production') {
+            throw new Error('Email verification delivery is not configured');
+        }
+        console.info(`Email verification link for ${email}: ${verificationUrl}`);
+        return;
+    }
+    const heading = `Confirma tu correo para activar tu cuenta de ${brand.appName}.`;
+    const body = 'Queremos asegurarnos de que este correo te pertenece y mantener la comunicación de tu cuenta con el branding correcto de la vertical.';
+    const footnote = 'Si no creaste esta cuenta, puedes ignorar este mensaje. No activaremos ninguna acción adicional.';
+    await transporter.sendMail({
+        from: formatAuthFromAddress(brand),
+        to: email,
+        subject: `${brand.appName}: confirma tu correo`,
+        text: buildAuthEmailText({
+            heading,
+            body,
+            buttonLabel: 'Confirmar correo',
+            actionUrl: verificationUrl,
+            footnote,
+            supportEmail: brand.supportEmail,
+        }),
+        html: buildAuthEmailHtml({
+            brand,
+            eyebrow: 'Confirmación de cuenta',
+            heading,
+            body,
+            buttonLabel: 'Confirmar correo',
+            actionUrl: verificationUrl,
+            footnote,
+        }),
+    });
+}
+
+async function issueEmailVerification(userId: string, email: string, origin: string): Promise<void> {
+    const rawToken = randomBytes(32).toString('hex');
+    const now = new Date();
+    const expiresAt = new Date(now.getTime() + EMAIL_VERIFICATION_TOKEN_TTL_MS);
+    await db.insert(emailVerificationTokens).values({
+        userId,
+        tokenHash: hashOpaqueToken(rawToken),
+        expiresAt,
+    });
+    await sendEmailVerificationEmail(email, buildEmailVerificationUrl(origin, rawToken), origin);
 }
 
 function usernameFromName(name: string): string {
@@ -8761,6 +8962,15 @@ app.post('/api/auth/register', async (c) => {
     clearRateLimit(`auth:register:ip:${clientId}`);
     setSession(c, newUser.id);
 
+    const origin = resolveBrowserOrigin(c);
+    if (origin) {
+        try {
+            await issueEmailVerification(newUser.id, normalizedEmail, origin);
+        } catch (error) {
+            console.error('Email verification delivery error:', error);
+        }
+    }
+
     return c.json({ ok: true, user: sanitizeUser(newUser) }, 201);
 });
 
@@ -9001,7 +9211,7 @@ app.post('/api/auth/password-reset/request', async (c) => {
         return c.json({ ok: false, error: 'Demasiados intentos. Intenta nuevamente más tarde.' }, 429);
     }
 
-    if (process.env.NODE_ENV === 'production' && !isPasswordResetEmailConfigured()) {
+    if (process.env.NODE_ENV === 'production' && !isAuthEmailConfigured()) {
         return c.json({ ok: false, error: 'La recuperación de contraseña no está configurada en este entorno.' }, 503);
     }
 
@@ -9028,12 +9238,97 @@ app.post('/api/auth/password-reset/request', async (c) => {
     });
 
     try {
-        await sendPasswordResetEmail(normalizedEmail, buildPasswordResetUrl(origin, rawToken));
+        await sendPasswordResetEmail(normalizedEmail, buildPasswordResetUrl(origin, rawToken), origin);
     } catch (error) {
         console.error('Password reset email error:', error);
         return c.json({ ok: false, error: 'No pudimos enviar el correo de recuperación. Inténtalo nuevamente.' }, 502);
     }
     return c.json({ ok: true });
+});
+
+app.post('/api/auth/email-verification/request', async (c) => {
+    const payload = await c.req.json().catch(() => null);
+    const parsed = emailVerificationRequestSchema.safeParse(payload);
+    if (!parsed.success) {
+        return c.json({ ok: false, error: 'Payload inválido' }, 400);
+    }
+
+    if (process.env.NODE_ENV === 'production' && !isAuthEmailConfigured()) {
+        return c.json({ ok: false, error: 'La confirmación de correo no está configurada en este entorno.' }, 503);
+    }
+
+    const origin = resolveBrowserOrigin(c);
+    if (!origin) {
+        return c.json({ ok: false, error: 'Origin no autorizado' }, 403);
+    }
+
+    const sessionUser = await authUser(c);
+    const normalizedEmail = parsed.data.email?.trim().toLowerCase() ?? sessionUser?.email ?? null;
+    if (!normalizedEmail) {
+        return c.json({ ok: false, error: 'Debes indicar un correo válido.' }, 400);
+    }
+
+    const user = await getUserByEmail(normalizedEmail);
+    if (!user || !canAuthenticateUser(user)) {
+        return c.json({ ok: true });
+    }
+    if (user.status === 'verified') {
+        return c.json({ ok: true, alreadyVerified: true });
+    }
+
+    try {
+        await issueEmailVerification(user.id, normalizedEmail, origin);
+    } catch (error) {
+        console.error('Email verification request error:', error);
+        return c.json({ ok: false, error: 'No pudimos enviar el correo de confirmación. Inténtalo nuevamente.' }, 502);
+    }
+
+    return c.json({ ok: true });
+});
+
+app.post('/api/auth/email-verification/confirm', async (c) => {
+    const payload = await c.req.json().catch(() => null);
+    const parsed = emailVerificationConfirmSchema.safeParse(payload);
+    if (!parsed.success) {
+        return c.json({ ok: false, error: 'Payload inválido' }, 400);
+    }
+
+    const now = new Date();
+    const tokenHash = hashOpaqueToken(parsed.data.token);
+    const result = await db.select().from(emailVerificationTokens).where(and(
+        eq(emailVerificationTokens.tokenHash, tokenHash),
+        isNull(emailVerificationTokens.usedAt),
+        gt(emailVerificationTokens.expiresAt, now),
+    )).limit(1);
+
+    if (result.length === 0) {
+        return c.json({ ok: false, error: 'El enlace de confirmación es inválido o expiró.' }, 400);
+    }
+
+    const verificationToken = result[0];
+    const user = await getUserById(verificationToken.userId);
+    if (!user || !canAuthenticateUser(user)) {
+        return c.json({ ok: false, error: 'No se pudo confirmar esta cuenta.' }, 400);
+    }
+
+    await db.update(users).set({
+        status: 'verified',
+        updatedAt: now,
+    }).where(eq(users.id, user.id));
+
+    await db.update(emailVerificationTokens).set({ usedAt: now }).where(and(
+        eq(emailVerificationTokens.userId, user.id),
+        isNull(emailVerificationTokens.usedAt),
+    ));
+
+    setSession(c, user.id);
+    return c.json({
+        ok: true,
+        user: sanitizeUser({
+            ...user,
+            status: 'verified',
+        }),
+    });
 });
 
 app.post('/api/auth/password-reset/confirm', async (c) => {
@@ -9212,6 +9507,13 @@ app.post('/api/auth/google/callback', async (c) => {
                 providerId: asString(googleUser.id) || undefined,
                 lastLoginAt: new Date(),
             };
+            if (!googleUser.verified_email) {
+                try {
+                    await issueEmailVerification(user.id, normalizedEmail, origin);
+                } catch (error) {
+                    console.error('Email verification delivery error:', error);
+                }
+            }
         } else {
             const nextLoginAt = new Date();
             await db.update(users)
@@ -9220,6 +9522,7 @@ app.post('/api/auth/google/callback', async (c) => {
                     avatarUrl: asString(googleUser.picture) || user.avatar || null,
                     provider: 'google',
                     providerId: asString(googleUser.id) || user.providerId || null,
+                    status: googleUser.verified_email ? 'verified' : user.status,
                     updatedAt: nextLoginAt,
                     lastLoginAt: nextLoginAt,
                 })
@@ -9230,6 +9533,7 @@ app.post('/api/auth/google/callback', async (c) => {
                 avatar: asString(googleUser.picture) || user.avatar,
                 provider: 'google',
                 providerId: asString(googleUser.id) || user.providerId,
+                status: googleUser.verified_email ? 'verified' : user.status,
                 lastLoginAt: nextLoginAt,
             };
         }
