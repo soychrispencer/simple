@@ -12010,6 +12010,7 @@ app.post('/api/social/follows/toggle', async (c) => {
 });
 
 const port = Number(process.env.PORT ?? 4000);
+const hostname = process.env.API_HOST ?? '0.0.0.0';
 primeValuationFeedState();
 void refreshValuationFeeds();
 
@@ -12025,9 +12026,10 @@ void refreshValuationFeeds();
 serve(
     {
         fetch: app.fetch,
+        hostname,
         port,
     },
     (info) => {
-        console.log(`[simple-api] listening on http://localhost:${info.port}`);
+        console.log(`[simple-api] listening on http://${hostname}:${info.port}`);
     }
 );
