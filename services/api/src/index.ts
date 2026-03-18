@@ -5635,6 +5635,53 @@ async function getUserByEmail(email: string): Promise<AppUser | undefined> {
     return mapUserRowToAppUser(result[0]);
 }
 
+async function ensureBootstrapAdmin(): Promise<void> {
+    const email = asString(process.env.ADMIN_BOOTSTRAP_EMAIL)?.trim().toLowerCase() || 'admin@simpleplataforma.app';
+    const password = asString(process.env.ADMIN_BOOTSTRAP_PASSWORD);
+    const name = asString(process.env.ADMIN_BOOTSTRAP_NAME) || 'Admin Simple';
+
+    if (!password) {
+        console.warn('[simple-api] ADMIN_BOOTSTRAP_PASSWORD not set; bootstrap admin will not be created.');
+        return;
+    }
+
+    const existing = await db.select().from(users).where(eq(users.email, email)).limit(1);
+    if (existing.length > 0) {
+        const row = existing[0];
+        const nextPasswordHash = row.passwordHash ?? await bcrypt.hash(password, 10);
+        const nextRole = row.role === 'superadmin' ? row.role : 'superadmin';
+
+        await db.update(users).set({
+            name,
+            role: nextRole,
+            status: 'active',
+            provider: row.provider ?? 'local',
+            passwordHash: nextPasswordHash,
+            updatedAt: new Date(),
+        }).where(eq(users.id, row.id));
+
+        const refreshed = await getUserByEmail(email);
+        if (refreshed) {
+            usersById.set(refreshed.id, refreshed);
+        }
+        return;
+    }
+
+    const passwordHash = await bcrypt.hash(password, 10);
+    const inserted = await db.insert(users).values({
+        email,
+        passwordHash,
+        name,
+        role: 'superadmin',
+        status: 'active',
+        provider: 'local',
+    }).returning();
+
+    if (inserted[0]) {
+        usersById.set(inserted[0].id, mapUserRowToAppUser(inserted[0]));
+    }
+}
+
 function canAuthenticateUser(user: AppUser): boolean {
     return user.status !== 'suspended';
 }
@@ -12031,6 +12078,7 @@ void refreshValuationFeeds();
 (async () => {
     try {
         await loadDataFromDB();
+        await ensureBootstrapAdmin();
     } catch (error) {
         console.error('[simple-api] failed to preload DB data', error);
     }
