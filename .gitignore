@@ -41,9 +41,15 @@ Thumbs.db
 tmp_*.ps1
 tmp_*.txt
 tmp_*.sql
+tmp_*.log
 /tmp
 /temp
 /.temp
+
+# Accidental saves
+instagram-auth.html
+*.resolved
+seed.txt
 
 # Development
 .cache/
