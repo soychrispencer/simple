@@ -10651,6 +10651,119 @@ app.get('/api/admin/users', async (c) => {
     return c.json({ ok: true, items });
 });
 
+// Cambiar rol de un usuario
+app.patch('/api/admin/users/:id/role', async (c) => {
+    const adminUser = await authUser(c);
+    if (!adminUser) return c.json({ ok: false, error: 'No autenticado' }, 401);
+    if (!isAdminRole(adminUser.role)) return c.json({ ok: false, error: 'No autorizado' }, 403);
+
+    const payload = await c.req.json().catch(() => null);
+    const role = payload?.role;
+    
+    if (!role || !['user', 'admin', 'superadmin'].includes(role)) {
+        return c.json({ ok: false, error: 'Rol inválido' }, 400);
+    }
+
+    const userId = c.req.param('id');
+    const targetUser = await getUserById(userId);
+    if (!targetUser) return c.json({ ok: false, error: 'Usuario no encontrado' }, 404);
+
+    const updated = await db.update(users).set({ role }).where(eq(users.id, userId)).returning();
+    if (updated.length === 0) return c.json({ ok: false, error: 'No se pudo actualizar el usuario' }, 500);
+
+    // Invalidar el cache
+    adminUsers.clear();
+    const appUser = mapUserRowToAppUser(updated[0]);
+    return c.json({ ok: true, item: sanitizeUser(appUser) }, 200);
+});
+
+// Cambiar status de un usuario
+app.patch('/api/admin/users/:id/status', async (c) => {
+    const adminUser = await authUser(c);
+    if (!adminUser) return c.json({ ok: false, error: 'No autenticado' }, 401);
+    if (!isAdminRole(adminUser.role)) return c.json({ ok: false, error: 'No autorizado' }, 403);
+
+    const payload = await c.req.json().catch(() => null);
+    const status = payload?.status;
+    
+    if (!status || !['active', 'verified', 'suspended'].includes(status)) {
+        return c.json({ ok: false, error: 'Status inválido' }, 400);
+    }
+
+    const userId = c.req.param('id');
+    const targetUser = await getUserById(userId);
+    if (!targetUser) return c.json({ ok: false, error: 'Usuario no encontrado' }, 404);
+
+    const updated = await db.update(users).set({ status }).where(eq(users.id, userId)).returning();
+    if (updated.length === 0) return c.json({ ok: false, error: 'No se pudo actualizar el usuario' }, 500);
+
+    // Invalidar el cache
+    adminUsers.clear();
+    const appUser = mapUserRowToAppUser(updated[0]);
+    return c.json({ ok: true, item: sanitizeUser(appUser) }, 200);
+});
+
+// Eliminar un usuario
+app.delete('/api/admin/users/:id', async (c) => {
+    const adminUser = await authUser(c);
+    if (!adminUser) return c.json({ ok: false, error: 'No autenticado' }, 401);
+    if (!isAdminRole(adminUser.role)) return c.json({ ok: false, error: 'No autorizado' }, 403);
+
+    const userId = c.req.param('id');
+    
+    // No permitir eliminar el usuario actual
+    if (adminUser.id === userId) {
+        return c.json({ ok: false, error: 'No puedes eliminar tu propia cuenta' }, 400);
+    }
+
+    const targetUser = await getUserById(userId);
+    if (!targetUser) return c.json({ ok: false, error: 'Usuario no encontrado' }, 404);
+
+    // Soft delete usando status='suspended'
+    const updated = await db.update(users).set({ status: 'suspended' }).where(eq(users.id, userId)).returning();
+    if (updated.length === 0) return c.json({ ok: false, error: 'No se pudo eliminar el usuario' }, 500);
+
+    // Invalidar el cache
+    adminUsers.clear();
+    return c.json({ ok: true, message: 'Usuario eliminado' }, 200);
+});
+
+// Editar datos de un usuario
+app.put('/api/admin/users/:id', async (c) => {
+    const adminUser = await authUser(c);
+    if (!adminUser) return c.json({ ok: false, error: 'No autenticado' }, 401);
+    if (!isAdminRole(adminUser.role)) return c.json({ ok: false, error: 'No autorizado' }, 403);
+
+    const payload = await c.req.json().catch(() => null);
+    const userId = c.req.param('id');
+    
+    const targetUser = await getUserById(userId);
+    if (!targetUser) return c.json({ ok: false, error: 'Usuario no encontrado' }, 404);
+
+    // Validar y preparar actualización
+    const updates: Record<string, any> = {};
+    
+    if (payload?.name && typeof payload.name === 'string' && payload.name.trim().length > 0) {
+        updates.name = payload.name.trim();
+    }
+    
+    if (payload?.phone && typeof payload.phone === 'string') {
+        updates.phone = payload.phone.trim() || null;
+    }
+
+    if (Object.keys(updates).length === 0) {
+        return c.json({ ok: false, error: 'No hay datos para actualizar' }, 400);
+    }
+
+    const updated = await db.update(users).set(updates).where(eq(users.id, userId)).returning();
+    if (updated.length === 0) return c.json({ ok: false, error: 'No se pudo actualizar el usuario' }, 500);
+
+    // Invalidar el cache
+    adminUsers.clear();
+    const appUser = mapUserRowToAppUser(updated[0]);
+    return c.json({ ok: true, item: sanitizeUser(appUser) }, 200);
+});
+
 app.get('/api/admin/listings', async (c) => {
     const adminUser = await authUser(c);
     if (!adminUser) return c.json({ ok: false, error: 'No autenticado' }, 401);
