@@ -9048,6 +9048,61 @@ app.post('/api/auth/register', async (c) => {
     return c.json({ ok: true, user: sanitizeUser(newUser) }, 201);
 });
 
+// Endpoint especial: Bootstrap inicial de superadmin (solo si no existe ningún admin)
+app.post('/api/admin/bootstrap', async (c) => {
+    // Verificar si ya hay admins en el sistema
+    const existingAdmins = await db
+        .select({ id: users.id })
+        .from(users)
+        .where(or(eq(users.role, 'admin'), eq(users.role, 'superadmin')))
+        .limit(1);
+
+    if (existingAdmins.length > 0) {
+        return c.json({ ok: false, error: 'Ya existe un administrador en el sistema' }, 403);
+    }
+
+    const payload = await c.req.json().catch(() => null);
+    const parsed = registerSchema.safeParse(payload);
+
+    if (!parsed.success) {
+        return c.json({ ok: false, error: 'Payload inválido' }, 400);
+    }
+
+    const normalizedEmail = parsed.data.email.trim().toLowerCase();
+    const existing = await getUserByEmail(normalizedEmail);
+    if (existing) {
+        return c.json({ ok: false, error: 'Email ya registrado' }, 409);
+    }
+
+    const hashedPassword = await bcrypt.hash(parsed.data.password, 10);
+
+    // Crear el superadmin ya verificado
+    const [insertedUser] = await db.insert(users).values({
+        email: normalizedEmail,
+        passwordHash: hashedPassword,
+        name: parsed.data.name.trim(),
+        role: 'superadmin',
+        status: 'verified',
+        provider: 'local',
+    }).returning({ id: users.id });
+
+    const newUser: AppUser = {
+        id: insertedUser.id,
+        email: normalizedEmail,
+        passwordHash: hashedPassword,
+        name: parsed.data.name.trim(),
+        role: 'superadmin',
+        status: 'verified',
+        provider: 'local',
+        lastLoginAt: new Date(),
+    };
+
+    await touchUserLastLoginAt(newUser.id);
+    setSession(c, newUser.id);
+
+    return c.json({ ok: true, user: sanitizeUser(newUser) }, 201);
+});
+
 app.get('/api/auth/me', async (c) => {
     const user = await authUser(c);
     if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
@@ -10671,8 +10726,6 @@ app.patch('/api/admin/users/:id/role', async (c) => {
     const updated = await db.update(users).set({ role }).where(eq(users.id, userId)).returning();
     if (updated.length === 0) return c.json({ ok: false, error: 'No se pudo actualizar el usuario' }, 500);
 
-    // Invalidar el cache
-    adminUsers.clear();
     const appUser = mapUserRowToAppUser(updated[0]);
     return c.json({ ok: true, item: sanitizeUser(appUser) }, 200);
 });
@@ -10697,8 +10750,6 @@ app.patch('/api/admin/users/:id/status', async (c) => {
     const updated = await db.update(users).set({ status }).where(eq(users.id, userId)).returning();
     if (updated.length === 0) return c.json({ ok: false, error: 'No se pudo actualizar el usuario' }, 500);
 
-    // Invalidar el cache
-    adminUsers.clear();
     const appUser = mapUserRowToAppUser(updated[0]);
     return c.json({ ok: true, item: sanitizeUser(appUser) }, 200);
 });
@@ -10723,8 +10774,6 @@ app.delete('/api/admin/users/:id', async (c) => {
     const updated = await db.update(users).set({ status: 'suspended' }).where(eq(users.id, userId)).returning();
     if (updated.length === 0) return c.json({ ok: false, error: 'No se pudo eliminar el usuario' }, 500);
 
-    // Invalidar el cache
-    adminUsers.clear();
     return c.json({ ok: true, message: 'Usuario eliminado' }, 200);
 });
 
@@ -10758,8 +10807,6 @@ app.put('/api/admin/users/:id', async (c) => {
     const updated = await db.update(users).set(updates).where(eq(users.id, userId)).returning();
     if (updated.length === 0) return c.json({ ok: false, error: 'No se pudo actualizar el usuario' }, 500);
 
-    // Invalidar el cache
-    adminUsers.clear();
     const appUser = mapUserRowToAppUser(updated[0]);
     return c.json({ ok: true, item: sanitizeUser(appUser) }, 200);
 });

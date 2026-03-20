@@ -4,41 +4,29 @@
  * Script para promover un usuario a superadmin
  * 
  * Uso:
- *   node scripts/promote-to-superadmin.mjs <email> [role]
+ *   node scripts/promote-to-superadmin.mjs <email> [role] [admin-email] [admin-password] [api-url]
  * 
  * Ejemplos:
+ *   # Versión rápida (requiere estar logueado en SimpleAdmin)
  *   node scripts/promote-to-superadmin.mjs chris@example.com superadmin
- *   node scripts/promote-to-superadmin.mjs admin@example.com admin
- *   node scripts/promote-to-superadmin.mjs user@example.com user
+ * 
+ *   # Versión con credenciales de admin
+ *   node scripts/promote-to-superadmin.mjs chris@example.com superadmin admin@example.com password123
+ * 
+ *   # Con URL personalizada
+ *   node scripts/promote-to-superadmin.mjs chris@example.com superadmin admin@example.com password123 http://api.example.com
  */
 
-import { createClient } from '@supabase/supabase-js';
-import * as fs from 'fs';
-import * as path from 'path';
-import { fileURLToPath } from 'url';
-
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const envPath = path.resolve(__dirname, '../.env');
-
-// Cargar variables de entorno
-if (fs.existsSync(envPath)) {
-    const envContent = fs.readFileSync(envPath, 'utf-8');
-    envContent.split('\n').forEach((line) => {
-        const [key, ...rest] = line.split('=');
-        if (key && !key.startsWith('#')) {
-            process.env[key.trim()] = rest.join('=').trim();
-        }
-    });
-}
-
-// Obtener argumentos
 const email = process.argv[2];
 let role = process.argv[3] || 'superadmin';
+const adminEmail = process.argv[4];
+const adminPassword = process.argv[5];
+const apiUrl = process.argv[6] || 'http://localhost:4000';
 
 // Validación
 if (!email) {
     console.error('❌ Error: Debes proporcionar un email');
-    console.error('Uso: node scripts/promote-to-superadmin.mjs <email> [role]');
+    console.error('Uso: node scripts/promote-to-superadmin.mjs <email-a-promover> [role] [admin-email] [admin-password] [api-url]');
     process.exit(1);
 }
 
@@ -47,62 +35,106 @@ if (!['user', 'admin', 'superadmin'].includes(role)) {
     process.exit(1);
 }
 
-// Obtener DATABASE_URL
-const databaseUrl = process.env.DATABASE_URL;
-if (!databaseUrl) {
-    console.error('❌ Error: DATABASE_URL no está configurado en .env');
-    process.exit(1);
-}
+console.log(`🔄 Promoviendo usuario ${email} a ${role}...`);
+console.log(`📡 API: ${apiUrl}\n`);
 
-console.log('🔄 Conectando a la base de datos...');
+let cookieJar = '';
 
-// Conectar a PostgreSQL usando la URL
-import pkg from 'pg';
-const { Client } = pkg;
-
-const client = new Client({
-    connectionString: databaseUrl,
-});
-
+// Usar fetch nativo de Node.js (disponible en v18+)
 (async () => {
     try {
-        await client.connect();
-        console.log('✓ Conectado a la base de datos');
+        // Si se proporciona admin email/password, autenticarse primero
+        if (adminEmail && adminPassword) {
+            console.log('🔐 Autenticando como ' + adminEmail);
+            const loginResponse = await fetch(`${apiUrl}/api/auth/login`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    email: adminEmail,
+                    password: adminPassword,
+                }),
+            });
 
-        // Buscar el usuario
-        const result = await client.query('SELECT id, name, email, role FROM users WHERE email = $1', [email]);
-        
-        if (result.rows.length === 0) {
-            console.error(`❌ Error: No se encontró usuario con email: ${email}`);
+            if (!loginResponse.ok) {
+                const errorData = await loginResponse.json().catch(() => ({}));
+                console.error(`❌ Error de autenticación: ${errorData.error || loginResponse.statusText}`);
+                process.exit(1);
+            }
+
+            // Guardar cookies de la respuesta
+            const setCookieHeader = loginResponse.headers.get('set-cookie');
+            if (setCookieHeader) {
+                cookieJar = setCookieHeader.split(';')[0];
+            }
+            console.log('✓ Autenticación exitosa\n');
+        }
+
+        // Obtener los usuarios disponibles
+        const listResponse = await fetch(`${apiUrl}/api/admin/users`, {
+            method: 'GET',
+            headers: {
+                'Content-Type': 'application/json',
+                ...(cookieJar && { 'Cookie': cookieJar }),
+            },
+        });
+
+        if (listResponse.status === 401) {
+            console.error('❌ Error: No autenticado.');
+            console.error('   Opción 1: Proporciona credenciales de admin');
+            console.error('     node scripts/promote-to-superadmin.mjs user@email admin@email.com password123');
+            console.error('   Opción 2: Accede a SimpleAdmin y ejecuta sin parámetros dentro de 5 minutos');
             process.exit(1);
         }
 
-        const user = result.rows[0];
+        if (!listResponse.ok) {
+            console.error(`❌ Error: No se pudo obtener la lista de usuarios (${listResponse.status})`);
+            process.exit(1);
+        }
+
+        const data = await listResponse.json();
+        const users = data.items || [];
+        const user = users.find(u => u.email === email);
+
+        if (!user) {
+            console.error(`❌ Error: No se encontró usuario con email: ${email}`);
+            console.log('\nUsuarios disponibles:');
+            users.forEach(u => console.log(`  - ${u.name} (${u.email}) - ${u.role}`));
+            process.exit(1);
+        }
+
         const oldRole = user.role;
 
         // Actualizar el rol
-        const updateResult = await client.query(
-            'UPDATE users SET role = $1, updated_at = NOW() WHERE id = $2 RETURNING id, name, email, role',
-            [role, user.id]
-        );
+        const updateResponse = await fetch(`${apiUrl}/api/admin/users/${user.id}/role`, {
+            method: 'PATCH',
+            headers: {
+                'Content-Type': 'application/json',
+                ...(cookieJar && { 'Cookie': cookieJar }),
+            },
+            body: JSON.stringify({ role }),
+        });
 
-        if (updateResult.rows.length > 0) {
-            const updated = updateResult.rows[0];
-            console.log('\n✅ Usuario actualizado exitosamente\n');
-            console.log(`   Nombre:  ${updated.name}`);
-            console.log(`   Email:   ${updated.email}`);
-            console.log(`   Rol:     ${oldRole} → ${updated.role}`);
-            console.log(`   ID:      ${updated.id}\n`);
-        } else {
-            console.error('❌ Error: No se pudo actualizar el usuario');
+        if (!updateResponse.ok) {
+            const errorData = await updateResponse.json().catch(() => ({}));
+            console.error(`❌ Error: No se pudo actualizar el usuario: ${errorData.error || updateResponse.statusText}`);
             process.exit(1);
         }
 
+        console.log('✅ Usuario actualizado exitosamente\n');
+        console.log(`   Nombre:  ${user.name}`);
+        console.log(`   Email:   ${user.email}`);
+        console.log(`   Rol:     ${oldRole} → ${role}`);
+        console.log(`   ID:      ${user.id}\n`);
+
         process.exit(0);
     } catch (error) {
-        console.error('❌ Error:', error);
+        console.error('❌ Error:', error.message);
+        console.error('\n💡 Verifica:');
+        console.error('   1. El API está corriendo: ' + apiUrl);
+        console.error('   2. Las credenciales son correctas (si las proporcionaste)');
+        console.error('   3. El email existe en la base de datos');
         process.exit(1);
-    } finally {
-        await client.end();
     }
 })();
