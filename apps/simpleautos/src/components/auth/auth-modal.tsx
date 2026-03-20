@@ -2,11 +2,11 @@
 
 import { useState } from 'react';
 import { useAuth } from '@/context/auth-context';
-import { IconX, IconBrandGoogle, IconMail, IconLock, IconUser } from '@tabler/icons-react';
+import { IconX, IconBrandGoogle, IconMail, IconLock, IconUser, IconMailCheck } from '@tabler/icons-react';
 import { PanelButton, PanelIconButton, PanelNotice } from '@simple/ui';
 import GoogleLoginButton from '@/components/GoogleLoginButton';
 
-type Mode = 'login' | 'register' | 'recovery';
+type Mode = 'login' | 'register' | 'recovery' | 'verify-email';
 const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000';
 
 export function AuthModal() {
@@ -18,6 +18,7 @@ export function AuthModal() {
     const [error, setError] = useState('');
     const [success, setSuccess] = useState('');
     const [submitting, setSubmitting] = useState(false);
+    const [registeredEmail, setRegisteredEmail] = useState('');
 
     if (!authOpen) return null;
 
@@ -36,7 +37,16 @@ export function AuthModal() {
         setSubmitting(true);
         const ok = await register(name, email, password);
         setSubmitting(false);
-        if (!ok) setError('Este correo electrónico ya está registrado.');
+        if (!ok) {
+            setError('Este correo electrónico ya está registrado.');
+        } else {
+            // Mostrar pantalla de verificación de email
+            setRegisteredEmail(email);
+            setMode('verify-email');
+            setEmail('');
+            setPassword('');
+            setName('');
+        }
     };
 
     const handleRecovery = async (e: React.FormEvent) => {
@@ -59,6 +69,30 @@ export function AuthModal() {
             setSuccess('Si el correo existe, te enviaremos instrucciones para restablecer tu contraseña.');
         } catch {
             setError('No pudimos iniciar la recuperación. Inténtalo más tarde.');
+        } finally {
+            setSubmitting(false);
+        }
+    };
+
+    const handleResendVerificationEmail = async () => {
+        setError('');
+        setSuccess('');
+        setSubmitting(true);
+        try {
+            const response = await fetch(`${API_BASE}/api/auth/email-verification/request`, {
+                method: 'POST',
+                credentials: 'include',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ email: registeredEmail }),
+            });
+            const data = (await response.json().catch(() => null)) as { ok?: boolean; error?: string } | null;
+            if (!response.ok || !data?.ok) {
+                setError(data?.error || 'No pudimos reenviar el email. Inténtalo más tarde.');
+                return;
+            }
+            setSuccess('Te hemos reenviado el email de confirmación. Revisa tu bandeja de entrada.');
+        } catch {
+            setError('No pudimos reenviar el email. Inténtalo más tarde.');
         } finally {
             setSubmitting(false);
         }
@@ -198,6 +232,68 @@ export function AuthModal() {
                         </form>
                         <div className="text-center mt-4 text-sm">
                             <button onClick={() => { setMode('login'); setError(''); setSuccess(''); }} className="font-medium" style={{ color: 'var(--fg)' }} disabled={submitting}>
+                                Volver al inicio de sesión
+                            </button>
+                        </div>
+                    </>
+                )}
+
+                {mode === 'verify-email' && (
+                    <>
+                        <div className="text-center mb-6">
+                            <div className="inline-flex items-center justify-center w-16 h-16 rounded-full mb-4" style={{ background: 'rgba(34, 197, 94, 0.1)' }}>
+                                <IconMailCheck size={32} style={{ color: 'rgb(34, 197, 94)' }} />
+                            </div>
+                            <h2 className="text-lg font-semibold mb-1" style={{ color: 'var(--fg)' }}>
+                                Verifica tu email
+                            </h2>
+                            <p className="text-sm" style={{ color: 'var(--fg-muted)' }}>
+                                Te hemos enviado un email a<br />
+                                <span className="font-medium">{registeredEmail}</span>
+                            </p>
+                        </div>
+
+                        <div className="bg-opacity-50 p-4 rounded-lg mb-4" style={{ background: 'rgba(59, 130, 246, 0.1)' }}>
+                            <p className="text-sm" style={{ color: 'var(--fg)' }}>
+                                <strong>¿Qué hacer ahora?</strong><br />
+                                1. Abre el email que recibiste<br />
+                                2. Haz clic en el botón "Confirmar correo"<br />
+                                3. ¡Listo! Tu cuenta estará verificada
+                            </p>
+                        </div>
+
+                        {error ? (
+                            <PanelNotice tone="error" className="mb-3">
+                                {error}
+                            </PanelNotice>
+                        ) : null}
+                        {success ? (
+                            <PanelNotice tone="success" className="mb-3">
+                                {success}
+                            </PanelNotice>
+                        ) : null}
+
+                        <button
+                            onClick={handleResendVerificationEmail}
+                            disabled={submitting}
+                            className="w-full text-sm font-medium py-2.5 rounded-lg transition-colors mb-3"
+                            style={{
+                                background: 'var(--surface-secondary)',
+                                color: 'var(--fg)',
+                                border: '1px solid var(--border)',
+                            }}
+                        >
+                            {submitting ? 'Reenviando...' : 'Reenviar email de confirmación'}
+                        </button>
+
+                        <div className="text-center mt-4 text-sm">
+                            <span style={{ color: 'var(--fg-muted)' }}>¿Problemas? </span>
+                            <button
+                                onClick={() => { setMode('login'); setError(''); setSuccess(''); setRegisteredEmail(''); }}
+                                className="font-medium"
+                                style={{ color: 'var(--fg)' }}
+                                disabled={submitting}
+                            >
                                 Volver al inicio de sesión
                             </button>
                         </div>

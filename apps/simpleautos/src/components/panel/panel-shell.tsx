@@ -279,6 +279,21 @@ export function PanelShell({ children }: { children: React.ReactNode }) {
             ) : null}
 
             <section className="flex-1 min-w-0">
+                {user?.status !== 'verified' && (
+                    <div className="px-4 py-3 bg-amber-50 border-b border-amber-200 flex items-center justify-between" style={{ background: 'rgba(251, 191, 36, 0.1)', borderColor: 'rgba(251, 191, 36, 0.3)' }}>
+                        <div className="flex items-center gap-3 flex-1">
+                            <div className="text-lg">⚠️</div>
+                            <div className="flex-1">
+                                <p className="text-sm font-medium" style={{ color: 'var(--fg)' }}>
+                                    Tu email aún no está verificado
+                                </p>
+                                <p className="text-xs mt-1" style={{ color: 'var(--fg-muted)' }}>
+                                    Revisa tu bandeja de entrada para confirmar tu email y desbloquear todas las funciones.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                )}
                 <div className="panel-content-frame">{children}</div>
             </section>
         </div>
