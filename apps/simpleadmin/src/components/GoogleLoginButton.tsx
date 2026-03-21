@@ -22,9 +22,11 @@ export default function GoogleLoginButton({ children, disabled = false, onError 
 
     try {
       setLoading(true);
+      const returnTo = `${window.location.pathname}${window.location.search}${window.location.hash}`;
+      sessionStorage.setItem('admin.auth.returnTo', returnTo);
 
       // Obtener URL de autorización
-      const response = await fetch(`${API_BASE}/api/auth/google`, {
+      const response = await fetch(`${API_BASE}/api/auth/google?returnTo=${encodeURIComponent(returnTo)}`, {
         credentials: 'include',
       });
       const data = (await response.json().catch(() => null)) as { authUrl?: string; error?: string } | null;

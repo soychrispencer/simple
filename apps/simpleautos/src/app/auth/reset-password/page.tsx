@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { PanelButton, PanelNotice } from '@simple/ui';
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000';
 
@@ -13,10 +14,13 @@ export default function ResetPasswordPage() {
     const [error, setError] = useState('');
     const [success, setSuccess] = useState('');
     const [submitting, setSubmitting] = useState(false);
+    const [returnTo, setReturnTo] = useState('/');
 
     useEffect(() => {
         const search = new URLSearchParams(window.location.search);
         setToken(search.get('token') ?? '');
+        const nextReturnTo = search.get('returnTo') || sessionStorage.getItem('auth.returnTo') || '/';
+        setReturnTo(nextReturnTo);
     }, []);
 
     const handleSubmit = async (event: React.FormEvent) => {
@@ -52,7 +56,8 @@ export default function ResetPasswordPage() {
             }
             setSuccess('Tu contraseña fue actualizada. Redirigiendo...');
             window.setTimeout(() => {
-                window.location.replace('/');
+                sessionStorage.removeItem('auth.returnTo');
+                window.location.replace(returnTo);
             }, 1000);
         } catch {
             setError('No pudimos restablecer tu contraseña.');
@@ -70,9 +75,9 @@ export default function ResetPasswordPage() {
                 <p className="text-sm mb-5" style={{ color: 'var(--fg-muted)' }}>
                     Elige una nueva contraseña para tu cuenta de SimpleAutos.
                 </p>
-                {error ? <p className="text-sm mb-3" style={{ color: '#dc2626' }}>{error}</p> : null}
-                {success ? <p className="text-sm mb-3" style={{ color: '#16a34a' }}>{success}</p> : null}
-                <form onSubmit={handleSubmit} className="space-y-3">
+                {error ? <PanelNotice tone="error" className="mb-3">{error}</PanelNotice> : null}
+                {success ? <PanelNotice tone="success" className="mb-3">{success}</PanelNotice> : null}
+                <form onSubmit={handleSubmit} className="space-y-3" aria-label="Formulario de restablecer contraseña">
                     <input
                         type="password"
                         value={password}
@@ -91,19 +96,19 @@ export default function ResetPasswordPage() {
                         autoComplete="new-password"
                         required
                     />
-                    <button type="submit" className="btn-primary w-full" disabled={submitting}>
+                    <PanelButton type="submit" variant="primary" className="w-full" disabled={submitting}>
                         {submitting ? 'Guardando...' : 'Guardar contraseña'}
-                    </button>
+                    </PanelButton>
                 </form>
-                <button
+                <PanelButton
                     type="button"
-                    onClick={() => router.push('/')}
-                    className="w-full mt-3 rounded-lg px-4 py-2"
-                    style={{ border: '1px solid var(--border)', color: 'var(--fg)' }}
+                    variant="secondary"
+                    onClick={() => router.push(returnTo)}
+                    className="w-full mt-3"
                     disabled={submitting}
                 >
                     Volver
-                </button>
+                </PanelButton>
             </div>
         </div>
     );

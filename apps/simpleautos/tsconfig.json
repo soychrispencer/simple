@@ -37,6 +37,9 @@
       ],
       "@simple/ui": [
         "../../packages/ui/src"
+      ],
+      "@simple/auth": [
+        "../../packages/auth/src"
       ]
     }
   },

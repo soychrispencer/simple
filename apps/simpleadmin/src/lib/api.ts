@@ -280,14 +280,18 @@ export async function loginAdmin(email: string, password: string): Promise<boole
     }
 }
 
-export async function requestAdminPasswordReset(email: string): Promise<{ ok: boolean; error?: string }> {
+export async function requestAdminPasswordReset(email: string): Promise<{ ok: boolean; error?: string; status?: number }> {
     try {
         const { response, data } = await apiRequest('/api/auth/password-reset/request', {
             method: 'POST',
             body: JSON.stringify({ email }),
         });
         if (!response.ok || !data?.ok) {
-            return { ok: false, error: data?.error || 'No pudimos iniciar la recuperación.' };
+            const message =
+                response.status === 429
+                    ? 'Demasiados intentos. Espera un momento y vuelve a intentarlo.'
+                    : data?.error || 'No pudimos iniciar la recuperación.';
+            return { ok: false, error: message, status: response.status };
         }
         return { ok: true };
     } catch {

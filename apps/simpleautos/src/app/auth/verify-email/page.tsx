@@ -2,6 +2,8 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { IconCheck, IconX } from '@tabler/icons-react';
+import { PanelButton, PanelNotice } from '@simple/ui';
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000';
 
@@ -9,10 +11,13 @@ export default function VerifyEmailPage() {
     const router = useRouter();
     const [status, setStatus] = useState<'loading' | 'success' | 'error'>('loading');
     const [message, setMessage] = useState('Estamos confirmando tu correo.');
+    const [returnTo, setReturnTo] = useState('/');
 
     useEffect(() => {
         const search = new URLSearchParams(window.location.search);
         const token = search.get('token') ?? '';
+        const nextReturnTo = search.get('returnTo') || sessionStorage.getItem('auth.returnTo') || '/';
+        setReturnTo(nextReturnTo);
 
         if (!token) {
             setStatus('error');
@@ -39,7 +44,8 @@ export default function VerifyEmailPage() {
                 setStatus('success');
                 setMessage('Tu correo ya quedo confirmado. Redirigiendo a SimpleAutos...');
                 window.setTimeout(() => {
-                    window.location.replace('/');
+                    sessionStorage.removeItem('auth.returnTo');
+                    window.location.replace(nextReturnTo);
                 }, 1200);
             } catch {
                 setStatus('error');
@@ -65,10 +71,8 @@ export default function VerifyEmailPage() {
 
                 {status === 'success' ? (
                     <div className="text-center">
-                        <div className="w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-4" style={{ background: '#dcfce7', color: '#16a34a' }}>
-                            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                            </svg>
+                        <div className="w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-4" style={{ background: 'color-mix(in srgb, var(--primary) 15%, transparent)', color: 'var(--primary)' }}>
+                            <IconCheck size={22} />
                         </div>
                         <h1 className="text-xl font-semibold mb-2" style={{ color: 'var(--fg)' }}>
                             Correo confirmado
@@ -81,24 +85,23 @@ export default function VerifyEmailPage() {
 
                 {status === 'error' ? (
                     <div className="text-center">
-                        <div className="w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-4" style={{ background: '#fee2e2', color: '#dc2626' }}>
-                            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                            </svg>
+                        <div className="w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-4" style={{ background: 'color-mix(in srgb, var(--danger) 15%, transparent)', color: 'var(--danger)' }}>
+                            <IconX size={22} />
                         </div>
                         <h1 className="text-xl font-semibold mb-2" style={{ color: 'var(--fg)' }}>
                             No pudimos confirmar tu correo
                         </h1>
-                        <p className="text-sm mb-4" style={{ color: 'var(--fg-muted)' }}>
+                        <PanelNotice tone="error" className="mb-4 text-left">
                             {message}
-                        </p>
-                        <button
+                        </PanelNotice>
+                        <PanelButton
                             type="button"
-                            onClick={() => router.push('/')}
-                            className="btn-primary w-full"
+                            onClick={() => router.push(returnTo)}
+                            variant="primary"
+                            className="w-full"
                         >
                             Volver a SimpleAutos
-                        </button>
+                        </PanelButton>
                     </div>
                 ) : null}
             </div>

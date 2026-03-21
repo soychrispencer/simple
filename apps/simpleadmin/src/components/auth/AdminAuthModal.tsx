@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { IconX, IconBrandGoogle, IconMail, IconLock } from '@tabler/icons-react';
 import { PanelButton, PanelIconButton, PanelNotice } from '@simple/ui';
 import GoogleLoginButton from '@/components/GoogleLoginButton';
@@ -15,14 +15,76 @@ interface AuthModalProps {
 }
 
 export function AdminAuthModal({ open, onClose, onLogin, onRequestPasswordReset }: AuthModalProps) {
+  const dialogRef = useRef<HTMLDivElement>(null);
   const [mode, setMode] = useState<Mode>('login');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [recoveryCooldown, setRecoveryCooldown] = useState(0);
 
   if (!open) return null;
+
+  const resetLocalState = () => {
+    setMode('login');
+    setEmail('');
+    setPassword('');
+    setError('');
+    setSuccess('');
+    setSubmitting(false);
+    setRecoveryCooldown(0);
+  };
+
+  const handleClose = () => {
+    if (submitting) return;
+    resetLocalState();
+    onClose();
+  };
+
+  useEffect(() => {
+    if (!open) return;
+    const timeoutId = window.setTimeout(() => dialogRef.current?.focus(), 0);
+    return () => window.clearTimeout(timeoutId);
+  }, [open]);
+
+  useEffect(() => {
+    if (!open) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        handleClose();
+        return;
+      }
+      if (event.key !== 'Tab') return;
+      const root = dialogRef.current;
+      if (!root) return;
+      const focusable = root.querySelectorAll<HTMLElement>(
+        'a[href], button:not([disabled]), textarea:not([disabled]), input:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])'
+      );
+      if (focusable.length === 0) return;
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      const active = document.activeElement as HTMLElement | null;
+      if (event.shiftKey && active === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && active === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    };
+    document.addEventListener('keydown', onKeyDown);
+    return () => document.removeEventListener('keydown', onKeyDown);
+  }, [open, submitting]);
+
+  useEffect(() => {
+    if (!recoveryCooldown) return;
+    const intervalId = window.setInterval(() => {
+      setRecoveryCooldown((prev) => (prev <= 1 ? 0 : prev - 1));
+    }, 1000);
+    return () => window.clearInterval(intervalId);
+  }, [recoveryCooldown]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -33,9 +95,7 @@ export function AdminAuthModal({ open, onClose, onLogin, onRequestPasswordReset 
       if (onLogin) {
         const ok = await onLogin(email, password);
         if (ok) {
-          setEmail('');
-          setPassword('');
-          onClose();
+          handleClose();
         } else {
           setError('Correo electrónico o contraseña incorrectos.');
         }
@@ -63,26 +123,32 @@ export function AdminAuthModal({ open, onClose, onLogin, onRequestPasswordReset 
         return;
       }
       setSuccess('Si el correo existe, te enviaremos instrucciones para restablecer tu contraseña.');
+      setRecoveryCooldown(30);
     } finally {
       setSubmitting(false);
     }
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center" onClick={onClose}>
+    <div className="fixed inset-0 z-50 flex items-center justify-center" onClick={handleClose}>
       <div className="absolute inset-0" style={{ background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(4px)' }} />
       <div
+        ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="admin-auth-modal-title"
+        tabIndex={-1}
         className="relative w-full max-w-md mx-4 rounded-xl p-6 animate-scale-in"
         style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}
         onClick={(e) => e.stopPropagation()}
       >
-        <PanelIconButton onClick={onClose} label="Cerrar modal" variant="soft" size="md" className="absolute right-3 top-3 rounded-xl" disabled={submitting}>
+        <PanelIconButton onClick={handleClose} label="Cerrar modal" variant="soft" size="md" className="absolute right-3 top-3 rounded-xl" disabled={submitting}>
           <IconX size={16} />
         </PanelIconButton>
 
         {mode === 'login' && (
           <>
-            <h2 className="text-lg font-semibold mb-1" style={{ color: 'var(--fg)' }}>
+            <h2 id="admin-auth-modal-title" className="text-lg font-semibold mb-1" style={{ color: 'var(--fg)' }}>
               Acceso de Administrador
             </h2>
             <p className="text-sm mb-5" style={{ color: 'var(--fg-muted)' }}>
@@ -93,7 +159,7 @@ export function AdminAuthModal({ open, onClose, onLogin, onRequestPasswordReset 
                 {error}
               </PanelNotice>
             ) : null}
-            <form onSubmit={handleLogin} className="space-y-3">
+            <form onSubmit={handleLogin} className="space-y-3" aria-label="Formulario de inicio de sesión administrativo">
               <div className="relative">
                 <IconMail size={14} className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2" style={{ color: 'var(--fg-muted)' }} />
                 <input
@@ -152,7 +218,7 @@ export function AdminAuthModal({ open, onClose, onLogin, onRequestPasswordReset 
 
         {mode === 'recovery' && (
           <>
-            <h2 className="text-lg font-semibold mb-1" style={{ color: 'var(--fg)' }}>
+            <h2 id="admin-auth-modal-title" className="text-lg font-semibold mb-1" style={{ color: 'var(--fg)' }}>
               Recuperar contraseña
             </h2>
             <p className="text-sm mb-5" style={{ color: 'var(--fg-muted)' }}>
@@ -168,7 +234,7 @@ export function AdminAuthModal({ open, onClose, onLogin, onRequestPasswordReset 
                 {success}
               </PanelNotice>
             ) : null}
-            <form onSubmit={handleRecovery} className="space-y-3">
+            <form onSubmit={handleRecovery} className="space-y-3" aria-label="Formulario de recuperación de contraseña administrativa">
               <div className="relative">
                 <IconMail size={14} className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2" style={{ color: 'var(--fg-muted)' }} />
                 <input
@@ -180,8 +246,8 @@ export function AdminAuthModal({ open, onClose, onLogin, onRequestPasswordReset 
                   required
                 />
               </div>
-              <PanelButton type="submit" variant="primary" className="w-full" disabled={submitting}>
-                {submitting ? 'Enviando...' : 'Enviar enlace'}
+              <PanelButton type="submit" variant="primary" className="w-full" disabled={submitting || recoveryCooldown > 0}>
+                {recoveryCooldown > 0 ? `Reintenta en ${recoveryCooldown}s` : submitting ? 'Enviando...' : 'Enviar enlace'}
               </PanelButton>
             </form>
             <div className="text-center mt-4 text-sm">
