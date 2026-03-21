@@ -11,7 +11,8 @@
         "db:migrate": "drizzle-kit migrate",
         "db:push": "drizzle-kit push",
         "db:studio": "drizzle-kit studio",
-        "user:promote-admin": "tsx scripts/promote-user-to-admin.ts"
+        "user:promote-admin": "tsx scripts/promote-user-to-admin.ts",
+        "db:clean": "tsx scripts/clean-db.ts"
     },
     "dependencies": {
         "@hono/node-server": "^1.19.9",
