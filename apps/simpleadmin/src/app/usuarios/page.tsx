@@ -84,7 +84,7 @@ function UsuariosContent() {
             }
 
             // Actualizar en la lista local
-            const updated = items.map(u => u.id === selectedUser.id ? { ...u, role: roleValue } : u);
+            const updated = items.map(u => u.id === selectedUser.id ? { ...u, role: roleValue as AdminUserListItem['role'] } : u);
             setItems(updated);
             setMessage({ type: 'success', text: `Rol actualizado a ${roleValue}` });
             
