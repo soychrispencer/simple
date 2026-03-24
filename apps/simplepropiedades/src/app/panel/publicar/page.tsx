@@ -7,6 +7,7 @@ import {
     IconArrowRight,
     IconBath,
     IconBed,
+    IconBolt,
     IconBuildingCommunity,
     IconBuildingSkyscraper,
     IconBuildingStore,
@@ -16,6 +17,7 @@ import {
     IconDeviceFloppy,
     IconHome2,
     IconKey,
+    IconLayoutGrid,
     IconMapPin,
     IconSparkles,
 } from '@tabler/icons-react';
@@ -71,6 +73,7 @@ import {
 } from '@simple/ui';
 
 type StepId = 'setup' | 'basic' | 'specs' | 'media' | 'commercial' | 'review';
+type PublishMode = 'quick' | 'advanced';
 type PropertyOperation = 'sale' | 'rent' | 'project';
 type Currency = 'UF' | 'CLP' | 'USD';
 type ProjectUnitModel = {
@@ -202,7 +205,7 @@ const PROPERTY_MEDIA_GUIDE_SLOTS = [
     { key: 'amenities', label: 'Amenities' },
 ] as const;
 
-const STEPS: Array<{ id: StepId; label: string; helper: string }> = [
+const ADVANCED_STEPS: Array<{ id: StepId; label: string; helper: string }> = [
     { id: 'setup', label: 'Tipo', helper: 'Operación y tipología' },
     { id: 'basic', label: 'Datos', helper: 'Ficha principal y ubicación' },
     { id: 'specs', label: 'Ant. y equip.', helper: 'Características y amenities' },
@@ -210,6 +213,29 @@ const STEPS: Array<{ id: StepId; label: string; helper: string }> = [
     { id: 'commercial', label: 'Comercial', helper: 'Precio, contacto y tasación' },
     { id: 'review', label: 'Revisión', helper: 'Validación final' },
 ];
+
+const QUICK_STEPS: Array<{ id: StepId; label: string; helper: string }> = [
+    { id: 'setup', label: 'Tipo', helper: 'Define qué vas a publicar' },
+    { id: 'media', label: 'Fotos', helper: 'Carga primero la parte visual' },
+    { id: 'basic', label: 'Ficha', helper: 'Completa lo esencial del aviso' },
+    { id: 'commercial', label: 'Precio', helper: 'Precio, fecha y condiciones' },
+    { id: 'review', label: 'Publicar', helper: 'Revisión simple y salida' },
+];
+
+const MODE_CONFIG: Record<PublishMode, { label: string; helper: string; summary: string; icon: React.ReactNode }> = {
+    quick: {
+        label: 'Publicación rápida',
+        helper: 'Menos pasos, más foco visual y salida más clara.',
+        summary: 'Primero publica una ficha clara. Después completas detalles para optimizar o distribuir.',
+        icon: <IconBolt size={16} />,
+    },
+    advanced: {
+        label: 'Modo avanzado',
+        helper: 'Más control editorial y más campos desde el inicio.',
+        summary: 'Úsalo cuando necesites una ficha más completa desde el primer momento o preparar mejor la salida a portales.',
+        icon: <IconLayoutGrid size={16} />,
+    },
+};
 
 const OPERATION_CARDS: Array<{ value: PropertyOperation; label: string; icon: React.ReactNode }> = [
     { value: 'sale', label: 'Venta', icon: <IconHome2 size={15} /> },
@@ -962,11 +988,51 @@ function QualityItem(props: { label: string; ok: boolean }) {
     );
 }
 
-function StepSetup(props: { data: WizardData; setData: WizardSetter; errors: Record<string, string> }) {
-    const { data, setData, errors } = props;
+function PublishModeCard(props: {
+    mode: PublishMode;
+    active: boolean;
+    onClick: () => void;
+}) {
+    const config = MODE_CONFIG[props.mode];
+
+    return (
+        <button
+            type="button"
+            onClick={props.onClick}
+            className="rounded-[24px] border p-4 text-left transition-all duration-150"
+            style={{
+                borderColor: props.active ? 'var(--fg)' : 'var(--border)',
+                background: props.active ? 'color-mix(in oklab, var(--bg-subtle) 76%, transparent)' : 'var(--surface)',
+                boxShadow: props.active ? '0 0 0 1px color-mix(in oklab, var(--fg) 30%, transparent) inset' : 'none',
+            }}
+        >
+            <div className="flex items-start justify-between gap-3">
+                <span className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border" style={{ borderColor: 'var(--border)', background: 'var(--bg-muted)', color: 'var(--fg)' }}>
+                    {config.icon}
+                </span>
+                <span className="rounded-full border px-2.5 py-1 text-[11px] uppercase tracking-[0.12em]" style={{ borderColor: props.active ? 'var(--fg)' : 'var(--border)', color: props.active ? 'var(--fg)' : 'var(--fg-muted)' }}>
+                    {props.active ? 'Activo' : 'Disponible'}
+                </span>
+            </div>
+            <div className="mt-4">
+                <p className="text-base font-semibold" style={{ color: 'var(--fg)' }}>{config.label}</p>
+                <p className="mt-1 text-sm" style={{ color: 'var(--fg-secondary)' }}>{config.helper}</p>
+                <p className="mt-3 text-sm leading-6" style={{ color: 'var(--fg-muted)' }}>{config.summary}</p>
+            </div>
+        </button>
+    );
+}
+
+function StepSetup(props: { data: WizardData; setData: WizardSetter; errors: Record<string, string>; mode: PublishMode }) {
+    const { data, setData, errors, mode } = props;
 
     return (
         <section className="space-y-6">
+            {mode === 'quick' ? (
+                <PanelNotice tone="neutral">
+                    El flujo rápido deja la publicación visualmente lista primero. Después puedes reforzar amenities, notas y otros campos sin trabar la carga inicial.
+                </PanelNotice>
+            ) : null}
             <h2 className="type-section-title">Tipo y categoría</h2>
             <div className="space-y-2">
                 <p className="text-xs uppercase tracking-[0.08em]" style={{ color: 'var(--fg-muted)' }}>
@@ -1032,19 +1098,28 @@ function StepBasic(props: {
     data: WizardData;
     setData: WizardSetter;
     errors: Record<string, string>;
+    mode: PublishMode;
     addressBook: AddressBookEntry[];
     addressBookLoading: boolean;
     communes: Array<{ id: string; name: string }>;
     onGeocodeLocation: () => void | Promise<void>;
     geocoding: boolean;
 }) {
-    const { data, setData, errors, addressBook, addressBookLoading, communes, onGeocodeLocation, geocoding } = props;
+    const { data, setData, errors, mode, addressBook, addressBookLoading, communes, onGeocodeLocation, geocoding } = props;
     const [openSections, setOpenSections] = useState<Record<'main' | 'secondary' | 'location', boolean>>({
         main: true,
-        secondary: true,
-        location: true,
+        secondary: mode === 'advanced',
+        location: mode === 'advanced',
     });
     const isProject = data.setup.operationType === 'project';
+
+    useEffect(() => {
+        setOpenSections((current) => ({
+            main: true,
+            secondary: mode === 'advanced' ? current.secondary : false,
+            location: mode === 'advanced' ? current.location : false,
+        }));
+    }, [mode]);
 
     const updateProjectModel = (modelId: string, patch: Partial<ProjectUnitModel>) => {
         setData((current) => ({
@@ -1059,10 +1134,17 @@ function StepBasic(props: {
     return (
         <section className="space-y-4">
             <h2 className="type-section-title">{isProject ? 'Datos del proyecto' : 'Datos del inmueble'}</h2>
+            {mode === 'quick' ? (
+                <PanelNotice tone="neutral">
+                    Completa solo lo esencial para que el aviso salga claro y confiable. Los detalles más finos quedan en “Más detalles” y puedes hacerlos después.
+                </PanelNotice>
+            ) : null}
 
             <AccordionGroup
                 title="Ubicación del aviso"
-                description="Elige una dirección guardada o escribe una nueva. Completa dirección, región y comuna y decide si quieres ocultar la dirección exacta."
+                description={mode === 'quick'
+                    ? 'Solo necesitamos dirección, región y comuna para dejar la ficha lista.'
+                    : 'Elige una dirección guardada o escribe una nueva. Completa dirección, región y comuna y decide si quieres ocultar la dirección exacta.'}
                 open={openSections.location}
                 onToggle={() => setOpenSections((current) => ({ ...current, location: !current.location }))}
             >
@@ -1175,7 +1257,9 @@ function StepBasic(props: {
 
             <AccordionGroup
                 title={isProject ? 'Tipologías y rangos del proyecto' : 'Características secundarias'}
-                description={isProject ? 'Rangos generales del proyecto y detalle por tipología o unidad modelo.' : 'Campos adicionales para alinear la ficha con portales inmobiliarios grandes.'}
+                description={mode === 'quick'
+                    ? (isProject ? 'Esto puede quedar para una segunda pasada. Publica primero la base del proyecto.' : 'Aquí van campos de enriquecimiento para una ficha más completa y mejor preparada para portales.')
+                    : (isProject ? 'Rangos generales del proyecto y detalle por tipología o unidad modelo.' : 'Campos adicionales para alinear la ficha con portales inmobiliarios grandes.')}
                 open={openSections.secondary}
                 onToggle={() => setOpenSections((current) => ({ ...current, secondary: !current.secondary }))}
             >
@@ -1382,13 +1466,23 @@ function StepSpecs(props: { data: WizardData; setData: WizardSetter }) {
     );
 }
 
-function StepMedia(props: { data: WizardData; setData: WizardSetter; errors: Record<string, string> }) {
-    const { data, setData, errors } = props;
+function StepMedia(props: { data: WizardData; setData: WizardSetter; errors: Record<string, string>; mode: PublishMode }) {
+    const { data, setData, errors, mode } = props;
     const isProject = data.setup.operationType === 'project';
+    const [openExtras, setOpenExtras] = useState(mode === 'advanced');
+
+    useEffect(() => {
+        setOpenExtras(mode === 'advanced');
+    }, [mode]);
 
     return (
         <section className="space-y-4">
             <h2 className="type-section-title">Multimedia</h2>
+            {mode === 'quick' ? (
+                <PanelNotice tone="neutral">
+                    Empieza por las fotos. Un aviso con buenas imágenes se entiende más rápido y reduce la fricción para quien publica.
+                </PanelNotice>
+            ) : null}
             <PanelCard tone="surface" size="lg">
                 <div className="space-y-4">
                     <PanelMediaUploader
@@ -1412,11 +1506,14 @@ function StepMedia(props: { data: WizardData; setData: WizardSetter; errors: Rec
             </PanelCard>
 
             <PanelCard tone="surface" size="lg">
-                <div className="space-y-5">
-                    <PanelBlockHeader
-                        title="Video"
-                        description="Video externo para el aviso, tour 360 y material promocional para Descubre."
-                    />
+                <AccordionGroup
+                    title="Video, tour y documentos"
+                    description={mode === 'quick'
+                        ? 'Opcional por ahora. Puedes dejarlo para después sin afectar la publicación inicial.'
+                        : 'Video externo para el aviso, tour 360 y material promocional para Descubre.'}
+                    open={openExtras}
+                    onToggle={() => setOpenExtras((current) => !current)}
+                >
                     <div className="space-y-4">
                         <Field label="Video del aviso" error={errors['media.videoUrl']}>
                             <input className="form-input" placeholder="https://www.youtube.com/... o https://vimeo.com/..." value={data.media.videoUrl} onChange={(event) => setData((current) => ({ ...current, media: { ...current.media, videoUrl: event.target.value } }))} />
@@ -1440,7 +1537,7 @@ function StepMedia(props: { data: WizardData; setData: WizardSetter; errors: Rec
                             description={isProject ? 'Brochure, memoria de terminaciones, documentos legales o material comercial del proyecto.' : 'Documentos legales, reglamentos, brochure o antecedentes del inmueble.'}
                         />
                     </div>
-                </div>
+                </AccordionGroup>
             </PanelCard>
         </section>
     );
@@ -1458,8 +1555,9 @@ function StepCommercial(props: {
     onRunValuation: () => void | Promise<void>;
     onRefreshValuationSources: () => void | Promise<void>;
     lifecyclePolicy: PublicationLifecyclePolicy;
+    mode: PublishMode;
 }) {
-    const { data, setData, errors, estimate, estimating, valuationRequest, onRunValuation, lifecyclePolicy } = props;
+    const { data, setData, errors, estimate, estimating, valuationRequest, onRunValuation, lifecyclePolicy, mode } = props;
     const isProject = data.setup.operationType === 'project';
 
     return (
@@ -1467,7 +1565,9 @@ function StepCommercial(props: {
             <div className="space-y-4">
                 <h2 className="type-section-title">{isProject ? 'Precio y proyecto' : 'Precio y publicación'}</h2>
                 <PanelNotice tone="neutral">
-                    {lifecyclePolicy.notice}
+                    {mode === 'quick'
+                        ? 'Cierra el aviso con un precio claro y una disponibilidad real. La optimización fina la puedes hacer después.'
+                        : lifecyclePolicy.notice}
                 </PanelNotice>
                 <AccordionGroup title={isProject ? 'Precio y disponibilidad del proyecto' : 'Precio y disponibilidad'} description={isProject ? 'Rango comercial del proyecto, moneda y fecha desde la que se puede comercializar.' : 'Valor de publicación, gastos comunes y fecha de disponibilidad real del inmueble.'} open={true} onToggle={() => {}}>
                     {isProject ? (
@@ -1593,8 +1693,8 @@ function StepCommercial(props: {
     );
 }
 
-function StepReview(props: { data: WizardData; estimate: PropertyValuationEstimate | null; score: number; errors: Record<string, string>; setData: WizardSetter; lifecyclePolicy: PublicationLifecyclePolicy }) {
-    const { data, estimate, score, errors, setData, lifecyclePolicy } = props;
+function StepReview(props: { data: WizardData; estimate: PropertyValuationEstimate | null; score: number; errors: Record<string, string>; setData: WizardSetter; lifecyclePolicy: PublicationLifecyclePolicy; mode: PublishMode }) {
+    const { data, estimate, score, errors, setData, lifecyclePolicy, mode } = props;
     const priceNumber = parseNumber(data.commercial.price) ?? 0;
     const featureCount = data.specs.amenityCodes.length + data.specs.serviceCodes.length + data.specs.environmentCodes.length + data.specs.securityCodes.length;
     const isProject = data.setup.operationType === 'project';
@@ -1603,6 +1703,11 @@ function StepReview(props: { data: WizardData; estimate: PropertyValuationEstima
     return (
         <section className="space-y-5">
             <h2 className="type-section-title">Revisión final</h2>
+            {mode === 'quick' ? (
+                <PanelNotice tone="neutral">
+                    Estás cerrando una ficha simple y publicable. Después de publicar puedes volver para completar amenities, documentos y ajustes pensados para distribución.
+                </PanelNotice>
+            ) : null}
             <div className="grid grid-cols-1 gap-3 xl:grid-cols-3">
                 <PanelSummaryCard eyebrow="Resumen" title={isProject ? (data.project.projectName || data.basic.title || 'Sin nombre') : (data.basic.title || 'Sin título')} rows={isProject ? [
                     { label: 'Tipo', value: `${data.setup.propertyType || 'Pendiente'} · Proyecto` },
@@ -1641,6 +1746,7 @@ export default function PublishWizardPage() {
     const editingId = searchParams.get('edit');
     const isEditing = Boolean(editingId);
     const [editingLoading, setEditingLoading] = useState(false);
+    const [publishMode, setPublishMode] = useState<PublishMode>('quick');
     const [step, setStep] = useState<StepId>('setup');
     const [data, setData] = useState<WizardData>(() => createDefaultData());
     const [errors, setErrors] = useState<Record<string, string>>({});
@@ -1658,12 +1764,19 @@ export default function PublishWizardPage() {
     const [refreshingSources, setRefreshingSources] = useState(false);
     const dataRef = useRef<WizardData>(data);
     const estimateRef = useRef<PropertyValuationEstimate | null>(estimate);
-    const stepIndex = STEPS.findIndex((item) => item.id === step);
-    const currentStep = STEPS[stepIndex] || STEPS[0];
+    const steps = useMemo(() => (publishMode === 'quick' ? QUICK_STEPS : ADVANCED_STEPS), [publishMode]);
+    const stepIndex = steps.findIndex((item) => item.id === step);
+    const currentStep = steps[stepIndex] || steps[0];
     const score = qualityScore(data, estimate);
     const lifecyclePolicy = useMemo(() => getPublicationLifecyclePolicy('simplepropiedades', data.setup.operationType), [data.setup.operationType]);
     const communes = useMemo(() => getCommunesForRegion(data.location.regionId || ''), [data.location.regionId]);
     const valuationRequest = useMemo(() => buildValuationRequest(data), [data]);
+
+    useEffect(() => {
+        if (!steps.some((item) => item.id === step)) {
+            setStep(steps[0].id);
+        }
+    }, [step, steps]);
 
     useEffect(() => {
         dataRef.current = data;
@@ -1801,14 +1914,14 @@ export default function PublishWizardPage() {
         const nextErrors = validateStep(step, data);
         setErrors(nextErrors);
         if (Object.keys(nextErrors).length > 0) return;
-        if (stepIndex < STEPS.length - 1) {
+        if (stepIndex < steps.length - 1) {
             void saveDraft(false);
-            setStep(STEPS[stepIndex + 1].id);
+            setStep(steps[stepIndex + 1].id);
         }
     };
 
     const goBack = () => {
-        if (stepIndex > 0) setStep(STEPS[stepIndex - 1].id);
+        if (stepIndex > 0) setStep(steps[stepIndex - 1].id);
     };
 
     const refreshLocationMap = async () => {
@@ -1857,7 +1970,7 @@ export default function PublishWizardPage() {
     };
 
     const publishNow = async () => {
-        for (const stepItem of STEPS) {
+        for (const stepItem of steps) {
             const stepErrors = validateStep(stepItem.id, data);
             if (Object.keys(stepErrors).length > 0) {
                 setStep(stepItem.id);
@@ -1943,7 +2056,7 @@ export default function PublishWizardPage() {
         <div className="container-app panel-page max-w-6xl py-8">
             <PanelSectionHeader
                 title={isEditing ? 'Editar propiedad' : 'Publicar propiedad'}
-                description={`Paso ${stepIndex + 1} de ${STEPS.length}`}
+                description={`Paso ${Math.max(stepIndex + 1, 1)} de ${steps.length}`}
                 actions={(
                     <div className="flex items-center gap-2">
                         {draftSavedNote ? (
@@ -1964,35 +2077,57 @@ export default function PublishWizardPage() {
             {editingLoading ? <PanelNotice tone="neutral" className="mb-4">Cargando publicación para editar...</PanelNotice> : null}
 
             <PanelCard className="mb-6" size="md">
-                <div className="flex flex-col gap-4">
-                    <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
-                        <div className="min-w-0">
+                <div className="flex flex-col gap-5">
+                    <div className="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1.25fr)_minmax(300px,0.75fr)]">
+                        <div className="rounded-[28px] border px-5 py-5" style={{ borderColor: 'var(--border)', background: 'linear-gradient(180deg, color-mix(in oklab, var(--surface) 94%, transparent), color-mix(in oklab, var(--bg) 96%, transparent))' }}>
                             <p className="text-xs uppercase tracking-[0.18em]" style={{ color: 'var(--fg-muted)' }}>
                                 Publicación guiada
                             </p>
-                            <h2 className="text-xl font-semibold mt-1" style={{ color: 'var(--fg)' }}>
-                                {currentStep.label}
-                            </h2>
-                            <p className="text-sm mt-1" style={{ color: 'var(--fg-secondary)' }}>
-                                {currentStep.helper}
-                            </p>
-                        </div>
-                        <div className="w-full md:max-w-xs">
-                            <div className="flex items-center justify-between text-xs mb-1" style={{ color: 'var(--fg-muted)' }}>
-                                <span>Progreso</span>
-                                <span>{Math.round(((stepIndex + 1) / STEPS.length) * 100)}%</span>
+                            <div className="mt-3 flex flex-wrap items-center gap-2">
+                                <span className="rounded-full border px-3 py-1 text-[11px] uppercase tracking-[0.12em]" style={{ borderColor: 'var(--border)', color: 'var(--fg-muted)' }}>
+                                    {MODE_CONFIG[publishMode].label}
+                                </span>
+                                <span className="rounded-full border px-3 py-1 text-[11px] uppercase tracking-[0.12em]" style={{ borderColor: 'var(--border)', color: 'var(--fg-muted)' }}>
+                                    {isEditing ? 'Edición' : 'Nueva publicación'}
+                                </span>
                             </div>
-                            <div className="h-2 rounded-full" style={{ background: 'var(--bg-muted)' }}>
-                                <div
-                                    className="h-full rounded-full transition-all duration-300"
-                                    style={{ width: `${((stepIndex + 1) / STEPS.length) * 100}%`, background: 'var(--fg)' }}
-                                />
+                            <h2 className="mt-4 text-3xl font-semibold tracking-[-0.03em]" style={{ color: 'var(--fg)' }}>
+                                {publishMode === 'quick' ? 'Sube la propiedad sin fricción.' : 'Completa la ficha con mayor control.'}
+                            </h2>
+                            <p className="mt-3 max-w-2xl text-sm leading-6" style={{ color: 'var(--fg-secondary)' }}>
+                                {MODE_CONFIG[publishMode].summary}
+                            </p>
+                            <div className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-3">
+                                <div className="rounded-2xl border px-4 py-3" style={{ borderColor: 'var(--border)', background: 'var(--surface)' }}>
+                                    <p className="text-[11px] uppercase tracking-[0.12em]" style={{ color: 'var(--fg-muted)' }}>Paso actual</p>
+                                    <p className="mt-2 text-base font-semibold" style={{ color: 'var(--fg)' }}>{currentStep.label}</p>
+                                    <p className="mt-1 text-sm" style={{ color: 'var(--fg-secondary)' }}>{currentStep.helper}</p>
+                                </div>
+                                <div className="rounded-2xl border px-4 py-3" style={{ borderColor: 'var(--border)', background: 'var(--surface)' }}>
+                                    <p className="text-[11px] uppercase tracking-[0.12em]" style={{ color: 'var(--fg-muted)' }}>Enfoque</p>
+                                    <p className="mt-2 text-base font-semibold" style={{ color: 'var(--fg)' }}>{publishMode === 'quick' ? 'Visual primero' : 'Ficha completa'}</p>
+                                    <p className="mt-1 text-sm" style={{ color: 'var(--fg-secondary)' }}>{publishMode === 'quick' ? 'Fotos, base comercial y salida clara.' : 'Más detalle desde el inicio.'}</p>
+                                </div>
+                                <div className="rounded-2xl border px-4 py-3" style={{ borderColor: 'var(--border)', background: 'var(--surface)' }}>
+                                    <p className="text-[11px] uppercase tracking-[0.12em]" style={{ color: 'var(--fg-muted)' }}>Progreso</p>
+                                    <p className="mt-2 text-base font-semibold" style={{ color: 'var(--fg)' }}>{Math.round(((Math.max(stepIndex, 0) + 1) / steps.length) * 100)}%</p>
+                                    <p className="mt-1 text-sm" style={{ color: 'var(--fg-secondary)' }}>{`Paso ${Math.max(stepIndex + 1, 1)} de ${steps.length}`}</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div className="rounded-[28px] border p-4" style={{ borderColor: 'var(--border)', background: 'var(--surface)' }}>
+                            <p className="text-xs uppercase tracking-[0.18em]" style={{ color: 'var(--fg-muted)' }}>
+                                Selecciona tu ritmo
+                            </p>
+                            <div className="mt-4 grid grid-cols-1 gap-3">
+                                <PublishModeCard mode="quick" active={publishMode === 'quick'} onClick={() => setPublishMode('quick')} />
+                                <PublishModeCard mode="advanced" active={publishMode === 'advanced'} onClick={() => setPublishMode('advanced')} />
                             </div>
                         </div>
                     </div>
                     <div className="rounded-2xl border px-3 py-3" style={{ borderColor: 'var(--border)', background: 'color-mix(in oklab, var(--bg) 78%, transparent)' }}>
                         <PanelStepNav
-                            items={STEPS.map((item, index) => ({
+                            items={steps.map((item, index) => ({
                                 key: item.id,
                                 label: item.label,
                                 disabled: index > stepIndex,
@@ -2009,12 +2144,13 @@ export default function PublishWizardPage() {
 
             <PanelCard size="lg">
                 <div className="animate-scale-in">
-                    {step === 'setup' && <StepSetup data={data} setData={setData} errors={errors} />}
+                    {step === 'setup' && <StepSetup data={data} setData={setData} errors={errors} mode={publishMode} />}
                     {step === 'basic' && (
                         <StepBasic
                             data={data}
                             setData={setData}
                             errors={errors}
+                            mode={publishMode}
                             addressBook={addressBook}
                             addressBookLoading={addressBookLoading}
                             communes={communes}
@@ -2023,7 +2159,7 @@ export default function PublishWizardPage() {
                         />
                     )}
                     {step === 'specs' && <StepSpecs data={data} setData={setData} />}
-                    {step === 'media' && <StepMedia data={data} setData={setData} errors={errors} />}
+                    {step === 'media' && <StepMedia data={data} setData={setData} errors={errors} mode={publishMode} />}
                     {step === 'commercial' && (
                         <StepCommercial
                             data={data}
@@ -2037,9 +2173,10 @@ export default function PublishWizardPage() {
                             onRunValuation={runValuation}
                             onRefreshValuationSources={refreshValuationConnectors}
                             lifecyclePolicy={lifecyclePolicy}
+                            mode={publishMode}
                         />
                     )}
-                    {step === 'review' && <StepReview data={data} estimate={estimate} score={score} errors={errors} setData={setData} lifecyclePolicy={lifecyclePolicy} />}
+                    {step === 'review' && <StepReview data={data} estimate={estimate} score={score} errors={errors} setData={setData} lifecyclePolicy={lifecyclePolicy} mode={publishMode} />}
                 </div>
             </PanelCard>
 
