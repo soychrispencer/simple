@@ -2,9 +2,9 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { IconCar, IconFlag, IconHome, IconUsers } from '@tabler/icons-react';
 import { AdminProtectedPage } from '@/components/admin-protected-page';
 import { fetchAdminOverview, type AdminOverview } from '@/lib/api';
+import { PanelCard, PanelList, PanelListRow, PanelNotice, PanelStatCard } from '@simple/ui';
 
 export default function AdminDashboardPage() {
     return (
@@ -33,107 +33,134 @@ function DashboardContent() {
     }, []);
 
     if (loading) {
-        return <p style={{ color: 'var(--fg-muted)' }}>Cargando resumen...</p>;
+        return (
+            <div className="container-app panel-page py-8">
+                <PanelNotice tone="neutral">Cargando resumen...</PanelNotice>
+            </div>
+        );
     }
 
     if (!overview) {
-        return <p style={{ color: 'var(--fg-muted)' }}>No pudimos cargar el dashboard.</p>;
+        return (
+            <div className="container-app panel-page py-8">
+                <PanelNotice tone="neutral">No pudimos cargar el dashboard.</PanelNotice>
+            </div>
+        );
     }
 
     const cards = [
-        { label: 'Usuarios totales', value: overview.stats.usersTotal, icon: <IconUsers size={16} /> },
-        { label: 'Publicaciones autos', value: overview.stats.autosListingsTotal, icon: <IconCar size={16} /> },
-        { label: 'Publicaciones propiedades', value: overview.stats.propiedadesListingsTotal, icon: <IconHome size={16} /> },
-        { label: 'Leads nuevos', value: overview.stats.newServiceLeads, icon: <IconFlag size={16} /> },
+        { label: 'Usuarios', value: overview.stats.usersTotal.toLocaleString('es-CL'), meta: 'Cuentas totales registradas' },
+        { label: 'Autos', value: overview.stats.autosListingsTotal.toLocaleString('es-CL'), meta: 'Publicaciones en SimpleAutos' },
+        { label: 'Propiedades', value: overview.stats.propiedadesListingsTotal.toLocaleString('es-CL'), meta: 'Publicaciones en SimplePropiedades' },
+        { label: 'Leads', value: overview.stats.newServiceLeads.toLocaleString('es-CL'), meta: 'Leads recientes del ecosistema' },
     ];
 
     return (
-        <>
-            <h1 className="text-xl font-semibold mb-1" style={{ color: 'var(--fg)' }}>Dashboard</h1>
-            <p className="text-xs mb-6" style={{ color: 'var(--fg-muted)' }}>Resumen real del ecosistema Simple</p>
+        <div className="container-app panel-page py-8">
+            <div className="mb-6">
+                <h1 className="type-page-title" style={{ color: 'var(--fg)' }}>Dashboard</h1>
+                <p className="type-page-subtitle mt-1">Resumen operativo de usuarios, publicaciones y leads en todo el ecosistema Simple.</p>
+            </div>
 
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
                 {cards.map((item) => (
-                    <div key={item.label} className="rounded-xl border p-4" style={{ borderColor: 'var(--border)' }}>
-                        <div className="mb-2" style={{ color: 'var(--fg-muted)' }}>{item.icon}</div>
-                        <p className="text-2xl font-semibold" style={{ color: 'var(--fg)' }}>{item.value.toLocaleString('es-CL')}</p>
-                        <p className="text-xs" style={{ color: 'var(--fg-muted)' }}>{item.label}</p>
-                    </div>
+                    <PanelStatCard key={item.label} label={item.label} value={item.value} meta={item.meta} />
                 ))}
             </div>
 
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-4">
-                <section className="rounded-xl border p-5" style={{ borderColor: 'var(--border)' }}>
-                    <div className="flex items-center justify-between mb-4">
-                        <h2 className="text-sm font-semibold" style={{ color: 'var(--fg)' }}>Usuarios recientes</h2>
-                        <Link href="/usuarios" className="text-xs" style={{ color: 'var(--fg-muted)' }}>Ver todos</Link>
+            <div className="grid grid-cols-1 xl:grid-cols-2 gap-4 mb-4">
+                <PanelCard size="md">
+                    <div className="mb-4 flex items-center justify-between gap-3">
+                        <div>
+                            <h2 className="type-section-title" style={{ color: 'var(--fg)' }}>Usuarios recientes</h2>
+                            <p className="type-page-subtitle mt-1">Altas más recientes del sistema.</p>
+                        </div>
+                        <Link href="/usuarios" className="text-sm" style={{ color: 'var(--fg-muted)' }}>Ver todos</Link>
                     </div>
-                    {overview.recentUsers.length === 0 ? (
-                        <p className="text-sm" style={{ color: 'var(--fg-muted)' }}>Todavía no hay usuarios registrados.</p>
-                    ) : (
-                        overview.recentUsers.map((user, index) => (
-                            <div key={user.id} className="flex items-center gap-3 py-2.5" style={{ borderTop: index ? '1px solid var(--border)' : 'none' }}>
-                                <div className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-medium" style={{ background: 'var(--bg-muted)', color: 'var(--fg-muted)' }}>
-                                    {user.name.split(' ').map((chunk) => chunk[0]).join('').slice(0, 2).toUpperCase()}
-                                </div>
-                                <div className="flex-1 min-w-0">
-                                    <p className="text-sm font-medium" style={{ color: 'var(--fg)' }}>{user.name}</p>
-                                    <p className="text-xs" style={{ color: 'var(--fg-muted)' }}>{user.email}</p>
-                                </div>
-                                <span className="text-xs" style={{ color: 'var(--fg-muted)' }}>
-                                    {new Date(user.createdAt).toLocaleDateString('es-CL')}
-                                </span>
-                            </div>
-                        ))
-                    )}
-                </section>
 
-                <section className="rounded-xl border p-5" style={{ borderColor: 'var(--border)' }}>
-                    <div className="flex items-center justify-between mb-4">
-                        <h2 className="text-sm font-semibold" style={{ color: 'var(--fg)' }}>Leads recientes</h2>
-                        <Link href="/reportes" className="text-xs" style={{ color: 'var(--fg-muted)' }}>Ver todos</Link>
-                    </div>
-                    {overview.recentLeads.length === 0 ? (
-                        <p className="text-sm" style={{ color: 'var(--fg-muted)' }}>Todavía no hay leads de servicios.</p>
+                    {overview.recentUsers.length === 0 ? (
+                        <PanelNotice tone="neutral">Todavía no hay usuarios registrados.</PanelNotice>
                     ) : (
-                        overview.recentLeads.map((lead, index) => (
-                            <div key={lead.id} className="flex items-center gap-3 py-2.5" style={{ borderTop: index ? '1px solid var(--border)' : 'none' }}>
-                                <div className="flex-1 min-w-0">
-                                    <p className="text-sm font-medium" style={{ color: 'var(--fg)' }}>{lead.contactName}</p>
-                                    <p className="text-xs" style={{ color: 'var(--fg-muted)' }}>
-                                        {lead.serviceLabel} · {lead.vertical}
-                                    </p>
-                                </div>
-                                <span className="text-xs" style={{ color: 'var(--fg-muted)' }}>{lead.createdAgo}</span>
-                            </div>
-                        ))
+                        <PanelList className="border-0 rounded-[18px]">
+                            {overview.recentUsers.map((user, index) => (
+                                <PanelListRow key={user.id} divider={index > 0} className="flex items-center gap-3 px-4 py-3">
+                                    <div
+                                        className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-xs font-semibold"
+                                        style={{ background: 'var(--bg-muted)', color: 'var(--fg-muted)' }}
+                                    >
+                                        {user.name.split(' ').map((chunk) => chunk[0]).join('').slice(0, 2).toUpperCase()}
+                                    </div>
+                                    <div className="min-w-0 flex-1">
+                                        <p className="text-sm font-medium" style={{ color: 'var(--fg)' }}>{user.name}</p>
+                                        <p className="text-xs" style={{ color: 'var(--fg-muted)' }}>{user.email}</p>
+                                    </div>
+                                    <span className="text-xs" style={{ color: 'var(--fg-muted)' }}>
+                                        {new Date(user.createdAt).toLocaleDateString('es-CL')}
+                                    </span>
+                                </PanelListRow>
+                            ))}
+                        </PanelList>
                     )}
-                </section>
+                </PanelCard>
+
+                <PanelCard size="md">
+                    <div className="mb-4 flex items-center justify-between gap-3">
+                        <div>
+                            <h2 className="type-section-title" style={{ color: 'var(--fg)' }}>Leads recientes</h2>
+                            <p className="type-page-subtitle mt-1">Últimos contactos capturados por la plataforma.</p>
+                        </div>
+                        <Link href="/reportes" className="text-sm" style={{ color: 'var(--fg-muted)' }}>Ver todos</Link>
+                    </div>
+
+                    {overview.recentLeads.length === 0 ? (
+                        <PanelNotice tone="neutral">Todavía no hay leads de servicios.</PanelNotice>
+                    ) : (
+                        <PanelList className="border-0 rounded-[18px]">
+                            {overview.recentLeads.map((lead, index) => (
+                                <PanelListRow key={lead.id} divider={index > 0} className="flex items-center gap-3 px-4 py-3">
+                                    <div className="min-w-0 flex-1">
+                                        <p className="text-sm font-medium" style={{ color: 'var(--fg)' }}>{lead.contactName}</p>
+                                        <p className="text-xs" style={{ color: 'var(--fg-muted)' }}>
+                                            {lead.serviceLabel} · {lead.vertical}
+                                        </p>
+                                    </div>
+                                    <span className="text-xs" style={{ color: 'var(--fg-muted)' }}>{lead.createdAgo}</span>
+                                </PanelListRow>
+                            ))}
+                        </PanelList>
+                    )}
+                </PanelCard>
             </div>
 
-            <section className="rounded-xl border p-5" style={{ borderColor: 'var(--border)' }}>
-                <div className="flex items-center justify-between mb-4">
-                    <h2 className="text-sm font-semibold" style={{ color: 'var(--fg)' }}>Publicaciones recientes</h2>
-                    <Link href="/publicaciones" className="text-xs" style={{ color: 'var(--fg-muted)' }}>Ver todas</Link>
+            <PanelCard size="md">
+                <div className="mb-4 flex items-center justify-between gap-3">
+                    <div>
+                        <h2 className="type-section-title" style={{ color: 'var(--fg)' }}>Publicaciones recientes</h2>
+                        <p className="type-page-subtitle mt-1">Actividad transversal entre autos y propiedades.</p>
+                    </div>
+                    <Link href="/publicaciones" className="text-sm" style={{ color: 'var(--fg-muted)' }}>Ver todas</Link>
                 </div>
+
                 {overview.recentListings.length === 0 ? (
-                    <p className="text-sm" style={{ color: 'var(--fg-muted)' }}>Todavía no hay publicaciones creadas.</p>
+                    <PanelNotice tone="neutral">Todavía no hay publicaciones creadas.</PanelNotice>
                 ) : (
-                    overview.recentListings.map((listing, index) => (
-                        <div key={listing.id} className="flex items-center gap-3 py-2.5" style={{ borderTop: index ? '1px solid var(--border)' : 'none' }}>
-                            <div className="flex-1 min-w-0">
-                                <p className="text-sm font-medium line-clamp-1" style={{ color: 'var(--fg)' }}>{listing.title}</p>
-                                <p className="text-xs" style={{ color: 'var(--fg-muted)' }}>
-                                    {listing.ownerName} · {listing.vertical} · {listing.status}
-                                </p>
-                            </div>
-                            <span className="text-xs" style={{ color: 'var(--fg-muted)' }}>
-                                {new Date(listing.updatedAt).toLocaleDateString('es-CL')}
-                            </span>
-                        </div>
-                    ))
+                    <PanelList className="border-0 rounded-[18px]">
+                        {overview.recentListings.map((listing, index) => (
+                            <PanelListRow key={listing.id} divider={index > 0} className="flex items-center gap-3 px-4 py-3">
+                                <div className="min-w-0 flex-1">
+                                    <p className="text-sm font-medium line-clamp-1" style={{ color: 'var(--fg)' }}>{listing.title}</p>
+                                    <p className="text-xs" style={{ color: 'var(--fg-muted)' }}>
+                                        {listing.ownerName} · {listing.vertical} · {listing.status}
+                                    </p>
+                                </div>
+                                <span className="text-xs" style={{ color: 'var(--fg-muted)' }}>
+                                    {new Date(listing.updatedAt).toLocaleDateString('es-CL')}
+                                </span>
+                            </PanelListRow>
+                        ))}
+                    </PanelList>
                 )}
-            </section>
-        </>
+            </PanelCard>
+        </div>
     );
 }

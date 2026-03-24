@@ -1,9 +1,10 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { IconSearch, IconTrash, IconEdit, IconShield, IconAlertCircle, IconCheck } from '@tabler/icons-react';
+import { IconAlertCircle, IconCheck, IconSearch, IconShield, IconTrash } from '@tabler/icons-react';
 import { AdminProtectedPage } from '@/components/admin-protected-page';
 import { fetchAdminUsers, type AdminUserListItem } from '@/lib/api';
+import { PanelButton, PanelCard, PanelNotice, PanelStatCard } from '@simple/ui';
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000';
 
@@ -15,7 +16,7 @@ export default function UsuariosPage() {
     );
 }
 
-type ActionMode = 'edit' | 'role' | 'delete' | 'suspend' | null;
+type ActionMode = 'role' | 'delete' | null;
 
 function UsuariosContent() {
     const [items, setItems] = useState<AdminUserListItem[]>([]);
@@ -44,30 +45,40 @@ function UsuariosContent() {
     const filtered = useMemo(() => {
         const normalized = query.trim().toLowerCase();
         if (!normalized) return items;
-        return items.filter((item) =>
-            item.name.toLowerCase().includes(normalized) ||
-            item.email.toLowerCase().includes(normalized)
-        );
+        return items.filter((item) => item.name.toLowerCase().includes(normalized) || item.email.toLowerCase().includes(normalized));
     }, [items, query]);
+
+    const stats = useMemo(() => {
+        const total = items.length;
+        const verified = items.filter((item) => item.status === 'verified').length;
+        const admins = items.filter((item) => item.role === 'admin' || item.role === 'superadmin').length;
+        const suspended = items.filter((item) => item.status === 'suspended').length;
+
+        return [
+            { label: 'Usuarios', value: total.toLocaleString('es-CL'), meta: `${filtered.length.toLocaleString('es-CL')} visibles` },
+            { label: 'Verificados', value: verified.toLocaleString('es-CL'), meta: 'Cuentas habilitadas' },
+            { label: 'Administradores', value: admins.toLocaleString('es-CL'), meta: 'Admin y superadmin' },
+            { label: 'Suspendidos', value: suspended.toLocaleString('es-CL'), meta: 'Acceso bloqueado' },
+        ];
+    }, [filtered.length, items]);
 
     const handleOpenAction = (mode: ActionMode, user: AdminUserListItem) => {
         setSelectedUser(user);
         setActionMode(mode);
         setMessage(null);
-        if (mode === 'role') {
-            setRoleValue(user.role);
-        }
+        if (mode === 'role') setRoleValue(user.role);
     };
 
     const handleCloseAction = () => {
         setActionMode(null);
         setSelectedUser(null);
         setRoleValue('');
+        setMessage(null);
     };
 
     const handleChangeRole = async () => {
         if (!selectedUser || !roleValue || roleValue === selectedUser.role) return;
-        
+
         setIsProcessing(true);
         try {
             const response = await fetch(`${API_BASE}/api/admin/users/${selectedUser.id}/role`, {
@@ -83,15 +94,13 @@ function UsuariosContent() {
                 return;
             }
 
-            // Actualizar en la lista local
-            const updated: AdminUserListItem[] = items.map((u): AdminUserListItem =>
-                u.id === selectedUser.id ? { ...u, role: roleValue } : u
+            const updated: AdminUserListItem[] = items.map((user): AdminUserListItem =>
+                user.id === selectedUser.id ? { ...user, role: roleValue } : user
             );
             setItems(updated);
             setMessage({ type: 'success', text: `Rol actualizado a ${roleValue}` });
-            
-            setTimeout(handleCloseAction, 1500);
-        } catch (error) {
+            setTimeout(handleCloseAction, 1200);
+        } catch {
             setMessage({ type: 'error', text: 'Error de conexión' });
         } finally {
             setIsProcessing(false);
@@ -100,7 +109,7 @@ function UsuariosContent() {
 
     const handleDeleteUser = async () => {
         if (!selectedUser) return;
-        
+
         setIsProcessing(true);
         try {
             const response = await fetch(`${API_BASE}/api/admin/users/${selectedUser.id}`, {
@@ -115,12 +124,10 @@ function UsuariosContent() {
                 return;
             }
 
-            // Eliminar de la lista local
-            setItems(items.filter(u => u.id !== selectedUser.id));
+            setItems(items.filter((user) => user.id !== selectedUser.id));
             setMessage({ type: 'success', text: 'Usuario eliminado' });
-            
-            setTimeout(handleCloseAction, 1500);
-        } catch (error) {
+            setTimeout(handleCloseAction, 1200);
+        } catch {
             setMessage({ type: 'error', text: 'Error de conexión' });
         } finally {
             setIsProcessing(false);
@@ -128,167 +135,247 @@ function UsuariosContent() {
     };
 
     return (
-        <>
-            <div className="flex items-center justify-between mb-6">
-                <div>
-                    <h1 className="text-xl font-semibold" style={{ color: 'var(--fg)' }}>Usuarios</h1>
-                    <p className="text-xs" style={{ color: 'var(--fg-muted)' }}>{items.length.toLocaleString('es-CL')} usuarios registrados</p>
-                </div>
-                <div className="relative">
-                    <IconSearch size={14} className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: 'var(--fg-muted)' }} />
-                    <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Buscar usuario..." className="form-input pl-9 w-64 h-9 text-xs" />
-                </div>
+        <div className="container-app panel-page py-8">
+            <div className="mb-6">
+                <h1 className="type-page-title" style={{ color: 'var(--fg)' }}>Usuarios</h1>
+                <p className="type-page-subtitle mt-1">Gestión centralizada de cuentas, roles y acceso administrativo.</p>
             </div>
 
-            <div className="rounded-xl border overflow-hidden" style={{ borderColor: 'var(--border)' }}>
-                <div className="grid grid-cols-[1.2fr_100px_100px_90px_100px_120px] gap-3 px-4 py-2.5 text-xs font-medium uppercase tracking-wider" style={{ background: 'var(--bg-muted)', color: 'var(--fg-muted)' }}>
-                    <span>Usuario</span>
-                    <span>Rol</span>
-                    <span>Publicaciones</span>
-                    <span>Registro</span>
-                    <span>Estado</span>
-                    <span>Acciones</span>
-                </div>
-                {loading ? (
-                    <div className="px-4 py-6 text-sm" style={{ color: 'var(--fg-muted)' }}>Cargando usuarios...</div>
-                ) : filtered.length === 0 ? (
-                    <div className="px-4 py-6 text-sm" style={{ color: 'var(--fg-muted)' }}>No encontramos usuarios para ese filtro.</div>
-                ) : (
-                    filtered.map((user, index) => (
-                        <div key={user.id} className="grid grid-cols-[1.2fr_100px_100px_90px_100px_120px] gap-3 px-4 py-3 items-center" style={{ background: 'var(--surface)', borderTop: index ? '1px solid var(--border)' : 'none' }}>
-                            <div className="flex items-center gap-3 min-w-0">
-                                <div className="w-8 h-8 rounded-full shrink-0 flex items-center justify-center text-xs font-medium" style={{ background: 'var(--bg-muted)', color: 'var(--fg-muted)' }}>
-                                    {user.name.split(' ').map((chunk) => chunk[0]).join('').slice(0, 2).toUpperCase()}
-                                </div>
-                                <div className="min-w-0">
-                                    <p className="text-sm font-medium truncate" style={{ color: 'var(--fg)' }}>{user.name}</p>
-                                    <p className="text-xs truncate" style={{ color: 'var(--fg-muted)' }}>{user.email}</p>
-                                </div>
-                            </div>
-                            <span className="text-xs font-medium px-2 py-1 rounded w-fit" style={{ background: user.role === 'superadmin' ? 'rgba(244, 63, 94, 0.1)' : user.role === 'admin' ? 'rgba(59, 130, 246, 0.1)' : 'var(--bg-muted)', color: user.role === 'superadmin' ? 'rgb(244, 63, 94)' : user.role === 'admin' ? 'rgb(59, 130, 246)' : 'var(--fg-secondary)' }}>
-                                {user.role}
-                            </span>
-                            <span className="text-xs" style={{ color: 'var(--fg-secondary)' }}>{user.totalListings}</span>
-                            <span className="text-xs" style={{ color: 'var(--fg-muted)' }}>{new Date(user.createdAt).toLocaleDateString('es-CL')}</span>
-                            <span className="text-xs px-2 py-1 rounded w-fit" style={{ background: user.status === 'verified' ? 'rgba(34, 197, 94, 0.1)' : user.status === 'active' ? 'rgba(59, 130, 246, 0.1)' : 'rgba(244, 63, 94, 0.1)', color: user.status === 'verified' ? 'rgb(34, 197, 94)' : user.status === 'active' ? 'rgb(59, 130, 246)' : 'rgb(244, 63, 94)' }}>
-                                {user.status}
-                            </span>
-                            <div className="flex gap-1">
-                                <button
-                                    onClick={() => handleOpenAction('role', user)}
-                                    className="w-8 h-8 rounded flex items-center justify-center hover:bg-opacity-80 transition-colors"
-                                    style={{ background: 'rgba(59, 130, 246, 0.1)', color: 'rgb(59, 130, 246)' }}
-                                    title="Cambiar rol"
-                                >
-                                    <IconShield size={14} stroke={2} />
-                                </button>
-                                <button
-                                    onClick={() => handleOpenAction('delete', user) }
-                                    className="w-8 h-8 rounded flex items-center justify-center hover:bg-opacity-80 transition-colors"
-                                    style={{ background: 'rgba(244, 63, 94, 0.1)', color: 'rgb(244, 63, 94)' }}
-                                    title="Eliminar usuario"
-                                >
-                                    <IconTrash size={14} stroke={2} />
-                                </button>
-                            </div>
-                        </div>
-                    ))
-                )}
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
+                {stats.map((item) => (
+                    <PanelStatCard key={item.label} label={item.label} value={item.value} meta={item.meta} />
+                ))}
             </div>
 
-            {/* Modal de cambio de rol */}
-            {actionMode === 'role' && selectedUser && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50" onClick={handleCloseAction}>
-                    <div className="bg-surface rounded-xl p-6 max-w-md w-full mx-4" style={{ background: 'var(--surface)', border: '1px solid var(--border)' }} onClick={(e) => e.stopPropagation()}>
-                        <h2 className="text-lg font-semibold mb-4" style={{ color: 'var(--fg)' }}>Cambiar rol: {selectedUser.name}</h2>
-                        
-                        <div className="mb-4">
-                            <label className="block text-sm mb-2" style={{ color: 'var(--fg-muted)' }}>Nuevo rol</label>
+            <PanelCard size="md">
+                <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+                    <div>
+                        <h2 className="type-section-title" style={{ color: 'var(--fg)' }}>Base de usuarios</h2>
+                        <p className="type-page-subtitle mt-1">Consulta el estado de cada cuenta y ejecuta acciones de control.</p>
+                    </div>
+                    <div className="relative w-full sm:w-72">
+                        <IconSearch size={14} className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: 'var(--fg-muted)' }} />
+                        <input
+                            value={query}
+                            onChange={(event) => setQuery(event.target.value)}
+                            placeholder="Buscar usuario..."
+                            className="form-input form-input-has-leading-icon h-10 text-sm"
+                        />
+                    </div>
+                </div>
+
+                {loading ? <PanelNotice tone="neutral">Cargando usuarios...</PanelNotice> : null}
+                {!loading && filtered.length === 0 ? <PanelNotice tone="neutral">No encontramos usuarios para ese filtro.</PanelNotice> : null}
+
+                {!loading && filtered.length > 0 ? (
+                    <div className="space-y-3">
+                        {filtered.map((user) => (
+                            <article
+                                key={user.id}
+                                className="rounded-xl border px-4 py-4 transition-colors"
+                                style={{ borderColor: 'var(--border)', background: 'var(--surface)' }}
+                            >
+                                <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+                                    <div className="flex min-w-0 items-start gap-3">
+                                        <div
+                                            className="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-xs font-semibold"
+                                            style={{ background: 'var(--bg-muted)', color: 'var(--fg-muted)' }}
+                                        >
+                                            {user.name.split(' ').map((chunk) => chunk[0]).join('').slice(0, 2).toUpperCase()}
+                                        </div>
+
+                                        <div className="min-w-0 flex-1">
+                                            <div className="flex flex-wrap items-center gap-2">
+                                                <p className="text-sm font-medium" style={{ color: 'var(--fg)' }}>{user.name}</p>
+                                                <span
+                                                    className="inline-flex items-center rounded-full px-2 py-1 text-[11px] font-medium"
+                                                    style={{
+                                                        background:
+                                                            user.role === 'superadmin'
+                                                                ? 'rgba(244, 63, 94, 0.12)'
+                                                                : user.role === 'admin'
+                                                                    ? 'rgba(59, 130, 246, 0.12)'
+                                                                    : 'var(--bg-muted)',
+                                                        color:
+                                                            user.role === 'superadmin'
+                                                                ? 'rgb(244, 63, 94)'
+                                                                : user.role === 'admin'
+                                                                    ? 'rgb(59, 130, 246)'
+                                                                    : 'var(--fg-secondary)',
+                                                    }}
+                                                >
+                                                    {user.role}
+                                                </span>
+                                                <span
+                                                    className="inline-flex items-center rounded-full px-2 py-1 text-[11px] font-medium"
+                                                    style={{
+                                                        background:
+                                                            user.status === 'verified'
+                                                                ? 'rgba(34, 197, 94, 0.12)'
+                                                                : user.status === 'active'
+                                                                    ? 'rgba(59, 130, 246, 0.12)'
+                                                                    : 'rgba(244, 63, 94, 0.12)',
+                                                        color:
+                                                            user.status === 'verified'
+                                                                ? 'rgb(34, 197, 94)'
+                                                                : user.status === 'active'
+                                                                    ? 'rgb(59, 130, 246)'
+                                                                    : 'rgb(244, 63, 94)',
+                                                    }}
+                                                >
+                                                    {user.status}
+                                                </span>
+                                            </div>
+                                            <p className="mt-1 text-sm break-all" style={{ color: 'var(--fg-secondary)' }}>{user.email}</p>
+                                        </div>
+                                    </div>
+
+                                    <div className="grid grid-cols-2 gap-3 lg:flex lg:items-center lg:gap-6">
+                                        <MetaItem label="Publicaciones" value={String(user.totalListings)} />
+                                        <MetaItem label="Autos" value={String(user.autosListings)} />
+                                        <MetaItem label="Propiedades" value={String(user.propiedadesListings)} />
+                                        <MetaItem label="Registro" value={new Date(user.createdAt).toLocaleDateString('es-CL')} />
+                                    </div>
+
+                                    <div className="flex flex-wrap gap-2">
+                                        <PanelButton variant="secondary" size="sm" className="h-9 px-3 text-sm" onClick={() => handleOpenAction('role', user)}>
+                                            <IconShield size={14} stroke={1.9} />
+                                            Rol
+                                        </PanelButton>
+                                        <PanelButton variant="secondary" size="sm" className="h-9 px-3 text-sm" onClick={() => handleOpenAction('delete', user)}>
+                                            <IconTrash size={14} stroke={1.9} />
+                                            Eliminar
+                                        </PanelButton>
+                                    </div>
+                                </div>
+                            </article>
+                        ))}
+                    </div>
+                ) : null}
+            </PanelCard>
+
+            {actionMode === 'role' && selectedUser ? (
+                <div className="fixed inset-0 z-[80] flex items-center justify-center px-4 py-5">
+                    <button
+                        type="button"
+                        aria-label="Cerrar modal"
+                        onClick={handleCloseAction}
+                        className="absolute inset-0"
+                        style={{ background: 'rgba(15, 23, 42, 0.44)', backdropFilter: 'blur(8px)' }}
+                    />
+                    <div
+                        className="relative z-[1] w-full max-w-md rounded-[28px] border p-6"
+                        style={{ borderColor: 'var(--border)', background: 'var(--surface)', boxShadow: 'var(--shadow-xl)' }}
+                    >
+                        <h2 className="type-section-title" style={{ color: 'var(--fg)' }}>Cambiar rol</h2>
+                        <p className="mt-1 text-sm" style={{ color: 'var(--fg-muted)' }}>
+                            Actualiza el nivel de acceso de <strong style={{ color: 'var(--fg)' }}>{selectedUser.name}</strong>.
+                        </p>
+
+                        <div className="mt-5 space-y-2">
+                            <label className="block text-xs font-medium uppercase tracking-[0.12em]" style={{ color: 'var(--fg-muted)' }}>
+                                Nuevo rol
+                            </label>
                             <select
                                 value={roleValue}
-                                onChange={(e) => setRoleValue(e.target.value as AdminUserListItem['role'])}
-                                className="w-full px-3 py-2 rounded border text-sm" 
-                                style={{ borderColor: 'var(--border)', background: 'var(--surface)', color: 'var(--fg)' }}
+                                onChange={(event) => setRoleValue(event.target.value as AdminUserListItem['role'])}
+                                className="form-select h-11 text-sm"
                             >
                                 <option value="user">Usuario</option>
                                 <option value="admin">Admin</option>
-                                <option value="superadmin">Super Admin</option>
+                                <option value="superadmin">Superadmin</option>
                             </select>
                         </div>
 
-                        {message && (
-                            <div className={`px-3 py-2 rounded text-sm mb-4 flex items-center gap-2 ${message.type === 'error' ? 'bg-red-500/10 text-red-600' : 'bg-green-500/10 text-green-600'}`}>
-                                {message.type === 'error' ? <IconAlertCircle size={16} /> : <IconCheck size={16} />}
-                                {message.text}
-                            </div>
-                        )}
+                        {message ? <FeedbackNotice message={message} className="mt-4" /> : null}
 
-                        <div className="flex gap-2">
-                            <button
-                                onClick={handleCloseAction}
-                                className="flex-1 px-4 py-2 rounded text-sm transition-colors"
-                                style={{ background: 'var(--bg-muted)', color: 'var(--fg)' }}
-                                disabled={isProcessing}
-                            >
+                        <div className="mt-5 flex gap-2">
+                            <PanelButton variant="secondary" className="flex-1" onClick={handleCloseAction} disabled={isProcessing}>
                                 Cancelar
-                            </button>
-                            <button
+                            </PanelButton>
+                            <PanelButton
+                                className="flex-1"
                                 onClick={handleChangeRole}
-                                className="flex-1 px-4 py-2 rounded text-sm font-medium text-white transition-colors"
-                                style={{ background: 'rgb(59, 130, 246)' }}
                                 disabled={isProcessing || roleValue === selectedUser.role}
                             >
                                 {isProcessing ? 'Actualizando...' : 'Actualizar'}
-                            </button>
+                            </PanelButton>
                         </div>
                     </div>
                 </div>
-            )}
+            ) : null}
 
-            {/* Modal de confirmación de eliminación */}
-            {actionMode === 'delete' && selectedUser && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50" onClick={handleCloseAction}>
-                    <div className="bg-surface rounded-xl p-6 max-w-md w-full mx-4" style={{ background: 'var(--surface)', border: '1px solid var(--border)' }} onClick={(e) => e.stopPropagation()}>
-                        <div className="flex items-center gap-3 mb-4">
-                            <div className="w-10 h-10 rounded-full flex items-center justify-center" style={{ background: 'rgba(244, 63, 94, 0.1)' }}>
-                                <IconAlertCircle size={20} style={{ color: 'rgb(244, 63, 94)' }} />
-                            </div>
-                            <h2 className="text-lg font-semibold" style={{ color: 'var(--fg)' }}>¿Eliminar usuario permanentemente?</h2>
-                        </div>
-                        
-                        <p className="text-sm mb-4" style={{ color: 'var(--fg-muted)' }}>
-                            ¿Estás seguro de que deseas eliminar a <strong>{selectedUser.name}</strong> ({selectedUser.email})?
-                            Esta acción borra la cuenta y sus datos relacionados de forma definitiva.
-                        </p>
-
-                        {message && (
-                            <div className={`px-3 py-2 rounded text-sm mb-4 flex items-center gap-2 ${message.type === 'error' ? 'bg-red-500/10 text-red-600' : 'bg-green-500/10 text-green-600'}`}>
-                                {message.type === 'error' ? <IconAlertCircle size={16} /> : <IconCheck size={16} />}
-                                {message.text}
-                            </div>
-                        )}
-
-                        <div className="flex gap-2">
-                            <button
-                                onClick={handleCloseAction}
-                                className="flex-1 px-4 py-2 rounded text-sm transition-colors"
-                                style={{ background: 'var(--bg-muted)', color: 'var(--fg)' }}
-                                disabled={isProcessing}
+            {actionMode === 'delete' && selectedUser ? (
+                <div className="fixed inset-0 z-[80] flex items-center justify-center px-4 py-5">
+                    <button
+                        type="button"
+                        aria-label="Cerrar modal"
+                        onClick={handleCloseAction}
+                        className="absolute inset-0"
+                        style={{ background: 'rgba(15, 23, 42, 0.44)', backdropFilter: 'blur(8px)' }}
+                    />
+                    <div
+                        className="relative z-[1] w-full max-w-md rounded-[28px] border p-6"
+                        style={{ borderColor: 'var(--border)', background: 'var(--surface)', boxShadow: 'var(--shadow-xl)' }}
+                    >
+                        <div className="flex items-start gap-3">
+                            <div
+                                className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full"
+                                style={{ background: 'rgba(244, 63, 94, 0.12)', color: 'rgb(244, 63, 94)' }}
                             >
+                                <IconAlertCircle size={20} stroke={1.9} />
+                            </div>
+                            <div>
+                                <h2 className="type-section-title" style={{ color: 'var(--fg)' }}>Eliminar usuario</h2>
+                                <p className="mt-1 text-sm" style={{ color: 'var(--fg-muted)' }}>
+                                    Esta acción elimina de forma definitiva a <strong style={{ color: 'var(--fg)' }}>{selectedUser.name}</strong> y sus datos relacionados.
+                                </p>
+                            </div>
+                        </div>
+
+                        {message ? <FeedbackNotice message={message} className="mt-4" /> : null}
+
+                        <div className="mt-5 flex gap-2">
+                            <PanelButton variant="secondary" className="flex-1" onClick={handleCloseAction} disabled={isProcessing}>
                                 Cancelar
-                            </button>
-                            <button
-                                onClick={handleDeleteUser}
-                                className="flex-1 px-4 py-2 rounded text-sm font-medium text-white transition-colors"
-                                style={{ background: 'rgb(244, 63, 94)' }}
-                                disabled={isProcessing}
-                            >
+                            </PanelButton>
+                            <PanelButton className="flex-1" onClick={handleDeleteUser} disabled={isProcessing}>
                                 {isProcessing ? 'Eliminando...' : 'Eliminar'}
-                            </button>
+                            </PanelButton>
                         </div>
                     </div>
                 </div>
-            )}
-        </>
+            ) : null}
+        </div>
+    );
+}
+
+function MetaItem({ label, value }: { label: string; value: string }) {
+    return (
+        <div className="min-w-[90px]">
+            <p className="text-[11px] uppercase tracking-[0.12em]" style={{ color: 'var(--fg-muted)' }}>{label}</p>
+            <p className="mt-1 text-sm font-medium" style={{ color: 'var(--fg)' }}>{value}</p>
+        </div>
+    );
+}
+
+function FeedbackNotice({
+    message,
+    className = '',
+}: {
+    message: { type: 'success' | 'error'; text: string };
+    className?: string;
+}) {
+    return (
+        <div
+            className={`flex items-center gap-2 rounded-xl px-3 py-2 text-sm ${className}`.trim()}
+            style={{
+                background: message.type === 'error' ? 'rgba(244, 63, 94, 0.12)' : 'rgba(34, 197, 94, 0.12)',
+                color: message.type === 'error' ? 'rgb(244, 63, 94)' : 'rgb(34, 197, 94)',
+            }}
+        >
+            {message.type === 'error' ? <IconAlertCircle size={16} /> : <IconCheck size={16} />}
+            {message.text}
+        </div>
     );
 }

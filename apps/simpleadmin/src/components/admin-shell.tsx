@@ -1,27 +1,27 @@
 'use client';
 
 import Link from 'next/link';
-import { useRouter, usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { useTheme } from 'next-themes';
 import { useEffect, useMemo, useState } from 'react';
 import {
-    IconLayoutDashboard,
-    IconUsers,
-    IconCar,
-    IconFlag,
-    IconSettings,
-    IconLogout,
-    IconSun,
-    IconMoon,
+    IconArrowLeft,
     IconBell,
     IconChevronLeft,
     IconChevronRight,
-    IconX,
+    IconFlag,
+    IconLayoutDashboard,
     IconMenu2,
+    IconMoon,
+    IconCar,
+    IconLogout,
+    IconSettings,
     IconShieldLock,
-    IconArrowLeft,
+    IconSun,
+    IconUser,
+    IconUsers,
+    IconX,
 } from '@tabler/icons-react';
-import { PanelIconButton } from '@simple/ui';
 import { logoutAdmin, type AdminSessionUser } from '@/lib/api';
 
 const STORAGE_COLLAPSED = 'simpleadmin:sidebar:collapsed';
@@ -31,6 +31,10 @@ function adminRoleLabel(role: AdminSessionUser['role']): string {
 }
 
 type NavItem = { href: string; icon: typeof IconLayoutDashboard; label: string };
+
+function isAdminNavActive(pathname: string, href: string): boolean {
+    return pathname === href || (href !== '/' && pathname.startsWith(href));
+}
 
 function AdminSidebarNav({
     items,
@@ -47,7 +51,7 @@ function AdminSidebarNav({
         <nav className="pr-1 space-y-2">
             {items.map((item) => {
                 const Icon = item.icon;
-                const active = pathname === item.href || (item.href !== '/' && pathname.startsWith(item.href));
+                const active = isAdminNavActive(pathname, item.href);
 
                 return (
                     <Link
@@ -58,33 +62,26 @@ function AdminSidebarNav({
                         className={`group relative flex h-11 items-center rounded-xl text-sm transition-colors hover:bg-(--bg-subtle) ${
                             collapsed ? 'justify-center px-1.5' : 'gap-2.5 px-2.5'
                         }`}
-                        style={{ background: active ? 'var(--bg-subtle)' : 'transparent', color: active ? 'var(--fg)' : 'var(--fg-secondary)' }}
+                        style={{
+                            background: active ? 'var(--bg-subtle)' : 'transparent',
+                            color: active ? 'var(--fg)' : 'var(--fg-secondary)',
+                        }}
                     >
                         <span
                             className="w-9 h-9 rounded-[10px] border flex items-center justify-center transition-colors group-hover:border-(--border-strong) group-hover:text-(--fg)"
                             style={{
-                                borderColor: active ? 'var(--accent-border)' : 'var(--border)',
+                                borderColor: active ? 'var(--button-primary-border)' : 'var(--border)',
                                 background: active
-                                    ? 'var(--accent)'
+                                    ? 'var(--button-primary-bg)'
                                     : 'color-mix(in srgb, var(--bg-subtle) 70%, transparent)',
-                                color: active ? 'var(--accent-contrast)' : 'var(--fg-secondary)',
+                                color: active ? 'var(--button-primary-color)' : 'var(--fg-secondary)',
                             }}
                         >
                             <Icon size={17} stroke={1.9} />
                         </span>
 
                         {!collapsed ? (
-                            <span className="min-w-0 flex-1 flex items-center justify-between gap-2">
-                                <span className="truncate text-sm font-medium">{item.label}</span>
-                                {active ? (
-                                    <span
-                                        className="text-[10px] font-medium px-1.5 py-[0.2rem] rounded-[5px] border uppercase tracking-[0.04em]"
-                                        style={{ borderColor: 'var(--accent-border)', color: 'var(--accent)' }}
-                                    >
-                                        Activo
-                                    </span>
-                                ) : null}
-                            </span>
+                            <span className="min-w-0 flex-1 truncate text-sm font-medium">{item.label}</span>
                         ) : (
                             <span
                                 className="pointer-events-none absolute left-[calc(100%+10px)] top-1/2 z-60 -translate-y-1/2 translate-x-1 whitespace-nowrap rounded-[10px] border px-2.5 py-1.5 text-sm font-medium opacity-0 transition-all group-hover:translate-x-0 group-hover:opacity-100 group-focus-visible:translate-x-0 group-focus-visible:opacity-100"
@@ -128,11 +125,6 @@ export function AdminShell({ children, user }: { children: React.ReactNode; user
     const userInitial = userName.charAt(0).toUpperCase();
     const roleLabel = adminRoleLabel(user.role);
 
-    const headerTitle = useMemo(() => {
-        const match = nav.find((n) => n.href === pathname || (n.href !== '/' && pathname.startsWith(n.href)));
-        return match?.label ?? 'SimpleAdmin';
-    }, [nav, pathname]);
-
     useEffect(() => setMounted(true), []);
 
     useEffect(() => {
@@ -141,7 +133,7 @@ export function AdminShell({ children, user }: { children: React.ReactNode; user
                 setCollapsed(true);
             }
         } catch {
-            /* ignore */
+            // ignore
         }
     }, []);
 
@@ -149,7 +141,7 @@ export function AdminShell({ children, user }: { children: React.ReactNode; user
         try {
             window.localStorage.setItem(STORAGE_COLLAPSED, collapsed ? '1' : '0');
         } catch {
-            /* ignore */
+            // ignore
         }
     }, [collapsed]);
 
@@ -157,315 +149,259 @@ export function AdminShell({ children, user }: { children: React.ReactNode; user
         setMobileOpen(false);
     }, [pathname]);
 
+    const handleLogout = async () => {
+        await logoutAdmin();
+        router.push('/');
+        router.refresh();
+    };
+
     return (
-        <div className="flex min-h-screen w-full" style={{ background: 'var(--bg)' }}>
-            <aside className={`hidden lg:block px-2 pt-3 pb-2 shrink-0 transition-[width] duration-200 ${collapsed ? 'w-29' : 'w-73'}`}>
-                <div
-                    className="sticky top-4 rounded-2xl border p-3 flex flex-col"
-                    style={{
-                        borderColor: 'var(--border)',
-                        background: 'color-mix(in srgb, var(--surface) 92%, transparent)',
-                        boxShadow: 'var(--shadow-md)',
-                    }}
-                >
-                    <div className={`mb-3 flex ${collapsed ? 'justify-center' : 'justify-between'} items-center gap-2`}>
-                        {!collapsed ? (
-                            <div className="min-w-0 flex items-center gap-2 px-1">
-                                <span
-                                    className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[10px] border"
-                                    style={{
-                                        borderColor: 'var(--accent-border)',
-                                        background: 'var(--accent)',
-                                        color: 'var(--accent-contrast)',
-                                        boxShadow: '0 10px 24px rgba(0, 0, 0, 0.14)',
-                                    }}
-                                >
-                                    <IconShieldLock size={18} stroke={1.9} />
-                                </span>
-                                <span className="min-w-0">
-                                    <span className="block truncate text-sm font-semibold" style={{ color: 'var(--fg)' }}>
-                                        SimpleAdmin
-                                    </span>
-                                    <span className="text-[10px] font-medium uppercase tracking-[0.06em]" style={{ color: 'var(--accent)' }}>
-                                        Control central
-                                    </span>
-                                </span>
-                            </div>
-                        ) : (
-                            <Link
-                                href="/"
-                                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[10px] border"
-                                style={{
-                                    borderColor: 'var(--accent-border)',
-                                    background: 'var(--accent)',
-                                    color: 'var(--accent-contrast)',
-                                }}
-                                title="Inicio"
-                            >
-                                <IconShieldLock size={18} stroke={1.9} />
-                            </Link>
-                        )}
-                        <button
-                            type="button"
-                            onClick={() => setCollapsed((c) => !c)}
-                            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-[10px] border transition-colors hover:bg-(--bg-subtle) hover:border-(--border-strong) hover:text-(--fg)"
-                            style={{ borderColor: 'var(--border)', color: 'var(--fg-muted)' }}
-                            aria-label={collapsed ? 'Expandir menú' : 'Contraer menú'}
+        <div className="flex min-h-screen w-full flex-col" style={{ background: 'var(--bg)' }}>
+            <header className="relative z-40 transition-all duration-300" style={{ borderBottom: '1px solid var(--border)' }}>
+                <div className="container-app flex items-center justify-between h-16">
+                    <Link href="/" className="flex items-center gap-2 group shrink-0">
+                        <span
+                            className="flex h-9 w-9 items-center justify-center rounded-full transition-transform duration-200 group-hover:scale-105"
+                            style={{ background: 'var(--button-primary-bg)', color: 'var(--button-primary-color)' }}
                         >
-                            {collapsed ? <IconChevronRight size={15} /> : <IconChevronLeft size={15} />}
+                            <IconShieldLock size={18} stroke={1.9} />
+                        </span>
+                        <span className="inline-flex items-end gap-[0.08rem] text-[1.05rem] tracking-tight" style={{ color: 'var(--fg)' }}>
+                            <span className="font-semibold leading-none">Simple</span>
+                            <span className="translate-y-[0.02em] font-normal leading-none" style={{ color: 'var(--fg-muted)' }}>Admin</span>
+                        </span>
+                    </Link>
+
+                    <nav className="hidden md:flex items-center gap-1">
+                        {nav.map((item) => (
+                            <Link
+                                key={item.href}
+                                href={item.href}
+                                className="header-nav-link px-3.5 py-2 text-sm font-medium rounded-lg transition-colors duration-200"
+                                data-active={isAdminNavActive(pathname, item.href) ? 'true' : 'false'}
+                            >
+                                {item.label}
+                            </Link>
+                        ))}
+                    </nav>
+
+                    <div className="hidden md:flex items-center gap-2">
+                        <button onClick={() => router.push('/reportes')} className="header-icon-chip" aria-label="Leads">
+                            <IconBell size={16} stroke={1.9} />
+                        </button>
+                        {mounted ? (
+                            <button
+                                onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
+                                className="header-icon-chip"
+                                aria-label="Cambiar tema"
+                            >
+                                {theme === 'dark' ? <IconSun size={16} /> : <IconMoon size={16} />}
+                            </button>
+                        ) : null}
+                        <Link href="https://simpleplataforma.app" className="header-icon-chip" aria-label="Ir a la plataforma">
+                            <IconArrowLeft size={16} stroke={1.9} />
+                        </Link>
+                        <button className="header-icon-chip" aria-label="Cuenta admin" title={`${userName} · ${user.email}`} type="button">
+                            <IconUser size={16} stroke={1.9} />
                         </button>
                     </div>
 
-                    <div
-                        className={`mb-3 rounded-[12px] border ${collapsed ? 'p-1.5 flex justify-center' : 'p-2.5 flex items-center gap-2.5'}`}
-                        style={{ borderColor: 'var(--border)' }}
-                        title={collapsed ? `${userName} · ${roleLabel}` : undefined}
-                    >
-                        <span
-                            className="w-8 h-8 rounded-[10px] flex items-center justify-center text-sm font-semibold shrink-0"
-                            style={{ background: 'var(--bg-muted)', color: 'var(--fg)' }}
-                        >
-                            {userInitial}
-                        </span>
-                        {!collapsed ? (
-                            <span className="min-w-0 flex-1">
-                                <span className="block text-sm truncate" style={{ color: 'var(--fg)' }}>
-                                    {userName}
-                                </span>
-                                <span
-                                    className="inline-flex mt-1 text-[10px] font-medium px-1.5 py-[0.2rem] rounded-[5px] border uppercase tracking-[0.04em]"
-                                    style={{ borderColor: 'var(--accent-border)', color: 'var(--accent)' }}
-                                >
-                                    {roleLabel}
-                                </span>
-                            </span>
+                    <div className="relative flex md:hidden items-center gap-2">
+                        <button onClick={() => router.push('/reportes')} className="header-icon-chip" aria-label="Leads">
+                            <IconBell size={16} stroke={1.9} />
+                        </button>
+                        {mounted ? (
+                            <button
+                                onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
+                                className="header-icon-chip"
+                                aria-label="Cambiar tema"
+                            >
+                                {theme === 'dark' ? <IconSun size={16} /> : <IconMoon size={16} />}
+                            </button>
                         ) : null}
-                    </div>
-
-                    <div className="flex-1 min-h-0 overflow-y-auto">
-                        <AdminSidebarNav items={nav} pathname={pathname} collapsed={collapsed} />
-                    </div>
-
-                    <div className="pt-3 mt-3 border-t" style={{ borderColor: 'var(--border)' }}>
-                        {!collapsed ? (
-                            <Link
-                                href="https://simpleplataforma.app"
-                                className="group mb-2 flex h-10 w-full items-center gap-2 rounded-[10px] border px-2.5 transition-colors hover:bg-(--bg-subtle) hover:border-(--border-strong) hover:text-(--fg)"
-                                style={{ borderColor: 'var(--border)', color: 'var(--fg-secondary)' }}
-                            >
-                                <span className="w-7 h-7 rounded-lg flex items-center justify-center bg-(--bg-muted)">
-                                    <IconArrowLeft size={13} stroke={1.9} />
-                                </span>
-                                <span className="text-sm font-medium">Ir a la plataforma</span>
-                            </Link>
-                        ) : (
-                            <Link
-                                href="https://simpleplataforma.app"
-                                className="group mb-2 flex h-10 w-full items-center justify-center rounded-[10px] border transition-colors hover:bg-(--bg-subtle) hover:border-(--border-strong) hover:text-(--fg)"
-                                style={{ borderColor: 'var(--border)', color: 'var(--fg-secondary)' }}
-                                title="Ir a la plataforma"
-                            >
-                                <span className="w-7 h-7 rounded-lg flex items-center justify-center bg-(--bg-muted)">
-                                    <IconArrowLeft size={13} stroke={1.9} />
-                                </span>
-                            </Link>
-                        )}
-                        <button
-                            type="button"
-                            className={`group flex h-10 w-full items-center rounded-[10px] border transition-colors hover:bg-(--bg-subtle) hover:border-(--border-strong) hover:text-(--fg) ${
-                                collapsed ? 'justify-center px-1' : 'gap-2 px-2.5'
-                            }`}
-                            style={{ borderColor: 'var(--border)', color: 'var(--fg-secondary)' }}
-                            onClick={async () => {
-                                await logoutAdmin();
-                                router.push('/');
-                                router.refresh();
-                            }}
-                        >
-                            <span className="w-7 h-7 rounded-[8px] flex items-center justify-center bg-[var(--bg-muted)]">
-                                <IconLogout size={13} stroke={1.9} />
-                            </span>
-                            {!collapsed ? <span className="text-sm font-medium">Cerrar sesión</span> : null}
+                        <button onClick={() => setMobileOpen((open) => !open)} className="header-icon-chip" aria-label="Menú">
+                            {mobileOpen ? <IconX size={18} /> : <IconMenu2 size={18} />}
                         </button>
                     </div>
                 </div>
-            </aside>
+            </header>
 
-            {mobileOpen ? (
-                <div className="fixed inset-0 z-50 lg:hidden">
-                    <button type="button" className="absolute inset-0 bg-black/40 backdrop-blur-[2px]" aria-label="Cerrar menú" onClick={() => setMobileOpen(false)} />
-                    <aside className="absolute left-0 top-0 h-full w-[min(340px,88vw)] p-3">
+            <div className="flex min-h-[calc(100vh-64px)] w-full">
+                <aside className={`hidden lg:block px-2 pt-3 pb-2 shrink-0 transition-[width] duration-200 ${collapsed ? 'w-29' : 'w-73'}`}>
+                    <div
+                        className="sticky top-4 rounded-2xl border p-3 flex flex-col"
+                        style={{
+                            borderColor: 'var(--border)',
+                            background: 'color-mix(in srgb, var(--surface) 92%, transparent)',
+                            boxShadow: 'var(--shadow-md)',
+                        }}
+                    >
+                        <div className={`mb-3 flex ${collapsed ? 'justify-center' : 'justify-end'}`}>
+                            <button
+                                type="button"
+                                onClick={() => setCollapsed((current) => !current)}
+                                className="w-8 h-8 rounded-[10px] flex items-center justify-center border transition-colors hover:bg-(--bg-subtle) hover:border-(--border-strong) hover:text-(--fg)"
+                                style={{ borderColor: 'var(--border)', color: 'var(--fg-muted)' }}
+                                aria-label={collapsed ? 'Expandir sidebar' : 'Contraer sidebar'}
+                            >
+                                {collapsed ? <IconChevronRight size={15} /> : <IconChevronLeft size={15} />}
+                            </button>
+                        </div>
+
                         <div
-                            className="h-full rounded-2xl border p-3 flex flex-col"
-                            style={{
-                                borderColor: 'var(--border)',
-                                background: 'var(--surface)',
-                                boxShadow: 'var(--shadow-md)',
-                            }}
+                            className={`mb-3 rounded-xl border ${collapsed ? 'p-1.5 flex justify-center' : 'p-2.5 flex items-center gap-2.5'}`}
+                            style={{ borderColor: 'var(--border)' }}
+                            title={collapsed ? `${userName} · ${roleLabel}` : undefined}
                         >
-                            <div className="mb-3 flex items-center justify-between gap-2 px-1">
-                                <div className="flex min-w-0 items-center gap-2">
-                                    <span
-                                        className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[10px] border"
-                                        style={{
-                                            borderColor: 'var(--accent-border)',
-                                            background: 'var(--accent)',
-                                            color: 'var(--accent-contrast)',
-                                        }}
-                                    >
-                                        <IconShieldLock size={18} stroke={1.9} />
-                                    </span>
-                                    <span className="min-w-0">
-                                        <span className="block text-sm font-semibold" style={{ color: 'var(--fg)' }}>
-                                            SimpleAdmin
-                                        </span>
-                                        <span className="text-[10px] font-medium uppercase tracking-[0.06em]" style={{ color: 'var(--accent)' }}>
-                                            Control central
-                                        </span>
-                                    </span>
-                                </div>
-                                <PanelIconButton label="Cerrar menú" variant="soft" size="md" className="rounded-[10px]" onClick={() => setMobileOpen(false)}>
-                                    <IconX size={16} />
-                                </PanelIconButton>
-                            </div>
-
-                            <div className="mb-3 rounded-[12px] border p-2.5 flex items-center gap-2.5" style={{ borderColor: 'var(--border)' }}>
-                                <span
-                                    className="w-8 h-8 rounded-[10px] flex items-center justify-center text-sm font-semibold"
-                                    style={{ background: 'var(--bg-muted)', color: 'var(--fg)' }}
-                                >
-                                    {userInitial}
-                                </span>
+                            <span
+                                className="w-8 h-8 rounded-[10px] flex items-center justify-center text-sm font-semibold"
+                                style={{ background: 'var(--bg-muted)', color: 'var(--fg)' }}
+                            >
+                                {userInitial}
+                            </span>
+                            {!collapsed ? (
                                 <span className="min-w-0 flex-1">
                                     <span className="block text-sm truncate" style={{ color: 'var(--fg)' }}>
                                         {userName}
                                     </span>
                                     <span
                                         className="inline-flex mt-1 text-[10px] font-medium px-1.5 py-[0.2rem] rounded-[5px] border uppercase tracking-[0.04em]"
-                                        style={{ borderColor: 'var(--accent-border)', color: 'var(--accent)' }}
+                                        style={{ borderColor: 'var(--border)', color: 'var(--fg-muted)' }}
                                     >
                                         {roleLabel}
                                     </span>
                                 </span>
-                            </div>
-
-                            <AdminSidebarNav items={nav} pathname={pathname} collapsed={false} onNavigate={() => setMobileOpen(false)} />
-
-                            <div className="pt-3 mt-3 border-t" style={{ borderColor: 'var(--border)' }}>
-                                <Link
-                                    href="https://simpleplataforma.app"
-                                    onClick={() => setMobileOpen(false)}
-                                    className="group mb-2 flex h-10 w-full items-center gap-2 rounded-[10px] border px-2.5 transition-colors hover:bg-(--bg-subtle) hover:border-(--border-strong) hover:text-(--fg)"
-                                    style={{ borderColor: 'var(--border)', color: 'var(--fg-secondary)' }}
-                                >
-                                    <span className="w-7 h-7 rounded-lg flex items-center justify-center bg-(--bg-muted)">
-                                        <IconArrowLeft size={13} stroke={1.9} />
-                                    </span>
-                                    <span className="text-sm font-medium">Ir a la plataforma</span>
-                                </Link>
-                                <button
-                                    type="button"
-                                    className="group flex h-10 w-full items-center gap-2 rounded-[10px] border px-2.5 transition-colors hover:bg-(--bg-subtle) hover:border-(--border-strong) hover:text-(--fg)"
-                                    style={{ borderColor: 'var(--border)', color: 'var(--fg-secondary)' }}
-                                    onClick={async () => {
-                                        await logoutAdmin();
-                                        router.push('/');
-                                        router.refresh();
-                                    }}
-                                >
-                                    <span className="w-7 h-7 rounded-[8px] flex items-center justify-center bg-[var(--bg-muted)]">
-                                        <IconLogout size={13} stroke={1.9} />
-                                    </span>
-                                    <span className="text-sm font-medium">Cerrar sesión</span>
-                                </button>
-                            </div>
+                            ) : null}
                         </div>
-                    </aside>
-                </div>
-            ) : null}
 
-            <section className="flex-1 min-w-0">
-                <div className="px-4 pt-3 pb-2 sm:px-6">
-                    <div
-                        className="sticky top-4 z-40 rounded-2xl border px-3 py-3 sm:px-4"
-                        style={{
-                            borderColor: 'var(--border)',
-                            background: 'color-mix(in srgb, var(--surface) 88%, transparent)',
-                            backdropFilter: 'blur(8px)',
-                            boxShadow: 'var(--shadow-sm)',
-                        }}
-                    >
-                        <div className="flex flex-wrap items-center justify-between gap-3">
-                            <div className="flex min-w-0 items-center gap-3">
-                                <PanelIconButton
-                                    label={mobileOpen ? 'Cerrar menú' : 'Menú'}
-                                    variant="soft"
-                                    size="md"
-                                    className="rounded-[10px] lg:hidden"
-                                    onClick={() => setMobileOpen((open) => !open)}
-                                >
-                                    {mobileOpen ? <IconX size={18} stroke={1.9} /> : <IconMenu2 size={18} stroke={1.9} />}
-                                </PanelIconButton>
-                                <div className="min-w-0">
-                                    <p className="text-[11px] font-medium uppercase tracking-[0.08em]" style={{ color: 'var(--accent)' }}>
-                                        Panel administrativo
-                                    </p>
-                                    <div className="flex min-w-0 flex-wrap items-center gap-2">
-                                        <h1 className="truncate text-base font-semibold sm:text-lg" style={{ color: 'var(--fg)' }}>
-                                            {headerTitle}
-                                        </h1>
-                                        <span
-                                            className="inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-medium uppercase tracking-[0.06em]"
-                                            style={{
-                                                borderColor: 'var(--accent-border)',
-                                                background: 'var(--accent-soft)',
-                                                color: 'var(--accent)',
-                                            }}
-                                        >
-                                            {roleLabel}
-                                        </span>
-                                    </div>
-                                </div>
-                            </div>
+                        <AdminSidebarNav items={nav} pathname={pathname} collapsed={collapsed} />
 
-                            <div className="flex items-center gap-1 sm:gap-2">
-                                <PanelIconButton label="Leads y alertas" variant="soft" size="md" className="rounded-[10px]" onClick={() => router.push('/reportes')}>
-                                    <IconBell size={18} />
-                                </PanelIconButton>
-                                {mounted ? (
-                                    <PanelIconButton
-                                        label={theme === 'dark' ? 'Modo claro' : 'Modo oscuro'}
-                                        variant="soft"
-                                        size="md"
-                                        className="rounded-[10px]"
-                                        onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
+                        <div className="pt-3 mt-3 border-t space-y-2" style={{ borderColor: 'var(--border)' }}>
+                            <Link
+                                href="https://simpleplataforma.app"
+                                className={`group flex h-10 items-center rounded-[10px] border transition-colors hover:bg-(--bg-subtle) hover:border-(--border-strong) hover:text-(--fg) ${
+                                    collapsed ? 'justify-center' : 'gap-2 px-2.5'
+                                }`}
+                                style={{ borderColor: 'var(--border)', color: 'var(--fg-secondary)' }}
+                                title={collapsed ? 'Ir a la plataforma' : undefined}
+                            >
+                                <span className="w-7 h-7 rounded-lg flex items-center justify-center bg-(--bg-muted)">
+                                    <IconArrowLeft size={13} stroke={1.9} />
+                                </span>
+                                {!collapsed ? <span className="text-sm">Ir a la plataforma</span> : null}
+                            </Link>
+
+                            <button
+                                type="button"
+                                className={`group flex h-10 items-center rounded-[10px] border transition-colors hover:bg-(--bg-subtle) hover:border-(--border-strong) hover:text-(--fg) ${
+                                    collapsed ? 'w-full justify-center' : 'w-full gap-2 px-2.5'
+                                }`}
+                                style={{ borderColor: 'var(--border)', color: 'var(--fg-secondary)' }}
+                                onClick={() => void handleLogout()}
+                            >
+                                <span className="w-7 h-7 rounded-lg flex items-center justify-center bg-(--bg-muted)">
+                                    <IconLogout size={13} stroke={1.9} />
+                                </span>
+                                {!collapsed ? <span className="text-sm">Cerrar sesión</span> : null}
+                            </button>
+                        </div>
+                    </div>
+                </aside>
+
+                {mobileOpen ? (
+                    <div className="fixed inset-0 z-50 lg:hidden">
+                        <button
+                            className="absolute inset-0 bg-black/40 backdrop-blur-[2px]"
+                            aria-label="Cerrar menú del panel"
+                            onClick={() => setMobileOpen(false)}
+                        />
+                        <aside className="absolute left-0 top-0 h-full w-[min(340px,88vw)] p-3">
+                            <div
+                                className="h-full rounded-2xl border p-3 flex flex-col"
+                                style={{
+                                    borderColor: 'var(--border)',
+                                    background: 'var(--surface)',
+                                    boxShadow: 'var(--shadow-md)',
+                                }}
+                            >
+                                <div className="mb-3 flex items-center justify-between gap-2 px-1">
+                                    <span className="text-sm" style={{ color: 'var(--fg-muted)' }}>
+                                        Panel admin · {roleLabel}
+                                    </span>
+                                    <button
+                                        onClick={() => setMobileOpen(false)}
+                                        className="w-8 h-8 rounded-[10px] flex items-center justify-center border transition-colors hover:bg-(--bg-subtle) hover:border-(--border-strong) hover:text-(--fg)"
+                                        style={{ borderColor: 'var(--border)', color: 'var(--fg-muted)' }}
+                                        aria-label="Cerrar menú"
                                     >
-                                        {theme === 'dark' ? <IconSun size={18} /> : <IconMoon size={18} />}
-                                    </PanelIconButton>
-                                ) : null}
-                                <div className="hidden items-center gap-2 border-l pl-2 sm:ml-1 sm:flex" style={{ borderColor: 'var(--border)' }}>
+                                        <IconX size={15} />
+                                    </button>
+                                </div>
+
+                                <div
+                                    className="mb-3 rounded-xl border p-2.5 flex items-center gap-2.5"
+                                    style={{ borderColor: 'var(--border)' }}
+                                >
                                     <span
-                                        className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[10px] text-xs font-semibold"
-                                        style={{ background: 'var(--accent-soft)', color: 'var(--accent)' }}
+                                        className="w-8 h-8 rounded-[10px] flex items-center justify-center text-sm font-semibold"
+                                        style={{ background: 'var(--bg-muted)', color: 'var(--fg)' }}
                                     >
                                         {userInitial}
                                     </span>
-                                    <span className="max-w-[160px] min-w-0">
-                                        <span className="block truncate text-xs font-medium" style={{ color: 'var(--fg)' }}>
+                                    <span className="min-w-0 flex-1">
+                                        <span className="block text-sm truncate" style={{ color: 'var(--fg)' }}>
                                             {userName}
                                         </span>
-                                        <span className="text-[10px] font-medium uppercase tracking-[0.04em]" style={{ color: 'var(--fg-muted)' }}>
-                                            {user.email}
+                                        <span
+                                            className="inline-flex mt-1 text-[10px] font-medium px-1.5 py-[0.2rem] rounded-[5px] border uppercase tracking-[0.04em]"
+                                            style={{ borderColor: 'var(--border)', color: 'var(--fg-muted)' }}
+                                        >
+                                            {roleLabel}
                                         </span>
                                     </span>
                                 </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
 
-                <main className="min-h-0 min-w-0 overflow-y-auto px-4 pb-6 sm:px-6">{children}</main>
-            </section>
+                                <AdminSidebarNav
+                                    items={nav}
+                                    pathname={pathname}
+                                    collapsed={false}
+                                    onNavigate={() => setMobileOpen(false)}
+                                />
+
+                                <div className="pt-3 mt-3 border-t space-y-2" style={{ borderColor: 'var(--border)' }}>
+                                    <Link
+                                        href="https://simpleplataforma.app"
+                                        onClick={() => setMobileOpen(false)}
+                                        className="group flex h-10 items-center gap-2 rounded-[10px] border px-2.5 transition-colors hover:bg-(--bg-subtle) hover:border-(--border-strong) hover:text-(--fg)"
+                                        style={{ borderColor: 'var(--border)', color: 'var(--fg-secondary)' }}
+                                    >
+                                        <span className="w-7 h-7 rounded-lg flex items-center justify-center bg-(--bg-muted)">
+                                            <IconArrowLeft size={13} stroke={1.9} />
+                                        </span>
+                                        <span className="text-sm">Ir a la plataforma</span>
+                                    </Link>
+
+                                    <button
+                                        type="button"
+                                        className="group flex h-10 w-full items-center gap-2 rounded-[10px] border px-2.5 transition-colors hover:bg-(--bg-subtle) hover:border-(--border-strong) hover:text-(--fg)"
+                                        style={{ borderColor: 'var(--border)', color: 'var(--fg-secondary)' }}
+                                        onClick={() => void handleLogout()}
+                                    >
+                                        <span className="w-7 h-7 rounded-lg flex items-center justify-center bg-(--bg-muted)">
+                                            <IconLogout size={13} stroke={1.9} />
+                                        </span>
+                                        <span className="text-sm">Cerrar sesión</span>
+                                    </button>
+                                </div>
+                            </div>
+                        </aside>
+                    </div>
+                ) : null}
+
+                <section className="flex-1 min-w-0">
+                    <div className="panel-content-frame">{children}</div>
+                </section>
+            </div>
         </div>
     );
 }
