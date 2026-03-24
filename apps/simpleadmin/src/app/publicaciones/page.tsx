@@ -1,9 +1,11 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { IconSearch } from '@tabler/icons-react';
 import { AdminProtectedPage } from '@/components/admin-protected-page';
 import { fetchAdminListings, type AdminListingListItem } from '@/lib/api';
+import { adminScopeLabel, normalizeAdminScope } from '@/lib/admin-scope';
 
 export default function PublicacionesPage() {
     return (
@@ -14,10 +16,12 @@ export default function PublicacionesPage() {
 }
 
 function PublicacionesContent() {
+    const searchParams = useSearchParams();
     const [items, setItems] = useState<AdminListingListItem[]>([]);
     const [loading, setLoading] = useState(true);
     const [query, setQuery] = useState('');
     const [statusFilter, setStatusFilter] = useState('todas');
+    const scope = normalizeAdminScope(searchParams.get('scope'));
 
     useEffect(() => {
         let active = true;
@@ -33,9 +37,15 @@ function PublicacionesContent() {
         };
     }, []);
 
+    const scopedItems = useMemo(() => {
+        if (scope === 'autos' || scope === 'propiedades') return items.filter((item) => item.vertical === scope);
+        if (scope === 'plataforma') return [];
+        return items;
+    }, [items, scope]);
+
     const filtered = useMemo(() => {
         const normalized = query.trim().toLowerCase();
-        return items.filter((item) => {
+        return scopedItems.filter((item) => {
             const matchesQuery = !normalized ||
                 item.title.toLowerCase().includes(normalized) ||
                 item.ownerName.toLowerCase().includes(normalized) ||
@@ -43,14 +53,14 @@ function PublicacionesContent() {
             const matchesStatus = statusFilter === 'todas' || item.status === statusFilter;
             return matchesQuery && matchesStatus;
         });
-    }, [items, query, statusFilter]);
+    }, [query, scopedItems, statusFilter]);
 
     return (
         <>
             <div className="flex items-center justify-between mb-6">
                 <div>
                     <h1 className="text-xl font-semibold" style={{ color: 'var(--fg)' }}>Publicaciones</h1>
-                    <p className="text-xs" style={{ color: 'var(--fg-muted)' }}>Datos reales de autos y propiedades</p>
+                    <p className="text-xs" style={{ color: 'var(--fg-muted)' }}>Inventario administrativo de {adminScopeLabel(scope).toLowerCase()}</p>
                 </div>
                 <div className="flex gap-2">
                     <div className="relative">
@@ -78,6 +88,8 @@ function PublicacionesContent() {
                 </div>
                 {loading ? (
                     <div className="px-4 py-6 text-sm" style={{ color: 'var(--fg-muted)' }}>Cargando publicaciones...</div>
+                ) : scope === 'plataforma' ? (
+                    <div className="px-4 py-6 text-sm" style={{ color: 'var(--fg-muted)' }}>La capa plataforma no tiene publicaciones propias. Usa General, SimpleAutos o SimplePropiedades.</div>
                 ) : filtered.length === 0 ? (
                     <div className="px-4 py-6 text-sm" style={{ color: 'var(--fg-muted)' }}>No encontramos publicaciones para ese filtro.</div>
                 ) : (

@@ -1,8 +1,10 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { AdminProtectedPage } from '@/components/admin-protected-page';
 import { fetchAdminSystemStatus, type AdminSystemStatus } from '@/lib/api';
+import { adminScopeLabel, normalizeAdminScope } from '@/lib/admin-scope';
 
 export default function ConfiguracionPage() {
     return (
@@ -13,8 +15,10 @@ export default function ConfiguracionPage() {
 }
 
 function ConfiguracionContent() {
+    const searchParams = useSearchParams();
     const [status, setStatus] = useState<AdminSystemStatus | null>(null);
     const [loading, setLoading] = useState(true);
+    const scope = normalizeAdminScope(searchParams.get('scope'));
 
     useEffect(() => {
         let active = true;
@@ -44,7 +48,7 @@ function ConfiguracionContent() {
     return (
         <>
             <h1 className="text-xl font-semibold mb-1" style={{ color: 'var(--fg)' }}>Configuración</h1>
-            <p className="text-xs mb-6" style={{ color: 'var(--fg-muted)' }}>Estado real de la configuración operativa</p>
+            <p className="text-xs mb-6" style={{ color: 'var(--fg-muted)' }}>Estado operativo de {adminScopeLabel(scope).toLowerCase()} y sus integraciones compartidas.</p>
 
             <div className="max-w-2xl rounded-xl border p-5" style={{ borderColor: 'var(--border)' }}>
                 {loading ? (

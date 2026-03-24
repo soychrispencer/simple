@@ -1,4 +1,5 @@
 'use client';
+import { useSearchParams } from 'next/navigation';
 import { useEffect, useMemo, useState, type DragEvent, type FormEvent, type ReactNode } from 'react';
 import {
     IconBrandFacebook,
@@ -41,6 +42,7 @@ import {
 } from '@/lib/api';
 import { AdminProtectedPage } from '@/components/admin-protected-page';
 import { PanelButton, PanelStatusBadge } from '@simple/ui';
+import { adminScopeLabel, normalizeAdminScope } from '@/lib/admin-scope';
 
 type LeadTab = 'publicaciones' | 'servicios';
 type AnyLead = AdminListingLead | AdminServiceLead;
@@ -66,6 +68,7 @@ export default function ReportesPage() {
 }
 
 function LeadsContent() {
+    const searchParams = useSearchParams();
     const [tab, setTab] = useState<LeadTab>('publicaciones');
     const [leadView, setLeadView] = useState<LeadView>('pipeline');
     const [listingFilter, setListingFilter] = useState<ListingLeadFilter>('all');
@@ -95,6 +98,7 @@ function LeadsContent() {
     const [dropStage, setDropStage] = useState<AnyLead['status'] | null>(null);
     const [updatingLeadId, setUpdatingLeadId] = useState<string | null>(null);
     const [actioningLeadId, setActioningLeadId] = useState<string | null>(null);
+    const scope = normalizeAdminScope(searchParams.get('scope'));
 
     useEffect(() => {
         let active = true;
@@ -112,26 +116,34 @@ function LeadsContent() {
     }, []);
 
     const activeLoading = tab === 'publicaciones' ? listingLoading : serviceLoading;
+    const scopedListingItems = useMemo(() => {
+        if (scope === 'autos' || scope === 'propiedades') return listingItems.filter((item) => item.vertical === scope);
+        return listingItems;
+    }, [listingItems, scope]);
+    const scopedServiceItems = useMemo(() => {
+        if (scope === 'autos' || scope === 'propiedades') return serviceItems.filter((item) => item.vertical === scope);
+        return serviceItems;
+    }, [scope, serviceItems]);
     const listingFilterStats = useMemo(() => ({
-        all: listingItems.length,
-        internal: listingItems.filter((item) => matchesListingLeadFilter(item, 'internal')).length,
-        social: listingItems.filter((item) => matchesListingLeadFilter(item, 'social')).length,
-        portal: listingItems.filter((item) => matchesListingLeadFilter(item, 'portal')).length,
-        attention: listingItems.filter((item) => matchesListingLeadFilter(item, 'attention')).length,
-    }), [listingItems]);
+        all: scopedListingItems.length,
+        internal: scopedListingItems.filter((item) => matchesListingLeadFilter(item, 'internal')).length,
+        social: scopedListingItems.filter((item) => matchesListingLeadFilter(item, 'social')).length,
+        portal: scopedListingItems.filter((item) => matchesListingLeadFilter(item, 'portal')).length,
+        attention: scopedListingItems.filter((item) => matchesListingLeadFilter(item, 'attention')).length,
+    }), [scopedListingItems]);
     const ownershipFilterStats = useMemo(() => ({
-        all: listingItems.length,
-        owner: listingItems.filter((item) => matchesListingLeadOwnershipFilter(item, 'owner')).length,
-        team: listingItems.filter((item) => matchesListingLeadOwnershipFilter(item, 'team')).length,
-        unassigned: listingItems.filter((item) => matchesListingLeadOwnershipFilter(item, 'unassigned')).length,
-    }), [listingItems]);
+        all: scopedListingItems.length,
+        owner: scopedListingItems.filter((item) => matchesListingLeadOwnershipFilter(item, 'owner')).length,
+        team: scopedListingItems.filter((item) => matchesListingLeadOwnershipFilter(item, 'team')).length,
+        unassigned: scopedListingItems.filter((item) => matchesListingLeadOwnershipFilter(item, 'unassigned')).length,
+    }), [scopedListingItems]);
 
     const filtered = useMemo(() => {
         const scopedItems = tab === 'publicaciones'
-            ? listingItems
+            ? scopedListingItems
                 .filter((item) => matchesListingLeadOwnershipFilter(item, ownershipFilter))
                 .filter((item) => matchesListingLeadFilter(item, listingFilter))
-            : serviceItems;
+            : scopedServiceItems;
         const normalized = query.trim().toLowerCase();
         if (!normalized) return scopedItems;
         return scopedItems.filter((item) =>
@@ -139,7 +151,7 @@ function LeadsContent() {
             || item.contactEmail.toLowerCase().includes(normalized)
             || summarizeLead(item).toLowerCase().includes(normalized)
         );
-    }, [listingFilter, listingItems, ownershipFilter, query, serviceItems, tab]);
+    }, [listingFilter, ownershipFilter, query, scopedListingItems, scopedServiceItems, tab]);
 
     useEffect(() => {
         if (filtered.length === 0) {
@@ -382,12 +394,12 @@ function LeadsContent() {
 
     return (
         <>
-            <div className="mb-4 flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-                <div>
-                    <h1 className="text-xl font-semibold" style={{ color: 'var(--fg)' }}>Leads</h1>
-                    <p className="text-xs" style={{ color: 'var(--fg-muted)' }}>Vista global por cuenta, canal y etapa comercial</p>
-                </div>
-            </div>
+              <div className="mb-4 flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+                  <div>
+                      <h1 className="text-xl font-semibold" style={{ color: 'var(--fg)' }}>Leads</h1>
+                      <p className="text-xs" style={{ color: 'var(--fg-muted)' }}>Vista operativa de {adminScopeLabel(scope).toLowerCase()} por cuenta, canal y etapa comercial</p>
+                  </div>
+              </div>
 
             <div className="mb-6 rounded-[18px] border px-3 py-3" style={{ borderColor: 'var(--border)', background: 'var(--bg-subtle)' }}>
                 <div className="space-y-2.5">

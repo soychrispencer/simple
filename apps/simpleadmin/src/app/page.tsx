@@ -2,9 +2,11 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
+import { useSearchParams } from 'next/navigation';
 import { AdminProtectedPage } from '@/components/admin-protected-page';
 import { fetchAdminOverview, type AdminOverview } from '@/lib/api';
 import { PanelCard, PanelList, PanelListRow, PanelNotice, PanelStatCard } from '@simple/ui';
+import { adminScopeLabel, normalizeAdminScope, withAdminScope } from '@/lib/admin-scope';
 
 export default function AdminDashboardPage() {
     return (
@@ -15,8 +17,10 @@ export default function AdminDashboardPage() {
 }
 
 function DashboardContent() {
+    const searchParams = useSearchParams();
     const [overview, setOverview] = useState<AdminOverview | null>(null);
     const [loading, setLoading] = useState(true);
+    const scope = normalizeAdminScope(searchParams.get('scope'));
 
     useEffect(() => {
         let active = true;
@@ -48,18 +52,71 @@ function DashboardContent() {
         );
     }
 
-    const cards = [
-        { label: 'Usuarios', value: overview.stats.usersTotal.toLocaleString('es-CL'), meta: 'Cuentas totales registradas' },
-        { label: 'Autos', value: overview.stats.autosListingsTotal.toLocaleString('es-CL'), meta: 'Publicaciones en SimpleAutos' },
-        { label: 'Propiedades', value: overview.stats.propiedadesListingsTotal.toLocaleString('es-CL'), meta: 'Publicaciones en SimplePropiedades' },
-        { label: 'Leads', value: overview.stats.newServiceLeads.toLocaleString('es-CL'), meta: 'Leads recientes del ecosistema' },
-    ];
+    const scopedUsers =
+        scope === 'autos'
+            ? overview.recentUsers.filter((user) => user.autosListings > 0)
+            : scope === 'propiedades'
+                ? overview.recentUsers.filter((user) => user.propiedadesListings > 0)
+                : scope === 'plataforma'
+                    ? overview.recentUsers.filter((user) => user.role === 'admin' || user.role === 'superadmin')
+                    : overview.recentUsers;
+
+    const scopedListings =
+        scope === 'autos' || scope === 'propiedades'
+            ? overview.recentListings.filter((listing) => listing.vertical === scope)
+            : scope === 'plataforma'
+                ? []
+                : overview.recentListings;
+
+    const scopedLeads =
+        scope === 'autos' || scope === 'propiedades'
+            ? overview.recentLeads.filter((lead) => lead.vertical === scope)
+            : overview.recentLeads;
+
+    const configCount = [
+        overview.systemStatus.databaseConfigured,
+        overview.systemStatus.smtpConfigured,
+        overview.systemStatus.googleOAuthConfigured,
+        overview.systemStatus.instagramConfigured,
+        overview.systemStatus.mercadoPagoConfigured,
+        overview.systemStatus.leadIngestConfigured,
+        overview.systemStatus.sessionConfigured,
+    ].filter(Boolean).length;
+
+    const cards =
+        scope === 'autos'
+            ? [
+                  { label: 'Usuarios autos', value: scopedUsers.length.toLocaleString('es-CL'), meta: 'Con publicaciones o actividad en autos' },
+                  { label: 'Publicaciones', value: overview.stats.autosListingsTotal.toLocaleString('es-CL'), meta: 'Inventario de SimpleAutos' },
+                  { label: 'Leads recientes', value: scopedLeads.length.toLocaleString('es-CL'), meta: 'Últimos leads de la vertical' },
+                  { label: 'Cobertura admin', value: overview.recentUsers.filter((user) => user.role !== 'user').length.toLocaleString('es-CL'), meta: 'Equipos con acceso administrativo' },
+              ]
+            : scope === 'propiedades'
+                ? [
+                      { label: 'Usuarios propiedades', value: scopedUsers.length.toLocaleString('es-CL'), meta: 'Con publicaciones o actividad en propiedades' },
+                      { label: 'Publicaciones', value: overview.stats.propiedadesListingsTotal.toLocaleString('es-CL'), meta: 'Inventario de SimplePropiedades' },
+                      { label: 'Leads recientes', value: scopedLeads.length.toLocaleString('es-CL'), meta: 'Últimos leads de la vertical' },
+                      { label: 'Cobertura admin', value: overview.recentUsers.filter((user) => user.role !== 'user').length.toLocaleString('es-CL'), meta: 'Equipos con acceso administrativo' },
+                  ]
+                : scope === 'plataforma'
+                    ? [
+                          { label: 'Usuarios', value: overview.stats.usersTotal.toLocaleString('es-CL'), meta: 'Base total de cuentas' },
+                          { label: 'Admins', value: scopedUsers.length.toLocaleString('es-CL'), meta: 'Accesos de control y soporte' },
+                          { label: 'Leads recientes', value: scopedLeads.length.toLocaleString('es-CL'), meta: 'Señales recientes del ecosistema' },
+                          { label: 'Config activas', value: configCount.toLocaleString('es-CL'), meta: 'Servicios backend correctamente configurados' },
+                      ]
+                    : [
+                          { label: 'Usuarios', value: overview.stats.usersTotal.toLocaleString('es-CL'), meta: 'Cuentas totales registradas' },
+                          { label: 'Autos', value: overview.stats.autosListingsTotal.toLocaleString('es-CL'), meta: 'Publicaciones en SimpleAutos' },
+                          { label: 'Propiedades', value: overview.stats.propiedadesListingsTotal.toLocaleString('es-CL'), meta: 'Publicaciones en SimplePropiedades' },
+                          { label: 'Leads', value: overview.stats.newServiceLeads.toLocaleString('es-CL'), meta: 'Leads recientes del ecosistema' },
+                      ];
 
     return (
         <div className="container-app panel-page py-8">
             <div className="mb-6">
                 <h1 className="type-page-title" style={{ color: 'var(--fg)' }}>Dashboard</h1>
-                <p className="type-page-subtitle mt-1">Resumen operativo de usuarios, publicaciones y leads en todo el ecosistema Simple.</p>
+                <p className="type-page-subtitle mt-1">Resumen operativo de {adminScopeLabel(scope).toLowerCase()} dentro del ecosistema Simple.</p>
             </div>
 
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
@@ -73,16 +130,16 @@ function DashboardContent() {
                     <div className="mb-4 flex items-center justify-between gap-3">
                         <div>
                             <h2 className="type-section-title" style={{ color: 'var(--fg)' }}>Usuarios recientes</h2>
-                            <p className="type-page-subtitle mt-1">Altas más recientes del sistema.</p>
+                            <p className="type-page-subtitle mt-1">Altas y cuentas relevantes para {adminScopeLabel(scope).toLowerCase()}.</p>
                         </div>
-                        <Link href="/usuarios" className="text-sm" style={{ color: 'var(--fg-muted)' }}>Ver todos</Link>
+                        <Link href={withAdminScope('/usuarios', scope)} className="text-sm" style={{ color: 'var(--fg-muted)' }}>Ver todos</Link>
                     </div>
 
-                    {overview.recentUsers.length === 0 ? (
+                    {scopedUsers.length === 0 ? (
                         <PanelNotice tone="neutral">Todavía no hay usuarios registrados.</PanelNotice>
                     ) : (
                         <PanelList className="border-0 rounded-[18px]">
-                            {overview.recentUsers.map((user, index) => (
+                            {scopedUsers.map((user, index) => (
                                 <PanelListRow key={user.id} divider={index > 0} className="flex items-center gap-3 px-4 py-3">
                                     <div
                                         className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-xs font-semibold"
@@ -107,16 +164,16 @@ function DashboardContent() {
                     <div className="mb-4 flex items-center justify-between gap-3">
                         <div>
                             <h2 className="type-section-title" style={{ color: 'var(--fg)' }}>Leads recientes</h2>
-                            <p className="type-page-subtitle mt-1">Últimos contactos capturados por la plataforma.</p>
+                            <p className="type-page-subtitle mt-1">Últimos contactos capturados para este frente administrativo.</p>
                         </div>
-                        <Link href="/reportes" className="text-sm" style={{ color: 'var(--fg-muted)' }}>Ver todos</Link>
+                        <Link href={withAdminScope('/reportes', scope)} className="text-sm" style={{ color: 'var(--fg-muted)' }}>Ver todos</Link>
                     </div>
 
-                    {overview.recentLeads.length === 0 ? (
+                    {scopedLeads.length === 0 ? (
                         <PanelNotice tone="neutral">Todavía no hay leads de servicios.</PanelNotice>
                     ) : (
                         <PanelList className="border-0 rounded-[18px]">
-                            {overview.recentLeads.map((lead, index) => (
+                            {scopedLeads.map((lead, index) => (
                                 <PanelListRow key={lead.id} divider={index > 0} className="flex items-center gap-3 px-4 py-3">
                                     <div className="min-w-0 flex-1">
                                         <p className="text-sm font-medium" style={{ color: 'var(--fg)' }}>{lead.contactName}</p>
@@ -136,16 +193,18 @@ function DashboardContent() {
                 <div className="mb-4 flex items-center justify-between gap-3">
                     <div>
                         <h2 className="type-section-title" style={{ color: 'var(--fg)' }}>Publicaciones recientes</h2>
-                        <p className="type-page-subtitle mt-1">Actividad transversal entre autos y propiedades.</p>
-                    </div>
-                    <Link href="/publicaciones" className="text-sm" style={{ color: 'var(--fg-muted)' }}>Ver todas</Link>
+                            <p className="type-page-subtitle mt-1">Actividad reciente de publicaciones para el contexto seleccionado.</p>
+                        </div>
+                    <Link href={withAdminScope('/publicaciones', scope)} className="text-sm" style={{ color: 'var(--fg-muted)' }}>Ver todas</Link>
                 </div>
 
-                {overview.recentListings.length === 0 ? (
-                    <PanelNotice tone="neutral">Todavía no hay publicaciones creadas.</PanelNotice>
+                {scopedListings.length === 0 ? (
+                    <PanelNotice tone="neutral">
+                        {scope === 'plataforma' ? 'La capa plataforma no tiene publicaciones propias.' : 'Todavía no hay publicaciones creadas.'}
+                    </PanelNotice>
                 ) : (
                     <PanelList className="border-0 rounded-[18px]">
-                        {overview.recentListings.map((listing, index) => (
+                        {scopedListings.map((listing, index) => (
                             <PanelListRow key={listing.id} divider={index > 0} className="flex items-center gap-3 px-4 py-3">
                                 <div className="min-w-0 flex-1">
                                     <p className="text-sm font-medium line-clamp-1" style={{ color: 'var(--fg)' }}>{listing.title}</p>

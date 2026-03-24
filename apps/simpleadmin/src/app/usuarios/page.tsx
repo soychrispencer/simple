@@ -1,10 +1,12 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { IconAlertCircle, IconCheck, IconSearch, IconShield, IconTrash } from '@tabler/icons-react';
 import { AdminProtectedPage } from '@/components/admin-protected-page';
 import { fetchAdminUsers, type AdminUserListItem } from '@/lib/api';
 import { PanelButton, PanelCard, PanelNotice, PanelStatCard } from '@simple/ui';
+import { adminScopeLabel, normalizeAdminScope } from '@/lib/admin-scope';
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000';
 
@@ -19,6 +21,7 @@ export default function UsuariosPage() {
 type ActionMode = 'role' | 'delete' | null;
 
 function UsuariosContent() {
+    const searchParams = useSearchParams();
     const [items, setItems] = useState<AdminUserListItem[]>([]);
     const [loading, setLoading] = useState(true);
     const [query, setQuery] = useState('');
@@ -27,6 +30,7 @@ function UsuariosContent() {
     const [isProcessing, setIsProcessing] = useState(false);
     const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
     const [roleValue, setRoleValue] = useState<AdminUserListItem['role'] | ''>('');
+    const scope = normalizeAdminScope(searchParams.get('scope'));
 
     useEffect(() => {
         let active = true;
@@ -42,25 +46,46 @@ function UsuariosContent() {
         };
     }, []);
 
+    const scopedItems = useMemo(() => {
+        if (scope === 'autos') return items.filter((item) => item.autosListings > 0);
+        if (scope === 'propiedades') return items.filter((item) => item.propiedadesListings > 0);
+        if (scope === 'plataforma') return items.filter((item) => item.role === 'admin' || item.role === 'superadmin');
+        return items;
+    }, [items, scope]);
+
     const filtered = useMemo(() => {
         const normalized = query.trim().toLowerCase();
-        if (!normalized) return items;
-        return items.filter((item) => item.name.toLowerCase().includes(normalized) || item.email.toLowerCase().includes(normalized));
-    }, [items, query]);
+        if (!normalized) return scopedItems;
+        return scopedItems.filter((item) => item.name.toLowerCase().includes(normalized) || item.email.toLowerCase().includes(normalized));
+    }, [query, scopedItems]);
 
     const stats = useMemo(() => {
-        const total = items.length;
-        const verified = items.filter((item) => item.status === 'verified').length;
-        const admins = items.filter((item) => item.role === 'admin' || item.role === 'superadmin').length;
-        const suspended = items.filter((item) => item.status === 'suspended').length;
+        const total = scopedItems.length;
+        const verified = scopedItems.filter((item) => item.status === 'verified').length;
+        const admins = scopedItems.filter((item) => item.role === 'admin' || item.role === 'superadmin').length;
+        const suspended = scopedItems.filter((item) => item.status === 'suspended').length;
+        const listingLabel =
+            scope === 'autos'
+                ? 'Publicaciones autos'
+                : scope === 'propiedades'
+                    ? 'Publicaciones propiedades'
+                    : scope === 'plataforma'
+                        ? 'Accesos admin'
+                        : 'Administradores';
+        const listingValue =
+            scope === 'autos'
+                ? scopedItems.reduce((sum, item) => sum + item.autosListings, 0)
+                : scope === 'propiedades'
+                    ? scopedItems.reduce((sum, item) => sum + item.propiedadesListings, 0)
+                    : admins;
 
         return [
             { label: 'Usuarios', value: total.toLocaleString('es-CL'), meta: `${filtered.length.toLocaleString('es-CL')} visibles` },
             { label: 'Verificados', value: verified.toLocaleString('es-CL'), meta: 'Cuentas habilitadas' },
-            { label: 'Administradores', value: admins.toLocaleString('es-CL'), meta: 'Admin y superadmin' },
+            { label: listingLabel, value: listingValue.toLocaleString('es-CL'), meta: scope === 'plataforma' ? 'Cuentas con privilegios' : 'Inventario ligado al scope' },
             { label: 'Suspendidos', value: suspended.toLocaleString('es-CL'), meta: 'Acceso bloqueado' },
         ];
-    }, [filtered.length, items]);
+    }, [filtered.length, scope, scopedItems]);
 
     const handleOpenAction = (mode: ActionMode, user: AdminUserListItem) => {
         setSelectedUser(user);
@@ -138,7 +163,7 @@ function UsuariosContent() {
         <div className="container-app panel-page py-8">
             <div className="mb-6">
                 <h1 className="type-page-title" style={{ color: 'var(--fg)' }}>Usuarios</h1>
-                <p className="type-page-subtitle mt-1">Gestión centralizada de cuentas, roles y acceso administrativo.</p>
+                <p className="type-page-subtitle mt-1">Gestión de cuentas para {adminScopeLabel(scope).toLowerCase()}, con foco en acceso y operación real.</p>
             </div>
 
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
@@ -151,7 +176,7 @@ function UsuariosContent() {
                 <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
                     <div>
                         <h2 className="type-section-title" style={{ color: 'var(--fg)' }}>Base de usuarios</h2>
-                        <p className="type-page-subtitle mt-1">Consulta el estado de cada cuenta y ejecuta acciones de control.</p>
+                        <p className="type-page-subtitle mt-1">Consulta el estado de cada cuenta y ejecuta acciones de control dentro de {adminScopeLabel(scope).toLowerCase()}.</p>
                     </div>
                     <div className="relative w-full sm:w-72">
                         <IconSearch size={14} className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: 'var(--fg-muted)' }} />
@@ -165,7 +190,11 @@ function UsuariosContent() {
                 </div>
 
                 {loading ? <PanelNotice tone="neutral">Cargando usuarios...</PanelNotice> : null}
-                {!loading && filtered.length === 0 ? <PanelNotice tone="neutral">No encontramos usuarios para ese filtro.</PanelNotice> : null}
+                {!loading && filtered.length === 0 ? (
+                    <PanelNotice tone="neutral">
+                        {scope === 'plataforma' ? 'No encontramos administradores o cuentas de plataforma para ese filtro.' : 'No encontramos usuarios para ese filtro.'}
+                    </PanelNotice>
+                ) : null}
 
                 {!loading && filtered.length > 0 ? (
                     <div className="space-y-3">

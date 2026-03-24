@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { usePathname, useRouter } from 'next/navigation';
+import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { useTheme } from 'next-themes';
 import { useEffect, useMemo, useState } from 'react';
 import {
@@ -23,6 +23,7 @@ import {
     IconX,
 } from '@tabler/icons-react';
 import { logoutAdmin, type AdminSessionUser } from '@/lib/api';
+import { ADMIN_SCOPE_ITEMS, adminScopeLabel, normalizeAdminScope, withAdminScope } from '@/lib/admin-scope';
 
 const STORAGE_COLLAPSED = 'simpleadmin:sidebar:collapsed';
 
@@ -51,7 +52,7 @@ function AdminSidebarNav({
         <nav className="pr-1 space-y-2">
             {items.map((item) => {
                 const Icon = item.icon;
-                const active = isAdminNavActive(pathname, item.href);
+                const active = isAdminNavActive(pathname, item.href.split('?')[0] || item.href);
 
                 return (
                     <Link
@@ -104,6 +105,7 @@ function AdminSidebarNav({
 
 export function AdminShell({ children, user }: { children: React.ReactNode; user: AdminSessionUser }) {
     const pathname = usePathname() ?? '';
+    const searchParams = useSearchParams();
     const router = useRouter();
     const { theme, setTheme } = useTheme();
     const [mounted, setMounted] = useState(false);
@@ -124,6 +126,7 @@ export function AdminShell({ children, user }: { children: React.ReactNode; user
     const userName = user.name?.trim() || 'Administrador';
     const userInitial = userName.charAt(0).toUpperCase();
     const roleLabel = adminRoleLabel(user.role);
+    const scope = normalizeAdminScope(searchParams.get('scope'));
 
     useEffect(() => setMounted(true), []);
 
@@ -159,7 +162,7 @@ export function AdminShell({ children, user }: { children: React.ReactNode; user
         <div className="flex min-h-screen w-full flex-col" style={{ background: 'var(--bg)' }}>
             <header className="relative z-40 transition-all duration-300" style={{ borderBottom: '1px solid var(--border)' }}>
                 <div className="container-app flex items-center justify-between h-16">
-                    <Link href="/" className="flex items-center gap-2 group shrink-0">
+                    <Link href={withAdminScope('/', scope)} className="flex items-center gap-2 group shrink-0">
                         <span
                             className="flex h-9 w-9 items-center justify-center rounded-full transition-transform duration-200 group-hover:scale-105"
                             style={{ background: 'var(--button-primary-bg)', color: 'var(--button-primary-color)' }}
@@ -173,12 +176,12 @@ export function AdminShell({ children, user }: { children: React.ReactNode; user
                     </Link>
 
                     <nav className="hidden md:flex items-center gap-1">
-                        {nav.map((item) => (
+                        {ADMIN_SCOPE_ITEMS.map((item) => (
                             <Link
-                                key={item.href}
-                                href={item.href}
+                                key={item.key}
+                                href={withAdminScope(pathname || '/', item.key)}
                                 className="header-nav-link px-3.5 py-2 text-sm font-medium rounded-lg transition-colors duration-200"
-                                data-active={isAdminNavActive(pathname, item.href) ? 'true' : 'false'}
+                                data-active={scope === item.key ? 'true' : 'false'}
                             >
                                 {item.label}
                             </Link>
@@ -186,7 +189,7 @@ export function AdminShell({ children, user }: { children: React.ReactNode; user
                     </nav>
 
                     <div className="hidden md:flex items-center gap-2">
-                        <button onClick={() => router.push('/reportes')} className="header-icon-chip" aria-label="Leads">
+                        <button onClick={() => router.push(withAdminScope('/reportes', scope))} className="header-icon-chip" aria-label="Leads">
                             <IconBell size={16} stroke={1.9} />
                         </button>
                         {mounted ? (
@@ -207,7 +210,7 @@ export function AdminShell({ children, user }: { children: React.ReactNode; user
                     </div>
 
                     <div className="relative flex md:hidden items-center gap-2">
-                        <button onClick={() => router.push('/reportes')} className="header-icon-chip" aria-label="Leads">
+                        <button onClick={() => router.push(withAdminScope('/reportes', scope))} className="header-icon-chip" aria-label="Leads">
                             <IconBell size={16} stroke={1.9} />
                         </button>
                         {mounted ? (
@@ -264,6 +267,9 @@ export function AdminShell({ children, user }: { children: React.ReactNode; user
                                     <span className="block text-sm truncate" style={{ color: 'var(--fg)' }}>
                                         {userName}
                                     </span>
+                                    <span className="mt-1 block text-[11px]" style={{ color: 'var(--fg-muted)' }}>
+                                        {adminScopeLabel(scope)}
+                                    </span>
                                     <span
                                         className="inline-flex mt-1 text-[10px] font-medium px-1.5 py-[0.2rem] rounded-[5px] border uppercase tracking-[0.04em]"
                                         style={{ borderColor: 'var(--border)', color: 'var(--fg-muted)' }}
@@ -274,7 +280,11 @@ export function AdminShell({ children, user }: { children: React.ReactNode; user
                             ) : null}
                         </div>
 
-                        <AdminSidebarNav items={nav} pathname={pathname} collapsed={collapsed} />
+                        <AdminSidebarNav
+                            items={nav.map((item) => ({ ...item, href: withAdminScope(item.href, scope) }))}
+                            pathname={pathname}
+                            collapsed={collapsed}
+                        />
 
                         <div className="pt-3 mt-3 border-t space-y-2" style={{ borderColor: 'var(--border)' }}>
                             <Link
@@ -326,7 +336,7 @@ export function AdminShell({ children, user }: { children: React.ReactNode; user
                             >
                                 <div className="mb-3 flex items-center justify-between gap-2 px-1">
                                     <span className="text-sm" style={{ color: 'var(--fg-muted)' }}>
-                                        Panel admin · {roleLabel}
+                                        {adminScopeLabel(scope)} · {roleLabel}
                                     </span>
                                     <button
                                         onClick={() => setMobileOpen(false)}
@@ -352,6 +362,9 @@ export function AdminShell({ children, user }: { children: React.ReactNode; user
                                         <span className="block text-sm truncate" style={{ color: 'var(--fg)' }}>
                                             {userName}
                                         </span>
+                                        <span className="mt-1 block text-[11px]" style={{ color: 'var(--fg-muted)' }}>
+                                            {adminScopeLabel(scope)}
+                                        </span>
                                         <span
                                             className="inline-flex mt-1 text-[10px] font-medium px-1.5 py-[0.2rem] rounded-[5px] border uppercase tracking-[0.04em]"
                                             style={{ borderColor: 'var(--border)', color: 'var(--fg-muted)' }}
@@ -361,8 +374,26 @@ export function AdminShell({ children, user }: { children: React.ReactNode; user
                                     </span>
                                 </div>
 
+                                <div className="mb-3 flex flex-wrap gap-2">
+                                    {ADMIN_SCOPE_ITEMS.map((item) => (
+                                        <Link
+                                            key={item.key}
+                                            href={withAdminScope(pathname || '/', item.key)}
+                                            onClick={() => setMobileOpen(false)}
+                                            className="inline-flex rounded-full border px-3 py-2 text-xs font-medium transition-colors"
+                                            style={{
+                                                borderColor: scope === item.key ? 'var(--border-strong)' : 'var(--border)',
+                                                background: scope === item.key ? 'var(--bg-subtle)' : 'transparent',
+                                                color: scope === item.key ? 'var(--fg)' : 'var(--fg-secondary)',
+                                            }}
+                                        >
+                                            {item.label}
+                                        </Link>
+                                    ))}
+                                </div>
+
                                 <AdminSidebarNav
-                                    items={nav}
+                                    items={nav.map((item) => ({ ...item, href: withAdminScope(item.href, scope) }))}
                                     pathname={pathname}
                                     collapsed={false}
                                     onNavigate={() => setMobileOpen(false)}
