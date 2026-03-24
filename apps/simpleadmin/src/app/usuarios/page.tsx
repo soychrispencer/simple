@@ -25,12 +25,12 @@ function UsuariosContent() {
     const [selectedUser, setSelectedUser] = useState<AdminUserListItem | null>(null);
     const [isProcessing, setIsProcessing] = useState(false);
     const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
-    const [roleValue, setRoleValue] = useState('');
+    const [roleValue, setRoleValue] = useState<AdminUserListItem['role'] | ''>('');
 
     useEffect(() => {
         let active = true;
         const run = async () => {
-            const next = await fetchAdminUsers();
+            const next: AdminUserListItem[] = await fetchAdminUsers();
             if (!active) return;
             setItems(next);
             setLoading(false);
@@ -84,7 +84,9 @@ function UsuariosContent() {
             }
 
             // Actualizar en la lista local
-            const updated = items.map(u => u.id === selectedUser.id ? { ...u, role: roleValue as AdminUserListItem['role'] } : u);
+            const updated: AdminUserListItem[] = items.map((u): AdminUserListItem =>
+                u.id === selectedUser.id ? { ...u, role: roleValue } : u
+            );
             setItems(updated);
             setMessage({ type: 'success', text: `Rol actualizado a ${roleValue}` });
             
@@ -204,7 +206,7 @@ function UsuariosContent() {
                             <label className="block text-sm mb-2" style={{ color: 'var(--fg-muted)' }}>Nuevo rol</label>
                             <select
                                 value={roleValue}
-                                onChange={(e) => setRoleValue(e.target.value)}
+                                onChange={(e) => setRoleValue(e.target.value as AdminUserListItem['role'])}
                                 className="w-full px-3 py-2 rounded border text-sm" 
                                 style={{ borderColor: 'var(--border)', background: 'var(--surface)', color: 'var(--fg)' }}
                             >
