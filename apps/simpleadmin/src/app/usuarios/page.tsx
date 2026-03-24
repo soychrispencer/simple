@@ -253,11 +253,12 @@ function UsuariosContent() {
                             <div className="w-10 h-10 rounded-full flex items-center justify-center" style={{ background: 'rgba(244, 63, 94, 0.1)' }}>
                                 <IconAlertCircle size={20} style={{ color: 'rgb(244, 63, 94)' }} />
                             </div>
-                            <h2 className="text-lg font-semibold" style={{ color: 'var(--fg)' }}>¿Eliminar usuario?</h2>
+                            <h2 className="text-lg font-semibold" style={{ color: 'var(--fg)' }}>¿Eliminar usuario permanentemente?</h2>
                         </div>
                         
                         <p className="text-sm mb-4" style={{ color: 'var(--fg-muted)' }}>
                             ¿Estás seguro de que deseas eliminar a <strong>{selectedUser.name}</strong> ({selectedUser.email})?
+                            Esta acción borra la cuenta y sus datos relacionados de forma definitiva.
                         </p>
 
                         {message && (

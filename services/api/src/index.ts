@@ -40,7 +40,7 @@ import {
     refreshInstagramAccessToken,
 } from './instagram.js';
 import { db } from './db/index.js';
-import { eq, and, or, desc, asc, gt, isNull } from 'drizzle-orm';
+import { eq, and, or, desc, asc, gt, isNull, sql } from 'drizzle-orm';
 import {
     users,
     listings,
@@ -6540,6 +6540,10 @@ function isAdminRole(role: UserRole): boolean {
     return role === 'admin' || role === 'superadmin';
 }
 
+function isAdminBootstrapEnabled(): boolean {
+    return asString(process.env.ENABLE_ADMIN_BOOTSTRAP).toLowerCase() === 'true';
+}
+
 async function requireAdminUser(c: Context): Promise<AppUser | null> {
     const user = await authUser(c);
     if (!user) {
@@ -6551,6 +6555,152 @@ async function requireAdminUser(c: Context): Promise<AppUser | null> {
         return null;
     }
     return user;
+}
+
+async function countActiveSuperadminUsers(): Promise<number> {
+    const items = await db
+        .select({ id: users.id })
+        .from(users)
+        .where(
+            and(
+                eq(users.role, 'superadmin'),
+                or(eq(users.status, 'active'), eq(users.status, 'verified'))
+            )
+        );
+    return items.length;
+}
+
+async function permanentlyDeleteUser(userId: string): Promise<void> {
+    let instagramAccountRows: Array<{ id: string; vertical: string }> = [];
+
+    await db.transaction(async (tx) => {
+        const ownedListings = await tx
+            .select({ id: listings.id })
+            .from(listings)
+            .where(eq(listings.ownerId, userId));
+        const ownedListingIds = ownedListings.map((item) => item.id);
+
+        const listingLeadRows = await tx
+            .select({ id: listingLeads.id })
+            .from(listingLeads)
+            .where(
+                or(
+                    eq(listingLeads.ownerUserId, userId),
+                    eq(listingLeads.buyerUserId, userId),
+                    eq(listingLeads.assignedToUserId, userId),
+                    ownedListingIds.length > 0 ? sql`${listingLeads.listingId} = ANY(${ownedListingIds})` : sql`false`
+                )
+            );
+        const listingLeadIds = listingLeadRows.map((item) => item.id);
+
+        const threadRows = await tx
+            .select({ id: messageThreads.id })
+            .from(messageThreads)
+            .where(
+                or(
+                    eq(messageThreads.ownerUserId, userId),
+                    eq(messageThreads.buyerUserId, userId),
+                    listingLeadIds.length > 0 ? sql`${messageThreads.leadId} = ANY(${listingLeadIds})` : sql`false`
+                )
+            );
+        const threadIds = threadRows.map((item) => item.id);
+
+        const serviceLeadRows = await tx
+            .select({ id: serviceLeads.id })
+            .from(serviceLeads)
+            .where(or(eq(serviceLeads.userId, userId), eq(serviceLeads.assignedToUserId, userId)));
+        const serviceLeadIds = serviceLeadRows.map((item) => item.id);
+
+        instagramAccountRows = await tx
+            .select({ id: instagramAccounts.id, vertical: instagramAccounts.vertical })
+            .from(instagramAccounts)
+            .where(eq(instagramAccounts.userId, userId));
+        const instagramAccountIds = instagramAccountRows.map((item) => item.id);
+
+        if (threadIds.length > 0) {
+            await tx.delete(messageEntries).where(sql`${messageEntries.threadId} = ANY(${threadIds})`);
+        }
+        await tx.delete(messageEntries).where(eq(messageEntries.senderUserId, userId));
+        if (threadIds.length > 0) {
+            await tx.delete(messageThreads).where(sql`${messageThreads.id} = ANY(${threadIds})`);
+        }
+
+        if (listingLeadIds.length > 0) {
+            await tx.delete(listingLeadActivities).where(sql`${listingLeadActivities.leadId} = ANY(${listingLeadIds})`);
+        }
+        await tx.delete(listingLeadActivities).where(eq(listingLeadActivities.actorUserId, userId));
+        if (listingLeadIds.length > 0) {
+            await tx.delete(listingLeads).where(sql`${listingLeads.id} = ANY(${listingLeadIds})`);
+        }
+
+        if (serviceLeadIds.length > 0) {
+            await tx.delete(serviceLeadActivities).where(sql`${serviceLeadActivities.leadId} = ANY(${serviceLeadIds})`);
+        }
+        await tx.delete(serviceLeadActivities).where(eq(serviceLeadActivities.actorUserId, userId));
+        if (serviceLeadIds.length > 0) {
+            await tx.delete(serviceLeads).where(sql`${serviceLeads.id} = ANY(${serviceLeadIds})`);
+        }
+
+        if (instagramAccountIds.length > 0) {
+            await tx.delete(instagramPublications).where(sql`${instagramPublications.instagramAccountId} = ANY(${instagramAccountIds})`);
+        }
+        await tx.delete(instagramPublications).where(eq(instagramPublications.userId, userId));
+
+        if (ownedListingIds.length > 0) {
+            await tx.delete(savedListings).where(sql`${savedListings.listingId} = ANY(${ownedListingIds})`);
+        }
+        await tx.delete(savedListings).where(eq(savedListings.userId, userId));
+
+        if (ownedListingIds.length > 0) {
+            await tx.delete(boostOrders).where(sql`${boostOrders.listingId} = ANY(${ownedListingIds})`);
+        }
+        await tx.delete(boostOrders).where(eq(boostOrders.userId, userId));
+
+        await tx.delete(adCampaigns).where(eq(adCampaigns.userId, userId));
+        await tx.delete(listingDrafts).where(eq(listingDrafts.userId, userId));
+        await tx.delete(follows).where(or(eq(follows.followerId, userId), eq(follows.followeeId, userId)));
+        await tx.delete(crmPipelineColumns).where(eq(crmPipelineColumns.userId, userId));
+        await tx.delete(publicProfileTeamMembers).where(eq(publicProfileTeamMembers.userId, userId));
+        await tx.delete(publicProfiles).where(eq(publicProfiles.userId, userId));
+        await tx.delete(instagramAccounts).where(eq(instagramAccounts.userId, userId));
+        await tx.delete(passwordResetTokens).where(eq(passwordResetTokens.userId, userId));
+        await tx.delete(emailVerificationTokens).where(eq(emailVerificationTokens.userId, userId));
+
+        if (ownedListingIds.length > 0) {
+            await tx.delete(listings).where(sql`${listings.id} = ANY(${ownedListingIds})`);
+        }
+        await tx.delete(users).where(eq(users.id, userId));
+    });
+
+    usersById.delete(userId);
+    savedByUser.delete(userId);
+    followsByUser.delete(userId);
+    boostOrdersByUser.delete(userId);
+    addressBookByUser.delete(userId);
+    paymentOrdersByUser.delete(userId);
+    activeSubscriptionsByUser.delete(userId);
+    instagramPublicationsByUser.delete(userId);
+    publicProfilesByUserVertical.delete(publicProfileUserVerticalKey(userId, 'autos'));
+    publicProfilesByUserVertical.delete(publicProfileUserVerticalKey(userId, 'propiedades'));
+    publicProfileTeamMembersByUserVertical.delete(publicProfileUserVerticalKey(userId, 'autos'));
+    publicProfileTeamMembersByUserVertical.delete(publicProfileUserVerticalKey(userId, 'propiedades'));
+
+    for (const account of instagramAccountRows) {
+        instagramAccountByUserVertical.delete(instagramAccountKey(userId, account.vertical as VerticalType));
+    }
+
+    for (const [listingId, listing] of listingsById.entries()) {
+        if (listing.ownerId === userId) {
+            listingsById.delete(listingId);
+            listingLeadCountsByListing.delete(listingId);
+        }
+    }
+
+    for (const [key, profile] of publicProfilesByVerticalSlug.entries()) {
+        if (profile.userId === userId) {
+            publicProfilesByVerticalSlug.delete(key);
+        }
+    }
 }
 
 function adCampaignToResponse(record: AdCampaignRecord) {
@@ -9085,6 +9235,10 @@ app.post('/api/auth/register', async (c) => {
 
 // Endpoint especial: Bootstrap inicial de superadmin (solo si no existe ningún admin)
 app.post('/api/admin/bootstrap', async (c) => {
+    if (!isAdminBootstrapEnabled()) {
+        return c.json({ ok: false, error: 'No encontrado' }, 404);
+    }
+
     // Verificar si ya hay admins en el sistema
     const existingAdmins = await db
         .select({ id: users.id })
@@ -10820,11 +10974,16 @@ app.delete('/api/admin/users/:id', async (c) => {
     const targetUser = await getUserById(userId);
     if (!targetUser) return c.json({ ok: false, error: 'Usuario no encontrado' }, 404);
 
-    // Soft delete usando status='suspended'
-    const updated = await db.update(users).set({ status: 'suspended' }).where(eq(users.id, userId)).returning();
-    if (updated.length === 0) return c.json({ ok: false, error: 'No se pudo eliminar el usuario' }, 500);
+    if (targetUser.role === 'superadmin') {
+        const remainingSuperadmins = await countActiveSuperadminUsers();
+        if (remainingSuperadmins <= 1) {
+            return c.json({ ok: false, error: 'No puedes eliminar al último superadmin activo' }, 400);
+        }
+    }
 
-    return c.json({ ok: true, message: 'Usuario eliminado' }, 200);
+    await permanentlyDeleteUser(userId);
+
+    return c.json({ ok: true, message: 'Usuario eliminado permanentemente' }, 200);
 });
 
 // Editar datos de un usuario
