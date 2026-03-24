@@ -6570,6 +6570,10 @@ async function countActiveSuperadminUsers(): Promise<number> {
     return items.length;
 }
 
+function isActiveAdminStatus(status: UserStatus): boolean {
+    return status === 'active' || status === 'verified';
+}
+
 async function permanentlyDeleteUser(userId: string): Promise<void> {
     let instagramAccountRows: Array<{ id: string; vertical: string }> = [];
 
@@ -10974,7 +10978,7 @@ app.delete('/api/admin/users/:id', async (c) => {
     const targetUser = await getUserById(userId);
     if (!targetUser) return c.json({ ok: false, error: 'Usuario no encontrado' }, 404);
 
-    if (targetUser.role === 'superadmin') {
+    if (targetUser.role === 'superadmin' && isActiveAdminStatus(targetUser.status)) {
         const remainingSuperadmins = await countActiveSuperadminUsers();
         if (remainingSuperadmins <= 1) {
             return c.json({ ok: false, error: 'No puedes eliminar al último superadmin activo' }, 400);
