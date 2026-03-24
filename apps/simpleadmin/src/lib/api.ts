@@ -262,6 +262,9 @@ export async function fetchAdminMe(): Promise<{ user: AdminSessionUser | null; u
         const { response, data } = await apiRequest<{ user?: AdminSessionUser }>('/api/auth/me', { method: 'GET' });
         if (response.status === 401) return { user: null, unauthorized: true };
         if (!data?.ok || !data.user) return { user: null };
+        if ((data.user.role !== 'admin' && data.user.role !== 'superadmin') || data.user.status !== 'verified') {
+            return { user: null };
+        }
         return { user: data.user };
     } catch {
         return { user: null };
@@ -274,7 +277,12 @@ export async function loginAdmin(email: string, password: string): Promise<boole
             method: 'POST',
             body: JSON.stringify({ email, password }),
         });
-        return Boolean(data?.ok && data.user && (data.user.role === 'admin' || data.user.role === 'superadmin'));
+        return Boolean(
+            data?.ok &&
+            data.user &&
+            (data.user.role === 'admin' || data.user.role === 'superadmin') &&
+            data.user.status === 'verified'
+        );
     } catch {
         return false;
     }

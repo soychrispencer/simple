@@ -10,7 +10,7 @@ type Mode = 'login' | 'register' | 'recovery' | 'verify-email';
 const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000';
 
 export function AuthModal() {
-    const { authOpen, closeAuth, login, register } = useAuth();
+    const { authOpen, closeAuth, login, register, logout } = useAuth();
     const dialogRef = useRef<HTMLDivElement>(null);
     const [mode, setMode] = useState<Mode>('login');
     const [email, setEmail] = useState('');
@@ -106,9 +106,17 @@ export function AuthModal() {
         e.preventDefault();
         setError('');
         setSubmitting(true);
-        const ok = await login(email, password);
+        const result = await login(email, password);
         setSubmitting(false);
-        if (!ok) setError('Correo electrónico o contraseña incorrectos.');
+        if (!result.ok || !result.user) {
+            setError(result.error || 'Correo electrónico o contraseña incorrectos.');
+            return;
+        }
+        if (result.user.status !== 'verified') {
+            setRegisteredEmail(result.user.email);
+            setSuccess('');
+            setMode('verify-email');
+        }
     };
 
     const handleRegister = async (e: React.FormEvent) => {
@@ -123,12 +131,13 @@ export function AuthModal() {
             return;
         }
         setSubmitting(true);
-        const ok = await register(name, email, password);
+        const result = await register(name, email, password);
         setSubmitting(false);
-        if (!ok) {
-            setError('Este correo electrónico ya está registrado.');
+        if (!result.ok || !result.user) {
+            setError(result.error || 'No pudimos completar el registro.');
         } else {
-            setRegisteredEmail(email);
+            setRegisteredEmail(result.user.email);
+            setSuccess('');
             setMode('verify-email');
             setEmail('');
             setPassword('');
@@ -404,6 +413,19 @@ export function AuthModal() {
                                 Volver al inicio de sesión
                             </button>
                         </div>
+                        <button
+                            type="button"
+                            onClick={() => void logout().finally(() => handleClose())}
+                            className="mt-3 w-full text-sm font-medium py-2.5 rounded-lg transition-colors"
+                            style={{
+                                background: 'transparent',
+                                color: 'var(--fg-muted)',
+                                border: '1px solid var(--border)',
+                            }}
+                            disabled={submitting}
+                        >
+                            Cerrar sesión
+                        </button>
                     </>
                 )}
             </div>

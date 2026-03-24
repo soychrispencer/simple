@@ -7340,6 +7340,32 @@ async function authUser(c: Context): Promise<AppUser | null> {
     return applyRuntimeRole(user);
 }
 
+function isVerifiedUser(user: AppUser): boolean {
+    return user.status === 'verified';
+}
+
+function emailVerificationRequiredResponse(c: Context) {
+    return c.json(
+        {
+            ok: false,
+            error: 'Debes verificar tu correo para acceder a esta seccion del panel.',
+            code: 'EMAIL_VERIFICATION_REQUIRED',
+        },
+        403
+    );
+}
+
+async function requireVerifiedSession(c: Context, next: () => Promise<void>) {
+    const user = await authUser(c);
+    if (!user) {
+        return c.json({ ok: false, error: 'No autenticado' }, 401);
+    }
+    if (!isVerifiedUser(user)) {
+        return emailVerificationRequiredResponse(c);
+    }
+    await next();
+}
+
 function setSession(c: Context, userId: string): void {
     const sessionToken = jwt.sign({ sub: userId }, SESSION_SECRET, { expiresIn: '14d' });
 
@@ -9004,6 +9030,15 @@ app.post('/api/auth/register', async (c) => {
         return c.json({ ok: false, error: 'Demasiados intentos de registro. Intenta nuevamente más tarde.' }, 429);
     }
 
+    if (process.env.NODE_ENV === 'production' && !isAuthEmailConfigured()) {
+        return c.json({ ok: false, error: 'El registro no está disponible porque el correo de verificación no está configurado.' }, 503);
+    }
+
+    const origin = resolveBrowserOrigin(c);
+    if (!origin) {
+        return c.json({ ok: false, error: 'Origin no autorizado' }, 403);
+    }
+
     const normalizedEmail = parsed.data.email.trim().toLowerCase();
     const existing = await getUserByEmail(normalizedEmail);
     if (existing) {
@@ -9032,18 +9067,18 @@ app.post('/api/auth/register', async (c) => {
         lastLoginAt: new Date(),
     };
 
+    try {
+        await issueEmailVerification(newUser.id, normalizedEmail, origin);
+    } catch (error) {
+        console.error('Email verification delivery error:', error);
+        await db.delete(emailVerificationTokens).where(eq(emailVerificationTokens.userId, newUser.id));
+        await db.delete(users).where(eq(users.id, newUser.id));
+        return c.json({ ok: false, error: 'No pudimos enviar el correo de verificación. Inténtalo nuevamente en unos minutos.' }, 502);
+    }
+
     await touchUserLastLoginAt(newUser.id);
     clearRateLimit(`auth:register:ip:${clientId}`);
     setSession(c, newUser.id);
-
-    const origin = resolveBrowserOrigin(c);
-    if (origin) {
-        try {
-            await issueEmailVerification(newUser.id, normalizedEmail, origin);
-        } catch (error) {
-            console.error('Email verification delivery error:', error);
-        }
-    }
 
     return c.json({ ok: true, user: sanitizeUser(newUser) }, 201);
 });
@@ -9102,6 +9137,21 @@ app.post('/api/admin/bootstrap', async (c) => {
 
     return c.json({ ok: true, user: sanitizeUser(newUser) }, 201);
 });
+
+app.use('/api/account/*', requireVerifiedSession);
+app.use('/api/crm/*', requireVerifiedSession);
+app.use('/api/panel/*', requireVerifiedSession);
+app.use('/api/messages/*', requireVerifiedSession);
+app.use('/api/listing-draft', requireVerifiedSession);
+app.use('/api/listings', requireVerifiedSession);
+app.use('/api/listings/*', requireVerifiedSession);
+app.use('/api/address-book', requireVerifiedSession);
+app.use('/api/address-book/*', requireVerifiedSession);
+app.use('/api/boost/*', requireVerifiedSession);
+app.use('/api/advertising/campaigns', requireVerifiedSession);
+app.use('/api/advertising/campaigns/*', requireVerifiedSession);
+app.use('/api/integrations/instagram', requireVerifiedSession);
+app.use('/api/integrations/instagram/*', requireVerifiedSession);
 
 app.get('/api/auth/me', async (c) => {
     const user = await authUser(c);

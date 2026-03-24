@@ -8,16 +8,24 @@ type User = {
     name: string;
     phone?: string | null;
     role: 'user' | 'admin' | 'superadmin';
+    status: 'active' | 'verified' | 'suspended';
     avatar?: string;
 } | null;
+
+type AuthActionResult = {
+    ok: boolean;
+    user?: NonNullable<User>;
+    error?: string;
+    status?: number;
+};
 
 type AuthContextType = {
     user: User;
     isLoggedIn: boolean;
     authLoading: boolean;
     refreshSession: () => Promise<User>;
-    login: (email: string, password: string) => Promise<boolean>;
-    register: (name: string, email: string, password: string) => Promise<boolean>;
+    login: (email: string, password: string) => Promise<AuthActionResult>;
+    register: (name: string, email: string, password: string) => Promise<AuthActionResult>;
     logout: () => Promise<void>;
     requireAuth: (callback?: () => void) => boolean;
     openAuth: () => void;
@@ -29,17 +37,18 @@ const AuthContext = createContext<AuthContextType | null>(null);
 const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000';
 
 type AuthApiResponse = {
-    ok: boolean;
+    ok?: boolean;
+    error?: string;
     user?: NonNullable<User>;
 };
 
 function sameUser(a: User, b: User): boolean {
     if (!a && !b) return true;
     if (!a || !b) return false;
-    return a.id === b.id && a.email === b.email && a.name === b.name && a.phone === b.phone && a.role === b.role && a.avatar === b.avatar;
+    return a.id === b.id && a.email === b.email && a.name === b.name && a.phone === b.phone && a.role === b.role && a.status === b.status && a.avatar === b.avatar;
 }
 
-async function authRequest(path: string, init?: RequestInit): Promise<AuthApiResponse | null> {
+async function authRequest(path: string, init?: RequestInit): Promise<{ status: number; data: AuthApiResponse | null }> {
     try {
         const response = await fetch(`${API_BASE}${path}`, {
             credentials: 'include',
@@ -51,10 +60,9 @@ async function authRequest(path: string, init?: RequestInit): Promise<AuthApiRes
         });
 
         const data = (await response.json().catch(() => null)) as AuthApiResponse | null;
-        if (!response.ok || !data) return null;
-        return data;
+        return { status: response.status, data };
     } catch {
-        return null;
+        return { status: 0, data: null };
     }
 }
 
@@ -71,7 +79,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }, [pendingCallback]);
 
     const refreshSession = useCallback(async (): Promise<User> => {
-        const data = await authRequest('/api/auth/me', { method: 'GET' });
+        const { data } = await authRequest('/api/auth/me', { method: 'GET' });
         const nextUser = data?.user ?? null;
         setUser((current) => (sameUser(current, nextUser) ? current : nextUser));
         return nextUser;
@@ -81,7 +89,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         let mounted = true;
 
         const bootstrapSession = async () => {
-            const data = await authRequest('/api/auth/me', { method: 'GET' });
+            const { data } = await authRequest('/api/auth/me', { method: 'GET' });
             if (!mounted) return;
             const nextUser = data?.user ?? null;
             setUser((current) => (sameUser(current, nextUser) ? current : nextUser));
@@ -96,35 +104,39 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }, []);
 
     const login = useCallback(
-        async (email: string, password: string): Promise<boolean> => {
-            const data = await authRequest('/api/auth/login', {
+        async (email: string, password: string): Promise<AuthActionResult> => {
+            const { status, data } = await authRequest('/api/auth/login', {
                 method: 'POST',
                 body: JSON.stringify({ email, password }),
             });
 
-            if (!data?.user) return false;
+            if (!data?.user) {
+                return { ok: false, error: data?.error, status };
+            }
             setUser(data.user);
-            setAuthOpen(false);
-            consumePendingCallback();
-            return true;
+            if (data.user.status === 'verified') {
+                setAuthOpen(false);
+                consumePendingCallback();
+            }
+            return { ok: true, user: data.user, status };
         },
         [consumePendingCallback]
     );
 
     const register = useCallback(
-        async (name: string, email: string, password: string): Promise<boolean> => {
-            const data = await authRequest('/api/auth/register', {
+        async (name: string, email: string, password: string): Promise<AuthActionResult> => {
+            const { status, data } = await authRequest('/api/auth/register', {
                 method: 'POST',
                 body: JSON.stringify({ name, email, password }),
             });
 
-            if (!data?.user) return false;
+            if (!data?.user) {
+                return { ok: false, error: data?.error, status };
+            }
             setUser(data.user);
-            // No cerrar el modal aquí: el AuthModal muestra el paso "verifica tu email" post-registro.
-            consumePendingCallback();
-            return true;
+            return { ok: true, user: data.user, status };
         },
-        [consumePendingCallback]
+        []
     );
 
     const logout = useCallback(async () => {
