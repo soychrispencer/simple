@@ -42,6 +42,11 @@ export type AdminUserListItem = {
     propiedadesListings: number;
 };
 
+type AdminUserListItemWire = Omit<AdminUserListItem, 'role' | 'status'> & {
+    role: string;
+    status: string;
+};
+
 export type AdminListingListItem = {
     id: string;
     title: string;
@@ -244,6 +249,16 @@ type ApiResponse<T> = {
     error?: string;
 } & T;
 
+function normalizeAdminUserRole(role: string): AdminUserListItem['role'] {
+    if (role === 'admin' || role === 'superadmin') return role;
+    return 'user';
+}
+
+function normalizeAdminUserStatus(status: string): AdminUserListItem['status'] {
+    if (status === 'verified' || status === 'suspended') return status;
+    return 'active';
+}
+
 async function apiRequest<T>(path: string, init?: RequestInit): Promise<{ response: Response; data: ApiResponse<T> | null }> {
     const response = await fetch(`${API_BASE}${path}`, {
         credentials: 'include',
@@ -328,9 +343,13 @@ export async function fetchAdminOverview(): Promise<AdminOverview | null> {
 }
 
 export async function fetchAdminUsers(): Promise<AdminUserListItem[]> {
-    const { response, data } = await apiRequest<{ items?: AdminUserListItem[] }>('/api/admin/users', { method: 'GET' });
+    const { response, data } = await apiRequest<{ items?: AdminUserListItemWire[] }>('/api/admin/users', { method: 'GET' });
     if (!response.ok || !data?.ok || !Array.isArray(data.items)) return [];
-    return data.items;
+    return data.items.map((item) => ({
+        ...item,
+        role: normalizeAdminUserRole(item.role),
+        status: normalizeAdminUserStatus(item.status),
+    }));
 }
 
 export async function fetchAdminListings(): Promise<AdminListingListItem[]> {

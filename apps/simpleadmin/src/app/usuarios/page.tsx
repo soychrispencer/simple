@@ -155,7 +155,7 @@ function UsuariosContent() {
                     filtered.map((user, index) => (
                         <div key={user.id} className="grid grid-cols-[1.2fr_100px_100px_90px_100px_120px] gap-3 px-4 py-3 items-center" style={{ background: 'var(--surface)', borderTop: index ? '1px solid var(--border)' : 'none' }}>
                             <div className="flex items-center gap-3 min-w-0">
-                                <div className="w-8 h-8 rounded-full flex-shrink-0 flex items-center justify-center text-xs font-medium" style={{ background: 'var(--bg-muted)', color: 'var(--fg-muted)' }}>
+                                <div className="w-8 h-8 rounded-full shrink-0 flex items-center justify-center text-xs font-medium" style={{ background: 'var(--bg-muted)', color: 'var(--fg-muted)' }}>
                                     {user.name.split(' ').map((chunk) => chunk[0]).join('').slice(0, 2).toUpperCase()}
                                 </div>
                                 <div className="min-w-0">

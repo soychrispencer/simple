@@ -43,13 +43,13 @@ function SidebarNav({
                         href={item.href}
                         onClick={onNavigate}
                         aria-current={active ? 'page' : undefined}
-                        className={`group relative flex h-11 items-center rounded-[12px] text-sm transition-colors hover:bg-[var(--bg-subtle)] ${
+                        className={`group relative flex h-11 items-center rounded-xl text-sm transition-colors hover:bg-(--bg-subtle) ${
                             collapsed ? 'justify-center px-1.5' : 'gap-2.5 px-2.5'
                         }`}
                         style={{ background: active ? 'var(--bg-subtle)' : 'transparent', color: active ? 'var(--fg)' : 'var(--fg-secondary)' }}
                     >
                         <span
-                            className="w-9 h-9 rounded-[10px] border flex items-center justify-center transition-colors group-hover:border-[var(--border-strong)] group-hover:text-[var(--fg)]"
+                            className="w-9 h-9 rounded-[10px] border flex items-center justify-center transition-colors group-hover:border-(--border-strong) group-hover:text-(--fg)"
                             style={{
                                 borderColor: active ? 'var(--button-primary-border)' : 'var(--border)',
                                 background: active
@@ -75,7 +75,7 @@ function SidebarNav({
                             </span>
                         ) : (
                             <span
-                                className="pointer-events-none absolute left-[calc(100%+10px)] top-1/2 z-[60] -translate-y-1/2 translate-x-1 whitespace-nowrap rounded-[10px] border px-2.5 py-1.5 text-sm font-medium opacity-0 transition-all group-hover:translate-x-0 group-hover:opacity-100 group-focus-visible:translate-x-0 group-focus-visible:opacity-100"
+                                className="pointer-events-none absolute left-[calc(100%+10px)] top-1/2 z-60 -translate-y-1/2 translate-x-1 whitespace-nowrap rounded-[10px] border px-2.5 py-1.5 text-sm font-medium opacity-0 transition-all group-hover:translate-x-0 group-hover:opacity-100 group-focus-visible:translate-x-0 group-focus-visible:opacity-100"
                                 style={{
                                     background: 'var(--surface)',
                                     borderColor: 'var(--border)',
@@ -134,9 +134,9 @@ export function PanelShell({ children }: { children: React.ReactNode }) {
 
     return (
         <div className="flex min-h-[calc(100vh-64px)] w-full">
-            <aside className={`hidden lg:block px-2 pt-3 pb-2 shrink-0 transition-[width] duration-200 ${collapsed ? 'w-[116px]' : 'w-[292px]'}`}>
+            <aside className={`hidden lg:block px-2 pt-3 pb-2 shrink-0 transition-[width] duration-200 ${collapsed ? 'w-29' : 'w-73'}`}>
                 <div
-                    className="sticky top-4 rounded-[16px] border p-3 flex flex-col"
+                    className="sticky top-4 rounded-2xl border p-3 flex flex-col"
                     style={{
                         borderColor: 'var(--border)',
                         background: 'color-mix(in srgb, var(--surface) 92%, transparent)',
@@ -146,7 +146,7 @@ export function PanelShell({ children }: { children: React.ReactNode }) {
                     <div className={`mb-3 flex ${collapsed ? 'justify-center' : 'justify-end'}`}>
                         <button
                             onClick={() => setCollapsed((prev) => !prev)}
-                            className="w-8 h-8 rounded-[10px] flex items-center justify-center border transition-colors hover:bg-[var(--bg-subtle)] hover:border-[var(--border-strong)] hover:text-[var(--fg)]"
+                            className="w-8 h-8 rounded-[10px] flex items-center justify-center border transition-colors hover:bg-(--bg-subtle) hover:border-(--border-strong) hover:text-(--fg)"
                             style={{ borderColor: 'var(--border)', color: 'var(--fg-muted)' }}
                             aria-label={collapsed ? 'Expandir sidebar' : 'Contraer sidebar'}
                         >
@@ -155,7 +155,7 @@ export function PanelShell({ children }: { children: React.ReactNode }) {
                     </div>
 
                     <div
-                        className={`mb-3 rounded-[12px] border ${collapsed ? 'p-1.5 flex justify-center' : 'p-2.5 flex items-center gap-2.5'}`}
+                        className={`mb-3 rounded-xl border ${collapsed ? 'p-1.5 flex justify-center' : 'p-2.5 flex items-center gap-2.5'}`}
                         style={{ borderColor: 'var(--border)' }}
                         title={collapsed ? `${userName} · ${userRoleLabel}` : undefined}
                     >
@@ -185,13 +185,13 @@ export function PanelShell({ children }: { children: React.ReactNode }) {
                     <div className="pt-3 mt-3 border-t" style={{ borderColor: 'var(--border)' }}>
                         <Link
                             href="/ventas"
-                            className={`group flex h-10 items-center rounded-[10px] border transition-colors hover:bg-[var(--bg-subtle)] hover:border-[var(--border-strong)] hover:text-[var(--fg)] ${
+                            className={`group flex h-10 items-center rounded-[10px] border transition-colors hover:bg-(--bg-subtle) hover:border-(--border-strong) hover:text-(--fg) ${
                                 collapsed ? 'justify-center' : 'gap-2 px-2.5'
                             }`}
                             style={{ borderColor: 'var(--border)', color: 'var(--fg-secondary)' }}
                             title={collapsed ? 'Ir al marketplace' : undefined}
                         >
-                            <span className="w-7 h-7 rounded-[8px] flex items-center justify-center bg-[var(--bg-muted)]">
+                            <span className="w-7 h-7 rounded-lg flex items-center justify-center bg-(--bg-muted)">
                                 <IconArrowLeft size={13} stroke={1.9} />
                             </span>
                             {!collapsed ? <span className="text-sm">Ir al marketplace</span> : null}
@@ -209,7 +209,7 @@ export function PanelShell({ children }: { children: React.ReactNode }) {
                     />
                     <aside className="absolute left-0 top-0 h-full w-[min(340px,88vw)] p-3">
                         <div
-                            className="h-full rounded-[16px] border p-3 flex flex-col"
+                            className="h-full rounded-2xl border p-3 flex flex-col"
                             style={{
                                 borderColor: 'var(--border)',
                                 background: 'var(--surface)',
@@ -222,7 +222,7 @@ export function PanelShell({ children }: { children: React.ReactNode }) {
                                 </span>
                                 <button
                                     onClick={() => setMobileOpen(false)}
-                                    className="w-8 h-8 rounded-[10px] flex items-center justify-center border transition-colors hover:bg-[var(--bg-subtle)] hover:border-[var(--border-strong)] hover:text-[var(--fg)]"
+                                    className="w-8 h-8 rounded-[10px] flex items-center justify-center border transition-colors hover:bg-(--bg-subtle) hover:border-(--border-strong) hover:text-(--fg)"
                                     style={{ borderColor: 'var(--border)', color: 'var(--fg-muted)' }}
                                     aria-label="Cerrar menú"
                                 >
@@ -231,7 +231,7 @@ export function PanelShell({ children }: { children: React.ReactNode }) {
                             </div>
 
                             <div
-                                className="mb-3 rounded-[12px] border p-2.5 flex items-center gap-2.5"
+                                className="mb-3 rounded-xl border p-2.5 flex items-center gap-2.5"
                                 style={{ borderColor: 'var(--border)' }}
                             >
                                 <span
@@ -264,10 +264,10 @@ export function PanelShell({ children }: { children: React.ReactNode }) {
                                 <Link
                                     href="/ventas"
                                     onClick={() => setMobileOpen(false)}
-                                    className="group flex h-10 items-center gap-2 rounded-[10px] border px-2.5 transition-colors hover:bg-[var(--bg-subtle)] hover:border-[var(--border-strong)] hover:text-[var(--fg)]"
+                                    className="group flex h-10 items-center gap-2 rounded-[10px] border px-2.5 transition-colors hover:bg-(--bg-subtle) hover:border-(--border-strong) hover:text-(--fg)"
                                     style={{ borderColor: 'var(--border)', color: 'var(--fg-secondary)' }}
                                 >
-                                    <span className="w-7 h-7 rounded-[8px] flex items-center justify-center bg-[var(--bg-muted)]">
+                                    <span className="w-7 h-7 rounded-lg flex items-center justify-center bg-(--bg-muted)">
                                         <IconArrowLeft size={13} stroke={1.9} />
                                     </span>
                                     <span className="text-sm">Ir al marketplace</span>
