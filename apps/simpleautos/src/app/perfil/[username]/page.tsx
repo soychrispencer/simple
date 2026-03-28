@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
+import Image from 'next/image';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import {
@@ -213,7 +214,7 @@ export default function PublicProfilePage() {
 
                         <div className="flex flex-col gap-5 md:flex-row md:items-end">
                             {profile.avatarImageUrl ? (
-                                <img src={profile.avatarImageUrl} alt={profile.name} className="h-24 w-24 rounded-[28px] object-cover ring-1 ring-white/20" />
+                                <Image src={profile.avatarImageUrl} alt={profile.name} width={96} height={96} className="h-24 w-24 rounded-[28px] object-cover ring-1 ring-white/20" />
                             ) : (
                                 <div className="flex h-24 w-24 items-center justify-center rounded-[28px] bg-white/12 text-3xl font-semibold ring-1 ring-white/20 backdrop-blur">
                                     {initials}
@@ -424,7 +425,7 @@ function TeamMemberCard({ member }: { member: PublicProfile['teamMembers'][numbe
         <div className="rounded-[24px] border p-5 space-y-4" style={{ borderColor: 'var(--border)', background: 'var(--surface)' }}>
             <div className="flex items-start gap-4">
                 {member.avatarImageUrl ? (
-                    <img src={member.avatarImageUrl} alt={member.name} className="h-16 w-16 rounded-[20px] object-cover" />
+                    <Image src={member.avatarImageUrl} alt={member.name} width={64} height={64} className="h-16 w-16 rounded-[20px] object-cover" />
                 ) : (
                     <div className="flex h-16 w-16 items-center justify-center rounded-[20px] text-lg font-semibold" style={{ background: 'var(--bg-muted)', color: 'var(--fg-secondary)' }}>
                         {initials}

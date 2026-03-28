@@ -3,6 +3,7 @@ import { execFile } from 'node:child_process';
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { promisify } from 'node:util';
+import { CURATED_VERSION_OPTIONS_BY_MODEL_KEY } from '@/lib/publish-wizard-catalog';
 
 export const runtime = 'nodejs';
 
@@ -155,7 +156,7 @@ function uniqueVersionRows(rows: CarQueryTrim[]) {
         .sort((a, b) => a.name.localeCompare(b.name, 'es'));
 }
 
-async function fetchCarQueryJson(url: string) {
+async function fetchCarQueryJson(url: string): Promise<{ Trims?: CarQueryTrim[] }> {
     try {
         const response = await fetch(url, {
             headers: {
@@ -171,11 +172,15 @@ async function fetchCarQueryJson(url: string) {
         // Fallback below.
     }
 
-    const { stdout } = await execFileAsync('curl.exe', ['-s', '-L', '-A', USER_AGENT, url], {
-        windowsHide: true,
-        maxBuffer: 4 * 1024 * 1024,
-    });
-    return JSON.parse(stdout) as { Trims?: CarQueryTrim[] };
+    try {
+        const { stdout } = await execFileAsync('curl.exe', ['-s', '-L', '-A', USER_AGENT, url], {
+            windowsHide: true,
+            maxBuffer: 4 * 1024 * 1024,
+        });
+        return JSON.parse(stdout) as { Trims?: CarQueryTrim[] };
+    } catch {
+        return { Trims: [] };
+    }
 }
 
 function buildModelCandidates(model: string) {
@@ -262,28 +267,41 @@ export async function GET(request: Request) {
 
     let carQueryVersions: Array<{ id: string; name: string; year?: string }> = [];
     if (!vehicleType || vehicleType === 'car') {
-        for (const candidate of buildModelCandidates(model)) {
-            const payload = await fetchCarQueryJson(
-                `https://www.carqueryapi.com/api/0.3/?cmd=getTrims&make=${encodeURIComponent(brand)}&model=${encodeURIComponent(candidate)}&year=${encodeURIComponent(year)}`
-            );
-            const trims = Array.isArray(payload.Trims) ? payload.Trims : [];
-            carQueryVersions = uniqueVersionRows(trims);
-            if (carQueryVersions.length > 0) break;
+        try {
+            for (const candidate of buildModelCandidates(model)) {
+                const payload = await fetchCarQueryJson(
+                    `https://www.carqueryapi.com/api/0.3/?cmd=getTrims&make=${encodeURIComponent(brand)}&model=${encodeURIComponent(candidate)}&year=${encodeURIComponent(year)}`
+                );
+                const trims = Array.isArray(payload.Trims) ? payload.Trims : [];
+                carQueryVersions = uniqueVersionRows(trims);
+                if (carQueryVersions.length > 0) break;
+            }
+        } catch {
+            // CarQuery unreachable — continue with curated/seed versions.
         }
     }
 
-    const versions = mergeVersionLists(seedVersions, carQueryVersions);
-    const result = {
-        source:
-            versions.length === 0
-                ? 'empty'
-                : seedVersions.length > 0 && carQueryVersions.length > 0
-                  ? 'seed+carquery'
-                  : seedVersions.length > 0
-                    ? 'seed'
-                    : 'carquery',
-        versions,
-    };
+    let versions = mergeVersionLists(seedVersions, carQueryVersions);
+    let source =
+        versions.length === 0
+            ? 'empty'
+            : seedVersions.length > 0 && carQueryVersions.length > 0
+              ? 'seed+carquery'
+              : seedVersions.length > 0
+                ? 'seed'
+                : 'carquery';
+
+    // Fallback: curated Chilean market trims (covers brands not in CarQuery like BYD, Chery, MG, Haval)
+    if (versions.length === 0) {
+        const curatedKey = `${normalizeText(brand)}:${normalizeText(model)}`;
+        const curatedNames = CURATED_VERSION_OPTIONS_BY_MODEL_KEY[curatedKey];
+        if (curatedNames?.length) {
+            versions = curatedNames.map((name) => ({ id: slugify(name), name }));
+            source = 'curated';
+        }
+    }
+
+    const result = { source, versions };
     versionCache.set(cacheKey, result);
 
     return NextResponse.json(result, {

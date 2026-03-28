@@ -212,7 +212,7 @@ export async function renewPanelListing(
 }
 
 export async function fetchPanelListingDraft(
-    vertical: 'autos' | 'propiedades'
+    vertical: 'autos' | 'propiedades' | 'autos-quick'
 ): Promise<{ ok: boolean; draft?: unknown; unauthorized?: boolean; error?: string }> {
     const { status, data } = await apiRequest<DraftResponse>(`/api/listing-draft?vertical=${encodeURIComponent(vertical)}`, {
         method: 'GET',
@@ -223,7 +223,7 @@ export async function fetchPanelListingDraft(
 }
 
 export async function savePanelListingDraft(
-    vertical: 'autos' | 'propiedades',
+    vertical: 'autos' | 'propiedades' | 'autos-quick',
     draft: unknown
 ): Promise<{ ok: boolean; unauthorized?: boolean; error?: string }> {
     const { status, data } = await apiRequest<DraftResponse>(`/api/listing-draft?vertical=${encodeURIComponent(vertical)}`, {
@@ -236,7 +236,7 @@ export async function savePanelListingDraft(
 }
 
 export async function deletePanelListingDraft(
-    vertical: 'autos' | 'propiedades'
+    vertical: 'autos' | 'propiedades' | 'autos-quick'
 ): Promise<{ ok: boolean; unauthorized?: boolean; error?: string }> {
     const { status, data } = await apiRequest<{ ok: boolean; error?: string }>(`/api/listing-draft?vertical=${encodeURIComponent(vertical)}`, {
         method: 'DELETE',

@@ -40,7 +40,7 @@ import {
     refreshInstagramAccessToken,
 } from './instagram.js';
 import { db } from './db/index.js';
-import { eq, and, or, desc, asc, gt, isNull, sql } from 'drizzle-orm';
+import { eq, and, or, desc, asc, gt, lt, gte, lte, isNull, sql } from 'drizzle-orm';
 import {
     users,
     listings,
@@ -62,10 +62,28 @@ import {
     messageThreads,
     messageEntries,
     adCampaigns,
+    agendaProfessionalProfiles,
+    agendaServices,
+    agendaAvailabilityRules,
+    agendaBlockedSlots,
+    agendaClients,
+    agendaAppointments,
+    agendaSessionNotes,
+    agendaPayments,
 } from './db/schema.js';
 import bcrypt from 'bcryptjs';
 import { googleAuth } from '@hono/oauth-providers/google';
 import nodemailer from 'nodemailer';
+import { google } from 'googleapis';
+import cron from 'node-cron';
+import {
+    notifyConfirmation,
+    notifyReminder24h,
+    notifyReminder30min,
+    notifyCancellation,
+    notifyProfessionalNewBooking,
+    sendTestMessage,
+} from './whatsapp.js';
 
 type UserRole = 'user' | 'admin' | 'superadmin';
 type UserStatus = 'active' | 'verified' | 'suspended';
@@ -12790,6 +12808,1083 @@ app.post('/api/social/follows/toggle', async (c) => {
         followees: Array.from(getFollowSetByVertical(user.id, vertical)),
         followers: countFollowers(followeeUserId, vertical),
     });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// SimpleAgenda helpers
+// ─────────────────────────────────────────────────────────────────────────────
+
+async function getAgendaProfile(userId: string) {
+    return db.query.agendaProfessionalProfiles.findFirst({
+        where: eq(agendaProfessionalProfiles.userId, userId),
+    });
+}
+
+/** Generate time slots for a given date based on availability rules and existing appointments */
+function generateSlots(
+    rules: { startTime: string; endTime: string; breakStart?: string | null; breakEnd?: string | null }[],
+    durationMinutes: number,
+    dateMidnight: Date,
+    existingAppts: { startsAt: Date; endsAt: Date }[],
+    blockedSlots: { startsAt: Date; endsAt: Date }[],
+    timezone: string,
+): { startsAt: string; endsAt: string }[] {
+    const slots: { startsAt: string; endsAt: string }[] = [];
+
+    for (const rule of rules) {
+        const [sh, sm] = rule.startTime.split(':').map(Number);
+        const [eh, em] = rule.endTime.split(':').map(Number);
+        let cursor = new Date(dateMidnight);
+        cursor.setHours(sh, sm, 0, 0);
+        const end = new Date(dateMidnight);
+        end.setHours(eh, em, 0, 0);
+
+        let bStart: Date | null = null;
+        let bEnd: Date | null = null;
+        if (rule.breakStart && rule.breakEnd) {
+            const [bsh, bsm] = rule.breakStart.split(':').map(Number);
+            const [beh, bem] = rule.breakEnd.split(':').map(Number);
+            bStart = new Date(dateMidnight);
+            bStart.setHours(bsh, bsm, 0, 0);
+            bEnd = new Date(dateMidnight);
+            bEnd.setHours(beh, bem, 0, 0);
+        }
+
+        while (cursor < end) {
+            const slotEnd = new Date(cursor.getTime() + durationMinutes * 60_000);
+            if (slotEnd > end) break;
+
+            const inBreak = bStart && bEnd && cursor < bEnd && slotEnd > bStart;
+            const clash = existingAppts.some(
+                (a) => cursor < a.endsAt && slotEnd > a.startsAt && !['cancelled', 'no_show'].includes((a as any).status ?? ''),
+            );
+            const blocked = blockedSlots.some((b) => cursor < b.endsAt && slotEnd > b.startsAt);
+            const inPast = cursor <= new Date();
+
+            if (!inBreak && !clash && !blocked && !inPast) {
+                slots.push({ startsAt: cursor.toISOString(), endsAt: slotEnd.toISOString() });
+            }
+            cursor = new Date(cursor.getTime() + durationMinutes * 60_000);
+        }
+    }
+    return slots;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// SimpleAgenda — Professional profile
+// ─────────────────────────────────────────────────────────────────────────────
+
+app.get('/api/agenda/profile', requireVerifiedSession, async (c) => {
+    const user = await authUser(c);
+    if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
+    let profile = await getAgendaProfile(user.id);
+    if (!profile) {
+        // Auto-create on first access
+        const slug = `${user.name.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '')}-${Date.now().toString(36)}`;
+        const [created] = await db.insert(agendaProfessionalProfiles).values({
+            userId: user.id,
+            slug,
+            displayName: user.name,
+        }).returning();
+        profile = created;
+    }
+    return c.json({ ok: true, profile });
+});
+
+app.patch('/api/agenda/profile', requireVerifiedSession, async (c) => {
+    const user = await authUser(c);
+    if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
+    const profile = await getAgendaProfile(user.id);
+    if (!profile) return c.json({ ok: false, error: 'Perfil no encontrado' }, 404);
+
+    const body = await c.req.json().catch(() => ({})) as Record<string, unknown>;
+    const allowed = [
+        'isPublished', 'profession', 'displayName', 'headline', 'bio', 'avatarUrl',
+        'publicEmail', 'publicPhone', 'publicWhatsapp', 'city', 'region', 'address',
+        'currency', 'timezone', 'bookingWindowDays', 'cancellationHours', 'confirmationMode',
+        'encuadre', 'requiresAdvancePayment', 'advancePaymentInstructions',
+        'waNotificationsEnabled', 'waNotifyProfessional', 'waProfessionalPhone',
+        'paymentLinkUrl', 'bankTransferData',
+    ] as const;
+    const patch: Record<string, unknown> = { updatedAt: new Date() };
+    for (const key of allowed) {
+        if (key in body) patch[key] = body[key];
+    }
+
+    const [updated] = await db.update(agendaProfessionalProfiles)
+        .set(patch)
+        .where(eq(agendaProfessionalProfiles.id, profile.id))
+        .returning();
+    return c.json({ ok: true, profile: updated });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// SimpleAgenda — Services
+// ─────────────────────────────────────────────────────────────────────────────
+
+app.get('/api/agenda/services', requireVerifiedSession, async (c) => {
+    const user = await authUser(c);
+    if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
+    const profile = await getAgendaProfile(user.id);
+    if (!profile) return c.json({ ok: true, services: [] });
+    const services = await db.select().from(agendaServices)
+        .where(and(eq(agendaServices.professionalId, profile.id), eq(agendaServices.isActive, true)))
+        .orderBy(asc(agendaServices.position), asc(agendaServices.createdAt));
+    return c.json({ ok: true, services });
+});
+
+app.post('/api/agenda/services', requireVerifiedSession, async (c) => {
+    const user = await authUser(c);
+    if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
+    const profile = await getAgendaProfile(user.id);
+    if (!profile) return c.json({ ok: false, error: 'Perfil no encontrado' }, 404);
+    const body = await c.req.json().catch(() => ({})) as Record<string, unknown>;
+    if (!body.name) return c.json({ ok: false, error: 'El nombre es requerido' }, 400);
+    const [service] = await db.insert(agendaServices).values({
+        professionalId: profile.id,
+        name: String(body.name),
+        description: typeof body.description === 'string' ? body.description : null,
+        durationMinutes: typeof body.durationMinutes === 'number' ? body.durationMinutes : 60,
+        price: typeof body.price === 'string' && body.price ? body.price : null,
+        currency: typeof body.currency === 'string' ? body.currency : profile.currency,
+        isOnline: body.isOnline !== false,
+        isPresential: body.isPresential === true,
+        color: typeof body.color === 'string' ? body.color : null,
+        position: typeof body.position === 'number' ? body.position : 0,
+    }).returning();
+    return c.json({ ok: true, service });
+});
+
+app.put('/api/agenda/services/:id', requireVerifiedSession, async (c) => {
+    const user = await authUser(c);
+    if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
+    const profile = await getAgendaProfile(user.id);
+    if (!profile) return c.json({ ok: false, error: 'Perfil no encontrado' }, 404);
+    const id = c.req.param('id');
+    const body = await c.req.json().catch(() => ({})) as Record<string, unknown>;
+    const patch: Record<string, unknown> = { updatedAt: new Date() };
+    for (const key of ['name', 'description', 'durationMinutes', 'price', 'currency', 'isOnline', 'isPresential', 'color', 'position', 'isActive'] as const) {
+        if (key in body) patch[key] = body[key] === '' ? null : body[key];
+    }
+    const [updated] = await db.update(agendaServices).set(patch)
+        .where(and(eq(agendaServices.id, id), eq(agendaServices.professionalId, profile.id)))
+        .returning();
+    if (!updated) return c.json({ ok: false, error: 'Servicio no encontrado' }, 404);
+    return c.json({ ok: true, service: updated });
+});
+
+app.delete('/api/agenda/services/:id', requireVerifiedSession, async (c) => {
+    const user = await authUser(c);
+    if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
+    const profile = await getAgendaProfile(user.id);
+    if (!profile) return c.json({ ok: false, error: 'Perfil no encontrado' }, 404);
+    const id = c.req.param('id');
+    await db.update(agendaServices).set({ isActive: false, updatedAt: new Date() })
+        .where(and(eq(agendaServices.id, id), eq(agendaServices.professionalId, profile.id)));
+    return c.json({ ok: true });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// SimpleAgenda — Availability
+// ─────────────────────────────────────────────────────────────────────────────
+
+app.get('/api/agenda/availability', requireVerifiedSession, async (c) => {
+    const user = await authUser(c);
+    if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
+    const profile = await getAgendaProfile(user.id);
+    if (!profile) return c.json({ ok: true, rules: [], blockedSlots: [] });
+    const [rules, blockedSlots] = await Promise.all([
+        db.select().from(agendaAvailabilityRules)
+            .where(eq(agendaAvailabilityRules.professionalId, profile.id))
+            .orderBy(asc(agendaAvailabilityRules.dayOfWeek)),
+        db.select().from(agendaBlockedSlots)
+            .where(and(eq(agendaBlockedSlots.professionalId, profile.id), gte(agendaBlockedSlots.endsAt, new Date())))
+            .orderBy(asc(agendaBlockedSlots.startsAt)),
+    ]);
+    return c.json({ ok: true, rules, blockedSlots });
+});
+
+app.post('/api/agenda/availability/rules', requireVerifiedSession, async (c) => {
+    const user = await authUser(c);
+    if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
+    const profile = await getAgendaProfile(user.id);
+    if (!profile) return c.json({ ok: false, error: 'Perfil no encontrado' }, 404);
+    const body = await c.req.json().catch(() => ({})) as Record<string, unknown>;
+    const [rule] = await db.insert(agendaAvailabilityRules).values({
+        professionalId: profile.id,
+        dayOfWeek: Number(body.dayOfWeek),
+        startTime: String(body.startTime ?? '09:00'),
+        endTime: String(body.endTime ?? '18:00'),
+        breakStart: typeof body.breakStart === 'string' ? body.breakStart : null,
+        breakEnd: typeof body.breakEnd === 'string' ? body.breakEnd : null,
+        isActive: body.isActive !== false,
+    }).returning();
+    return c.json({ ok: true, rule });
+});
+
+app.put('/api/agenda/availability/rules/:id', requireVerifiedSession, async (c) => {
+    const user = await authUser(c);
+    if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
+    const profile = await getAgendaProfile(user.id);
+    if (!profile) return c.json({ ok: false, error: 'Perfil no encontrado' }, 404);
+    const id = c.req.param('id');
+    const body = await c.req.json().catch(() => ({})) as Record<string, unknown>;
+    const patch: Record<string, unknown> = { updatedAt: new Date() };
+    for (const key of ['dayOfWeek', 'startTime', 'endTime', 'breakStart', 'breakEnd', 'isActive'] as const) {
+        if (key in body) patch[key] = body[key] === '' ? null : body[key];
+    }
+    const [updated] = await db.update(agendaAvailabilityRules).set(patch)
+        .where(and(eq(agendaAvailabilityRules.id, id), eq(agendaAvailabilityRules.professionalId, profile.id)))
+        .returning();
+    if (!updated) return c.json({ ok: false, error: 'Regla no encontrada' }, 404);
+    return c.json({ ok: true, rule: updated });
+});
+
+app.delete('/api/agenda/availability/rules/:id', requireVerifiedSession, async (c) => {
+    const user = await authUser(c);
+    if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
+    const profile = await getAgendaProfile(user.id);
+    if (!profile) return c.json({ ok: false, error: 'Perfil no encontrado' }, 404);
+    const id = c.req.param('id');
+    await db.delete(agendaAvailabilityRules)
+        .where(and(eq(agendaAvailabilityRules.id, id), eq(agendaAvailabilityRules.professionalId, profile.id)));
+    return c.json({ ok: true });
+});
+
+app.post('/api/agenda/availability/blocked-slots', requireVerifiedSession, async (c) => {
+    const user = await authUser(c);
+    if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
+    const profile = await getAgendaProfile(user.id);
+    if (!profile) return c.json({ ok: false, error: 'Perfil no encontrado' }, 404);
+    const body = await c.req.json().catch(() => ({})) as Record<string, unknown>;
+    const [slot] = await db.insert(agendaBlockedSlots).values({
+        professionalId: profile.id,
+        startsAt: new Date(String(body.startsAt)),
+        endsAt: new Date(String(body.endsAt)),
+        reason: typeof body.reason === 'string' ? body.reason : null,
+    }).returning();
+    return c.json({ ok: true, slot });
+});
+
+app.delete('/api/agenda/availability/blocked-slots/:id', requireVerifiedSession, async (c) => {
+    const user = await authUser(c);
+    if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
+    const profile = await getAgendaProfile(user.id);
+    if (!profile) return c.json({ ok: false, error: 'Perfil no encontrado' }, 404);
+    const id = c.req.param('id');
+    await db.delete(agendaBlockedSlots)
+        .where(and(eq(agendaBlockedSlots.id, id), eq(agendaBlockedSlots.professionalId, profile.id)));
+    return c.json({ ok: true });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// SimpleAgenda — Clients
+// ─────────────────────────────────────────────────────────────────────────────
+
+app.get('/api/agenda/clients', requireVerifiedSession, async (c) => {
+    const user = await authUser(c);
+    if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
+    const profile = await getAgendaProfile(user.id);
+    if (!profile) return c.json({ ok: true, clients: [] });
+    const clients = await db.select().from(agendaClients)
+        .where(eq(agendaClients.professionalId, profile.id))
+        .orderBy(asc(agendaClients.firstName), asc(agendaClients.lastName));
+    return c.json({ ok: true, clients });
+});
+
+app.post('/api/agenda/clients', requireVerifiedSession, async (c) => {
+    const user = await authUser(c);
+    if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
+    const profile = await getAgendaProfile(user.id);
+    if (!profile) return c.json({ ok: false, error: 'Perfil no encontrado' }, 404);
+    const body = await c.req.json().catch(() => ({})) as Record<string, unknown>;
+    if (!body.firstName) return c.json({ ok: false, error: 'El nombre es requerido' }, 400);
+    const [client] = await db.insert(agendaClients).values({
+        professionalId: profile.id,
+        firstName: String(body.firstName),
+        lastName: typeof body.lastName === 'string' ? body.lastName || null : null,
+        email: typeof body.email === 'string' ? body.email || null : null,
+        phone: typeof body.phone === 'string' ? body.phone || null : null,
+        whatsapp: typeof body.whatsapp === 'string' ? body.whatsapp || null : null,
+        rut: typeof body.rut === 'string' ? body.rut || null : null,
+        dateOfBirth: typeof body.dateOfBirth === 'string' ? body.dateOfBirth || null : null,
+        gender: typeof body.gender === 'string' ? body.gender || null : null,
+        occupation: typeof body.occupation === 'string' ? body.occupation || null : null,
+        city: typeof body.city === 'string' ? body.city || null : null,
+        referredBy: typeof body.referredBy === 'string' ? body.referredBy || null : null,
+        internalNotes: typeof body.internalNotes === 'string' ? body.internalNotes || null : null,
+    }).returning();
+    return c.json({ ok: true, client });
+});
+
+app.get('/api/agenda/clients/:id', requireVerifiedSession, async (c) => {
+    const user = await authUser(c);
+    if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
+    const profile = await getAgendaProfile(user.id);
+    if (!profile) return c.json({ ok: false, error: 'Perfil no encontrado' }, 404);
+    const id = c.req.param('id');
+    const client = await db.query.agendaClients.findFirst({
+        where: and(eq(agendaClients.id, id), eq(agendaClients.professionalId, profile.id)),
+    });
+    if (!client) return c.json({ ok: false, error: 'Cliente no encontrado' }, 404);
+    const appointments = await db.select().from(agendaAppointments)
+        .where(and(eq(agendaAppointments.clientId, id), eq(agendaAppointments.professionalId, profile.id)))
+        .orderBy(desc(agendaAppointments.startsAt));
+    return c.json({ ok: true, client, appointments });
+});
+
+app.put('/api/agenda/clients/:id', requireVerifiedSession, async (c) => {
+    const user = await authUser(c);
+    if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
+    const profile = await getAgendaProfile(user.id);
+    if (!profile) return c.json({ ok: false, error: 'Perfil no encontrado' }, 404);
+    const id = c.req.param('id');
+    const body = await c.req.json().catch(() => ({})) as Record<string, unknown>;
+    const patch: Record<string, unknown> = { updatedAt: new Date() };
+    for (const key of ['firstName', 'lastName', 'email', 'phone', 'whatsapp', 'rut', 'dateOfBirth', 'gender', 'occupation', 'address', 'city', 'emergencyContactName', 'emergencyContactPhone', 'referredBy', 'internalNotes', 'status'] as const) {
+        if (key in body) patch[key] = body[key] === '' ? null : body[key];
+    }
+    const [updated] = await db.update(agendaClients).set(patch)
+        .where(and(eq(agendaClients.id, id), eq(agendaClients.professionalId, profile.id)))
+        .returning();
+    if (!updated) return c.json({ ok: false, error: 'Cliente no encontrado' }, 404);
+    return c.json({ ok: true, client: updated });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// SimpleAgenda — Appointments
+// ─────────────────────────────────────────────────────────────────────────────
+
+app.get('/api/agenda/appointments', requireVerifiedSession, async (c) => {
+    const user = await authUser(c);
+    if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
+    const profile = await getAgendaProfile(user.id);
+    if (!profile) return c.json({ ok: true, appointments: [] });
+
+    const fromStr = c.req.query('from');
+    const toStr = c.req.query('to');
+    const conditions = [eq(agendaAppointments.professionalId, profile.id)];
+    if (fromStr) conditions.push(gte(agendaAppointments.startsAt, new Date(fromStr)));
+    if (toStr) conditions.push(lte(agendaAppointments.startsAt, new Date(toStr)));
+
+    const appointments = await db.select().from(agendaAppointments)
+        .where(and(...conditions))
+        .orderBy(asc(agendaAppointments.startsAt));
+    return c.json({ ok: true, appointments });
+});
+
+app.post('/api/agenda/appointments', requireVerifiedSession, async (c) => {
+    const user = await authUser(c);
+    if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
+    const profile = await getAgendaProfile(user.id);
+    if (!profile) return c.json({ ok: false, error: 'Perfil no encontrado' }, 404);
+    const body = await c.req.json().catch(() => ({})) as Record<string, unknown>;
+    if (!body.startsAt) return c.json({ ok: false, error: 'Fecha de inicio requerida' }, 400);
+    const durationMinutes = typeof body.durationMinutes === 'number' ? body.durationMinutes : 60;
+    const startsAt = new Date(String(body.startsAt));
+    const endsAt = new Date(startsAt.getTime() + durationMinutes * 60_000);
+    const [appointment] = await db.insert(agendaAppointments).values({
+        professionalId: profile.id,
+        serviceId: typeof body.serviceId === 'string' ? body.serviceId || null : null,
+        clientId: typeof body.clientId === 'string' ? body.clientId || null : null,
+        clientName: typeof body.clientName === 'string' ? body.clientName || null : null,
+        clientEmail: typeof body.clientEmail === 'string' ? body.clientEmail || null : null,
+        clientPhone: typeof body.clientPhone === 'string' ? body.clientPhone || null : null,
+        startsAt,
+        endsAt,
+        durationMinutes,
+        modality: typeof body.modality === 'string' ? body.modality : 'online',
+        status: 'confirmed',
+        price: typeof body.price === 'string' && body.price ? body.price : null,
+        currency: profile.currency,
+        internalNotes: typeof body.internalNotes === 'string' ? body.internalNotes || null : null,
+    }).returning();
+    return c.json({ ok: true, appointment });
+});
+
+app.put('/api/agenda/appointments/:id', requireVerifiedSession, async (c) => {
+    const user = await authUser(c);
+    if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
+    const profile = await getAgendaProfile(user.id);
+    if (!profile) return c.json({ ok: false, error: 'Perfil no encontrado' }, 404);
+    const id = c.req.param('id');
+    const body = await c.req.json().catch(() => ({})) as Record<string, unknown>;
+    const patch: Record<string, unknown> = { updatedAt: new Date() };
+    if (body.startsAt) {
+        const startsAt = new Date(String(body.startsAt));
+        const durationMinutes = typeof body.durationMinutes === 'number' ? body.durationMinutes : 60;
+        patch.startsAt = startsAt;
+        patch.endsAt = new Date(startsAt.getTime() + durationMinutes * 60_000);
+        patch.durationMinutes = durationMinutes;
+    } else if (body.durationMinutes) {
+        patch.durationMinutes = body.durationMinutes;
+    }
+    for (const key of ['serviceId', 'clientId', 'clientName', 'clientEmail', 'clientPhone', 'modality', 'price', 'internalNotes'] as const) {
+        if (key in body) patch[key] = body[key] === '' ? null : body[key];
+    }
+    const [updated] = await db.update(agendaAppointments).set(patch)
+        .where(and(eq(agendaAppointments.id, id), eq(agendaAppointments.professionalId, profile.id)))
+        .returning();
+    if (!updated) return c.json({ ok: false, error: 'Cita no encontrada' }, 404);
+    return c.json({ ok: true, appointment: updated });
+});
+
+app.patch('/api/agenda/appointments/:id/status', requireVerifiedSession, async (c) => {
+    const user = await authUser(c);
+    if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
+    const profile = await getAgendaProfile(user.id);
+    if (!profile) return c.json({ ok: false, error: 'Perfil no encontrado' }, 404);
+    const id = c.req.param('id');
+    const body = await c.req.json().catch(() => ({})) as Record<string, unknown>;
+    const status = String(body.status ?? '');
+    const allowed = ['pending', 'confirmed', 'completed', 'cancelled', 'no_show'];
+    if (!allowed.includes(status)) return c.json({ ok: false, error: 'Estado inválido' }, 400);
+
+    const patch: Record<string, unknown> = { status, updatedAt: new Date() };
+    if (status === 'cancelled') {
+        patch.cancelledAt = new Date();
+        patch.cancelledBy = 'professional';
+        if (typeof body.cancellationReason === 'string') patch.cancellationReason = body.cancellationReason;
+    }
+
+    const [updated] = await db.update(agendaAppointments).set(patch)
+        .where(and(eq(agendaAppointments.id, id), eq(agendaAppointments.professionalId, profile.id)))
+        .returning();
+    if (!updated) return c.json({ ok: false, error: 'Cita no encontrada' }, 404);
+
+    // Notify cancellation via WhatsApp
+    if (status === 'cancelled') {
+        const phone = updated.clientPhone;
+        if (phone && profile.waNotificationsEnabled) {
+            void notifyCancellation(
+                { clientName: updated.clientName, clientPhone: phone, startsAt: updated.startsAt, endsAt: updated.endsAt },
+                { displayName: profile.displayName, timezone: profile.timezone, cancellationHours: profile.cancellationHours },
+            );
+        }
+    }
+
+    return c.json({ ok: true, appointment: updated });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// SimpleAgenda — Dashboard stats
+// ─────────────────────────────────────────────────────────────────────────────
+
+app.get('/api/agenda/stats', requireVerifiedSession, async (c) => {
+    const user = await authUser(c);
+    if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
+    const profile = await getAgendaProfile(user.id);
+    if (!profile) return c.json({ ok: true, stats: { todayCount: 0, activeClients: 0, pendingPayments: 0, nextAppointment: null } });
+
+    const now = new Date();
+    const todayStart = new Date(now); todayStart.setHours(0, 0, 0, 0);
+    const todayEnd = new Date(now); todayEnd.setHours(23, 59, 59, 999);
+    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+    const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
+
+    const [todayAppts, activeClientsResult, pendingPaymentsResult, nextAppt] = await Promise.all([
+        db.select({ count: sql<number>`count(*)` }).from(agendaAppointments)
+            .where(and(
+                eq(agendaAppointments.professionalId, profile.id),
+                gte(agendaAppointments.startsAt, todayStart),
+                lte(agendaAppointments.startsAt, todayEnd),
+                sql`${agendaAppointments.status} NOT IN ('cancelled', 'no_show')`,
+            )),
+        db.select({ count: sql<number>`count(*)` }).from(agendaClients)
+            .where(and(eq(agendaClients.professionalId, profile.id), eq(agendaClients.status, 'active'))),
+        db.select({ total: sql<string>`coalesce(sum(amount), 0)` }).from(agendaPayments)
+            .where(and(eq(agendaPayments.professionalId, profile.id), eq(agendaPayments.status, 'pending'))),
+        db.select().from(agendaAppointments)
+            .where(and(
+                eq(agendaAppointments.professionalId, profile.id),
+                gte(agendaAppointments.startsAt, now),
+                sql`${agendaAppointments.status} NOT IN ('cancelled', 'no_show')`,
+            ))
+            .orderBy(asc(agendaAppointments.startsAt))
+            .limit(1),
+    ]);
+
+    const pendingPaymentsThisMonth = await db.select({ total: sql<string>`coalesce(sum(amount), 0)` }).from(agendaPayments)
+        .where(and(
+            eq(agendaPayments.professionalId, profile.id),
+            eq(agendaPayments.status, 'pending'),
+            gte(agendaPayments.createdAt, monthStart),
+            lte(agendaPayments.createdAt, monthEnd),
+        ));
+
+    return c.json({
+        ok: true,
+        stats: {
+            todayCount: Number(todayAppts[0]?.count ?? 0),
+            activeClients: Number(activeClientsResult[0]?.count ?? 0),
+            pendingPayments: Number(pendingPaymentsResult[0]?.total ?? 0),
+            nextAppointment: nextAppt[0] ?? null,
+        },
+    });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// SimpleAgenda — Session notes
+// ─────────────────────────────────────────────────────────────────────────────
+
+app.get('/api/agenda/notes/:appointmentId', requireVerifiedSession, async (c) => {
+    const user = await authUser(c);
+    if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
+    const profile = await getAgendaProfile(user.id);
+    if (!profile) return c.json({ ok: false, error: 'Perfil no encontrado' }, 404);
+    const appointmentId = c.req.param('appointmentId');
+    const note = await db.query.agendaSessionNotes.findFirst({
+        where: and(eq(agendaSessionNotes.appointmentId, appointmentId), eq(agendaSessionNotes.professionalId, profile.id)),
+    });
+    return c.json({ ok: true, note: note ?? null });
+});
+
+app.post('/api/agenda/notes', requireVerifiedSession, async (c) => {
+    const user = await authUser(c);
+    if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
+    const profile = await getAgendaProfile(user.id);
+    if (!profile) return c.json({ ok: false, error: 'Perfil no encontrado' }, 404);
+    const body = await c.req.json().catch(() => ({})) as Record<string, unknown>;
+    if (!body.appointmentId || !body.content) return c.json({ ok: false, error: 'appointmentId y content requeridos' }, 400);
+
+    // Verify appointment belongs to this professional
+    const appt = await db.query.agendaAppointments.findFirst({
+        where: and(eq(agendaAppointments.id, String(body.appointmentId)), eq(agendaAppointments.professionalId, profile.id)),
+    });
+    if (!appt) return c.json({ ok: false, error: 'Cita no encontrada' }, 404);
+
+    // Upsert note
+    const existing = await db.query.agendaSessionNotes.findFirst({
+        where: and(eq(agendaSessionNotes.appointmentId, String(body.appointmentId)), eq(agendaSessionNotes.professionalId, profile.id)),
+    });
+
+    let note;
+    if (existing) {
+        const [updated] = await db.update(agendaSessionNotes)
+            .set({ content: String(body.content), updatedAt: new Date() })
+            .where(eq(agendaSessionNotes.id, existing.id))
+            .returning();
+        note = updated;
+    } else {
+        const [created] = await db.insert(agendaSessionNotes).values({
+            appointmentId: String(body.appointmentId),
+            professionalId: profile.id,
+            clientId: appt.clientId ?? null,
+            content: String(body.content),
+        }).returning();
+        note = created;
+    }
+    return c.json({ ok: true, note });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// SimpleAgenda — Payments
+// ─────────────────────────────────────────────────────────────────────────────
+
+app.get('/api/agenda/payments', requireVerifiedSession, async (c) => {
+    const user = await authUser(c);
+    if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
+    const profile = await getAgendaProfile(user.id);
+    if (!profile) return c.json({ ok: true, payments: [] });
+    const payments = await db.select().from(agendaPayments)
+        .where(eq(agendaPayments.professionalId, profile.id))
+        .orderBy(desc(agendaPayments.createdAt));
+    return c.json({ ok: true, payments });
+});
+
+app.post('/api/agenda/payments', requireVerifiedSession, async (c) => {
+    const user = await authUser(c);
+    if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
+    const profile = await getAgendaProfile(user.id);
+    if (!profile) return c.json({ ok: false, error: 'Perfil no encontrado' }, 404);
+    const body = await c.req.json().catch(() => ({})) as Record<string, unknown>;
+    if (!body.amount) return c.json({ ok: false, error: 'El monto es requerido' }, 400);
+    const [payment] = await db.insert(agendaPayments).values({
+        professionalId: profile.id,
+        appointmentId: typeof body.appointmentId === 'string' ? body.appointmentId || null : null,
+        clientId: typeof body.clientId === 'string' ? body.clientId || null : null,
+        amount: String(body.amount),
+        currency: typeof body.currency === 'string' ? body.currency : profile.currency,
+        method: typeof body.method === 'string' ? body.method || null : null,
+        status: typeof body.status === 'string' ? body.status : 'pending',
+        paidAt: body.status === 'paid' ? new Date() : null,
+        notes: typeof body.notes === 'string' ? body.notes || null : null,
+    }).returning();
+    return c.json({ ok: true, payment });
+});
+
+app.patch('/api/agenda/payments/:id', requireVerifiedSession, async (c) => {
+    const user = await authUser(c);
+    if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
+    const profile = await getAgendaProfile(user.id);
+    if (!profile) return c.json({ ok: false, error: 'Perfil no encontrado' }, 404);
+    const id = c.req.param('id');
+    const body = await c.req.json().catch(() => ({})) as Record<string, unknown>;
+    const patch: Record<string, unknown> = { updatedAt: new Date() };
+    for (const key of ['amount', 'method', 'status', 'notes'] as const) {
+        if (key in body) patch[key] = body[key] === '' ? null : body[key];
+    }
+    if (body.status === 'paid' && !body.paidAt) patch.paidAt = new Date();
+    const [updated] = await db.update(agendaPayments).set(patch)
+        .where(and(eq(agendaPayments.id, id), eq(agendaPayments.professionalId, profile.id)))
+        .returning();
+    if (!updated) return c.json({ ok: false, error: 'Cobro no encontrado' }, 404);
+    return c.json({ ok: true, payment: updated });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// SimpleAgenda — Google Calendar
+// ─────────────────────────────────────────────────────────────────────────────
+
+const GOOGLE_CALENDAR_SCOPES = ['https://www.googleapis.com/auth/calendar'];
+
+function getGoogleOAuth2Client() {
+    return new google.auth.OAuth2(
+        process.env.GOOGLE_CLIENT_ID,
+        process.env.GOOGLE_CLIENT_SECRET,
+        `${process.env.API_BASE_URL ?? 'http://localhost:4000'}/api/agenda/google-calendar/callback`,
+    );
+}
+
+app.get('/api/agenda/google-calendar/auth', requireVerifiedSession, async (c) => {
+    const user = await authUser(c);
+    if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
+    const oauth2Client = getGoogleOAuth2Client();
+    const url = oauth2Client.generateAuthUrl({
+        access_type: 'offline',
+        scope: GOOGLE_CALENDAR_SCOPES,
+        state: user.id,
+        prompt: 'consent',
+    });
+    return c.redirect(url);
+});
+
+app.get('/api/agenda/google-calendar/callback', async (c) => {
+    const code = c.req.query('code');
+    const state = c.req.query('state'); // userId
+    if (!code || !state) return c.redirect('/panel/configuracion/integraciones?gc=error');
+    try {
+        const oauth2Client = getGoogleOAuth2Client();
+        const { tokens } = await oauth2Client.getToken(code);
+        oauth2Client.setCredentials(tokens);
+        const calendarApi = google.calendar({ version: 'v3', auth: oauth2Client });
+        const calList = await calendarApi.calendarList.list({ minAccessRole: 'owner' });
+        const primaryCal = calList.data.items?.find((c) => c.primary) ?? calList.data.items?.[0];
+
+        const profile = await db.query.agendaProfessionalProfiles.findFirst({
+            where: eq(agendaProfessionalProfiles.userId, state),
+        });
+        if (!profile) return c.redirect('/panel/configuracion/integraciones?gc=error');
+
+        await db.update(agendaProfessionalProfiles).set({
+            googleCalendarId: primaryCal?.id ?? null,
+            googleAccessToken: tokens.access_token ?? null,
+            googleRefreshToken: tokens.refresh_token ?? null,
+            googleTokenExpiry: tokens.expiry_date ? new Date(tokens.expiry_date) : null,
+            updatedAt: new Date(),
+        }).where(eq(agendaProfessionalProfiles.id, profile.id));
+
+        return c.redirect(`${process.env.AGENDA_APP_URL ?? 'http://localhost:3002'}/panel/configuracion/integraciones?gc=connected`);
+    } catch (e) {
+        console.error('[agenda] Google Calendar callback error:', e);
+        return c.redirect(`${process.env.AGENDA_APP_URL ?? 'http://localhost:3002'}/panel/configuracion/integraciones?gc=error`);
+    }
+});
+
+app.delete('/api/agenda/google-calendar/disconnect', requireVerifiedSession, async (c) => {
+    const user = await authUser(c);
+    if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
+    const profile = await getAgendaProfile(user.id);
+    if (!profile) return c.json({ ok: false, error: 'Perfil no encontrado' }, 404);
+    await db.update(agendaProfessionalProfiles).set({
+        googleCalendarId: null,
+        googleAccessToken: null,
+        googleRefreshToken: null,
+        googleTokenExpiry: null,
+        updatedAt: new Date(),
+    }).where(eq(agendaProfessionalProfiles.id, profile.id));
+    return c.json({ ok: true });
+});
+
+app.get('/api/agenda/google-calendar/status', requireVerifiedSession, async (c) => {
+    const user = await authUser(c);
+    if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
+    const profile = await getAgendaProfile(user.id);
+    const connected = !!(profile?.googleAccessToken);
+    return c.json({ ok: true, connected, calendarId: profile?.googleCalendarId ?? null });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// SimpleAgenda — MercadoPago OAuth
+// ─────────────────────────────────────────────────────────────────────────────
+
+// GET /api/agenda/mercadopago/auth — redirect professional to MP OAuth
+app.get('/api/agenda/mercadopago/auth', requireVerifiedSession, async (c) => {
+    const user = await authUser(c);
+    if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
+    const appId = process.env.MP_AGENDA_APP_ID;
+    if (!appId) return c.json({ ok: false, error: 'MP_AGENDA_APP_ID no configurado' }, 500);
+    const redirectUri = encodeURIComponent(`${process.env.API_BASE_URL ?? 'http://localhost:4000'}/api/agenda/mercadopago/callback`);
+    const state = encodeURIComponent(user.id);
+    const url = `https://auth.mercadopago.cl/authorization?client_id=${appId}&response_type=code&platform_id=mp&state=${state}&redirect_uri=${redirectUri}`;
+    return c.redirect(url);
+});
+
+// GET /api/agenda/mercadopago/callback
+app.get('/api/agenda/mercadopago/callback', async (c) => {
+    const code = c.req.query('code');
+    const state = c.req.query('state'); // userId
+    if (!code || !state) return c.redirect(`${process.env.AGENDA_APP_URL ?? 'http://localhost:3002'}/panel/configuracion/cobros?mp=error`);
+    try {
+        const appId = process.env.MP_AGENDA_APP_ID;
+        const appSecret = process.env.MP_AGENDA_APP_SECRET;
+        if (!appId || !appSecret) return c.redirect(`${process.env.AGENDA_APP_URL ?? 'http://localhost:3002'}/panel/configuracion/cobros?mp=error`);
+
+        const redirectUri = `${process.env.API_BASE_URL ?? 'http://localhost:4000'}/api/agenda/mercadopago/callback`;
+        const tokenRes = await fetch('https://api.mercadopago.com/oauth/token', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+            body: JSON.stringify({
+                client_id: appId,
+                client_secret: appSecret,
+                grant_type: 'authorization_code',
+                code,
+                redirect_uri: redirectUri,
+            }),
+        });
+        if (!tokenRes.ok) throw new Error('MP token exchange failed');
+        const tokens = await tokenRes.json() as { access_token: string; public_key: string; refresh_token?: string; user_id?: number };
+
+        const profile = await db.query.agendaProfessionalProfiles.findFirst({
+            where: eq(agendaProfessionalProfiles.userId, state),
+        });
+        if (!profile) return c.redirect(`${process.env.AGENDA_APP_URL ?? 'http://localhost:3002'}/panel/configuracion/cobros?mp=error`);
+
+        await db.update(agendaProfessionalProfiles).set({
+            mpAccessToken: tokens.access_token,
+            mpPublicKey: tokens.public_key ?? null,
+            mpUserId: tokens.user_id ? String(tokens.user_id) : null,
+            mpRefreshToken: tokens.refresh_token ?? null,
+            updatedAt: new Date(),
+        }).where(eq(agendaProfessionalProfiles.id, profile.id));
+
+        return c.redirect(`${process.env.AGENDA_APP_URL ?? 'http://localhost:3002'}/panel/configuracion/cobros?mp=connected`);
+    } catch (e) {
+        console.error('[agenda] MP OAuth callback error:', e);
+        return c.redirect(`${process.env.AGENDA_APP_URL ?? 'http://localhost:3002'}/panel/configuracion/cobros?mp=error`);
+    }
+});
+
+// DELETE /api/agenda/mercadopago/disconnect
+app.delete('/api/agenda/mercadopago/disconnect', requireVerifiedSession, async (c) => {
+    const user = await authUser(c);
+    if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
+    const profile = await getAgendaProfile(user.id);
+    if (!profile) return c.json({ ok: false, error: 'Perfil no encontrado' }, 404);
+    await db.update(agendaProfessionalProfiles).set({
+        mpAccessToken: null, mpPublicKey: null, mpUserId: null, mpRefreshToken: null, updatedAt: new Date(),
+    }).where(eq(agendaProfessionalProfiles.id, profile.id));
+    return c.json({ ok: true });
+});
+
+// GET /api/agenda/mercadopago/status
+app.get('/api/agenda/mercadopago/status', requireVerifiedSession, async (c) => {
+    const user = await authUser(c);
+    if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
+    const profile = await getAgendaProfile(user.id);
+    return c.json({ ok: true, connected: !!(profile?.mpAccessToken), userId: profile?.mpUserId ?? null });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// SimpleAgenda — WhatsApp test
+// ─────────────────────────────────────────────────────────────────────────────
+
+app.post('/api/agenda/whatsapp/test', requireVerifiedSession, async (c) => {
+    const user = await authUser(c);
+    if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
+    const profile = await getAgendaProfile(user.id);
+    if (!profile) return c.json({ ok: false, error: 'Perfil no encontrado' }, 404);
+    const phone = profile.waProfessionalPhone ?? profile.publicWhatsapp ?? profile.publicPhone;
+    if (!phone) return c.json({ ok: false, error: 'No hay número de WhatsApp configurado' }, 400);
+    try {
+        await sendTestMessage(phone, profile.displayName ?? user.name);
+        return c.json({ ok: true });
+    } catch (e) {
+        console.error('[agenda] WhatsApp test error:', e);
+        return c.json({ ok: false, error: 'Error al enviar mensaje' }, 500);
+    }
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// SimpleAgenda — Public booking
+// ─────────────────────────────────────────────────────────────────────────────
+
+app.get('/api/public/agenda/:slug', async (c) => {
+    const slug = c.req.param('slug');
+    const profile = await db.query.agendaProfessionalProfiles.findFirst({
+        where: and(eq(agendaProfessionalProfiles.slug, slug), eq(agendaProfessionalProfiles.isPublished, true)),
+    });
+    if (!profile) return c.json({ ok: false, error: 'Perfil no encontrado' }, 404);
+    const services = await db.select().from(agendaServices)
+        .where(and(eq(agendaServices.professionalId, profile.id), eq(agendaServices.isActive, true)))
+        .orderBy(asc(agendaServices.position));
+    return c.json({
+        ok: true,
+        profile: {
+            slug: profile.slug,
+            displayName: profile.displayName,
+            profession: profile.profession,
+            headline: profile.headline,
+            bio: profile.bio,
+            avatarUrl: profile.avatarUrl,
+            city: profile.city,
+            publicWhatsapp: profile.publicWhatsapp,
+            timezone: profile.timezone,
+            bookingWindowDays: profile.bookingWindowDays,
+            encuadre: profile.encuadre,
+            requiresAdvancePayment: profile.requiresAdvancePayment,
+            advancePaymentInstructions: profile.advancePaymentInstructions,
+            paymentMethods: {
+                requiresAdvancePayment: profile.requiresAdvancePayment,
+                mpConnected: !!(profile.mpAccessToken),
+                paymentLinkUrl: profile.paymentLinkUrl ?? null,
+                bankTransferData: profile.bankTransferData ?? null,
+            },
+            services,
+        },
+    });
+});
+
+app.get('/api/public/agenda/:slug/slots', async (c) => {
+    const slug = c.req.param('slug');
+    const dateStr = c.req.query('date'); // YYYY-MM-DD
+    const serviceId = c.req.query('serviceId');
+    if (!dateStr) return c.json({ ok: false, error: 'Fecha requerida' }, 400);
+
+    const profile = await db.query.agendaProfessionalProfiles.findFirst({
+        where: and(eq(agendaProfessionalProfiles.slug, slug), eq(agendaProfessionalProfiles.isPublished, true)),
+    });
+    if (!profile) return c.json({ ok: false, error: 'Perfil no encontrado' }, 404);
+
+    const date = new Date(dateStr + 'T00:00:00');
+    const dayOfWeek = date.getDay();
+
+    const rules = await db.select().from(agendaAvailabilityRules)
+        .where(and(
+            eq(agendaAvailabilityRules.professionalId, profile.id),
+            eq(agendaAvailabilityRules.dayOfWeek, dayOfWeek),
+            eq(agendaAvailabilityRules.isActive, true),
+        ));
+    if (rules.length === 0) return c.json({ ok: true, slots: [] });
+
+    // Service duration
+    let durationMinutes = 60;
+    if (serviceId) {
+        const svc = await db.query.agendaServices.findFirst({ where: eq(agendaServices.id, serviceId) });
+        if (svc) durationMinutes = svc.durationMinutes;
+    }
+
+    const dayStart = new Date(dateStr + 'T00:00:00');
+    const dayEnd = new Date(dateStr + 'T23:59:59');
+    const [existingAppts, blockedSlots] = await Promise.all([
+        db.select().from(agendaAppointments)
+            .where(and(
+                eq(agendaAppointments.professionalId, profile.id),
+                gte(agendaAppointments.startsAt, dayStart),
+                lte(agendaAppointments.startsAt, dayEnd),
+                sql`${agendaAppointments.status} NOT IN ('cancelled', 'no_show')`,
+            )),
+        db.select().from(agendaBlockedSlots)
+            .where(and(
+                eq(agendaBlockedSlots.professionalId, profile.id),
+                lt(agendaBlockedSlots.startsAt, dayEnd),
+                gte(agendaBlockedSlots.endsAt, dayStart),
+            )),
+    ]);
+
+    const slots = generateSlots(rules, durationMinutes, dayStart, existingAppts, blockedSlots, profile.timezone);
+    return c.json({ ok: true, slots });
+});
+
+app.post('/api/public/agenda/:slug/book', async (c) => {
+    const slug = c.req.param('slug');
+    const profile = await db.query.agendaProfessionalProfiles.findFirst({
+        where: and(eq(agendaProfessionalProfiles.slug, slug), eq(agendaProfessionalProfiles.isPublished, true)),
+    });
+    if (!profile) return c.json({ ok: false, error: 'Perfil no encontrado' }, 404);
+
+    const body = await c.req.json().catch(() => ({})) as Record<string, unknown>;
+    if (!body.startsAt || !body.clientName) return c.json({ ok: false, error: 'Datos requeridos: startsAt, clientName' }, 400);
+
+    let durationMinutes = 60;
+    let serviceId: string | null = null;
+    let price: string | null = null;
+    if (typeof body.serviceId === 'string' && body.serviceId) {
+        const svc = await db.query.agendaServices.findFirst({ where: eq(agendaServices.id, body.serviceId) });
+        if (svc) { durationMinutes = svc.durationMinutes; serviceId = svc.id; price = svc.price ?? null; }
+    }
+
+    const startsAt = new Date(String(body.startsAt));
+    const endsAt = new Date(startsAt.getTime() + durationMinutes * 60_000);
+    const status = profile.confirmationMode === 'auto' ? 'confirmed' : 'pending';
+
+    const [appointment] = await db.insert(agendaAppointments).values({
+        professionalId: profile.id,
+        serviceId,
+        clientName: String(body.clientName),
+        clientEmail: typeof body.clientEmail === 'string' ? body.clientEmail || null : null,
+        clientPhone: typeof body.clientPhone === 'string' ? body.clientPhone || null : null,
+        clientNotes: typeof body.clientNotes === 'string' ? body.clientNotes || null : null,
+        startsAt,
+        endsAt,
+        durationMinutes,
+        modality: typeof body.modality === 'string' ? body.modality : 'online',
+        status,
+        price,
+        currency: profile.currency,
+        policyAgreed: body.policyAgreed === true,
+        policyAgreedAt: body.policyAgreed === true ? new Date() : null,
+        paymentStatus: profile.requiresAdvancePayment ? 'pending' : 'not_required',
+    }).returning();
+
+    // WhatsApp: confirm to client
+    const clientPhone = typeof body.clientPhone === 'string' ? body.clientPhone : null;
+    if (status === 'confirmed' && clientPhone && profile.waNotificationsEnabled) {
+        void notifyConfirmation(
+            { clientName: String(body.clientName), clientPhone, startsAt, endsAt },
+            { displayName: profile.displayName, timezone: profile.timezone, cancellationHours: profile.cancellationHours },
+        );
+    }
+
+    // WhatsApp: alert professional
+    if (profile.waNotifyProfessional) {
+        const profPhone = profile.waProfessionalPhone ?? profile.publicWhatsapp ?? profile.publicPhone;
+        if (profPhone) {
+            void notifyProfessionalNewBooking(
+                profPhone,
+                { displayName: profile.displayName, timezone: profile.timezone, cancellationHours: profile.cancellationHours },
+                { clientName: String(body.clientName), clientPhone, startsAt, endsAt },
+            );
+        }
+    }
+
+    // If requiresAdvancePayment AND professional has MP connected → create checkout preference
+    let checkoutUrl: string | null = null;
+    if (profile.requiresAdvancePayment && profile.mpAccessToken && price) {
+        try {
+            const baseUrl = process.env.AGENDA_APP_URL ?? 'http://localhost:3002';
+            const pref = await createCheckoutPreference({
+                externalReference: appointment.id,
+                title: `Sesión con ${profile.displayName ?? 'el profesional'}`,
+                amount: parseFloat(price),
+                currencyId: profile.currency,
+                payerEmail: typeof body.clientEmail === 'string' && body.clientEmail ? body.clientEmail : 'paciente@simpleagenda.app',
+                payerName: String(body.clientName),
+                backUrls: {
+                    success: `${baseUrl}/${slug}?payment=success&appt=${appointment.id}`,
+                    failure: `${baseUrl}/${slug}?payment=failure&appt=${appointment.id}`,
+                    pending: `${baseUrl}/${slug}?payment=pending&appt=${appointment.id}`,
+                },
+                accessToken: profile.mpAccessToken,
+            });
+            checkoutUrl = pref.initPoint;
+        } catch (e) {
+            console.error('[agenda] MP checkout creation error:', e);
+        }
+    }
+
+    return c.json({
+        ok: true,
+        appointment: {
+            id: appointment.id,
+            status: appointment.status,
+            startsAt: appointment.startsAt,
+            paymentStatus: appointment.paymentStatus,
+        },
+        checkoutUrl,
+        paymentMethods: {
+            mpConnected: !!(profile.mpAccessToken),
+            paymentLinkUrl: profile.paymentLinkUrl ?? null,
+            bankTransferData: profile.bankTransferData ?? null,
+            requiresAdvancePayment: profile.requiresAdvancePayment,
+        },
+    });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// SimpleAgenda — WhatsApp reminder cron jobs
+// ─────────────────────────────────────────────────────────────────────────────
+
+// Every 5 minutes: check for appointments that need 24h reminder
+cron.schedule('*/5 * * * *', async () => {
+    try {
+        const now = new Date();
+        const windowStart = new Date(now.getTime() + 23 * 60 * 60 * 1000);
+        const windowEnd = new Date(now.getTime() + 25 * 60 * 60 * 1000);
+
+        const appts = await db.select({
+            appt: agendaAppointments,
+            prof: agendaProfessionalProfiles,
+        })
+            .from(agendaAppointments)
+            .innerJoin(agendaProfessionalProfiles, eq(agendaAppointments.professionalId, agendaProfessionalProfiles.id))
+            .where(and(
+                gte(agendaAppointments.startsAt, windowStart),
+                lte(agendaAppointments.startsAt, windowEnd),
+                sql`${agendaAppointments.status} IN ('confirmed', 'pending')`,
+                isNull(agendaAppointments.reminderSentAt),
+                sql`${agendaProfessionalProfiles.waNotificationsEnabled} = true`,
+            ));
+
+        for (const { appt, prof } of appts) {
+            if (!appt.clientPhone) continue;
+            await notifyReminder24h(
+                { clientName: appt.clientName, clientPhone: appt.clientPhone, startsAt: appt.startsAt, endsAt: appt.endsAt },
+                { displayName: prof.displayName, timezone: prof.timezone, cancellationHours: prof.cancellationHours },
+            );
+            await db.update(agendaAppointments)
+                .set({ reminderSentAt: now })
+                .where(eq(agendaAppointments.id, appt.id));
+        }
+    } catch (e) {
+        console.error('[agenda] 24h reminder cron error:', e);
+    }
+});
+
+// Every 5 minutes: check for appointments that need 30min reminder
+cron.schedule('*/5 * * * *', async () => {
+    try {
+        const now = new Date();
+        const windowStart = new Date(now.getTime() + 25 * 60 * 1000);
+        const windowEnd = new Date(now.getTime() + 35 * 60 * 1000);
+
+        const appts = await db.select({
+            appt: agendaAppointments,
+            prof: agendaProfessionalProfiles,
+        })
+            .from(agendaAppointments)
+            .innerJoin(agendaProfessionalProfiles, eq(agendaAppointments.professionalId, agendaProfessionalProfiles.id))
+            .where(and(
+                gte(agendaAppointments.startsAt, windowStart),
+                lte(agendaAppointments.startsAt, windowEnd),
+                sql`${agendaAppointments.status} IN ('confirmed', 'pending')`,
+                isNull(agendaAppointments.reminder30minSentAt),
+                sql`${agendaProfessionalProfiles.waNotificationsEnabled} = true`,
+            ));
+
+        for (const { appt, prof } of appts) {
+            if (!appt.clientPhone) continue;
+            await notifyReminder30min(
+                { clientName: appt.clientName, clientPhone: appt.clientPhone, startsAt: appt.startsAt, endsAt: appt.endsAt },
+                { displayName: prof.displayName, timezone: prof.timezone, cancellationHours: prof.cancellationHours },
+            );
+            await db.update(agendaAppointments)
+                .set({ reminder30minSentAt: now })
+                .where(eq(agendaAppointments.id, appt.id));
+        }
+    } catch (e) {
+        console.error('[agenda] 30min reminder cron error:', e);
+    }
 });
 
 const port = Number(process.env.PORT ?? 4000);

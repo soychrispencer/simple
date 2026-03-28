@@ -92,11 +92,17 @@ export async function createCheckoutPreference(input: {
         pending: string;
     };
     metadata?: Record<string, unknown>;
+    accessToken?: string; // professional's own MP token
 }): Promise<{ id: string; initPoint: string | null; sandboxInitPoint: string | null }> {
-    const payload = await requestMercadoPago<MercadoPagoPreferenceResponse>('/checkout/preferences', {
+    const idempotencyKey = input.externalReference;
+    const headers: HeadersInit = input.accessToken
+        ? { Accept: 'application/json', Authorization: `Bearer ${input.accessToken}`, 'Content-Type': 'application/json', ...(idempotencyKey ? { 'X-Idempotency-Key': idempotencyKey } : {}) }
+        : getHeaders(idempotencyKey);
+
+    const response = await fetch(`${MERCADO_PAGO_API_BASE}/checkout/preferences`, {
         method: 'POST',
-        idempotencyKey: input.externalReference,
-        body: {
+        headers,
+        body: JSON.stringify({
             items: [
                 {
                     title: input.title,
@@ -114,8 +120,14 @@ export async function createCheckoutPreference(input: {
             auto_return: 'approved',
             external_reference: input.externalReference,
             metadata: input.metadata ?? {},
-        },
+        }),
     });
+
+    const responsePayload = await response.json().catch(() => null);
+    if (!response.ok) {
+        throw new Error(extractErrorMessage(responsePayload, response.status));
+    }
+    const payload = responsePayload as MercadoPagoPreferenceResponse;
 
     return {
         id: payload.id,

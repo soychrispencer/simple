@@ -4,6 +4,10 @@ import * as schema from './schema';
 
 const databaseUrl = process.env.DATABASE_URL?.trim();
 
+if (!databaseUrl && !process.env.PGPASSWORD && process.env.NODE_ENV === 'production') {
+    throw new Error('DATABASE_URL or PGPASSWORD is required in production');
+}
+
 const client = databaseUrl
   ? postgres(databaseUrl)
   : postgres({

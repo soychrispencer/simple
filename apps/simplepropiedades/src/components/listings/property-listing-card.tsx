@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState, type CSSProperties } from 'react';
+import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import {
     IconBookmark,
@@ -198,7 +199,7 @@ export default function PropertyListingCard({ data, mode }: Props) {
     };
 
     const sellerAvatar = data.sellerAvatarUrl ? (
-        <img src={data.sellerAvatarUrl} alt={data.sellerName} className="w-7 h-7 rounded-full object-cover" />
+        <Image src={data.sellerAvatarUrl} alt={data.sellerName} width={28} height={28} className="w-7 h-7 rounded-full object-cover" />
     ) : (
         <div
             className="w-7 h-7 rounded-full flex items-center justify-center text-[10px] font-semibold"

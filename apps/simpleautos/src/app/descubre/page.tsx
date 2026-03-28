@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useRef, useState } from 'react';
+import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import {
     IconBookmark,
@@ -250,7 +251,7 @@ export default function FeedPage() {
                                             className="inline-flex items-center gap-2 min-w-0 h-9 px-2.5 rounded-lg border border-white/25 bg-black/30 text-white backdrop-blur"
                                         >
                                             {clip.author.avatar ? (
-                                                <img src={clip.author.avatar} alt={clip.author.name} className="w-6 h-6 rounded-full object-cover" />
+                                                <Image src={clip.author.avatar} alt={clip.author.name} width={24} height={24} className="w-6 h-6 rounded-full object-cover" />
                                             ) : (
                                                 <span className="w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-semibold bg-white/20">
                                                     {authorInitial(clip.author.name)}

@@ -490,7 +490,7 @@ h4 {
     padding: 0 14px;
     border-radius: var(--radius);
     font-size: var(--text-sm);
-    background: var(--bg-subtle);
+    background-color: var(--bg-subtle);
     color: var(--fg);
     border: 1px solid var(--border);
     outline: none;
@@ -509,7 +509,7 @@ h4 {
 .form-textarea:focus-visible {
     border-color: var(--field-focus-border);
     box-shadow: inset 0 0 0 1px var(--field-focus-border);
-    background: var(--surface);
+    background-color: var(--surface);
 }
 
 .form-textarea {

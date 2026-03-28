@@ -1,5 +1,5 @@
 import { sql } from 'drizzle-orm';
-import { pgTable, uuid, varchar, text, timestamp, jsonb, decimal, integer, boolean, uniqueIndex } from 'drizzle-orm/pg-core';
+import { pgTable, uuid, varchar, text, timestamp, jsonb, decimal, integer, boolean, uniqueIndex, index } from 'drizzle-orm/pg-core';
 
 // Users table
 export const users = pgTable('users', {
@@ -356,3 +356,218 @@ export const adCampaigns = pgTable('ad_campaigns', {
   createdAt: timestamp('created_at').notNull().defaultNow(),
   updatedAt: timestamp('updated_at').notNull().defaultNow(),
 });
+
+// ─────────────────────────────────────────────────────────────────────────────
+// SimpleAgenda tables
+// ─────────────────────────────────────────────────────────────────────────────
+
+// Professional profile — one per user (the practitioner using SimpleAgenda)
+export const agendaProfessionalProfiles = pgTable('agenda_professional_profiles', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  userId: uuid('user_id').references(() => users.id).notNull(),
+  slug: varchar('slug', { length: 255 }).notNull(), // e.g. "dra-maria-gonzalez"
+  isPublished: boolean('is_published').notNull().default(false),
+  profession: varchar('profession', { length: 100 }), // e.g. "Psicóloga", "Nutricionista"
+  displayName: varchar('display_name', { length: 160 }),
+  headline: varchar('headline', { length: 255 }),
+  bio: text('bio'),
+  avatarUrl: varchar('avatar_url', { length: 500 }),
+  coverUrl: varchar('cover_url', { length: 500 }),
+  publicEmail: varchar('public_email', { length: 255 }),
+  publicPhone: varchar('public_phone', { length: 30 }),
+  publicWhatsapp: varchar('public_whatsapp', { length: 30 }),
+  city: varchar('city', { length: 100 }),
+  region: varchar('region', { length: 100 }),
+  address: varchar('address', { length: 255 }),
+  currency: varchar('currency', { length: 10 }).notNull().default('CLP'),
+  timezone: varchar('timezone', { length: 50 }).notNull().default('America/Santiago'),
+  bookingWindowDays: integer('booking_window_days').notNull().default(30), // how far in advance clients can book
+  cancellationHours: integer('cancellation_hours').notNull().default(24),  // min hours notice to cancel
+  confirmationMode: varchar('confirmation_mode', { length: 20 }).notNull().default('auto'), // 'auto' | 'manual'
+  // Encuadre & advance payment
+  encuadre: text('encuadre'), // Policy text shown to client at booking (e.g. no-show = no refund)
+  requiresAdvancePayment: boolean('requires_advance_payment').notNull().default(false),
+  advancePaymentInstructions: text('advance_payment_instructions'), // Bank transfer info, etc.
+  // WhatsApp notification preferences
+  waNotificationsEnabled: boolean('wa_notifications_enabled').notNull().default(true),
+  waNotifyProfessional: boolean('wa_notify_professional').notNull().default(true),
+  waProfessionalPhone: varchar('wa_professional_phone', { length: 30 }),
+  // Google Calendar integration
+  googleCalendarId: varchar('google_calendar_id', { length: 255 }),
+  googleAccessToken: text('google_access_token'),
+  googleRefreshToken: text('google_refresh_token'),
+  googleTokenExpiry: timestamp('google_token_expiry'),
+  // MercadoPago OAuth (professional's own account)
+  mpAccessToken: text('mp_access_token'),
+  mpPublicKey: varchar('mp_public_key', { length: 255 }),
+  mpUserId: varchar('mp_user_id', { length: 100 }),
+  mpRefreshToken: text('mp_refresh_token'),
+  // Payment link (any URL)
+  paymentLinkUrl: varchar('payment_link_url', { length: 500 }),
+  // Bank transfer (structured jsonb)
+  bankTransferData: jsonb('bank_transfer_data').$type<{
+    bank: string;
+    accountType: string;
+    accountNumber: string;
+    holderName: string;
+    holderRut: string;
+    holderEmail: string;
+    alias?: string;
+  } | null>(),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+  updatedAt: timestamp('updated_at').notNull().defaultNow(),
+}, (table) => ({
+  uniqueSlug: uniqueIndex('agenda_profiles_slug_idx').on(table.slug),
+  uniqueUser: uniqueIndex('agenda_profiles_user_id_idx').on(table.userId),
+}));
+
+// Services / session types offered by the professional
+export const agendaServices = pgTable('agenda_services', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  professionalId: uuid('professional_id').references(() => agendaProfessionalProfiles.id).notNull(),
+  name: varchar('name', { length: 160 }).notNull(), // e.g. "Consulta individual"
+  description: text('description'),
+  durationMinutes: integer('duration_minutes').notNull().default(60),
+  price: decimal('price', { precision: 10, scale: 2 }),
+  currency: varchar('currency', { length: 10 }).notNull().default('CLP'),
+  isOnline: boolean('is_online').notNull().default(true),
+  isPresential: boolean('is_presential').notNull().default(false),
+  color: varchar('color', { length: 20 }), // for calendar UI differentiation
+  isActive: boolean('is_active').notNull().default(true),
+  position: integer('position').notNull().default(0),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+  updatedAt: timestamp('updated_at').notNull().defaultNow(),
+}, (table) => ({
+  professionalIdx: index('agenda_services_professional_idx').on(table.professionalId),
+}));
+
+// Weekly availability rules (e.g. Mon-Fri 9:00-18:00 with 13:00-14:00 break)
+export const agendaAvailabilityRules = pgTable('agenda_availability_rules', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  professionalId: uuid('professional_id').references(() => agendaProfessionalProfiles.id).notNull(),
+  dayOfWeek: integer('day_of_week').notNull(), // 0=Sunday, 1=Monday ... 6=Saturday
+  startTime: varchar('start_time', { length: 5 }).notNull(), // "09:00"
+  endTime: varchar('end_time', { length: 5 }).notNull(),     // "18:00"
+  breakStart: varchar('break_start', { length: 5 }), // "13:00" optional
+  breakEnd: varchar('break_end', { length: 5 }),     // "14:00" optional
+  isActive: boolean('is_active').notNull().default(true),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+  updatedAt: timestamp('updated_at').notNull().defaultNow(),
+}, (table) => ({
+  professionalIdx: index('agenda_availability_professional_idx').on(table.professionalId),
+}));
+
+// Manual blocked slots (vacations, personal time, one-off blocks)
+export const agendaBlockedSlots = pgTable('agenda_blocked_slots', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  professionalId: uuid('professional_id').references(() => agendaProfessionalProfiles.id).notNull(),
+  startsAt: timestamp('starts_at').notNull(),
+  endsAt: timestamp('ends_at').notNull(),
+  reason: varchar('reason', { length: 255 }), // internal label, not shown to clients
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+}, (table) => ({
+  professionalIdx: index('agenda_blocked_slots_professional_idx').on(table.professionalId),
+}));
+
+// Clients / patients managed by the professional
+export const agendaClients = pgTable('agenda_clients', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  professionalId: uuid('professional_id').references(() => agendaProfessionalProfiles.id).notNull(),
+  firstName: varchar('first_name', { length: 100 }).notNull(),
+  lastName: varchar('last_name', { length: 100 }),
+  email: varchar('email', { length: 255 }),
+  phone: varchar('phone', { length: 30 }),
+  whatsapp: varchar('whatsapp', { length: 30 }),
+  rut: varchar('rut', { length: 20 }), // Chilean national ID
+  dateOfBirth: varchar('date_of_birth', { length: 10 }), // ISO date "YYYY-MM-DD"
+  gender: varchar('gender', { length: 20 }),
+  occupation: varchar('occupation', { length: 100 }),
+  address: varchar('address', { length: 255 }),
+  city: varchar('city', { length: 100 }),
+  emergencyContactName: varchar('emergency_contact_name', { length: 160 }),
+  emergencyContactPhone: varchar('emergency_contact_phone', { length: 30 }),
+  referredBy: varchar('referred_by', { length: 160 }),
+  internalNotes: text('internal_notes'),
+  tags: jsonb('tags').$type<string[]>().default([]),
+  status: varchar('status', { length: 20 }).notNull().default('active'), // 'active' | 'inactive' | 'archived'
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+  updatedAt: timestamp('updated_at').notNull().defaultNow(),
+}, (table) => ({
+  professionalIdx: index('agenda_clients_professional_idx').on(table.professionalId),
+}));
+
+// Appointments / bookings
+export const agendaAppointments = pgTable('agenda_appointments', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  professionalId: uuid('professional_id').references(() => agendaProfessionalProfiles.id).notNull(),
+  serviceId: uuid('service_id').references(() => agendaServices.id),
+  clientId: uuid('client_id').references(() => agendaClients.id),
+  // Client info for walk-ins / public booking (may not have a client record yet)
+  clientName: varchar('client_name', { length: 160 }),
+  clientEmail: varchar('client_email', { length: 255 }),
+  clientPhone: varchar('client_phone', { length: 30 }),
+  startsAt: timestamp('starts_at').notNull(),
+  endsAt: timestamp('ends_at').notNull(),
+  durationMinutes: integer('duration_minutes').notNull(),
+  modality: varchar('modality', { length: 20 }).notNull().default('online'), // 'online' | 'presential'
+  meetingUrl: varchar('meeting_url', { length: 500 }), // Zoom/Meet link
+  location: varchar('location', { length: 255 }), // for presential
+  status: varchar('status', { length: 20 }).notNull().default('confirmed'), // 'pending' | 'confirmed' | 'cancelled' | 'completed' | 'no_show'
+  price: decimal('price', { precision: 10, scale: 2 }),
+  currency: varchar('currency', { length: 10 }).notNull().default('CLP'),
+  internalNotes: text('internal_notes'),
+  clientNotes: text('client_notes'), // message from client at booking time
+  cancelledAt: timestamp('cancelled_at'),
+  cancelledBy: varchar('cancelled_by', { length: 20 }), // 'professional' | 'client'
+  cancellationReason: text('cancellation_reason'),
+  reminderSentAt: timestamp('reminder_sent_at'),       // 24h reminder
+  reminder30minSentAt: timestamp('reminder_30min_sent_at'), // 30min reminder
+  // Policy agreement (encuadre)
+  policyAgreed: boolean('policy_agreed').notNull().default(false),
+  policyAgreedAt: timestamp('policy_agreed_at'),
+  // Google Calendar
+  googleEventId: varchar('google_event_id', { length: 255 }),
+  // Payment tracking
+  paymentStatus: varchar('payment_status', { length: 20 }).notNull().default('not_required'), // 'not_required' | 'pending' | 'paid' | 'refunded'
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+  updatedAt: timestamp('updated_at').notNull().defaultNow(),
+}, (table) => ({
+  professionalIdx: index('agenda_appointments_professional_idx').on(table.professionalId),
+  startsAtIdx: index('agenda_appointments_starts_at_idx').on(table.startsAt),
+  clientIdx: index('agenda_appointments_client_idx').on(table.clientId),
+}));
+
+// Session notes (clinical notes per appointment)
+export const agendaSessionNotes = pgTable('agenda_session_notes', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  appointmentId: uuid('appointment_id').references(() => agendaAppointments.id).notNull(),
+  professionalId: uuid('professional_id').references(() => agendaProfessionalProfiles.id).notNull(),
+  clientId: uuid('client_id').references(() => agendaClients.id),
+  content: text('content').notNull(),
+  rawData: jsonb('raw_data'), // structured fields if needed per profession
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+  updatedAt: timestamp('updated_at').notNull().defaultNow(),
+}, (table) => ({
+  uniqueAppointment: uniqueIndex('agenda_notes_appointment_idx').on(table.appointmentId),
+  professionalIdx: index('agenda_notes_professional_idx').on(table.professionalId),
+}));
+
+// Payment records per appointment
+export const agendaPayments = pgTable('agenda_payments', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  professionalId: uuid('professional_id').references(() => agendaProfessionalProfiles.id).notNull(),
+  appointmentId: uuid('appointment_id').references(() => agendaAppointments.id),
+  clientId: uuid('client_id').references(() => agendaClients.id),
+  amount: decimal('amount', { precision: 10, scale: 2 }).notNull(),
+  currency: varchar('currency', { length: 10 }).notNull().default('CLP'),
+  method: varchar('method', { length: 30 }), // 'transfer' | 'cash' | 'card' | 'mercadopago'
+  status: varchar('status', { length: 20 }).notNull().default('pending'), // 'pending' | 'paid' | 'refunded' | 'waived'
+  externalId: varchar('external_id', { length: 255 }), // MercadoPago payment ID
+  paidAt: timestamp('paid_at'),
+  notes: text('notes'),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+  updatedAt: timestamp('updated_at').notNull().defaultNow(),
+}, (table) => ({
+  professionalIdx: index('agenda_payments_professional_idx').on(table.professionalId),
+  appointmentIdx: index('agenda_payments_appointment_idx').on(table.appointmentId),
+}));

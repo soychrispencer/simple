@@ -1,0 +1,19 @@
+@import "../../../../packages/ui/src/theme-base.css";
+@import "tailwindcss";
+
+:root {
+    --accent: #0D9488;
+    --accent-subtle: rgba(13, 148, 136, 0.12);
+    --accent-soft: rgba(13, 148, 136, 0.06);
+    --accent-border: rgba(13, 148, 136, 0.22);
+    --accent-contrast: #ffffff;
+}
+
+.dark,
+[data-theme="dark"] {
+    --accent: #0D9488;
+    --accent-subtle: rgba(13, 148, 136, 0.18);
+    --accent-soft: rgba(13, 148, 136, 0.10);
+    --accent-border: rgba(13, 148, 136, 0.34);
+    --accent-contrast: #ffffff;
+}

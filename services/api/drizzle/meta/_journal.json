@@ -127,6 +127,41 @@
       "when": 1773876032385,
       "tag": "0017_mature_harpoon",
       "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1742860800000,
+      "tag": "0018_performance_indexes",
+      "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1742947200000,
+      "tag": "0019_simpleagenda_tables",
+      "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "7",
+      "when": 1743033600000,
+      "tag": "0020_simpleagenda_integrations",
+      "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "7",
+      "when": 1743120000000,
+      "tag": "0021_agenda_reminder_30min",
+      "breakpoints": true
+    },
+    {
+      "idx": 22,
+      "version": "7",
+      "when": 1743206400000,
+      "tag": "0022_agenda_wa_prefs",
+      "breakpoints": true
     }
   ]
 }

@@ -7,6 +7,7 @@ import { IconClock, IconEye, IconHeart, IconMapPin, IconUser } from '@tabler/ico
 import { PublicBreadcrumbs } from '@/components/layout/public-breadcrumbs';
 import PublicListingContactCard from '@/components/listings/public-listing-contact-card';
 import { fetchPublicListing, type PublicListing } from '@/lib/public-listings';
+import { buildPropertyJsonLd, JsonLd } from '@/lib/schema';
 import { PanelBlockHeader, PanelCard, PanelNotice, PanelStatusBadge } from '@simple/ui';
 
 export default function PropertyDetailPage() {
@@ -29,6 +30,7 @@ export default function PropertyDetailPage() {
 
     return (
         <div className="container-app py-8">
+            {item && <JsonLd data={buildPropertyJsonLd(item)} />}
             <PublicBreadcrumbs
                 className="mb-6 flex items-center gap-1.5 text-sm"
                 items={[

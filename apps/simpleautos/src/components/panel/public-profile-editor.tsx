@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
+import Image from 'next/image';
 import Link from 'next/link';
 import {
     IconAt,
@@ -627,7 +628,7 @@ export default function PublicProfileEditor() {
                                             <div className="flex items-center gap-3">
                                                 <div className="inline-flex h-11 w-11 items-center justify-center rounded-2xl overflow-hidden" style={{ background: 'var(--bg-muted)', color: 'var(--fg-secondary)' }}>
                                                     {member.avatarImageUrl ? (
-                                                        <img src={member.avatarImageUrl} alt={member.name} className="h-full w-full object-cover" />
+                                                        <Image src={member.avatarImageUrl} alt={member.name} width={44} height={44} className="h-full w-full object-cover" />
                                                     ) : (
                                                         <IconUsersGroup size={18} />
                                                     )}

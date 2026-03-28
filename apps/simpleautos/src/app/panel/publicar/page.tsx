@@ -22,8 +22,15 @@ import {
     IconSparkles,
     IconTruck,
 } from '@tabler/icons-react';
+import { ColorPicker, VEHICLE_COLORS } from '@/components/ui/color-picker';
 import PanelSectionHeader from '@/components/panel/panel-section-header';
+import QuickPublishFlow from '@/components/quick-publish/QuickPublishFlow';
+import { generateListingText } from '@/actions/generate-listing-text';
+import type { QuickBasicData } from '@/components/quick-publish/types';
 import ModernSelect, { type ModernSelectOption } from '@/components/ui/modern-select';
+import Step1Photos from '@/components/quick-publish/Step1Photos';
+import Step2BasicData from '@/components/quick-publish/Step2BasicData';
+import { processQuickFile } from '@/lib/quick-image-utils';
 import { useAuth } from '@/context/auth-context';
 import { getPublicationLifecyclePolicy, type PublicationLifecyclePolicy } from '@simple/config';
 import {
@@ -161,8 +168,8 @@ const AUTO_MEDIA_GUIDE_SLOTS = [
     { key: 'interior', label: 'Interior' },
     { key: 'seats', label: 'Asientos' },
     { key: 'engine', label: 'Motor' },
-    { key: 'details', label: 'Detalles' },
-    { key: 'cluster', label: 'Kilometraje' },
+    { key: 'detail', label: 'Detalles' },
+    { key: 'km', label: 'Kilometraje' },
 ] as const;
 
 const STEPS: Array<{ id: StepId; label: string; helper: string }> = [
@@ -224,15 +231,10 @@ const VEHICLE_FEATURE_SECTIONS: Partial<Record<VehicleCatalogType, Array<{ title
 };
 
 const CONDITION_OPTIONS = [
-    { value: 'new', label: 'Nuevo' },
-    { value: 'demo', label: 'Demo' },
-    { value: 'seminuevo', label: 'Seminuevo / Certificado' },
-    { value: 'used', label: 'Usado' },
-    { value: 'restored', label: 'Restaurado' },
-    { value: 'accident', label: 'Siniestrado' },
-    { value: 'to-repair', label: 'Para reparar' },
-    { value: 'parts', label: 'Solo repuestos' },
-    { value: 'classic', label: 'Clásico' },
+    { value: 'Nuevo', label: 'Nuevo' },
+    { value: 'Seminuevo', label: 'Seminuevo' },
+    { value: 'Usado', label: 'Usado' },
+    { value: 'Para reparar', label: 'Para reparar' },
 ];
 const CAR_BODY_TYPES = ['Sedán', 'SUV', 'Hatchback', 'Pickup', 'Station Wagon', 'Coupé', 'Convertible', 'Liftback', 'Crossover', 'Van', 'Minivan', 'Motorhome'];
 const BODY_TYPE_OPTIONS_BY_VEHICLE: Record<VehicleCatalogType, string[]> = {
@@ -261,62 +263,11 @@ const BODY_TYPE_LABELS: Record<VehicleCatalogType, string> = {
     nautical: 'Tipo de embarcación',
     aerial: 'Tipo de aeronave',
 };
-const FUEL_OPTIONS = ['Bencina', 'Diésel', 'Híbrido', 'Híbrido enchufable', 'Eléctrico', 'Gas'];
-const TRANSMISSION_OPTIONS = ['Manual', 'Automática', 'Semi-automática', 'CVT', 'Doble embrague', 'Otra'];
+const FUEL_OPTIONS = ['Bencina', 'Diésel', 'Eléctrico', 'Híbrido', 'Gas', 'Otro'];
+const TRANSMISSION_OPTIONS = ['Manual', 'Automática', 'CVT'];
 const TRACTION_OPTIONS = ['FWD', 'RWD', 'AWD', '4WD'];
-const YEAR_OPTIONS = Array.from({ length: new Date().getFullYear() - 1899 + 1 }, (_, index) => String(new Date().getFullYear() + 1 - index));
-const VEHICLE_COLOR_OPTIONS: ModernSelectOption[] = [
-    { value: 'Blanco', label: 'Blanco', swatchColor: '#FFFFFF' },
-    { value: 'Blanco perla', label: 'Blanco perla', swatchColor: '#F6F2EA' },
-    { value: 'Marfil', label: 'Marfil', swatchColor: '#FFF8E7' },
-    { value: 'Crema', label: 'Crema', swatchColor: '#FFF4D6' },
-    { value: 'Beige', label: 'Beige', swatchColor: '#D9C3A5' },
-    { value: 'Arena', label: 'Arena', swatchColor: '#CDBA96' },
-    { value: 'Champagne', label: 'Champagne', swatchColor: '#D8C6A6' },
-    { value: 'Dorado', label: 'Dorado', swatchColor: '#C9A227' },
-    { value: 'Bronce', label: 'Bronce', swatchColor: '#CD7F32' },
-    { value: 'Cobre', label: 'Cobre', swatchColor: '#B87333' },
-    { value: 'Plata', label: 'Plata', swatchColor: '#C0C0C0' },
-    { value: 'Gris', label: 'Gris', swatchColor: '#808080' },
-    { value: 'Gris claro', label: 'Gris claro', swatchColor: '#D3D3D3' },
-    { value: 'Gris oscuro', label: 'Gris oscuro', swatchColor: '#4F4F4F' },
-    { value: 'Grafito', label: 'Grafito', swatchColor: '#3F444A' },
-    { value: 'Antracita', label: 'Antracita', swatchColor: '#293133' },
-    { value: 'Negro', label: 'Negro', swatchColor: '#111111' },
-    { value: 'Negro perla', label: 'Negro perla', swatchColor: '#1B1B1B' },
-    { value: 'Café', label: 'Café', swatchColor: '#6F4E37' },
-    { value: 'Marrón', label: 'Marrón', swatchColor: '#7B4B2A' },
-    { value: 'Chocolate', label: 'Chocolate', swatchColor: '#5C3317' },
-    { value: 'Rojo', label: 'Rojo', swatchColor: '#C1121F' },
-    { value: 'Rojo cereza', label: 'Rojo cereza', swatchColor: '#B80F3A' },
-    { value: 'Rojo vino', label: 'Rojo vino', swatchColor: '#722F37' },
-    { value: 'Burdeo', label: 'Burdeo', swatchColor: '#800020' },
-    { value: 'Granate', label: 'Granate', swatchColor: '#6D071A' },
-    { value: 'Naranjo', label: 'Naranjo', swatchColor: '#F97316' },
-    { value: 'Naranja quemado', label: 'Naranja quemado', swatchColor: '#CC5500' },
-    { value: 'Amarillo', label: 'Amarillo', swatchColor: '#FACC15' },
-    { value: 'Mostaza', label: 'Mostaza', swatchColor: '#C99700' },
-    { value: 'Verde', label: 'Verde', swatchColor: '#2E8B57' },
-    { value: 'Verde lima', label: 'Verde lima', swatchColor: '#84CC16' },
-    { value: 'Verde oliva', label: 'Verde oliva', swatchColor: '#556B2F' },
-    { value: 'Verde botella', label: 'Verde botella', swatchColor: '#006A4E' },
-    { value: 'Verde oscuro', label: 'Verde oscuro', swatchColor: '#1B4332' },
-    { value: 'Turquesa', label: 'Turquesa', swatchColor: '#40E0D0' },
-    { value: 'Aguamarina', label: 'Aguamarina', swatchColor: '#7FFFD4' },
-    { value: 'Celeste', label: 'Celeste', swatchColor: '#87CEEB' },
-    { value: 'Azul', label: 'Azul', swatchColor: '#2563EB' },
-    { value: 'Azul claro', label: 'Azul claro', swatchColor: '#60A5FA' },
-    { value: 'Azul eléctrico', label: 'Azul eléctrico', swatchColor: '#007FFF' },
-    { value: 'Azul oscuro', label: 'Azul oscuro', swatchColor: '#1D4ED8' },
-    { value: 'Azul marino', label: 'Azul marino', swatchColor: '#1E3A8A' },
-    { value: 'Azul petróleo', label: 'Azul petróleo', swatchColor: '#1F5A75' },
-    { value: 'Morado', label: 'Morado', swatchColor: '#6B21A8' },
-    { value: 'Violeta', label: 'Violeta', swatchColor: '#7C3AED' },
-    { value: 'Lila', label: 'Lila', swatchColor: '#C4B5FD' },
-    { value: 'Rosado', label: 'Rosado', swatchColor: '#F472B6' },
-    { value: 'Bicolor', label: 'Bicolor', swatchColor: 'linear-gradient(135deg, #111111 0%, #111111 48%, #FFFFFF 52%, #FFFFFF 100%)' },
-    { value: 'Otro', label: 'Otro', swatchColor: 'linear-gradient(135deg, #94A3B8 0%, #E2E8F0 100%)' },
-];
+const YEAR_OPTIONS = Array.from({ length: new Date().getFullYear() - 1989 + 1 }, (_, index) => String(new Date().getFullYear() + 1 - index));
+const VEHICLE_COLOR_OPTIONS: ModernSelectOption[] = VEHICLE_COLORS.map(c => ({ value: c.label, label: c.label, swatchColor: c.hex }));
 
 type SpecificFieldInput = 'text' | 'number' | 'select' | 'date';
 type DynamicFieldScope = 'basic' | 'specific' | 'complementary';
@@ -1242,6 +1193,12 @@ export default function PublishWizardPage() {
     const [refreshingSources, setRefreshingSources] = useState(false);
     const [versionOptions, setVersionOptions] = useState<Array<{ id: string; name: string }>>([]);
     const [versionOptionsLoading, setVersionOptionsLoading] = useState(false);
+    const [generatingText, setGeneratingText] = useState(false);
+    const [fichaOpen, setFichaOpen] = useState<Record<string, boolean>>({
+        photos: true, mediaDocs: false, setup: true, identification: true,
+        specs: false, history: false, equipment: false, ad: true,
+        price: true, location: true, valuation: false, publication: false,
+    });
     const dataRef = useRef<WizardData>(data);
     const estimateRef = useRef<VehicleValuationEstimate | null>(estimate);
     const stepIndex = STEPS.findIndex((item) => item.id === step);
@@ -1391,9 +1348,10 @@ export default function PublishWizardPage() {
             ? data.basic.customModel.trim()
             : catalog?.models.find((item) => item.id === data.basic.modelId)?.name || '';
         const title = [brand, model, data.basic.year.trim(), data.basic.bodyType.trim(), data.basic.color.trim()].filter(Boolean).join(' ');
-        if (data.basic.title === title) return;
+        if (dataRef.current.basic.title === title) return;
         setData((current) => ({ ...current, basic: { ...current.basic, title } }));
-    }, [catalog, data.basic.brandId, data.basic.customBrand, data.basic.modelId, data.basic.customModel, data.basic.year, data.basic.bodyType, data.basic.color, data.basic.title]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [catalog, data.basic.brandId, data.basic.customBrand, data.basic.modelId, data.basic.customModel, data.basic.year, data.basic.bodyType, data.basic.color]);
 
     useEffect(() => {
         const nextSlug = slugify(data.basic.title);
@@ -1529,6 +1487,52 @@ export default function PublishWizardPage() {
             : 'Fuentes actualizadas correctamente.');
     };
 
+    const handleGenerateText = async () => {
+        const names = resolveCatalogNames(catalog, data);
+        const qbd: QuickBasicData = {
+            listingType: data.setup.listingType,
+            vehicleType: data.setup.vehicleType,
+            brandId: data.basic.brandId,
+            customBrand: data.basic.customBrand,
+            brandName: names.brand,
+            modelId: data.basic.modelId,
+            customModel: data.basic.customModel,
+            modelName: names.model,
+            year: data.basic.year,
+            version: data.basic.version,
+            mileage: data.basic.mileage,
+            price: data.commercial.price,
+            offerPrice: data.commercial.offerPrice,
+            offerPriceMode: '$',
+            transmission: data.basic.transmission,
+            color: data.basic.color,
+            bodyType: data.basic.bodyType,
+            fuelType: data.basic.fuelType,
+            condition: data.basic.condition,
+            negotiable: data.commercial.negotiable,
+            financingAvailable: data.commercial.financingAvailable,
+            traction: data.basic.traction,
+            ownerCount: data.basic.complementary.owners_count || '',
+        };
+        setGeneratingText(true);
+        try {
+            const result = await generateListingText(qbd);
+            setData((current) => ({
+                ...current,
+                basic: {
+                    ...current.basic,
+                    ...(result.titulo ? { title: result.titulo } : {}),
+                    ...(result.descripcion ? { description: result.descripcion } : {}),
+                    ...(result.colorDetectado ? { color: result.colorDetectado } : {}),
+                },
+            }));
+        } catch {
+            // ignore
+        } finally {
+            setGeneratingText(false);
+        }
+    };
+
     const publishNow = async () => {
         for (const stepItem of STEPS) {
             const stepErrors = validateStep(stepItem.id, data);
@@ -1613,147 +1617,672 @@ export default function PublishWizardPage() {
     };
 
     return (
-        <div className="container-app panel-page max-w-6xl py-8">
+        <div className="container-app panel-page max-w-3xl py-8">
             <PanelSectionHeader
-                title={isEditing ? 'Editar vehículo' : 'Publicar vehículo'}
-                description={`Paso ${stepIndex + 1} de ${STEPS.length}`}
+                title={isEditing ? "Editar vehículo" : "Publicar vehículo"}
+                description={isEditing ? "Revisa y actualiza todos los datos de tu publicación." : "Sube fotos, ingresa los datos y publica en segundos."}
                 actions={
-                    <div className="flex items-center gap-2">
-                        {draftSavedNote ? (
-                            <span className="rounded-lg border px-2.5 h-9 inline-flex items-center text-xs" style={{ borderColor: 'var(--border)', color: 'var(--fg-secondary)' }}>
-                                {draftSavedNote}
-                            </span>
-                        ) : null}
-                        <PanelButton type="button" variant="secondary" size="sm" onClick={() => void saveDraft(true)}>
-                            <IconDeviceFloppy size={14} />
-                            Guardar borrador
-                        </PanelButton>
-                    </div>
+                    isEditing ? (
+                        <div className="flex items-center gap-2">
+                            {draftSavedNote ? (
+                                <span className="rounded-lg border px-2.5 h-9 inline-flex items-center text-xs" style={{ borderColor: 'var(--border)', color: 'var(--fg-secondary)' }}>
+                                    {draftSavedNote}
+                                </span>
+                            ) : null}
+                            <PanelButton type="button" variant="secondary" size="sm" onClick={() => void saveDraft(true)}>
+                                <IconDeviceFloppy size={14} />
+                                Guardar borrador
+                            </PanelButton>
+                        </div>
+                    ) : null
                 }
             />
 
-            {message ? <PanelNotice className="mb-4">{message}</PanelNotice> : null}
-            {storageError ? <PanelNotice tone="error" className="mb-3">{storageError}</PanelNotice> : null}
-            {catalogLoading ? <p className="mb-4 text-xs" style={{ color: 'var(--fg-muted)' }}>Cargando marcas/modelos y regiones/comunas...</p> : null}
-            {editingLoading ? <PanelNotice tone="neutral" className="mb-4">Cargando publicación para editar...</PanelNotice> : null}
+            {isEditing && (
+                <>
+                    {message ? <PanelNotice className="mb-4">{message}</PanelNotice> : null}
+                    {storageError ? <PanelNotice tone="error" className="mb-3">{storageError}</PanelNotice> : null}
+                    {catalogLoading ? <p className="mb-4 text-xs" style={{ color: 'var(--fg-muted)' }}>Cargando catálogo...</p> : null}
+                    {editingLoading ? <PanelNotice tone="neutral" className="mb-4">Cargando publicación...</PanelNotice> : null}
+                </>
+            )}
 
-            <PanelCard className="mb-6" size="md">
-                <div className="flex flex-col gap-4">
-                    <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
-                        <div className="min-w-0">
-                            <p className="text-xs uppercase tracking-[0.18em]" style={{ color: 'var(--fg-muted)' }}>
-                                Publicación guiada
-                            </p>
-                            <h2 className="text-xl font-semibold mt-1" style={{ color: 'var(--fg)' }}>
-                                {currentStep.label}
-                            </h2>
-                            <p className="text-sm mt-1" style={{ color: 'var(--fg-secondary)' }}>
-                                {currentStep.helper}
-                            </p>
+            <div className="flex flex-col gap-3">
+                {/* FOTOS - UNIFICADAS CON QUICKPUBLISH */}
+                <FichaGroup label="Fotos y multimedia" />
+                <FichaSection
+                    title="Fotos del vehículo"
+                    description="Mínimo 1, máximo 20 fotos."
+                    open={fichaOpen.photos}
+                    onToggle={() => setFichaOpen((s) => ({ ...s, photos: !s.photos }))}
+                >
+                    <Step1Photos
+                        isExtended
+                        photos={data.media.photos}
+                        onAddPhotos={async (files) => {
+                            const arr = Array.from(files);
+                            const processed = await Promise.all(arr.map((file) => processQuickFile(file, false)));
+                            setData((cur) => ({ ...cur, media: { ...cur.media, photos: [...cur.media.photos, ...processed] } }));
+                            return false;
+                        }}
+                        onRemovePhoto={(id) => {
+                            setData((cur) => ({ ...cur, media: { ...cur.media, photos: cur.media.photos.filter((p) => p.id !== id) } }));
+                        }}
+                        onReorderPhotos={(activeId, overId) => {
+                            setData((cur) => {
+                                const newPhotos = [...cur.media.photos];
+                                const idxA = newPhotos.findIndex((p) => p.id === activeId);
+                                const idxB = newPhotos.findIndex((p) => p.id === overId);
+                                if (idxA !== -1 && idxB !== -1) {
+                                    const [item] = newPhotos.splice(idxA, 1);
+                                    newPhotos.splice(idxB, 0, item);
+                                }
+                                return { ...cur, media: { ...cur.media, photos: newPhotos } };
+                            });
+                        }}
+                    />
+                </FichaSection>
+
+                <FichaSection
+                    title="Video y documentos"
+                    description="Video externo, clip para Descubre y documentación adjunta."
+                    open={fichaOpen.mediaDocs}
+                    onToggle={() => setFichaOpen((s) => ({ ...s, mediaDocs: !s.mediaDocs }))}
+                >
+                    <div className="space-y-4">
+                        <Field label="Video del aviso" error={errors['media.videoUrl']}>
+                            <input
+                                className="form-input"
+                                placeholder="https://www.youtube.com/... o https://vimeo.com/..."
+                                value={data.media.videoUrl}
+                                onChange={(event) => setData((current) => ({ ...current, media: { ...current.media, videoUrl: event.target.value } }))}
+                            />
+                            <p className="text-xs mt-1" style={{ color: 'var(--fg-muted)' }}>Solo YouTube o Vimeo.</p>
+                        </Field>
+                        <PanelVideoUploader
+                            asset={data.media.discoverVideo}
+                            onChange={(discoverVideo) => setData((current) => ({ ...current, media: { ...current.media, discoverVideo } }))}
+                            title="Clip para Descubre"
+                            description=""
+                            helperText="MP4, WEBM o MOV · hasta 10 MB · 9:16."
+                        />
+                        <PanelDocumentUploader
+                            items={data.media.documents}
+                            onChange={(documents) => setData((current) => ({ ...current, media: { ...current.media, documents } }))}
+                            title="Documentos y PDF"
+                            description="Papeles, informes, catálogos o documentación."
+                        />
+                    </div>
+                </FichaSection>
+
+                {/* DATOS - UNIFICADOS CON QUICKPUBLISH */}
+                <FichaGroup label="Datos principales" />
+                <FichaSection
+                    title="Información básica"
+                    description="Operación, categoría e identificación del vehículo."
+                    open={fichaOpen.setup}
+                    onToggle={() => setFichaOpen((s) => ({ ...s, setup: !s.setup }))}
+                >
+                    <Step2BasicData
+                        isExtended
+                        initialData={{
+                            listingType: data.setup.listingType,
+                            vehicleType: data.setup.vehicleType,
+                            brandId: data.basic.brandId,
+                            customBrand: data.basic.customBrand || '',
+                            brandName: '', // Wizard looks up inside using catalog
+                            modelId: data.basic.modelId,
+                            customModel: data.basic.customModel || '',
+                            modelName: '',
+                            year: data.basic.year,
+                            version: data.basic.version,
+                            mileage: data.basic.mileage,
+                            price: data.commercial.price,
+                            offerPrice: data.commercial.offerPrice,
+                            offerPriceMode: '$',
+                            transmission: data.basic.transmission,
+                            color: data.basic.color,
+                            bodyType: data.basic.bodyType,
+                            fuelType: data.basic.fuelType,
+                            condition: data.basic.condition,
+                            negotiable: data.commercial.negotiable,
+                            financingAvailable: data.commercial.financingAvailable,
+                            traction: data.basic.traction || '',
+                            ownerCount: data.basic.complementary.owners_count || '',
+                        }}
+                        onChange={(updated) => {
+                            setData((cur) => {
+                                // Sincronizar espejos de categoría (e.g. bodyType se asigna a type en base a category)
+                                const mirrorField = BODY_TYPE_SPECIFIC_MIRRORS[updated.vehicleType];
+                                return {
+                                    ...cur,
+                                    setup: {
+                                        ...cur.setup,
+                                        listingType: updated.listingType,
+                                        vehicleType: updated.vehicleType,
+                                    },
+                                    basic: {
+                                        ...cur.basic,
+                                        brandId: updated.brandId,
+                                        customBrand: updated.customBrand || '',
+                                        modelId: updated.modelId,
+                                        customModel: updated.customModel || '',
+                                        year: updated.year,
+                                        version: updated.version,
+                                        versionMode: updated.version ? 'catalog' : 'manual',
+                                        mileage: updated.mileage,
+                                        transmission: updated.transmission,
+                                        color: updated.color,
+                                        bodyType: updated.bodyType,
+                                        fuelType: updated.fuelType,
+                                        condition: updated.condition,
+                                        traction: updated.traction || '',
+                                        specific: mirrorField ? { ...cur.basic.specific, [mirrorField]: updated.bodyType } : cur.basic.specific,
+                                        complementary: {
+                                            ...cur.basic.complementary,
+                                            owners_count: updated.ownerCount || '',
+                                        }
+                                    }
+                                };
+                            });
+                        }}
+                    />
+                </FichaSection>
+
+                {getSpecificFields(data.setup.vehicleType).length > 0 ? (
+                    <FichaSection
+                        title="Especificaciones técnicas"
+                        description="Datos específicos según el tipo de vehículo."
+                        open={fichaOpen.specs}
+                        onToggle={() => setFichaOpen((s) => ({ ...s, specs: !s.specs }))}
+                    >
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                            {getSpecificFields(data.setup.vehicleType).map((field) => (
+                                <Field key={field.id} label={field.label} required={!!field.required} error={errors[`basic.specific.${field.id}`]}>
+                                    {field.input === 'select' ? (
+                                        <ModernSelect
+                                            value={getFieldValue(data, field)}
+                                            onChange={(value) => updateDynamicFieldValue(setData, field, value)}
+                                            placeholder="Seleccionar"
+                                            options={getDynamicSelectOptions(field)}
+                                            ariaLabel={`Seleccionar ${field.label}`}
+                                        />
+                                    ) : (
+                                        <input
+                                            className="form-input"
+                                            type={field.input}
+                                            placeholder={field.placeholder}
+                                            value={getFieldValue(data, field)}
+                                            onChange={(event) => updateDynamicFieldValue(setData, field, event.target.value)}
+                                        />
+                                    )}
+                                </Field>
+                            ))}
                         </div>
-                        <div className="w-full md:max-w-xs">
-                            <div className="flex items-center justify-between text-xs mb-1" style={{ color: 'var(--fg-muted)' }}>
-                                <span>Progreso</span>
-                                <span>{Math.round(((stepIndex + 1) / STEPS.length) * 100)}%</span>
+                    </FichaSection>
+                ) : null}
+
+                <FichaSection
+                    title="Antecedentes"
+                    description="Historial declarado y estado documental del vehículo."
+                    open={fichaOpen.history}
+                    onToggle={() => setFichaOpen((s) => ({ ...s, history: !s.history }))}
+                >
+                    <div className="space-y-4">
+                        {getComplementaryFields(data.setup.vehicleType, 'legal').length > 0 && (
+                            <div>
+                                <p className="text-xs font-semibold uppercase tracking-[0.08em] mb-2" style={{ color: 'var(--fg-muted)' }}>Documentación y legal</p>
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                    {getComplementaryFields(data.setup.vehicleType, 'legal').map((field) => (
+                                        <Field key={field.id} label={field.label}>
+                                            {field.input === 'select' ? (
+                                                <ModernSelect
+                                                    value={getFieldValue(data, field)}
+                                                    onChange={(value) => updateDynamicFieldValue(setData, field, value)}
+                                                    placeholder="Seleccionar"
+                                                    options={getDynamicSelectOptions(field)}
+                                                    ariaLabel={`Seleccionar ${field.label}`}
+                                                />
+                                            ) : (
+                                                <input
+                                                    className="form-input"
+                                                    type={field.input}
+                                                    placeholder={field.placeholder}
+                                                    value={getFieldValue(data, field)}
+                                                    disabled={field.id === 'tinted_windows_ftrl_details' && data.basic.complementary.tinted_windows_ftrl_certified !== 'Sí'}
+                                                    onChange={(event) => updateDynamicFieldValue(setData, field, event.target.value)}
+                                                />
+                                            )}
+                                        </Field>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+                        {getComplementaryFields(data.setup.vehicleType, 'history').length > 0 && (
+                            <div>
+                                <p className="text-xs font-semibold uppercase tracking-[0.08em] mb-2" style={{ color: 'var(--fg-muted)' }}>Historial declarado</p>
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                    {getComplementaryFields(data.setup.vehicleType, 'history').map((field) => (
+                                        <Field key={field.id} label={field.label}>
+                                            {field.input === 'select' ? (
+                                                <ModernSelect
+                                                    value={getFieldValue(data, field)}
+                                                    onChange={(value) => updateDynamicFieldValue(setData, field, value)}
+                                                    placeholder="Seleccionar"
+                                                    options={getDynamicSelectOptions(field)}
+                                                    ariaLabel={`Seleccionar ${field.label}`}
+                                                />
+                                            ) : (
+                                                <input
+                                                    className="form-input"
+                                                    type={field.input}
+                                                    placeholder={field.placeholder}
+                                                    value={getFieldValue(data, field)}
+                                                    onChange={(event) => updateDynamicFieldValue(setData, field, event.target.value)}
+                                                />
+                                            )}
+                                        </Field>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                </FichaSection>
+
+                <FichaSection
+                    title="Equipamiento"
+                    description="Extras y asistencias disponibles según la categoría."
+                    open={fichaOpen.equipment}
+                    onToggle={() => setFichaOpen((s) => ({ ...s, equipment: !s.equipment }))}
+                >
+                    <div className="space-y-4">
+                        <div className="flex flex-wrap items-center gap-2 rounded-2xl border px-3 py-3" style={{ borderColor: 'var(--border)', background: 'var(--bg-subtle)' }}>
+                            <span className="text-xs uppercase tracking-[0.08em]" style={{ color: 'var(--fg-muted)' }}>Seleccionados</span>
+                            <span className="text-sm font-medium">{data.specs.featureCodes.length}</span>
+                            {data.specs.featureCodes.length > 0 ? (
+                                <span className="text-xs" style={{ color: 'var(--fg-secondary)' }}>
+                                    {getFeatureSections(data.setup.vehicleType).flatMap((section) => section.items).filter((item) => data.specs.featureCodes.includes(item.code)).slice(0, 4).map((item) => item.label).join(', ')}
+                                    {data.specs.featureCodes.length > 4 ? '…' : ''}
+                                </span>
+                            ) : (
+                                <span className="text-xs" style={{ color: 'var(--fg-secondary)' }}>Selecciona los extras que realmente tiene este vehículo.</span>
+                            )}
+                        </div>
+                        <div className="space-y-4">
+                            {getFeatureSections(data.setup.vehicleType).map((section) => (
+                                <div key={section.title} className="space-y-2">
+                                    <div className="flex items-center justify-between gap-3">
+                                        <p className="text-sm font-semibold">{section.title}</p>
+                                        <span className="text-xs" style={{ color: 'var(--fg-muted)' }}>
+                                            {section.items.filter((item) => data.specs.featureCodes.includes(item.code)).length} / {section.items.length}
+                                        </span>
+                                    </div>
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-2">
+                                        {section.items.map((item) => (
+                                            <SelectableChip
+                                                key={item.code}
+                                                label={item.label}
+                                                active={data.specs.featureCodes.includes(item.code)}
+                                                onToggle={() =>
+                                                    setData((current) => ({
+                                                        ...current,
+                                                        specs: {
+                                                            ...current.specs,
+                                                            featureCodes: current.specs.featureCodes.includes(item.code)
+                                                                ? current.specs.featureCodes.filter((code) => code !== item.code)
+                                                                : [...current.specs.featureCodes, item.code],
+                                                        },
+                                                    }))
+                                                }
+                                            />
+                                        ))}
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                        <Field label="Notas técnicas">
+                            <textarea
+                                className="form-textarea"
+                                rows={4}
+                                value={data.specs.notes}
+                                onChange={(event) => setData((current) => ({ ...current, specs: { ...current.specs, notes: event.target.value } }))}
+                                placeholder="Ej: Mantiene control crucero adaptativo, neumáticos recién cambiados."
+                            />
+                        </Field>
+                    </div>
+                </FichaSection>
+
+                <FichaSection
+                    title="Anuncio"
+                    description="Título y descripción que verán los compradores."
+                    open={fichaOpen.ad}
+                    onToggle={() => setFichaOpen((s) => ({ ...s, ad: !s.ad }))}
+                >
+                    <div className="space-y-3">
+                        <Field label="Título" error={errors['basic.title']}>
+                            <input
+                                className="form-input"
+                                value={data.basic.title}
+                                onChange={(event) => setData((current) => ({ ...current, basic: { ...current.basic, title: event.target.value } }))}
+                                placeholder="Ej: Toyota Corolla 2020 Sedán Blanco"
+                            />
+                            <p className="text-xs mt-1" style={{ color: 'var(--fg-muted)' }}>Se genera automáticamente con Marca + Modelo + Año + Carrocería + Color.</p>
+                        </Field>
+                        <Field label="Descripción" error={errors['basic.description']}>
+                            <textarea
+                                className="form-textarea"
+                                rows={6}
+                                value={data.basic.description}
+                                onChange={(event) => setData((current) => ({ ...current, basic: { ...current.basic, description: event.target.value } }))}
+                            />
+                            <p className="text-xs mt-1" style={{ color: 'var(--fg-muted)' }}>{data.basic.description.length} / 2000</p>
+                        </Field>
+                        <PanelButton
+                            type="button"
+                            variant="secondary"
+                            className="w-full"
+                            onClick={() => void handleGenerateText()}
+                            disabled={generatingText || !data.basic.brandId || !data.basic.year}
+                        >
+                            <IconSparkles size={14} />
+                            {generatingText ? 'Generando con IA...' : 'Generar descripción con IA'}
+                        </PanelButton>
+                    </div>
+                </FichaSection>
+
+                {/* PRECIO */}
+                <FichaGroup label="Precio" />
+
+                <FichaSection
+                    title="Precio"
+                    description="Precio del aviso y condiciones comerciales."
+                    open={fichaOpen.price}
+                    onToggle={() => setFichaOpen((s) => ({ ...s, price: !s.price }))}
+                >
+                    <div className="space-y-4">
+                        <PanelNotice tone="neutral">{lifecyclePolicy.notice}</PanelNotice>
+                        {data.setup.listingType === 'sale' ? (
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                                <Field label="Precio de publicación" required error={errors['commercial.price']}><input className="form-input" value={data.commercial.price} onChange={(event) => setData((current) => ({ ...current, commercial: { ...current.commercial, price: event.target.value } }))} placeholder="Ej: 18990000" /></Field>
+                                <Field label="Moneda">
+                                    <ModernSelect
+                                        value={data.commercial.currency}
+                                        onChange={(value) => setData((current) => ({ ...current, commercial: { ...current.commercial, currency: value as 'CLP' | 'USD' } }))}
+                                        options={[{ value: 'CLP', label: 'CLP' }, { value: 'USD', label: 'USD' }]}
+                                        ariaLabel="Seleccionar moneda"
+                                    />
+                                </Field>
+                                <Field label="Precio oferta (opcional)" error={errors['commercial.offerPrice']}><input className="form-input" value={data.commercial.offerPrice} onChange={(event) => setData((current) => ({ ...current, commercial: { ...current.commercial, offerPrice: event.target.value } }))} placeholder="Opcional" /></Field>
+                            </div>
+                        ) : null}
+                        {data.setup.listingType === 'rent' ? (
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                                <Field label="Precio por día"><input className="form-input" value={data.commercial.rentDaily} onChange={(event) => setData((current) => ({ ...current, commercial: { ...current.commercial, rentDaily: event.target.value } }))} placeholder="Opcional" /></Field>
+                                <Field label="Precio por semana"><input className="form-input" value={data.commercial.rentWeekly} onChange={(event) => setData((current) => ({ ...current, commercial: { ...current.commercial, rentWeekly: event.target.value } }))} placeholder="Opcional" /></Field>
+                                <Field label="Precio por mes"><input className="form-input" value={data.commercial.rentMonthly} onChange={(event) => setData((current) => ({ ...current, commercial: { ...current.commercial, rentMonthly: event.target.value } }))} placeholder="Opcional" /></Field>
+                                <Field label="Días mínimos" error={errors['commercial.rentMinDays']}><input className="form-input" type="number" min={1} value={data.commercial.rentMinDays} onChange={(event) => setData((current) => ({ ...current, commercial: { ...current.commercial, rentMinDays: event.target.value } }))} /></Field>
+                                <Field label="Depósito"><input className="form-input" value={data.commercial.rentDeposit} onChange={(event) => setData((current) => ({ ...current, commercial: { ...current.commercial, rentDeposit: event.target.value } }))} placeholder="Opcional" /></Field>
+                                <Field label="Disponible desde"><input className="form-input" type="date" value={data.commercial.rentAvailableFrom} onChange={(event) => setData((current) => ({ ...current, commercial: { ...current.commercial, rentAvailableFrom: event.target.value } }))} /></Field>
+                                <Field label="Disponible hasta" error={errors['commercial.rentAvailableTo']}><input className="form-input" type="date" value={data.commercial.rentAvailableTo} onChange={(event) => setData((current) => ({ ...current, commercial: { ...current.commercial, rentAvailableTo: event.target.value } }))} /></Field>
+                            </div>
+                        ) : null}
+                        {data.setup.listingType === 'auction' ? (
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                                <Field label="Precio base" required error={errors['commercial.auctionStartPrice']}><input className="form-input" value={data.commercial.auctionStartPrice} onChange={(event) => setData((current) => ({ ...current, commercial: { ...current.commercial, auctionStartPrice: event.target.value } }))} /></Field>
+                                <Field label="Precio reserva"><input className="form-input" value={data.commercial.auctionReservePrice} onChange={(event) => setData((current) => ({ ...current, commercial: { ...current.commercial, auctionReservePrice: event.target.value } }))} placeholder="Opcional" /></Field>
+                                <Field label="Incremento mínimo" required error={errors['commercial.auctionMinIncrement']}><input className="form-input" value={data.commercial.auctionMinIncrement} onChange={(event) => setData((current) => ({ ...current, commercial: { ...current.commercial, auctionMinIncrement: event.target.value } }))} /></Field>
+                                <Field label="Inicio" required error={errors['commercial.auctionStartAt']}><input className="form-input" type="datetime-local" value={data.commercial.auctionStartAt} onChange={(event) => setData((current) => ({ ...current, commercial: { ...current.commercial, auctionStartAt: event.target.value } }))} /></Field>
+                                <Field label="Fin" required error={errors['commercial.auctionEndAt']}><input className="form-input" type="datetime-local" value={data.commercial.auctionEndAt} onChange={(event) => setData((current) => ({ ...current, commercial: { ...current.commercial, auctionEndAt: event.target.value } }))} /></Field>
+                            </div>
+                        ) : null}
+                        {(errors['commercial.rent'] || errors['commercial.auctionStartPrice'] || errors['commercial.auctionMinIncrement']) ? (
+                            <ErrorText text={errors['commercial.rent'] || errors['commercial.auctionStartPrice'] || errors['commercial.auctionMinIncrement']} />
+                        ) : null}
+                        {data.setup.listingType !== 'auction' ? (
+                            <div>
+                                <p className="text-xs font-semibold uppercase tracking-[0.08em] mb-2" style={{ color: 'var(--fg-muted)' }}>Condiciones comerciales</p>
+                                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-2.5">
+                                    <ToggleCard title="Precio negociable" description="Permite conversar el valor final." active={data.commercial.negotiable} onToggle={() => setData((current) => ({ ...current, commercial: { ...current.commercial, negotiable: !current.commercial.negotiable } }))} />
+                                    {data.setup.listingType === 'sale' ? (
+                                        <>
+                                            <ToggleCard title="Financiamiento disponible" description="Indica si se puede gestionar financiamiento." active={data.commercial.financingAvailable} onToggle={() => setData((current) => ({ ...current, commercial: { ...current.commercial, financingAvailable: !current.commercial.financingAvailable } }))} />
+                                            <ToggleCard title="Acepta permuta" description="Útil para leads que ofrecen parte de pago." active={data.commercial.exchangeAvailable} onToggle={() => setData((current) => ({ ...current, commercial: { ...current.commercial, exchangeAvailable: !current.commercial.exchangeAvailable } }))} />
+                                        </>
+                                    ) : null}
+                                </div>
+                            </div>
+                        ) : null}
+                    </div>
+                </FichaSection>
+
+                <FichaSection
+                    title="Ubicación"
+                    description="Dirección, región y comuna del vehículo."
+                    open={fichaOpen.location}
+                    onToggle={() => setFichaOpen((s) => ({ ...s, location: !s.location }))}
+                >
+                    <ListingLocationEditor
+                        showHeader={false}
+                        framed={false}
+                        simpleMode
+                        location={data.location}
+                        onChange={(next) => setData((current) => ({ ...current, location: next }))}
+                        regions={LOCATION_REGIONS.map((item) => ({ value: item.id, label: item.name }))}
+                        communes={communes.map((item) => ({ value: item.id, label: item.name }))}
+                        allCommunes={LOCATION_COMMUNES.map((item) => ({ value: item.id, label: item.name }))}
+                        addressBook={addressBook}
+                        addressBookLoading={addressBookLoading}
+                        errors={{
+                            regionId: errors['location.regionId'],
+                            communeId: errors['location.communeId'],
+                            sourceAddressId: errors['location.sourceAddressId'],
+                            addressLine1: errors['location.addressLine1'],
+                        }}
+                        allowAreaOnly={false}
+                        addressRequired
+                        addressFirst
+                        showSourceSelector={false}
+                        showVisibilityField={false}
+                        showGoogleMapsLink
+                        showPublicPreviewCard={false}
+                        showActionBar={false}
+                        geocoding={geocoding}
+                        onGeocode={refreshLocationMap}
+                    />
+                </FichaSection>
+
+                {isEditing && (
+                <FichaSection
+                    title="Tasador de precios"
+                    description="Estimación de valor de mercado basada en comparables."
+                    open={fichaOpen.valuation}
+                    onToggle={() => setFichaOpen((s) => ({ ...s, valuation: !s.valuation }))}
+                >
+                    <div className="space-y-3">
+                        <PanelButton
+                            type="button"
+                            variant="primary"
+                            className="w-full"
+                            onClick={() => void runValuation()}
+                            disabled={estimating || !valuationRequest || data.setup.listingType === 'auction'}
+                        >
+                            {estimating ? 'Calculando estimación...' : 'Calcular estimación'}
+                        </PanelButton>
+                        {data.setup.listingType === 'auction' ? (
+                            <PanelNotice tone="neutral">La subasta ya se puede publicar. El tasador aplica para venta y arriendo.</PanelNotice>
+                        ) : !valuationRequest ? (
+                            <PanelNotice tone="neutral">Completa marca, modelo, año, kilometraje y ubicación para habilitar el tasador.</PanelNotice>
+                        ) : !estimate ? (
+                            <PanelNotice tone="neutral">Obtén una referencia de precio antes de publicar el aviso.</PanelNotice>
+                        ) : null}
+                        {estimate ? (
+                            <div className="space-y-3">
+                                <PanelSummaryCard
+                                    eyebrow="Resultado"
+                                    title={formatAmount(estimate.estimatedPrice, estimate.currency as 'CLP' | 'USD')}
+                                    rows={[
+                                        { label: 'Rango bajo', value: formatAmount(estimate.minPrice, estimate.currency as 'CLP' | 'USD') },
+                                        { label: 'Rango alto', value: formatAmount(estimate.maxPrice, estimate.currency as 'CLP' | 'USD') },
+                                        { label: 'Confianza', value: `${estimate.confidenceScore}%` },
+                                        { label: 'Comparables', value: String(estimate.comparablesUsed) },
+                                        { label: 'Liquidez', value: estimate.estimatedLiquidityDays != null ? `${estimate.estimatedLiquidityDays} días` : 'Sin dato' },
+                                        { label: 'Tendencia 30d', value: formatSignedPercent(estimate.marketTrendPct30d) },
+                                    ]}
+                                />
+                                {estimate.comparables.length > 0 ? (
+                                    <div className="rounded-xl border p-4" style={{ borderColor: 'var(--border)' }}>
+                                        <p className="text-sm font-semibold">Comparables usados</p>
+                                        <div className="mt-3 space-y-2">
+                                            {estimate.comparables.slice(0, 3).map((comparable, index) => (
+                                                <div key={`${comparable.source}-${comparable.externalId || comparable.title}-${index}`} className="rounded-lg border px-3 py-3" style={{ borderColor: 'var(--border)', background: 'var(--surface)' }}>
+                                                    <div className="flex items-center justify-between gap-3">
+                                                        <p className="min-w-0 truncate text-sm font-medium">{comparable.title}</p>
+                                                        <span className="text-sm font-semibold">{formatAmount(comparable.price, comparable.currency as 'CLP' | 'USD')}</span>
+                                                    </div>
+                                                    <p className="mt-1 text-xs" style={{ color: 'var(--fg-secondary)' }}>
+                                                        {[comparable.source, comparable.year ? String(comparable.year) : null, comparable.mileageKm != null ? `${Math.round(comparable.mileageKm).toLocaleString('es-CL')} km` : null, comparable.addressLabel].filter(Boolean).join(' · ')}
+                                                    </p>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                ) : null}
+                                {estimate.historicalSeries.length > 0 ? (
+                                    <div className="rounded-xl border p-4" style={{ borderColor: 'var(--border)' }}>
+                                        <p className="text-sm font-semibold">Tendencia del segmento</p>
+                                        <div className="space-y-2 mt-3">
+                                            {estimate.historicalSeries.map((point) => (
+                                                <div key={point.ts} className="grid grid-cols-[110px_minmax(0,1fr)_auto] items-center gap-3 text-sm">
+                                                    <span style={{ color: 'var(--fg-secondary)' }}>{formatSeriesLabel(point.ts)}</span>
+                                                    <div className="h-2 rounded-full" style={{ background: 'rgba(15,23,42,0.08)' }}>
+                                                        <div className="h-full rounded-full" style={{ width: `${Math.max(12, Math.min(100, estimate.maxPrice > 0 ? (point.medianPrice / estimate.maxPrice) * 100 : 12))}%`, background: 'var(--fg)' }} />
+                                                    </div>
+                                                    <span className="font-medium">{formatAmount(point.medianPrice, estimate.currency as 'CLP' | 'USD')}</span>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                ) : null}
+                                {estimate.notes.length > 0 ? (
+                                    <div className="rounded-xl border p-4" style={{ borderColor: 'var(--border)' }}>
+                                        <p className="text-sm font-semibold">Notas del tasador</p>
+                                        <div className="space-y-2 mt-3">
+                                            {estimate.notes.map((note) => (
+                                                <div key={note} className="flex items-start gap-2 text-sm" style={{ color: 'var(--fg-secondary)' }}>
+                                                    <IconSparkles size={15} className="mt-0.5 shrink-0" />
+                                                    <span>{note}</span>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                ) : null}
+                            </div>
+                        ) : null}
+                    </div>
+                </FichaSection>
+            )}
+
+                {isEditing && (
+                <FichaSection
+                    title="Publicación"
+                    description="Configuración, calidad del anuncio y términos."
+                    open={fichaOpen.publication}
+                    onToggle={() => setFichaOpen((s) => ({ ...s, publication: !s.publication }))}
+                >
+                    <div className="space-y-4">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                            <Field label="Slug (URL)">
+                                <input
+                                    className="form-input"
+                                    value={data.commercial.slug}
+                                    onChange={(event) => setData((current) => ({ ...current, commercial: { ...current.commercial, slug: event.target.value } }))}
+                                    placeholder="mi-auto-toyota-2020"
+                                />
+                                <p className="text-xs mt-1" style={{ color: 'var(--fg-muted)' }}>URL: /vehiculo/{data.commercial.slug || '...'}</p>
+                            </Field>
+                            <Field label="Vigencia">
+                                <ModernSelect
+                                    value={data.commercial.durationDays}
+                                    onChange={(value) => setData((current) => ({ ...current, commercial: { ...current.commercial, durationDays: value as '30' | '60' | '90' } }))}
+                                    options={[
+                                        { value: '30', label: '30 días' },
+                                        { value: '60', label: '60 días' },
+                                        { value: '90', label: '90 días' },
+                                    ]}
+                                    ariaLabel="Seleccionar vigencia"
+                                />
+                            </Field>
+                        </div>
+                        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-2.5">
+                            <ToggleCard title="Auto-renovar" description="Renueva automáticamente al vencer." active={data.commercial.autoRenew} onToggle={() => setData((current) => ({ ...current, commercial: { ...current.commercial, autoRenew: !current.commercial.autoRenew } }))} />
+                            <ToggleCard title="Destacado" description="Aparece primero en resultados." active={data.commercial.featured} onToggle={() => setData((current) => ({ ...current, commercial: { ...current.commercial, featured: !current.commercial.featured } }))} />
+                            <ToggleCard title="Urgente" description="Etiqueta de urgencia visible." active={data.commercial.urgent} onToggle={() => setData((current) => ({ ...current, commercial: { ...current.commercial, urgent: !current.commercial.urgent } }))} />
+                        </div>
+                        <div className="rounded-2xl border p-4" style={{ borderColor: 'var(--border)' }}>
+                            <div className="flex items-center justify-between mb-2">
+                                <span className="text-sm font-medium">Score de calidad</span>
+                                <strong>{score}/100</strong>
                             </div>
                             <div className="h-2 rounded-full" style={{ background: 'var(--bg-muted)' }}>
-                                <div
-                                    className="h-full rounded-full transition-all duration-300"
-                                    style={{ width: `${((stepIndex + 1) / STEPS.length) * 100}%`, background: 'var(--fg)' }}
-                                />
+                                <div className="h-full rounded-full" style={{ width: `${score}%`, background: 'var(--fg)' }} />
+                            </div>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-3">
+                                <QualityItem label="5 fotos o más" ok={data.media.photos.length >= 5} />
+                                <QualityItem label="5 equipamientos" ok={data.specs.featureCodes.length >= 5} />
+                                <QualityItem label="Ubicación completa" ok={!!data.location.addressLine1 && !!data.location.regionId && !!data.location.communeId} />
+                                <QualityItem label="Datos específicos" ok={countFilledFields(data, getSpecificFields(data.setup.vehicleType)) >= Math.min(4, getSpecificFields(data.setup.vehicleType).length)} />
+                                <QualityItem label="Antecedentes cargados" ok={countComplementaryEntries(data) >= 3} />
+                                <QualityItem label={data.setup.listingType === 'auction' ? 'Tasador no requerido' : 'Tasador ejecutado'} ok={data.setup.listingType === 'auction' ? true : !!estimate} />
                             </div>
                         </div>
+                        {errors['review.acceptTerms'] ? <ErrorText text={errors['review.acceptTerms']} /> : null}
                     </div>
-                    <div className="rounded-2xl border px-3 py-3" style={{ borderColor: 'var(--border)', background: 'color-mix(in oklab, var(--bg) 78%, transparent)' }}>
-                        <PanelStepNav
-                            items={STEPS.map((item, index) => {
-                                const completed = index < stepIndex;
-                                return {
-                                    key: item.id,
-                                    label: item.label,
-                                    disabled: index > stepIndex,
-                                    done: completed,
-                                };
-                            })}
-                            activeKey={step}
-                            onChange={(key) => setStep(key as StepId)}
-                            ariaLabel="Pasos de publicación"
-                            labelBreakpoint="always"
-                        />
-                    </div>
-                </div>
-            </PanelCard>
+                </FichaSection>
+            )}
 
-            <PanelCard size="lg">
-                <div className="animate-scale-in">
-                    {step === 'setup' && (
-                        <StepSetup
-                            data={data}
-                            setData={setData}
-                        />
-                    )}
-                    {step === 'basic' && (
-                        <StepBasic
-                            data={data}
-                            setData={setData}
-                            catalog={catalog}
-                            models={models}
-                            versions={versions}
-                            versionsLoading={versionOptionsLoading}
-                            communes={communes}
-                            addressBook={addressBook}
-                            addressBookLoading={addressBookLoading}
-                            onGeocodeLocation={refreshLocationMap}
-                            geocoding={geocoding}
-                            errors={errors}
-                        />
-                    )}
-                    {step === 'specs' && <StepSpecs data={data} setData={setData} errors={errors} />}
-                    {step === 'media' && <StepMedia data={data} setData={setData} errors={errors} />}
-                    {step === 'commercial' && (
-                        <StepCommercial
-                            data={data}
-                            setData={setData}
-                            errors={errors}
-                            estimate={estimate}
-                            estimating={estimating}
-                            valuationSources={valuationSources}
-                            refreshingSources={refreshingSources}
-                            valuationRequest={valuationRequest}
-                            onRunValuation={runValuation}
-                            onRefreshValuationSources={refreshValuationConnectors}
-                            lifecyclePolicy={lifecyclePolicy}
-                        />
-                    )}
-                    {step === 'review' && <StepReview data={data} setData={setData} score={score} errors={errors} estimate={estimate} lifecyclePolicy={lifecyclePolicy} />}
+                {/* Terms & Conditions - Unified for both modes */}
+                <div className="space-y-2">
+                    <label className="rounded-lg border px-3 py-2.5 flex items-start gap-2" style={{ borderColor: 'var(--border)' }}>
+                        <input type="checkbox" checked={data.review.acceptTerms} onChange={(event) => setData((current) => ({ ...current, review: { ...current.review, acceptTerms: event.target.checked } }))} />
+                        <span className="text-sm" style={{ color: 'var(--fg-secondary)' }}>Acepto términos y condiciones.</span>
+                    </label>
+                    {errors['review.acceptTerms'] ? <ErrorText text={errors['review.acceptTerms']} /> : null}
                 </div>
-            </PanelCard>
 
-            <PanelActions
-                left={(
-                    <PanelButton type="button" variant="secondary" onClick={goBack} disabled={stepIndex === 0}>
-                        <IconArrowLeft size={14} />
-                        Anterior
-                    </PanelButton>
-                )}
-                right={step === 'review' ? (
-                    <>
+                {/* Bottom action bar */}
+                {isEditing ? (
+                <div className="rounded-2xl border p-3 flex items-center justify-between gap-2 mt-2" style={{ borderColor: 'var(--border)', background: 'var(--bg-subtle)' }}>
+                    <span className="text-sm" style={{ color: 'var(--fg-secondary)' }}>
+                        Calidad: <strong style={{ color: 'var(--fg)' }}>{score}/100</strong>
+                    </span>
+                    <div className="flex items-center gap-2">
                         <PanelButton type="button" variant="secondary" onClick={() => void saveDraft(true)}>
                             <IconDeviceFloppy size={14} />
-                            Guardar borrador
+                            Borrador
                         </PanelButton>
-                        <PanelButton type="button" variant="primary" onClick={() => void publishNow()} disabled={publishing || editingLoading}>
+                        <PanelButton type="button" variant="primary" onClick={() => void publishNow()} disabled={publishing || editingLoading || !data.review.acceptTerms}>
                             <IconCheck size={14} />
-                            {publishing ? (isEditing ? 'Guardando...' : 'Publicando...') : (isEditing ? 'Guardar cambios' : 'Publicar')}
+                            {publishing ? 'Guardando...' : 'Guardar cambios'}
                         </PanelButton>
-                    </>
+                    </div>
+                </div>
                 ) : (
-                    <PanelButton type="button" variant="primary" onClick={goNext}>
-                        Siguiente
-                        <IconArrowRight size={14} />
+                <div className="flex flex-col items-end gap-1.5">
+                    {!data.media.photos.length && (
+                        <p className="text-xs" style={{ color: 'var(--fg-muted)' }}>Sube al menos una foto para continuar</p>
+                    )}
+                    <PanelButton
+                        type="button"
+                        variant="primary"
+                        onClick={() => void publishNow()}
+                        disabled={!data.media.photos.length || publishing || !data.review.acceptTerms}
+                        className="w-full md:w-auto"
+                    >
+                        Publicar →
                     </PanelButton>
+                </div>
                 )}
-            />
+            </div>
         </div>
     );
 }
@@ -2514,59 +3043,6 @@ function StepCommercial(props: {
     );
 }
 
-function StepReview(props: {
-    data: WizardData;
-    setData: WizardSetter;
-    score: number;
-    errors: Record<string, string>;
-    estimate: VehicleValuationEstimate | null;
-    lifecyclePolicy: PublicationLifecyclePolicy;
-}) {
-    const { data, setData, score, errors, estimate, lifecyclePolicy } = props;
-    const isAuction = data.setup.listingType === 'auction';
-    const isLocationComplete = !!data.location.addressLine1 && !!data.location.regionId && !!data.location.communeId;
-
-    return (
-        <section className="space-y-4">
-            <h2 className="type-section-title">Revisión final</h2>
-            <PanelSummaryCard
-                eyebrow="Calidad"
-                title={`${score}/100`}
-                rows={[
-                    { label: 'Fotos', value: `${data.media.photos.length} cargadas` },
-                    { label: 'Equipamiento', value: `${data.specs.featureCodes.length} seleccionados` },
-                    { label: 'Ubicación', value: isLocationComplete ? 'Completa' : 'Pendiente' },
-                    { label: 'Vigencia', value: lifecyclePolicy.summaryLabel },
-                    { label: 'Tasador', value: isAuction ? 'No aplica' : estimate ? 'Calculado' : 'Pendiente' },
-                ]}
-            >
-                <div className="flex items-center justify-between">
-                    <span className="text-sm font-medium">Score de calidad</span>
-                    <strong>{score}/100</strong>
-                </div>
-                <div className="h-2 rounded-full mt-2" style={{ background: 'var(--bg-muted)' }}>
-                    <div className="h-full rounded-full" style={{ width: `${score}%`, background: 'var(--fg)' }} />
-                </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-3">
-                    <QualityItem label="5 fotos o más" ok={data.media.photos.length >= 5} />
-                    <QualityItem label="5 equipamientos" ok={data.specs.featureCodes.length >= 5} />
-                    <QualityItem label="Ubicación completa" ok={isLocationComplete} />
-                    <QualityItem
-                        label="Datos específicos cargados"
-                        ok={countFilledFields(data, getSpecificFields(data.setup.vehicleType)) >= Math.min(4, getSpecificFields(data.setup.vehicleType).length)}
-                    />
-                    <QualityItem label="Antecedentes y documentos cargados" ok={countComplementaryEntries(data) >= 3} />
-                    <QualityItem label={isAuction ? 'Tasador no requerido' : 'Tasador ejecutado'} ok={isAuction ? true : !!estimate} />
-                </div>
-            </PanelSummaryCard>
-            <label className="rounded-lg border px-3 py-2.5 flex items-start gap-2" style={{ borderColor: 'var(--border)' }}>
-                <input type="checkbox" checked={data.review.acceptTerms} onChange={(event) => setData((current) => ({ ...current, review: { ...current.review, acceptTerms: event.target.checked } }))} />
-                <span className="text-sm" style={{ color: 'var(--fg-secondary)' }}>Acepto términos y condiciones.</span>
-            </label>
-            {errors['review.acceptTerms'] ? <ErrorText text={errors['review.acceptTerms']} /> : null}
-        </section>
-    );
-}
 
 function AccordionGroup(props: { title: string; description?: string; open: boolean; onToggle: () => void; children: React.ReactNode }) {
     return (
@@ -2659,6 +3135,51 @@ function QualityItem(props: { label: string; ok: boolean }) {
                 <IconCircleCheck size={14} />
             </span>
         </div>
+    );
+}
+
+function FichaGroup(props: { label: string }) {
+    return (
+        <div className="mt-6 mb-3">
+            <h3 className="text-xs uppercase tracking-[0.16em] font-semibold" style={{ color: 'var(--fg-muted)' }}>
+                {props.label}
+            </h3>
+        </div>
+    );
+}
+
+function FichaSection(props: {
+    title: string;
+    description?: string;
+    open: boolean;
+    onToggle: () => void;
+    children: React.ReactNode;
+}) {
+    return (
+        <PanelCard className="border" size="md">
+            <button
+                type="button"
+                onClick={props.onToggle}
+                className="w-full px-4 py-3 flex items-start justify-between gap-3 text-left"
+            >
+                <span>
+                    <span className="block text-sm font-medium">{props.title}</span>
+                    {props.description ? (
+                        <span className="block text-xs mt-0.5" style={{ color: 'var(--fg-muted)' }}>
+                            {props.description}
+                        </span>
+                    ) : null}
+                </span>
+                <span className="text-xs mt-0.5 inline-flex items-center gap-1.5 shrink-0" style={{ color: 'var(--fg-muted)' }}>
+                    {props.open ? <IconChevronUp size={14} /> : <IconChevronDown size={14} />}
+                </span>
+            </button>
+            {props.open ? (
+                <div className="px-4 pb-3 pt-1 border-t" style={{ borderColor: 'var(--border)' }}>
+                    {props.children}
+                </div>
+            ) : null}
+        </PanelCard>
     );
 }
 

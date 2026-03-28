@@ -2,7 +2,8 @@ export type SimpleAppId =
     | 'simpleautos'
     | 'simplepropiedades'
     | 'simpleadmin'
-    | 'simpleplataforma';
+    | 'simpleplataforma'
+    | 'simpleagenda';
 
 export type SimpleAppBrand = {
     id: SimpleAppId;
@@ -114,6 +115,18 @@ const SIMPLE_APP_BRANDS: Record<SimpleAppId, SimpleAppBrand> = {
         keywords: ['SimplePlataforma', 'ecosistema', 'marketplaces', 'Chile', 'autos', 'propiedades', 'tiendas'],
         accentLight: '#111111',
         accentDark: '#ffffff',
+    },
+    simpleagenda: {
+        id: 'simpleagenda',
+        name: 'SimpleAgenda',
+        shortName: 'SimpleAgenda',
+        title: 'SimpleAgenda | Agenda y Gestión de Citas en Chile',
+        description: 'SimpleAgenda simplifica la gestión de citas, pacientes y pagos para profesionales independientes en Chile.',
+        category: 'business',
+        siteUrl: 'http://localhost:3004',
+        keywords: ['SimpleAgenda', 'agenda', 'citas', 'psicología', 'salud', 'Chile', 'reservas', 'consultas'],
+        accentLight: '#0D9488',
+        accentDark: '#0D9488',
     },
 };
 
