@@ -40,7 +40,9 @@ export class BackblazeB2Provider implements StorageProvider {
             });
 
             if (!response.ok) {
-                throw new Error(`Authorization failed: ${response.statusText}`);
+                const responseText = await response.text();
+                console.error('[B2Storage] Authorization failed:', response.status, response.statusText, responseText);
+                throw new Error(`Authorization failed: ${response.status} ${response.statusText}`);
             }
 
             const data = await response.json() as {

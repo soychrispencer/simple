@@ -5,7 +5,12 @@ import path from 'node:path';
 // Load environment variables FIRST, before any other imports
 const API_ROOT_DIR = path.resolve(__dirname, '..');
 
-for (const candidate of [path.join(API_ROOT_DIR, '.env'), path.resolve(process.cwd(), '.env')]) {
+for (const candidate of [
+    path.join(API_ROOT_DIR, '.env.local'),
+    path.join(API_ROOT_DIR, '.env'),
+    path.resolve(process.cwd(), '.env.local'),
+    path.resolve(process.cwd(), '.env')
+]) {
     try {
         if (existsSync(candidate)) {
             console.log('Loading env file:', candidate);
@@ -11834,6 +11839,33 @@ app.post('/api/media/upload', requireVerifiedSession, async (c) => {
         console.error('[API] Upload error:', error);
         return c.json(
             { ok: false, error: error instanceof Error ? error.message : 'Upload failed' },
+            500
+        );
+    }
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Storage Health Check (Temporary for testing)
+// ─────────────────────────────────────────────────────────────────────────────
+
+app.get('/api/storage/health', async (c) => {
+    try {
+        const storage = getStorageProvider();
+        const isHealthy = await storage.health();
+        
+        // Debug info
+        console.log('[STORAGE HEALTH] Provider type:', process.env.STORAGE_PROVIDER);
+        console.log('[STORAGE HEALTH] B2 App Key ID:', process.env.BACKBLAZE_APP_KEY_ID ? 'Set' : 'Not set');
+        console.log('[STORAGE HEALTH] B2 App Key:', process.env.BACKBLAZE_APP_KEY ? 'Set' : 'Not set');
+        console.log('[STORAGE HEALTH] B2 Bucket ID:', process.env.BACKBLAZE_BUCKET_ID ? 'Set' : 'Not set');
+        console.log('[STORAGE HEALTH] B2 Bucket Name:', process.env.BACKBLAZE_BUCKET_NAME ? 'Set' : 'Not set');
+        console.log('[STORAGE HEALTH] B2 Download URL:', process.env.BACKBLAZE_DOWNLOAD_URL ? 'Set' : 'Not set');
+        
+        return c.json({ ok: true, healthy: isHealthy }, 200);
+    } catch (error) {
+        console.error('[API] Storage health check error:', error);
+        return c.json(
+            { ok: false, error: error instanceof Error ? error.message : 'Storage health check failed' },
             500
         );
     }

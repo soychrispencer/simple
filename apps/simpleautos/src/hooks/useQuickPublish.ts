@@ -5,6 +5,7 @@ import type { QuickPhoto, QuickBasicData, GeneratedText, QuickPublishStep } from
 import type { ListingLocation } from '@simple/types';
 import { generateListingText } from '@/actions/generate-listing-text';
 import { createPanelListing, fetchPanelListingDraft, savePanelListingDraft, deletePanelListingDraft } from '@/lib/panel-listings';
+import { uploadMediaFile } from '@/lib/media-upload';
 
 const MAX_PHOTOS = 20;
 import { processQuickFile } from '@/lib/quick-image-utils';
@@ -162,6 +163,55 @@ function buildRawData(basicData: QuickBasicData, generatedText: GeneratedText, p
         },
         review: { acceptedTerms: true },
     };
+}
+
+// ─── Upload photos to B2 ──────────────────────────────────────────────────────
+
+async function uploadPhotosToB2(photos: QuickPhoto[]): Promise<{ ok: boolean; photos?: QuickPhoto[]; error?: string }> {
+    if (photos.length === 0) return { ok: true, photos: [] };
+
+    const uploadedPhotos: QuickPhoto[] = [];
+    const failedPhotos: string[] = [];
+
+    for (const photo of photos) {
+        try {
+            // Convert dataUrl to File
+            const response = await fetch(photo.dataUrl);
+            const blob = await response.blob();
+            const file = new File([blob], photo.name, { type: photo.mimeType });
+
+            // Upload to B2
+            const uploadResult = await uploadMediaFile(file, { fileType: 'image' });
+
+            if (uploadResult.ok && uploadResult.result) {
+                // Replace dataUrl with B2 URL
+                uploadedPhotos.push({
+                    id: photo.id,
+                    name: photo.name,
+                    dataUrl: uploadResult.result.url, // B2 URL instead of dataUrl
+                    previewUrl: uploadResult.result.url,
+                    isCover: photo.isCover,
+                    width: photo.width,
+                    height: photo.height,
+                    sizeBytes: photo.sizeBytes,
+                    mimeType: photo.mimeType,
+                });
+            } else {
+                failedPhotos.push(photo.name);
+            }
+        } catch {
+            failedPhotos.push(photo.name);
+        }
+    }
+
+    if (failedPhotos.length > 0) {
+        return {
+            ok: false,
+            error: `No se pudieron subir las siguientes fotos: ${failedPhotos.join(', ')}`,
+        };
+    }
+
+    return { ok: true, photos: uploadedPhotos };
 }
 
 // ─── Hook ─────────────────────────────────────────────────────────────────────
@@ -476,45 +526,66 @@ export function useQuickPublish() {
 
         setState((prev) => ({ ...prev, isPublishing: true, publishError: null }));
 
-        const priceDigits = mergedBasicData.price.replace(/\D/g, '');
-        const priceLabel = priceDigits ? `$ ${Number(priceDigits).toLocaleString('es-CL')}` : '$0';
+        try {
+            // Upload photos to B2 first
+            const uploadResult = await uploadPhotosToB2(photos);
+            if (!uploadResult.ok || !uploadResult.photos) {
+                setState((prev) => ({
+                    ...prev,
+                    isPublishing: false,
+                    publishError: uploadResult.error ?? 'No se pudieron subir las fotos.',
+                }));
+                return;
+            }
 
-        const loc = locationRef.current;
-        const result = await createPanelListing({
-            vertical: 'autos',
-            listingType: mergedBasicData.listingType,
-            title: resolvedText.titulo,
-            description: resolvedText.descripcion,
-            priceLabel,
-            rawData: buildRawData(mergedBasicData, resolvedText, photos),
-            ...(loc ? {
-                location: [loc.communeName, loc.regionName].filter(Boolean).join(', '),
-                locationData: loc,
-            } : {}),
-        });
+            const photosWithB2Urls = uploadResult.photos;
 
-        if (result.ok && result.item) {
-            clearDraft();
-            void deletePanelListingDraft('autos-quick');
+            const priceDigits = mergedBasicData.price.replace(/\D/g, '');
+            const priceLabel = priceDigits ? `$ ${Number(priceDigits).toLocaleString('es-CL')}` : '$0';
+
+            const loc = locationRef.current;
+            const result = await createPanelListing({
+                vertical: 'autos',
+                listingType: mergedBasicData.listingType,
+                title: resolvedText.titulo,
+                description: resolvedText.descripcion,
+                priceLabel,
+                rawData: buildRawData(mergedBasicData, resolvedText, photosWithB2Urls),
+                ...(loc ? {
+                    location: [loc.communeName, loc.regionName].filter(Boolean).join(', '),
+                    locationData: loc,
+                } : {}),
+            });
+
+            if (result.ok && result.item) {
+                clearDraft();
+                void deletePanelListingDraft('autos-quick');
+                setState((prev) => ({
+                    ...prev,
+                    isPublishing: false,
+                    step: 'success',
+                    publishedId: result.item!.id,
+                    publishedHref: result.item!.href,
+                    publishedTitle: resolvedText.titulo,
+                }));
+            } else if (result.unauthorized) {
+                setState((prev) => ({
+                    ...prev,
+                    isPublishing: false,
+                    publishError: 'Tu sesión expiró. Recarga la página y vuelve a intentarlo.',
+                }));
+            } else {
+                setState((prev) => ({
+                    ...prev,
+                    isPublishing: false,
+                    publishError: result.error ?? 'No se pudo publicar. Intenta de nuevo.',
+                }));
+            }
+        } catch (error) {
             setState((prev) => ({
                 ...prev,
                 isPublishing: false,
-                step: 'success',
-                publishedId: result.item!.id,
-                publishedHref: result.item!.href,
-                publishedTitle: resolvedText.titulo,
-            }));
-        } else if (result.unauthorized) {
-            setState((prev) => ({
-                ...prev,
-                isPublishing: false,
-                publishError: 'Tu sesión expiró. Recarga la página y vuelve a intentarlo.',
-            }));
-        } else {
-            setState((prev) => ({
-                ...prev,
-                isPublishing: false,
-                publishError: result.error ?? 'No se pudo publicar. Intenta de nuevo.',
+                publishError: error instanceof Error ? error.message : 'Error desconocido durante la publicación.',
             }));
         }
     }, []);

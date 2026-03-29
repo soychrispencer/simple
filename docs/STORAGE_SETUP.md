@@ -29,17 +29,20 @@ For 100-500 listings with 5-10 photos each (~10GB/month transferred):
    - **Bucket**: Select your bucket (or `All`)
    - Copy the **Application Key ID** and **Application Key**
 
-### 3. Set Environment Variables
+### 3. Set Environment Variables (Backblaze S3 mode)
 
 ```bash
 # services/api/.env
-STORAGE_PROVIDER=backblaze-b2
-BACKBLAZE_APP_KEY_ID=your_app_key_id
-BACKBLAZE_APP_KEY=your_app_key
-BACKBLAZE_BUCKET_ID=your_bucket_id
+STORAGE_PROVIDER=backblaze-s3
+BACKBLAZE_S3_ENDPOINT=https://s3.us-east-005.backblazeb2.com
+BACKBLAZE_S3_REGION=us-east-5
+BACKBLAZE_S3_ACCESS_KEY=your_app_key_id
+BACKBLAZE_S3_SECRET_KEY=your_app_key
 BACKBLAZE_BUCKET_NAME=your_bucket_name
 BACKBLAZE_DOWNLOAD_URL=https://yourdownloadurl.backblazeb2.com
 ```
+
+Si prefieres usar la API nativa B2, mantiene `STORAGE_PROVIDER=backblaze-b2` y usa `BACKBLAZE_APP_KEY_ID`, `BACKBLAZE_APP_KEY`, `BACKBLAZE_BUCKET_ID`.
 
 ### 4. Find Your Bucket Details
 
