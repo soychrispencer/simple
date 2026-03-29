@@ -2313,7 +2313,7 @@ function StepSetup(props: { data: WizardData; setData: WizardSetter }) {
                                 specs: { ...current.specs, featureCodes: [] },
                             }))}
                             selected={data.setup.vehicleType === option.value}
-                            className="min-h-[78px] px-3"
+                            className="min-h-19.5 px-3"
                         >
                             <div className="flex items-center gap-3">
                                 <span className="h-9 w-9 rounded-full inline-flex items-center justify-center shrink-0" style={{ background: 'var(--bg-muted)', color: 'var(--fg)' }}>

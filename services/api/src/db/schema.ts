@@ -207,6 +207,31 @@ export const publicProfileTeamMembers = pgTable('public_profile_team_members', {
   updatedAt: timestamp('updated_at').notNull().defaultNow(),
 });
 
+export const addressBook = pgTable('address_book', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  userId: uuid('user_id').references(() => users.id).notNull(),
+  kind: varchar('kind', { length: 20 }).notNull().default('personal'), // 'personal' | 'shipping' | 'billing' | 'company' | 'branch' | 'warehouse' | 'pickup' | 'other'
+  label: varchar('label', { length: 100 }).notNull(),
+  countryCode: varchar('country_code', { length: 3 }).notNull().default('CL'),
+  regionId: varchar('region_id', { length: 50 }),
+  regionName: varchar('region_name', { length: 120 }),
+  communeId: varchar('commune_id', { length: 50 }),
+  communeName: varchar('commune_name', { length: 120 }),
+  neighborhood: varchar('neighborhood', { length: 120 }),
+  addressLine1: varchar('address_line_1', { length: 255 }),
+  addressLine2: varchar('address_line_2', { length: 255 }),
+  postalCode: varchar('postal_code', { length: 20 }),
+  contactName: varchar('contact_name', { length: 160 }),
+  contactPhone: varchar('contact_phone', { length: 40 }),
+  isDefault: boolean('is_default').notNull().default(false),
+  geoPoint: jsonb('geo_point'), // { latitude: number, longitude: number, precision: string }
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+  updatedAt: timestamp('updated_at').notNull().defaultNow(),
+}, (table) => ({
+  userIdIdx: index('address_book_user_id_idx').on(table.userId),
+}));
+
+
 export const crmPipelineColumns = pgTable('crm_pipeline_columns', {
   id: uuid('id').primaryKey().defaultRandom(),
   userId: uuid('user_id').references(() => users.id).notNull(),

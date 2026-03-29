@@ -30,7 +30,11 @@ export class BackblazeS3Provider implements StorageProvider {
 
     async upload(input: StorageUploadInput): Promise<StorageUploadResult> {
         const key = `${input.userId ?? 'unknown'}/${Date.now()}-${input.fileName}`;
-        const buffer = Buffer.from(await input.file.arrayBuffer());
+        
+        // Correct handling for File (browser) and Buffer (Node.js)
+        const buffer = input.file instanceof Buffer 
+            ? input.file 
+            : Buffer.from(await (input.file as File).arrayBuffer());
 
         await this.client.send(
             new PutObjectCommand({
@@ -42,28 +46,32 @@ export class BackblazeS3Provider implements StorageProvider {
             })
         );
 
+        const url = `${this.downloadUrl}/${key}`;
+
         return {
-            bucket: this.bucketName,
-            key,
-            url: `${this.downloadUrl}/${key}`,
-            size: buffer.length,
+            fileId: key,
+            url,
+            publicUrl: url,
+            fileName: input.fileName,
             mimeType: input.mimeType,
-            type: input.fileType,
+            sizeBytes: buffer.length,
+            uploadedAt: Date.now(),
         };
     }
 
-    async delete(key: string): Promise<void> {
+    async delete(fileId: string): Promise<void> {
         await this.client.send(
             new DeleteObjectCommand({
                 Bucket: this.bucketName,
-                Key: key,
+                Key: fileId,
             })
         );
     }
 
-    async getUrl(key: string): Promise<string> {
-        return `${this.downloadUrl}/${key}`;
+    getUrl(fileId: string): string {
+        return `${this.downloadUrl}/${fileId}`;
     }
+
 
     async health(): Promise<boolean> {
         try {

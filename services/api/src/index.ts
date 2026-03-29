@@ -67,7 +67,9 @@ import {
     messageThreads,
     messageEntries,
     adCampaigns,
+    addressBook,
     agendaProfessionalProfiles,
+
     agendaServices,
     agendaAvailabilityRules,
     agendaBlockedSlots,
@@ -1339,7 +1341,8 @@ const savedByUser = new Map<string, SavedListingRecord[]>();
 const followsByUser = new Map<string, FollowRecord[]>();
 const boostOrdersByUser = new Map<string, BoostOrder[]>();
 const listingsById = new Map<string, ListingRecord>();
-const addressBookByUser = new Map<string, AddressBookEntry[]>();
+// Address book is now persisted in the database
+
 const paymentOrdersByUser = new Map<string, PaymentOrderRecord[]>();
 const activeSubscriptionsByUser = new Map<string, ActiveSubscription[]>();
 const instagramAccountByUserVertical = new Map<string, InstagramAccountRecord>();
@@ -4270,65 +4273,44 @@ function makeAddressBookId(): string {
     return `addr-${Date.now()}-${Math.floor(Math.random() * 100_000)}`;
 }
 
-function getAddressBookEntries(userId: string): AddressBookEntry[] {
-    const current = addressBookByUser.get(userId) ?? [];
-    let changed = false;
-    const hydrated = current.map((item) => {
-        if (item.geoPoint.precision !== 'none' || !item.regionId || !item.communeId) {
-            return item;
-        }
+async function getAddressBookEntries(userId: string): Promise<AddressBookEntry[]> {
+    const rows = await db
+        .select()
+        .from(addressBook)
+        .where(eq(addressBook.userId, userId))
+        .orderBy(desc(addressBook.isDefault), desc(addressBook.updatedAt));
 
-        const geocodedLocation = normalizeListingLocation({
-            sourceMode: 'saved_address',
-            sourceAddressId: item.id,
-            countryCode: item.countryCode,
-            regionId: item.regionId,
-            regionName: item.regionName,
-            communeId: item.communeId,
-            communeName: item.communeName,
-            neighborhood: item.neighborhood,
-            addressLine1: item.addressLine1,
-            addressLine2: item.addressLine2,
-            postalCode: item.postalCode,
-            geoPoint: item.geoPoint,
-            visibilityMode: 'exact',
-            publicMapEnabled: true,
-            publicGeoPoint: item.geoPoint,
-            publicLabel: '',
-        });
-
-        if (!geocodedLocation) {
-            return item;
-        }
-
-        changed = true;
-        return {
-            ...item,
-            geoPoint: geocodedLocation.geoPoint,
-        };
-    });
-
-    if (changed) {
-        addressBookByUser.set(userId, hydrated);
-    }
-
-    return [...hydrated].sort((a, b) => {
-        if (a.isDefault === b.isDefault) return b.updatedAt - a.updatedAt;
-        return a.isDefault ? -1 : 1;
-    });
+    return rows.map((row) => ({
+        id: row.id,
+        kind: row.kind as AddressBookKind,
+        label: row.label,
+        countryCode: row.countryCode,
+        regionId: row.regionId,
+        regionName: row.regionName,
+        communeId: row.communeId,
+        communeName: row.communeName,
+        neighborhood: row.neighborhood,
+        addressLine1: row.addressLine1,
+        addressLine2: row.addressLine2,
+        postalCode: row.postalCode,
+        contactName: row.contactName,
+        contactPhone: row.contactPhone,
+        isDefault: row.isDefault,
+        geoPoint: (row.geoPoint as GeoPoint) || makeGeoPoint(null, null, 'none'),
+        createdAt: row.createdAt.getTime(),
+        updatedAt: row.updatedAt.getTime(),
+    }));
 }
 
-function upsertAddressBookEntry(
+async function upsertAddressBookEntry(
     userId: string,
     input: z.infer<typeof addressBookWriteSchema>,
     existingId?: string
-): AddressBookEntry[] {
-    const now = Date.now();
-    const current = getAddressBookEntries(userId);
-    const nextId = existingId ?? makeAddressBookId();
+): Promise<AddressBookEntry[]> {
+    const now = new Date();
+    const nextId = existingId ?? randomUUID();
 
-    const nextEntry: AddressBookEntry = {
-        id: nextId,
+    const data: any = {
         kind: input.kind,
         label: input.label,
         countryCode: input.countryCode,
@@ -4344,53 +4326,62 @@ function upsertAddressBookEntry(
         contactPhone: input.contactPhone,
         isDefault: input.isDefault,
         geoPoint: input.geoPoint ?? makeGeoPoint(null, null, 'none'),
-        createdAt: existingId ? current.find((item) => item.id === existingId)?.createdAt ?? now : now,
         updatedAt: now,
     };
 
-    const geocodedLocation = normalizeListingLocation({
-        sourceMode: 'saved_address',
-        sourceAddressId: nextId,
-        countryCode: nextEntry.countryCode,
-        regionId: nextEntry.regionId,
-        regionName: nextEntry.regionName,
-        communeId: nextEntry.communeId,
-        communeName: nextEntry.communeName,
-        neighborhood: nextEntry.neighborhood,
-        addressLine1: nextEntry.addressLine1,
-        addressLine2: nextEntry.addressLine2,
-        postalCode: nextEntry.postalCode,
-        geoPoint: nextEntry.geoPoint,
-        visibilityMode: 'exact',
-        publicMapEnabled: true,
-        publicGeoPoint: nextEntry.geoPoint,
-        publicLabel: '',
-    });
-
-    if (geocodedLocation) {
-        nextEntry.geoPoint = geocodedLocation.geoPoint;
+    if (input.isDefault) {
+        // Reset other defaults
+        await db
+            .update(addressBook)
+            .set({ isDefault: false, updatedAt: now })
+            .where(and(eq(addressBook.userId, userId), eq(addressBook.isDefault, true)));
     }
 
-    const merged = current
-        .filter((item) => item.id !== nextId)
-        .map((item) => ({
-            ...item,
-            isDefault: input.isDefault ? false : item.isDefault,
-        }));
+    if (existingId) {
+        await db
+            .update(addressBook)
+            .set(data)
+            .where(and(eq(addressBook.userId, userId), eq(addressBook.id, existingId)));
+    } else {
+        await db.insert(addressBook).values({
+            ...data,
+            id: nextId,
+            userId,
+            createdAt: now,
+        });
+    }
 
-    addressBookByUser.set(userId, [nextEntry, ...merged]);
     return getAddressBookEntries(userId);
 }
 
-function deleteAddressBookEntry(userId: string, addressId: string): AddressBookEntry[] {
-    const current = getAddressBookEntries(userId);
-    const remaining = current.filter((item) => item.id !== addressId);
-    if (remaining.length > 0 && !remaining.some((item) => item.isDefault)) {
-        remaining[0] = { ...remaining[0], isDefault: true, updatedAt: Date.now() };
+async function deleteAddressBookEntry(userId: string, addressId: string): Promise<AddressBookEntry[]> {
+    const [target] = await db
+        .select()
+        .from(addressBook)
+        .where(and(eq(addressBook.userId, userId), eq(addressBook.id, addressId)));
+
+    if (!target) return getAddressBookEntries(userId);
+
+    await db.delete(addressBook).where(and(eq(addressBook.userId, userId), eq(addressBook.id, addressId)));
+
+    if (target.isDefault) {
+        const remaining = await db
+            .select()
+            .from(addressBook)
+            .where(eq(addressBook.userId, userId))
+            .limit(1);
+
+        if (remaining.length > 0) {
+            await db
+                .update(addressBook)
+                .set({ isDefault: true, updatedAt: new Date() })
+                .where(eq(addressBook.id, remaining[0].id));
+        }
     }
-    addressBookByUser.set(userId, remaining);
+
     return getAddressBookEntries(userId);
 }
+
 
 function haversineDistanceKm(a: GeoPoint, b: GeoPoint): number | null {
     if (a.latitude == null || a.longitude == null || b.latitude == null || b.longitude == null) return null;
@@ -11612,7 +11603,7 @@ app.delete('/api/saved/:id', async (c) => {
 app.get('/api/address-book', async (c) => {
     const user = await authUser(c);
     if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
-    return c.json({ ok: true, items: getAddressBookEntries(user.id) });
+    return c.json({ ok: true, items: await getAddressBookEntries(user.id) });
 });
 
 app.post('/api/address-book', async (c) => {
@@ -11627,7 +11618,7 @@ app.post('/api/address-book', async (c) => {
         return c.json({ ok: false, error: 'Región y comuna son obligatorias.' }, 400);
     }
 
-    const items = upsertAddressBookEntry(user.id, parsed.data);
+    const items = await upsertAddressBookEntry(user.id, parsed.data);
     return c.json({ ok: true, items }, 201);
 });
 
@@ -11636,7 +11627,7 @@ app.patch('/api/address-book/:id', async (c) => {
     if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
 
     const addressId = c.req.param('id');
-    const current = getAddressBookEntries(user.id);
+    const current = await getAddressBookEntries(user.id);
     if (!current.some((item) => item.id === addressId)) {
         return c.json({ ok: false, error: 'Dirección no encontrada' }, 404);
     }
@@ -11648,7 +11639,7 @@ app.patch('/api/address-book/:id', async (c) => {
         return c.json({ ok: false, error: 'Región y comuna son obligatorias.' }, 400);
     }
 
-    const items = upsertAddressBookEntry(user.id, parsed.data, addressId);
+    const items = await upsertAddressBookEntry(user.id, parsed.data, addressId);
     return c.json({ ok: true, items });
 });
 
@@ -11657,14 +11648,15 @@ app.delete('/api/address-book/:id', async (c) => {
     if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
 
     const addressId = c.req.param('id');
-    const current = getAddressBookEntries(user.id);
+    const current = await getAddressBookEntries(user.id);
     if (!current.some((item) => item.id === addressId)) {
         return c.json({ ok: false, error: 'Dirección no encontrada' }, 404);
     }
 
-    const items = deleteAddressBookEntry(user.id, addressId);
+    const items = await deleteAddressBookEntry(user.id, addressId);
     return c.json({ ok: true, items });
 });
+
 
 app.post('/api/locations/geocode', async (c) => {
     const payload = await c.req.json().catch(() => null);

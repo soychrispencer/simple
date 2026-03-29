@@ -284,7 +284,7 @@ function UsuariosContent() {
             </PanelCard>
 
             {actionMode === 'role' && selectedUser ? (
-                <div className="fixed inset-0 z-[80] flex items-center justify-center px-4 py-5">
+                <div className="fixed inset-0 z-80 flex items-center justify-center px-4 py-5">
                     <button
                         type="button"
                         aria-label="Cerrar modal"
@@ -293,7 +293,7 @@ function UsuariosContent() {
                         style={{ background: 'rgba(15, 23, 42, 0.44)', backdropFilter: 'blur(8px)' }}
                     />
                     <div
-                        className="relative z-[1] w-full max-w-md rounded-[28px] border p-6"
+                        className="relative z-1 w-full max-w-md rounded-[28px] border p-6"
                         style={{ borderColor: 'var(--border)', background: 'var(--surface)', boxShadow: 'var(--shadow-xl)' }}
                     >
                         <h2 className="type-section-title" style={{ color: 'var(--fg)' }}>Cambiar rol</h2>
@@ -335,7 +335,7 @@ function UsuariosContent() {
             ) : null}
 
             {actionMode === 'delete' && selectedUser ? (
-                <div className="fixed inset-0 z-[80] flex items-center justify-center px-4 py-5">
+                <div className="fixed inset-0 z-80 flex items-center justify-center px-4 py-5">
                     <button
                         type="button"
                         aria-label="Cerrar modal"
@@ -344,7 +344,7 @@ function UsuariosContent() {
                         style={{ background: 'rgba(15, 23, 42, 0.44)', backdropFilter: 'blur(8px)' }}
                     />
                     <div
-                        className="relative z-[1] w-full max-w-md rounded-[28px] border p-6"
+                        className="relative z-1 w-full max-w-md rounded-[28px] border p-6"
                         style={{ borderColor: 'var(--border)', background: 'var(--surface)', boxShadow: 'var(--shadow-xl)' }}
                     >
                         <div className="flex items-start gap-3">
@@ -381,7 +381,7 @@ function UsuariosContent() {
 
 function MetaItem({ label, value }: { label: string; value: string }) {
     return (
-        <div className="min-w-[90px]">
+        <div className="min-w-22.5">
             <p className="text-[11px] uppercase tracking-[0.12em]" style={{ color: 'var(--fg-muted)' }}>{label}</p>
             <p className="mt-1 text-sm font-medium" style={{ color: 'var(--fg)' }}>{value}</p>
         </div>

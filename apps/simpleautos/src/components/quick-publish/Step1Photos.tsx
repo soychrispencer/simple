@@ -92,7 +92,7 @@ function SortablePhoto({
                     unoptimized
                 />
             ) : (
-                <div className="w-full h-full bg-gradient-to-br from-gray-200 to-gray-300 flex items-center justify-center" style={{ background: 'var(--bg-muted)' }}>
+                <div className="w-full h-full bg-linear-to-br from-gray-200 to-gray-300 flex items-center justify-center" style={{ background: 'var(--bg-muted)' }}>
                     <span className="text-xs" style={{ color: 'var(--fg-muted)' }}>placeholder</span>
                 </div>
             )}
@@ -260,7 +260,7 @@ export default function Step1Photos({
                     className="flex items-start gap-3 rounded-2xl px-4 py-3 text-sm"
                     style={{ background: 'var(--bg-subtle)', border: '1px solid var(--border)' }}
                 >
-                    <IconPhoto size={16} className="mt-0.5 flex-shrink-0" style={{ color: 'var(--fg-muted)' }} />
+                    <IconPhoto size={16} className="mt-0.5 shrink-0" style={{ color: 'var(--fg-muted)' }} />
                     <span style={{ color: 'var(--fg-secondary)' }}>
                         Tu sesión anterior tenía {restoredPhotoCount} foto{restoredPhotoCount !== 1 ? 's' : ''}.
                         Por seguridad, las fotos no se guardan entre sesiones — vuelve a subirlas.
@@ -321,7 +321,7 @@ export default function Step1Photos({
                     }}
                 >
                     <div
-                        className="flex items-center justify-center rounded-xl transition-colors flex-shrink-0"
+                        className="flex items-center justify-center rounded-xl transition-colors shrink-0"
                         style={{
                             background: isDraggingFile ? '#FF3600' : 'var(--bg-muted)',
                             color: isDraggingFile ? 'white' : 'var(--fg-muted)',
