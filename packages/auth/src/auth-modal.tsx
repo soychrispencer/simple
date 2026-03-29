@@ -213,9 +213,30 @@ export function AuthModal() {
                 style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}
                 onClick={(e) => e.stopPropagation()}
             >
-                <PanelIconButton onClick={handleClose} label="Cerrar modal" variant="soft" size="md" className="absolute right-3 top-3 rounded-xl" disabled={submitting}>
-                    <IconX size={16} />
-                </PanelIconButton>
+                <button
+                    onClick={handleClose}
+                    aria-label="Cerrar modal"
+                    disabled={submitting}
+                    type="button"
+                    style={{
+                        position: 'absolute',
+                        top: '12px',
+                        right: '12px',
+                        background: 'transparent',
+                        border: 'none',
+                        cursor: submitting ? 'not-allowed' : 'pointer',
+                        color: 'var(--fg)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        width: '36px',
+                        height: '36px',
+                        zIndex: 10,
+                        opacity: submitting ? 0.5 : 1,
+                    }}
+                >
+                    <IconX size={24} strokeWidth={2.5} />
+                </button>
 
                 {mode === 'login' && (
                     <>
@@ -230,16 +251,16 @@ export function AuthModal() {
                                 {error}
                             </PanelNotice>
                         ) : null}
-                        <form onSubmit={handleLogin} className="space-y-3" aria-label="Formulario de inicio de sesión">
-                            <div className="relative">
-                                <IconMail size={14} className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2" style={{ color: 'var(--fg-muted)' }} />
-                                <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} className="form-input form-input-has-leading-icon" placeholder="Correo electrónico" required />
+                        <form onSubmit={handleLogin} className="space-y-0" aria-label="Formulario de inicio de sesión">
+                            <div className="relative flex items-center mb-5">
+                                <IconMail size={16} className="pointer-events-none absolute" style={{ color: 'var(--fg-muted)', left: '12px' }} />
+                                <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} className="form-input" placeholder="Correo electrónico" required style={{ background: 'var(--surface)', color: 'var(--fg)', borderColor: 'var(--border)', paddingLeft: '40px' }} />
                             </div>
-                            <div className="relative">
-                                <IconLock size={14} className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2" style={{ color: 'var(--fg-muted)' }} />
-                                <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} className="form-input form-input-has-leading-icon" placeholder="Contraseña" required />
+                            <div className="relative flex items-center mb-6">
+                                <IconLock size={16} className="pointer-events-none absolute" style={{ color: 'var(--fg-muted)', left: '12px' }} />
+                                <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} className="form-input" placeholder="Contraseña" required style={{ background: 'var(--surface)', color: 'var(--fg)', borderColor: 'var(--border)', paddingLeft: '40px' }} />
                             </div>
-                            <PanelButton type="submit" variant="primary" className="w-full" disabled={submitting}>
+                            <PanelButton type="submit" variant="primary" className="w-full mt-4" disabled={submitting}>
                                 {submitting ? 'Ingresando...' : 'Iniciar sesión'}
                             </PanelButton>
                         </form>
@@ -279,29 +300,29 @@ export function AuthModal() {
                                 {error}
                             </PanelNotice>
                         ) : null}
-                        <form onSubmit={handleRegister} className="space-y-3" aria-label="Formulario de registro">
-                            <div className="relative">
-                                <IconUser size={14} className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2" style={{ color: 'var(--fg-muted)' }} />
-                                <input type="text" value={name} onChange={(e) => setName(e.target.value)} className="form-input form-input-has-leading-icon" placeholder="Nombre completo" required />
+                        <form onSubmit={handleRegister} className="space-y-0" aria-label="Formulario de registro">
+                            <div className="relative flex items-center mb-5">
+                                <IconUser size={16} className="pointer-events-none absolute" style={{ color: 'var(--fg-muted)', left: '12px' }} />
+                                <input type="text" value={name} onChange={(e) => setName(e.target.value)} className="form-input" placeholder="Nombre completo" required style={{ background: 'var(--surface)', color: 'var(--fg)', borderColor: 'var(--border)', paddingLeft: '40px' }} />
                             </div>
-                            <div className="relative">
-                                <IconMail size={14} className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2" style={{ color: 'var(--fg-muted)' }} />
-                                <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} className="form-input form-input-has-leading-icon" placeholder="Correo electrónico" required />
+                            <div className="relative flex items-center mb-5">
+                                <IconMail size={16} className="pointer-events-none absolute" style={{ color: 'var(--fg-muted)', left: '12px' }} />
+                                <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} className="form-input" placeholder="Correo electrónico" required style={{ background: 'var(--surface)', color: 'var(--fg)', borderColor: 'var(--border)', paddingLeft: '40px' }} />
                             </div>
-                            <div className="relative">
-                                <IconLock size={14} className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2" style={{ color: 'var(--fg-muted)' }} />
-                                <input type="password" minLength={8} value={password} onChange={(e) => setPassword(e.target.value)} className="form-input form-input-has-leading-icon" placeholder="Contraseña (mínimo 8 caracteres)" required />
+                            <div className="relative flex items-center mb-5">
+                                <IconLock size={16} className="pointer-events-none absolute" style={{ color: 'var(--fg-muted)', left: '12px' }} />
+                                <input type="password" minLength={8} value={password} onChange={(e) => setPassword(e.target.value)} className="form-input" placeholder="Contraseña (mínimo 8 caracteres)" required style={{ background: 'var(--surface)', color: 'var(--fg)', borderColor: 'var(--border)', paddingLeft: '40px' }} />
                             </div>
                             {password ? (
-                                <p className="text-xs" style={{ color: passwordStrength === 'Débil' ? '#dc2626' : 'var(--fg-muted)' }}>
+                                <p className="text-xs mb-5" style={{ color: passwordStrength === 'Débil' ? '#dc2626' : 'var(--fg-muted)' }}>
                                     Fortaleza: {passwordStrength}
                                 </p>
                             ) : null}
-                            <div className="relative">
-                                <IconLock size={14} className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2" style={{ color: 'var(--fg-muted)' }} />
-                                <input type="password" minLength={8} value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} className="form-input form-input-has-leading-icon" placeholder="Confirmar contraseña" required />
+                            <div className="relative flex items-center mb-6">
+                                <IconLock size={16} className="pointer-events-none absolute" style={{ color: 'var(--fg-muted)', left: '12px' }} />
+                                <input type="password" minLength={8} value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} className="form-input" placeholder="Confirmar contraseña" required style={{ background: 'var(--surface)', color: 'var(--fg)', borderColor: 'var(--border)', paddingLeft: '40px' }} />
                             </div>
-                            <PanelButton type="submit" variant="primary" className="w-full" disabled={submitting}>
+                            <PanelButton type="submit" variant="primary" className="w-full mt-4" disabled={submitting}>
                                 {submitting ? 'Creando...' : 'Crear cuenta'}
                             </PanelButton>
                         </form>
@@ -337,12 +358,12 @@ export function AuthModal() {
                                 {success}
                             </PanelNotice>
                         ) : null}
-                        <form onSubmit={handleRecovery} className="space-y-3" aria-label="Formulario de recuperación de contraseña">
-                            <div className="relative">
-                                <IconMail size={14} className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2" style={{ color: 'var(--fg-muted)' }} />
-                                <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} className="form-input form-input-has-leading-icon" placeholder="Correo electrónico" required />
+                        <form onSubmit={handleRecovery} className="space-y-0" aria-label="Formulario de recuperación de contraseña">
+                            <div className="relative flex items-center">
+                                <IconMail size={16} className="pointer-events-none absolute" style={{ color: 'var(--fg-muted)', left: '12px' }} />
+                                <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} className="form-input" placeholder="Correo electrónico" required style={{ background: 'var(--surface)', color: 'var(--fg)', borderColor: 'var(--border)', paddingLeft: '40px' }} />
                             </div>
-                            <PanelButton type="submit" variant="primary" className="w-full" disabled={submitting || recoveryCooldown > 0}>
+                            <PanelButton type="submit" variant="primary" className="w-full mt-4" disabled={submitting || recoveryCooldown > 0}>
                                 {recoveryCooldown > 0 ? `Reintenta en ${recoveryCooldown}s` : 'Enviar enlace'}
                             </PanelButton>
                         </form>

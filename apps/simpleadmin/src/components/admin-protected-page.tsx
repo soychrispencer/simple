@@ -1,33 +1,19 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useMemo } from 'react';
 import { AdminShell } from '@/components/admin-shell';
-import { AdminAuthModal } from '@/components/auth/AdminAuthModal';
-import { fetchAdminMe, loginAdmin, requestAdminPasswordReset, type AdminSessionUser } from '@/lib/api';
+import { useAuth } from '@simple/auth';
+import { AdminSessionUser } from '@/lib/api';
 
-export function AdminProtectedPage(props: {
-    children: (user: AdminSessionUser) => React.ReactNode;
-}) {
-    const [user, setUser] = useState<AdminSessionUser | null>(null);
-    const [loading, setLoading] = useState(true);
-    const [authOpen, setAuthOpen] = useState(false);
+export function AdminProtectedPage(props: { children: (user: AdminSessionUser) => React.ReactNode }) {
+    const { user, authLoading, requireAuth, logout } = useAuth();
 
-    useEffect(() => {
-        let active = true;
-        const run = async () => {
-            const result = await fetchAdminMe();
-            if (!active) return;
-            setUser(result.user);
-            setAuthOpen(!result.user);
-            setLoading(false);
-        };
-        void run();
-        return () => {
-            active = false;
-        };
-    }, []);
+    const isAdmin = useMemo(
+        () => !!user && (user.role === 'admin' || user.role === 'superadmin'),
+        [user],
+    );
 
-    if (loading) {
+    if (authLoading) {
         return (
             <div className="flex min-h-screen items-center justify-center" style={{ background: 'var(--bg)' }}>
                 <div className="text-center">
@@ -39,23 +25,31 @@ export function AdminProtectedPage(props: {
     }
 
     if (!user) {
+        requireAuth();
+
         return (
-            <AdminAuthModal
-                open={authOpen}
-                onClose={() => {}}
-                onLogin={async (email, password) => {
-                    const ok = await loginAdmin(email, password);
-                    if (!ok) return false;
-                    const result = await fetchAdminMe();
-                    if (!result.user) return false;
-                    setUser(result.user);
-                    setAuthOpen(false);
-                    return true;
-                }}
-                onRequestPasswordReset={requestAdminPasswordReset}
-            />
+            <div className="flex min-h-screen items-center justify-center" style={{ background: 'var(--bg)' }}>
+                <p style={{ color: 'var(--fg-muted)' }}>Abre el modal para iniciar sesión.</p>
+            </div>
         );
     }
 
-    return <AdminShell user={user}>{props.children(user)}</AdminShell>;
+    if (!isAdmin) {
+        return (
+            <div className="flex min-h-screen items-center justify-center" style={{ background: 'var(--bg)' }}>
+                <div className="text-center">
+                    <p style={{ color: 'var(--fg-muted)' }}>Requiere permisos de administrador.</p>
+                    <button
+                        className="mt-4 rounded-md border border-gray-300 px-4 py-2"
+                        onClick={() => logout()}
+                    >
+                        Cerrar sesión
+                    </button>
+                </div>
+            </div>
+        );
+    }
+
+    const adminUser = user as AdminSessionUser;
+    return <AdminShell user={adminUser}>{props.children(adminUser)}</AdminShell>;
 }

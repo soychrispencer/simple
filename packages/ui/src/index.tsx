@@ -1198,7 +1198,7 @@ export function getPanelButtonClassName(props?: {
         : 'h-10 px-4 text-sm';
 
     return joinClasses(
-        'panel-button inline-flex items-center justify-center gap-2 rounded-md border font-medium transition-[background,color,border-color,box-shadow,transform] duration-150 active:scale-[0.99] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-black/10 disabled:cursor-not-allowed disabled:opacity-50 disabled:active:scale-100',
+        'panel-button inline-flex items-center justify-center gap-2 rounded-xl border font-medium transition-[background,color,border-color,box-shadow,transform] duration-150 active:scale-[0.99] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-black/10 disabled:cursor-not-allowed disabled:opacity-50 disabled:active:scale-100',
         sizeClass,
         props?.className,
     );

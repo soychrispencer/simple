@@ -34,7 +34,9 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
         );
     }
 
-    if (user?.status !== 'verified') {
+    // Superadmin puede entrar sin verificación
+    const isSuperadmin = user?.role === 'superadmin';
+    if (!isSuperadmin && user?.status !== 'verified') {
         const userEmail = user?.email ?? '';
 
         const handleResend = async () => {

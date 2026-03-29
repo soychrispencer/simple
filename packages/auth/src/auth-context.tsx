@@ -59,9 +59,19 @@ async function authRequest(path: string, init?: RequestInit): Promise<{ status: 
             ...init,
         });
 
-        const data = (await response.json().catch(() => null)) as AuthApiResponse | null;
+        let data: AuthApiResponse | null = null;
+        try {
+            const text = await response.text();
+            if (text) {
+                data = JSON.parse(text) as AuthApiResponse;
+            }
+        } catch (parseError) {
+            console.error('[AUTH] JSON parse error:', { path, status: response.status, parseError });
+        }
+        
         return { status: response.status, data };
-    } catch {
+    } catch (error) {
+        console.error('[AUTH] Fetch error:', { path, error });
         return { status: 0, data: null };
     }
 }
@@ -111,7 +121,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             });
 
             if (!data?.user) {
-                return { ok: false, error: data?.error, status };
+                const errorMsg = data?.error || (status === 0 ? 'Error de conexión con el servidor' : 'Error de inicio de sesión');
+                console.error('[AUTH] Login failed:', { status, data, errorMsg });
+                return { ok: false, error: errorMsg, status };
             }
             setUser(data.user);
             if (data.user.status === 'verified') {

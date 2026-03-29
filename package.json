@@ -14,7 +14,7 @@
     "dev:simpleplataforma": "npm run dev --workspace=@simple/simpleplataforma",
     "dev:agenda": "npm run dev --workspace=@simple/agenda",
     "dev:api": "npm run dev --workspace=@simple/api",
-    "dev:all": "concurrently --kill-others-on-fail --names autos,propiedades,simpleadmin,simpleplataforma,agenda,api --prefix-colors cyan,green,magenta,yellow,teal,blue \"npm run dev:autos\" \"npm run dev:propiedades\" \"npm run dev:simpleadmin\" \"npm run dev:simpleplataforma\" \"npm run dev:agenda\" \"npm run dev:api\"",
+    "dev:all": "concurrently --kill-others-on-fail --names simpleadmin,simpleplataforma,simpleautos,simplepropiedades,simpleagenda,api --prefix-colors magenta,yellow,cyan,green,teal,blue \"npm run dev --workspace=@simple/simpleadmin\" \"npm run dev --workspace=@simple/simpleplataforma\" \"npm run dev --workspace=@simple/autos\" \"npm run dev --workspace=@simple/propiedades\" \"npm run dev --workspace=@simple/agenda\" \"npm run dev --workspace=@simple/api\"",
     "build": "npm run build --workspaces",
     "build:autos": "npm run build --workspace=@simple/autos",
     "lint": "npm run lint --workspaces --if-present",

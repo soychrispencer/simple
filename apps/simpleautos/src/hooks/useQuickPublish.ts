@@ -153,7 +153,7 @@ function buildRawData(basicData: QuickBasicData, generatedText: GeneratedText, p
             featured: false,
             urgent: false,
             negotiable: basicData.negotiable ?? true,
-            exchangeAccepted: false,
+            exchangeAccepted: basicData.exchangeAvailable ?? false,
             financingAvailable: basicData.financingAvailable ?? false,
             slug: '',
             customCta: '',
@@ -287,12 +287,33 @@ export function useQuickPublish() {
 
     // ─────────────────────────────────────────────────────────────────────────
 
-    const updatePricing = useCallback((data: PricingData) => {
-        pricingRef.current = data;
+    const updatePricing = useCallback((data: Partial<QuickBasicData & PricingData>) => {
+        pricingRef.current = {
+            price: data.price ?? pricingRef.current.price,
+            offerPrice: data.offerPrice ?? pricingRef.current.offerPrice,
+            offerPriceMode: data.offerPriceMode ?? pricingRef.current.offerPriceMode,
+            negotiable: data.negotiable !== undefined ? data.negotiable : pricingRef.current.negotiable,
+            financingAvailable: data.financingAvailable !== undefined ? data.financingAvailable : pricingRef.current.financingAvailable,
+        };
+        
+        // Update React state with pricing changes
+        setState(prev => prev.basicData ? {
+            ...prev,
+            basicData: {
+                ...prev.basicData,
+                price: data.price ?? prev.basicData.price,
+                offerPrice: data.offerPrice ?? prev.basicData.offerPrice,
+                offerPriceMode: data.offerPriceMode ?? prev.basicData.offerPriceMode,
+                negotiable: data.negotiable !== undefined ? data.negotiable : prev.basicData.negotiable,
+                financingAvailable: data.financingAvailable !== undefined ? data.financingAvailable : prev.basicData.financingAvailable,
+                exchangeAvailable: data.exchangeAvailable !== undefined ? data.exchangeAvailable : prev.basicData.exchangeAvailable,
+            }
+        } : prev);
+        
         try {
             const raw = sessionStorage.getItem(DRAFT_KEY);
             const draft = raw ? (JSON.parse(raw) as DraftData) : null;
-            if (draft) writeDraft({ ...draft, pricing: data });
+            if (draft) writeDraft({ ...draft, pricing: pricingRef.current });
         } catch { /* */ }
     }, []);
 
@@ -403,6 +424,20 @@ export function useQuickPublish() {
 
         const generated = result as GeneratedText;
 
+        // Enrich description with commercial conditions
+        let enrichedDescription = generated.descripcion;
+        const conditions: string[] = [];
+        
+        if (pricing.negotiable) conditions.push('Precio negociable');
+        if (pricing.financingAvailable) conditions.push('Financiamiento disponible');
+        if (basicData.exchangeAvailable) {
+            conditions.push('Acepta permuta');
+        }
+        
+        if (conditions.length > 0) {
+            enrichedDescription += `\n\n✓ ${conditions.join(' • ')}`;
+        }
+
         const colorDetected = generated.colorDetectado && !basicData.color
             ? generated.colorDetectado
             : null;
@@ -415,7 +450,7 @@ export function useQuickPublish() {
             ...prev,
             isGenerating: false,
             basicData: finalData,
-            generatedText: { titulo: generated.titulo, descripcion: generated.descripcion },
+            generatedText: { titulo: generated.titulo, descripcion: enrichedDescription },
             detectedColor: colorDetected,
         }));
     }, []);

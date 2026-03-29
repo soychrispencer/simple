@@ -84,6 +84,7 @@ import {
     notifyProfessionalNewBooking,
     sendTestMessage,
 } from './whatsapp.js';
+import { getStorageProvider } from './storage-providers/index.js';
 
 type UserRole = 'user' | 'admin' | 'superadmin';
 type UserStatus = 'active' | 'verified' | 'suspended';
@@ -7594,6 +7595,8 @@ function getAllowedOrigins(): Set<string> {
             'http://localhost:3001',
             'http://localhost:3002',
             'http://localhost:3003',
+            'http://localhost:3004', // SimpleAgenda
+            'http://localhost:3005', // SimplePlataforma
         ]);
     }
 
@@ -9159,25 +9162,31 @@ app.post('/api/auth/login', async (c) => {
 
     const user = await getUserByEmail(normalizedEmail);
     if (!user) {
-        return c.json({ ok: false, error: 'Credenciales inválidas' }, 401);
+        console.warn(`[AUTH LOGIN] Usuario no encontrado: ${normalizedEmail}`);
+        return c.json({ ok: false, error: 'Email o contraseña incorrectos. Si no tienes cuenta, crea una.' }, 401);
     }
 
     if (!canAuthenticateUser(user)) {
+        console.warn(`[AUTH LOGIN] Cuenta suspendida: ${normalizedEmail}`);
         return c.json({ ok: false, error: 'Tu cuenta está suspendida. Contacta al soporte.' }, 403);
     }
 
     if (!user.passwordHash) {
-        return c.json({ ok: false, error: 'Esta cuenta requiere autenticación con Google' }, 401);
+        console.warn(`[AUTH LOGIN] Sin passwordHash (Google auth): ${normalizedEmail}`);
+        return c.json({ ok: false, error: 'Esta cuenta requiere autenticación con Google. Usar "Continuar con Google".' }, 401);
     }
 
-    if (!(await bcrypt.compare(parsed.data.password, user.passwordHash))) {
-        return c.json({ ok: false, error: 'Credenciales inválidas' }, 401);
+    const passwordMatch = await bcrypt.compare(parsed.data.password, user.passwordHash);
+    if (!passwordMatch) {
+        console.warn(`[AUTH LOGIN] Contraseña incorrecta: ${normalizedEmail}`);
+        return c.json({ ok: false, error: 'Email o contraseña incorrectos.' }, 401);
     }
 
     await touchUserLastLoginAt(user.id);
     clearRateLimit(`auth:login:ip:${clientId}`);
     clearRateLimit(`auth:login:email:${normalizedEmail}`);
     setSession(c, user.id);
+    console.info(`[AUTH LOGIN] Login exitoso: ${normalizedEmail}`);
     return c.json({
         ok: true,
         user: sanitizeUser({
@@ -11789,6 +11798,45 @@ app.delete('/api/listing-draft', async (c) => {
     const vertical = parseVertical(c.req.query('vertical'));
     await deleteListingDraftRecord(user.id, vertical);
     return c.json({ ok: true });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// File Upload Endpoint
+// ─────────────────────────────────────────────────────────────────────────────
+
+app.post('/api/media/upload', requireVerifiedSession, async (c) => {
+    const user = await authUser(c);
+    if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
+
+    try {
+        const formData = await c.req.formData();
+        const file = formData.get('file') as File | null;
+        const fileType = formData.get('fileType') as string | null;
+        const listingId = formData.get('listingId') as string | null;
+
+        if (!file) return c.json({ ok: false, error: 'No file provided' }, 400);
+        if (!fileType || !['image', 'video', 'document'].includes(fileType)) {
+            return c.json({ ok: false, error: 'Invalid file type' }, 400);
+        }
+
+        const storage = getStorageProvider();
+        const result = await storage.upload({
+            file,
+            fileName: file.name,
+            mimeType: file.type,
+            fileType: fileType as 'image' | 'video' | 'document',
+            userId: user.id,
+            listingId: listingId || undefined,
+        });
+
+        return c.json({ ok: true, result }, 200);
+    } catch (error) {
+        console.error('[API] Upload error:', error);
+        return c.json(
+            { ok: false, error: error instanceof Error ? error.message : 'Upload failed' },
+            500
+        );
+    }
 });
 
 app.get('/api/listings', async (c) => {

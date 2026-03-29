@@ -53,7 +53,7 @@ export default function QuickPublishFlow() {
     }
 
     return (
-        <div>
+        <div className="container-app panel-page max-w-3xl py-8">
             {/* Reset confirmation modal */}
             {showResetModal && (
                 <ResetConfirmModal

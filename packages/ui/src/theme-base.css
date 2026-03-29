@@ -390,6 +390,7 @@ h4 {
 }
 
 .panel-button {
+    border-radius: var(--radius);
     background: var(--panel-btn-bg, var(--surface));
     color: var(--panel-btn-color, var(--fg));
     border-color: var(--panel-btn-border, var(--border));

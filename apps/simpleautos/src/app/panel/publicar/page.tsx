@@ -1616,36 +1616,32 @@ export default function PublishWizardPage() {
         router.push('/panel/publicaciones');
     };
 
-    return (
+    return isEditing ? (
         <div className="container-app panel-page max-w-3xl py-8">
             <PanelSectionHeader
-                title={isEditing ? "Editar vehículo" : "Publicar vehículo"}
-                description={isEditing ? "Revisa y actualiza todos los datos de tu publicación." : "Sube fotos, ingresa los datos y publica en segundos."}
+                title="Editar vehículo"
+                description="Revisa y actualiza todos los datos de tu publicación."
                 actions={
-                    isEditing ? (
-                        <div className="flex items-center gap-2">
-                            {draftSavedNote ? (
-                                <span className="rounded-lg border px-2.5 h-9 inline-flex items-center text-xs" style={{ borderColor: 'var(--border)', color: 'var(--fg-secondary)' }}>
-                                    {draftSavedNote}
-                                </span>
-                            ) : null}
-                            <PanelButton type="button" variant="secondary" size="sm" onClick={() => void saveDraft(true)}>
-                                <IconDeviceFloppy size={14} />
-                                Guardar borrador
-                            </PanelButton>
-                        </div>
-                    ) : null
+                    <div className="flex items-center gap-2">
+                        {draftSavedNote ? (
+                            <span className="rounded-lg border px-2.5 h-9 inline-flex items-center text-xs" style={{ borderColor: 'var(--border)', color: 'var(--fg-secondary)' }}>
+                                {draftSavedNote}
+                            </span>
+                        ) : null}
+                        <PanelButton type="button" variant="secondary" size="sm" onClick={() => void saveDraft(true)}>
+                            <IconDeviceFloppy size={14} />
+                            Guardar borrador
+                        </PanelButton>
+                    </div>
                 }
             />
 
-            {isEditing && (
-                <>
-                    {message ? <PanelNotice className="mb-4">{message}</PanelNotice> : null}
-                    {storageError ? <PanelNotice tone="error" className="mb-3">{storageError}</PanelNotice> : null}
-                    {catalogLoading ? <p className="mb-4 text-xs" style={{ color: 'var(--fg-muted)' }}>Cargando catálogo...</p> : null}
-                    {editingLoading ? <PanelNotice tone="neutral" className="mb-4">Cargando publicación...</PanelNotice> : null}
-                </>
-            )}
+            <>
+                {message ? <PanelNotice className="mb-4">{message}</PanelNotice> : null}
+                {storageError ? <PanelNotice tone="error" className="mb-3">{storageError}</PanelNotice> : null}
+                {catalogLoading ? <p className="mb-4 text-xs" style={{ color: 'var(--fg-muted)' }}>Cargando catálogo...</p> : null}
+                {editingLoading ? <PanelNotice tone="neutral" className="mb-4">Cargando publicación...</PanelNotice> : null}
+            </>
 
             <div className="flex flex-col gap-3">
                 {/* FOTOS - UNIFICADAS CON QUICKPUBLISH */}
@@ -2091,7 +2087,6 @@ export default function PublishWizardPage() {
                     />
                 </FichaSection>
 
-                {isEditing && (
                 <FichaSection
                     title="Tasador de precios"
                     description="Estimación de valor de mercado basada en comparables."
@@ -2180,9 +2175,7 @@ export default function PublishWizardPage() {
                         ) : null}
                     </div>
                 </FichaSection>
-            )}
 
-                {isEditing && (
                 <FichaSection
                     title="Publicación"
                     description="Configuración, calidad del anuncio y términos."
@@ -2238,7 +2231,6 @@ export default function PublishWizardPage() {
                         {errors['review.acceptTerms'] ? <ErrorText text={errors['review.acceptTerms']} /> : null}
                     </div>
                 </FichaSection>
-            )}
 
                 {/* Terms & Conditions - Unified for both modes */}
                 <div className="space-y-2">
@@ -2250,7 +2242,6 @@ export default function PublishWizardPage() {
                 </div>
 
                 {/* Bottom action bar */}
-                {isEditing ? (
                 <div className="rounded-2xl border p-3 flex items-center justify-between gap-2 mt-2" style={{ borderColor: 'var(--border)', background: 'var(--bg-subtle)' }}>
                     <span className="text-sm" style={{ color: 'var(--fg-secondary)' }}>
                         Calidad: <strong style={{ color: 'var(--fg)' }}>{score}/100</strong>
@@ -2266,24 +2257,10 @@ export default function PublishWizardPage() {
                         </PanelButton>
                     </div>
                 </div>
-                ) : (
-                <div className="flex flex-col items-end gap-1.5">
-                    {!data.media.photos.length && (
-                        <p className="text-xs" style={{ color: 'var(--fg-muted)' }}>Sube al menos una foto para continuar</p>
-                    )}
-                    <PanelButton
-                        type="button"
-                        variant="primary"
-                        onClick={() => void publishNow()}
-                        disabled={!data.media.photos.length || publishing || !data.review.acceptTerms}
-                        className="w-full md:w-auto"
-                    >
-                        Publicar →
-                    </PanelButton>
-                </div>
-                )}
             </div>
         </div>
+    ) : (
+        <QuickPublishFlow />
     );
 }
 

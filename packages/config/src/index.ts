@@ -5,6 +5,53 @@ export type SimpleAppId =
     | 'simpleplataforma'
     | 'simpleagenda';
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Storage Provider (abstraction layer for file uploads)
+// ─────────────────────────────────────────────────────────────────────────────
+
+export type StorageFileType = 'image' | 'video' | 'document';
+
+export type StorageUploadInput = {
+    file: File | Buffer;
+    fileName: string;
+    mimeType: string;
+    fileType: StorageFileType;
+    userId: string;
+    listingId?: string;
+};
+
+export type StorageUploadResult = {
+    fileId: string;
+    url: string;
+    publicUrl: string;
+    fileName: string;
+    mimeType: string;
+    sizeBytes: number;
+    uploadedAt: number;
+};
+
+export interface StorageProvider {
+    /**
+     * Upload a file to storage
+     */
+    upload(input: StorageUploadInput): Promise<StorageUploadResult>;
+
+    /**
+     * Delete a file from storage
+     */
+    delete(fileId: string): Promise<void>;
+
+    /**
+     * Get a public URL for a file
+     */
+    getUrl(fileId: string): string;
+
+    /**
+     * Verify storage is accessible
+     */
+    health(): Promise<boolean>;
+}
+
 export type SimpleAppBrand = {
     id: SimpleAppId;
     name: string;

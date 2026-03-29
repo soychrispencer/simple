@@ -44,6 +44,9 @@ type PublicProfile = {
 };
 
 async function getProfessionalProfile(slug: string): Promise<PublicProfile | null> {
+    // Skip API call for slugs that look like files (contain dots)
+    if (slug.includes('.')) return null;
+
     try {
         const res = await fetch(`${API_BASE}/api/public/agenda/${slug}`, {
             next: { revalidate: 60 },
