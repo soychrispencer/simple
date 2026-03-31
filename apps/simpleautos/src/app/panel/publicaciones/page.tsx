@@ -11,9 +11,14 @@ import {
     IconGridDots,
     IconHeart,
     IconList,
+    IconPlayerPause,
     IconPlus,
+    IconRefresh,
     IconShare3,
+    IconSquarePlus,
+    IconTrash,
     IconTrendingUp,
+    IconX,
 } from '@tabler/icons-react';
 import PanelSectionHeader from '@/components/panel/panel-section-header';
 import ModernSelect from '@/components/ui/modern-select';
@@ -27,6 +32,7 @@ import {
     publishListingToPortal,
     renewPanelListing,
     updatePanelListingStatus,
+    deletePanelListing,
 } from '@/lib/panel-listings';
 import {
     PanelButton,
@@ -334,9 +340,85 @@ export default function PublicacionesPage() {
         void loadListings();
     };
 
+    const fixBrokenB2Url = (url: string): string => {
+        if (!url || !url.startsWith('http')) return url;
+        if (url.includes('backblazeb2.com')) {
+            const bucketName = 'simple-media';
+            
+            let key = '';
+            if (url.includes(`/file/${bucketName}/`)) {
+                key = url.split(`/file/${bucketName}/`)[1];
+            } else if (url.includes(`backblazeb2.com/${bucketName}/`)) {
+                key = url.split(`backblazeb2.com/${bucketName}/`)[1];
+            } else {
+                const parts = url.split('.backblazeb2.com/');
+                if (parts.length === 2) {
+                    const pathParts = parts[1].split('/');
+                    if (pathParts[0] === 'file') pathParts.shift();
+                    if (pathParts[0] === bucketName) pathParts.shift();
+                    key = pathParts.join('/');
+                }
+            }
+
+            if (key) {
+                return `https://f005.backblazeb2.com/file/${bucketName}/${key}`;
+            }
+        }
+        return url;
+    };
+
+    const getListingCoverImage = (listing: PanelListing): string | null => {
+        const rawData = listing.rawData as any;
+        const photos = rawData?.media?.photos;
+        if (!Array.isArray(photos) || photos.length === 0) return null;
+
+        const first = photos[0];
+        let imageUrl = '';
+        if (typeof first === 'string') {
+            imageUrl = first.trim();
+        } else {
+            imageUrl = first?.url || first?.previewUrl || first?.dataUrl || '';
+        }
+        
+        if (typeof imageUrl === 'string' && imageUrl.trim()) {
+            return fixBrokenB2Url(imageUrl.trim());
+        }
+        return null;
+    };
+
+    const onDeleteListing = async (listing: PanelListing) => {
+        const confirmed = window.confirm('¿Estás seguro que deseas eliminar esta publicación? Esta acción no se puede deshacer.');
+        if (!confirmed) return;
+
+        if (!user) {
+            setNotice('Tu sesión expiró. Vuelve a iniciar sesión para continuar.');
+            requireAuth(() => {
+                void onDeleteListing(listing);
+            });
+            return;
+        }
+
+        const result = await deletePanelListing(listing.id);
+        if (!result.ok) {
+            if (result.unauthorized) {
+                setNotice('Tu sesión expiró. Vuelve a iniciar sesión para continuar.');
+                requireAuth(() => {
+                    void onDeleteListing(listing);
+                });
+                return;
+            }
+            setNotice(result.error || 'No se pudo eliminar la publicación.');
+            return;
+        }
+
+        setNotice('Publicación eliminada correctamente.');
+        void loadListings();
+    };
+
     const renderMenuItem = (
         label: string,
         onClick: () => void,
+        icon?: React.ReactNode,
         disabled = false,
         className = ''
     ) => (
@@ -347,7 +429,10 @@ export default function PublicacionesPage() {
             onClick={onClick}
             disabled={disabled}
         >
-            {label}
+            <div className="flex items-center gap-2">
+                {icon ? <span className="inline-flex">{icon}</span> : null}
+                <span>{label}</span>
+            </div>
         </button>
     );
 
@@ -384,6 +469,7 @@ export default function PublicacionesPage() {
                                       closeMenus();
                                       void onRenewListing(listing);
                                   },
+                                  <IconRefresh size={14} />, 
                                   statusBusyKey === `${listing.id}:renew`
                               )
                             : null}
@@ -394,6 +480,7 @@ export default function PublicacionesPage() {
                                       closeMenus();
                                       void onChangeListingStatus(listing, 'active');
                                   },
+                                  <IconSquarePlus size={14} />, 
                                   statusBusyKey === `${listing.id}:active`,
                                   needsRenewal ? 'mt-1' : ''
                               )
@@ -405,6 +492,7 @@ export default function PublicacionesPage() {
                                       closeMenus();
                                       void onChangeListingStatus(listing, 'paused');
                                   },
+                                  <IconPlayerPause size={14} />, 
                                   statusBusyKey === `${listing.id}:paused`,
                                   needsRenewal ? 'mt-1' : ''
                               )
@@ -416,6 +504,7 @@ export default function PublicacionesPage() {
                                       closeMenus();
                                       void onChangeListingStatus(listing, 'sold');
                                   },
+                                  <IconX size={14} />, 
                                   statusBusyKey === `${listing.id}:sold`,
                                   'mt-1'
                               )
@@ -427,10 +516,21 @@ export default function PublicacionesPage() {
                                       closeMenus();
                                       void onChangeListingStatus(listing, 'draft');
                                   },
+                                  <IconEdit size={14} />, 
                                   statusBusyKey === `${listing.id}:draft`,
                                   'mt-1'
                               )
                             : null}
+                        {renderMenuItem(
+                            'Eliminar',
+                            () => {
+                                closeMenus();
+                                void onDeleteListing(listing);
+                            },
+                            <IconTrash size={14} />, 
+                            false,
+                            'mt-2 text-red-600 hover:bg-red-100 dark:hover:bg-red-900/40'
+                        )}
                     </div>
                 ) : null}
             </div>
@@ -465,10 +565,10 @@ export default function PublicacionesPage() {
                         {renderMenuItem('Link', () => {
                             void copyListingLink(listing);
                         })}
-                        {renderMenuItem('WhatsApp', () => shareOnWhatsapp(listing), false, 'mt-1')}
+                        {renderMenuItem('WhatsApp', () => shareOnWhatsapp(listing), <IconBrandWhatsapp size={14} />, false, 'mt-1')}
                         {renderMenuItem(instagramBusyKey === `${listing.id}:instagram` ? 'Instagram publicando...' : 'Instagram', () => {
                             void shareOnInstagram(listing);
-                        }, instagramBusyKey === `${listing.id}:instagram`, 'mt-1')}
+                        }, undefined, instagramBusyKey === `${listing.id}:instagram`, 'mt-1')}
                         {integrations.length > 0 ? (
                             <>
                                 <div className="mx-3 my-2 border-t" style={{ borderColor: 'var(--border)' }} />
@@ -583,10 +683,15 @@ export default function PublicacionesPage() {
                     {filtered.map((listing) => {
                         const badge = publicationBadgeMeta(listing);
                         const lifecycleHint = publicationLifecycleHint(listing);
+                        const coverImage = getListingCoverImage(listing);
                         return (
                             <article key={listing.id} className="rounded-xl p-4 flex flex-col sm:flex-row gap-4 transition-all relative" style={{ border: '1px solid var(--border)' }}>
-                                <div className="w-full sm:w-28 h-32 sm:h-auto rounded-lg flex items-center justify-center flex-shrink-0" style={{ background: 'var(--bg-muted)', color: 'var(--fg-faint)' }}>
-                                    <IconCar size={20} />
+                                <div className="w-full sm:w-28 h-32 sm:h-auto rounded-lg overflow-hidden flex items-center justify-center flex-shrink-0" style={{ background: 'var(--bg-muted)', color: 'var(--fg-faint)' }}>
+                                    {coverImage ? (
+                                        <img src={coverImage} alt={listing.title || 'Portada'} className="w-full h-full object-cover" />
+                                    ) : (
+                                        <IconCar size={20} />
+                                    )}
                                 </div>
                                 <div className="flex-1 min-w-0">
                                     <div className="flex items-start justify-between gap-2 mb-1 flex-wrap">
@@ -623,10 +728,15 @@ export default function PublicacionesPage() {
                     {filtered.map((listing) => {
                         const badge = publicationBadgeMeta(listing);
                         const lifecycleHint = publicationLifecycleHint(listing);
+                        const coverImage = getListingCoverImage(listing);
                         return (
                             <article key={listing.id} className="rounded-xl overflow-hidden relative" style={{ border: '1px solid var(--border)' }}>
-                                <div className="aspect-[4/3] flex items-center justify-center" style={{ background: 'var(--bg-muted)', color: 'var(--fg-faint)' }}>
-                                    <IconCar size={26} />
+                                <div className="aspect-[4/3] flex items-center justify-center overflow-hidden" style={{ background: 'var(--bg-muted)', color: 'var(--fg-faint)' }}>
+                                    {coverImage ? (
+                                        <img src={coverImage} alt={listing.title || 'Portada'} className="w-full h-full object-cover" />
+                                    ) : (
+                                        <IconCar size={26} />
+                                    )}
                                 </div>
                                 <div className="p-4">
                                     <div className="flex items-start justify-between gap-2 mb-1">

@@ -31,6 +31,7 @@ import ModernSelect, { type ModernSelectOption } from '@/components/ui/modern-se
 import Step1Photos from '@/components/quick-publish/Step1Photos';
 import Step2BasicData from '@/components/quick-publish/Step2BasicData';
 import { processQuickFile } from '@/lib/quick-image-utils';
+import { uploadMediaFile } from '@/lib/media-upload';
 import { useAuth } from '@/context/auth-context';
 import { getPublicationLifecyclePolicy, type PublicationLifecyclePolicy } from '@simple/config';
 import {
@@ -75,7 +76,6 @@ import { ListingLocationEditor, PanelActions, PanelBlockHeader, PanelButton, Pan
 
 type StepId = 'setup' | 'basic' | 'specs' | 'media' | 'commercial' | 'review';
 type ListingType = 'sale' | 'rent' | 'auction';
-
 type WizardPhoto = PanelMediaAsset;
 
 interface WizardData {
@@ -151,8 +151,8 @@ interface PersistedDraft {
     valuationEstimate: VehicleValuationEstimate | null;
     data: Omit<WizardData, 'media'> & {
         media: Omit<WizardData['media'], 'photos' | 'discoverVideo'> & {
-            photos: Array<Pick<WizardPhoto, 'id' | 'name' | 'isCover' | 'width' | 'height' | 'sizeBytes' | 'mimeType'>>;
-            discoverVideo: Pick<PanelVideoAsset, 'id' | 'name' | 'width' | 'height' | 'sizeBytes' | 'mimeType' | 'durationSeconds'> | null;
+            photos: Array<Pick<WizardPhoto, 'id' | 'name' | 'dataUrl' | 'previewUrl' | 'isCover' | 'width' | 'height' | 'sizeBytes' | 'mimeType'>>;
+            discoverVideo: Pick<PanelVideoAsset, 'id' | 'name' | 'dataUrl' | 'previewUrl' | 'width' | 'height' | 'sizeBytes' | 'mimeType' | 'durationSeconds'> | null;
             documents: PanelDocumentAsset[];
         };
     };
@@ -805,8 +805,39 @@ function resolveCatalogNames(catalog: PublishWizardCatalog | null, data: WizardD
     return { brand, model, region, commune };
 }
 
+function fixBrokenB2Url(url: string): string {
+    if (!url || !url.startsWith('http')) return url;
+    if (url.includes('backblazeb2.com')) {
+        const bucketName = 'simple-media';
+        
+        let key = '';
+        if (url.includes(`/file/${bucketName}/`)) {
+            key = url.split(`/file/${bucketName}/`)[1];
+        } else if (url.includes(`backblazeb2.com/${bucketName}/`)) {
+            key = url.split(`backblazeb2.com/${bucketName}/`)[1];
+        } else {
+            const parts = url.split('.backblazeb2.com/');
+            if (parts.length === 2) {
+                const pathParts = parts[1].split('/');
+                if (pathParts[0] === 'file') pathParts.shift();
+                if (pathParts[0] === bucketName) pathParts.shift();
+                key = pathParts.join('/');
+            }
+        }
+
+        if (key) {
+            return `https://f005.backblazeb2.com/file/${bucketName}/${key}`;
+        }
+    }
+    return url;
+}
+
 function mergeDraft(raw: unknown): { data: WizardData; valuationEstimate: VehicleValuationEstimate | null } | null {
     if (!raw || typeof raw !== 'object') return null;
+    const wrapped = raw as { kind?: string; wizardDraft?: unknown };
+    if (wrapped.kind === 'autos-quick') {
+        return wrapped.wizardDraft ? mergeDraft(wrapped.wizardDraft) : null;
+    }
     const parsed = raw as PersistedDraft;
     if (!parsed.data) return null;
     const defaults = createDefaultData();
@@ -908,8 +939,8 @@ function mergeDraft(raw: unknown): { data: WizardData; valuationEstimate: Vehicl
                     ? parsed.data.media.photos.map((photo) => ({
                         id: photo.id,
                         name: photo.name,
-                        dataUrl: '',
-                        previewUrl: '',
+                        dataUrl: fixBrokenB2Url(typeof (photo as any).dataUrl === 'string' ? (photo as any).dataUrl : (typeof (photo as any).url === 'string' ? (photo as any).url : '')),
+                        previewUrl: fixBrokenB2Url(typeof (photo as any).previewUrl === 'string' ? (photo as any).previewUrl : (typeof (photo as any).url === 'string' ? (photo as any).url : '')),
                         isCover: !!photo.isCover,
                         width: typeof photo.width === 'number' ? photo.width : 0,
                         height: typeof photo.height === 'number' ? photo.height : 0,
@@ -921,8 +952,8 @@ function mergeDraft(raw: unknown): { data: WizardData; valuationEstimate: Vehicl
                     ? {
                         id: parsed.data.media.discoverVideo.id,
                         name: parsed.data.media.discoverVideo.name,
-                        dataUrl: '',
-                        previewUrl: '',
+                        dataUrl: fixBrokenB2Url(typeof (parsed.data.media.discoverVideo as any).dataUrl === 'string' ? (parsed.data.media.discoverVideo as any).dataUrl : (typeof (parsed.data.media.discoverVideo as any).url === 'string' ? (parsed.data.media.discoverVideo as any).url : '')),
+                        previewUrl: fixBrokenB2Url(typeof (parsed.data.media.discoverVideo as any).previewUrl === 'string' ? (parsed.data.media.discoverVideo as any).previewUrl : (typeof (parsed.data.media.discoverVideo as any).url === 'string' ? (parsed.data.media.discoverVideo as any).url : '')),
                         width: typeof parsed.data.media.discoverVideo.width === 'number' ? parsed.data.media.discoverVideo.width : 0,
                         height: typeof parsed.data.media.discoverVideo.height === 'number' ? parsed.data.media.discoverVideo.height : 0,
                         sizeBytes: typeof parsed.data.media.discoverVideo.sizeBytes === 'number' ? parsed.data.media.discoverVideo.sizeBytes : 0,
@@ -959,6 +990,8 @@ function serializeDraft(data: WizardData, valuationEstimate: VehicleValuationEst
                 photos: data.media.photos.map((photo) => ({
                     id: photo.id,
                     name: photo.name,
+                    dataUrl: photo.dataUrl,
+                    previewUrl: photo.previewUrl,
                     isCover: photo.isCover,
                     width: photo.width,
                     height: photo.height,
@@ -969,6 +1002,8 @@ function serializeDraft(data: WizardData, valuationEstimate: VehicleValuationEst
                     ? {
                         id: data.media.discoverVideo.id,
                         name: data.media.discoverVideo.name,
+                        dataUrl: data.media.discoverVideo.dataUrl,
+                        previewUrl: data.media.discoverVideo.previewUrl,
                         width: data.media.discoverVideo.width,
                         height: data.media.discoverVideo.height,
                         sizeBytes: data.media.discoverVideo.sizeBytes,
@@ -1151,6 +1186,66 @@ function validateStep(step: StepId, data: WizardData): Record<string, string> {
     return errors;
 }
 
+function validateSimplePublish(data: WizardData): Record<string, string> {
+    const errors: Record<string, string> = {};
+    const year = toNumber(data.basic.year);
+    const currentYear = new Date().getFullYear();
+
+    if (data.media.photos.length < 1) errors['media.photos'] = 'Debes subir al menos 1 foto.';
+
+    if (!data.basic.brandId) errors['basic.brandId'] = 'Marca requerida.';
+    if (data.basic.brandId === '__custom__' && data.basic.customBrand.trim().length < 2) errors['basic.customBrand'] = 'Marca manual inválida.';
+    if (!data.basic.modelId) errors['basic.modelId'] = 'Modelo requerido.';
+    if (data.basic.modelId === '__custom__' && data.basic.customModel.trim().length < 2) errors['basic.customModel'] = 'Modelo manual inválido.';
+    if (!year || year < 1900 || year > currentYear + 1) errors['basic.year'] = 'Año fuera de rango.';
+
+    if (data.basic.description.trim().length < 30) {
+        errors['basic.description'] = 'Agrega una descripción breve de al menos 30 caracteres.';
+    }
+
+    if (!data.location.regionId) errors['location.regionId'] = 'Región requerida.';
+    if (!data.location.communeId) errors['location.communeId'] = 'Comuna requerida.';
+
+    if (data.setup.listingType === 'sale') {
+        if (!toNumber(data.commercial.price)) errors['commercial.price'] = 'Precio requerido.';
+    }
+
+    if (data.setup.listingType === 'rent') {
+        const hasRentPrice = !!toNumber(data.commercial.rentDaily) || !!toNumber(data.commercial.rentWeekly) || !!toNumber(data.commercial.rentMonthly);
+        if (!hasRentPrice) errors['commercial.rent'] = 'Ingresa al menos un precio de arriendo.';
+    }
+
+    if (data.setup.listingType === 'auction') {
+        if (!toNumber(data.commercial.auctionStartPrice)) errors['commercial.auctionStartPrice'] = 'Precio base requerido.';
+        if (!toNumber(data.commercial.auctionMinIncrement)) errors['commercial.auctionMinIncrement'] = 'Incremento mínimo requerido.';
+        if (!data.commercial.auctionStartAt) errors['commercial.auctionStartAt'] = 'Inicio requerido.';
+        if (!data.commercial.auctionEndAt) errors['commercial.auctionEndAt'] = 'Fin requerido.';
+        if (data.commercial.auctionStartAt && data.commercial.auctionEndAt) {
+            const start = new Date(data.commercial.auctionStartAt);
+            const end = new Date(data.commercial.auctionEndAt);
+            if (end.getTime() <= start.getTime()) errors['commercial.auctionEndAt'] = 'Fin debe ser posterior.';
+        }
+    }
+
+    if (!data.review.acceptTerms) errors['review.acceptTerms'] = 'Debes aceptar términos.';
+    return errors;
+}
+
+function sectionsForPublishErrors(errors: Record<string, string>): string[] {
+    const sections = new Set<string>();
+
+    for (const key of Object.keys(errors)) {
+        if (key.startsWith('media.')) sections.add('photos');
+        if (key.startsWith('basic.brand') || key.startsWith('basic.custom') || key.startsWith('basic.model') || key === 'basic.year') sections.add('setup');
+        if (key === 'basic.description') sections.add('ad');
+        if (key.startsWith('commercial.')) sections.add('price');
+        if (key.startsWith('location.')) sections.add('location');
+        if (key.startsWith('review.')) sections.add('publication');
+    }
+
+    return Array.from(sections);
+}
+
 function qualityScore(data: WizardData, estimate: VehicleValuationEstimate | null): number {
     let score = 0;
     const specificFields = getSpecificFields(data.setup.vehicleType);
@@ -1172,6 +1267,7 @@ export default function PublishWizardPage() {
     const searchParams = useSearchParams();
     const { user, requireAuth, refreshSession } = useAuth();
     const editingId = searchParams.get('edit');
+    const justCreated = searchParams.get('created') === '1';
     const isEditing = Boolean(editingId);
     const [catalog, setCatalog] = useState<PublishWizardCatalog | null>(null);
     const [catalogLoading, setCatalogLoading] = useState(true);
@@ -1313,11 +1409,14 @@ export default function PublishWizardPage() {
             setData(hydrated.data);
             setEstimate(hydrated.valuationEstimate);
             setDraftSavedNote('Editando publicación existente.');
+            if (justCreated) {
+                setMessage('Tu aviso ya está publicado en Simple. Ahora estás dentro de la ficha completa para seguir editando cuando quieras.');
+            }
         })();
         return () => {
             mounted = false;
         };
-    }, [editingId, requireAuth, router]);
+    }, [editingId, justCreated, requireAuth, router]);
 
     const saveDraft = async (manual: boolean) => {
         const serialized = serializeDraft(dataRef.current, estimateRef.current);
@@ -1534,14 +1633,18 @@ export default function PublishWizardPage() {
     };
 
     const publishNow = async () => {
-        for (const stepItem of STEPS) {
-            const stepErrors = validateStep(stepItem.id, data);
-            if (Object.keys(stepErrors).length > 0) {
-                setStep(stepItem.id);
-                setErrors(stepErrors);
-                setMessage('Faltan campos por completar antes de publicar.');
-                return;
-            }
+        const publishErrors = validateSimplePublish(data);
+        if (Object.keys(publishErrors).length > 0) {
+            setErrors(publishErrors);
+            setFichaOpen((current) => {
+                const next = { ...current };
+                for (const section of sectionsForPublishErrors(publishErrors)) {
+                    next[section] = true;
+                }
+                return next;
+            });
+            setMessage('Completa lo mínimo para publicar en Simple. Lo avanzado lo puedes terminar después.');
+            return;
         }
 
         const activeUser = await refreshSession();
@@ -1578,6 +1681,54 @@ export default function PublishWizardPage() {
 
         setPublishing(true);
         setMessage(null);
+
+        // Upload media to B2 if they are still base64
+        const uploadedPhotos: WizardPhoto[] = [];
+        for (const photo of data.media.photos) {
+            if (photo.dataUrl.startsWith('data:')) {
+                try {
+                    const blob = await fetch(photo.dataUrl).then((r) => r.blob());
+                    const file = new File([blob], photo.name, { type: photo.mimeType });
+                    const result = await uploadMediaFile(file, { fileType: 'image' });
+                    if (result.ok && result.result) {
+                        uploadedPhotos.push({
+                            ...photo,
+                            dataUrl: result.result.url,
+                            previewUrl: result.result.url,
+                        });
+                        continue;
+                    }
+                } catch (e) {
+                    console.error('Failed to upload photo to B2:', e);
+                }
+            }
+            uploadedPhotos.push(photo);
+        }
+
+        const uploadedVideo = data.media.discoverVideo ? { ...data.media.discoverVideo } : null;
+        if (uploadedVideo && uploadedVideo.dataUrl.startsWith('data:')) {
+            try {
+                const blob = await fetch(uploadedVideo.dataUrl).then((r) => r.blob());
+                const file = new File([blob], uploadedVideo.name, { type: uploadedVideo.mimeType });
+                const result = await uploadMediaFile(file, { fileType: 'video' });
+                if (result.ok && result.result) {
+                    uploadedVideo.dataUrl = result.result.url;
+                    uploadedVideo.previewUrl = result.result.url;
+                }
+            } catch (e) {
+                console.error('Failed to upload video to B2:', e);
+            }
+        }
+
+        const finalData = {
+            ...data,
+            media: {
+                ...data.media,
+                photos: uploadedPhotos,
+                discoverVideo: uploadedVideo,
+            },
+        };
+
         const payload = {
             listingType: data.setup.listingType,
             title: data.basic.title.trim(),
@@ -1586,7 +1737,7 @@ export default function PublishWizardPage() {
             location: locationLabel || undefined,
             locationData: normalizedLocation,
             href: data.commercial.slug.trim() ? `/vehiculo/${data.commercial.slug.trim()}` : undefined,
-            rawData: { ...data, valuation: estimate, publicationLifecycle: lifecyclePolicy },
+            rawData: { ...finalData, valuation: estimate, publicationLifecycle: lifecyclePolicy },
         };
         const result = isEditing && editingId
             ? await updatePanelListing(editingId, payload)
@@ -1613,14 +1764,24 @@ export default function PublishWizardPage() {
         void deletePanelListingDraft('autos');
         setMessage(isEditing ? 'Publicación actualizada correctamente.' : 'Publicación creada correctamente.');
         setLastSavedAt(null);
-        router.push('/panel/publicaciones');
+        if (isEditing) {
+            setDraftSavedNote('Cambios guardados');
+            return;
+        }
+        if (!result.item?.id) {
+            router.push('/panel/publicaciones');
+            return;
+        }
+        router.push(`/panel/publicar?edit=${encodeURIComponent(result.item.id)}&created=1`);
     };
 
     return isEditing ? (
         <div className="container-app panel-page max-w-3xl py-8">
             <PanelSectionHeader
-                title="Editar vehículo"
-                description="Revisa y actualiza todos los datos de tu publicación."
+                title={isEditing ? 'Editar vehículo' : 'Publicar vehículo'}
+                description={isEditing
+                    ? 'Esta es la ficha completa del vehículo. Abre y completa las secciones que necesites.'
+                    : 'Sube lo esencial para publicar en Simple ahora. Los campos avanzados y la preparación para portales los puedes completar después.'}
                 actions={
                     <div className="flex items-center gap-2">
                         {draftSavedNote ? (
@@ -1628,10 +1789,6 @@ export default function PublishWizardPage() {
                                 {draftSavedNote}
                             </span>
                         ) : null}
-                        <PanelButton type="button" variant="secondary" size="sm" onClick={() => void saveDraft(true)}>
-                            <IconDeviceFloppy size={14} />
-                            Guardar borrador
-                        </PanelButton>
                     </div>
                 }
             />
@@ -1644,6 +1801,41 @@ export default function PublishWizardPage() {
             </>
 
             <div className="flex flex-col gap-3">
+                <div
+                    className="rounded-2xl border overflow-hidden"
+                    style={{ borderColor: 'var(--border)' }}
+                >
+                    <div className="px-4 pt-4 pb-3" style={{ background: 'var(--bg-subtle)' }}>
+                        <div className="flex items-start gap-2.5 mb-3">
+                            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl" style={{ background: '#FF3600' }}>
+                                <IconSparkles size={15} color="white" />
+                            </div>
+                            <div>
+                                <p className="text-sm font-semibold" style={{ color: 'var(--fg)' }}>Base publicada en SimpleAutos</p>
+                                <p className="text-xs mt-0.5" style={{ color: 'var(--fg-muted)' }}>
+                                    Ya estás editando la ficha completa del vehículo. Abre cada sección y completa solo lo que necesites.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-0 border-t" style={{ borderColor: 'var(--border)' }}>
+                        <div className="px-4 py-3">
+                            <p className="text-[11px] font-semibold uppercase tracking-[0.08em]" style={{ color: 'var(--fg-muted)' }}>Estado</p>
+                            <p className="mt-1 text-sm font-medium">Activo en Simple</p>
+                        </div>
+                        <div className="px-4 py-3 border-l" style={{ borderColor: 'var(--border)' }}>
+                            <p className="text-[11px] font-semibold uppercase tracking-[0.08em]" style={{ color: 'var(--fg-muted)' }}>Modalidad</p>
+                            <p className="mt-1 text-sm font-medium">
+                                {data.setup.listingType === 'rent'
+                                    ? 'Arriendo'
+                                    : data.setup.listingType === 'auction'
+                                        ? 'Subasta'
+                                        : 'Venta'}
+                            </p>
+                        </div>
+                    </div>
+                </div>
+
                 {/* FOTOS - UNIFICADAS CON QUICKPUBLISH */}
                 <FichaGroup label="Fotos y multimedia" />
                 <FichaSection
@@ -1679,38 +1871,6 @@ export default function PublishWizardPage() {
                     />
                 </FichaSection>
 
-                <FichaSection
-                    title="Video y documentos"
-                    description="Video externo, clip para Descubre y documentación adjunta."
-                    open={fichaOpen.mediaDocs}
-                    onToggle={() => setFichaOpen((s) => ({ ...s, mediaDocs: !s.mediaDocs }))}
-                >
-                    <div className="space-y-4">
-                        <Field label="Video del aviso" error={errors['media.videoUrl']}>
-                            <input
-                                className="form-input"
-                                placeholder="https://www.youtube.com/... o https://vimeo.com/..."
-                                value={data.media.videoUrl}
-                                onChange={(event) => setData((current) => ({ ...current, media: { ...current.media, videoUrl: event.target.value } }))}
-                            />
-                            <p className="text-xs mt-1" style={{ color: 'var(--fg-muted)' }}>Solo YouTube o Vimeo.</p>
-                        </Field>
-                        <PanelVideoUploader
-                            asset={data.media.discoverVideo}
-                            onChange={(discoverVideo) => setData((current) => ({ ...current, media: { ...current.media, discoverVideo } }))}
-                            title="Clip para Descubre"
-                            description=""
-                            helperText="MP4, WEBM o MOV · hasta 10 MB · 9:16."
-                        />
-                        <PanelDocumentUploader
-                            items={data.media.documents}
-                            onChange={(documents) => setData((current) => ({ ...current, media: { ...current.media, documents } }))}
-                            title="Documentos y PDF"
-                            description="Papeles, informes, catálogos o documentación."
-                        />
-                    </div>
-                </FichaSection>
-
                 {/* DATOS - UNIFICADOS CON QUICKPUBLISH */}
                 <FichaGroup label="Datos principales" />
                 <FichaSection
@@ -1725,13 +1885,14 @@ export default function PublishWizardPage() {
                             listingType: data.setup.listingType,
                             vehicleType: data.setup.vehicleType,
                             brandId: data.basic.brandId,
-                            customBrand: data.basic.customBrand || '',
-                            brandName: '', // Wizard looks up inside using catalog
+                            customBrand: data.basic.customBrand,
+                            brandName: '',
                             modelId: data.basic.modelId,
-                            customModel: data.basic.customModel || '',
+                            customModel: data.basic.customModel,
                             modelName: '',
                             year: data.basic.year,
                             version: data.basic.version,
+                            customVersion: data.basic.versionMode === 'manual' ? data.basic.version : '',
                             mileage: data.basic.mileage,
                             price: data.commercial.price,
                             offerPrice: data.commercial.offerPrice,
@@ -1743,13 +1904,33 @@ export default function PublishWizardPage() {
                             condition: data.basic.condition,
                             negotiable: data.commercial.negotiable,
                             financingAvailable: data.commercial.financingAvailable,
+                            exchangeAvailable: data.commercial.exchangeAvailable,
+                            currency: data.commercial.currency,
+                            rentDaily: data.commercial.rentDaily,
+                            rentWeekly: data.commercial.rentWeekly,
+                            rentMonthly: data.commercial.rentMonthly,
+                            rentMinDays: data.commercial.rentMinDays,
+                            rentDeposit: data.commercial.rentDeposit,
+                            rentAvailableFrom: data.commercial.rentAvailableFrom,
+                            rentAvailableTo: data.commercial.rentAvailableTo,
+                            auctionStartPrice: data.commercial.auctionStartPrice,
+                            auctionReservePrice: data.commercial.auctionReservePrice,
+                            auctionMinIncrement: data.commercial.auctionMinIncrement,
+                            auctionStartAt: data.commercial.auctionStartAt,
+                            auctionEndAt: data.commercial.auctionEndAt,
                             traction: data.basic.traction || '',
                             ownerCount: data.basic.complementary.owners_count || '',
+                            engineSize: data.basic.engineSize,
+                            doors: data.basic.doors,
+                            passengers: data.basic.seats,
                         }}
                         onChange={(updated) => {
                             setData((cur) => {
-                                // Sincronizar espejos de categoría (e.g. bodyType se asigna a type en base a category)
                                 const mirrorField = BODY_TYPE_SPECIFIC_MIRRORS[updated.vehicleType];
+                                const nextSpecific = { ...cur.basic.specific };
+                                if (mirrorField) {
+                                    nextSpecific[mirrorField] = updated.bodyType;
+                                }
                                 return {
                                     ...cur,
                                     setup: {
@@ -1765,7 +1946,12 @@ export default function PublishWizardPage() {
                                         customModel: updated.customModel || '',
                                         year: updated.year,
                                         version: updated.version,
-                                        versionMode: updated.version ? 'catalog' : 'manual',
+                                        versionMode:
+                                            updated.brandId === '__custom__'
+                                            || updated.modelId === '__custom__'
+                                            || updated.customVersion
+                                                ? 'manual'
+                                                : 'catalog',
                                         mileage: updated.mileage,
                                         transmission: updated.transmission,
                                         color: updated.color,
@@ -1773,11 +1959,35 @@ export default function PublishWizardPage() {
                                         fuelType: updated.fuelType,
                                         condition: updated.condition,
                                         traction: updated.traction || '',
-                                        specific: mirrorField ? { ...cur.basic.specific, [mirrorField]: updated.bodyType } : cur.basic.specific,
+                                        engineSize: updated.engineSize || '',
+                                        doors: updated.doors || '',
+                                        seats: updated.passengers || '',
+                                        specific: nextSpecific,
                                         complementary: {
                                             ...cur.basic.complementary,
                                             owners_count: updated.ownerCount || '',
                                         }
+                                    },
+                                    commercial: {
+                                        ...cur.commercial,
+                                        currency: updated.currency || cur.commercial.currency,
+                                        price: updated.price || '',
+                                        offerPrice: updated.offerPrice || '',
+                                        negotiable: updated.negotiable,
+                                        financingAvailable: updated.financingAvailable,
+                                        exchangeAvailable: updated.exchangeAvailable ?? false,
+                                        rentDaily: updated.rentDaily || '',
+                                        rentWeekly: updated.rentWeekly || '',
+                                        rentMonthly: updated.rentMonthly || '',
+                                        rentMinDays: updated.rentMinDays || '',
+                                        rentDeposit: updated.rentDeposit || '',
+                                        rentAvailableFrom: updated.rentAvailableFrom || '',
+                                        rentAvailableTo: updated.rentAvailableTo || '',
+                                        auctionStartPrice: updated.auctionStartPrice || '',
+                                        auctionReservePrice: updated.auctionReservePrice || '',
+                                        auctionMinIncrement: updated.auctionMinIncrement || '',
+                                        auctionStartAt: updated.auctionStartAt || '',
+                                        auctionEndAt: updated.auctionEndAt || '',
                                     }
                                 };
                             });
@@ -1786,6 +1996,7 @@ export default function PublishWizardPage() {
                 </FichaSection>
 
                 {getSpecificFields(data.setup.vehicleType).length > 0 ? (
+                    <div style={{ order: 9 }}>
                     <FichaSection
                         title="Especificaciones técnicas"
                         description="Datos específicos según el tipo de vehículo."
@@ -1816,138 +2027,144 @@ export default function PublishWizardPage() {
                             ))}
                         </div>
                     </FichaSection>
+                    </div>
                 ) : null}
 
+                <div style={{ order: 10 }}>
                 <FichaSection
-                    title="Antecedentes"
-                    description="Historial declarado y estado documental del vehículo."
-                    open={fichaOpen.history}
-                    onToggle={() => setFichaOpen((s) => ({ ...s, history: !s.history }))}
-                >
-                    <div className="space-y-4">
-                        {getComplementaryFields(data.setup.vehicleType, 'legal').length > 0 && (
-                            <div>
-                                <p className="text-xs font-semibold uppercase tracking-[0.08em] mb-2" style={{ color: 'var(--fg-muted)' }}>Documentación y legal</p>
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                                    {getComplementaryFields(data.setup.vehicleType, 'legal').map((field) => (
-                                        <Field key={field.id} label={field.label}>
-                                            {field.input === 'select' ? (
-                                                <ModernSelect
-                                                    value={getFieldValue(data, field)}
-                                                    onChange={(value) => updateDynamicFieldValue(setData, field, value)}
-                                                    placeholder="Seleccionar"
-                                                    options={getDynamicSelectOptions(field)}
-                                                    ariaLabel={`Seleccionar ${field.label}`}
-                                                />
-                                            ) : (
-                                                <input
-                                                    className="form-input"
-                                                    type={field.input}
-                                                    placeholder={field.placeholder}
-                                                    value={getFieldValue(data, field)}
-                                                    disabled={field.id === 'tinted_windows_ftrl_details' && data.basic.complementary.tinted_windows_ftrl_certified !== 'Sí'}
-                                                    onChange={(event) => updateDynamicFieldValue(setData, field, event.target.value)}
-                                                />
-                                            )}
-                                        </Field>
-                                    ))}
-                                </div>
-                            </div>
-                        )}
-                        {getComplementaryFields(data.setup.vehicleType, 'history').length > 0 && (
-                            <div>
-                                <p className="text-xs font-semibold uppercase tracking-[0.08em] mb-2" style={{ color: 'var(--fg-muted)' }}>Historial declarado</p>
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                                    {getComplementaryFields(data.setup.vehicleType, 'history').map((field) => (
-                                        <Field key={field.id} label={field.label}>
-                                            {field.input === 'select' ? (
-                                                <ModernSelect
-                                                    value={getFieldValue(data, field)}
-                                                    onChange={(value) => updateDynamicFieldValue(setData, field, value)}
-                                                    placeholder="Seleccionar"
-                                                    options={getDynamicSelectOptions(field)}
-                                                    ariaLabel={`Seleccionar ${field.label}`}
-                                                />
-                                            ) : (
-                                                <input
-                                                    className="form-input"
-                                                    type={field.input}
-                                                    placeholder={field.placeholder}
-                                                    value={getFieldValue(data, field)}
-                                                    onChange={(event) => updateDynamicFieldValue(setData, field, event.target.value)}
-                                                />
-                                            )}
-                                        </Field>
-                                    ))}
-                                </div>
-                            </div>
-                        )}
-                    </div>
-                </FichaSection>
-
-                <FichaSection
-                    title="Equipamiento"
-                    description="Extras y asistencias disponibles según la categoría."
-                    open={fichaOpen.equipment}
-                    onToggle={() => setFichaOpen((s) => ({ ...s, equipment: !s.equipment }))}
-                >
-                    <div className="space-y-4">
-                        <div className="flex flex-wrap items-center gap-2 rounded-2xl border px-3 py-3" style={{ borderColor: 'var(--border)', background: 'var(--bg-subtle)' }}>
-                            <span className="text-xs uppercase tracking-[0.08em]" style={{ color: 'var(--fg-muted)' }}>Seleccionados</span>
-                            <span className="text-sm font-medium">{data.specs.featureCodes.length}</span>
-                            {data.specs.featureCodes.length > 0 ? (
-                                <span className="text-xs" style={{ color: 'var(--fg-secondary)' }}>
-                                    {getFeatureSections(data.setup.vehicleType).flatMap((section) => section.items).filter((item) => data.specs.featureCodes.includes(item.code)).slice(0, 4).map((item) => item.label).join(', ')}
-                                    {data.specs.featureCodes.length > 4 ? '…' : ''}
-                                </span>
-                            ) : (
-                                <span className="text-xs" style={{ color: 'var(--fg-secondary)' }}>Selecciona los extras que realmente tiene este vehículo.</span>
-                            )}
-                        </div>
+                        title="Antecedentes"
+                        description="Historial declarado y estado documental del vehículo."
+                        open={fichaOpen.history}
+                        onToggle={() => setFichaOpen((s) => ({ ...s, history: !s.history }))}
+                    >
                         <div className="space-y-4">
-                            {getFeatureSections(data.setup.vehicleType).map((section) => (
-                                <div key={section.title} className="space-y-2">
-                                    <div className="flex items-center justify-between gap-3">
-                                        <p className="text-sm font-semibold">{section.title}</p>
-                                        <span className="text-xs" style={{ color: 'var(--fg-muted)' }}>
-                                            {section.items.filter((item) => data.specs.featureCodes.includes(item.code)).length} / {section.items.length}
-                                        </span>
-                                    </div>
-                                    <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-2">
-                                        {section.items.map((item) => (
-                                            <SelectableChip
-                                                key={item.code}
-                                                label={item.label}
-                                                active={data.specs.featureCodes.includes(item.code)}
-                                                onToggle={() =>
-                                                    setData((current) => ({
-                                                        ...current,
-                                                        specs: {
-                                                            ...current.specs,
-                                                            featureCodes: current.specs.featureCodes.includes(item.code)
-                                                                ? current.specs.featureCodes.filter((code) => code !== item.code)
-                                                                : [...current.specs.featureCodes, item.code],
-                                                        },
-                                                    }))
-                                                }
-                                            />
+                            {getComplementaryFields(data.setup.vehicleType, 'legal').length > 0 && (
+                                <div>
+                                    <p className="text-xs font-semibold uppercase tracking-[0.08em] mb-2" style={{ color: 'var(--fg-muted)' }}>Documentación y legal</p>
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                        {getComplementaryFields(data.setup.vehicleType, 'legal').map((field) => (
+                                            <Field key={field.id} label={field.label}>
+                                                {field.input === 'select' ? (
+                                                    <ModernSelect
+                                                        value={getFieldValue(data, field)}
+                                                        onChange={(value) => updateDynamicFieldValue(setData, field, value)}
+                                                        placeholder="Seleccionar"
+                                                        options={getDynamicSelectOptions(field)}
+                                                        ariaLabel={`Seleccionar ${field.label}`}
+                                                    />
+                                                ) : (
+                                                    <input
+                                                        className="form-input"
+                                                        type={field.input}
+                                                        placeholder={field.placeholder}
+                                                        value={getFieldValue(data, field)}
+                                                        disabled={field.id === 'tinted_windows_ftrl_details' && data.basic.complementary.tinted_windows_ftrl_certified !== 'Sí'}
+                                                        onChange={(event) => updateDynamicFieldValue(setData, field, event.target.value)}
+                                                    />
+                                                )}
+                                            </Field>
                                         ))}
                                     </div>
                                 </div>
-                            ))}
+                            )}
+                            {getComplementaryFields(data.setup.vehicleType, 'history').length > 0 && (
+                                <div>
+                                    <p className="text-xs font-semibold uppercase tracking-[0.08em] mb-2" style={{ color: 'var(--fg-muted)' }}>Historial declarado</p>
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                        {getComplementaryFields(data.setup.vehicleType, 'history').map((field) => (
+                                            <Field key={field.id} label={field.label}>
+                                                {field.input === 'select' ? (
+                                                    <ModernSelect
+                                                        value={getFieldValue(data, field)}
+                                                        onChange={(value) => updateDynamicFieldValue(setData, field, value)}
+                                                        placeholder="Seleccionar"
+                                                        options={getDynamicSelectOptions(field)}
+                                                        ariaLabel={`Seleccionar ${field.label}`}
+                                                    />
+                                                ) : (
+                                                    <input
+                                                        className="form-input"
+                                                        type={field.input}
+                                                        placeholder={field.placeholder}
+                                                        value={getFieldValue(data, field)}
+                                                        onChange={(event) => updateDynamicFieldValue(setData, field, event.target.value)}
+                                                    />
+                                                )}
+                                            </Field>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
                         </div>
-                        <Field label="Notas técnicas">
-                            <textarea
-                                className="form-textarea"
-                                rows={4}
-                                value={data.specs.notes}
-                                onChange={(event) => setData((current) => ({ ...current, specs: { ...current.specs, notes: event.target.value } }))}
-                                placeholder="Ej: Mantiene control crucero adaptativo, neumáticos recién cambiados."
-                            />
-                        </Field>
-                    </div>
                 </FichaSection>
+                </div>
 
+                <div style={{ order: 11 }}>
+                <FichaSection
+                        title="Equipamiento"
+                        description="Extras y asistencias disponibles según la categoría."
+                        open={fichaOpen.equipment}
+                        onToggle={() => setFichaOpen((s) => ({ ...s, equipment: !s.equipment }))}
+                    >
+                        <div className="space-y-4">
+                            <div className="flex flex-wrap items-center gap-2 rounded-2xl border px-3 py-3" style={{ borderColor: 'var(--border)', background: 'var(--bg-subtle)' }}>
+                                <span className="text-xs uppercase tracking-[0.08em]" style={{ color: 'var(--fg-muted)' }}>Seleccionados</span>
+                                <span className="text-sm font-medium">{data.specs.featureCodes.length}</span>
+                                {data.specs.featureCodes.length > 0 ? (
+                                    <span className="text-xs" style={{ color: 'var(--fg-secondary)' }}>
+                                        {getFeatureSections(data.setup.vehicleType).flatMap((section) => section.items).filter((item) => data.specs.featureCodes.includes(item.code)).slice(0, 4).map((item) => item.label).join(', ')}
+                                        {data.specs.featureCodes.length > 4 ? '…' : ''}
+                                    </span>
+                                ) : (
+                                    <span className="text-xs" style={{ color: 'var(--fg-secondary)' }}>Selecciona los extras que realmente tiene este vehículo.</span>
+                                )}
+                            </div>
+                            <div className="space-y-4">
+                                {getFeatureSections(data.setup.vehicleType).map((section) => (
+                                    <div key={section.title} className="space-y-2">
+                                        <div className="flex items-center justify-between gap-3">
+                                            <p className="text-sm font-semibold">{section.title}</p>
+                                            <span className="text-xs" style={{ color: 'var(--fg-muted)' }}>
+                                                {section.items.filter((item) => data.specs.featureCodes.includes(item.code)).length} / {section.items.length}
+                                            </span>
+                                        </div>
+                                        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-2">
+                                            {section.items.map((item) => (
+                                                <SelectableChip
+                                                    key={item.code}
+                                                    label={item.label}
+                                                    active={data.specs.featureCodes.includes(item.code)}
+                                                    onToggle={() =>
+                                                        setData((current) => ({
+                                                            ...current,
+                                                            specs: {
+                                                                ...current.specs,
+                                                                featureCodes: current.specs.featureCodes.includes(item.code)
+                                                                    ? current.specs.featureCodes.filter((code) => code !== item.code)
+                                                                    : [...current.specs.featureCodes, item.code],
+                                                            },
+                                                        }))
+                                                    }
+                                                />
+                                            ))}
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                            <Field label="Notas técnicas">
+                                <textarea
+                                    className="form-textarea"
+                                    rows={4}
+                                    value={data.specs.notes}
+                                    onChange={(event) => setData((current) => ({ ...current, specs: { ...current.specs, notes: event.target.value } }))}
+                                    placeholder="Ej: Mantiene control crucero adaptativo, neumáticos recién cambiados."
+                                />
+                            </Field>
+                        </div>
+                </FichaSection>
+                </div>
+
+                <div style={{ order: 5 }}>
                 <FichaSection
                     title="Anuncio"
                     description="Título y descripción que verán los compradores."
@@ -1985,8 +2202,10 @@ export default function PublishWizardPage() {
                         </PanelButton>
                     </div>
                 </FichaSection>
+                </div>
 
                 {/* PRECIO */}
+                <div style={{ order: 6 }}>
                 <FichaGroup label="Precio" />
 
                 <FichaSection
@@ -2050,10 +2269,12 @@ export default function PublishWizardPage() {
                         ) : null}
                     </div>
                 </FichaSection>
+                </div>
 
+                <div style={{ order: 7 }}>
                 <FichaSection
                     title="Ubicación"
-                    description="Dirección, región y comuna del vehículo."
+                    description="Región y comuna para publicar ahora. La dirección exacta la puedes completar después."
                     open={fichaOpen.location}
                     onToggle={() => setFichaOpen((s) => ({ ...s, location: !s.location }))}
                 >
@@ -2074,8 +2295,7 @@ export default function PublishWizardPage() {
                             sourceAddressId: errors['location.sourceAddressId'],
                             addressLine1: errors['location.addressLine1'],
                         }}
-                        allowAreaOnly={false}
-                        addressRequired
+                        allowAreaOnly
                         addressFirst
                         showSourceSelector={false}
                         showVisibilityField={false}
@@ -2086,154 +2306,193 @@ export default function PublishWizardPage() {
                         onGeocode={refreshLocationMap}
                     />
                 </FichaSection>
+                </div>
 
+                <div style={{ order: 8 }}>
                 <FichaSection
-                    title="Tasador de precios"
-                    description="Estimación de valor de mercado basada en comparables."
-                    open={fichaOpen.valuation}
-                    onToggle={() => setFichaOpen((s) => ({ ...s, valuation: !s.valuation }))}
-                >
-                    <div className="space-y-3">
-                        <PanelButton
-                            type="button"
-                            variant="primary"
-                            className="w-full"
-                            onClick={() => void runValuation()}
-                            disabled={estimating || !valuationRequest || data.setup.listingType === 'auction'}
-                        >
-                            {estimating ? 'Calculando estimación...' : 'Calcular estimación'}
-                        </PanelButton>
-                        {data.setup.listingType === 'auction' ? (
-                            <PanelNotice tone="neutral">La subasta ya se puede publicar. El tasador aplica para venta y arriendo.</PanelNotice>
-                        ) : !valuationRequest ? (
-                            <PanelNotice tone="neutral">Completa marca, modelo, año, kilometraje y ubicación para habilitar el tasador.</PanelNotice>
-                        ) : !estimate ? (
-                            <PanelNotice tone="neutral">Obtén una referencia de precio antes de publicar el aviso.</PanelNotice>
-                        ) : null}
-                        {estimate ? (
-                            <div className="space-y-3">
-                                <PanelSummaryCard
-                                    eyebrow="Resultado"
-                                    title={formatAmount(estimate.estimatedPrice, estimate.currency as 'CLP' | 'USD')}
-                                    rows={[
-                                        { label: 'Rango bajo', value: formatAmount(estimate.minPrice, estimate.currency as 'CLP' | 'USD') },
-                                        { label: 'Rango alto', value: formatAmount(estimate.maxPrice, estimate.currency as 'CLP' | 'USD') },
-                                        { label: 'Confianza', value: `${estimate.confidenceScore}%` },
-                                        { label: 'Comparables', value: String(estimate.comparablesUsed) },
-                                        { label: 'Liquidez', value: estimate.estimatedLiquidityDays != null ? `${estimate.estimatedLiquidityDays} días` : 'Sin dato' },
-                                        { label: 'Tendencia 30d', value: formatSignedPercent(estimate.marketTrendPct30d) },
-                                    ]}
-                                />
-                                {estimate.comparables.length > 0 ? (
-                                    <div className="rounded-xl border p-4" style={{ borderColor: 'var(--border)' }}>
-                                        <p className="text-sm font-semibold">Comparables usados</p>
-                                        <div className="mt-3 space-y-2">
-                                            {estimate.comparables.slice(0, 3).map((comparable, index) => (
-                                                <div key={`${comparable.source}-${comparable.externalId || comparable.title}-${index}`} className="rounded-lg border px-3 py-3" style={{ borderColor: 'var(--border)', background: 'var(--surface)' }}>
-                                                    <div className="flex items-center justify-between gap-3">
-                                                        <p className="min-w-0 truncate text-sm font-medium">{comparable.title}</p>
-                                                        <span className="text-sm font-semibold">{formatAmount(comparable.price, comparable.currency as 'CLP' | 'USD')}</span>
-                                                    </div>
-                                                    <p className="mt-1 text-xs" style={{ color: 'var(--fg-secondary)' }}>
-                                                        {[comparable.source, comparable.year ? String(comparable.year) : null, comparable.mileageKm != null ? `${Math.round(comparable.mileageKm).toLocaleString('es-CL')} km` : null, comparable.addressLabel].filter(Boolean).join(' · ')}
-                                                    </p>
-                                                </div>
-                                            ))}
-                                        </div>
-                                    </div>
-                                ) : null}
-                                {estimate.historicalSeries.length > 0 ? (
-                                    <div className="rounded-xl border p-4" style={{ borderColor: 'var(--border)' }}>
-                                        <p className="text-sm font-semibold">Tendencia del segmento</p>
-                                        <div className="space-y-2 mt-3">
-                                            {estimate.historicalSeries.map((point) => (
-                                                <div key={point.ts} className="grid grid-cols-[110px_minmax(0,1fr)_auto] items-center gap-3 text-sm">
-                                                    <span style={{ color: 'var(--fg-secondary)' }}>{formatSeriesLabel(point.ts)}</span>
-                                                    <div className="h-2 rounded-full" style={{ background: 'rgba(15,23,42,0.08)' }}>
-                                                        <div className="h-full rounded-full" style={{ width: `${Math.max(12, Math.min(100, estimate.maxPrice > 0 ? (point.medianPrice / estimate.maxPrice) * 100 : 12))}%`, background: 'var(--fg)' }} />
-                                                    </div>
-                                                    <span className="font-medium">{formatAmount(point.medianPrice, estimate.currency as 'CLP' | 'USD')}</span>
-                                                </div>
-                                            ))}
-                                        </div>
-                                    </div>
-                                ) : null}
-                                {estimate.notes.length > 0 ? (
-                                    <div className="rounded-xl border p-4" style={{ borderColor: 'var(--border)' }}>
-                                        <p className="text-sm font-semibold">Notas del tasador</p>
-                                        <div className="space-y-2 mt-3">
-                                            {estimate.notes.map((note) => (
-                                                <div key={note} className="flex items-start gap-2 text-sm" style={{ color: 'var(--fg-secondary)' }}>
-                                                    <IconSparkles size={15} className="mt-0.5 shrink-0" />
-                                                    <span>{note}</span>
-                                                </div>
-                                            ))}
-                                        </div>
-                                    </div>
-                                ) : null}
-                            </div>
-                        ) : null}
-                    </div>
-                </FichaSection>
-
-                <FichaSection
-                    title="Publicación"
-                    description="Configuración, calidad del anuncio y términos."
-                    open={fichaOpen.publication}
-                    onToggle={() => setFichaOpen((s) => ({ ...s, publication: !s.publication }))}
+                    title="Video y documentos"
+                    description="Video externo, clip para Descubre y documentación adjunta."
+                    open={fichaOpen.mediaDocs}
+                    onToggle={() => setFichaOpen((s) => ({ ...s, mediaDocs: !s.mediaDocs }))}
                 >
                     <div className="space-y-4">
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                            <Field label="Slug (URL)">
-                                <input
-                                    className="form-input"
-                                    value={data.commercial.slug}
-                                    onChange={(event) => setData((current) => ({ ...current, commercial: { ...current.commercial, slug: event.target.value } }))}
-                                    placeholder="mi-auto-toyota-2020"
-                                />
-                                <p className="text-xs mt-1" style={{ color: 'var(--fg-muted)' }}>URL: /vehiculo/{data.commercial.slug || '...'}</p>
-                            </Field>
-                            <Field label="Vigencia">
-                                <ModernSelect
-                                    value={data.commercial.durationDays}
-                                    onChange={(value) => setData((current) => ({ ...current, commercial: { ...current.commercial, durationDays: value as '30' | '60' | '90' } }))}
-                                    options={[
-                                        { value: '30', label: '30 días' },
-                                        { value: '60', label: '60 días' },
-                                        { value: '90', label: '90 días' },
-                                    ]}
-                                    ariaLabel="Seleccionar vigencia"
-                                />
-                            </Field>
-                        </div>
-                        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-2.5">
-                            <ToggleCard title="Auto-renovar" description="Renueva automáticamente al vencer." active={data.commercial.autoRenew} onToggle={() => setData((current) => ({ ...current, commercial: { ...current.commercial, autoRenew: !current.commercial.autoRenew } }))} />
-                            <ToggleCard title="Destacado" description="Aparece primero en resultados." active={data.commercial.featured} onToggle={() => setData((current) => ({ ...current, commercial: { ...current.commercial, featured: !current.commercial.featured } }))} />
-                            <ToggleCard title="Urgente" description="Etiqueta de urgencia visible." active={data.commercial.urgent} onToggle={() => setData((current) => ({ ...current, commercial: { ...current.commercial, urgent: !current.commercial.urgent } }))} />
-                        </div>
-                        <div className="rounded-2xl border p-4" style={{ borderColor: 'var(--border)' }}>
-                            <div className="flex items-center justify-between mb-2">
-                                <span className="text-sm font-medium">Score de calidad</span>
-                                <strong>{score}/100</strong>
-                            </div>
-                            <div className="h-2 rounded-full" style={{ background: 'var(--bg-muted)' }}>
-                                <div className="h-full rounded-full" style={{ width: `${score}%`, background: 'var(--fg)' }} />
-                            </div>
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-3">
-                                <QualityItem label="5 fotos o más" ok={data.media.photos.length >= 5} />
-                                <QualityItem label="5 equipamientos" ok={data.specs.featureCodes.length >= 5} />
-                                <QualityItem label="Ubicación completa" ok={!!data.location.addressLine1 && !!data.location.regionId && !!data.location.communeId} />
-                                <QualityItem label="Datos específicos" ok={countFilledFields(data, getSpecificFields(data.setup.vehicleType)) >= Math.min(4, getSpecificFields(data.setup.vehicleType).length)} />
-                                <QualityItem label="Antecedentes cargados" ok={countComplementaryEntries(data) >= 3} />
-                                <QualityItem label={data.setup.listingType === 'auction' ? 'Tasador no requerido' : 'Tasador ejecutado'} ok={data.setup.listingType === 'auction' ? true : !!estimate} />
-                            </div>
-                        </div>
-                        {errors['review.acceptTerms'] ? <ErrorText text={errors['review.acceptTerms']} /> : null}
+                        <Field label="Video del aviso" error={errors['media.videoUrl']}>
+                            <input
+                                className="form-input"
+                                placeholder="https://www.youtube.com/... o https://vimeo.com/..."
+                                value={data.media.videoUrl}
+                                onChange={(event) => setData((current) => ({ ...current, media: { ...current.media, videoUrl: event.target.value } }))}
+                            />
+                            <p className="text-xs mt-1" style={{ color: 'var(--fg-muted)' }}>Solo YouTube o Vimeo.</p>
+                        </Field>
+                        <PanelVideoUploader
+                            asset={data.media.discoverVideo}
+                            onChange={(discoverVideo) => setData((current) => ({ ...current, media: { ...current.media, discoverVideo } }))}
+                            title="Clip para Descubre"
+                            description=""
+                            helperText="MP4, WEBM o MOV · hasta 10 MB · 9:16."
+                        />
+                        <PanelDocumentUploader
+                            items={data.media.documents}
+                            onChange={(documents) => setData((current) => ({ ...current, media: { ...current.media, documents } }))}
+                            title="Documentos y PDF"
+                            description="Papeles, informes, catálogos o documentación."
+                        />
                     </div>
                 </FichaSection>
+                </div>
+
+                <div style={{ order: 12 }}>
+                <FichaSection
+                        title="Tasador de precios"
+                        description="Estimación de valor de mercado basada en comparables."
+                        open={fichaOpen.valuation}
+                        onToggle={() => setFichaOpen((s) => ({ ...s, valuation: !s.valuation }))}
+                    >
+                        <div className="space-y-3">
+                            <PanelButton
+                                type="button"
+                                variant="primary"
+                                className="w-full"
+                                onClick={() => void runValuation()}
+                                disabled={estimating || !valuationRequest || data.setup.listingType === 'auction'}
+                            >
+                                {estimating ? 'Calculando estimación...' : 'Calcular estimación'}
+                            </PanelButton>
+                            {data.setup.listingType === 'auction' ? (
+                                <PanelNotice tone="neutral">La subasta ya se puede publicar. El tasador aplica para venta y arriendo.</PanelNotice>
+                            ) : !valuationRequest ? (
+                                <PanelNotice tone="neutral">Completa marca, modelo, año, kilometraje y ubicación para habilitar el tasador.</PanelNotice>
+                            ) : !estimate ? (
+                                <PanelNotice tone="neutral">Obtén una referencia de precio antes de publicar el aviso.</PanelNotice>
+                            ) : null}
+                            {estimate ? (
+                                <div className="space-y-3">
+                                    <PanelSummaryCard
+                                        eyebrow="Resultado"
+                                        title={formatAmount(estimate.estimatedPrice, estimate.currency as 'CLP' | 'USD')}
+                                        rows={[
+                                            { label: 'Rango bajo', value: formatAmount(estimate.minPrice, estimate.currency as 'CLP' | 'USD') },
+                                            { label: 'Rango alto', value: formatAmount(estimate.maxPrice, estimate.currency as 'CLP' | 'USD') },
+                                            { label: 'Confianza', value: `${estimate.confidenceScore}%` },
+                                            { label: 'Comparables', value: String(estimate.comparablesUsed) },
+                                            { label: 'Liquidez', value: estimate.estimatedLiquidityDays != null ? `${estimate.estimatedLiquidityDays} días` : 'Sin dato' },
+                                            { label: 'Tendencia 30d', value: formatSignedPercent(estimate.marketTrendPct30d) },
+                                        ]}
+                                    />
+                                    {estimate.comparables.length > 0 ? (
+                                        <div className="rounded-xl border p-4" style={{ borderColor: 'var(--border)' }}>
+                                            <p className="text-sm font-semibold">Comparables usados</p>
+                                            <div className="mt-3 space-y-2">
+                                                {estimate.comparables.slice(0, 3).map((comparable, index) => (
+                                                    <div key={`${comparable.source}-${comparable.externalId || comparable.title}-${index}`} className="rounded-lg border px-3 py-3" style={{ borderColor: 'var(--border)', background: 'var(--surface)' }}>
+                                                        <div className="flex items-center justify-between gap-3">
+                                                            <p className="min-w-0 truncate text-sm font-medium">{comparable.title}</p>
+                                                            <span className="text-sm font-semibold">{formatAmount(comparable.price, comparable.currency as 'CLP' | 'USD')}</span>
+                                                        </div>
+                                                        <p className="mt-1 text-xs" style={{ color: 'var(--fg-secondary)' }}>
+                                                            {[comparable.source, comparable.year ? String(comparable.year) : null, comparable.mileageKm != null ? `${Math.round(comparable.mileageKm).toLocaleString('es-CL')} km` : null, comparable.addressLabel].filter(Boolean).join(' · ')}
+                                                        </p>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    ) : null}
+                                    {estimate.historicalSeries.length > 0 ? (
+                                        <div className="rounded-xl border p-4" style={{ borderColor: 'var(--border)' }}>
+                                            <p className="text-sm font-semibold">Tendencia del segmento</p>
+                                            <div className="space-y-2 mt-3">
+                                                {estimate.historicalSeries.map((point) => (
+                                                    <div key={point.ts} className="grid grid-cols-[110px_minmax(0,1fr)_auto] items-center gap-3 text-sm">
+                                                        <span style={{ color: 'var(--fg-secondary)' }}>{formatSeriesLabel(point.ts)}</span>
+                                                        <div className="h-2 rounded-full" style={{ background: 'rgba(15,23,42,0.08)' }}>
+                                                            <div className="h-full rounded-full" style={{ width: `${Math.max(12, Math.min(100, estimate.maxPrice > 0 ? (point.medianPrice / estimate.maxPrice) * 100 : 12))}%`, background: 'var(--fg)' }} />
+                                                        </div>
+                                                        <span className="font-medium">{formatAmount(point.medianPrice, estimate.currency as 'CLP' | 'USD')}</span>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    ) : null}
+                                    {estimate.notes.length > 0 ? (
+                                        <div className="rounded-xl border p-4" style={{ borderColor: 'var(--border)' }}>
+                                            <p className="text-sm font-semibold">Notas del tasador</p>
+                                            <div className="space-y-2 mt-3">
+                                                {estimate.notes.map((note) => (
+                                                    <div key={note} className="flex items-start gap-2 text-sm" style={{ color: 'var(--fg-secondary)' }}>
+                                                        <IconSparkles size={15} className="mt-0.5 shrink-0" />
+                                                        <span>{note}</span>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    ) : null}
+                                </div>
+                            ) : null}
+                        </div>
+                </FichaSection>
+                </div>
+
+                <div style={{ order: 13 }}>
+                <FichaSection
+                        title="Publicación"
+                        description="Configuración, calidad del anuncio y términos."
+                        open={fichaOpen.publication}
+                        onToggle={() => setFichaOpen((s) => ({ ...s, publication: !s.publication }))}
+                    >
+                        <div className="space-y-4">
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                <Field label="Slug (URL)">
+                                    <input
+                                        className="form-input"
+                                        value={data.commercial.slug}
+                                        onChange={(event) => setData((current) => ({ ...current, commercial: { ...current.commercial, slug: event.target.value } }))}
+                                        placeholder="mi-auto-toyota-2020"
+                                    />
+                                    <p className="text-xs mt-1" style={{ color: 'var(--fg-muted)' }}>URL: /vehiculo/{data.commercial.slug || '...'}</p>
+                                </Field>
+                                <Field label="Vigencia">
+                                    <ModernSelect
+                                        value={data.commercial.durationDays}
+                                        onChange={(value) => setData((current) => ({ ...current, commercial: { ...current.commercial, durationDays: value as '30' | '60' | '90' } }))}
+                                        options={[
+                                            { value: '30', label: '30 días' },
+                                            { value: '60', label: '60 días' },
+                                            { value: '90', label: '90 días' },
+                                        ]}
+                                        ariaLabel="Seleccionar vigencia"
+                                    />
+                                </Field>
+                            </div>
+                            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-2.5">
+                                <ToggleCard title="Auto-renovar" description="Renueva automáticamente al vencer." active={data.commercial.autoRenew} onToggle={() => setData((current) => ({ ...current, commercial: { ...current.commercial, autoRenew: !current.commercial.autoRenew } }))} />
+                                <ToggleCard title="Destacado" description="Aparece primero en resultados." active={data.commercial.featured} onToggle={() => setData((current) => ({ ...current, commercial: { ...current.commercial, featured: !current.commercial.featured } }))} />
+                                <ToggleCard title="Urgente" description="Etiqueta de urgencia visible." active={data.commercial.urgent} onToggle={() => setData((current) => ({ ...current, commercial: { ...current.commercial, urgent: !current.commercial.urgent } }))} />
+                            </div>
+                            <div className="rounded-2xl border p-4" style={{ borderColor: 'var(--border)' }}>
+                                <div className="flex items-center justify-between mb-2">
+                                    <span className="text-sm font-medium">Score de calidad</span>
+                                    <strong>{score}/100</strong>
+                                </div>
+                                <div className="h-2 rounded-full" style={{ background: 'var(--bg-muted)' }}>
+                                    <div className="h-full rounded-full" style={{ width: `${score}%`, background: 'var(--fg)' }} />
+                                </div>
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-3">
+                                    <QualityItem label="5 fotos o más" ok={data.media.photos.length >= 5} />
+                                    <QualityItem label="5 equipamientos" ok={data.specs.featureCodes.length >= 5} />
+                                    <QualityItem label="Ubicación completa" ok={!!data.location.addressLine1 && !!data.location.regionId && !!data.location.communeId} />
+                                    <QualityItem label="Datos específicos" ok={countFilledFields(data, getSpecificFields(data.setup.vehicleType)) >= Math.min(4, getSpecificFields(data.setup.vehicleType).length)} />
+                                    <QualityItem label="Antecedentes cargados" ok={countComplementaryEntries(data) >= 3} />
+                                    <QualityItem label={data.setup.listingType === 'auction' ? 'Tasador no requerido' : 'Tasador ejecutado'} ok={data.setup.listingType === 'auction' ? true : !!estimate} />
+                                </div>
+                            </div>
+                            {errors['review.acceptTerms'] ? <ErrorText text={errors['review.acceptTerms']} /> : null}
+                        </div>
+                </FichaSection>
+                </div>
 
                 {/* Terms & Conditions - Unified for both modes */}
-                <div className="space-y-2">
+                <div className="space-y-2" style={{ order: 14 }}>
                     <label className="rounded-lg border px-3 py-2.5 flex items-start gap-2" style={{ borderColor: 'var(--border)' }}>
                         <input type="checkbox" checked={data.review.acceptTerms} onChange={(event) => setData((current) => ({ ...current, review: { ...current.review, acceptTerms: event.target.checked } }))} />
                         <span className="text-sm" style={{ color: 'var(--fg-secondary)' }}>Acepto términos y condiciones.</span>
@@ -2242,18 +2501,14 @@ export default function PublishWizardPage() {
                 </div>
 
                 {/* Bottom action bar */}
-                <div className="rounded-2xl border p-3 flex items-center justify-between gap-2 mt-2" style={{ borderColor: 'var(--border)', background: 'var(--bg-subtle)' }}>
+                <div className="rounded-2xl border p-3 flex items-center justify-between gap-2 mt-2" style={{ order: 15, borderColor: 'var(--border)', background: 'var(--bg-subtle)' }}>
                     <span className="text-sm" style={{ color: 'var(--fg-secondary)' }}>
                         Calidad: <strong style={{ color: 'var(--fg)' }}>{score}/100</strong>
                     </span>
                     <div className="flex items-center gap-2">
-                        <PanelButton type="button" variant="secondary" onClick={() => void saveDraft(true)}>
-                            <IconDeviceFloppy size={14} />
-                            Borrador
-                        </PanelButton>
                         <PanelButton type="button" variant="primary" onClick={() => void publishNow()} disabled={publishing || editingLoading || !data.review.acceptTerms}>
                             <IconCheck size={14} />
-                            {publishing ? 'Guardando...' : 'Guardar cambios'}
+                            {publishing ? 'Guardando...' : (isEditing ? 'Guardar cambios' : 'Publicar en Simple')}
                         </PanelButton>
                     </div>
                 </div>

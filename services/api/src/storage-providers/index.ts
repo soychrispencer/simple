@@ -1,9 +1,14 @@
 import type { StorageProvider } from '@simple/config';
 import { BackblazeB2Provider } from './backblaze-b2';
 import { BackblazeS3Provider } from './backblaze-s3';
+import { LocalStorageProvider } from './local';
 
 export function createStorageProvider(): StorageProvider {
-    const storageType = process.env.STORAGE_PROVIDER || 'backblaze-b2';
+    const storageType = process.env.STORAGE_PROVIDER || (process.env.NODE_ENV === 'development' ? 'local' : 'backblaze-b2');
+
+    if (storageType === 'local') {
+        return new LocalStorageProvider();
+    }
 
     if (storageType === 'backblaze-b2') {
         const appKeyId = process.env.BACKBLAZE_APP_KEY_ID;
@@ -15,7 +20,8 @@ export function createStorageProvider(): StorageProvider {
         if (!appKeyId || !appKey || !bucketId || !bucketName || !downloadUrl) {
             throw new Error(
                 'Missing required Backblaze B2 environment variables: ' +
-                'BACKBLAZE_APP_KEY_ID, BACKBLAZE_APP_KEY, BACKBLAZE_BUCKET_ID, BACKBLAZE_BUCKET_NAME, BACKBLAZE_DOWNLOAD_URL'
+                'BACKBLAZE_APP_KEY_ID, BACKBLAZE_APP_KEY, BACKBLAZE_BUCKET_ID, BACKBLAZE_BUCKET_NAME, BACKBLAZE_DOWNLOAD_URL. ' +
+                'Para development puedes usar STORAGE_PROVIDER=local y opcionalmente LOCAL_STORAGE_URL.'
             );
         }
 

@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { QuickPhoto, QuickBasicData, GeneratedText, QuickPublishStep } from '@/components/quick-publish/types';
-import type { ListingLocation } from '@simple/types';
+import { createEmptyListingLocation, type ListingLocation } from '@simple/types';
 import { generateListingText } from '@/actions/generate-listing-text';
 import { createPanelListing, fetchPanelListingDraft, savePanelListingDraft, deletePanelListingDraft } from '@/lib/panel-listings';
 import { uploadMediaFile } from '@/lib/media-upload';
@@ -29,19 +29,72 @@ export function formatMileage(raw: string): string {
 const DRAFT_KEY = 'qp-draft-v1';
 const PHOTOS_KEY = 'qp-photos-v1';
 
-type PricingData = { price: string; offerPrice: string; offerPriceMode: '$' | '%'; negotiable: boolean; financingAvailable: boolean };
+type PricingData = Pick<
+    QuickBasicData,
+    | 'price'
+    | 'offerPrice'
+    | 'offerPriceMode'
+    | 'negotiable'
+    | 'financingAvailable'
+    | 'exchangeAvailable'
+    | 'currency'
+    | 'rentDaily'
+    | 'rentWeekly'
+    | 'rentMonthly'
+    | 'rentMinDays'
+    | 'rentDeposit'
+    | 'rentAvailableFrom'
+    | 'rentAvailableTo'
+    | 'auctionStartPrice'
+    | 'auctionReservePrice'
+    | 'auctionMinIncrement'
+    | 'auctionStartAt'
+    | 'auctionEndAt'
+>;
 
 type DraftData = {
     step: QuickPublishStep;
     basicData: QuickBasicData | null;
     generatedText: GeneratedText | null;
     pricing: PricingData;
+    location: ListingLocation | null;
     savedAt: number;
 };
 
 type ServerDraftPayload = DraftData & { photoCount: number };
 
-const defaultPricing: PricingData = { price: '', offerPrice: '', offerPriceMode: '$', negotiable: true, financingAvailable: false };
+type SharedAutosQuickDraft = {
+    kind: 'autos-quick';
+    quickDraft: ServerDraftPayload;
+    wizardDraft: {
+        version: number;
+        savedAt: string;
+        valuationEstimate: null;
+        data: ReturnType<typeof buildRawData>;
+    } | null;
+};
+
+const defaultPricing: PricingData = {
+    price: '',
+    offerPrice: '',
+    offerPriceMode: '$',
+    negotiable: true,
+    financingAvailable: false,
+    exchangeAvailable: false,
+    currency: 'CLP',
+    rentDaily: '',
+    rentWeekly: '',
+    rentMonthly: '',
+    rentMinDays: '',
+    rentDeposit: '',
+    rentAvailableFrom: '',
+    rentAvailableTo: '',
+    auctionStartPrice: '',
+    auctionReservePrice: '',
+    auctionMinIncrement: '',
+    auctionStartAt: '',
+    auctionEndAt: '',
+};
 
 function readDraft(): DraftData | null {
     try {
@@ -71,9 +124,71 @@ function clearDraft() {
 
 // ─── rawData builder ──────────────────────────────────────────────────────────
 
-function buildRawData(basicData: QuickBasicData, generatedText: GeneratedText, photos: QuickPhoto[]) {
+function parseDigits(value: string | undefined): string {
+    return (value ?? '').replace(/\D/g, '');
+}
+
+function buildFallbackText(basicData: QuickBasicData, location: ListingLocation | null): GeneratedText {
+    const brand = basicData.brandName ?? (basicData.brandId === '__custom__' ? basicData.customBrand : basicData.brandId);
+    const model = basicData.modelName ?? (basicData.modelId === '__custom__' ? basicData.customModel : basicData.modelId);
+    const title = [brand, model, basicData.year, basicData.version].filter(Boolean).join(' ').trim();
+    const specs = [
+        basicData.mileage ? `${basicData.mileage} km` : '',
+        basicData.transmission,
+        basicData.fuelType,
+        basicData.color,
+    ].filter(Boolean).join(' • ');
+    const locationLabel = [location?.communeName, location?.regionName].filter(Boolean).join(', ');
+    const operationLine = basicData.listingType === 'rent'
+        ? 'Disponible para arriendo.'
+        : basicData.listingType === 'auction'
+            ? 'Disponible en modalidad subasta.'
+            : 'Disponible para venta.';
+    const description = [
+        title,
+        basicData.condition ? `Estado: ${basicData.condition}.` : '',
+        specs ? `${specs}.` : '',
+        locationLabel ? `Ubicado en ${locationLabel}.` : '',
+        operationLine,
+        'Contáctanos para coordinar visita, resolver dudas y confirmar disponibilidad.',
+    ].filter(Boolean).join(' ');
+
+    return {
+        titulo: title || 'Vehículo publicado en SimpleAutos',
+        descripcion: description.trim(),
+    };
+}
+
+function buildPriceLabel(basicData: QuickBasicData): string {
+    const renderMoney = (value: string | undefined, suffix = '') => {
+        const digits = parseDigits(value);
+        if (!digits) return '';
+        return `$ ${Number(digits).toLocaleString('es-CL')}${suffix}`;
+    };
+
+    if (basicData.listingType === 'rent') {
+        return renderMoney(basicData.rentMonthly, ' / mes')
+            || renderMoney(basicData.rentWeekly, ' / semana')
+            || renderMoney(basicData.rentDaily, ' / día')
+            || '$0';
+    }
+    if (basicData.listingType === 'auction') {
+        return renderMoney(basicData.auctionStartPrice) || '$0';
+    }
+    return renderMoney(basicData.price) || '$0';
+}
+
+function buildRawData(basicData: QuickBasicData, generatedText: GeneratedText, photos: QuickPhoto[], location: ListingLocation | null) {
     const brand = basicData.brandId === '__custom__' ? basicData.customBrand : basicData.brandId;
     const model = basicData.modelId === '__custom__' ? basicData.customModel : basicData.modelId;
+    const normalizedLocation = location
+        ? createEmptyListingLocation(location)
+        : createEmptyListingLocation({
+            sourceMode: 'area_only',
+            countryCode: 'CL',
+            visibilityMode: 'commune_only',
+            publicMapEnabled: true,
+        });
 
     return {
         setup: { listingType: basicData.listingType, vehicleType: basicData.vehicleType ?? 'car' },
@@ -94,15 +209,16 @@ function buildRawData(basicData: QuickBasicData, generatedText: GeneratedText, p
             fuelType: basicData.fuelType ?? '',
             transmission: basicData.transmission,
             traction: basicData.traction ?? '',
-            engineSize: '',
+            engineSize: basicData.engineSize ?? '',
             powerHp: '',
-            doors: '',
-            seats: '',
+            doors: basicData.doors ?? '',
+            seats: basicData.passengers ?? '',
             exteriorColor: basicData.color ?? '',
             interiorColor: '',
             vin: '',
             plate: '',
-            specific: basicData.ownerCount ? { ownerCount: basicData.ownerCount } : {},
+            specific: {},
+            complementary: basicData.ownerCount ? { owners_count: basicData.ownerCount } : {},
             _quickPublish: true,
             _brandName: brand,
             _modelName: model,
@@ -129,39 +245,72 @@ function buildRawData(basicData: QuickBasicData, generatedText: GeneratedText, p
                 sizeBytes: p.sizeBytes,
                 mimeType: p.mimeType,
             })),
-            video: null,
+            videoUrl: '',
             discoverVideo: null,
             documents: [],
         },
-        location: null,
+        location: normalizedLocation,
         commercial: {
-            price: basicData.price.replace(/\D/g, ''),
+            currency: basicData.currency ?? 'CLP',
+            price: parseDigits(basicData.price),
             offerPrice: (() => {
-                const main = parseInt(basicData.price.replace(/\D/g, '') || '0', 10);
+                const main = parseInt(parseDigits(basicData.price) || '0', 10);
                 if (basicData.offerPriceMode === '%' && basicData.offerPrice && main > 0) {
                     const pct = parseInt(basicData.offerPrice, 10);
                     return pct > 0 && pct < 100 ? String(Math.round(main * (1 - pct / 100))) : '';
                 }
-                return basicData.offerPrice?.replace(/\D/g, '') ?? '';
+                return parseDigits(basicData.offerPrice);
             })(),
-            rentDaily: '',
-            rentWeekly: '',
-            rentMonthly: '',
-            rentMinDays: '',
-            rentAvailableFrom: '',
-            auction: null,
-            duration: 30,
+            rentDaily: parseDigits(basicData.rentDaily),
+            rentWeekly: parseDigits(basicData.rentWeekly),
+            rentMonthly: parseDigits(basicData.rentMonthly),
+            rentMinDays: parseDigits(basicData.rentMinDays),
+            rentKmPerDayIncluded: '',
+            rentInsuranceIncluded: false,
+            rentAvailableFrom: basicData.rentAvailableFrom ?? '',
+            rentAvailableTo: basicData.rentAvailableTo ?? '',
+            rentDeposit: parseDigits(basicData.rentDeposit),
+            rentRequirements: '',
+            auctionStartPrice: parseDigits(basicData.auctionStartPrice),
+            auctionReservePrice: parseDigits(basicData.auctionReservePrice),
+            auctionMinIncrement: parseDigits(basicData.auctionMinIncrement),
+            auctionStartAt: basicData.auctionStartAt ?? '',
+            auctionEndAt: basicData.auctionEndAt ?? '',
+            durationDays: '30',
+            autoRenew: false,
             featured: false,
             urgent: false,
             negotiable: basicData.negotiable ?? true,
-            exchangeAccepted: basicData.exchangeAvailable ?? false,
+            exchangeAvailable: basicData.exchangeAvailable ?? false,
             financingAvailable: basicData.financingAvailable ?? false,
             slug: '',
-            customCta: '',
-            seoTitle: '',
-            seoDescription: '',
+            metaTitle: '',
+            metaDescription: '',
         },
-        review: { acceptedTerms: true },
+        review: { acceptTerms: true },
+    };
+}
+
+function buildWizardDraftFromQuick(
+    basicData: QuickBasicData | null,
+    generatedText: GeneratedText | null,
+    photos: QuickPhoto[],
+    location: ListingLocation | null,
+    pricing: PricingData
+) {
+    if (!basicData) return null;
+    const mergedBasicData = { ...basicData, ...pricing };
+    const fallbackText = buildFallbackText(mergedBasicData, location);
+    const resolvedText = {
+        titulo: generatedText?.titulo?.trim() || fallbackText.titulo,
+        descripcion: generatedText?.descripcion?.trim() || fallbackText.descripcion,
+    };
+
+    return {
+        version: 4,
+        savedAt: new Date().toISOString(),
+        valuationEstimate: null,
+        data: buildRawData(mergedBasicData, resolvedText, photos, location),
     };
 }
 
@@ -254,7 +403,7 @@ export function useQuickPublish() {
         return {
             ...defaultState,
             step: validStep,
-            basicData: draft.basicData,
+            basicData: draft.basicData ? { ...draft.basicData, ...draft.pricing } : null,
             generatedText: draft.generatedText,
             photos: readPhotos(),
         };
@@ -262,13 +411,14 @@ export function useQuickPublish() {
 
     const processingRef = useRef(false);
     const pricingRef = useRef<PricingData>(defaultPricing);
+    const locationRef = useRef<ListingLocation | null>(readDraft()?.location ?? null);
     const pricingInitialized = useRef(false);
     if (!pricingInitialized.current) {
         pricingInitialized.current = true;
         const draft = readDraft();
         if (draft?.pricing) pricingRef.current = draft.pricing;
+        if (draft?.location) locationRef.current = draft.location;
     }
-    const locationRef = useRef<ListingLocation | null>(null);
     // Always-current state ref for callbacks that need latest state without deps
     const stateRef = useRef(state);
     stateRef.current = state;
@@ -277,9 +427,10 @@ export function useQuickPublish() {
     useEffect(() => {
         let cancelled = false;
         (async () => {
-            const result = await fetchPanelListingDraft('autos-quick');
+            const result = await fetchPanelListingDraft('autos');
             if (cancelled || !result.ok) return;
-            const serverDraft = result.draft as ServerDraftPayload | null | undefined;
+            const sharedDraft = result.draft as SharedAutosQuickDraft | null | undefined;
+            const serverDraft = sharedDraft?.kind === 'autos-quick' ? sharedDraft.quickDraft : null;
             if (!serverDraft?.savedAt) return;
             const serverStep = ([1, 2, 3, 'success'] as QuickPublishStep[]).includes(serverDraft.step) ? serverDraft.step : 1;
 
@@ -287,11 +438,12 @@ export function useQuickPublish() {
             if (serverDraft.savedAt <= (localDraft?.savedAt ?? 0)) return;
 
             pricingRef.current = serverDraft.pricing ?? defaultPricing;
+            locationRef.current = serverDraft.location ?? null;
             writeDraft(serverDraft);
             setState((prev) => ({
                 ...prev,
                 step: serverStep,
-                basicData: serverDraft.basicData,
+                basicData: serverDraft.basicData ? { ...serverDraft.basicData, ...(serverDraft.pricing ?? defaultPricing) } : null,
                 generatedText: serverDraft.generatedText,
                 restoredPhotoCount: serverDraft.photoCount > 0 && prev.photos.length === 0
                     ? serverDraft.photoCount
@@ -310,6 +462,7 @@ export function useQuickPublish() {
             basicData: state.basicData,
             generatedText: state.generatedText,
             pricing: pricingRef.current,
+            location: locationRef.current,
         });
     }, [state.step, state.basicData, state.generatedText]);
 
@@ -328,22 +481,31 @@ export function useQuickPublish() {
             basicData: overrides.basicData !== undefined ? overrides.basicData : basicData,
             generatedText: overrides.generatedText !== undefined ? overrides.generatedText : generatedText,
             pricing: pricingRef.current,
+            location: 'location' in overrides ? (overrides.location ?? null) : locationRef.current,
             savedAt: Date.now(),
             photoCount: overrides.photoCount ?? photos.length,
         };
         writeDraft(payload);
-        void savePanelListingDraft('autos-quick', payload);
+        const sharedPayload: SharedAutosQuickDraft = {
+            kind: 'autos-quick',
+            quickDraft: payload,
+            wizardDraft: buildWizardDraftFromQuick(
+                payload.basicData,
+                payload.generatedText,
+                photos,
+                payload.location,
+                payload.pricing
+            ),
+        };
+        void savePanelListingDraft('autos', sharedPayload);
     }
 
     // ─────────────────────────────────────────────────────────────────────────
 
     const updatePricing = useCallback((data: Partial<QuickBasicData & PricingData>) => {
         pricingRef.current = {
-            price: data.price ?? pricingRef.current.price,
-            offerPrice: data.offerPrice ?? pricingRef.current.offerPrice,
-            offerPriceMode: data.offerPriceMode ?? pricingRef.current.offerPriceMode,
-            negotiable: data.negotiable !== undefined ? data.negotiable : pricingRef.current.negotiable,
-            financingAvailable: data.financingAvailable !== undefined ? data.financingAvailable : pricingRef.current.financingAvailable,
+            ...pricingRef.current,
+            ...data,
         };
         
         // Update React state with pricing changes
@@ -351,12 +513,7 @@ export function useQuickPublish() {
             ...prev,
             basicData: {
                 ...prev.basicData,
-                price: data.price ?? prev.basicData.price,
-                offerPrice: data.offerPrice ?? prev.basicData.offerPrice,
-                offerPriceMode: data.offerPriceMode ?? prev.basicData.offerPriceMode,
-                negotiable: data.negotiable !== undefined ? data.negotiable : prev.basicData.negotiable,
-                financingAvailable: data.financingAvailable !== undefined ? data.financingAvailable : prev.basicData.financingAvailable,
-                exchangeAvailable: data.exchangeAvailable !== undefined ? data.exchangeAvailable : prev.basicData.exchangeAvailable,
+                ...pricingRef.current,
             }
         } : prev);
         
@@ -369,6 +526,11 @@ export function useQuickPublish() {
 
     const updateLocation = useCallback((data: ListingLocation | null) => {
         locationRef.current = data;
+        try {
+            const raw = sessionStorage.getItem(DRAFT_KEY);
+            const draft = raw ? (JSON.parse(raw) as DraftData) : null;
+            if (draft) writeDraft({ ...draft, location: data });
+        } catch { /* */ }
     }, []);
 
     const addPhotos = useCallback(async (files: FileList | File[]) => {
@@ -459,11 +621,7 @@ export function useQuickPublish() {
         const pricing = pricingRef.current;
         const mergedData: typeof basicData = {
             ...basicData,
-            price: pricing.price || basicData.price,
-            offerPrice: pricing.offerPrice || basicData.offerPrice,
-            offerPriceMode: pricing.offerPriceMode,
-            negotiable: pricing.negotiable,
-            financingAvailable: pricing.financingAvailable,
+            ...pricing,
         };
         const communeName = locationRef.current?.communeName ?? undefined;
 
@@ -480,7 +638,7 @@ export function useQuickPublish() {
         
         if (pricing.negotiable) conditions.push('Precio negociable');
         if (pricing.financingAvailable) conditions.push('Financiamiento disponible');
-        if (basicData.exchangeAvailable) {
+        if (mergedData.exchangeAvailable) {
             conditions.push('Acepta permuta');
         }
         
@@ -517,12 +675,12 @@ export function useQuickPublish() {
         if (!basicData) return;
 
         const mergedBasicData = { ...basicData, ...pricingRef.current };
-
-        // Build fallback title if the user hasn't generated AI text
-        const brandName = mergedBasicData.brandName ?? mergedBasicData.customBrand ?? mergedBasicData.brandId;
-        const modelName = mergedBasicData.modelName ?? mergedBasicData.customModel ?? mergedBasicData.modelId;
-        const fallbackTitle = [brandName, modelName, mergedBasicData.year].filter(Boolean).join(' ');
-        const resolvedText = generatedText ?? { titulo: fallbackTitle, descripcion: '' };
+        const loc = locationRef.current;
+        const fallbackText = buildFallbackText(mergedBasicData, loc);
+        const resolvedText = {
+            titulo: generatedText?.titulo?.trim() || fallbackText.titulo,
+            descripcion: generatedText?.descripcion?.trim() || fallbackText.descripcion,
+        };
 
         setState((prev) => ({ ...prev, isPublishing: true, publishError: null }));
 
@@ -539,18 +697,13 @@ export function useQuickPublish() {
             }
 
             const photosWithB2Urls = uploadResult.photos;
-
-            const priceDigits = mergedBasicData.price.replace(/\D/g, '');
-            const priceLabel = priceDigits ? `$ ${Number(priceDigits).toLocaleString('es-CL')}` : '$0';
-
-            const loc = locationRef.current;
             const result = await createPanelListing({
                 vertical: 'autos',
                 listingType: mergedBasicData.listingType,
                 title: resolvedText.titulo,
                 description: resolvedText.descripcion,
-                priceLabel,
-                rawData: buildRawData(mergedBasicData, resolvedText, photosWithB2Urls),
+                priceLabel: buildPriceLabel(mergedBasicData),
+                rawData: buildRawData(mergedBasicData, resolvedText, photosWithB2Urls, loc),
                 ...(loc ? {
                     location: [loc.communeName, loc.regionName].filter(Boolean).join(', '),
                     locationData: loc,
@@ -559,7 +712,7 @@ export function useQuickPublish() {
 
             if (result.ok && result.item) {
                 clearDraft();
-                void deletePanelListingDraft('autos-quick');
+                void deletePanelListingDraft('autos');
                 setState((prev) => ({
                     ...prev,
                     isPublishing: false,
@@ -582,6 +735,7 @@ export function useQuickPublish() {
                 }));
             }
         } catch (error) {
+            console.error('[QuickPublish] Publication failed:', error);
             setState((prev) => ({
                 ...prev,
                 isPublishing: false,
@@ -592,7 +746,7 @@ export function useQuickPublish() {
 
     const reset = useCallback(() => {
         clearDraft();
-        void deletePanelListingDraft('autos-quick');
+        void deletePanelListingDraft('autos');
         pricingRef.current = defaultPricing;
         locationRef.current = null;
         setState(defaultState);
@@ -601,6 +755,7 @@ export function useQuickPublish() {
     return {
         ...state,
         savedPricing: pricingRef.current,
+        savedLocation: locationRef.current,
         addPhotos,
         removePhoto,
         setCoverPhoto,

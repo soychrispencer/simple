@@ -44,6 +44,17 @@ BACKBLAZE_DOWNLOAD_URL=https://yourdownloadurl.backblazeb2.com
 
 Si prefieres usar la API nativa B2, mantiene `STORAGE_PROVIDER=backblaze-b2` y usa `BACKBLAZE_APP_KEY_ID`, `BACKBLAZE_APP_KEY`, `BACKBLAZE_BUCKET_ID`.
 
+### Opcional para desarrollo local
+
+Para desentenderte de Backblaze mientras pruebas localmente:
+
+```bash
+STORAGE_PROVIDER=local
+LOCAL_STORAGE_URL=http://localhost:4000/uploads
+```
+
+El backend guarda en `./uploads/{userId}/{listingId}/{timestamp}-{file}` y expone `/uploads/*`.
+
 ### 4. Find Your Bucket Details
 
 In B2 console:

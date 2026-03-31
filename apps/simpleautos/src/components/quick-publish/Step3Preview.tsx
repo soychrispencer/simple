@@ -18,7 +18,7 @@ interface Props {
     isPublishing: boolean;
     publishError: string | null;
     detectedColor: string | null;
-    initialPricing?: any; // For draft values
+    initialLocation?: ListingLocation | null;
     onUpdateText: (titulo: string, descripcion: string) => void;
     onUpdatePricing: (data: any) => void;
     onUpdateLocation: (data: ListingLocation | null) => void;
@@ -36,25 +36,32 @@ export default function Step3Preview({
     detectedColor,
     onUpdateText,
     onUpdatePricing,
+    initialLocation,
     onUpdateLocation,
     onGenerateText,
     onPublish,
     onBack,
 }: Props) {
     const [colorBannerDismissed, setColorBannerDismissed] = useState(false);
-    const [priceError, setPriceError] = useState('');
+    const [publishValidationErrors, setPublishValidationErrors] = useState<Record<string, string>>({});
 
     // Location state
     const [locLoading, setLocLoading] = useState(true);
     const [addressBook, setAddressBook] = useState<AddressBookEntry[]>([]);
-    const [selectedAddressId, setSelectedAddressId] = useState<string>('');
-    const [regionId, setRegionId] = useState('');
-    const [communeId, setCommuneId] = useState('');
+    const [selectedAddressId, setSelectedAddressId] = useState<string>(initialLocation?.sourceAddressId ?? '');
+    const [regionId, setRegionId] = useState(initialLocation?.regionId ?? '');
+    const [communeId, setCommuneId] = useState(initialLocation?.communeId ?? '');
 
     useEffect(() => {
         fetchAddressBook().then((result) => {
             const items = result.items ?? [];
             setAddressBook(items);
+            if (initialLocation?.regionId || initialLocation?.communeId) {
+                setSelectedAddressId(initialLocation.sourceAddressId ?? '__manual__');
+                setRegionId(initialLocation.regionId ?? '');
+                setCommuneId(initialLocation.communeId ?? '');
+                return;
+            }
             const defaultAddr = items.find((a) => a.isDefault) ?? items[0] ?? null;
             if (defaultAddr) {
                 setSelectedAddressId(defaultAddr.id);
@@ -62,7 +69,7 @@ export default function Step3Preview({
                 setCommuneId(defaultAddr.communeId ?? '');
             }
         }).catch(() => null).finally(() => setLocLoading(false));
-    }, []);
+    }, [initialLocation]);
 
     // Reset color banner when a new color is detected
     useEffect(() => {
@@ -104,11 +111,37 @@ export default function Step3Preview({
     }, [regionId, communeId, onUpdateLocation]);
 
     function handlePublish() {
-        if (!basicData.price.trim() && basicData.listingType === 'sale') {
-            setPriceError('Escribe el precio');
-            return;
+        const nextErrors: Record<string, string> = {};
+        const hasRegion = regionId.trim().length > 0;
+        const hasCommune = communeId.trim().length > 0;
+        const salePrice = basicData.price.trim();
+        const rentPrices = [basicData.rentDaily, basicData.rentWeekly, basicData.rentMonthly].some((value) => (value ?? '').trim().length > 0);
+        const hasAuctionDates = !!basicData.auctionStartAt?.trim() && !!basicData.auctionEndAt?.trim();
+
+        if (basicData.listingType === 'sale' && !salePrice) {
+            nextErrors.price = 'Escribe el precio';
         }
-        setPriceError('');
+        if (basicData.listingType === 'rent' && !rentPrices) {
+            nextErrors.rentMonthly = 'Ingresa al menos un precio de arriendo';
+        }
+        if (basicData.listingType === 'auction') {
+            if (!basicData.auctionStartPrice?.trim()) nextErrors.auctionStartPrice = 'Define un precio base';
+            if (!basicData.auctionMinIncrement?.trim()) nextErrors.auctionMinIncrement = 'Define un incremento mínimo';
+            if (!hasAuctionDates) nextErrors.auctionDates = 'Completa inicio y fin de la subasta';
+        }
+        if (!hasRegion || !hasCommune) {
+            nextErrors.location = 'Selecciona región y comuna antes de publicar.';
+        }
+        if (basicData.auctionStartAt && basicData.auctionEndAt) {
+            const start = new Date(basicData.auctionStartAt);
+            const end = new Date(basicData.auctionEndAt);
+            if (Number.isFinite(start.getTime()) && Number.isFinite(end.getTime()) && end.getTime() <= start.getTime()) {
+                nextErrors.auctionDates = 'La fecha final debe ser posterior al inicio.';
+            }
+        }
+
+        setPublishValidationErrors(nextErrors);
+        if (Object.keys(nextErrors).length > 0) return;
         onPublish();
     }
 
@@ -121,7 +154,7 @@ export default function Step3Preview({
                 <Step3Pricing
                     data={basicData}
                     onChange={(updates) => onUpdatePricing({ ...basicData, ...updates })}
-                    errors={{ price: priceError }}
+                    errors={publishValidationErrors}
                 />
             </div>
 
@@ -165,6 +198,13 @@ export default function Step3Preview({
                         placeholder="Comuna"
                     />
                 </div>
+
+                {publishValidationErrors.location && (
+                    <PanelNotice tone="error">{publishValidationErrors.location}</PanelNotice>
+                )}
+                {publishValidationErrors.auctionDates && (
+                    <PanelNotice tone="error">{publishValidationErrors.auctionDates}</PanelNotice>
+                )}
             </div>
 
             {/* ANUNCIO (IA) */}

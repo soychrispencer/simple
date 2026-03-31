@@ -31,10 +31,10 @@ export class BackblazeS3Provider implements StorageProvider {
     async upload(input: StorageUploadInput): Promise<StorageUploadResult> {
         const key = `${input.userId ?? 'unknown'}/${Date.now()}-${input.fileName}`;
         
-        // Correct handling for File (browser) and Buffer (Node.js)
-        const buffer = input.file instanceof Buffer 
-            ? input.file 
-            : Buffer.from(await (input.file as File).arrayBuffer());
+        // Correct handling for File-like objects and Buffer in Node.js
+        const buffer = Buffer.isBuffer(input.file)
+            ? input.file
+            : Buffer.from(await (input.file as any).arrayBuffer());
 
         await this.client.send(
             new PutObjectCommand({
@@ -42,11 +42,15 @@ export class BackblazeS3Provider implements StorageProvider {
                 Key: key,
                 Body: buffer,
                 ContentType: input.mimeType,
-                ACL: 'public-read',
+                // Backblaze B2 S3 API ignores canned ACL values (or puede fallar con 'public-read')
+                // En B2 el acceso público se controla por políticas de bucket y URL de descarga.
             })
         );
 
-        const url = `${this.downloadUrl}/${key}`;
+        const cleanDownloadUrl = this.downloadUrl.replace(/\/+$/, '');
+        const url = cleanDownloadUrl.includes('/file/') 
+            ? `${cleanDownloadUrl}/${key}`
+            : `${cleanDownloadUrl}/file/${this.bucketName}/${key}`;
 
         return {
             fileId: key,
@@ -69,7 +73,10 @@ export class BackblazeS3Provider implements StorageProvider {
     }
 
     getUrl(fileId: string): string {
-        return `${this.downloadUrl}/${fileId}`;
+        const cleanDownloadUrl = this.downloadUrl.replace(/\/+$/, '');
+        return cleanDownloadUrl.includes('/file/') 
+            ? `${cleanDownloadUrl}/${fileId}`
+            : `${cleanDownloadUrl}/file/${this.bucketName}/${fileId}`;
     }
 
 

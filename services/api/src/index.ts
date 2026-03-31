@@ -1,4 +1,5 @@
-import { existsSync } from 'node:fs';
+import { existsSync, appendFileSync } from 'node:fs';
+import fs from 'node:fs/promises';
 import { createHash, randomBytes, randomUUID, timingSafeEqual } from 'node:crypto';
 import path from 'node:path';
 
@@ -23,6 +24,20 @@ for (const candidate of [
 import { serve } from '@hono/node-server';
 import { Hono } from 'hono';
 import type { Context } from 'hono';
+import { GetObjectCommand, S3Client } from '@aws-sdk/client-s3';
+
+// Safety Polyfill for 'File' in Node.js environment
+if (typeof global !== 'undefined' && typeof (global as any).File === 'undefined') {
+    (global as any).File = class File extends Blob {
+        name: string;
+        lastModified: number;
+        constructor(parts: any[], name: string, options?: any) {
+            super(parts, options);
+            this.name = name;
+            this.lastModified = options?.lastModified || Date.now();
+        }
+    };
+}
 import { cors } from 'hono/cors';
 import { deleteCookie, getCookie, setCookie } from 'hono/cookie';
 import jwt from 'jsonwebtoken';
@@ -98,6 +113,18 @@ type UserStatus = 'active' | 'verified' | 'suspended';
 type VerticalType = 'autos' | 'propiedades';
 type AddressBookKind = 'personal' | 'shipping' | 'billing' | 'company' | 'branch' | 'warehouse' | 'pickup' | 'other';
 type ListingLocationSourceMode = 'saved_address' | 'custom' | 'area_only';
+
+const DEBUG_LOG_FILE = path.resolve(process.cwd(), 'api_debug.log');
+function logDebug(message: string) {
+    const timestamp = new Date().toISOString();
+    try {
+        appendFileSync(DEBUG_LOG_FILE, `[${timestamp}] ${message}\n`);
+    } catch {
+        // ignore
+    }
+}
+
+logDebug('--- API RESTARTED ---');
 type ListingLocationVisibilityMode = 'exact' | 'approximate' | 'sector_only' | 'commune_only' | 'hidden';
 type GeocodePrecision = 'exact' | 'approximate' | 'commune' | 'none';
 type GeocodeProvider = 'none' | 'catalog_seed' | 'manual' | 'external';
@@ -1341,6 +1368,7 @@ const savedByUser = new Map<string, SavedListingRecord[]>();
 const followsByUser = new Map<string, FollowRecord[]>();
 const boostOrdersByUser = new Map<string, BoostOrder[]>();
 const listingsById = new Map<string, ListingRecord>();
+const addressBookByUser = new Map<string, AddressBookEntry[]>();
 // Address book is now persisted in the database
 
 const paymentOrdersByUser = new Map<string, PaymentOrderRecord[]>();
@@ -1487,6 +1515,38 @@ async function loadDataFromDB() {
         instagramPublicationsByUser.set(userId, list.sort((a, b) => b.createdAt - a.createdAt));
     }
     console.log(`Loaded ${instagramPublicationResults.length} Instagram publications`);
+    
+    // Load address book
+    const addressBookResults = await db.select().from(addressBook);
+    const addressBookByUserMap = new Map<string, AddressBookEntry[]>();
+    for (const entry of addressBookResults) {
+        const current = addressBookByUserMap.get(entry.userId) ?? [];
+        current.push({
+            id: entry.id,
+            kind: entry.kind as AddressBookKind,
+            label: entry.label,
+            countryCode: entry.countryCode,
+            regionId: entry.regionId,
+            regionName: entry.regionName,
+            communeId: entry.communeId,
+            communeName: entry.communeName,
+            neighborhood: entry.neighborhood,
+            addressLine1: entry.addressLine1,
+            addressLine2: entry.addressLine2,
+            postalCode: entry.postalCode,
+            contactName: entry.contactName,
+            contactPhone: entry.contactPhone,
+            isDefault: entry.isDefault,
+            geoPoint: (entry.geoPoint as GeoPoint) || makeGeoPoint(null, null, 'none'),
+            createdAt: entry.createdAt.getTime(),
+            updatedAt: entry.updatedAt.getTime(),
+        });
+        addressBookByUserMap.set(entry.userId, current);
+    }
+    for (const [userId, list] of addressBookByUserMap) {
+        addressBookByUser.set(userId, list);
+    }
+    console.log(`Loaded ${addressBookResults.length} address book entries`);
 
     console.log('Data loading complete');
 }
@@ -3686,14 +3746,16 @@ async function listFeaturedBoosted(vertical: VerticalType, section: BoostSection
             const listing = getBoostListingById(order.vertical, order.listingId);
             if (!listing) return null;
             const owner = await getUserById(order.userId);
+            const sourceListing = listingsById.get(listing.id);
+            const listingImageUrl = sourceListing ? extractListingMediaUrls(sourceListing)[0] ?? listing.imageUrl : listing.imageUrl;
             return {
                 id: listing.id,
                 href: listing.href,
                 title: listing.title,
                 subtitle: listing.subtitle,
                 price: listing.price,
-                location: listing.location,
-                imageUrl: listing.imageUrl,
+                location: listing.location || 'Chile',
+                imageUrl: listingImageUrl,
                 section: listing.section,
                 boosted: true,
                 planName: order.planName,
@@ -3718,14 +3780,16 @@ async function listFeaturedBoosted(vertical: VerticalType, section: BoostSection
         .slice(0, Math.max(0, limit - uniqueBoosted.length))
         .map((listing) => {
             const owner = usersById.get(listing.ownerId);
+            const sourceListing = listingsById.get(listing.id);
+            const listingImageUrl = sourceListing ? extractListingMediaUrls(sourceListing)[0] ?? listing.imageUrl : listing.imageUrl;
             return {
                 id: listing.id,
                 href: listing.href,
                 title: listing.title,
                 subtitle: listing.subtitle,
                 price: listing.price,
-                location: listing.location,
-                imageUrl: listing.imageUrl,
+                location: listing.location || 'Chile',
+                imageUrl: listingImageUrl,
                 section: listing.section,
                 boosted: false,
                 planName: 'Orgánico',
@@ -3943,6 +4007,14 @@ async function saveListingRecord(record: ListingRecord): Promise<ListingRecord> 
     }
 
     return upsertListingCache(mapListingRowToRecord(row));
+}
+
+async function deleteListingRecord(listingId: string): Promise<void> {
+    await db.delete(listings).where(eq(listings.id, listingId));
+    listingsById.delete(listingId);
+    for (const [userId, ids] of listingIdsByUser.entries()) {
+        listingIdsByUser.set(userId, ids.filter((id) => id !== listingId));
+    }
 }
 
 function mapListingDraftRow(row: ListingDraftRow) {
@@ -5222,13 +5294,14 @@ function listingToResponse(record: ListingRecord) {
         updatedAt: record.updatedAt,
         publicationLifecycle,
         integrations,
+        rawData: normalizeListingRawDataForResponse(record.rawData ?? null),
     };
 }
 
 function listingToDetailResponse(record: ListingRecord) {
     return {
         ...listingToResponse(record),
-        rawData: record.rawData ?? null,
+        rawData: normalizeListingRawDataForResponse(record.rawData ?? null),
     };
 }
 
@@ -5270,6 +5343,7 @@ function activeSubscriptionToResponse(subscription: ActiveSubscription | null) {
 
 function upsertBoostListingFromListing(listing: ListingRecord): void {
     const subtitle = listing.vertical === 'autos' ? 'Publicación SimpleAutos' : 'Publicación SimplePropiedades';
+    const imageUrl = extractListingMediaUrls(listing)[0] ?? '';
     const existing = boostListingsSeed.find((item) => item.id === listing.id && item.vertical === listing.vertical);
     if (existing) {
         existing.title = listing.title;
@@ -5278,6 +5352,7 @@ function upsertBoostListingFromListing(listing: ListingRecord): void {
         existing.location = listing.location || existing.location;
         existing.section = listing.section;
         existing.href = listing.href;
+        existing.imageUrl = imageUrl || existing.imageUrl;
         return;
     }
 
@@ -5291,6 +5366,7 @@ function upsertBoostListingFromListing(listing: ListingRecord): void {
         subtitle,
         price: listing.price,
         location: listing.location || '',
+        imageUrl,
     });
 }
 
@@ -6309,11 +6385,126 @@ function buildSocialFeedClips(vertical: VerticalType, section: string | null | u
         });
 }
 
+function fixBrokenB2Url(url: string): string {
+    if (!url || !url.startsWith('http')) return url;
+    
+    // If it's a B2 URL, ensure it uses the standard download format
+    if (url.includes('backblazeb2.com')) {
+        const bucketName = process.env.BACKBLAZE_BUCKET_NAME || 'simple-media';
+        
+        // Extract the key regardless of the current format
+        let key = '';
+        if (url.includes(`/file/${bucketName}/`)) {
+            key = url.split(`/file/${bucketName}/`)[1];
+        } else if (url.includes(`backblazeb2.com/${bucketName}/`)) {
+             key = url.split(`backblazeb2.com/${bucketName}/`)[1];
+        } else {
+            // Try to find the key by splitting at backblazeb2.com/
+            const parts = url.split('.backblazeb2.com/');
+            if (parts.length === 2) {
+                const pathParts = parts[1].split('/');
+                if (pathParts[0] === 'file') pathParts.shift();
+                if (pathParts[0] === bucketName) pathParts.shift();
+                key = pathParts.join('/');
+            }
+        }
+
+        if (key) {
+            // ALWAYS use the f005 us-east-005 format which is the most reliable for public files
+            return `https://f005.backblazeb2.com/file/${bucketName}/${key}`;
+        }
+    }
+    
+    return url;
+}
+
+function isBackblazeUrl(url: string): boolean {
+    try {
+        return new URL(url).hostname.endsWith('backblazeb2.com');
+    } catch {
+        return false;
+    }
+}
+
+function extractBackblazeObjectKey(url: string): string {
+    if (!isBackblazeUrl(url)) return '';
+    const bucketName = process.env.BACKBLAZE_BUCKET_NAME || 'simple-media';
+    const normalized = fixBrokenB2Url(url);
+    try {
+        const parsed = new URL(normalized);
+        const prefix = `/file/${bucketName}/`;
+        if (parsed.pathname.startsWith(prefix)) {
+            return decodeURIComponent(parsed.pathname.slice(prefix.length));
+        }
+    } catch {
+        return '';
+    }
+    return '';
+}
+
+function buildMediaProxyUrl(url: string): string {
+    const apiBaseUrl = process.env.API_BASE_URL ?? 'http://localhost:4000';
+    return `${apiBaseUrl}/api/media/proxy?src=${encodeURIComponent(fixBrokenB2Url(url))}`;
+}
+
+function toDeliveredMediaUrl(url: string): string {
+    const normalized = fixBrokenB2Url(url);
+    if (isBackblazeUrl(normalized)) {
+        return buildMediaProxyUrl(normalized);
+    }
+    return normalized;
+}
+
+function normalizeMediaValueForResponse(value: unknown): unknown {
+    if (typeof value === 'string') {
+        return toDeliveredMediaUrl(value);
+    }
+    if (!value || typeof value !== 'object') {
+        return value;
+    }
+
+    const item = value as Record<string, unknown>;
+    const next: Record<string, unknown> = { ...item };
+
+    if (typeof item.url === 'string') {
+        next.url = toDeliveredMediaUrl(item.url);
+    }
+    if (typeof item.previewUrl === 'string') {
+        next.previewUrl = toDeliveredMediaUrl(item.previewUrl);
+    }
+    if (typeof item.dataUrl === 'string' && /^https?:\/\//i.test(item.dataUrl)) {
+        next.dataUrl = toDeliveredMediaUrl(item.dataUrl);
+    }
+
+    return next;
+}
+
+function normalizeListingRawDataForResponse(rawData: unknown): unknown {
+    if (!rawData || typeof rawData !== 'object') return rawData ?? null;
+
+    const payload = asObject(rawData);
+    const media = asObject(payload.media);
+    if (Object.keys(media).length === 0) return rawData;
+
+    return {
+        ...payload,
+        media: {
+            ...media,
+            photos: Array.isArray(media.photos)
+                ? media.photos.map((photo) => normalizeMediaValueForResponse(photo))
+                : media.photos,
+            discoverVideo: normalizeMediaValueForResponse(media.discoverVideo),
+            video: normalizeMediaValueForResponse(media.video),
+        },
+    };
+}
+
 function toPublicMediaUrl(value: unknown): string {
-    if (typeof value === 'string') return value.trim();
+    if (typeof value === 'string') return toDeliveredMediaUrl(value.trim());
     if (!value || typeof value !== 'object') return '';
     const item = value as Record<string, unknown>;
-    return asString(item.previewUrl) || asString(item.dataUrl) || asString(item.url);
+    const rawUrl = asString(item.url) || asString(item.previewUrl) || asString(item.dataUrl);
+    return toDeliveredMediaUrl(rawUrl);
 }
 
 function extractListingMediaUrls(record: ListingRecord): string[] {
@@ -9092,12 +9283,26 @@ async function listAdminListingsSnapshot(): Promise<Array<{
 
 const app = new Hono();
 
+// Global request error logger for debugging 500s
+app.use('*', async (c, next) => {
+    try {
+        await next();
+    } catch (err) {
+        console.error(`[API ERROR] ${c.req.method} ${c.req.path} -`, err);
+        throw err; // Re-throw to be caught by app.onError
+    }
+});
+
 app.onError((error, c) => {
+    const errMsg = error instanceof Error ? error.message : String(error);
+    const stack = error instanceof Error ? error.stack : '';
+    logDebug(`[GLOBAL ERROR] ${c.req.method} ${c.req.path} - ${errMsg}\nStack: ${stack}`);
     console.error('[simple-api] unhandled request error', error);
     return c.json(
         {
             ok: false,
             error: 'Internal server error',
+            details: process.env.NODE_ENV !== 'production' ? errMsg : undefined,
         },
         500
     );
@@ -9131,8 +9336,117 @@ const handleHealthcheck = (c: Context) =>
         timestamp: new Date().toISOString(),
     });
 
+app.get('/api/debug/env', (c) => {
+    return c.json({
+        cwd: process.cwd(),
+        env: {
+            NODE_ENV: process.env.NODE_ENV,
+            STORAGE_PROVIDER: process.env.STORAGE_PROVIDER,
+            LOCAL_STORAGE_URL: process.env.LOCAL_STORAGE_URL,
+            BACKBLAZE_DOWNLOAD_URL: process.env.BACKBLAZE_DOWNLOAD_URL,
+            BACKBLAZE_BUCKET_NAME: process.env.BACKBLAZE_BUCKET_NAME,
+        },
+        api_root: API_ROOT_DIR,
+    });
+});
+
 app.get('/health', handleHealthcheck);
 app.get('/api/health', handleHealthcheck);
+
+// Development-only file server for local uploads (only when STORAGE_PROVIDER=local)
+app.get('/uploads/*', async (c) => {
+    if (process.env.STORAGE_PROVIDER !== 'local' && process.env.NODE_ENV !== 'development') {
+        return c.text('Not found', 404);
+    }
+
+    const pathname = new URL(c.req.url).pathname;
+    const relativePath = pathname.replace(/^\/uploads\//, '');
+    if (!relativePath) {
+        return c.text('Not found', 404);
+    }
+
+    const diskPath = path.join(process.cwd(), 'uploads', ...relativePath.split('/'));
+    try {
+        const stat = await fs.stat(diskPath);
+        if (!stat.isFile()) {
+            return c.text('Not found', 404);
+        }
+
+        const blob = await fs.readFile(diskPath);
+        let contentType = 'application/octet-stream';
+        if (diskPath.endsWith('.jpg') || diskPath.endsWith('.jpeg')) contentType = 'image/jpeg';
+        else if (diskPath.endsWith('.png')) contentType = 'image/png';
+        else if (diskPath.endsWith('.webp')) contentType = 'image/webp';
+        else if (diskPath.endsWith('.gif')) contentType = 'image/gif';
+
+        return c.body(blob, 200, { 'Content-Type': contentType });
+    } catch {
+        return c.text('Not found', 404);
+    }
+});
+
+let mediaProxyS3Client: S3Client | null = null;
+
+function getMediaProxyS3Client(): S3Client | null {
+    if (process.env.STORAGE_PROVIDER !== 'backblaze-s3') return null;
+    if (mediaProxyS3Client) return mediaProxyS3Client;
+
+    const endpoint = process.env.BACKBLAZE_S3_ENDPOINT;
+    const region = process.env.BACKBLAZE_S3_REGION;
+    const accessKeyId = process.env.BACKBLAZE_S3_ACCESS_KEY;
+    const secretAccessKey = process.env.BACKBLAZE_S3_SECRET_KEY;
+
+    if (!endpoint || !region || !accessKeyId || !secretAccessKey) return null;
+
+    mediaProxyS3Client = new S3Client({
+        endpoint,
+        region,
+        credentials: {
+            accessKeyId,
+            secretAccessKey,
+        },
+        forcePathStyle: false,
+    });
+
+    return mediaProxyS3Client;
+}
+
+app.get('/api/media/proxy', async (c) => {
+    const src = asString(c.req.query('src'));
+    if (!src) {
+        return c.json({ ok: false, error: 'Falta src.' }, 400);
+    }
+
+    if (!isBackblazeUrl(src)) {
+        return c.json({ ok: false, error: 'Origen no soportado.' }, 400);
+    }
+
+    const bucketName = process.env.BACKBLAZE_BUCKET_NAME || 'simple-media';
+    const key = extractBackblazeObjectKey(src);
+    if (!key) {
+        return c.json({ ok: false, error: 'No pudimos resolver el archivo.' }, 404);
+    }
+
+    const client = getMediaProxyS3Client();
+    if (!client) {
+        return c.json({ ok: false, error: 'El proxy de medios no está configurado.' }, 503);
+    }
+
+    try {
+        const object = await client.send(new GetObjectCommand({
+            Bucket: bucketName,
+            Key: key,
+        }));
+        const body = object.Body ? Buffer.from(await object.Body.transformToByteArray()) : Buffer.alloc(0);
+        return c.body(body, 200, {
+            'Content-Type': object.ContentType || 'application/octet-stream',
+            'Cache-Control': 'public, max-age=3600, stale-while-revalidate=86400',
+        });
+    } catch (error) {
+        const message = error instanceof Error ? error.message : 'No se pudo descargar el archivo.';
+        return c.json({ ok: false, error: message }, 404);
+    }
+});
 
 app.post('/api/auth/login', async (c) => {
     const payload = await c.req.json().catch(() => null);
@@ -11797,37 +12111,51 @@ app.delete('/api/listing-draft', async (c) => {
     return c.json({ ok: true });
 });
 
-// ─────────────────────────────────────────────────────────────────────────────
+// -----------------------------------------------------------------------------
 // File Upload Endpoint
-// ─────────────────────────────────────────────────────────────────────────────
+// -----------------------------------------------------------------------------
 
 app.post('/api/media/upload', requireVerifiedSession, async (c) => {
     const user = await authUser(c);
-    if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
+    if (!user) {
+        logDebug(`[AUTH FAIL] /api/media/upload - user not found`);
+        return c.json({ ok: false, error: 'No autenticado' }, 401);
+    }
+
+    logDebug(`[UPLOAD START] User: ${user.email} (${user.id})`);
 
     try {
         const formData = await c.req.formData();
-        const file = formData.get('file') as File | null;
+        const file = formData.get('file') as any;
         const fileType = formData.get('fileType') as string | null;
         const listingId = formData.get('listingId') as string | null;
+
+        logDebug(`[UPLOAD META] file: ${file ? (file.name || 'blob') : 'null'}, type: ${fileType}, listingId: ${listingId}`);
 
         if (!file) return c.json({ ok: false, error: 'No file provided' }, 400);
         if (!fileType || !['image', 'video', 'document'].includes(fileType)) {
             return c.json({ ok: false, error: 'Invalid file type' }, 400);
         }
 
+        logDebug(`[UPLOAD STORAGE START] Provider initialization...`);
         const storage = getStorageProvider();
+        
+        logDebug(`[UPLOAD CALL] Calling storage.upload...`);
         const result = await storage.upload({
             file,
-            fileName: file.name,
-            mimeType: file.type,
+            fileName: file.name || 'unnamed-file',
+            mimeType: file.type || 'application/octet-stream',
             fileType: fileType as 'image' | 'video' | 'document',
             userId: user.id,
             listingId: listingId || undefined,
         });
 
+        logDebug(`[UPLOAD SUCCESS] Result: ${JSON.stringify(result)}`);
         return c.json({ ok: true, result }, 200);
-    } catch (error) {
+    } catch (error: any) {
+        const errMsg = error instanceof Error ? error.message : String(error);
+        const stack = error instanceof Error ? error.stack : '';
+        logDebug(`[UPLOAD ERROR] ${errMsg}\nStack: ${stack}`);
         console.error('[API] Upload error:', error);
         return c.json(
             { ok: false, error: error instanceof Error ? error.message : 'Upload failed' },
@@ -11835,10 +12163,9 @@ app.post('/api/media/upload', requireVerifiedSession, async (c) => {
         );
     }
 });
-
-// ─────────────────────────────────────────────────────────────────────────────
+// -----------------------------------------------------------------------------
 // Storage Health Check (Temporary for testing)
-// ─────────────────────────────────────────────────────────────────────────────
+// -----------------------------------------------------------------------------
 
 app.get('/api/storage/health', async (c) => {
     try {
@@ -12092,6 +12419,21 @@ app.patch('/api/listings/:id/status', async (c) => {
     void maybeAutoPublishListing(user, listing);
 
     return c.json({ ok: true, item: listingToResponse(listing) });
+});
+
+app.delete('/api/listings/:id', async (c) => {
+    const user = await authUser(c);
+    if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
+
+    const listingId = c.req.param('id');
+    const listing = listingsById.get(listingId) ?? await getListingById(listingId);
+    if (!listing) return c.json({ ok: false, error: 'Publicación no encontrada' }, 404);
+    if (listing.ownerId !== user.id && user.role !== 'superadmin') {
+        return c.json({ ok: false, error: 'No tienes permisos sobre esta publicación' }, 403);
+    }
+
+    await deleteListingRecord(listingId);
+    return c.json({ ok: true });
 });
 
 app.post('/api/listings/:id/renew', async (c) => {

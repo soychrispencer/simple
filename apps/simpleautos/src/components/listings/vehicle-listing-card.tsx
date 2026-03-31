@@ -103,7 +103,7 @@ export default function VehicleListingCard({ data, mode }: Props) {
     const [slide, setSlide] = useState(0);
     const [menuOpen, setMenuOpen] = useState(false);
     const [favorite, setFavorite] = useState(false);
-    const [imageLoaded, setImageLoaded] = useState(false);
+    const [imageFailed, setImageFailed] = useState(false);
 
     const slides = useMemo(
         () => (data.images && data.images.length > 0 ? data.images : makeSeededSlides(data.title)),
@@ -121,8 +121,8 @@ export default function VehicleListingCard({ data, mode }: Props) {
     }, [data.id]);
 
     useEffect(() => {
-        setImageLoaded(!isImageUrl);
-    }, [isImageUrl, current]);
+        setImageFailed(false);
+    }, [current]);
 
     const go = (direction: number, event: React.MouseEvent) => {
         event.stopPropagation();
@@ -295,16 +295,14 @@ export default function VehicleListingCard({ data, mode }: Props) {
         >
             {isImageUrl ? (
                 <>
+                    <div className="absolute inset-0" style={{ background: 'var(--bg-muted)' }} />
                     <img
+                        key={current}
                         src={current}
                         alt={data.title}
-                        className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-300 ${imageLoaded ? 'opacity-100' : 'opacity-0'}`}
-                        onLoad={() => setImageLoaded(true)}
-                        onError={() => setImageLoaded(true)}
+                        className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-300 ${imageFailed ? 'opacity-0' : 'opacity-100'}`}
+                        onError={() => setImageFailed(true)}
                     />
-                    {!imageLoaded ? (
-                        <div className="absolute inset-0 animate-pulse" style={{ background: 'var(--bg-muted)' }} />
-                    ) : null}
                 </>
             ) : (
                 <div className="absolute inset-0" style={{ background: current }} />

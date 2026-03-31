@@ -434,6 +434,11 @@ export default function Step1Photos({
                     {!hasPhotos && (
                         <p className="text-xs" style={{ color: 'var(--fg-muted)' }}>Sube al menos una foto para continuar</p>
                     )}
+                    {hasPhotos && (
+                        <p className="text-xs text-right" style={{ color: 'var(--fg-muted)' }}>
+                            Al continuar seguirás la ficha dentro de tu cuenta.
+                        </p>
+                    )}
                     <PanelButton
                         type="button"
                         variant="primary"

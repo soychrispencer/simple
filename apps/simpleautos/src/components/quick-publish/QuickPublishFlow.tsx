@@ -2,7 +2,8 @@
 
 import { useState } from 'react';
 import { useQuickPublish } from '@/hooks/useQuickPublish';
-import { PanelButton } from '@simple/ui';
+import { useAuth } from '@/context/auth-context';
+import { PanelButton, PanelNotice } from '@simple/ui';
 import ProgressBar from './ProgressBar';
 import Step1Photos from './Step1Photos';
 import Step2BasicData from './Step2BasicData';
@@ -41,6 +42,7 @@ function ResetConfirmModal({ onConfirm, onCancel }: { onConfirm: () => void; onC
 
 export default function QuickPublishFlow() {
     const qp = useQuickPublish();
+    const { user, requireAuth } = useAuth();
     const [showResetModal, setShowResetModal] = useState(false);
 
     function handleBack() {
@@ -48,7 +50,13 @@ export default function QuickPublishFlow() {
         else if (qp.step === 3) qp.goToStep(2);
     }
 
+    function handleAfterPhotos() {
+        if (!requireAuth(() => qp.goToStep(2))) return;
+        qp.goToStep(2);
+    }
+
     function handleStep2Submit(data: QuickBasicData) {
+        if (!requireAuth(() => void qp.submitBasicData(data))) return;
         void qp.submitBasicData(data);
     }
 
@@ -84,13 +92,19 @@ export default function QuickPublishFlow() {
                 </div>
             )}
 
+            {qp.step === 1 && !user ? (
+                <PanelNotice className="mb-5" tone="neutral">
+                    Publicarás este vehículo dentro de tu cuenta. Puedes empezar con las fotos ahora, pero antes de pasar a la ficha te pediremos iniciar sesión para guardar el aviso.
+                </PanelNotice>
+            ) : null}
+
             {qp.step === 1 && (
                 <Step1Photos
                     photos={qp.photos}
                     onAddPhotos={qp.addPhotos}
                     onRemovePhoto={qp.removePhoto}
                     onReorderPhotos={qp.reorderPhotos}
-                    onNext={() => qp.goToStep(2)}
+                    onNext={handleAfterPhotos}
                     restoredPhotoCount={qp.restoredPhotoCount}
                 />
             )}
@@ -111,7 +125,7 @@ export default function QuickPublishFlow() {
                     isPublishing={qp.isPublishing}
                     publishError={qp.publishError}
                     detectedColor={qp.detectedColor}
-                    initialPricing={qp.savedPricing}
+                    initialLocation={qp.savedLocation}
                     onUpdateText={qp.updateGeneratedText}
                     onUpdatePricing={qp.updatePricing}
                     onUpdateLocation={qp.updateLocation}
@@ -126,7 +140,6 @@ export default function QuickPublishFlow() {
                     listingId={qp.publishedId}
                     listingHref={qp.publishedHref}
                     listingTitle={qp.publishedTitle ?? ''}
-                    basicData={qp.basicData}
                     onPublishAnother={qp.reset}
                 />
             )}

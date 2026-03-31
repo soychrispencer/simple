@@ -92,6 +92,51 @@ const defaultForm: FormState = {
     steeringWheel: '',
 };
 
+function getPreservedCommercialData(initialData: QuickBasicData | null): Pick<
+    QuickBasicData,
+    | 'price'
+    | 'offerPrice'
+    | 'offerPriceMode'
+    | 'negotiable'
+    | 'financingAvailable'
+    | 'exchangeAvailable'
+    | 'currency'
+    | 'rentDaily'
+    | 'rentWeekly'
+    | 'rentMonthly'
+    | 'rentMinDays'
+    | 'rentDeposit'
+    | 'rentAvailableFrom'
+    | 'rentAvailableTo'
+    | 'auctionStartPrice'
+    | 'auctionReservePrice'
+    | 'auctionMinIncrement'
+    | 'auctionStartAt'
+    | 'auctionEndAt'
+> {
+    return {
+        price: initialData?.price ?? '',
+        offerPrice: initialData?.offerPrice ?? '',
+        offerPriceMode: initialData?.offerPriceMode ?? '$',
+        negotiable: initialData?.negotiable ?? true,
+        financingAvailable: initialData?.financingAvailable ?? false,
+        exchangeAvailable: initialData?.exchangeAvailable ?? false,
+        currency: initialData?.currency ?? 'CLP',
+        rentDaily: initialData?.rentDaily ?? '',
+        rentWeekly: initialData?.rentWeekly ?? '',
+        rentMonthly: initialData?.rentMonthly ?? '',
+        rentMinDays: initialData?.rentMinDays ?? '',
+        rentDeposit: initialData?.rentDeposit ?? '',
+        rentAvailableFrom: initialData?.rentAvailableFrom ?? '',
+        rentAvailableTo: initialData?.rentAvailableTo ?? '',
+        auctionStartPrice: initialData?.auctionStartPrice ?? '',
+        auctionReservePrice: initialData?.auctionReservePrice ?? '',
+        auctionMinIncrement: initialData?.auctionMinIncrement ?? '',
+        auctionStartAt: initialData?.auctionStartAt ?? '',
+        auctionEndAt: initialData?.auctionEndAt ?? '',
+    };
+}
+
 interface Props {
     initialData: QuickBasicData | null;
     onChange?: (data: QuickBasicData) => void;
@@ -152,6 +197,7 @@ export default function Step2BasicData({ initialData, onChange, onSubmit, onBack
             initialData.ownerCount
         );
     });
+    const pendingChangeRef = useRef<QuickBasicData | null>(null);
 
     useEffect(() => {
         loadPublishWizardCatalog().then(setCatalog).catch(() => null);
@@ -179,6 +225,11 @@ export default function Step2BasicData({ initialData, onChange, onSubmit, onBack
         setVersions(catalogVersions.map((v) => ({ id: v.id, name: v.name })));
     }, [catalog, form.brandId, form.modelId, form.vehicleType]);
 
+    useEffect(() => {
+        if (!pendingChangeRef.current || !onChange) return;
+        onChange(pendingChangeRef.current);
+        pendingChangeRef.current = null;
+    });
 
     const set = useCallback(<K extends keyof FormState>(key: K, value: FormState[K]) => {
         setForm((prev) => {
@@ -192,17 +243,13 @@ export default function Step2BasicData({ initialData, onChange, onSubmit, onBack
                         : next.version;
                         
                 // We emit the QuickBasicData representation back
-                onChange({
+                pendingChangeRef.current = {
                     ...next,
                     version: resolvedVersion,
                     brandName,
                     modelName,
-                    price: initialData?.price || '',
-                    offerPrice: initialData?.offerPrice || '',
-                    offerPriceMode: initialData?.offerPriceMode || '$',
-                    negotiable: initialData?.negotiable ?? true,
-                    financingAvailable: initialData?.financingAvailable ?? false
-                });
+                    ...getPreservedCommercialData(initialData),
+                };
             }
             return next;
         });
@@ -514,7 +561,13 @@ export default function Step2BasicData({ initialData, onChange, onSubmit, onBack
                                 form.brandId === '__custom__' || form.modelId === '__custom__' || form.version === '__custom__'
                                     ? form.customVersion
                                     : form.version;
-                            onSubmit({ ...form, version: resolvedVersion, brandName, modelName, price: '', offerPrice: '', offerPriceMode: '$', negotiable: true, financingAvailable: false });
+                            onSubmit({
+                                ...form,
+                                version: resolvedVersion,
+                                brandName,
+                                modelName,
+                                ...getPreservedCommercialData(initialData),
+                            });
                         }}>
                         Continuar →
                     </PanelButton>

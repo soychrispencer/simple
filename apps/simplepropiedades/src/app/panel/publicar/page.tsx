@@ -22,6 +22,7 @@ import {
 import PanelSectionHeader from '@/components/panel/panel-section-header';
 import ModernSelect from '@/components/ui/modern-select';
 import { useAuth } from '@/context/auth-context';
+import { uploadMediaFile } from '@/lib/media-upload';
 import { getPublicationLifecyclePolicy, type PublicationLifecyclePolicy } from '@simple/config';
 import {
     createPanelListing,
@@ -181,8 +182,8 @@ interface PersistedDraft {
     valuationEstimate: PropertyValuationEstimate | null;
     data: Omit<WizardData, 'media'> & {
         media: Omit<WizardData['media'], 'photos' | 'discoverVideo'> & {
-            photos: Array<Pick<PanelMediaAsset, 'id' | 'name' | 'isCover' | 'width' | 'height' | 'sizeBytes' | 'mimeType'>>;
-            discoverVideo: Pick<PanelVideoAsset, 'id' | 'name' | 'width' | 'height' | 'sizeBytes' | 'mimeType' | 'durationSeconds'> | null;
+            photos: Array<Pick<PanelMediaAsset, 'id' | 'name' | 'dataUrl' | 'previewUrl' | 'isCover' | 'width' | 'height' | 'sizeBytes' | 'mimeType'>>;
+            discoverVideo: Pick<PanelVideoAsset, 'id' | 'name' | 'dataUrl' | 'previewUrl' | 'width' | 'height' | 'sizeBytes' | 'mimeType' | 'durationSeconds'> | null;
             documents: PanelDocumentAsset[];
         };
     };
@@ -477,6 +478,33 @@ function slugify(value: string): string {
         .replace(/(^-|-$)/g, '');
 }
 
+function fixBrokenB2Url(url: string): string {
+    if (!url || !url.startsWith('http')) return url;
+    if (url.includes('backblazeb2.com')) {
+        const bucketName = 'simple-media';
+        
+        let key = '';
+        if (url.includes(`/file/${bucketName}/`)) {
+            key = url.split(`/file/${bucketName}/`)[1];
+        } else if (url.includes(`backblazeb2.com/${bucketName}/`)) {
+            key = url.split(`backblazeb2.com/${bucketName}/`)[1];
+        } else {
+            const parts = url.split('.backblazeb2.com/');
+            if (parts.length === 2) {
+                const pathParts = parts[1].split('/');
+                if (pathParts[0] === 'file') pathParts.shift();
+                if (pathParts[0] === bucketName) pathParts.shift();
+                key = pathParts.join('/');
+            }
+        }
+
+        if (key) {
+            return `https://f005.backblazeb2.com/file/${bucketName}/${key}`;
+        }
+    }
+    return url;
+}
+
 function mergeDraft(raw: unknown): { data: WizardData; valuationEstimate: PropertyValuationEstimate | null } | null {
     if (!raw || typeof raw !== 'object') return null;
     const parsed = raw as PersistedDraft;
@@ -509,30 +537,30 @@ function mergeDraft(raw: unknown): { data: WizardData; valuationEstimate: Proper
             ...(parsed.data.media || {}),
             photos: Array.isArray(parsed.data.media?.photos)
                 ? parsed.data.media.photos.map((photo) => ({
-                    id: photo.id,
-                    name: photo.name,
-                    dataUrl: '',
-                    previewUrl: '',
-                    isCover: !!photo.isCover,
-                    width: typeof photo.width === 'number' ? photo.width : 0,
-                    height: typeof photo.height === 'number' ? photo.height : 0,
-                    sizeBytes: typeof photo.sizeBytes === 'number' ? photo.sizeBytes : 0,
-                    mimeType: typeof photo.mimeType === 'string' ? photo.mimeType : 'image/webp',
-                }))
-                : [],
-            discoverVideo: parsed.data.media?.discoverVideo
-                ? {
-                    id: parsed.data.media.discoverVideo.id,
-                    name: parsed.data.media.discoverVideo.name,
-                    dataUrl: '',
-                    previewUrl: '',
-                    width: typeof parsed.data.media.discoverVideo.width === 'number' ? parsed.data.media.discoverVideo.width : 0,
-                    height: typeof parsed.data.media.discoverVideo.height === 'number' ? parsed.data.media.discoverVideo.height : 0,
-                    sizeBytes: typeof parsed.data.media.discoverVideo.sizeBytes === 'number' ? parsed.data.media.discoverVideo.sizeBytes : 0,
-                    mimeType: typeof parsed.data.media.discoverVideo.mimeType === 'string' ? parsed.data.media.discoverVideo.mimeType : 'video/mp4',
-                    durationSeconds: typeof parsed.data.media.discoverVideo.durationSeconds === 'number' ? parsed.data.media.discoverVideo.durationSeconds : 0,
-                }
-                : null,
+                        id: photo.id,
+                        name: photo.name,
+                        dataUrl: fixBrokenB2Url(typeof (photo as any).dataUrl === 'string' ? (photo as any).dataUrl : (typeof (photo as any).url === 'string' ? (photo as any).url : '')),
+                        previewUrl: fixBrokenB2Url(typeof (photo as any).previewUrl === 'string' ? (photo as any).previewUrl : (typeof (photo as any).url === 'string' ? (photo as any).url : '')),
+                        isCover: !!photo.isCover,
+                        width: typeof photo.width === 'number' ? photo.width : 0,
+                        height: typeof photo.height === 'number' ? photo.height : 0,
+                        sizeBytes: typeof photo.sizeBytes === 'number' ? photo.sizeBytes : 0,
+                        mimeType: typeof photo.mimeType === 'string' ? photo.mimeType : 'image/webp',
+                    }))
+                    : [],
+                discoverVideo: parsed.data.media?.discoverVideo
+                    ? {
+                        id: parsed.data.media.discoverVideo.id,
+                        name: parsed.data.media.discoverVideo.name,
+                        dataUrl: fixBrokenB2Url(typeof (parsed.data.media.discoverVideo as any).dataUrl === 'string' ? (parsed.data.media.discoverVideo as any).dataUrl : (typeof (parsed.data.media.discoverVideo as any).url === 'string' ? (parsed.data.media.discoverVideo as any).url : '')),
+                        previewUrl: fixBrokenB2Url(typeof (parsed.data.media.discoverVideo as any).previewUrl === 'string' ? (parsed.data.media.discoverVideo as any).previewUrl : (typeof (parsed.data.media.discoverVideo as any).url === 'string' ? (parsed.data.media.discoverVideo as any).url : '')),
+                        width: typeof parsed.data.media.discoverVideo.width === 'number' ? parsed.data.media.discoverVideo.width : 0,
+                        height: typeof parsed.data.media.discoverVideo.height === 'number' ? parsed.data.media.discoverVideo.height : 0,
+                        sizeBytes: typeof parsed.data.media.discoverVideo.sizeBytes === 'number' ? parsed.data.media.discoverVideo.sizeBytes : 0,
+                        mimeType: typeof parsed.data.media.discoverVideo.mimeType === 'string' ? parsed.data.media.discoverVideo.mimeType : 'video/mp4',
+                        durationSeconds: typeof parsed.data.media.discoverVideo.durationSeconds === 'number' ? parsed.data.media.discoverVideo.durationSeconds : 0,
+                    }
+                    : null,
             documents: Array.isArray(parsed.data.media?.documents)
                 ? parsed.data.media.documents.map((item) => ({
                     id: item.id,
@@ -569,6 +597,8 @@ function serializeDraft(data: WizardData, valuationEstimate: PropertyValuationEs
                 photos: data.media.photos.map((photo) => ({
                     id: photo.id,
                     name: photo.name,
+                    dataUrl: photo.dataUrl,
+                    previewUrl: photo.previewUrl,
                     isCover: photo.isCover,
                     width: photo.width,
                     height: photo.height,
@@ -579,6 +609,8 @@ function serializeDraft(data: WizardData, valuationEstimate: PropertyValuationEs
                     ? {
                         id: data.media.discoverVideo.id,
                         name: data.media.discoverVideo.name,
+                        dataUrl: data.media.discoverVideo.dataUrl,
+                        previewUrl: data.media.discoverVideo.previewUrl,
                         width: data.media.discoverVideo.width,
                         height: data.media.discoverVideo.height,
                         sizeBytes: data.media.discoverVideo.sizeBytes,
@@ -1889,6 +1921,54 @@ export default function PublishWizardPage() {
 
         setPublishing(true);
         setMessage(null);
+
+        // Upload media to B2 if they are still base64
+        const uploadedPhotos: PanelMediaAsset[] = [];
+        for (const photo of data.media.photos) {
+            if (photo.dataUrl.startsWith('data:')) {
+                try {
+                    const blob = await fetch(photo.dataUrl).then((r) => r.blob());
+                    const file = new File([blob], photo.name, { type: photo.mimeType });
+                    const result = await uploadMediaFile(file, { fileType: 'image' });
+                    if (result.ok && result.result) {
+                        uploadedPhotos.push({
+                            ...photo,
+                            dataUrl: result.result.url,
+                            previewUrl: result.result.url,
+                        });
+                        continue;
+                    }
+                } catch (e) {
+                    console.error('Failed to upload photo to B2:', e);
+                }
+            }
+            uploadedPhotos.push(photo);
+        }
+
+        const uploadedVideo = data.media.discoverVideo ? { ...data.media.discoverVideo } : null;
+        if (uploadedVideo && uploadedVideo.dataUrl.startsWith('data:')) {
+            try {
+                const blob = await fetch(uploadedVideo.dataUrl).then((r) => r.blob());
+                const file = new File([blob], uploadedVideo.name, { type: uploadedVideo.mimeType });
+                const result = await uploadMediaFile(file, { fileType: 'video' });
+                if (result.ok && result.result) {
+                    uploadedVideo.dataUrl = result.result.url;
+                    uploadedVideo.previewUrl = result.result.url;
+                }
+            } catch (e) {
+                console.error('Failed to upload video to B2:', e);
+            }
+        }
+
+        const finalData = {
+            ...data,
+            media: {
+                ...data.media,
+                photos: uploadedPhotos,
+                discoverVideo: uploadedVideo,
+            },
+        };
+
         const payload = {
             listingType: data.setup.operationType,
             title: data.basic.title.trim(),
@@ -1898,11 +1978,11 @@ export default function PublishWizardPage() {
             locationData: normalizedLocation,
             href: data.commercial.slug.trim() ? `/propiedad/${data.commercial.slug.trim()}` : undefined,
             rawData: {
-                ...data,
-                basic: createPropertyBasicForPayload(data),
+                ...finalData,
+                basic: createPropertyBasicForPayload(finalData),
                 media: {
-                    ...data.media,
-                    photos: data.media.photos,
+                    ...finalData.media,
+                    photos: finalData.media.photos,
                 },
                 location: normalizedLocation,
                 valuation: estimate,

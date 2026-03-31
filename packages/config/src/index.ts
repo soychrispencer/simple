@@ -12,7 +12,7 @@ export type SimpleAppId =
 export type StorageFileType = 'image' | 'video' | 'document';
 
 export type StorageUploadInput = {
-    file: File | Buffer;
+    file: any; // Can be File (browser) or Buffer (Node.js)
     fileName: string;
     mimeType: string;
     fileType: StorageFileType;

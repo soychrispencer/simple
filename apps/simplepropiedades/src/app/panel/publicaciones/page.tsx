@@ -488,6 +488,52 @@ export default function PublicacionesPage() {
         { id: 'draft' as const, label: 'Borradores', count: listings.filter((item) => item.status === 'draft').length },
     ], [listings]);
 
+    const fixBrokenB2Url = (url: string): string => {
+        if (!url || !url.startsWith('http')) return url;
+        if (url.includes('backblazeb2.com')) {
+            const bucketName = 'simple-media';
+            
+            let key = '';
+            if (url.includes(`/file/${bucketName}/`)) {
+                key = url.split(`/file/${bucketName}/`)[1];
+            } else if (url.includes(`backblazeb2.com/${bucketName}/`)) {
+                key = url.split(`backblazeb2.com/${bucketName}/`)[1];
+            } else {
+                const parts = url.split('.backblazeb2.com/');
+                if (parts.length === 2) {
+                    const pathParts = parts[1].split('/');
+                    if (pathParts[0] === 'file') pathParts.shift();
+                    if (pathParts[0] === bucketName) pathParts.shift();
+                    key = pathParts.join('/');
+                }
+            }
+
+            if (key) {
+                return `https://f005.backblazeb2.com/file/${bucketName}/${key}`;
+            }
+        }
+        return url;
+    };
+
+    const getListingCoverImage = (listing: PanelListing): string | null => {
+        const rawData = listing.rawData as any;
+        const photos = rawData?.media?.photos;
+        if (!Array.isArray(photos) || photos.length === 0) return null;
+
+        const first = photos[0];
+        let imageUrl = '';
+        if (typeof first === 'string') {
+            imageUrl = first.trim();
+        } else {
+            imageUrl = first?.url || first?.previewUrl || first?.dataUrl || '';
+        }
+        
+        if (typeof imageUrl === 'string' && imageUrl.trim()) {
+            return fixBrokenB2Url(imageUrl.trim());
+        }
+        return null;
+    };
+
     const filtered = useMemo(() => {
         if (filter === 'all') return listings;
         if (filter === 'review_required') {
@@ -563,9 +609,16 @@ export default function PublicacionesPage() {
                     {filtered.map((listing) => {
                         const badge = publicationBadgeMeta(listing);
                         const lifecycleHint = publicationLifecycleHint(listing);
+                        const coverImage = getListingCoverImage(listing);
                         return (
                             <article key={listing.id} className="rounded-xl p-4 flex flex-col sm:flex-row gap-4" style={{ border: '1px solid var(--border)' }}>
-                                <div className="w-full sm:w-28 h-20 sm:h-auto rounded-lg flex items-center justify-center flex-shrink-0" style={{ background: 'var(--bg-muted)', color: 'var(--fg-faint)' }}><IconHome2 size={20} /></div>
+                                <div className="w-full sm:w-28 h-20 sm:h-auto rounded-lg flex items-center justify-center flex-shrink-0 overflow-hidden" style={{ background: 'var(--bg-muted)', color: 'var(--fg-faint)' }}>
+                                    {coverImage ? (
+                                        <img src={coverImage} alt={listing.title} className="w-full h-full object-cover" />
+                                    ) : (
+                                        <IconHome2 size={20} />
+                                    )}
+                                </div>
                                 <div className="flex-1 min-w-0">
                                     <div className="flex items-start justify-between gap-2 mb-1">
                                         <div>
@@ -601,9 +654,16 @@ export default function PublicacionesPage() {
                     {filtered.map((listing) => {
                         const badge = publicationBadgeMeta(listing);
                         const lifecycleHint = publicationLifecycleHint(listing);
+                        const coverImage = getListingCoverImage(listing);
                         return (
                             <article key={listing.id} className="rounded-xl overflow-hidden" style={{ border: '1px solid var(--border)' }}>
-                                <div className="aspect-[4/3] flex items-center justify-center" style={{ background: 'var(--bg-muted)', color: 'var(--fg-faint)' }}><IconHome2 size={26} /></div>
+                                <div className="aspect-[4/3] flex items-center justify-center overflow-hidden" style={{ background: 'var(--bg-muted)', color: 'var(--fg-faint)' }}>
+                                    {coverImage ? (
+                                        <img src={coverImage} alt={listing.title} className="w-full h-full object-cover" />
+                                    ) : (
+                                        <IconHome2 size={26} />
+                                    )}
+                                </div>
                                 <div className="p-4">
                                     <div className="flex items-start justify-between gap-2 mb-1"><h3 className="type-listing-title line-clamp-1">{listing.title}</h3><PanelStatusBadge label={badge.label} tone={badge.tone} size="sm" className="flex-shrink-0" /></div>
                                     <p className="type-listing-price mb-1">{listing.price}</p>
