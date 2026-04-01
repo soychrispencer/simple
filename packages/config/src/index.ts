@@ -444,7 +444,7 @@ export function buildSimpleAppManifest(appId: SimpleAppId) {
         description: brand.description,
         start_url: '/',
         scope: '/',
-        display: 'standalone' as const,
+        display: 'browser' as const,
         lang: 'es-CL',
         background_color: SHARED_THEME.backgroundColorLight,
         theme_color: SHARED_THEME.themeColor,
