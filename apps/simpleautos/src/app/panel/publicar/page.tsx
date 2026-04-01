@@ -905,38 +905,46 @@ function mergeDraft(raw: unknown): { data: WizardData; valuationEstimate: Vehicl
                 ...defaults.media,
                 ...(parsed.data.media || {}),
                 photos: Array.isArray(parsed.data.media?.photos)
-                    ? parsed.data.media.photos.map((photo) => ({
-                        id: photo.id,
-                        name: photo.name,
-                        dataUrl: typeof photo.dataUrl === 'string' && photo.dataUrl.startsWith('http') ? photo.dataUrl : '',
-                        previewUrl: typeof photo.previewUrl === 'string' && photo.previewUrl.startsWith('http')
-                            ? photo.previewUrl
-                            : typeof photo.url === 'string' && photo.url.startsWith('http')
-                                ? photo.url
-                                : '',
-                        isCover: !!photo.isCover,
-                        width: typeof photo.width === 'number' ? photo.width : 0,
-                        height: typeof photo.height === 'number' ? photo.height : 0,
-                        sizeBytes: typeof photo.sizeBytes === 'number' ? photo.sizeBytes : 0,
-                        mimeType: typeof photo.mimeType === 'string' ? photo.mimeType : 'image/webp',
-                    }))
+                    ? parsed.data.media.photos.map((photo) => {
+                        const p = photo as any;
+                        const resolvedPreview = typeof p.previewUrl === 'string' && p.previewUrl.startsWith('http')
+                            ? p.previewUrl
+                            : typeof p.url === 'string' && p.url.startsWith('http')
+                                ? p.url
+                                : '';
+                        return {
+                            id: photo.id,
+                            name: photo.name,
+                            dataUrl: resolvedPreview,
+                            previewUrl: resolvedPreview,
+                            isCover: !!photo.isCover,
+                            width: typeof photo.width === 'number' ? photo.width : 0,
+                            height: typeof photo.height === 'number' ? photo.height : 0,
+                            sizeBytes: typeof photo.sizeBytes === 'number' ? photo.sizeBytes : 0,
+                            mimeType: typeof photo.mimeType === 'string' ? photo.mimeType : 'image/webp',
+                        };
+                    })
                     : [],
                 discoverVideo: parsed.data.media?.discoverVideo
-                    ? {
-                        id: parsed.data.media.discoverVideo.id,
-                        name: parsed.data.media.discoverVideo.name,
-                        dataUrl: typeof parsed.data.media.discoverVideo.dataUrl === 'string' && parsed.data.media.discoverVideo.dataUrl.startsWith('http') ? parsed.data.media.discoverVideo.dataUrl : '',
-                        previewUrl: typeof parsed.data.media.discoverVideo.previewUrl === 'string' && parsed.data.media.discoverVideo.previewUrl.startsWith('http')
-                            ? parsed.data.media.discoverVideo.previewUrl
-                            : typeof parsed.data.media.discoverVideo.url === 'string' && parsed.data.media.discoverVideo.url.startsWith('http')
-                                ? parsed.data.media.discoverVideo.url
-                                : '',
-                        width: typeof parsed.data.media.discoverVideo.width === 'number' ? parsed.data.media.discoverVideo.width : 0,
-                        height: typeof parsed.data.media.discoverVideo.height === 'number' ? parsed.data.media.discoverVideo.height : 0,
-                        sizeBytes: typeof parsed.data.media.discoverVideo.sizeBytes === 'number' ? parsed.data.media.discoverVideo.sizeBytes : 0,
-                        mimeType: typeof parsed.data.media.discoverVideo.mimeType === 'string' ? parsed.data.media.discoverVideo.mimeType : 'video/mp4',
-                        durationSeconds: typeof parsed.data.media.discoverVideo.durationSeconds === 'number' ? parsed.data.media.discoverVideo.durationSeconds : 0,
-                    }
+                    ? (() => {
+                        const dv = parsed.data.media.discoverVideo as any;
+                        const resolvedPreview = typeof dv.previewUrl === 'string' && dv.previewUrl.startsWith('http')
+                            ? dv.previewUrl
+                            : typeof dv.url === 'string' && dv.url.startsWith('http')
+                                ? dv.url
+                                : '';
+                        return {
+                            id: dv.id,
+                            name: dv.name,
+                            dataUrl: resolvedPreview,
+                            previewUrl: resolvedPreview,
+                            width: typeof dv.width === 'number' ? dv.width : 0,
+                            height: typeof dv.height === 'number' ? dv.height : 0,
+                            sizeBytes: typeof dv.sizeBytes === 'number' ? dv.sizeBytes : 0,
+                            mimeType: typeof dv.mimeType === 'string' ? dv.mimeType : 'video/mp4',
+                            durationSeconds: typeof dv.durationSeconds === 'number' ? dv.durationSeconds : 0,
+                        };
+                    })()
                     : null,
                 documents: Array.isArray(parsed.data.media?.documents)
                     ? parsed.data.media.documents.map((item) => ({
