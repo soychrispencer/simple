@@ -4009,11 +4009,50 @@ async function saveListingRecord(record: ListingRecord): Promise<ListingRecord> 
     return upsertListingCache(mapListingRowToRecord(row));
 }
 
+function extractAllListingMediaUrls(record: ListingRecord): string[] {
+    const payload = asObject(record.rawData);
+    const media = asObject(payload.media);
+    const urls: string[] = [];
+
+    const photos = Array.isArray(media.photos) ? media.photos : [];
+    for (const photo of photos) {
+        const url = toPublicMediaUrl(photo);
+        if (url) urls.push(url);
+    }
+
+    const discoverVideo = media.discoverVideo;
+    if (discoverVideo && typeof discoverVideo === 'object') {
+        const url = toPublicMediaUrl(discoverVideo);
+        if (url) urls.push(url);
+    }
+
+    return urls;
+}
+
 async function deleteListingRecord(listingId: string): Promise<void> {
+    const record = listingsById.get(listingId) ?? await getListingById(listingId);
+
     await db.delete(listings).where(eq(listings.id, listingId));
     listingsById.delete(listingId);
     for (const [userId, ids] of listingIdsByUser.entries()) {
         listingIdsByUser.set(userId, ids.filter((id) => id !== listingId));
+    }
+
+    if (record) {
+        const mediaUrls = extractAllListingMediaUrls(record);
+        if (mediaUrls.length > 0) {
+            try {
+                const storage = getStorageProvider();
+                await Promise.allSettled(
+                    mediaUrls
+                        .map((url) => extractBackblazeObjectKey(url))
+                        .filter((key) => key.length > 0)
+                        .map((key) => storage.delete(key))
+                );
+            } catch {
+                // Media cleanup is best-effort — don't fail the delete
+            }
+        }
     }
 }
 
@@ -6794,12 +6833,17 @@ function isActiveAdminStatus(status: UserStatus): boolean {
 async function permanentlyDeleteUser(userId: string): Promise<void> {
     let instagramAccountRows: Array<{ id: string; vertical: string }> = [];
 
+    let listingMediaUrlsToDelete: string[] = [];
+
     await db.transaction(async (tx) => {
         const ownedListings = await tx
-            .select({ id: listings.id })
+            .select({ id: listings.id, rawData: listings.rawData })
             .from(listings)
             .where(eq(listings.ownerId, userId));
         const ownedListingIds = ownedListings.map((item) => item.id);
+        listingMediaUrlsToDelete = ownedListings.flatMap((item) =>
+            extractAllListingMediaUrls(item as unknown as ListingRecord)
+        );
 
         const listingLeadRows = await tx
             .select({ id: listingLeads.id })
@@ -6920,6 +6964,20 @@ async function permanentlyDeleteUser(userId: string): Promise<void> {
     for (const [key, profile] of publicProfilesByVerticalSlug.entries()) {
         if (profile.userId === userId) {
             publicProfilesByVerticalSlug.delete(key);
+        }
+    }
+
+    if (listingMediaUrlsToDelete.length > 0) {
+        try {
+            const storage = getStorageProvider();
+            await Promise.allSettled(
+                listingMediaUrlsToDelete
+                    .map((url) => extractBackblazeObjectKey(url))
+                    .filter((key) => key.length > 0)
+                    .map((key) => storage.delete(key))
+            );
+        } catch {
+            // Media cleanup is best-effort — don't fail the user delete
         }
     }
 }
