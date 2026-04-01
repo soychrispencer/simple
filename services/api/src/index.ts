@@ -10329,7 +10329,7 @@ app.patch('/api/advertising/campaigns/:id', async (c) => {
     const user = await authUser(c);
     if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
 
-    const campaignId = c.req.param('id');
+    const campaignId = c.req.param('id') ?? '';
     const existing = await getAdCampaignRecordForUser(user.id, campaignId);
     if (!existing) return c.json({ ok: false, error: 'Campaña no encontrada' }, 404);
 
@@ -10397,7 +10397,7 @@ app.patch('/api/advertising/campaigns/:id', async (c) => {
 app.delete('/api/advertising/campaigns/:id', async (c) => {
     const user = await authUser(c);
     if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
-    const campaignId = c.req.param('id');
+    const campaignId = c.req.param('id') ?? '';
     const existing = await getAdCampaignRecordForUser(user.id, campaignId);
     if (!existing) return c.json({ ok: false, error: 'Campaña no encontrada' }, 404);
     await db.delete(adCampaigns).where(and(eq(adCampaigns.id, campaignId), eq(adCampaigns.userId, user.id)));
@@ -11264,7 +11264,7 @@ app.patch('/api/admin/users/:id/role', async (c) => {
         return c.json({ ok: false, error: 'Rol inválido' }, 400);
     }
 
-    const userId = c.req.param('id');
+    const userId = c.req.param('id') ?? '';
     const targetUser = await getUserById(userId);
     if (!targetUser) return c.json({ ok: false, error: 'Usuario no encontrado' }, 404);
 
@@ -11288,7 +11288,7 @@ app.patch('/api/admin/users/:id/status', async (c) => {
         return c.json({ ok: false, error: 'Status inválido' }, 400);
     }
 
-    const userId = c.req.param('id');
+    const userId = c.req.param('id') ?? '';
     const targetUser = await getUserById(userId);
     if (!targetUser) return c.json({ ok: false, error: 'Usuario no encontrado' }, 404);
 
@@ -11305,7 +11305,7 @@ app.delete('/api/admin/users/:id', async (c) => {
     if (!adminUser) return c.json({ ok: false, error: 'No autenticado' }, 401);
     if (!isAdminRole(adminUser.role)) return c.json({ ok: false, error: 'No autorizado' }, 403);
 
-    const userId = c.req.param('id');
+    const userId = c.req.param('id') ?? '';
     
     // No permitir eliminar el usuario actual
     if (adminUser.id === userId) {
@@ -11334,7 +11334,7 @@ app.put('/api/admin/users/:id', async (c) => {
     if (!isAdminRole(adminUser.role)) return c.json({ ok: false, error: 'No autorizado' }, 403);
 
     const payload = await c.req.json().catch(() => null);
-    const userId = c.req.param('id');
+    const userId = c.req.param('id') ?? '';
     
     const targetUser = await getUserById(userId);
     if (!targetUser) return c.json({ ok: false, error: 'Usuario no encontrado' }, 404);
@@ -11808,7 +11808,7 @@ app.post('/api/integrations/instagram/publish', async (c) => {
 
 app.get('/api/integrations/instagram/listing-image/:id', async (c) => {
     const vertical = parseVertical(c.req.query('vertical'));
-    const listingId = c.req.param('id');
+    const listingId = c.req.param('id') ?? '';
     const listing = listingsById.get(listingId) ?? await getListingById(listingId);
     if (!listing || listing.vertical !== vertical || listing.status !== 'active') {
         return c.json({ ok: false, error: 'Imagen no disponible.' }, 404);
@@ -11903,7 +11903,7 @@ app.delete('/api/saved/:id', async (c) => {
     const user = await authUser(c);
     if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
 
-    const id = c.req.param('id');
+    const id = c.req.param('id') ?? '';
     await db
         .delete(savedListings)
         .where(and(eq(savedListings.userId, user.id), eq(savedListings.listingId, id)));
@@ -11940,7 +11940,7 @@ app.patch('/api/address-book/:id', async (c) => {
     const user = await authUser(c);
     if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
 
-    const addressId = c.req.param('id');
+    const addressId = c.req.param('id') ?? '';
     const current = await getAddressBookEntries(user.id);
     if (!current.some((item) => item.id === addressId)) {
         return c.json({ ok: false, error: 'Dirección no encontrada' }, 404);
@@ -11961,7 +11961,7 @@ app.delete('/api/address-book/:id', async (c) => {
     const user = await authUser(c);
     if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
 
-    const addressId = c.req.param('id');
+    const addressId = c.req.param('id') ?? '';
     const current = await getAddressBookEntries(user.id);
     if (!current.some((item) => item.id === addressId)) {
         return c.json({ ok: false, error: 'Dirección no encontrada' }, 404);
@@ -12057,7 +12057,7 @@ app.get('/api/public/listings', (c) => {
 
 app.get('/api/public/listings/:slug', (c) => {
     const vertical = parseVertical(c.req.query('vertical'));
-    const slug = c.req.param('slug');
+    const slug = c.req.param('slug') ?? '';
     const listing = Array.from(listingsById.values())
         .find((item) => item.vertical === vertical && isPublicListingVisible(item) && matchesListingSlug(item, slug));
 
@@ -12067,7 +12067,7 @@ app.get('/api/public/listings/:slug', (c) => {
 
 app.get('/api/public/profiles/:slug', (c) => {
     const vertical = parseVertical(c.req.query('vertical'));
-    const slug = c.req.param('slug');
+    const slug = c.req.param('slug') ?? '';
     const profile = getPublishedPublicProfileBySlug(vertical, slug);
     if (!profile) return c.json({ ok: false, error: 'Perfil no encontrado' }, 404);
 
@@ -12266,7 +12266,7 @@ app.get('/api/listings/:id', async (c) => {
     const user = await authUser(c);
     if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
 
-    const listingId = c.req.param('id');
+    const listingId = c.req.param('id') ?? '';
     let listing = listingsById.get(listingId) ?? await getListingById(listingId);
     if (!listing) return c.json({ ok: false, error: 'Publicación no encontrada' }, 404);
     if (listing.ownerId !== user.id && user.role !== 'superadmin') {
@@ -12280,7 +12280,7 @@ app.put('/api/listings/:id', async (c) => {
     const user = await authUser(c);
     if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
 
-    const listingId = c.req.param('id');
+    const listingId = c.req.param('id') ?? '';
     let listing = listingsById.get(listingId) ?? await getListingById(listingId);
     if (!listing) return c.json({ ok: false, error: 'Publicación no encontrada' }, 404);
     if (listing.ownerId !== user.id && user.role !== 'superadmin') {
@@ -12326,7 +12326,7 @@ app.post('/api/listings/:id/integrations/publish', async (c) => {
     const user = await authUser(c);
     if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
 
-    const listingId = c.req.param('id');
+    const listingId = c.req.param('id') ?? '';
     let listing = listingsById.get(listingId) ?? await getListingById(listingId);
     if (!listing) return c.json({ ok: false, error: 'Publicación no encontrada' }, 404);
     if (listing.ownerId !== user.id && user.role !== 'superadmin') {
@@ -12390,7 +12390,7 @@ app.patch('/api/listings/:id/status', async (c) => {
     const user = await authUser(c);
     if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
 
-    const listingId = c.req.param('id');
+    const listingId = c.req.param('id') ?? '';
     let listing = listingsById.get(listingId) ?? await getListingById(listingId);
     if (!listing) return c.json({ ok: false, error: 'Publicación no encontrada' }, 404);
     if (listing.ownerId !== user.id && user.role !== 'superadmin') {
@@ -12425,7 +12425,7 @@ app.delete('/api/listings/:id', async (c) => {
     const user = await authUser(c);
     if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
 
-    const listingId = c.req.param('id');
+    const listingId = c.req.param('id') ?? '';
     const listing = listingsById.get(listingId) ?? await getListingById(listingId);
     if (!listing) return c.json({ ok: false, error: 'Publicación no encontrada' }, 404);
     if (listing.ownerId !== user.id && user.role !== 'superadmin') {
@@ -12440,7 +12440,7 @@ app.post('/api/listings/:id/renew', async (c) => {
     const user = await authUser(c);
     if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
 
-    const listingId = c.req.param('id');
+    const listingId = c.req.param('id') ?? '';
     let listing = listingsById.get(listingId) ?? await getListingById(listingId);
     if (!listing) return c.json({ ok: false, error: 'Publicación no encontrada' }, 404);
     if (listing.ownerId !== user.id && user.role !== 'superadmin') {
@@ -12575,7 +12575,7 @@ app.patch('/api/boost/orders/:id', async (c) => {
     const parsed = updateBoostOrderSchema.safeParse(payload);
     if (!parsed.success) return c.json({ ok: false, error: 'Payload inválido' }, 400);
 
-    const orderId = c.req.param('id');
+    const orderId = c.req.param('id') ?? '';
     const current = boostOrdersByUser.get(user.id) ?? [];
     const targetIndex = current.findIndex((order) => order.id === orderId);
     if (targetIndex < 0) return c.json({ ok: false, error: 'Boost no encontrado' }, 404);
@@ -13374,7 +13374,7 @@ app.put('/api/agenda/services/:id', requireVerifiedSession, async (c) => {
     if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
     const profile = await getAgendaProfile(user.id);
     if (!profile) return c.json({ ok: false, error: 'Perfil no encontrado' }, 404);
-    const id = c.req.param('id');
+    const id = c.req.param('id') ?? '';
     const body = await c.req.json().catch(() => ({})) as Record<string, unknown>;
     const patch: Record<string, unknown> = { updatedAt: new Date() };
     for (const key of ['name', 'description', 'durationMinutes', 'price', 'currency', 'isOnline', 'isPresential', 'color', 'position', 'isActive'] as const) {
@@ -13392,7 +13392,7 @@ app.delete('/api/agenda/services/:id', requireVerifiedSession, async (c) => {
     if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
     const profile = await getAgendaProfile(user.id);
     if (!profile) return c.json({ ok: false, error: 'Perfil no encontrado' }, 404);
-    const id = c.req.param('id');
+    const id = c.req.param('id') ?? '';
     await db.update(agendaServices).set({ isActive: false, updatedAt: new Date() })
         .where(and(eq(agendaServices.id, id), eq(agendaServices.professionalId, profile.id)));
     return c.json({ ok: true });
@@ -13441,7 +13441,7 @@ app.put('/api/agenda/availability/rules/:id', requireVerifiedSession, async (c) 
     if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
     const profile = await getAgendaProfile(user.id);
     if (!profile) return c.json({ ok: false, error: 'Perfil no encontrado' }, 404);
-    const id = c.req.param('id');
+    const id = c.req.param('id') ?? '';
     const body = await c.req.json().catch(() => ({})) as Record<string, unknown>;
     const patch: Record<string, unknown> = { updatedAt: new Date() };
     for (const key of ['dayOfWeek', 'startTime', 'endTime', 'breakStart', 'breakEnd', 'isActive'] as const) {
@@ -13459,7 +13459,7 @@ app.delete('/api/agenda/availability/rules/:id', requireVerifiedSession, async (
     if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
     const profile = await getAgendaProfile(user.id);
     if (!profile) return c.json({ ok: false, error: 'Perfil no encontrado' }, 404);
-    const id = c.req.param('id');
+    const id = c.req.param('id') ?? '';
     await db.delete(agendaAvailabilityRules)
         .where(and(eq(agendaAvailabilityRules.id, id), eq(agendaAvailabilityRules.professionalId, profile.id)));
     return c.json({ ok: true });
@@ -13485,7 +13485,7 @@ app.delete('/api/agenda/availability/blocked-slots/:id', requireVerifiedSession,
     if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
     const profile = await getAgendaProfile(user.id);
     if (!profile) return c.json({ ok: false, error: 'Perfil no encontrado' }, 404);
-    const id = c.req.param('id');
+    const id = c.req.param('id') ?? '';
     await db.delete(agendaBlockedSlots)
         .where(and(eq(agendaBlockedSlots.id, id), eq(agendaBlockedSlots.professionalId, profile.id)));
     return c.json({ ok: true });
@@ -13536,7 +13536,7 @@ app.get('/api/agenda/clients/:id', requireVerifiedSession, async (c) => {
     if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
     const profile = await getAgendaProfile(user.id);
     if (!profile) return c.json({ ok: false, error: 'Perfil no encontrado' }, 404);
-    const id = c.req.param('id');
+    const id = c.req.param('id') ?? '';
     const client = await db.query.agendaClients.findFirst({
         where: and(eq(agendaClients.id, id), eq(agendaClients.professionalId, profile.id)),
     });
@@ -13552,7 +13552,7 @@ app.put('/api/agenda/clients/:id', requireVerifiedSession, async (c) => {
     if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
     const profile = await getAgendaProfile(user.id);
     if (!profile) return c.json({ ok: false, error: 'Perfil no encontrado' }, 404);
-    const id = c.req.param('id');
+    const id = c.req.param('id') ?? '';
     const body = await c.req.json().catch(() => ({})) as Record<string, unknown>;
     const patch: Record<string, unknown> = { updatedAt: new Date() };
     for (const key of ['firstName', 'lastName', 'email', 'phone', 'whatsapp', 'rut', 'dateOfBirth', 'gender', 'occupation', 'address', 'city', 'emergencyContactName', 'emergencyContactPhone', 'referredBy', 'internalNotes', 'status'] as const) {
@@ -13621,7 +13621,7 @@ app.put('/api/agenda/appointments/:id', requireVerifiedSession, async (c) => {
     if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
     const profile = await getAgendaProfile(user.id);
     if (!profile) return c.json({ ok: false, error: 'Perfil no encontrado' }, 404);
-    const id = c.req.param('id');
+    const id = c.req.param('id') ?? '';
     const body = await c.req.json().catch(() => ({})) as Record<string, unknown>;
     const patch: Record<string, unknown> = { updatedAt: new Date() };
     if (body.startsAt) {
@@ -13648,7 +13648,7 @@ app.patch('/api/agenda/appointments/:id/status', requireVerifiedSession, async (
     if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
     const profile = await getAgendaProfile(user.id);
     if (!profile) return c.json({ ok: false, error: 'Perfil no encontrado' }, 404);
-    const id = c.req.param('id');
+    const id = c.req.param('id') ?? '';
     const body = await c.req.json().catch(() => ({})) as Record<string, unknown>;
     const status = String(body.status ?? '');
     const allowed = ['pending', 'confirmed', 'completed', 'cancelled', 'no_show'];
@@ -13746,7 +13746,7 @@ app.get('/api/agenda/notes/:appointmentId', requireVerifiedSession, async (c) =>
     if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
     const profile = await getAgendaProfile(user.id);
     if (!profile) return c.json({ ok: false, error: 'Perfil no encontrado' }, 404);
-    const appointmentId = c.req.param('appointmentId');
+    const appointmentId = c.req.param('appointmentId') ?? '';
     const note = await db.query.agendaSessionNotes.findFirst({
         where: and(eq(agendaSessionNotes.appointmentId, appointmentId), eq(agendaSessionNotes.professionalId, profile.id)),
     });
@@ -13832,7 +13832,7 @@ app.patch('/api/agenda/payments/:id', requireVerifiedSession, async (c) => {
     if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
     const profile = await getAgendaProfile(user.id);
     if (!profile) return c.json({ ok: false, error: 'Perfil no encontrado' }, 404);
-    const id = c.req.param('id');
+    const id = c.req.param('id') ?? '';
     const body = await c.req.json().catch(() => ({})) as Record<string, unknown>;
     const patch: Record<string, unknown> = { updatedAt: new Date() };
     for (const key of ['amount', 'method', 'status', 'notes'] as const) {
@@ -14034,7 +14034,7 @@ app.post('/api/agenda/whatsapp/test', requireVerifiedSession, async (c) => {
 // ─────────────────────────────────────────────────────────────────────────────
 
 app.get('/api/public/agenda/:slug', async (c) => {
-    const slug = c.req.param('slug');
+    const slug = c.req.param('slug') ?? '';
     const profile = await db.query.agendaProfessionalProfiles.findFirst({
         where: and(eq(agendaProfessionalProfiles.slug, slug), eq(agendaProfessionalProfiles.isPublished, true)),
     });
@@ -14070,7 +14070,7 @@ app.get('/api/public/agenda/:slug', async (c) => {
 });
 
 app.get('/api/public/agenda/:slug/slots', async (c) => {
-    const slug = c.req.param('slug');
+    const slug = c.req.param('slug') ?? '';
     const dateStr = c.req.query('date'); // YYYY-MM-DD
     const serviceId = c.req.query('serviceId');
     if (!dateStr) return c.json({ ok: false, error: 'Fecha requerida' }, 400);
@@ -14121,7 +14121,7 @@ app.get('/api/public/agenda/:slug/slots', async (c) => {
 });
 
 app.post('/api/public/agenda/:slug/book', async (c) => {
-    const slug = c.req.param('slug');
+    const slug = c.req.param('slug') ?? '';
     const profile = await db.query.agendaProfessionalProfiles.findFirst({
         where: and(eq(agendaProfessionalProfiles.slug, slug), eq(agendaProfessionalProfiles.isPublished, true)),
     });
