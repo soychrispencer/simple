@@ -159,7 +159,7 @@ export default function SubscriptionManager() {
                             <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-2">
                                 {currentPlan.features.map((feature) => (
                                     <div key={feature} className="flex items-start gap-2 text-sm">
-                                        <IconCheck size={14} className="mt-0.5 flex-shrink-0" style={{ color: 'var(--fg-secondary)' }} />
+                                        <IconCheck size={14} className="mt-0.5 shrink-0" style={{ color: 'var(--fg-secondary)' }} />
                                         <span style={{ color: 'var(--fg-secondary)' }}>{feature}</span>
                                     </div>
                                 ))}
@@ -206,7 +206,7 @@ export default function SubscriptionManager() {
                                 <div className="mt-4 space-y-2">
                                     {plan.features.map((feature) => (
                                         <div key={feature} className="flex items-start gap-2 text-sm">
-                                            <IconCheck size={14} className="mt-0.5 flex-shrink-0" style={{ color: 'var(--fg-secondary)' }} />
+                                            <IconCheck size={14} className="mt-0.5 shrink-0" style={{ color: 'var(--fg-secondary)' }} />
                                             <span style={{ color: 'var(--fg-secondary)' }}>{feature}</span>
                                         </div>
                                     ))}

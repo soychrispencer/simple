@@ -59,7 +59,7 @@ export default function PropertyDetailPage() {
                                     : 'var(--bg-muted)',
                             }}
                         >
-                            <div className="aspect-[16/9] flex items-end p-6">
+                            <div className="aspect-16/9 flex items-end p-6">
                                 <div className="max-w-2xl">
                                     <PanelStatusBadge label={item.sectionLabel} tone={item.section === 'project' ? 'info' : item.section === 'rent' ? 'warning' : 'success'} size="sm" />
                                     <h1 className="mt-3 text-2xl font-semibold text-white md:text-4xl">{item.title}</h1>
@@ -97,7 +97,7 @@ export default function PropertyDetailPage() {
                         </PanelCard>
                     </div>
 
-                    <aside className="w-full flex-shrink-0 lg:w-80">
+                    <aside className="w-full shrink-0 lg:w-80">
                         <div className="space-y-4 lg:sticky lg:top-[72px]">
                             <PanelCard size="lg">
                                 <PanelBlockHeader title="Publicación" className="mb-4" />

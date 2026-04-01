@@ -96,15 +96,15 @@ export default function Step3Pricing({ data, onChange, isExtended = false, error
                 <div className="flex flex-col gap-4">
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                         <Field label={priceLabel} required error={errors.price}>
-                            <div className="relative flex items-center h-[42px] rounded-[var(--radius)] border bg-[var(--bg-subtle)] focus-within:border-[var(--accent-border)] transition-colors overflow-hidden"
+                            <div className="relative flex items-center h-10.5 rounded-(--radius) border bg-(--bg-subtle) focus-within:border-(--accent-border) transition-colors overflow-hidden"
                                  style={{ borderColor: errors.price ? 'var(--color-error, #ef4444)' : 'var(--border)' }}>
-                                <span className="pl-3 pr-1 text-sm font-medium text-[var(--fg-muted)]">$</span>
+                                <span className="pl-3 pr-1 text-sm font-medium text-(--fg-muted)">$</span>
                                 <input className="flex-1 bg-transparent border-none outline-none h-full text-sm pr-2"
                                     placeholder="Ej: 18.990.000" inputMode="numeric"
                                     value={data.price.replace(/^\$\s*/, '')}
                                     onChange={(e) => set({ price: formatPrice(e.target.value) })} />
                                 {isExtended && (
-                                    <div className="w-[72px] border-l border-[var(--border)]">
+                                    <div className="w-18 border-l border-(--border)">
                                         <ModernSelect
                                             value={data.currency || 'CLP'}
                                             onChange={(v) => set({ currency: v as 'CLP' | 'USD' })}
@@ -116,8 +116,8 @@ export default function Step3Pricing({ data, onChange, isExtended = false, error
                         </Field>
 
                         <Field label="Precio oferta (opcional)" error={errors.offerPrice}>
-                            <div className="flex items-center gap-1.5 h-[42px]">
-                                <div className="flex-1 flex items-center h-full rounded-[var(--radius)] border bg-[var(--bg-subtle)] focus-within:border-[var(--accent-border)] transition-colors overflow-hidden"
+                            <div className="flex items-center gap-1.5 h-10.5">
+                                <div className="flex-1 flex items-center h-full rounded-(--radius) border bg-(--bg-subtle) focus-within:border-(--accent-border) transition-colors overflow-hidden"
                                      style={{ borderColor: 'var(--border)' }}>
                                     <input className="flex-1 bg-transparent border-none outline-none h-full text-sm px-3"
                                         placeholder={data.offerPriceMode === '%' ? '10' : 'Opcional'} inputMode="numeric"
@@ -127,7 +127,7 @@ export default function Step3Pricing({ data, onChange, isExtended = false, error
                                             else set({ offerPrice: formatPrice(e.target.value) });
                                         }} />
                                 </div>
-                                <div className="w-[72px] flex-shrink-0">
+                                <div className="w-18 shrink-0">
                                     <ModernSelect
                                         value={data.offerPriceMode}
                                         onChange={(v) => set({ offerPriceMode: v as '$' | '%', offerPrice: '' })}
@@ -139,11 +139,11 @@ export default function Step3Pricing({ data, onChange, isExtended = false, error
                     </div>
 
                     {finalPrice !== null && (
-                        <div className="flex items-center justify-center gap-3 rounded-[var(--radius)] py-3 px-4 bg-[var(--bg-subtle)] border border-[var(--border)]">
-                            <span className="text-sm line-through text-[var(--fg-muted)]">$ {mainPrice.toLocaleString('es-CL')}</span>
-                            <span className="text-xl font-bold text-[var(--accent)]">$ {finalPrice.toLocaleString('es-CL')}</span>
+                        <div className="flex items-center justify-center gap-3 rounded-(--radius) py-3 px-4 bg-(--bg-subtle) border border-(--border)">
+                            <span className="text-sm line-through text-(--fg-muted)">$ {mainPrice.toLocaleString('es-CL')}</span>
+                            <span className="text-xl font-bold text-(--accent)">$ {finalPrice.toLocaleString('es-CL')}</span>
                             {discountPct !== null && discountPct > 0 && (
-                                <span className="text-xs font-semibold rounded-full px-2 py-0.5 bg-[var(--accent-subtle)] text-[var(--accent)]">-{discountPct}%</span>
+                                <span className="text-xs font-semibold rounded-full px-2 py-0.5 bg-(--accent-subtle) text-(--accent)">-{discountPct}%</span>
                             )}
                         </div>
                     )}
@@ -186,24 +186,24 @@ export default function Step3Pricing({ data, onChange, isExtended = false, error
             {(data.listingType === 'sale' || data.listingType === 'rent') && (
                 <div>
                     <button type="button" onClick={() => void handleLoadPriceRef()} disabled={priceRefLoading}
-                        className="flex items-center gap-1.5 text-xs text-[var(--fg-muted)] hover:text-[var(--fg)] transition-colors disabled:opacity-40">
+                        className="flex items-center gap-1.5 text-xs text-(--fg-muted) hover:text-(--fg) transition-colors disabled:opacity-40">
                         {priceRefLoading ? <div className="h-3 w-3 animate-spin rounded-full border-2 border-current border-t-transparent" /> : <IconSparkles size={11} />}
                         Ver precio de mercado
                     </button>
-                    {priceRefHint && <p className="mt-0.5 text-[10px] text-[var(--fg-muted)]">{priceRefHint}</p>}
+                    {priceRefHint && <p className="mt-0.5 text-[10px] text-(--fg-muted)">{priceRefHint}</p>}
                     {priceRef && (
-                        <div className="mt-2 rounded-[var(--radius)] border border-[var(--border)] p-3 bg-[var(--bg-subtle)]">
+                        <div className="mt-2 rounded-(--radius) border border-(--border) p-3 bg-(--bg-subtle)">
                             <div className="flex items-center justify-between mb-2.5">
                                 <p className="text-xs font-semibold">Referencia de mercado</p>
-                                <button type="button" onClick={() => setPriceRef(null)}><IconX size={13} className="text-[var(--fg-muted)]" /></button>
+                                <button type="button" onClick={() => setPriceRef(null)}><IconX size={13} className="text-(--fg-muted)" /></button>
                             </div>
                             <div className="grid grid-cols-3 gap-2 text-center">
-                                <div><p className="text-[10px] text-[var(--fg-muted)]">Mínimo</p><p className="text-sm font-semibold">$ {priceRef.minPrice.toLocaleString('es-CL')}</p></div>
-                                <div className="border-x border-[var(--border)]"><p className="text-[10px] text-[var(--fg-muted)]">Estimado</p><p className="text-sm font-bold text-[var(--accent)]">$ {priceRef.estimatedPrice.toLocaleString('es-CL')}</p></div>
-                                <div><p className="text-[10px] text-[var(--fg-muted)]">Máximo</p><p className="text-sm font-semibold">$ {priceRef.maxPrice.toLocaleString('es-CL')}</p></div>
+                                <div><p className="text-[10px] text-(--fg-muted)">Mínimo</p><p className="text-sm font-semibold">$ {priceRef.minPrice.toLocaleString('es-CL')}</p></div>
+                                <div className="border-x border-(--border)"><p className="text-[10px] text-(--fg-muted)">Estimado</p><p className="text-sm font-bold text-(--accent)">$ {priceRef.estimatedPrice.toLocaleString('es-CL')}</p></div>
+                                <div><p className="text-[10px] text-(--fg-muted)">Máximo</p><p className="text-sm font-semibold">$ {priceRef.maxPrice.toLocaleString('es-CL')}</p></div>
                             </div>
                             <button type="button" onClick={() => set({ price: formatPrice(String(priceRef.estimatedPrice)) })}
-                                className="w-full mt-3 text-[11px] font-medium text-[var(--accent)] hover:underline">
+                                className="w-full mt-3 text-[11px] font-medium text-(--accent) hover:underline">
                                 Usar estimado →
                             </button>
                         </div>
@@ -213,28 +213,28 @@ export default function Step3Pricing({ data, onChange, isExtended = false, error
 
             {/* COMMERCIAL CONDITIONS */}
             <div className="flex flex-col gap-3 pt-2">
-                <p className="text-xs font-bold uppercase tracking-wider text-[var(--fg-muted)]">Condiciones comerciales</p>
+                <p className="text-xs font-bold uppercase tracking-wider text-(--fg-muted)">Condiciones comerciales</p>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2.5">
-                    <div className="flex items-center justify-between p-3 rounded-[var(--radius)] border border-[var(--border)] bg-[var(--bg-subtle)]">
+                    <div className="flex items-center justify-between p-3 rounded-(--radius) border border-(--border) bg-(--bg-subtle)">
                         <div>
                             <p className="text-sm font-medium">Precio negociable</p>
-                            <p className="text-[10px] text-[var(--fg-muted)]">Permite conversar el valor.</p>
+                            <p className="text-[10px] text-(--fg-muted)">Permite conversar el valor.</p>
                         </div>
                         <PanelSwitch checked={data.negotiable ?? false} onChange={(v) => set({ negotiable: v })} />
                     </div>
                     {data.listingType === 'sale' && (
                         <>
-                            <div className="flex items-center justify-between p-3 rounded-[var(--radius)] border border-[var(--border)] bg-[var(--bg-subtle)]">
+                            <div className="flex items-center justify-between p-3 rounded-(--radius) border border-(--border) bg-(--bg-subtle)">
                                 <div>
                                     <p className="text-sm font-medium">Financiamiento</p>
-                                    <p className="text-[10px] text-[var(--fg-muted)]">Indica si aceptas créditos.</p>
+                                    <p className="text-[10px] text-(--fg-muted)">Indica si aceptas créditos.</p>
                                 </div>
                                 <PanelSwitch checked={data.financingAvailable ?? false} onChange={(v) => set({ financingAvailable: v })} />
                             </div>
-                            <div className="flex items-center justify-between p-3 rounded-[var(--radius)] border border-[var(--border)] bg-[var(--bg-subtle)]">
+                            <div className="flex items-center justify-between p-3 rounded-(--radius) border border-(--border) bg-(--bg-subtle)">
                                 <div>
                                     <p className="text-sm font-medium">Acepta permuta</p>
-                                    <p className="text-[10px] text-[var(--fg-muted)]">Recibir auto en parte de pago.</p>
+                                    <p className="text-[10px] text-(--fg-muted)">Recibir auto en parte de pago.</p>
                                 </div>
                                 <PanelSwitch checked={data.exchangeAvailable ?? false} onChange={(v) => set({ exchangeAvailable: v })} />
                             </div>

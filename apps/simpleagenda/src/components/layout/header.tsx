@@ -92,7 +92,7 @@ export function Header() {
                                         <Link
                                             href="/panel"
                                             onClick={() => setAccountOpen(false)}
-                                            className="flex items-center gap-2 rounded-lg px-2.5 py-2 text-sm transition-colors hover:bg-[var(--bg-subtle)]"
+                                            className="flex items-center gap-2 rounded-lg px-2.5 py-2 text-sm transition-colors hover:bg-(--bg-subtle)"
                                             style={{ color: 'var(--fg-secondary)' }}
                                         >
                                             Mi panel
@@ -100,7 +100,7 @@ export function Header() {
                                         <div className="mt-2 pt-2 border-t" style={{ borderColor: 'var(--border)' }}>
                                             <button
                                                 onClick={() => { setAccountOpen(false); void logout(); }}
-                                                className="w-full flex items-center gap-2 rounded-lg px-2.5 py-2 text-sm transition-colors hover:bg-[var(--bg-subtle)]"
+                                                className="w-full flex items-center gap-2 rounded-lg px-2.5 py-2 text-sm transition-colors hover:bg-(--bg-subtle)"
                                                 style={{ color: 'var(--fg-secondary)' }}
                                             >
                                                 <IconLogout size={14} />

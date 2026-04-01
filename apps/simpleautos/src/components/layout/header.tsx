@@ -219,9 +219,9 @@ export function Header() {
                                             key={item.id}
                                             href={item.href}
                                             onClick={() => setNotificationsOpen(false)}
-                                            className="flex items-start gap-2.5 rounded-lg px-2.5 py-2 transition-colors hover:bg-[var(--bg-subtle)]"
+                                            className="flex items-start gap-2.5 rounded-lg px-2.5 py-2 transition-colors hover:bg-(--bg-subtle)"
                                         >
-                                            <span className="mt-1.5 h-1.5 w-1.5 rounded-full flex-shrink-0" style={{ background: 'var(--fg)' }} />
+                                            <span className="mt-1.5 h-1.5 w-1.5 rounded-full shrink-0" style={{ background: 'var(--fg)' }} />
                                             <span className="min-w-0 flex-1">
                                                 <p className="text-sm leading-5" style={{ color: 'var(--fg)' }}>
                                                     {item.title}
@@ -287,14 +287,14 @@ export function Header() {
                                                 key={item.href}
                                                 href={item.href}
                                                 onClick={() => setAccountOpen(false)}
-                                                className="group flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm transition-colors hover:bg-[var(--bg-subtle)]"
+                                                className="group flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm transition-colors hover:bg-(--bg-subtle)"
                                                 style={{
                                                     color: active ? 'var(--fg)' : 'var(--fg-secondary)',
                                                     background: active ? 'var(--bg-subtle)' : 'transparent',
                                                 }}
                                             >
                                                 <span
-                                                    className="w-7 h-7 rounded-[8px] border flex items-center justify-center transition-colors group-hover:border-[var(--border-strong)] group-hover:text-[var(--fg)]"
+                                                    className="w-7 h-7 rounded-lg border flex items-center justify-center transition-colors group-hover:border-(--border-strong) group-hover:text-(--fg)"
                                                     style={{ borderColor: 'var(--border)', color: active ? 'var(--fg)' : 'var(--fg-muted)' }}
                                                 >
                                                     <ItemIcon size={14} stroke={1.9} />
@@ -302,7 +302,7 @@ export function Header() {
                                                 <span className="flex-1 truncate">{item.label}</span>
                                                 {item.badge ? (
                                                     <span
-                                                        className="text-[10px] font-semibold px-1.5 py-0.5 rounded-[6px] border uppercase tracking-[0.06em] transition-colors group-hover:border-[var(--border-strong)] group-hover:text-[var(--fg)]"
+                                                        className="text-[10px] font-semibold px-1.5 py-0.5 rounded-md border uppercase tracking-[0.06em] transition-colors group-hover:border-(--border-strong) group-hover:text-(--fg)"
                                                         style={{ borderColor: 'var(--border)', color: 'var(--fg-muted)' }}
                                                     >
                                                         {item.badge}
@@ -319,11 +319,11 @@ export function Header() {
                                             setAccountOpen(false);
                                             void logout();
                                         }}
-                                        className="group w-full flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm transition-colors hover:bg-[var(--bg-subtle)]"
+                                        className="group w-full flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm transition-colors hover:bg-(--bg-subtle)"
                                         style={{ color: 'var(--fg-secondary)' }}
                                     >
                                         <span
-                                            className="w-7 h-7 rounded-[8px] border flex items-center justify-center transition-colors group-hover:border-[var(--border-strong)] group-hover:text-[var(--fg)]"
+                                            className="w-7 h-7 rounded-lg border flex items-center justify-center transition-colors group-hover:border-(--border-strong) group-hover:text-(--fg)"
                                             style={{ borderColor: 'var(--border)' }}
                                         >
                                             <IconLogout size={14} stroke={1.9} />
@@ -408,9 +408,9 @@ export function Header() {
                                         key={item.id}
                                         href={item.href}
                                         onClick={() => setNotificationsOpen(false)}
-                                        className="flex items-start gap-2.5 rounded-lg px-2.5 py-2 transition-colors hover:bg-[var(--bg-subtle)]"
+                                        className="flex items-start gap-2.5 rounded-lg px-2.5 py-2 transition-colors hover:bg-(--bg-subtle)"
                                     >
-                                        <span className="mt-1.5 h-1.5 w-1.5 rounded-full flex-shrink-0" style={{ background: 'var(--fg)' }} />
+                                        <span className="mt-1.5 h-1.5 w-1.5 rounded-full shrink-0" style={{ background: 'var(--fg)' }} />
                                         <span className="min-w-0 flex-1">
                                             <p className="text-sm leading-5" style={{ color: 'var(--fg)' }}>
                                                 {item.title}

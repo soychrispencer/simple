@@ -296,7 +296,7 @@ export default function PropertyListingCard({ data, mode }: Props) {
 
     const renderMedia = (heightClass: string, isListMode = false) => (
         <div
-            className={`relative w-full ${heightClass} rounded-lg overflow-hidden flex-shrink-0`}
+            className={`relative w-full ${heightClass} rounded-lg overflow-hidden shrink-0`}
             style={{ background: 'var(--bg-muted)' }}
         >
             {isImageUrl ? (
@@ -334,7 +334,7 @@ export default function PropertyListingCard({ data, mode }: Props) {
 
             {data.discountLabel ? (
                 <div
-                    className={`absolute right-2 inline-flex items-center justify-center h-7 min-w-[46px] rounded-[9px] px-2 text-[11px] font-semibold ${
+                    className={`absolute right-2 inline-flex items-center justify-center h-7 min-w-11.5 rounded-[9px] px-2 text-[11px] font-semibold ${
                         isListMode ? 'top-2' : 'top-12'
                     }`}
                     style={{ background: 'var(--fg)', color: 'var(--bg)', boxShadow: 'var(--shadow-xs)' }}
@@ -480,7 +480,7 @@ export default function PropertyListingCard({ data, mode }: Props) {
                 {renderMenu()}
 
                 <div className="relative">
-                    {renderMedia('aspect-[4/3]')}
+                    {renderMedia('aspect-4/3')}
                     <div className="absolute top-3 right-3 flex items-center gap-1.5">
                         <PanelIconButton
                             type="button"

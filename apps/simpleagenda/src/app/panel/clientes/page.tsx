@@ -138,7 +138,7 @@ export default function ClientesPage() {
                     <div className="relative w-full max-w-lg rounded-2xl border p-5 max-h-[90vh] overflow-y-auto" style={{ background: 'var(--surface)', borderColor: 'var(--border)', boxShadow: 'var(--shadow-md)' }}>
                         <div className="flex items-center justify-between mb-5">
                             <h2 className="text-base font-semibold" style={{ color: 'var(--fg)' }}>Nuevo paciente</h2>
-                            <button onClick={() => setShowForm(false)} className="w-7 h-7 rounded-lg flex items-center justify-center border transition-colors hover:bg-[var(--bg-subtle)]" style={{ borderColor: 'var(--border)', color: 'var(--fg-muted)' }}>
+                            <button onClick={() => setShowForm(false)} className="w-7 h-7 rounded-lg flex items-center justify-center border transition-colors hover:bg-(--bg-subtle)" style={{ borderColor: 'var(--border)', color: 'var(--fg-muted)' }}>
                                 <IconX size={14} />
                             </button>
                         </div>
@@ -214,7 +214,7 @@ export default function ClientesPage() {
                                 </button>
                                 <button
                                     onClick={() => setShowForm(false)}
-                                    className="px-4 py-2.5 rounded-xl text-sm border transition-colors hover:bg-[var(--bg-subtle)]"
+                                    className="px-4 py-2.5 rounded-xl text-sm border transition-colors hover:bg-(--bg-subtle)"
                                     style={{ borderColor: 'var(--border)', color: 'var(--fg-secondary)' }}
                                 >
                                     Cancelar

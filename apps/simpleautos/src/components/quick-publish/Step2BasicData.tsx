@@ -152,11 +152,11 @@ function Field({ label, required, error, hint, children }: {
 }) {
     return (
         <div>
-            <label className="block text-sm font-medium mb-1 text-[var(--fg-secondary)]">
+            <label className="block text-sm font-medium mb-1 text-(--fg-secondary)">
                 {label}{required && <abbr title="requerido" style={{ color: 'var(--color-error, #ef4444)', textDecoration: 'none' }}> *</abbr>}
             </label>
             {children}
-            {hint && !error && <p className="mt-1 text-xs text-[var(--fg-muted)]">{hint}</p>}
+            {hint && !error && <p className="mt-1 text-xs text-(--fg-muted)">{hint}</p>}
             {error && <p className="mt-1 text-xs" style={{ color: 'var(--color-error, #ef4444)' }}>{error}</p>}
         </div>
     );
@@ -164,7 +164,7 @@ function Field({ label, required, error, hint, children }: {
 
 function SectionLabel({ children }: { children: React.ReactNode }) {
     return (
-        <p className="type-overline mb-2 text-[var(--fg-muted)]">{children}</p>
+        <p className="type-overline mb-2 text-(--fg-muted)">{children}</p>
     );
 }
 
@@ -276,16 +276,16 @@ export default function Step2BasicData({ initialData, onChange, onSubmit, onBack
             <div className="flex flex-col gap-4">
                 <div>
                     <SectionLabel>Tipo de publicación</SectionLabel>
-                    <div className="flex rounded-[var(--radius)] border border-[var(--border)] bg-[var(--bg-subtle)] p-0.5 gap-0.5">
+                    <div className="flex rounded-(--radius) border border-(--border) bg-(--bg-subtle) p-0.5 gap-0.5">
                         {LISTING_TYPE_OPTIONS.map(({ value, label, Icon }) => (
                             <button
                                 key={value}
                                 type="button"
                                 onClick={() => set('listingType', value)}
-                                className={`flex-1 flex items-center justify-center gap-1.5 rounded-[8px] py-2 text-sm font-medium transition-all ${
+                                className={`flex-1 flex items-center justify-center gap-1.5 rounded-lg py-2 text-sm font-medium transition-all ${
                                     form.listingType === value
-                                        ? 'bg-[var(--button-primary-bg)] text-[var(--button-primary-color)] shadow-sm'
-                                        : 'text-[var(--fg-secondary)] hover:text-[var(--fg)]'
+                                        ? 'bg-(--button-primary-bg) text-(--button-primary-color) shadow-sm'
+                                        : 'text-(--fg-secondary) hover:text-(--fg)'
                                 }`}
                             >
                                 <Icon size={13} strokeWidth={1.8} />
@@ -296,16 +296,16 @@ export default function Step2BasicData({ initialData, onChange, onSubmit, onBack
                 </div>
                 <div>
                     <SectionLabel>Categoría</SectionLabel>
-                    <div className="grid grid-cols-4 md:grid-cols-7 rounded-[var(--radius)] border border-[var(--border)] bg-[var(--bg-subtle)] p-0.5 gap-0.5">
+                    <div className="grid grid-cols-4 md:grid-cols-7 rounded-(--radius) border border-(--border) bg-(--bg-subtle) p-0.5 gap-0.5">
                         {VEHICLE_TYPE_OPTIONS.map(({ value, label, Icon }) => (
                             <button
                                 key={value}
                                 type="button"
                                 onClick={() => set('vehicleType', value)}
-                                className={`flex flex-col items-center justify-center gap-1 rounded-[8px] py-2.5 text-xs font-medium transition-all ${
+                                className={`flex flex-col items-center justify-center gap-1 rounded-lg py-2.5 text-xs font-medium transition-all ${
                                     form.vehicleType === value
-                                        ? 'bg-[var(--button-primary-bg)] text-[var(--button-primary-color)] shadow-sm'
-                                        : 'text-[var(--fg-secondary)] hover:text-[var(--fg)]'
+                                        ? 'bg-(--button-primary-bg) text-(--button-primary-color) shadow-sm'
+                                        : 'text-(--fg-secondary) hover:text-(--fg)'
                                 }`}
                             >
                                 <Icon size={14} strokeWidth={1.8} />
@@ -316,7 +316,7 @@ export default function Step2BasicData({ initialData, onChange, onSubmit, onBack
                 </div>
             </div>
 
-            <div className="border-t border-[var(--border)]" />
+            <div className="border-t border-(--border)" />
 
             {/* ── Field visibility derived from tipo + categoría ── */}
             {(() => {
@@ -436,14 +436,14 @@ export default function Step2BasicData({ initialData, onChange, onSubmit, onBack
                         <button
                             type="button"
                             onClick={() => setShowDetails((s) => !s)}
-                            className="flex items-center justify-center gap-2 w-full py-2 text-sm text-[var(--fg-muted)] hover:text-[var(--fg)] transition-colors"
+                            className="flex items-center justify-center gap-2 w-full py-2 text-sm text-(--fg-muted) hover:text-(--fg) transition-colors"
                         >
                             <IconChevronDown size={14} style={{ transform: showDetails ? 'rotate(180deg)' : undefined, transition: 'transform 150ms' }} />
                             {showDetails ? 'Menos detalles' : 'Más detalles'}
                         </button>
 
                         {showDetails && (
-                            <div className="flex flex-col gap-4 border-t border-[var(--border)] pt-4">
+                            <div className="flex flex-col gap-4 border-t border-(--border) pt-4">
                                 <div className={`grid gap-3 ${showTransmission || showFuel ? 'grid-cols-2' : 'grid-cols-1'}`}>
                                     {showTransmission && (
                                         <Field label="Transmisión">
@@ -548,7 +548,7 @@ export default function Step2BasicData({ initialData, onChange, onSubmit, onBack
 
             {/* ─── Actions ─── */}
             {!isExtended && (
-                <div className="flex flex-col-reverse md:flex-row md:justify-end gap-2 pt-1 border-t border-[var(--border)]">
+                <div className="flex flex-col-reverse md:flex-row md:justify-end gap-2 pt-1 border-t border-(--border)">
                     <PanelButton type="button" variant="ghost" className="w-full md:w-auto" onClick={onBack}>
                         ← Volver
                     </PanelButton>

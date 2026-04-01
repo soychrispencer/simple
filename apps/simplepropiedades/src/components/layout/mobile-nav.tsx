@@ -32,10 +32,10 @@ export function MobileNav() {
                     if (item.primary) {
                         return (
                             <Link key={item.href} href={item.href} className="flex flex-col items-center gap-0.5 -mt-4">
-                                <div className="w-11 h-11 rounded-[10px] flex items-center justify-center bg-[var(--fg)] text-[var(--bg)] shadow-[var(--shadow-md)]">
+                                <div className="w-11 h-11 rounded-[10px] flex items-center justify-center bg-(--fg) text-(--bg) shadow-(--shadow-md)">
                                     <Icon size={18} strokeWidth={2.5} />
                                 </div>
-                                <span className="text-xs font-medium text-[var(--fg)]">{item.label}</span>
+                                <span className="text-xs font-medium text-(--fg)">{item.label}</span>
                             </Link>
                         );
                     }
@@ -45,9 +45,9 @@ export function MobileNav() {
                             <Icon
                                 size={18}
                                 strokeWidth={active ? 2 : 1.5}
-                                className={active ? 'text-[var(--fg)]' : 'text-[var(--fg-muted)]'}
+                                className={active ? 'text-(--fg)' : 'text-(--fg-muted)'}
                             />
-                            <span className={`text-xs ${active ? 'text-[var(--fg)]' : 'text-[var(--fg-muted)]'}`}>
+                            <span className={`text-xs ${active ? 'text-(--fg)' : 'text-(--fg-muted)'}`}>
                                 {item.label}
                             </span>
                         </Link>

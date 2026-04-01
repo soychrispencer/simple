@@ -76,7 +76,7 @@ export default function DashboardPage() {
                     <PanelList className="border-0 rounded-[18px]">
                         {activeItems.slice(0, 5).map((item, index) => (
                             <PanelListRow key={item.id} divider={index > 0} className="flex items-center gap-3 px-4 py-3">
-                                <div className="w-12 h-9 rounded-md flex-shrink-0 flex items-center justify-center" style={{ background: 'var(--bg-muted)', color: 'var(--fg-faint)' }}>
+                                <div className="w-12 h-9 rounded-md shrink-0 flex items-center justify-center" style={{ background: 'var(--bg-muted)', color: 'var(--fg-faint)' }}>
                                     <IconCar size={14} />
                                 </div>
                                 <div className="flex-1 min-w-0">
@@ -111,7 +111,7 @@ export default function DashboardPage() {
                             .slice(0, 4)
                             .map((item, index) => (
                                 <PanelListRow key={item.id} divider={index > 0} className="flex items-start gap-3 px-4 py-2.5">
-                                    <div className="w-1.5 h-1.5 rounded-full mt-1.5 flex-shrink-0" style={{ background: 'var(--fg-muted)' }} />
+                                    <div className="w-1.5 h-1.5 rounded-full mt-1.5 shrink-0" style={{ background: 'var(--fg-muted)' }} />
                                     <div>
                                         <p className="text-sm" style={{ color: 'var(--fg-secondary)' }}>
                                             {item.title} quedó con estado <strong>{item.status}</strong>.

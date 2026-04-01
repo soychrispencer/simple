@@ -277,13 +277,13 @@ export default function AgendaPage() {
                     <p className="text-sm mt-0.5" style={{ color: 'var(--fg-muted)' }}>{weekLabel}</p>
                 </div>
                 <div className="flex items-center gap-2">
-                    <button onClick={handleToday} className="px-3 py-1.5 rounded-lg text-xs border transition-colors hover:bg-[var(--bg-subtle)]" style={{ borderColor: 'var(--border)', color: 'var(--fg-secondary)' }}>
+                    <button onClick={handleToday} className="px-3 py-1.5 rounded-lg text-xs border transition-colors hover:bg-(--bg-subtle)" style={{ borderColor: 'var(--border)', color: 'var(--fg-secondary)' }}>
                         Hoy
                     </button>
-                    <button onClick={handlePrevWeek} className="w-8 h-8 rounded-lg flex items-center justify-center border transition-colors hover:bg-[var(--bg-subtle)]" style={{ borderColor: 'var(--border)', color: 'var(--fg-muted)' }}>
+                    <button onClick={handlePrevWeek} className="w-8 h-8 rounded-lg flex items-center justify-center border transition-colors hover:bg-(--bg-subtle)" style={{ borderColor: 'var(--border)', color: 'var(--fg-muted)' }}>
                         <IconChevronLeft size={16} />
                     </button>
-                    <button onClick={handleNextWeek} className="w-8 h-8 rounded-lg flex items-center justify-center border transition-colors hover:bg-[var(--bg-subtle)]" style={{ borderColor: 'var(--border)', color: 'var(--fg-muted)' }}>
+                    <button onClick={handleNextWeek} className="w-8 h-8 rounded-lg flex items-center justify-center border transition-colors hover:bg-(--bg-subtle)" style={{ borderColor: 'var(--border)', color: 'var(--fg-muted)' }}>
                         <IconChevronRight size={16} />
                     </button>
                     <button
@@ -307,7 +307,7 @@ export default function AgendaPage() {
                         return (
                             <div
                                 key={key}
-                                className="p-3 text-center cursor-pointer hover:bg-[var(--bg-subtle)] transition-colors"
+                                className="p-3 text-center cursor-pointer hover:bg-(--bg-subtle) transition-colors"
                                 onClick={() => handleCreateOpen(day)}
                             >
                                 <p className="text-[10px] uppercase tracking-widest font-medium" style={{ color: 'var(--fg-muted)' }}>
@@ -404,7 +404,7 @@ export default function AgendaPage() {
                         {/* Edit button */}
                         <button
                             onClick={handleOpenEdit}
-                            className="self-start inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs border transition-colors hover:bg-[var(--bg-subtle)]"
+                            className="self-start inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs border transition-colors hover:bg-(--bg-subtle)"
                             style={{ borderColor: 'var(--border)', color: 'var(--fg-secondary)' }}
                         >
                             <IconEdit size={12} /> Editar cita
@@ -419,7 +419,7 @@ export default function AgendaPage() {
                                 <button
                                     onClick={() => void handleSaveNote()}
                                     disabled={noteSaving || noteLoading}
-                                    className="inline-flex items-center gap-1 text-xs px-2.5 py-1 rounded-lg border transition-colors hover:bg-[var(--bg-subtle)] disabled:opacity-60"
+                                    className="inline-flex items-center gap-1 text-xs px-2.5 py-1 rounded-lg border transition-colors hover:bg-(--bg-subtle) disabled:opacity-60"
                                     style={{ borderColor: 'var(--border)', color: noteSaved ? 'var(--accent)' : 'var(--fg-secondary)' }}
                                 >
                                     {noteSaving ? <IconLoader2 size={11} className="animate-spin" /> : noteSaved ? <IconCheck size={11} /> : null}
@@ -540,7 +540,7 @@ export default function AgendaPage() {
                             </button>
                             <button
                                 onClick={() => setShowEdit(false)}
-                                className="px-4 py-2.5 rounded-xl text-sm border transition-colors hover:bg-[var(--bg-subtle)]"
+                                className="px-4 py-2.5 rounded-xl text-sm border transition-colors hover:bg-(--bg-subtle)"
                                 style={{ borderColor: 'var(--border)', color: 'var(--fg-secondary)' }}
                             >
                                 Cancelar
@@ -669,7 +669,7 @@ export default function AgendaPage() {
                             </button>
                             <button
                                 onClick={() => setShowCreate(false)}
-                                className="px-4 py-2.5 rounded-xl text-sm border transition-colors hover:bg-[var(--bg-subtle)]"
+                                className="px-4 py-2.5 rounded-xl text-sm border transition-colors hover:bg-(--bg-subtle)"
                                 style={{ borderColor: 'var(--border)', color: 'var(--fg-secondary)' }}
                             >
                                 Cancelar
@@ -710,7 +710,7 @@ function Modal({ title, children, onClose }: { title: string; children: React.Re
                     <h2 className="text-base font-semibold" style={{ color: 'var(--fg)' }}>{title}</h2>
                     <button
                         onClick={onClose}
-                        className="w-7 h-7 rounded-lg flex items-center justify-center border transition-colors hover:bg-[var(--bg-subtle)]"
+                        className="w-7 h-7 rounded-lg flex items-center justify-center border transition-colors hover:bg-(--bg-subtle)"
                         style={{ borderColor: 'var(--border)', color: 'var(--fg-muted)' }}
                     >
                         <IconX size={14} />

@@ -747,8 +747,8 @@ export function PanelPillNav(props: PanelPillNavProps) {
             : { mobile: 'lg:hidden', desktop: 'hidden lg:flex' };
 
     const desktopButtonClass = size === 'sm'
-        ? 'shrink-0 inline-flex items-center gap-2 rounded-full border px-3 py-2 text-xs font-medium transition-colors whitespace-nowrap hover:bg-[var(--bg-subtle)] hover:border-[var(--border-strong)] hover:text-[var(--fg)]'
-        : 'shrink-0 inline-flex items-center gap-2 rounded-full border px-4 py-2.5 text-sm font-medium transition-colors whitespace-nowrap hover:bg-[var(--bg-subtle)] hover:border-[var(--border-strong)] hover:text-[var(--fg)]';
+        ? 'shrink-0 inline-flex items-center gap-2 rounded-full border px-3 py-2 text-xs font-medium transition-colors whitespace-nowrap hover:bg-(--bg-subtle) hover:border-(--border-strong) hover:text-(--fg)'
+        : 'shrink-0 inline-flex items-center gap-2 rounded-full border px-4 py-2.5 text-sm font-medium transition-colors whitespace-nowrap hover:bg-(--bg-subtle) hover:border-(--border-strong) hover:text-(--fg)';
     const desktopRowClass = size === 'sm'
         ? `${visibilityClass.desktop} flex-nowrap items-center gap-1.5 overflow-x-auto pb-1`
         : `${visibilityClass.desktop} flex-nowrap items-center gap-2 overflow-x-auto pb-1`;
@@ -937,7 +937,7 @@ export function PanelStepNav(props: PanelStepNavProps) {
                             onClick={() => {
                                 if (!isDisabled) onChange(item.key);
                             }}
-                            className="inline-flex items-center gap-2 rounded-full px-1.5 py-1.5 text-sm transition-colors hover:bg-[var(--bg-subtle)]"
+                            className="inline-flex items-center gap-2 rounded-full px-1.5 py-1.5 text-sm transition-colors hover:bg-(--bg-subtle)"
                             style={{
                                 color: isActive || isComplete ? 'var(--fg)' : isDisabled ? 'var(--fg-faint)' : 'var(--fg-muted)',
                                 opacity: isDisabled ? 0.62 : 1,
@@ -1031,7 +1031,7 @@ export function PanelSegmentedToggle(props: PanelSegmentedToggleProps) {
                         type="button"
                         aria-label={item.ariaLabel || item.label}
                         onClick={() => onChange(item.key)}
-                        className={joinClasses('inline-flex items-center gap-1.5 rounded-[10px] text-sm font-medium transition-colors hover:text-[var(--fg)]', buttonClass)}
+                        className={joinClasses('inline-flex items-center gap-1.5 rounded-[10px] text-sm font-medium transition-colors hover:text-(--fg)', buttonClass)}
                         style={{
                             background: isActive ? 'var(--button-primary-bg)' : 'transparent',
                             color: isActive ? 'var(--button-primary-color)' : 'var(--fg-muted)',
@@ -1314,7 +1314,7 @@ export function PanelIconButton(props: PanelIconButtonProps) {
             onClick={onClick}
             disabled={disabled}
             className={joinClasses(
-                'rounded-md flex items-center justify-center flex-shrink-0 transition-[background,color,opacity,transform] duration-150 hover:opacity-90 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-black/10 disabled:cursor-not-allowed disabled:opacity-50 disabled:active:scale-100',
+                'rounded-md flex items-center justify-center shrink-0 transition-[background,color,opacity,transform] duration-150 hover:opacity-90 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-black/10 disabled:cursor-not-allowed disabled:opacity-50 disabled:active:scale-100',
                 sizeClass,
                 className,
             )}
@@ -1866,7 +1866,7 @@ export function PanelMediaUploader(props: PanelMediaUploaderProps) {
                     pointerEvents: isActivelyDragging ? 'none' : 'auto',
                 }}
             >
-                <div className="relative aspect-[4/3] overflow-hidden rounded-[20px]">
+                <div className="relative aspect-4/3 overflow-hidden rounded-[20px]">
                     {item.previewUrl ? (
                         <img
                             src={item.previewUrl}
@@ -1957,7 +1957,7 @@ export function PanelMediaUploader(props: PanelMediaUploaderProps) {
     const renderPlaceholderTile = (label: string, index: number) => (
         <div
             key={`placeholder-${label}-${index}`}
-            className="relative aspect-[4/3] rounded-[22px] border border-dashed p-4"
+            className="relative aspect-4/3 rounded-[22px] border border-dashed p-4"
             style={{
                 borderColor: 'color-mix(in oklab, var(--border) 86%, transparent)',
                 background: 'color-mix(in oklab, var(--surface) 96%, var(--bg-subtle) 4%)',
@@ -2050,7 +2050,7 @@ export function PanelMediaUploader(props: PanelMediaUploaderProps) {
                 <div className="panel-media-grid">
                     <button
                         type="button"
-                        className="relative aspect-[4/3] rounded-[22px] border border-dashed p-4 text-left transition-colors"
+                        className="relative aspect-4/3 rounded-[22px] border border-dashed p-4 text-left transition-colors"
                         style={{
                             borderColor: fileDragActive ? 'var(--border-strong)' : 'color-mix(in oklab, var(--border) 86%, transparent)',
                             background: 'color-mix(in oklab, var(--surface) 96%, var(--bg-subtle) 4%)',
@@ -3294,7 +3294,7 @@ export function AddressBookManager(props: AddressBookManagerProps) {
                 </div>
 
                 {composerOpen ? (
-                    <PanelCard tone="surface" size="lg" className="shadow-[var(--shadow-xs)]">
+                    <PanelCard tone="surface" size="lg" className="shadow-(--shadow-xs)">
                         <div className="mx-auto max-w-[1160px] space-y-6">
                             <div className="flex flex-wrap gap-3" style={{ justifyContent: 'space-between', alignItems: 'flex-start' }}>
                                 <div className="pr-2">

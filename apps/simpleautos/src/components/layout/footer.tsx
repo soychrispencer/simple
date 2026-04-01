@@ -38,7 +38,7 @@ export function Footer() {
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-10 mb-12">
                     <div className="col-span-2 sm:col-span-1">
                         <Link href="/" className="group mb-4 flex items-center gap-1.5">
-                            <div className="h-9 w-9 flex-shrink-0 transition-transform duration-200 group-hover:scale-105">
+                            <div className="h-9 w-9 shrink-0 transition-transform duration-200 group-hover:scale-105">
                                 <Image src="/logo.png" alt="SimpleAutos" width={36} height={36} className="h-full w-full object-contain" />
                             </div>
                             <span className="inline-flex items-end gap-[0.06rem] text-[1rem] tracking-tight" style={{ color: 'var(--fg)' }}>
@@ -46,7 +46,7 @@ export function Footer() {
                                 <span className="translate-y-[0.02em] font-normal leading-none" style={{ color: 'var(--fg-muted)' }}>Autos</span>
                             </span>
                         </Link>
-                        <p className="text-sm leading-relaxed max-w-[200px]" style={{ color: 'var(--fg-muted)' }}>
+                        <p className="text-sm leading-relaxed max-w-50" style={{ color: 'var(--fg-muted)' }}>
                             SimpleAutos simplifica la compra y venta de vehículos en Chile.
                         </p>
                     </div>

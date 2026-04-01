@@ -115,11 +115,11 @@ export default function InlineResultAd({ section, className = '' }: InlineResult
                     href={campaign.href}
                     target={campaign.external ? '_blank' : undefined}
                     rel={campaign.external ? 'noopener noreferrer' : undefined}
-                    className="absolute inset-0 z-[1]"
+                    className="absolute inset-0 z-1"
                     aria-label="Ir a la campaña"
                 />
             ) : null}
-            <div className="relative z-[2] p-4 md:p-5 h-full flex items-center justify-between gap-4">
+            <div className="relative z-2 p-4 md:p-5 h-full flex items-center justify-between gap-4">
                 <div className="min-w-0">
                     {campaign.title ? <p className="text-sm md:text-base font-semibold text-white line-clamp-1">{campaign.title}</p> : null}
                     {campaign.overlayEnabled && campaign.subtitle ? (

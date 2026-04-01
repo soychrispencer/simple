@@ -241,7 +241,7 @@ export default function IntegracionesPage() {
                                         <button
                                             onClick={() => void handleTest()}
                                             disabled={waTesting}
-                                            className="inline-flex items-center gap-2 px-4 py-2 rounded-xl border text-sm transition-colors hover:bg-[var(--bg-subtle)] disabled:opacity-60"
+                                            className="inline-flex items-center gap-2 px-4 py-2 rounded-xl border text-sm transition-colors hover:bg-(--bg-subtle) disabled:opacity-60"
                                             style={{ borderColor: 'var(--border)', color: 'var(--fg-secondary)' }}
                                         >
                                             {waTesting
@@ -306,7 +306,7 @@ export default function IntegracionesPage() {
                                     <button
                                         onClick={() => void handleDisconnectGc()}
                                         disabled={disconnecting}
-                                        className="self-start inline-flex items-center gap-2 px-4 py-2 rounded-xl border text-sm transition-colors hover:bg-[var(--bg-subtle)] disabled:opacity-60"
+                                        className="self-start inline-flex items-center gap-2 px-4 py-2 rounded-xl border text-sm transition-colors hover:bg-(--bg-subtle) disabled:opacity-60"
                                         style={{ borderColor: 'var(--border)', color: 'var(--fg-secondary)' }}
                                     >
                                         {disconnecting ? <IconLoader2 size={14} className="animate-spin" /> : <IconX size={14} />}

@@ -69,7 +69,7 @@ export default function PreviewPanel({ step, photos, basicData, generatedText }:
             >
                 {/* Cover image */}
                 <div
-                    className="relative w-full aspect-[16/10]"
+                    className="relative w-full aspect-16/10"
                     style={{ background: 'var(--bg-muted)' }}
                 >
                     {cover ? (
@@ -154,7 +154,7 @@ export default function PreviewPanel({ step, photos, basicData, generatedText }:
                     {items.map((item) => (
                         <div key={item.label} className="flex items-center gap-2">
                             <div
-                                className="flex h-4 w-4 flex-shrink-0 items-center justify-center rounded-full"
+                                className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full"
                                 style={{ background: item.done ? '#ecfdf5' : 'var(--bg-muted)' }}
                             >
                                 {item.done
@@ -189,7 +189,7 @@ export default function PreviewPanel({ step, photos, basicData, generatedText }:
                     <ul className="space-y-1.5">
                         {tips.tips.map((tip, i) => (
                             <li key={i} className="flex items-start gap-1.5 text-xs" style={{ color: 'var(--fg-muted)' }}>
-                                <IconCar size={11} className="mt-0.5 flex-shrink-0" style={{ color: 'var(--fg-muted)' }} />
+                                <IconCar size={11} className="mt-0.5 shrink-0" style={{ color: 'var(--fg-muted)' }} />
                                 {tip}
                             </li>
                         ))}

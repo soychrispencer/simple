@@ -293,11 +293,11 @@ export default function HomePage() {
                             target={isExternalHref ? '_blank' : undefined}
                             rel={isExternalHref ? 'noopener noreferrer' : undefined}
                             aria-label="Ir al anuncio patrocinado"
-                            className="absolute inset-0 z-[1]"
+                            className="absolute inset-0 z-1"
                         />
                     ) : null}
 
-                    <div className="container-app relative z-[2] flex items-center" style={{ minHeight: '500px' }}>
+                    <div className="container-app relative z-2 flex items-center" style={{ minHeight: '500px' }}>
                         <div
                             className={`w-full max-w-2xl pt-16 pb-28 md:py-20 animate-fade-in ${alignmentClass(activeSlide.align)}`}
                             key={`${idx}-${activeSlide.id}`}
@@ -339,7 +339,7 @@ export default function HomePage() {
                         </div>
                     </div>
 
-                    <div className="absolute inset-x-0 bottom-20 md:bottom-20 z-[12]">
+                    <div className="absolute inset-x-0 bottom-20 md:bottom-20 z-12">
                         <div className="container-app flex items-center justify-center">
                             <div
                                 className="inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1.5"
@@ -366,7 +366,7 @@ export default function HomePage() {
                     </div>
                 </div>
 
-                <div className="relative z-[11] -mt-12 md:-mt-16">
+                <div className="relative z-11 -mt-12 md:-mt-16">
                     <HomeSearchBox />
                 </div>
 
@@ -378,13 +378,13 @@ export default function HomePage() {
                                 return (
                                     <article
                                         key={`empty-slot-${slotIndex}`}
-                                        className="relative overflow-hidden rounded-xl min-h-[170px]"
+                                        className="relative overflow-hidden rounded-xl min-h-42.5"
                                         style={{
                                             border: '1px solid var(--border)',
                                             background: `linear-gradient(to right, rgba(0,0,0,0.58), rgba(0,0,0,0.24)), url(${placeholder.imageUrl}) center / cover no-repeat`,
                                         }}
                                     >
-                                        <div className="relative z-[2] h-full p-4 flex items-start">
+                                        <div className="relative z-2 h-full p-4 flex items-start">
                                             <span className="inline-flex w-fit rounded-full border border-white/20 bg-black/25 px-2.5 py-1 text-[11px] font-medium uppercase tracking-[0.18em] text-white/80">
                                                 {placeholder.label}
                                             </span>
@@ -399,7 +399,7 @@ export default function HomePage() {
                             return (
                                 <article
                                     key={ad.id}
-                                    className="relative rounded-xl overflow-hidden min-h-[170px]"
+                                    className="relative rounded-xl overflow-hidden min-h-42.5"
                                     style={{ border: '1px solid var(--border)', background: image ? `linear-gradient(to right, rgba(0,0,0,0.45), rgba(0,0,0,0.2)), url(${image}) center / cover no-repeat` : 'var(--bg-muted)' }}
                                 >
                                     {hasLink ? (
@@ -407,11 +407,11 @@ export default function HomePage() {
                                             href={href}
                                             target={ad.external ? '_blank' : undefined}
                                             rel={ad.external ? 'noopener noreferrer' : undefined}
-                                            className="absolute inset-0 z-[1]"
+                                            className="absolute inset-0 z-1"
                                             aria-label="Ir al anuncio"
                                         />
                                     ) : null}
-                                    <div className="relative z-[2] h-full p-4 flex flex-col justify-end">
+                                    <div className="relative z-2 h-full p-4 flex flex-col justify-end">
                                         {ad.overlayEnabled ? (
                                             <>
                                                 {ad.title ? <h3 className="text-base font-semibold text-white leading-tight line-clamp-2">{ad.title}</h3> : null}

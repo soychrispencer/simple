@@ -47,7 +47,7 @@ export default function VehicleDetailClient({ item }: VehicleDetailClientProps) 
                                     : 'var(--bg-muted)',
                             }}
                         >
-                            <div className="aspect-[16/9] flex items-end p-6 md:p-10">
+                            <div className="aspect-16/9 flex items-end p-6 md:p-10">
                                 <div className="max-w-2xl">
                                     <div className="flex flex-wrap gap-2 items-center mb-3">
                                         <PanelStatusBadge label={item.sectionLabel} tone={item.section === 'auction' ? 'info' : item.section === 'rent' ? 'warning' : 'success'} size="sm" />
@@ -73,7 +73,7 @@ export default function VehicleDetailClient({ item }: VehicleDetailClientProps) 
                                     <button
                                         key={`${img}-${idx}`}
                                         onClick={() => setActiveImageIndex(idx)}
-                                        className={`relative h-16 w-24 flex-shrink-0 overflow-hidden rounded-xl border-2 transition-all ${
+                                        className={`relative h-16 w-24 shrink-0 overflow-hidden rounded-xl border-2 transition-all ${
                                             activeImageIndex === idx ? 'border-[#FF3600] scale-95 shadow-lg' : 'border-transparent opacity-60 hover:opacity-100'
                                         }`}
                                     >
@@ -114,7 +114,7 @@ export default function VehicleDetailClient({ item }: VehicleDetailClientProps) 
                             {item.summary.map((entry) => (
                                 <span
                                     key={entry}
-                                    className="rounded-xl px-4 py-2 text-xs font-medium border transition-colors hover:bg-[var(--bg-muted)]"
+                                    className="rounded-xl px-4 py-2 text-xs font-medium border transition-colors hover:bg-(--bg-muted)"
                                     style={{ background: 'var(--bg-subtle)', color: 'var(--fg-secondary)', borderColor: 'var(--border)' }}
                                 >
                                     {entry}
@@ -137,15 +137,15 @@ export default function VehicleDetailClient({ item }: VehicleDetailClientProps) 
                     </PanelCard>
                 </div>
 
-                <aside className="w-full flex-shrink-0 lg:w-80">
+                <aside className="w-full shrink-0 lg:w-80">
                     <div className="space-y-4 lg:sticky lg:top-[72px]">
                         <PanelCard size="lg" className="border-t-4 border-t-[#FF3600] shadow-sm">
                             <PanelBlockHeader title="Valor comercial" className="mb-4" />
                             <p className="text-4xl font-black tracking-tight" style={{ color: 'var(--fg)' }}>{item.price}</p>
                             <div className="mt-5 space-y-3.5 text-sm" style={{ color: 'var(--fg-secondary)' }}>
-                                <p className="flex items-center gap-3"><IconMapPin size={18} className="text-[var(--fg-muted)]" /> {item.location || 'Ubicación no informada'}</p>
-                                <p className="flex items-center gap-3"><IconClock size={18} className="text-[var(--fg-muted)]" /> Activa hace {item.days} días</p>
-                                <p className="flex items-center gap-3"><IconEye size={18} className="text-[var(--fg-muted)]" /> {item.views.toLocaleString('es-CL')} visualizaciones</p>
+                                <p className="flex items-center gap-3"><IconMapPin size={18} className="text-(--fg-muted)" /> {item.location || 'Ubicación no informada'}</p>
+                                <p className="flex items-center gap-3"><IconClock size={18} className="text-(--fg-muted)" /> Activa hace {item.days} días</p>
+                                <p className="flex items-center gap-3"><IconEye size={18} className="text-(--fg-muted)" /> {item.views.toLocaleString('es-CL')} visualizaciones</p>
                             </div>
                         </PanelCard>
 
@@ -165,7 +165,7 @@ export default function VehicleDetailClient({ item }: VehicleDetailClientProps) 
                                 </div>
                             </div>
                             {item.seller?.profileHref && (
-                                <Link href={item.seller.profileHref} className="mt-4 flex w-full items-center justify-center rounded-xl py-2.5 text-xs font-bold border transition-all hover:bg-[var(--fg)] hover:text-white" style={{ borderColor: 'var(--border)', color: 'var(--fg-secondary)' }}>
+                                <Link href={item.seller.profileHref} className="mt-4 flex w-full items-center justify-center rounded-xl py-2.5 text-xs font-bold border transition-all hover:bg-(--fg) hover:text-white" style={{ borderColor: 'var(--border)', color: 'var(--fg-secondary)' }}>
                                     Ver perfil completo
                                 </Link>
                             )}
@@ -188,7 +188,7 @@ function SpecItem({ icon, label, value }: { icon: ReactNode; label: string; valu
     return (
         <div className="flex flex-col items-center justify-center rounded-[24px] border p-4 text-center transition-all hover:shadow-md hover:-translate-y-1" style={{ borderColor: 'var(--border)', background: 'var(--bg)' }}>
             <span className="mb-2 text-[#FF3600] scale-110">{icon}</span>
-            <span className="text-[10px] uppercase font-black tracking-[0.15em] text-[var(--fg-muted)]">{label}</span>
+            <span className="text-[10px] uppercase font-black tracking-[0.15em] text-(--fg-muted)">{label}</span>
             <p className="mt-1.5 text-sm font-bold truncate w-full" style={{ color: 'var(--fg)' }}>{value}</p>
         </div>
     );
@@ -196,7 +196,7 @@ function SpecItem({ icon, label, value }: { icon: ReactNode; label: string; valu
 
 function MetricCard(props: { icon: ReactNode; label: string; value: string }) {
     return (
-        <div className="rounded-2xl p-4 transition-colors hover:bg-[var(--bg-subtle)]" style={{ background: 'var(--bg-muted)' }}>
+        <div className="rounded-2xl p-4 transition-colors hover:bg-(--bg-subtle)" style={{ background: 'var(--bg-muted)' }}>
             <div className="flex items-center gap-2.5" style={{ color: 'var(--fg-muted)' }}>
                 {props.icon}
                 <span className="text-[10px] font-black uppercase tracking-[0.12em]">{props.label}</span>

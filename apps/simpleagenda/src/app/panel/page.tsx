@@ -139,7 +139,7 @@ export default function PanelHomePage() {
                                 style={{ borderColor: 'var(--border)', opacity: step.done ? 0.6 : 1 }}
                             >
                                 <span
-                                    className="w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0"
+                                    className="w-5 h-5 rounded-full flex items-center justify-center shrink-0"
                                     style={{
                                         background: step.done ? 'var(--accent)' : 'transparent',
                                         border: step.done ? 'none' : '2px solid var(--border)',

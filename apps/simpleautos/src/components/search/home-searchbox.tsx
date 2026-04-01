@@ -373,7 +373,7 @@ export default function HomeSearchBox() {
     };
 
     return (
-        <section className="container-app relative z-[11] mt-0 mb-10">
+        <section className="container-app relative z-11 mt-0 mb-10">
             <div
                 className="rounded-[22px] border overflow-visible"
                 style={{
@@ -389,7 +389,7 @@ export default function HomeSearchBox() {
                                 key={tabKey}
                                 type="button"
                                 onClick={() => setFilters((current) => ({ ...current, tab: tabKey }))}
-                                className="h-8 sm:h-9 px-3 sm:px-4 text-sm font-medium rounded-md border transition-all shrink-0 hover:bg-[var(--bg-subtle)] hover:border-[var(--border-strong)] hover:text-[var(--fg)]"
+                                className="h-8 sm:h-9 px-3 sm:px-4 text-sm font-medium rounded-md border transition-all shrink-0 hover:bg-(--bg-subtle) hover:border-(--border-strong) hover:text-(--fg)"
                                 style={{
                                     background: filters.tab === tabKey ? 'var(--button-primary-bg)' : 'transparent',
                                     color: filters.tab === tabKey ? 'var(--button-primary-color)' : 'var(--fg-secondary)',
@@ -454,7 +454,7 @@ export default function HomeSearchBox() {
                                             key={`${filters.tab}-${suggestion.label}`}
                                             type="button"
                                             onClick={() => applySuggestion(suggestion)}
-                                            className="w-full text-left px-3 py-2.5 border-b last:border-b-0 hover:bg-[var(--bg-subtle)] transition-colors"
+                                            className="w-full text-left px-3 py-2.5 border-b last:border-b-0 hover:bg-(--bg-subtle) transition-colors"
                                             style={{ borderColor: 'var(--border)' }}
                                         >
                                             <p className="text-sm font-medium" style={{ color: 'var(--fg)' }}>{suggestion.label}</p>

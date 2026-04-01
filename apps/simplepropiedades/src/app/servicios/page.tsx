@@ -18,7 +18,7 @@ export default function ServiciosPage() {
                         <h2 className="text-base font-semibold mb-1" style={{ color: 'var(--fg)' }}>{s.title}</h2>
                         <p className="text-sm leading-relaxed mb-4 flex-1" style={{ color: 'var(--fg-secondary)' }}>{s.desc}</p>
                         {s.price && <p className="text-sm font-semibold mb-3" style={{ color: 'var(--fg)' }}>{s.price}</p>}
-                        <div className="space-y-1.5 mb-4">{s.features.map(f => <div key={f} className="flex items-start gap-2"><IconCheck size={13} className="mt-0.5 flex-shrink-0" style={{ color: 'var(--fg-muted)' }} /><span className="text-sm" style={{ color: 'var(--fg-secondary)' }}>{f}</span></div>)}</div>
+                        <div className="space-y-1.5 mb-4">{s.features.map(f => <div key={f} className="flex items-start gap-2"><IconCheck size={13} className="mt-0.5 shrink-0" style={{ color: 'var(--fg-muted)' }} /><span className="text-sm" style={{ color: 'var(--fg-secondary)' }}>{f}</span></div>)}</div>
                         <div className="mt-auto flex items-center gap-1.5 text-sm font-medium transition-transform duration-200 group-hover:translate-x-0.5" style={{ color: 'var(--fg)' }}>{s.cta} <IconArrowRight size={13} /></div>
                     </Link>
                 ))}

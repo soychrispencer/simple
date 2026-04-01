@@ -127,7 +127,7 @@ export default function ClienteFichaPage() {
                 </div>
                 <button
                     onClick={() => setEditing(!editing)}
-                    className="w-9 h-9 rounded-xl flex items-center justify-center border transition-colors hover:bg-[var(--bg-subtle)]"
+                    className="w-9 h-9 rounded-xl flex items-center justify-center border transition-colors hover:bg-(--bg-subtle)"
                     style={{ borderColor: 'var(--border)', color: 'var(--fg-muted)' }}
                 >
                     <IconEdit size={15} />
@@ -164,7 +164,7 @@ export default function ClienteFichaPage() {
                     <button
                         onClick={() => void handleSaveNotes()}
                         disabled={saving}
-                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors hover:bg-[var(--bg-subtle)] disabled:opacity-60"
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors hover:bg-(--bg-subtle) disabled:opacity-60"
                         style={{ borderColor: 'var(--border)', color: notesSaved ? 'var(--accent)' : 'var(--fg-secondary)' }}
                     >
                         {saving ? <IconLoader2 size={11} className="animate-spin" /> : notesSaved ? <IconCheck size={11} /> : null}

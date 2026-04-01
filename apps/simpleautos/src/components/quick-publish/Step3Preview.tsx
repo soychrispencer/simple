@@ -150,7 +150,7 @@ export default function Step3Preview({
 
             {/* PRECIO */}
             <div className="flex flex-col gap-3">
-                <p className="type-overline text-[var(--fg-muted)]">Precio y condiciones</p>
+                <p className="type-overline text-(--fg-muted)">Precio y condiciones</p>
                 <Step3Pricing
                     data={basicData}
                     onChange={(updates) => onUpdatePricing({ ...basicData, ...updates })}
@@ -159,12 +159,12 @@ export default function Step3Preview({
             </div>
 
             {/* UBICACIÓN */}
-            <div className="border-t border-[var(--border)] pt-5 flex flex-col gap-4">
+            <div className="border-t border-(--border) pt-5 flex flex-col gap-4">
                 <div className="flex items-center justify-between">
                     <div className="flex items-center gap-1.5">
-                        <IconMapPin size={13} className="text-[var(--fg-muted)]" />
-                        <p className="text-sm font-medium text-[var(--fg-secondary)]">Ubicación</p>
-                        {locLoading && <div className="h-3 w-3 animate-spin rounded-full border-2 border-[var(--fg-muted)] border-t-transparent ml-1" />}
+                        <IconMapPin size={13} className="text-(--fg-muted)" />
+                        <p className="text-sm font-medium text-(--fg-secondary)">Ubicación</p>
+                        {locLoading && <div className="h-3 w-3 animate-spin rounded-full border-2 border-(--fg-muted) border-t-transparent ml-1" />}
                     </div>
                 </div>
 
@@ -208,17 +208,17 @@ export default function Step3Preview({
             </div>
 
             {/* ANUNCIO (IA) */}
-            <div className="border-t border-[var(--border)] pt-5 flex flex-col gap-3">
-                <p className="type-overline text-[var(--fg-muted)]">Anuncio</p>
+            <div className="border-t border-(--border) pt-5 flex flex-col gap-3">
+                <p className="type-overline text-(--fg-muted)">Anuncio</p>
 
                 {detectedColor && !colorBannerDismissed && generatedText && (
-                    <div className="flex items-center gap-2 rounded-xl px-3 py-2 text-xs bg-[var(--bg-subtle)] border border-[var(--border)]">
-                        <IconPalette size={13} className="text-[var(--fg-muted)] flex-shrink-0" />
-                        <span className="text-[var(--fg-secondary)]">
-                            Color detectado: <strong className="text-[var(--fg)]">{detectedColor}</strong>
+                    <div className="flex items-center gap-2 rounded-xl px-3 py-2 text-xs bg-(--bg-subtle) border border-(--border)">
+                        <IconPalette size={13} className="text-(--fg-muted) shrink-0" />
+                        <span className="text-(--fg-secondary)">
+                            Color detectado: <strong className="text-(--fg)">{detectedColor}</strong>
                         </span>
-                        <button type="button" onClick={() => setColorBannerDismissed(true)} className="ml-auto flex-shrink-0">
-                            <IconX size={12} className="text-[var(--fg-muted)]" />
+                        <button type="button" onClick={() => setColorBannerDismissed(true)} className="ml-auto shrink-0">
+                            <IconX size={12} className="text-(--fg-muted)" />
                         </button>
                     </div>
                 )}
@@ -236,9 +236,9 @@ export default function Step3Preview({
             {publishError && <PanelNotice tone="error">{publishError}</PanelNotice>}
 
             {/* ACTIONS */}
-            <div className="flex flex-col gap-3 pt-3 border-t border-[var(--border)]">
+            <div className="flex flex-col gap-3 pt-3 border-t border-(--border)">
                 {!generatedText && !isGenerating && (
-                    <p className="text-[11px] text-center text-[var(--fg-muted)]">
+                    <p className="text-[11px] text-center text-(--fg-muted)">
                         Se publicará con un título básico si no generas uno con IA.
                     </p>
                 )}

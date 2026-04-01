@@ -52,7 +52,7 @@ export default function BoostedListingsSlider() {
                     className="shrink-0 w-[280px] rounded-xl border animate-pulse"
                     style={{ borderColor: 'var(--border)', background: 'var(--surface)' }}
                 >
-                    <div className="aspect-[4/3]" style={{ background: 'var(--bg-muted)' }} />
+                    <div className="aspect-4/3" style={{ background: 'var(--bg-muted)' }} />
                     <div className="p-4 space-y-2">
                         <div className="h-4 rounded" style={{ background: 'var(--bg-muted)' }} />
                         <div className="h-3 rounded w-3/4" style={{ background: 'var(--bg-muted)' }} />
@@ -82,7 +82,7 @@ export default function BoostedListingsSlider() {
                 style={{ borderColor: 'var(--border)', background: 'var(--surface)' }}
             >
                 <div
-                    className="aspect-[4/3] p-3 flex items-start justify-between"
+                    className="aspect-4/3 p-3 flex items-start justify-between"
                     style={{
                         background: item.imageUrl
                             ? `linear-gradient(to bottom, rgba(0,0,0,0.2), rgba(0,0,0,0.55)), url(${item.imageUrl}) center / cover no-repeat`
@@ -148,7 +148,7 @@ export default function BoostedListingsSlider() {
                         <button
                             key={itemSection}
                             onClick={() => setSection(itemSection)}
-                            className="h-9 px-4 rounded-md text-sm border transition-all hover:bg-[var(--bg-subtle)] hover:border-[var(--border-strong)] hover:text-[var(--fg)]"
+                            className="h-9 px-4 rounded-md text-sm border transition-all hover:bg-(--bg-subtle) hover:border-(--border-strong) hover:text-(--fg)"
                             style={{
                                 borderColor: section === itemSection ? 'var(--button-primary-border)' : 'var(--border)',
                                 background: section === itemSection ? 'var(--button-primary-bg)' : 'var(--surface)',
@@ -171,7 +171,7 @@ export default function BoostedListingsSlider() {
                     <div className="hidden md:flex items-center gap-2 absolute right-0 -top-12">
                         <button
                             onClick={() => scrollByCards(-1)}
-                            className="w-9 h-9 rounded-md border flex items-center justify-center transition-colors hover:bg-[var(--bg-subtle)] hover:border-[var(--border-strong)]"
+                            className="w-9 h-9 rounded-md border flex items-center justify-center transition-colors hover:bg-(--bg-subtle) hover:border-(--border-strong)"
                             style={{ borderColor: 'var(--border)', background: 'var(--surface)', color: 'var(--fg)' }}
                             aria-label="Anterior"
                         >
@@ -179,7 +179,7 @@ export default function BoostedListingsSlider() {
                         </button>
                         <button
                             onClick={() => scrollByCards(1)}
-                            className="w-9 h-9 rounded-md border flex items-center justify-center transition-colors hover:bg-[var(--bg-subtle)] hover:border-[var(--border-strong)]"
+                            className="w-9 h-9 rounded-md border flex items-center justify-center transition-colors hover:bg-(--bg-subtle) hover:border-(--border-strong)"
                             style={{ borderColor: 'var(--border)', background: 'var(--surface)', color: 'var(--fg)' }}
                             aria-label="Siguiente"
                         >

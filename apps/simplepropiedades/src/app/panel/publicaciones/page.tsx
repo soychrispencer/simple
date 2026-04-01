@@ -612,7 +612,7 @@ export default function PublicacionesPage() {
                         const coverImage = getListingCoverImage(listing);
                         return (
                             <article key={listing.id} className="rounded-xl p-4 flex flex-col sm:flex-row gap-4" style={{ border: '1px solid var(--border)' }}>
-                                <div className="w-full sm:w-28 h-20 sm:h-auto rounded-lg flex items-center justify-center flex-shrink-0 overflow-hidden" style={{ background: 'var(--bg-muted)', color: 'var(--fg-faint)' }}>
+                                <div className="w-full sm:w-28 h-20 sm:h-auto rounded-lg flex items-center justify-center shrink-0 overflow-hidden" style={{ background: 'var(--bg-muted)', color: 'var(--fg-faint)' }}>
                                     {coverImage ? (
                                         <img src={coverImage} alt={listing.title} className="w-full h-full object-cover" />
                                     ) : (
@@ -626,7 +626,7 @@ export default function PublicacionesPage() {
                                             <p className="type-listing-price mt-0.5" style={{ color: 'var(--fg)' }}>{listing.price}</p>
                                             {listing.location ? <p className="text-xs mt-1 flex items-center gap-1" style={{ color: 'var(--fg-muted)' }}><IconMapPin size={11} />{listing.location}</p> : null}
                                         </div>
-                                        <PanelStatusBadge label={badge.label} tone={badge.tone} size="sm" className="flex-shrink-0" />
+                                        <PanelStatusBadge label={badge.label} tone={badge.tone} size="sm" className="shrink-0" />
                                     </div>
                                     <div className="flex items-center gap-4 mt-2 text-xs" style={{ color: 'var(--fg-muted)' }}>
                                         <span className="flex items-center gap-1"><IconEye size={11} />{listing.views}</span>
@@ -657,7 +657,7 @@ export default function PublicacionesPage() {
                         const coverImage = getListingCoverImage(listing);
                         return (
                             <article key={listing.id} className="rounded-xl overflow-hidden" style={{ border: '1px solid var(--border)' }}>
-                                <div className="aspect-[4/3] flex items-center justify-center overflow-hidden" style={{ background: 'var(--bg-muted)', color: 'var(--fg-faint)' }}>
+                                <div className="aspect-4/3 flex items-center justify-center overflow-hidden" style={{ background: 'var(--bg-muted)', color: 'var(--fg-faint)' }}>
                                     {coverImage ? (
                                         <img src={coverImage} alt={listing.title} className="w-full h-full object-cover" />
                                     ) : (
@@ -665,7 +665,7 @@ export default function PublicacionesPage() {
                                     )}
                                 </div>
                                 <div className="p-4">
-                                    <div className="flex items-start justify-between gap-2 mb-1"><h3 className="type-listing-title line-clamp-1">{listing.title}</h3><PanelStatusBadge label={badge.label} tone={badge.tone} size="sm" className="flex-shrink-0" /></div>
+                                    <div className="flex items-start justify-between gap-2 mb-1"><h3 className="type-listing-title line-clamp-1">{listing.title}</h3><PanelStatusBadge label={badge.label} tone={badge.tone} size="sm" className="shrink-0" /></div>
                                     <p className="type-listing-price mb-1">{listing.price}</p>
                                     {listing.location ? <p className="text-xs mb-2 flex items-center gap-1" style={{ color: 'var(--fg-muted)' }}><IconMapPin size={11} />{listing.location}</p> : null}
                                     <div className="flex items-center gap-3 text-xs" style={{ color: 'var(--fg-muted)' }}><span className="flex items-center gap-1"><IconEye size={11} />{listing.views}</span><span className="flex items-center gap-1"><IconHeart size={11} />{listing.favs}</span><span className="flex items-center gap-1"><IconTrendingUp size={11} />{listing.leads}</span></div>

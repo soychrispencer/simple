@@ -133,7 +133,7 @@ export default function DisponibilidadConfigPage() {
                     <button
                         onClick={() => void handleLoadDefaults()}
                         disabled={loadingDefault}
-                        className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium border transition-colors hover:bg-[var(--bg-subtle)] disabled:opacity-60"
+                        className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium border transition-colors hover:bg-(--bg-subtle) disabled:opacity-60"
                         style={{ borderColor: 'var(--border)', color: 'var(--fg-secondary)' }}
                     >
                         {loadingDefault ? <IconLoader2 size={14} className="animate-spin" /> : null}
@@ -184,7 +184,7 @@ export default function DisponibilidadConfigPage() {
                                         <button
                                             onClick={() => void handleSaveRule(rule)}
                                             disabled={isSaving}
-                                            className="w-7 h-7 rounded-lg flex items-center justify-center border transition-colors hover:bg-[var(--bg-subtle)] disabled:opacity-50"
+                                            className="w-7 h-7 rounded-lg flex items-center justify-center border transition-colors hover:bg-(--bg-subtle) disabled:opacity-50"
                                             style={{ borderColor: 'var(--border)', color: 'var(--accent)' }}
                                             title="Guardar"
                                         >

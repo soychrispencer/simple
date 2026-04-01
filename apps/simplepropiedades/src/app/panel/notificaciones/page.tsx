@@ -35,7 +35,7 @@ export default function NotificacionesPage() {
                 <PanelList>
                     {items.map((item, index) => (
                         <PanelListRow key={item.id} divider={index > 0} tone="subtle" className="flex items-start gap-3 px-4 py-3.5">
-                            <div className="mt-1.5 h-2 w-2 rounded-full flex-shrink-0" style={{ background: 'var(--fg)' }} />
+                            <div className="mt-1.5 h-2 w-2 rounded-full shrink-0" style={{ background: 'var(--fg)' }} />
                             <div className="flex-1 min-w-0">
                                 <p className="text-sm" style={{ color: 'var(--fg)' }}>{item.title}</p>
                                 <p className="text-xs mt-0.5" style={{ color: 'var(--fg-muted)' }}>{item.time}</p>

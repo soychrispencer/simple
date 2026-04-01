@@ -73,7 +73,7 @@ export function SiteInfoPage({ page }: { page: SiteInfoPageData }) {
                             {page.summary.map((item) => (
                                 <li key={item} className="flex items-start gap-3 text-sm leading-6" style={{ color: 'var(--fg-secondary)' }}>
                                     <span
-                                        className="mt-2 h-1.5 w-1.5 rounded-full flex-shrink-0"
+                                        className="mt-2 h-1.5 w-1.5 rounded-full shrink-0"
                                         style={{ background: 'var(--fg)' }}
                                     />
                                     <span>{item}</span>
@@ -87,7 +87,7 @@ export function SiteInfoPage({ page }: { page: SiteInfoPageData }) {
                             </p>
                             <nav className="mt-3 flex flex-col gap-2">
                                 {page.footerNav.map((item) => (
-                                    <Link key={item.href} href={item.href} className="text-sm transition-colors hover:text-[var(--fg)]" style={{ color: 'var(--fg-secondary)' }}>
+                                    <Link key={item.href} href={item.href} className="text-sm transition-colors hover:text-(--fg)" style={{ color: 'var(--fg-secondary)' }}>
                                         {item.label}
                                     </Link>
                                 ))}
@@ -124,7 +124,7 @@ export function SiteInfoPage({ page }: { page: SiteInfoPageData }) {
                                         {section.bullets.map((bullet) => (
                                             <li key={bullet} className="flex items-start gap-3 text-sm leading-6" style={{ color: 'var(--fg-secondary)' }}>
                                                 <span
-                                                    className="mt-2 h-1.5 w-1.5 rounded-full flex-shrink-0"
+                                                    className="mt-2 h-1.5 w-1.5 rounded-full shrink-0"
                                                     style={{ background: 'var(--fg)' }}
                                                 />
                                                 <span>{bullet}</span>
@@ -143,7 +143,7 @@ export function SiteInfoPage({ page }: { page: SiteInfoPageData }) {
                             </p>
                             <nav className="mt-4 flex flex-col gap-2.5">
                                 {sectionAnchors.map((section) => (
-                                    <a key={section.id} href={`#${section.id}`} className="text-sm transition-colors hover:text-[var(--fg)]" style={{ color: 'var(--fg-secondary)' }}>
+                                    <a key={section.id} href={`#${section.id}`} className="text-sm transition-colors hover:text-(--fg)" style={{ color: 'var(--fg-secondary)' }}>
                                         {section.title}
                                     </a>
                                 ))}

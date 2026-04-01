@@ -1169,7 +1169,7 @@ function LeadDetailModal(props: {
     if (!props.open) return null;
 
     return (
-        <div className="fixed inset-0 z-[80] flex items-center justify-center px-4 py-5">
+        <div className="fixed inset-0 z-80 flex items-center justify-center px-4 py-5">
             <button
                 type="button"
                 aria-label="Cerrar detalle"
@@ -1178,7 +1178,7 @@ function LeadDetailModal(props: {
                 style={{ background: 'rgba(15, 23, 42, 0.44)', backdropFilter: 'blur(8px)' }}
             />
             <div
-                className="relative z-[1] w-full max-w-[1040px] max-h-[calc(100vh-2.5rem)] overflow-hidden rounded-[28px] border shadow-[0_30px_90px_rgba(15,23,42,0.18)]"
+                className="relative z-1 w-full max-w-[1040px] max-h-[calc(100vh-2.5rem)] overflow-hidden rounded-[28px] border shadow-[0_30px_90px_rgba(15,23,42,0.18)]"
                 style={{ borderColor: 'var(--border)', background: 'var(--surface)' }}
             >
                 <div className="max-h-[calc(100vh-2.5rem)] overflow-y-auto p-5 sm:p-6">
@@ -1218,7 +1218,7 @@ function PipelineColumnsModal(props: {
     if (!props.open) return null;
 
     return (
-        <div className="fixed inset-0 z-[90] flex items-center justify-center px-4 py-5">
+        <div className="fixed inset-0 z-90 flex items-center justify-center px-4 py-5">
             <button
                 type="button"
                 aria-label="Cerrar columnas"
@@ -1227,7 +1227,7 @@ function PipelineColumnsModal(props: {
                 style={{ background: 'rgba(15, 23, 42, 0.4)', backdropFilter: 'blur(8px)' }}
             />
             <div
-                className="relative z-[1] w-full max-w-[860px] max-h-[calc(100vh-2.5rem)] overflow-hidden rounded-[28px] border shadow-[0_30px_90px_rgba(15,23,42,0.18)]"
+                className="relative z-1 w-full max-w-[860px] max-h-[calc(100vh-2.5rem)] overflow-hidden rounded-[28px] border shadow-[0_30px_90px_rgba(15,23,42,0.18)]"
                 style={{ borderColor: 'var(--border)', background: 'var(--surface)' }}
             >
                 <div className="max-h-[calc(100vh-2.5rem)] overflow-y-auto p-5 sm:p-6">

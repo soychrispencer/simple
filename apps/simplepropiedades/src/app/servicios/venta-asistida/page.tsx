@@ -104,7 +104,7 @@ export default function VentaAsistidaPage() {
                             {benefits.map((benefit) => (
                                 <div key={benefit.title} className="rounded-2xl p-4" style={{ border: '1px solid var(--border)', background: 'var(--bg-subtle)' }}>
                                     <div className="flex items-start gap-2">
-                                        <IconCheck size={14} className="mt-0.5 flex-shrink-0" style={{ color: 'var(--fg-muted)' }} />
+                                        <IconCheck size={14} className="mt-0.5 shrink-0" style={{ color: 'var(--fg-muted)' }} />
                                         <div>
                                             <p className="text-sm font-semibold" style={{ color: 'var(--fg)' }}>{benefit.title}</p>
                                             <p className="mt-0.5 text-sm" style={{ color: 'var(--fg-secondary)' }}>{benefit.description}</p>

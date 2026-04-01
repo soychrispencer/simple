@@ -58,7 +58,7 @@ export default function GuardadosPage() {
                             divider={index > 0}
                             className="flex items-center gap-4 px-4 py-3"
                         >
-                            <Link href={item.href} className="w-24 h-16 rounded-lg flex-shrink-0" style={{ background: gradientFromTitle(item.title) }} />
+                            <Link href={item.href} className="w-24 h-16 rounded-lg shrink-0" style={{ background: gradientFromTitle(item.title) }} />
                             <div className="flex-1 min-w-0">
                                 <Link href={item.href} className="block text-sm font-medium line-clamp-1" style={{ color: 'var(--fg)' }}>{item.title}</Link>
                                 <p className="text-xs mt-0.5" style={{ color: 'var(--fg-muted)' }}>{item.subtitle ?? item.location ?? 'Publicación guardada'}</p>

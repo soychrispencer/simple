@@ -310,7 +310,7 @@ export default function BookingFlow({ profile }: { profile: PublicProfile }) {
                         </div>
                         <button
                             onClick={close}
-                            className="w-8 h-8 rounded-lg flex items-center justify-center border transition-colors hover:bg-[var(--bg-subtle)]"
+                            className="w-8 h-8 rounded-lg flex items-center justify-center border transition-colors hover:bg-(--bg-subtle)"
                             style={{ borderColor: 'var(--border)', color: 'var(--fg-muted)' }}
                         >
                             <IconX size={14} />
@@ -322,13 +322,13 @@ export default function BookingFlow({ profile }: { profile: PublicProfile }) {
                         {step === 'date' && (
                             <div>
                                 <div className="flex items-center justify-between mb-4">
-                                    <button onClick={prevMonth} className="w-8 h-8 rounded-lg flex items-center justify-center border hover:bg-[var(--bg-subtle)] transition-colors" style={{ borderColor: 'var(--border)', color: 'var(--fg-muted)' }}>
+                                    <button onClick={prevMonth} className="w-8 h-8 rounded-lg flex items-center justify-center border hover:bg-(--bg-subtle) transition-colors" style={{ borderColor: 'var(--border)', color: 'var(--fg-muted)' }}>
                                         <IconChevronLeft size={16} />
                                     </button>
                                     <p className="text-sm font-semibold" style={{ color: 'var(--fg)' }}>
                                         {MONTHS_ES[viewMonth]} {viewYear}
                                     </p>
-                                    <button onClick={nextMonth} className="w-8 h-8 rounded-lg flex items-center justify-center border hover:bg-[var(--bg-subtle)] transition-colors" style={{ borderColor: 'var(--border)', color: 'var(--fg-muted)' }}>
+                                    <button onClick={nextMonth} className="w-8 h-8 rounded-lg flex items-center justify-center border hover:bg-(--bg-subtle) transition-colors" style={{ borderColor: 'var(--border)', color: 'var(--fg-muted)' }}>
                                         <IconChevronRight size={16} />
                                     </button>
                                 </div>
@@ -387,7 +387,7 @@ export default function BookingFlow({ profile }: { profile: PublicProfile }) {
                                     <div className="py-8 text-center">
                                         <p className="text-sm font-medium mb-1" style={{ color: 'var(--fg)' }}>Sin horarios disponibles</p>
                                         <p className="text-xs" style={{ color: 'var(--fg-muted)' }}>Elige otra fecha.</p>
-                                        <button onClick={() => setStep('date')} className="mt-4 px-4 py-2 rounded-xl border text-sm transition-colors hover:bg-[var(--bg-subtle)]" style={{ borderColor: 'var(--border)', color: 'var(--fg-secondary)' }}>
+                                        <button onClick={() => setStep('date')} className="mt-4 px-4 py-2 rounded-xl border text-sm transition-colors hover:bg-(--bg-subtle)" style={{ borderColor: 'var(--border)', color: 'var(--fg-secondary)' }}>
                                             Volver al calendario
                                         </button>
                                     </div>
@@ -645,7 +645,7 @@ export default function BookingFlow({ profile }: { profile: PublicProfile }) {
                                 )}
                                 <button
                                     onClick={close}
-                                    className="px-6 py-2.5 rounded-xl text-sm font-semibold border transition-colors hover:bg-[var(--bg-subtle)]"
+                                    className="px-6 py-2.5 rounded-xl text-sm font-semibold border transition-colors hover:bg-(--bg-subtle)"
                                     style={{ borderColor: 'var(--border)', color: 'var(--fg-secondary)' }}
                                 >
                                     Cerrar

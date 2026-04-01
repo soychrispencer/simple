@@ -275,7 +275,7 @@ export default function PagosPage() {
                             <h2 className="text-base font-semibold" style={{ color: 'var(--fg)' }}>Registrar cobro</h2>
                             <button
                                 onClick={() => setShowCreate(false)}
-                                className="w-7 h-7 rounded-lg flex items-center justify-center border transition-colors hover:bg-[var(--bg-subtle)]"
+                                className="w-7 h-7 rounded-lg flex items-center justify-center border transition-colors hover:bg-(--bg-subtle)"
                                 style={{ borderColor: 'var(--border)', color: 'var(--fg-muted)' }}
                             >
                                 <IconX size={14} />
@@ -415,7 +415,7 @@ export default function PagosPage() {
                                 </button>
                                 <button
                                     onClick={() => setShowCreate(false)}
-                                    className="px-4 py-2.5 rounded-xl text-sm border transition-colors hover:bg-[var(--bg-subtle)]"
+                                    className="px-4 py-2.5 rounded-xl text-sm border transition-colors hover:bg-(--bg-subtle)"
                                     style={{ borderColor: 'var(--border)', color: 'var(--fg-secondary)' }}
                                 >
                                     Cancelar

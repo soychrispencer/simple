@@ -25,13 +25,13 @@ export default function ProgressBar({ step }: Props) {
                     <div key={n} className="flex items-center gap-2">
                         {i > 0 && (
                             <div
-                                className="h-px w-6 flex-shrink-0 transition-colors duration-300"
+                                className="h-px w-6 shrink-0 transition-colors duration-300"
                                 style={{ background: isDone ? '#FF3600' : 'var(--border)' }}
                             />
                         )}
                         <div className="flex items-center gap-1.5">
                             <div
-                                className="flex-shrink-0 flex items-center justify-center rounded-full transition-all duration-300"
+                                className="shrink-0 flex items-center justify-center rounded-full transition-all duration-300"
                                 style={{
                                     width: isActive ? 28 : 20,
                                     height: 20,
