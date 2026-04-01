@@ -50,7 +50,7 @@ import {
     type CrmListingLead,
     type CrmListingLeadActivity,
     type CrmListingLeadDetail,
-} from '@/lib/crm';
+} from '@simple/utils';
 import { fetchSubscriptionCatalog } from '@/lib/payments';
 import { PanelButton, PanelCard, PanelEmptyState, PanelStatCard, PanelStatusBadge } from '@simple/ui';
 
@@ -163,9 +163,9 @@ export default function CRMPage() {
         let active = true;
         void (async () => {
             const [services, listingLeads, columns] = await Promise.all([
-                fetchCrmLeads(),
-                fetchCrmListingLeads(),
-                fetchCrmPipelineColumns(),
+                fetchCrmLeads('propiedades'),
+                fetchCrmListingLeads('propiedades'),
+                fetchCrmPipelineColumns('propiedades'),
             ]);
             if (!active) return;
             setServiceItems(services);
@@ -258,13 +258,13 @@ export default function CRMPage() {
         setFeedback(null);
         void (async () => {
             if (tab === 'publicaciones') {
-                const detail = await fetchCrmListingLeadDetail(selectedId);
+                const detail = await fetchCrmListingLeadDetail(selectedId, 'propiedades');
                 if (!active) return;
                 setListingDetail(detail);
                 setServiceDetail(null);
                 if (detail) hydrate(detail.item);
             } else {
-                const detail = await fetchCrmLeadDetail(selectedId);
+                const detail = await fetchCrmLeadDetail(selectedId, 'propiedades');
                 if (!active) return;
                 setServiceDetail(detail);
                 setListingDetail(null);
@@ -294,8 +294,8 @@ export default function CRMPage() {
 
     async function refreshListingData(nextColumns?: CrmPipelineColumn[]) {
         const [listingLeads, columns] = await Promise.all([
-            fetchCrmListingLeads(),
-            nextColumns ? Promise.resolve(nextColumns) : fetchCrmPipelineColumns(),
+            fetchCrmListingLeads('propiedades'),
+            nextColumns ? Promise.resolve(nextColumns) : fetchCrmPipelineColumns('propiedades'),
         ]);
         setListingItems(listingLeads);
         syncPipelineColumns(columns);
@@ -306,13 +306,13 @@ export default function CRMPage() {
 
     async function refreshLeadDetail(leadId: string) {
         if (tab === 'publicaciones') {
-            const detail = await fetchCrmListingLeadDetail(leadId);
+            const detail = await fetchCrmListingLeadDetail(leadId, 'propiedades');
             setListingDetail(detail);
             if (detail) hydrate(detail.item);
             return;
         }
 
-        const detail = await fetchCrmLeadDetail(leadId);
+        const detail = await fetchCrmLeadDetail(leadId, 'propiedades');
         setServiceDetail(detail);
         if (detail) hydrate(detail.item);
     }

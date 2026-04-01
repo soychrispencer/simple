@@ -22,7 +22,7 @@ import {
 import PanelSectionHeader from '@/components/panel/panel-section-header';
 import ModernSelect from '@/components/ui/modern-select';
 import { useAuth } from '@/context/auth-context';
-import { uploadMediaFile } from '@/lib/media-upload';
+import { uploadMediaFile } from '@simple/utils';
 import { getPublicationLifecyclePolicy, type PublicationLifecyclePolicy } from '@simple/config';
 import {
     createPanelListing,

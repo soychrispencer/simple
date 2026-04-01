@@ -16,7 +16,8 @@
         "@simple/types": "*",
         "@simple/config": "*",
         "@simple/utils": "*",
-        "@simple/ui": "*"
+        "@simple/ui": "*",
+        "@simple/auth": "*"
     },
     "devDependencies": {
         "@tailwindcss/postcss": "^4.2.1",

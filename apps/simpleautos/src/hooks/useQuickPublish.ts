@@ -5,7 +5,7 @@ import type { QuickPhoto, QuickBasicData, GeneratedText, QuickPublishStep } from
 import { createEmptyListingLocation, type ListingLocation } from '@simple/types';
 import { generateListingText } from '@/actions/generate-listing-text';
 import { createPanelListing, fetchPanelListingDraft, savePanelListingDraft, deletePanelListingDraft } from '@/lib/panel-listings';
-import { uploadMediaFile } from '@/lib/media-upload';
+import { uploadMediaFile } from '@simple/utils';
 
 const MAX_PHOTOS = 20;
 import { processQuickFile } from '@/lib/quick-image-utils';
