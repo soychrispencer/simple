@@ -5,7 +5,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { IconCar, IconChevronRight } from '@tabler/icons-react';
 import PanelSectionHeader from '@/components/panel/panel-section-header';
 import { fetchMyPanelListings, type PanelListing } from '@/lib/panel-listings';
-import { PanelBlockHeader, PanelCard, PanelList, PanelListRow, PanelNotice, PanelStatCard } from '@simple/ui';
+import { PanelBlockHeader, PanelButton, PanelCard, PanelList, PanelListRow, PanelNotice, PanelStatCard } from '@simple/ui';
 
 function formatAgo(updatedAt: number): string {
     const diffMs = Date.now() - updatedAt;
@@ -66,7 +66,12 @@ export default function DashboardPage() {
                 {loading ? (
                     <div className="h-28 rounded-[18px] animate-pulse" style={{ background: 'var(--bg-muted)' }} />
                 ) : activeItems.length === 0 ? (
-                    <PanelNotice tone="neutral">Aún no tienes publicaciones activas.</PanelNotice>
+                    <div className="space-y-3">
+                        <PanelNotice tone="neutral">Aún no tienes publicaciones activas.</PanelNotice>
+                        <Link href="/panel/publicar">
+                            <PanelButton type="button" className="w-full">Publicar mi primer vehículo</PanelButton>
+                        </Link>
+                    </div>
                 ) : (
                     <PanelList className="border-0 rounded-[18px]">
                         {activeItems.slice(0, 5).map((item, index) => (
@@ -92,7 +97,12 @@ export default function DashboardPage() {
                 {loading ? (
                     <div className="h-24 rounded-[18px] animate-pulse" style={{ background: 'var(--bg-muted)' }} />
                 ) : items.length === 0 ? (
-                    <PanelNotice tone="neutral">Cuando publiques avisos aquí verás su actividad reciente.</PanelNotice>
+                    <div className="space-y-3">
+                        <PanelNotice tone="neutral">Cuando publiques avisos aquí verás su actividad reciente.</PanelNotice>
+                        <Link href="/panel/publicar">
+                            <PanelButton type="button" variant="secondary" className="w-full">Crear publicación</PanelButton>
+                        </Link>
+                    </div>
                 ) : (
                     <PanelList className="border-0 rounded-[18px]">
                         {items
