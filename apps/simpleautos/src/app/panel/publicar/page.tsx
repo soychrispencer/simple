@@ -908,8 +908,12 @@ function mergeDraft(raw: unknown): { data: WizardData; valuationEstimate: Vehicl
                     ? parsed.data.media.photos.map((photo) => ({
                         id: photo.id,
                         name: photo.name,
-                        dataUrl: '',
-                        previewUrl: '',
+                        dataUrl: typeof photo.dataUrl === 'string' && photo.dataUrl.startsWith('http') ? photo.dataUrl : '',
+                        previewUrl: typeof photo.previewUrl === 'string' && photo.previewUrl.startsWith('http')
+                            ? photo.previewUrl
+                            : typeof photo.url === 'string' && photo.url.startsWith('http')
+                                ? photo.url
+                                : '',
                         isCover: !!photo.isCover,
                         width: typeof photo.width === 'number' ? photo.width : 0,
                         height: typeof photo.height === 'number' ? photo.height : 0,
@@ -921,8 +925,12 @@ function mergeDraft(raw: unknown): { data: WizardData; valuationEstimate: Vehicl
                     ? {
                         id: parsed.data.media.discoverVideo.id,
                         name: parsed.data.media.discoverVideo.name,
-                        dataUrl: '',
-                        previewUrl: '',
+                        dataUrl: typeof parsed.data.media.discoverVideo.dataUrl === 'string' && parsed.data.media.discoverVideo.dataUrl.startsWith('http') ? parsed.data.media.discoverVideo.dataUrl : '',
+                        previewUrl: typeof parsed.data.media.discoverVideo.previewUrl === 'string' && parsed.data.media.discoverVideo.previewUrl.startsWith('http')
+                            ? parsed.data.media.discoverVideo.previewUrl
+                            : typeof parsed.data.media.discoverVideo.url === 'string' && parsed.data.media.discoverVideo.url.startsWith('http')
+                                ? parsed.data.media.discoverVideo.url
+                                : '',
                         width: typeof parsed.data.media.discoverVideo.width === 'number' ? parsed.data.media.discoverVideo.width : 0,
                         height: typeof parsed.data.media.discoverVideo.height === 'number' ? parsed.data.media.discoverVideo.height : 0,
                         sizeBytes: typeof parsed.data.media.discoverVideo.sizeBytes === 'number' ? parsed.data.media.discoverVideo.sizeBytes : 0,
