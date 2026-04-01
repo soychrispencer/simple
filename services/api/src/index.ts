@@ -6449,7 +6449,8 @@ function buildMediaProxyUrl(url: string): string {
 
 function toDeliveredMediaUrl(url: string): string {
     const normalized = fixBrokenB2Url(url);
-    if (isBackblazeUrl(normalized)) {
+    const forceProxy = process.env.FORCE_MEDIA_PROXY === 'true';
+    if (isBackblazeUrl(normalized) && forceProxy) {
         return buildMediaProxyUrl(normalized);
     }
     return normalized;
