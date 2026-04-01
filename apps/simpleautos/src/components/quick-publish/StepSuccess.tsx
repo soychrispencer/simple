@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import Link from 'next/link';
 import { IconCheck, IconBrandWhatsapp, IconLink, IconPlus, IconChevronRight } from '@tabler/icons-react';
 
@@ -15,11 +15,6 @@ const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? 'https://simpleautos.app';
 
 export default function StepSuccess({ listingId, listingHref, listingTitle, onPublishAnother }: Props) {
     const [copied, setCopied] = useState(false);
-    const [canShare, setCanShare] = useState(false);
-
-    useEffect(() => {
-        setCanShare(typeof navigator.share === 'function');
-    }, []);
 
     const publicUrl = `${APP_URL}${listingHref}`;
     const whatsappText = encodeURIComponent(`Mira este auto en SimpleAutos: ${listingTitle}\n${publicUrl}`);
@@ -32,10 +27,6 @@ export default function StepSuccess({ listingId, listingHref, listingTitle, onPu
         } catch {
             // ignore
         }
-    }
-
-    function handleShare() {
-        void navigator.share({ title: listingTitle, url: publicUrl });
     }
 
     return (
@@ -109,17 +100,6 @@ export default function StepSuccess({ listingId, listingHref, listingTitle, onPu
                             {copied ? 'Link copiado' : 'Copiar link'}
                         </button>
 
-                        {canShare && (
-                            <button
-                                type="button"
-                                onClick={handleShare}
-                                className="inline-flex items-center gap-2 rounded-full border px-3 py-2 text-xs font-semibold transition-opacity active:opacity-80"
-                                style={{ borderColor: 'var(--border)', background: 'var(--bg)', color: 'var(--fg)' }}
-                            >
-                                <span className="text-sm">📤</span>
-                                Compartir
-                            </button>
-                        )}
                     </div>
                 </div>
             </div>

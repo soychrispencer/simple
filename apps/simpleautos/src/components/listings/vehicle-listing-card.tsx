@@ -174,13 +174,9 @@ export default function VehicleListingCard({ data, mode }: Props) {
         event.stopPropagation();
         const url = typeof window === 'undefined' ? data.href : `${window.location.origin}${data.href}`;
         try {
-            if (navigator.share) {
-                await navigator.share({ title: data.title, url });
-            } else {
-                await navigator.clipboard.writeText(url);
-            }
+            await navigator.clipboard.writeText(url);
         } catch {
-            // ignore share cancel errors
+            // ignore
         }
         setMenuOpen(false);
     };

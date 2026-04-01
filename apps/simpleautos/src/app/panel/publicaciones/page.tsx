@@ -342,8 +342,10 @@ export default function PublicacionesPage() {
 
     const getListingCoverImage = (listing: PanelListing): string | null => {
         const rawData = listing.rawData as any;
-        const imageUrl = rawData?.media?.photos?.[0]?.previewUrl || rawData?.media?.photos?.[0]?.url;
-        if (typeof imageUrl === 'string' && imageUrl.trim()) return imageUrl;
+        const photos: any[] = rawData?.media?.photos ?? [];
+        const cover = photos.find((p) => p?.isCover) ?? photos[0];
+        const imageUrl = cover?.previewUrl || cover?.dataUrl || cover?.url;
+        if (typeof imageUrl === 'string' && imageUrl.startsWith('http')) return imageUrl;
         return null;
     };
 
