@@ -125,10 +125,7 @@ export class BackblazeB2Provider implements StorageProvider {
             };
 
             // Build public URL
-            const cleanDownloadUrl = this.downloadUrl.replace(/\/+$/, '');
-            const publicUrl = cleanDownloadUrl.includes('/file/') 
-                ? `${cleanDownloadUrl}/${fileName}`
-                : `${cleanDownloadUrl}/file/${this.bucketName}/${fileName}`;
+            const publicUrl = `${this.downloadUrl}/file/${this.bucketName}/${fileName}`;
 
             return {
                 fileId: uploadResult.fileId,
@@ -197,10 +194,8 @@ export class BackblazeB2Provider implements StorageProvider {
     }
 
     getUrl(fileId: string): string {
-        const cleanDownloadUrl = this.downloadUrl.replace(/\/+$/, '');
-        return cleanDownloadUrl.includes('/file/') 
-            ? `${cleanDownloadUrl}/${fileId}`
-            : `${cleanDownloadUrl}/file/${this.bucketName}/${fileId}`;
+        // Note: This returns a generic URL format. In production, track the actual file path.
+        return `${this.downloadUrl}/${fileId}`;
     }
 
     async health(): Promise<boolean> {
