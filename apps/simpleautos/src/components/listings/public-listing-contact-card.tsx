@@ -167,7 +167,7 @@ export default function PublicListingContactCard(props: {
                             Abrir conversación
                         </PanelButton>
                     ) : null}
-                    <p className="text-xs" style={{ color: feedback?.toLowerCase().includes('no pudimos') ? '#b91c1c' : 'var(--fg-muted)' }}>
+                    <p className="text-xs" style={{ color: feedback?.toLowerCase().includes('no pudimos') ? 'var(--color-error)' : 'var(--fg-muted)' }}>
                         {feedback || (isLoggedIn
                             ? 'Si tienes sesión abierta, este mensaje también se guardará en tu panel.'
                             : 'Si inicias sesión, además podrás seguir la conversación desde tu panel.')}

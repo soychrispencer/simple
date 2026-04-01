@@ -80,8 +80,8 @@ export function Header() {
             if (!insideNotifications && !insideMobileNotifications) setNotificationsOpen(false);
         };
 
-        document.addEventListener('mousedown', handleOutside);
-        return () => document.removeEventListener('mousedown', handleOutside);
+        document.addEventListener('pointerdown', handleOutside);
+        return () => document.removeEventListener('pointerdown', handleOutside);
     }, []);
 
     const links = [
@@ -194,7 +194,7 @@ export function Header() {
 
                         {isLoggedIn && notificationsOpen ? (
                             <div
-                                className="absolute right-0 top-[calc(100%+8px)] z-50 w-[320px] rounded-xl border p-2 animate-slide-down"
+                                className="absolute right-0 top-[calc(100%+8px)] z-50 w-[min(320px,calc(100vw-1rem))] rounded-xl border p-2 animate-slide-down"
                                 style={{
                                     background: 'var(--surface)',
                                     borderColor: 'var(--border)',
@@ -269,7 +269,7 @@ export function Header() {
 
                         {isLoggedIn && accountOpen ? (
                             <div
-                                className="absolute right-0 top-[calc(100%+8px)] z-50 w-[290px] rounded-xl border p-2 animate-slide-down"
+                                className="absolute right-0 top-[calc(100%+8px)] z-50 w-[min(290px,calc(100vw-1rem))] rounded-xl border p-2 animate-slide-down"
                                 style={{ background: 'var(--surface)', borderColor: 'var(--border)', boxShadow: 'var(--shadow-md)' }}
                             >
                                 <div className="px-2.5 py-2 mb-1 rounded-lg" style={{ background: 'var(--bg-subtle)' }}>

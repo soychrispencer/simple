@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useQuickPublish } from '@/hooks/useQuickPublish';
 import { useAuth } from '@/context/auth-context';
 import { PanelButton, PanelNotice } from '@simple/ui';
@@ -12,6 +12,12 @@ import StepSuccess from './StepSuccess';
 import type { QuickBasicData } from './types';
 
 function ResetConfirmModal({ onConfirm, onCancel }: { onConfirm: () => void; onCancel: () => void }) {
+    useEffect(() => {
+        const handleKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onCancel(); };
+        window.addEventListener('keydown', handleKey);
+        return () => window.removeEventListener('keydown', handleKey);
+    }, [onCancel]);
+
     return (
         <div
             className="fixed inset-0 z-50 flex items-center justify-center p-4"

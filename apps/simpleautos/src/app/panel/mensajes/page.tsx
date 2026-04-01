@@ -278,7 +278,7 @@ export default function MensajesPage() {
                                     placeholder="Escribe tu respuesta..."
                                 />
                                 <div className="flex items-center justify-between gap-3">
-                                    <div className="text-xs" style={{ color: error ? '#b91c1c' : 'var(--fg-muted)' }}>
+                                    <div className="text-xs" style={{ color: error ? 'var(--color-error)' : 'var(--fg-muted)' }}>
                                         {error || 'Cada mensaje queda vinculado al lead de la publicación.'}
                                     </div>
                                     <PanelButton type="submit" disabled={sending || !draft.trim()}>

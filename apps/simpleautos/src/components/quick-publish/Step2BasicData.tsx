@@ -153,11 +153,11 @@ function Field({ label, required, error, hint, children }: {
     return (
         <div>
             <label className="block text-sm font-medium mb-1 text-[var(--fg-secondary)]">
-                {label}{required && <span className="text-[#ef4444]"> *</span>}
+                {label}{required && <abbr title="requerido" style={{ color: 'var(--color-error, #ef4444)', textDecoration: 'none' }}> *</abbr>}
             </label>
             {children}
             {hint && !error && <p className="mt-1 text-xs text-[var(--fg-muted)]">{hint}</p>}
-            {error && <p className="mt-1 text-xs text-[#ef4444]">{error}</p>}
+            {error && <p className="mt-1 text-xs" style={{ color: 'var(--color-error, #ef4444)' }}>{error}</p>}
         </div>
     );
 }

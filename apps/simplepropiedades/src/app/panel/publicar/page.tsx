@@ -906,7 +906,7 @@ function Field(props: { label: string; required?: boolean; error?: string; hint?
         <div>
             <label className="block text-sm font-medium mb-1" style={{ color: 'var(--fg-secondary)' }}>
                 {props.label}
-                {props.required ? <span style={{ color: '#ef4444' }}> *</span> : null}
+                {props.required ? <abbr title="requerido" style={{ color: 'var(--color-error, #ef4444)', textDecoration: 'none' }}> *</abbr> : null}
             </label>
             {props.children}
             {props.hint ? <p className="text-xs mt-1" style={{ color: 'var(--fg-muted)' }}>{props.hint}</p> : null}

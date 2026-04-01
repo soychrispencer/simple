@@ -1093,7 +1093,7 @@ export default function CRMPage() {
                                 <form className="space-y-3" onSubmit={(event) => void handleAddNote(event)}>
                                     <textarea className="form-textarea min-h-28 text-sm" value={noteBody} onChange={(event) => setNoteBody(event.target.value)} placeholder="Ej. Cliente con interés real, pidió visita mañana." />
                                     <div className="flex items-center justify-between gap-3">
-                                        <div className="text-xs" style={{ color: error ? '#b91c1c' : 'var(--fg-muted)' }}>
+                                        <div className="text-xs" style={{ color: error ? 'var(--color-error)' : 'var(--fg-muted)' }}>
                                             {error || feedback || 'Cada cambio se registra en el timeline.'}
                                         </div>
                                         <PanelButton type="submit" disabled={addingNote || !noteBody.trim()}>
@@ -1273,7 +1273,7 @@ function PipelineColumnsModal(props: {
                     </form>
 
                     {props.error ? (
-                        <div className="mt-4 rounded-xl border px-3 py-2 text-sm" style={{ borderColor: '#fecaca', background: '#fff1f2', color: '#b91c1c' }}>
+                        <div className="mt-4 rounded-xl border px-3 py-2 text-sm" style={{ borderColor: var(--color-error-subtle), background: 'var(--color-error-subtle)', color: 'var(--color-error)' }}>
                             {props.error}
                         </div>
                     ) : null}
@@ -1325,7 +1325,7 @@ function PipelineColumnsModal(props: {
                                                 onClick={() => props.onDelete(column.id)}
                                                 disabled={props.saving}
                                                 className="inline-flex h-10 items-center rounded-full border px-3 text-sm font-medium"
-                                                style={{ borderColor: 'var(--border)', color: '#b91c1c', opacity: props.saving ? 0.45 : 1 }}
+                                                style={{ borderColor: 'var(--border)', color: 'var(--color-error)', opacity: props.saving ? 0.45 : 1 }}
                                             >
                                                 Eliminar
                                             </button>

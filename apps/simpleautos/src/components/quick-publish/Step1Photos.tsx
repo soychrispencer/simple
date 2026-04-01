@@ -86,14 +86,14 @@ function SortablePhoto({
             {photo.previewUrl || photo.dataUrl ? (
                 <Image
                     src={photo.previewUrl || photo.dataUrl}
-                    alt=""
+                    alt={`Foto ${index + 1} del vehículo`}
                     fill
                     className="object-cover pointer-events-none"
                     unoptimized
                 />
             ) : (
-                <div className="w-full h-full bg-linear-to-br from-gray-200 to-gray-300 flex items-center justify-center" style={{ background: 'var(--bg-muted)' }}>
-                    <span className="text-xs" style={{ color: 'var(--fg-muted)' }}>placeholder</span>
+                <div className="w-full h-full flex items-center justify-center" style={{ background: 'var(--bg-muted)' }}>
+                    <span className="text-xs" style={{ color: 'var(--fg-muted)' }}>Sin imagen</span>
                 </div>
             )}
 
@@ -119,6 +119,7 @@ function SortablePhoto({
             {/* Remove button — always visible on touch, hover-only on desktop */}
             <button
                 type="button"
+                aria-label="Eliminar foto"
                 className="absolute top-1.5 right-1.5 flex h-6 w-6 items-center justify-center rounded-full transition-opacity opacity-0 group-hover:opacity-100 [@media(hover:none)]:opacity-100"
                 style={{ background: 'rgba(0,0,0,0.65)', color: 'white' }}
                 onClick={(e) => { e.stopPropagation(); onRemove(photo.id); }}
@@ -411,7 +412,7 @@ export default function Step1Photos({
                         >
                             <Image
                                 src={activePhoto.previewUrl}
-                                alt=""
+                                alt="Foto seleccionada"
                                 width={dragSize}
                                 height={dragSize}
                                 className="w-full h-full object-cover"

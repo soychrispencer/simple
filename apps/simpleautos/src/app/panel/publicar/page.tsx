@@ -3064,7 +3064,7 @@ function Field(props: { label: string; required?: boolean; error?: string; child
         <div>
             <label className="block text-sm font-medium mb-1" style={{ color: 'var(--fg-secondary)' }}>
                 {props.label}
-                {props.required ? <span style={{ color: '#ef4444' }}> *</span> : null}
+                {props.required ? <abbr title="requerido" style={{ color: 'var(--color-error, #ef4444)', textDecoration: 'none' }}> *</abbr> : null}
             </label>
             {props.children}
             {props.error ? <ErrorText text={props.error} /> : null}

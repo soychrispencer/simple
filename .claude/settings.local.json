@@ -4,7 +4,9 @@
       "Bash(python3 -c \"import json,sys; d=json.load\\(sys.stdin\\); [print\\(k,v\\) for k,v in {**d.get\\(''''dependencies'''',{}\\), **d.get\\(''''devDependencies'''',{}\\)}.items\\(\\)]\")",
       "Bash(npm install:*)",
       "WebFetch(domain:www.encuadrado.com)",
-      "Bash(npx tsc:*)"
+      "Bash(npx tsc:*)",
+      "Bash(node -e \":*)",
+      "Bash(grep -n \"uploadMediaFile\\\\|from ''''@simple/utils''''\" apps/simpleautos/src/hooks/useQuickPublish.ts)"
     ]
   }
 }

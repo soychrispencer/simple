@@ -280,7 +280,7 @@ export function PanelShell({ children }: { children: React.ReactNode }) {
 
             <section className="flex-1 min-w-0">
                 {user?.status !== 'verified' && (
-                    <div className="px-4 py-3 bg-amber-50 border-b border-amber-200 flex items-center justify-between" style={{ background: 'rgba(251, 191, 36, 0.1)', borderColor: 'rgba(251, 191, 36, 0.3)' }}>
+                    <div className="px-4 py-3 bg-amber-50 border-b border-amber-200 flex items-center justify-between" style={{ background: 'var(--color-warning-subtle)', borderColor: 'rgba(217, 119, 6, 0.3)' }}>
                         <div className="flex items-center gap-3 flex-1">
                             <div className="text-lg">⚠️</div>
                             <div className="flex-1">

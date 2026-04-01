@@ -63,7 +63,7 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
 
         return (
             <div className="container-app max-w-xl py-20 text-center">
-                <div className="w-14 h-14 rounded-full flex items-center justify-center mx-auto mb-4" style={{ background: 'rgba(251, 191, 36, 0.14)', color: '#d97706' }}>
+                <div className="w-14 h-14 rounded-full flex items-center justify-center mx-auto mb-4" style={{ background: 'var(--color-warning-subtle)', color: 'var(--color-warning)' }}>
                     <IconLock size={22} />
                 </div>
                 <h2 className="text-xl font-semibold mb-2" style={{ color: 'var(--fg)' }}>Verifica tu correo para entrar al panel</h2>

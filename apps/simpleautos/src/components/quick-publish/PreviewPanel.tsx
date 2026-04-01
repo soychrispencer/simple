@@ -75,7 +75,7 @@ export default function PreviewPanel({ step, photos, basicData, generatedText }:
                     {cover ? (
                         <Image
                             src={cover.previewUrl}
-                            alt=""
+                            alt="Foto portada del vehículo"
                             fill
                             className="object-cover"
                             unoptimized
