@@ -1273,7 +1273,7 @@ function PipelineColumnsModal(props: {
                     </form>
 
                     {props.error ? (
-                        <div className="mt-4 rounded-xl border px-3 py-2 text-sm" style={{ borderColor: var(--color-error-subtle), background: 'var(--color-error-subtle)', color: 'var(--color-error)' }}>
+                        <div className="mt-4 rounded-xl border px-3 py-2 text-sm" style={{ borderColor: 'var(--color-error-subtle)', background: 'var(--color-error-subtle)', color: 'var(--color-error)' }}>
                             {props.error}
                         </div>
                     ) : null}
