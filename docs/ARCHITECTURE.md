@@ -286,7 +286,7 @@ app.post('/api/listings', async (c) => {
 │    Third-party Services             │
 │    - MercadoPago (payments)         │
 │    - SendGrid (email)               │
-│    - AWS S3 (images)                │
+│    - Backblaze B2 (images)          │
 └─────────────────────────────────────┘
 ```
 

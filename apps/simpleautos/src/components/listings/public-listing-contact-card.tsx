@@ -4,7 +4,7 @@ import { useEffect, useState, type FormEvent } from 'react';
 import { useRouter } from 'next/navigation';
 import { IconBrandWhatsapp, IconMail, IconPhone } from '@tabler/icons-react';
 import { useAuth } from '@/context/auth-context';
-import { submitListingLead, submitListingLeadAction } from '@/lib/listing-leads';
+import { submitListingLead, submitListingLeadAction } from '@simple/utils';
 import { PanelBlockHeader, PanelButton, PanelCard } from '@simple/ui';
 
 export default function PublicListingContactCard(props: {
@@ -38,7 +38,7 @@ export default function PublicListingContactCard(props: {
         setFeedback(null);
         setThreadId(null);
 
-        const result = await submitListingLead({
+        const result = await submitListingLead('autos', {
             listingId: props.listingId,
             contactName,
             contactEmail,
@@ -69,7 +69,7 @@ export default function PublicListingContactCard(props: {
 
         setSubmitting(true);
         setFeedback(null);
-        await submitListingLeadAction({
+        await submitListingLeadAction('autos', {
             listingId: props.listingId,
             source,
             contactName,

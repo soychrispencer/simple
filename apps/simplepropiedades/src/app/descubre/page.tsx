@@ -14,7 +14,7 @@ import {
     IconUserPlus,
 } from '@tabler/icons-react';
 import { useAuth } from '@/context/auth-context';
-import { fetchSocialFeed, toggleFollowAuthor, type SocialClip, type SocialSection } from '@/lib/social-feed';
+import { fetchSocialFeed, toggleFollowAuthor, type SocialClip, type SocialSection } from '@simple/utils';
 
 const FILTERS: Array<{ value: SocialSection; label: string }> = [
     { value: 'todos', label: 'Todo' },

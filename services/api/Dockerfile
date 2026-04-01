@@ -13,17 +13,22 @@ COPY package*.json ./
 COPY services ./services
 COPY packages ./packages
 COPY apps ./apps
+COPY docs ./docs
 COPY *.mjs ./
 COPY *.cjs ./
 COPY *.json ./
 COPY *.md ./
 
 RUN npm install --include=dev
+RUN npm run build --workspace=@simple/types
 RUN npm run build --workspace=@simple/config
+RUN npm run build --workspace=@simple/utils
+RUN npm run build --workspace=@simple/ui
+RUN npm run build --workspace=@simple/auth
 RUN npm run build --workspace=@simple/api
 
 ENV NODE_ENV=production
 
 EXPOSE 4000
 
-CMD ["sh", "-c", "npm run db:migrate --workspace=@simple/api || true; npm run start --workspace=@simple/api"]
+CMD ["npm", "run", "start", "--workspace=@simple/api"]

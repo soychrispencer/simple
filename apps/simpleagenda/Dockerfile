@@ -26,10 +26,10 @@ RUN npm run build --workspace=@simple/config
 RUN npm run build --workspace=@simple/utils
 RUN npm run build --workspace=@simple/ui
 RUN npm run build --workspace=@simple/auth
-RUN npm run build --workspace=@simple/autos
+RUN npm run build --workspace=@simple/agenda
 
 ENV NODE_ENV=production
 
 EXPOSE 3000
 
-CMD ["npm", "run", "start", "--workspace=@simple/autos"]
+CMD ["npm", "run", "start", "--workspace=@simple/agenda"]
