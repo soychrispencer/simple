@@ -21,6 +21,7 @@ COPY *.json ./
 COPY *.md ./
 
 RUN npm install --include=dev
+RUN npm run build --workspace=@simple/config
 RUN npm run build --workspace=@simple/propiedades
 
 ENV NODE_ENV=production
