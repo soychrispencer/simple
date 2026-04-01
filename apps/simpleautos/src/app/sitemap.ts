@@ -1,6 +1,6 @@
 import type { MetadataRoute } from 'next';
 
-const BASE_URL = process.env.NEXT_PUBLIC_APP_URL ?? 'https://simpleautos.cl';
+const BASE_URL = process.env.NEXT_PUBLIC_APP_URL ?? 'https://simpleautos.app';
 
 export default function sitemap(): MetadataRoute.Sitemap {
     return [

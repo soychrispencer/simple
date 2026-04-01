@@ -11,7 +11,7 @@ interface Props {
     onPublishAnother: () => void;
 }
 
-const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? 'https://simpleautos.cl';
+const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? 'https://simpleautos.app';
 
 export default function StepSuccess({ listingId, listingHref, listingTitle, onPublishAnother }: Props) {
     const [copied, setCopied] = useState(false);

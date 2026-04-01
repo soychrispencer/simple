@@ -7,7 +7,7 @@ interface Props {
     params: Promise<{ slug: string }> | { slug: string };
 }
 
-const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? 'https://simpleautos.cl';
+const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? 'https://simpleautos.app';
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
     const resolvedParams = await params;
     const slug = resolvedParams.slug;

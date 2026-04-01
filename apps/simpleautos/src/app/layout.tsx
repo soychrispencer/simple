@@ -13,7 +13,7 @@ const inter = Inter({
 
 export const metadata: Metadata = buildSimpleAppMetadata('simpleautos');
 
-const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? 'https://simpleautos.cl';
+const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? 'https://simpleautos.app';
 
 const siteSchema = {
     '@context': 'https://schema.org',
