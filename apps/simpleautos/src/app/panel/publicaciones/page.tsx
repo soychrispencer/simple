@@ -25,6 +25,7 @@ import ModernSelect from '@/components/ui/modern-select';
 import { useAuth } from '@/context/auth-context';
 import { publishListingToInstagram as publishInstagramPost } from '@/lib/instagram';
 import {
+    createPanelListing,
     type ListingStatus,
     type PanelListing,
     type PortalKey,
@@ -340,49 +341,10 @@ export default function PublicacionesPage() {
         void loadListings();
     };
 
-    const fixBrokenB2Url = (url: string): string => {
-        if (!url || !url.startsWith('http')) return url;
-        if (url.includes('backblazeb2.com')) {
-            const bucketName = 'simple-media';
-            
-            let key = '';
-            if (url.includes(`/file/${bucketName}/`)) {
-                key = url.split(`/file/${bucketName}/`)[1];
-            } else if (url.includes(`backblazeb2.com/${bucketName}/`)) {
-                key = url.split(`backblazeb2.com/${bucketName}/`)[1];
-            } else {
-                const parts = url.split('.backblazeb2.com/');
-                if (parts.length === 2) {
-                    const pathParts = parts[1].split('/');
-                    if (pathParts[0] === 'file') pathParts.shift();
-                    if (pathParts[0] === bucketName) pathParts.shift();
-                    key = pathParts.join('/');
-                }
-            }
-
-            if (key) {
-                return `https://f005.backblazeb2.com/file/${bucketName}/${key}`;
-            }
-        }
-        return url;
-    };
-
     const getListingCoverImage = (listing: PanelListing): string | null => {
         const rawData = listing.rawData as any;
-        const photos = rawData?.media?.photos;
-        if (!Array.isArray(photos) || photos.length === 0) return null;
-
-        const first = photos[0];
-        let imageUrl = '';
-        if (typeof first === 'string') {
-            imageUrl = first.trim();
-        } else {
-            imageUrl = first?.url || first?.previewUrl || first?.dataUrl || '';
-        }
-        
-        if (typeof imageUrl === 'string' && imageUrl.trim()) {
-            return fixBrokenB2Url(imageUrl.trim());
-        }
+        const imageUrl = rawData?.media?.photos?.[0]?.previewUrl || rawData?.media?.photos?.[0]?.url;
+        if (typeof imageUrl === 'string' && imageUrl.trim()) return imageUrl;
         return null;
     };
 
@@ -412,6 +374,63 @@ export default function PublicacionesPage() {
         }
 
         setNotice('Publicación eliminada correctamente.');
+        void loadListings();
+    };
+
+    const onDuplicateListing = async (listing: PanelListing) => {
+        if (!user) {
+            setNotice('Tu sesión expiró. Vuelve a iniciar sesión para continuar.');
+            requireAuth(() => {
+                void onDuplicateListing(listing);
+            });
+            return;
+        }
+
+        let nextRawData = listing.rawData;
+        if (listing.rawData && typeof listing.rawData === 'object') {
+            try {
+                const cloned = JSON.parse(JSON.stringify(listing.rawData)) as Record<string, any>;
+                if (cloned.commercial && typeof cloned.commercial === 'object') {
+                    cloned.commercial.slug = '';
+                }
+                nextRawData = cloned;
+            } catch {
+                nextRawData = listing.rawData;
+            }
+        }
+
+        setStatusBusyKey(`${listing.id}:duplicate`);
+        const duplicatedTitle = listing.title.trim().endsWith('(Copia)')
+            ? `${listing.title.trim()} 2`
+            : `${listing.title.trim()} (Copia)`;
+
+        const result = await createPanelListing({
+            vertical: listing.vertical,
+            listingType: listing.section,
+            title: duplicatedTitle.slice(0, 220),
+            description: listing.description,
+            priceLabel: listing.price,
+            location: listing.location,
+            locationData: listing.locationData,
+            status: 'draft',
+            rawData: nextRawData,
+        });
+        setStatusBusyKey(null);
+        closeMenus();
+
+        if (!result.ok) {
+            if (result.unauthorized) {
+                setNotice('Tu sesión expiró. Vuelve a iniciar sesión para continuar.');
+                requireAuth(() => {
+                    void onDuplicateListing(listing);
+                });
+                return;
+            }
+            setNotice(result.error || 'No se pudo duplicar la publicación.');
+            return;
+        }
+
+        setNotice('Publicación duplicada en borradores.');
         void loadListings();
     };
 
@@ -497,6 +516,15 @@ export default function PublicacionesPage() {
                                   needsRenewal ? 'mt-1' : ''
                               )
                             : null}
+                        {renderMenuItem(
+                            statusBusyKey === `${listing.id}:duplicate` ? 'Duplicando...' : 'Duplicar',
+                            () => {
+                                void onDuplicateListing(listing);
+                            },
+                            <IconCopy size={14} />,
+                            statusBusyKey === `${listing.id}:duplicate`,
+                            'mt-1'
+                        )}
                         {listing.status !== 'sold'
                             ? renderMenuItem(
                                   closedLabel,

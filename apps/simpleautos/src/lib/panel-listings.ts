@@ -47,6 +47,7 @@ export type CreatePanelListingInput = {
     location?: string;
     locationData?: ListingLocation;
     href?: string;
+    status?: ListingStatus;
     rawData?: unknown;
 };
 
