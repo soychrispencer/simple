@@ -19,11 +19,11 @@ interface Props {
 function Field({ label, required, error, children }: { label: string; required?: boolean; error?: string; children: React.ReactNode }) {
     return (
         <div className="flex flex-col gap-1.5">
-            <label className="text-sm font-medium text-[var(--fg-secondary)]">
-                {label}{required && <span className="text-[#ef4444]"> *</span>}
+            <label className="text-sm font-medium" style={{ color: 'var(--fg-secondary)' }}>
+                {label}{required && <abbr title="requerido" style={{ color: 'var(--color-error, #ef4444)', textDecoration: 'none' }}> *</abbr>}
             </label>
             {children}
-            {error && <p className="text-xs text-[#ef4444]">{error}</p>}
+            {error && <p className="text-xs" style={{ color: 'var(--color-error, #ef4444)' }}>{error}</p>}
         </div>
     );
 }
@@ -97,7 +97,7 @@ export default function Step3Pricing({ data, onChange, isExtended = false, error
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                         <Field label={priceLabel} required error={errors.price}>
                             <div className="relative flex items-center h-[42px] rounded-[var(--radius)] border bg-[var(--bg-subtle)] focus-within:border-[var(--accent-border)] transition-colors overflow-hidden"
-                                 style={{ borderColor: errors.price ? '#ef4444' : 'var(--border)' }}>
+                                 style={{ borderColor: errors.price ? 'var(--color-error, #ef4444)' : 'var(--border)' }}>
                                 <span className="pl-3 pr-1 text-sm font-medium text-[var(--fg-muted)]">$</span>
                                 <input className="flex-1 bg-transparent border-none outline-none h-full text-sm pr-2"
                                     placeholder="Ej: 18.990.000" inputMode="numeric"
