@@ -6449,10 +6449,19 @@ function buildMediaProxyUrl(url: string): string {
 
 function toDeliveredMediaUrl(url: string): string {
     const normalized = fixBrokenB2Url(url);
+    const apiBaseUrl = process.env.API_BASE_URL ?? 'http://localhost:4000';
     const forceProxy = process.env.FORCE_MEDIA_PROXY === 'true';
-    if (isBackblazeUrl(normalized) && forceProxy) {
+    
+    // Si estamos en localhost, el proxy causará el popup de PNA, así que intentamos directo
+    if (apiBaseUrl.includes('localhost') && !forceProxy) {
+        return normalized;
+    }
+    
+    // En producción (Coolify con dominio real), el proxy es seguro y evita líos de CORS
+    if (isBackblazeUrl(normalized)) {
         return buildMediaProxyUrl(normalized);
     }
+    
     return normalized;
 }
 
