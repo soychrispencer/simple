@@ -330,7 +330,7 @@ export default function CRMPage() {
         setError(null);
 
         if (tab === 'publicaciones') {
-            const result = await updateCrmListingLead(leadId, { status: nextStatus });
+            const result = await updateCrmListingLead(leadId, 'propiedades', { status: nextStatus });
             if (!result.ok || !result.item) {
                 setUpdatingLeadId(null);
                 setDragLeadId(null);
@@ -381,7 +381,7 @@ export default function CRMPage() {
         setFeedback(null);
         setError(null);
 
-        const result = await updateCrmListingLead(leadId, { pipelineColumnId: columnId });
+        const result = await updateCrmListingLead(leadId, 'propiedades', { pipelineColumnId: columnId });
         if (!result.ok || !result.item) {
             setUpdatingLeadId(null);
             setDragLeadId(null);
@@ -561,7 +561,7 @@ export default function CRMPage() {
         };
 
         if (tab === 'publicaciones') {
-            const result = await updateCrmListingLead(selectedId, {
+            const result = await updateCrmListingLead(selectedId, 'propiedades', {
                 ...payload,
                 assignedToUserId: assignment.assignedToUserId,
                 assignedToTeamMemberId: assignment.assignedToTeamMemberId,
