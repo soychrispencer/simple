@@ -150,10 +150,7 @@ export async function refreshInstagramAccessToken(accessToken: string): Promise<
 export async function getInstagramProfile(accessToken: string): Promise<InstagramProfile> {
     const data = await requestInstagram<InstagramProfileResponse>(
         `${graphBaseUrl()}/me?fields=user_id,username,name,profile_picture_url,account_type`,
-        {
-            method: 'GET',
-            headers: { 'Authorization': `Bearer ${accessToken}` },
-        },
+        { method: 'GET', headers: { 'Authorization': `Bearer ${accessToken}` } },
     );
 
     const instagramUserId = asString(data.user_id) || asString(data.id);
@@ -182,23 +179,20 @@ export async function publishInstagramImage(input: {
     mediaId: string;
     permalink: string | null;
 }> {
-    // Instagram Content Publishing API (2026): token en Authorization header,
-    // parámetros como JSON body. Esto evita problemas de encoding con access_token en query.
-    const authHeaders = {
-        'Authorization': `Bearer ${input.accessToken}`,
-        'Content-Type': 'application/json',
-    };
+    // Meta Graph API requiere form-urlencoded (no JSON). Token en Authorization header.
+    const bearerHeader = { 'Authorization': `Bearer ${input.accessToken}` };
+    const formHeader = { ...bearerHeader, 'Content-Type': 'application/x-www-form-urlencoded' };
 
     const creation = await requestInstagram<InstagramMediaCreateResponse>(
         `${graphBaseUrl()}/${encodeURIComponent(input.instagramUserId)}/media`,
         {
             method: 'POST',
-            headers: authHeaders,
-            body: JSON.stringify({
+            headers: formHeader,
+            body: new URLSearchParams({
                 image_url: input.imageUrl,
                 caption: input.caption,
                 media_type: 'IMAGE',
-            }),
+            }).toString(),
         },
     );
 
@@ -211,8 +205,8 @@ export async function publishInstagramImage(input: {
         `${graphBaseUrl()}/${encodeURIComponent(input.instagramUserId)}/media_publish`,
         {
             method: 'POST',
-            headers: authHeaders,
-            body: JSON.stringify({ creation_id: creationId }),
+            headers: formHeader,
+            body: new URLSearchParams({ creation_id: creationId }).toString(),
         },
     );
 
@@ -223,10 +217,7 @@ export async function publishInstagramImage(input: {
 
     const mediaInfo = await requestInstagram<InstagramMediaInfoResponse>(
         `${graphBaseUrl()}/${encodeURIComponent(mediaId)}?fields=id,permalink`,
-        {
-            method: 'GET',
-            headers: { 'Authorization': `Bearer ${input.accessToken}` },
-        },
+        { method: 'GET', headers: bearerHeader },
     ).catch(() => null);
 
     return {
