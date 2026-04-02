@@ -131,15 +131,12 @@ export async function refreshInstagramAccessToken(accessToken: string): Promise<
     accessToken: string;
     expiresInSeconds: number | null;
 } | null> {
-    const params = new URLSearchParams({
-        grant_type: 'ig_refresh_token',
-        access_token: accessToken,
-    });
-
+    // Instagram Login for Business usa el mismo endpoint de refresh que Basic Display API
     try {
-        const data = await requestInstagram<InstagramRefreshResponse>(`https://graph.instagram.com/refresh_access_token?${params.toString()}`, {
-            method: 'GET',
-        });
+        const data = await requestInstagram<InstagramRefreshResponse>(
+            `https://graph.instagram.com/refresh_access_token?grant_type=ig_refresh_token&access_token=${encodeURIComponent(accessToken)}`,
+            { method: 'GET' },
+        );
 
         return {
             accessToken: asString(data.access_token),
@@ -151,14 +148,13 @@ export async function refreshInstagramAccessToken(accessToken: string): Promise<
 }
 
 export async function getInstagramProfile(accessToken: string): Promise<InstagramProfile> {
-    const params = new URLSearchParams({
-        fields: 'user_id,username,name,profile_picture_url,account_type',
-        access_token: accessToken,
-    });
-
-    const data = await requestInstagram<InstagramProfileResponse>(`${graphBaseUrl()}/me?${params.toString()}`, {
-        method: 'GET',
-    });
+    const data = await requestInstagram<InstagramProfileResponse>(
+        `${graphBaseUrl()}/me?fields=user_id,username,name,profile_picture_url,account_type`,
+        {
+            method: 'GET',
+            headers: { 'Authorization': `Bearer ${accessToken}` },
+        },
+    );
 
     const instagramUserId = asString(data.user_id) || asString(data.id);
     const username = asString(data.username);
@@ -186,18 +182,24 @@ export async function publishInstagramImage(input: {
     mediaId: string;
     permalink: string | null;
 }> {
-    // Instagram Content Publishing API requiere parámetros como query string en la URL,
-    // no como form body. image_url en form body es ignorada por Meta (devuelve URI vacío).
-    const creationParams = new URLSearchParams({
-        image_url: input.imageUrl,
-        caption: input.caption,
-        media_type: 'IMAGE',
-        access_token: input.accessToken,
-    });
+    // Instagram Content Publishing API (2026): token en Authorization header,
+    // parámetros como JSON body. Esto evita problemas de encoding con access_token en query.
+    const authHeaders = {
+        'Authorization': `Bearer ${input.accessToken}`,
+        'Content-Type': 'application/json',
+    };
 
     const creation = await requestInstagram<InstagramMediaCreateResponse>(
-        `${graphBaseUrl()}/${encodeURIComponent(input.instagramUserId)}/media?${creationParams.toString()}`,
-        { method: 'POST' },
+        `${graphBaseUrl()}/${encodeURIComponent(input.instagramUserId)}/media`,
+        {
+            method: 'POST',
+            headers: authHeaders,
+            body: JSON.stringify({
+                image_url: input.imageUrl,
+                caption: input.caption,
+                media_type: 'IMAGE',
+            }),
+        },
     );
 
     const creationId = asString(creation.id);
@@ -205,14 +207,13 @@ export async function publishInstagramImage(input: {
         throw new Error('Instagram no devolvió un contenedor válido.');
     }
 
-    const publishParams = new URLSearchParams({
-        creation_id: creationId,
-        access_token: input.accessToken,
-    });
-
     const publish = await requestInstagram<InstagramMediaPublishResponse>(
-        `${graphBaseUrl()}/${encodeURIComponent(input.instagramUserId)}/media_publish?${publishParams.toString()}`,
-        { method: 'POST' },
+        `${graphBaseUrl()}/${encodeURIComponent(input.instagramUserId)}/media_publish`,
+        {
+            method: 'POST',
+            headers: authHeaders,
+            body: JSON.stringify({ creation_id: creationId }),
+        },
     );
 
     const mediaId = asString(publish.id);
@@ -220,12 +221,13 @@ export async function publishInstagramImage(input: {
         throw new Error('Instagram no devolvió el identificador del post publicado.');
     }
 
-    const mediaInfo = await requestInstagram<InstagramMediaInfoResponse>(`${graphBaseUrl()}/${encodeURIComponent(mediaId)}?${new URLSearchParams({
-        fields: 'id,permalink',
-        access_token: input.accessToken,
-    }).toString()}`, {
-        method: 'GET',
-    }).catch(() => null);
+    const mediaInfo = await requestInstagram<InstagramMediaInfoResponse>(
+        `${graphBaseUrl()}/${encodeURIComponent(mediaId)}?fields=id,permalink`,
+        {
+            method: 'GET',
+            headers: { 'Authorization': `Bearer ${input.accessToken}` },
+        },
+    ).catch(() => null);
 
     return {
         creationId,
