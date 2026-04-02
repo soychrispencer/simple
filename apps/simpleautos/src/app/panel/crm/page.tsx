@@ -340,7 +340,7 @@ export default function CRMPage() {
             }
             setListingItems((currentItems) => currentItems.map((item) => item.id === result.item!.id ? result.item! : item));
         } else {
-            const result = await updateCrmLead(leadId, { status: nextStatus });
+            const result = await updateCrmLead(leadId, 'autos', { status: nextStatus });
             if (!result.ok || !result.item) {
                 setUpdatingLeadId(null);
                 setDragLeadId(null);
@@ -410,7 +410,7 @@ export default function CRMPage() {
         setColumnSaving(true);
         setColumnError(null);
 
-        const result = await createCrmPipelineColumn({
+        const result = await createCrmPipelineColumn('autos', {
             name: newColumnName.trim(),
             status: newColumnStatus,
         });
@@ -433,7 +433,7 @@ export default function CRMPage() {
 
         setColumnSaving(true);
         setColumnError(null);
-        const result = await updateCrmPipelineColumn(columnId, {
+        const result = await updateCrmPipelineColumn(columnId, 'autos', {
             name: draft.name.trim(),
             status: draft.status,
         });
@@ -461,7 +461,7 @@ export default function CRMPage() {
 
         setColumnSaving(true);
         setColumnError(null);
-        const result = await reorderCrmPipelineColumns(nextColumns.map((column) => column.id));
+        const result = await reorderCrmPipelineColumns('autos', nextColumns.map((column) => column.id));
         setColumnSaving(false);
 
         if (!result.ok || !result.items) {
@@ -475,7 +475,7 @@ export default function CRMPage() {
     async function handleDeletePipelineColumn(columnId: string) {
         setColumnSaving(true);
         setColumnError(null);
-        const result = await deleteCrmPipelineColumn(columnId);
+        const result = await deleteCrmPipelineColumn(columnId, 'autos');
         setColumnSaving(false);
 
         if (!result.ok || !result.items) {
@@ -495,8 +495,8 @@ export default function CRMPage() {
 
         const targetHref = getLeadActionHref(lead, action);
         const result = 'listing' in lead
-            ? await runCrmListingLeadQuickAction(lead.id, action)
-            : await runCrmLeadQuickAction(lead.id, action);
+            ? await runCrmListingLeadQuickAction(lead.id, 'autos', action)
+            : await runCrmLeadQuickAction(lead.id, 'autos', action);
 
         if (targetHref) {
             openLeadActionHref(targetHref);
@@ -576,7 +576,7 @@ export default function CRMPage() {
             await refreshLeadDetail(selectedId);
             setPipelineColumnIdValue(resolveLeadPipelineColumnId(result.item, pipelineColumns));
         } else {
-            const result = await updateCrmLead(selectedId, {
+            const result = await updateCrmLead(selectedId, 'autos', {
                 ...payload,
                 assignedToUserId: assignment.assignedToUserId,
             });
@@ -600,7 +600,7 @@ export default function CRMPage() {
         setError(null);
 
         if (tab === 'publicaciones') {
-            const result = await addCrmListingLeadNote(selectedId, noteBody.trim());
+            const result = await addCrmListingLeadNote(selectedId, 'autos', noteBody.trim());
             setAddingNote(false);
             if (!result.ok || !result.item) {
                 setError(result.error || 'No pudimos guardar la nota.');
@@ -609,7 +609,7 @@ export default function CRMPage() {
             setListingItems((current) => current.map((item) => item.id === result.item!.id ? result.item! : item));
             await refreshLeadDetail(selectedId);
         } else {
-            const result = await addCrmLeadNote(selectedId, noteBody.trim());
+            const result = await addCrmLeadNote(selectedId, 'autos', noteBody.trim());
             setAddingNote(false);
             if (!result.ok || !result.item) {
                 setError(result.error || 'No pudimos guardar la nota.');
