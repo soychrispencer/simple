@@ -233,10 +233,10 @@ export default function InstagramIntegrationCard() {
                                 rows={5}
                                 value={captionTemplate}
                                 onChange={(event) => setCaptionTemplate(event.target.value)}
-                                placeholder="{{title}}\n{{price}}\n{{location}}\n\n{{summary}}\n\nDisponible en {{url}}"
+                                placeholder="🏠 {{title}}\n💰 {{price}}\n📍 {{location}}\n\n{{description}}\n\n🔗 Ver más: {{url}}\n\n#SimplePropiedades #PropiedadesChile"
                             />
                             <p className="mt-2 text-xs" style={{ color: 'var(--fg-muted)' }}>
-                                Variables disponibles: <code>{'{{title}}'}</code>, <code>{'{{price}}'}</code>, <code>{'{{location}}'}</code>, <code>{'{{summary}}'}</code>, <code>{'{{url}}'}</code>, <code>{'{{vertical}}'}</code>
+                                Variables disponibles: <code>{'{{title}}'}</code>, <code>{'{{price}}'}</code>, <code>{'{{location}}'}</code>, <code>{'{{description}}'}</code>, <code>{'{{summary}}'}</code>, <code>{'{{url}}'}</code>
                             </p>
                         </div>
 

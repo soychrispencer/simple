@@ -3384,9 +3384,12 @@ function getLatestInstagramPublicationForListing(userId: string, vertical: Verti
 
 function defaultInstagramCaptionTemplate(vertical: VerticalType): string {
     if (vertical === 'autos') {
-        return '{{title}}\n{{price}}\n{{location}}\n\n{{summary}}\n\nDisponible en {{url}}\n\n#SimpleAutos #AutosChile';
+        return '🚗 {{title}}\n💰 {{price}}\n📍 {{location}}\n\n{{description}}\n\n🔗 Ver más: {{url}}\n\n#SimpleAutos #AutosChile #Autos #VentaAutos';
     }
-    return '{{title}}\n{{price}}\n{{location}}\n\n{{summary}}\n\nDisponible en {{url}}\n\n#SimplePropiedades #PropiedadesChile';
+    if (vertical === 'propiedades') {
+        return '🏠 {{title}}\n💰 {{price}}\n📍 {{location}}\n\n{{description}}\n\n🔗 Ver más: {{url}}\n\n#SimplePropiedades #PropiedadesChile #Inmobiliaria';
+    }
+    return '{{title}}\n{{price}}\n{{location}}\n\n{{description}}\n\n{{url}}';
 }
 
 function buildInstagramCaption(listing: ListingRecord, publicUrl: string, template: string | null, override: string | null): string {
@@ -3398,6 +3401,7 @@ function buildInstagramCaption(listing: ListingRecord, publicUrl: string, templa
         .replaceAll('{{title}}', listing.title)
         .replaceAll('{{price}}', listing.price || 'Consultar precio')
         .replaceAll('{{location}}', listing.location || 'Chile')
+        .replaceAll('{{description}}', listing.description || '')
         .replaceAll('{{summary}}', summary)
         .replaceAll('{{url}}', publicUrl)
         .replaceAll('{{vertical}}', listing.vertical === 'autos' ? 'SimpleAutos' : 'SimplePropiedades')
@@ -3470,13 +3474,14 @@ async function prepareInstagramImageUrl(listing: ListingRecord): Promise<string>
         .jpeg({ quality: 90 })
         .toBuffer();
 
-    // Subir JPEG a Backblaze
+    // Subir JPEG a Backblaze con ACL pública para que Meta pueda descargarlo
     await client.send(new PutObjectCommand({
         Bucket: bucketName,
         Key: destKey,
-        Body: jpegBuffer,
+        Body: new Uint8Array(jpegBuffer),
         ContentType: 'image/jpeg',
         CacheControl: 'public, max-age=86400',
+        ACL: 'public-read',
     }));
 
     console.log('[instagram] imagen JPEG subida a Backblaze:', directUrl);
