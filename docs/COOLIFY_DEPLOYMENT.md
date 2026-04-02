@@ -1,202 +1,133 @@
-# Deployment a Coolify - Storage Provider Setup
+# Configuración de Variables de Entorno en Coolify
 
-## Pre-requisitos
+Para cada servicio ir a **Settings → Environment Variables** y pegar el bloque correspondiente.
+Los valores reales de cada secreto están en `services/api/.env` (local, gitignored).
 
-1. ✅ Cuenta de Backblaze B2 creada
-2. ✅ Bucket creado (e.g., `simple-media`)
-3. ✅ Application Key generado
-4. ✅ Tenencias a mano:
-   - `BACKBLAZE_APP_KEY_ID`
-   - `BACKBLAZE_APP_KEY`
-   - `BACKBLAZE_BUCKET_ID`
-   - `BACKBLAZE_BUCKET_NAME`
-   - `BACKBLAZE_DOWNLOAD_URL`
+> ⚠️ Las variables `NEXT_PUBLIC_*` se hornean en el build. Si las cambias debes hacer **Redeploy** (no solo Restart).
 
 ---
 
-## Pasos para Coolify
-
-### 1. **Acceder a Coolify**
-
-```bash
-# SSH a tu servidor donde corre Coolify
-ssh user@your-coolify-server.com
-```
-
-### 2. **Backend - services/api**
-
-Actualizar variables de entorno en Coolify:
-
-#### En Dashboard de Coolify:
-1. Navega a tu aplicación `@simple/api`
-2. Settings → Environment Variables
-3. Agrega las siguientes variables:
+## 1. API (`api.simpleplataforma.app`)
 
 ```env
-STORAGE_PROVIDER=backblaze-b2
-BACKBLAZE_APP_KEY_ID=your_key_id_here
-BACKBLAZE_APP_KEY=your_app_key_here
-BACKBLAZE_BUCKET_ID=your_bucket_id
+PORT=4000
+API_HOST=0.0.0.0
+API_BASE_URL=https://api.simpleplataforma.app
+
+DATABASE_URL=                        # ver .env local → DATABASE_URL
+
+CORS_ORIGINS=https://simpleautos.app,https://www.simpleautos.app,https://simplepropiedades.cl,https://www.simplepropiedades.cl,https://simpleplataforma.app,https://www.simpleplataforma.app,https://simpleagenda.app,https://www.simpleagenda.app,https://admin.simpleplataforma.app
+
+SESSION_SECRET=                      # ver .env local → SESSION_SECRET
+AUTH_COOKIE_SAMESITE=none
+
+GOOGLE_CLIENT_ID=                    # ver .env local → GOOGLE_CLIENT_ID
+GOOGLE_CLIENT_SECRET=                # ver .env local → GOOGLE_CLIENT_SECRET
+
+STORAGE_PROVIDER=backblaze-s3
+BACKBLAZE_S3_ENDPOINT=https://s3.us-east-005.backblazeb2.com
+BACKBLAZE_S3_REGION=us-east-5
+BACKBLAZE_S3_ACCESS_KEY=             # ver .env local → BACKBLAZE_S3_ACCESS_KEY
+BACKBLAZE_S3_SECRET_KEY=             # ver .env local → BACKBLAZE_S3_SECRET_KEY
 BACKBLAZE_BUCKET_NAME=simple-media
-BACKBLAZE_DOWNLOAD_URL=https://f123.backblazeb2.com
-```
+BACKBLAZE_DOWNLOAD_URL=              # ver .env local → BACKBLAZE_DOWNLOAD_URL
 
-#### ⚠️ IMPORTANTE
-- `BACKBLAZE_APP_KEY` debe estar entre comillas si contiene caracteres especiales
-- Los valores son case-sensitive
-- No agregar espacios después del `=`
+GOOGLE_MAPS_API_KEY=                 # ver .env local → GOOGLE_MAPS_API_KEY
 
-### 3. **Deploy**
+SMTP_HOST=smtp-relay.brevo.com
+SMTP_PORT=587
+SMTP_SECURE=false
+SMTP_USER=                           # ver .env local → SMTP_USER
+SMTP_PASSWORD=                       # ver .env local → SMTP_PASSWORD
+SMTP_FROM=Simple <noreply@simpleplataforma.app>
 
-Una vez agregadas las variables:
+MERCADO_PAGO_ACCESS_TOKEN=           # ver .env local → MERCADO_PAGO_ACCESS_TOKEN
+MERCADO_PAGO_PUBLIC_ORIGIN_AUTOS=https://simpleautos.app
+MERCADO_PAGO_PUBLIC_ORIGIN_PROPIEDADES=https://simplepropiedades.cl
 
-```bash
-# Option 1: Desde Coolify Dashboard
-# Haz click en "Redeploy" en tu aplicación
+MP_AGENDA_APP_ID=                    # ver .env local → MP_AGENDA_APP_ID
+MP_AGENDA_APP_SECRET=                # ver .env local → MP_AGENDA_APP_SECRET
+AGENDA_APP_URL=https://simpleagenda.app
 
-# Option 2: Desde CLI (si tienes acceso)
-cd services/api
-npm run build
-```
+WHATSAPP_ACCESS_TOKEN=               # ver .env local → WHATSAPP_ACCESS_TOKEN
+WHATSAPP_PHONE_NUMBER_ID=982048811666705
+WHATSAPP_PHONE_NUMBER_ID_AUTOS=982048811666705
+WHATSAPP_PHONE_NUMBER_ID_PROPIEDADES=982048811666705
+WHATSAPP_PHONE_NUMBER_ID_AGENDA=982048811666705
 
-### 4. **Verificar**
+INSTAGRAM_APP_ID=1220805133562499
+INSTAGRAM_APP_SECRET=                # ver .env local → INSTAGRAM_APP_SECRET
+INSTAGRAM_REDIRECT_URI=https://api.simpleplataforma.app/api/integrations/instagram/callback
 
-```bash
-# Ver logs (desde Coolify Dashboard o SSH)
-docker logs your-api-container-name
-
-# Buscar línea:
-# [simple-api] listening on http://0.0.0.0:4000
-
-# Si hay errores, deberías ver:
-# Error: Missing required Backblaze B2 environment variables
-```
-
-### 5. **Test del Endpoint**
-
-```bash
-# Desde tu máquina local
-curl -X POST https://your-api.coolify.io/api/media/upload \
-  -H "Authorization: Bearer YOUR_JWT_TOKEN" \
-  -F "file=@test-photo.jpg" \
-  -F "fileType=image"
-```
-
-**Respuesta esperada:**
-```json
-{
-  "ok": true,
-  "result": {
-    "fileId": "b2_...",
-    "url": "https://...",
-    "publicUrl": "https://...",
-    ...
-  }
-}
+ENABLE_ADMIN_BOOTSTRAP=false
 ```
 
 ---
 
-## Troubleshooting en Coolify
+## 2. SimpleAutos (`simpleautos.app`)
 
-### Error: "Missing required Backblaze B2 environment variables"
-
-✅ **Solución:**
-- Verificar que TODAS las variables estén definidas
-- Sin espacios extras
-- Sin comillas innecesarias
-- Hacer redeploy
-
-### Error: "Failed to authorize with B2"
-
-✅ **Soluciones:**
-- Verificar que `BACKBLAZE_APP_KEY_ID` y `BACKBLAZE_APP_KEY` sean correctos
-- Key puede tener vencimiento en B2 console
-- Generar nuevo Application Key si es necesario
-
-### Error: "Upload failed"
-
-✅ **Verificar:**
-- Bucket existe en B2
-- Bucket tiene permisos de escritura pública
-- Quota no está excedida en B2
-
----
-
-## Monitoreo Post-Deploy
-
-### 1. **Ver uploads en B2**
-
-Desde B2 Console:
-1. Selecciona el bucket
-2. **Browse Files**
-3. Deberías ver archivos con estructura: `{userId}/{listingId}/{timestamp}-{filename}`
-
-### 2. **Verificar URLs públicas**
-
-Una URL debe ser accesible:
-```
-https://yourbucket.backblazeb2.com/file/simple-media/userid/temp/1711814400000-photo.jpg
-```
-
-### 3. **Monitoreo de costos B2**
-
-En B2 Dashboard:
-- **Usage & Billing**
-- Ver bytes transferidos
-- Estimar costo mensual
-
----
-
-## Rollback (Si hay problemas)
-
-Si algo falla y necesitas volver atrás:
-
-```bash
-# git reset al commit anterior
-git reset --hard 7e82e45
-
-# Remover las variables de entorno del API en Coolify
-# (dejar STORAGE_PROVIDER vacío o comentado)
-
-# Redeploy
+```env
+NEXT_PUBLIC_API_URL=https://api.simpleplataforma.app
+NEXT_PUBLIC_APP_URL=https://simpleautos.app
+GOOGLE_AI_API_KEY=                   # ver .env local de simpleautos → GOOGLE_AI_API_KEY
 ```
 
 ---
 
-## Próximas Fases
+## 3. SimplePropiedades (`simplepropiedades.cl`)
 
-### Fase 1 (ACTUAL): ✅ Done
-- Storage infrastructure lista
-- API endpoint funciona
-
-### Fase 2 (NEXT): Integración con UI
-- Modificar `PanelMediaUploader` para usar uploads
-- Cambiar flujo de publicación
-- (~2-3 horas)
-
-### Fase 3 (DESPUÉS): Optimizaciones
-- CDN edge caching
-- Transformación de imágenes
-- Versioning de archivos
+```env
+NEXT_PUBLIC_API_URL=https://api.simpleplataforma.app
+NEXT_PUBLIC_APP_URL=https://simplepropiedades.cl
+```
 
 ---
 
-## Documentación de Referencia
+## 4. SimpleAdmin (`admin.simpleplataforma.app`)
 
-- B2 API Docs: https://www.backblaze.com/b2/docs/
-- Coolify Docs: https://coolify.io/
-- Tu repositorio: `docs/STORAGE_SETUP.md`
+```env
+NEXT_PUBLIC_API_URL=https://api.simpleplataforma.app
+NEXT_PUBLIC_APP_URL=https://admin.simpleplataforma.app
+```
 
 ---
 
-## Duración Estimada
+## 5. SimpleAgenda (`simpleagenda.app`)
 
-| Tarea | Tiempo |
-|-------|--------|
-| Configurar vars en Coolify | 5 min |
-| Redeploy | 2-5 min |
-| Verificar | 5 min |
-| **Total** | **<15 min** |
+```env
+NEXT_PUBLIC_API_URL=https://api.simpleplataforma.app
+NEXT_PUBLIC_APP_URL=https://simpleagenda.app
+```
 
-🚀 **¡Listo para producción!**
+---
+
+## 6. SimplePlataforma (`simpleplataforma.app`)
+
+```env
+NEXT_PUBLIC_API_URL=https://api.simpleplataforma.app
+NEXT_PUBLIC_APP_URL=https://simpleplataforma.app
+```
+
+---
+
+## Diferencias clave local vs producción
+
+| Variable | Local | Producción |
+|---|---|---|
+| `API_BASE_URL` | `http://localhost:4000` | `https://api.simpleplataforma.app` |
+| `AUTH_COOKIE_SAMESITE` | `lax` | `none` |
+| `MERCADO_PAGO_PUBLIC_ORIGIN_AUTOS` | `http://localhost:3000` | `https://simpleautos.app` |
+| `MERCADO_PAGO_PUBLIC_ORIGIN_PROPIEDADES` | `http://localhost:3001` | `https://simplepropiedades.cl` |
+| `AGENDA_APP_URL` | `http://localhost:3004` | `https://simpleagenda.app` |
+| `ENABLE_ADMIN_BOOTSTRAP` | `true` | `false` |
+
+---
+
+## Checklist post-configuración
+
+- [ ] API: redeploy después de agregar/cambiar variables
+- [ ] Cada app frontend: redeploy completo (no restart) si cambias `NEXT_PUBLIC_*`
+- [ ] Verificar `https://api.simpleplataforma.app/health` responde 200
+- [ ] Verificar login con Google en cada app
+- [ ] Verificar subida de imágenes (Backblaze)
+- [ ] Verificar flujo OAuth de Instagram en panel de un usuario Pro
