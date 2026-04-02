@@ -3338,7 +3338,7 @@ async function disconnectInstagramAccount(userId: string, vertical: VerticalType
     await db.delete(instagramAccounts).where(eq(instagramAccounts.id, existing.id));
     instagramAccountByUserVertical.delete(instagramAccountKey(userId, vertical));
     // Limpiar también las publicaciones del cache en memoria
-    instagramPublicationsByUserVertical.delete(instagramAccountKey(userId, vertical));
+    instagramPublicationsByUser.delete(userId);
 }
 
 async function createInstagramPublicationRecord(input: {
