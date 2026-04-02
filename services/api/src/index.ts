@@ -24,7 +24,7 @@ for (const candidate of [
 import { serve } from '@hono/node-server';
 import { Hono } from 'hono';
 import type { Context } from 'hono';
-import { GetObjectCommand, S3Client } from '@aws-sdk/client-s3';
+import { GetObjectCommand, PutObjectCommand, S3Client } from '@aws-sdk/client-s3';
 
 // Safety Polyfill for 'File' in Node.js environment
 if (typeof global !== 'undefined' && typeof (global as any).File === 'undefined') {
@@ -3431,10 +3431,56 @@ function buildListingPublicUrlForInstagram(listing: ListingRecord): string {
     return new URL(listing.href || listingDefaultHref(listing.vertical, listing.id), baseOrigin).toString();
 }
 
-function buildListingInstagramImageUrl(listing: ListingRecord): string {
-    const baseOrigin = getInstagramBasePublicOrigin();
-    // URL sin query params — Meta falla al parsear URLs con parámetros anidados
-    return new URL(`/api/public/instagram-image/${encodeURIComponent(listing.id)}`, baseOrigin).toString();
+// Prepara una imagen JPEG en Backblaze para Instagram.
+// Descarga la imagen original (WebP/etc), la convierte a JPEG y la sube al CDN.
+// Retorna la URL directa de Backblaze que Meta puede descargar sin pasar por nuestro API.
+async function prepareInstagramImageUrl(listing: ListingRecord): Promise<string> {
+    const [rawUrl] = extractListingMediaUrls(listing);
+    if (!rawUrl) throw new Error('La publicación no tiene imágenes.');
+
+    const bucketName = process.env.BACKBLAZE_BUCKET_NAME || 'simple-media';
+    const downloadUrl = process.env.BACKBLAZE_DOWNLOAD_URL || 'https://f005.backblazeb2.com';
+
+    // Clave de destino en Backblaze para la imagen JPEG de Instagram
+    const destKey = `instagram-ready/${listing.id}.jpg`;
+    const directUrl = `${downloadUrl}/file/${bucketName}/${destKey}`;
+
+    const client = getMediaProxyS3Client();
+    if (!client) {
+        throw new Error('Storage no configurado.');
+    }
+
+    // Descargar la imagen original desde Backblaze S3
+    const sourceKey = extractBackblazeObjectKey(rawUrl) || rawUrl.replace(/^https?:\/\/[^/]+\/file\/[^/]+\//, '');
+    let rawBuffer: Buffer;
+    try {
+        const obj = await client.send(new GetObjectCommand({ Bucket: bucketName, Key: sourceKey }));
+        rawBuffer = obj.Body ? Buffer.from(await obj.Body.transformToByteArray()) : Buffer.alloc(0);
+    } catch {
+        // Fallback: descargar via HTTP si S3 falla (ej. URL proxy)
+        const resp = await fetch(rawUrl);
+        rawBuffer = Buffer.from(await resp.arrayBuffer());
+    }
+
+    // Convertir a JPEG (Instagram solo acepta JPEG/PNG, rechaza WebP)
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    const sharp = require('sharp') as typeof import('sharp');
+    const jpegBuffer = await sharp(rawBuffer)
+        .resize({ width: 1080, withoutEnlargement: true })
+        .jpeg({ quality: 90 })
+        .toBuffer();
+
+    // Subir JPEG a Backblaze
+    await client.send(new PutObjectCommand({
+        Bucket: bucketName,
+        Key: destKey,
+        Body: jpegBuffer,
+        ContentType: 'image/jpeg',
+        CacheControl: 'public, max-age=86400',
+    }));
+
+    console.log('[instagram] imagen JPEG subida a Backblaze:', directUrl);
+    return directUrl;
 }
 
 async function refreshInstagramAccountIfNeeded(account: InstagramAccountRecord): Promise<InstagramAccountRecord> {
@@ -3475,7 +3521,8 @@ async function publishListingToInstagram(user: AppUser, listing: ListingRecord, 
 
     const refreshedAccount = await refreshInstagramAccountIfNeeded(account);
     const publicUrl = buildListingPublicUrlForInstagram(listing);
-    const imageUrl = buildListingInstagramImageUrl(listing);
+    // Subir JPEG directo a Backblaze — Meta descarga desde CDN sin pasar por nuestro API
+    const imageUrl = await prepareInstagramImageUrl(listing);
     const caption = buildInstagramCaption(listing, publicUrl, refreshedAccount.captionTemplate, options.captionOverride ?? null);
     console.log('[instagram] publishing listing', listing.id, 'imageUrl:', imageUrl);
 
