@@ -203,21 +203,21 @@ export async function publishInstagramImage(input: {
     mediaId: string;
     permalink: string | null;
 }> {
-    // Meta Graph API requiere form-urlencoded (no JSON). Token en Authorization header.
-    const bearerHeader = { 'Authorization': `Bearer ${input.accessToken}` };
-    const formHeader = { ...bearerHeader, 'Content-Type': 'application/x-www-form-urlencoded' };
+    // Meta Graph API: todos los parámetros como query string en la URL.
+    // access_token también como query param — es el método más compatible con Graph API.
+    const tok = encodeURIComponent(input.accessToken);
+
+    const creationUrl = `${graphBaseUrl()}/${encodeURIComponent(input.instagramUserId)}/media`
+        + `?access_token=${tok}`
+        + `&image_url=${encodeURIComponent(input.imageUrl)}`
+        + `&caption=${encodeURIComponent(input.caption)}`
+        + `&media_type=IMAGE`;
+
+    console.log('[instagram] media create url (sin token):', creationUrl.replace(tok, 'REDACTED'));
 
     const creation = await requestInstagram<InstagramMediaCreateResponse>(
-        `${graphBaseUrl()}/${encodeURIComponent(input.instagramUserId)}/media`,
-        {
-            method: 'POST',
-            headers: formHeader,
-            body: new URLSearchParams({
-                image_url: input.imageUrl,
-                caption: input.caption,
-                media_type: 'IMAGE',
-            }).toString(),
-        },
+        creationUrl,
+        { method: 'POST' },
     );
 
     const creationId = asString(creation.id);
@@ -225,13 +225,13 @@ export async function publishInstagramImage(input: {
         throw new Error('Instagram no devolvió un contenedor válido.');
     }
 
+    const publishUrl = `${graphBaseUrl()}/${encodeURIComponent(input.instagramUserId)}/media_publish`
+        + `?access_token=${tok}`
+        + `&creation_id=${encodeURIComponent(creationId)}`;
+
     const publish = await requestInstagram<InstagramMediaPublishResponse>(
-        `${graphBaseUrl()}/${encodeURIComponent(input.instagramUserId)}/media_publish`,
-        {
-            method: 'POST',
-            headers: formHeader,
-            body: new URLSearchParams({ creation_id: creationId }).toString(),
-        },
+        publishUrl,
+        { method: 'POST' },
     );
 
     const mediaId = asString(publish.id);
@@ -240,8 +240,8 @@ export async function publishInstagramImage(input: {
     }
 
     const mediaInfo = await requestInstagram<InstagramMediaInfoResponse>(
-        `${graphBaseUrl()}/${encodeURIComponent(mediaId)}?fields=id,permalink`,
-        { method: 'GET', headers: bearerHeader },
+        `${graphBaseUrl()}/${encodeURIComponent(mediaId)}?fields=id,permalink&access_token=${tok}`,
+        { method: 'GET' },
     ).catch(() => null);
 
     return {
