@@ -60,8 +60,9 @@ export default function StepSuccess({ listingId, listingHref, listingTitle, onPu
     }
 
     const igLoading = igStatus === 'loading';
-    const igEligible = igStatus !== 'loading' && igStatus !== null && igStatus.eligible;
-    const igConnected = igEligible && igStatus !== 'loading' && igStatus !== null && igStatus.account?.status === 'connected';
+    const igStatusResolved = igStatus !== 'loading' && igStatus !== null ? igStatus : null;
+    const igEligible = igStatusResolved !== null && igStatusResolved.eligible;
+    const igConnected = igStatusResolved !== null && igStatusResolved.eligible && igStatusResolved.account?.status === 'connected';
 
     return (
         <div className="flex flex-col gap-5 py-2">
