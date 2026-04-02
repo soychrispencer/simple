@@ -11929,14 +11929,14 @@ app.get('/api/public/instagram-image/:id', async (c) => {
             return c.json({ ok: false, error: 'No se pudo obtener la imagen.' }, 502);
         }
         const contentType = upstream.headers.get('content-type') || 'image/jpeg';
-        const rawBuffer = Buffer.from(await upstream.arrayBuffer());
+        const rawArrayBuffer = await upstream.arrayBuffer();
 
         const needsConversion = contentType.includes('webp') || contentType.includes('avif') || contentType.includes('gif');
         if (needsConversion) {
             // eslint-disable-next-line @typescript-eslint/no-var-requires
             const sharp = require('sharp') as typeof import('sharp');
-            const jpegBuffer = await sharp(rawBuffer).jpeg({ quality: 90 }).toBuffer();
-            return new Response(jpegBuffer, {
+            const jpegBuffer = await sharp(Buffer.from(rawArrayBuffer)).jpeg({ quality: 90 }).toBuffer();
+            return new Response(new Uint8Array(jpegBuffer), {
                 status: 200,
                 headers: {
                     'Content-Type': 'image/jpeg',
@@ -11945,7 +11945,7 @@ app.get('/api/public/instagram-image/:id', async (c) => {
             });
         }
 
-        return new Response(rawBuffer, {
+        return new Response(rawArrayBuffer, {
             status: 200,
             headers: {
                 'Content-Type': contentType,
