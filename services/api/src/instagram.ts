@@ -186,37 +186,34 @@ export async function publishInstagramImage(input: {
     mediaId: string;
     permalink: string | null;
 }> {
-    const creationPayload = new URLSearchParams({
+    // Instagram Content Publishing API requiere parámetros como query string en la URL,
+    // no como form body. image_url en form body es ignorada por Meta (devuelve URI vacío).
+    const creationParams = new URLSearchParams({
         image_url: input.imageUrl,
         caption: input.caption,
+        media_type: 'IMAGE',
         access_token: input.accessToken,
     });
 
-    const creation = await requestInstagram<InstagramMediaCreateResponse>(`${graphBaseUrl()}/${encodeURIComponent(input.instagramUserId)}/media`, {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/x-www-form-urlencoded',
-        },
-        body: creationPayload.toString(),
-    });
+    const creation = await requestInstagram<InstagramMediaCreateResponse>(
+        `${graphBaseUrl()}/${encodeURIComponent(input.instagramUserId)}/media?${creationParams.toString()}`,
+        { method: 'POST' },
+    );
 
     const creationId = asString(creation.id);
     if (!creationId) {
         throw new Error('Instagram no devolvió un contenedor válido.');
     }
 
-    const publishPayload = new URLSearchParams({
+    const publishParams = new URLSearchParams({
         creation_id: creationId,
         access_token: input.accessToken,
     });
 
-    const publish = await requestInstagram<InstagramMediaPublishResponse>(`${graphBaseUrl()}/${encodeURIComponent(input.instagramUserId)}/media_publish`, {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/x-www-form-urlencoded',
-        },
-        body: publishPayload.toString(),
-    });
+    const publish = await requestInstagram<InstagramMediaPublishResponse>(
+        `${graphBaseUrl()}/${encodeURIComponent(input.instagramUserId)}/media_publish?${publishParams.toString()}`,
+        { method: 'POST' },
+    );
 
     const mediaId = asString(publish.id);
     if (!mediaId) {
