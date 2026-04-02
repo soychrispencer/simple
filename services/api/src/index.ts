@@ -3433,10 +3433,8 @@ function buildListingPublicUrlForInstagram(listing: ListingRecord): string {
 
 function buildListingInstagramImageUrl(listing: ListingRecord): string {
     const baseOrigin = getInstagramBasePublicOrigin();
-    const url = new URL(`/api/public/instagram-image/${encodeURIComponent(listing.id)}`, baseOrigin);
-    url.searchParams.set('vertical', listing.vertical);
-    url.searchParams.set('v', String(listing.updatedAt));
-    return url.toString();
+    // URL sin query params — Meta falla al parsear URLs con parámetros anidados
+    return new URL(`/api/public/instagram-image/${encodeURIComponent(listing.id)}`, baseOrigin).toString();
 }
 
 async function refreshInstagramAccountIfNeeded(account: InstagramAccountRecord): Promise<InstagramAccountRecord> {
@@ -11885,10 +11883,10 @@ app.post('/api/integrations/instagram/publish', async (c) => {
 });
 
 app.get('/api/public/instagram-image/:id', async (c) => {
-    const vertical = parseVertical(c.req.query('vertical'));
+    // Sin query params — la URL debe ser simple para que Meta la parsee correctamente
     const listingId = c.req.param('id') ?? '';
     const listing = listingsById.get(listingId) ?? await getListingById(listingId);
-    if (!listing || listing.vertical !== vertical || listing.status !== 'active') {
+    if (!listing || listing.status !== 'active') {
         return c.json({ ok: false, error: 'Imagen no disponible.' }, 404);
     }
 
