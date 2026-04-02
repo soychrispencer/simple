@@ -14376,7 +14376,7 @@ const hostname = process.env.API_HOST ?? '0.0.0.0';
 primeValuationFeedState();
 void refreshValuationFeeds();
 
-// Run DB migrations then preload data
+// Run DB migrations, preload data, then start the HTTP server
 (async () => {
     try {
         const migrationsFolder = path.resolve(__dirname, '../drizzle');
@@ -14390,15 +14390,14 @@ void refreshValuationFeeds();
     } catch (error) {
         console.error('[simple-api] failed to preload DB data', error);
     }
+    serve(
+        {
+            fetch: app.fetch,
+            hostname,
+            port,
+        },
+        (info) => {
+            console.log(`[simple-api] listening on http://${hostname}:${info.port}`);
+        }
+    );
 })();
-
-serve(
-    {
-        fetch: app.fetch,
-        hostname,
-        port,
-    },
-    (info) => {
-        console.log(`[simple-api] listening on http://${hostname}:${info.port}`);
-    }
-);
