@@ -14455,16 +14455,20 @@ async function bootstrapMissingTables() {
     await db.execute(sql`
         CREATE INDEX IF NOT EXISTS address_book_user_id_idx ON address_book(user_id)
     `);
-    // agenda payment method columns (migration 0023)
-    await db.execute(sql`
-        ALTER TABLE agenda_professional_profiles
-            ADD COLUMN IF NOT EXISTS mp_access_token text,
-            ADD COLUMN IF NOT EXISTS mp_public_key varchar(255),
-            ADD COLUMN IF NOT EXISTS mp_user_id varchar(100),
-            ADD COLUMN IF NOT EXISTS mp_refresh_token text,
-            ADD COLUMN IF NOT EXISTS payment_link_url varchar(500),
-            ADD COLUMN IF NOT EXISTS bank_transfer_data jsonb
-    `);
+    // agenda payment method columns (migration 0023) — tabla solo existe si SimpleAgenda está deployada
+    try {
+        await db.execute(sql`
+            ALTER TABLE agenda_professional_profiles
+                ADD COLUMN IF NOT EXISTS mp_access_token text,
+                ADD COLUMN IF NOT EXISTS mp_public_key varchar(255),
+                ADD COLUMN IF NOT EXISTS mp_user_id varchar(100),
+                ADD COLUMN IF NOT EXISTS mp_refresh_token text,
+                ADD COLUMN IF NOT EXISTS payment_link_url varchar(500),
+                ADD COLUMN IF NOT EXISTS bank_transfer_data jsonb
+        `);
+    } catch {
+        // agenda_professional_profiles puede no existir en entornos sin SimpleAgenda
+    }
 }
 
 // Run DB migrations, preload data, then start the HTTP server
