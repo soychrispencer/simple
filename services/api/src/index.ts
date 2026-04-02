@@ -3455,7 +3455,7 @@ async function publishListingToInstagram(user: AppUser, listing: ListingRecord, 
     auto?: boolean;
 } = {}) {
     const account = getInstagramAccount(user.id, listing.vertical);
-    if (!account || account.status !== 'connected') {
+    if (!account || account.status === 'disconnected') {
         throw new Error('Primero conecta una cuenta de Instagram.');
     }
     if (!userCanUseInstagram(user, listing.vertical)) {
