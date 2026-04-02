@@ -243,6 +243,7 @@ async function requestInstagram<T>(url: string, init: RequestInit): Promise<T> {
 
     if (!response.ok) {
         const errorObject = payload && typeof payload === 'object' ? payload as Record<string, unknown> : {};
+        console.error('[instagram] API error payload:', JSON.stringify(errorObject));
         const nestedError = errorObject.error && typeof errorObject.error === 'object'
             ? errorObject.error as Record<string, unknown>
             : null;
