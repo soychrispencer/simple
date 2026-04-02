@@ -3474,6 +3474,7 @@ async function publishListingToInstagram(user: AppUser, listing: ListingRecord, 
     const publicUrl = buildListingPublicUrlForInstagram(listing);
     const imageUrl = buildListingInstagramImageUrl(listing);
     const caption = buildInstagramCaption(listing, publicUrl, refreshedAccount.captionTemplate, options.captionOverride ?? null);
+    console.log('[instagram] publishing listing', listing.id, 'imageUrl:', imageUrl);
 
     try {
         const published = await publishInstagramImage({
@@ -11865,6 +11866,7 @@ app.post('/api/integrations/instagram/publish', async (c) => {
         return c.json({ ok: true, publication });
     } catch (error) {
         const message = error instanceof Error ? error.message : 'No se pudo publicar en Instagram.';
+        console.error('[instagram] publish error:', message);
         const status = message.includes('Pro y Empresa')
             ? 403
             : message.includes('conecta una cuenta')
