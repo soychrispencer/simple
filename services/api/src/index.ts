@@ -60,6 +60,7 @@ import {
     refreshInstagramAccessToken,
 } from './instagram.js';
 import { db } from './db/index.js';
+import { migrate } from 'drizzle-orm/postgres-js/migrator';
 import { eq, and, or, desc, asc, gt, lt, gte, lte, isNull, sql } from 'drizzle-orm';
 import {
     users,
@@ -14375,8 +14376,15 @@ const hostname = process.env.API_HOST ?? '0.0.0.0';
 primeValuationFeedState();
 void refreshValuationFeeds();
 
-// Load data from DB into Maps on startup
+// Run DB migrations then preload data
 (async () => {
+    try {
+        const migrationsFolder = path.resolve(__dirname, '../drizzle');
+        await migrate(db, { migrationsFolder });
+        console.log('[simple-api] DB migrations applied');
+    } catch (error) {
+        console.error('[simple-api] DB migration failed', error);
+    }
     try {
         await loadDataFromDB();
     } catch (error) {

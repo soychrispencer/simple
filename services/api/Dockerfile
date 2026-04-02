@@ -31,4 +31,4 @@ ENV NODE_ENV=production
 
 EXPOSE 4000
 
-CMD ["sh", "-c", "npm run db:migrate --workspace=@simple/api && npm run start --workspace=@simple/api"]
+CMD ["npm", "run", "start", "--workspace=@simple/api"]
