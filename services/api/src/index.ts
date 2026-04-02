@@ -14407,6 +14407,16 @@ async function bootstrapMissingTables() {
         CREATE UNIQUE INDEX IF NOT EXISTS instagram_accounts_user_vertical_idx
         ON instagram_accounts(user_id, vertical)
     `);
+    // profile_picture_url era varchar(500) pero URLs de CDN de Instagram superan ese límite
+    await db.execute(sql`
+        ALTER TABLE instagram_accounts
+            ALTER COLUMN profile_picture_url TYPE text
+    `);
+    // instagram_permalink también puede superar varchar(500)
+    await db.execute(sql`
+        ALTER TABLE instagram_publications
+            ALTER COLUMN instagram_permalink TYPE text
+    `);
     // instagram_publications (migration 0003)
     await db.execute(sql`
         CREATE TABLE IF NOT EXISTS instagram_publications (

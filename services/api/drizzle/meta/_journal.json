@@ -176,6 +176,13 @@
       "when": 1743379200000,
       "tag": "0024_address_book",
       "breakpoints": true
+    },
+    {
+      "idx": 25,
+      "version": "7",
+      "when": 1743465600000,
+      "tag": "0025_instagram_url_text",
+      "breakpoints": true
     }
   ]
 }
