@@ -53,6 +53,7 @@ import {
 import {
     buildInstagramAuthorizationUrl,
     exchangeInstagramCode,
+    exchangeToLongLivedToken,
     getInstagramProfile,
     getInstagramPublicApiOrigin,
     isInstagramConfigured,
@@ -3332,8 +3333,12 @@ async function updateInstagramAccountSettings(
 async function disconnectInstagramAccount(userId: string, vertical: VerticalType): Promise<void> {
     const existing = getInstagramAccount(userId, vertical);
     if (!existing) return;
+    // Borrar publicaciones primero para evitar FK constraint
+    await db.delete(instagramPublications).where(eq(instagramPublications.instagramAccountId, existing.id));
     await db.delete(instagramAccounts).where(eq(instagramAccounts.id, existing.id));
     instagramAccountByUserVertical.delete(instagramAccountKey(userId, vertical));
+    // Limpiar también las publicaciones del cache en memoria
+    instagramPublicationsByUserVertical.delete(instagramAccountKey(userId, vertical));
 }
 
 async function createInstagramPublicationRecord(input: {
@@ -11774,10 +11779,11 @@ app.get('/api/integrations/instagram/callback', async (c) => {
         let accessToken = exchanged.accessToken;
         let tokenExpiresAt = exchanged.expiresInSeconds ? Date.now() + exchanged.expiresInSeconds * 1000 : null;
 
-        const refreshed = await refreshInstagramAccessToken(accessToken);
-        if (refreshed?.accessToken) {
-            accessToken = refreshed.accessToken;
-            tokenExpiresAt = refreshed.expiresInSeconds ? Date.now() + refreshed.expiresInSeconds * 1000 : tokenExpiresAt;
+        // Convertir short-lived token (1h) → long-lived token (60 días)
+        const longLived = await exchangeToLongLivedToken(accessToken);
+        if (longLived?.accessToken) {
+            accessToken = longLived.accessToken;
+            tokenExpiresAt = longLived.expiresInSeconds ? Date.now() + longLived.expiresInSeconds * 1000 : tokenExpiresAt;
         }
 
         const profile = await getInstagramProfile(accessToken);

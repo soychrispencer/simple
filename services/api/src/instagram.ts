@@ -127,17 +127,41 @@ export async function exchangeInstagramCode(code: string): Promise<{
     };
 }
 
+// Convierte short-lived token (1h) → long-lived token (60 días).
+// Debe llamarse INMEDIATAMENTE después del code exchange, antes de guardar.
+export async function exchangeToLongLivedToken(shortLivedToken: string): Promise<{
+    accessToken: string;
+    expiresInSeconds: number | null;
+} | null> {
+    try {
+        const params = new URLSearchParams({
+            grant_type: 'ig_exchange_token',
+            client_secret: getInstagramAppSecret(),
+            access_token: shortLivedToken,
+        });
+        const data = await requestInstagram<InstagramRefreshResponse>(
+            `https://graph.instagram.com/access_token?${params.toString()}`,
+            { method: 'GET' },
+        );
+        return {
+            accessToken: asString(data.access_token),
+            expiresInSeconds: typeof data.expires_in === 'number' ? data.expires_in : null,
+        };
+    } catch {
+        return null;
+    }
+}
+
+// Renueva un token long-lived antes de que expire (cada ~55 días).
 export async function refreshInstagramAccessToken(accessToken: string): Promise<{
     accessToken: string;
     expiresInSeconds: number | null;
 } | null> {
-    // Instagram Login for Business usa el mismo endpoint de refresh que Basic Display API
     try {
         const data = await requestInstagram<InstagramRefreshResponse>(
             `https://graph.instagram.com/refresh_access_token?grant_type=ig_refresh_token&access_token=${encodeURIComponent(accessToken)}`,
             { method: 'GET' },
         );
-
         return {
             accessToken: asString(data.access_token),
             expiresInSeconds: typeof data.expires_in === 'number' ? data.expires_in : null,
