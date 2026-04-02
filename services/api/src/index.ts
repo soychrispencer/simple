@@ -11921,15 +11921,31 @@ app.get('/api/public/instagram-image/:id', async (c) => {
         }
     }
 
-    // Proxy de la imagen — Instagram no sigue redirects, necesita bytes directos
+    // Proxy de la imagen — Instagram no sigue redirects, necesita bytes directos.
+    // Instagram solo acepta JPEG y PNG — convertimos WebP y otros formatos a JPEG.
     try {
         const upstream = await fetch(resolvedUrl);
         if (!upstream.ok) {
             return c.json({ ok: false, error: 'No se pudo obtener la imagen.' }, 502);
         }
         const contentType = upstream.headers.get('content-type') || 'image/jpeg';
-        const buffer = await upstream.arrayBuffer();
-        return new Response(buffer, {
+        const rawBuffer = Buffer.from(await upstream.arrayBuffer());
+
+        const needsConversion = contentType.includes('webp') || contentType.includes('avif') || contentType.includes('gif');
+        if (needsConversion) {
+            // eslint-disable-next-line @typescript-eslint/no-var-requires
+            const sharp = require('sharp') as typeof import('sharp');
+            const jpegBuffer = await sharp(rawBuffer).jpeg({ quality: 90 }).toBuffer();
+            return new Response(jpegBuffer, {
+                status: 200,
+                headers: {
+                    'Content-Type': 'image/jpeg',
+                    'Cache-Control': 'public, max-age=3600',
+                },
+            });
+        }
+
+        return new Response(rawBuffer, {
             status: 200,
             headers: {
                 'Content-Type': contentType,
