@@ -3428,7 +3428,7 @@ function buildListingPublicUrlForInstagram(listing: ListingRecord): string {
 
 function buildListingInstagramImageUrl(listing: ListingRecord): string {
     const baseOrigin = getInstagramBasePublicOrigin();
-    const url = new URL(`/api/integrations/instagram/listing-image/${encodeURIComponent(listing.id)}`, baseOrigin);
+    const url = new URL(`/api/public/instagram-image/${encodeURIComponent(listing.id)}`, baseOrigin);
     url.searchParams.set('vertical', listing.vertical);
     url.searchParams.set('v', String(listing.updatedAt));
     return url.toString();
@@ -11876,7 +11876,7 @@ app.post('/api/integrations/instagram/publish', async (c) => {
     }
 });
 
-app.get('/api/integrations/instagram/listing-image/:id', async (c) => {
+app.get('/api/public/instagram-image/:id', async (c) => {
     const vertical = parseVertical(c.req.query('vertical'));
     const listingId = c.req.param('id') ?? '';
     const listing = listingsById.get(listingId) ?? await getListingById(listingId);
@@ -11907,14 +11907,35 @@ app.get('/api/integrations/instagram/listing-image/:id', async (c) => {
         });
     }
 
+    // Resolvemos la URL absoluta de la imagen
+    let resolvedUrl: string;
     if (/^https?:\/\//i.test(image)) {
-        return c.redirect(image);
+        resolvedUrl = image;
+    } else {
+        try {
+            resolvedUrl = new URL(image, getInstagramBasePublicOrigin()).toString();
+        } catch {
+            return c.json({ ok: false, error: 'No pudimos resolver la imagen pública.' }, 404);
+        }
     }
 
+    // Proxy de la imagen — Instagram no sigue redirects, necesita bytes directos
     try {
-        return c.redirect(new URL(image, getInstagramBasePublicOrigin()).toString());
+        const upstream = await fetch(resolvedUrl);
+        if (!upstream.ok) {
+            return c.json({ ok: false, error: 'No se pudo obtener la imagen.' }, 502);
+        }
+        const contentType = upstream.headers.get('content-type') || 'image/jpeg';
+        const buffer = await upstream.arrayBuffer();
+        return new Response(buffer, {
+            status: 200,
+            headers: {
+                'Content-Type': contentType,
+                'Cache-Control': 'public, max-age=3600',
+            },
+        });
     } catch {
-        return c.json({ ok: false, error: 'No pudimos resolver la imagen pública.' }, 404);
+        return c.json({ ok: false, error: 'Error al descargar la imagen.' }, 502);
     }
 });
 
