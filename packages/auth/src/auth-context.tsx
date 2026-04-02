@@ -71,7 +71,8 @@ async function authRequest(path: string, init?: RequestInit): Promise<{ status: 
         
         return { status: response.status, data };
     } catch (error) {
-        console.error('[AUTH] Fetch error:', { path, error });
+        const message = error instanceof Error ? error.message : String(error);
+        console.error('[AUTH] Fetch error:', path, message);
         return { status: 0, data: null };
     }
 }
