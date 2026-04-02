@@ -14376,8 +14376,105 @@ const hostname = process.env.API_HOST ?? '0.0.0.0';
 primeValuationFeedState();
 void refreshValuationFeeds();
 
+// Ensure critical tables exist regardless of migration system state.
+// Uses IF NOT EXISTS so it's safe to run on every startup.
+async function bootstrapMissingTables() {
+    // instagram_accounts (migration 0003)
+    await db.execute(sql`
+        CREATE TABLE IF NOT EXISTS instagram_accounts (
+            id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+            user_id uuid NOT NULL REFERENCES users(id),
+            vertical varchar(20) NOT NULL,
+            instagram_user_id varchar(255) NOT NULL,
+            username varchar(255) NOT NULL,
+            display_name varchar(255),
+            account_type varchar(50),
+            profile_picture_url varchar(500),
+            access_token text NOT NULL,
+            token_expires_at timestamp,
+            scopes jsonb,
+            auto_publish_enabled boolean NOT NULL DEFAULT false,
+            caption_template text,
+            status varchar(20) NOT NULL DEFAULT 'connected',
+            last_synced_at timestamp,
+            last_published_at timestamp,
+            last_error text,
+            created_at timestamp NOT NULL DEFAULT now(),
+            updated_at timestamp NOT NULL DEFAULT now()
+        )
+    `);
+    await db.execute(sql`
+        CREATE UNIQUE INDEX IF NOT EXISTS instagram_accounts_user_vertical_idx
+        ON instagram_accounts(user_id, vertical)
+    `);
+    // instagram_publications (migration 0003)
+    await db.execute(sql`
+        CREATE TABLE IF NOT EXISTS instagram_publications (
+            id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+            user_id uuid NOT NULL REFERENCES users(id),
+            instagram_account_id uuid NOT NULL REFERENCES instagram_accounts(id),
+            vertical varchar(20) NOT NULL,
+            listing_id varchar(255) NOT NULL,
+            listing_title varchar(255) NOT NULL,
+            instagram_media_id varchar(255),
+            instagram_permalink varchar(500),
+            caption text NOT NULL,
+            image_url text NOT NULL,
+            status varchar(20) NOT NULL DEFAULT 'published',
+            error_message text,
+            source_updated_at timestamp,
+            published_at timestamp,
+            created_at timestamp NOT NULL DEFAULT now(),
+            updated_at timestamp NOT NULL DEFAULT now()
+        )
+    `);
+    // address_book (migration 0024)
+    await db.execute(sql`
+        CREATE TABLE IF NOT EXISTS address_book (
+            id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+            user_id uuid NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+            kind varchar(20) NOT NULL DEFAULT 'personal',
+            label varchar(100) NOT NULL DEFAULT '',
+            country_code varchar(3) NOT NULL DEFAULT 'CL',
+            region_id varchar(50),
+            region_name varchar(120),
+            commune_id varchar(50),
+            commune_name varchar(120),
+            neighborhood varchar(120),
+            address_line_1 varchar(255),
+            address_line_2 varchar(255),
+            postal_code varchar(20),
+            contact_name varchar(160),
+            contact_phone varchar(40),
+            is_default boolean NOT NULL DEFAULT false,
+            geo_point jsonb,
+            created_at timestamp NOT NULL DEFAULT now(),
+            updated_at timestamp NOT NULL DEFAULT now()
+        )
+    `);
+    await db.execute(sql`
+        CREATE INDEX IF NOT EXISTS address_book_user_id_idx ON address_book(user_id)
+    `);
+    // agenda payment method columns (migration 0023)
+    await db.execute(sql`
+        ALTER TABLE agenda_professional_profiles
+            ADD COLUMN IF NOT EXISTS mp_access_token text,
+            ADD COLUMN IF NOT EXISTS mp_public_key varchar(255),
+            ADD COLUMN IF NOT EXISTS mp_user_id varchar(100),
+            ADD COLUMN IF NOT EXISTS mp_refresh_token text,
+            ADD COLUMN IF NOT EXISTS payment_link_url varchar(500),
+            ADD COLUMN IF NOT EXISTS bank_transfer_data jsonb
+    `);
+}
+
 // Run DB migrations, preload data, then start the HTTP server
 (async () => {
+    try {
+        await bootstrapMissingTables();
+        console.log('[simple-api] bootstrap tables OK');
+    } catch (error) {
+        console.error('[simple-api] bootstrap tables failed', error);
+    }
     try {
         const migrationsFolder = path.resolve(__dirname, '../drizzle');
         await migrate(db, { migrationsFolder });

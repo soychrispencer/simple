@@ -162,6 +162,20 @@
       "when": 1743206400000,
       "tag": "0022_agenda_wa_prefs",
       "breakpoints": true
+    },
+    {
+      "idx": 23,
+      "version": "7",
+      "when": 1743292800000,
+      "tag": "0023_agenda_payment_methods",
+      "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "7",
+      "when": 1743379200000,
+      "tag": "0024_address_book",
+      "breakpoints": true
     }
   ]
 }
