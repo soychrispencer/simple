@@ -3448,10 +3448,12 @@ async function prepareInstagramImageUrl(listing: ListingRecord): Promise<string>
 
     // Clave de destino en Backblaze para la imagen JPEG de Instagram
     const destKey = `instagram-ready/${listing.id}.jpg`;
-    const directUrl = `${downloadUrl}/file/${bucketName}/${destKey}`;
 
-    const client = getMediaProxyS3Client();
-    if (!client) {
+    // IMPORTANTE: Meta prefiere el hostname de descarga (f005...) sobre el S3 endpoint interno.
+    const downloadOrigin = (process.env.BACKBLAZE_DOWNLOAD_URL || 'https://f005.backblazeb2.com').replace(/\/$/, '');
+    const directUrl = `${downloadOrigin}/file/${bucketName}/${destKey}`;
+
+    const client = getMediaProxyS3Client();    if (!client) {
         throw new Error('Storage no configurado.');
     }
 
