@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { IconLoader2, IconPlus, IconTrash, IconCheck } from '@tabler/icons-react';
 import {
     fetchAgendaAvailability,
@@ -40,8 +40,10 @@ export default function DisponibilidadConfigPage() {
     const [rules, setRules] = useState<AvailabilityRule[]>([]);
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState<string | null>(null); // id or 'new'
+    const [autoSaved, setAutoSaved] = useState<string | null>(null); // id of last auto-saved rule
     const [deleting, setDeleting] = useState<string | null>(null);
     const [loadingDefault, setLoadingDefault] = useState(false);
+    const debounceTimers = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
 
     useEffect(() => { void load(); }, []);
 
@@ -59,11 +61,29 @@ export default function DisponibilidadConfigPage() {
         setSaving(null);
     };
 
-    const handleChange = async (rule: AvailabilityRule, field: keyof AvailabilityRule, value: string) => {
-        setRules((prev) => prev.map((r) => r.id === rule.id ? { ...r, [field]: value } : r));
+    const handleChange = (rule: AvailabilityRule, field: keyof AvailabilityRule, value: string) => {
+        const updated = { ...rule, [field]: value || null };
+        setRules((prev) => prev.map((r) => r.id === rule.id ? updated : r));
+
+        // Debounce auto-save: 800ms after last change on this rule
+        clearTimeout(debounceTimers.current[rule.id]);
+        debounceTimers.current[rule.id] = setTimeout(() => {
+            setSaving(rule.id);
+            void updateAvailabilityRule(rule.id, {
+                startTime: updated.startTime,
+                endTime: updated.endTime,
+                breakStart: updated.breakStart ?? null,
+                breakEnd: updated.breakEnd ?? null,
+            }).then(() => {
+                setSaving(null);
+                setAutoSaved(rule.id);
+                setTimeout(() => setAutoSaved((prev) => prev === rule.id ? null : prev), 1500);
+            });
+        }, 800);
     };
 
     const handleSaveRule = async (rule: AvailabilityRule) => {
+        clearTimeout(debounceTimers.current[rule.id]);
         setSaving(rule.id);
         await updateAvailabilityRule(rule.id, {
             startTime: rule.startTime,
@@ -72,6 +92,8 @@ export default function DisponibilidadConfigPage() {
             breakEnd: rule.breakEnd ?? null,
         });
         setSaving(null);
+        setAutoSaved(rule.id);
+        setTimeout(() => setAutoSaved((prev) => prev === rule.id ? null : prev), 1500);
     };
 
     const handleDelete = async (id: string) => {
@@ -155,13 +177,19 @@ export default function DisponibilidadConfigPage() {
                         const dayLabel = DAYS.find((d) => d.value === rule.dayOfWeek)?.label ?? `Día ${rule.dayOfWeek}`;
                         const isSaving = saving === rule.id;
                         const isDeleting = deleting === rule.id;
+                        const isAutoSaved = autoSaved === rule.id;
+                        const timeError = rule.endTime <= rule.startTime
+                            ? 'La hora de fin debe ser posterior al inicio.'
+                            : (rule.breakStart && rule.breakEnd && rule.breakEnd <= rule.breakStart)
+                                ? 'La pausa fin debe ser posterior al inicio de pausa.'
+                                : null;
 
                         return (
                             <div
                                 key={rule.id}
                                 className="rounded-2xl border p-4"
                                 style={{
-                                    borderColor: rule.isActive ? 'var(--accent-border)' : 'var(--border)',
+                                    borderColor: timeError ? '#dc262640' : rule.isActive ? 'var(--accent-border)' : 'var(--border)',
                                     background: rule.isActive ? 'var(--accent-soft)' : 'var(--surface)',
                                     opacity: rule.isActive ? 1 : 0.6,
                                 }}
@@ -179,11 +207,13 @@ export default function DisponibilidadConfigPage() {
                                             />
                                         </button>
                                         <span className="text-sm font-semibold" style={{ color: 'var(--fg)' }}>{dayLabel}</span>
+                                        {isSaving && <IconLoader2 size={12} className="animate-spin" style={{ color: 'var(--fg-muted)' }} />}
+                                        {!isSaving && isAutoSaved && <IconCheck size={12} style={{ color: 'var(--accent)' }} />}
                                     </div>
                                     <div className="flex items-center gap-2">
                                         <button
                                             onClick={() => void handleSaveRule(rule)}
-                                            disabled={isSaving}
+                                            disabled={isSaving || !!timeError}
                                             className="w-7 h-7 rounded-lg flex items-center justify-center border transition-colors hover:bg-(--bg-subtle) disabled:opacity-50"
                                             style={{ borderColor: 'var(--border)', color: 'var(--accent)' }}
                                             title="Guardar"
@@ -206,7 +236,7 @@ export default function DisponibilidadConfigPage() {
                                         <label className="text-xs block mb-1" style={{ color: 'var(--fg-muted)' }}>Inicio</label>
                                         <select
                                             value={rule.startTime}
-                                            onChange={(e) => void handleChange(rule, 'startTime', e.target.value)}
+                                            onChange={(e) => handleChange(rule, 'startTime', e.target.value)}
                                             className="field-input"
                                         >
                                             {TIME_OPTIONS.map((t) => <option key={t}>{t}</option>)}
@@ -216,7 +246,7 @@ export default function DisponibilidadConfigPage() {
                                         <label className="text-xs block mb-1" style={{ color: 'var(--fg-muted)' }}>Fin</label>
                                         <select
                                             value={rule.endTime}
-                                            onChange={(e) => void handleChange(rule, 'endTime', e.target.value)}
+                                            onChange={(e) => handleChange(rule, 'endTime', e.target.value)}
                                             className="field-input"
                                         >
                                             {TIME_OPTIONS.map((t) => <option key={t}>{t}</option>)}
@@ -226,7 +256,7 @@ export default function DisponibilidadConfigPage() {
                                         <label className="text-xs block mb-1" style={{ color: 'var(--fg-muted)' }}>Pausa inicio</label>
                                         <select
                                             value={rule.breakStart ?? ''}
-                                            onChange={(e) => void handleChange(rule, 'breakStart', e.target.value)}
+                                            onChange={(e) => handleChange(rule, 'breakStart', e.target.value)}
                                             className="field-input"
                                         >
                                             <option value="">Sin pausa</option>
@@ -237,7 +267,7 @@ export default function DisponibilidadConfigPage() {
                                         <label className="text-xs block mb-1" style={{ color: 'var(--fg-muted)' }}>Pausa fin</label>
                                         <select
                                             value={rule.breakEnd ?? ''}
-                                            onChange={(e) => void handleChange(rule, 'breakEnd', e.target.value)}
+                                            onChange={(e) => handleChange(rule, 'breakEnd', e.target.value)}
                                             className="field-input"
                                         >
                                             <option value="">—</option>
@@ -245,6 +275,9 @@ export default function DisponibilidadConfigPage() {
                                         </select>
                                     </div>
                                 </div>
+                                {timeError && (
+                                    <p className="mt-2 text-xs" style={{ color: '#dc2626' }}>{timeError}</p>
+                                )}
                             </div>
                         );
                     })

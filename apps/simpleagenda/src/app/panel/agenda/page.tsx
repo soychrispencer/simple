@@ -97,6 +97,7 @@ export default function AgendaPage() {
 
     // Session notes
     const [noteContent, setNoteContent] = useState('');
+    const [noteOriginal, setNoteOriginal] = useState('');
     const [noteLoading, setNoteLoading] = useState(false);
     const [noteSaving, setNoteSaving] = useState(false);
     const [noteSaved, setNoteSaved] = useState(false);
@@ -213,10 +214,13 @@ export default function AgendaPage() {
     const handleSelectAppt = async (appt: AgendaAppointment) => {
         setSelectedAppt(appt);
         setNoteContent('');
+        setNoteOriginal('');
         setNoteSaved(false);
         setNoteLoading(true);
         const note = await fetchAgendaNote(appt.id);
-        setNoteContent(note?.content ?? '');
+        const content = note?.content ?? '';
+        setNoteContent(content);
+        setNoteOriginal(content);
         setNoteLoading(false);
     };
 
@@ -224,6 +228,7 @@ export default function AgendaPage() {
         if (!selectedAppt) return;
         setNoteSaving(true);
         await saveAgendaNote(selectedAppt.id, noteContent);
+        setNoteOriginal(noteContent);
         setNoteSaving(false);
         setNoteSaved(true);
         setTimeout(() => setNoteSaved(false), 2000);
@@ -418,7 +423,7 @@ export default function AgendaPage() {
                                 </p>
                                 <button
                                     onClick={() => void handleSaveNote()}
-                                    disabled={noteSaving || noteLoading}
+                                    disabled={noteSaving || noteLoading || noteContent === noteOriginal}
                                     className="inline-flex items-center gap-1 text-xs px-2.5 py-1 rounded-lg border transition-colors hover:bg-(--bg-subtle) disabled:opacity-60"
                                     style={{ borderColor: 'var(--border)', color: noteSaved ? 'var(--accent)' : 'var(--fg-secondary)' }}
                                 >

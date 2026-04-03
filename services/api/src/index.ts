@@ -13865,15 +13865,34 @@ app.get('/api/agenda/stats', requireVerifiedSession, async (c) => {
     const user = await authUser(c);
     if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
     const profile = await getAgendaProfile(user.id);
-    if (!profile) return c.json({ ok: true, stats: { todayCount: 0, activeClients: 0, pendingPayments: 0, nextAppointment: null } });
+    if (!profile) return c.json({ ok: true, stats: { todayCount: 0, activeClients: 0, pendingPayments: 0, nextAppointment: null, weeklyData: [], thisMonthRevenue: 0, lastMonthRevenue: 0, thisMonthAppointments: 0 } });
 
     const now = new Date();
     const todayStart = new Date(now); todayStart.setHours(0, 0, 0, 0);
     const todayEnd = new Date(now); todayEnd.setHours(23, 59, 59, 999);
+
+    // Week bounds (Mon–Sun of current week)
+    const dayOfWeek = now.getDay(); // 0=Sun
+    const diffToMon = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
+    const weekStart = new Date(now); weekStart.setDate(now.getDate() + diffToMon); weekStart.setHours(0, 0, 0, 0);
+    const weekEnd = new Date(weekStart); weekEnd.setDate(weekStart.getDate() + 6); weekEnd.setHours(23, 59, 59, 999);
+
+    // Month bounds
     const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
     const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
+    const lastMonthStart = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+    const lastMonthEnd = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59, 999);
 
-    const [todayAppts, activeClientsResult, pendingPaymentsResult, nextAppt] = await Promise.all([
+    const [
+        todayAppts,
+        activeClientsResult,
+        pendingPaymentsResult,
+        nextAppt,
+        weeklyAppts,
+        thisMonthPaid,
+        lastMonthPaid,
+        thisMonthApptCount,
+    ] = await Promise.all([
         db.select({ count: sql<number>`count(*)` }).from(agendaAppointments)
             .where(and(
                 eq(agendaAppointments.professionalId, profile.id),
@@ -13893,15 +13912,59 @@ app.get('/api/agenda/stats', requireVerifiedSession, async (c) => {
             ))
             .orderBy(asc(agendaAppointments.startsAt))
             .limit(1),
+        // Weekly appointments grouped by date
+        db.select({
+            day: sql<string>`DATE(${agendaAppointments.startsAt})`,
+            count: sql<number>`count(*)`,
+        }).from(agendaAppointments)
+            .where(and(
+                eq(agendaAppointments.professionalId, profile.id),
+                gte(agendaAppointments.startsAt, weekStart),
+                lte(agendaAppointments.startsAt, weekEnd),
+                sql`${agendaAppointments.status} NOT IN ('cancelled', 'no_show')`,
+            ))
+            .groupBy(sql`DATE(${agendaAppointments.startsAt})`),
+        // This month confirmed revenue
+        db.select({ total: sql<string>`coalesce(sum(amount), 0)` }).from(agendaPayments)
+            .where(and(
+                eq(agendaPayments.professionalId, profile.id),
+                eq(agendaPayments.status, 'paid'),
+                gte(agendaPayments.paidAt, monthStart),
+                lte(agendaPayments.paidAt, monthEnd),
+            )),
+        // Last month confirmed revenue
+        db.select({ total: sql<string>`coalesce(sum(amount), 0)` }).from(agendaPayments)
+            .where(and(
+                eq(agendaPayments.professionalId, profile.id),
+                eq(agendaPayments.status, 'paid'),
+                gte(agendaPayments.paidAt, lastMonthStart),
+                lte(agendaPayments.paidAt, lastMonthEnd),
+            )),
+        // This month total appointments
+        db.select({ count: sql<number>`count(*)` }).from(agendaAppointments)
+            .where(and(
+                eq(agendaAppointments.professionalId, profile.id),
+                gte(agendaAppointments.startsAt, monthStart),
+                lte(agendaAppointments.startsAt, monthEnd),
+                sql`${agendaAppointments.status} NOT IN ('cancelled', 'no_show')`,
+            )),
     ]);
 
-    const pendingPaymentsThisMonth = await db.select({ total: sql<string>`coalesce(sum(amount), 0)` }).from(agendaPayments)
-        .where(and(
-            eq(agendaPayments.professionalId, profile.id),
-            eq(agendaPayments.status, 'pending'),
-            gte(agendaPayments.createdAt, monthStart),
-            lte(agendaPayments.createdAt, monthEnd),
-        ));
+    // Build 7-day week array Mon–Sun
+    const DAY_LABELS = ['L', 'M', 'X', 'J', 'V', 'S', 'D'];
+    const weeklyMap = new Map(weeklyAppts.map((r) => [r.day, Number(r.count)]));
+    const todayStr = todayStart.toISOString().slice(0, 10);
+    const weeklyData = Array.from({ length: 7 }, (_, i) => {
+        const d = new Date(weekStart);
+        d.setDate(weekStart.getDate() + i);
+        const dateStr = d.toISOString().slice(0, 10);
+        return {
+            label: DAY_LABELS[i],
+            date: dateStr,
+            count: weeklyMap.get(dateStr) ?? 0,
+            isToday: dateStr === todayStr,
+        };
+    });
 
     return c.json({
         ok: true,
@@ -13910,6 +13973,10 @@ app.get('/api/agenda/stats', requireVerifiedSession, async (c) => {
             activeClients: Number(activeClientsResult[0]?.count ?? 0),
             pendingPayments: Number(pendingPaymentsResult[0]?.total ?? 0),
             nextAppointment: nextAppt[0] ?? null,
+            weeklyData,
+            thisMonthRevenue: Number(thisMonthPaid[0]?.total ?? 0),
+            lastMonthRevenue: Number(lastMonthPaid[0]?.total ?? 0),
+            thisMonthAppointments: Number(thisMonthApptCount[0]?.count ?? 0),
         },
     });
 });

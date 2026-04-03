@@ -295,16 +295,27 @@ export async function saveAgendaNote(appointmentId: string, content: string): Pr
 
 // ── Dashboard stats ───────────────────────────────────────────────────────────
 
+export type AgendaWeekDay = {
+    label: string;   // 'L', 'M', 'X', 'J', 'V', 'S', 'D'
+    date: string;    // 'YYYY-MM-DD'
+    count: number;
+    isToday: boolean;
+};
+
 export type AgendaStats = {
     todayCount: number;
     activeClients: number;
     pendingPayments: number;
     nextAppointment: AgendaAppointment | null;
+    weeklyData: AgendaWeekDay[];
+    thisMonthRevenue: number;
+    lastMonthRevenue: number;
+    thisMonthAppointments: number;
 };
 
 export async function fetchAgendaStats(): Promise<AgendaStats> {
     const data = await apiFetch<{ ok: boolean; stats: AgendaStats }>('/api/agenda/stats');
-    return data.stats ?? { todayCount: 0, activeClients: 0, pendingPayments: 0, nextAppointment: null };
+    return data.stats ?? { todayCount: 0, activeClients: 0, pendingPayments: 0, nextAppointment: null, weeklyData: [], thisMonthRevenue: 0, lastMonthRevenue: 0, thisMonthAppointments: 0 };
 }
 
 // ── Update appointment ────────────────────────────────────────────────────────

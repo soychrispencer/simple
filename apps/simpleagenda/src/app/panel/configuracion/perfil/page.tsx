@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { IconCheck, IconAlertCircle, IconLoader2 } from '@tabler/icons-react';
-import { fetchAgendaProfile, saveAgendaProfile, type AgendaProfile } from '@/lib/agenda-api';
+import { fetchAgendaProfile, saveAgendaProfile } from '@/lib/agenda-api';
 
 function normalizeSlug(value: string): string {
     return value
@@ -83,6 +83,7 @@ export default function PerfilConfigPage() {
 
     const handleSave = async () => {
         if (!form.slug) { setError('El link de tu agenda es requerido.'); return; }
+        if (!form.displayName.trim()) { setError('El nombre visible es requerido.'); return; }
         setSaving(true);
         setError('');
         const result = await saveAgendaProfile(form);

@@ -91,6 +91,9 @@ export default function BookingFlow({ profile }: { profile: PublicProfile }) {
     // Encuadre
     const [policyAgreed, setPolicyAgreed] = useState(false);
 
+    // Info step validation
+    const [infoError, setInfoError] = useState('');
+
     // Submission
     const [submitting, setSubmitting] = useState(false);
     const [submitError, setSubmitError] = useState('');
@@ -164,7 +167,19 @@ export default function BookingFlow({ profile }: { profile: PublicProfile }) {
     };
 
     const handleInfoNext = () => {
-        if (!clientName.trim()) return;
+        setInfoError('');
+        if (!clientName.trim()) {
+            setInfoError('El nombre es requerido.');
+            return;
+        }
+        if (clientEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(clientEmail.trim())) {
+            setInfoError('El email no es válido.');
+            return;
+        }
+        if (!clientEmail.trim() && !clientPhone.trim()) {
+            setInfoError('Ingresa al menos un email o teléfono para enviarte la confirmación.');
+            return;
+        }
         if (profile.encuadre) {
             setStep('encuadre');
         } else if (profile.requiresAdvancePayment) {
@@ -431,27 +446,32 @@ export default function BookingFlow({ profile }: { profile: PublicProfile }) {
                                         <input
                                             type="text"
                                             value={clientName}
-                                            onChange={(e) => setClientName(e.target.value)}
+                                            onChange={(e) => { setClientName(e.target.value); setInfoError(''); }}
                                             placeholder="Tu nombre"
                                             className="booking-input"
                                         />
                                     </div>
                                     <div>
                                         <label className="text-xs font-medium block mb-1.5" style={{ color: 'var(--fg-muted)' }}>
-                                            <IconMail size={11} className="inline mr-1" />Email
+                                            <IconMail size={11} className="inline mr-1" />Email *
                                         </label>
-                                        <input type="email" value={clientEmail} onChange={(e) => setClientEmail(e.target.value)} placeholder="tu@email.com" className="booking-input" />
+                                        <input type="email" value={clientEmail} onChange={(e) => { setClientEmail(e.target.value); setInfoError(''); }} placeholder="tu@email.com" className="booking-input" />
                                     </div>
                                     <div>
                                         <label className="text-xs font-medium block mb-1.5" style={{ color: 'var(--fg-muted)' }}>
                                             <IconPhone size={11} className="inline mr-1" />Teléfono
                                         </label>
-                                        <input type="tel" value={clientPhone} onChange={(e) => setClientPhone(e.target.value)} placeholder="+56 9 1234 5678" className="booking-input" />
+                                        <input type="tel" value={clientPhone} onChange={(e) => { setClientPhone(e.target.value); setInfoError(''); }} placeholder="+56 9 1234 5678" className="booking-input" />
                                     </div>
                                     <div>
                                         <label className="text-xs font-medium block mb-1.5" style={{ color: 'var(--fg-muted)' }}>Mensaje (opcional)</label>
                                         <textarea value={clientNotes} onChange={(e) => setClientNotes(e.target.value)} placeholder="¿Hay algo que quieras comentarle al profesional?" rows={3} className="booking-input resize-none" />
                                     </div>
+                                    {infoError && (
+                                        <p className="flex items-center gap-1.5 text-xs" style={{ color: '#dc2626' }}>
+                                            <IconAlertCircle size={13} />{infoError}
+                                        </p>
+                                    )}
                                     <button
                                         onClick={handleInfoNext}
                                         disabled={!clientName.trim()}
