@@ -291,11 +291,25 @@ async function requestInstagram<T>(url: string, init: RequestInit): Promise<T> {
     if (!response.ok) {
         const errorObject = payload && typeof payload === 'object' ? payload as Record<string, unknown> : {};
         console.error('[instagram] API error payload:', JSON.stringify(errorObject));
+        
         const nestedError = errorObject.error && typeof errorObject.error === 'object'
             ? errorObject.error as Record<string, unknown>
             : null;
-        const message = asString(nestedError?.message) || asString(errorObject.error_message) || `Instagram/Facebook respondió con ${response.status}.`;
-        throw new Error(message);
+            
+        const metaMessage = asString(nestedError?.message) || asString(errorObject.error_message);
+        const errorCode = nestedError?.code;
+        const errorSubcode = nestedError?.error_subcode;
+        
+        let friendlyMessage = metaMessage || `Instagram respondió con error ${response.status}.`;
+        
+        // Mapeo de errores comunes de Meta para ayudar al usuario
+        if (friendlyMessage.toLowerCase().includes('download') || friendlyMessage.toLowerCase().includes('uri')) {
+            friendlyMessage = 'Instagram no pudo descargar la imagen. Asegúrate de que el bucket de Backblaze sea PÚBLICO.';
+        } else if (errorCode === 100 || errorCode === 10) {
+            friendlyMessage = 'Error de parámetros o permisos. Por favor, DESCONECTA y vuelve a CONECTAR Instagram.';
+        }
+
+        throw new Error(friendlyMessage);
     }
 
     if (!payload || typeof payload !== 'object') {
