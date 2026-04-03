@@ -290,7 +290,8 @@ async function requestInstagram<T>(url: string, init: RequestInit): Promise<T> {
 
     if (!response.ok) {
         const errorObject = payload && typeof payload === 'object' ? payload as Record<string, unknown> : {};
-        console.error('[instagram] API error payload:', JSON.stringify(errorObject));
+        // Log detallado para ver que dice Meta exactamente
+        console.error('[instagram] Meta API ERROR:', response.status, JSON.stringify(errorObject, null, 2));
         
         const nestedError = errorObject.error && typeof errorObject.error === 'object'
             ? errorObject.error as Record<string, unknown>
