@@ -96,7 +96,7 @@ export default function PerfilConfigPage() {
 
     if (loading) {
         return (
-            <div className="p-6 flex items-center gap-2 text-sm" style={{ color: 'var(--fg-muted)' }}>
+            <div className="container-app panel-page py-8 flex items-center gap-2 text-sm" style={{ color: 'var(--fg-muted)' }}>
                 <IconLoader2 size={16} className="animate-spin" /> Cargando perfil...
             </div>
         );
@@ -105,7 +105,7 @@ export default function PerfilConfigPage() {
     const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3004';
 
     return (
-        <div className="p-6 max-w-2xl">
+        <div className="container-app panel-page py-8 max-w-2xl">
             <h1 className="text-xl font-bold mb-1" style={{ color: 'var(--fg)' }}>Perfil profesional</h1>
             <p className="text-sm mb-8" style={{ color: 'var(--fg-muted)' }}>
                 Esta información aparecerá en tu página pública de reservas.

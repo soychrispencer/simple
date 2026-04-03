@@ -53,7 +53,7 @@ export default function LinkReservasPage() {
 
     if (loading) {
         return (
-            <div className="p-6 flex items-center gap-2 text-sm" style={{ color: 'var(--fg-muted)' }}>
+            <div className="container-app panel-page py-8 flex items-center gap-2 text-sm" style={{ color: 'var(--fg-muted)' }}>
                 <IconLoader2 size={16} className="animate-spin" /> Cargando...
             </div>
         );
@@ -61,7 +61,7 @@ export default function LinkReservasPage() {
 
     if (!profile?.slug) {
         return (
-            <div className="p-6 max-w-lg">
+            <div className="container-app panel-page py-8 max-w-lg">
                 <h1 className="text-xl font-bold mb-1" style={{ color: 'var(--fg)' }}>Link de reservas</h1>
                 <div className="mt-8 rounded-2xl border p-6 flex flex-col items-center gap-3 text-center"
                     style={{ borderColor: 'var(--border)', background: 'var(--surface)' }}>
@@ -83,7 +83,7 @@ export default function LinkReservasPage() {
     }
 
     return (
-        <div className="p-6 max-w-lg">
+        <div className="container-app panel-page py-8 max-w-lg">
             <h1 className="text-xl font-bold mb-1" style={{ color: 'var(--fg)' }}>Link de reservas</h1>
             <p className="text-sm mb-8" style={{ color: 'var(--fg-muted)' }}>
                 Comparte este link con tus pacientes para que reserven directamente.

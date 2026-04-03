@@ -106,7 +106,7 @@ export default function CobrosConfigPage() {
     const hasPaymentLink = !!paymentLinkUrl;
 
     return (
-        <div className="p-6 max-w-2xl">
+        <div className="container-app panel-page py-8 max-w-2xl">
             <h1 className="text-xl font-bold mb-1" style={{ color: 'var(--fg)' }}>Métodos de cobro</h1>
             <p className="text-sm mb-8" style={{ color: 'var(--fg-muted)' }}>
                 Configura cómo quieres recibir los pagos de tus clientes.

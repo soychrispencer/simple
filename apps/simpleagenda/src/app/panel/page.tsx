@@ -217,7 +217,7 @@ export default function PanelHomePage() {
     ];
 
     return (
-        <div className="p-6 max-w-4xl">
+        <div className="container-app panel-page py-8">
             {/* Header */}
             <div className="mb-8">
                 <h1 className="text-2xl font-bold mb-0.5" style={{ color: 'var(--fg)' }}>{greeting}</h1>

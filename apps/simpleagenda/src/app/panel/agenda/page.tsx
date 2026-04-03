@@ -320,7 +320,7 @@ export default function AgendaPage() {
     const dayHeaders = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'];
 
     return (
-        <div className="p-4 sm:p-6 max-w-5xl">
+        <div className="container-app panel-page py-4">
             {/* Header */}
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
                 <div>

@@ -74,7 +74,7 @@ export default function ClienteFichaPage() {
 
     if (loading) {
         return (
-            <div className="p-6 flex items-center gap-2 text-sm" style={{ color: 'var(--fg-muted)' }}>
+            <div className="container-app panel-page py-8 flex items-center gap-2 text-sm" style={{ color: 'var(--fg-muted)' }}>
                 <IconLoader2 size={16} className="animate-spin" /> Cargando ficha...
             </div>
         );
@@ -88,7 +88,7 @@ export default function ClienteFichaPage() {
     const totalPaid = completedAppts.reduce((sum, a) => sum + (a.price ? parseFloat(a.price) : 0), 0);
 
     return (
-        <div className="p-6 max-w-3xl">
+        <div className="container-app panel-page py-8 max-w-3xl">
             {/* Back */}
             <button
                 onClick={() => router.push('/panel/clientes')}

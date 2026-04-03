@@ -136,14 +136,14 @@ export default function DisponibilidadConfigPage() {
 
     if (loading) {
         return (
-            <div className="p-6 flex items-center gap-2 text-sm" style={{ color: 'var(--fg-muted)' }}>
+            <div className="container-app panel-page py-8 flex items-center gap-2 text-sm" style={{ color: 'var(--fg-muted)' }}>
                 <IconLoader2 size={16} className="animate-spin" /> Cargando disponibilidad...
             </div>
         );
     }
 
     return (
-        <div className="p-6 max-w-2xl">
+        <div className="container-app panel-page py-8 max-w-2xl">
             <div className="flex items-start justify-between mb-6">
                 <div>
                     <h1 className="text-xl font-bold" style={{ color: 'var(--fg)' }}>Disponibilidad</h1>
