@@ -3475,14 +3475,14 @@ async function prepareInstagramImageUrl(listing: ListingRecord): Promise<string>
         .jpeg({ quality: 90 })
         .toBuffer();
 
-    // Subir JPEG a Backblaze con ACL pública para que Meta pueda descargarlo
+    // Subir JPEG a Backblaze para que Meta pueda descargarlo.
+    // Nota: El bucket en Backblaze DEBE ser público para que Meta acceda al archivo.
     await client.send(new PutObjectCommand({
         Bucket: bucketName,
         Key: destKey,
         Body: new Uint8Array(jpegBuffer),
         ContentType: 'image/jpeg',
         CacheControl: 'public, max-age=86400',
-        ACL: 'public-read',
     }));
 
     console.log('[instagram] imagen JPEG subida a Backblaze:', directUrl);
