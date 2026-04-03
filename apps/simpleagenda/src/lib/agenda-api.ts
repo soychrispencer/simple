@@ -399,9 +399,13 @@ export type AgendaNotification = {
     createdAt: number;
 };
 
-export async function fetchNotifications(): Promise<AgendaNotification[]> {
-    const data = await apiFetch<{ ok: boolean; items?: AgendaNotification[] }>('/api/agenda/notifications');
-    return data.items ?? [];
+export async function fetchNotifications(): Promise<{ items: AgendaNotification[]; lastSeenAt: number | null }> {
+    const data = await apiFetch<{ ok: boolean; items?: AgendaNotification[]; lastSeenAt?: number | null }>('/api/agenda/notifications');
+    return { items: data.items ?? [], lastSeenAt: data.lastSeenAt ?? null };
+}
+
+export async function markNotificationsSeen(): Promise<void> {
+    await apiFetch('/api/agenda/notifications/seen', { method: 'POST' });
 }
 
 // ── Public booking ────────────────────────────────────────────────────────────

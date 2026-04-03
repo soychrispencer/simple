@@ -1,20 +1,10 @@
 'use client';
 
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { IconBell, IconCalendar, IconX, IconCalendarCancel } from '@tabler/icons-react';
-import { fetchNotifications, type AgendaNotification } from '@/lib/agenda-api';
+import { IconBell, IconCalendar, IconCalendarCancel } from '@tabler/icons-react';
+import { fetchNotifications, markNotificationsSeen, type AgendaNotification } from '@/lib/agenda-api';
 
-const STORAGE_KEY = 'simpleagenda:notifications:last_seen';
 const POLL_INTERVAL_MS = 2 * 60 * 1000; // 2 minutes
-
-function getLastSeen(): number {
-    if (typeof window === 'undefined') return 0;
-    return Number(window.localStorage.getItem(STORAGE_KEY) ?? '0');
-}
-
-function setLastSeen(ts: number) {
-    window.localStorage.setItem(STORAGE_KEY, String(ts));
-}
 
 function NotifIcon({ type }: { type: string }) {
     if (type === 'cancellation') return <IconCalendarCancel size={15} stroke={1.8} />;
@@ -22,7 +12,7 @@ function NotifIcon({ type }: { type: string }) {
 }
 
 function notifColor(type: string): string {
-    if (type === 'cancellation') return 'var(--color-red-500, #ef4444)';
+    if (type === 'cancellation') return '#ef4444';
     if (type === 'today') return 'var(--accent)';
     return 'var(--fg-secondary)';
 }
@@ -40,17 +30,18 @@ function timeAgo(ts: number): string {
 
 export function NotificationBell() {
     const [items, setItems] = useState<AgendaNotification[]>([]);
+    const [lastSeenAt, setLastSeenAt] = useState<number | null>(null);
     const [open, setOpen] = useState(false);
-    const [unread, setUnread] = useState(0);
     const panelRef = useRef<HTMLDivElement>(null);
     const buttonRef = useRef<HTMLButtonElement>(null);
 
+    const unread = items.filter((n) => lastSeenAt === null || n.createdAt > lastSeenAt).length;
+
     const load = useCallback(async () => {
         try {
-            const fetched = await fetchNotifications();
-            setItems(fetched);
-            const lastSeen = getLastSeen();
-            setUnread(fetched.filter((n) => n.createdAt > lastSeen).length);
+            const result = await fetchNotifications();
+            setItems(result.items);
+            setLastSeenAt(result.lastSeenAt);
         } catch {
             // silently ignore
         }
@@ -76,23 +67,25 @@ export function NotificationBell() {
         return () => document.removeEventListener('mousedown', handleClickOutside);
     }, [open]);
 
-    const handleOpen = () => {
-        setOpen((prev) => {
-            if (!prev) {
-                // mark as read when opening
-                const now = Date.now();
-                setLastSeen(now);
-                setUnread(0);
+    const handleOpen = async () => {
+        const wasOpen = open;
+        setOpen((prev) => !prev);
+        if (!wasOpen && unread > 0) {
+            const now = Date.now();
+            setLastSeenAt(now); // optimistic update
+            try {
+                await markNotificationsSeen();
+            } catch {
+                // ignore, will sync on next poll
             }
-            return !prev;
-        });
+        }
     };
 
     return (
         <div className="relative">
             <button
                 ref={buttonRef}
-                onClick={handleOpen}
+                onClick={() => void handleOpen()}
                 className="header-icon-chip relative"
                 aria-label="Notificaciones"
             >
@@ -100,7 +93,7 @@ export function NotificationBell() {
                 {unread > 0 ? (
                     <span
                         className="absolute -top-1 -right-1 min-w-[16px] h-4 rounded-full flex items-center justify-center text-[10px] font-bold leading-none px-0.5"
-                        style={{ background: 'var(--color-red-500, #ef4444)', color: '#fff' }}
+                        style={{ background: '#ef4444', color: '#fff' }}
                     >
                         {unread > 9 ? '9+' : unread}
                     </span>
@@ -115,14 +108,6 @@ export function NotificationBell() {
                 >
                     <div className="flex items-center justify-between px-3.5 py-3 border-b" style={{ borderColor: 'var(--border)' }}>
                         <span className="text-sm font-semibold" style={{ color: 'var(--fg)' }}>Notificaciones</span>
-                        <button
-                            onClick={() => setOpen(false)}
-                            className="w-6 h-6 rounded-lg flex items-center justify-center transition-colors hover:bg-(--bg-subtle)"
-                            style={{ color: 'var(--fg-muted)' }}
-                            aria-label="Cerrar"
-                        >
-                            <IconX size={13} />
-                        </button>
                     </div>
 
                     <div className="max-h-[360px] overflow-y-auto divide-y" style={{ borderColor: 'var(--border)' }}>
@@ -135,14 +120,11 @@ export function NotificationBell() {
                             items.map((item) => (
                                 <div
                                     key={item.id}
-                                    className="flex items-start gap-3 px-3.5 py-3 hover:bg-(--bg-subtle) transition-colors"
+                                    className="flex items-start gap-3 px-3.5 py-3 transition-colors hover:bg-(--bg-subtle)"
                                 >
                                     <span
                                         className="mt-0.5 w-7 h-7 rounded-[8px] flex items-center justify-center shrink-0"
-                                        style={{
-                                            background: 'var(--bg-subtle)',
-                                            color: notifColor(item.type),
-                                        }}
+                                        style={{ background: 'var(--bg-subtle)', color: notifColor(item.type) }}
                                     >
                                         <NotifIcon type={item.type} />
                                     </span>

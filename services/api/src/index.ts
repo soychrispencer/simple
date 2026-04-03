@@ -14419,7 +14419,7 @@ app.get('/api/agenda/notifications', requireVerifiedSession, async (c) => {
     const user = await authUser(c);
     if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
     const profile = await getAgendaProfile(user.id);
-    if (!profile) return c.json({ ok: true, items: [] });
+    if (!profile) return c.json({ ok: true, items: [], lastSeenAt: null });
 
     const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
     const todayStart = new Date(); todayStart.setHours(0, 0, 0, 0);
@@ -14490,7 +14490,22 @@ app.get('/api/agenda/notifications', requireVerifiedSession, async (c) => {
     }
 
     items.sort((a, b) => b.createdAt - a.createdAt);
-    return c.json({ ok: true, items: items.slice(0, 15) });
+    return c.json({
+        ok: true,
+        items: items.slice(0, 15),
+        lastSeenAt: profile.notificationsLastSeenAt ? profile.notificationsLastSeenAt.getTime() : null,
+    });
+});
+
+app.post('/api/agenda/notifications/seen', requireVerifiedSession, async (c) => {
+    const user = await authUser(c);
+    if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
+    const profile = await getAgendaProfile(user.id);
+    if (!profile) return c.json({ ok: false, error: 'Perfil no encontrado' }, 404);
+    await db.update(agendaProfessionalProfiles)
+        .set({ notificationsLastSeenAt: new Date() })
+        .where(eq(agendaProfessionalProfiles.id, profile.id));
+    return c.json({ ok: true });
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -14931,6 +14946,15 @@ async function bootstrapMissingTables() {
                 ADD COLUMN IF NOT EXISTS mp_refresh_token text,
                 ADD COLUMN IF NOT EXISTS payment_link_url varchar(500),
                 ADD COLUMN IF NOT EXISTS bank_transfer_data jsonb
+        `);
+    } catch {
+        // agenda_professional_profiles puede no existir en entornos sin SimpleAgenda
+    }
+    // agenda notifications last seen (migration 0024)
+    try {
+        await db.execute(sql`
+            ALTER TABLE agenda_professional_profiles
+                ADD COLUMN IF NOT EXISTS notifications_last_seen_at timestamp
         `);
     } catch {
         // agenda_professional_profiles puede no existir en entornos sin SimpleAgenda

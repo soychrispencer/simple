@@ -439,6 +439,8 @@ export const agendaProfessionalProfiles = pgTable('agenda_professional_profiles'
     holderEmail: string;
     alias?: string;
   } | null>(),
+  // Notifications
+  notificationsLastSeenAt: timestamp('notifications_last_seen_at'),
   createdAt: timestamp('created_at').notNull().defaultNow(),
   updatedAt: timestamp('updated_at').notNull().defaultNow(),
 }, (table) => ({
