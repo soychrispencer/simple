@@ -14412,6 +14412,88 @@ app.post('/api/agenda/whatsapp/test', requireVerifiedSession, async (c) => {
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
+// SimpleAgenda — Notifications
+// ─────────────────────────────────────────────────────────────────────────────
+
+app.get('/api/agenda/notifications', requireVerifiedSession, async (c) => {
+    const user = await authUser(c);
+    if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
+    const profile = await getAgendaProfile(user.id);
+    if (!profile) return c.json({ ok: true, items: [] });
+
+    const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+    const todayStart = new Date(); todayStart.setHours(0, 0, 0, 0);
+    const tomorrowStart = new Date(todayStart); tomorrowStart.setDate(todayStart.getDate() + 1);
+    const twoWeeksAhead = new Date(Date.now() + 14 * 24 * 60 * 60 * 1000);
+
+    const appts = await db.select().from(agendaAppointments)
+        .where(and(
+            eq(agendaAppointments.professionalId, profile.id),
+            or(
+                gte(agendaAppointments.createdAt, sevenDaysAgo),
+                and(
+                    gte(agendaAppointments.startsAt, todayStart),
+                    lte(agendaAppointments.startsAt, twoWeeksAhead),
+                ),
+            ),
+        ))
+        .orderBy(desc(agendaAppointments.createdAt))
+        .limit(50);
+
+    const tz = profile.timezone ?? 'America/Santiago';
+    const fmtDate = (d: Date) => d.toLocaleDateString('es-CL', { weekday: 'short', day: 'numeric', month: 'short', timeZone: tz });
+    const fmtTime = (d: Date) => d.toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: tz });
+
+    type NotifItem = { id: string; type: string; title: string; body: string; createdAt: number };
+    const seen = new Set<string>();
+    const items: NotifItem[] = [];
+
+    for (const appt of appts) {
+        const clientLabel = appt.clientName ?? 'Paciente';
+        const timeLabel = `${fmtDate(appt.startsAt)} a las ${fmtTime(appt.startsAt)}`;
+
+        // Client cancellation (recent)
+        if (appt.cancelledBy === 'client' && appt.cancelledAt && appt.cancelledAt >= sevenDaysAgo && !seen.has(appt.id)) {
+            seen.add(appt.id);
+            items.push({
+                id: `cancel:${appt.id}`,
+                type: 'cancellation',
+                title: `Cancelación: ${clientLabel}`,
+                body: `${clientLabel} canceló su cita del ${timeLabel}`,
+                createdAt: appt.cancelledAt.getTime(),
+            });
+        }
+
+        // Today's appointments
+        if (appt.startsAt >= todayStart && appt.startsAt < tomorrowStart && appt.status !== 'cancelled' && !seen.has(`today:${appt.id}`)) {
+            seen.add(`today:${appt.id}`);
+            items.push({
+                id: `today:${appt.id}`,
+                type: 'today',
+                title: `Hoy: ${clientLabel}`,
+                body: `Cita a las ${fmtTime(appt.startsAt)}`,
+                createdAt: appt.createdAt.getTime(),
+            });
+        }
+
+        // New booking (last 7 days, not cancelled by client)
+        if (appt.createdAt >= sevenDaysAgo && appt.cancelledBy !== 'client' && appt.status !== 'cancelled' && !seen.has(appt.id)) {
+            seen.add(appt.id);
+            items.push({
+                id: `booking:${appt.id}`,
+                type: 'new_booking',
+                title: `Nueva cita: ${clientLabel}`,
+                body: `Agendó para el ${timeLabel}`,
+                createdAt: appt.createdAt.getTime(),
+            });
+        }
+    }
+
+    items.sort((a, b) => b.createdAt - a.createdAt);
+    return c.json({ ok: true, items: items.slice(0, 15) });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
 // SimpleAgenda — Public booking
 // ─────────────────────────────────────────────────────────────────────────────
 

@@ -389,6 +389,23 @@ export async function fetchPublicSlots(slug: string, date: string, serviceId?: s
     return data.slots ?? [];
 }
 
+// ── Notifications ─────────────────────────────────────────────────────────────
+
+export type AgendaNotification = {
+    id: string;
+    type: 'new_booking' | 'cancellation' | 'today' | string;
+    title: string;
+    body: string;
+    createdAt: number;
+};
+
+export async function fetchNotifications(): Promise<AgendaNotification[]> {
+    const data = await apiFetch<{ ok: boolean; items?: AgendaNotification[] }>('/api/agenda/notifications');
+    return data.items ?? [];
+}
+
+// ── Public booking ────────────────────────────────────────────────────────────
+
 export async function bookAppointment(slug: string, body: {
     serviceId?: string;
     clientName: string;

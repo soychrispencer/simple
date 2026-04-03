@@ -15,6 +15,7 @@ import {
 } from '@tabler/icons-react';
 import { useAuth } from '@/context/auth-context';
 import { PanelButton } from '@simple/ui';
+import { NotificationBell } from '@/components/panel/notification-bell';
 
 export function Header() {
     const router = useRouter();
@@ -59,6 +60,7 @@ export function Header() {
                 </nav>
 
                 <div className="hidden md:flex items-center gap-2">
+                    {isLoggedIn ? <NotificationBell /> : null}
                     {mounted ? (
                         <button
                             onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
@@ -125,6 +127,7 @@ export function Header() {
                 </div>
 
                 <div className="flex md:hidden items-center gap-2">
+                    {isLoggedIn ? <NotificationBell /> : null}
                     {mounted ? (
                         <button
                             onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}

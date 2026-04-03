@@ -123,6 +123,12 @@ export default function PublicacionesPage() {
     const [statusBusyKey, setStatusBusyKey] = useState<string | null>(null);
     const [portalBusyKey, setPortalBusyKey] = useState<string | null>(null);
     const [instagramBusyKey, setInstagramBusyKey] = useState<string | null>(null);
+
+    // Instagram Preview States
+    const [instagramPreviewOpen, setInstagramPreviewOpen] = useState(false);
+    const [previewListing, setPreviewListing] = useState<PanelListing | null>(null);
+    const [previewCaption, setPreviewCaption] = useState('');
+    const [isPublishingInstagram, setIsPublishingInstagram] = useState(false);
     const [actionMenuOpenId, setActionMenuOpenId] = useState<string | null>(null);
     const [shareMenuOpenId, setShareMenuOpenId] = useState<string | null>(null);
 
@@ -278,31 +284,45 @@ export default function PublicacionesPage() {
         closeMenus();
     };
 
-    const shareOnInstagram = async (listing: PanelListing) => {
+    const shareOnInstagram = (listing: PanelListing) => {
+        closeMenus();
         if (!user) {
             setNotice('Tu sesión expiró. Vuelve a iniciar sesión para continuar.');
-            requireAuth(() => {
-                void shareOnInstagram(listing);
-            });
             return;
         }
 
-        const key = `${listing.id}:instagram`;
+        const defaultCaption = `🏠 ${listing.title}\n💰 ${listing.price || 'Consultar precio'}\n📍 ${listing.location || 'Chile'}\n\n${listing.description || ''}\n\n🏢 Tipo: ${listing.listingType}\n📍 Ubicación: ${listing.location}\n\n💰 Precio: ${listing.price}\n\n¡Consulta sin compromiso en SimplePropiedades, te respondemos de inmediato! 📲\n\n🔗 Ver más: https://simplepropiedades.cl/propiedad/${listing.id}\n\n#SimplePropiedades #PropiedadesChile #Inmuebles #VentaPropiedades`;
+
+        setPreviewListing(listing);
+        setPreviewCaption(defaultCaption);
+        setInstagramPreviewOpen(true);
+    };
+
+    const handleConfirmInstagramPublish = async () => {
+        if (!previewListing) return;
+
+        setIsPublishingInstagram(true);
+        const key = `${previewListing.id}:instagram`;
         setInstagramBusyKey(key);
-        const result = await publishInstagramPost(listing.id);
-        setInstagramBusyKey(null);
 
-        if (!result.ok || !result.publication) {
-            setNotice(result.error ?? 'No se pudo publicar en Instagram.');
+        try {
+            const result = await publishInstagramPost(previewListing.id, previewCaption);
+            if (result.ok && result.publication) {
+                setNotice('Publicado en Instagram correctamente.');
+                setInstagramPreviewOpen(false);
+                if (result.publication.instagramPermalink) {
+                    window.open(result.publication.instagramPermalink, '_blank', 'noopener,noreferrer');
+                }
+            } else {
+                setNotice(result.error ?? 'No se pudo publicar en Instagram.');
+            }
+        } catch (error) {
+            setNotice('Error inesperado al publicar en Instagram.');
+        } finally {
+            setIsPublishingInstagram(false);
+            setInstagramBusyKey(null);
             closeMenus();
-            return;
         }
-
-        setNotice('Publicado en Instagram correctamente.');
-        if (result.publication.instagramPermalink) {
-            window.open(result.publication.instagramPermalink, '_blank', 'noopener,noreferrer');
-        }
-        closeMenus();
     };
 
     const renderMenuItem = (
