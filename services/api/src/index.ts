@@ -58,6 +58,7 @@ import {
     getInstagramProfile,
     getInstagramPublicApiOrigin,
     isInstagramConfigured,
+    publishInstagramCarousel,
     publishInstagramImage,
     refreshInstagramAccessToken,
 } from './instagram.js';
@@ -3548,7 +3549,7 @@ async function publishListingToInstagram(user: AppUser, listing: ListingRecord, 
         let published: { mediaId: string; permalink: string | null };
         
         if (preparedImages.length > 1) {
-            published = await (require('./instagram.js') as typeof import('./instagram.js')).publishInstagramCarousel({
+            published = await publishInstagramCarousel({
                 instagramUserId: refreshedAccount.instagramUserId,
                 accessToken: refreshedAccount.accessToken,
                 images: preparedImages,
@@ -3598,7 +3599,7 @@ async function publishListingToInstagram(user: AppUser, listing: ListingRecord, 
             instagramMediaId: null,
             instagramPermalink: null,
             caption,
-            imageUrl: preparedImages.length > 0 ? preparedImages[0].url : null,
+            imageUrl: preparedImages.length > 0 ? preparedImages[0].url : '',
             status: 'failed',
             errorMessage: message,
             sourceUpdatedAt: listing.updatedAt,
