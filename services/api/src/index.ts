@@ -3533,6 +3533,16 @@ async function publishListingToInstagram(user: AppUser, listing: ListingRecord, 
     console.log('[instagram] Iniciando preparacion de imagen para listing:', listing.id);
     const imageUrl = await prepareInstagramImageUrl(listing);
     console.log('[instagram] Imagen preparada en Backblaze:', imageUrl);
+
+    // NUEVA VALIDACION: Comprobar si Meta podrá descargar la imagen antes de enviar la petición.
+    console.log('[instagram] Verificando si la imagen es accesible publicamente...');
+    const check = await fetch(imageUrl, { method: 'HEAD' }).catch(() => null);
+    if (!check || !check.ok) {
+        const errorMsg = `La imagen NO es accesible publicamente (Status: ${check?.status || 'Network Error'}). Meta (Instagram) rechazara la publicacion. REVISA que tu bucket de Backblaze sea PUBLICO. URL: ${imageUrl}`;
+        console.error('[instagram] ERROR:', errorMsg);
+        throw new Error(errorMsg);
+    }
+    console.log('[instagram] Imagen validada correctamente (200 OK). Procediendo con Meta.');
     
     const caption = buildInstagramCaption(listing, publicUrl, refreshedAccount.captionTemplate, options.captionOverride ?? null);
     console.log('[instagram] Publicando con Instagram User ID:', refreshedAccount.instagramUserId);
