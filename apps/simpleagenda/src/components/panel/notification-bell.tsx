@@ -92,7 +92,7 @@ export function NotificationBell() {
                 <IconBell size={16} />
                 {unread > 0 ? (
                     <span
-                        className="absolute -top-1 -right-1 min-w-[16px] h-4 rounded-full flex items-center justify-center text-[10px] font-bold leading-none px-0.5"
+                        className="absolute -top-1 -right-1 min-w-4 h-4 rounded-full flex items-center justify-center text-[10px] font-bold leading-none px-0.5"
                         style={{ background: '#ef4444', color: '#fff' }}
                     >
                         {unread > 9 ? '9+' : unread}
@@ -110,7 +110,7 @@ export function NotificationBell() {
                         <span className="text-sm font-semibold" style={{ color: 'var(--fg)' }}>Notificaciones</span>
                     </div>
 
-                    <div className="max-h-[360px] overflow-y-auto divide-y" style={{ borderColor: 'var(--border)' }}>
+                    <div className="max-h-90 overflow-y-auto divide-y" style={{ borderColor: 'var(--border)' }}>
                         {items.length === 0 ? (
                             <div className="px-4 py-8 text-center">
                                 <IconBell size={28} className="mx-auto mb-2 opacity-30" style={{ color: 'var(--fg-muted)' }} />
@@ -123,7 +123,7 @@ export function NotificationBell() {
                                     className="flex items-start gap-3 px-3.5 py-3 transition-colors hover:bg-(--bg-subtle)"
                                 >
                                     <span
-                                        className="mt-0.5 w-7 h-7 rounded-[8px] flex items-center justify-center shrink-0"
+                                        className="mt-0.5 w-7 h-7 rounded-lg flex items-center justify-center shrink-0"
                                         style={{ background: 'var(--bg-subtle)', color: notifColor(item.type) }}
                                     >
                                         <NotifIcon type={item.type} />

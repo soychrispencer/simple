@@ -3588,7 +3588,7 @@ async function publishListingToInstagram(user: AppUser, listing: ListingRecord, 
             instagramMediaId: null,
             instagramPermalink: null,
             caption,
-            imageUrl,
+            imageUrl: preparedImages.length > 0 ? preparedImages[0].url : null,
             status: 'failed',
             errorMessage: message,
             sourceUpdatedAt: listing.updatedAt,
@@ -14176,10 +14176,10 @@ async function syncToGoogleCalendar(
         };
 
         if (!appointment.googleEventId) {
-            const res = await calApi.events.insert({ calendarId: profile.googleCalendarId, resource, sendUpdates: 'none' });
+            const res = await calApi.events.insert({ calendarId: profile.googleCalendarId, requestBody: resource, sendUpdates: 'none' });
             return res.data.id ?? null;
         } else {
-            await calApi.events.update({ calendarId: profile.googleCalendarId, eventId: appointment.googleEventId, resource, sendUpdates: 'none' });
+            await calApi.events.update({ calendarId: profile.googleCalendarId, eventId: appointment.googleEventId, requestBody: resource, sendUpdates: 'none' });
             return appointment.googleEventId;
         }
     } catch (e) {
@@ -14333,8 +14333,9 @@ app.delete('/api/agenda/mercadopago/disconnect', requireVerifiedSession, async (
 app.post('/api/agenda/mercadopago/webhook', async (c) => {
     try {
         const body = await c.req.json().catch(() => ({})) as Record<string, unknown>;
+        const bodyData = (body.data ?? {}) as Record<string, unknown>;
         const topic = c.req.query('topic') ?? String(body.type ?? '');
-        const resourceId = c.req.query('id') ?? String(body.data?.id ?? body.id ?? '');
+        const resourceId = c.req.query('id') ?? String(bodyData.id ?? body.id ?? '');
 
         if (topic !== 'payment' && topic !== 'merchant_order') return c.json({ ok: true });
         if (!resourceId) return c.json({ ok: true });
@@ -14343,7 +14344,7 @@ app.post('/api/agenda/mercadopago/webhook', async (c) => {
         const mpToken = c.req.header('x-mp-access-token'); // not standard, we'll do a lookup below
         // Find which professional has this payment by querying MP for each connected professional
         // Simpler: MP sends us the externalReference in the webhook body
-        const externalRef = String(body.external_reference ?? body.data?.external_reference ?? '');
+        const externalRef = String(body.external_reference ?? bodyData.external_reference ?? '');
         if (!externalRef) return c.json({ ok: true });
 
         // Find the appointment
