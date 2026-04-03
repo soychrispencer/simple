@@ -95,8 +95,10 @@ import {
     agendaAppointments,
     agendaSessionNotes,
     agendaPayments,
+    pushSubscriptions,
 } from './db/schema.js';
 import bcrypt from 'bcryptjs';
+import webpush from 'web-push';
 import { googleAuth } from '@hono/oauth-providers/google';
 import nodemailer from 'nodemailer';
 import { google } from 'googleapis';
@@ -833,6 +835,14 @@ const SESSION_COOKIE = 'simple_session';
 const OAUTH_STATE_COOKIE = 'simple_oauth_state';
 const INSTAGRAM_STATE_COOKIE = 'simple_instagram_state';
 const SESSION_SECRET = asString(process.env.SESSION_SECRET);
+
+// ── Web Push (VAPID) ──────────────────────────────────────────────────────────
+const VAPID_PUBLIC_KEY = process.env.VAPID_PUBLIC_KEY ?? '';
+const VAPID_PRIVATE_KEY = process.env.VAPID_PRIVATE_KEY ?? '';
+const VAPID_SUBJECT = process.env.VAPID_SUBJECT ?? 'mailto:hola@simpleplataforma.app';
+if (VAPID_PUBLIC_KEY && VAPID_PRIVATE_KEY) {
+    webpush.setVapidDetails(VAPID_SUBJECT, VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY);
+}
 const PASSWORD_RESET_TOKEN_TTL_MS = 1000 * 60 * 60;
 const EMAIL_VERIFICATION_TOKEN_TTL_MS = 1000 * 60 * 60 * 24 * 3;
 const AUTH_RATE_LIMIT_WINDOW_MS = 1000 * 60 * 15;
@@ -13816,6 +13826,17 @@ app.post('/api/agenda/appointments', requireVerifiedSession, async (c) => {
         }
     }
 
+    // Push notification to professional
+    const firstAppt = appointments[0];
+    const tz = profile.timezone ?? 'America/Santiago';
+    const fmtT = (d: Date) => d.toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: tz });
+    const fmtD = (d: Date) => d.toLocaleDateString('es-CL', { weekday: 'short', day: 'numeric', month: 'short', timeZone: tz });
+    void sendPushToUser(user.id, {
+        title: '📅 Nueva cita agendada',
+        body: `${firstAppt.clientName ?? 'Paciente'} — ${fmtD(firstAppt.startsAt)} a las ${fmtT(firstAppt.startsAt)}`,
+        url: '/panel/agenda',
+    });
+
     return c.json({ ok: true, appointment: appointments[0], appointments });
 });
 
@@ -14413,6 +14434,28 @@ app.post('/api/agenda/whatsapp/test', requireVerifiedSession, async (c) => {
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Web Push helpers
+// ─────────────────────────────────────────────────────────────────────────────
+
+async function sendPushToUser(userId: string, payload: { title: string; body: string; url?: string }): Promise<void> {
+    if (!VAPID_PUBLIC_KEY || !VAPID_PRIVATE_KEY) return;
+    const subs = await db.select().from(pushSubscriptions).where(eq(pushSubscriptions.userId, userId));
+    await Promise.allSettled(subs.map(async (sub) => {
+        try {
+            await webpush.sendNotification(
+                { endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth } },
+                JSON.stringify(payload),
+            );
+        } catch (e: unknown) {
+            // 410 Gone = subscription expired, remove it
+            if (e && typeof e === 'object' && 'statusCode' in e && (e as { statusCode: number }).statusCode === 410) {
+                await db.delete(pushSubscriptions).where(eq(pushSubscriptions.id, sub.id));
+            }
+        }
+    }));
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // SimpleAgenda — Notifications
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -14506,6 +14549,39 @@ app.post('/api/agenda/notifications/seen', requireVerifiedSession, async (c) => 
     await db.update(agendaProfessionalProfiles)
         .set({ notificationsLastSeenAt: new Date() })
         .where(eq(agendaProfessionalProfiles.id, profile.id));
+    return c.json({ ok: true });
+});
+
+// Push subscription management
+app.get('/api/agenda/push/vapid-public-key', requireVerifiedSession, async (c) => {
+    return c.json({ ok: true, key: VAPID_PUBLIC_KEY || null });
+});
+
+app.post('/api/agenda/push/subscribe', requireVerifiedSession, async (c) => {
+    const user = await authUser(c);
+    if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
+    const body = await c.req.json().catch(() => ({})) as Record<string, unknown>;
+    const endpoint = typeof body.endpoint === 'string' ? body.endpoint : null;
+    const keys = body.keys && typeof body.keys === 'object' ? body.keys as Record<string, string> : null;
+    if (!endpoint || !keys?.p256dh || !keys?.auth) return c.json({ ok: false, error: 'Suscripción inválida' }, 400);
+    const ua = c.req.header('user-agent')?.slice(0, 500) ?? null;
+    await db.insert(pushSubscriptions).values({
+        userId: user.id,
+        endpoint,
+        p256dh: keys.p256dh,
+        auth: keys.auth,
+        userAgent: ua,
+    }).onConflictDoNothing();
+    return c.json({ ok: true });
+});
+
+app.post('/api/agenda/push/unsubscribe', requireVerifiedSession, async (c) => {
+    const user = await authUser(c);
+    if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
+    const body = await c.req.json().catch(() => ({})) as Record<string, unknown>;
+    const endpoint = typeof body.endpoint === 'string' ? body.endpoint : null;
+    if (!endpoint) return c.json({ ok: false, error: 'endpoint requerido' }, 400);
+    await db.delete(pushSubscriptions).where(and(eq(pushSubscriptions.userId, user.id), eq(pushSubscriptions.endpoint, endpoint)));
     return c.json({ ok: true });
 });
 
@@ -14652,6 +14728,21 @@ app.post('/api/public/agenda/appointments/:id/cancel', async (c) => {
     // Remove from Google Calendar
     if (profile) void syncToGoogleCalendar(profile, updated, 'delete');
 
+    // Push notification to professional
+    if (profile) {
+        const tz2 = profile.timezone ?? 'America/Santiago';
+        const fmtT2 = (d: Date) => d.toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: tz2 });
+        const fmtD2 = (d: Date) => d.toLocaleDateString('es-CL', { weekday: 'short', day: 'numeric', month: 'short', timeZone: tz2 });
+        const profUser = await db.query.users.findFirst({ where: eq(users.id, profile.userId) });
+        if (profUser) {
+            void sendPushToUser(profUser.id, {
+                title: '❌ Cita cancelada',
+                body: `${updated.clientName ?? 'Paciente'} canceló para el ${fmtD2(updated.startsAt)} a las ${fmtT2(updated.startsAt)}`,
+                url: '/panel/agenda',
+            });
+        }
+    }
+
     return c.json({ ok: true, message: 'Cita cancelada correctamente.' });
 });
 
@@ -14722,6 +14813,16 @@ app.post('/api/public/agenda/:slug/book', async (c) => {
         if (eventId) {
             await db.update(agendaAppointments).set({ googleEventId: eventId }).where(eq(agendaAppointments.id, appointment.id));
         }
+    });
+
+    // Push notification to professional
+    const tz3 = profile.timezone ?? 'America/Santiago';
+    const fmtT3 = (d: Date) => d.toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: tz3 });
+    const fmtD3 = (d: Date) => d.toLocaleDateString('es-CL', { weekday: 'short', day: 'numeric', month: 'short', timeZone: tz3 });
+    void sendPushToUser(profile.userId, {
+        title: '📅 Nueva cita agendada',
+        body: `${String(body.clientName)} — ${fmtD3(startsAt)} a las ${fmtT3(startsAt)}`,
+        url: '/panel/agenda',
     });
 
     // If requiresAdvancePayment AND professional has MP connected → create checkout preference
@@ -14960,6 +15061,24 @@ async function bootstrapMissingTables() {
     } catch {
         // agenda_professional_profiles puede no existir en entornos sin SimpleAgenda
     }
+    // push subscriptions table (migration 0025)
+    await db.execute(sql`
+        CREATE TABLE IF NOT EXISTS push_subscriptions (
+            id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+            user_id uuid NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+            endpoint text NOT NULL,
+            p256dh text NOT NULL,
+            auth text NOT NULL,
+            user_agent varchar(500),
+            created_at timestamp NOT NULL DEFAULT now()
+        )
+    `);
+    await db.execute(sql`
+        CREATE INDEX IF NOT EXISTS push_subscriptions_user_idx ON push_subscriptions(user_id)
+    `);
+    await db.execute(sql`
+        CREATE UNIQUE INDEX IF NOT EXISTS push_subscriptions_endpoint_idx ON push_subscriptions(endpoint)
+    `);
 }
 
 // Run DB migrations, preload data, then start the HTTP server

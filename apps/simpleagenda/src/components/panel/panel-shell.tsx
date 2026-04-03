@@ -10,6 +10,7 @@ import {
     IconX,
 } from '@tabler/icons-react';
 import { useAuth } from '@/context/auth-context';
+import { usePushNotifications } from '@/hooks/use-push-notifications';
 import {
     getPanelNavItems,
     isPanelNavActive,
@@ -100,6 +101,8 @@ export function PanelShell({ children }: { children: React.ReactNode }) {
 
     const [collapsed, setCollapsed] = useState(false);
     const [mobileOpen, setMobileOpen] = useState(false);
+
+    usePushNotifications(!!user);
 
     const navItems = useMemo(() => getPanelNavItems(role), [role]);
 

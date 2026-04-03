@@ -598,3 +598,17 @@ export const agendaPayments = pgTable('agenda_payments', {
   professionalIdx: index('agenda_payments_professional_idx').on(table.professionalId),
   appointmentIdx: index('agenda_payments_appointment_idx').on(table.appointmentId),
 }));
+
+// Web Push subscriptions — one per browser/device per user
+export const pushSubscriptions = pgTable('push_subscriptions', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  userId: uuid('user_id').references(() => users.id).notNull(),
+  endpoint: text('endpoint').notNull(),
+  p256dh: text('p256dh').notNull(),
+  auth: text('auth').notNull(),
+  userAgent: varchar('user_agent', { length: 500 }),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+}, (table) => ({
+  userIdx: index('push_subscriptions_user_idx').on(table.userId),
+  endpointIdx: uniqueIndex('push_subscriptions_endpoint_idx').on(table.endpoint),
+}));
