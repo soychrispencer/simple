@@ -3528,12 +3528,12 @@ async function publishListingToInstagram(user: AppUser, listing: ListingRecord, 
     const refreshedAccount = await refreshInstagramAccountIfNeeded(account);
     const publicUrl = buildListingPublicUrlForInstagram(listing);
     
-    // Preparamos la imagen como JPEG 1080px en Backblaze ( Meta es estricto con el formato )
-    // Esto es mucho más robusto que servirla desde el API.
+    console.log('[instagram] Iniciando preparacion de imagen para listing:', listing.id);
     const imageUrl = await prepareInstagramImageUrl(listing);
+    console.log('[instagram] Imagen preparada en Backblaze:', imageUrl);
     
     const caption = buildInstagramCaption(listing, publicUrl, refreshedAccount.captionTemplate, options.captionOverride ?? null);
-    console.log('[instagram] publishing listing', listing.id, 'imageUrl:', imageUrl);
+    console.log('[instagram] Publicando con Instagram User ID:', refreshedAccount.instagramUserId);
 
     try {
         const published = await publishInstagramImage({
