@@ -798,10 +798,10 @@ export default function AgendaPage() {
                                         const v = Math.max(0, Math.min(104, Number(e.target.value) || 0));
                                         setForm((p) => ({ ...p, repeatWeekly: v }));
                                     }}
-                                    className="field-input w-24"
+                                    className="field-input w-16 text-center"
                                 />
-                                <span className="text-sm" style={{ color: 'var(--fg-muted)' }}>
-                                    {form.repeatWeekly > 0 ? `semana${form.repeatWeekly !== 1 ? 's' : ''} (${form.repeatWeekly + 1} citas en total)` : 'semanas — sin repetición'}
+                                <span className="text-xs whitespace-nowrap" style={{ color: 'var(--fg-muted)' }}>
+                                    {form.repeatWeekly > 0 ? `sem. → ${form.repeatWeekly + 1} citas en total` : 'sem. (0 = sin repetición)'}
                                 </span>
                             </div>
                         </div>

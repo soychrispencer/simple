@@ -259,15 +259,17 @@ export async function notifyProfessionalNewBooking(
 
 /**
  * Mensaje de prueba para verificar que WhatsApp funciona.
- * Template: simpleagenda_test
- * Params: [professionalName]
+ * Usa el template de recordatorio 24h con datos ficticios.
+ * Params: [clientName, professionalName, time, cancellationHours]
  */
 export async function sendTestMessage(phone: string, professionalName: string): Promise<void> {
+    const now = new Date();
+    now.setHours(now.getHours() + 24);
     await sendTemplate(
         phone,
-        'simpleagenda_test',
+        'simpleagenda_recordatorio_24h',
         'es',
-        [professionalName],
+        ['Paciente de prueba', professionalName, fmtTime(now, 'America/Santiago'), '24'],
         'agenda',
     );
 }
