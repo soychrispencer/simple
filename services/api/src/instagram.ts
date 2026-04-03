@@ -261,14 +261,39 @@ export async function publishInstagramImage(input: {
         + `?access_token=${tok}`
         + `&creation_id=${encodeURIComponent(creationId)}`;
 
-    const publish = await requestInstagram<InstagramMediaPublishResponse>(
-        publishUrl,
-        { method: 'POST' },
-    );
+    console.log('[instagram] publicando contenedor (con reintentos si es necesario):', creationId);
 
-    const mediaId = asString(publish.id);
+    let mediaId = '';
+    let attempts = 0;
+    const maxAttempts = 5;
+
+    while (attempts < maxAttempts) {
+        try {
+            const publish = await requestInstagram<InstagramMediaPublishResponse>(
+                publishUrl,
+                { method: 'POST' },
+            );
+            mediaId = asString(publish.id);
+            if (mediaId) break;
+        } catch (error) {
+            const isNotReady = error instanceof Error && (
+                error.message.includes('not ready') || 
+                error.message.includes('not available') ||
+                error.message.includes('9007')
+            );
+
+            if (isNotReady && attempts < maxAttempts - 1) {
+                attempts++;
+                console.log(`[instagram] el medio no esta listo (intento ${attempts}/${maxAttempts}). esperando 5s...`);
+                await new Promise(resolve => setTimeout(resolve, 5000));
+                continue;
+            }
+            throw error;
+        }
+    }
+
     if (!mediaId) {
-        throw new Error('Instagram no devolvió el identificador del post publicado.');
+        throw new Error('Instagram no devolvió el identificador del post publicado tras varios intentos.');
     }
 
     // 3. Obtener info del post (permalink)
