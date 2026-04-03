@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { IconPlus, IconSearch, IconLoader2, IconUsers, IconX } from '@tabler/icons-react';
+import { IconPlus, IconSearch, IconLoader2, IconUsers, IconX, IconDownload } from '@tabler/icons-react';
 import Link from 'next/link';
 import { fetchAgendaClients, createAgendaClient, type AgendaClient } from '@/lib/agenda-api';
 
@@ -99,6 +99,21 @@ export default function ClientesPage() {
     const fullName = (c: AgendaClient) => `${c.firstName} ${c.lastName ?? ''}`.trim();
     const initials = (c: AgendaClient) => `${c.firstName.charAt(0)}${(c.lastName ?? '').charAt(0)}`.toUpperCase();
 
+    const exportCSV = () => {
+        const headers = ['Nombre', 'Apellido', 'Email', 'Teléfono', 'WhatsApp', 'RUT', 'Fecha nacimiento', 'Género', 'Ocupación', 'Ciudad', 'Referido por', 'Notas'];
+        const rows = clients.map((c) => [
+            c.firstName, c.lastName ?? '', c.email ?? '', c.phone ?? '', c.whatsapp ?? '',
+            c.rut ?? '', c.dateOfBirth ?? '', c.gender ?? '', c.occupation ?? '',
+            c.city ?? '', c.referredBy ?? '', (c.internalNotes ?? '').replace(/\n/g, ' '),
+        ]);
+        const csv = [headers, ...rows].map((r) => r.map((v) => `"${String(v).replace(/"/g, '""')}"`).join(',')).join('\n');
+        const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url; a.download = 'pacientes.csv'; a.click();
+        URL.revokeObjectURL(url);
+    };
+
     return (
         <div className="p-6 max-w-4xl">
             <div className="flex items-center justify-between mb-6">
@@ -108,14 +123,26 @@ export default function ClientesPage() {
                         {clients.length} paciente{clients.length !== 1 ? 's' : ''}
                     </p>
                 </div>
-                <button
-                    onClick={() => { setShowForm(true); setForm(emptyForm()); setError(''); }}
-                    className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-opacity hover:opacity-90"
-                    style={{ background: 'var(--accent)', color: '#fff' }}
-                >
-                    <IconPlus size={15} />
-                    Nuevo paciente
-                </button>
+                <div className="flex items-center gap-2">
+                    {clients.length > 0 && (
+                        <button
+                            onClick={exportCSV}
+                            className="inline-flex items-center gap-2 px-3 py-2 rounded-xl text-sm border transition-colors hover:bg-(--bg-subtle)"
+                            style={{ borderColor: 'var(--border)', color: 'var(--fg-secondary)' }}
+                        >
+                            <IconDownload size={14} />
+                            Exportar CSV
+                        </button>
+                    )}
+                    <button
+                        onClick={() => { setShowForm(true); setForm(emptyForm()); setError(''); }}
+                        className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-opacity hover:opacity-90"
+                        style={{ background: 'var(--accent)', color: '#fff' }}
+                    >
+                        <IconPlus size={15} />
+                        Nuevo paciente
+                    </button>
+                </div>
             </div>
 
             {/* Search */}

@@ -16,6 +16,8 @@ import {
     IconBan,
     IconNotes,
     IconEdit,
+    IconLayoutGrid,
+    IconLayoutColumns,
 } from '@tabler/icons-react';
 import {
     fetchAgendaAppointments,
@@ -29,7 +31,6 @@ import {
     type AgendaAppointment,
     type AgendaService,
     type AgendaClient,
-    type AgendaSessionNote,
 } from '@/lib/agenda-api';
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
@@ -77,14 +78,46 @@ const STATUS_COLORS: Record<string, string> = {
     no_show: '#9CA3AF',
 };
 
+function getMonthStart(date: Date): Date {
+    return new Date(date.getFullYear(), date.getMonth(), 1);
+}
+
+function getMonthEnd(date: Date): Date {
+    return new Date(date.getFullYear(), date.getMonth() + 1, 0, 23, 59, 59);
+}
+
+function getMonthGridDays(monthDate: Date): Date[] {
+    const first = new Date(monthDate.getFullYear(), monthDate.getMonth(), 1);
+    const last = new Date(monthDate.getFullYear(), monthDate.getMonth() + 1, 0);
+    // Start from Monday of the week containing the 1st
+    const gridStart = new Date(first);
+    const startDay = first.getDay();
+    gridStart.setDate(first.getDate() - (startDay === 0 ? 6 : startDay - 1));
+    // End on Sunday of the week containing the last day
+    const gridEnd = new Date(last);
+    const endDay = last.getDay();
+    if (endDay !== 0) gridEnd.setDate(last.getDate() + (7 - endDay));
+
+    const days: Date[] = [];
+    const cur = new Date(gridStart);
+    while (cur <= gridEnd) {
+        days.push(new Date(cur));
+        cur.setDate(cur.getDate() + 1);
+    }
+    return days;
+}
+
 // ── Types ─────────────────────────────────────────────────────────────────────
 
 type AppointmentsByDay = Record<string, AgendaAppointment[]>;
+type ViewMode = 'week' | 'month';
 
 // ── Main Component ────────────────────────────────────────────────────────────
 
 export default function AgendaPage() {
+    const [view, setView] = useState<ViewMode>('week');
     const [weekStart, setWeekStart] = useState(() => getWeekStart(new Date()));
+    const [monthDate, setMonthDate] = useState(() => new Date());
     const [appointments, setAppointments] = useState<AgendaAppointment[]>([]);
     const [loading, setLoading] = useState(true);
     const [services, setServices] = useState<AgendaService[]>([]);
@@ -127,8 +160,10 @@ export default function AgendaPage() {
 
     const load = useCallback(async () => {
         setLoading(true);
+        const from = view === 'month' ? getMonthStart(monthDate).toISOString() : weekStart.toISOString();
+        const to   = view === 'month' ? getMonthEnd(monthDate).toISOString()   : weekEnd.toISOString();
         const [appts, svcs, cls] = await Promise.all([
-            fetchAgendaAppointments(weekStart.toISOString(), weekEnd.toISOString()),
+            fetchAgendaAppointments(from, to),
             fetchAgendaServices(),
             fetchAgendaClients(),
         ]);
@@ -136,7 +171,7 @@ export default function AgendaPage() {
         setServices(svcs);
         setClients(cls);
         setLoading(false);
-    }, [weekStart]); // eslint-disable-line react-hooks/exhaustive-deps
+    }, [view, weekStart, monthDate]); // eslint-disable-line react-hooks/exhaustive-deps
 
     useEffect(() => { void load(); }, [load]);
 
@@ -149,10 +184,16 @@ export default function AgendaPage() {
     }
 
     const weekDays = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
+    const monthGridDays = getMonthGridDays(monthDate);
 
     const handlePrevWeek = () => setWeekStart((d) => addDays(d, -7));
     const handleNextWeek = () => setWeekStart((d) => addDays(d, 7));
-    const handleToday = () => setWeekStart(getWeekStart(new Date()));
+    const handleToday = () => {
+        setWeekStart(getWeekStart(new Date()));
+        setMonthDate(new Date());
+    };
+    const handlePrevMonth = () => setMonthDate((d) => new Date(d.getFullYear(), d.getMonth() - 1, 1));
+    const handleNextMonth = () => setMonthDate((d) => new Date(d.getFullYear(), d.getMonth() + 1, 1));
 
     const handleCreateOpen = (date?: Date) => {
         setCreateError('');
@@ -275,6 +316,8 @@ export default function AgendaPage() {
 
     const todayKey = new Date().toISOString().slice(0, 10);
     const weekLabel = `${weekStart.toLocaleDateString('es-CL', { day: 'numeric', month: 'short' })} — ${weekEnd.toLocaleDateString('es-CL', { day: 'numeric', month: 'short', year: 'numeric' })}`;
+    const monthLabel = monthDate.toLocaleDateString('es-CL', { month: 'long', year: 'numeric' });
+    const dayHeaders = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'];
 
     return (
         <div className="p-4 sm:p-6 max-w-5xl">
@@ -282,16 +325,43 @@ export default function AgendaPage() {
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
                 <div>
                     <h1 className="text-xl font-bold" style={{ color: 'var(--fg)' }}>Mi Agenda</h1>
-                    <p className="text-sm mt-0.5" style={{ color: 'var(--fg-muted)' }}>{weekLabel}</p>
+                    <p className="text-sm mt-0.5 capitalize" style={{ color: 'var(--fg-muted)' }}>
+                        {view === 'month' ? monthLabel : weekLabel}
+                    </p>
                 </div>
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 flex-wrap">
+                    {/* View toggle */}
+                    <div className="flex rounded-lg border overflow-hidden" style={{ borderColor: 'var(--border)' }}>
+                        <button
+                            onClick={() => setView('week')}
+                            className="px-3 py-1.5 text-xs flex items-center gap-1.5 transition-colors"
+                            style={{ background: view === 'week' ? 'var(--accent)' : 'transparent', color: view === 'week' ? '#fff' : 'var(--fg-muted)' }}
+                        >
+                            <IconLayoutColumns size={13} /> Semana
+                        </button>
+                        <button
+                            onClick={() => setView('month')}
+                            className="px-3 py-1.5 text-xs flex items-center gap-1.5 transition-colors"
+                            style={{ background: view === 'month' ? 'var(--accent)' : 'transparent', color: view === 'month' ? '#fff' : 'var(--fg-muted)' }}
+                        >
+                            <IconLayoutGrid size={13} /> Mes
+                        </button>
+                    </div>
                     <button onClick={handleToday} className="px-3 py-1.5 rounded-lg text-xs border transition-colors hover:bg-(--bg-subtle)" style={{ borderColor: 'var(--border)', color: 'var(--fg-secondary)' }}>
                         Hoy
                     </button>
-                    <button onClick={handlePrevWeek} className="w-8 h-8 rounded-lg flex items-center justify-center border transition-colors hover:bg-(--bg-subtle)" style={{ borderColor: 'var(--border)', color: 'var(--fg-muted)' }}>
+                    <button
+                        onClick={view === 'month' ? handlePrevMonth : handlePrevWeek}
+                        className="w-8 h-8 rounded-lg flex items-center justify-center border transition-colors hover:bg-(--bg-subtle)"
+                        style={{ borderColor: 'var(--border)', color: 'var(--fg-muted)' }}
+                    >
                         <IconChevronLeft size={16} />
                     </button>
-                    <button onClick={handleNextWeek} className="w-8 h-8 rounded-lg flex items-center justify-center border transition-colors hover:bg-(--bg-subtle)" style={{ borderColor: 'var(--border)', color: 'var(--fg-muted)' }}>
+                    <button
+                        onClick={view === 'month' ? handleNextMonth : handleNextWeek}
+                        className="w-8 h-8 rounded-lg flex items-center justify-center border transition-colors hover:bg-(--bg-subtle)"
+                        style={{ borderColor: 'var(--border)', color: 'var(--fg-muted)' }}
+                    >
                         <IconChevronRight size={16} />
                     </button>
                     <button
@@ -305,7 +375,59 @@ export default function AgendaPage() {
                 </div>
             </div>
 
-            {/* Calendar grid */}
+            {/* Month view */}
+            {view === 'month' && (
+                <div className="rounded-2xl border overflow-hidden" style={{ borderColor: 'var(--border)' }}>
+                    <div className="grid grid-cols-7 border-b" style={{ borderColor: 'var(--border)', background: 'var(--surface)' }}>
+                        {dayHeaders.map((d) => (
+                            <div key={d} className="p-2 text-center text-[10px] uppercase tracking-widest font-medium" style={{ color: 'var(--fg-muted)' }}>{d}</div>
+                        ))}
+                    </div>
+                    <div className="grid grid-cols-7">
+                        {monthGridDays.map((day) => {
+                            const key = day.toISOString().slice(0, 10);
+                            const isToday = key === todayKey;
+                            const isCurrentMonth = day.getMonth() === monthDate.getMonth();
+                            const dayAppts = (byDay[key] ?? []).sort((a, b) => a.startsAt.localeCompare(b.startsAt));
+                            return (
+                                <div
+                                    key={key}
+                                    className="border-r border-b last:border-r-0 p-1.5 min-h-[90px] cursor-pointer hover:bg-(--bg-subtle) transition-colors"
+                                    style={{ borderColor: 'var(--border)', background: isToday ? 'var(--accent-soft)' : 'transparent' }}
+                                    onClick={() => handleCreateOpen(day)}
+                                >
+                                    <div
+                                        className="w-6 h-6 rounded-full flex items-center justify-center text-xs font-semibold mb-1"
+                                        style={{
+                                            background: isToday ? 'var(--accent)' : 'transparent',
+                                            color: isToday ? '#fff' : isCurrentMonth ? 'var(--fg)' : 'var(--fg-muted)',
+                                            opacity: isCurrentMonth ? 1 : 0.4,
+                                        }}
+                                    >
+                                        {day.getDate()}
+                                    </div>
+                                    {loading ? null : dayAppts.slice(0, 3).map((appt) => (
+                                        <button
+                                            key={appt.id}
+                                            onClick={(e) => { e.stopPropagation(); void handleSelectAppt(appt); }}
+                                            className="w-full text-left px-1.5 py-0.5 rounded text-[10px] font-medium truncate mb-0.5 transition-opacity hover:opacity-80"
+                                            style={{ background: STATUS_COLORS[appt.status] ?? 'var(--accent)', color: '#fff' }}
+                                        >
+                                            {formatTime(appt.startsAt)} {appt.clientName ?? appt.client?.firstName ?? '—'}
+                                        </button>
+                                    ))}
+                                    {!loading && dayAppts.length > 3 && (
+                                        <p className="text-[10px] pl-1" style={{ color: 'var(--fg-muted)' }}>+{dayAppts.length - 3} más</p>
+                                    )}
+                                </div>
+                            );
+                        })}
+                    </div>
+                </div>
+            )}
+
+            {/* Week view */}
+            {view === 'week' && (
             <div className="rounded-2xl border overflow-hidden" style={{ borderColor: 'var(--border)' }}>
                 {/* Day headers */}
                 <div className="grid grid-cols-7 border-b" style={{ borderColor: 'var(--border)', background: 'var(--surface)' }}>
@@ -378,6 +500,7 @@ export default function AgendaPage() {
                     })}
                 </div>
             </div>
+            )}
 
             {/* Appointment detail modal */}
             {selectedAppt && !showEdit && (
@@ -664,19 +787,23 @@ export default function AgendaPage() {
                         {/* Repeat weekly */}
                         <div className="flex flex-col gap-1.5">
                             <label className="text-xs font-medium" style={{ color: 'var(--fg-muted)' }}>Repetir semanalmente</label>
-                            <select
-                                value={form.repeatWeekly}
-                                onChange={(e) => setForm((p) => ({ ...p, repeatWeekly: Number(e.target.value) }))}
-                                className="field-input"
-                            >
-                                <option value={0}>Sin repetición</option>
-                                <option value={3}>3 semanas</option>
-                                <option value={4}>4 semanas</option>
-                                <option value={8}>8 semanas</option>
-                                <option value={12}>12 semanas (3 meses)</option>
-                                <option value={24}>24 semanas (6 meses)</option>
-                                <option value={52}>52 semanas (1 año)</option>
-                            </select>
+                            <div className="flex items-center gap-2">
+                                <input
+                                    type="number"
+                                    min={0}
+                                    max={104}
+                                    placeholder="0"
+                                    value={form.repeatWeekly || ''}
+                                    onChange={(e) => {
+                                        const v = Math.max(0, Math.min(104, Number(e.target.value) || 0));
+                                        setForm((p) => ({ ...p, repeatWeekly: v }));
+                                    }}
+                                    className="field-input w-24"
+                                />
+                                <span className="text-sm" style={{ color: 'var(--fg-muted)' }}>
+                                    {form.repeatWeekly > 0 ? `semana${form.repeatWeekly !== 1 ? 's' : ''} (${form.repeatWeekly + 1} citas en total)` : 'semanas — sin repetición'}
+                                </span>
+                            </div>
                         </div>
 
                         {createError && (
