@@ -4,7 +4,6 @@ import {
     IconUsers,
     IconCreditCard,
     IconSettings,
-    IconShield,
     type Icon,
 } from '@tabler/icons-react';
 
@@ -26,16 +25,8 @@ const BASE_ITEMS: PanelNavItem[] = [
     { href: '/panel/configuracion', label: 'Configuración', icon: IconSettings },
 ];
 
-const ADMIN_ITEMS: PanelNavItem[] = [
-    { href: '/panel/admin', label: 'Administración', icon: IconShield, roles: ['admin', 'superadmin'] },
-];
-
-export function getPanelNavItems(role: PanelRole): PanelNavItem[] {
-    const items = [...BASE_ITEMS];
-    if (role === 'admin' || role === 'superadmin') {
-        items.push(...ADMIN_ITEMS);
-    }
-    return items;
+export function getPanelNavItems(_role: PanelRole): PanelNavItem[] {
+    return [...BASE_ITEMS];
 }
 
 export function isPanelNavActive(pathname: string, href: string): boolean {
