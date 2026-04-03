@@ -54,6 +54,7 @@ import {
     buildInstagramAuthorizationUrl,
     exchangeInstagramCode,
     exchangeToLongLivedToken,
+    getInstagramBusinessAccounts,
     getInstagramProfile,
     getInstagramPublicApiOrigin,
     isInstagramConfigured,
@@ -11836,7 +11837,15 @@ app.get('/api/integrations/instagram/callback', async (c) => {
             tokenExpiresAt = longLived.expiresInSeconds ? Date.now() + longLived.expiresInSeconds * 1000 : tokenExpiresAt;
         }
 
-        const profile = await getInstagramProfile(accessToken);
+        // Buscar cuentas de Instagram Business vinculadas a las páginas de Facebook
+        const accounts = await getInstagramBusinessAccounts(accessToken);
+        if (accounts.length === 0) {
+            return redirectWithStatus('error', 'No encontramos ninguna cuenta de Instagram Business vinculada a tus páginas de Facebook. Asegúrate de tener una cuenta Profesional (Business/Creator) vinculada a una Página.');
+        }
+
+        // Por ahora tomamos la primera cuenta. En el futuro podríamos dejar al usuario elegir.
+        const profile = accounts[0];
+        
         await upsertInstagramAccountRecord({
             userId: user.id,
             vertical: statePayload.vertical,
