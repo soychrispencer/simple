@@ -291,7 +291,7 @@ export default function PublicacionesPage() {
             return;
         }
 
-        const defaultCaption = `🏠 ${listing.title}\n💰 ${listing.price || 'Consultar precio'}\n📍 ${listing.location || 'Chile'}\n\n${listing.description || ''}\n\n🏢 Tipo: ${listing.listingType}\n📍 Ubicación: ${listing.location}\n\n💰 Precio: ${listing.price}\n\n¡Consulta sin compromiso en SimplePropiedades, te respondemos de inmediato! 📲\n\n🔗 Ver más: https://simplepropiedades.cl/propiedad/${listing.id}\n\n#SimplePropiedades #PropiedadesChile #Inmuebles #VentaPropiedades`;
+        const defaultCaption = `🏠 ${listing.title}\n💰 ${listing.price || 'Consultar precio'}\n📍 ${listing.location || 'Chile'}\n\n${listing.description || ''}\n\n¡Consulta sin compromiso en SimplePropiedades, te respondemos de inmediato! 📲\n\n🔗 Ver más: https://simplepropiedades.cl/propiedad/${listing.id}\n\n#SimplePropiedades #PropiedadesChile #Inmuebles #VentaPropiedades`;
 
         setPreviewListing(listing);
         setPreviewCaption(defaultCaption);

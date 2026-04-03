@@ -263,7 +263,7 @@ export default function PublicacionesPage() {
             return;
         }
 
-        const defaultCaption = `🚗 ${listing.title}\n💰 ${listing.price || 'Consultar precio'}\n📍 ${listing.location || 'Chile'}\n\n${listing.description || ''}\n\n🏎️ Carrocería: ${listing.vehicleType}\n🛣️ Kilometraje: ${listing.mileage ? listing.mileage.toLocaleString('es-CL') : ''} km\n⚙️ Transmisión: ${listing.transmission}\n⛽ Combustible: ${listing.fuelType}\n🔧 Estado: ${listing.condition}\n📍 Ubicación: ${listing.location}\n\n💰 Precio: ${listing.price}\n🏛️ Acepta financiamiento\n\n¡Consulta sin compromiso en SimpleAutos, te respondemos de inmediato! 📲\n\n✓ Financiamiento disponible\n\n🔗 Ver más: https://simpleautos.app/vehiculo/${listing.id}\n\n#SimpleAutos #AutosChile #Autos #VentaAutos`;
+        const defaultCaption = `🚗 ${listing.title}\n💰 ${listing.price || 'Consultar precio'}\n📍 ${listing.location || 'Chile'}\n\n${listing.description || ''}\n\n¡Consulta sin compromiso en SimpleAutos, te respondemos de inmediato! 📲\n\n✓ Financiamiento disponible\n\n🔗 Ver más: https://simpleautos.app/vehiculo/${listing.id}\n\n#SimpleAutos #AutosChile #Autos #VentaAutos`;
 
         setPreviewListing(listing);
         setPreviewCaption(defaultCaption);
