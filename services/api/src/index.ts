@@ -3437,48 +3437,37 @@ function buildListingPublicUrlForInstagram(listing: ListingRecord): string {
 }
 
 // Prepara una imagen JPEG en Backblaze para Instagram.
-// Descarga la imagen original (WebP/etc), la convierte a JPEG y la sube al CDN.
-// Retorna la URL directa de Backblaze que Meta puede descargar sin pasar por nuestro API.
-async function prepareInstagramImageUrl(listing: ListingRecord): Promise<string> {
-    const [rawUrl] = extractListingMediaUrls(listing);
-    if (!rawUrl) throw new Error('La publicación no tiene imágenes.');
+async function prepareInstagramImageUrl(listing: ListingRecord, index = 0): Promise<string> {
+    const images = extractListingMediaUrls(listing);
+    const rawUrl = images[index];
+    if (!rawUrl) throw new Error('La publicación no tiene imágenes en el índice solicitado.');
 
     const bucketName = process.env.BACKBLAZE_BUCKET_NAME || 'simple-media';
-    const downloadUrl = process.env.BACKBLAZE_DOWNLOAD_URL || 'https://f005.backblazeb2.com';
-
-    // Clave de destino en Backblaze para la imagen JPEG de Instagram
-    const destKey = `instagram-ready/${listing.id}.jpg`;
-
-    // FORZAMOS f005.backblazeb2.com. El hostname f179... que reporta Meta no es publico/accesible.
+    
+    // Clave de destino única por imagen para evitar colisiones en el CDN
+    const destKey = `instagram-ready/${listing.id}-${index}.jpg`;
     const downloadOrigin = 'https://f005.backblazeb2.com';
     const directUrl = `${downloadOrigin}/file/${bucketName}/${destKey}`;
 
-    const client = getMediaProxyS3Client();    if (!client) {
-        throw new Error('Storage no configurado.');
-    }
+    const client = getMediaProxyS3Client();
+    if (!client) throw new Error('Storage no configurado.');
 
-    // Descargar la imagen original desde Backblaze S3
     const sourceKey = extractBackblazeObjectKey(rawUrl) || rawUrl.replace(/^https?:\/\/[^/]+\/file\/[^/]+\//, '');
     let rawBuffer: Buffer;
     try {
         const obj = await client.send(new GetObjectCommand({ Bucket: bucketName, Key: sourceKey }));
         rawBuffer = obj.Body ? Buffer.from(await obj.Body.transformToByteArray()) : Buffer.alloc(0);
     } catch {
-        // Fallback: descargar via HTTP si S3 falla (ej. URL proxy)
         const resp = await fetch(rawUrl);
         rawBuffer = Buffer.from(await resp.arrayBuffer());
     }
 
-    // Convertir a JPEG (Instagram solo acepta JPEG/PNG, rechaza WebP)
-    // eslint-disable-next-line @typescript-eslint/no-var-requires
     const sharp = require('sharp') as typeof import('sharp');
     const jpegBuffer = await sharp(rawBuffer)
-        .resize({ width: 1080, withoutEnlargement: true })
+        .resize({ width: 1080, height: 1080, fit: 'cover', withoutEnlargement: true })
         .jpeg({ quality: 90 })
         .toBuffer();
 
-    // Subir JPEG a Backblaze para que Meta pueda descargarlo.
-    // Nota: El bucket en Backblaze DEBE ser público para que Meta acceda al archivo.
     await client.send(new PutObjectCommand({
         Bucket: bucketName,
         Key: destKey,
@@ -3487,7 +3476,6 @@ async function prepareInstagramImageUrl(listing: ListingRecord): Promise<string>
         CacheControl: 'public, max-age=86400',
     }));
 
-    console.log('[instagram] imagen JPEG subida a Backblaze:', directUrl);
     return directUrl;
 }
 
@@ -3512,9 +3500,8 @@ async function publishListingToInstagram(user: AppUser, listing: ListingRecord, 
     auto?: boolean;
 } = {}) {
     const account = getInstagramAccount(user.id, listing.vertical);
-    if (!account || account.status === 'disconnected') {
-        throw new Error('Primero conecta una cuenta de Instagram.');
-    }
+    if (!account || account.status === 'disconnected') throw new Error('Primero conecta una cuenta de Instagram.');
+    
     if (!userCanUseInstagram(user, listing.vertical)) {
         throw new Error('Instagram está disponible solo para planes Pro y Empresa.');
     }
@@ -3529,31 +3516,42 @@ async function publishListingToInstagram(user: AppUser, listing: ListingRecord, 
 
     const refreshedAccount = await refreshInstagramAccountIfNeeded(account);
     const publicUrl = buildListingPublicUrlForInstagram(listing);
-    
-    console.log('[instagram] Iniciando preparacion de imagen para listing:', listing.id);
-    const imageUrl = await prepareInstagramImageUrl(listing);
-    console.log('[instagram] Imagen preparada en Backblaze:', imageUrl);
+    const mediaUrls = extractListingMediaUrls(listing).slice(0, 10);
+    if (mediaUrls.length === 0) throw new Error('El aviso no tiene imágenes.');
 
-    // NUEVA VALIDACION: Comprobar si Meta podrá descargar la imagen antes de enviar la petición.
-    console.log('[instagram] Verificando si la imagen es accesible publicamente...');
-    const check = await fetch(imageUrl, { method: 'HEAD' }).catch(() => null);
-    if (!check || !check.ok) {
-        const errorMsg = `La imagen NO es accesible publicamente (Status: ${check?.status || 'Network Error'}). Meta (Instagram) rechazara la publicacion. REVISA que tu bucket de Backblaze sea PUBLICO. URL: ${imageUrl}`;
-        console.error('[instagram] ERROR:', errorMsg);
-        throw new Error(errorMsg);
+    console.log(`[instagram] preparando ${mediaUrls.length} imágenes para publicación...`);
+    const preparedImages: Array<{ url: string }> = [];
+    for (let i = 0; i < mediaUrls.length; i++) {
+        const url = await prepareInstagramImageUrl(listing, i);
+        // Validar cada imagen
+        const check = await fetch(url, { method: 'HEAD' }).catch(() => null);
+        if (!check || !check.ok) {
+            console.error(`[instagram] imagen ${i} no accesible:`, url);
+        }
+        preparedImages.push({ url });
     }
-    console.log('[instagram] Imagen validada correctamente (200 OK). Procediendo con Meta.');
-    
+
     const caption = buildInstagramCaption(listing, publicUrl, refreshedAccount.captionTemplate, options.captionOverride ?? null);
-    console.log('[instagram] Publicando con Instagram User ID:', refreshedAccount.instagramUserId);
+    console.log(`[instagram] publicando ${preparedImages.length} fotos como ${preparedImages.length > 1 ? 'CAROUSEL' : 'IMAGE'}`);
 
     try {
-        const published = await publishInstagramImage({
-            instagramUserId: refreshedAccount.instagramUserId,
-            accessToken: refreshedAccount.accessToken,
-            imageUrl,
-            caption,
-        });
+        let published: { mediaId: string; permalink: string | null };
+        
+        if (preparedImages.length > 1) {
+            published = await (require('./instagram.js') as typeof import('./instagram.js')).publishInstagramCarousel({
+                instagramUserId: refreshedAccount.instagramUserId,
+                accessToken: refreshedAccount.accessToken,
+                images: preparedImages,
+                caption,
+            });
+        } else {
+            published = await publishInstagramImage({
+                instagramUserId: refreshedAccount.instagramUserId,
+                accessToken: refreshedAccount.accessToken,
+                imageUrl: preparedImages[0].url,
+                caption,
+            });
+        }
 
         const publication = await createInstagramPublicationRecord({
             userId: user.id,
@@ -3564,7 +3562,7 @@ async function publishListingToInstagram(user: AppUser, listing: ListingRecord, 
             instagramMediaId: published.mediaId,
             instagramPermalink: published.permalink,
             caption,
-            imageUrl,
+            imageUrl: preparedImages[0].url,
             status: 'published',
             errorMessage: null,
             sourceUpdatedAt: listing.updatedAt,

@@ -225,6 +225,89 @@ export async function getInstagramProfile(accessToken: string, instagramBusiness
     };
 }
 
+export async function publishInstagramCarousel(input: {
+    instagramUserId: string;
+    accessToken: string;
+    images: Array<{ url: string }>;
+    caption: string;
+}): Promise<{
+    mediaId: string;
+    permalink: string | null;
+}> {
+    const tok = encodeURIComponent(input.accessToken);
+
+    // 1. Crear contenedores individuales para cada imagen
+    const childrenIds: string[] = [];
+    for (const [index, img] of input.images.slice(0, 10).entries()) {
+        const itemUrl = `https://graph.facebook.com/${getInstagramApiVersion()}/${encodeURIComponent(input.instagramUserId)}/media`
+            + `?access_token=${tok}`
+            + `&image_url=${encodeURIComponent(img.url)}`
+            + `&is_carousel_item=true`;
+
+        console.log(`[instagram] creando item carrusel ${index + 1}/${input.images.length}`);
+        const res = await requestInstagram<InstagramMediaCreateResponse>(itemUrl, { method: 'POST' });
+        if (res.id) childrenIds.push(res.id);
+    }
+
+    if (childrenIds.length === 0) {
+        throw new Error('No se pudieron crear los contenedores de las imágenes.');
+    }
+
+    // 2. Crear el contenedor del carrusel (el padre)
+    const carouselUrl = `https://graph.facebook.com/${getInstagramApiVersion()}/${encodeURIComponent(input.instagramUserId)}/media`
+        + `?access_token=${tok}`
+        + `&caption=${encodeURIComponent(input.caption)}`
+        + `&media_type=CAROUSEL`
+        + `&children=${encodeURIComponent(childrenIds.join(','))}`;
+
+    const carouselContainer = await requestInstagram<InstagramMediaCreateResponse>(carouselUrl, { method: 'POST' });
+    const creationId = asString(carouselContainer.id);
+    
+    if (!creationId) {
+        throw new Error('No se pudo crear el contenedor del carrusel.');
+    }
+
+    // 3. Publicar el carrusel (con reintentos)
+    const publishUrl = `https://graph.facebook.com/${getInstagramApiVersion()}/${encodeURIComponent(input.instagramUserId)}/media_publish`
+        + `?access_token=${tok}`
+        + `&creation_id=${encodeURIComponent(creationId)}`;
+
+    console.log('[instagram] publicando carrusel:', creationId);
+
+    let mediaId = '';
+    let attempts = 0;
+    const maxAttempts = 8; // Mas intentos porque los carruseles tardan mas en procesar
+
+    while (attempts < maxAttempts) {
+        try {
+            const publish = await requestInstagram<InstagramMediaPublishResponse>(publishUrl, { method: 'POST' });
+            mediaId = asString(publish.id);
+            if (mediaId) break;
+        } catch (error) {
+            const msg = error instanceof Error ? error.message : '';
+            if ((msg.includes('not ready') || msg.includes('not available') || msg.includes('9007')) && attempts < maxAttempts - 1) {
+                attempts++;
+                console.log(`[instagram] carrusel no listo (intento ${attempts}/${maxAttempts}). esperando 10s...`);
+                await new Promise(r => setTimeout(r, 10000));
+                continue;
+            }
+            throw error;
+        }
+    }
+
+    if (!mediaId) throw new Error('Instagram no devolvió el ID del carrusel publicado.');
+
+    const mediaInfo = await requestInstagram<InstagramMediaInfoResponse>(
+        `https://graph.facebook.com/${getInstagramApiVersion()}/${encodeURIComponent(mediaId)}?fields=id,permalink&access_token=${tok}`,
+        { method: 'GET' },
+    ).catch(() => null);
+
+    return {
+        mediaId,
+        permalink: mediaInfo ? asNullableString(mediaInfo.permalink) : null,
+    };
+}
+
 export async function publishInstagramImage(input: {
     instagramUserId: string;
     accessToken: string;
