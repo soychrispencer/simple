@@ -3449,8 +3449,8 @@ async function prepareInstagramImageUrl(listing: ListingRecord): Promise<string>
     // Clave de destino en Backblaze para la imagen JPEG de Instagram
     const destKey = `instagram-ready/${listing.id}.jpg`;
 
-    // IMPORTANTE: Meta prefiere el hostname de descarga (f005...) sobre el S3 endpoint interno.
-    const downloadOrigin = (process.env.BACKBLAZE_DOWNLOAD_URL || 'https://f005.backblazeb2.com').replace(/\/$/, '');
+    // FORZAMOS f005.backblazeb2.com. El hostname f179... que reporta Meta no es publico/accesible.
+    const downloadOrigin = 'https://f005.backblazeb2.com';
     const directUrl = `${downloadOrigin}/file/${bucketName}/${destKey}`;
 
     const client = getMediaProxyS3Client();    if (!client) {
