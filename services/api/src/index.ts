@@ -3527,8 +3527,10 @@ async function publishListingToInstagram(user: AppUser, listing: ListingRecord, 
 
     const refreshedAccount = await refreshInstagramAccountIfNeeded(account);
     const publicUrl = buildListingPublicUrlForInstagram(listing);
-    // Subir JPEG directo a Backblaze — Meta descarga desde CDN sin pasar por nuestro API
-    const imageUrl = await prepareInstagramImageUrl(listing);
+    // Usar el endpoint público del API como fuente de imagen para Meta.
+    // Más confiable que Backblaze CDN directo porque no depende de ACL del bucket.
+    const apiOrigin = getInstagramBasePublicOrigin();
+    const imageUrl = `${apiOrigin}/api/public/instagram-image/${encodeURIComponent(listing.id)}`;
     const caption = buildInstagramCaption(listing, publicUrl, refreshedAccount.captionTemplate, options.captionOverride ?? null);
     console.log('[instagram] publishing listing', listing.id, 'imageUrl:', imageUrl);
 
