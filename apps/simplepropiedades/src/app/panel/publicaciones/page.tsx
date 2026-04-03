@@ -703,6 +703,85 @@ export default function PublicacionesPage() {
                     })}
                 </div>
             ) : null}
+
+            {/* Instagram Preview Modal */}
+            {instagramPreviewOpen && previewListing && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm">
+                    <div 
+                        className="w-full max-w-lg rounded-2xl border p-6 shadow-2xl"
+                        style={{ background: 'var(--surface)', borderColor: 'var(--border)' }}
+                    >
+                        <div className="mb-4 flex items-center justify-between">
+                            <h3 className="text-lg font-bold" style={{ color: 'var(--fg)' }}>
+                                Vista previa de Instagram
+                            </h3>
+                            <button 
+                                onClick={() => setInstagramPreviewOpen(false)}
+                                className="rounded-full p-1 hover:bg-black/5 dark:hover:bg-white/5"
+                                style={{ color: 'var(--fg-muted)' }}
+                            >
+                                <IconX size={20} />
+                            </button>
+                        </div>
+
+                        <div className="mb-4 aspect-square w-full overflow-hidden rounded-xl bg-black/5">
+                            {previewListing.images && previewListing.images.length > 0 ? (
+                                <div className="relative h-full w-full">
+                                    <img 
+                                        src={previewListing.images[0].url} 
+                                        alt="Vista previa" 
+                                        className="h-full w-full object-cover"
+                                    />
+                                    {previewListing.images.length > 1 && (
+                                        <div className="absolute right-3 top-3 rounded-full bg-black/60 px-2 py-1 text-[10px] font-bold text-white">
+                                            1 / {Math.min(previewListing.images.length, 10)}
+                                        </div>
+                                    )}
+                                </div>
+                            ) : null}
+                        </div>
+
+                        <div className="mb-6">
+                            <label 
+                                className="mb-2 block text-xs font-semibold uppercase tracking-wider"
+                                style={{ color: 'var(--fg-muted)' }}
+                            >
+                                Pie de foto (Editable)
+                            </label>
+                            <textarea
+                                value={previewCaption}
+                                onChange={(e) => setPreviewCaption(e.target.value)}
+                                className="w-full rounded-xl border p-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                style={{ 
+                                    background: 'var(--surface-sunken)', 
+                                    borderColor: 'var(--border)',
+                                    color: 'var(--fg)',
+                                    minHeight: '160px'
+                                }}
+                                placeholder="Escribe el pie de foto..."
+                            />
+                        </div>
+
+                        <div className="flex gap-3">
+                            <PanelButton
+                                variant="secondary"
+                                className="flex-1"
+                                onClick={() => setInstagramPreviewOpen(false)}
+                            >
+                                Cancelar
+                            </PanelButton>
+                            <PanelButton
+                                variant="primary"
+                                className="flex-1"
+                                onClick={handleConfirmInstagramPublish}
+                                disabled={isPublishingInstagram}
+                            >
+                                {isPublishingInstagram ? 'Publicando...' : 'Publicar ahora'}
+                            </PanelButton>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }
