@@ -13786,23 +13786,39 @@ app.post('/api/agenda/appointments', requireVerifiedSession, async (c) => {
     const durationMinutes = typeof body.durationMinutes === 'number' ? body.durationMinutes : 60;
     const startsAt = new Date(String(body.startsAt));
     const endsAt = new Date(startsAt.getTime() + durationMinutes * 60_000);
-    const [appointment] = await db.insert(agendaAppointments).values({
-        professionalId: profile.id,
-        serviceId: typeof body.serviceId === 'string' ? body.serviceId || null : null,
-        clientId: typeof body.clientId === 'string' ? body.clientId || null : null,
-        clientName: typeof body.clientName === 'string' ? body.clientName || null : null,
-        clientEmail: typeof body.clientEmail === 'string' ? body.clientEmail || null : null,
-        clientPhone: typeof body.clientPhone === 'string' ? body.clientPhone || null : null,
-        startsAt,
-        endsAt,
-        durationMinutes,
-        modality: typeof body.modality === 'string' ? body.modality : 'online',
-        status: 'confirmed',
-        price: typeof body.price === 'string' && body.price ? body.price : null,
-        currency: profile.currency,
-        internalNotes: typeof body.internalNotes === 'string' ? body.internalNotes || null : null,
-    }).returning();
-    return c.json({ ok: true, appointment });
+    // Handle recurring weekly appointments
+    const repeatWeeks = typeof body.repeatWeekly === 'number' && body.repeatWeekly > 0 ? Math.min(body.repeatWeekly, 52) : 0;
+    const appointments: (typeof agendaAppointments.$inferSelect)[] = [];
+
+    for (let i = 0; i <= repeatWeeks; i++) {
+        const offsetMs = i * 7 * 24 * 60 * 60 * 1000;
+        const [appt] = await db.insert(agendaAppointments).values({
+            professionalId: profile.id,
+            serviceId: typeof body.serviceId === 'string' ? body.serviceId || null : null,
+            clientId: typeof body.clientId === 'string' ? body.clientId || null : null,
+            clientName: typeof body.clientName === 'string' ? body.clientName || null : null,
+            clientEmail: typeof body.clientEmail === 'string' ? body.clientEmail || null : null,
+            clientPhone: typeof body.clientPhone === 'string' ? body.clientPhone || null : null,
+            startsAt: new Date(startsAt.getTime() + offsetMs),
+            endsAt: new Date(endsAt.getTime() + offsetMs),
+            durationMinutes,
+            modality: typeof body.modality === 'string' ? body.modality : 'online',
+            status: 'confirmed',
+            price: typeof body.price === 'string' && body.price ? body.price : null,
+            currency: profile.currency,
+            internalNotes: typeof body.internalNotes === 'string' ? body.internalNotes || null : null,
+        }).returning();
+        appointments.push(appt);
+        // Sync first occurrence to Google Calendar
+        if (i === 0) {
+            const eventId = await syncToGoogleCalendar(profile, { ...appt, googleEventId: null }, 'create');
+            if (eventId) {
+                await db.update(agendaAppointments).set({ googleEventId: eventId }).where(eq(agendaAppointments.id, appt.id));
+            }
+        }
+    }
+
+    return c.json({ ok: true, appointment: appointments[0], appointments });
 });
 
 app.put('/api/agenda/appointments/:id', requireVerifiedSession, async (c) => {
@@ -13829,6 +13845,8 @@ app.put('/api/agenda/appointments/:id', requireVerifiedSession, async (c) => {
         .where(and(eq(agendaAppointments.id, id), eq(agendaAppointments.professionalId, profile.id)))
         .returning();
     if (!updated) return c.json({ ok: false, error: 'Cita no encontrada' }, 404);
+    // Sync update to Google Calendar in background
+    void syncToGoogleCalendar(profile, updated, 'update');
     return c.json({ ok: true, appointment: updated });
 });
 
@@ -13855,7 +13873,7 @@ app.patch('/api/agenda/appointments/:id/status', requireVerifiedSession, async (
         .returning();
     if (!updated) return c.json({ ok: false, error: 'Cita no encontrada' }, 404);
 
-    // Notify cancellation via WhatsApp
+    // Notify cancellation via WhatsApp + remove from Google Calendar
     if (status === 'cancelled') {
         const phone = updated.clientPhone;
         if (phone && profile.waNotificationsEnabled) {
@@ -13864,6 +13882,9 @@ app.patch('/api/agenda/appointments/:id/status', requireVerifiedSession, async (
                 { displayName: profile.displayName, timezone: profile.timezone, cancellationHours: profile.cancellationHours },
             );
         }
+        void syncToGoogleCalendar(profile, updated, 'delete');
+    } else {
+        void syncToGoogleCalendar(profile, updated, 'update');
     }
 
     return c.json({ ok: true, appointment: updated });
@@ -13904,6 +13925,8 @@ app.get('/api/agenda/stats', requireVerifiedSession, async (c) => {
         thisMonthPaid,
         lastMonthPaid,
         thisMonthApptCount,
+        servicesCount,
+        rulesCount,
     ] = await Promise.all([
         db.select({ count: sql<number>`count(*)` }).from(agendaAppointments)
             .where(and(
@@ -13960,6 +13983,12 @@ app.get('/api/agenda/stats', requireVerifiedSession, async (c) => {
                 lte(agendaAppointments.startsAt, monthEnd),
                 sql`${agendaAppointments.status} NOT IN ('cancelled', 'no_show')`,
             )),
+        // Setup checklist: active services count
+        db.select({ count: sql<number>`count(*)` }).from(agendaServices)
+            .where(and(eq(agendaServices.professionalId, profile.id), eq(agendaServices.isActive, true))),
+        // Setup checklist: active availability rules count
+        db.select({ count: sql<number>`count(*)` }).from(agendaAvailabilityRules)
+            .where(and(eq(agendaAvailabilityRules.professionalId, profile.id), eq(agendaAvailabilityRules.isActive, true))),
     ]);
 
     // Build 7-day week array Mon–Sun
@@ -13989,6 +14018,8 @@ app.get('/api/agenda/stats', requireVerifiedSession, async (c) => {
             thisMonthRevenue: Number(thisMonthPaid[0]?.total ?? 0),
             lastMonthRevenue: Number(lastMonthPaid[0]?.total ?? 0),
             thisMonthAppointments: Number(thisMonthApptCount[0]?.count ?? 0),
+            hasServices: Number(servicesCount[0]?.count ?? 0) > 0,
+            hasRules: Number(rulesCount[0]?.count ?? 0) > 0,
         },
     });
 });
@@ -14114,6 +14145,49 @@ function getGoogleOAuth2Client() {
         process.env.GOOGLE_CLIENT_SECRET,
         `${process.env.API_BASE_URL ?? 'http://localhost:4000'}/api/agenda/google-calendar/callback`,
     );
+}
+
+// Helper: sync an appointment to Google Calendar (create/update/delete event)
+async function syncToGoogleCalendar(
+    profile: { googleAccessToken: string | null; googleRefreshToken: string | null; googleTokenExpiry: Date | null; googleCalendarId: string | null; displayName: string | null },
+    appointment: { id: string; startsAt: Date; endsAt: Date; clientName: string | null; clientEmail: string | null; internalNotes: string | null; googleEventId: string | null },
+    action: 'create' | 'update' | 'delete',
+): Promise<string | null> {
+    if (!profile.googleAccessToken || !profile.googleCalendarId) return null;
+    try {
+        const oauth2Client = getGoogleOAuth2Client();
+        oauth2Client.setCredentials({
+            access_token: profile.googleAccessToken,
+            refresh_token: profile.googleRefreshToken ?? undefined,
+            expiry_date: profile.googleTokenExpiry?.getTime(),
+        });
+        const calApi = google.calendar({ version: 'v3', auth: oauth2Client });
+
+        if (action === 'delete') {
+            if (!appointment.googleEventId) return null;
+            await calApi.events.delete({ calendarId: profile.googleCalendarId, eventId: appointment.googleEventId }).catch(() => null);
+            return null;
+        }
+
+        const resource = {
+            summary: appointment.clientName ? `Sesión con ${appointment.clientName}` : 'Sesión',
+            description: appointment.internalNotes ?? undefined,
+            start: { dateTime: appointment.startsAt.toISOString() },
+            end: { dateTime: appointment.endsAt.toISOString() },
+            attendees: appointment.clientEmail ? [{ email: appointment.clientEmail }] : undefined,
+        };
+
+        if (!appointment.googleEventId) {
+            const res = await calApi.events.insert({ calendarId: profile.googleCalendarId, resource, sendUpdates: 'none' });
+            return res.data.id ?? null;
+        } else {
+            await calApi.events.update({ calendarId: profile.googleCalendarId, eventId: appointment.googleEventId, resource, sendUpdates: 'none' });
+            return appointment.googleEventId;
+        }
+    } catch (e) {
+        console.error('[agenda] Google Calendar sync error:', e);
+        return null;
+    }
 }
 
 app.get('/api/agenda/google-calendar/auth', requireVerifiedSession, async (c) => {
@@ -14257,6 +14331,60 @@ app.delete('/api/agenda/mercadopago/disconnect', requireVerifiedSession, async (
     return c.json({ ok: true });
 });
 
+// POST /api/agenda/mercadopago/webhook — receives IPN from MercadoPago
+app.post('/api/agenda/mercadopago/webhook', async (c) => {
+    try {
+        const body = await c.req.json().catch(() => ({})) as Record<string, unknown>;
+        const topic = c.req.query('topic') ?? String(body.type ?? '');
+        const resourceId = c.req.query('id') ?? String(body.data?.id ?? body.id ?? '');
+
+        if (topic !== 'payment' && topic !== 'merchant_order') return c.json({ ok: true });
+        if (!resourceId) return c.json({ ok: true });
+
+        // Fetch payment details from MP to get externalReference (our appointment id)
+        const mpToken = c.req.header('x-mp-access-token'); // not standard, we'll do a lookup below
+        // Find which professional has this payment by querying MP for each connected professional
+        // Simpler: MP sends us the externalReference in the webhook body
+        const externalRef = String(body.external_reference ?? body.data?.external_reference ?? '');
+        if (!externalRef) return c.json({ ok: true });
+
+        // Find the appointment
+        const appt = await db.query.agendaAppointments.findFirst({
+            where: eq(agendaAppointments.id, externalRef),
+        });
+        if (!appt) return c.json({ ok: true });
+
+        // Mark payment as paid
+        await db.update(agendaAppointments)
+            .set({ paymentStatus: 'paid', status: 'confirmed', updatedAt: new Date() })
+            .where(eq(agendaAppointments.id, appt.id));
+
+        // Create payment record if not exists
+        const existingPayment = await db.query.agendaPayments.findFirst({
+            where: and(eq(agendaPayments.appointmentId, appt.id), eq(agendaPayments.status, 'paid')),
+        });
+        if (!existingPayment && appt.price) {
+            await db.insert(agendaPayments).values({
+                professionalId: appt.professionalId,
+                appointmentId: appt.id,
+                clientId: appt.clientId ?? null,
+                amount: appt.price,
+                currency: appt.currency,
+                method: 'mercadopago',
+                status: 'paid',
+                paidAt: new Date(),
+                notes: `Pago automático MP ref: ${resourceId}`,
+            });
+        }
+
+        console.log('[agenda] MP webhook: payment confirmed for appointment', appt.id);
+        return c.json({ ok: true });
+    } catch (e) {
+        console.error('[agenda] MP webhook error:', e);
+        return c.json({ ok: true }); // always 200 to avoid MP retries
+    }
+});
+
 // GET /api/agenda/mercadopago/status
 app.get('/api/agenda/mercadopago/status', requireVerifiedSession, async (c) => {
     const user = await authUser(c);
@@ -14376,6 +14504,61 @@ app.get('/api/public/agenda/:slug/slots', async (c) => {
     return c.json({ ok: true, slots });
 });
 
+// POST /api/public/agenda/appointments/:id/cancel — client self-cancellation
+app.post('/api/public/agenda/appointments/:id/cancel', async (c) => {
+    const id = c.req.param('id') ?? '';
+    const body = await c.req.json().catch(() => ({})) as Record<string, unknown>;
+
+    const appt = await db.query.agendaAppointments.findFirst({
+        where: eq(agendaAppointments.id, id),
+    });
+    if (!appt || appt.status === 'cancelled') {
+        return c.json({ ok: false, error: 'Cita no encontrada o ya cancelada.' }, 404);
+    }
+    if (appt.status === 'completed') {
+        return c.json({ ok: false, error: 'No se puede cancelar una cita completada.' }, 400);
+    }
+
+    // Check cancellation window
+    const profile = await db.query.agendaProfessionalProfiles.findFirst({
+        where: eq(agendaProfessionalProfiles.id, appt.professionalId),
+    });
+    if (profile?.cancellationHours) {
+        const hoursUntil = (appt.startsAt.getTime() - Date.now()) / (1000 * 60 * 60);
+        if (hoursUntil < profile.cancellationHours) {
+            return c.json({ ok: false, error: `La cancelación debe hacerse con al menos ${profile.cancellationHours} horas de anticipación.` }, 400);
+        }
+    }
+
+    const [updated] = await db.update(agendaAppointments)
+        .set({
+            status: 'cancelled',
+            cancelledAt: new Date(),
+            cancelledBy: 'client',
+            cancellationReason: typeof body.reason === 'string' ? body.reason || null : null,
+            updatedAt: new Date(),
+        })
+        .where(eq(agendaAppointments.id, id))
+        .returning();
+
+    // Notify professional via WhatsApp
+    if (profile?.waNotifyProfessional) {
+        const profPhone = profile.waProfessionalPhone ?? profile.publicWhatsapp ?? profile.publicPhone;
+        if (profPhone && updated.clientName) {
+            void notifyProfessionalNewBooking(
+                profPhone,
+                { displayName: profile.displayName, timezone: profile.timezone, cancellationHours: profile.cancellationHours },
+                { clientName: `❌ CANCELACIÓN por ${updated.clientName}`, clientPhone: updated.clientPhone, startsAt: updated.startsAt, endsAt: updated.endsAt },
+            );
+        }
+    }
+
+    // Remove from Google Calendar
+    if (profile) void syncToGoogleCalendar(profile, updated, 'delete');
+
+    return c.json({ ok: true, message: 'Cita cancelada correctamente.' });
+});
+
 app.post('/api/public/agenda/:slug/book', async (c) => {
     const slug = c.req.param('slug') ?? '';
     const profile = await db.query.agendaProfessionalProfiles.findFirst({
@@ -14421,7 +14604,7 @@ app.post('/api/public/agenda/:slug/book', async (c) => {
     const clientPhone = typeof body.clientPhone === 'string' ? body.clientPhone : null;
     if (status === 'confirmed' && clientPhone && profile.waNotificationsEnabled) {
         void notifyConfirmation(
-            { clientName: String(body.clientName), clientPhone, startsAt, endsAt },
+            { id: appointment.id, slug: profile.slug, clientName: String(body.clientName), clientPhone, startsAt, endsAt },
             { displayName: profile.displayName, timezone: profile.timezone, cancellationHours: profile.cancellationHours },
         );
     }
@@ -14437,6 +14620,13 @@ app.post('/api/public/agenda/:slug/book', async (c) => {
             );
         }
     }
+
+    // Sync to Google Calendar
+    void syncToGoogleCalendar(profile, { ...appointment, googleEventId: null }, 'create').then(async (eventId) => {
+        if (eventId) {
+            await db.update(agendaAppointments).set({ googleEventId: eventId }).where(eq(agendaAppointments.id, appointment.id));
+        }
+    });
 
     // If requiresAdvancePayment AND professional has MP connected → create checkout preference
     let checkoutUrl: string | null = null;

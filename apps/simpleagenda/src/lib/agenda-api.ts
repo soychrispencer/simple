@@ -232,7 +232,7 @@ export async function fetchAgendaAppointments(from?: string, to?: string): Promi
     return data.appointments ?? [];
 }
 
-export async function createAgendaAppointment(body: Partial<AgendaAppointment>): Promise<{ ok: boolean; appointment?: AgendaAppointment; error?: string }> {
+export async function createAgendaAppointment(body: Partial<AgendaAppointment> & { repeatWeekly?: number }): Promise<{ ok: boolean; appointment?: AgendaAppointment; appointments?: AgendaAppointment[]; error?: string }> {
     return apiFetch('/api/agenda/appointments', { method: 'POST', body: JSON.stringify(body) });
 }
 
@@ -311,7 +311,19 @@ export type AgendaStats = {
     thisMonthRevenue: number;
     lastMonthRevenue: number;
     thisMonthAppointments: number;
+    hasServices: boolean;
+    hasRules: boolean;
 };
+
+export async function cancelPublicAppointment(appointmentId: string, reason?: string): Promise<{ ok: boolean; error?: string }> {
+    const res = await fetch(`${API_BASE}/api/public/agenda/appointments/${appointmentId}/cancel`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ reason: reason ?? '' }),
+    });
+    return res.json() as Promise<{ ok: boolean; error?: string }>;
+}
+
 
 export async function fetchAgendaStats(): Promise<AgendaStats> {
     const data = await apiFetch<{ ok: boolean; stats: AgendaStats }>('/api/agenda/stats');

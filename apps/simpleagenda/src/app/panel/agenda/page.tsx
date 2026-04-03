@@ -118,6 +118,7 @@ export default function AgendaPage() {
         modality: 'online',
         price: '',
         internalNotes: '',
+        repeatWeekly: 0,
     });
     const [creating, setCreating] = useState(false);
     const [createError, setCreateError] = useState('');
@@ -165,6 +166,7 @@ export default function AgendaPage() {
             modality: 'online',
             price: services[0]?.price ?? '',
             internalNotes: '',
+            repeatWeekly: 0,
         });
         setShowCreate(true);
     };
@@ -203,6 +205,7 @@ export default function AgendaPage() {
             clientEmail: form.clientEmail || null,
             serviceId: form.serviceId || null,
             price: form.price || null,
+            repeatWeekly: form.repeatWeekly > 0 ? form.repeatWeekly : undefined,
         });
         setCreating(false);
         if (!result.ok) { setCreateError(result.error ?? 'Error al crear la cita.'); return; }
@@ -333,7 +336,7 @@ export default function AgendaPage() {
                 </div>
 
                 {/* Day columns */}
-                <div className="grid grid-cols-7 min-h-[320px]">
+                <div className="grid grid-cols-7 min-h-80">
                     {weekDays.map((day) => {
                         const key = day.toISOString().slice(0, 10);
                         const dayAppts = (byDay[key] ?? []).sort((a, b) => a.startsAt.localeCompare(b.startsAt));
@@ -341,7 +344,7 @@ export default function AgendaPage() {
                         return (
                             <div
                                 key={key}
-                                className="border-r last:border-r-0 p-1.5 flex flex-col gap-1 cursor-pointer min-h-[320px]"
+                                className="border-r last:border-r-0 p-1.5 flex flex-col gap-1 cursor-pointer min-h-80"
                                 style={{
                                     borderColor: 'var(--border)',
                                     background: isToday ? 'var(--accent-soft)' : 'transparent',
@@ -656,6 +659,24 @@ export default function AgendaPage() {
                                 onChange={(e) => setForm((p) => ({ ...p, price: e.target.value }))}
                                 className="field-input"
                             />
+                        </div>
+
+                        {/* Repeat weekly */}
+                        <div className="flex flex-col gap-1.5">
+                            <label className="text-xs font-medium" style={{ color: 'var(--fg-muted)' }}>Repetir semanalmente</label>
+                            <select
+                                value={form.repeatWeekly}
+                                onChange={(e) => setForm((p) => ({ ...p, repeatWeekly: Number(e.target.value) }))}
+                                className="field-input"
+                            >
+                                <option value={0}>Sin repetición</option>
+                                <option value={3}>3 semanas</option>
+                                <option value={4}>4 semanas</option>
+                                <option value={8}>8 semanas</option>
+                                <option value={12}>12 semanas (3 meses)</option>
+                                <option value={24}>24 semanas (6 meses)</option>
+                                <option value={52}>52 semanas (1 año)</option>
+                            </select>
                         </div>
 
                         {createError && (

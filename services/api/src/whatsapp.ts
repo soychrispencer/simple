@@ -138,13 +138,15 @@ export type WaProfessionalInfo = {
 /**
  * Notifica al paciente que su cita fue confirmada.
  * Template: simpleagenda_confirmacion
- * Params: [clientName, professionalName, date, time]
+ * Params: [clientName, professionalName, date, time, cancelUrl]
  */
 export async function notifyConfirmation(
-    appt: WaAppointmentInfo,
+    appt: WaAppointmentInfo & { id?: string; slug?: string },
     prof: WaProfessionalInfo,
 ): Promise<void> {
     if (!appt.clientPhone) return;
+    const appUrl = process.env.AGENDA_APP_URL ?? 'https://simpleagenda.app';
+    const cancelUrl = appt.id ? `${appUrl}/cancelar?appt=${appt.id}&slug=${appt.slug ?? ''}` : '';
     await sendTemplate(
         appt.clientPhone,
         'simpleagenda_confirmacion',
@@ -154,6 +156,7 @@ export async function notifyConfirmation(
             prof.displayName ?? 'el profesional',
             fmtDate(appt.startsAt, prof.timezone),
             fmtTime(appt.startsAt, prof.timezone),
+            cancelUrl,
         ],
         'agenda',
     );

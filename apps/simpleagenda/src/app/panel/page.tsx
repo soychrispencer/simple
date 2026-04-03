@@ -164,12 +164,12 @@ export default function PanelHomePage() {
         {
             label: 'Agrega tus servicios o tipos de sesión',
             href: '/panel/configuracion/servicios',
-            done: false,
+            done: stats?.hasServices === true,
         },
         {
             label: 'Configura tu disponibilidad semanal',
             href: '/panel/configuracion/disponibilidad',
-            done: false,
+            done: stats?.hasRules === true,
         },
         {
             label: 'Publica tu agenda y comparte tu link',
