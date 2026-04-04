@@ -11,12 +11,12 @@ import type {
 } from '@simple/types';
 import { API_BASE } from '@simple/config';
 
-export * from './format';
-export * from './location-catalog';
-export * from './media-upload';
-export * from './crm';
-export * from './listing-leads';
-export * from './social-feed';
+export * from './format.js';
+export * from './location-catalog.js';
+export * from './media-upload.js';
+export * from './crm.js';
+export * from './listing-leads.js';
+export * from './social-feed.js';
 
 export { API_BASE };
 
@@ -216,4 +216,4 @@ export function listingLocationToAddressBookInput(
     };
 }
 
-export * from './location-catalog';
+export * from './location-catalog.js';
