@@ -7943,8 +7943,18 @@ function getAllowedOrigins(): Set<string> {
             'http://localhost:3001',
             'http://localhost:3002',
             'http://localhost:3003',
-            'http://localhost:3004', // SimpleAgenda
-            'http://localhost:3005', // SimplePlataforma
+            'http://localhost:3004',
+            'http://localhost:3005',
+            'https://simpleautos.app',
+            'https://simplepropiedades.app',
+            'https://simpleagenda.app',
+            'https://simpleadmin.app',
+            'https://simpleplataforma.app',
+            'https://www.simpleautos.app',
+            'https://www.simplepropiedades.app',
+            'https://www.simpleagenda.app',
+            'https://www.simpleadmin.app',
+            'https://www.simpleplataforma.app',
         ]);
     }
 

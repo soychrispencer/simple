@@ -1,0 +1,6 @@
+
+> @simple/api@1.0.0 build
+> tsc
+
+src/whatsapp.ts(25,10): error TS2305: Module '"@simple/utils"' has no exported member 'fmtDateTz'.
+src/whatsapp.ts(25,21): error TS2305: Module '"@simple/utils"' has no exported member 'fmtTime'.
