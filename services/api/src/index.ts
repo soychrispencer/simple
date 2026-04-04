@@ -3487,6 +3487,7 @@ async function prepareInstagramImageUrl(listing: ListingRecord, index = 0): Prom
         CacheControl: 'public, max-age=86400',
     }));
 
+    console.log(`[instagram] uploaded to B2: ${directUrl}`);
     return directUrl;
 }
 
@@ -12004,7 +12005,7 @@ app.post('/api/integrations/instagram/publish', async (c) => {
                 : message.includes('API público HTTPS')
                     ? 503
                     : 400;
-        return c.json({ ok: false, error: message }, status);
+        return c.json({ ok: false, error: message }, status as any);
     }
 });
 
