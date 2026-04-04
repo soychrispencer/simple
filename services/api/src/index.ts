@@ -14914,77 +14914,80 @@ app.post('/api/public/agenda/:slug/book', async (c) => {
 // SimpleAgenda — WhatsApp reminder cron jobs
 // ─────────────────────────────────────────────────────────────────────────────
 
-// Every 5 minutes: check for appointments that need 24h reminder
-cron.schedule('*/5 * * * *', async () => {
-    try {
-        const now = new Date();
-        const windowStart = new Date(now.getTime() + 23 * 60 * 60 * 1000);
-        const windowEnd = new Date(now.getTime() + 25 * 60 * 60 * 1000);
+function registerAgendaCronJobs() {
+    console.log('[agenda] registering reminder cron jobs...');
+    // Every 5 minutes: check for appointments that need 24h reminder
+    cron.schedule('*/5 * * * *', async () => {
+        try {
+            const now = new Date();
+            const windowStart = new Date(now.getTime() + 23 * 60 * 60 * 1000);
+            const windowEnd = new Date(now.getTime() + 25 * 60 * 60 * 1000);
 
-        const appts = await db.select({
-            appt: agendaAppointments,
-            prof: agendaProfessionalProfiles,
-        })
-            .from(agendaAppointments)
-            .innerJoin(agendaProfessionalProfiles, eq(agendaAppointments.professionalId, agendaProfessionalProfiles.id))
-            .where(and(
-                gte(agendaAppointments.startsAt, windowStart),
-                lte(agendaAppointments.startsAt, windowEnd),
-                sql`${agendaAppointments.status} IN ('confirmed', 'pending')`,
-                isNull(agendaAppointments.reminderSentAt),
-                sql`${agendaProfessionalProfiles.waNotificationsEnabled} = true`,
-            ));
+            const appts = await db.select({
+                appt: agendaAppointments,
+                prof: agendaProfessionalProfiles,
+            })
+                .from(agendaAppointments)
+                .innerJoin(agendaProfessionalProfiles, eq(agendaAppointments.professionalId, agendaProfessionalProfiles.id))
+                .where(and(
+                    gte(agendaAppointments.startsAt, windowStart),
+                    lte(agendaAppointments.startsAt, windowEnd),
+                    sql`${agendaAppointments.status} IN ('confirmed', 'pending')`,
+                    isNull(agendaAppointments.reminderSentAt),
+                    sql`${agendaProfessionalProfiles.waNotificationsEnabled} = true`,
+                ));
 
-        for (const { appt, prof } of appts) {
-            if (!appt.clientPhone) continue;
-            await notifyReminder24h(
-                { clientName: appt.clientName, clientPhone: appt.clientPhone, startsAt: appt.startsAt, endsAt: appt.endsAt },
-                { displayName: prof.displayName, timezone: prof.timezone, cancellationHours: prof.cancellationHours },
-            );
-            await db.update(agendaAppointments)
-                .set({ reminderSentAt: now })
-                .where(eq(agendaAppointments.id, appt.id));
+            for (const { appt, prof } of appts) {
+                if (!appt.clientPhone) continue;
+                await notifyReminder24h(
+                    { clientName: appt.clientName, clientPhone: appt.clientPhone, startsAt: appt.startsAt, endsAt: appt.endsAt },
+                    { displayName: prof.displayName, timezone: prof.timezone, cancellationHours: prof.cancellationHours },
+                );
+                await db.update(agendaAppointments)
+                    .set({ reminderSentAt: now })
+                    .where(eq(agendaAppointments.id, appt.id));
+            }
+        } catch (e) {
+            console.error('[agenda] 24h reminder cron error:', e);
         }
-    } catch (e) {
-        console.error('[agenda] 24h reminder cron error:', e);
-    }
-});
+    });
 
-// Every 5 minutes: check for appointments that need 30min reminder
-cron.schedule('*/5 * * * *', async () => {
-    try {
-        const now = new Date();
-        const windowStart = new Date(now.getTime() + 25 * 60 * 1000);
-        const windowEnd = new Date(now.getTime() + 35 * 60 * 1000);
+    // Every 5 minutes: check for appointments that need 30min reminder
+    cron.schedule('*/5 * * * *', async () => {
+        try {
+            const now = new Date();
+            const windowStart = new Date(now.getTime() + 25 * 60 * 1000);
+            const windowEnd = new Date(now.getTime() + 35 * 60 * 1000);
 
-        const appts = await db.select({
-            appt: agendaAppointments,
-            prof: agendaProfessionalProfiles,
-        })
-            .from(agendaAppointments)
-            .innerJoin(agendaProfessionalProfiles, eq(agendaAppointments.professionalId, agendaProfessionalProfiles.id))
-            .where(and(
-                gte(agendaAppointments.startsAt, windowStart),
-                lte(agendaAppointments.startsAt, windowEnd),
-                sql`${agendaAppointments.status} IN ('confirmed', 'pending')`,
-                isNull(agendaAppointments.reminder30minSentAt),
-                sql`${agendaProfessionalProfiles.waNotificationsEnabled} = true`,
-            ));
+            const appts = await db.select({
+                appt: agendaAppointments,
+                prof: agendaProfessionalProfiles,
+            })
+                .from(agendaAppointments)
+                .innerJoin(agendaProfessionalProfiles, eq(agendaAppointments.professionalId, agendaProfessionalProfiles.id))
+                .where(and(
+                    gte(agendaAppointments.startsAt, windowStart),
+                    lte(agendaAppointments.startsAt, windowEnd),
+                    sql`${agendaAppointments.status} IN ('confirmed', 'pending')`,
+                    isNull(agendaAppointments.reminder30minSentAt),
+                    sql`${agendaProfessionalProfiles.waNotificationsEnabled} = true`,
+                ));
 
-        for (const { appt, prof } of appts) {
-            if (!appt.clientPhone) continue;
-            await notifyReminder30min(
-                { clientName: appt.clientName, clientPhone: appt.clientPhone, startsAt: appt.startsAt, endsAt: appt.endsAt },
-                { displayName: prof.displayName, timezone: prof.timezone, cancellationHours: prof.cancellationHours },
-            );
-            await db.update(agendaAppointments)
-                .set({ reminder30minSentAt: now })
-                .where(eq(agendaAppointments.id, appt.id));
+            for (const { appt, prof } of appts) {
+                if (!appt.clientPhone) continue;
+                await notifyReminder30min(
+                    { clientName: appt.clientName, clientPhone: appt.clientPhone, startsAt: appt.startsAt, endsAt: appt.endsAt },
+                    { displayName: prof.displayName, timezone: prof.timezone, cancellationHours: prof.cancellationHours },
+                );
+                await db.update(agendaAppointments)
+                    .set({ reminder30minSentAt: now })
+                    .where(eq(agendaAppointments.id, appt.id));
+            }
+        } catch (e) {
+            console.error('[agenda] 30min reminder cron error:', e);
         }
-    } catch (e) {
-        console.error('[agenda] 30min reminder cron error:', e);
-    }
-});
+    });
+}
 
 const port = Number(process.env.PORT ?? 4000);
 const hostname = process.env.API_HOST ?? '0.0.0.0';
@@ -14994,6 +14997,7 @@ void refreshValuationFeeds();
 // Ensure critical tables exist regardless of migration system state.
 // Uses IF NOT EXISTS so it's safe to run on every startup.
 async function bootstrapMissingTables() {
+    console.log('[simple-api] bootstrap starting...');
     // instagram_accounts (migration 0003)
     await db.execute(sql`
         CREATE TABLE IF NOT EXISTS instagram_accounts (
@@ -15211,6 +15215,11 @@ async function bootstrapMissingTables() {
             cancelled_by varchar(20),
             cancellation_reason text,
             reminder_sent_at timestamp,
+            reminder_30min_sent_at timestamp,
+            policy_agreed boolean NOT NULL DEFAULT false,
+            policy_agreed_at timestamp,
+            google_event_id varchar(255),
+            payment_status varchar(20) NOT NULL DEFAULT 'not_required',
             created_at timestamp NOT NULL DEFAULT now(),
             updated_at timestamp NOT NULL DEFAULT now()
         )
@@ -15218,6 +15227,7 @@ async function bootstrapMissingTables() {
     await db.execute(sql`CREATE INDEX IF NOT EXISTS agenda_appointments_professional_idx ON agenda_appointments(professional_id)`);
     await db.execute(sql`CREATE INDEX IF NOT EXISTS agenda_appointments_starts_at_idx ON agenda_appointments(starts_at)`);
     await db.execute(sql`CREATE INDEX IF NOT EXISTS agenda_appointments_client_idx ON agenda_appointments(client_id)`);
+    console.log('[simple-api] bootstrap: agenda_appointments OK');
 
     await db.execute(sql`
         CREATE TABLE IF NOT EXISTS agenda_session_notes (
@@ -15309,6 +15319,9 @@ async function bootstrapMissingTables() {
     try {
         await bootstrapMissingTables();
         console.log('[simple-api] bootstrap tables OK');
+
+        // Register cron jobs after bootstrap is done
+        registerAgendaCronJobs();
     } catch (error) {
         console.error('[simple-api] bootstrap tables failed', error);
     }

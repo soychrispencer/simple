@@ -239,14 +239,25 @@ export async function publishInstagramCarousel(input: {
     // 1. Crear contenedores individuales para cada imagen
     const childrenIds: string[] = [];
     for (const [index, img] of input.images.slice(0, 10).entries()) {
+        const imageUrl = asString(img.url);
+        if (!imageUrl) {
+            console.error(`[instagram] error en item ${index + 1}: URL de imagen vacía`);
+            continue;
+        }
+
         const itemUrl = `https://graph.facebook.com/${getInstagramApiVersion()}/${encodeURIComponent(input.instagramUserId)}/media`
             + `?access_token=${tok}`
-            + `&image_url=${encodeURIComponent(img.url)}`
+            + `&image_url=${encodeURIComponent(imageUrl)}`
             + `&is_carousel_item=true`;
 
-        console.log(`[instagram] creando item carrusel ${index + 1}/${input.images.length}`);
-        const res = await requestInstagram<InstagramMediaCreateResponse>(itemUrl, { method: 'POST' });
-        if (res.id) childrenIds.push(res.id);
+        console.log(`[instagram] creando item carrusel ${index + 1}/${input.images.length}. URL: ${imageUrl}`);
+        try {
+            const res = await requestInstagram<InstagramMediaCreateResponse>(itemUrl, { method: 'POST' });
+            if (res.id) childrenIds.push(res.id);
+        } catch (error) {
+            console.error(`[instagram] error creando item carrusel ${index + 1}:`, error);
+            throw error;
+        }
     }
 
     if (childrenIds.length === 0) {
