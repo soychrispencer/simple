@@ -13,6 +13,7 @@ import {
     IconUser,
 } from '@tabler/icons-react';
 import { fetchAgendaClient, updateAgendaClient, type AgendaClient, type AgendaAppointment } from '@/lib/agenda-api';
+import { fmtDateLong as formatDate, fmtTime as formatTime } from '@/lib/format';
 
 const STATUS_LABELS: Record<string, string> = {
     pending: 'Pendiente',
@@ -29,14 +30,6 @@ const STATUS_COLORS: Record<string, string> = {
     cancelled: '#EF4444',
     no_show: '#9CA3AF',
 };
-
-function formatDate(iso: string): string {
-    return new Date(iso).toLocaleDateString('es-CL', { day: 'numeric', month: 'long', year: 'numeric' });
-}
-
-function formatTime(iso: string): string {
-    return new Date(iso).toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit', hour12: false });
-}
 
 export default function ClienteFichaPage() {
     const params = useParams();

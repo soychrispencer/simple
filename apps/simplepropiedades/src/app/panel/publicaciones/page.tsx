@@ -16,11 +16,13 @@ import {
     IconShare3,
     IconTrendingUp,
     IconX,
+    IconPlugConnected,
+    IconExternalLink,
 } from '@tabler/icons-react';
 import PanelSectionHeader from '@/components/panel/panel-section-header';
 import ModernSelect from '@/components/ui/modern-select';
 import { useAuth } from '@/context/auth-context';
-import { publishListingToInstagram as publishInstagramPost } from '@/lib/instagram';
+import { fetchInstagramIntegrationStatus, publishListingToInstagram as publishInstagramPost, type InstagramPublicationView } from '@/lib/instagram';
 import {
     type ListingStatus,
     type PanelListing,
@@ -120,6 +122,7 @@ export default function PublicacionesPage() {
     const [loading, setLoading] = useState(true);
     const [viewMode, setViewMode] = useState<'horizontal' | 'vertical'>('horizontal');
     const [filter, setFilter] = useState<FilterKey>('all');
+    const [instagramPublications, setInstagramPublications] = useState<InstagramPublicationView[]>([]);
     const [notice, setNotice] = useState<string | null>(null);
     const [statusBusyKey, setStatusBusyKey] = useState<string | null>(null);
     const [portalBusyKey, setPortalBusyKey] = useState<string | null>(null);
@@ -130,6 +133,9 @@ export default function PublicacionesPage() {
     const [previewListing, setPreviewListing] = useState<PanelListing | null>(null);
     const [previewCaption, setPreviewCaption] = useState('');
     const [isPublishingInstagram, setIsPublishingInstagram] = useState(false);
+    const [isInstagramSuccess, setIsInstagramSuccess] = useState(false);
+    const [lastPublishedPermalink, setLastPublishedPermalink] = useState<string | null>(null);
+    const [instagramCarouselIndex, setInstagramCarouselIndex] = useState(0);
     const [actionMenuOpenId, setActionMenuOpenId] = useState<string | null>(null);
     const [shareMenuOpenId, setShareMenuOpenId] = useState<string | null>(null);
 
@@ -140,13 +146,19 @@ export default function PublicacionesPage() {
 
     const loadListings = async () => {
         setLoading(true);
-        const result = await fetchMyPanelListings();
+        const [result, igResult] = await Promise.all([
+            fetchMyPanelListings(),
+            fetchInstagramIntegrationStatus()
+        ]);
         if (result.unauthorized) {
             setNotice('Tu sesión expiró. Vuelve a iniciar sesión.');
             setListings([]);
             setLoading(false);
             requireAuth(() => void loadListings());
             return;
+        }
+        if (igResult) {
+            setInstagramPublications(igResult.recentPublications || []);
         }
         setListings(result.items);
         setLoading(false);
@@ -292,10 +304,14 @@ export default function PublicacionesPage() {
             return;
         }
 
-        const defaultCaption = `🏠 ${listing.title}\n💰 ${listing.price || 'Consultar precio'}\n📍 ${listing.location || 'Chile'}\n\n${listing.description || ''}\n\n¡Consulta sin compromiso en SimplePropiedades, te respondemos de inmediato! 📲\n\n🔗 Ver más: https://simplepropiedades.cl/propiedad/${listing.id}\n\n#SimplePropiedades #PropiedadesChile #Inmuebles #VentaPropiedades`;
+        const baseDescription = listing.description?.trim() ? listing.description : `🏠 ${listing.title}\n💰 ${listing.price || 'Consultar precio'}\n📍 ${listing.location || 'Chile'}`;
+        const defaultCaption = `${baseDescription}\n\n🔗 Ver más: https://simplepropiedades.cl/propiedad/${listing.id}\n\n#SimplePropiedades #PropiedadesChile #Inmuebles #VentaPropiedades #Casa`;
 
         setPreviewListing(listing);
         setPreviewCaption(defaultCaption);
+        setInstagramCarouselIndex(0);
+        setIsInstagramSuccess(false);
+        setLastPublishedPermalink(null);
         setInstagramPreviewOpen(true);
     };
 
@@ -309,11 +325,8 @@ export default function PublicacionesPage() {
         try {
             const result = await publishInstagramPost(previewListing.id, previewCaption);
             if (result.ok && result.publication) {
-                setNotice('Publicado en Instagram correctamente.');
-                setInstagramPreviewOpen(false);
-                if (result.publication.instagramPermalink) {
-                    window.open(result.publication.instagramPermalink, '_blank', 'noopener,noreferrer');
-                }
+                setIsInstagramSuccess(true);
+                setLastPublishedPermalink(result.publication.instagramPermalink || null);
             } else {
                 setNotice(result.error ?? 'No se pudo publicar en Instagram.');
             }
@@ -555,6 +568,22 @@ export default function PublicacionesPage() {
         return null;
     };
 
+    const getListingImages = (listing: PanelListing): string[] => {
+        const rawData = listing.rawData as any;
+        const photos = rawData?.media?.photos;
+        if (!Array.isArray(photos) || photos.length === 0) return [];
+        
+        return photos.map(p => {
+            let url = '';
+            if (typeof p === 'string') {
+                url = p.trim();
+            } else {
+                url = p?.url || p?.previewUrl || p?.dataUrl || '';
+            }
+            return typeof url === 'string' && url.trim() ? fixBrokenB2Url(url.trim()) : null;
+        }).filter(Boolean) as string[];
+    };
+
     const filtered = useMemo(() => {
         if (filter === 'all') return listings;
         if (filter === 'review_required') {
@@ -654,6 +683,11 @@ export default function PublicacionesPage() {
                                         <span className="flex items-center gap-1"><IconHeart size={11} />{listing.favs}</span>
                                         <span className="flex items-center gap-1"><IconTrendingUp size={11} />{listing.leads}</span>
                                         <span>{listing.days}d publicada</span>
+                                        {instagramPublications.some(p => p.listingId === listing.id && p.status === 'published') && (
+                                            <span className="flex items-center gap-1 font-bold tracking-wider uppercase text-[9px] text-green-600 bg-green-500/10 px-1.5 py-0.5 rounded" style={{ marginLeft: 'auto' }}>
+                                                <IconPlugConnected size={10} /> Instagram OK
+                                            </span>
+                                        )}
                                     </div>
                                     {lifecycleHint ? <p className="mt-2 text-xs" style={{ color: 'var(--fg-muted)' }}>{lifecycleHint}</p> : null}
                                     <div className="grid grid-cols-2 sm:flex sm:items-center gap-2 mt-3">
@@ -689,7 +723,16 @@ export default function PublicacionesPage() {
                                     <div className="flex items-start justify-between gap-2 mb-1"><h3 className="type-listing-title line-clamp-1">{listing.title}</h3><PanelStatusBadge label={badge.label} tone={badge.tone} size="sm" className="shrink-0" /></div>
                                     <p className="type-listing-price mb-1">{listing.price}</p>
                                     {listing.location ? <p className="text-xs mb-2 flex items-center gap-1" style={{ color: 'var(--fg-muted)' }}><IconMapPin size={11} />{listing.location}</p> : null}
-                                    <div className="flex items-center gap-3 text-xs" style={{ color: 'var(--fg-muted)' }}><span className="flex items-center gap-1"><IconEye size={11} />{listing.views}</span><span className="flex items-center gap-1"><IconHeart size={11} />{listing.favs}</span><span className="flex items-center gap-1"><IconTrendingUp size={11} />{listing.leads}</span></div>
+                                    <div className="flex items-center gap-3 text-[11px]" style={{ color: 'var(--fg-muted)' }}>
+                                        <span className="flex items-center gap-1"><IconEye size={11} />{listing.views}</span>
+                                        <span className="flex items-center gap-1"><IconHeart size={11} />{listing.favs}</span>
+                                        <span className="flex items-center gap-1"><IconTrendingUp size={11} />{listing.leads}</span>
+                                        {instagramPublications.some(p => p.listingId === listing.id && p.status === 'published') && (
+                                            <span className="flex items-center gap-1 font-bold tracking-wider uppercase text-[9px] text-green-600 bg-green-500/10 px-1.5 py-0.5 rounded" style={{ marginLeft: 'auto' }}>
+                                                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6 9 17l-5-5"/></svg> IG
+                                            </span>
+                                        )}
+                                    </div>
                                     {lifecycleHint ? <p className="mt-2 text-xs" style={{ color: 'var(--fg-muted)' }}>{lifecycleHint}</p> : null}
                                     <div className="flex items-center gap-2 mt-3 flex-wrap">
                                         <Link href={listing.href || getFallbackHref(listing.section)} className={getPanelButtonClassName({ size: 'sm', className: 'h-7 px-3 text-xs' })} style={getPanelButtonStyle('secondary')}><IconEye size={11} /> Ver</Link>
@@ -707,77 +750,163 @@ export default function PublicacionesPage() {
 
             {/* Instagram Preview Modal */}
             {instagramPreviewOpen && previewListing && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm">
+                <div 
+                    className="fixed inset-0 z-50 flex items-center justify-center p-4 backdrop-blur-sm transition-all"
+                    style={{ background: 'rgba(0,0,0,0.7)' }}
+                    onClick={() => setInstagramPreviewOpen(false)}
+                >
                     <div 
-                        className="w-full max-w-lg rounded-2xl border p-6 shadow-2xl"
+                        className="w-[98vw] md:w-[90vw] lg:w-[85vw] h-[95vh] flex flex-col overflow-hidden rounded-2xl border shadow-2xl"
                         style={{ background: 'var(--surface)', borderColor: 'var(--border)' }}
+                        onClick={(e) => e.stopPropagation()}
                     >
-                        <div className="mb-4 flex items-center justify-between">
+                        {/* Header */}
+                        <div className="flex items-center justify-between border-b p-4 px-6" style={{ borderColor: 'var(--border)' }}>
                             <h3 className="text-lg font-bold" style={{ color: 'var(--fg)' }}>
                                 Vista previa de Instagram
                             </h3>
                             <button 
                                 onClick={() => setInstagramPreviewOpen(false)}
-                                className="rounded-full p-1 hover:bg-black/5 dark:hover:bg-white/5"
+                                className="rounded-full p-2 transition-colors hover:bg-black/5 dark:hover:bg-white/5"
                                 style={{ color: 'var(--fg-muted)' }}
                             >
                                 <IconX size={20} />
                             </button>
                         </div>
-
-                        <div className="mb-4 aspect-square w-full overflow-hidden rounded-xl bg-black/5">
-                            {getListingCoverImage(previewListing) ? (
-                                <div className="relative h-full w-full">
-                                    <img 
-                                        src={getListingCoverImage(previewListing)!} 
-                                        alt="Vista previa" 
-                                        className="h-full w-full object-cover"
-                                    />
+                        
+                        <div className="flex-1 p-4 md:p-6 overflow-hidden flex flex-col min-h-0">
+                            {isInstagramSuccess ? (
+                                <div className="flex flex-col items-center py-8 text-center">
+                                    <div className="mb-6 flex h-24 w-24 items-center justify-center rounded-full bg-green-500/10 text-green-500 ring-4 ring-green-500/20">
+                                        <IconPlugConnected size={48} />
+                                    </div>
+                                    <h4 className="mb-2 text-2xl font-bold" style={{ color: 'var(--fg)' }}>¡Publicado Exitosamente!</h4>
+                                    <p className="mb-8 max-w-sm text-sm" style={{ color: 'var(--fg-secondary)' }}>
+                                        Tu propiedad ha sido publicada en tu cuenta de Instagram. Puede tardar unos segundos en aparecer en tu feed.
+                                    </p>
+                                    
+                                    <div className="flex w-full gap-3">
+                                        {lastPublishedPermalink && (
+                                            <a 
+                                                href={lastPublishedPermalink} 
+                                                target="_blank" 
+                                                rel="noreferrer" 
+                                                className="flex-1"
+                                            >
+                                                <PanelButton variant="primary" className="w-full">
+                                                    <IconExternalLink size={14} /> Ver en Instagram
+                                                </PanelButton>
+                                            </a>
+                                        )}
+                                        <PanelButton 
+                                            variant="secondary" 
+                                            className="flex-1"
+                                            onClick={() => setInstagramPreviewOpen(false)}
+                                        >
+                                            Cerrar
+                                        </PanelButton>
+                                    </div>
                                 </div>
                             ) : (
-                                <div className="flex h-full w-full items-center justify-center" style={{ color: 'var(--fg-faint)' }}>
-                                    <IconHome2 size={48} />
+                                <div className="flex flex-col md:flex-row gap-6 md:gap-8 h-full min-h-0 relative">
+                                    {isPublishingInstagram && (
+                                        <div className="absolute inset-0 z-10 flex flex-col items-center justify-center bg-black/60 backdrop-blur-sm rounded-xl text-white">
+                                            <div className="mb-4 h-12 w-12 animate-spin rounded-full border-4 border-white border-t-transparent" />
+                                            <h4 className="text-lg font-bold">Publicando en Instagram...</h4>
+                                            <p className="mt-2 max-w-xs text-center text-sm opacity-80">
+                                                Conectando con los servidores de Meta. Esto puede tomar unos segundos, por favor espera.
+                                            </p>
+                                        </div>
+                                    )}
+                                    {/* Lado izquierdo: Fotografía estilo Instagram (4:5 -> 1080x1350) */}
+                                    <div className="w-full md:w-1/2 flex items-center justify-center bg-black/5 rounded-xl overflow-hidden shrink-0 mx-auto max-h-[40vh] md:max-h-full relative group" style={{ aspectRatio: '4/5', borderColor: 'var(--border)' }}>
+                                        {getListingImages(previewListing).length > 0 ? (
+                                            <>
+                                                <div className="relative h-full w-full">
+                                                    <img 
+                                                        src={getListingImages(previewListing)[instagramCarouselIndex]} 
+                                                        alt="Vista previa" 
+                                                        className="h-full w-full object-cover transition-opacity duration-300"
+                                                    />
+                                                </div>
+                                                {getListingImages(previewListing).length > 1 && (
+                                                    <>
+                                                        <button 
+                                                            type="button"
+                                                            onClick={() => setInstagramCarouselIndex(prev => prev > 0 ? prev - 1 : getListingImages(previewListing).length - 1)}
+                                                            className="absolute left-2 top-1/2 -translate-y-1/2 rounded-full bg-black/50 p-2 text-white opacity-0 transition-opacity hover:bg-black/70 group-hover:opacity-100"
+                                                        >
+                                                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m15 18-6-6 6-6"/></svg>
+                                                        </button>
+                                                        <button 
+                                                            type="button"
+                                                            onClick={() => setInstagramCarouselIndex(prev => prev < getListingImages(previewListing).length - 1 ? prev + 1 : 0)}
+                                                            className="absolute right-2 top-1/2 -translate-y-1/2 rounded-full bg-black/50 p-2 text-white opacity-0 transition-opacity hover:bg-black/70 group-hover:opacity-100"
+                                                        >
+                                                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m9 18 6-6-6-6"/></svg>
+                                                        </button>
+                                                        <div className="absolute bottom-4 left-0 right-0 flex justify-center gap-1.5">
+                                                            {getListingImages(previewListing).map((_, i) => (
+                                                                <div key={i} className={`h-1.5 rounded-full transition-all ${i === instagramCarouselIndex ? 'w-4 bg-white' : 'w-1.5 bg-white/50'}`} />
+                                                            ))}
+                                                        </div>
+                                                    </>
+                                                )}
+                                            </>
+                                        ) : (
+                                            <div className="flex h-full w-full items-center justify-center" style={{ color: 'var(--fg-faint)' }}>
+                                                <IconHome2 size={48} />
+                                            </div>
+                                        )}
+                                    </div>
+
+                                {/* Lado derecho: Descripción editable */}
+                                <div className="w-full md:w-1/2 flex flex-col min-h-0 flex-1">
+                                    <div className="mb-2 flex items-center justify-between shrink-0">
+                                        <label 
+                                            className="text-xs font-semibold uppercase tracking-wider"
+                                            style={{ color: 'var(--fg-muted)' }}
+                                        >
+                                            Pie de foto (Editable)
+                                        </label>
+                                        <span className="text-[10px] opacity-50" style={{ color: 'var(--fg)' }}>
+                                            {previewCaption.length} / 2200
+                                        </span>
+                                    </div>
+                                    <textarea
+                                        value={previewCaption}
+                                        onChange={(e) => setPreviewCaption(e.target.value)}
+                                        className="mb-4 w-full flex-1 rounded-xl border p-4 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                        style={{ 
+                                            background: 'var(--surface-sunken)', 
+                                            borderColor: 'var(--border)',
+                                            color: 'var(--fg)',
+                                            minHeight: '200px',
+                                            resize: 'none'
+                                        }}
+                                        placeholder="Escribe el pie de foto..."
+                                    />
+
+                                    <div className="flex gap-3 shrink-0 pt-2">
+                                        <PanelButton
+                                            variant="secondary"
+                                            className="flex-1"
+                                            onClick={() => setInstagramPreviewOpen(false)}
+                                        >
+                                            Cancelar
+                                        </PanelButton>
+                                        <PanelButton
+                                            variant="primary"
+                                            className="flex-1"
+                                            onClick={handleConfirmInstagramPublish}
+                                            disabled={isPublishingInstagram}
+                                        >
+                                            {isPublishingInstagram ? 'Publicando...' : 'Publicar ahora'}
+                                        </PanelButton>
+                                    </div>
+                                </div>
                                 </div>
                             )}
-                        </div>
-
-                        <div className="mb-6">
-                            <label 
-                                className="mb-2 block text-xs font-semibold uppercase tracking-wider"
-                                style={{ color: 'var(--fg-muted)' }}
-                            >
-                                Pie de foto (Editable)
-                            </label>
-                            <textarea
-                                value={previewCaption}
-                                onChange={(e) => setPreviewCaption(e.target.value)}
-                                className="w-full rounded-xl border p-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                style={{ 
-                                    background: 'var(--surface-sunken)', 
-                                    borderColor: 'var(--border)',
-                                    color: 'var(--fg)',
-                                    minHeight: '160px'
-                                }}
-                                placeholder="Escribe el pie de foto..."
-                            />
-                        </div>
-
-                        <div className="flex gap-3">
-                            <PanelButton
-                                variant="secondary"
-                                className="flex-1"
-                                onClick={() => setInstagramPreviewOpen(false)}
-                            >
-                                Cancelar
-                            </PanelButton>
-                            <PanelButton
-                                variant="primary"
-                                className="flex-1"
-                                onClick={handleConfirmInstagramPublish}
-                                disabled={isPublishingInstagram}
-                            >
-                                {isPublishingInstagram ? 'Publicando...' : 'Publicar ahora'}
-                            </PanelButton>
                         </div>
                     </div>
                 </div>

@@ -20,6 +20,7 @@ import {
     type AgendaClient,
     type AgendaAppointment,
 } from '@/lib/agenda-api';
+import { fmtCLP, fmtDateMedium as fmtDate } from '@/lib/format';
 
 const METHOD_LABELS: Record<string, string> = {
     transfer: 'Transferencia',
@@ -41,14 +42,6 @@ const STATUS_COLORS: Record<string, string> = {
     refunded: '#6366F1',
     waived: '#9CA3AF',
 };
-
-function fmtCLP(amount: string | number): string {
-    return new Intl.NumberFormat('es-CL', { style: 'currency', currency: 'CLP', minimumFractionDigits: 0 }).format(Number(amount));
-}
-
-function fmtDate(iso: string): string {
-    return new Date(iso).toLocaleDateString('es-CL', { day: 'numeric', month: 'short', year: 'numeric' });
-}
 
 export default function PagosPage() {
     const [payments, setPayments] = useState<AgendaPayment[]>([]);

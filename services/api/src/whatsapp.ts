@@ -22,6 +22,8 @@
  *     simpleagenda_cancelacion        — cita cancelada
  */
 
+import { fmtDateTz, fmtTime } from '@simple/utils';
+
 const GRAPH_API = 'https://graph.facebook.com/v19.0';
 
 export type WaVertical = 'agenda' | 'autos' | 'propiedades';
@@ -100,26 +102,6 @@ async function sendTemplate(
     }
 }
 
-// ── Helpers for date/time formatting ─────────────────────────────────────────
-
-function fmtDate(iso: string | Date, tz: string): string {
-    return new Date(iso).toLocaleDateString('es-CL', {
-        weekday: 'long',
-        day: 'numeric',
-        month: 'long',
-        timeZone: tz,
-    });
-}
-
-function fmtTime(iso: string | Date, tz: string): string {
-    return new Date(iso).toLocaleTimeString('es-CL', {
-        hour: '2-digit',
-        minute: '2-digit',
-        hour12: false,
-        timeZone: tz,
-    });
-}
-
 // ── Public API ────────────────────────────────────────────────────────────────
 
 export type WaAppointmentInfo = {
@@ -154,7 +136,7 @@ export async function notifyConfirmation(
         [
             appt.clientName ?? 'Paciente',
             prof.displayName ?? 'el profesional',
-            fmtDate(appt.startsAt, prof.timezone),
+            fmtDateTz(appt.startsAt, prof.timezone),
             fmtTime(appt.startsAt, prof.timezone),
             cancelUrl,
         ],
@@ -226,7 +208,7 @@ export async function notifyCancellation(
         [
             appt.clientName ?? 'Paciente',
             prof.displayName ?? 'el profesional',
-            fmtDate(appt.startsAt, prof.timezone),
+            fmtDateTz(appt.startsAt, prof.timezone),
             fmtTime(appt.startsAt, prof.timezone),
         ],
         'agenda',
@@ -250,7 +232,7 @@ export async function notifyProfessionalNewBooking(
         [
             prof.displayName ?? 'Profesional',
             appt.clientName ?? 'Paciente',
-            fmtDate(appt.startsAt, prof.timezone),
+            fmtDateTz(appt.startsAt, prof.timezone),
             fmtTime(appt.startsAt, prof.timezone),
         ],
         'agenda',

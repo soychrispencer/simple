@@ -9,14 +9,16 @@ import type {
     VehicleValuationRequest,
     VehicleValuationSourceStatus,
 } from '@simple/types';
+import { API_BASE } from '@simple/config';
 
+export * from './format';
 export * from './location-catalog';
 export * from './media-upload';
 export * from './crm';
 export * from './listing-leads';
 export * from './social-feed';
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000';
+export { API_BASE };
 
 async function apiRequest<T>(path: string, init?: RequestInit): Promise<{ status: number; data: T | null }> {
     try {

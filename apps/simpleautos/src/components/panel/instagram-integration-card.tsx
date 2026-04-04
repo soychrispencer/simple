@@ -192,23 +192,8 @@ export default function InstagramIntegrationCard() {
                                     <IconPlugConnected size={13} /> Reconectar
                                 </PanelButton>
                                 <PanelButton variant="secondary" size="sm" onClick={() => void onDisconnect()} disabled={disconnecting}>
-                                    {disconnecting ? <IconLoader2 size={13} className="animate-spin" /> : <IconTrash size={13} />} Desconectar
+                                    {disconnecting ? <IconLoader2 size={13} className="animate-spin" /> : <IconTrash size={13} />}
                                 </PanelButton>
-                            </div>
-                        </div>
-
-                        <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-3">
-                            <div className="rounded-xl border p-3" style={{ borderColor: 'var(--border)', background: 'var(--surface)' }}>
-                                <p className="text-xs uppercase tracking-[0.12em]" style={{ color: 'var(--fg-muted)' }}>Última sincronización</p>
-                                <p className="mt-1 text-sm" style={{ color: 'var(--fg)' }}>{formatDate(status.account.lastSyncedAt)}</p>
-                            </div>
-                            <div className="rounded-xl border p-3" style={{ borderColor: 'var(--border)', background: 'var(--surface)' }}>
-                                <p className="text-xs uppercase tracking-[0.12em]" style={{ color: 'var(--fg-muted)' }}>Último post</p>
-                                <p className="mt-1 text-sm" style={{ color: 'var(--fg)' }}>{formatDate(status.account.lastPublishedAt)}</p>
-                            </div>
-                            <div className="rounded-xl border p-3" style={{ borderColor: 'var(--border)', background: 'var(--surface)' }}>
-                                <p className="text-xs uppercase tracking-[0.12em]" style={{ color: 'var(--fg-muted)' }}>Scopes</p>
-                                <p className="mt-1 text-sm" style={{ color: 'var(--fg)' }}>{status.account.scopes.length > 0 ? status.account.scopes.join(', ') : 'Sin scopes reportados'}</p>
                             </div>
                         </div>
 

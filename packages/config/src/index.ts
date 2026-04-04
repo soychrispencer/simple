@@ -475,3 +475,13 @@ export function getSimpleBrandIconTokens(appId: SimpleAppId) {
         ring: '#e7e5e4',
     };
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// API Configuration
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * URL base del API del backend.
+ * Usar esta constante en lugar de duplicar process.env.NEXT_PUBLIC_API_URL.
+ */
+export const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000';

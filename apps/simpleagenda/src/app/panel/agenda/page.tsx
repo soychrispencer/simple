@@ -32,6 +32,7 @@ import {
     type AgendaService,
     type AgendaClient,
 } from '@/lib/agenda-api';
+import { fmtDateShort as formatDate, fmtTime as formatTime } from '@/lib/format';
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -48,14 +49,6 @@ function addDays(date: Date, n: number): Date {
     const d = new Date(date);
     d.setDate(d.getDate() + n);
     return d;
-}
-
-function formatDate(date: Date): string {
-    return date.toLocaleDateString('es-CL', { weekday: 'short', day: 'numeric', month: 'short' });
-}
-
-function formatTime(iso: string): string {
-    return new Date(iso).toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit', hour12: false });
 }
 
 function isoDateInput(date: Date): string {

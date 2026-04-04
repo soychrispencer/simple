@@ -15,22 +15,9 @@ import {
 } from '@tabler/icons-react';
 import Link from 'next/link';
 import { fetchAgendaStats, fetchAgendaProfile, type AgendaStats, type AgendaWeekDay, type AgendaProfile } from '@/lib/agenda-api';
+import { fmtCLP, fmtTime, fmtDateShort as fmtDate } from '@/lib/format';
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
-
-function fmtCLP(n: number): string {
-    if (n >= 1_000_000) return `$${(n / 1_000_000).toFixed(1)}M`;
-    if (n >= 1_000) return `$${Math.round(n / 1_000)}K`;
-    return new Intl.NumberFormat('es-CL', { style: 'currency', currency: 'CLP', minimumFractionDigits: 0 }).format(n);
-}
-
-function fmtTime(iso: string): string {
-    return new Date(iso).toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit', hour12: false });
-}
-
-function fmtDate(iso: string): string {
-    return new Date(iso).toLocaleDateString('es-CL', { weekday: 'short', day: 'numeric', month: 'short' });
-}
 
 function pctChange(current: number, prev: number): number | null {
     if (prev === 0) return current > 0 ? 100 : null;
