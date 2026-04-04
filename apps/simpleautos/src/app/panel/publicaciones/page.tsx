@@ -769,20 +769,19 @@ export default function PublicacionesPage() {
                         </div>
 
                         <div className="mb-4 aspect-square w-full overflow-hidden rounded-xl bg-black/5">
-                            {previewListing.images && previewListing.images.length > 0 ? (
+                            {getListingCoverImage(previewListing) ? (
                                 <div className="relative h-full w-full">
                                     <img 
-                                        src={previewListing.images[0].url} 
+                                        src={getListingCoverImage(previewListing)!} 
                                         alt="Vista previa" 
                                         className="h-full w-full object-cover"
                                     />
-                                    {previewListing.images.length > 1 && (
-                                        <div className="absolute right-3 top-3 rounded-full bg-black/60 px-2 py-1 text-[10px] font-bold text-white">
-                                            1 / {Math.min(previewListing.images.length, 10)}
-                                        </div>
-                                    )}
                                 </div>
-                            ) : null}
+                            ) : (
+                                <div className="flex h-full w-full items-center justify-center" style={{ color: 'var(--fg-faint)' }}>
+                                    <IconCar size={48} />
+                                </div>
+                            )}
                         </div>
 
                         <div className="mb-6">
