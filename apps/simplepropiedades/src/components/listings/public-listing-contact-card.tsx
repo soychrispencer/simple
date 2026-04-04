@@ -69,7 +69,7 @@ export default function PublicListingContactCard(props: {
 
         setSubmitting(true);
         setFeedback(null);
-        await submitListingLeadAction({
+        await submitListingLeadAction('propiedades', {
             listingId: props.listingId,
             source,
             contactName,
