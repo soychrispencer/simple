@@ -3536,17 +3536,29 @@ async function publishListingToInstagram(user: AppUser, listing: ListingRecord, 
     logDebug(`[instagram] preparing ${mediaUrls.length} images for ${listing.id}`);
     const preparedImages: Array<{ url: string }> = [];
     for (let i = 0; i < mediaUrls.length; i++) {
-        const url = await prepareInstagramImageUrl(listing, i);
-        logDebug(`[instagram] image ${i} ready: ${url}`);
-        // Validar cada imagen
-        const check = await fetch(url, { method: 'HEAD' }).catch((e) => {
-            logDebug(`[instagram] HEAD check failed for image ${i}: ${e.message}`);
-            return null;
-        });
-        if (!check || !check.ok) {
-            logDebug(`[instagram] image ${i} might not be accessible: ${url} (status: ${check?.status})`);
+        try {
+            const url = await prepareInstagramImageUrl(listing, i);
+            if (!url || !url.startsWith('http')) {
+                logDebug(`[instagram] skipped image ${i}: invalid URL "${url}"`);
+                continue;
+            }
+            
+            // Validar cada imagen
+            const check = await fetch(url, { method: 'HEAD' }).catch((e) => {
+                logDebug(`[instagram] HEAD check failed for image ${i}: ${e.message}`);
+                return null;
+            });
+            if (!check || !check.ok) {
+                logDebug(`[instagram] image ${i} might not be accessible: ${url} (status: ${check?.status})`);
+            }
+            preparedImages.push({ url });
+        } catch (e) {
+            logDebug(`[instagram] failed to prepare image ${i}: ${e instanceof Error ? e.message : String(e)}`);
         }
-        preparedImages.push({ url });
+    }
+
+    if (preparedImages.length === 0) {
+        throw new Error('No se pudo preparar ninguna imagen válida para Instagram. Verifica que el aviso tenga fotos públicas y accesibles.');
     }
 
     const caption = buildInstagramCaption(listing, publicUrl, refreshedAccount.captionTemplate, options.captionOverride ?? null);
@@ -15068,7 +15080,191 @@ async function bootstrapMissingTables() {
     await db.execute(sql`
         CREATE INDEX IF NOT EXISTS address_book_user_id_idx ON address_book(user_id)
     `);
-    // agenda payment method columns (migration 0023) — tabla solo existe si SimpleAgenda está deployada
+
+    // --- Agenda tables (migration 0019) ---
+    await db.execute(sql`
+        CREATE TABLE IF NOT EXISTS agenda_professional_profiles (
+            id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+            user_id uuid NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+            slug varchar(255) NOT NULL,
+            is_published boolean DEFAULT false NOT NULL,
+            profession varchar(100),
+            display_name varchar(160),
+            headline varchar(255),
+            bio text,
+            avatar_url varchar(500),
+            cover_url varchar(500),
+            public_email varchar(255),
+            public_phone varchar(30),
+            public_whatsapp varchar(30),
+            city varchar(100),
+            region varchar(100),
+            address varchar(255),
+            currency varchar(10) DEFAULT 'CLP' NOT NULL,
+            timezone varchar(50) DEFAULT 'America/Santiago' NOT NULL,
+            booking_window_days integer DEFAULT 30 NOT NULL,
+            cancellation_hours integer DEFAULT 24 NOT NULL,
+            confirmation_mode varchar(20) DEFAULT 'auto' NOT NULL,
+            created_at timestamp NOT NULL DEFAULT now(),
+            updated_at timestamp NOT NULL DEFAULT now()
+        )
+    `);
+    await db.execute(sql`CREATE UNIQUE INDEX IF NOT EXISTS agenda_profiles_slug_idx ON agenda_professional_profiles(slug)`);
+    await db.execute(sql`CREATE UNIQUE INDEX IF NOT EXISTS agenda_profiles_user_id_idx ON agenda_professional_profiles(user_id)`);
+
+    await db.execute(sql`
+        CREATE TABLE IF NOT EXISTS agenda_services (
+            id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+            professional_id uuid NOT NULL REFERENCES agenda_professional_profiles(id) ON DELETE CASCADE,
+            name varchar(160) NOT NULL,
+            description text,
+            duration_minutes integer DEFAULT 50 NOT NULL,
+            price numeric(10, 2),
+            currency varchar(10) DEFAULT 'CLP' NOT NULL,
+            is_online boolean DEFAULT true NOT NULL,
+            is_presential boolean DEFAULT false NOT NULL,
+            color varchar(20),
+            is_active boolean DEFAULT true NOT NULL,
+            position integer DEFAULT 0 NOT NULL,
+            created_at timestamp NOT NULL DEFAULT now(),
+            updated_at timestamp NOT NULL DEFAULT now()
+        )
+    `);
+    await db.execute(sql`CREATE INDEX IF NOT EXISTS agenda_services_professional_idx ON agenda_services(professional_id)`);
+
+    await db.execute(sql`
+        CREATE TABLE IF NOT EXISTS agenda_availability_rules (
+            id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+            professional_id uuid NOT NULL REFERENCES agenda_professional_profiles(id) ON DELETE CASCADE,
+            day_of_week integer NOT NULL,
+            start_time varchar(5) NOT NULL,
+            end_time varchar(5) NOT NULL,
+            break_start varchar(5),
+            break_end varchar(5),
+            is_active boolean DEFAULT true NOT NULL,
+            created_at timestamp NOT NULL DEFAULT now(),
+            updated_at timestamp NOT NULL DEFAULT now()
+        )
+    `);
+    await db.execute(sql`CREATE INDEX IF NOT EXISTS agenda_availability_professional_idx ON agenda_availability_rules(professional_id)`);
+
+    await db.execute(sql`
+        CREATE TABLE IF NOT EXISTS agenda_blocked_slots (
+            id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+            professional_id uuid NOT NULL REFERENCES agenda_professional_profiles(id) ON DELETE CASCADE,
+            starts_at timestamp NOT NULL,
+            ends_at timestamp NOT NULL,
+            reason varchar(255),
+            created_at timestamp NOT NULL DEFAULT now()
+        )
+    `);
+    await db.execute(sql`CREATE INDEX IF NOT EXISTS agenda_blocked_slots_professional_idx ON agenda_blocked_slots(professional_id)`);
+
+    await db.execute(sql`
+        CREATE TABLE IF NOT EXISTS agenda_clients (
+            id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+            professional_id uuid NOT NULL REFERENCES agenda_professional_profiles(id) ON DELETE CASCADE,
+            first_name varchar(100) NOT NULL,
+            last_name varchar(100),
+            email varchar(255),
+            phone varchar(30),
+            whatsapp varchar(30),
+            rut varchar(20),
+            date_of_birth varchar(10),
+            gender varchar(20),
+            occupation varchar(100),
+            address varchar(255),
+            city varchar(100),
+            emergency_contact_name varchar(160),
+            emergency_contact_phone varchar(30),
+            referred_by varchar(160),
+            internal_notes text,
+            tags jsonb DEFAULT '[]'::jsonb,
+            status varchar(20) DEFAULT 'active' NOT NULL,
+            created_at timestamp NOT NULL DEFAULT now(),
+            updated_at timestamp NOT NULL DEFAULT now()
+        )
+    `);
+    await db.execute(sql`CREATE INDEX IF NOT EXISTS agenda_clients_professional_idx ON agenda_clients(professional_id)`);
+
+    await db.execute(sql`
+        CREATE TABLE IF NOT EXISTS agenda_appointments (
+            id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+            professional_id uuid NOT NULL REFERENCES agenda_professional_profiles(id) ON DELETE CASCADE,
+            service_id uuid REFERENCES agenda_services(id),
+            client_id uuid REFERENCES agenda_clients(id),
+            client_name varchar(160),
+            client_email varchar(255),
+            client_phone varchar(30),
+            starts_at timestamp NOT NULL,
+            ends_at timestamp NOT NULL,
+            duration_minutes integer NOT NULL,
+            modality varchar(20) DEFAULT 'online' NOT NULL,
+            meeting_url varchar(500),
+            location varchar(255),
+            status varchar(20) DEFAULT 'confirmed' NOT NULL,
+            price numeric(10, 2),
+            currency varchar(10) DEFAULT 'CLP' NOT NULL,
+            internal_notes text,
+            client_notes text,
+            cancelled_at timestamp,
+            cancelled_by varchar(20),
+            cancellation_reason text,
+            reminder_sent_at timestamp,
+            created_at timestamp NOT NULL DEFAULT now(),
+            updated_at timestamp NOT NULL DEFAULT now()
+        )
+    `);
+    await db.execute(sql`CREATE INDEX IF NOT EXISTS agenda_appointments_professional_idx ON agenda_appointments(professional_id)`);
+    await db.execute(sql`CREATE INDEX IF NOT EXISTS agenda_appointments_starts_at_idx ON agenda_appointments(starts_at)`);
+    await db.execute(sql`CREATE INDEX IF NOT EXISTS agenda_appointments_client_idx ON agenda_appointments(client_id)`);
+
+    await db.execute(sql`
+        CREATE TABLE IF NOT EXISTS agenda_session_notes (
+            id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+            appointment_id uuid NOT NULL REFERENCES agenda_appointments(id) ON DELETE CASCADE,
+            professional_id uuid NOT NULL REFERENCES agenda_professional_profiles(id) ON DELETE CASCADE,
+            client_id uuid REFERENCES agenda_clients(id),
+            content text NOT NULL,
+            raw_data jsonb,
+            created_at timestamp NOT NULL DEFAULT now(),
+            updated_at timestamp NOT NULL DEFAULT now()
+        )
+    `);
+    await db.execute(sql`CREATE UNIQUE INDEX IF NOT EXISTS agenda_notes_appointment_idx ON agenda_session_notes(appointment_id)`);
+    await db.execute(sql`CREATE INDEX IF NOT EXISTS agenda_notes_professional_idx ON agenda_session_notes(professional_id)`);
+
+    await db.execute(sql`
+        CREATE TABLE IF NOT EXISTS agenda_payments (
+            id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+            professional_id uuid NOT NULL REFERENCES agenda_professional_profiles(id) ON DELETE CASCADE,
+            appointment_id uuid REFERENCES agenda_appointments(id),
+            client_id uuid REFERENCES agenda_clients(id),
+            amount numeric(10, 2) NOT NULL,
+            currency varchar(10) DEFAULT 'CLP' NOT NULL,
+            method varchar(30),
+            status varchar(20) DEFAULT 'pending' NOT NULL,
+            external_id varchar(255),
+            paid_at timestamp,
+            notes text,
+            created_at timestamp NOT NULL DEFAULT now(),
+            updated_at timestamp NOT NULL DEFAULT now()
+        )
+    `);
+    await db.execute(sql`CREATE INDEX IF NOT EXISTS agenda_payments_professional_idx ON agenda_payments(professional_id)`);
+    await db.execute(sql`CREATE INDEX IF NOT EXISTS agenda_payments_appointment_idx ON agenda_payments(appointment_id)`);
+
+    // Existing column upgrades
+    try {
+        await db.execute(sql`
+            ALTER TABLE agenda_professional_profiles
+                ADD COLUMN IF NOT EXISTS google_calendar_id varchar(255),
+                ADD COLUMN IF NOT EXISTS google_access_token text,
+                ADD COLUMN IF NOT EXISTS google_refresh_token text,
+                ADD COLUMN IF NOT EXISTS google_token_expiry timestamp
+        `);
+    } catch { /* ignore */ }
+
     try {
         await db.execute(sql`
             ALTER TABLE agenda_professional_profiles
@@ -15079,18 +15275,15 @@ async function bootstrapMissingTables() {
                 ADD COLUMN IF NOT EXISTS payment_link_url varchar(500),
                 ADD COLUMN IF NOT EXISTS bank_transfer_data jsonb
         `);
-    } catch {
-        // agenda_professional_profiles puede no existir en entornos sin SimpleAgenda
-    }
-    // agenda notifications last seen (migration 0024)
+    } catch { /* ignore */ }
+
     try {
         await db.execute(sql`
             ALTER TABLE agenda_professional_profiles
                 ADD COLUMN IF NOT EXISTS notifications_last_seen_at timestamp
         `);
-    } catch {
-        // agenda_professional_profiles puede no existir en entornos sin SimpleAgenda
-    }
+    } catch { /* ignore */ }
+
     // push subscriptions table (migration 0025)
     await db.execute(sql`
         CREATE TABLE IF NOT EXISTS push_subscriptions (
