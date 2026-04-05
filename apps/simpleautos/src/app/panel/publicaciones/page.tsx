@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, useCallback } from 'react';
 import Link from 'next/link';
 import {
     IconBrandWhatsapp,
@@ -135,10 +135,10 @@ export default function PublicacionesPage() {
     const [statusBusyKey, setStatusBusyKey] = useState<string | null>(null);
     const [notice, setNotice] = useState<string | null>(null);
 
-    const closeMenus = () => {
+    const closeMenus = useCallback(() => {
         setActionMenuOpenId(null);
         setShareMenuOpenId(null);
-    };
+    }, []);
 
     // Close menus when clicking outside
     useEffect(() => {
