@@ -140,6 +140,26 @@ export default function PublicacionesPage() {
         setShareMenuOpenId(null);
     };
 
+    // Close menus when clicking outside
+    useEffect(() => {
+        const handleClickOutside = (event: MouseEvent) => {
+            const target = event.target as HTMLElement;
+            if (!target.closest('.menu-container')) {
+                closeMenus();
+            }
+        };
+
+        if (actionMenuOpenId || shareMenuOpenId) {
+            document.addEventListener('mousedown', handleClickOutside);
+        } else {
+            document.removeEventListener('mousedown', handleClickOutside);
+        }
+
+        return () => {
+            document.removeEventListener('mousedown', handleClickOutside);
+        };
+    }, [actionMenuOpenId, shareMenuOpenId]);
+
     const loadListings = async () => {
         setLoading(true);
         const [result, igResult] = await Promise.all([
@@ -453,7 +473,7 @@ export default function PublicacionesPage() {
         const closedLabel = getClosedLabel(listing.section);
 
         return (
-            <div className="relative">
+            <div className="relative menu-container">
                 <PanelButton
                     variant="secondary"
                     size="sm"
@@ -467,8 +487,8 @@ export default function PublicacionesPage() {
                 </PanelButton>
                 {menuOpen ? (
                     <div
-                        className="absolute right-0 mt-2 w-64 rounded-xl border p-2 z-20"
-                        style={{ borderColor: 'var(--border)', background: 'var(--surface)', boxShadow: 'var(--shadow-sm)' }}
+                        className="absolute right-0 mt-2 w-64 rounded-xl border p-2 z-20 shadow-xl"
+                        style={{ borderColor: 'var(--border)', background: 'var(--surface)' }}
                     >
                         {needsRenewal
                             ? renderMenuItem(
@@ -529,6 +549,7 @@ export default function PublicacionesPage() {
                                   'mt-1'
                               )
                             : null}
+                        <div className="mx-2 my-1 border-t" style={{ borderColor: 'var(--border)' }} />
                         {renderMenuItem(
                             'Eliminar',
                             () => {
@@ -537,7 +558,7 @@ export default function PublicacionesPage() {
                             },
                             <IconTrash size={14} />, 
                             false,
-                            'mt-2 text-red-600 hover:bg-red-100 dark:hover:bg-red-900/40'
+                            'text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20'
                         )}
                     </div>
                 ) : null}
@@ -553,7 +574,7 @@ export default function PublicacionesPage() {
         );
 
         return (
-            <div className="relative">
+            <div className="relative menu-container">
                 <PanelButton
                     variant="secondary"
                     size="sm"
@@ -567,21 +588,27 @@ export default function PublicacionesPage() {
                 </PanelButton>
                 {menuOpen ? (
                     <div
-                        className="absolute right-0 mt-2 w-72 rounded-xl border p-2 z-20"
-                        style={{ borderColor: 'var(--border)', background: 'var(--surface)', boxShadow: 'var(--shadow-sm)' }}
+                        className="absolute right-0 mt-2 w-72 rounded-xl border p-2 z-20 shadow-xl"
+                        style={{ borderColor: 'var(--border)', background: 'var(--surface)' }}
                     >
-                        {renderMenuItem('Link', () => {
+                        {renderMenuItem('Copiar Link', () => {
                             void copyListingLink(listing);
-                        })}
-                        {renderMenuItem('WhatsApp', () => shareOnWhatsapp(listing), <IconBrandWhatsapp size={14} />, false, 'mt-1')}
-                        {renderMenuItem(instagramBusyKey === `${listing.id}:instagram` ? 'Instagram publicando...' : 'Instagram', () => {
+                        }, <IconCopy size={14} />)}
+                        {renderMenuItem('Compartir por WhatsApp', () => shareOnWhatsapp(listing), <IconBrandWhatsapp size={14} />, false, 'mt-1')}
+                        
+                        <div className="mx-2 my-2 border-t" style={{ borderColor: 'var(--border)' }} />
+                        <p className="px-3 pb-1 text-[10px] font-bold uppercase tracking-wider opacity-50" style={{ color: 'var(--fg)' }}>
+                            Redes Sociales
+                        </p>
+                        {renderMenuItem(instagramBusyKey === `${listing.id}:instagram` ? 'Publicando...' : 'Instagram', () => {
                             void shareOnInstagram(listing);
-                        }, undefined, instagramBusyKey === `${listing.id}:instagram`, 'mt-1')}
+                        }, <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="20" height="20" x="2" y="2" rx="5" ry="5"/><path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"/><line x1="17.5" x2="17.51" y1="6.5" y2="6.5"/></svg>, instagramBusyKey === `${listing.id}:instagram`, 'mt-1')}
+                        
                         {integrations.length > 0 ? (
                             <>
-                                <div className="mx-3 my-2 border-t" style={{ borderColor: 'var(--border)' }} />
-                                <p className="px-3 pb-1 text-[11px] font-semibold uppercase tracking-[0.14em]" style={{ color: 'var(--fg-muted)' }}>
-                                    Integraciones
+                                <div className="mx-2 my-2 border-t" style={{ borderColor: 'var(--border)' }} />
+                                <p className="px-3 pb-1 text-[10px] font-bold uppercase tracking-wider opacity-50" style={{ color: 'var(--fg)' }}>
+                                    Portales
                                 </p>
                                 {integrations.map((integration) => {
                                     const busy = portalBusyKey === `${listing.id}:${integration.portal}`;
@@ -596,9 +623,12 @@ export default function PublicacionesPage() {
                                             }}
                                             disabled={busy}
                                         >
-                                            <span>{integration.label}</span>
-                                            <span className="text-[11px]" style={{ color: 'var(--fg-muted)' }}>
-                                                {busy ? 'Publicando...' : statusText(integration.status)}
+                                            <div className="flex items-center gap-2">
+                                                <div className="w-1.5 h-1.5 rounded-full" style={{ background: integration.status === 'published' ? '#10b981' : '#fbbf24' }} />
+                                                <span>{integration.label}</span>
+                                            </div>
+                                            <span className="text-[10px] font-medium opacity-60">
+                                                {busy ? 'Procesando...' : statusText(integration.status)}
                                             </span>
                                         </button>
                                     );
@@ -786,17 +816,17 @@ export default function PublicacionesPage() {
             {/* Instagram Preview Modal */}
             {instagramPreviewOpen && previewListing && (
                 <div 
-                    className="fixed inset-0 z-50 flex items-center justify-center p-4 backdrop-blur-sm transition-all"
+                    className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 backdrop-blur-sm transition-all"
                     style={{ background: 'rgba(0,0,0,0.7)' }}
                     onClick={() => setInstagramPreviewOpen(false)}
                 >
                     <div 
-                        className="w-[98vw] md:w-[90vw] lg:w-[85vw] h-[95vh] flex flex-col overflow-hidden rounded-2xl border shadow-2xl"
+                        className="w-full max-w-5xl max-h-[92vh] flex flex-col overflow-hidden rounded-2xl border shadow-2xl"
                         style={{ background: 'var(--surface)', borderColor: 'var(--border)' }}
                         onClick={(e) => e.stopPropagation()}
                     >
                         {/* Header */}
-                        <div className="flex items-center justify-between border-b p-4 px-6" style={{ borderColor: 'var(--border)' }}>
+                        <div className="flex items-center justify-between border-b p-4 px-6 shrink-0" style={{ borderColor: 'var(--border)' }}>
                             <h3 className="text-lg font-bold" style={{ color: 'var(--fg)' }}>
                                 {isInstagramSuccess ? '¡Publicación exitosa! 🎉' : 'Vista previa de Instagram'}
                             </h3>
@@ -810,18 +840,18 @@ export default function PublicacionesPage() {
                         </div>
 
                         {/* Content Area */}
-                        <div className="flex-1 p-4 md:p-6 overflow-hidden flex flex-col min-h-0">
+                        <div className="flex-1 p-4 md:p-6 overflow-y-auto min-h-0">
                             {isInstagramSuccess ? (
                                 <div className="flex flex-col items-center py-8 text-center">
-                                    <div className="mb-6 flex h-24 w-24 items-center justify-center rounded-full bg-green-500/10 text-green-500 ring-4 ring-green-500/20">
-                                        <IconPlugConnected size={48} />
+                                    <div className="mb-6 flex h-20 w-24 items-center justify-center rounded-full bg-green-500/10 text-green-500 ring-4 ring-green-500/20">
+                                        <IconPlugConnected size={40} />
                                     </div>
-                                    <h4 className="mb-2 text-2xl font-bold" style={{ color: 'var(--fg)' }}>¡Publicado Exitosamente!</h4>
+                                    <h4 className="mb-2 text-xl font-bold" style={{ color: 'var(--fg)' }}>¡Publicado Exitosamente!</h4>
                                     <p className="mb-8 max-w-sm text-sm" style={{ color: 'var(--fg-secondary)' }}>
                                         Tu vehículo ha sido publicado en tu cuenta de Instagram. Puede tardar unos segundos en aparecer en tu feed.
                                     </p>
                                     
-                                    <div className="flex w-full gap-3">
+                                    <div className="flex w-full max-w-md gap-3">
                                         {lastPublishedPermalink && (
                                             <a 
                                                 href={lastPublishedPermalink} 
@@ -844,106 +874,111 @@ export default function PublicacionesPage() {
                                     </div>
                                 </div>
                             ) : (
-                                <div className="flex flex-col md:flex-row gap-6 md:gap-8 h-full min-h-0 relative">
+                                <div className="flex flex-col md:flex-row gap-6 h-full min-h-0 relative">
                                     {isPublishingInstagram && (
                                         <div className="absolute inset-0 z-10 flex flex-col items-center justify-center bg-black/60 backdrop-blur-sm rounded-xl text-white">
-                                            <div className="mb-4 h-12 w-12 animate-spin rounded-full border-4 border-white border-t-transparent" />
-                                            <h4 className="text-lg font-bold">Publicando en Instagram...</h4>
-                                            <p className="mt-2 max-w-xs text-center text-sm opacity-80">
-                                                Conectando con los servidores de Meta. Esto puede tomar unos segundos, por favor espera.
-                                            </p>
+                                            <div className="mb-4 h-10 w-10 animate-spin rounded-full border-4 border-white border-t-transparent" />
+                                            <h4 className="text-lg font-bold">Publicando...</h4>
                                         </div>
                                     )}
-                                    {/* Lado izquierdo: Fotografía estilo Instagram (4:5 -> 1080x1350) */}
-                                    <div className="w-full md:w-1/2 flex items-center justify-center bg-black/5 rounded-xl overflow-hidden shrink-0 mx-auto max-h-[40vh] md:max-h-full relative group" style={{ aspectRatio: '4/5', borderColor: 'var(--border)' }}>
-                                        {getListingImages(previewListing).length > 0 ? (
-                                            <>
-                                                <div className="relative h-full w-full">
+                                    {/* Lado izquierdo: Fotografía estilo Instagram */}
+                                    <div className="w-full md:w-1/2 flex flex-col gap-3">
+                                        <div className="aspect-square w-full max-w-[400px] mx-auto bg-black/5 rounded-xl overflow-hidden border relative group" style={{ borderColor: 'var(--border)' }}>
+                                            {getListingImages(previewListing).length > 0 ? (
+                                                <>
                                                     <img 
                                                         src={getListingImages(previewListing)[instagramCarouselIndex]} 
                                                         alt="Vista previa" 
                                                         className="h-full w-full object-cover transition-opacity duration-300"
                                                     />
+                                                    {getListingImages(previewListing).length > 1 && (
+                                                        <>
+                                                            <button 
+                                                                type="button"
+                                                                onClick={() => setInstagramCarouselIndex(prev => prev > 0 ? prev - 1 : getListingImages(previewListing).length - 1)}
+                                                                className="absolute left-2 top-1/2 -translate-y-1/2 rounded-full bg-black/50 p-2 text-white transition-opacity hover:bg-black/70"
+                                                            >
+                                                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="m15 18-6-6 6-6"/></svg>
+                                                            </button>
+                                                            <button 
+                                                                type="button"
+                                                                onClick={() => setInstagramCarouselIndex(prev => prev < getListingImages(previewListing).length - 1 ? prev + 1 : 0)}
+                                                                className="absolute right-2 top-1/2 -translate-y-1/2 rounded-full bg-black/50 p-2 text-white transition-opacity hover:bg-black/70"
+                                                            >
+                                                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="m9 18 6-6-6-6"/></svg>
+                                                            </button>
+                                                            <div className="absolute bottom-3 left-0 right-0 flex justify-center gap-1">
+                                                                {getListingImages(previewListing).map((_, i) => (
+                                                                    <div key={i} className={`h-1 rounded-full transition-all ${i === instagramCarouselIndex ? 'w-3 bg-white' : 'w-1 bg-white/50'}`} />
+                                                                ))}
+                                                            </div>
+                                                        </>
+                                                    )}
+                                                </>
+                                            ) : (
+                                                <div className="flex h-full w-full items-center justify-center" style={{ color: 'var(--fg-faint)' }}>
+                                                    <IconCar size={40} />
                                                 </div>
-                                                {getListingImages(previewListing).length > 1 && (
-                                                    <>
-                                                        <button 
-                                                            type="button"
-                                                            onClick={() => setInstagramCarouselIndex(prev => prev > 0 ? prev - 1 : getListingImages(previewListing).length - 1)}
-                                                            className="absolute left-2 top-1/2 -translate-y-1/2 rounded-full bg-black/50 p-2 text-white opacity-0 transition-opacity hover:bg-black/70 group-hover:opacity-100"
-                                                        >
-                                                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m15 18-6-6 6-6"/></svg>
-                                                        </button>
-                                                        <button 
-                                                            type="button"
-                                                            onClick={() => setInstagramCarouselIndex(prev => prev < getListingImages(previewListing).length - 1 ? prev + 1 : 0)}
-                                                            className="absolute right-2 top-1/2 -translate-y-1/2 rounded-full bg-black/50 p-2 text-white opacity-0 transition-opacity hover:bg-black/70 group-hover:opacity-100"
-                                                        >
-                                                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m9 18 6-6-6-6"/></svg>
-                                                        </button>
-                                                        <div className="absolute bottom-4 left-0 right-0 flex justify-center gap-1.5">
-                                                            {getListingImages(previewListing).map((_, i) => (
-                                                                <div key={i} className={`h-1.5 rounded-full transition-all ${i === instagramCarouselIndex ? 'w-4 bg-white' : 'w-1.5 bg-white/50'}`} />
-                                                            ))}
-                                                        </div>
-                                                    </>
-                                                )}
-                                            </>
-                                        ) : (
-                                            <div className="flex h-full w-full items-center justify-center" style={{ color: 'var(--fg-faint)' }}>
-                                                <IconCar size={48} />
-                                            </div>
-                                        )}
+                                            )}
+                                        </div>
+                                        <p className="text-[10px] text-center opacity-50" style={{ color: 'var(--fg)' }}>
+                                            Aspecto 1:1 optimizado para feed de Instagram
+                                        </p>
                                     </div>
 
                                     {/* Lado derecho: Descripción editable */}
-                                    <div className="w-full md:w-1/2 flex flex-col min-h-0 flex-1">
+                                    <div className="w-full md:w-1/2 flex flex-col min-h-0">
                                         <div className="mb-2 flex items-center justify-between shrink-0">
                                             <label 
-                                                className="text-xs font-semibold uppercase tracking-wider"
-                                                style={{ color: 'var(--fg-muted)' }}
+                                                className="text-[11px] font-bold uppercase tracking-wider opacity-60"
+                                                style={{ color: 'var(--fg)' }}
                                             >
                                                 Pie de foto (Editable)
                                             </label>
-                                            <span className="text-[10px] opacity-50" style={{ color: 'var(--fg)' }}>
+                                            <span className="text-[10px] opacity-40" style={{ color: 'var(--fg)' }}>
                                                 {previewCaption.length} / 2200
                                             </span>
                                         </div>
                                         <textarea
                                             value={previewCaption}
                                             onChange={(e) => setPreviewCaption(e.target.value)}
-                                            className="mb-4 w-full flex-1 rounded-xl border p-4 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                            className="w-full flex-1 rounded-xl border p-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20"
                                             style={{ 
                                                 background: 'var(--surface-sunken)', 
                                                 borderColor: 'var(--border)',
                                                 color: 'var(--fg)',
-                                                minHeight: '200px',
+                                                minHeight: '180px',
                                                 resize: 'none'
                                             }}
                                             placeholder="Escribe el pie de foto..."
                                         />
-
-                                        <div className="flex gap-3 shrink-0 pt-2">
-                                            <PanelButton
-                                                variant="secondary"
-                                                className="flex-1"
-                                                onClick={() => setInstagramPreviewOpen(false)}
-                                            >
-                                                Cancelar
-                                            </PanelButton>
-                                            <PanelButton
-                                                variant="primary"
-                                                className="flex-1"
-                                                onClick={handleConfirmInstagramPublish}
-                                                disabled={isPublishingInstagram}
-                                            >
-                                                {isPublishingInstagram ? 'Publicando...' : 'Publicar ahora'}
-                                            </PanelButton>
-                                        </div>
                                     </div>
                                 </div>
                             )}
                         </div>
+
+                        {/* Footer Buttons (Fixed) */}
+                        {!isInstagramSuccess && (
+                            <div className="border-t p-4 px-6 shrink-0 bg-white dark:bg-black/10" style={{ borderColor: 'var(--border)' }}>
+                                <div className="flex gap-3 max-w-md ml-auto">
+                                    <PanelButton
+                                        variant="secondary"
+                                        className="flex-1"
+                                        onClick={() => setInstagramPreviewOpen(false)}
+                                    >
+                                        Cancelar
+                                    </PanelButton>
+                                    <PanelButton
+                                        variant="primary"
+                                        className="flex-1"
+                                        onClick={handleConfirmInstagramPublish}
+                                        disabled={isPublishingInstagram}
+                                    >
+                                        {isPublishingInstagram ? 'Publicando...' : 'Publicar ahora'}
+                                    </PanelButton>
+                                </div>
+                            </div>
+                        )}
                     </div>
                 </div>
             )}
