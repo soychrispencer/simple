@@ -15230,6 +15230,21 @@ async function bootstrapMissingTables() {
     await db.execute(sql`CREATE INDEX IF NOT EXISTS agenda_appointments_client_idx ON agenda_appointments(client_id)`);
     console.log('[simple-api] bootstrap: agenda_appointments OK');
 
+    // Ensure all columns exist in agenda_appointments (for upgrades)
+    try {
+        await db.execute(sql`
+            ALTER TABLE agenda_appointments
+                ADD COLUMN IF NOT EXISTS reminder_30min_sent_at timestamp,
+                ADD COLUMN IF NOT EXISTS policy_agreed boolean NOT NULL DEFAULT false,
+                ADD COLUMN IF NOT EXISTS policy_agreed_at timestamp,
+                ADD COLUMN IF NOT EXISTS google_event_id varchar(255),
+                ADD COLUMN IF NOT EXISTS payment_status varchar(20) NOT NULL DEFAULT 'not_required'
+        `);
+        console.log('[simple-api] bootstrap: agenda_appointments columns upgraded');
+    } catch (e) {
+        console.error('[simple-api] bootstrap: failed to upgrade agenda_appointments columns', e);
+    }
+
     await db.execute(sql`
         CREATE TABLE IF NOT EXISTS agenda_session_notes (
             id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
