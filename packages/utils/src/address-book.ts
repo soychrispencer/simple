@@ -1,25 +1,5 @@
 import { API_BASE } from '@simple/config';
-
-export type AddressBookEntry = {
-    id: string;
-    kind: string;
-    label: string;
-    location: {
-        countryCode: string;
-        regionId: string;
-        regionName: string;
-        communeId: string;
-        communeName: string;
-        neighborhood?: string | null;
-        addressLine1: string;
-        addressLine2?: string | null;
-        postalCode?: string | null;
-        geoPoint?: { lat: number; lng: number } | null;
-    };
-    contactName: string;
-    contactPhone: string;
-    isDefault: boolean;
-};
+import type { AddressBookEntry } from '@simple/types';
 
 type ApiResponse<T> = {
     ok: boolean;

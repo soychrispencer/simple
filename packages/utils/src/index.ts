@@ -7,3 +7,6 @@ export * from './social-feed';
 export * from './slug';
 export * from './validate-rut';
 export * from './address-book';
+export * from './geocoding';
+export * from './valuation';
+export * from './crm';
