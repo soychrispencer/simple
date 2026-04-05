@@ -57,3 +57,6 @@ export function fmtDateTimeShort(iso: string | Date, tz?: string): string {
 export function fmtDateTimeLong(iso: string | Date, tz: string): string {
     return `${fmtDateTz(iso, tz)} a las ${fmtTime(iso, tz)}`;
 }
+
+/** Alias para compatibilidad con el frontend */
+export { fmtDateMedium as formatDate, fmtCLP as formatCurrency };

@@ -1849,3 +1849,4 @@ export function resolveLocationNames(regionId: string | null | undefined, commun
         communeName: getCommuneById(communeId)?.name ?? null,
     };
 }
+
