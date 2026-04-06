@@ -26,7 +26,7 @@ async function apiRequest<T>(path: string, init?: RequestInit): Promise<ApiRespo
 }
 
 export async function fetchAddressBook(): Promise<{ ok: boolean; items: AddressBookEntry[]; error?: string }> {
-    const result = await apiRequest<{ items: AddressBookEntry[] }>('/api/account/address-book', {
+    const result = await apiRequest<{ items: AddressBookEntry[] }>('/api/address-book', {
         method: 'GET',
     });
     return {
@@ -37,7 +37,7 @@ export async function fetchAddressBook(): Promise<{ ok: boolean; items: AddressB
 }
 
 export async function createAddressBookEntry(input: any): Promise<{ ok: boolean; items: AddressBookEntry[]; error?: string }> {
-    const result = await apiRequest<{ items: AddressBookEntry[] }>('/api/account/address-book', {
+    const result = await apiRequest<{ items: AddressBookEntry[] }>('/api/address-book', {
         method: 'POST',
         body: JSON.stringify(input),
     });
@@ -49,7 +49,7 @@ export async function createAddressBookEntry(input: any): Promise<{ ok: boolean;
 }
 
 export async function updateAddressBookEntry(id: string, input: any): Promise<{ ok: boolean; items: AddressBookEntry[]; error?: string }> {
-    const result = await apiRequest<{ items: AddressBookEntry[] }>(`/api/account/address-book/${encodeURIComponent(id)}`, {
+    const result = await apiRequest<{ items: AddressBookEntry[] }>(`/api/address-book/${encodeURIComponent(id)}`, {
         method: 'PATCH',
         body: JSON.stringify(input),
     });
@@ -61,7 +61,7 @@ export async function updateAddressBookEntry(id: string, input: any): Promise<{ 
 }
 
 export async function deleteAddressBookEntry(id: string): Promise<{ ok: boolean; items: AddressBookEntry[]; error?: string }> {
-    const result = await apiRequest<{ items: AddressBookEntry[] }>(`/api/account/address-book/${encodeURIComponent(id)}`, {
+    const result = await apiRequest<{ items: AddressBookEntry[] }>(`/api/address-book/${encodeURIComponent(id)}`, {
         method: 'DELETE',
     });
     return {
