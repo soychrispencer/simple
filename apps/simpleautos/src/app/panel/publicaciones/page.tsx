@@ -3,17 +3,18 @@
 import { useEffect, useMemo, useState, useCallback } from 'react';
 import Link from 'next/link';
 import {
-    IconBrandWhatsapp,
+    IconBrandInstagram,
     IconCar,
-    IconCopy,
+    IconChevronDown,
+    IconChevronUp,
     IconEdit,
-    IconEye,
-    IconGridDots,
-    IconHeart,
-    IconList,
-    IconPlayerPause,
-    IconPlugConnected,
     IconExternalLink,
+    IconEye,
+    IconFilter,
+    IconGrid3x3,
+    IconHeart,
+    IconLayoutList,
+    IconLoader2,
     IconPlus,
     IconRefresh,
     IconShare3,
@@ -21,6 +22,13 @@ import {
     IconTrash,
     IconTrendingUp,
     IconX,
+    IconBrain,
+    IconPlayerPause,
+    IconCopy,
+    IconBrandWhatsapp,
+    IconList,
+    IconGridDots,
+    IconPlugConnected,
 } from '@tabler/icons-react';
 import PanelSectionHeader from '@/components/panel/panel-section-header';
 import ModernSelect from '@/components/ui/modern-select';
@@ -831,9 +839,17 @@ export default function PublicacionesPage() {
                     >
                         {/* Header */}
                         <div className="flex items-center justify-between border-b p-4 px-6 shrink-0" style={{ borderColor: 'var(--border)' }}>
-                            <h3 className="text-lg font-bold" style={{ color: 'var(--fg)' }}>
-                                {isInstagramSuccess ? '¡Publicación exitosa! 🎉' : 'Vista previa de Instagram'}
-                            </h3>
+                            <div className="flex items-center gap-3">
+                                <h3 className="text-lg font-bold" style={{ color: 'var(--fg)' }}>
+                                    {isInstagramSuccess ? '¡Publicación exitosa! 🎉' : 'Vista previa de Instagram'}
+                                </h3>
+                                {!isInstagramSuccess && (
+                                    <div className="flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium" style={{ background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)', color: 'white' }}>
+                                        <IconBrain size={12} />
+                                        Instagram Intelligence
+                                    </div>
+                                )}
+                            </div>
                             <button 
                                 onClick={() => setInstagramPreviewOpen(false)}
                                 className="rounded-full p-2 transition-colors hover:bg-black/5 dark:hover:bg-white/5"
@@ -932,6 +948,28 @@ export default function PublicacionesPage() {
 
                                     {/* Lado derecho: Descripción editable */}
                                     <div className="w-full md:w-1/2 flex flex-col min-h-0">
+                                        {/* Instagram Intelligence Info */}
+                                        <div className="mb-3 p-3 rounded-lg border" style={{ borderColor: 'var(--border)', background: 'linear-gradient(135deg, rgba(102, 126, 234, 0.1) 0%, rgba(118, 75, 162, 0.1) 100%)' }}>
+                                            <div className="flex items-center gap-2 mb-2">
+                                                <IconBrain size={14} style={{ color: '#667eea' }} />
+                                                <span className="text-xs font-semibold" style={{ color: '#667eea' }}>Instagram Intelligence Activado</span>
+                                            </div>
+                                            <div className="text-xs space-y-1" style={{ color: 'var(--fg-secondary)' }}>
+                                                <div className="flex items-center gap-1">
+                                                    <div className="w-1 h-1 rounded-full bg-green-500"></div>
+                                                    <span>IA optimizando caption y hashtags</span>
+                                                </div>
+                                                <div className="flex items-center gap-1">
+                                                    <div className="w-1 h-1 rounded-full bg-blue-500"></div>
+                                                    <span>Tono profesional adaptado</span>
+                                                </div>
+                                                <div className="flex items-center gap-1">
+                                                    <div className="w-1 h-1 rounded-full bg-purple-500"></div>
+                                                    <span>Predicción de engagement</span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        
                                         <div className="mb-2 flex items-center justify-between shrink-0">
                                             <label 
                                                 className="text-[11px] font-bold uppercase tracking-wider opacity-60"
