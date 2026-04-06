@@ -9,4 +9,3 @@ export * from './validate-rut';
 export * from './address-book';
 export * from './geocoding';
 export * from './valuation';
-export * from './crm';
