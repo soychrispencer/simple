@@ -12160,7 +12160,29 @@ app.get('/api/address-book', async (c) => {
     return c.json({ ok: true, items: await getAddressBookEntries(user.id) });
 });
 
+app.get('/api/account/address-book', async (c) => {
+    const user = await authUser(c);
+    if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
+    return c.json({ ok: true, items: await getAddressBookEntries(user.id) });
+});
+
 app.post('/api/address-book', async (c) => {
+    const user = await authUser(c);
+    if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
+
+    const payload = await c.req.json().catch(() => null);
+    const parsed = addressBookWriteSchema.safeParse(payload);
+    if (!parsed.success) return c.json({ ok: false, error: 'Payload inválido' }, 400);
+
+    if (!parsed.data.regionId || !parsed.data.communeId) {
+        return c.json({ ok: false, error: 'Región y comuna son obligatorias.' }, 400);
+    }
+
+    const items = await upsertAddressBookEntry(user.id, parsed.data);
+    return c.json({ ok: true, items }, 201);
+});
+
+app.post('/api/account/address-book', async (c) => {
     const user = await authUser(c);
     if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
 
@@ -12197,7 +12219,42 @@ app.patch('/api/address-book/:id', async (c) => {
     return c.json({ ok: true, items });
 });
 
+app.patch('/api/account/address-book/:id', async (c) => {
+    const user = await authUser(c);
+    if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
+
+    const addressId = c.req.param('id') ?? '';
+    const current = await getAddressBookEntries(user.id);
+    if (!current.some((item) => item.id === addressId)) {
+        return c.json({ ok: false, error: 'Dirección no encontrada' }, 404);
+    }
+
+    const payload = await c.req.json().catch(() => null);
+    const parsed = addressBookWriteSchema.safeParse(payload);
+    if (!parsed.success) return c.json({ ok: false, error: 'Payload inválido' }, 400);
+    if (!parsed.data.regionId || !parsed.data.communeId) {
+        return c.json({ ok: false, error: 'Región y comuna son obligatorias.' }, 400);
+    }
+
+    const items = await upsertAddressBookEntry(user.id, parsed.data, addressId);
+    return c.json({ ok: true, items });
+});
+
 app.delete('/api/address-book/:id', async (c) => {
+    const user = await authUser(c);
+    if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
+
+    const addressId = c.req.param('id') ?? '';
+    const current = await getAddressBookEntries(user.id);
+    if (!current.some((item) => item.id === addressId)) {
+        return c.json({ ok: false, error: 'Dirección no encontrada' }, 404);
+    }
+
+    const items = await deleteAddressBookEntry(user.id, addressId);
+    return c.json({ ok: true, items });
+});
+
+app.delete('/api/account/address-book/:id', async (c) => {
     const user = await authUser(c);
     if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
 
@@ -14916,6 +14973,15 @@ app.post('/api/public/agenda/:slug/book', async (c) => {
 // ─────────────────────────────────────────────────────────────────────────────
 
 function registerAgendaCronJobs() {
+    // Solo activar cron jobs de SimpleAgenda en producción o cuando esté configurado
+    const isProduction = process.env.NODE_ENV === 'production';
+    const agendaEnabled = process.env.AGENDA_CRON_ENABLED === 'true';
+    
+    if (!isProduction && !agendaEnabled) {
+        console.log('[agenda] cron jobs desactivados (no es producción y AGENDA_CRON_ENABLED != true)');
+        return;
+    }
+    
     console.log('[agenda] registering reminder cron jobs...');
     // Every 5 minutes: check for appointments that need 24h reminder
     cron.schedule('*/5 * * * *', async () => {

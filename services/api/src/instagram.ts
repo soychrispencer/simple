@@ -236,7 +236,7 @@ export async function publishInstagramCarousel(input: {
 }> {
     const tok = encodeURIComponent(input.accessToken);
 
-    // 1. Crear contenedores individuales para cada imagen
+    // 1. Crear contenedores individuales para cada imagen (con reintentos)
     const childrenIds: string[] = [];
     for (const [index, img] of input.images.slice(0, 10).entries()) {
         const imageUrl = asString(img.url);
@@ -251,12 +251,43 @@ export async function publishInstagramCarousel(input: {
             + `&is_carousel_item=true`;
 
         console.log(`[instagram] creando item carrusel ${index + 1}/${input.images.length}. URL: ${imageUrl}`);
-        try {
-            const res = await requestInstagram<InstagramMediaCreateResponse>(itemUrl, { method: 'POST' });
-            if (res.id) childrenIds.push(res.id);
-        } catch (error) {
-            console.error(`[instagram] error creando item carrusel ${index + 1}:`, error);
-            throw error;
+        
+        let itemCreated = false;
+        let itemAttempts = 0;
+        const maxItemAttempts = 3;
+        
+        while (!itemCreated && itemAttempts < maxItemAttempts) {
+            try {
+                const res = await requestInstagram<InstagramMediaCreateResponse>(itemUrl, { method: 'POST' });
+                if (res.id) {
+                    childrenIds.push(res.id);
+                    itemCreated = true;
+                    console.log(`[instagram] item carrusel ${index + 1} creado exitosamente (intento ${itemAttempts + 1})`);
+                }
+            } catch (error) {
+                itemAttempts++;
+                const errorMsg = error instanceof Error ? error.message : '';
+                
+                if (itemAttempts < maxItemAttempts && (
+                    errorMsg.includes('transitorio') || 
+                    errorMsg.includes('unexpected error') ||
+                    errorMsg.includes('retry later')
+                )) {
+                    console.log(`[instagram] reintentando item carrusel ${index + 1} en 5s (intento ${itemAttempts}/${maxItemAttempts})`);
+                    await new Promise(resolve => setTimeout(resolve, 5000));
+                    continue;
+                }
+                
+                console.error(`[instagram] error creando item carrusel ${index + 1} tras ${itemAttempts} intentos:`, error);
+                
+                // Para carruseles, si falla un item crítico (como el primero o segundo), mejor abortar
+                if (index < 2) {
+                    throw error;
+                }
+                // Para items subsiguientes, podemos continuar con los que sí se crearon
+                console.warn(`[instagram] continuando sin item ${index + 1} del carrusel`);
+                break;
+            }
         }
     }
 
@@ -403,7 +434,7 @@ export async function publishInstagramImage(input: {
     };
 }
 
-async function requestInstagram<T>(url: string, init: RequestInit): Promise<T> {
+async function requestInstagram<T>(url: string, init: RequestInit, retryCount = 0): Promise<T> {
     const response = await fetch(url, init);
     const payload = await response.json().catch(() => null);
 
@@ -419,6 +450,15 @@ async function requestInstagram<T>(url: string, init: RequestInit): Promise<T> {
         const metaMessage = asString(nestedError?.message) || asString(errorObject.error_message);
         const errorCode = nestedError?.code;
         const errorSubcode = nestedError?.error_subcode;
+        const isTransient = asString(nestedError?.is_transient) === 'true';
+        
+        // Reintentar automáticamente errores transitorios (hasta 3 veces)
+        if (isTransient && retryCount < 3) {
+            const delay = Math.pow(2, retryCount) * 1000; // 1s, 2s, 4s
+            console.log(`[instagram] error transitorio detectado, reintentando en ${delay}ms (intento ${retryCount + 1}/3)`);
+            await new Promise(resolve => setTimeout(resolve, delay));
+            return requestInstagram<T>(url, init, retryCount + 1);
+        }
         
         let friendlyMessage = metaMessage || `Instagram respondió con error ${response.status}.`;
         
@@ -427,6 +467,8 @@ async function requestInstagram<T>(url: string, init: RequestInit): Promise<T> {
             friendlyMessage = 'Instagram no pudo descargar la imagen. Asegúrate de que el bucket de Backblaze sea PÚBLICO.';
         } else if (errorCode === 100 || errorCode === 10) {
             friendlyMessage = 'Error de parámetros o permisos. Por favor, DESCONECTA y vuelve a CONECTAR Instagram.';
+        } else if (isTransient) {
+            friendlyMessage = 'Instagram está experimentando problemas temporales. Por favor, intenta nuevamente en unos minutos.';
         }
 
         throw new Error(friendlyMessage);
