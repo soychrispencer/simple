@@ -8,7 +8,7 @@ import {
 } from '@tabler/icons-react';
 import {
     fetchInstagramIntegrationStatus,
-    publishListingToInstagram,
+    publishListingToInstagramEnhanced,
     type InstagramIntegrationStatus,
 } from '@/lib/instagram';
 
@@ -49,12 +49,16 @@ export default function StepSuccess({ listingId, listingHref, listingTitle, onPu
     async function handleInstagramPost() {
         setIgPublishing(true);
         setIgResult(null);
-        const result = await publishListingToInstagram(listingId);
+        const result = await publishListingToInstagramEnhanced(listingId, {
+            useAI: true,
+            tone: 'professional',
+            targetAudience: 'general'
+        });
         setIgPublishing(false);
         setIgResult({
             ok: result.ok,
             message: result.ok
-                ? 'Publicado en Instagram correctamente.'
+                ? 'Publicado en Instagram correctamente con Instagram Intelligence.'
                 : (result.error ?? 'No se pudo publicar en Instagram.'),
         });
     }

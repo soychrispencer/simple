@@ -25,7 +25,7 @@ import {
 import PanelSectionHeader from '@/components/panel/panel-section-header';
 import ModernSelect from '@/components/ui/modern-select';
 import { useAuth } from '@/context/auth-context';
-import { fetchInstagramIntegrationStatus, publishListingToInstagram as publishInstagramPost, type InstagramPublicationView } from '@/lib/instagram';
+import { fetchInstagramIntegrationStatus, publishListingToInstagramEnhanced, type InstagramPublicationView } from '@/lib/instagram';
 import {
     type ListingStatus,
     type PanelListing,
@@ -316,9 +316,13 @@ export default function PublicacionesPage() {
         setInstagramBusyKey(key);
 
         try {
-            const result = await publishInstagramPost(previewListing.id, previewCaption);
-            if (result.ok && result.publication) {
-                setLastPublishedPermalink(result.publication.instagramPermalink);
+            const result = await publishListingToInstagramEnhanced(previewListing.id, {
+                useAI: true,
+                tone: 'professional',
+                targetAudience: 'general'
+            });
+            if (result.ok && result.result) {
+                setLastPublishedPermalink(result.result.instagramPermalink);
                 setIsInstagramSuccess(true);
                 // No cerramos el modal inmediatamente, mostramos el éxito
             } else {
