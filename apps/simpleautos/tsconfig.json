@@ -25,21 +25,6 @@
     "paths": {
       "@/*": [
         "./src/*"
-      ],
-      "@simple/types": [
-        "../../packages/types/src"
-      ],
-      "@simple/config": [
-        "../../packages/config/src"
-      ],
-      "@simple/utils": [
-        "../../packages/utils/src"
-      ],
-      "@simple/ui": [
-        "../../packages/ui/src"
-      ],
-      "@simple/auth": [
-        "../../packages/auth/src"
       ]
     }
   },
