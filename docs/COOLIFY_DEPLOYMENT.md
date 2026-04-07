@@ -4,10 +4,19 @@ Para cada servicio ir a **Settings → Environment Variables** y pegar el bloque
 Los valores reales de cada secreto están en `services/api/.env` (local, gitignored).
 
 > ⚠️ Las variables `NEXT_PUBLIC_*` se hornean en el build. Si las cambias debes hacer **Redeploy** (no solo Restart).
+>
+> ⚠️ Los frontends `simpleautos` y `simplepropiedades` ahora usan **Next standalone**. En Coolify deben construirse con su **Dockerfile específico** y exponer el **puerto interno 3000**.
 
 ---
 
 ## 1. API (`api.simpleplataforma.app`)
+
+### Setup del servicio
+
+- **Build Pack**: `Dockerfile`
+- **Dockerfile Location**: `services/api/Dockerfile`
+- **Port / Exposed Port**: `4000`
+- **Healthcheck recomendado**: `/health`
 
 ```env
 PORT=4000
@@ -66,6 +75,14 @@ ENABLE_ADMIN_BOOTSTRAP=false
 
 ## 2. SimpleAutos (`simpleautos.app`)
 
+### Setup del servicio
+
+- **Build Pack**: `Dockerfile`
+- **Dockerfile Location**: `apps/simpleautos/Dockerfile`
+- **Port / Exposed Port**: `3000`
+- **Healthcheck recomendado**: `/`
+- **Importante**: si cambias `NEXT_PUBLIC_API_URL` o `NEXT_PUBLIC_APP_URL`, debes hacer `Redeploy`, no `Restart`
+
 ```env
 NEXT_PUBLIC_API_URL=https://api.simpleplataforma.app
 NEXT_PUBLIC_APP_URL=https://simpleautos.app
@@ -75,6 +92,14 @@ GOOGLE_AI_API_KEY=                   # ver .env local de simpleautos → GOOGLE_
 ---
 
 ## 3. SimplePropiedades (`simplepropiedades.cl`)
+
+### Setup del servicio
+
+- **Build Pack**: `Dockerfile`
+- **Dockerfile Location**: `apps/simplepropiedades/Dockerfile`
+- **Port / Exposed Port**: `3000`
+- **Healthcheck recomendado**: `/`
+- **Importante**: si cambias `NEXT_PUBLIC_API_URL` o `NEXT_PUBLIC_APP_URL`, debes hacer `Redeploy`, no `Restart`
 
 ```env
 NEXT_PUBLIC_API_URL=https://api.simpleplataforma.app
@@ -127,7 +152,12 @@ NEXT_PUBLIC_APP_URL=https://simpleplataforma.app
 
 - [ ] API: redeploy después de agregar/cambiar variables
 - [ ] Cada app frontend: redeploy completo (no restart) si cambias `NEXT_PUBLIC_*`
+- [ ] Confirmar que cada servicio apunta a su Dockerfile correcto
+- [ ] Confirmar que `simpleautos` y `simplepropiedades` usan puerto interno `3000`
+- [ ] Confirmar que el API usa puerto interno `4000`
 - [ ] Verificar `https://api.simpleplataforma.app/health` responde 200
+- [ ] Verificar `https://simpleautos.app/` responde 200
+- [ ] Verificar `https://simplepropiedades.cl/` responde 200
 - [ ] Verificar login con Google en cada app
 - [ ] Verificar subida de imágenes (Backblaze)
 - [ ] Verificar flujo OAuth de Instagram en panel de un usuario Pro
