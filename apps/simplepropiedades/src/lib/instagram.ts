@@ -38,6 +38,42 @@ export type InstagramPublicationView = {
     updatedAt: number;
 };
 
+export type InstagramTemplateView = {
+    id: string;
+    name: string;
+    category: 'auto' | 'propiedad' | 'agenda';
+    style: 'modern' | 'classic' | 'sport' | 'luxury' | 'minimal';
+    layout: 'carousel' | 'single' | 'story';
+    layoutVariant: 'square' | 'portrait';
+    overlayVariant: string;
+    colors: {
+        primary: string;
+        secondary: string;
+        accent: string;
+        background: string;
+        surface: string;
+        textPrimary: string;
+        textInverse: string;
+    };
+    score: number;
+    adaptations: {
+        colors: boolean;
+        layout: boolean;
+        content: boolean;
+    };
+    branding: {
+        appId: 'simpleautos' | 'simplepropiedades';
+        appName: string;
+        badgeText: string;
+    };
+    eyebrow: string;
+    headline: string;
+    priceLabel: string;
+    locationLabel: string;
+    highlights: string[];
+    ctaLabel: string;
+};
+
 export type InstagramIntegrationStatus = {
     ok: boolean;
     vertical: 'autos' | 'propiedades';
@@ -123,4 +159,76 @@ export async function publishListingToInstagram(listingId: string, captionOverri
 
     if (status === 401) return { ok: false, error: 'Tu sesión expiró. Vuelve a iniciar sesión.' };
     return data ?? { ok: false, error: 'No pudimos publicar en Instagram.' };
+}
+
+export async function publishListingToInstagramEnhanced(listingId: string, options: {
+    useAI?: boolean;
+    useTemplates?: boolean;
+    tone?: 'professional' | 'casual' | 'excited' | 'luxury' | 'urgent';
+    targetAudience?: 'young' | 'professional' | 'investors' | 'families' | 'general';
+    captionOverride?: string | null;
+    templateId?: string | null;
+    layoutVariant?: 'square' | 'portrait' | null;
+} = {}): Promise<{
+    ok: boolean;
+    result?: InstagramPublicationView;
+    publication?: InstagramPublicationView;
+    template?: InstagramTemplateView | null;
+    error?: string;
+}> {
+    const { status, data } = await apiRequest<{
+        ok: boolean;
+        result?: InstagramPublicationView;
+        publication?: InstagramPublicationView;
+        template?: InstagramTemplateView | null;
+        error?: string;
+    }>('/api/integrations/instagram/publish-enhanced', {
+        method: 'POST',
+        body: JSON.stringify({
+            vertical: 'propiedades',
+            listingId,
+            captionOverride: options.captionOverride ?? null,
+            templateId: options.templateId ?? null,
+            layoutVariant: options.layoutVariant ?? null,
+            options,
+        }),
+    });
+
+    if (status === 401) return { ok: false, error: 'Tu sesión expiró. Vuelve a iniciar sesión.' };
+    return data ?? { ok: false, error: 'No pudimos publicar en Instagram.' };
+}
+
+export async function generateSmartTemplates(listingId: string): Promise<{
+    ok: boolean;
+    recommendedTemplate?: InstagramTemplateView;
+    alternatives?: InstagramTemplateView[];
+    adaptations?: {
+        colors: boolean;
+        layout: boolean;
+        content: boolean;
+    };
+    score?: number;
+    error?: string;
+}> {
+    const { status, data } = await apiRequest<{
+        ok: boolean;
+        recommendedTemplate?: InstagramTemplateView;
+        alternatives?: InstagramTemplateView[];
+        adaptations?: {
+            colors: boolean;
+            layout: boolean;
+            content: boolean;
+        };
+        score?: number;
+        error?: string;
+    }>('/api/integrations/instagram/templates', {
+        method: 'POST',
+        body: JSON.stringify({
+            vertical: 'propiedades',
+            listingId,
+        }),
+    });
+
+    if (status === 401) return { ok: false, error: 'Tu sesión expiró. Vuelve a iniciar sesión.' };
+    return data ?? { ok: false, error: 'No se pudieron generar los templates.' };
 }

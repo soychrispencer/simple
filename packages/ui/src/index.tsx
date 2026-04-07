@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
+import { useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import type { AddressBookEntry, AddressBookKind, ListingLocation, ListingLocationVisibilityMode } from '@simple/types';
 import { applyAddressBookEntryToLocation, createEmptyListingLocation, patchListingLocation } from '@simple/types';
 
@@ -53,6 +53,40 @@ type LocationMapPreviewProps = {
     showTechnicalMeta?: boolean;
 };
 
+export type InstagramTemplatePreviewData = {
+    layoutVariant: 'square' | 'portrait';
+    overlayVariant: string;
+    colors: {
+        primary: string;
+        secondary: string;
+        accent: string;
+        background: string;
+        surface: string;
+        textPrimary: string;
+        textInverse: string;
+    };
+    branding: {
+        appName: string;
+        badgeText: string;
+    };
+    eyebrow: string;
+    headline: string;
+    priceLabel: string;
+    locationLabel: string;
+    highlights: string[];
+    ctaLabel: string;
+};
+
+type InstagramTemplatePreviewProps = {
+    imageUrl?: string | null;
+    template?: InstagramTemplatePreviewData | null;
+    layoutVariant?: 'square' | 'portrait';
+    fallback?: ReactNode;
+    children?: ReactNode;
+    className?: string;
+    style?: CSSProperties;
+};
+
 export type AddressBookManagerSubmitInput = {
     id?: string;
     label: string;
@@ -62,6 +96,271 @@ export type AddressBookManagerSubmitInput = {
     isDefault: boolean;
     location: ListingLocation;
 };
+
+function clampPreviewText(value: string, maxLength: number): string {
+    const normalized = value.replace(/\s+/g, ' ').trim();
+    if (normalized.length <= maxLength) return normalized;
+    return `${normalized.slice(0, Math.max(0, maxLength - 1)).trimEnd()}…`;
+}
+
+function splitPreviewPrice(value: string): { prefix: string; amount: string } {
+    const normalized = value.replace(/\s+/g, ' ').trim();
+    const ufMatch = normalized.match(/^(UF)\s*(.+)$/i);
+    if (ufMatch) {
+        return { prefix: ufMatch[1].toUpperCase(), amount: ufMatch[2].trim() };
+    }
+    const pesoMatch = normalized.match(/^(\$)\s*(.+)$/);
+    if (pesoMatch) {
+        return { prefix: pesoMatch[1], amount: pesoMatch[2].trim() };
+    }
+    const tokens = normalized.split(' ');
+    if (tokens.length > 1) {
+        return { prefix: tokens[0], amount: tokens.slice(1).join(' ') };
+    }
+    return { prefix: '', amount: normalized };
+}
+
+function describePreviewHighlight(value: string): string {
+    const normalized = value.toLowerCase();
+    if (normalized.includes('m²') || normalized.includes('m2')) return 'Superficie';
+    if (normalized.includes('d')) return 'Dormitorios';
+    if (normalized.includes('b')) return 'Banos';
+    if (normalized.includes('est')) return 'Estac.';
+    if (normalized.includes('bod')) return 'Bodega';
+    if (normalized.includes('unidad')) return 'Unidades';
+    return 'Detalle';
+}
+
+export function InstagramTemplatePreview(props: InstagramTemplatePreviewProps) {
+    const { imageUrl, template, layoutVariant, fallback, children, className, style } = props;
+    const isPropertyTemplate = template?.overlayVariant.startsWith('property') ?? false;
+    const headline = template ? clampPreviewText(template.headline, isPropertyTemplate ? 42 : 34) : '';
+    const locationLabel = template ? clampPreviewText(template.locationLabel, isPropertyTemplate ? 28 : 24) : '';
+    const ctaLabel = template ? clampPreviewText(template.ctaLabel, 24) : '';
+    const priceLockup = template ? splitPreviewPrice(template.priceLabel) : { prefix: '', amount: '' };
+    const effectiveLayoutVariant = template?.layoutVariant ?? layoutVariant ?? 'square';
+
+    return (
+        <div
+            className={`relative overflow-hidden rounded-2xl border ${className ?? ''}`.trim()}
+            style={{
+                aspectRatio: effectiveLayoutVariant === 'portrait' ? '4 / 5' : '1 / 1',
+                borderColor: 'var(--border)',
+                background: template?.colors.background ?? 'rgba(0,0,0,0.05)',
+                ...style,
+            }}
+        >
+            {imageUrl ? (
+                <img src={imageUrl} alt="Vista previa" className="h-full w-full object-cover transition-opacity duration-300" />
+            ) : (
+                <div className="flex h-full w-full items-center justify-center" style={{ color: 'var(--fg-faint)' }}>
+                    {fallback ?? null}
+                </div>
+            )}
+
+            {template ? (
+                <div className="pointer-events-none absolute inset-0">
+                    {isPropertyTemplate ? (
+                        <>
+                            <div
+                                className="absolute inset-x-0 top-0 flex items-center justify-between px-5"
+                                style={{
+                                    height: template.layoutVariant === 'portrait' ? '18%' : '15%',
+                                    background: template.colors.secondary,
+                                    color: template.colors.textInverse,
+                                }}
+                            >
+                                <div
+                                    className="flex min-h-[32px] items-center"
+                                >
+                                    <img src="/logo.png" alt={template.branding.appName} className="h-6 w-auto object-contain" />
+                                </div>
+                                <div className="max-w-[52%] text-right text-sm font-extrabold uppercase tracking-[0.2em]">
+                                    {template.eyebrow}
+                                </div>
+                            </div>
+                            <div
+                                className="absolute left-4 max-w-[70%] rounded-full bg-white px-4 py-2 text-sm font-bold shadow-lg"
+                                style={{
+                                    top: template.layoutVariant === 'portrait' ? '57%' : '50%',
+                                    color: template.colors.secondary,
+                                }}
+                            >
+                                <span className="block truncate">{locationLabel}</span>
+                            </div>
+                            <div className="absolute inset-x-0 bottom-0">
+                                <div
+                                    className={`mx-3.5 mb-3.5 rounded-[1.25rem] p-4 ${template.overlayVariant === 'property-conversion' ? '' : 'backdrop-blur-md'}`}
+                                    style={{
+                                        background: template.overlayVariant === 'property-conversion'
+                                            ? 'rgba(255,255,255,0.92)'
+                                            : template.colors.surface,
+                                        color: template.overlayVariant === 'property-conversion'
+                                            ? template.colors.textPrimary
+                                            : template.colors.textInverse,
+                                    }}
+                                >
+                                    <div className="mb-2 text-xl font-black leading-tight line-clamp-2">
+                                        {headline}
+                                    </div>
+                                    {template.overlayVariant === 'property-conversion' ? (
+                                        <>
+                                            <div className="mb-3 flex flex-wrap gap-2 text-[11px] font-semibold uppercase tracking-[0.18em]">
+                                                {template.highlights.slice(0, 4).map((item) => (
+                                                    <span
+                                                        key={item}
+                                                        className="rounded-full px-2.5 py-1"
+                                                        style={{
+                                                            background: 'rgba(50,50,255,0.12)',
+                                                            color: template.colors.textPrimary,
+                                                        }}
+                                                    >
+                                                        {item}
+                                                    </span>
+                                                ))}
+                                            </div>
+                                            <div className="flex items-end justify-between gap-3">
+                                                <div>
+                                                    <div className="mb-1 text-xs font-semibold uppercase tracking-[0.2em] opacity-80">
+                                                        {template.branding.badgeText}
+                                                    </div>
+                                                    <div className="flex items-end gap-2">
+                                                        {priceLockup.prefix ? (
+                                                            <span className="text-sm font-bold uppercase tracking-[0.18em]" style={{ color: template.colors.accent }}>
+                                                                {priceLockup.prefix}
+                                                            </span>
+                                                        ) : null}
+                                                        <div
+                                                            className="max-w-[240px] text-3xl font-black leading-none"
+                                                            style={{ color: template.colors.accent }}
+                                                        >
+                                                            {priceLockup.amount}
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                                <div className="max-w-[48%] text-right text-sm font-semibold leading-tight">
+                                                    {ctaLabel}
+                                                </div>
+                                            </div>
+                                        </>
+                                    ) : (
+                                        <div className="grid grid-cols-[1fr_auto] gap-4 items-end">
+                                            <div>
+                                                <div className="grid grid-cols-3 gap-2">
+                                                    {template.highlights.slice(0, 3).map((item) => (
+                                                        <div
+                                                            key={item}
+                                                            className="rounded-[1.05rem] px-2.5 py-2 text-center"
+                                                            style={{ background: 'rgba(255,255,255,0.12)' }}
+                                                        >
+                                                            <div className="text-[10px] font-semibold uppercase tracking-[0.16em] opacity-70">
+                                                                {describePreviewHighlight(item)}
+                                                            </div>
+                                                            <div className="mt-1 text-sm font-bold leading-tight">
+                                                                {item}
+                                                            </div>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                                <div className="mt-3 text-xs font-semibold uppercase tracking-[0.2em] opacity-80">
+                                                    {ctaLabel}
+                                                </div>
+                                            </div>
+                                            <div className="min-w-[118px] rounded-[1.25rem] px-3 py-3 text-right" style={{ background: template.colors.accent, color: template.colors.textInverse }}>
+                                                <div className="text-[10px] font-semibold uppercase tracking-[0.22em] opacity-90">
+                                                    {template.overlayVariant === 'property-project' ? 'Desde' : template.branding.badgeText}
+                                                </div>
+                                                <div className="mt-1 flex items-end justify-end gap-1">
+                                                    {priceLockup.prefix ? (
+                                                        <span className="text-sm font-bold uppercase tracking-[0.16em]">
+                                                            {priceLockup.prefix}
+                                                        </span>
+                                                    ) : null}
+                                                    <div className="text-[2rem] font-black leading-none">
+                                                        {priceLockup.amount}
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                        </>
+                    ) : (
+                        <>
+                            <div className="absolute inset-x-0 top-0 p-4">
+                                <div className="flex items-start justify-between gap-3">
+                                    <div
+                                        className="flex min-h-[32px] items-center"
+                                    >
+                                        <img src="/logo.png" alt={template.branding.appName} className="h-6 w-auto object-contain" />
+                                    </div>
+                                    <div
+                                        className="rounded-full px-4 py-2 text-[11px] font-bold uppercase tracking-[0.22em]"
+                                        style={{ background: template.colors.accent, color: template.colors.textInverse }}
+                                    >
+                                        {template.branding.badgeText}
+                                    </div>
+                                </div>
+                            </div>
+                            <div
+                                className="absolute inset-x-0 bottom-0 p-4"
+                                style={{
+                                    background: template.overlayVariant === 'auto-spec'
+                                        ? 'linear-gradient(180deg, rgba(255,255,255,0) 0%, rgba(245,242,235,0.95) 52%)'
+                                        : 'linear-gradient(180deg, rgba(0,0,0,0) 0%, rgba(17,17,17,0.86) 50%)',
+                                    color: template.overlayVariant === 'auto-spec'
+                                        ? template.colors.textPrimary
+                                        : template.colors.textInverse,
+                                }}
+                            >
+                                <div className="mb-2 text-xs font-semibold uppercase tracking-[0.2em] opacity-80">
+                                    {template.eyebrow}
+                                </div>
+                                <div className="mb-2 max-w-[80%] text-[2rem] font-black leading-none line-clamp-2">
+                                    {headline}
+                                </div>
+                                <div className="mb-3 flex flex-wrap gap-2 text-[11px] font-semibold uppercase tracking-[0.16em]">
+                                    {template.highlights.slice(0, 4).map((item) => (
+                                        <span
+                                            key={item}
+                                            className="rounded-full px-2.5 py-1"
+                                            style={{
+                                                background: template.overlayVariant === 'auto-spec'
+                                                    ? 'rgba(17,17,17,0.08)'
+                                                    : 'rgba(255,255,255,0.12)',
+                                            }}
+                                        >
+                                            {item}
+                                        </span>
+                                    ))}
+                                </div>
+                                {ctaLabel ? (
+                                    <div className="mb-3 text-[11px] font-semibold uppercase tracking-[0.18em] opacity-85">
+                                        {ctaLabel}
+                                    </div>
+                                ) : null}
+                                <div className="flex items-end justify-between gap-3">
+                                    <div
+                                        className="text-[2.1rem] font-black leading-none"
+                                        style={{ color: template.colors.accent }}
+                                    >
+                                        {template.priceLabel}
+                                    </div>
+                                    <div className="text-right text-sm font-semibold">
+                                        {locationLabel}
+                                    </div>
+                                </div>
+                            </div>
+                        </>
+                    )}
+                </div>
+            ) : null}
+
+            {children}
+        </div>
+    );
+}
 
 type AddressBookManagerProps = {
     title?: string;
@@ -3377,4 +3676,3 @@ export function AddressBookManager(props: AddressBookManagerProps) {
         </div>
     );
 }
-

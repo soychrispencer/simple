@@ -22,7 +22,6 @@ import {
     IconTrash,
     IconTrendingUp,
     IconX,
-    IconBrain,
     IconPlayerPause,
     IconCopy,
     IconBrandWhatsapp,
@@ -33,7 +32,13 @@ import {
 import PanelSectionHeader from '@/components/panel/panel-section-header';
 import ModernSelect from '@/components/ui/modern-select';
 import { useAuth } from '@/context/auth-context';
-import { fetchInstagramIntegrationStatus, publishListingToInstagramEnhanced, type InstagramPublicationView } from '@/lib/instagram';
+import {
+    fetchInstagramIntegrationStatus,
+    publishListingToInstagramEnhanced,
+    generateSmartTemplates,
+    type InstagramPublicationView,
+    type InstagramTemplateView,
+} from '@/lib/instagram';
 import {
     type ListingStatus,
     type PanelListing,
@@ -45,6 +50,7 @@ import {
     deletePanelListing,
 } from '@/lib/panel-listings';
 import {
+    InstagramTemplatePreview,
     PanelButton,
     PanelNotice,
     PanelPillNav,
@@ -122,6 +128,19 @@ function publicationLifecycleHint(listing: PanelListing): string | null {
     return null;
 }
 
+function getListingCommune(listing: PanelListing): string {
+    const commune = listing.locationData?.communeName?.trim();
+    if (commune) return commune;
+
+    const parts = (listing.location || '')
+        .split(',')
+        .map((item) => item.trim())
+        .filter(Boolean);
+
+    if (parts.length >= 3) return parts[1];
+    return parts[0] || 'Chile';
+}
+
 export default function PublicacionesPage() {
     const { user, authLoading, requireAuth } = useAuth();
     const [listings, setListings] = useState<PanelListing[]>([]);
@@ -142,6 +161,10 @@ export default function PublicacionesPage() {
     const [instagramCarouselIndex, setInstagramCarouselIndex] = useState(0);
     const [statusBusyKey, setStatusBusyKey] = useState<string | null>(null);
     const [notice, setNotice] = useState<string | null>(null);
+    
+    const [instagramTemplates, setInstagramTemplates] = useState<InstagramTemplateView[]>([]);
+    const [selectedTemplateId, setSelectedTemplateId] = useState<string | null>(null);
+    const [templatesLoading, setTemplatesLoading] = useState(false);
 
     const closeMenus = useCallback(() => {
         setActionMenuOpenId(null);
@@ -243,6 +266,11 @@ export default function PublicacionesPage() {
         return `${window.location.origin}${listing.href}`;
     };
 
+    const activeTemplate = useMemo(
+        () => instagramTemplates.find((template) => template.id === selectedTemplateId) ?? instagramTemplates[0] ?? null,
+        [instagramTemplates, selectedTemplateId]
+    );
+
     const onPublishPortal = async (listing: PanelListing, portal: PortalKey) => {
         if (!user) {
             setNotice('Tu sesión expiró. Vuelve a iniciar sesión para continuar.');
@@ -295,6 +323,25 @@ export default function PublicacionesPage() {
         closeMenus();
     };
 
+    const loadInstagramTemplatesForListing = useCallback(async (listingId: string) => {
+        setTemplatesLoading(true);
+        const result = await generateSmartTemplates(listingId);
+        if (!result.ok || !result.recommendedTemplate) {
+            setInstagramTemplates([]);
+            setSelectedTemplateId(null);
+            setTemplatesLoading(false);
+            if (result.error) {
+                setNotice(result.error);
+            }
+            return;
+        }
+
+        const nextTemplates = [result.recommendedTemplate, ...(result.alternatives ?? [])];
+        setInstagramTemplates(nextTemplates);
+        setSelectedTemplateId(nextTemplates[0]?.id ?? null);
+        setTemplatesLoading(false);
+    }, []);
+
     const [isInstagramSuccess, setIsInstagramSuccess] = useState(false);
     const [lastPublishedPermalink, setLastPublishedPermalink] = useState<string | null>(null);
 
@@ -307,13 +354,18 @@ export default function PublicacionesPage() {
             return;
         }
 
-        const baseDescription = listing.description?.trim() ? listing.description : `🚗 ${listing.title}\n💰 ${listing.price || 'Consultar precio'}\n📍 ${listing.location || 'Chile'}`;
-        const defaultCaption = `${baseDescription}\n\n🔗 Ver más en: https://simpleautos.app/vehiculo/${listing.id}\n\n#SimpleAutos #AutosChile #VentaAutos #Automovil #Oferta`;
+        const baseDescription = listing.description?.trim()
+            ? listing.description
+            : `${listing.title}\nPrecio: ${listing.price || 'Consultar precio'}\nUbicacion: ${getListingCommune(listing)}`;
+        const defaultCaption = `${baseDescription}\n\nVer mas en: https://simpleautos.app/vehiculo/${listing.id}\n\n#SimpleAutos #AutosChile #VentaAutos #Automovil #Oferta`;
 
         setPreviewListing(listing);
         setPreviewCaption(defaultCaption);
         setInstagramCarouselIndex(0);
+        setInstagramTemplates([]);
+        setSelectedTemplateId(null);
         setInstagramPreviewOpen(true);
+        void loadInstagramTemplatesForListing(listing.id);
     };
 
     const handleConfirmInstagramPublish = async () => {
@@ -326,11 +378,16 @@ export default function PublicacionesPage() {
         try {
             const result = await publishListingToInstagramEnhanced(previewListing.id, {
                 useAI: true,
+                useTemplates: Boolean(activeTemplate),
                 tone: 'professional',
-                targetAudience: 'general'
+                targetAudience: 'general',
+                captionOverride: previewCaption,
+                templateId: activeTemplate?.id ?? null,
+                layoutVariant: activeTemplate?.layoutVariant ?? 'square',
             });
-            if (result.ok && result.result) {
-                setLastPublishedPermalink(result.result.instagramPermalink);
+            const publication = result.publication ?? result.result;
+            if (result.ok && publication) {
+                setLastPublishedPermalink(publication.instagramPermalink);
                 setIsInstagramSuccess(true);
                 // No cerramos el modal inmediatamente, mostramos el éxito
             } else {
@@ -769,7 +826,7 @@ export default function PublicacionesPage() {
                                         <Link href={`/panel/publicar?edit=${encodeURIComponent(listing.id)}`} className={getPanelButtonClassName({ size: 'sm', className: 'h-8 w-full px-3 text-xs sm:w-auto' })} style={getPanelButtonStyle('secondary')}><IconEdit size={11} /> Editar</Link>
                                         <div className="col-span-2 sm:col-span-1">{renderActionMenu(listing, 'regular')}</div>
                                         <Link href={`/panel/publicidad?tab=boost&listingId=${encodeURIComponent(listing.id)}&section=${encodeURIComponent(listing.section)}`} className={getPanelButtonClassName({ size: 'sm', className: 'h-8 w-full px-3 text-xs sm:w-auto' })} style={getPanelButtonStyle('primary')}><IconTrendingUp size={11} /> Boost</Link>
-                                        <div className="col-span-2 sm:col-span-1">{renderShareMenu(listing, 'regular')}</div>
+                                        <div className="w-full sm:w-auto">{renderShareMenu(listing, 'regular')}</div>
                                     </div>
                                 </div>
                             </article>
@@ -839,17 +896,9 @@ export default function PublicacionesPage() {
                     >
                         {/* Header */}
                         <div className="flex items-center justify-between border-b p-4 px-6 shrink-0" style={{ borderColor: 'var(--border)' }}>
-                            <div className="flex items-center gap-3">
-                                <h3 className="text-lg font-bold" style={{ color: 'var(--fg)' }}>
-                                    {isInstagramSuccess ? '¡Publicación exitosa! 🎉' : 'Vista previa de Instagram'}
-                                </h3>
-                                {!isInstagramSuccess && (
-                                    <div className="flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium" style={{ background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)', color: 'white' }}>
-                                        <IconBrain size={12} />
-                                        Instagram Intelligence
-                                    </div>
-                                )}
-                            </div>
+                            <h3 className="text-lg font-bold" style={{ color: 'var(--fg)' }}>
+                                {isInstagramSuccess ? '¡Publicación exitosa! 🎉' : 'Vista previa de Instagram'}
+                            </h3>
                             <button 
                                 onClick={() => setInstagramPreviewOpen(false)}
                                 className="rounded-full p-2 transition-colors hover:bg-black/5 dark:hover:bg-white/5"
@@ -901,75 +950,99 @@ export default function PublicacionesPage() {
                                             <h4 className="text-lg font-bold">Publicando...</h4>
                                         </div>
                                     )}
-                                    {/* Lado izquierdo: Fotografía estilo Instagram */}
                                     <div className="w-full md:w-1/2 flex flex-col gap-3">
-                                        <div className="aspect-square w-full max-w-[400px] mx-auto bg-black/5 rounded-xl overflow-hidden border relative group" style={{ borderColor: 'var(--border)' }}>
-                                            {getListingImages(previewListing).length > 0 ? (
+                                        <InstagramTemplatePreview
+                                            className="w-full max-w-[420px] mx-auto group"
+                                            imageUrl={getListingImages(previewListing)[instagramCarouselIndex] ?? null}
+                                            template={instagramCarouselIndex === 0 ? activeTemplate : null}
+                                            layoutVariant={activeTemplate?.layoutVariant ?? 'square'}
+                                            fallback={<IconCar size={40} />}
+                                        >
+                                            {getListingImages(previewListing).length > 1 && (
                                                 <>
-                                                    <img 
-                                                        src={getListingImages(previewListing)[instagramCarouselIndex]} 
-                                                        alt="Vista previa" 
-                                                        className="h-full w-full object-cover transition-opacity duration-300"
-                                                    />
-                                                    {getListingImages(previewListing).length > 1 && (
-                                                        <>
-                                                            <button 
-                                                                type="button"
-                                                                onClick={() => setInstagramCarouselIndex(prev => prev > 0 ? prev - 1 : getListingImages(previewListing).length - 1)}
-                                                                className="absolute left-2 top-1/2 -translate-y-1/2 rounded-full bg-black/50 p-2 text-white transition-opacity hover:bg-black/70"
-                                                            >
-                                                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="m15 18-6-6 6-6"/></svg>
-                                                            </button>
-                                                            <button 
-                                                                type="button"
-                                                                onClick={() => setInstagramCarouselIndex(prev => prev < getListingImages(previewListing).length - 1 ? prev + 1 : 0)}
-                                                                className="absolute right-2 top-1/2 -translate-y-1/2 rounded-full bg-black/50 p-2 text-white transition-opacity hover:bg-black/70"
-                                                            >
-                                                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="m9 18 6-6-6-6"/></svg>
-                                                            </button>
-                                                            <div className="absolute bottom-3 left-0 right-0 flex justify-center gap-1">
-                                                                {getListingImages(previewListing).map((_, i) => (
-                                                                    <div key={i} className={`h-1 rounded-full transition-all ${i === instagramCarouselIndex ? 'w-3 bg-white' : 'w-1 bg-white/50'}`} />
-                                                                ))}
-                                                            </div>
-                                                        </>
-                                                    )}
+                                                    <button 
+                                                        type="button"
+                                                        onClick={() => setInstagramCarouselIndex(prev => prev > 0 ? prev - 1 : getListingImages(previewListing).length - 1)}
+                                                        className="absolute left-2 top-1/2 -translate-y-1/2 rounded-full bg-black/50 p-2 text-white transition-opacity hover:bg-black/70"
+                                                    >
+                                                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="m15 18-6-6 6-6"/></svg>
+                                                    </button>
+                                                    <button 
+                                                        type="button"
+                                                        onClick={() => setInstagramCarouselIndex(prev => prev < getListingImages(previewListing).length - 1 ? prev + 1 : 0)}
+                                                        className="absolute right-2 top-1/2 -translate-y-1/2 rounded-full bg-black/50 p-2 text-white transition-opacity hover:bg-black/70"
+                                                    >
+                                                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="m9 18 6-6-6-6"/></svg>
+                                                    </button>
+                                                    <div className="absolute bottom-3 left-0 right-0 flex justify-center gap-1">
+                                                        {getListingImages(previewListing).map((_, i) => (
+                                                            <div key={i} className={`h-1 rounded-full transition-all ${i === instagramCarouselIndex ? 'w-3 bg-white' : 'w-1 bg-white/50'}`} />
+                                                        ))}
+                                                    </div>
                                                 </>
-                                            ) : (
-                                                <div className="flex h-full w-full items-center justify-center" style={{ color: 'var(--fg-faint)' }}>
-                                                    <IconCar size={40} />
-                                                </div>
                                             )}
-                                        </div>
-                                        <p className="text-[10px] text-center opacity-50" style={{ color: 'var(--fg)' }}>
-                                            Aspecto 1:1 optimizado para feed de Instagram
-                                        </p>
+                                        </InstagramTemplatePreview>
                                     </div>
 
                                     {/* Lado derecho: Descripción editable */}
                                     <div className="w-full md:w-1/2 flex flex-col min-h-0">
-                                        {/* Instagram Intelligence Info */}
-                                        <div className="mb-3 p-3 rounded-lg border" style={{ borderColor: 'var(--border)', background: 'linear-gradient(135deg, rgba(102, 126, 234, 0.1) 0%, rgba(118, 75, 162, 0.1) 100%)' }}>
-                                            <div className="flex items-center gap-2 mb-2">
-                                                <IconBrain size={14} style={{ color: '#667eea' }} />
-                                                <span className="text-xs font-semibold" style={{ color: '#667eea' }}>Instagram Intelligence Activado</span>
+                                        <div
+                                            className="mb-4 rounded-[1.25rem] border p-4"
+                                            style={{
+                                                borderColor: activeTemplate?.colors.accent ?? 'var(--border)',
+                                                background: activeTemplate
+                                                    ? `linear-gradient(135deg, ${activeTemplate.colors.accent}18 0%, ${activeTemplate.colors.secondary}18 100%)`
+                                                    : 'linear-gradient(135deg, rgba(255,54,0,0.1) 0%, rgba(17,17,17,0.12) 100%)',
+                                            }}
+                                        >
+                                            <div className="mb-3 flex items-center justify-between gap-3">
+                                                <div>
+                                                    <div className="text-sm font-semibold" style={{ color: 'var(--fg)' }}>Templates de SimpleAutos</div>
+                                                    <div className="text-[11px]" style={{ color: 'var(--fg-secondary)' }}>
+                                                        {templatesLoading ? 'Analizando diseño...' : activeTemplate ? `${activeTemplate.layoutVariant === 'portrait' ? '4:5' : '1:1'} · ${activeTemplate.score}/100` : 'Sin template'}
+                                                    </div>
+                                                </div>
+                                                <div className="text-[11px] font-semibold uppercase tracking-[0.18em]" style={{ color: activeTemplate?.colors.accent ?? '#ff3600' }}>
+                                                    {activeTemplate?.branding.badgeText ?? 'BRANDING'}
+                                                </div>
                                             </div>
-                                            <div className="text-xs space-y-1" style={{ color: 'var(--fg-secondary)' }}>
-                                                <div className="flex items-center gap-1">
-                                                    <div className="w-1 h-1 rounded-full bg-green-500"></div>
-                                                    <span>IA optimizando caption y hashtags</span>
-                                                </div>
-                                                <div className="flex items-center gap-1">
-                                                    <div className="w-1 h-1 rounded-full bg-blue-500"></div>
-                                                    <span>Tono profesional adaptado</span>
-                                                </div>
-                                                <div className="flex items-center gap-1">
-                                                    <div className="w-1 h-1 rounded-full bg-purple-500"></div>
-                                                    <span>Predicción de engagement</span>
-                                                </div>
+                                            <div className="grid grid-cols-3 gap-1.5 sm:gap-2">
+                                                {instagramTemplates.map((template) => {
+                                                    const isSelected = template.id === activeTemplate?.id;
+                                                    return (
+                                                        <button
+                                                            key={template.id}
+                                                            type="button"
+                                                            onClick={() => setSelectedTemplateId(template.id)}
+                                                            className="min-w-0 rounded-lg sm:rounded-xl border p-1.5 sm:p-2 text-left transition-all"
+                                                            style={{
+                                                                borderColor: isSelected ? template.colors.accent : 'var(--border)',
+                                                                background: isSelected ? `${template.colors.accent}12` : 'var(--surface)',
+                                                            }}
+                                                        >
+                                                            <div
+                                                                className="relative mb-2 overflow-hidden rounded-lg"
+                                                                style={{
+                                                                    aspectRatio: template.layoutVariant === 'portrait' ? '4 / 5' : '1 / 1',
+                                                                    background: `linear-gradient(180deg, ${template.colors.background} 0%, ${template.colors.secondary} 100%)`,
+                                                                }}
+                                                            >
+                                                                <div className="absolute left-1.5 top-1.5 flex min-h-[20px] items-center">
+                                                                    <img src="/logo.png" alt={template.branding.appName} className="h-3 w-auto object-contain sm:h-3.5" />
+                                                                </div>
+                                                                <div className="absolute inset-x-1.5 bottom-1.5 rounded-lg p-1.5 sm:p-2" style={{ background: template.colors.surface, color: template.overlayVariant === 'auto-spec' ? template.colors.textPrimary : template.colors.textInverse }}>
+                                                                    <div className="text-[8px] font-semibold uppercase tracking-[0.14em] opacity-80 line-clamp-1">{template.eyebrow}</div>
+                                                                    <div className="mt-1 text-[10px] sm:text-xs font-bold leading-tight line-clamp-1">{template.name}</div>
+                                                                    <div className="mt-1 text-[9px] sm:text-[10px] font-black line-clamp-1" style={{ color: template.colors.accent }}>{template.priceLabel}</div>
+                                                                </div>
+                                                            </div>
+                                                            <div className="text-[10px] sm:text-xs font-semibold line-clamp-1" style={{ color: 'var(--fg)' }}>{template.name}</div>
+                                                            <div className="hidden sm:block text-[11px]" style={{ color: 'var(--fg-secondary)' }}>{template.ctaLabel}</div>
+                                                        </button>
+                                                    );
+                                                })}
                                             </div>
                                         </div>
-                                        
                                         <div className="mb-2 flex items-center justify-between shrink-0">
                                             <label 
                                                 className="text-[11px] font-bold uppercase tracking-wider opacity-60"

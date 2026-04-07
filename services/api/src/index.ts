@@ -44,6 +44,11 @@ import jwt from 'jsonwebtoken';
 import { z } from 'zod';
 import { evaluatePublicationLifecycle, getPublicationLifecyclePolicy } from '@simple/config';
 import {
+    generateSmartTemplates as buildInstagramTemplates,
+    type InstagramTemplateView as InstagramRenderTemplate,
+    type ListingData as InstagramListingData,
+} from './instagram-templates.js';
+import {
     createCheckoutPreference,
     createPreapproval,
     getPaymentById,
@@ -1131,6 +1136,25 @@ const instagramPublishSchema = z.object({
     vertical: instagramVerticalSchema,
     listingId: z.string().trim().min(1),
     captionOverride: z.string().trim().max(2200).nullable().optional(),
+});
+
+const instagramEnhancedPublishSchema = z.object({
+    vertical: instagramVerticalSchema,
+    listingId: z.string().trim().min(1),
+    captionOverride: z.string().trim().max(2200).nullable().optional(),
+    templateId: z.string().trim().max(120).nullable().optional(),
+    layoutVariant: z.enum(['square', 'portrait']).nullable().optional(),
+    options: z.object({
+        useAI: z.boolean().optional(),
+        enableABTesting: z.boolean().optional(),
+        schedulePost: z.boolean().optional(),
+        useTemplates: z.boolean().optional(),
+        optimizeContent: z.boolean().optional(),
+        preferredTime: z.coerce.date().optional(),
+        tone: z.enum(['professional', 'casual', 'excited', 'luxury', 'urgent']).optional(),
+        targetAudience: z.enum(['young', 'professional', 'investors', 'families', 'general']).optional(),
+        priority: z.enum(['low', 'medium', 'high', 'urgent']).optional(),
+    }).optional(),
 });
 
 const adCampaignCreateSchema = z.object({
@@ -3408,17 +3432,346 @@ function buildInstagramCaption(listing: ListingRecord, publicUrl: string, templa
     if (override) return override.trim();
 
     const summary = extractListingSummary(listing).join(' · ');
+    const locationLabel = getInstagramCommuneLabel(listing, asObject(listing.rawData)) || listing.location || 'Chile';
     const source = (template && template.trim()) || defaultInstagramCaptionTemplate(listing.vertical);
     return source
         .replaceAll('{{title}}', listing.title)
         .replaceAll('{{price}}', listing.price || 'Consultar precio')
-        .replaceAll('{{location}}', listing.location || 'Chile')
+        .replaceAll('{{location}}', locationLabel)
         .replaceAll('{{description}}', listing.description || '')
         .replaceAll('{{summary}}', summary)
         .replaceAll('{{url}}', publicUrl)
         .replaceAll('{{vertical}}', listing.vertical === 'autos' ? 'SimpleAutos' : 'SimplePropiedades')
         .trim()
         .slice(0, 2200);
+}
+
+function formatInstagramMoneyLabel(value: number | null | undefined): string | undefined {
+    if (typeof value !== 'number' || !Number.isFinite(value) || value <= 0) return undefined;
+    return new Intl.NumberFormat('es-CL', {
+        style: 'currency',
+        currency: 'CLP',
+        maximumFractionDigits: 0,
+    }).format(value);
+}
+
+function getInstagramCommuneLabel(listing: ListingRecord, rawData: Record<string, unknown>): string | undefined {
+    const locationData = asObject(rawData.locationData);
+    const nestedLocation = asObject(rawData.location);
+    const directCommune =
+        asString(listing.locationData?.communeName)
+        || asString(locationData.communeName)
+        || asString(nestedLocation.communeName);
+
+    if (directCommune) return directCommune;
+
+    const locationParts = (listing.location || '')
+        .split(',')
+        .map((item) => item.trim())
+        .filter(Boolean);
+
+    if (locationParts.length >= 3) return locationParts[1];
+    if (locationParts.length >= 1) return locationParts[0];
+    return undefined;
+}
+
+function buildInstagramListingData(listing: ListingRecord): InstagramListingData {
+    const rawData = asObject(listing.rawData);
+    const basic = asObject(rawData.basic);
+    const commercial = asObject(rawData.commercial);
+    const setup = asObject(rawData.setup);
+    const basePrice = parseNumberFromString(listing.price) ?? parseNumberFromString(rawData.price) ?? parseNumberFromString(commercial.price) ?? undefined;
+    const offerPrice = parseNumberFromString(commercial.offerPrice) ?? undefined;
+    const discountPercent = basePrice && offerPrice && offerPrice < basePrice
+        ? Math.round(((basePrice - offerPrice) / basePrice) * 100)
+        : null;
+    const mileageKm = parseNumberFromString(basic.mileage) ?? undefined;
+
+    return {
+        id: listing.id,
+        vertical: listing.vertical,
+        title: listing.title,
+        price: basePrice,
+        offerPrice,
+        priceLabel: listing.price,
+        offerPriceLabel: formatInstagramMoneyLabel(offerPrice),
+        discountLabel: discountPercent && discountPercent > 0 ? `-${discountPercent}% dto` : undefined,
+        brand: asString(basic.brand) || asString(rawData.brand) || undefined,
+        model: asString(basic.model) || asString(rawData.model) || undefined,
+        year: parseNumberFromString(basic.year) ?? parseNumberFromString(rawData.year) ?? undefined,
+        category: asString(basic.bodyType) || asString(basic.propertyType) || asString(rawData.category) || undefined,
+        condition: asString(basic.condition) || asString(rawData.condition) || undefined,
+        mileageKm,
+        mileageLabel: mileageKm != null ? `${mileageKm.toLocaleString('es-CL')} km` : undefined,
+        fuelType: asString(basic.fuelType) || undefined,
+        transmission: asString(basic.transmission) || undefined,
+        negotiable: commercial.negotiable === true,
+        financingAvailable: commercial.financingAvailable === true,
+        exchangeAvailable: commercial.exchangeAvailable === true,
+        features: extractListingSummary(listing),
+        images: extractListingMediaUrls(listing).map((url) => ({ url })),
+        location: getInstagramCommuneLabel(listing, rawData) || listing.location || undefined,
+        description: listing.description || '',
+        section: asString(setup.operationType) || listing.section,
+        summary: extractListingSummary(listing),
+    };
+}
+
+const INSTAGRAM_BRAND_LOGO_PATHS: Record<'simpleautos' | 'simplepropiedades', string> = {
+    simpleautos: path.resolve(API_ROOT_DIR, '..', '..', 'apps', 'simpleautos', 'public', 'logo.png'),
+    simplepropiedades: path.resolve(API_ROOT_DIR, '..', '..', 'apps', 'simplepropiedades', 'public', 'logo.png'),
+};
+
+const instagramBrandLogoCache = new Map<string, string | null>();
+
+async function getInstagramBrandLogoDataUri(appId: 'simpleautos' | 'simplepropiedades'): Promise<string | null> {
+    if (instagramBrandLogoCache.has(appId)) {
+        return instagramBrandLogoCache.get(appId) ?? null;
+    }
+
+    try {
+        const logoBuffer = await fs.readFile(INSTAGRAM_BRAND_LOGO_PATHS[appId]);
+        const dataUri = `data:image/png;base64,${logoBuffer.toString('base64')}`;
+        instagramBrandLogoCache.set(appId, dataUri);
+        return dataUri;
+    } catch {
+        instagramBrandLogoCache.set(appId, null);
+        return null;
+    }
+}
+
+function escapeSvgText(value: string): string {
+    return value
+        .replaceAll('&', '&amp;')
+        .replaceAll('<', '&lt;')
+        .replaceAll('>', '&gt;')
+        .replaceAll('"', '&quot;')
+        .replaceAll("'", '&apos;');
+}
+
+function clampTemplateText(value: string, maxLength: number): string {
+    const normalized = value.replace(/\s+/g, ' ').trim();
+    if (normalized.length <= maxLength) return normalized;
+    return `${normalized.slice(0, Math.max(0, maxLength - 1)).trimEnd()}…`;
+}
+
+function splitTemplatePrice(value: string): { prefix: string; amount: string } {
+    const normalized = value.replace(/\s+/g, ' ').trim();
+    const ufMatch = normalized.match(/^(UF)\s*(.+)$/i);
+    if (ufMatch) {
+        return { prefix: ufMatch[1].toUpperCase(), amount: ufMatch[2].trim() };
+    }
+    const pesoMatch = normalized.match(/^(\$)\s*(.+)$/);
+    if (pesoMatch) {
+        return { prefix: pesoMatch[1], amount: pesoMatch[2].trim() };
+    }
+    const tokens = normalized.split(' ');
+    if (tokens.length > 1) {
+        return { prefix: tokens[0], amount: tokens.slice(1).join(' ') };
+    }
+    return { prefix: '', amount: normalized };
+}
+
+function wrapTemplateText(value: string, maxCharsPerLine: number, maxLines: number): string[] {
+    const words = value.replace(/\s+/g, ' ').trim().split(' ').filter(Boolean);
+    if (words.length === 0) return [];
+
+    const lines: string[] = [];
+    let currentLine = '';
+
+    for (const word of words) {
+        const nextLine = currentLine ? `${currentLine} ${word}` : word;
+        if (nextLine.length <= maxCharsPerLine) {
+            currentLine = nextLine;
+            continue;
+        }
+
+        if (currentLine) lines.push(currentLine);
+        currentLine = word;
+
+        if (lines.length === maxLines - 1) break;
+    }
+
+    if (lines.length < maxLines && currentLine) {
+        lines.push(currentLine);
+    }
+
+    if (lines.length > maxLines) {
+        return lines.slice(0, maxLines);
+    }
+
+    const consumed = lines.join(' ').length;
+    if (consumed < value.trim().length && lines.length > 0) {
+        lines[lines.length - 1] = clampTemplateText(lines[lines.length - 1], Math.max(3, maxCharsPerLine - 1));
+    }
+
+    return lines.slice(0, maxLines);
+}
+
+function renderSvgTextLines(
+    lines: string[],
+    options: {
+        x: number;
+        y: number;
+        lineHeight: number;
+        fontSize: number;
+        fontWeight: number | string;
+        fill: string;
+        textAnchor?: 'start' | 'middle' | 'end';
+    }
+): string {
+    return lines
+        .map((line, index) => `
+            <text
+                x="${options.x}"
+                y="${options.y + index * options.lineHeight}"
+                fill="${options.fill}"
+                font-size="${options.fontSize}"
+                font-weight="${options.fontWeight}"
+                ${options.textAnchor ? `text-anchor="${options.textAnchor}"` : ''}
+            >${escapeSvgText(line)}</text>
+        `)
+        .join('');
+}
+
+async function buildInstagramTemplateOverlaySvg(
+    listing: ListingRecord,
+    template: InstagramRenderTemplate,
+    width: number,
+    height: number
+): Promise<Buffer> {
+    const titleLines = wrapTemplateText(template.headline || listing.title, template.overlayVariant.startsWith('property') ? 24 : 20, 2);
+    const eyebrow = escapeSvgText(clampTemplateText(template.eyebrow, 24));
+    const location = escapeSvgText(clampTemplateText(template.locationLabel || listing.location || 'Chile', 28));
+    const priceLockup = splitTemplatePrice(clampTemplateText(template.priceLabel || listing.price || 'Consultar precio', 18));
+    const pricePrefix = escapeSvgText(priceLockup.prefix);
+    const priceAmount = escapeSvgText(priceLockup.amount);
+    const highlights = template.highlights.slice(0, 4).map((item) => clampTemplateText(item, 18));
+    const summaryLine = clampTemplateText(highlights.join('   ·   '), 64);
+    const appName = escapeSvgText(clampTemplateText(template.branding.appName, 16));
+    const badgeText = escapeSvgText(clampTemplateText(template.branding.badgeText, 18));
+    const ctaLabel = escapeSvgText(clampTemplateText(template.ctaLabel, 26));
+    const logoDataUri = await getInstagramBrandLogoDataUri(template.branding.appId);
+
+    const topBandHeight = template.layoutVariant === 'portrait' ? 128 : 104;
+    const bottomBandHeight = template.layoutVariant === 'portrait' ? 230 : 216;
+    const pillY = template.overlayVariant.startsWith('property')
+        ? (template.layoutVariant === 'portrait' ? height - bottomBandHeight - 116 : height - bottomBandHeight - 92)
+        : (template.layoutVariant === 'portrait' ? height - bottomBandHeight - 72 : height - bottomBandHeight - 60);
+    const titleY = height - bottomBandHeight - 28;
+    const priceY = height - 74;
+    const detailsY = height - 136;
+    const propertyLogoMarkup = logoDataUri
+        ? `<image href="${logoDataUri}" x="56" y="40" width="220" height="34" preserveAspectRatio="xMidYMid meet" />`
+        : `<text x="58" y="64" fill="${template.colors.textInverse}" font-size="28" font-weight="700">${appName}</text>`;
+    const autoLogoMarkup = logoDataUri
+        ? `<image href="${logoDataUri}" x="54" y="38" width="150" height="32" preserveAspectRatio="xMidYMid meet" />`
+        : `<text x="58" y="64" fill="${template.colors.textInverse}" font-size="26" font-weight="700">${appName}</text>`;
+
+    const topBand = template.overlayVariant.startsWith('property')
+        ? `
+            <rect x="0" y="0" width="${width}" height="${topBandHeight}" fill="${template.colors.secondary}" opacity="0.96" />
+            ${propertyLogoMarkup}
+            <text x="${width - 34}" y="64" fill="${template.colors.textInverse}" font-size="30" font-weight="800" text-anchor="end">${eyebrow}</text>
+        `
+        : `
+            ${autoLogoMarkup}
+            <rect x="${width - 244}" y="28" rx="24" ry="24" width="216" height="56" fill="${template.colors.accent}" />
+            <text x="${width - 136}" y="64" fill="${template.colors.textInverse}" font-size="24" font-weight="800" text-anchor="middle">${badgeText}</text>
+        `;
+
+    const locationPill = template.overlayVariant.startsWith('property')
+        ? `
+            <rect x="32" y="${pillY}" rx="28" ry="28" width="350" height="64" fill="${template.colors.accent}" />
+            <rect x="36" y="${pillY + 4}" rx="24" ry="24" width="342" height="56" fill="#FFFFFF" opacity="0.98" />
+            <text x="66" y="${pillY + 42}" fill="${template.colors.secondary}" font-size="30" font-weight="700">${location}</text>
+        `
+        : `
+            <rect x="32" y="${pillY}" rx="24" ry="24" width="270" height="54" fill="${template.colors.accent}" opacity="0.92" />
+            <text x="58" y="${pillY + 36}" fill="${template.colors.textInverse}" font-size="24" font-weight="700">${location}</text>
+        `;
+
+    const detailsBand = template.overlayVariant === 'property-conversion'
+        ? `
+            <rect x="24" y="${height - bottomBandHeight - 18}" rx="28" ry="28" width="${width - 48}" height="${bottomBandHeight}" fill="#FFFFFF" opacity="0.88" />
+            ${renderSvgTextLines(titleLines, {
+                x: 56,
+                y: detailsY - 54,
+                lineHeight: 42,
+                fontSize: 34,
+                fontWeight: 800,
+                fill: template.colors.textPrimary,
+            })}
+            <text x="56" y="${detailsY + 18}" fill="${template.colors.textPrimary}" font-size="25" font-weight="700">${escapeSvgText(summaryLine)}</text>
+            <text x="56" y="${priceY}" fill="${template.colors.accent}" font-size="36" font-weight="700">${eyebrow}</text>
+            ${pricePrefix ? `<text x="${width - 286}" y="${priceY}" fill="${template.colors.secondary}" font-size="26" font-weight="700">${pricePrefix}</text>` : ''}
+            <text x="${width - 56}" y="${priceY}" fill="${template.colors.secondary}" font-size="56" font-weight="800" text-anchor="end">${priceAmount}</text>
+            <text x="${width - 56}" y="${priceY - 62}" fill="${template.colors.textPrimary}" font-size="24" font-weight="700" text-anchor="end">${ctaLabel}</text>
+        `
+        : `
+            <rect x="0" y="${height - bottomBandHeight}" width="${width}" height="${bottomBandHeight}" fill="${template.colors.secondary}" opacity="0.72" />
+            ${renderSvgTextLines(
+                template.overlayVariant.startsWith('property') ? titleLines : [summaryLine],
+                {
+                    x: 56,
+                    y: detailsY - (template.overlayVariant.startsWith('property') ? 54 : 18),
+                    lineHeight: template.overlayVariant.startsWith('property') ? 42 : 34,
+                    fontSize: template.overlayVariant.startsWith('property') ? 34 : 30,
+                    fontWeight: 800,
+                    fill: template.colors.textInverse,
+                }
+            )}
+            <text x="56" y="${detailsY + 18}" fill="${template.colors.textInverse}" font-size="25" font-weight="700">${template.overlayVariant.startsWith('property') ? escapeSvgText(summaryLine) : ''}</text>
+            ${
+                template.overlayVariant.startsWith('property')
+                    ? `
+                        <rect x="${width - 318}" y="${height - bottomBandHeight + 34}" rx="26" ry="26" width="262" height="132" fill="${template.colors.accent}" />
+                        <text x="${width - 286}" y="${height - bottomBandHeight + 72}" fill="${template.colors.textInverse}" font-size="20" font-weight="700">${template.overlayVariant === 'property-project' ? 'Desde' : badgeText}</text>
+                        ${pricePrefix ? `<text x="${width - 286}" y="${height - bottomBandHeight + 118}" fill="${template.colors.textInverse}" font-size="24" font-weight="700">${pricePrefix}</text>` : ''}
+                        <text x="${width - 76}" y="${height - bottomBandHeight + 124}" fill="${template.colors.textInverse}" font-size="50" font-weight="800" text-anchor="end">${priceAmount}</text>
+                        <text x="${width - 76}" y="${height - bottomBandHeight + 152}" fill="${template.colors.textInverse}" font-size="18" font-weight="700" text-anchor="end">${ctaLabel}</text>
+                    `
+                    : `
+                        <text x="56" y="${priceY - 42}" fill="${template.colors.textInverse}" font-size="22" font-weight="700">${ctaLabel}</text>
+                        <text x="56" y="${priceY}" fill="${template.colors.textInverse}" font-size="36" font-weight="700">${badgeText}</text>
+                        <text x="${width - 56}" y="${priceY - 42}" fill="${template.colors.textInverse}" font-size="24" font-weight="700" text-anchor="end">${location}</text>
+                        ${pricePrefix ? `<text x="${width - 286}" y="${priceY}" fill="${template.colors.accent}" font-size="24" font-weight="700">${pricePrefix}</text>` : ''}
+                        <text x="${width - 56}" y="${priceY}" fill="${template.colors.accent}" font-size="58" font-weight="800" text-anchor="end">${priceAmount}</text>
+                    `
+            }
+        `;
+
+    const titleBlock = template.overlayVariant.startsWith('property')
+        ? ''
+        : `
+            <rect x="0" y="${height - bottomBandHeight - 100}" width="${width}" height="100" fill="url(#titleFade)" />
+            ${renderSvgTextLines(titleLines, {
+                x: 44,
+                y: titleY - 26,
+                lineHeight: 46,
+                fontSize: 40,
+                fontWeight: 800,
+                fill: template.colors.textInverse,
+            })}
+        `;
+
+    const svg = `
+        <svg width="${width}" height="${height}" viewBox="0 0 ${width} ${height}" xmlns="http://www.w3.org/2000/svg">
+            <defs>
+                <linearGradient id="titleFade" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stop-color="#000000" stop-opacity="0" />
+                    <stop offset="100%" stop-color="#000000" stop-opacity="0.7" />
+                </linearGradient>
+            </defs>
+            <rect x="0" y="0" width="${width}" height="${height}" fill="transparent" />
+            ${topBand}
+            ${locationPill}
+            ${titleBlock}
+            ${detailsBand}
+        </svg>
+    `;
+
+    return Buffer.from(svg);
 }
 
 function getInstagramBasePublicOrigin(): string {
@@ -3448,15 +3801,25 @@ function buildListingPublicUrlForInstagram(listing: ListingRecord): string {
 }
 
 // Prepara una imagen JPEG en Backblaze para Instagram.
-async function prepareInstagramImageUrl(listing: ListingRecord, index = 0): Promise<string> {
+async function prepareInstagramImageUrl(
+    listing: ListingRecord,
+    index = 0,
+    options: {
+        layoutVariant?: 'square' | 'portrait' | null;
+        template?: InstagramRenderTemplate | null;
+    } = {}
+): Promise<string> {
     const images = extractListingMediaUrls(listing);
     const rawUrl = images[index];
     if (!rawUrl) throw new Error('La publicación no tiene imágenes en el índice solicitado.');
 
     const bucketName = process.env.BACKBLAZE_BUCKET_NAME || 'simple-media';
+    const effectiveLayoutVariant = options.layoutVariant ?? options.template?.layoutVariant ?? 'square';
+    const targetHeight = effectiveLayoutVariant === 'portrait' ? 1350 : 1080;
     
     // Clave de destino única por imagen para evitar colisiones en el CDN
-    const destKey = `instagram-ready/${listing.id}-${index}.jpg`;
+    const templateSuffix = options.template ? `-${options.template.id}` : '';
+    const destKey = `instagram-ready/${listing.id}-${index}${templateSuffix}-${targetHeight}.jpg`;
     const downloadOrigin = process.env.BACKBLAZE_DOWNLOAD_URL || 'https://f005.backblazeb2.com';
     const directUrl = `${downloadOrigin}/file/${bucketName}/${destKey}`;
 
@@ -3474,10 +3837,21 @@ async function prepareInstagramImageUrl(listing: ListingRecord, index = 0): Prom
     }
 
     const sharp = require('sharp') as typeof import('sharp');
-    const jpegBuffer = await sharp(rawBuffer)
-        .resize({ width: 1080, height: 1080, fit: 'cover', withoutEnlargement: true })
-        .jpeg({ quality: 90 })
-        .toBuffer();
+    let pipeline = sharp(rawBuffer)
+        .resize({ width: 1080, height: targetHeight, fit: 'cover', withoutEnlargement: true });
+
+    if (options.template) {
+        const overlayBuffer = await buildInstagramTemplateOverlaySvg(listing, options.template, 1080, targetHeight);
+        pipeline = pipeline.composite([
+            {
+                input: overlayBuffer,
+                top: 0,
+                left: 0,
+            },
+        ]);
+    }
+
+    const jpegBuffer = await pipeline.jpeg({ quality: 90 }).toBuffer();
 
     await client.send(new PutObjectCommand({
         Bucket: bucketName,
@@ -3510,6 +3884,7 @@ async function refreshInstagramAccountIfNeeded(account: InstagramAccountRecord):
 async function publishListingToInstagram(user: AppUser, listing: ListingRecord, options: {
     captionOverride?: string | null;
     auto?: boolean;
+    template?: InstagramRenderTemplate | null;
 } = {}) {
     const account = getInstagramAccount(user.id, listing.vertical);
     if (!account || account.status === 'disconnected') throw new Error('Primero conecta una cuenta de Instagram.');
@@ -3534,11 +3909,14 @@ async function publishListingToInstagram(user: AppUser, listing: ListingRecord, 
         throw new Error('El aviso no tiene imágenes.');
     }
 
-    logDebug(`[instagram] preparing ${mediaUrls.length} images for ${listing.id}`);
+        logDebug(`[instagram] preparing ${mediaUrls.length} images for ${listing.id}`);
     const preparedImages: Array<{ url: string }> = [];
     for (let i = 0; i < mediaUrls.length; i++) {
         try {
-            const url = await prepareInstagramImageUrl(listing, i);
+            const url = await prepareInstagramImageUrl(listing, i, {
+                layoutVariant: options.template?.layoutVariant ?? null,
+                template: i === 0 ? (options.template ?? null) : null,
+            });
             if (!url || !url.startsWith('http')) {
                 logDebug(`[instagram] skipped image ${i}: invalid URL "${url}"`);
                 continue;
@@ -14974,75 +15352,92 @@ app.post('/api/public/agenda/:slug/book', async (c) => {
 
 // Publicación con IA mejorada
 app.post('/api/integrations/instagram/publish-enhanced', async (c) => {
+    const user = await authUser(c);
+    if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
+
     try {
-        const { vertical, listingId, options = {} } = await c.req.json();
-        
-        if (!listingId) {
-            return c.json({ ok: false, error: 'listingId es requerido' }, 400);
+        const payload = await c.req.json().catch(() => null);
+        const parsed = instagramEnhancedPublishSchema.safeParse(payload);
+        if (!parsed.success) {
+            return c.json({ ok: false, error: 'Payload invalido', details: parsed.error.format() }, 400);
         }
 
-        // Obtener datos del listing
-        const listing = await db.query.listings.findFirst({
-            where: eq(listings.id, listingId)
-        });
-
+        const listing = listingsById.get(parsed.data.listingId) ?? await getListingById(parsed.data.listingId);
         if (!listing) {
-            return c.json({ ok: false, error: 'Listing no encontrado' }, 404);
+            return c.json({ ok: false, error: 'Publicacion no encontrada' }, 404);
+        }
+        if (listing.vertical !== parsed.data.vertical) {
+            return c.json({ ok: false, error: 'La publicacion no corresponde a esta vertical.' }, 409);
+        }
+        if (listing.ownerId !== user.id && user.role !== 'superadmin') {
+            return c.json({ ok: false, error: 'No tienes permisos sobre esta publicacion' }, 403);
         }
 
-        // Obtener cuenta de Instagram
-        const instagramAccount = await db.query.instagramAccounts.findFirst({
-            where: eq(instagramAccounts.vertical, vertical)
+        const listingData = buildInstagramListingData(listing);
+        const templates = buildInstagramTemplates(listingData);
+        const selectedTemplate =
+            parsed.data.options?.useTemplates !== false
+                ? [
+                    templates.recommendedTemplate,
+                    ...templates.alternatives,
+                ].find((template) => template.id === parsed.data.templateId) ?? templates.recommendedTemplate
+                : null;
+
+        const publication = await publishListingToInstagram(user, listing, {
+            captionOverride: parsed.data.captionOverride ?? null,
+            template: selectedTemplate,
         });
 
-        if (!instagramAccount) {
-            return c.json({ ok: false, error: 'Cuenta de Instagram no configurada' }, 400);
-        }
-
-        // Convertir a ListingData
-        const listingData = {
-            id: listing.id,
-            vertical: vertical as 'autos' | 'propiedades' | 'agenda',
-            title: listing.title,
-            price: listing.rawData && (listing.rawData as any).price ? parseFloat((listing.rawData as any).price) : undefined,
-            brand: listing.rawData && (listing.rawData as any).brand,
-            model: listing.rawData && (listing.rawData as any).model,
-            year: listing.rawData && (listing.rawData as any).year,
-            category: listing.rawData && (listing.rawData as any).category,
-            condition: listing.rawData && (listing.rawData as any).condition,
-            features: listing.rawData && (listing.rawData as any).features || [],
-            images: listing.rawData && (listing.rawData as any).images || [],
-            location: (listing as any).location,
-            description: listing.description || ''
-        };
-
-        // Importar funciones de Instagram Intelligence
-        const { publishListingToInstagramEnhanced } = await import('./instagram.js');
-
-        // Publicar con IA mejorada
-        const result = await publishListingToInstagramEnhanced({
-            instagramUserId: instagramAccount.instagramUserId,
-            accessToken: instagramAccount.accessToken,
-            title: listing.title,
-            description: listing.description || '',
-            images: (listing as any).images || [],
-            price: listing.rawData && (listing.rawData as any).price ? (listing.rawData as any).price.toString() : undefined,
-            location: (listing as any).location,
-            listingId: listing.id,
-            vertical: vertical as 'autos' | 'propiedades' | 'agenda',
-            brand: (listing as any).brand,
-            model: (listing as any).model,
-            year: (listing as any).year,
-            category: (listing as any).category,
-            condition: (listing as any).condition,
-            features: (listing as any).features || [],
-            options
+        return c.json({
+            ok: true,
+            result: publication,
+            publication,
+            template: selectedTemplate,
+            aiContent: null,
+            adaptations: selectedTemplate?.adaptations ?? null,
+            score: selectedTemplate?.score ?? null,
         });
-
-        return c.json(result);
 
     } catch (error) {
         console.error('[instagram] Error en publicación mejorada:', error);
+        return c.json({ 
+            ok: false, 
+            error: error instanceof Error ? error.message : 'Error desconocido'
+        }, 500);
+    }
+});
+
+// Endpoint de prueba para templates (sin autenticación)
+app.post('/api/test/templates', async (c) => {
+    try {
+        const { vertical } = await c.req.json();
+        
+        const testListingData = {
+            id: 'test-123',
+            vertical: vertical as 'autos' | 'propiedades' | 'agenda',
+            title: 'Toyota Corolla 2022',
+            price: 15000000,
+            brand: 'Toyota',
+            model: 'Corolla',
+            year: 2022,
+            category: 'Sedan',
+            condition: 'Excelente',
+            features: ['Aire acondicionado', 'GPS', 'Bluetooth'],
+            images: [],
+            location: 'Santiago, Chile',
+            description: 'Excelente vehículo, muy bien cuidado'
+        };
+        
+        // Importar funciones de templates
+        const { generateSmartTemplates } = await import('./instagram-templates.js');
+        
+        // Generar templates
+        const templates = generateSmartTemplates(testListingData);
+        
+        return c.json({ ok: true, ...templates });
+        
+    } catch (error) {
+        console.error('[test] Error generando templates:', error);
         return c.json({ 
             ok: false, 
             error: error instanceof Error ? error.message : 'Error desconocido' 
@@ -15052,44 +15447,30 @@ app.post('/api/integrations/instagram/publish-enhanced', async (c) => {
 
 // Generar templates inteligentes
 app.post('/api/integrations/instagram/templates', async (c) => {
+    const user = await authUser(c);
+    if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
+
     try {
-        const { vertical, listingId } = await c.req.json();
-        
+        const body = asObject(await c.req.json().catch(() => null));
+        const vertical = parseVertical(asString(body.vertical));
+        const listingId = asString(body.listingId);
+
         if (!listingId) {
             return c.json({ ok: false, error: 'listingId es requerido' }, 400);
         }
 
-        // Obtener datos del listing
-        const listing = await db.query.listings.findFirst({
-            where: eq(listings.id, listingId)
-        });
-
+        const listing = listingsById.get(listingId) ?? await getListingById(listingId);
         if (!listing) {
-            return c.json({ ok: false, error: 'Listing no encontrado' }, 404);
+            return c.json({ ok: false, error: 'Publicacion no encontrada' }, 404);
+        }
+        if (listing.vertical !== vertical) {
+            return c.json({ ok: false, error: 'La publicacion no corresponde a esta vertical.' }, 409);
+        }
+        if (listing.ownerId !== user.id && user.role !== 'superadmin') {
+            return c.json({ ok: false, error: 'No tienes permisos sobre esta publicacion' }, 403);
         }
 
-        // Importar funciones de templates
-        const { generateSmartTemplates } = await import('./instagram.js');
-
-        // Convertir a ListingData
-        const listingData = {
-            id: listing.id,
-            vertical: vertical as 'autos' | 'propiedades' | 'agenda',
-            title: listing.title,
-            price: listing.rawData && (listing.rawData as any).price ? parseFloat((listing.rawData as any).price) : undefined,
-            brand: listing.rawData && (listing.rawData as any).brand,
-            model: listing.rawData && (listing.rawData as any).model,
-            year: listing.rawData && (listing.rawData as any).year,
-            category: listing.rawData && (listing.rawData as any).category,
-            condition: listing.rawData && (listing.rawData as any).condition,
-            features: listing.rawData && (listing.rawData as any).features || [],
-            images: listing.rawData && (listing.rawData as any).images || [],
-            location: (listing as any).location,
-            description: listing.description || ''
-        };
-
-        // Generar templates
-        const templates = generateSmartTemplates(listingData);
+        const templates = buildInstagramTemplates(buildInstagramListingData(listing));
 
         return c.json({ ok: true, ...templates });
 

@@ -13,11 +13,16 @@ export type InstagramTemplateView = {
     category: 'auto' | 'propiedad' | 'agenda';
     style: 'modern' | 'classic' | 'sport' | 'luxury' | 'minimal';
     layout: 'carousel' | 'single' | 'story';
+    layoutVariant: 'square' | 'portrait';
+    overlayVariant: string;
     colors: {
         primary: string;
         secondary: string;
         accent: string;
         background: string;
+        surface: string;
+        textPrimary: string;
+        textInverse: string;
     };
     score: number;
     adaptations: {
@@ -25,6 +30,17 @@ export type InstagramTemplateView = {
         layout: boolean;
         content: boolean;
     };
+    branding: {
+        appId: 'simpleautos' | 'simplepropiedades';
+        appName: string;
+        badgeText: string;
+    };
+    eyebrow: string;
+    headline: string;
+    priceLabel: string;
+    locationLabel: string;
+    highlights: string[];
+    ctaLabel: string;
 };
 
 export type InstagramAIContentView = {
@@ -243,9 +259,13 @@ export async function publishListingToInstagramEnhanced(listingId: string, optio
     tone?: InstagramTone;
     targetAudience?: InstagramTargetAudience;
     priority?: InstagramPriority;
+    captionOverride?: string | null;
+    templateId?: string | null;
+    layoutVariant?: 'square' | 'portrait' | null;
 } = {}): Promise<{
     ok: boolean;
     result?: any;
+    publication?: InstagramPublicationView;
     aiContent?: InstagramAIContentView;
     template?: InstagramTemplateView;
     scheduledPost?: InstagramScheduledPostView;
@@ -257,6 +277,7 @@ export async function publishListingToInstagramEnhanced(listingId: string, optio
     const { status, data } = await apiRequest<{
         ok: boolean;
         result?: any;
+        publication?: InstagramPublicationView;
         aiContent?: InstagramAIContentView;
         template?: InstagramTemplateView;
         scheduledPost?: InstagramScheduledPostView;
@@ -269,6 +290,9 @@ export async function publishListingToInstagramEnhanced(listingId: string, optio
         body: JSON.stringify({
             vertical: 'autos',
             listingId,
+            captionOverride: options.captionOverride ?? null,
+            templateId: options.templateId ?? null,
+            layoutVariant: options.layoutVariant ?? null,
             options
         }),
     });
@@ -305,14 +329,13 @@ export async function generateSmartTemplates(listingId: string): Promise<{
         method: 'POST',
         body: JSON.stringify({
             vertical: 'autos',
-            listingId
+            listingId,
         }),
     });
 
     if (status === 401) return { ok: false, error: 'Tu sesión expiró. Vuelve a iniciar sesión.' };
-    return data ?? { ok: false, error: 'No pudimos generar templates.' };
+    return data ?? { ok: false, error: 'No se pudieron generar los templates.' };
 }
-
 // Obtener insights de Instagram
 export async function getInstagramInsights(listingId?: string, dateRange?: { from: Date; to: Date }): Promise<{
     ok: boolean;

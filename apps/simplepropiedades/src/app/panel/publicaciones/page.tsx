@@ -22,7 +22,13 @@ import {
 import PanelSectionHeader from '@/components/panel/panel-section-header';
 import ModernSelect from '@/components/ui/modern-select';
 import { useAuth } from '@/context/auth-context';
-import { fetchInstagramIntegrationStatus, publishListingToInstagram as publishInstagramPost, type InstagramPublicationView } from '@/lib/instagram';
+import {
+    fetchInstagramIntegrationStatus,
+    generateSmartTemplates,
+    publishListingToInstagramEnhanced,
+    type InstagramPublicationView,
+    type InstagramTemplateView,
+} from '@/lib/instagram';
 import {
     type ListingStatus,
     type PanelListing,
@@ -33,6 +39,7 @@ import {
     updatePanelListingStatus,
 } from '@/lib/panel-listings';
 import {
+    InstagramTemplatePreview,
     PanelButton,
     PanelNotice,
     PanelPillNav,
@@ -116,6 +123,19 @@ function publicationLifecycleHint(listing: PanelListing): string | null {
     return null;
 }
 
+function getListingCommune(listing: PanelListing): string {
+    const commune = listing.locationData?.communeName?.trim();
+    if (commune) return commune;
+
+    const parts = (listing.location || '')
+        .split(',')
+        .map((item) => item.trim())
+        .filter(Boolean);
+
+    if (parts.length >= 3) return parts[1];
+    return parts[0] || 'Chile';
+}
+
 export default function PublicacionesPage() {
     const { user, authLoading, requireAuth } = useAuth();
     const [listings, setListings] = useState<PanelListing[]>([]);
@@ -136,6 +156,9 @@ export default function PublicacionesPage() {
     const [isInstagramSuccess, setIsInstagramSuccess] = useState(false);
     const [lastPublishedPermalink, setLastPublishedPermalink] = useState<string | null>(null);
     const [instagramCarouselIndex, setInstagramCarouselIndex] = useState(0);
+    const [instagramTemplates, setInstagramTemplates] = useState<InstagramTemplateView[]>([]);
+    const [selectedTemplateId, setSelectedTemplateId] = useState<string | null>(null);
+    const [templatesLoading, setTemplatesLoading] = useState(false);
     const [actionMenuOpenId, setActionMenuOpenId] = useState<string | null>(null);
     const [shareMenuOpenId, setShareMenuOpenId] = useState<string | null>(null);
 
@@ -245,6 +268,11 @@ export default function PublicacionesPage() {
         return `${window.location.origin}${listing.href}`;
     };
 
+    const activeTemplate = useMemo(
+        () => instagramTemplates.find((template) => template.id === selectedTemplateId) ?? instagramTemplates[0] ?? null,
+        [instagramTemplates, selectedTemplateId]
+    );
+
     const onPublishPortal = async (listing: PanelListing, portal: PortalKey) => {
         if (!user) {
             setNotice('Tu sesión expiró. Vuelve a iniciar sesión para continuar.');
@@ -297,6 +325,23 @@ export default function PublicacionesPage() {
         closeMenus();
     };
 
+    const loadInstagramTemplatesForListing = async (listingId: string) => {
+        setTemplatesLoading(true);
+        const result = await generateSmartTemplates(listingId);
+        if (!result.ok || !result.recommendedTemplate) {
+            setInstagramTemplates([]);
+            setSelectedTemplateId(null);
+            setTemplatesLoading(false);
+            if (result.error) setNotice(result.error);
+            return;
+        }
+
+        const nextTemplates = [result.recommendedTemplate, ...(result.alternatives ?? [])];
+        setInstagramTemplates(nextTemplates);
+        setSelectedTemplateId(nextTemplates[0]?.id ?? null);
+        setTemplatesLoading(false);
+    };
+
     const shareOnInstagram = (listing: PanelListing) => {
         closeMenus();
         if (!user) {
@@ -304,7 +349,7 @@ export default function PublicacionesPage() {
             return;
         }
 
-        const baseDescription = listing.description?.trim() ? listing.description : `🏠 ${listing.title}\n💰 ${listing.price || 'Consultar precio'}\n📍 ${listing.location || 'Chile'}`;
+        const baseDescription = listing.description?.trim() ? listing.description : `🏠 ${listing.title}\n💰 ${listing.price || 'Consultar precio'}\n📍 ${getListingCommune(listing)}`;
         const defaultCaption = `${baseDescription}\n\n🔗 Ver más: https://simplepropiedades.cl/propiedad/${listing.id}\n\n#SimplePropiedades #PropiedadesChile #Inmuebles #VentaPropiedades #Casa`;
 
         setPreviewListing(listing);
@@ -312,7 +357,10 @@ export default function PublicacionesPage() {
         setInstagramCarouselIndex(0);
         setIsInstagramSuccess(false);
         setLastPublishedPermalink(null);
+        setInstagramTemplates([]);
+        setSelectedTemplateId(null);
         setInstagramPreviewOpen(true);
+        void loadInstagramTemplatesForListing(listing.id);
     };
 
     const handleConfirmInstagramPublish = async () => {
@@ -323,10 +371,19 @@ export default function PublicacionesPage() {
         setInstagramBusyKey(key);
 
         try {
-            const result = await publishInstagramPost(previewListing.id, previewCaption);
-            if (result.ok && result.publication) {
+            const result = await publishListingToInstagramEnhanced(previewListing.id, {
+                useAI: true,
+                useTemplates: Boolean(activeTemplate),
+                captionOverride: previewCaption,
+                templateId: activeTemplate?.id ?? null,
+                layoutVariant: activeTemplate?.layoutVariant ?? 'portrait',
+                tone: 'professional',
+                targetAudience: previewListing.section === 'project' ? 'investors' : 'families',
+            });
+            const publication = result.publication ?? result.result;
+            if (result.ok && publication) {
                 setIsInstagramSuccess(true);
-                setLastPublishedPermalink(result.publication.instagramPermalink || null);
+                setLastPublishedPermalink(publication.instagramPermalink || null);
             } else {
                 setNotice(result.error ?? 'No se pudo publicar en Instagram.');
             }
@@ -440,8 +497,9 @@ export default function PublicacionesPage() {
         );
     };
 
-    const renderShareMenu = (listing: PanelListing) => {
+    const renderShareMenu = (listing: PanelListing, size: 'compact' | 'regular' = 'compact') => {
         const menuOpen = shareMenuOpenId === listing.id;
+        const triggerClassName = size === 'regular' ? 'h-8 w-full px-3 text-xs sm:w-auto' : 'h-7 px-3 text-xs';
         const integrations = [...listing.integrations].sort(
             (a, b) => PORTAL_ORDER.indexOf(a.portal) - PORTAL_ORDER.indexOf(b.portal)
         );
@@ -451,7 +509,7 @@ export default function PublicacionesPage() {
                 <PanelButton
                     variant="secondary"
                     size="sm"
-                    className="h-7 px-3 text-xs"
+                    className={triggerClassName}
                     onClick={() => {
                         setActionMenuOpenId(null);
                         setShareMenuOpenId((current) => (current === listing.id ? null : listing.id));
@@ -695,7 +753,7 @@ export default function PublicacionesPage() {
                                         <Link href={`/panel/publicar?edit=${encodeURIComponent(listing.id)}`} className={getPanelButtonClassName({ size: 'sm', className: 'h-8 w-full px-3 text-xs sm:w-auto' })} style={getPanelButtonStyle('secondary')}><IconEdit size={11} /> Editar</Link>
                                         <div className="col-span-2 sm:col-span-1">{renderActionMenu(listing)}</div>
                                         <Link href={`/panel/publicidad?tab=boost&listingId=${encodeURIComponent(listing.id)}&section=${encodeURIComponent(listing.section)}`} className={getPanelButtonClassName({ size: 'sm', className: 'h-8 w-full px-3 text-xs sm:w-auto' })} style={getPanelButtonStyle('primary')}><IconTrendingUp size={11} /> Boost</Link>
-                                        <div className="col-span-2 sm:col-span-1">{renderShareMenu(listing)}</div>
+                                        <div className="w-full sm:w-auto">{renderShareMenu(listing, 'regular')}</div>
                                     </div>
                                 </div>
                             </article>
@@ -756,12 +814,12 @@ export default function PublicacionesPage() {
                     onClick={() => setInstagramPreviewOpen(false)}
                 >
                     <div 
-                        className="w-[98vw] md:w-[90vw] lg:w-[85vw] h-[95vh] flex flex-col overflow-hidden rounded-2xl border shadow-2xl"
+                        className="w-full max-w-6xl max-h-[92vh] flex flex-col overflow-hidden rounded-2xl border shadow-2xl"
                         style={{ background: 'var(--surface)', borderColor: 'var(--border)' }}
                         onClick={(e) => e.stopPropagation()}
                     >
                         {/* Header */}
-                        <div className="flex items-center justify-between border-b p-4 px-6" style={{ borderColor: 'var(--border)' }}>
+                        <div className="flex items-center justify-between border-b p-4 px-6 shrink-0" style={{ borderColor: 'var(--border)' }}>
                             <h3 className="text-lg font-bold" style={{ color: 'var(--fg)' }}>
                                 Vista previa de Instagram
                             </h3>
@@ -774,7 +832,7 @@ export default function PublicacionesPage() {
                             </button>
                         </div>
                         
-                        <div className="flex-1 p-4 md:p-6 overflow-hidden flex flex-col min-h-0">
+                        <div className="flex-1 p-4 md:p-6 overflow-y-auto flex flex-col min-h-0">
                             {isInstagramSuccess ? (
                                 <div className="flex flex-col items-center py-8 text-center">
                                     <div className="mb-6 flex h-24 w-24 items-center justify-center rounded-full bg-green-500/10 text-green-500 ring-4 ring-green-500/20">
@@ -818,50 +876,99 @@ export default function PublicacionesPage() {
                                             </p>
                                         </div>
                                     )}
-                                    {/* Lado izquierdo: Fotografía estilo Instagram (4:5 -> 1080x1350) */}
-                                    <div className="w-full md:w-1/2 flex items-center justify-center bg-black/5 rounded-xl overflow-hidden shrink-0 mx-auto max-h-[40vh] md:max-h-full relative group" style={{ aspectRatio: '4/5', borderColor: 'var(--border)' }}>
-                                        {getListingImages(previewListing).length > 0 ? (
-                                            <>
-                                                <div className="relative h-full w-full">
-                                                    <img 
-                                                        src={getListingImages(previewListing)[instagramCarouselIndex]} 
-                                                        alt="Vista previa" 
-                                                        className="h-full w-full object-cover transition-opacity duration-300"
-                                                    />
-                                                </div>
-                                                {getListingImages(previewListing).length > 1 && (
-                                                    <>
-                                                        <button 
-                                                            type="button"
-                                                            onClick={() => setInstagramCarouselIndex(prev => prev > 0 ? prev - 1 : getListingImages(previewListing).length - 1)}
-                                                            className="absolute left-2 top-1/2 -translate-y-1/2 rounded-full bg-black/50 p-2 text-white opacity-0 transition-opacity hover:bg-black/70 group-hover:opacity-100"
-                                                        >
-                                                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m15 18-6-6 6-6"/></svg>
-                                                        </button>
-                                                        <button 
-                                                            type="button"
-                                                            onClick={() => setInstagramCarouselIndex(prev => prev < getListingImages(previewListing).length - 1 ? prev + 1 : 0)}
-                                                            className="absolute right-2 top-1/2 -translate-y-1/2 rounded-full bg-black/50 p-2 text-white opacity-0 transition-opacity hover:bg-black/70 group-hover:opacity-100"
-                                                        >
-                                                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m9 18 6-6-6-6"/></svg>
-                                                        </button>
-                                                        <div className="absolute bottom-4 left-0 right-0 flex justify-center gap-1.5">
-                                                            {getListingImages(previewListing).map((_, i) => (
-                                                                <div key={i} className={`h-1.5 rounded-full transition-all ${i === instagramCarouselIndex ? 'w-4 bg-white' : 'w-1.5 bg-white/50'}`} />
-                                                            ))}
-                                                        </div>
-                                                    </>
-                                                )}
-                                            </>
-                                        ) : (
-                                            <div className="flex h-full w-full items-center justify-center" style={{ color: 'var(--fg-faint)' }}>
-                                                <IconHome2 size={48} />
-                                            </div>
-                                        )}
+                                    <div className="w-full md:w-1/2 flex flex-col gap-3">
+                                        <InstagramTemplatePreview
+                                            className="w-full max-w-[420px] mx-auto group"
+                                            imageUrl={getListingImages(previewListing)[instagramCarouselIndex] ?? null}
+                                            template={instagramCarouselIndex === 0 ? activeTemplate : null}
+                                            layoutVariant={activeTemplate?.layoutVariant ?? 'portrait'}
+                                            fallback={<IconHome2 size={48} />}
+                                        >
+                                            {getListingImages(previewListing).length > 1 && (
+                                                <>
+                                                    <button 
+                                                        type="button"
+                                                        onClick={() => setInstagramCarouselIndex(prev => prev > 0 ? prev - 1 : getListingImages(previewListing).length - 1)}
+                                                        className="absolute left-2 top-1/2 -translate-y-1/2 rounded-full bg-black/50 p-2 text-white transition-opacity hover:bg-black/70"
+                                                    >
+                                                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m15 18-6-6 6-6"/></svg>
+                                                    </button>
+                                                    <button 
+                                                        type="button"
+                                                        onClick={() => setInstagramCarouselIndex(prev => prev < getListingImages(previewListing).length - 1 ? prev + 1 : 0)}
+                                                        className="absolute right-2 top-1/2 -translate-y-1/2 rounded-full bg-black/50 p-2 text-white transition-opacity hover:bg-black/70"
+                                                    >
+                                                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m9 18 6-6-6-6"/></svg>
+                                                    </button>
+                                                    <div className="absolute bottom-4 left-0 right-0 flex justify-center gap-1.5">
+                                                        {getListingImages(previewListing).map((_, i) => (
+                                                            <div key={i} className={`h-1.5 rounded-full transition-all ${i === instagramCarouselIndex ? 'w-4 bg-white' : 'w-1.5 bg-white/50'}`} />
+                                                        ))}
+                                                    </div>
+                                                </>
+                                            )}
+                                        </InstagramTemplatePreview>
                                     </div>
 
                                 {/* Lado derecho: Descripción editable */}
                                 <div className="w-full md:w-1/2 flex flex-col min-h-0 flex-1">
+                                    <div
+                                        className="mb-4 rounded-[1.25rem] border p-4"
+                                        style={{
+                                            borderColor: activeTemplate?.colors.accent ?? 'var(--border)',
+                                            background: activeTemplate
+                                                ? `linear-gradient(135deg, ${activeTemplate.colors.accent}14 0%, ${activeTemplate.colors.secondary}14 100%)`
+                                                : 'rgba(50,50,255,0.06)',
+                                        }}
+                                    >
+                                        <div className="mb-3 flex items-center justify-between gap-3">
+                                            <div>
+                                                <div className="text-sm font-semibold" style={{ color: 'var(--fg)' }}>Templates de SimplePropiedades</div>
+                                                <div className="text-[11px]" style={{ color: 'var(--fg-secondary)' }}>
+                                                    {templatesLoading ? 'Analizando la ficha y el contexto del aviso...' : activeTemplate ? `${activeTemplate.layoutVariant === 'portrait' ? '4:5' : '1:1'} · ${activeTemplate.score}/100` : 'Sin template'}
+                                                </div>
+                                            </div>
+                                            <div className="text-[11px] font-semibold uppercase tracking-[0.18em]" style={{ color: activeTemplate?.colors.accent ?? '#3232FF' }}>
+                                                {activeTemplate?.branding.badgeText ?? 'BRANDING'}
+                                            </div>
+                                        </div>
+                                        <div className="grid grid-cols-3 gap-1.5 sm:gap-2">
+                                            {instagramTemplates.map((template) => {
+                                                const isSelected = template.id === activeTemplate?.id;
+                                                return (
+                                                    <button
+                                                        key={template.id}
+                                                        type="button"
+                                                        onClick={() => setSelectedTemplateId(template.id)}
+                                                        className="min-w-0 rounded-lg sm:rounded-xl border p-1.5 sm:p-2 text-left transition-all"
+                                                        style={{
+                                                            borderColor: isSelected ? template.colors.accent : 'var(--border)',
+                                                            background: isSelected ? `${template.colors.accent}12` : 'var(--surface)',
+                                                        }}
+                                                    >
+                                                        <div
+                                                            className="relative mb-2 overflow-hidden rounded-lg"
+                                                            style={{
+                                                                aspectRatio: template.layoutVariant === 'portrait' ? '4 / 5' : '1 / 1',
+                                                                background: `linear-gradient(180deg, ${template.colors.background} 0%, ${template.colors.secondary} 100%)`,
+                                                            }}
+                                                        >
+                                                            <div className="absolute left-1.5 top-1.5 flex min-h-[20px] items-center">
+                                                                <img src="/logo.png" alt={template.branding.appName} className="h-3 w-auto object-contain sm:h-3.5" />
+                                                            </div>
+                                                            <div className="absolute inset-x-1.5 bottom-1.5 rounded-lg p-1.5 sm:p-2" style={{ background: template.overlayVariant === 'property-conversion' ? 'rgba(255,255,255,0.88)' : template.colors.surface, color: template.overlayVariant === 'property-conversion' ? template.colors.textPrimary : template.colors.textInverse }}>
+                                                                <div className="text-[8px] font-semibold uppercase tracking-[0.14em] opacity-80 line-clamp-1">{template.eyebrow}</div>
+                                                                <div className="mt-1 text-[10px] sm:text-xs font-bold leading-tight line-clamp-1">{template.name}</div>
+                                                                <div className="mt-1 text-[9px] sm:text-[10px] font-black line-clamp-1" style={{ color: template.colors.accent }}>{template.priceLabel}</div>
+                                                            </div>
+                                                        </div>
+                                                        <div className="text-[10px] sm:text-xs font-semibold line-clamp-1" style={{ color: 'var(--fg)' }}>{template.name}</div>
+                                                        <div className="hidden sm:block text-[11px]" style={{ color: 'var(--fg-secondary)' }}>{template.ctaLabel}</div>
+                                                    </button>
+                                                );
+                                            })}
+                                        </div>
+                                    </div>
                                     <div className="mb-2 flex items-center justify-between shrink-0">
                                         <label 
                                             className="text-xs font-semibold uppercase tracking-wider"
@@ -881,33 +988,36 @@ export default function PublicacionesPage() {
                                             background: 'var(--surface-sunken)', 
                                             borderColor: 'var(--border)',
                                             color: 'var(--fg)',
-                                            minHeight: '200px',
+                                            minHeight: '180px',
                                             resize: 'none'
                                         }}
                                         placeholder="Escribe el pie de foto..."
                                     />
-
-                                    <div className="flex gap-3 shrink-0 pt-2">
-                                        <PanelButton
-                                            variant="secondary"
-                                            className="flex-1"
-                                            onClick={() => setInstagramPreviewOpen(false)}
-                                        >
-                                            Cancelar
-                                        </PanelButton>
-                                        <PanelButton
-                                            variant="primary"
-                                            className="flex-1"
-                                            onClick={handleConfirmInstagramPublish}
-                                            disabled={isPublishingInstagram}
-                                        >
-                                            {isPublishingInstagram ? 'Publicando...' : 'Publicar ahora'}
-                                        </PanelButton>
-                                    </div>
                                 </div>
                                 </div>
                             )}
                         </div>
+                        {!isInstagramSuccess && (
+                            <div className="border-t p-4 px-6 shrink-0 bg-white dark:bg-black/10" style={{ borderColor: 'var(--border)' }}>
+                                <div className="flex flex-col sm:flex-row gap-3 max-w-md ml-auto">
+                                    <PanelButton
+                                        variant="secondary"
+                                        className="flex-1"
+                                        onClick={() => setInstagramPreviewOpen(false)}
+                                    >
+                                        Cancelar
+                                    </PanelButton>
+                                    <PanelButton
+                                        variant="primary"
+                                        className="flex-1"
+                                        onClick={handleConfirmInstagramPublish}
+                                        disabled={isPublishingInstagram}
+                                    >
+                                        {isPublishingInstagram ? 'Publicando...' : 'Publicar ahora'}
+                                    </PanelButton>
+                                </div>
+                            </div>
+                        )}
                     </div>
                 </div>
             )}
