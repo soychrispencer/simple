@@ -3522,20 +3522,10 @@ const INSTAGRAM_BRAND_LOGO_PATHS: Record<'simpleautos' | 'simplepropiedades', st
     simplepropiedades: path.resolve(API_ROOT_DIR, '..', '..', 'apps', 'simplepropiedades', 'public', 'logo.png'),
 };
 
-const instagramBrandLogoCache = new Map<string, string | null>();
-
-async function getInstagramBrandLogoDataUri(appId: 'simpleautos' | 'simplepropiedades'): Promise<string | null> {
-    if (instagramBrandLogoCache.has(appId)) {
-        return instagramBrandLogoCache.get(appId) ?? null;
-    }
-
+async function getInstagramBrandLogoBuffer(appId: 'simpleautos' | 'simplepropiedades'): Promise<Buffer | null> {
     try {
-        const logoBuffer = await fs.readFile(INSTAGRAM_BRAND_LOGO_PATHS[appId]);
-        const dataUri = `data:image/png;base64,${logoBuffer.toString('base64')}`;
-        instagramBrandLogoCache.set(appId, dataUri);
-        return dataUri;
+        return await fs.readFile(INSTAGRAM_BRAND_LOGO_PATHS[appId]);
     } catch {
-        instagramBrandLogoCache.set(appId, null);
         return null;
     }
 }
@@ -3648,11 +3638,8 @@ async function buildInstagramTemplateOverlaySvg(
     const priceAmount = escapeSvgText(priceLockup.amount);
     const highlights = template.highlights.slice(0, 4).map((item) => clampTemplateText(item, 18));
     const summaryLine = clampTemplateText(highlights.join('   ·   '), 64);
-    const appName = escapeSvgText(clampTemplateText(template.branding.appName, 16));
     const badgeText = escapeSvgText(clampTemplateText(template.branding.badgeText, 18));
     const ctaLabel = escapeSvgText(clampTemplateText(template.ctaLabel, 26));
-    const logoDataUri = await getInstagramBrandLogoDataUri(template.branding.appId);
-
     const topBandHeight = template.layoutVariant === 'portrait' ? 128 : 104;
     const bottomBandHeight = template.layoutVariant === 'portrait' ? 230 : 216;
     const pillY = template.overlayVariant.startsWith('property')
@@ -3661,21 +3648,12 @@ async function buildInstagramTemplateOverlaySvg(
     const titleY = height - bottomBandHeight - 28;
     const priceY = height - 74;
     const detailsY = height - 136;
-    const propertyLogoMarkup = logoDataUri
-        ? `<image href="${logoDataUri}" x="42" y="34" width="48" height="48" preserveAspectRatio="xMidYMid meet" />`
-        : `<text x="58" y="64" fill="${template.colors.textInverse}" font-size="28" font-weight="700">${appName}</text>`;
-    const autoLogoMarkup = logoDataUri
-        ? `<image href="${logoDataUri}" x="36" y="30" width="50" height="50" preserveAspectRatio="xMidYMid meet" />`
-        : `<text x="58" y="64" fill="${template.colors.textInverse}" font-size="26" font-weight="700">${appName}</text>`;
-
     const topBand = template.overlayVariant.startsWith('property')
         ? `
             <rect x="0" y="0" width="${width}" height="${topBandHeight}" fill="${template.colors.secondary}" opacity="0.96" />
-            ${propertyLogoMarkup}
             <text x="${width - 34}" y="64" fill="${template.colors.textInverse}" font-size="30" font-weight="800" text-anchor="end">${eyebrow}</text>
         `
         : `
-            ${autoLogoMarkup}
             <rect x="${width - 244}" y="28" rx="24" ry="24" width="216" height="56" fill="${template.colors.accent}" />
             <text x="${width - 136}" y="64" fill="${template.colors.textInverse}" font-size="24" font-weight="800" text-anchor="middle">${badgeText}</text>
         `;
@@ -3845,13 +3823,38 @@ async function prepareInstagramImageUrl(
 
     if (options.template) {
         const overlayBuffer = await buildInstagramTemplateOverlaySvg(listing, options.template, 1080, targetHeight);
-        pipeline = pipeline.composite([
+        const composites: Array<{ input: Buffer; top: number; left: number }> = [
             {
                 input: overlayBuffer,
                 top: 0,
                 left: 0,
             },
-        ]);
+        ];
+
+        const logoBuffer = await getInstagramBrandLogoBuffer(options.template.branding.appId);
+        if (logoBuffer) {
+            const logoPlacement = options.template.overlayVariant.startsWith('property')
+                ? { width: 48, height: 48, top: 34, left: 42 }
+                : { width: 50, height: 50, top: 30, left: 36 };
+
+            const logoOverlay = await sharp(logoBuffer)
+                .resize({
+                    width: logoPlacement.width,
+                    height: logoPlacement.height,
+                    fit: 'contain',
+                    withoutEnlargement: false,
+                })
+                .png()
+                .toBuffer();
+
+            composites.push({
+                input: logoOverlay,
+                top: logoPlacement.top,
+                left: logoPlacement.left,
+            });
+        }
+
+        pipeline = pipeline.composite(composites);
     }
 
     const jpegBuffer = await pipeline.jpeg({ quality: 90 }).toBuffer();
@@ -3940,6 +3943,11 @@ async function publishListingToInstagram(user: AppUser, listing: ListingRecord, 
             url: coverUrl,
         });
     } catch (e) {
+        console.error('[instagram] failed to prepare cover image:', {
+            listingId: listing.id,
+            templateId: options.template?.id ?? null,
+            error: e instanceof Error ? e.message : String(e),
+        });
         logDebug(`[instagram] failed to prepare cover image: ${e instanceof Error ? e.message : String(e)}`);
     }
 
