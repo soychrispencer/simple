@@ -885,12 +885,12 @@ export default function PublicacionesPage() {
             {/* Instagram Preview Modal */}
             {instagramPreviewOpen && previewListing && (
                 <div 
-                    className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 backdrop-blur-sm transition-all"
+                    className="fixed inset-0 z-[120] flex items-center justify-center p-2 sm:p-4 backdrop-blur-sm transition-all"
                     style={{ background: 'rgba(0,0,0,0.7)' }}
                     onClick={() => setInstagramPreviewOpen(false)}
                 >
                     <div 
-                        className="w-full max-w-5xl max-h-[92vh] flex flex-col overflow-hidden rounded-2xl border shadow-2xl"
+                        className="w-full max-w-5xl max-h-[calc(100dvh-0.75rem)] sm:max-h-[92vh] flex flex-col overflow-hidden rounded-2xl border shadow-2xl"
                         style={{ background: 'var(--surface)', borderColor: 'var(--border)' }}
                         onClick={(e) => e.stopPropagation()}
                     >
@@ -1074,7 +1074,7 @@ export default function PublicacionesPage() {
 
                         {/* Footer Buttons (Fixed) */}
                         {!isInstagramSuccess && (
-                            <div className="border-t p-4 px-6 shrink-0 bg-white dark:bg-black/10" style={{ borderColor: 'var(--border)' }}>
+                            <div className="border-t px-4 sm:px-6 pt-4 pb-[calc(env(safe-area-inset-bottom)+1rem)] shrink-0 bg-white dark:bg-black/10" style={{ borderColor: 'var(--border)' }}>
                                 <div className="flex gap-3 max-w-md ml-auto">
                                     <PanelButton
                                         variant="secondary"

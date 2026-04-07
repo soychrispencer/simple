@@ -3662,10 +3662,10 @@ async function buildInstagramTemplateOverlaySvg(
     const priceY = height - 74;
     const detailsY = height - 136;
     const propertyLogoMarkup = logoDataUri
-        ? `<image href="${logoDataUri}" x="56" y="40" width="220" height="34" preserveAspectRatio="xMidYMid meet" />`
+        ? `<image href="${logoDataUri}" x="42" y="34" width="48" height="48" preserveAspectRatio="xMidYMid meet" />`
         : `<text x="58" y="64" fill="${template.colors.textInverse}" font-size="28" font-weight="700">${appName}</text>`;
     const autoLogoMarkup = logoDataUri
-        ? `<image href="${logoDataUri}" x="54" y="38" width="150" height="32" preserveAspectRatio="xMidYMid meet" />`
+        ? `<image href="${logoDataUri}" x="36" y="30" width="50" height="50" preserveAspectRatio="xMidYMid meet" />`
         : `<text x="58" y="64" fill="${template.colors.textInverse}" font-size="26" font-weight="700">${appName}</text>`;
 
     const topBand = template.overlayVariant.startsWith('property')

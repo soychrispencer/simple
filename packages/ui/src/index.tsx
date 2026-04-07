@@ -288,20 +288,14 @@ export function InstagramTemplatePreview(props: InstagramTemplatePreviewProps) {
                         </>
                     ) : (
                         <>
-                            <div className="absolute inset-x-0 top-0 p-4">
-                                <div className="flex items-start justify-between gap-3">
-                                    <div
-                                        className="flex min-h-[32px] items-center"
-                                    >
-                                        <img src="/logo.png" alt={template.branding.appName} className="h-6 w-auto object-contain" />
-                                    </div>
-                                    <div
-                                        className="rounded-full px-4 py-2 text-[11px] font-bold uppercase tracking-[0.22em]"
-                                        style={{ background: template.colors.accent, color: template.colors.textInverse }}
-                                    >
-                                        {template.branding.badgeText}
-                                    </div>
-                                </div>
+                            <div className="absolute left-4 top-4">
+                                <img src="/logo.png" alt={template.branding.appName} className="h-8 w-8 object-contain" />
+                            </div>
+                            <div
+                                className="absolute right-4 top-4 rounded-full px-4 py-2 text-[11px] font-bold uppercase tracking-[0.22em]"
+                                style={{ background: template.colors.accent, color: template.colors.textInverse }}
+                            >
+                                {template.branding.badgeText}
                             </div>
                             <div
                                 className="absolute inset-x-0 bottom-0 p-4"
