@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, cloneElement, type ReactElement } from 'react';
+import { API_BASE } from '@simple/config';
 
 type GoogleLoginChildProps = {
     onClick?: () => void;
@@ -15,7 +16,6 @@ type GoogleLoginButtonProps = {
 
 export default function GoogleLoginButton({ children, disabled = false, onError }: GoogleLoginButtonProps) {
     const [loading, setLoading] = useState(false);
-    const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000';
 
     const handleGoogleLogin = async () => {
         if (disabled || loading) return;

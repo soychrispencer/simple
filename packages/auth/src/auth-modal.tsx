@@ -2,12 +2,12 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { IconX, IconBrandGoogle, IconMail, IconLock, IconUser, IconMailCheck } from '@tabler/icons-react';
+import { API_BASE } from '@simple/config';
 import { PanelButton, PanelIconButton, PanelNotice } from '@simple/ui';
 import GoogleLoginButton from './google-login-button';
 import { useAuth } from './auth-context';
 
 type Mode = 'login' | 'register' | 'recovery' | 'verify-email';
-const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000';
 
 export function AuthModal() {
     const { authOpen, closeAuth, login, register, logout } = useAuth();
