@@ -3807,6 +3807,8 @@ async function prepareInstagramImageUrl(
     options: {
         layoutVariant?: 'square' | 'portrait' | null;
         template?: InstagramRenderTemplate | null;
+        publishKey?: string | null;
+        isCover?: boolean;
     } = {}
 ): Promise<string> {
     const images = extractListingMediaUrls(listing);
@@ -3816,10 +3818,11 @@ async function prepareInstagramImageUrl(
     const bucketName = process.env.BACKBLAZE_BUCKET_NAME || 'simple-media';
     const effectiveLayoutVariant = options.layoutVariant ?? options.template?.layoutVariant ?? 'square';
     const targetHeight = effectiveLayoutVariant === 'portrait' ? 1350 : 1080;
-    
-    // Clave de destino única por imagen para evitar colisiones en el CDN
+
     const templateSuffix = options.template ? `-${options.template.id}` : '';
-    const destKey = `instagram-ready/${listing.id}-${index}${templateSuffix}-${targetHeight}.jpg`;
+    const publishKey = options.publishKey?.trim() || randomUUID();
+    const assetLabel = options.isCover ? 'cover' : `gallery-${index}`;
+    const destKey = `instagram-ready/${listing.id}/${publishKey}-${assetLabel}${templateSuffix}-${targetHeight}.jpg`;
     const downloadOrigin = process.env.BACKBLAZE_DOWNLOAD_URL || 'https://f005.backblazeb2.com';
     const directUrl = `${downloadOrigin}/file/${bucketName}/${destKey}`;
 
@@ -3861,7 +3864,14 @@ async function prepareInstagramImageUrl(
         CacheControl: 'public, max-age=86400',
     }));
 
-    console.log(`[instagram] uploaded to B2: ${directUrl}`);
+    console.log('[instagram] uploaded to B2:', {
+        listingId: listing.id,
+        imageIndex: index,
+        isCover: options.isCover === true,
+        templateId: options.template?.id ?? null,
+        destKey,
+        url: directUrl,
+    });
     return directUrl;
 }
 
@@ -3909,18 +3919,38 @@ async function publishListingToInstagram(user: AppUser, listing: ListingRecord, 
         throw new Error('El aviso no tiene imágenes.');
     }
 
-        logDebug(`[instagram] preparing ${mediaUrls.length} images for ${listing.id}`);
+    logDebug(`[instagram] preparing ${mediaUrls.length} images for ${listing.id}`);
     const preparedImages: Array<{ url: string }> = [];
-    for (let i = 0; i < mediaUrls.length; i++) {
+    const publishKey = randomUUID();
+
+    try {
+        const coverTemplate = options.template ?? null;
+        const coverUrl = await prepareInstagramImageUrl(listing, 0, {
+            layoutVariant: coverTemplate?.layoutVariant ?? null,
+            template: coverTemplate,
+            publishKey,
+            isCover: true,
+        });
+        if (coverUrl && coverUrl.startsWith('http')) {
+            preparedImages.push({ url: coverUrl });
+        }
+        console.log('[instagram] cover image prepared:', {
+            listingId: listing.id,
+            templateId: coverTemplate?.id ?? null,
+            url: coverUrl,
+        });
+    } catch (e) {
+        logDebug(`[instagram] failed to prepare cover image: ${e instanceof Error ? e.message : String(e)}`);
+    }
+
+    for (let i = 1; i < mediaUrls.length; i++) {
         try {
-            const templateForImage = i === 0 ? (options.template ?? null) : null;
             const url = await prepareInstagramImageUrl(listing, i, {
                 layoutVariant: options.template?.layoutVariant ?? null,
-                template: templateForImage,
+                template: null,
+                publishKey,
+                isCover: false,
             });
-            if (i === 0) {
-                logDebug(`[instagram] cover preparation for ${listing.id}: template=${templateForImage?.id ?? 'none'} url=${url}`);
-            }
             if (!url || !url.startsWith('http')) {
                 logDebug(`[instagram] skipped image ${i}: invalid URL "${url}"`);
                 continue;
