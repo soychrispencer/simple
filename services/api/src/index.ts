@@ -3819,7 +3819,7 @@ async function prepareInstagramImageUrl(
 
     const sharp = require('sharp') as typeof import('sharp');
     let pipeline = sharp(rawBuffer)
-        .resize({ width: 1080, height: targetHeight, fit: 'cover', withoutEnlargement: true });
+        .resize({ width: 1080, height: targetHeight, fit: 'cover' });
 
     if (options.template) {
         const overlayBuffer = await buildInstagramTemplateOverlaySvg(listing, options.template, 1080, targetHeight);
