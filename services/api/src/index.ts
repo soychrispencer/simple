@@ -3913,10 +3913,14 @@ async function publishListingToInstagram(user: AppUser, listing: ListingRecord, 
     const preparedImages: Array<{ url: string }> = [];
     for (let i = 0; i < mediaUrls.length; i++) {
         try {
+            const templateForImage = i === 0 ? (options.template ?? null) : null;
             const url = await prepareInstagramImageUrl(listing, i, {
                 layoutVariant: options.template?.layoutVariant ?? null,
-                template: i === 0 ? (options.template ?? null) : null,
+                template: templateForImage,
             });
+            if (i === 0) {
+                logDebug(`[instagram] cover preparation for ${listing.id}: template=${templateForImage?.id ?? 'none'} url=${url}`);
+            }
             if (!url || !url.startsWith('http')) {
                 logDebug(`[instagram] skipped image ${i}: invalid URL "${url}"`);
                 continue;
@@ -15375,13 +15379,17 @@ app.post('/api/integrations/instagram/publish-enhanced', async (c) => {
 
         const listingData = buildInstagramListingData(listing);
         const templates = buildInstagramTemplates(listingData);
-        const selectedTemplate =
-            parsed.data.options?.useTemplates !== false
-                ? [
-                    templates.recommendedTemplate,
-                    ...templates.alternatives,
-                ].find((template) => template.id === parsed.data.templateId) ?? templates.recommendedTemplate
-                : null;
+        const selectedTemplate = [
+            templates.recommendedTemplate,
+            ...templates.alternatives,
+        ].find((template) => template.id === parsed.data.templateId) ?? templates.recommendedTemplate;
+
+        console.log('[instagram] enhanced publish template resolved:', {
+            listingId: listing.id,
+            requestedTemplateId: parsed.data.templateId ?? null,
+            resolvedTemplateId: selectedTemplate?.id ?? null,
+            layoutVariant: selectedTemplate?.layoutVariant ?? null,
+        });
 
         const publication = await publishListingToInstagram(user, listing, {
             captionOverride: parsed.data.captionOverride ?? null,
@@ -16198,6 +16206,18 @@ async function bootstrapMissingTables() {
         await db.execute(sql`
             ALTER TABLE agenda_professional_profiles
                 ADD COLUMN IF NOT EXISTS notifications_last_seen_at timestamp
+        `);
+    } catch { /* ignore */ }
+
+    try {
+        await db.execute(sql`
+            ALTER TABLE agenda_professional_profiles
+                ADD COLUMN IF NOT EXISTS encuadre text,
+                ADD COLUMN IF NOT EXISTS requires_advance_payment boolean DEFAULT false,
+                ADD COLUMN IF NOT EXISTS advance_payment_instructions text,
+                ADD COLUMN IF NOT EXISTS wa_notifications_enabled boolean DEFAULT true,
+                ADD COLUMN IF NOT EXISTS wa_notify_professional boolean DEFAULT false,
+                ADD COLUMN IF NOT EXISTS wa_professional_phone varchar(30)
         `);
     } catch { /* ignore */ }
 

@@ -365,6 +365,10 @@ export default function PublicacionesPage() {
 
     const handleConfirmInstagramPublish = async () => {
         if (!previewListing) return;
+        if (templatesLoading || !activeTemplate) {
+            setNotice('Espera a que cargue el template de portada antes de publicar.');
+            return;
+        }
 
         setIsPublishingInstagram(true);
         const key = `${previewListing.id}:instagram`;
@@ -1011,9 +1015,9 @@ export default function PublicacionesPage() {
                                         variant="primary"
                                         className="flex-1"
                                         onClick={handleConfirmInstagramPublish}
-                                        disabled={isPublishingInstagram}
+                                        disabled={isPublishingInstagram || templatesLoading || !activeTemplate}
                                     >
-                                        {isPublishingInstagram ? 'Publicando...' : 'Publicar ahora'}
+                                        {isPublishingInstagram ? 'Publicando...' : templatesLoading ? 'Cargando template...' : 'Publicar ahora'}
                                     </PanelButton>
                                 </div>
                             </div>
