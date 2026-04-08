@@ -11168,19 +11168,28 @@ app.get('/api/auth/google/finalize', async (c) => {
 
     try {
         const result = await exchangeGoogleCode(code, state, c);
+        const fallbackOrigin = verifyOAuthState(state)?.origin ?? '';
+
         if (!result.ok) {
-            const fallbackOrigin = verifyOAuthState(state)?.origin ?? '';
-            const errRedirect = fallbackOrigin
+            const dest = fallbackOrigin
                 ? `${fallbackOrigin}/?google_error=${encodeURIComponent(result.error)}`
                 : '/';
-            return c.redirect(errRedirect);
+            return c.html(`<!DOCTYPE html><html><head><meta charset="utf-8">
+<script>window.location.replace(${JSON.stringify(dest)});</script></head>
+<body>Redirigiendo...</body></html>`);
         }
+
+        // Set session cookie in a 200 HTML response (not a 302) so proxies don't strip Set-Cookie.
         setSession(c, result.user.id);
         const safeReturnTo = rawReturnTo && rawReturnTo.startsWith('/') ? rawReturnTo : '/panel';
-        return c.redirect(`${result.origin}${safeReturnTo}`);
+        const dest = `${result.origin}${safeReturnTo}`;
+        return c.html(`<!DOCTYPE html><html><head><meta charset="utf-8">
+<script>window.location.replace(${JSON.stringify(dest)});</script></head>
+<body>Conectando...</body></html>`);
     } catch (error) {
         console.error('Google OAuth finalize error:', error);
-        return c.redirect('/');
+        return c.html(`<!DOCTYPE html><html><head><meta charset="utf-8">
+<script>window.location.replace("/");</script></head><body></body></html>`);
     }
 });
 
