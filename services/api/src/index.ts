@@ -11062,140 +11062,141 @@ app.get('/api/auth/google', async (c) => {
     return c.json({ ok: true, authUrl });
 });
 
+async function exchangeGoogleCode(code: string, state: string, c: Context): Promise<
+    | { ok: true; user: AppUser; origin: string }
+    | { ok: false; error: string; status: number }
+> {
+    if (!code || !state) {
+        return { ok: false, error: 'Código de autorización inválido', status: 400 };
+    }
+
+    const stateData = verifyOAuthState(state);
+    if (!stateData) {
+        return { ok: false, error: 'La sesión de autenticación con Google expiró. Intenta nuevamente.', status: 400 };
+    }
+
+    const origin = stateData.origin;
+    const googleClientId = asString(process.env.GOOGLE_CLIENT_ID);
+    const googleClientSecret = asString(process.env.GOOGLE_CLIENT_SECRET);
+    if (!googleClientId || !googleClientSecret) {
+        return { ok: false, error: 'Google OAuth no configurado', status: 500 };
+    }
+
+    const redirectUri = buildGoogleRedirectUri(origin);
+    const tokenResponse = await fetch('https://oauth2.googleapis.com/token', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: new URLSearchParams({ client_id: googleClientId, client_secret: googleClientSecret, code, grant_type: 'authorization_code', redirect_uri: redirectUri }),
+    });
+    const tokens = await tokenResponse.json();
+    if (!tokenResponse.ok) {
+        console.error('Google token error:', tokens);
+        return { ok: false, error: 'Error obteniendo tokens de Google', status: 400 };
+    }
+
+    const userResponse = await fetch('https://www.googleapis.com/oauth2/v2/userinfo', {
+        headers: { 'Authorization': `Bearer ${tokens.access_token}` },
+    });
+    const googleUser = await userResponse.json();
+    if (!userResponse.ok) {
+        return { ok: false, error: 'Error obteniendo información del usuario', status: 400 };
+    }
+
+    const normalizedEmail = asString(googleUser.email).toLowerCase();
+    if (!normalizedEmail) {
+        return { ok: false, error: 'Google no devolvió un correo válido.', status: 400 };
+    }
+
+    let user = await getUserByEmail(normalizedEmail);
+    if (user && !canAuthenticateUser(user)) {
+        return { ok: false, error: 'Tu cuenta está suspendida. Contacta al soporte.', status: 403 };
+    }
+
+    if (!user) {
+        const [insertedUser] = await db.insert(users).values({
+            email: normalizedEmail,
+            name: asString(googleUser.name) || 'Usuario Simple',
+            avatarUrl: asString(googleUser.picture) || null,
+            provider: 'google',
+            providerId: asString(googleUser.id) || null,
+            role: 'user',
+            status: googleUser.verified_email ? 'verified' : 'active',
+            lastLoginAt: new Date(),
+        }).returning({ id: users.id });
+
+        user = {
+            id: insertedUser.id,
+            email: normalizedEmail,
+            name: asString(googleUser.name) || 'Usuario Simple',
+            role: 'user',
+            status: googleUser.verified_email ? 'verified' : 'active',
+            avatar: asString(googleUser.picture) || undefined,
+            provider: 'google',
+            providerId: asString(googleUser.id) || undefined,
+            lastLoginAt: new Date(),
+        };
+        if (!googleUser.verified_email) {
+            try { await issueEmailVerification(user.id, normalizedEmail, origin); } catch (e) { console.error('Email verification delivery error:', e); }
+        }
+    } else {
+        const nextLoginAt = new Date();
+        await db.update(users).set({
+            name: asString(googleUser.name) || user.name,
+            avatarUrl: asString(googleUser.picture) || user.avatar || null,
+            provider: 'google',
+            providerId: asString(googleUser.id) || user.providerId || null,
+            status: googleUser.verified_email ? 'verified' : user.status,
+            updatedAt: nextLoginAt,
+            lastLoginAt: nextLoginAt,
+        }).where(eq(users.id, user.id));
+        user = { ...user, name: asString(googleUser.name) || user.name, avatar: asString(googleUser.picture) || user.avatar, provider: 'google', providerId: asString(googleUser.id) || user.providerId, status: googleUser.verified_email ? 'verified' : user.status, lastLoginAt: nextLoginAt };
+    }
+
+    if (!user.lastLoginAt) {
+        await touchUserLastLoginAt(user.id);
+        user = { ...user, lastLoginAt: new Date() };
+    }
+
+    return { ok: true, user, origin };
+}
+
+// GET /api/auth/google/finalize — navigation-based flow (avoids cross-origin fetch cookie restrictions)
+app.get('/api/auth/google/finalize', async (c) => {
+    const code = asString(c.req.query('code'));
+    const state = asString(c.req.query('state'));
+    const rawReturnTo = asString(c.req.query('returnTo'));
+
+    try {
+        const result = await exchangeGoogleCode(code, state, c);
+        if (!result.ok) {
+            const fallbackOrigin = verifyOAuthState(state)?.origin ?? '';
+            const errRedirect = fallbackOrigin
+                ? `${fallbackOrigin}/?google_error=${encodeURIComponent(result.error)}`
+                : '/';
+            return c.redirect(errRedirect);
+        }
+        setSession(c, result.user.id);
+        const safeReturnTo = rawReturnTo && rawReturnTo.startsWith('/') ? rawReturnTo : '/panel';
+        return c.redirect(`${result.origin}${safeReturnTo}`);
+    } catch (error) {
+        console.error('Google OAuth finalize error:', error);
+        return c.redirect('/');
+    }
+});
+
+// POST /api/auth/google/callback — kept for backwards compatibility (fetch-based flow)
 app.post('/api/auth/google/callback', async (c) => {
     try {
         const payload = asObject(await c.req.json().catch(() => null));
         const code = asString(payload.code);
         const state = asString(payload.state);
 
-        if (!code || !state) {
-            return c.json({ ok: false, error: 'Código de autorización inválido' }, 400);
+        const result = await exchangeGoogleCode(code, state, c);
+        if (!result.ok) {
+            return c.json({ ok: false, error: result.error }, result.status as 400 | 403 | 500);
         }
-
-        const stateData = verifyOAuthState(state);
-        if (!stateData) {
-            return c.json({ ok: false, error: 'La sesión de autenticación con Google expiró. Intenta nuevamente.' }, 400);
-        }
-
-        // Use origin from signed state (no cookie needed, works cross-origin)
-        const origin = stateData.origin;
-
-        const googleClientId = asString(process.env.GOOGLE_CLIENT_ID);
-        const googleClientSecret = asString(process.env.GOOGLE_CLIENT_SECRET);
-        if (!googleClientId || !googleClientSecret) {
-            return c.json({ ok: false, error: 'Google OAuth no configurado' }, 500);
-        }
-
-        const redirectUri = buildGoogleRedirectUri(origin);
-
-        // Exchange code for tokens
-        const tokenResponse = await fetch('https://oauth2.googleapis.com/token', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/x-www-form-urlencoded',
-            },
-            body: new URLSearchParams({
-                client_id: googleClientId,
-                client_secret: googleClientSecret,
-                code,
-                grant_type: 'authorization_code',
-                redirect_uri: redirectUri,
-            }),
-        });
-
-        const tokens = await tokenResponse.json();
-
-        if (!tokenResponse.ok) {
-            console.error('Google token error:', tokens);
-            return c.json({ ok: false, error: 'Error obteniendo tokens de Google' }, 400);
-        }
-
-        // Get user info from Google
-        const userResponse = await fetch('https://www.googleapis.com/oauth2/v2/userinfo', {
-            headers: {
-                'Authorization': `Bearer ${tokens.access_token}`,
-            },
-        });
-
-        const googleUser = await userResponse.json();
-
-        if (!userResponse.ok) {
-            console.error('Google user info error:', googleUser);
-            return c.json({ ok: false, error: 'Error obteniendo información del usuario' }, 400);
-        }
-
-        const normalizedEmail = asString(googleUser.email).toLowerCase();
-        if (!normalizedEmail) {
-            return c.json({ ok: false, error: 'Google no devolvió un correo válido.' }, 400);
-        }
-
-        let user = await getUserByEmail(normalizedEmail);
-        if (user && !canAuthenticateUser(user)) {
-            return c.json({ ok: false, error: 'Tu cuenta está suspendida. Contacta al soporte.' }, 403);
-        }
-
-        if (!user) {
-            const [insertedUser] = await db.insert(users).values({
-                email: normalizedEmail,
-                name: asString(googleUser.name) || 'Usuario Simple',
-                avatarUrl: asString(googleUser.picture) || null,
-                provider: 'google',
-                providerId: asString(googleUser.id) || null,
-                role: 'user',
-                status: googleUser.verified_email ? 'verified' : 'active',
-                lastLoginAt: new Date(),
-            }).returning({ id: users.id });
-
-            user = {
-                id: insertedUser.id,
-                email: normalizedEmail,
-                name: asString(googleUser.name) || 'Usuario Simple',
-                role: 'user',
-                status: googleUser.verified_email ? 'verified' : 'active',
-                avatar: asString(googleUser.picture) || undefined,
-                provider: 'google',
-                providerId: asString(googleUser.id) || undefined,
-                lastLoginAt: new Date(),
-            };
-            if (!googleUser.verified_email) {
-                try {
-                    await issueEmailVerification(user.id, normalizedEmail, origin);
-                } catch (error) {
-                    console.error('Email verification delivery error:', error);
-                }
-            }
-        } else {
-            const nextLoginAt = new Date();
-            await db.update(users)
-                .set({
-                    name: asString(googleUser.name) || user.name,
-                    avatarUrl: asString(googleUser.picture) || user.avatar || null,
-                    provider: 'google',
-                    providerId: asString(googleUser.id) || user.providerId || null,
-                    status: googleUser.verified_email ? 'verified' : user.status,
-                    updatedAt: nextLoginAt,
-                    lastLoginAt: nextLoginAt,
-                })
-                .where(eq(users.id, user.id));
-            user = {
-                ...user,
-                name: asString(googleUser.name) || user.name,
-                avatar: asString(googleUser.picture) || user.avatar,
-                provider: 'google',
-                providerId: asString(googleUser.id) || user.providerId,
-                status: googleUser.verified_email ? 'verified' : user.status,
-                lastLoginAt: nextLoginAt,
-            };
-        }
-
-        if (!user.lastLoginAt) {
-            await touchUserLastLoginAt(user.id);
-            user = { ...user, lastLoginAt: new Date() };
-        }
-
-        setSession(c, user.id);
-        return c.json({ ok: true, user: sanitizeUser(user) });
-
+        setSession(c, result.user.id);
+        return c.json({ ok: true, user: sanitizeUser(result.user) });
     } catch (error) {
         console.error('Google OAuth error:', error);
         return c.json({ ok: false, error: 'Error interno del servidor' }, 500);
