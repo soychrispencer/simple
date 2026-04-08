@@ -25,7 +25,7 @@ async function subscribeAndSend(registration: ServiceWorkerRegistration, vapidKe
     const existing = await registration.pushManager.getSubscription();
     const sub = existing ?? await registration.pushManager.subscribe({
         userVisibleOnly: true,
-        applicationServerKey: urlBase64ToUint8Array(vapidKey),
+        applicationServerKey: urlBase64ToUint8Array(vapidKey) as BufferSource,
     });
     const json = sub.toJSON();
     const keys = json.keys as { p256dh: string; auth: string } | undefined;
