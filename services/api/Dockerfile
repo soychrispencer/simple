@@ -6,7 +6,7 @@ ENV PORT=4000
 WORKDIR /app
 
 RUN apt-get update \
-  && apt-get install -y --no-install-recommends curl wget ca-certificates \
+  && apt-get install -y --no-install-recommends curl wget ca-certificates fontconfig fonts-dejavu fonts-liberation fonts-inter \
   && rm -rf /var/lib/apt/lists/*
 
 COPY package*.json ./
