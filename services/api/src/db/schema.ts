@@ -441,6 +441,9 @@ export const agendaProfessionalProfiles = pgTable('agenda_professional_profiles'
   } | null>(),
   // Notifications
   notificationsLastSeenAt: timestamp('notifications_last_seen_at'),
+  // Subscription plan
+  plan: varchar('plan', { length: 20 }).notNull().default('free'), // 'free' | 'pro'
+  planExpiresAt: timestamp('plan_expires_at'),
   createdAt: timestamp('created_at').notNull().defaultNow(),
   updatedAt: timestamp('updated_at').notNull().defaultNow(),
 }, (table) => ({

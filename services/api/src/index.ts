@@ -44,7 +44,7 @@ import jwt from 'jsonwebtoken';
 import { z } from 'zod';
 import { evaluatePublicationLifecycle, getPublicationLifecyclePolicy } from '@simple/config';
 import {
-    generateSmartTemplates as buildInstagramTemplates,
+    generateSmartTemplates,
     type InstagramTemplateView as InstagramRenderTemplate,
     type ListingData as InstagramListingData,
 } from './instagram-templates.js';
@@ -3636,7 +3636,7 @@ async function buildInstagramTemplateOverlaySvg(
     const priceLockup = splitTemplatePrice(clampTemplateText(template.priceLabel || listing.price || 'Consultar precio', 18));
     const pricePrefix = escapeSvgText(priceLockup.prefix);
     const priceAmount = escapeSvgText(priceLockup.amount);
-    const highlights = template.highlights.slice(0, 4).map((item) => clampTemplateText(item, 18));
+    const highlights = (template.highlights ?? []).slice(0, 4).map((item: string) => clampTemplateText(item, 18));
     const summaryLine = clampTemplateText(highlights.join('   ·   '), 64);
     const badgeText = escapeSvgText(clampTemplateText(template.branding.badgeText, 18));
     const ctaLabel = escapeSvgText(clampTemplateText(template.ctaLabel, 26));
@@ -3774,7 +3774,7 @@ async function buildInstagramTemplateOverlaySvg(
             <text x="${width - 126}" y="57" fill="#FFFFFF" font-size="22" font-weight="800" text-anchor="middle">${eyebrow}</text>
             <rect x="0" y="${titanBottomStart}" width="${width}" height="${height - titanBottomStart}" fill="#0D0D0D" fill-opacity="0.96" />
             <rect x="0" y="${titanBottomStart}" width="${width}" height="5" fill="${template.colors.accent}" />
-            <text x="56" y="${titanCarLineY}" fill="#FFFFFF" font-size="34" font-weight="700">${escapeSvgText(clampTemplateText(template.headline, 28))}</text>
+            <text x="56" y="${titanCarLineY}" fill="#FFFFFF" font-size="34" font-weight="700">${escapeSvgText(clampTemplateText(template.headline ?? template.title, 28))}</text>
             <text x="${width - 56}" y="${titanCarLineY}" fill="${template.colors.accent}" font-size="26" font-weight="700" text-anchor="end">${location}</text>
             <text x="56" y="${titanSpecsY}" fill="rgba(255,255,255,0.62)" font-size="26" font-weight="600">${escapeSvgText(summaryLine)}</text>
             <text x="56" y="${titanPriceY}" fill="${template.colors.accent}" font-size="86" font-weight="900">${autoFullPrice}</text>
@@ -3926,7 +3926,7 @@ async function prepareInstagramImageUrl(
 
         const variant = options.template.overlayVariant;
         const skipLogo = variant === 'auto-clean';
-        const logoBuffer = skipLogo ? null : await getInstagramBrandLogoBuffer(options.template.branding.appId);
+        const logoBuffer = skipLogo || !options.template.branding.appId ? null : await getInstagramBrandLogoBuffer(options.template.branding.appId);
         if (logoBuffer) {
             let logoPlacement: { width: number; height: number; top: number; left: number };
             if (variant === 'auto-watermark') {
@@ -14275,6 +14275,28 @@ async function getAgendaProfile(userId: string) {
     });
 }
 
+const FREE_TIER_LIMITS = { maxClientsTotal: 5, maxAppointmentsPerMonth: 10 };
+
+function isFreePlan(profile: { plan: string; planExpiresAt: Date | null }): boolean {
+    if (profile.plan === 'free') return true;
+    if (profile.plan === 'pro' && profile.planExpiresAt && profile.planExpiresAt < new Date()) return true;
+    return false;
+}
+
+async function checkClientLimit(profileId: string): Promise<string | null> {
+    const [row] = await db.select({ total: sql<number>`count(*)::int` }).from(agendaClients).where(eq(agendaClients.professionalId, profileId));
+    if ((row?.total ?? 0) >= FREE_TIER_LIMITS.maxClientsTotal) return `Has alcanzado el límite de ${FREE_TIER_LIMITS.maxClientsTotal} pacientes del plan gratuito. Actualiza a Pro para pacientes ilimitados.`;
+    return null;
+}
+
+async function checkAppointmentLimit(profileId: string): Promise<string | null> {
+    const now = new Date();
+    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+    const [row] = await db.select({ total: sql<number>`count(*)::int` }).from(agendaAppointments).where(and(eq(agendaAppointments.professionalId, profileId), gte(agendaAppointments.startsAt, monthStart)));
+    if ((row?.total ?? 0) >= FREE_TIER_LIMITS.maxAppointmentsPerMonth) return `Has alcanzado el límite de ${FREE_TIER_LIMITS.maxAppointmentsPerMonth} citas mensuales del plan gratuito. Actualiza a Pro para citas ilimitadas.`;
+    return null;
+}
+
 /** Generate time slots for a given date based on availability rules and existing appointments */
 function generateSlots(
     rules: { startTime: string; endTime: string; breakStart?: string | null; breakEnd?: string | null }[],
@@ -14552,6 +14574,10 @@ app.post('/api/agenda/clients', requireVerifiedSession, async (c) => {
     if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
     const profile = await getAgendaProfile(user.id);
     if (!profile) return c.json({ ok: false, error: 'Perfil no encontrado' }, 404);
+    if (isFreePlan(profile)) {
+        const limitError = await checkClientLimit(profile.id);
+        if (limitError) return c.json({ ok: false, error: limitError }, 403);
+    }
     const body = await c.req.json().catch(() => ({})) as Record<string, unknown>;
     if (!body.firstName) return c.json({ ok: false, error: 'El nombre es requerido' }, 400);
     const [client] = await db.insert(agendaClients).values({
@@ -14633,6 +14659,10 @@ app.post('/api/agenda/appointments', requireVerifiedSession, async (c) => {
     if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
     const profile = await getAgendaProfile(user.id);
     if (!profile) return c.json({ ok: false, error: 'Perfil no encontrado' }, 404);
+    if (isFreePlan(profile)) {
+        const limitError = await checkAppointmentLimit(profile.id);
+        if (limitError) return c.json({ ok: false, error: limitError }, 403);
+    }
     const body = await c.req.json().catch(() => ({})) as Record<string, unknown>;
     if (!body.startsAt) return c.json({ ok: false, error: 'Fecha de inicio requerida' }, 400);
     const durationMinutes = typeof body.durationMinutes === 'number' ? body.durationMinutes : 60;
@@ -15596,6 +15626,10 @@ app.post('/api/public/agenda/:slug/book', async (c) => {
         where: and(eq(agendaProfessionalProfiles.slug, slug), eq(agendaProfessionalProfiles.isPublished, true)),
     });
     if (!profile) return c.json({ ok: false, error: 'Perfil no encontrado' }, 404);
+    if (isFreePlan(profile)) {
+        const limitError = await checkAppointmentLimit(profile.id);
+        if (limitError) return c.json({ ok: false, error: 'Este profesional ha alcanzado el límite de citas de su plan actual. Intenta más adelante.' }, 403);
+    }
 
     const body = await c.req.json().catch(() => ({})) as Record<string, unknown>;
     if (!body.startsAt || !body.clientName) return c.json({ ok: false, error: 'Datos requeridos: startsAt, clientName' }, 400);
@@ -15797,7 +15831,7 @@ app.post('/api/integrations/instagram/publish-enhanced', async (c) => {
             publication,
             template: selectedTemplate,
             aiContent: null,
-            adaptations: selectedTemplate?.adaptations ?? null,
+            adaptations: null,
             score: selectedTemplate?.score ?? null,
         });
 
@@ -15815,7 +15849,7 @@ app.post('/api/test/templates', async (c) => {
     try {
         const { vertical } = await c.req.json();
         
-        const testListingData = {
+        const testListingData: InstagramListingData = {
             id: 'test-123',
             vertical: vertical as 'autos' | 'propiedades' | 'agenda',
             title: 'Toyota Corolla 2022',
@@ -15873,7 +15907,8 @@ app.post('/api/integrations/instagram/templates', async (c) => {
             return c.json({ ok: false, error: 'No tienes permisos sobre esta publicacion' }, 403);
         }
 
-        const templates = buildInstagramTemplates(buildInstagramListingData(listing));
+        const listingData = buildInstagramListingData(listing);
+        const templates = generateSmartTemplates(listingData);
 
         return c.json({ ok: true, ...templates });
 

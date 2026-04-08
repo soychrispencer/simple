@@ -46,7 +46,7 @@ import { InstagramAIService, AIGeneratedContent } from './instagram-ai.js';
 import { InstagramAnalyticsService, InstagramAnalytics } from './instagram-analytics.js';
 import { InstagramABTestingService, ABTestCampaign } from './instagram-ab-testing.js';
 import { InstagramSchedulerService, ScheduledPost } from './instagram-scheduler.js';
-import { analyzeListingForTemplate, generateFinalTemplate, ListingData } from './instagram-templates.js';
+import { analyzeListingForTemplate, generateSmartTemplates as generateSmartTemplatesFromLib, ListingData } from './instagram-templates.js';
 
 export function isInstagramConfigured(): boolean {
     return Boolean(getInstagramAppId() && getInstagramAppSecret() && getInstagramRedirectUri());
@@ -777,35 +777,9 @@ export function getSchedulingInsights(
     return InstagramSchedulerService.generateSchedulingInsights(userHistory || [], similarUsersData || []);
 }
 
-// Generar templates inteligentes
-export function generateSmartTemplates(
-    listing: ListingData
-): {
-    recommendedTemplate: any;
-    alternatives: any[];
-    adaptations: {
-        colors: boolean;
-        layout: boolean;
-        content: boolean;
-    };
-    score: number;
-} {
-    
-    const configs = analyzeListingForTemplate(listing);
-    const bestConfig = configs[0];
-    
-    if (!bestConfig) {
-        throw new Error('No suitable template found for this listing');
-    }
-    
-    const template = generateFinalTemplate(bestConfig, listing);
-    
-    return {
-        recommendedTemplate: template,
-        alternatives: configs.slice(1, 3).map(c => generateFinalTemplate(c, listing)),
-        adaptations: bestConfig.adaptations,
-        score: bestConfig.score
-    };
+// Generar templates inteligentes — delega a instagram-templates
+export function generateSmartTemplates(listing: ListingData) {
+    return generateSmartTemplatesFromLib(listing);
 }
 
 // Función principal mejorada que integra todo

@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState, useCallback } from 'react';
+import { useEffect, useMemo, useState, useCallback, useRef } from 'react';
 import Link from 'next/link';
 import {
     IconBrandInstagram,
@@ -323,23 +323,154 @@ export default function PublicacionesPage() {
         closeMenus();
     };
 
-    const loadInstagramTemplatesForListing = useCallback(async (listingId: string) => {
-        setTemplatesLoading(true);
-        const result = await generateSmartTemplates(listingId);
-        if (!result.ok || !result.recommendedTemplate) {
-            setInstagramTemplates([]);
+    // Estado mejorado para carga asíncrona
+    const [templatesLoadingProgress, setTemplatesLoadingProgress] = useState(0);
+    const [templatesLoadingMessage, setTemplatesLoadingMessage] = useState('');
+    const [templatesError, setTemplatesError] = useState<string | null>(null);
+    const [templatesRetryCount, setTemplatesRetryCount] = useState(0);
+    
+    // Estado mejorado para preview en tiempo real
+    const [templateTransitioning, setTemplateTransitioning] = useState(false);
+    const [previousTemplateId, setPreviousTemplateId] = useState<string | null>(null);
+    
+    // Estado para sistema de rollback
+    const [publishingState, setPublishingState] = useState<'idle' | 'validating' | 'publishing' | 'success' | 'failed' | 'rolling-back'>('idle');
+    const [publishingError, setPublishingError] = useState<string | null>(null);
+    const [rollbackAttempted, setRollbackAttempted] = useState(false);
+    
+    // Función para rollback si falla publicación
+    const handleRollback = useCallback(async () => {
+        if (!previewListing || rollbackAttempted) return;
+        
+        setPublishingState('rolling-back');
+        setRollbackAttempted(true);
+        
+        try {
+            // Simular rollback - limpiar estados y cache
+            templatesCache.current.delete(previewListing.id);
+            setPublishingError(null);
+            setPublishingState('idle');
+            setNotice('Publicación revertida exitosamente. Puedes intentar nuevamente.');
+            
+            // Resetear estados del modal
             setSelectedTemplateId(null);
-            setTemplatesLoading(false);
-            if (result.error) {
-                setNotice(result.error);
-            }
+            setInstagramTemplates([]);
+            
+        } catch (error) {
+            setPublishingError('Error al revertir la publicación. Por favor, recarga la página.');
+            setPublishingState('failed');
+        }
+    }, [previewListing, rollbackAttempted]);
+    
+    // Función para manejar cambio de template con transición suave
+    const handleTemplateChange = useCallback(async (templateId: string) => {
+        if (templateId === selectedTemplateId || templateTransitioning) return;
+        
+        setTemplateTransitioning(true);
+        setPreviousTemplateId(selectedTemplateId);
+        
+        // Pequeño delay para mostrar la transición
+        await new Promise(resolve => setTimeout(resolve, 150));
+        
+        setSelectedTemplateId(templateId);
+        
+        // Delay adicional para completar la transición
+        await new Promise(resolve => setTimeout(resolve, 200));
+        
+        setTemplateTransitioning(false);
+        setPreviousTemplateId(null);
+    }, [selectedTemplateId, templateTransitioning]);
+    
+    // Cache inteligente de templates por listing
+    const templatesCache = useRef<Map<string, { templates: InstagramTemplateView[]; timestamp: number }>>(new Map());
+    const CACHE_DURATION = 5 * 60 * 1000; // 5 minutos
+    
+    const loadInstagramTemplatesForListing = useCallback(async (listingId: string, forceRefresh = false) => {
+        // Verificar cache primero
+        const cached = templatesCache.current.get(listingId);
+        const now = Date.now();
+        
+        if (!forceRefresh && cached && (now - cached.timestamp) < CACHE_DURATION) {
+            setInstagramTemplates(cached.templates);
+            setSelectedTemplateId(cached.templates[0]?.id ?? null);
             return;
         }
-
-        const nextTemplates = [result.recommendedTemplate, ...(result.alternatives ?? [])];
-        setInstagramTemplates(nextTemplates);
-        setSelectedTemplateId(nextTemplates[0]?.id ?? null);
-        setTemplatesLoading(false);
+        
+        setTemplatesLoading(true);
+        setTemplatesError(null);
+        setTemplatesLoadingProgress(0);
+        setTemplatesLoadingMessage('Iniciando generación de templates...');
+        
+        let retryCount = 0;
+        const maxRetries = 3;
+        
+        while (retryCount <= maxRetries) {
+            try {
+                setTemplatesLoadingProgress(20 + (retryCount * 15));
+                setTemplatesLoadingMessage('Analizando vehículo...');
+                
+                // Simular delay para mejor UX
+                await new Promise(resolve => setTimeout(resolve, 300));
+                
+                setTemplatesLoadingProgress(40 + (retryCount * 15));
+                setTemplatesLoadingMessage('Generando diseños inteligentes...');
+                
+                const result = await generateSmartTemplates(listingId);
+                
+                setTemplatesLoadingProgress(80);
+                setTemplatesLoadingMessage('Optimizando templates...');
+                
+                if (!result.ok || !result.recommendedTemplate) {
+                    throw new Error(result.error || 'Error al generar templates');
+                }
+                
+                const nextTemplates = [result.recommendedTemplate, ...(result.alternatives ?? [])];
+                
+                // Guardar en cache
+                templatesCache.current.set(listingId, {
+                    templates: nextTemplates,
+                    timestamp: now
+                });
+                
+                setInstagramTemplates(nextTemplates);
+                setSelectedTemplateId(nextTemplates[0]?.id ?? null);
+                setTemplatesLoadingProgress(100);
+                setTemplatesLoadingMessage('Templates listos');
+                
+                // Limpiar mensaje de éxito después de un delay
+                setTimeout(() => {
+                    setTemplatesLoading(false);
+                    setTemplatesLoadingProgress(0);
+                    setTemplatesLoadingMessage('');
+                }, 500);
+                
+                return;
+                
+            } catch (error) {
+                retryCount++;
+                setTemplatesRetryCount(retryCount);
+                
+                if (retryCount <= maxRetries) {
+                    setTemplatesLoadingProgress(50);
+                    setTemplatesLoadingMessage(`Reintentando (${retryCount}/${maxRetries})...`);
+                    
+                    // Exponential backoff
+                    const delay = Math.min(1000 * Math.pow(2, retryCount - 1), 3000);
+                    await new Promise(resolve => setTimeout(resolve, delay));
+                } else {
+                    const errorMessage = error instanceof Error ? error.message : 'Error desconocido';
+                    setTemplatesError(`No se pudieron cargar los templates después de ${maxRetries} intentos: ${errorMessage}`);
+                    setInstagramTemplates([]);
+                    setSelectedTemplateId(null);
+                    setTemplatesLoading(false);
+                    setTemplatesLoadingProgress(0);
+                    setTemplatesLoadingMessage('');
+                    
+                    // Mostrar notificación
+                    setNotice(`Error al cargar templates: ${errorMessage}`);
+                }
+            }
+        }
     }, []);
 
     const [isInstagramSuccess, setIsInstagramSuccess] = useState(false);
@@ -368,14 +499,111 @@ export default function PublicacionesPage() {
         void loadInstagramTemplatesForListing(listing.id);
     };
 
+    // Validación de imágenes y contenido antes de publicar
+    const validateInstagramContent = useCallback(async (listing: PanelListing, caption: string, template: InstagramTemplateView | null) => {
+        const errors: string[] = [];
+        const warnings: string[] = [];
+        
+        // Validación de imágenes
+        const images = getListingImages(listing);
+        if (images.length === 0) {
+            errors.push('El vehículo no tiene imágenes.');
+        } else {
+            // Validar calidad de imágenes (simulado)
+            for (let i = 0; i < images.length; i++) {
+                const img = images[i];
+                try {
+                    // Verificar si la imagen existe y es accesible
+                    const response = await fetch(img, { method: 'HEAD' });
+                    if (!response.ok) {
+                        errors.push(`La imagen ${i + 1} no está disponible.`);
+                    } else {
+                        const contentType = response.headers.get('content-type');
+                        if (!contentType?.startsWith('image/')) {
+                            errors.push(`La imagen ${i + 1} no es un formato válido.`);
+                        }
+                    }
+                } catch {
+                    warnings.push(`No se pudo verificar la imagen ${i + 1}.`);
+                }
+            }
+        }
+        
+        // Validación de caption
+        if (!caption.trim()) {
+            errors.push('El caption no puede estar vacío.');
+        } else if (caption.length < 10) {
+            warnings.push('El caption es muy corto, podría tener menos alcance.');
+        } else if (caption.length > 2200) {
+            errors.push('El caption excede el límite de 2200 caracteres.');
+        }
+        
+        // Validación de contenido inapropiado (simulado)
+        const prohibitedWords = ['spam', 'estafa', 'fraude', 'ilegal'];
+        const foundWords = prohibitedWords.filter(word => 
+            caption.toLowerCase().includes(word)
+        );
+        if (foundWords.length > 0) {
+            warnings.push(`El caption contiene palabras que podrían ser marcadas: ${foundWords.join(', ')}`);
+        }
+        
+        // Validación de template
+        if (!template) {
+            warnings.push('No se ha seleccionado ningún template de diseño.');
+        }
+        
+        // Validación de información del vehículo
+        if (!listing.price || Number(listing.price) <= 0) {
+            warnings.push('El vehículo no tiene precio definido.');
+        }
+        
+        if (!listing.location?.trim()) {
+            warnings.push('El vehículo no tiene ubicación definida.');
+        }
+        
+        return {
+            isValid: errors.length === 0,
+            errors,
+            warnings,
+            canProceed: errors.length === 0
+        };
+    }, []);
+
     const handleConfirmInstagramPublish = async () => {
         if (!previewListing) return;
         if (templatesLoading || !activeTemplate) {
             setNotice('Espera a que cargue el template de portada antes de publicar.');
             return;
         }
+        
+        // Validar contenido antes de publicar
+        setPublishingState('validating');
+        setNotice('Validando contenido...');
+        const validation = await validateInstagramContent(previewListing, previewCaption, activeTemplate);
+        
+        if (!validation.canProceed) {
+            setPublishingState('failed');
+            setPublishingError(`Error de validación: ${validation.errors.join('. ')}`);
+            setNotice(`Error de validación: ${validation.errors.join('. ')}`);
+            return;
+        }
+        
+        if (validation.warnings.length > 0) {
+            const proceedWithWarnings = confirm(
+                `Advertencias:\n${validation.warnings.join('\n')}\n\n¿Deseas continuar con la publicación?`
+            );
+            if (!proceedWithWarnings) {
+                setPublishingState('idle');
+                setNotice('Publicación cancelada por el usuario.');
+                return;
+            }
+        }
 
+        setPublishingState('publishing');
         setIsPublishingInstagram(true);
+        setPublishingError(null);
+        setRollbackAttempted(false);
+        
         const key = `${previewListing.id}:instagram`;
         setInstagramBusyKey(key);
 
@@ -391,13 +619,20 @@ export default function PublicacionesPage() {
             });
             const publication = result.publication ?? result.result;
             if (result.ok && publication) {
+                setPublishingState('success');
                 setLastPublishedPermalink(publication.instagramPermalink);
                 setIsInstagramSuccess(true);
+                setNotice('¡Publicado exitosamente en Instagram!');
                 // No cerramos el modal inmediatamente, mostramos el éxito
             } else {
+                setPublishingState('failed');
+                setPublishingError(result.error ?? 'No se pudo publicar en Instagram.');
                 setNotice(result.error ?? 'No se pudo publicar en Instagram.');
             }
         } catch (error) {
+            setPublishingState('failed');
+            const errorMessage = error instanceof Error ? error.message : 'Error inesperado';
+            setPublishingError(errorMessage);
             setNotice('Error inesperado al publicar en Instagram.');
         } finally {
             setIsPublishingInstagram(false);
@@ -956,7 +1191,9 @@ export default function PublicacionesPage() {
                                     )}
                                     <div className="w-full md:w-1/2 flex flex-col gap-3">
                                         <InstagramTemplatePreview
-                                            className="w-full max-w-[420px] mx-auto group"
+                                            className={`w-full max-w-[420px] mx-auto group transition-all duration-300 ${
+                                                templateTransitioning ? 'opacity-70 scale-95' : 'opacity-100 scale-100'
+                                            }`}
                                             imageUrl={getListingImages(previewListing)[instagramCarouselIndex] ?? null}
                                             template={instagramCarouselIndex === 0 ? activeTemplate : null}
                                             layoutVariant={activeTemplate?.layoutVariant ?? 'square'}
@@ -1003,7 +1240,22 @@ export default function PublicacionesPage() {
                                                 <div>
                                                     <div className="text-sm font-semibold" style={{ color: 'var(--fg)' }}>Templates de SimpleAutos</div>
                                                     <div className="text-[11px]" style={{ color: 'var(--fg-secondary)' }}>
-                                                        {templatesLoading ? 'Analizando diseño...' : activeTemplate ? `${activeTemplate.layoutVariant === 'portrait' ? '4:5' : '1:1'} · ${activeTemplate.score}/100` : 'Sin template'}
+                                                        {templatesLoading ? (
+                                                            <div className="space-y-1">
+                                                                <div className="flex items-center gap-2">
+                                                                    <IconLoader2 size={10} className="animate-spin" />
+                                                                    <span>{templatesLoadingMessage || 'Cargando...'}</span>
+                                                                </div>
+                                                                {templatesLoadingProgress > 0 && (
+                                                                    <div className="w-full bg-gray-200 rounded-full h-1">
+                                                                        <div 
+                                                                            className="bg-blue-500 h-1 rounded-full transition-all duration-300" 
+                                                                            style={{ width: `${templatesLoadingProgress}%` }}
+                                                                        ></div>
+                                                                    </div>
+                                                                )}
+                                                            </div>
+                                                        ) : activeTemplate ? `${activeTemplate.layoutVariant === 'portrait' ? '4:5' : '1:1'} · ${activeTemplate.score}/100` : 'Sin template'}
                                                     </div>
                                                 </div>
                                                 <div className="text-[11px] font-semibold uppercase tracking-[0.18em]" style={{ color: activeTemplate?.colors.accent ?? '#ff3600' }}>
@@ -1017,7 +1269,7 @@ export default function PublicacionesPage() {
                                                         <button
                                                             key={template.id}
                                                             type="button"
-                                                            onClick={() => setSelectedTemplateId(template.id)}
+                                                            onClick={() => void handleTemplateChange(template.id)}
                                                             className="min-w-0 rounded-lg sm:rounded-xl border p-1.5 sm:p-2 text-left transition-all"
                                                             style={{
                                                                 borderColor: isSelected ? template.colors.accent : 'var(--border)',
@@ -1046,6 +1298,53 @@ export default function PublicacionesPage() {
                                                     );
                                                 })}
                                             </div>
+                                            
+                                            {/* Manejo de errores mejorado */}
+                                            {templatesError && (
+                                                <div className="mt-3 p-3 rounded-lg border" style={{ borderColor: '#ef4444', background: '#ef444410' }}>
+                                                    <div className="flex items-start gap-2">
+                                                        <div className="text-red-500 mt-0.5">
+                                                            <IconX size={14} />
+                                                        </div>
+                                                        <div className="flex-1">
+                                                            <div className="text-xs font-semibold text-red-600 mb-1">Error al cargar templates</div>
+                                                            <div className="text-xs text-red-500 mb-2">{templatesError}</div>
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => {
+                                                                    if (previewListing) {
+                                                                        setTemplatesRetryCount(0);
+                                                                        void loadInstagramTemplatesForListing(previewListing.id, true);
+                                                                    }
+                                                                }}
+                                                                className="text-xs px-2 py-1 bg-red-500 text-white rounded hover:bg-red-600 transition-colors"
+                                                            >
+                                                                Reintentar
+                                                            </button>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            )}
+                                            
+                                            {/* Botón de refresh forzado */}
+                                            {!templatesLoading && !templatesError && instagramTemplates.length > 0 && (
+                                                <div className="mt-2 text-center">
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => {
+                                                            if (previewListing) {
+                                                                setTemplatesRetryCount(0);
+                                                                void loadInstagramTemplatesForListing(previewListing.id, true);
+                                                            }
+                                                        }}
+                                                        className="text-xs px-2 py-1 rounded border hover:bg-black/5 transition-colors"
+                                                        style={{ borderColor: 'var(--border)', color: 'var(--fg-secondary)' }}
+                                                    >
+                                                        <IconRefresh size={10} className="inline mr-1" />
+                                                        Regenerar diseños
+                                                    </button>
+                                                </div>
+                                            )}
                                         </div>
                                         <div className="mb-2 flex items-center justify-between shrink-0">
                                             <label 

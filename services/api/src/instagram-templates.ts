@@ -34,17 +34,17 @@ export type InstagramTemplateStyle = 'modern' | 'classic' | 'sport' | 'luxury' |
 export type InstagramLayout = 'carousel' | 'single' | 'story';
 export type InstagramLayoutVariant = 'square' | 'portrait';
 export type InstagramOverlayVariant =
-    | 'auto-performance'
+    | 'minimalista-centrado'
+    | 'premium-corporativo'
+    | 'dinamico-moderno'
     | 'auto-spec'
-    | 'auto-premium'
     | 'auto-focal'
     | 'auto-titan'
     | 'auto-studio'
     | 'auto-clean'
     | 'auto-watermark'
-    | 'property-editorial'
-    | 'property-project'
-    | 'property-conversion';
+    | 'property-conversion'
+    | 'property-project';
 
 export interface InstagramTemplateView {
     id: string;
@@ -61,524 +61,201 @@ export interface InstagramTemplateView {
         background: string;
         surface: string;
         textPrimary: string;
+        textSecondary: string;
         textInverse: string;
     };
-    score: number;
-    adaptations: {
-        colors: boolean;
-        layout: boolean;
-        content: boolean;
-    };
     branding: {
-        appId: 'simpleautos' | 'simplepropiedades';
         appName: string;
         badgeText: string;
+        logoUrl?: string;
+        appId?: 'simpleautos' | 'simplepropiedades';
     };
     eyebrow: string;
-    headline: string;
+    title: string;
+    headline?: string;
+    subtitle?: string;
+    locationLabel?: string;
+    highlights?: string[];
     priceLabel: string;
-    locationLabel: string;
-    highlights: string[];
     ctaLabel: string;
-}
-
-export interface InstagramTemplate extends InstagramTemplateView {}
-
-export interface SmartTemplateConfig {
-    template: InstagramTemplate;
-    adaptations: {
-        colors: boolean;
-        layout: boolean;
-        content: boolean;
-    };
     score: number;
 }
 
-function normalizeLocation(value?: string): string {
-    return value?.trim() || 'Chile';
-}
+const BRAND = getSimpleAppBrand({
+    name: 'SimpleAutos',
+    domain: 'simpleautos.com',
+} as any);
 
-function clampTemplateText(value: string | undefined, maxLength: number, fallback: string): string {
-    const normalized = value?.replace(/\s+/g, ' ').trim() || fallback;
-    if (normalized.length <= maxLength) return normalized;
-    return `${normalized.slice(0, Math.max(0, maxLength - 1)).trimEnd()}…`;
-}
+// Paletas de colores modernas y coherentes
+const COLOR_PALETTES = {
+    minimalista: {
+        primary: '#000000',
+        secondary: '#ffffff',
+        accent: '#000000',
+        background: '#ffffff',
+        surface: '#f8f9fa',
+        textPrimary: '#000000',
+        textSecondary: '#6c757d',
+        textInverse: '#ffffff',
+    },
+    premium: {
+        primary: '#1a1a1a',
+        secondary: '#2c3e50',
+        accent: '#3498db',
+        background: '#ffffff',
+        surface: '#ecf0f1',
+        textPrimary: '#2c3e50',
+        textSecondary: '#7f8c8d',
+        textInverse: '#ffffff',
+    },
+    dinamico: {
+        primary: '#ff6b6b',
+        secondary: '#4ecdc4',
+        accent: '#45b7d1',
+        background: '#ffffff',
+        surface: '#f8f9fa',
+        textPrimary: '#2c3e50',
+        textSecondary: '#6c757d',
+        textInverse: '#ffffff',
+    },
+};
 
-function normalizeTemplateHighlights(values: string[]): string[] {
-    return values
-        .filter(Boolean)
-        .map((value) => clampTemplateText(value, 18, value))
-        .slice(0, 4);
-}
+// Template 1: Minimalista Centrado
+const createMinimalistaTemplate = (listing: ListingData): InstagramTemplateView => ({
+    id: 'minimalista-centrado',
+    name: 'Minimalista Centrado',
+    category: 'auto',
+    style: 'minimal',
+    layout: 'single',
+    layoutVariant: 'square',
+    overlayVariant: 'minimalista-centrado',
+    colors: COLOR_PALETTES.minimalista,
+    branding: {
+        appName: BRAND.name,
+        badgeText: 'SIMPLE',
+    },
+    eyebrow: 'EXCLUSIVO',
+    title: listing.title,
+    headline: listing.title,
+    subtitle: listing.brand && listing.model ? `${listing.brand} ${listing.model}` : undefined,
+    locationLabel: listing.location,
+    highlights: listing.features?.slice(0, 4) ?? [],
+    priceLabel: listing.priceLabel || '$0',
+    ctaLabel: 'Ver detalles',
+    score: 95,
+});
 
-function normalizePrice(listing: ListingData): string {
-    if (listing.priceLabel?.trim()) return listing.priceLabel.trim();
-    if (typeof listing.price === 'number' && Number.isFinite(listing.price)) {
-        return new Intl.NumberFormat('es-CL', {
-            style: 'currency',
-            currency: 'CLP',
-            maximumFractionDigits: 0,
-        }).format(listing.price);
-    }
-    return 'Consultar precio';
-}
+// Template 2: Premium Corporativo
+const createPremiumTemplate = (listing: ListingData): InstagramTemplateView => ({
+    id: 'premium-corporativo',
+    name: 'Premium Corporativo',
+    category: 'auto',
+    style: 'luxury',
+    layout: 'single',
+    layoutVariant: 'square',
+    overlayVariant: 'premium-corporativo',
+    colors: COLOR_PALETTES.premium,
+    branding: {
+        appName: BRAND.name,
+        badgeText: 'PREMIUM',
+    },
+    eyebrow: 'ALTA GAMA',
+    title: listing.title,
+    headline: listing.title,
+    subtitle: listing.brand && listing.model ? `${listing.brand} ${listing.model}` : undefined,
+    locationLabel: listing.location,
+    highlights: listing.features?.slice(0, 4) ?? [],
+    priceLabel: listing.priceLabel || '$0',
+    ctaLabel: 'Consultar',
+    score: 90,
+});
 
-function buildAutosHighlights(listing: ListingData): string[] {
-    return [
-        listing.discountLabel,
-        listing.mileageLabel,
-        listing.transmission,
-        listing.fuelType,
-    ].filter(Boolean) as string[];
-}
+// Template 3: Dinámico Moderno
+const createDinamicoTemplate = (listing: ListingData): InstagramTemplateView => ({
+    id: 'dinamico-moderno',
+    name: 'Dinámico Moderno',
+    category: 'auto',
+    style: 'modern',
+    layout: 'single',
+    layoutVariant: 'square',
+    overlayVariant: 'dinamico-moderno',
+    colors: COLOR_PALETTES.dinamico,
+    branding: {
+        appName: BRAND.name,
+        badgeText: 'MODERNO',
+    },
+    eyebrow: 'TENDENCIA',
+    title: listing.title,
+    headline: listing.title,
+    subtitle: listing.brand && listing.model ? `${listing.brand} ${listing.model}` : undefined,
+    locationLabel: listing.location,
+    highlights: listing.features?.slice(0, 4) ?? [],
+    priceLabel: listing.priceLabel || '$0',
+    ctaLabel: 'Descubrir',
+    score: 92,
+});
 
-function buildAutosCommercialLabel(listing: ListingData): string {
-    const conditions = [
-        listing.negotiable ? 'Negociable' : '',
-        listing.financingAvailable ? 'Financiamiento' : '',
-        listing.exchangeAvailable ? 'Permuta' : '',
-    ].filter(Boolean);
-
-    if (conditions.length === 0) return 'Coordina visita';
-    return clampTemplateText(conditions.join(' · '), 28, 'Coordina visita');
-}
-
-function buildPropertyHighlights(listing: ListingData): string[] {
-    const summary = listing.summary?.filter(Boolean) ?? [];
-    const fallback = [listing.category ?? '', listing.condition ?? '', ...(listing.features ?? [])];
-    return [...summary, ...fallback].filter(Boolean).slice(0, 4);
-}
-
-function buildAutosTemplates(listing: ListingData): InstagramTemplate[] {
-    const brand = getSimpleAppBrand('simpleautos');
-    const modelLabel = clampTemplateText([listing.brand, listing.model].filter(Boolean).join(' ').trim() || listing.title, 34, 'Vehiculo destacado');
-    const priceLabel = normalizePrice(listing);
-    const locationLabel = normalizeLocation(listing.location);
-    const highlights = normalizeTemplateHighlights(buildAutosHighlights(listing));
-    const commercialLabel = buildAutosCommercialLabel(listing);
-    const badgeText = listing.discountLabel ?? 'DESTACADO';
-
-    return [
-        {
-            id: 'auto-performance-square',
-            name: 'Performance',
-            category: 'auto',
-            style: 'sport',
-            layout: 'single',
-            layoutVariant: 'square',
-            overlayVariant: 'auto-performance',
-            colors: {
-                primary: '#111111',
-                secondary: '#F5F2EB',
-                accent: brand.accentLight,
-                background: '#0F0F10',
-                surface: 'rgba(17,17,17,0.78)',
-                textPrimary: '#111111',
-                textInverse: '#FFFFFF',
-            },
-            score: 92,
-            adaptations: { colors: true, layout: true, content: true },
-            branding: {
-                appId: 'simpleautos',
-                appName: brand.shortName,
-                badgeText,
-            },
-            eyebrow: clampTemplateText(listing.condition?.toUpperCase() || listing.category?.toUpperCase(), 22, 'DISPONIBLE'),
-            headline: modelLabel,
-            priceLabel,
-            locationLabel: clampTemplateText(locationLabel, 28, 'Chile'),
-            highlights,
-            ctaLabel: commercialLabel,
-        },
-        {
-            id: 'auto-spec-square',
-            name: 'Ficha Tecnica',
-            category: 'auto',
-            style: 'classic',
-            layout: 'single',
-            layoutVariant: 'square',
-            overlayVariant: 'auto-spec',
-            colors: {
-                primary: '#F5F2EB',
-                secondary: '#111111',
-                accent: brand.accentLight,
-                background: '#FFFFFF',
-                surface: 'rgba(245,242,235,0.9)',
-                textPrimary: '#111111',
-                textInverse: '#FFFFFF',
-            },
-            score: 86,
-            adaptations: { colors: true, layout: false, content: true },
-            branding: {
-                appId: 'simpleautos',
-                appName: brand.shortName,
-                badgeText,
-            },
-            eyebrow: clampTemplateText(listing.category?.toUpperCase(), 22, 'DETALLES CLAVE'),
-            headline: clampTemplateText(listing.title, 34, 'Vehiculo disponible'),
-            priceLabel,
-            locationLabel: clampTemplateText(locationLabel, 28, 'Chile'),
-            highlights,
-            ctaLabel: commercialLabel,
-        },
-        {
-            id: 'auto-premium-square',
-            name: 'Premium',
-            category: 'auto',
-            style: 'luxury',
-            layout: 'single',
-            layoutVariant: 'square',
-            overlayVariant: 'auto-premium',
-            colors: {
-                primary: '#111111',
-                secondary: '#1F2937',
-                accent: brand.accentLight,
-                background: '#111111',
-                surface: 'rgba(17,17,17,0.68)',
-                textPrimary: '#111111',
-                textInverse: '#FFFFFF',
-            },
-            score: listing.price && listing.price > 35000000 ? 90 : 80,
-            adaptations: { colors: true, layout: false, content: true },
-            branding: {
-                appId: 'simpleautos',
-                appName: brand.shortName,
-                badgeText,
-            },
-            eyebrow: clampTemplateText(listing.discountLabel ? 'PRECIO AJUSTADO' : (listing.condition?.toUpperCase() || 'DESTACADO'), 22, 'DESTACADO'),
-            headline: modelLabel,
-            priceLabel,
-            locationLabel: clampTemplateText(locationLabel, 28, 'Chile'),
-            highlights,
-            ctaLabel: commercialLabel,
-        },
-        // ── Nuevos diseños ──────────────────────────────────────────────
-        {
-            id: 'auto-focal-square',
-            name: 'Focal',
-            category: 'auto',
-            style: 'modern',
-            layout: 'single',
-            layoutVariant: 'square',
-            overlayVariant: 'auto-focal',
-            colors: {
-                primary: '#FFFFFF',
-                secondary: '#111111',
-                accent: brand.accentLight,
-                background: '#111111',
-                surface: 'rgba(255,255,255,0.95)',
-                textPrimary: '#111111',
-                textInverse: '#FFFFFF',
-            },
-            score: 95,
-            adaptations: { colors: true, layout: true, content: true },
-            branding: { appId: 'simpleautos', appName: brand.shortName, badgeText },
-            eyebrow: clampTemplateText(listing.condition?.toUpperCase() || listing.category?.toUpperCase(), 22, 'DISPONIBLE'),
-            headline: modelLabel,
-            priceLabel,
-            locationLabel: clampTemplateText(locationLabel, 28, 'Chile'),
-            highlights,
-            ctaLabel: commercialLabel,
-        },
-        {
-            id: 'auto-titan-square',
-            name: 'Titan',
-            category: 'auto',
-            style: 'sport',
-            layout: 'single',
-            layoutVariant: 'square',
-            overlayVariant: 'auto-titan',
-            colors: {
-                primary: '#0D0D0D',
-                secondary: '#FFFFFF',
-                accent: brand.accentLight,
-                background: '#0D0D0D',
-                surface: 'rgba(13,13,13,0.96)',
-                textPrimary: '#FFFFFF',
-                textInverse: '#FFFFFF',
-            },
-            score: 93,
-            adaptations: { colors: true, layout: true, content: true },
-            branding: { appId: 'simpleautos', appName: brand.shortName, badgeText },
-            eyebrow: clampTemplateText(listing.condition?.toUpperCase() || 'DISPONIBLE', 22, 'DISPONIBLE'),
-            headline: modelLabel,
-            priceLabel,
-            locationLabel: clampTemplateText(locationLabel, 28, 'Chile'),
-            highlights,
-            ctaLabel: commercialLabel,
-        },
-        {
-            id: 'auto-studio-square',
-            name: 'Studio',
-            category: 'auto',
-            style: 'classic',
-            layout: 'single',
-            layoutVariant: 'square',
-            overlayVariant: 'auto-studio',
-            colors: {
-                primary: brand.accentLight,
-                secondary: '#111111',
-                accent: brand.accentLight,
-                background: '#111111',
-                surface: 'rgba(17,17,17,0.96)',
-                textPrimary: '#FFFFFF',
-                textInverse: '#FFFFFF',
-            },
-            score: 89,
-            adaptations: { colors: true, layout: false, content: true },
-            branding: { appId: 'simpleautos', appName: brand.shortName, badgeText },
-            eyebrow: clampTemplateText(listing.condition?.toUpperCase() || 'DISPONIBLE', 22, 'DISPONIBLE'),
-            headline: modelLabel,
-            priceLabel,
-            locationLabel: clampTemplateText(locationLabel, 28, 'Chile'),
-            highlights,
-            ctaLabel: commercialLabel,
-        },
-        {
-            id: 'auto-clean-square',
-            name: 'Foto limpia',
-            category: 'auto',
-            style: 'minimal',
-            layout: 'single',
-            layoutVariant: 'square',
-            overlayVariant: 'auto-clean',
-            colors: {
-                primary: '#111111',
-                secondary: '#FFFFFF',
-                accent: brand.accentLight,
-                background: '#000000',
-                surface: 'rgba(0,0,0,0)',
-                textPrimary: '#111111',
-                textInverse: '#FFFFFF',
-            },
-            score: 70,
-            adaptations: { colors: false, layout: false, content: false },
-            branding: { appId: 'simpleautos', appName: brand.shortName, badgeText: '' },
-            eyebrow: '',
-            headline: modelLabel,
-            priceLabel,
-            locationLabel: '',
-            highlights: [],
-            ctaLabel: '',
-        },
-        {
-            id: 'auto-watermark-square',
-            name: 'Marca de agua',
-            category: 'auto',
-            style: 'minimal',
-            layout: 'single',
-            layoutVariant: 'square',
-            overlayVariant: 'auto-watermark',
-            colors: {
-                primary: '#111111',
-                secondary: '#FFFFFF',
-                accent: brand.accentLight,
-                background: '#000000',
-                surface: 'rgba(255,255,255,0.12)',
-                textPrimary: '#111111',
-                textInverse: '#FFFFFF',
-            },
-            score: 66,
-            adaptations: { colors: false, layout: false, content: false },
-            branding: { appId: 'simpleautos', appName: brand.shortName, badgeText: '' },
-            eyebrow: '',
-            headline: modelLabel,
-            priceLabel,
-            locationLabel: '',
-            highlights: [],
-            ctaLabel: '',
-        },
-    ];
-}
-
-function buildPropertyTemplates(listing: ListingData): InstagramTemplate[] {
-    const brand = getSimpleAppBrand('simplepropiedades');
-    const priceLabel = normalizePrice(listing);
-    const locationLabel = normalizeLocation(listing.location);
-    const highlights = normalizeTemplateHighlights(buildPropertyHighlights(listing));
-    const isProject = listing.section === 'project';
-    const isRent = listing.section === 'rent';
-    const headline = clampTemplateText(listing.title, 42, 'Propiedad destacada');
-
-    return [
-        {
-            id: 'property-editorial-portrait',
-            name: 'Editorial',
-            category: 'propiedad',
-            style: 'modern',
-            layout: 'single',
-            layoutVariant: 'portrait',
-            overlayVariant: 'property-editorial',
-            colors: {
-                primary: '#0B1020',
-                secondary: '#111111',
-                accent: brand.accentLight,
-                background: '#F5F7FF',
-                surface: 'rgba(11,16,32,0.72)',
-                textPrimary: '#0B1020',
-                textInverse: '#FFFFFF',
-            },
-            score: isProject ? 82 : 90,
-            adaptations: { colors: true, layout: true, content: true },
-            branding: {
-                appId: 'simplepropiedades',
-                appName: brand.shortName,
-                badgeText: 'DESTACADO',
-            },
-            eyebrow: isRent ? 'ARRIENDO DISPONIBLE' : 'PROPIEDAD EN VENTA',
-            headline,
-            priceLabel,
-            locationLabel: clampTemplateText(locationLabel, 30, 'Chile'),
-            highlights,
-            ctaLabel: 'Solicita visita',
-        },
-        {
-            id: 'property-project-portrait',
-            name: 'Proyecto',
-            category: 'propiedad',
-            style: 'luxury',
-            layout: 'single',
-            layoutVariant: 'portrait',
-            overlayVariant: 'property-project',
-            colors: {
-                primary: '#111111',
-                secondary: '#0B1020',
-                accent: brand.accentLight,
-                background: '#111111',
-                surface: 'rgba(17,17,17,0.72)',
-                textPrimary: '#111111',
-                textInverse: '#FFFFFF',
-            },
-            score: isProject ? 95 : 84,
-            adaptations: { colors: true, layout: true, content: true },
-            branding: {
-                appId: 'simplepropiedades',
-                appName: brand.shortName,
-                badgeText: 'PROYECTO',
-            },
-            eyebrow: isProject ? 'PROYECTO EN VENTA' : 'OPORTUNIDAD',
-            headline,
-            priceLabel,
-            locationLabel: clampTemplateText(locationLabel, 30, 'Chile'),
-            highlights,
-            ctaLabel: 'Conoce las unidades',
-        },
-        {
-            id: 'property-conversion-portrait',
-            name: 'Conversion',
-            category: 'propiedad',
-            style: 'minimal',
-            layout: 'single',
-            layoutVariant: 'portrait',
-            overlayVariant: 'property-conversion',
-            colors: {
-                primary: '#FFFFFF',
-                secondary: '#0B1020',
-                accent: brand.accentLight,
-                background: '#FFFFFF',
-                surface: 'rgba(255,255,255,0.88)',
-                textPrimary: '#0B1020',
-                textInverse: '#FFFFFF',
-            },
-            score: isRent ? 91 : 83,
-            adaptations: { colors: true, layout: true, content: true },
-            branding: {
-                appId: 'simplepropiedades',
-                appName: brand.shortName,
-                badgeText: isRent ? 'ARRIENDO' : 'VENTA',
-            },
-            eyebrow: isRent ? 'LISTA PARA ARRENDAR' : 'LISTA PARA HABITAR',
-            headline,
-            priceLabel,
-            locationLabel: clampTemplateText(locationLabel, 30, 'Chile'),
-            highlights,
-            ctaLabel: 'Recibe informacion',
-        },
-    ];
-}
-
-function buildTemplates(listing: ListingData): InstagramTemplate[] {
-    if (listing.vertical === 'autos') return buildAutosTemplates(listing);
-    if (listing.vertical === 'propiedades') return buildPropertyTemplates(listing);
-    return [];
-}
-
-function scoreTemplate(template: InstagramTemplate, listing: ListingData): number {
-    let score = template.score;
-
-    if (listing.vertical === 'autos') {
-        if (template.overlayVariant === 'auto-premium' && (listing.price ?? 0) > 35000000) score += 8;
-        if (template.overlayVariant === 'auto-spec' && (listing.summary?.length ?? 0) >= 3) score += 6;
-    }
-
-    if (listing.vertical === 'propiedades') {
-        if (listing.section === 'project' && template.overlayVariant === 'property-project') score += 10;
-        if (listing.section === 'rent' && template.overlayVariant === 'property-conversion') score += 8;
-        if (listing.section === 'sale' && template.overlayVariant === 'property-editorial') score += 6;
-    }
-
-    return Math.min(score, 100);
-}
-
-export function analyzeListingForTemplate(listing: ListingData): SmartTemplateConfig[] {
-    return buildTemplates(listing)
-        .map((template) => ({
-            template: {
-                ...template,
-                score: scoreTemplate(template, listing),
-            },
-            adaptations: template.adaptations,
-            score: scoreTemplate(template, listing),
-        }))
-        .sort((a, b) => b.score - a.score);
-}
-
-export function generateFinalTemplate(config: SmartTemplateConfig, listing: ListingData): InstagramTemplate {
-    return {
-        ...config.template,
-        headline: config.template.headline || listing.title,
-        priceLabel: config.template.priceLabel || normalizePrice(listing),
-        locationLabel: config.template.locationLabel || normalizeLocation(listing.location),
-        highlights: config.template.highlights.length > 0
-            ? config.template.highlights
-            : listing.summary?.slice(0, 4) ?? [],
-        score: config.score,
-    };
-}
-
-export function getAvailableTemplates(category: InstagramTemplateCategory): InstagramTemplate[] {
-    const listing: ListingData =
-        category === 'auto'
-            ? { id: 'sample-auto', vertical: 'autos', title: 'Demo Auto' }
-            : { id: 'sample-property', vertical: 'propiedades', title: 'Demo Propiedad' };
-
-    return buildTemplates(listing).filter((template) => template.category === category);
-}
-
+// Función principal para generar templates
 export function generateSmartTemplates(listing: ListingData): {
     recommendedTemplate: InstagramTemplateView;
     alternatives: InstagramTemplateView[];
-    adaptations: {
-        colors: boolean;
-        layout: boolean;
-        content: boolean;
-    };
-    score: number;
 } {
-    const configs = analyzeListingForTemplate(listing);
-    const best = configs[0];
-
-    if (!best) {
-        throw new Error('No se encontraron templates compatibles para esta vertical.');
-    }
-
-    const recommendedTemplate = generateFinalTemplate(best, listing);
-    const alternatives = configs.slice(1, 3).map((config) => generateFinalTemplate(config, listing));
+    const templates = [
+        createMinimalistaTemplate(listing),
+        createPremiumTemplate(listing),
+        createDinamicoTemplate(listing),
+    ];
 
     return {
-        recommendedTemplate,
-        alternatives,
-        adaptations: best.adaptations,
-        score: best.score,
+        recommendedTemplate: templates[0],
+        alternatives: templates.slice(1),
     };
 }
+
+// Función para obtener templates disponibles
+export const getAvailableTemplates = (): InstagramTemplateView[] => {
+    const mockListing: ListingData = {
+        id: 'mock',
+        vertical: 'autos',
+        title: 'Vehículo Ejemplo',
+        price: 25000,
+        priceLabel: '$25,000',
+        brand: 'Toyota',
+        model: 'Corolla',
+        year: 2023,
+    };
+
+    return [
+        createMinimalistaTemplate(mockListing),
+        createPremiumTemplate(mockListing),
+        createDinamicoTemplate(mockListing),
+    ];
+};
+
+// Función para analizar listing y determinar mejor template
+export const analyzeListingForTemplate = (listing: ListingData): InstagramOverlayVariant => {
+    // Lógica simple para determinar el mejor template
+    if (listing.price && listing.price > 50000) {
+        return 'premium-corporativo';
+    }
+    if (listing.category?.includes('Deportivo') || listing.category?.includes('Sport')) {
+        return 'dinamico-moderno';
+    }
+    return 'minimalista-centrado';
+};
+
+// Exportar funciones de utilidad
+export const normalizeLocation = (location?: string): string => {
+    if (!location) return '';
+    return location.trim();
+};
+
+export const normalizePrice = (price?: number): string => {
+    if (!price) return '$0';
+    return new Intl.NumberFormat('es-AR', {
+        style: 'currency',
+        currency: 'ARS',
+        minimumFractionDigits: 0,
+        maximumFractionDigits: 0,
+    }).format(price);
+};
