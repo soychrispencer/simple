@@ -11010,20 +11010,27 @@ app.post('/api/auth/password-reset/confirm', async (c) => {
 
 function buildOAuthState(nonce: string, origin: string): string {
     const ts = Math.floor(Date.now() / 1000);
-    const payload = `${nonce}.${ts}.${origin}`;
+    // Use ~ as separator — safe since nonce/ts are hex/digits and origin is a URL (no ~)
+    const payload = `${nonce}~${ts}~${origin}`;
     const sig = createHash('sha256').update(`${SESSION_SECRET}:${payload}`).digest('hex').slice(0, 32);
-    return Buffer.from(`${payload}.${sig}`).toString('base64url');
+    return Buffer.from(`${payload}~${sig}`).toString('base64url');
 }
 
 function verifyOAuthState(state: string): { nonce: string; origin: string } | null {
     try {
         const decoded = Buffer.from(state, 'base64url').toString('utf8');
-        const parts = decoded.split('.');
-        if (parts.length !== 4) return null;
-        const [nonce, tsStr, origin, sig] = parts;
+        // Split on first 3 occurrences of ~ only (origin may theoretically be last)
+        const firstTilde = decoded.indexOf('~');
+        const secondTilde = decoded.indexOf('~', firstTilde + 1);
+        const lastTilde = decoded.lastIndexOf('~');
+        if (firstTilde === -1 || secondTilde === -1 || lastTilde === secondTilde) return null;
+        const nonce = decoded.slice(0, firstTilde);
+        const tsStr = decoded.slice(firstTilde + 1, secondTilde);
+        const origin = decoded.slice(secondTilde + 1, lastTilde);
+        const sig = decoded.slice(lastTilde + 1);
         const ts = parseInt(tsStr, 10);
         if (isNaN(ts) || Date.now() / 1000 - ts > 600) return null; // 10 min TTL
-        const payload = `${nonce}.${ts}.${origin}`;
+        const payload = `${nonce}~${ts}~${origin}`;
         const expected = createHash('sha256').update(`${SESSION_SECRET}:${payload}`).digest('hex').slice(0, 32);
         if (!safeEqualStrings(sig, expected)) return null;
         return { nonce, origin };
