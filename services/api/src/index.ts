@@ -3642,12 +3642,25 @@ async function buildInstagramTemplateOverlaySvg(
     const ctaLabel = escapeSvgText(clampTemplateText(template.ctaLabel, 26));
     const topBandHeight = template.layoutVariant === 'portrait' ? 128 : 104;
     const bottomBandHeight = template.layoutVariant === 'portrait' ? 230 : 216;
+    // Auto template: gradient overlay anchored from bottom (matches CSS preview layout)
+    const isAutoSpec = template.overlayVariant === 'auto-spec';
+    const autoBandBg = isAutoSpec ? '#F5F2EB' : '#111111';
+    const autoBandTextColor = isAutoSpec ? template.colors.textPrimary : template.colors.textInverse;
+    const autoOverlayH = Math.round(height * 0.50);
+    const autoGradientStartY = height - autoOverlayH;
+    const autoEyebrowY = height - 388;
+    const autoHeadlineY = height - 330;
+    const autoSummaryY = height - 196;
+    const autoCtaY = height - 150;
+    const autoPriceRowY = height - 66;
+    const autoFullPrice = escapeSvgText(clampTemplateText(template.priceLabel || 'Consultar precio', 18));
+    // Property template layout vars
     const pillY = template.overlayVariant.startsWith('property')
         ? (template.layoutVariant === 'portrait' ? height - bottomBandHeight - 116 : height - bottomBandHeight - 92)
-        : (template.layoutVariant === 'portrait' ? height - bottomBandHeight - 72 : height - bottomBandHeight - 60);
-    const titleY = height - bottomBandHeight - 28;
+        : 0;
     const priceY = height - 74;
     const detailsY = height - 136;
+
     const topBand = template.overlayVariant.startsWith('property')
         ? `
             <rect x="0" y="0" width="${width}" height="${topBandHeight}" fill="${template.colors.secondary}" opacity="0.96" />
@@ -3664,10 +3677,7 @@ async function buildInstagramTemplateOverlaySvg(
             <rect x="36" y="${pillY + 4}" rx="24" ry="24" width="342" height="56" fill="#FFFFFF" opacity="0.98" />
             <text x="66" y="${pillY + 42}" fill="${template.colors.secondary}" font-size="30" font-weight="700">${location}</text>
         `
-        : `
-            <rect x="32" y="${pillY}" rx="24" ry="24" width="270" height="54" fill="${template.colors.accent}" opacity="0.92" />
-            <text x="58" y="${pillY + 36}" fill="${template.colors.textInverse}" font-size="24" font-weight="700">${location}</text>
-        `;
+        : ''; // Auto: location shown in price row, no separate pill
 
     const detailsBand = template.overlayVariant === 'property-conversion'
         ? `
@@ -3686,52 +3696,40 @@ async function buildInstagramTemplateOverlaySvg(
             <text x="${width - 56}" y="${priceY}" fill="${template.colors.secondary}" font-size="56" font-weight="800" text-anchor="end">${priceAmount}</text>
             <text x="${width - 56}" y="${priceY - 62}" fill="${template.colors.textPrimary}" font-size="24" font-weight="700" text-anchor="end">${ctaLabel}</text>
         `
-        : `
-            <rect x="0" y="${height - bottomBandHeight}" width="${width}" height="${bottomBandHeight}" fill="${template.colors.secondary}" opacity="0.72" />
-            ${renderSvgTextLines(
-                template.overlayVariant.startsWith('property') ? titleLines : [summaryLine],
-                {
+        : template.overlayVariant.startsWith('property')
+            ? `
+                <rect x="0" y="${height - bottomBandHeight}" width="${width}" height="${bottomBandHeight}" fill="${template.colors.secondary}" opacity="0.72" />
+                ${renderSvgTextLines(titleLines, {
                     x: 56,
-                    y: detailsY - (template.overlayVariant.startsWith('property') ? 54 : 18),
-                    lineHeight: template.overlayVariant.startsWith('property') ? 42 : 34,
-                    fontSize: template.overlayVariant.startsWith('property') ? 34 : 30,
+                    y: detailsY - 54,
+                    lineHeight: 42,
+                    fontSize: 34,
                     fontWeight: 800,
                     fill: template.colors.textInverse,
-                }
-            )}
-            <text x="56" y="${detailsY + 18}" fill="${template.colors.textInverse}" font-size="25" font-weight="700">${template.overlayVariant.startsWith('property') ? escapeSvgText(summaryLine) : ''}</text>
-            ${
-                template.overlayVariant.startsWith('property')
-                    ? `
-                        <rect x="${width - 318}" y="${height - bottomBandHeight + 34}" rx="26" ry="26" width="262" height="132" fill="${template.colors.accent}" />
-                        <text x="${width - 286}" y="${height - bottomBandHeight + 72}" fill="${template.colors.textInverse}" font-size="20" font-weight="700">${template.overlayVariant === 'property-project' ? 'Desde' : badgeText}</text>
-                        ${pricePrefix ? `<text x="${width - 286}" y="${height - bottomBandHeight + 118}" fill="${template.colors.textInverse}" font-size="24" font-weight="700">${pricePrefix}</text>` : ''}
-                        <text x="${width - 76}" y="${height - bottomBandHeight + 124}" fill="${template.colors.textInverse}" font-size="50" font-weight="800" text-anchor="end">${priceAmount}</text>
-                        <text x="${width - 76}" y="${height - bottomBandHeight + 152}" fill="${template.colors.textInverse}" font-size="18" font-weight="700" text-anchor="end">${ctaLabel}</text>
-                    `
-                    : `
-                        <text x="56" y="${priceY - 42}" fill="${template.colors.textInverse}" font-size="22" font-weight="700">${ctaLabel}</text>
-                        <text x="56" y="${priceY}" fill="${template.colors.textInverse}" font-size="36" font-weight="700">${badgeText}</text>
-                        <text x="${width - 56}" y="${priceY - 42}" fill="${template.colors.textInverse}" font-size="24" font-weight="700" text-anchor="end">${location}</text>
-                        ${pricePrefix ? `<text x="${width - 286}" y="${priceY}" fill="${template.colors.accent}" font-size="24" font-weight="700">${pricePrefix}</text>` : ''}
-                        <text x="${width - 56}" y="${priceY}" fill="${template.colors.accent}" font-size="58" font-weight="800" text-anchor="end">${priceAmount}</text>
-                    `
-            }
-        `;
-
-    const titleBlock = template.overlayVariant.startsWith('property')
-        ? ''
-        : `
-            <rect x="0" y="${height - bottomBandHeight - 100}" width="${width}" height="100" fill="url(#titleFade)" />
-            ${renderSvgTextLines(titleLines, {
-                x: 44,
-                y: titleY - 26,
-                lineHeight: 46,
-                fontSize: 40,
-                fontWeight: 800,
-                fill: template.colors.textInverse,
-            })}
-        `;
+                })}
+                <text x="56" y="${detailsY + 18}" fill="${template.colors.textInverse}" font-size="25" font-weight="700">${escapeSvgText(summaryLine)}</text>
+                <rect x="${width - 318}" y="${height - bottomBandHeight + 34}" rx="26" ry="26" width="262" height="132" fill="${template.colors.accent}" />
+                <text x="${width - 286}" y="${height - bottomBandHeight + 72}" fill="${template.colors.textInverse}" font-size="20" font-weight="700">${template.overlayVariant === 'property-project' ? 'Desde' : badgeText}</text>
+                ${pricePrefix ? `<text x="${width - 286}" y="${height - bottomBandHeight + 118}" fill="${template.colors.textInverse}" font-size="24" font-weight="700">${pricePrefix}</text>` : ''}
+                <text x="${width - 76}" y="${height - bottomBandHeight + 124}" fill="${template.colors.textInverse}" font-size="50" font-weight="800" text-anchor="end">${priceAmount}</text>
+                <text x="${width - 76}" y="${height - bottomBandHeight + 152}" fill="${template.colors.textInverse}" font-size="18" font-weight="700" text-anchor="end">${ctaLabel}</text>
+            `
+            : `
+                <rect x="0" y="${autoGradientStartY}" width="${width}" height="${autoOverlayH}" fill="url(#autoBottomFade)" />
+                <text x="44" y="${autoEyebrowY}" fill="${autoBandTextColor}" font-size="20" font-weight="600">${eyebrow}</text>
+                ${renderSvgTextLines(titleLines, {
+                    x: 44,
+                    y: autoHeadlineY,
+                    lineHeight: 50,
+                    fontSize: 42,
+                    fontWeight: 800,
+                    fill: autoBandTextColor,
+                })}
+                <text x="44" y="${autoSummaryY}" fill="${autoBandTextColor}" font-size="27" font-weight="700">${escapeSvgText(summaryLine)}</text>
+                <text x="44" y="${autoCtaY}" fill="${autoBandTextColor}" font-size="22" font-weight="600">${ctaLabel}</text>
+                <text x="44" y="${autoPriceRowY}" fill="${template.colors.accent}" font-size="52" font-weight="800">${autoFullPrice}</text>
+                <text x="${width - 44}" y="${autoPriceRowY}" fill="${autoBandTextColor}" font-size="26" font-weight="700" text-anchor="end">${location}</text>
+            `;
 
     const svg = `
         <svg width="${width}" height="${height}" viewBox="0 0 ${width} ${height}" xmlns="http://www.w3.org/2000/svg" font-family="'Inter', 'Arial', sans-serif">
@@ -3740,11 +3738,15 @@ async function buildInstagramTemplateOverlaySvg(
                     <stop offset="0%" stop-color="#000000" stop-opacity="0" />
                     <stop offset="100%" stop-color="#000000" stop-opacity="0.7" />
                 </linearGradient>
+                <linearGradient id="autoBottomFade" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stop-color="${autoBandBg}" stop-opacity="0" />
+                    <stop offset="30%" stop-color="${autoBandBg}" stop-opacity="0.68" />
+                    <stop offset="100%" stop-color="${autoBandBg}" stop-opacity="${isAutoSpec ? '0.92' : '0.90'}" />
+                </linearGradient>
             </defs>
             <rect x="0" y="0" width="${width}" height="${height}" fill="transparent" />
             ${topBand}
             ${locationPill}
-            ${titleBlock}
             ${detailsBand}
         </svg>
     `;
