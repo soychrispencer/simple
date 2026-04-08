@@ -286,6 +286,115 @@ export function InstagramTemplatePreview(props: InstagramTemplatePreviewProps) {
                                 </div>
                             </div>
                         </>
+                    ) : template.overlayVariant === 'auto-clean' ? null
+                    : template.overlayVariant === 'auto-watermark' ? (
+                        <div className="absolute inset-0 flex items-center justify-center">
+                            <img src="/logo.png" alt={template.branding.appName} className="h-28 w-28 object-contain opacity-70" />
+                        </div>
+                    ) : template.overlayVariant === 'auto-focal' ? (
+                        <>
+                            <div className="absolute inset-0" style={{ background: 'rgba(0,0,0,0.44)' }} />
+                            <div
+                                className="absolute rounded-[1.8rem] overflow-hidden"
+                                style={{ inset: '13.7% 8.3%', background: 'rgba(255,255,255,0.96)' }}
+                            >
+                                <div
+                                    className="flex items-center gap-3 px-5"
+                                    style={{ height: '11.7%', background: template.colors.accent }}
+                                >
+                                    <img src="/logo.png" alt={template.branding.appName} className="h-7 w-7 object-contain" />
+                                    <span className="text-sm font-extrabold text-white">{template.branding.appName}</span>
+                                </div>
+                                <div className="flex flex-col items-center px-6 pt-5 pb-4 text-center" style={{ color: template.colors.textPrimary }}>
+                                    <div className="mb-2 text-[10px] font-semibold uppercase tracking-[0.22em] opacity-60">
+                                        {template.eyebrow} · {locationLabel}
+                                    </div>
+                                    <div className="mb-3 text-[1.55rem] font-black leading-tight line-clamp-2">
+                                        {headline}
+                                    </div>
+                                    <div className="mb-3 flex flex-wrap justify-center gap-2 text-[10px] font-semibold uppercase tracking-[0.16em]">
+                                        {template.highlights.slice(0, 4).map((item) => (
+                                            <span key={item} className="rounded-full px-2.5 py-1" style={{ background: 'rgba(0,0,0,0.07)' }}>
+                                                {item}
+                                            </span>
+                                        ))}
+                                    </div>
+                                    <div className="mb-2 w-full border-t" style={{ borderColor: 'rgba(0,0,0,0.12)' }} />
+                                    <div className="text-[1.9rem] font-black leading-none" style={{ color: template.colors.accent }}>
+                                        {template.priceLabel}
+                                    </div>
+                                    <div className="mt-2 text-[10px] font-semibold uppercase tracking-[0.2em] opacity-70">
+                                        {ctaLabel}
+                                    </div>
+                                </div>
+                            </div>
+                        </>
+                    ) : template.overlayVariant === 'auto-titan' ? (
+                        <>
+                            <div
+                                className="absolute inset-x-0 top-0 flex items-center justify-between px-4"
+                                style={{ height: '9.3%', background: '#111111' }}
+                            >
+                                <div
+                                    className="rounded-full px-3 py-1 text-[10px] font-bold uppercase tracking-[0.2em]"
+                                    style={{ background: template.colors.accent, color: '#fff' }}
+                                >
+                                    {template.eyebrow}
+                                </div>
+                                <img src="/logo.png" alt={template.branding.appName} className="h-7 w-7 object-contain" />
+                            </div>
+                            <div
+                                className="absolute inset-x-0 bottom-0 p-4"
+                                style={{ background: '#111111', color: '#fff', paddingTop: '0.5rem' }}
+                            >
+                                <div
+                                    className="mb-1 h-[3px] w-full"
+                                    style={{ background: template.colors.accent }}
+                                />
+                                <div className="mb-0.5 text-sm font-black leading-tight line-clamp-1">
+                                    {headline}
+                                </div>
+                                <div className="mb-2 flex flex-wrap gap-2 text-[10px] font-semibold uppercase tracking-[0.16em] opacity-70">
+                                    {template.highlights.slice(0, 3).map((item) => (
+                                        <span key={item}>{item}</span>
+                                    ))}
+                                </div>
+                                <div className="text-[2.4rem] font-black leading-none" style={{ color: template.colors.accent }}>
+                                    {template.priceLabel}
+                                </div>
+                                <div className="mt-1 text-[10px] font-semibold uppercase tracking-[0.18em] opacity-70">
+                                    {ctaLabel}
+                                </div>
+                            </div>
+                        </>
+                    ) : template.overlayVariant === 'auto-studio' ? (
+                        <>
+                            <div
+                                className="absolute inset-x-0 top-0 flex items-center justify-between px-4"
+                                style={{ height: '15.5%', background: template.colors.accent }}
+                            >
+                                <div className="text-lg font-black leading-tight text-white line-clamp-2 max-w-[75%]">
+                                    {headline}
+                                </div>
+                                <img src="/logo.png" alt={template.branding.appName} className="h-7 w-7 object-contain" />
+                            </div>
+                            <div
+                                className="absolute inset-x-0 bottom-0 p-4"
+                                style={{ background: '#111111', color: '#fff' }}
+                            >
+                                <div className="mb-2 flex flex-wrap gap-2 text-[10px] font-semibold uppercase tracking-[0.16em] opacity-70">
+                                    {template.highlights.slice(0, 3).map((item) => (
+                                        <span key={item}>{item}</span>
+                                    ))}
+                                </div>
+                                <div className="text-[2rem] font-black leading-none" style={{ color: template.colors.accent }}>
+                                    {template.priceLabel}
+                                </div>
+                                <div className="mt-1 text-[10px] font-semibold uppercase tracking-[0.18em] opacity-70">
+                                    {ctaLabel} · {locationLabel}
+                                </div>
+                            </div>
+                        </>
                     ) : (
                         <>
                             <div className="absolute left-4 top-4">
