@@ -1,7 +1,6 @@
 'use client';
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
-import { API_BASE } from '@simple/config';
 
 type User = {
     id: string;
@@ -35,6 +34,7 @@ type AuthContextType = {
 };
 
 const AuthContext = createContext<AuthContextType | null>(null);
+const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000';
 
 type AuthApiResponse = {
     ok?: boolean;

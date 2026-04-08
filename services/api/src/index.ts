@@ -6540,6 +6540,18 @@ function getAuthBrandProfile(origin: string): AuthBrandProfile {
             supportEmail: 'soporte@simplepropiedades.app',
         };
     }
+    if (host.includes('simpleagenda')) {
+        return {
+            appName: 'SimpleAgenda',
+            productName: 'Simple',
+            accent: '#0d9488',
+            accentSoft: '#f0fdfa',
+            surface: '#0f1a19',
+            title: 'SimpleAgenda',
+            supportLabel: 'equipo SimpleAgenda',
+            supportEmail: 'soporte@simpleagenda.app',
+        };
+    }
     if (host.includes('admin.simpleplataforma.app')) {
         return {
             appName: 'SimpleAdmin',
@@ -6791,6 +6803,216 @@ async function sendWelcomeEmail(email: string, name: string, origin: string): Pr
             actionUrl: origin,
             footnote,
         }),
+    });
+}
+
+// ── Booking confirmation emails ───────────────────────────────────────────────
+
+type BookingEmailData = {
+    appointmentId: string;
+    clientName: string;
+    professionalName: string;
+    slug: string;
+    serviceName: string | null;
+    startsAt: Date;
+    endsAt: Date;
+    durationMinutes: number;
+    modality: string;
+    price: string | null;
+    currency: string;
+    meetingUrl?: string | null;
+    location?: string | null;
+    timezone: string;
+    status: string;
+    paymentMethods?: {
+        requiresAdvancePayment: boolean;
+        mpConnected: boolean;
+        paymentLinkUrl: string | null;
+        bankTransferData: Record<string, string> | null;
+        checkoutUrl?: string | null;
+    } | null;
+};
+
+function fmtBookingDateTime(date: Date, timezone: string): string {
+    return date.toLocaleString('es-CL', {
+        weekday: 'long',
+        day: 'numeric',
+        month: 'long',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: false,
+        timeZone: timezone,
+    });
+}
+
+function buildBookingEmailHtml(data: BookingEmailData & { cancelUrl: string; appUrl: string }): string {
+    const isPending = data.status === 'pending';
+    const accent = '#0d9488';
+    const accentSoft = '#f0fdfa';
+    const surface = '#0f1a19';
+
+    const dateStr = fmtBookingDateTime(data.startsAt, data.timezone);
+    const durationStr = data.durationMinutes >= 60
+        ? `${Math.floor(data.durationMinutes / 60)}h${data.durationMinutes % 60 ? ` ${data.durationMinutes % 60}min` : ''}`
+        : `${data.durationMinutes} min`;
+
+    const modalityStr = data.modality === 'presencial' ? 'Presencial' : 'Online (videollamada)';
+
+    const priceStr = data.price && parseFloat(data.price) > 0
+        ? new Intl.NumberFormat('es-CL', { style: 'currency', currency: data.currency || 'CLP', maximumFractionDigits: 0 }).format(parseFloat(data.price))
+        : null;
+
+    // Payment section
+    let paymentSection = '';
+    if (data.paymentMethods?.requiresAdvancePayment && priceStr) {
+        if (data.paymentMethods.checkoutUrl) {
+            paymentSection = `
+            <div style="margin:20px 0;padding:16px;background:#fefce8;border:1px solid #fde68a;border-radius:12px;">
+                <p style="margin:0 0 10px 0;font-size:14px;font-weight:600;color:#92400e;">Pago anticipado requerido</p>
+                <p style="margin:0 0 12px 0;font-size:13px;color:#78350f;">Para confirmar tu cita debes realizar el pago de ${priceStr}.</p>
+                <a href="${data.paymentMethods.checkoutUrl}" style="display:inline-block;padding:10px 16px;border-radius:10px;background:#0d9488;color:#fff;text-decoration:none;font-size:13px;font-weight:700;">Pagar ahora</a>
+            </div>`;
+        } else if (data.paymentMethods.bankTransferData) {
+            const bt = data.paymentMethods.bankTransferData;
+            paymentSection = `
+            <div style="margin:20px 0;padding:16px;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:12px;">
+                <p style="margin:0 0 10px 0;font-size:14px;font-weight:600;color:#14532d;">Pago por transferencia</p>
+                <p style="margin:0 0 8px 0;font-size:13px;color:#15803d;">Monto: <strong>${priceStr}</strong></p>
+                <p style="margin:0;font-size:12px;color:#16a34a;line-height:1.7;">
+                    Banco: ${bt.bank}<br/>
+                    Tipo: ${bt.accountType}<br/>
+                    N° cuenta: ${bt.accountNumber}<br/>
+                    Titular: ${bt.holderName}<br/>
+                    RUT: ${bt.holderRut}<br/>
+                    ${bt.alias ? `Alias: ${bt.alias}` : ''}
+                </p>
+            </div>`;
+        } else if (data.paymentMethods.paymentLinkUrl) {
+            paymentSection = `
+            <div style="margin:20px 0;padding:16px;background:#fefce8;border:1px solid #fde68a;border-radius:12px;">
+                <p style="margin:0 0 10px 0;font-size:14px;font-weight:600;color:#92400e;">Pago anticipado requerido</p>
+                <p style="margin:0 0 12px 0;font-size:13px;color:#78350f;">Monto: <strong>${priceStr}</strong></p>
+                <a href="${data.paymentMethods.paymentLinkUrl}" style="display:inline-block;padding:10px 16px;border-radius:10px;background:#0d9488;color:#fff;text-decoration:none;font-size:13px;font-weight:700;">Ir al link de pago</a>
+            </div>`;
+        }
+    }
+
+    const statusLabel = isPending
+        ? `<div style="display:inline-block;padding:6px 14px;border-radius:999px;background:#fef3c7;color:#92400e;font-size:12px;font-weight:700;letter-spacing:.04em;">⏳ Pendiente de confirmación</div>`
+        : `<div style="display:inline-block;padding:6px 14px;border-radius:999px;background:#d1fae5;color:#065f46;font-size:12px;font-weight:700;letter-spacing:.04em;">✅ Confirmada</div>`;
+
+    return `
+    <div style="margin:0;padding:32px 16px;background:#f5f7fb;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;color:#0f172a;">
+      <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:600px;margin:0 auto;">
+        <tr>
+          <td style="padding:0 0 16px 0;text-align:center;">
+            <div style="display:inline-block;padding:10px 14px;border-radius:999px;background:${accentSoft};color:${accent};font-size:12px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;">SimpleAgenda</div>
+          </td>
+        </tr>
+        <tr>
+          <td style="background:#ffffff;border-radius:24px;overflow:hidden;border:1px solid #e5e7eb;">
+            <div style="padding:28px 32px;background:${surface};color:#ffffff;">
+              <div style="font-size:22px;font-weight:700;letter-spacing:-0.01em;">📅 Tu cita con ${data.professionalName}</div>
+              <div style="margin-top:8px;font-size:14px;color:rgba(255,255,255,.75);">${isPending ? 'Tu solicitud fue recibida y está en espera de confirmación.' : 'Tu cita está confirmada. Te esperamos.'}</div>
+            </div>
+            <div style="padding:28px 32px;">
+              <div style="margin-bottom:20px;">${statusLabel}</div>
+
+              <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="border:1px solid #e5e7eb;border-radius:16px;overflow:hidden;">
+                <tr style="background:#f9fafb;">
+                  <td style="padding:14px 18px;border-bottom:1px solid #e5e7eb;">
+                    <p style="margin:0;font-size:11px;font-weight:600;color:#94a3b8;text-transform:uppercase;letter-spacing:.06em;">Fecha y hora</p>
+                    <p style="margin:4px 0 0;font-size:15px;font-weight:600;color:#0f172a;">${dateStr}</p>
+                  </td>
+                </tr>
+                ${data.serviceName ? `
+                <tr>
+                  <td style="padding:14px 18px;border-bottom:1px solid #e5e7eb;">
+                    <p style="margin:0;font-size:11px;font-weight:600;color:#94a3b8;text-transform:uppercase;letter-spacing:.06em;">Servicio</p>
+                    <p style="margin:4px 0 0;font-size:15px;color:#0f172a;">${data.serviceName} · ${durationStr}</p>
+                  </td>
+                </tr>` : `
+                <tr>
+                  <td style="padding:14px 18px;border-bottom:1px solid #e5e7eb;">
+                    <p style="margin:0;font-size:11px;font-weight:600;color:#94a3b8;text-transform:uppercase;letter-spacing:.06em;">Duración</p>
+                    <p style="margin:4px 0 0;font-size:15px;color:#0f172a;">${durationStr}</p>
+                  </td>
+                </tr>`}
+                <tr>
+                  <td style="padding:14px 18px;${priceStr ? 'border-bottom:1px solid #e5e7eb;' : ''}">
+                    <p style="margin:0;font-size:11px;font-weight:600;color:#94a3b8;text-transform:uppercase;letter-spacing:.06em;">Modalidad</p>
+                    <p style="margin:4px 0 0;font-size:15px;color:#0f172a;">${modalityStr}${data.location ? ` · ${data.location}` : ''}</p>
+                  </td>
+                </tr>
+                ${priceStr ? `
+                <tr>
+                  <td style="padding:14px 18px;">
+                    <p style="margin:0;font-size:11px;font-weight:600;color:#94a3b8;text-transform:uppercase;letter-spacing:.06em;">Precio</p>
+                    <p style="margin:4px 0 0;font-size:15px;font-weight:600;color:#0f172a;">${priceStr}</p>
+                  </td>
+                </tr>` : ''}
+              </table>
+
+              ${data.modality !== 'presencial' && data.meetingUrl ? `
+              <div style="margin-top:20px;padding:14px 18px;background:#eff6ff;border:1px solid #bfdbfe;border-radius:12px;">
+                <p style="margin:0 0 6px 0;font-size:13px;font-weight:600;color:#1e40af;">🎥 Enlace de videollamada</p>
+                <a href="${data.meetingUrl}" style="font-size:13px;color:#2563eb;word-break:break-all;">${data.meetingUrl}</a>
+              </div>` : ''}
+
+              ${paymentSection}
+
+              <div style="margin-top:24px;border-top:1px solid #e5e7eb;padding-top:20px;">
+                <p style="margin:0 0 14px 0;font-size:14px;color:#334155;">¿Necesitas cancelar? Puedes hacerlo desde el siguiente enlace:</p>
+                <a href="${data.cancelUrl}" style="display:inline-block;padding:10px 18px;border-radius:10px;background:#f1f5f9;color:#475569;text-decoration:none;font-size:13px;font-weight:600;border:1px solid #e2e8f0;">Cancelar cita</a>
+              </div>
+
+              <p style="margin:24px 0 0;font-size:12px;color:#94a3b8;">Si tienes dudas, contacta directamente a ${data.professionalName}. Este correo fue generado automáticamente por SimpleAgenda.</p>
+            </div>
+          </td>
+        </tr>
+        <tr>
+          <td style="padding:16px 8px 0;text-align:center;font-size:12px;color:#94a3b8;">
+            Gestionado con <a href="${data.appUrl}" style="color:${accent};text-decoration:none;">SimpleAgenda</a>
+          </td>
+        </tr>
+      </table>
+    </div>`;
+}
+
+async function sendBookingConfirmationEmail(clientEmail: string, data: BookingEmailData & { cancelUrl: string; appUrl: string }): Promise<void> {
+    const transporter = getAuthMailerTransporter();
+    if (!transporter) {
+        if (process.env.NODE_ENV === 'production') {
+            throw new Error('Booking confirmation email delivery is not configured');
+        }
+        console.info(`[agenda] Booking confirmation for ${clientEmail}: ${data.cancelUrl}`);
+        return;
+    }
+    const isPending = data.status === 'pending';
+    const subject = isPending
+        ? `Tu solicitud de cita con ${data.professionalName} fue recibida`
+        : `Tu cita con ${data.professionalName} está confirmada`;
+
+    const dateStr = fmtBookingDateTime(data.startsAt, data.timezone);
+    const textBody = [
+        subject,
+        '',
+        `Fecha y hora: ${dateStr}`,
+        data.serviceName ? `Servicio: ${data.serviceName}` : '',
+        `Modalidad: ${data.modality === 'presencial' ? 'Presencial' : 'Online'}`,
+        '',
+        `Para cancelar: ${data.cancelUrl}`,
+        '',
+        'SimpleAgenda',
+    ].filter(Boolean).join('\n');
+
+    await transporter.sendMail({
+        from: `SimpleAgenda <${asString(process.env.SMTP_FROM).replace(/.*<(.+)>/, '$1') || asString(process.env.SMTP_FROM)}>`,
+        to: clientEmail,
+        subject,
+        text: textBody,
+        html: buildBookingEmailHtml(data),
     });
 }
 
@@ -15381,9 +15603,10 @@ app.post('/api/public/agenda/:slug/book', async (c) => {
     let durationMinutes = 60;
     let serviceId: string | null = null;
     let price: string | null = null;
+    let serviceName: string | null = null;
     if (typeof body.serviceId === 'string' && body.serviceId) {
         const svc = await db.query.agendaServices.findFirst({ where: eq(agendaServices.id, body.serviceId) });
-        if (svc) { durationMinutes = svc.durationMinutes; serviceId = svc.id; price = svc.price ?? null; }
+        if (svc) { durationMinutes = svc.durationMinutes; serviceId = svc.id; price = svc.price ?? null; serviceName = svc.name; }
     }
 
     const startsAt = new Date(String(body.startsAt));
@@ -15470,6 +15693,38 @@ app.post('/api/public/agenda/:slug/book', async (c) => {
         } catch (e) {
             console.error('[agenda] MP checkout creation error:', e);
         }
+    }
+
+    // Email confirmation to client
+    const clientEmail = typeof body.clientEmail === 'string' && body.clientEmail ? body.clientEmail : null;
+    if (clientEmail) {
+        const agendaAppUrl = asString(process.env.AGENDA_APP_URL) || 'https://simpleagenda.app';
+        const cancelUrl = `${agendaAppUrl}/cancelar?appt=${appointment.id}&slug=${profile.slug}`;
+
+        void sendBookingConfirmationEmail(clientEmail, {
+            appointmentId: appointment.id,
+            clientName: String(body.clientName),
+            professionalName: profile.displayName ?? 'el profesional',
+            slug: profile.slug,
+            serviceName,
+            startsAt,
+            endsAt,
+            durationMinutes,
+            modality: typeof body.modality === 'string' ? body.modality : 'online',
+            price,
+            currency: profile.currency,
+            timezone: profile.timezone ?? 'America/Santiago',
+            status,
+            paymentMethods: {
+                requiresAdvancePayment: profile.requiresAdvancePayment,
+                mpConnected: !!(profile.mpAccessToken),
+                paymentLinkUrl: profile.paymentLinkUrl ?? null,
+                bankTransferData: (profile.bankTransferData ?? null) as Record<string, string> | null,
+                checkoutUrl,
+            },
+            cancelUrl,
+            appUrl: agendaAppUrl,
+        }).catch((err: unknown) => console.error('[agenda] booking email error:', err));
     }
 
     return c.json({
