@@ -47,7 +47,7 @@ import {
     generateSmartTemplates,
     type InstagramTemplateView as InstagramRenderTemplate,
     type ListingData as InstagramListingData,
-} from './instagram-templates.js';
+} from './instagram-templates';
 import {
     createCheckoutPreference,
     createPreapproval,
@@ -11008,6 +11008,30 @@ app.post('/api/auth/password-reset/confirm', async (c) => {
     });
 });
 
+function buildOAuthState(nonce: string, origin: string): string {
+    const ts = Math.floor(Date.now() / 1000);
+    const payload = `${nonce}.${ts}.${origin}`;
+    const sig = createHash('sha256').update(`${SESSION_SECRET}:${payload}`).digest('hex').slice(0, 32);
+    return Buffer.from(`${payload}.${sig}`).toString('base64url');
+}
+
+function verifyOAuthState(state: string): { nonce: string; origin: string } | null {
+    try {
+        const decoded = Buffer.from(state, 'base64url').toString('utf8');
+        const parts = decoded.split('.');
+        if (parts.length !== 4) return null;
+        const [nonce, tsStr, origin, sig] = parts;
+        const ts = parseInt(tsStr, 10);
+        if (isNaN(ts) || Date.now() / 1000 - ts > 600) return null; // 10 min TTL
+        const payload = `${nonce}.${ts}.${origin}`;
+        const expected = createHash('sha256').update(`${SESSION_SECRET}:${payload}`).digest('hex').slice(0, 32);
+        if (!safeEqualStrings(sig, expected)) return null;
+        return { nonce, origin };
+    } catch {
+        return null;
+    }
+}
+
 app.get('/api/auth/google', async (c) => {
     const clientId = asString(process.env.GOOGLE_CLIENT_ID);
     const origin = resolveBrowserOrigin(c);
@@ -11018,8 +11042,8 @@ app.get('/api/auth/google', async (c) => {
         return c.json({ ok: false, error: 'Google OAuth no configurado' }, 500);
     }
 
-    const state = randomBytes(24).toString('hex');
-    setOAuthState(c, state);
+    const nonce = randomBytes(16).toString('hex');
+    const state = buildOAuthState(nonce, origin);
 
     const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?` +
         `client_id=${encodeURIComponent(clientId)}&` +
@@ -11041,15 +11065,13 @@ app.post('/api/auth/google/callback', async (c) => {
             return c.json({ ok: false, error: 'Código de autorización inválido' }, 400);
         }
 
-        const cookieState = consumeOAuthState(c);
-        if (!cookieState || !safeEqualStrings(cookieState, state)) {
+        const stateData = verifyOAuthState(state);
+        if (!stateData) {
             return c.json({ ok: false, error: 'La sesión de autenticación con Google expiró. Intenta nuevamente.' }, 400);
         }
 
-        const origin = resolveBrowserOrigin(c);
-        if (!origin) {
-            return c.json({ ok: false, error: 'Origin no autorizado' }, 403);
-        }
+        // Use origin from signed state (no cookie needed, works cross-origin)
+        const origin = stateData.origin;
 
         const googleClientId = asString(process.env.GOOGLE_CLIENT_ID);
         const googleClientSecret = asString(process.env.GOOGLE_CLIENT_SECRET);
@@ -15807,7 +15829,7 @@ app.post('/api/integrations/instagram/publish-enhanced', async (c) => {
         }
 
         const listingData = buildInstagramListingData(listing);
-        const templates = buildInstagramTemplates(listingData);
+        const templates = generateSmartTemplates(listingData);
         const selectedTemplate = [
             templates.recommendedTemplate,
             ...templates.alternatives,
@@ -15864,9 +15886,6 @@ app.post('/api/test/templates', async (c) => {
             location: 'Santiago, Chile',
             description: 'Excelente vehículo, muy bien cuidado'
         };
-        
-        // Importar funciones de templates
-        const { generateSmartTemplates } = await import('./instagram-templates.js');
         
         // Generar templates
         const templates = generateSmartTemplates(testListingData);

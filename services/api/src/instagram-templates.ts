@@ -1,5 +1,3 @@
-import { getSimpleAppBrand } from '@simple/config';
-
 export interface ListingData {
     id: string;
     vertical: 'autos' | 'propiedades' | 'agenda';
@@ -81,10 +79,11 @@ export interface InstagramTemplateView {
     score: number;
 }
 
-const BRAND = getSimpleAppBrand({
+// Simplificando para evitar dependencias externas problemáticas
+const BRAND = {
     name: 'SimpleAutos',
-    domain: 'simpleautos.com',
-} as any);
+    logoUrl: undefined,
+};
 
 // Paletas de colores modernas y coherentes
 const COLOR_PALETTES = {
