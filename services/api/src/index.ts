@@ -14432,6 +14432,7 @@ app.get('/api/agenda/profile', requireVerifiedSession, async (c) => {
             userId: user.id,
             slug,
             displayName: user.name,
+            avatarUrl: user.avatar || null,
         }).returning();
         profile = created;
     }

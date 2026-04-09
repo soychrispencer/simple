@@ -25,6 +25,7 @@ export default function PerfilConfigPage() {
     const [saved, setSaved] = useState(false);
     const [error, setError] = useState('');
     const [avatarUploading, setAvatarUploading] = useState(false);
+    const [avatarError, setAvatarError] = useState(false);
     const fileInputRef = useRef<HTMLInputElement>(null);
 
     // Slug availability
@@ -141,6 +142,7 @@ export default function PerfilConfigPage() {
             return;
         }
         if (result.url) {
+            setAvatarError(false);
             set('avatarUrl', result.url);
         }
         if (fileInputRef.current) fileInputRef.current.value = '';
@@ -189,9 +191,9 @@ export default function PerfilConfigPage() {
                                 className="w-20 h-20 rounded-full flex items-center justify-center text-2xl font-bold overflow-hidden shrink-0"
                                 style={{ background: 'var(--accent-subtle, rgba(13,148,136,0.1))', color: 'var(--accent)' }}
                             >
-                                {form.avatarUrl ? (
+                                {form.avatarUrl && !avatarError ? (
                                     // eslint-disable-next-line @next/next/no-img-element
-                                    <img src={form.avatarUrl} alt="Avatar" className="w-full h-full object-cover" />
+                                    <img src={form.avatarUrl} alt="" className="w-full h-full object-cover" onError={() => setAvatarError(true)} />
                                 ) : (
                                     form.displayName?.charAt(0)?.toUpperCase() ?? '?'
                                 )}
