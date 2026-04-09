@@ -76,7 +76,7 @@ export default async function PublicBookingPage({ params }: { params: Promise<{ 
                 >
                     {profile.avatarUrl ? (
                         // eslint-disable-next-line @next/next/no-img-element
-                        <img src={encodeURI(profile.avatarUrl)} alt={profile.displayName ?? ''} className="w-full h-full object-cover" />
+                        <img src={encodeURI(profile.avatarUrl)} alt="" className="w-full h-full object-cover" />
                     ) : (
                         profile.displayName?.charAt(0).toUpperCase() ?? '?'
                     )}
