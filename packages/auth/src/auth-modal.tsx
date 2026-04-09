@@ -328,7 +328,7 @@ export function AuthModal() {
                         </form>
                         <GoogleLoginButton disabled={submitting} onError={(message) => setError(message)}>
                             <PanelButton variant="secondary" className="mt-3 w-full" disabled={submitting}>
-                                <IconBrandGoogle size={15} /> Registrarse con Google
+                                <IconBrandGoogle size={15} /> Continuar con Google
                             </PanelButton>
                         </GoogleLoginButton>
                         <div className="text-center mt-4 text-sm">

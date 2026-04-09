@@ -11072,7 +11072,7 @@ app.get('/api/auth/google', async (c) => {
 });
 
 async function exchangeGoogleCode(code: string, state: string, c: Context): Promise<
-    | { ok: true; user: AppUser; origin: string }
+    | { ok: true; user: AppUser; origin: string; isNewUser: boolean }
     | { ok: false; error: string; status: number }
 > {
     if (!code || !state) {
@@ -11121,7 +11121,9 @@ async function exchangeGoogleCode(code: string, state: string, c: Context): Prom
         return { ok: false, error: 'Tu cuenta está suspendida. Contacta al soporte.', status: 403 };
     }
 
+    let isNewUser = false;
     if (!user) {
+        isNewUser = true;
         const [insertedUser] = await db.insert(users).values({
             email: normalizedEmail,
             name: asString(googleUser.name) || 'Usuario Simple',
@@ -11166,7 +11168,7 @@ async function exchangeGoogleCode(code: string, state: string, c: Context): Prom
         user = { ...user, lastLoginAt: new Date() };
     }
 
-    return { ok: true, user, origin };
+    return { ok: true, user, origin, isNewUser };
 }
 
 // GET /api/auth/google/finalize — navigation-based flow (avoids cross-origin fetch cookie restrictions)
@@ -11234,7 +11236,7 @@ app.post('/api/auth/google/callback', async (c) => {
             return c.json({ ok: false, error: result.error }, result.status as 400 | 403 | 500);
         }
         setSession(c, result.user.id);
-        return c.json({ ok: true, user: sanitizeUser(result.user) });
+        return c.json({ ok: true, user: sanitizeUser(result.user), isNewUser: result.isNewUser });
     } catch (error) {
         console.error('Google OAuth error:', error);
         return c.json({ ok: false, error: 'Error interno del servidor' }, 500);

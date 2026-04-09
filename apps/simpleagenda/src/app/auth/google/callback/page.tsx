@@ -1,10 +1,11 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { IconX } from '@tabler/icons-react';
+import { IconX, IconCheck } from '@tabler/icons-react';
 
 export default function GoogleCallback() {
     const [error, setError] = useState<string | null>(null);
+    const [welcome, setWelcome] = useState(false);
 
     useEffect(() => {
         const urlParams = new URLSearchParams(window.location.search);
@@ -22,10 +23,7 @@ export default function GoogleCallback() {
             return;
         }
 
-        // Remove code/state from URL immediately
         window.history.replaceState({}, '', window.location.pathname);
-
-        // Exchange code+state for session via same-origin proxy
         handleGoogleCallback(code, state);
     }, []);
 
@@ -37,14 +35,22 @@ export default function GoogleCallback() {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ code, state }),
             });
-            const data = await res.json().catch(() => ({})) as { ok?: boolean; error?: string };
+            const data = await res.json().catch(() => ({})) as { ok?: boolean; error?: string; isNewUser?: boolean };
             if (!res.ok || !data.ok) {
                 throw new Error(data.error || 'Error al iniciar sesión con Google');
             }
-            // Session cookie is set — navigate to destination
+
             const returnTo = sessionStorage.getItem('auth.returnTo') || '/panel';
             sessionStorage.removeItem('auth.returnTo');
-            window.location.replace(returnTo);
+
+            if (data.isNewUser) {
+                setWelcome(true);
+                setTimeout(() => {
+                    window.location.replace(returnTo);
+                }, 2000);
+            } else {
+                window.location.replace(returnTo);
+            }
         } catch (err) {
             setError(err instanceof Error ? err.message : 'Error al iniciar sesión con Google');
         }
@@ -66,6 +72,20 @@ export default function GoogleCallback() {
                     >
                         Volver al inicio
                     </button>
+                </div>
+            </div>
+        );
+    }
+
+    if (welcome) {
+        return (
+            <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(4px)' }}>
+                <div className="w-full max-w-md mx-4 rounded-xl p-8 text-center" style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}>
+                    <div className="w-14 h-14 rounded-full flex items-center justify-center mx-auto mb-4" style={{ background: 'rgba(34,197,94,0.1)', color: '#22c55e' }}>
+                        <IconCheck size={28} strokeWidth={2.5} />
+                    </div>
+                    <h2 className="text-xl font-semibold mb-2" style={{ color: 'var(--fg)' }}>Cuenta creada</h2>
+                    <p className="text-sm" style={{ color: 'var(--fg-muted)' }}>Bienvenido a SimpleAgenda. Redirigiendo...</p>
                 </div>
             </div>
         );
