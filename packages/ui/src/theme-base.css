@@ -35,8 +35,8 @@
     --button-primary-hover-color: #ffffff;
     --button-primary-hover-border: #1a1a1a;
     --button-primary-hover-shadow: 0 14px 28px rgba(17, 17, 17, 0.22);
-    --field-focus-border: #111111;
-    --field-focus-ring: rgba(17, 17, 17, 0.08);
+    --field-focus-border: var(--accent);
+    --field-focus-ring: color-mix(in oklab, var(--accent) 12%, transparent);
     --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.04);
     --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.05), 0 1px 2px rgba(0, 0, 0, 0.025);
     --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.06);
@@ -93,8 +93,8 @@
     --color-success-subtle: rgba(52, 211, 153, 0.12);
     --color-warning: #fbbf24;
     --color-warning-subtle: rgba(251, 191, 36, 0.12);
-    --field-focus-border: rgba(255, 255, 255, 0.58);
-    --field-focus-ring: rgba(255, 255, 255, 0.10);
+    --field-focus-border: var(--accent);
+    --field-focus-ring: color-mix(in oklab, var(--accent) 15%, transparent);
     --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.34);
     --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.44);
     --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.46);

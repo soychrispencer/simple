@@ -696,7 +696,15 @@ type PanelDocumentUploaderProps = {
 
 type PanelButtonSize = 'sm' | 'md';
 
-type PanelButtonVariant = 'primary' | 'secondary' | 'danger' | 'ghost';
+type PanelButtonVariant = 'primary' | 'secondary' | 'danger' | 'ghost' | 'accent';
+
+type PanelFieldProps = {
+    label: string;
+    hint?: string;
+    required?: boolean;
+    children: React.ReactNode;
+    className?: string;
+};
 
 type PanelPageHeaderProps = {
     title: string;
@@ -1637,15 +1645,26 @@ export function getPanelButtonStyle(variant: PanelButtonVariant = 'secondary') {
                     '--panel-btn-hover-border': 'transparent',
                     '--panel-btn-hover-shadow': 'none',
                 } as CSSProperties)
-                : ({
-                    '--panel-btn-bg': 'var(--surface)',
-                    '--panel-btn-color': 'var(--fg)',
-                    '--panel-btn-border': 'var(--border)',
-                    '--panel-btn-hover-bg': 'var(--bg-subtle)',
-                    '--panel-btn-hover-color': 'var(--fg)',
-                    '--panel-btn-hover-border': 'var(--border-strong)',
-                    '--panel-btn-hover-shadow': 'var(--shadow-xs)',
-                } as CSSProperties);
+                : variant === 'accent'
+                    ? ({
+                        '--panel-btn-bg': 'var(--accent)',
+                        '--panel-btn-color': 'var(--accent-contrast)',
+                        '--panel-btn-border': 'var(--accent)',
+                        '--panel-btn-shadow': 'none',
+                        '--panel-btn-hover-bg': 'var(--accent)',
+                        '--panel-btn-hover-color': 'var(--accent-contrast)',
+                        '--panel-btn-hover-border': 'var(--accent)',
+                        '--panel-btn-hover-shadow': 'none',
+                    } as CSSProperties)
+                    : ({
+                        '--panel-btn-bg': 'var(--surface)',
+                        '--panel-btn-color': 'var(--fg)',
+                        '--panel-btn-border': 'var(--border)',
+                        '--panel-btn-hover-bg': 'var(--bg-subtle)',
+                        '--panel-btn-hover-color': 'var(--fg)',
+                        '--panel-btn-hover-border': 'var(--border-strong)',
+                        '--panel-btn-hover-shadow': 'var(--shadow-xs)',
+                    } as CSSProperties);
 }
 
 export function PanelSwitch(props: PanelSwitchProps) {
@@ -1675,12 +1694,12 @@ export function PanelSwitch(props: PanelSwitchProps) {
                 dimensions.track,
                 className,
             )}
-            style={{ background: checked ? 'var(--button-primary-bg)' : 'var(--bg-muted)' }}
+            style={{ background: checked ? 'var(--accent)' : 'var(--bg-muted)' }}
         >
             <span
                 className={joinClasses('absolute top-1/2 -translate-y-1/2 rounded-full transition-[left,background] duration-150', dimensions.thumb)}
                 style={{
-                    background: checked ? 'var(--button-primary-color)' : 'var(--fg-muted)',
+                    background: checked ? 'var(--accent-contrast, #fff)' : 'var(--fg-muted)',
                     left: checked ? dimensions.right : dimensions.left,
                 }}
             />
@@ -2850,11 +2869,11 @@ export function PanelBlockHeader(props: PanelBlockHeaderProps) {
     return (
         <div className={joinClasses('mb-4 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between', className)}>
             <div className="min-w-0">
-                <h2 className="text-base font-semibold" style={{ color: 'var(--fg)' }}>
+                <h2 className="text-sm font-semibold" style={{ color: 'var(--fg)' }}>
                     {title}
                 </h2>
                 {description ? (
-                    <p className="text-sm mt-1" style={{ color: 'var(--fg-muted)' }}>
+                    <p className="text-xs mt-1" style={{ color: 'var(--fg-muted)' }}>
                         {description}
                     </p>
                 ) : null}
@@ -2908,6 +2927,19 @@ export function PanelNotice(props: PanelNoticeProps) {
     return (
         <div className={joinClasses('rounded-2xl border px-4 py-3 text-sm', className)} style={toneStyle}>
             {children}
+        </div>
+    );
+}
+
+export function PanelField(props: PanelFieldProps) {
+    const { label, hint, required, children, className } = props;
+    return (
+        <div className={joinClasses('flex flex-col gap-1.5', className)}>
+            <label className="text-xs font-medium" style={{ color: 'var(--fg-muted)' }}>
+                {label}{required ? <span style={{ color: 'var(--color-error)' }} className="ml-0.5">*</span> : null}
+            </label>
+            {children}
+            {hint ? <p className="text-xs" style={{ color: 'var(--fg-muted)' }}>{hint}</p> : null}
         </div>
     );
 }

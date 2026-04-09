@@ -2,10 +2,8 @@
 
 import { useEffect, useState } from 'react';
 import {
-    IconMail,
     IconMapPin,
     IconNotebook,
-    IconPhone,
     IconPlugConnected,
     IconUser,
 } from '@tabler/icons-react';
@@ -16,7 +14,7 @@ import PublicProfileEditor from '@/components/panel/public-profile-editor';
 import { updateAccountProfile } from '@/lib/account-profile';
 import type { AddressBookEntry } from '@simple/types';
 import type { AddressBookManagerSubmitInput } from '@simple/ui';
-import { AddressBookManager, PanelBlockHeader, PanelButton, PanelNotice, PanelPillNav } from '@simple/ui';
+import { AddressBookManager, PanelBlockHeader, PanelButton, PanelField, PanelNotice, PanelPillNav } from '@simple/ui';
 import {
     createAddressBookEntry,
     deleteAddressBookEntry,
@@ -172,25 +170,25 @@ export default function ConfiguracionPage() {
                             </div>
 
                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                <Field label="Nombre" icon={<IconUser size={13} />}>
+                                <PanelField label="Nombre">
                                     <input
                                         className="form-input"
                                         value={profileName}
                                         onChange={(event) => setProfileName(event.target.value)}
                                         placeholder="Tu nombre"
                                     />
-                                </Field>
-                                <Field label="Teléfono" icon={<IconPhone size={13} />}>
+                                </PanelField>
+                                <PanelField label="Teléfono">
                                     <input
                                         className="form-input"
                                         value={profilePhone}
                                         onChange={(event) => setProfilePhone(event.target.value)}
                                         placeholder="+56 9 1234 5678"
                                     />
-                                </Field>
-                                <Field label="Correo electrónico" icon={<IconMail size={13} />}><div className="form-input flex items-center">{user?.email || '-'}</div></Field>
-                                <Field label="Rol" icon={<IconUser size={13} />}><div className="form-input flex items-center">{user?.role || '-'}</div></Field>
-                                <Field label="Sesión" icon={<IconPhone size={13} />}><div className="form-input flex items-center">{user ? 'Activa' : 'No autenticada'}</div></Field>
+                                </PanelField>
+                                <PanelField label="Correo electrónico"><div className="form-input flex items-center">{user?.email || '-'}</div></PanelField>
+                                <PanelField label="Rol"><div className="form-input flex items-center">{user?.role || '-'}</div></PanelField>
+                                <PanelField label="Sesión"><div className="form-input flex items-center">{user ? 'Activa' : 'No autenticada'}</div></PanelField>
                             </div>
 
                             <div className="flex items-center gap-3">
@@ -273,18 +271,6 @@ export default function ConfiguracionPage() {
                     )}
                 </div>
             </div>
-        </div>
-    );
-}
-
-function Field({ label, icon, children }: { label: string; icon?: React.ReactNode; children: React.ReactNode }) {
-    return (
-        <div>
-            <label className="text-sm font-medium mb-1 flex items-center gap-1" style={{ color: 'var(--fg-secondary)' }}>
-                {icon}
-                {label}
-            </label>
-            {children}
         </div>
     );
 }

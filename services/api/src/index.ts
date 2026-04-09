@@ -3813,7 +3813,7 @@ async function buildInstagramTemplateOverlaySvg(
                 <linearGradient id="autoBottomFade" x1="0" y1="0" x2="0" y2="1">
                     <stop offset="0%" stop-color="${autoBandBg}" stop-opacity="0" />
                     <stop offset="30%" stop-color="${autoBandBg}" stop-opacity="0.68" />
-                    <stop offset="100%" stop-color="${autoBandBg}" stop-opacity="${isAutoSpec ? '0.92' : '0.90'}" />
+                    <stop offset="100%" stop-color="${autoBandBg}" stop-opacity="${isProfessionalTemplate ? '0.92' : '0.90'}" />
                 </linearGradient>
             </defs>
             <rect x="0" y="0" width="${width}" height="${height}" fill="transparent" />
