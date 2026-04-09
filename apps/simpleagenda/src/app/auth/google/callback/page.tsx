@@ -8,17 +8,6 @@ export default function GoogleCallback() {
 
     useEffect(() => {
         const urlParams = new URLSearchParams(window.location.search);
-
-        // Step 2: app received redirect from finalize with one-time token — exchange it for a session
-        const oauthToken = urlParams.get('_oauth');
-        if (oauthToken) {
-            // Remove token from URL immediately
-            window.history.replaceState({}, '', window.location.pathname);
-            exchangeToken(oauthToken);
-            return;
-        }
-
-        // Step 1: Google redirected here with code+state — forward to finalize endpoint
         const code = urlParams.get('code');
         const state = urlParams.get('state');
         const googleError = urlParams.get('google_error');
@@ -33,28 +22,29 @@ export default function GoogleCallback() {
             return;
         }
 
-        // Navigate to finalize through the same-origin proxy (relative URL)
-        const params = new URLSearchParams({ code, state });
-        window.location.replace(`/api/auth/google/finalize?${params.toString()}`);
+        // Remove code/state from URL immediately
+        window.history.replaceState({}, '', window.location.pathname);
+
+        // Exchange code+state for session via same-origin proxy
+        handleGoogleCallback(code, state);
     }, []);
 
-    async function exchangeToken(token: string) {
+    async function handleGoogleCallback(code: string, state: string) {
         try {
-            // Fetch through same-origin proxy so the session cookie is stored on our domain
-            const res = await fetch(`/api/auth/google/exchange?token=${encodeURIComponent(token)}`, {
-                method: 'GET',
+            const res = await fetch('/api/auth/google/callback', {
+                method: 'POST',
                 credentials: 'include',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ code, state }),
             });
-            if (!res.ok) {
-                const data = await res.json().catch(() => ({}));
-                throw new Error((data as { error?: string }).error || 'Error al iniciar sesión');
+            const data = await res.json().catch(() => ({})) as { ok?: boolean; error?: string };
+            if (!res.ok || !data.ok) {
+                throw new Error(data.error || 'Error al iniciar sesión con Google');
             }
-            // Navigate to the user's intended destination
+            // Session cookie is set — navigate to destination
             const returnTo = sessionStorage.getItem('auth.returnTo') || '/panel';
             sessionStorage.removeItem('auth.returnTo');
-            setTimeout(() => {
-                window.location.replace(returnTo);
-            }, 100);
+            window.location.replace(returnTo);
         } catch (err) {
             setError(err instanceof Error ? err.message : 'Error al iniciar sesión con Google');
         }
