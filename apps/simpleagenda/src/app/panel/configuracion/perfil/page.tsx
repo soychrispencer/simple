@@ -30,7 +30,7 @@ export default function PerfilConfigPage() {
     // Slug availability
     const [slugStatus, setSlugStatus] = useState<'idle' | 'checking' | 'available' | 'taken' | 'invalid'>('idle');
     const [slugError, setSlugError] = useState('');
-    const slugTimerRef = useRef<ReturnType<typeof setTimeout>>();
+    const slugTimerRef = useRef<ReturnType<typeof setTimeout>>(undefined);
     const originalSlugRef = useRef('');
 
     const [form, setForm] = useState({
