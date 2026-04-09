@@ -3643,9 +3643,10 @@ async function buildInstagramTemplateOverlaySvg(
     const topBandHeight = template.layoutVariant === 'portrait' ? 128 : 104;
     const bottomBandHeight = template.layoutVariant === 'portrait' ? 230 : 216;
     // Auto template: gradient overlay anchored from bottom (matches CSS preview layout)
-    const isAutoSpec = template.overlayVariant === 'auto-spec';
-    const autoBandBg = isAutoSpec ? '#F5F2EB' : '#111111';
-    const autoBandTextColor = isAutoSpec ? template.colors.textPrimary : template.colors.textInverse;
+    // Professional template usa diseño limpio, Signature usa dark theme
+    const isProfessionalTemplate = template.overlayVariant === 'professional-centered';
+    const autoBandBg = isProfessionalTemplate ? '#F5F2EB' : '#111111';
+    const autoBandTextColor = isProfessionalTemplate ? template.colors.textPrimary : template.colors.textInverse;
     const autoOverlayH = Math.round(height * 0.50);
     const autoGradientStartY = height - autoOverlayH;
     const autoEyebrowY = height - 388;
@@ -3743,7 +3744,7 @@ async function buildInstagramTemplateOverlaySvg(
             <text x="${width - 76}" y="${height - bottomBandHeight + 124}" fill="${template.colors.textInverse}" font-size="50" font-weight="800" text-anchor="end">${priceAmount}</text>
             <text x="${width - 76}" y="${height - bottomBandHeight + 152}" fill="${template.colors.textInverse}" font-size="18" font-weight="700" text-anchor="end">${ctaLabel}</text>
         `;
-    } else if (template.overlayVariant === 'auto-focal') {
+    } else if (template.overlayVariant === 'professional-centered') {
         // Centered white card on dimmed photo
         detailsBand = `
             <rect x="0" y="0" width="${width}" height="${height}" fill="#000000" fill-opacity="0.44" />
@@ -3766,7 +3767,7 @@ async function buildInstagramTemplateOverlaySvg(
             <text x="${width / 2}" y="${focalPriceY}" fill="${template.colors.accent}" font-size="68" font-weight="900" text-anchor="middle">${autoFullPrice}</text>
             <text x="${width / 2}" y="${focalCtaY}" fill="#AAAAAA" font-size="22" font-weight="600" text-anchor="middle">${ctaLabel}</text>
         `;
-    } else if (template.overlayVariant === 'auto-titan') {
+    } else if (template.overlayVariant === 'signature-complete') {
         // Bold price hero: dark top bar + dark bottom strip
         detailsBand = `
             <rect x="0" y="0" width="${width}" height="${titanTopBarH}" fill="#0D0D0D" fill-opacity="0.88" />
@@ -3780,27 +3781,7 @@ async function buildInstagramTemplateOverlaySvg(
             <text x="56" y="${titanPriceY}" fill="${template.colors.accent}" font-size="86" font-weight="900">${autoFullPrice}</text>
             <text x="56" y="${titanCtaY}" fill="rgba(255,255,255,0.50)" font-size="24" font-weight="600">${ctaLabel}</text>
         `;
-    } else if (template.overlayVariant === 'auto-studio') {
-        // Two-band: accent top + dark bottom
-        detailsBand = `
-            <rect x="0" y="0" width="${width}" height="${studioTopH}" fill="${template.colors.accent}" />
-            ${renderSvgTextLines(titleLines, {
-                x: Math.round(width / 2),
-                y: studioTitleFirstY,
-                lineHeight: studioTitleLineH,
-                fontSize: studioTitleFontSize,
-                fontWeight: 900,
-                fill: '#FFFFFF',
-                textAnchor: 'middle',
-            })}
-            <rect x="0" y="${studioBottomStart}" width="${width}" height="${height - studioBottomStart}" fill="#111111" fill-opacity="0.96" />
-            <rect x="0" y="${studioBottomStart}" width="${width}" height="5" fill="${template.colors.accent}" />
-            <text x="56" y="${studioPriceY}" fill="${template.colors.accent}" font-size="72" font-weight="900">${autoFullPrice}</text>
-            <text x="${width - 56}" y="${studioPriceY - 42}" fill="rgba(255,255,255,0.65)" font-size="26" font-weight="600" text-anchor="end">${location}</text>
-            <text x="${width - 56}" y="${studioPriceY}" fill="rgba(255,255,255,0.65)" font-size="22" font-weight="600" text-anchor="end">${escapeSvgText(clampTemplateText(summaryLine, 28))}</text>
-            <text x="56" y="${studioCtaY}" fill="rgba(255,255,255,0.50)" font-size="22" font-weight="600">${ctaLabel}</text>
-        `;
-    } else if (template.overlayVariant === 'auto-clean' || template.overlayVariant === 'auto-watermark') {
+    } else if (template.overlayVariant === 'essential-watermark') {
         detailsBand = ''; // No SVG overlay; logo handled in composite step
     } else {
         // auto-performance, auto-spec, auto-premium
@@ -3925,14 +3906,19 @@ async function prepareInstagramImageUrl(
         ];
 
         const variant = options.template.overlayVariant;
-        const skipLogo = variant === 'auto-clean';
+        const skipLogo = variant === 'essential-watermark';
         const logoBuffer = skipLogo || !options.template.branding.appId ? null : await getInstagramBrandLogoBuffer(options.template.branding.appId);
         if (logoBuffer) {
             let logoPlacement: { width: number; height: number; top: number; left: number };
-            if (variant === 'auto-watermark') {
-                logoPlacement = { width: 200, height: 200, top: 440, left: 440 };
-            } else if (variant === 'auto-focal') {
-                logoPlacement = { width: 50, height: 50, top: 162, left: 116 };
+            if (variant === 'essential-watermark') {
+                // Logo pequeño en esquina para marca de agua
+                logoPlacement = { width: 120, height: 120, top: 480, left: 520 };
+            } else if (variant === 'professional-centered') {
+                // Logo muy sutil en esquina
+                logoPlacement = { width: 50, height: 50, top: 50, left: 520 };
+            } else if (variant === 'signature-complete') {
+                // Logo en header
+                logoPlacement = { width: 60, height: 60, top: 40, left: 480 };
             } else if (variant.startsWith('property')) {
                 logoPlacement = { width: 48, height: 48, top: 34, left: 42 };
             } else {
