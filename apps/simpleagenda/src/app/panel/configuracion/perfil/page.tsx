@@ -193,7 +193,7 @@ export default function PerfilConfigPage() {
                             >
                                 {form.avatarUrl && !avatarError ? (
                                     // eslint-disable-next-line @next/next/no-img-element
-                                    <img src={form.avatarUrl} alt="" className="w-full h-full object-cover" onError={() => setAvatarError(true)} />
+                                    <img src={encodeURI(form.avatarUrl)} alt="" className="w-full h-full object-cover" onError={() => setAvatarError(true)} />
                                 ) : (
                                     form.displayName?.charAt(0)?.toUpperCase() ?? '?'
                                 )}

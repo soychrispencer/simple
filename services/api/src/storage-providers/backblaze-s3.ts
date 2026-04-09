@@ -29,8 +29,13 @@ export class BackblazeS3Provider implements StorageProvider {
     }
 
     async upload(input: StorageUploadInput): Promise<StorageUploadResult> {
-        const key = `${input.userId ?? 'unknown'}/${Date.now()}-${input.fileName}`;
-        
+        // Sanitize filename: remove spaces, special chars, keep extension
+        const safeName = input.fileName
+            .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+            .replace(/[^a-zA-Z0-9._-]/g, '-')
+            .replace(/-+/g, '-');
+        const key = `${input.userId ?? 'unknown'}/${Date.now()}-${safeName}`;
+
         // Correct handling for File-like objects and Buffer in Node.js
         const buffer = Buffer.isBuffer(input.file)
             ? input.file
@@ -42,15 +47,14 @@ export class BackblazeS3Provider implements StorageProvider {
                 Key: key,
                 Body: buffer,
                 ContentType: input.mimeType,
-                // Backblaze B2 S3 API ignores canned ACL values (or puede fallar con 'public-read')
-                // En B2 el acceso público se controla por políticas de bucket y URL de descarga.
             })
         );
 
         const cleanDownloadUrl = this.downloadUrl.replace(/\/+$/, '');
-        const url = cleanDownloadUrl.includes('/file/') 
-            ? `${cleanDownloadUrl}/${key}`
-            : `${cleanDownloadUrl}/file/${this.bucketName}/${key}`;
+        const encodedKey = key.split('/').map(encodeURIComponent).join('/');
+        const url = cleanDownloadUrl.includes('/file/')
+            ? `${cleanDownloadUrl}/${encodedKey}`
+            : `${cleanDownloadUrl}/file/${this.bucketName}/${encodedKey}`;
 
         return {
             fileId: key,
@@ -74,9 +78,10 @@ export class BackblazeS3Provider implements StorageProvider {
 
     getUrl(fileId: string): string {
         const cleanDownloadUrl = this.downloadUrl.replace(/\/+$/, '');
-        return cleanDownloadUrl.includes('/file/') 
-            ? `${cleanDownloadUrl}/${fileId}`
-            : `${cleanDownloadUrl}/file/${this.bucketName}/${fileId}`;
+        const encodedId = fileId.split('/').map(encodeURIComponent).join('/');
+        return cleanDownloadUrl.includes('/file/')
+            ? `${cleanDownloadUrl}/${encodedId}`
+            : `${cleanDownloadUrl}/file/${this.bucketName}/${encodedId}`;
     }
 
 

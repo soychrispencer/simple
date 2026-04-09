@@ -98,9 +98,13 @@ export class BackblazeB2Provider implements StorageProvider {
                 fileBuffer = Buffer.from(await (input.file as any).arrayBuffer());
             }
 
-            // Build file path
+            // Build file path (sanitize filename to avoid URL issues)
             const now = Date.now();
-            const fileName = `${input.userId}/${input.listingId || 'temp'}/${now}-${input.fileName}`;
+            const safeName = input.fileName
+                .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+                .replace(/[^a-zA-Z0-9._-]/g, '-')
+                .replace(/-+/g, '-');
+            const fileName = `${input.userId}/${input.listingId || 'temp'}/${now}-${safeName}`;
 
             // Upload file
             const uploadResponse = await fetch(uploadUrlData.uploadUrl, {
