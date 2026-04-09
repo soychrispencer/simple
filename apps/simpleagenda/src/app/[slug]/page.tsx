@@ -2,7 +2,8 @@ import { notFound } from 'next/navigation';
 import { IconMapPin, IconBrandWhatsapp } from '@tabler/icons-react';
 import BookingFlow from './BookingFlow';
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000';
+// Server component — use API_INTERNAL_URL (not proxied) for direct SSR calls
+const API_BASE = process.env.API_INTERNAL_URL || process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
 
 type PublicProfile = {
     slug: string;

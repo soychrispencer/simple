@@ -11192,9 +11192,9 @@ app.get('/api/auth/google/finalize', async (c) => {
         const oauthToken = randomBytes(20).toString('hex');
         pendingOAuthSessions.set(oauthToken, { userId: result.user.id, expiresAt: Date.now() + 90_000 });
 
-        const safeReturnTo = rawReturnTo && rawReturnTo.startsWith('/') ? rawReturnTo : '/panel';
-        // Redirect back to the app with the one-time token as a URL param
-        const dest = `${result.origin}${safeReturnTo}?_oauth=${oauthToken}`;
+        // Always redirect to the callback page — it handles the token exchange
+        // and then navigates to the final destination stored in sessionStorage.
+        const dest = `${result.origin}/auth/google/callback?_oauth=${oauthToken}`;
         return c.redirect(dest);
     } catch (error) {
         console.error('Google OAuth finalize error:', error);

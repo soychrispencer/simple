@@ -3,8 +3,6 @@
 import { useEffect, useState } from 'react';
 import { IconX } from '@tabler/icons-react';
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000';
-
 export default function GoogleCallback() {
     const [error, setError] = useState<string | null>(null);
 
@@ -35,18 +33,15 @@ export default function GoogleCallback() {
             return;
         }
 
-        const returnTo = sessionStorage.getItem('auth.returnTo') || '/panel';
-        const finalizeUrl = new URL(`${API_BASE}/api/auth/google/finalize`);
-        finalizeUrl.searchParams.set('code', code);
-        finalizeUrl.searchParams.set('state', state);
-        finalizeUrl.searchParams.set('returnTo', returnTo);
-
-        window.location.replace(finalizeUrl.toString());
+        // Navigate to finalize through the same-origin proxy (relative URL)
+        const params = new URLSearchParams({ code, state });
+        window.location.replace(`/api/auth/google/finalize?${params.toString()}`);
     }, []);
 
     async function exchangeToken(token: string) {
         try {
-            const res = await fetch(`${API_BASE}/api/auth/google/exchange?token=${encodeURIComponent(token)}`, {
+            // Fetch through same-origin proxy so the session cookie is stored on our domain
+            const res = await fetch(`/api/auth/google/exchange?token=${encodeURIComponent(token)}`, {
                 method: 'GET',
                 credentials: 'include',
             });
@@ -54,10 +49,10 @@ export default function GoogleCallback() {
                 const data = await res.json().catch(() => ({}));
                 throw new Error((data as { error?: string }).error || 'Error al iniciar sesión');
             }
+            // Navigate to the user's intended destination
+            const returnTo = sessionStorage.getItem('auth.returnTo') || '/panel';
             sessionStorage.removeItem('auth.returnTo');
-            // Small delay so the cookie is stored before navigating
             setTimeout(() => {
-                const returnTo = sessionStorage.getItem('auth.returnTo') || '/panel';
                 window.location.replace(returnTo);
             }, 100);
         } catch (err) {
