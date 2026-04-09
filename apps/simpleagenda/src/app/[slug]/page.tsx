@@ -53,8 +53,8 @@ async function getProfessionalProfile(slug: string): Promise<PublicProfile | nul
             next: { revalidate: 60 },
         });
         if (!res.ok) return null;
-        const data = await res.json() as PublicProfile & { ok: boolean };
-        return data.ok ? data : null;
+        const data = await res.json() as { ok: boolean; profile: PublicProfile };
+        return data.ok ? data.profile : null;
     } catch {
         return null;
     }

@@ -10,7 +10,7 @@ const apiBackendUrl = process.env.API_INTERNAL_URL || process.env.NEXT_PUBLIC_AP
 const nextConfig: NextConfig = {
     output: 'standalone',
     outputFileTracingRoot: path.join(process.cwd(), '../..'),
-    transpilePackages: ['@simple/types', '@simple/config', '@simple/ui'],
+    transpilePackages: ['@simple/types', '@simple/config', '@simple/ui', '@simple/utils'],
     images: {
         remotePatterns: [
             { protocol: 'https', hostname: '**' },

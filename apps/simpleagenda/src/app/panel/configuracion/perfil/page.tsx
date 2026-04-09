@@ -1,8 +1,9 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { IconCheck, IconAlertCircle, IconLoader2 } from '@tabler/icons-react';
-import { fetchAgendaProfile, saveAgendaProfile } from '@/lib/agenda-api';
+import { useEffect, useRef, useState, useCallback } from 'react';
+import { IconCheck, IconAlertCircle, IconLoader2, IconCamera, IconX, IconLink } from '@tabler/icons-react';
+import { fetchAgendaProfile, saveAgendaProfile, checkSlugAvailable, uploadAvatar } from '@/lib/agenda-api';
+import { LOCATION_REGIONS, getCommunesForRegion } from '@simple/utils';
 
 function normalizeSlug(value: string): string {
     return value
@@ -16,12 +17,21 @@ function normalizeSlug(value: string): string {
         .slice(0, 60);
 }
 
+const regionOptions = LOCATION_REGIONS.map((r) => ({ value: r.id, label: r.name }));
+
 export default function PerfilConfigPage() {
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
     const [saved, setSaved] = useState(false);
     const [error, setError] = useState('');
-    const [isNew, setIsNew] = useState(false);
+    const [avatarUploading, setAvatarUploading] = useState(false);
+    const fileInputRef = useRef<HTMLInputElement>(null);
+
+    // Slug availability
+    const [slugStatus, setSlugStatus] = useState<'idle' | 'checking' | 'available' | 'taken' | 'invalid'>('idle');
+    const [slugError, setSlugError] = useState('');
+    const slugTimerRef = useRef<ReturnType<typeof setTimeout>>();
+    const originalSlugRef = useRef('');
 
     const [form, setForm] = useState({
         slug: '',
@@ -29,6 +39,7 @@ export default function PerfilConfigPage() {
         profession: '',
         headline: '',
         bio: '',
+        avatarUrl: '',
         publicEmail: '',
         publicPhone: '',
         publicWhatsapp: '',
@@ -48,12 +59,13 @@ export default function PerfilConfigPage() {
         const load = async () => {
             const profile = await fetchAgendaProfile();
             if (profile) {
-                setForm({
+                const data = {
                     slug: profile.slug ?? '',
                     displayName: profile.displayName ?? '',
                     profession: profile.profession ?? '',
                     headline: profile.headline ?? '',
                     bio: profile.bio ?? '',
+                    avatarUrl: profile.avatarUrl ?? '',
                     publicEmail: profile.publicEmail ?? '',
                     publicPhone: profile.publicPhone ?? '',
                     publicWhatsapp: profile.publicWhatsapp ?? '',
@@ -67,30 +79,86 @@ export default function PerfilConfigPage() {
                     encuadre: profile.encuadre ?? '',
                     requiresAdvancePayment: profile.requiresAdvancePayment ?? false,
                     advancePaymentInstructions: profile.advancePaymentInstructions ?? '',
-                });
-            } else {
-                setIsNew(true);
+                };
+                setForm(data);
+                originalSlugRef.current = data.slug;
             }
             setLoading(false);
         };
         void load();
     }, []);
 
+    const communeOptions = form.region
+        ? getCommunesForRegion(form.region).map((c) => ({ value: c.name, label: c.name }))
+        : [];
+
     const set = (key: keyof typeof form, value: string | boolean | number) => {
         setSaved(false);
         setForm((prev) => ({ ...prev, [key]: value }));
     };
 
+    const handleSlugChange = useCallback((raw: string) => {
+        const slug = normalizeSlug(raw);
+        set('slug', slug);
+        setSlugError('');
+
+        if (!slug || slug.length < 3) {
+            setSlugStatus('idle');
+            return;
+        }
+        if (slug === originalSlugRef.current) {
+            setSlugStatus('idle');
+            return;
+        }
+
+        setSlugStatus('checking');
+        if (slugTimerRef.current) clearTimeout(slugTimerRef.current);
+        slugTimerRef.current = setTimeout(async () => {
+            const result = await checkSlugAvailable(slug);
+            if (result.available) {
+                setSlugStatus('available');
+                setSlugError('');
+            } else {
+                setSlugStatus(result.error?.includes('disponible') || result.error?.includes('uso') ? 'taken' : 'invalid');
+                setSlugError(result.error ?? 'No disponible');
+            }
+        }, 500);
+    }, []);
+
+    const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+        if (file.size > 5 * 1024 * 1024) {
+            setError('La imagen no puede pesar más de 5 MB.');
+            return;
+        }
+        setAvatarUploading(true);
+        setError('');
+        const result = await uploadAvatar(file);
+        setAvatarUploading(false);
+        if (!result.ok) {
+            setError(result.error ?? 'Error al subir la imagen.');
+            return;
+        }
+        if (result.url) {
+            set('avatarUrl', result.url);
+        }
+        if (fileInputRef.current) fileInputRef.current.value = '';
+    };
+
     const handleSave = async () => {
         if (!form.slug) { setError('El link de tu agenda es requerido.'); return; }
+        if (form.slug.length < 3) { setError('El link debe tener al menos 3 caracteres.'); return; }
         if (!form.displayName.trim()) { setError('El nombre visible es requerido.'); return; }
+        if (slugStatus === 'taken' || slugStatus === 'invalid') { setError(slugError || 'El link no está disponible.'); return; }
         setSaving(true);
         setError('');
         const result = await saveAgendaProfile(form);
         setSaving(false);
         if (!result.ok) { setError(result.error ?? 'Error al guardar.'); return; }
+        originalSlugRef.current = form.slug;
+        setSlugStatus('idle');
         setSaved(true);
-        setIsNew(false);
         setTimeout(() => setSaved(false), 3000);
     };
 
@@ -112,29 +180,78 @@ export default function PerfilConfigPage() {
             </p>
 
             <div className="flex flex-col gap-6">
+                {/* Avatar */}
+                <section className="rounded-2xl border p-5" style={{ borderColor: 'var(--border)', background: 'var(--surface)' }}>
+                    <h2 className="text-sm font-semibold mb-4" style={{ color: 'var(--fg)' }}>Foto de perfil</h2>
+                    <div className="flex items-center gap-4">
+                        <div className="relative">
+                            <div
+                                className="w-20 h-20 rounded-full flex items-center justify-center text-2xl font-bold overflow-hidden shrink-0"
+                                style={{ background: 'var(--accent-subtle, rgba(13,148,136,0.1))', color: 'var(--accent)' }}
+                            >
+                                {form.avatarUrl ? (
+                                    // eslint-disable-next-line @next/next/no-img-element
+                                    <img src={form.avatarUrl} alt="Avatar" className="w-full h-full object-cover" />
+                                ) : (
+                                    form.displayName?.charAt(0)?.toUpperCase() ?? '?'
+                                )}
+                            </div>
+                            <button
+                                onClick={() => fileInputRef.current?.click()}
+                                disabled={avatarUploading}
+                                className="absolute -bottom-1 -right-1 w-8 h-8 rounded-full flex items-center justify-center border-2 transition-colors"
+                                style={{ background: 'var(--surface)', borderColor: 'var(--border)', color: 'var(--fg-muted)' }}
+                            >
+                                {avatarUploading ? <IconLoader2 size={14} className="animate-spin" /> : <IconCamera size={14} />}
+                            </button>
+                            <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handleAvatarUpload} />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                            <p className="text-sm" style={{ color: 'var(--fg)' }}>
+                                {form.avatarUrl ? 'Foto de perfil configurada' : 'Sin foto de perfil'}
+                            </p>
+                            <p className="text-xs mt-0.5" style={{ color: 'var(--fg-muted)' }}>JPG o PNG, máximo 5 MB</p>
+                            {form.avatarUrl && (
+                                <button
+                                    onClick={() => set('avatarUrl', '')}
+                                    className="text-xs mt-1 flex items-center gap-1"
+                                    style={{ color: '#dc2626' }}
+                                >
+                                    <IconX size={12} /> Eliminar foto
+                                </button>
+                            )}
+                        </div>
+                    </div>
+                </section>
+
                 {/* Link público */}
                 <section className="rounded-2xl border p-5" style={{ borderColor: 'var(--border)', background: 'var(--surface)' }}>
                     <h2 className="text-sm font-semibold mb-3" style={{ color: 'var(--fg)' }}>Tu link de reservas</h2>
-                    <div className="flex items-center rounded-xl border overflow-hidden" style={{ borderColor: 'var(--border)' }}>
+                    <div className="flex items-center rounded-xl border overflow-hidden" style={{ borderColor: slugStatus === 'taken' || slugStatus === 'invalid' ? '#dc2626' : slugStatus === 'available' ? '#22c55e' : 'var(--border)' }}>
                         <span className="px-3 py-2.5 text-sm shrink-0 border-r" style={{ borderColor: 'var(--border)', background: 'var(--bg-subtle)', color: 'var(--fg-muted)' }}>
-                            {APP_URL}/
+                            <IconLink size={14} className="inline mr-1 opacity-60" />
+                            {APP_URL.replace(/^https?:\/\//, '')}/
                         </span>
                         <input
                             type="text"
                             value={form.slug}
-                            onChange={(e) => set('slug', normalizeSlug(e.target.value))}
+                            onChange={(e) => handleSlugChange(e.target.value)}
                             placeholder="tu-nombre"
-                            disabled={!isNew}
-                            className="flex-1 px-3 py-2.5 text-sm outline-none bg-transparent disabled:opacity-60"
+                            className="flex-1 px-3 py-2.5 text-sm outline-none bg-transparent"
                             style={{ color: 'var(--fg)' }}
                         />
+                        <div className="pr-3 shrink-0">
+                            {slugStatus === 'checking' && <IconLoader2 size={14} className="animate-spin" style={{ color: 'var(--fg-muted)' }} />}
+                            {slugStatus === 'available' && <IconCheck size={14} style={{ color: '#22c55e' }} />}
+                            {(slugStatus === 'taken' || slugStatus === 'invalid') && <IconX size={14} style={{ color: '#dc2626' }} />}
+                        </div>
                     </div>
-                    {isNew && <p className="text-xs mt-1.5" style={{ color: 'var(--fg-muted)' }}>No podrás cambiarlo después.</p>}
-                    {!isNew && (
+                    {slugError && <p className="text-xs mt-1.5" style={{ color: '#dc2626' }}>{slugError}</p>}
+                    {!slugError && (
                         <p className="text-xs mt-1.5" style={{ color: 'var(--fg-muted)' }}>
                             Tu link público:{' '}
                             <a href={`${APP_URL}/${form.slug}`} target="_blank" rel="noopener noreferrer" className="underline" style={{ color: 'var(--accent)' }}>
-                                {APP_URL}/{form.slug}
+                                {APP_URL.replace(/^https?:\/\//, '')}/{form.slug}
                             </a>
                         </p>
                     )}
@@ -165,7 +282,7 @@ export default function PerfilConfigPage() {
                     </div>
                 </section>
 
-                {/* Contacto */}
+                {/* Contacto y ubicación */}
                 <section className="rounded-2xl border p-5" style={{ borderColor: 'var(--border)', background: 'var(--surface)' }}>
                     <h2 className="text-sm font-semibold mb-4" style={{ color: 'var(--fg)' }}>Contacto y ubicación</h2>
                     <div className="grid sm:grid-cols-2 gap-4">
@@ -178,8 +295,34 @@ export default function PerfilConfigPage() {
                         <Field label="Email público">
                             <input type="email" value={form.publicEmail} onChange={(e) => set('publicEmail', e.target.value)} placeholder="contacto@ejemplo.cl" className="field-input" />
                         </Field>
-                        <Field label="Ciudad">
-                            <input type="text" value={form.city} onChange={(e) => set('city', e.target.value)} placeholder="Santiago" className="field-input" />
+                        <div /> {/* spacer */}
+                        <Field label="Región">
+                            <select
+                                value={form.region}
+                                onChange={(e) => {
+                                    set('region', e.target.value);
+                                    set('city', '');
+                                }}
+                                className="field-input"
+                            >
+                                <option value="">Selecciona una región</option>
+                                {regionOptions.map((r) => (
+                                    <option key={r.value} value={r.value}>{r.label}</option>
+                                ))}
+                            </select>
+                        </Field>
+                        <Field label="Comuna">
+                            <select
+                                value={form.city}
+                                onChange={(e) => set('city', e.target.value)}
+                                disabled={!form.region}
+                                className="field-input disabled:opacity-50"
+                            >
+                                <option value="">{form.region ? 'Selecciona una comuna' : 'Selecciona región primero'}</option>
+                                {communeOptions.map((c) => (
+                                    <option key={c.value} value={c.value}>{c.label}</option>
+                                ))}
+                            </select>
                         </Field>
                     </div>
                 </section>

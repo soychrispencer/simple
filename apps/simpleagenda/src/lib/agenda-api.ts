@@ -69,6 +69,25 @@ export async function saveAgendaProfile(body: Partial<AgendaProfile>): Promise<{
     return apiFetch('/api/agenda/profile', { method: 'PATCH', body: JSON.stringify(body) });
 }
 
+export async function checkSlugAvailable(slug: string): Promise<{ available: boolean; error?: string }> {
+    const data = await apiFetch<{ ok: boolean; available: boolean; error?: string }>(`/api/agenda/slug-available?slug=${encodeURIComponent(slug)}`);
+    return { available: data.available, error: data.error };
+}
+
+export async function uploadAvatar(file: File): Promise<{ ok: boolean; url?: string; error?: string }> {
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('fileType', 'image');
+    const res = await fetch(`${API_BASE}/api/media/upload`, {
+        method: 'POST',
+        credentials: 'include',
+        body: formData,
+    });
+    const data = await res.json() as { ok: boolean; result?: { publicUrl: string }; error?: string };
+    if (!data.ok) return { ok: false, error: data.error ?? 'Error al subir imagen' };
+    return { ok: true, url: data.result?.publicUrl };
+}
+
 // ── Services ─────────────────────────────────────────────────────────────────
 
 export type AgendaService = {
