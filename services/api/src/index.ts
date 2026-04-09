@@ -14438,6 +14438,44 @@ app.get('/api/agenda/profile', requireVerifiedSession, async (c) => {
     return c.json({ ok: true, profile });
 });
 
+const RESERVED_SLUGS = new Set([
+    'panel', 'auth', 'api', 'admin', 'login', 'register', 'logout',
+    'settings', 'configuracion', 'perfil', 'profile', 'cuenta', 'account',
+    'help', 'soporte', 'support', 'terms', 'privacy', 'legal',
+    'blog', 'pricing', 'planes', 'home', 'about', 'nosotros',
+    'app', 'dashboard', 'agenda', 'citas', 'reservas', 'booking',
+    'www', 'mail', 'email', 'ftp', 'cdn', 'static', 'assets',
+]);
+
+function isValidSlug(slug: string): { ok: true } | { ok: false; error: string } {
+    if (!slug || slug.length < 3) return { ok: false, error: 'El link debe tener al menos 3 caracteres.' };
+    if (slug.length > 60) return { ok: false, error: 'El link no puede tener más de 60 caracteres.' };
+    if (!/^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?$/.test(slug)) {
+        return { ok: false, error: 'Solo letras minúsculas, números y guiones. No puede empezar ni terminar con guion.' };
+    }
+    if (/--/.test(slug)) return { ok: false, error: 'No puede contener guiones consecutivos.' };
+    if (RESERVED_SLUGS.has(slug)) return { ok: false, error: 'Este link no está disponible.' };
+    return { ok: true };
+}
+
+app.get('/api/agenda/slug-available', requireVerifiedSession, async (c) => {
+    const user = await authUser(c);
+    if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
+    const slug = asString(c.req.query('slug')).toLowerCase().trim();
+    const validation = isValidSlug(slug);
+    if (!validation.ok) return c.json({ ok: false, available: false, error: validation.error });
+
+    const existing = await db.select({ id: agendaProfessionalProfiles.id })
+        .from(agendaProfessionalProfiles)
+        .where(eq(agendaProfessionalProfiles.slug, slug))
+        .limit(1);
+
+    const profile = await getAgendaProfile(user.id);
+    const isSelf = existing.length > 0 && profile && existing[0].id === profile.id;
+    const available = existing.length === 0 || isSelf;
+    return c.json({ ok: true, available, error: available ? undefined : 'Este link ya está en uso por otro profesional.' });
+});
+
 app.patch('/api/agenda/profile', requireVerifiedSession, async (c) => {
     const user = await authUser(c);
     if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
@@ -14446,7 +14484,7 @@ app.patch('/api/agenda/profile', requireVerifiedSession, async (c) => {
 
     const body = await c.req.json().catch(() => ({})) as Record<string, unknown>;
     const allowed = [
-        'isPublished', 'profession', 'displayName', 'headline', 'bio', 'avatarUrl',
+        'slug', 'isPublished', 'profession', 'displayName', 'headline', 'bio', 'avatarUrl',
         'publicEmail', 'publicPhone', 'publicWhatsapp', 'city', 'region', 'address',
         'currency', 'timezone', 'bookingWindowDays', 'cancellationHours', 'confirmationMode',
         'encuadre', 'requiresAdvancePayment', 'advancePaymentInstructions',
@@ -14456,6 +14494,22 @@ app.patch('/api/agenda/profile', requireVerifiedSession, async (c) => {
     const patch: Record<string, unknown> = { updatedAt: new Date() };
     for (const key of allowed) {
         if (key in body) patch[key] = body[key];
+    }
+
+    // Validate slug if being changed
+    if ('slug' in body && body.slug !== profile.slug) {
+        const newSlug = String(body.slug ?? '').toLowerCase().trim();
+        const validation = isValidSlug(newSlug);
+        if (!validation.ok) return c.json({ ok: false, error: validation.error }, 400);
+
+        const existing = await db.select({ id: agendaProfessionalProfiles.id })
+            .from(agendaProfessionalProfiles)
+            .where(eq(agendaProfessionalProfiles.slug, newSlug))
+            .limit(1);
+        if (existing.length > 0 && existing[0].id !== profile.id) {
+            return c.json({ ok: false, error: 'Este link ya está en uso por otro profesional.' }, 409);
+        }
+        patch.slug = newSlug;
     }
 
     const [updated] = await db.update(agendaProfessionalProfiles)
