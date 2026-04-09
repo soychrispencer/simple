@@ -1,10 +1,10 @@
 # Documentation Structure 📚
 
-**Actualizado:** 9 de marzo de 2026
+**Actualizado:** 9 de abril de 2026
 
 ---
 
-## 📂 Estructura de Documentación Reorganizada
+## 📂 Estructura de Documentación
 
 ```
 docs/
@@ -32,62 +32,86 @@ docs/
 │   └── Hallazgos críticos, planes de remediación
 │   └── Destinatarios: Security Team, CTO
 │
-├── ❌ (Eliminados - Obsoletos)
-│   ├── implementation_plan.md.resolved
-│   ├── task.md.resolved
-│   ├── walkthrough.md.resolved
-│   └── scratchpad_7pezsbxg.md.resolved
-│   
-└── auditoria-paridad-original-vs-v2.md
-    └── Archivos heredados - Mantener para referencia histórica
+├── ✅ STORAGE_SETUP.md
+│   └── Configuración de Backblaze B2 para almacenamiento
+│   └── Costos, troubleshooting, variables de entorno
+│
+├── ✅ COOLIFY_DEPLOYMENT.md
+│   └── Guía de deployment en Coolify
+│   └── Configuración de servicios, variables de entorno
+│
+├── ✅ GOOGLE_OAUTH_GUIA.md
+│   └── Configuración de Google OAuth
+│   └── Credenciales, redirect URIs, troubleshooting
+│
+├── ✅ SIMPLEAGENDA_DEVELOPMENT.md
+│   └── Guía específica para desarrollo de SimpleAgenda
+│   └── Configuración de cron jobs, variables de entorno
+│
+├── ✅ INSTAGRAM_INTELLIGENCE_IMPLEMENTATION.md
+│   └── Implementación de templates inteligentes para Instagram
+│   └── Arquitectura de templates modernos
+│
+├── ✅ SIMPLEAUTOS_ARQUITECTURA_COMPLETA.md
+│   └── Arquitectura detallada del flujo de publicaciones
+│   └── Componentes, hooks, data flow
+│
+├── ✅ login_analysis.md
+│   └── Análisis del flujo de login y duplicaciones identificadas
+│   └── Recomendaciones de refactorización
+│
+├── ✅ IMPLEMENTATION_SUMMARY.md
+│   └── Resumen de implementación de almacenamiento B2
+│
+├── ✅ INTEGRATION_ROADMAP.md
+│   └── Roadmap de integración de almacenamiento
+│
+└── ✅ INDEX.md
+    └── Este archivo - índice y guía de navegación
 ```
 
 ---
 
-## 🗂️ Archivos Temporales (Eliminados de repo)
+## 🗂️ Archivos Eliminados en Limpieza (Abril 2026)
 
-En `.gitignore`:
-
+### ❌ Eliminados de la raíz del repo:
 ```
-tmp_brand_lookup.ps1       ← Scripts de testing Excel/PowerShell
-tmp_captiva_check.ps1
-tmp_catalog_stats.ps1
-tmp_categories_exact.ps1
-tmp_compare_excel_seed.ps1
-tmp_corolla_check.ps1
-tmp_debug.txt              ← Archivos de debug HTML
-tmp_err.txt
-tmp_excel_captiva.ps1
-tmp_parse_excel.ps1
-tmp_profile_excel.ps1
-tmp_special.ps1
-tmp_step_commercial.txt    ← Notas de desarrollo temporales
-tmp_step_review.txt
-tmp_year_patterns.ps1
-
-.logs/                     ← Logs de desarrollo viejos
+build_debug.txt              ← Archivo temporal de debug
+diff_status.txt              ← Archivo temporal de diff
+files_in_head.txt            ← Archivo temporal de git
+git-show-index.txt           ← Archivo temporal de git
+git-show.txt                 ← Archivo temporal de git
+test-payload.json            ← Archivo de prueba
+test-templates.js            ← Archivo de prueba de templates
+fix-instagram-migration.sql  ← Archivo SQL de migración (ya aplicado)
 ```
 
-**Acción:** Son archivos temporales de desarrollo. El `.gitignore` los ignora automáticamente.
+### ❌ Eliminados de /docs:
+```
+auditoria-paridad-original-vs-v2.md  ← Obsoleto (ya no hay SimpleV2)
+REVISION_FLUJO.md                    ← Análisis temporal completado
+```
+
+**Razón:** Este es el único repositorio actualizado. No existe SimpleV2 ni repositorios de prueba.
 
 ---
 
 ## 📖 Cómo Usar la Documentación
 
-### 🟢 Nuevo al proyecto?
+### 🟢 ¿Nuevo al proyecto?
 1. Lee [README.md](../README.md) - Visión general
 2. Lee [DEVELOPMENT.md](./DEVELOPMENT.md) - Quick start
 3. Sigue [DEVELOPMENT.md → Quick Start](./DEVELOPMENT.md#quick-start)
 
-### 🔧 Implementando Drizzle + PostgreSQL?
+### 🔧 ¿Implementando Drizzle + PostgreSQL?
 1. Lee [DATABASE_SETUP.md](./DATABASE_SETUP.md) - Completo
 2. Sigue paso a paso: Instalación local → Schemas → Migrations
 3. Consulta [ARCHITECTURE.md](./ARCHITECTURE.md) - Data Layer
 
-### 🏗️ Diseñando nueva feature?
+### 🏗️ ¿Diseñando nueva feature?
 1. Lee [ARCHITECTURE.md](./ARCHITECTURE.md) - Estructura general
 2. Lee [DEVELOPMENT.md](./DEVELOPMENT.md) - Ejemplos prácticos
-3. Referencia [CODE_SNIPPETS.md](./CODE_SNIPPETS.md) (si existe)
+3. Referencia [SIMPLEAUTOS_ARQUITECTURA_COMPLETA.md](./SIMPLEAUTOS_ARQUITECTURA_COMPLETA.md) para flujos específicos
 
 ### 🚨 ¿Problemas de seguridad?
 1. Consulta [AUDIT_REGISTRO_COMPLETO.md](./AUDIT_REGISTRO_COMPLETO.md)
@@ -98,6 +122,11 @@ tmp_year_patterns.ps1
 1. Lee [PROJECT_STATUS.md](./PROJECT_STATUS.md)
 2. Revisa checklist de próximas prioridades
 3. Consulta timeframe realista
+
+### 🚀 ¿Deploy a producción?
+1. Lee [COOLIFY_DEPLOYMENT.md](./COOLIFY_DEPLOYMENT.md)
+2. Verifica variables de entorno en [STORAGE_SETUP.md](./STORAGE_SETUP.md)
+3. Consulta [DATABASE_SETUP.md](./DATABASE_SETUP.md) para migraciones
 
 ---
 
@@ -134,6 +163,8 @@ AUDIT_REGISTRO_COMPLETO.md
 ARCHITECTURE.md (Security layers)
   ↓
 DATABASE_SETUP.md (Production DB)
+  ↓
+COOLIFY_DEPLOYMENT.md
 ```
 
 ### 👔 Project Manager / Product Owner
@@ -154,12 +185,14 @@ Roadmap section
 - [ ] Arquitectura cambió
 - [ ] Encontraste un bug o workaround
 - [ ] Completaste un sprint
+- [ ] Se eliminan archivos obsoletos
 
 ### Checklist actualización:
 - [ ] Actualizar PROJECT_STATUS.md si hay cambios de estado
 - [ ] Actualizar ARCHITECTURE.md si cambió la arquitectura
 - [ ] Actualizar DEVELOPMENT.md con nuevos snippets/workflows
 - [ ] Actualizar README.md con nuevas features
+- [ ] Actualizar INDEX.md si se agregan/eliminan archivos
 - [ ] Versionar en git: `git commit -m "docs: actualización de X"`
 
 ---
@@ -168,11 +201,17 @@ Roadmap section
 
 | Necesito... | Mirar aquí |
 |------------|-----------|
-| Entender qué es Simple V2 | [README.md](../README.md) |
+| Entender qué es este proyecto | [README.md](../README.md) |
 | Ver estado actual del proyecto | [PROJECT_STATUS.md](./PROJECT_STATUS.md) |
 | Instalar PostgreSQL y Drizzle | [DATABASE_SETUP.md](./DATABASE_SETUP.md) |
 | Entender la arquitectura | [ARCHITECTURE.md](./ARCHITECTURE.md) |
 | Comenzar a desarrollar | [DEVELOPMENT.md](./DEVELOPMENT.md) |
 | Información de seguridad | [AUDIT_REGISTRO_COMPLETO.md](./AUDIT_REGISTRO_COMPLETO.md) |
-| Auditoría histórica vs Simple v1 | [auditoria-paridad-original-vs-v2.md](./auditoria-paridad-original-vs-v2.md) |
+| Configurar deploy en Coolify | [COOLIFY_DEPLOYMENT.md](./COOLIFY_DEPLOYMENT.md) |
+| Configurar almacenamiento B2 | [STORAGE_SETUP.md](./STORAGE_SETUP.md) |
+| Desarrollar SimpleAgenda | [SIMPLEAGENDA_DEVELOPMENT.md](./SIMPLEAGENDA_DEVELOPMENT.md) |
+| Implementar Instagram | [INSTAGRAM_INTELLIGENCE_IMPLEMENTATION.md](./INSTAGRAM_INTELLIGENCE_IMPLEMENTATION.md) |
 
+---
+
+**Nota:** Este es el repositorio único y actualizado. No existe SimpleV2 ni otros repositorios de prueba.
