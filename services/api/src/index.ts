@@ -10281,18 +10281,6 @@ app.get('/api/debug/env', (c) => {
 app.get('/health', handleHealthcheck);
 app.get('/api/health', handleHealthcheck);
 
-// One-time migration endpoint — run ALTER TABLE to add missing columns
-// DELETE THIS after the migration has been applied in production
-app.get('/api/migrate-plan-columns', async (c) => {
-    try {
-        await db.execute(sql`ALTER TABLE agenda_professional_profiles ADD COLUMN IF NOT EXISTS plan VARCHAR(20) NOT NULL DEFAULT 'free'`);
-        await db.execute(sql`ALTER TABLE agenda_professional_profiles ADD COLUMN IF NOT EXISTS plan_expires_at TIMESTAMP`);
-        return c.json({ ok: true, message: 'Migration applied: plan + plan_expires_at columns added' });
-    } catch (error) {
-        return c.json({ ok: false, error: String(error) }, 500);
-    }
-});
-
 // Development-only file server for local uploads (only when STORAGE_PROVIDER=local)
 app.get('/uploads/*', async (c) => {
     if (process.env.STORAGE_PROVIDER !== 'local' && process.env.NODE_ENV !== 'development') {
