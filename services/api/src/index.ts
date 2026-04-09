@@ -11008,6 +11008,15 @@ app.post('/api/auth/password-reset/confirm', async (c) => {
     });
 });
 
+// One-time OAuth callback tokens (TTL: 90s, cleared on use)
+const pendingOAuthSessions = new Map<string, { userId: string; expiresAt: number }>();
+setInterval(() => {
+    const now = Date.now();
+    for (const [k, v] of pendingOAuthSessions) {
+        if (v.expiresAt < now) pendingOAuthSessions.delete(k);
+    }
+}, 30_000);
+
 function buildOAuthState(nonce: string, origin: string): string {
     const ts = Math.floor(Date.now() / 1000);
     // Use ~ as separator — safe since nonce/ts are hex/digits and origin is a URL (no ~)
@@ -11175,22 +11184,42 @@ app.get('/api/auth/google/finalize', async (c) => {
                 ? `${fallbackOrigin}/?google_error=${encodeURIComponent(result.error)}`
                 : '/';
             return c.html(`<!DOCTYPE html><html><head><meta charset="utf-8">
-<script>window.location.replace(${JSON.stringify(dest)});</script></head>
-<body>Redirigiendo...</body></html>`);
+<script>window.location.replace(${JSON.stringify(dest)});</script></head><body></body></html>`);
         }
 
-        // Set session cookie in a 200 HTML response (not a 302) so proxies don't strip Set-Cookie.
-        setSession(c, result.user.id);
+        // Store userId in a one-time token — session cookie will be set via a subsequent
+        // fetch with credentials:include from the app (same pattern as email/password login).
+        const oauthToken = randomBytes(20).toString('hex');
+        pendingOAuthSessions.set(oauthToken, { userId: result.user.id, expiresAt: Date.now() + 90_000 });
+
         const safeReturnTo = rawReturnTo && rawReturnTo.startsWith('/') ? rawReturnTo : '/panel';
-        const dest = `${result.origin}${safeReturnTo}`;
-        return c.html(`<!DOCTYPE html><html><head><meta charset="utf-8">
-<script>window.location.replace(${JSON.stringify(dest)});</script></head>
-<body>Conectando...</body></html>`);
+        // Redirect back to the app with the one-time token as a URL param
+        const dest = `${result.origin}${safeReturnTo}?_oauth=${oauthToken}`;
+        return c.redirect(dest);
     } catch (error) {
         console.error('Google OAuth finalize error:', error);
-        return c.html(`<!DOCTYPE html><html><head><meta charset="utf-8">
-<script>window.location.replace("/");</script></head><body></body></html>`);
+        return c.redirect('/');
     }
+});
+
+// Called by the app with credentials:include — sets the session cookie in a fetch response
+app.get('/api/auth/google/exchange', async (c) => {
+    const token = asString(c.req.query('token'));
+    if (!token) return c.json({ ok: false, error: 'Token requerido' }, 400);
+
+    const entry = pendingOAuthSessions.get(token);
+    if (!entry || entry.expiresAt < Date.now()) {
+        return c.json({ ok: false, error: 'Token expirado o inválido' }, 401);
+    }
+    pendingOAuthSessions.delete(token);
+
+    const user = await getUserById(entry.userId);
+    if (!user || !canAuthenticateUser(user)) {
+        return c.json({ ok: false, error: 'Usuario no encontrado' }, 401);
+    }
+
+    setSession(c, user.id);
+    return c.json({ ok: true, user: sanitizeUser(user) });
 });
 
 // POST /api/auth/google/callback — kept for backwards compatibility (fetch-based flow)
