@@ -19,6 +19,11 @@ export interface ListingData {
     negotiable?: boolean;
     financingAvailable?: boolean;
     exchangeAvailable?: boolean;
+    // Property-specific fields
+    propertyType?: string;
+    rooms?: number;
+    bathrooms?: number;
+    surfaceLabel?: string;
     features?: string[];
     images?: Array<{ url: string }>;
     location?: string;
@@ -66,143 +71,198 @@ export interface InstagramTemplateView {
     title: string;
     headline?: string;
     subtitle?: string;
+    offerPriceLabel?: string;
+    discountLabel?: string;
     locationLabel?: string;
     highlights?: string[];
+    badges?: string[];
     priceLabel: string;
     ctaLabel: string;
     score: number;
 }
 
 // Branding de plataforma - presente pero nunca dominante
-const PLATFORM_BRAND = {
-    name: 'SimpleAutos',
-    tagline: 'Publicado vía',
-    watermarkOpacity: 0.4,
-};
+function getPlatformBrand(vertical: string) {
+    if (vertical === 'propiedades') {
+        return { name: 'SimplePropiedades', appId: 'simplepropiedades' as const, tagline: 'Publicado vía', watermarkOpacity: 0.4 };
+    }
+    return { name: 'SimpleAutos', appId: 'simpleautos' as const, tagline: 'Publicado vía', watermarkOpacity: 0.4 };
+}
 
-// Paletas de colores por estrategia de template
+// Paletas de colores - Solo negro, blanco, grises y color principal del branding
 const COLOR_PALETTES = {
-    // Essential: Minimalista, neutro, no compite con el vehículo
+    // Essential: Puro blanco y negro, sin color
     essential: {
-        primary: '#1a1a1a',
+        primary: '#111111',
         secondary: '#f5f5f5',
-        accent: '#333333',
+        accent: '#111111',
         background: '#ffffff',
         surface: '#fafafa',
-        textPrimary: '#1a1a1a',
-        textSecondary: '#666666',
+        textPrimary: '#111111',
+        textSecondary: '#888888',
         textInverse: '#ffffff',
     },
-    // Professional: Corporativo, balanceado, confiable
+    // Professional: Blanco, negro con gris medio
     professional: {
-        primary: '#1e3a5f',
+        primary: '#1a1a1a',
         secondary: '#ffffff',
-        accent: '#e74c3c',
+        accent: '#1a1a1a',
         background: '#ffffff',
-        surface: '#f8f9fa',
-        textPrimary: '#1e3a5f',
-        textSecondary: '#5a6c7d',
+        surface: '#f5f5f5',
+        textPrimary: '#1a1a1a',
+        textSecondary: '#777777',
         textInverse: '#ffffff',
     },
-    // Signature: Premium, elegante, posicionamiento alto
+    // Signature: Negro profundo, blanco, gris oscuro
     signature: {
-        primary: '#0d1b2a',
-        secondary: '#1b263b',
-        accent: '#c9a227',
-        background: '#ffffff',
-        surface: '#f0f2f5',
-        textPrimary: '#0d1b2a',
-        textSecondary: '#415a77',
-        textInverse: '#ffffff',
+        primary: '#0a0a0a',
+        secondary: '#1a1a1a',
+        accent: '#ffffff',
+        background: '#0a0a0a',
+        surface: '#1a1a1a',
+        textPrimary: '#ffffff',
+        textSecondary: '#999999',
+        textInverse: '#0a0a0a',
     },
 };
 
-// Template 1: ESSENTIAL - Marca de agua mínima, para vendedores individuales
-// Concepto: El vehículo es el protagonista, branding sutil no invasivo
-const createEssentialTemplate = (listing: ListingData): InstagramTemplateView => ({
-    id: 'essential-watermark',
-    name: 'Essential',
-    category: 'auto',
-    style: 'minimal',
-    layout: 'single',
-    layoutVariant: 'square',
-    overlayVariant: 'essential-watermark',
-    colors: COLOR_PALETTES.essential,
-    branding: {
-        appName: PLATFORM_BRAND.name,
-        badgeText: '', // Sin badge - solo marca de agua visual
-    },
-    eyebrow: listing.year ? `${listing.year}` : '',
-    title: listing.title,
-    headline: listing.priceLabel || 'Consultar',
-    subtitle: listing.brand && listing.model ? `${listing.brand} ${listing.model}` : undefined,
-    locationLabel: listing.location,
-    highlights: listing.features?.slice(0, 2) ?? [], // Mínimo destacados
-    priceLabel: listing.priceLabel || 'Consultar precio',
-    ctaLabel: '', // Sin CTA visible - el vehículo habla por sí solo
-    score: 90,
-});
+// Función helper: construir highlights según vertical
+function buildVerticalHighlights(listing: ListingData): string[] {
+    const items: string[] = [];
+    const sectionLabel = sectionToSpanish(listing.section);
+    if (sectionLabel) items.push(sectionLabel);
 
-// Template 2: PROFESSIONAL - Información centrada, para concesionarias medianas
+    if (listing.vertical === 'propiedades') {
+        if (listing.propertyType) items.push(listing.propertyType);
+        if (listing.rooms != null) items.push(`${listing.rooms} Dorm.`);
+        if (listing.bathrooms != null) items.push(`${listing.bathrooms} Baños`);
+        if (listing.surfaceLabel) items.push(listing.surfaceLabel);
+    } else {
+        if (listing.condition) items.push(listing.condition);
+        if (listing.mileageLabel) items.push(listing.mileageLabel);
+        if (listing.fuelType) items.push(listing.fuelType);
+    }
+    return items;
+}
+
+// Template 1: BÁSICO - Solo marca de agua centrada, sin información
+// Concepto: La propiedad/vehículo es el protagonista absoluto
+const createBasicoTemplate = (listing: ListingData): InstagramTemplateView => {
+    const brand = getPlatformBrand(listing.vertical);
+    return {
+        id: 'essential-watermark',
+        name: 'Básico',
+        category: listing.vertical === 'propiedades' ? 'propiedad' : 'auto',
+        style: 'minimal',
+        layout: 'single',
+        layoutVariant: 'portrait',
+        overlayVariant: 'essential-watermark',
+        colors: COLOR_PALETTES.essential,
+        branding: {
+            appName: brand.name,
+            badgeText: '',
+            appId: brand.appId,
+        },
+        eyebrow: '',
+        title: '',
+        headline: '',
+        subtitle: undefined,
+        locationLabel: undefined,
+        highlights: [],
+        badges: [],
+        priceLabel: '',
+        ctaLabel: '',
+        score: 85,
+    };
+};
+
+// Template 2: PROFESIONAL - Información centrada, card con todos los datos relevantes
 // Concepto: Balance perfecto entre información y estética
-const createProfessionalTemplate = (listing: ListingData): InstagramTemplateView => ({
-    id: 'professional-centered',
-    name: 'Professional',
-    category: 'auto',
-    style: 'modern',
-    layout: 'single',
-    layoutVariant: 'square',
-    overlayVariant: 'professional-centered',
-    colors: COLOR_PALETTES.professional,
-    branding: {
-        appName: PLATFORM_BRAND.name,
-        badgeText: '', // Sin badge amateur
-    },
-    eyebrow: listing.brand && listing.model 
-        ? `${listing.brand} ${listing.model}` 
-        : (listing.year ? `${listing.year}` : ''),
-    title: listing.title,
-    headline: listing.priceLabel || 'Consultar',
-    subtitle: listing.condition && listing.mileageLabel 
-        ? `${listing.condition} • ${listing.mileageLabel}` 
-        : listing.condition,
-    locationLabel: listing.location,
-    highlights: listing.features?.slice(0, 3) ?? [],
-    priceLabel: listing.priceLabel || 'Consultar precio',
-    ctaLabel: 'Ver detalles →',
-    score: 95,
-});
+function sectionToSpanish(section?: string): string | undefined {
+    if (!section) return undefined;
+    const map: Record<string, string> = { sale: 'Venta', rent: 'Arriendo', auction: 'Subasta', project: 'Proyecto' };
+    return map[section.toLowerCase()] || section;
+}
 
-// Template 3: SIGNATURE - Diseño completo premium, para grandes concesionarias
-// Concepto: Presencia fuerte de marca, posicionamiento premium
-const createSignatureTemplate = (listing: ListingData): InstagramTemplateView => ({
-    id: 'signature-complete',
-    name: 'Signature',
-    category: 'auto',
-    style: 'luxury',
-    layout: 'single',
-    layoutVariant: 'square',
-    overlayVariant: 'signature-complete',
-    colors: COLOR_PALETTES.signature,
-    branding: {
-        appName: PLATFORM_BRAND.name,
-        badgeText: '', // Sin badge - el diseño habla por sí solo
-    },
-    eyebrow: listing.brand || 'Vehículo Destacado',
-    title: listing.title,
-    headline: listing.priceLabel || 'Consultar',
-    subtitle: [
-        listing.year,
-        listing.condition,
-        listing.mileageLabel,
-        listing.fuelType,
-    ].filter(Boolean).join(' • '),
-    locationLabel: listing.location,
-    highlights: listing.features?.slice(0, 4) ?? [],
-    priceLabel: listing.priceLabel || 'Consultar precio',
-    ctaLabel: listing.financingAvailable ? 'Financiamiento disponible' : 'Ver en SimpleAutos',
-    score: 92,
-});
+const createProfesionalTemplate = (listing: ListingData): InstagramTemplateView => {
+    const brand = getPlatformBrand(listing.vertical);
+    const infoItems = buildVerticalHighlights(listing);
+
+    // Badges: conversable, financiamiento, permuta
+    const badgeItems: string[] = [];
+    if (listing.negotiable) badgeItems.push('Conversable');
+    if (listing.financingAvailable) badgeItems.push('Financiamiento');
+    if (listing.exchangeAvailable) badgeItems.push('Permuta');
+
+    return {
+        id: 'professional-centered',
+        name: 'Profesional',
+        category: listing.vertical === 'propiedades' ? 'propiedad' : 'auto',
+        style: 'modern',
+        layout: 'single',
+        layoutVariant: 'portrait',
+        overlayVariant: 'professional-centered',
+        colors: COLOR_PALETTES.professional,
+        branding: {
+            appName: brand.name,
+            badgeText: '',
+            appId: brand.appId,
+        },
+        eyebrow: '',
+        title: listing.title,
+        headline: listing.priceLabel || 'Consultar',
+        subtitle: undefined,
+        locationLabel: listing.location,
+        highlights: infoItems,
+        badges: badgeItems,
+        priceLabel: listing.priceLabel || 'Consultar precio',
+        offerPriceLabel: listing.offerPriceLabel,
+        discountLabel: listing.discountLabel,
+        ctaLabel: '',
+        score: 95,
+    };
+};
+
+// Template 3: PREMIUM - Diseño completo premium, presencia fuerte
+// Concepto: Información exclusiva, posicionamiento alto
+const createPremiumTemplate = (listing: ListingData): InstagramTemplateView => {
+    const brand = getPlatformBrand(listing.vertical);
+    const highlights = buildVerticalHighlights(listing);
+
+    // Badges premium
+    const badgeItems: string[] = [];
+    if (listing.negotiable) badgeItems.push('Conversable');
+    if (listing.financingAvailable) badgeItems.push('Financiamiento');
+    if (listing.exchangeAvailable) badgeItems.push('Permuta');
+
+    return {
+        id: 'signature-complete',
+        name: 'Premium',
+        category: listing.vertical === 'propiedades' ? 'propiedad' : 'auto',
+        style: 'luxury',
+        layout: 'single',
+        layoutVariant: 'portrait',
+        overlayVariant: 'signature-complete',
+        colors: COLOR_PALETTES.signature,
+        branding: {
+            appName: brand.name,
+            badgeText: '',
+            appId: brand.appId,
+        },
+        eyebrow: '',
+        title: listing.title,
+        headline: listing.priceLabel || 'Consultar',
+        subtitle: listing.location || undefined,
+        locationLabel: listing.location,
+        highlights,
+        badges: badgeItems,
+        priceLabel: listing.priceLabel || 'Consultar precio',
+        offerPriceLabel: listing.offerPriceLabel,
+        discountLabel: listing.discountLabel,
+        ctaLabel: '',
+        score: 92,
+    };
+};
 
 // Función principal para generar templates
 export function generateSmartTemplates(listing: ListingData): {
@@ -210,14 +270,14 @@ export function generateSmartTemplates(listing: ListingData): {
     alternatives: InstagramTemplateView[];
 } {
     const templates = [
-        createEssentialTemplate(listing),
-        createProfessionalTemplate(listing),
-        createSignatureTemplate(listing),
+        createBasicoTemplate(listing),
+        createProfesionalTemplate(listing),
+        createPremiumTemplate(listing),
     ];
 
     return {
-        recommendedTemplate: templates[1], // Professional como default
-        alternatives: [templates[0], templates[2]],
+        recommendedTemplate: templates[1], // Profesional como default
+        alternatives: [templates[0], templates[2]], // Básico, Premium
     };
 }
 
@@ -239,9 +299,9 @@ export const getAvailableTemplates = (): InstagramTemplateView[] => {
     };
 
     return [
-        createEssentialTemplate(mockListing),
-        createProfessionalTemplate(mockListing),
-        createSignatureTemplate(mockListing),
+        createBasicoTemplate(mockListing),
+        createProfesionalTemplate(mockListing),
+        createPremiumTemplate(mockListing),
     ];
 };
 

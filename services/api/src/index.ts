@@ -3493,9 +3493,9 @@ function buildInstagramListingData(listing: ListingRecord): InstagramListingData
         title: listing.title,
         price: basePrice,
         offerPrice,
-        priceLabel: listing.price,
+        priceLabel: formatInstagramMoneyLabel(basePrice) || listing.price,
         offerPriceLabel: formatInstagramMoneyLabel(offerPrice),
-        discountLabel: discountPercent && discountPercent > 0 ? `-${discountPercent}% dto` : undefined,
+        discountLabel: discountPercent && discountPercent > 0 ? `-${discountPercent}%` : undefined,
         brand: asString(basic.brand) || asString(rawData.brand) || undefined,
         model: asString(basic.model) || asString(rawData.model) || undefined,
         year: parseNumberFromString(basic.year) ?? parseNumberFromString(rawData.year) ?? undefined,
@@ -3508,6 +3508,14 @@ function buildInstagramListingData(listing: ListingRecord): InstagramListingData
         negotiable: commercial.negotiable === true,
         financingAvailable: commercial.financingAvailable === true,
         exchangeAvailable: commercial.exchangeAvailable === true,
+        // Property-specific fields
+        propertyType: asString(basic.propertyType) || undefined,
+        rooms: parseNumberFromString(basic.rooms) ?? undefined,
+        bathrooms: parseNumberFromString(basic.bathrooms) ?? undefined,
+        surfaceLabel: (() => {
+            const surface = parseNumberFromString(basic.totalArea) ?? parseNumberFromString(basic.surface);
+            return surface != null ? `${surface.toLocaleString('es-CL')} m²` : undefined;
+        })(),
         features: extractListingSummary(listing),
         images: extractListingMediaUrls(listing).map((url) => ({ url })),
         location: getInstagramCommuneLabel(listing, rawData) || listing.location || undefined,
@@ -15992,6 +16000,12 @@ app.post('/api/integrations/instagram/templates', async (c) => {
 
         const listingData = buildInstagramListingData(listing);
         const templates = generateSmartTemplates(listingData);
+
+        console.log('[API] /api/integrations/instagram/templates response:', {
+            recommendedTemplate: templates.recommendedTemplate.id,
+            recommendedOverlay: templates.recommendedTemplate.overlayVariant,
+            alternatives: templates.alternatives.map(t => ({ id: t.id, overlay: t.overlayVariant }))
+        });
 
         return c.json({ ok: true, ...templates });
 

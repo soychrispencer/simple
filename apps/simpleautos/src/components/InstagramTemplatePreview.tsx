@@ -21,15 +21,6 @@ export const InstagramTemplatePreview: React.FC<InstagramTemplatePreviewProps> =
     children
 }) => {
     const aspectRatio = layoutVariant === 'portrait' ? 'aspect-[4/5]' : 'aspect-square';
-    
-    // Debug log
-    if (template) {
-        console.log('[InstagramTemplatePreview] Rendering with template:', {
-            id: template.id,
-            overlayVariant: template.overlayVariant,
-            name: template.name
-        });
-    }
 
     if (!imageUrl) {
         return (
@@ -39,161 +30,200 @@ export const InstagramTemplatePreview: React.FC<InstagramTemplatePreviewProps> =
         );
     }
 
-    const renderTemplateOverlay = () => {
-        if (!template) return null;
-
-        switch (template.overlayVariant) {
-            case 'essential-watermark':
-                return <EssentialOverlay template={template} />;
-            case 'professional-centered':
-                return <ProfessionalOverlay template={template} />;
-            case 'signature-complete':
-                return <SignatureOverlay template={template} />;
-            default:
-                return null;
+    // Renderizar overlay según el tipo de template
+    const renderOverlay = () => {
+        // DEBUG: Siempre renderizar algo para confirmar que el componente funciona
+        if (!template) {
+            return (
+                <div style={{
+                    position: 'absolute',
+                    top: '50%',
+                    left: '50%',
+                    transform: 'translate(-50%, -50%)',
+                    background: 'red',
+                    color: 'white',
+                    padding: '20px',
+                    fontSize: '20px',
+                    fontWeight: 'bold',
+                    zIndex: 9999,
+                }}>
+                    NO TEMPLATE
+                </div>
+            );
         }
+
+        const variant = template.overlayVariant;
+
+        // DEBUG: Mostrar el variant que se recibió
+        console.log('[InstagramTemplatePreview] Rendering variant:', variant, 'Template ID:', template.id);
+
+        // ESSENTIAL: Solo precio centrado abajo
+        if (variant === 'essential-watermark') {
+            return (
+                <div style={{
+                    position: 'absolute',
+                    bottom: 0,
+                    left: 0,
+                    right: 0,
+                    height: '80px',
+                    background: 'linear-gradient(to top, rgba(0,0,0,0.6) 0%, rgba(0,0,0,0) 100%)',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    justifyContent: 'flex-end',
+                    padding: '16px',
+                    border: '2px solid red', // DEBUG: Confirmar que se renderiza
+                }}>
+                    <div style={{
+                        color: 'white',
+                        fontSize: '24px',
+                        fontWeight: 700,
+                        textAlign: 'center',
+                        textShadow: '0 2px 4px rgba(0,0,0,0.5)',
+                    }}>
+                        {template.priceLabel}
+                    </div>
+                    {template.subtitle && (
+                        <div style={{
+                            color: 'rgba(255,255,255,0.8)',
+                            fontSize: '12px',
+                            textAlign: 'center',
+                            marginTop: '4px',
+                        }}>
+                            {template.subtitle}
+                        </div>
+                    )}
+                </div>
+            );
+        }
+
+        // PROFESSIONAL: Card blanca en la parte inferior
+        if (variant === 'professional-centered') {
+            return (
+                <div style={{
+                    position: 'absolute',
+                    bottom: '16px',
+                    left: '16px',
+                    right: '16px',
+                    background: 'rgba(255,255,255,0.95)',
+                    borderRadius: '12px',
+                    padding: '12px',
+                }}>
+                    {template.eyebrow && (
+                        <div style={{
+                            fontSize: '10px',
+                            color: '#666',
+                            textTransform: 'uppercase',
+                            letterSpacing: '0.5px',
+                        }}>
+                            {template.eyebrow}
+                        </div>
+                    )}
+                    <div style={{
+                        fontSize: '20px',
+                        fontWeight: 700,
+                        color: '#111',
+                        marginTop: '2px',
+                    }}>
+                        {template.priceLabel}
+                    </div>
+                    <div style={{
+                        fontSize: '14px',
+                        color: '#333',
+                        marginTop: '2px',
+                        whiteSpace: 'nowrap',
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                    }}>
+                        {template.title}
+                    </div>
+                    {template.subtitle && (
+                        <div style={{
+                            fontSize: '11px',
+                            color: '#666',
+                            marginTop: '4px',
+                        }}>
+                            {template.subtitle}
+                        </div>
+                    )}
+                </div>
+            );
+        }
+
+        // SIGNATURE: Card oscura con eyebrow arriba
+        if (variant === 'signature-complete') {
+            return (
+                <>
+                    {/* Eyebrow arriba */}
+                    {template.eyebrow && (
+                        <div style={{
+                            position: 'absolute',
+                            top: '16px',
+                            left: '16px',
+                            background: 'rgba(0,0,0,0.6)',
+                            color: 'white',
+                            padding: '4px 12px',
+                            borderRadius: '4px',
+                            fontSize: '11px',
+                            fontWeight: 600,
+                        }}>
+                            {template.eyebrow}
+                        </div>
+                    )}
+                    {/* Card oscura abajo */}
+                    <div style={{
+                        position: 'absolute',
+                        bottom: '16px',
+                        left: '16px',
+                        right: '16px',
+                        background: 'rgba(0,0,0,0.7)',
+                        borderRadius: '12px',
+                        padding: '12px',
+                        color: 'white',
+                    }}>
+                        <div style={{
+                            fontSize: '28px',
+                            fontWeight: 700,
+                        }}>
+                            {template.priceLabel}
+                        </div>
+                        <div style={{
+                            fontSize: '14px',
+                            marginTop: '4px',
+                            whiteSpace: 'nowrap',
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis',
+                        }}>
+                            {template.title}
+                        </div>
+                        {template.subtitle && (
+                            <div style={{
+                                fontSize: '11px',
+                                color: 'rgba(255,255,255,0.7)',
+                                marginTop: '4px',
+                            }}>
+                                {template.subtitle}
+                            </div>
+                        )}
+                    </div>
+                </>
+            );
+        }
+
+        return null;
     };
 
     return (
-        <div className={`${className} ${aspectRatio} relative overflow-hidden rounded-lg bg-gray-100`}>
+        <div 
+            className={`${className} ${aspectRatio} overflow-hidden rounded-lg bg-gray-100`}
+            style={{ position: 'relative' }}
+        >
             <img
                 src={imageUrl}
                 alt="Instagram preview"
-                className="w-full h-full object-cover"
+                style={{ width: '100%', height: '100%', objectFit: 'cover' }}
             />
-            {renderTemplateOverlay()}
+            {renderOverlay()}
             {children}
-        </div>
-    );
-};
-
-// ESSENTIAL: Mínimo - solo precio y marca de agua sutil
-const EssentialOverlay: React.FC<{ template: InstagramTemplateView }> = ({ template }) => {
-    return (
-        <div className="absolute inset-0 flex flex-col justify-between p-4">
-            {/* Top: Highlights si existen */}
-            {template.highlights && template.highlights.length > 0 && (
-                <div className="flex flex-wrap gap-1.5">
-                    {template.highlights.slice(0, 2).map((h, i) => (
-                        <span key={i} className="px-2 py-0.5 bg-black/40 text-white text-[9px] rounded">
-                            {h}
-                        </span>
-                    ))}
-                </div>
-            )}
-
-            {/* Bottom: Precio centrado */}
-            <div className="text-center">
-                <div className="text-xl font-bold text-white drop-shadow-lg">
-                    {template.priceLabel}
-                </div>
-                {template.subtitle && (
-                    <div className="text-xs text-white/80 mt-0.5">
-                        {template.subtitle}
-                    </div>
-                )}
-            </div>
-
-            {/* Watermark sutil */}
-            <div className="absolute bottom-3 right-3 text-[8px] text-white/40">
-                {template.branding.appName}
-            </div>
-        </div>
-    );
-};
-
-// PROFESSIONAL: Balanceado - info centrada en card blanca
-const ProfessionalOverlay: React.FC<{ template: InstagramTemplateView }> = ({ template }) => {
-    return (
-        <div className="absolute inset-0 flex flex-col justify-end p-4">
-            {/* Card blanca en la parte inferior */}
-            <div className="bg-white/95 rounded-xl p-3 shadow-lg">
-                {/* Año arriba */}
-                {template.eyebrow && (
-                    <div className="text-[10px] text-gray-500 uppercase tracking-wide">
-                        {template.eyebrow}
-                    </div>
-                )}
-                
-                {/* Precio grande */}
-                <div className="text-xl font-bold text-gray-900 mt-0.5">
-                    {template.priceLabel}
-                </div>
-                
-                {/* Título */}
-                <div className="text-sm font-medium text-gray-700 mt-0.5 line-clamp-1">
-                    {template.title}
-                </div>
-                
-                {/* Detalles */}
-                {template.subtitle && (
-                    <div className="text-xs text-gray-500 mt-1">
-                        {template.subtitle}
-                    </div>
-                )}
-
-                {/* CTA */}
-                {template.ctaLabel && (
-                    <div className="mt-2 text-xs font-semibold" style={{ color: template.colors.accent }}>
-                        {template.ctaLabel}
-                    </div>
-                )}
-            </div>
-        </div>
-    );
-};
-
-// SIGNATURE: Premium - info completa con estilo
-const SignatureOverlay: React.FC<{ template: InstagramTemplateView }> = ({ template }) => {
-    return (
-        <div className="absolute inset-0 flex flex-col justify-between p-4">
-            {/* Header con eyebrow */}
-            {template.eyebrow && (
-                <div className="flex justify-between items-start">
-                    <span className="px-2.5 py-1 bg-black/60 text-white text-xs rounded">
-                        {template.eyebrow}
-                    </span>
-                    <span className="text-[9px] text-white/60">{template.branding.appName}</span>
-                </div>
-            )}
-
-            {/* Info en card oscura semi-transparente */}
-            <div className="bg-black/70 rounded-xl p-3 text-white">
-                {/* Precio */}
-                <div className="text-2xl font-bold">
-                    {template.priceLabel}
-                </div>
-                
-                {/* Título */}
-                <div className="text-sm font-medium mt-1 line-clamp-1">
-                    {template.title}
-                </div>
-                
-                {/* Detalles */}
-                {template.subtitle && (
-                    <div className="text-xs text-white/70 mt-1">
-                        {template.subtitle}
-                    </div>
-                )}
-
-                {/* Highlights en row */}
-                {template.highlights && template.highlights.length > 0 && (
-                    <div className="flex flex-wrap gap-1 mt-2">
-                        {template.highlights.slice(0, 3).map((h, i) => (
-                            <span key={i} className="text-[9px] px-1.5 py-0.5 bg-white/20 rounded">
-                                {h}
-                            </span>
-                        ))}
-                    </div>
-                )}
-
-                {/* CTA */}
-                {template.ctaLabel && (
-                    <div className="mt-2 text-xs font-semibold" style={{ color: template.colors.accent }}>
-                        {template.ctaLabel}
-                    </div>
-                )}
-            </div>
         </div>
     );
 };

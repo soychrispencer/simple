@@ -385,16 +385,9 @@ export default function PublicacionesPage() {
     const templatesCache = useRef<Map<string, { templates: InstagramTemplateView[]; timestamp: number }>>(new Map());
     const CACHE_DURATION = 5 * 60 * 1000; // 5 minutos
     
-    const loadInstagramTemplatesForListing = useCallback(async (listingId: string, forceRefresh = false) => {
-        // Verificar cache primero
-        const cached = templatesCache.current.get(listingId);
+    const loadInstagramTemplatesForListing = useCallback(async (listingId: string, forceRefresh = true) => {
+        // Cache desactivado temporalmente para debug - siempre forzar refresh
         const now = Date.now();
-        
-        if (!forceRefresh && cached && (now - cached.timestamp) < CACHE_DURATION) {
-            setInstagramTemplates(cached.templates);
-            setSelectedTemplateId(cached.templates[0]?.id ?? null);
-            return;
-        }
         
         setTemplatesLoading(true);
         setTemplatesError(null);
@@ -424,7 +417,9 @@ export default function PublicacionesPage() {
                     throw new Error(result.error || 'Error al generar templates');
                 }
                 
-                const nextTemplates = [result.recommendedTemplate, ...(result.alternatives ?? [])];
+                const allTemplates = [result.recommendedTemplate, ...(result.alternatives ?? [])];
+                const order = ['essential-watermark', 'professional-centered', 'signature-complete'];
+                const nextTemplates = [...allTemplates].sort((a, b) => order.indexOf(a.id) - order.indexOf(b.id));
                 
                 // Guardar en cache
                 templatesCache.current.set(listingId, {
@@ -433,7 +428,7 @@ export default function PublicacionesPage() {
                 });
                 
                 setInstagramTemplates(nextTemplates);
-                setSelectedTemplateId(nextTemplates[0]?.id ?? null);
+                setSelectedTemplateId(result.recommendedTemplate.id ?? nextTemplates[0]?.id ?? null);
                 setTemplatesLoadingProgress(100);
                 setTemplatesLoadingMessage('Templates listos');
                 
@@ -1255,14 +1250,11 @@ export default function PublicacionesPage() {
                                                                     </div>
                                                                 )}
                                                             </div>
-                                                        ) : activeTemplate ? `${activeTemplate.layoutVariant === 'portrait' ? '4:5' : '1:1'} · ${activeTemplate.score}/100` : 'Sin template'}
+                                                        ) : activeTemplate ? `${activeTemplate.layoutVariant === 'portrait' ? '3:4' : '1:1'} · ${activeTemplate.score}/100` : 'Sin template'}
                                                     </div>
                                                 </div>
-                                                <div className="text-[11px] font-semibold uppercase tracking-[0.18em]" style={{ color: activeTemplate?.colors.accent ?? '#ff3600' }}>
-                                                    {activeTemplate?.branding.badgeText ?? 'BRANDING'}
-                                                </div>
                                             </div>
-                                            <div className="grid grid-cols-3 gap-1.5 sm:gap-2">
+                                            <div className="flex gap-2">
                                                 {instagramTemplates.map((template) => {
                                                     const isSelected = template.id === activeTemplate?.id;
                                                     return (
@@ -1270,21 +1262,14 @@ export default function PublicacionesPage() {
                                                             key={template.id}
                                                             type="button"
                                                             onClick={() => void handleTemplateChange(template.id)}
-                                                            className="min-w-0 rounded-lg sm:rounded-xl border p-1.5 sm:p-2 text-left transition-all"
+                                                            className="flex-1 rounded-lg border px-3 py-2 text-center text-xs font-semibold transition-all"
                                                             style={{
-                                                                borderColor: isSelected ? template.colors.accent : 'var(--border)',
-                                                                background: isSelected ? `${template.colors.accent}12` : 'var(--surface)',
+                                                                borderColor: isSelected ? '#111' : 'var(--border)',
+                                                                background: isSelected ? '#111' : 'var(--surface)',
+                                                                color: isSelected ? '#fff' : 'var(--fg)',
                                                             }}
                                                         >
-                                                            <InstagramTemplatePreview
-                                                                className="mb-2"
-                                                                imageUrl={getListingImages(previewListing)[0] ?? null}
-                                                                template={template}
-                                                                layoutVariant={template.layoutVariant}
-                                                                fallback={<IconCar size={24} />}
-                                                            />
-                                                            <div className="text-[10px] sm:text-xs font-semibold line-clamp-1" style={{ color: 'var(--fg)' }}>{template.name}</div>
-                                                            <div className="hidden sm:block text-[11px]" style={{ color: 'var(--fg-secondary)' }}>{template.ctaLabel}</div>
+                                                            {template.name}
                                                         </button>
                                                     );
                                                 })}
@@ -1314,26 +1299,6 @@ export default function PublicacionesPage() {
                                                             </button>
                                                         </div>
                                                     </div>
-                                                </div>
-                                            )}
-                                            
-                                            {/* Botón de refresh forzado */}
-                                            {!templatesLoading && !templatesError && instagramTemplates.length > 0 && (
-                                                <div className="mt-2 text-center">
-                                                    <button
-                                                        type="button"
-                                                        onClick={() => {
-                                                            if (previewListing) {
-                                                                setTemplatesRetryCount(0);
-                                                                void loadInstagramTemplatesForListing(previewListing.id, true);
-                                                            }
-                                                        }}
-                                                        className="text-xs px-2 py-1 rounded border hover:bg-black/5 transition-colors"
-                                                        style={{ borderColor: 'var(--border)', color: 'var(--fg-secondary)' }}
-                                                    >
-                                                        <IconRefresh size={10} className="inline mr-1" />
-                                                        Regenerar diseños
-                                                    </button>
                                                 </div>
                                             )}
                                         </div>

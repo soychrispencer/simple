@@ -336,9 +336,11 @@ export default function PublicacionesPage() {
             return;
         }
 
-        const nextTemplates = [result.recommendedTemplate, ...(result.alternatives ?? [])];
+        const allTemplates = [result.recommendedTemplate, ...(result.alternatives ?? [])];
+        const order = ['essential-watermark', 'professional-centered', 'signature-complete'];
+        const nextTemplates = [...allTemplates].sort((a, b) => order.indexOf(a.id) - order.indexOf(b.id));
         setInstagramTemplates(nextTemplates);
-        setSelectedTemplateId(nextTemplates[0]?.id ?? null);
+        setSelectedTemplateId(result.recommendedTemplate.id ?? nextTemplates[0]?.id ?? null);
         setTemplatesLoading(false);
     };
 
@@ -919,24 +921,17 @@ export default function PublicacionesPage() {
                                     <div
                                         className="mb-4 rounded-[1.25rem] border p-4"
                                         style={{
-                                            borderColor: activeTemplate?.colors.accent ?? 'var(--border)',
-                                            background: activeTemplate
-                                                ? `linear-gradient(135deg, ${activeTemplate.colors.accent}14 0%, ${activeTemplate.colors.secondary}14 100%)`
-                                                : 'rgba(50,50,255,0.06)',
+                                            borderColor: 'var(--border)',
+                                            background: 'var(--surface)',
                                         }}
                                     >
-                                        <div className="mb-3 flex items-center justify-between gap-3">
-                                            <div>
-                                                <div className="text-sm font-semibold" style={{ color: 'var(--fg)' }}>Templates de SimplePropiedades</div>
-                                                <div className="text-[11px]" style={{ color: 'var(--fg-secondary)' }}>
-                                                    {templatesLoading ? 'Analizando la ficha y el contexto del aviso...' : activeTemplate ? `${activeTemplate.layoutVariant === 'portrait' ? '4:5' : '1:1'} · ${activeTemplate.score}/100` : 'Sin template'}
-                                                </div>
-                                            </div>
-                                            <div className="text-[11px] font-semibold uppercase tracking-[0.18em]" style={{ color: activeTemplate?.colors.accent ?? '#3232FF' }}>
-                                                {activeTemplate?.branding.badgeText ?? 'BRANDING'}
+                                        <div className="mb-3">
+                                            <div className="text-sm font-semibold" style={{ color: 'var(--fg)' }}>Templates de SimplePropiedades</div>
+                                            <div className="text-[11px]" style={{ color: 'var(--fg-secondary)' }}>
+                                                {templatesLoading ? 'Analizando la ficha y el contexto del aviso...' : activeTemplate ? `3:4 · ${activeTemplate.score}/100` : 'Sin template'}
                                             </div>
                                         </div>
-                                        <div className="grid grid-cols-3 gap-1.5 sm:gap-2">
+                                        <div className="flex gap-2">
                                             {instagramTemplates.map((template) => {
                                                 const isSelected = template.id === activeTemplate?.id;
                                                 return (
@@ -944,30 +939,14 @@ export default function PublicacionesPage() {
                                                         key={template.id}
                                                         type="button"
                                                         onClick={() => setSelectedTemplateId(template.id)}
-                                                        className="min-w-0 rounded-lg sm:rounded-xl border p-1.5 sm:p-2 text-left transition-all"
+                                                        className="flex-1 rounded-lg border px-3 py-2 text-center text-xs font-semibold transition-all"
                                                         style={{
-                                                            borderColor: isSelected ? template.colors.accent : 'var(--border)',
-                                                            background: isSelected ? `${template.colors.accent}12` : 'var(--surface)',
+                                                            borderColor: isSelected ? '#111' : 'var(--border)',
+                                                            background: isSelected ? '#111' : 'var(--surface)',
+                                                            color: isSelected ? '#fff' : 'var(--fg)',
                                                         }}
                                                     >
-                                                        <div
-                                                            className="relative mb-2 overflow-hidden rounded-lg"
-                                                            style={{
-                                                                aspectRatio: template.layoutVariant === 'portrait' ? '4 / 5' : '1 / 1',
-                                                                background: `linear-gradient(180deg, ${template.colors.background} 0%, ${template.colors.secondary} 100%)`,
-                                                            }}
-                                                        >
-                                                            <div className="absolute left-1.5 top-1.5 flex min-h-[20px] items-center">
-                                                                <img src="/logo.png" alt={template.branding.appName} className="h-3 w-auto object-contain sm:h-3.5" />
-                                                            </div>
-                                                            <div className="absolute inset-x-1.5 bottom-1.5 rounded-lg p-1.5 sm:p-2" style={{ background: template.overlayVariant === 'property-conversion' ? 'rgba(255,255,255,0.88)' : template.colors.surface, color: template.overlayVariant === 'property-conversion' ? template.colors.textPrimary : template.colors.textInverse }}>
-                                                                <div className="text-[8px] font-semibold uppercase tracking-[0.14em] opacity-80 line-clamp-1">{template.eyebrow}</div>
-                                                                <div className="mt-1 text-[10px] sm:text-xs font-bold leading-tight line-clamp-1">{template.name}</div>
-                                                                <div className="mt-1 text-[9px] sm:text-[10px] font-black line-clamp-1" style={{ color: template.colors.accent }}>{template.priceLabel}</div>
-                                                            </div>
-                                                        </div>
-                                                        <div className="text-[10px] sm:text-xs font-semibold line-clamp-1" style={{ color: 'var(--fg)' }}>{template.name}</div>
-                                                        <div className="hidden sm:block text-[11px]" style={{ color: 'var(--fg-secondary)' }}>{template.ctaLabel}</div>
+                                                        {template.name}
                                                     </button>
                                                 );
                                             })}
