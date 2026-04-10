@@ -3744,63 +3744,39 @@ async function buildInstagramTemplateOverlaySvg(
             <text x="${width - 76}" y="${height - bottomBandHeight + 124}" fill="${template.colors.textInverse}" font-size="50" font-weight="800" text-anchor="end">${priceAmount}</text>
             <text x="${width - 76}" y="${height - bottomBandHeight + 152}" fill="${template.colors.textInverse}" font-size="18" font-weight="700" text-anchor="end">${ctaLabel}</text>
         `;
-    } else if (template.overlayVariant === 'professional-centered') {
-        // Centered white card on dimmed photo
+    } else if (template.overlayVariant === 'essential-watermark') {
+        // ESSENTIAL: Solo precio centrado abajo con overlay sutil
+        const cardY = height - 100;
         detailsBand = `
-            <rect x="0" y="0" width="${width}" height="${height}" fill="#000000" fill-opacity="0.44" />
-            <rect x="${focalCardX}" y="${focalCardY}" rx="32" ry="32" width="${focalCardW}" height="${focalCardH}" fill="#FFFFFF" fill-opacity="0.96" />
-            <rect x="${focalCardX}" y="${focalCardY}" rx="32" ry="32" width="${focalCardW}" height="${focalHeaderH}" fill="${template.colors.accent}" />
-            <rect x="${focalCardX}" y="${focalCardY + focalHeaderH - 32}" width="${focalCardW}" height="32" fill="${template.colors.accent}" />
-            <text x="${focalCardX + 178}" y="${focalCardY + 60}" fill="#FFFFFF" font-size="26" font-weight="800">${template.branding.appName}</text>
-            <text x="${width / 2}" y="${focalEyebrowY}" fill="#888888" font-size="20" font-weight="600" text-anchor="middle">${eyebrow} · ${location}</text>
-            ${renderSvgTextLines(titleLines, {
-                x: Math.round(width / 2),
-                y: focalHeadlineStartY,
-                lineHeight: focalHeadlineLineH,
-                fontSize: 50,
-                fontWeight: 900,
-                fill: '#111111',
-                textAnchor: 'middle',
-            })}
-            <text x="${width / 2}" y="${focalSummaryY}" fill="#666666" font-size="26" font-weight="600" text-anchor="middle">${escapeSvgText(summaryLine)}</text>
-            <rect x="${focalCardX + 130}" y="${focalDividerY}" width="${focalCardW - 260}" height="2" fill="#EEEEEE" />
-            <text x="${width / 2}" y="${focalPriceY}" fill="${template.colors.accent}" font-size="68" font-weight="900" text-anchor="middle">${autoFullPrice}</text>
-            <text x="${width / 2}" y="${focalCtaY}" fill="#AAAAAA" font-size="22" font-weight="600" text-anchor="middle">${ctaLabel}</text>
+            <rect x="0" y="${cardY}" width="${width}" height="100" fill="url(#essentialGradient)" />
+            <text x="${width / 2}" y="${cardY + 35}" fill="#FFFFFF" font-size="28" font-weight="700" text-anchor="middle">${autoFullPrice}</text>
+            ${template.subtitle ? `<text x="${width / 2}" y="${cardY + 65}" fill="#FFFFFF" font-size="16" font-weight="500" text-anchor="middle" opacity="0.9">${escapeSvgText(template.subtitle)}</text>` : ''}
+        `;
+    } else if (template.overlayVariant === 'professional-centered') {
+        // PROFESSIONAL: Card blanca en la parte inferior
+        const cardY = height - 140;
+        detailsBand = `
+            <rect x="24" y="${cardY}" rx="16" ry="16" width="${width - 48}" height="120" fill="#FFFFFF" opacity="0.95" />
+            ${eyebrow ? `<text x="48" y="${cardY + 25}" fill="#666666" font-size="12" font-weight="600" text-transform="uppercase">${eyebrow}</text>` : ''}
+            <text x="48" y="${cardY + 55}" fill="#111111" font-size="32" font-weight="700">${autoFullPrice}</text>
+            ${template.title ? `<text x="48" y="${cardY + 80}" fill="#333333" font-size="18" font-weight="500">${escapeSvgText(template.title)}</text>` : ''}
+            ${template.subtitle ? `<text x="48" y="${cardY + 100}" fill="#666666" font-size="14">${escapeSvgText(template.subtitle)}</text>` : ''}
         `;
     } else if (template.overlayVariant === 'signature-complete') {
-        // Bold price hero: dark top bar + dark bottom strip
+        // SIGNATURE: Card oscura con eyebrow arriba
+        const headerY = 24;
+        const cardY = height - 160;
         detailsBand = `
-            <rect x="0" y="0" width="${width}" height="${titanTopBarH}" fill="#0D0D0D" fill-opacity="0.88" />
-            <rect x="${width - 212}" y="22" rx="26" ry="26" width="172" height="56" fill="${template.colors.accent}" />
-            <text x="${width - 126}" y="57" fill="#FFFFFF" font-size="22" font-weight="800" text-anchor="middle">${eyebrow}</text>
-            <rect x="0" y="${titanBottomStart}" width="${width}" height="${height - titanBottomStart}" fill="#0D0D0D" fill-opacity="0.96" />
-            <rect x="0" y="${titanBottomStart}" width="${width}" height="5" fill="${template.colors.accent}" />
-            <text x="56" y="${titanCarLineY}" fill="#FFFFFF" font-size="34" font-weight="700">${escapeSvgText(clampTemplateText(template.headline ?? template.title, 28))}</text>
-            <text x="${width - 56}" y="${titanCarLineY}" fill="${template.colors.accent}" font-size="26" font-weight="700" text-anchor="end">${location}</text>
-            <text x="56" y="${titanSpecsY}" fill="rgba(255,255,255,0.62)" font-size="26" font-weight="600">${escapeSvgText(summaryLine)}</text>
-            <text x="56" y="${titanPriceY}" fill="${template.colors.accent}" font-size="86" font-weight="900">${autoFullPrice}</text>
-            <text x="56" y="${titanCtaY}" fill="rgba(255,255,255,0.50)" font-size="24" font-weight="600">${ctaLabel}</text>
+            <rect x="24" y="${headerY}" rx="8" ry="8" width="120" height="32" fill="rgba(0,0,0,0.6)" />
+            <text x="84" y="${headerY + 22}" fill="#FFFFFF" font-size="12" font-weight="600" text-anchor="middle">${eyebrow}</text>
+            <rect x="24" y="${cardY}" rx="16" ry="16" width="${width - 48}" height="140" fill="rgba(0,0,0,0.7)" />
+            <text x="48" y="${cardY + 40}" fill="#FFFFFF" font-size="36" font-weight="700">${autoFullPrice}</text>
+            ${template.title ? `<text x="48" y="${cardY + 65}" fill="#FFFFFF" font-size="18" font-weight="500">${escapeSvgText(template.title)}</text>` : ''}
+            ${template.subtitle ? `<text x="48" y="${cardY + 85}" fill="rgba(255,255,255,0.7)" font-size="14">${escapeSvgText(template.subtitle)}</text>` : ''}
+            ${highlights.length > 0 ? `<text x="48" y="${cardY + 110}" fill="rgba(255,255,255,0.5)" font-size="12">${escapeSvgText(highlights.slice(0, 3).join(' · '))}</text>` : ''}
         `;
-    } else if (template.overlayVariant === 'essential-watermark') {
-        detailsBand = ''; // No SVG overlay; logo handled in composite step
     } else {
-        // auto-performance, auto-spec, auto-premium
-        detailsBand = `
-            <rect x="0" y="${autoGradientStartY}" width="${width}" height="${autoOverlayH}" fill="url(#autoBottomFade)" />
-            <text x="44" y="${autoEyebrowY}" fill="${autoBandTextColor}" font-size="20" font-weight="600">${eyebrow}</text>
-            ${renderSvgTextLines(titleLines, {
-                x: 44,
-                y: autoHeadlineY,
-                lineHeight: 50,
-                fontSize: 42,
-                fontWeight: 800,
-                fill: autoBandTextColor,
-            })}
-            <text x="44" y="${autoSummaryY}" fill="${autoBandTextColor}" font-size="27" font-weight="700">${escapeSvgText(summaryLine)}</text>
-            <text x="44" y="${autoCtaY}" fill="${autoBandTextColor}" font-size="22" font-weight="600">${ctaLabel}</text>
-            <text x="44" y="${autoPriceRowY}" fill="${template.colors.accent}" font-size="52" font-weight="800">${autoFullPrice}</text>
-            <text x="${width - 44}" y="${autoPriceRowY}" fill="${autoBandTextColor}" font-size="26" font-weight="700" text-anchor="end">${location}</text>
-        `;
+        detailsBand = '';
     }
 
     const svg = `
@@ -3810,10 +3786,9 @@ async function buildInstagramTemplateOverlaySvg(
                     <stop offset="0%" stop-color="#000000" stop-opacity="0" />
                     <stop offset="100%" stop-color="#000000" stop-opacity="0.7" />
                 </linearGradient>
-                <linearGradient id="autoBottomFade" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stop-color="${autoBandBg}" stop-opacity="0" />
-                    <stop offset="30%" stop-color="${autoBandBg}" stop-opacity="0.68" />
-                    <stop offset="100%" stop-color="${autoBandBg}" stop-opacity="${isProfessionalTemplate ? '0.92' : '0.90'}" />
+                <linearGradient id="essentialGradient" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stop-color="#000000" stop-opacity="0" />
+                    <stop offset="100%" stop-color="#000000" stop-opacity="0.6" />
                 </linearGradient>
             </defs>
             <rect x="0" y="0" width="${width}" height="${height}" fill="transparent" />
