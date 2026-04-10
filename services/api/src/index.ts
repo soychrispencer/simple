@@ -4096,8 +4096,19 @@ async function prepareInstagramImageUrl(
                 // Básico: top-left corner watermark
                 logoPlacement = { width: 64, height: 64, top: 40, left: 40, opacity: 0.5 };
             } else if (variant === 'professional-centered') {
-                // Profesional: centered above brandAccent card (card height ~320-340px typical)
-                const cardY = targetHeight - 40 - 340;
+                // Profesional: centered above brandAccent card - calculate card height dynamically
+                const t = options.template;
+                const hasOrigPrice = !!(t.offerPriceLabel && t.priceLabel);
+                const hasTitle = !!(t.title);
+                const hasHighlights = (t.highlights?.length ?? 0) > 0;
+                const hasLocation = !!(t.locationLabel);
+                let cardHeight = 72 + 80 + 28; // base: top pad + price + bottom pad
+                if (hasOrigPrice) cardHeight += 28;
+                if (hasTitle) cardHeight += 46;
+                if (hasHighlights) cardHeight += 46;
+                if (hasLocation) cardHeight += 56;
+                cardHeight = Math.max(cardHeight, 260);
+                const cardY = targetHeight - 40 - cardHeight;
                 logoPlacement = { width: 64, height: 64, top: cardY - 32, left: (1080 - 64) / 2 };
             } else if (variant === 'signature-complete') {
                 // Premium: centered at top, subtle, opacity 0.6

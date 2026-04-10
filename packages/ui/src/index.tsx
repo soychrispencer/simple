@@ -53,6 +53,53 @@ type LocationMapPreviewProps = {
     showTechnicalMeta?: boolean;
 };
 
+// Helper to get icon for highlight (matching backend logic)
+function getHighlightIcon(highlight: string): string {
+    const t = highlight.toLowerCase();
+    if (t.includes('dorm') || t.includes('hab')) return 'bed';
+    if (t.includes('baño')) return 'bath';
+    if (t.includes('m²') || t.includes('m2') || t.includes('mt') || t.includes('sup')) return 'ruler';
+    if (t.includes('casa')) return 'home';
+    if (t.includes('depto') || t.includes('departamento')) return 'building';
+    if (t.includes('estac')) return 'car';
+    if (t.includes('bodega')) return 'box';
+    if (t.includes('km') || t.includes('kilometraje')) return 'gauge';
+    if (t.includes('cilin')) return 'engine';
+    if (t.includes('hp') || t.includes('cv') || t.includes('potencia')) return 'zap';
+    if (t.includes('combustible') || t.includes('bencina') || t.includes('diesel') || t.includes('petroleo')) return 'fuel';
+    if (t.includes('transmis') || t.includes('manual') || t.includes('automatic')) return 'cog';
+    if (t.includes('condicion') || t.includes('nuevo') || t.includes('usado')) return 'tag';
+    if (t.includes('versión') || t.includes('version')) return 'info';
+    return 'clock';
+}
+
+const ICON_PATHS: Record<string, string> = {
+    bed: 'M3 7v10h18V7H3zm2 2h4v2H5V9zm6 0h6v2h-6V9zM5 13h14v2H5v-2z',
+    bath: 'M3 10h18v8a3 3 0 01-3 3H6a3 3 0 01-3-3v-8zm2 2v4a1 1 0 001 1h12a1 1 0 001-1v-4H5zM4 8h16V6H4v2z',
+    ruler: 'M3 6h18M3 10h4M3 14h2M3 18h6M9 10h2M13 10h2M17 10h2M11 14h2M15 14h4M7 18h2',
+    home: 'M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2V9z',
+    building: 'M6 22V10h12v12M2 22h20M8 6h8v4H8z',
+    car: 'M5 17a2 2 0 012 2v2h10v-2a2 2 0 012-2m-3-7h-2M6 10h2m-4 2h14a2 2 0 012 2v3H4v-3a2 2 0 012-2z',
+    box: 'M12 2l-8 4v16h16V6l-8-4zm0 2l6 3v12H6V7l6-3z',
+    gauge: 'M12 2a10 10 0 100 20 10 10 0 000-20zm0 4v6l4 2',
+    engine: 'M4 10h12v8H4zM16 12h2v4h-2M2 12h2v4H2',
+    zap: 'M13 2L3 14h9l-1 8 10-12h-9l1-8z',
+    fuel: 'M3 22v-8h12v8M6 14V4a2 2 0 012-2h6l4 4v8',
+    cog: 'M12 15a3 3 0 100-6 3 3 0 000 6zm-8-3h2m14 0h2M4.2 7.5l1.4 1.4m11.8 11.8l1.4 1.4M2 12h2m16 0h2M4.2 16.5l1.4-1.4m11.8-11.8l1.4-1.4',
+    tag: 'M20.6 13.8L12 22l-8.6-8.2a4 4 0 010-5.6L8 4h8l4.6 4.2a4 4 0 010 5.6z',
+    info: 'M12 2a10 10 0 100 20 10 10 0 000-20zm0 6v2h2m-2 4v6',
+    clock: 'M12 6v6l4 2M12 2a10 10 0 100 20 10 10 0 000-20z',
+};
+
+function HighlightIcon({ icon, size = 10, color = 'currentColor' }: { icon: string; size?: number; color?: string }) {
+    const path = ICON_PATHS[icon] || ICON_PATHS.clock;
+    return (
+        <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d={path} />
+        </svg>
+    );
+}
+
 export type InstagramTemplatePreviewData = {
     layoutVariant: 'square' | 'portrait';
     overlayVariant: string;
@@ -440,7 +487,7 @@ export function InstagramTemplatePreview(props: InstagramTemplatePreviewProps) {
                             {/* Card de color centrada abajo */}
                             <div className="absolute inset-x-0 bottom-0 px-4 pb-4">
                                 {/* Logo flotante sin fondo: mitad dentro, mitad fuera */}
-                                <div className="flex justify-center" style={{ marginBottom: '-24px', position: 'relative', zIndex: 3 }}>
+                                <div className="flex justify-center" style={{ marginBottom: '-20px', position: 'relative', zIndex: 3 }}>
                                     <img src="/logo-light.png" alt={template.branding.appName} style={{ width: '40px', height: '40px', objectFit: 'contain', filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.3))' }} />
                                 </div>
                                 <div
@@ -474,7 +521,7 @@ export function InstagramTemplatePreview(props: InstagramTemplatePreviewProps) {
                                             <div className="flex items-center justify-center gap-2 mt-1.5 flex-wrap">
                                                 {template.highlights.slice(0, 4).map((h, i) => (
                                                     <span key={i} className="inline-flex items-center gap-0.5 text-[10px] font-semibold uppercase" style={{ color: 'rgba(255,255,255,0.8)' }}>
-                                                        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
+                                                        <HighlightIcon icon={getHighlightIcon(h)} size={10} color="currentColor" />
                                                         {h}
                                                     </span>
                                                 ))}
@@ -554,7 +601,7 @@ export function InstagramTemplatePreview(props: InstagramTemplatePreviewProps) {
                                         <div className="flex items-center justify-center gap-2 mt-1.5 flex-wrap">
                                             {template.highlights.slice(0, 4).map((h, i) => (
                                                 <span key={i} className="inline-flex items-center gap-0.5 text-[10px] font-semibold uppercase" style={{ color: 'rgba(255,255,255,0.65)' }}>
-                                                    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
+                                                    <HighlightIcon icon={getHighlightIcon(h)} size={10} color="currentColor" />
                                                     {h}
                                                 </span>
                                             ))}
