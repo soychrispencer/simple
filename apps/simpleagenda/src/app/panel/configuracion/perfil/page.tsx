@@ -263,17 +263,17 @@ export default function PerfilConfigPage() {
                 {/* Info basica */}
                 <PanelCard size="md">
                     <PanelBlockHeader title="Informacion publica" className="mb-3" />
-                    <div className="flex flex-col gap-4">
+                    <div className="grid sm:grid-cols-2 gap-4">
                         <PanelField label="Nombre visible" required>
                             <input type="text" value={form.displayName} onChange={(e) => set('displayName', e.target.value)} placeholder="Ej: Dra. Maria Gonzalez" className="form-input" />
                         </PanelField>
                         <PanelField label="Profesion">
                             <input type="text" value={form.profession} onChange={(e) => set('profession', e.target.value)} placeholder="Ej: Psicologa Clinica" className="form-input" />
                         </PanelField>
-                        <PanelField label="Titular" hint="Aparece bajo tu nombre">
+                        <PanelField label="Titular" hint="Aparece bajo tu nombre" className="sm:col-span-2">
                             <input type="text" value={form.headline} onChange={(e) => set('headline', e.target.value)} placeholder="Ej: Especialista en ansiedad y relaciones" className="form-input" />
                         </PanelField>
-                        <PanelField label="Biografia">
+                        <PanelField label="Biografia" className="sm:col-span-2">
                             <textarea
                                 value={form.bio}
                                 onChange={(e) => set('bio', e.target.value)}
@@ -298,7 +298,6 @@ export default function PerfilConfigPage() {
                         <PanelField label="Email publico">
                             <input type="email" value={form.publicEmail} onChange={(e) => set('publicEmail', e.target.value)} placeholder="contacto@ejemplo.cl" className="form-input" />
                         </PanelField>
-                        <div />
                         <PanelField label="Region">
                             <select
                                 value={form.region}
@@ -333,8 +332,8 @@ export default function PerfilConfigPage() {
                 {/* Configuracion de reservas */}
                 <PanelCard size="md">
                     <PanelBlockHeader title="Configuracion de reservas" className="mb-3" />
-                    <div className="flex flex-col gap-4">
-                        <PanelField label="Confirmacion de citas">
+                    <div className="grid sm:grid-cols-2 gap-4">
+                        <PanelField label="Confirmacion de citas" className="sm:col-span-2">
                             <div className="flex gap-3">
                                 {(['auto', 'manual'] as const).map((mode) => (
                                     <button
@@ -359,28 +358,26 @@ export default function PerfilConfigPage() {
                             </p>
                         </PanelField>
 
-                        <div className="grid sm:grid-cols-2 gap-4">
-                            <PanelField label="Ventana de reserva (dias)" hint="Cuantos dias antes pueden reservar">
-                                <input
-                                    type="number"
-                                    min={1}
-                                    max={365}
-                                    value={form.bookingWindowDays}
-                                    onChange={(e) => set('bookingWindowDays', Number(e.target.value))}
-                                    className="form-input"
-                                />
-                            </PanelField>
-                            <PanelField label="Aviso de cancelacion (horas)" hint="Minimo para cancelar">
-                                <input
-                                    type="number"
-                                    min={0}
-                                    max={168}
-                                    value={form.cancellationHours}
-                                    onChange={(e) => set('cancellationHours', Number(e.target.value))}
-                                    className="form-input"
-                                />
-                            </PanelField>
-                        </div>
+                        <PanelField label="Ventana de reserva (dias)" hint="Cuantos dias antes pueden reservar">
+                            <input
+                                type="number"
+                                min={1}
+                                max={365}
+                                value={form.bookingWindowDays}
+                                onChange={(e) => set('bookingWindowDays', Number(e.target.value))}
+                                className="form-input"
+                            />
+                        </PanelField>
+                        <PanelField label="Aviso de cancelacion (horas)" hint="Minimo para cancelar">
+                            <input
+                                type="number"
+                                min={0}
+                                max={168}
+                                value={form.cancellationHours}
+                                onChange={(e) => set('cancellationHours', Number(e.target.value))}
+                                className="form-input"
+                            />
+                        </PanelField>
                     </div>
                 </PanelCard>
 
