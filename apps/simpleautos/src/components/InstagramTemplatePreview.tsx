@@ -21,6 +21,15 @@ export const InstagramTemplatePreview: React.FC<InstagramTemplatePreviewProps> =
     children
 }) => {
     const aspectRatio = layoutVariant === 'portrait' ? 'aspect-[4/5]' : 'aspect-square';
+    
+    // Debug log
+    if (template) {
+        console.log('[InstagramTemplatePreview] Rendering with template:', {
+            id: template.id,
+            overlayVariant: template.overlayVariant,
+            name: template.name
+        });
+    }
 
     if (!imageUrl) {
         return (
