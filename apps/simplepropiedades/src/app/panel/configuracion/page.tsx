@@ -6,7 +6,6 @@ import {
     IconPlugConnected,
     IconChevronRight,
 } from '@tabler/icons-react';
-import { PanelPageHeader } from '@simple/ui';
 
 const CONFIG_SECTIONS = [
     {
@@ -38,10 +37,8 @@ const CONFIG_SECTIONS = [
 export default function ConfiguracionPage() {
     return (
         <div className="container-app panel-page py-8 max-w-2xl">
-            <PanelPageHeader
-                title="Configuracion"
-                description="Gestiona tu cuenta y preferencias."
-            />
+            <h1 className="text-xl font-bold mb-1" style={{ color: 'var(--fg)' }}>Configuracion</h1>
+            <p className="text-sm mb-8" style={{ color: 'var(--fg-muted)' }}>Gestiona tu cuenta y preferencias.</p>
 
             <div className="flex flex-col gap-3">
                 {CONFIG_SECTIONS.map((section) => (
