@@ -3733,47 +3733,47 @@ async function buildInstagramTemplateOverlaySvg(
         const cardR = 48;
         const fullPrice = escapeSvgText(clampTemplateText(template.offerPriceLabel || template.priceLabel || 'Consultar', 20));
         const origPrice = template.offerPriceLabel ? escapeSvgText(clampTemplateText(template.priceLabel || '', 20)) : '';
-        const proTitleLines = template.title ? wrapTemplateText(template.title.toUpperCase(), 38, 2) : [];
+        const proTitleLines = template.title ? wrapTemplateText(template.title.toUpperCase(), 42, 2) : [];
         const hlLine = highlights.length > 0 ? escapeSvgText(highlights.join(' \u2013 ').toUpperCase()) : '';
         const locText = template.locationLabel ? escapeSvgText(clampTemplateText(template.locationLabel, 24)) : '';
 
         // Dynamic card height
-        let ch = 110; // top padding (logo overlap space)
-        ch += 90; // price
-        if (origPrice) ch += 35;
-        ch += 16;
-        ch += proTitleLines.length * 48;
-        if (hlLine) ch += 42;
-        if (locText) ch += 56;
-        ch += 40; // bottom padding
-        const cardH = Math.max(ch, 300);
+        let ch = 80; // top padding (logo overlap space)
+        ch += 80; // price
+        if (origPrice) ch += 30;
+        ch += 12;
+        ch += proTitleLines.length * 40;
+        if (hlLine) ch += 36;
+        if (locText) ch += 50;
+        ch += 30; // bottom padding
+        const cardH = Math.max(ch, 260);
         const cardY = height - margin - cardH;
 
         // Content positions
-        let y = cardY + 110;
-        const priceBaseline = y + 72;
-        y += 90;
+        let y = cardY + 80;
+        const priceBaseline = y + 62;
+        y += 76;
         let strikeSvg = '';
         if (origPrice) {
             y += 5;
-            strikeSvg = `<text x="${cx}" y="${y + 18}" fill="rgba(255,255,255,0.5)" font-size="24" font-weight="500" text-anchor="middle" text-decoration="line-through">${origPrice}</text>`;
-            y += 30;
+            strikeSvg = `<text x="${cx}" y="${y + 16}" fill="rgba(255,255,255,0.5)" font-size="22" font-weight="500" text-anchor="middle" text-decoration="line-through">${origPrice}</text>`;
+            y += 26;
         }
-        y += 16;
+        y += 10;
         const titleSvg = proTitleLines.map((line, i) => {
-            return `<text x="${cx}" y="${y + 32 + i * 48}" fill="#FFFFFF" font-size="38" font-weight="900" text-anchor="middle">${escapeSvgText(line)}</text>`;
+            return `<text x="${cx}" y="${y + 28 + i * 40}" fill="#FFFFFF" font-size="32" font-weight="900" text-anchor="middle">${escapeSvgText(line)}</text>`;
         }).join('');
-        y += proTitleLines.length * 48;
+        y += proTitleLines.length * 40;
         let hlSvg = '';
         if (hlLine) {
-            y += 12;
-            hlSvg = `<text x="${cx}" y="${y + 22}" fill="rgba(255,255,255,0.7)" font-size="26" font-weight="500" text-anchor="middle">${hlLine}</text>`;
-            y += 30;
+            y += 8;
+            hlSvg = `<text x="${cx}" y="${y + 18}" fill="rgba(255,255,255,0.7)" font-size="22" font-weight="500" text-anchor="middle">${hlLine}</text>`;
+            y += 26;
         }
         let locSvg = '';
         if (locText) {
-            y += 20;
-            const pillW = Math.min(locText.length * 16 + 60, cardW - 100);
+            y += 14;
+            const pillW = Math.min(locText.length * 14 + 56, cardW - 100);
             const pillX = cx - pillW / 2;
             locSvg = `
                 <rect x="${pillX}" y="${y}" rx="20" ry="20" width="${pillW}" height="40" fill="#FFFFFF" />
@@ -3804,7 +3804,7 @@ async function buildInstagramTemplateOverlaySvg(
         detailsBand = `
             ${badgesSvg}
             <rect x="${margin}" y="${cardY}" rx="${cardR}" ry="${cardR}" width="${cardW}" height="${cardH}" fill="${brandAccent}" />
-            <text x="${cx}" y="${priceBaseline}" fill="#FFFFFF" font-size="96" font-weight="900" text-anchor="middle" letter-spacing="-2">${fullPrice}</text>
+            <text x="${cx}" y="${priceBaseline}" fill="#FFFFFF" font-size="80" font-weight="900" text-anchor="middle" letter-spacing="-2">${fullPrice}</text>
             ${strikeSvg}
             ${titleSvg}
             ${hlSvg}
@@ -3815,7 +3815,7 @@ async function buildInstagramTemplateOverlaySvg(
         const cx = Math.round(width / 2);
         const fullPrice = escapeSvgText(clampTemplateText(template.offerPriceLabel || template.priceLabel || 'Consultar', 20));
         const origPrice = template.offerPriceLabel ? escapeSvgText(clampTemplateText(template.priceLabel || '', 20)) : '';
-        const sigTitleLines = template.title ? wrapTemplateText(template.title.toUpperCase(), 38, 2) : [];
+        const sigTitleLines = template.title ? wrapTemplateText(template.title.toUpperCase(), 42, 2) : [];
         const hlLine = highlights.length > 0 ? escapeSvgText(highlights.join(' \u2013 ').toUpperCase()) : '';
         const locText = template.locationLabel ? escapeSvgText(clampTemplateText(template.locationLabel, 24)) : '';
 
@@ -3838,15 +3838,15 @@ async function buildInstagramTemplateOverlaySvg(
         }
         let hlSvg = '';
         if (hlLine) {
-            y -= 30;
-            hlSvg = `<text x="${cx}" y="${y}" fill="rgba(255,255,255,0.55)" font-size="26" font-weight="500" text-anchor="middle">${hlLine}</text>`;
-            y -= 8;
+            y -= 32;
+            hlSvg = `<text x="${cx}" y="${y}" fill="rgba(255,255,255,0.55)" font-size="22" font-weight="500" text-anchor="middle">${hlLine}</text>`;
+            y -= 12;
         }
         const titleSvg = [...sigTitleLines].reverse().map((line, ri) => {
-            const lineY = y - ri * 48;
-            return `<text x="${cx}" y="${lineY}" fill="#FFFFFF" font-size="38" font-weight="900" text-anchor="middle">${escapeSvgText(line)}</text>`;
+            const lineY = y - ri * 42;
+            return `<text x="${cx}" y="${lineY}" fill="#FFFFFF" font-size="32" font-weight="900" text-anchor="middle">${escapeSvgText(line)}</text>`;
         }).reverse().join('');
-        y -= sigTitleLines.length * 48 + 16;
+        y -= sigTitleLines.length * 42 + 18;
         let strikeSvg = '';
         if (origPrice) {
             strikeSvg = `<text x="${cx}" y="${y}" fill="rgba(255,255,255,0.4)" font-size="24" font-weight="500" text-anchor="middle" text-decoration="line-through">${origPrice}</text>`;
@@ -3878,7 +3878,7 @@ async function buildInstagramTemplateOverlaySvg(
         detailsBand = `
             <rect x="0" y="${gradY}" width="${width}" height="${gradH}" fill="url(#premiumGrad)" />
             ${badgesSvg}
-            <text x="${cx}" y="${priceBaseline}" fill="#FFFFFF" font-size="96" font-weight="900" text-anchor="middle" letter-spacing="-2">${fullPrice}</text>
+            <text x="${cx}" y="${priceBaseline}" fill="#FFFFFF" font-size="80" font-weight="900" text-anchor="middle" letter-spacing="-2">${fullPrice}</text>
             ${strikeSvg}
             ${titleSvg}
             ${hlSvg}
@@ -4003,16 +4003,16 @@ async function prepareInstagramImageUrl(
         if (logoBuffer) {
             let logoPlacement: { width: number; height: number; top: number; left: number; opacity?: number };
             if (variant === 'essential-watermark') {
-                // Básico: top-right corner watermark, opacity 0.5
-                logoPlacement = { width: 80, height: 80, top: 50, left: 1080 - 80 - 50, opacity: 0.5 };
+                // Básico: top-left corner watermark (top-right is covered by Instagram carousel icons)
+                logoPlacement = { width: 64, height: 64, top: 40, left: 40, opacity: 0.5 };
             } else if (variant === 'professional-centered') {
                 // Profesional: centered above brandAccent card
                 // Card Y ≈ height - 40 - cardH. Logo just above it.
-                const approxCardY = targetHeight - 40 - 430;
-                logoPlacement = { width: 80, height: 80, top: approxCardY - 50, left: (1080 - 80) / 2 };
+                const approxCardY = targetHeight - 40 - 350;
+                logoPlacement = { width: 64, height: 64, top: approxCardY - 44, left: (1080 - 64) / 2 };
             } else if (variant === 'signature-complete') {
                 // Premium: centered at top, subtle, opacity 0.6
-                logoPlacement = { width: 60, height: 60, top: 20, left: (1080 - 60) / 2, opacity: 0.6 };
+                logoPlacement = { width: 64, height: 64, top: 24, left: (1080 - 64) / 2, opacity: 0.6 };
             } else if (variant.startsWith('property')) {
                 logoPlacement = { width: 48, height: 48, top: 34, left: 42 };
             } else {
