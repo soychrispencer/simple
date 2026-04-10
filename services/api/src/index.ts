@@ -4086,14 +4086,14 @@ async function prepareInstagramImageUrl(
             let logoPlacement: { width: number; height: number; top: number; left: number; opacity?: number };
             if (variant === 'essential-watermark') {
                 // Básico: top-left corner watermark
-                logoPlacement = { width: 58, height: 58, top: 36, left: 36, opacity: 0.5 };
+                logoPlacement = { width: 64, height: 64, top: 40, left: 40, opacity: 0.5 };
             } else if (variant === 'professional-centered') {
                 // Profesional: centered above brandAccent card
                 const approxCardY = targetHeight - 40 - 360;
-                logoPlacement = { width: 58, height: 58, top: approxCardY - 40, left: (1080 - 58) / 2 };
+                logoPlacement = { width: 64, height: 64, top: approxCardY - 44, left: (1080 - 64) / 2 };
             } else if (variant === 'signature-complete') {
-                // Premium: top-left like Básico, opacity 0.6
-                logoPlacement = { width: 58, height: 58, top: 36, left: 36, opacity: 0.6 };
+                // Premium: centered at top, subtle, opacity 0.6
+                logoPlacement = { width: 64, height: 64, top: 24, left: (1080 - 64) / 2, opacity: 0.6 };
             } else if (variant.startsWith('property')) {
                 logoPlacement = { width: 48, height: 48, top: 34, left: 42 };
             } else {
