@@ -3845,24 +3845,28 @@ async function buildInstagramTemplateOverlaySvg(
             `;
         }
 
-        // Badges top-right — bigger with icons
+        // Badges top-right — auto-width based on text length
         let badgesSvg = '';
         let bY = 28;
         if (template.discountLabel) {
             const dt = escapeSvgText(template.discountLabel);
+            const dtw = Math.min(dt.length * 18 + 72, 240);
+            const dtx = width - dtw - 30;
             badgesSvg += `
-                <rect x="${width - 240}" y="${bY}" rx="22" ry="22" width="210" height="58" fill="${brandAccent}" />
-                ${svgIcon('descuento', width - 230, bY + 15, 28, '#FFFFFF', 2)}
-                <text x="${width - 135}" y="${bY + 40}" fill="#FFFFFF" font-size="28" font-weight="700" text-anchor="middle">${dt}</text>
+                <rect x="${dtx}" y="${bY}" rx="22" ry="22" width="${dtw}" height="58" fill="${brandAccent}" />
+                ${svgIcon('descuento', dtx + 16, bY + 15, 28, '#FFFFFF', 2)}
+                <text x="${dtx + dtw/2 + 14}" y="${bY + 40}" fill="#FFFFFF" font-size="28" font-weight="700" text-anchor="middle">${dt}</text>
             `;
             bY += 68;
         }
         for (const badge of (template.badges ?? []).slice(0, 3)) {
             const bt = escapeSvgText(badge);
+            const btw = Math.min(bt.length * 16 + 64, 260);
+            const btx = width - btw - 30;
             badgesSvg += `
-                <rect x="${width - 260}" y="${bY}" rx="18" ry="18" width="230" height="48" fill="#FFFFFF" />
-                ${svgIcon('servicio', width - 250, bY + 10, 24, '#111111')}
-                <text x="${width - 145}" y="${bY + 33}" fill="#111111" font-size="22" font-weight="600" text-anchor="middle">${bt}</text>
+                <rect x="${btx}" y="${bY}" rx="18" ry="18" width="${btw}" height="48" fill="#FFFFFF" />
+                ${svgIcon('servicio', btx + 14, bY + 10, 24, '#111111')}
+                <text x="${btx + btw/2 + 12}" y="${bY + 33}" fill="#111111" font-size="22" font-weight="600" text-anchor="middle">${bt}</text>
             `;
             bY += 56;
         }
@@ -3935,24 +3939,28 @@ async function buildInstagramTemplateOverlaySvg(
         }
         const priceBaseline = y;
 
-        // Badges top-right — bigger with icons
+        // Badges top-right — auto-width based on text length
         let badgesSvg = '';
         let bY = 28;
         if (template.discountLabel) {
             const dt = escapeSvgText(template.discountLabel);
+            const dtw = Math.min(dt.length * 18 + 72, 240);
+            const dtx = width - dtw - 30;
             badgesSvg += `
-                <rect x="${width - 240}" y="${bY}" rx="22" ry="22" width="210" height="58" fill="${brandAccent}" />
-                ${svgIcon('descuento', width - 230, bY + 15, 28, '#FFFFFF', 2)}
-                <text x="${width - 135}" y="${bY + 40}" fill="#FFFFFF" font-size="28" font-weight="700" text-anchor="middle">${dt}</text>
+                <rect x="${dtx}" y="${bY}" rx="22" ry="22" width="${dtw}" height="58" fill="${brandAccent}" />
+                ${svgIcon('descuento', dtx + 16, bY + 15, 28, '#FFFFFF', 2)}
+                <text x="${dtx + dtw/2 + 14}" y="${bY + 40}" fill="#FFFFFF" font-size="28" font-weight="700" text-anchor="middle">${dt}</text>
             `;
             bY += 68;
         }
         for (const badge of (template.badges ?? []).slice(0, 3)) {
             const bt = escapeSvgText(badge);
+            const btw = Math.min(bt.length * 16 + 64, 260);
+            const btx = width - btw - 30;
             badgesSvg += `
-                <rect x="${width - 260}" y="${bY}" rx="18" ry="18" width="230" height="48" fill="#FFFFFF" />
-                ${svgIcon('servicio', width - 250, bY + 10, 24, '#111111')}
-                <text x="${width - 145}" y="${bY + 33}" fill="#111111" font-size="22" font-weight="600" text-anchor="middle">${bt}</text>
+                <rect x="${btx}" y="${bY}" rx="18" ry="18" width="${btw}" height="48" fill="#FFFFFF" />
+                ${svgIcon('servicio', btx + 14, bY + 10, 24, '#111111')}
+                <text x="${btx + btw/2 + 12}" y="${bY + 33}" fill="#111111" font-size="22" font-weight="600" text-anchor="middle">${bt}</text>
             `;
             bY += 56;
         }
@@ -4088,9 +4096,9 @@ async function prepareInstagramImageUrl(
                 // Básico: top-left corner watermark
                 logoPlacement = { width: 64, height: 64, top: 40, left: 40, opacity: 0.5 };
             } else if (variant === 'professional-centered') {
-                // Profesional: centered above brandAccent card
-                const approxCardY = targetHeight - 40 - 360;
-                logoPlacement = { width: 64, height: 64, top: approxCardY - 44, left: (1080 - 64) / 2 };
+                // Profesional: centered above brandAccent card (card height ~320-340px typical)
+                const cardY = targetHeight - 40 - 340;
+                logoPlacement = { width: 64, height: 64, top: cardY - 32, left: (1080 - 64) / 2 };
             } else if (variant === 'signature-complete') {
                 // Premium: centered at top, subtle, opacity 0.6
                 logoPlacement = { width: 64, height: 64, top: 24, left: (1080 - 64) / 2, opacity: 0.6 };

@@ -419,7 +419,7 @@ export function InstagramTemplatePreview(props: InstagramTemplatePreviewProps) {
                             <div className="absolute top-3 right-3 flex flex-col items-end gap-1.5" style={{ zIndex: 3 }}>
                                 {template.discountLabel && (
                                     <span
-                                        className="text-sm font-bold px-4 py-1.5 inline-flex items-center gap-1"
+                                        className="text-sm font-bold px-3 py-1.5 inline-flex items-center gap-1 whitespace-nowrap"
                                         style={{ background: brandAccent, color: '#fff', borderRadius: '10px', boxShadow: '0 2px 8px rgba(0,0,0,0.3)' }}
                                     >
                                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="9" cy="9" r="1"/><circle cx="15" cy="15" r="1"/><path d="M16 8l-8 8"/></svg>
@@ -429,7 +429,7 @@ export function InstagramTemplatePreview(props: InstagramTemplatePreviewProps) {
                                 {template.badges && template.badges.map((badge, i) => (
                                     <span
                                         key={i}
-                                        className="text-[11px] font-semibold px-3 py-1.5 inline-flex items-center gap-1"
+                                        className="text-[11px] font-semibold px-2.5 py-1.5 inline-flex items-center gap-1 whitespace-nowrap"
                                         style={{ background: '#fff', color: '#111', borderRadius: '10px', boxShadow: '0 1px 4px rgba(0,0,0,0.15)' }}
                                     >
                                         <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 12l2 2 4-4"/><circle cx="12" cy="12" r="10"/></svg>
@@ -507,7 +507,7 @@ export function InstagramTemplatePreview(props: InstagramTemplatePreviewProps) {
                             <div className="absolute top-3 right-3 flex flex-col items-end gap-1.5" style={{ zIndex: 3 }}>
                                 {template.discountLabel && (
                                     <span
-                                        className="text-sm font-bold px-4 py-1.5 inline-flex items-center gap-1"
+                                        className="text-sm font-bold px-3 py-1.5 inline-flex items-center gap-1 whitespace-nowrap"
                                         style={{ background: brandAccent, color: '#fff', borderRadius: '10px', boxShadow: '0 2px 8px rgba(0,0,0,0.3)' }}
                                     >
                                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="9" cy="9" r="1"/><circle cx="15" cy="15" r="1"/><path d="M16 8l-8 8"/></svg>
@@ -517,7 +517,7 @@ export function InstagramTemplatePreview(props: InstagramTemplatePreviewProps) {
                                 {template.badges && template.badges.map((badge, i) => (
                                     <span
                                         key={i}
-                                        className="text-[11px] font-semibold px-3 py-1.5 inline-flex items-center gap-1"
+                                        className="text-[11px] font-semibold px-2.5 py-1.5 inline-flex items-center gap-1 whitespace-nowrap"
                                         style={{ background: '#fff', color: '#111', borderRadius: '10px', boxShadow: '0 1px 4px rgba(0,0,0,0.15)' }}
                                     >
                                         <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 12l2 2 4-4"/><circle cx="12" cy="12" r="10"/></svg>
