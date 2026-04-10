@@ -3615,7 +3615,8 @@ function getHighlightIconKey(text: string): string {
 
 function svgIcon(key: string, x: number, y: number, size: number, fill: string, strokeW = 1.5): string {
     const p = SVG_ICON_PATHS[key] || SVG_ICON_PATHS['servicio'];
-    return `<g transform="translate(${x},${y})"><svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="${fill}" stroke-width="${strokeW}" stroke-linecap="round" stroke-linejoin="round"><path d="${p}"/></svg></g>`;
+    const scale = size / 24;
+    return `<g transform="translate(${x},${y}) scale(${scale})"><path d="${p}" fill="none" stroke="${fill}" stroke-width="${strokeW}" stroke-linecap="round" stroke-linejoin="round"/></g>`;
 }
 
 function splitTemplatePrice(value: string): { prefix: string; amount: string } {
