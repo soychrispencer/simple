@@ -65,6 +65,7 @@ export default function DisponibilidadConfigPage() {
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState<string | null>(null);
     const [autoSaved, setAutoSaved] = useState<string | null>(null);
+    const [ruleErrors, setRuleErrors] = useState<Record<string, string>>({});
     const [deleting, setDeleting] = useState<string | null>(null);
     const [loadingDefault, setLoadingDefault] = useState(false);
 
@@ -89,31 +90,66 @@ export default function DisponibilidadConfigPage() {
         setLoading(false);
     };
 
-    const handleToggle = async (rule: AvailabilityRule) => {
-        setSaving(rule.id);
-        await updateAvailabilityRule(rule.id, { isActive: !rule.isActive });
-        setRules((prev) => prev.map((r) => r.id === rule.id ? { ...r, isActive: !r.isActive } : r));
-        setSaving(null);
+    const clearRuleError = (id: string) => {
+        setRuleErrors((prev) => {
+            if (!(id in prev)) return prev;
+            const next = { ...prev };
+            delete next[id];
+            return next;
+        });
     };
 
-    const handleChange = (rule: AvailabilityRule, field: keyof AvailabilityRule, value: string) => {
-        const updated = { ...rule, [field]: value || null };
+    const handleToggle = async (rule: AvailabilityRule) => {
+        const next = !rule.isActive;
+        setRules((prev) => prev.map((r) => r.id === rule.id ? { ...r, isActive: next } : r));
+        setSaving(rule.id);
+        clearRuleError(rule.id);
+        const result = await updateAvailabilityRule(rule.id, { isActive: next });
+        setSaving(null);
+        if (!result.ok) {
+            setRules((prev) => prev.map((r) => r.id === rule.id ? { ...r, isActive: !next } : r));
+            setRuleErrors((prev) => ({ ...prev, [rule.id]: result.error ?? 'No se pudo guardar.' }));
+        }
+    };
+
+    const handleChange = (
+        rule: AvailabilityRule,
+        field: 'startTime' | 'endTime' | 'breakStart' | 'breakEnd',
+        value: string,
+    ) => {
+        const normalized: string | null = field === 'breakStart' || field === 'breakEnd'
+            ? (value || null)
+            : value;
+        const updated = { ...rule, [field]: normalized } as AvailabilityRule;
         setRules((prev) => prev.map((r) => r.id === rule.id ? updated : r));
+        clearRuleError(rule.id);
 
         clearTimeout(debounceTimers.current[rule.id]);
-        debounceTimers.current[rule.id] = setTimeout(() => {
+        debounceTimers.current[rule.id] = setTimeout(async () => {
+            // Client-side validation before saving
+            if (updated.endTime <= updated.startTime) {
+                setRuleErrors((prev) => ({ ...prev, [rule.id]: 'La hora de fin debe ser posterior al inicio.' }));
+                return;
+            }
+            if (updated.breakStart && updated.breakEnd && updated.breakEnd <= updated.breakStart) {
+                setRuleErrors((prev) => ({ ...prev, [rule.id]: 'La pausa fin debe ser posterior al inicio de pausa.' }));
+                return;
+            }
             setSaving(rule.id);
-            void updateAvailabilityRule(rule.id, {
+            const result = await updateAvailabilityRule(rule.id, {
                 startTime: updated.startTime,
                 endTime: updated.endTime,
                 breakStart: updated.breakStart ?? null,
                 breakEnd: updated.breakEnd ?? null,
-            }).then(() => {
-                setSaving(null);
-                setAutoSaved(rule.id);
-                setTimeout(() => setAutoSaved((prev) => prev === rule.id ? null : prev), 1500);
             });
-        }, 800);
+            setSaving(null);
+            if (!result.ok) {
+                setRuleErrors((prev) => ({ ...prev, [rule.id]: result.error ?? 'No se pudo guardar.' }));
+                return;
+            }
+            setAutoSaved(rule.id);
+            setTimeout(() => setAutoSaved((prev) => prev === rule.id ? null : prev), 1500);
+        }, 600);
     };
 
     const handleDelete = async (id: string) => {
@@ -232,11 +268,7 @@ export default function DisponibilidadConfigPage() {
                         const isSaving = saving === rule.id;
                         const isDeleting = deleting === rule.id;
                         const isAutoSaved = autoSaved === rule.id;
-                        const timeError = rule.endTime <= rule.startTime
-                            ? 'La hora de fin debe ser posterior al inicio.'
-                            : (rule.breakStart && rule.breakEnd && rule.breakEnd <= rule.breakStart)
-                                ? 'La pausa fin debe ser posterior al inicio de pausa.'
-                                : null;
+                        const timeError = ruleErrors[rule.id] ?? null;
 
                         return (
                             <PanelCard
@@ -275,7 +307,7 @@ export default function DisponibilidadConfigPage() {
                                             onChange={(e) => handleChange(rule, 'startTime', e.target.value)}
                                             className="form-select"
                                         >
-                                            {TIME_OPTIONS.map((t) => <option key={t}>{t}</option>)}
+                                            {TIME_OPTIONS.map((t) => <option key={t} value={t}>{t}</option>)}
                                         </select>
                                     </PanelField>
                                     <PanelField label="Fin">
@@ -284,7 +316,7 @@ export default function DisponibilidadConfigPage() {
                                             onChange={(e) => handleChange(rule, 'endTime', e.target.value)}
                                             className="form-select"
                                         >
-                                            {TIME_OPTIONS.map((t) => <option key={t}>{t}</option>)}
+                                            {TIME_OPTIONS.map((t) => <option key={t} value={t}>{t}</option>)}
                                         </select>
                                     </PanelField>
                                     <PanelField label="Pausa inicio">
@@ -294,7 +326,7 @@ export default function DisponibilidadConfigPage() {
                                             className="form-select"
                                         >
                                             <option value="">Sin pausa</option>
-                                            {TIME_OPTIONS.map((t) => <option key={t}>{t}</option>)}
+                                            {TIME_OPTIONS.map((t) => <option key={t} value={t}>{t}</option>)}
                                         </select>
                                     </PanelField>
                                     <PanelField label="Pausa fin">
@@ -304,7 +336,7 @@ export default function DisponibilidadConfigPage() {
                                             className="form-select"
                                         >
                                             <option value="">—</option>
-                                            {TIME_OPTIONS.map((t) => <option key={t}>{t}</option>)}
+                                            {TIME_OPTIONS.map((t) => <option key={t} value={t}>{t}</option>)}
                                         </select>
                                     </PanelField>
                                 </div>

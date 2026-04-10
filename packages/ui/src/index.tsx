@@ -455,8 +455,8 @@ export function InstagramTemplatePreview(props: InstagramTemplatePreviewProps) {
                     ) : template.overlayVariant === 'essential-watermark' ? (
                         <>
                             {/* ═══ BÁSICO ═══ Solo logo esquina superior izquierda */}
-                            <div className="absolute top-4 left-4" style={{ opacity: 0.5 }}>
-                                <img src="/logo-light.png" alt={template.branding.appName} style={{ width: '40px', height: '40px', objectFit: 'contain', filter: 'drop-shadow(0 1px 3px rgba(0,0,0,0.5))' }} />
+                            <div className="absolute top-3 left-3" style={{ opacity: 0.5 }}>
+                                <img src="/logo-light.png" alt={template.branding.appName} style={{ width: '50px', height: '50px', objectFit: 'contain', filter: 'drop-shadow(0 1px 3px rgba(0,0,0,0.5))' }} />
                             </div>
                         </>
                     ) : template.overlayVariant === 'professional-centered' ? (
@@ -487,8 +487,8 @@ export function InstagramTemplatePreview(props: InstagramTemplatePreviewProps) {
                             {/* Card de color centrada abajo */}
                             <div className="absolute inset-x-0 bottom-0 px-4 pb-4">
                                 {/* Logo flotante sin fondo: mitad dentro, mitad fuera */}
-                                <div className="flex justify-center" style={{ marginBottom: '-20px', position: 'relative', zIndex: 3 }}>
-                                    <img src="/logo-light.png" alt={template.branding.appName} style={{ width: '40px', height: '40px', objectFit: 'contain', filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.3))' }} />
+                                <div className="flex justify-center" style={{ marginBottom: '-25px', position: 'relative', zIndex: 3 }}>
+                                    <img src="/logo-light.png" alt={template.branding.appName} style={{ width: '50px', height: '50px', objectFit: 'contain', filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.3))' }} />
                                 </div>
                                 <div
                                     className="overflow-hidden text-center"
@@ -546,9 +546,9 @@ export function InstagramTemplatePreview(props: InstagramTemplatePreviewProps) {
                     ) : template.overlayVariant === 'signature-complete' ? (
                         <>
                             {/* ═══ PREMIUM ═══ Diseño elegante oscuro, branding fuerte */}
-                            {/* Logo light centrado arriba */}
-                            <div className="absolute inset-x-0 top-0 flex justify-center" style={{ paddingTop: '12px', zIndex: 3 }}>
-                                <img src="/logo-light.png" alt={template.branding.appName} style={{ width: '40px', height: '40px', objectFit: 'contain', opacity: 0.6, filter: 'drop-shadow(0 1px 3px rgba(0,0,0,0.4))' }} />
+                            {/* Logo light top-left */}
+                            <div className="absolute top-3 left-3" style={{ opacity: 0.6, zIndex: 3 }}>
+                                <img src="/logo-light.png" alt={template.branding.appName} style={{ width: '50px', height: '50px', objectFit: 'contain', filter: 'drop-shadow(0 1px 3px rgba(0,0,0,0.4))' }} />
                             </div>
                             {/* Columna derecha: descuento + badges servicios */}
                             <div className="absolute top-3 right-3 flex flex-col items-end gap-1.5" style={{ zIndex: 3 }}>

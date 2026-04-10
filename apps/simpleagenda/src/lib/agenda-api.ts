@@ -168,6 +168,41 @@ export async function deleteBlockedSlot(id: string): Promise<{ ok: boolean }> {
     return apiFetch(`/api/agenda/availability/blocked-slots/${id}`, { method: 'DELETE' });
 }
 
+// ── Locations (consulting rooms) ──────────────────────────────────────────────
+
+export type AgendaLocation = {
+    id: string;
+    professionalId: string;
+    name: string;
+    addressLine: string;
+    city: string | null;
+    region: string | null;
+    notes: string | null;
+    googleMapsUrl: string | null;
+    isDefault: boolean;
+    isActive: boolean;
+    position: number;
+    createdAt: string;
+    updatedAt: string;
+};
+
+export async function fetchAgendaLocations(): Promise<AgendaLocation[]> {
+    const data = await apiFetch<{ ok: boolean; locations: AgendaLocation[] }>('/api/agenda/locations');
+    return data.locations ?? [];
+}
+
+export async function createAgendaLocation(body: Partial<AgendaLocation>): Promise<{ ok: boolean; location?: AgendaLocation; error?: string }> {
+    return apiFetch('/api/agenda/locations', { method: 'POST', body: JSON.stringify(body) });
+}
+
+export async function updateAgendaLocation(id: string, body: Partial<AgendaLocation>): Promise<{ ok: boolean; location?: AgendaLocation; error?: string }> {
+    return apiFetch(`/api/agenda/locations/${id}`, { method: 'PUT', body: JSON.stringify(body) });
+}
+
+export async function deleteAgendaLocation(id: string): Promise<{ ok: boolean }> {
+    return apiFetch(`/api/agenda/locations/${id}`, { method: 'DELETE' });
+}
+
 // ── Clients ───────────────────────────────────────────────────────────────────
 
 export type AgendaClient = {

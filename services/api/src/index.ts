@@ -96,6 +96,7 @@ import {
 
     agendaServices,
     agendaAvailabilityRules,
+    agendaLocations,
     agendaBlockedSlots,
     agendaClients,
     agendaAppointments,
@@ -4094,7 +4095,7 @@ async function prepareInstagramImageUrl(
             let logoPlacement: { width: number; height: number; top: number; left: number; opacity?: number };
             if (variant === 'essential-watermark') {
                 // Básico: top-left corner watermark
-                logoPlacement = { width: 64, height: 64, top: 40, left: 40, opacity: 0.5 };
+                logoPlacement = { width: 80, height: 80, top: 36, left: 36, opacity: 0.5 };
             } else if (variant === 'professional-centered') {
                 // Profesional: centered above brandAccent card - calculate card height dynamically
                 const t = options.template;
@@ -4109,10 +4110,10 @@ async function prepareInstagramImageUrl(
                 if (hasLocation) cardHeight += 56;
                 cardHeight = Math.max(cardHeight, 260);
                 const cardY = targetHeight - 40 - cardHeight;
-                logoPlacement = { width: 64, height: 64, top: cardY - 32, left: (1080 - 64) / 2 };
+                logoPlacement = { width: 80, height: 80, top: cardY - 40, left: (1080 - 80) / 2 };
             } else if (variant === 'signature-complete') {
-                // Premium: centered at top, subtle, opacity 0.6
-                logoPlacement = { width: 64, height: 64, top: 24, left: (1080 - 64) / 2, opacity: 0.6 };
+                // Premium: top-left like Básico, subtle opacity
+                logoPlacement = { width: 80, height: 80, top: 36, left: 36, opacity: 0.6 };
             } else if (variant.startsWith('property')) {
                 logoPlacement = { width: 48, height: 48, top: 34, left: 42 };
             } else {
@@ -14871,6 +14872,104 @@ app.delete('/api/agenda/availability/blocked-slots/:id', requireVerifiedSession,
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
+// SimpleAgenda — Locations (consulting rooms / offices)
+// ─────────────────────────────────────────────────────────────────────────────
+
+app.get('/api/agenda/locations', requireVerifiedSession, async (c) => {
+    const user = await authUser(c);
+    if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
+    const profile = await getAgendaProfile(user.id);
+    if (!profile) return c.json({ ok: true, locations: [] });
+    const locations = await db.select().from(agendaLocations)
+        .where(eq(agendaLocations.professionalId, profile.id))
+        .orderBy(desc(agendaLocations.isDefault), asc(agendaLocations.position), asc(agendaLocations.createdAt));
+    return c.json({ ok: true, locations });
+});
+
+app.post('/api/agenda/locations', requireVerifiedSession, async (c) => {
+    const user = await authUser(c);
+    if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
+    const profile = await getAgendaProfile(user.id);
+    if (!profile) return c.json({ ok: false, error: 'Perfil no encontrado' }, 404);
+    const body = await c.req.json().catch(() => ({})) as Record<string, unknown>;
+    const name = typeof body.name === 'string' ? body.name.trim() : '';
+    const addressLine = typeof body.addressLine === 'string' ? body.addressLine.trim() : '';
+    if (!name) return c.json({ ok: false, error: 'El nombre de la consulta es requerido.' }, 400);
+    if (!addressLine) return c.json({ ok: false, error: 'La dirección es requerida.' }, 400);
+
+    const isDefault = body.isDefault === true;
+    if (isDefault) {
+        await db.update(agendaLocations)
+            .set({ isDefault: false, updatedAt: new Date() })
+            .where(eq(agendaLocations.professionalId, profile.id));
+    }
+
+    const [location] = await db.insert(agendaLocations).values({
+        professionalId: profile.id,
+        name,
+        addressLine,
+        city: typeof body.city === 'string' ? body.city : null,
+        region: typeof body.region === 'string' ? body.region : null,
+        notes: typeof body.notes === 'string' ? body.notes : null,
+        googleMapsUrl: typeof body.googleMapsUrl === 'string' ? body.googleMapsUrl : null,
+        isDefault,
+        isActive: body.isActive !== false,
+    }).returning();
+    return c.json({ ok: true, location });
+});
+
+app.put('/api/agenda/locations/:id', requireVerifiedSession, async (c) => {
+    const user = await authUser(c);
+    if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
+    const profile = await getAgendaProfile(user.id);
+    if (!profile) return c.json({ ok: false, error: 'Perfil no encontrado' }, 404);
+    const id = c.req.param('id') ?? '';
+    const body = await c.req.json().catch(() => ({})) as Record<string, unknown>;
+    const patch: Record<string, unknown> = { updatedAt: new Date() };
+
+    if (typeof body.name === 'string') {
+        const name = body.name.trim();
+        if (!name) return c.json({ ok: false, error: 'El nombre de la consulta es requerido.' }, 400);
+        patch.name = name;
+    }
+    if (typeof body.addressLine === 'string') {
+        const addressLine = body.addressLine.trim();
+        if (!addressLine) return c.json({ ok: false, error: 'La dirección es requerida.' }, 400);
+        patch.addressLine = addressLine;
+    }
+    for (const key of ['city', 'region', 'notes', 'googleMapsUrl'] as const) {
+        if (key in body) patch[key] = body[key] === '' ? null : body[key];
+    }
+    if ('isActive' in body) patch.isActive = body.isActive !== false;
+
+    if (body.isDefault === true) {
+        await db.update(agendaLocations)
+            .set({ isDefault: false, updatedAt: new Date() })
+            .where(and(eq(agendaLocations.professionalId, profile.id), sql`id <> ${id}`));
+        patch.isDefault = true;
+    } else if (body.isDefault === false) {
+        patch.isDefault = false;
+    }
+
+    const [updated] = await db.update(agendaLocations).set(patch)
+        .where(and(eq(agendaLocations.id, id), eq(agendaLocations.professionalId, profile.id)))
+        .returning();
+    if (!updated) return c.json({ ok: false, error: 'Consulta no encontrada.' }, 404);
+    return c.json({ ok: true, location: updated });
+});
+
+app.delete('/api/agenda/locations/:id', requireVerifiedSession, async (c) => {
+    const user = await authUser(c);
+    if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
+    const profile = await getAgendaProfile(user.id);
+    if (!profile) return c.json({ ok: false, error: 'Perfil no encontrado' }, 404);
+    const id = c.req.param('id') ?? '';
+    await db.delete(agendaLocations)
+        .where(and(eq(agendaLocations.id, id), eq(agendaLocations.professionalId, profile.id)));
+    return c.json({ ok: true });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
 // SimpleAgenda — Clients
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -16812,6 +16911,25 @@ async function bootstrapMissingTables() {
         )
     `);
     await db.execute(sql`CREATE INDEX IF NOT EXISTS agenda_blocked_slots_professional_idx ON agenda_blocked_slots(professional_id)`);
+
+    await db.execute(sql`
+        CREATE TABLE IF NOT EXISTS agenda_locations (
+            id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+            professional_id uuid NOT NULL REFERENCES agenda_professional_profiles(id) ON DELETE CASCADE,
+            name varchar(160) NOT NULL,
+            address_line varchar(255) NOT NULL,
+            city varchar(100),
+            region varchar(100),
+            notes text,
+            google_maps_url varchar(500),
+            is_default boolean NOT NULL DEFAULT false,
+            is_active boolean NOT NULL DEFAULT true,
+            position integer NOT NULL DEFAULT 0,
+            created_at timestamp NOT NULL DEFAULT now(),
+            updated_at timestamp NOT NULL DEFAULT now()
+        )
+    `);
+    await db.execute(sql`CREATE INDEX IF NOT EXISTS agenda_locations_professional_idx ON agenda_locations(professional_id)`);
 
     await db.execute(sql`
         CREATE TABLE IF NOT EXISTS agenda_clients (

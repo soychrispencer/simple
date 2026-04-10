@@ -487,6 +487,25 @@ export const agendaAvailabilityRules = pgTable('agenda_availability_rules', {
   professionalIdx: index('agenda_availability_professional_idx').on(table.professionalId),
 }));
 
+// Consulting locations (offices / rooms where the professional attends in-person)
+export const agendaLocations = pgTable('agenda_locations', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  professionalId: uuid('professional_id').references(() => agendaProfessionalProfiles.id).notNull(),
+  name: varchar('name', { length: 160 }).notNull(), // e.g. "Consulta Providencia"
+  addressLine: varchar('address_line', { length: 255 }).notNull(), // street + number
+  city: varchar('city', { length: 100 }),
+  region: varchar('region', { length: 100 }),
+  notes: text('notes'), // e.g. "Tocar timbre piso 3, estacionamiento disponible"
+  googleMapsUrl: varchar('google_maps_url', { length: 500 }),
+  isDefault: boolean('is_default').notNull().default(false),
+  isActive: boolean('is_active').notNull().default(true),
+  position: integer('position').notNull().default(0),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+  updatedAt: timestamp('updated_at').notNull().defaultNow(),
+}, (table) => ({
+  professionalIdx: index('agenda_locations_professional_idx').on(table.professionalId),
+}));
+
 // Manual blocked slots (vacations, personal time, one-off blocks)
 export const agendaBlockedSlots = pgTable('agenda_blocked_slots', {
   id: uuid('id').primaryKey().defaultRandom(),

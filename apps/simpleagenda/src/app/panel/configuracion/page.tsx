@@ -7,6 +7,7 @@ import {
     IconPlug,
     IconChevronRight,
     IconCreditCard,
+    IconMapPin,
 } from '@tabler/icons-react';
 
 const CONFIG_SECTIONS = [
@@ -14,7 +15,7 @@ const CONFIG_SECTIONS = [
         href: '/panel/configuracion/perfil',
         icon: IconUser,
         title: 'Perfil profesional',
-        description: 'Foto, nombre, profesión, bio y encuadre.',
+        description: 'Foto, nombre, profesión, bio y políticas.',
     },
     {
         href: '/panel/configuracion/servicios',
@@ -27,6 +28,12 @@ const CONFIG_SECTIONS = [
         icon: IconClock,
         title: 'Disponibilidad',
         description: 'Horarios semanales y bloqueos de tiempo.',
+    },
+    {
+        href: '/panel/configuracion/direcciones',
+        icon: IconMapPin,
+        title: 'Direcciones de consulta',
+        description: 'Registra dónde atiendes de forma presencial.',
     },
     {
         href: '/panel/configuracion/cobros',
