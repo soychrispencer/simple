@@ -409,7 +409,7 @@ export function InstagramTemplatePreview(props: InstagramTemplatePreviewProps) {
                         <>
                             {/* ═══ BÁSICO ═══ Solo logo esquina superior izquierda */}
                             <div className="absolute top-4 left-4" style={{ opacity: 0.5 }}>
-                                <img src="/logo-light.png" alt={template.branding.appName} className="h-10 w-10 object-contain" style={{ filter: 'drop-shadow(0 1px 3px rgba(0,0,0,0.5))' }} />
+                                <img src="/logo-light.png" alt={template.branding.appName} style={{ width: '36px', height: '36px', objectFit: 'contain', filter: 'drop-shadow(0 1px 3px rgba(0,0,0,0.5))' }} />
                             </div>
                         </>
                     ) : template.overlayVariant === 'professional-centered' ? (
@@ -419,18 +419,20 @@ export function InstagramTemplatePreview(props: InstagramTemplatePreviewProps) {
                             <div className="absolute top-3 right-3 flex flex-col items-end gap-1.5" style={{ zIndex: 3 }}>
                                 {template.discountLabel && (
                                     <span
-                                        className="text-sm font-bold px-4 py-1.5"
+                                        className="text-sm font-bold px-4 py-1.5 inline-flex items-center gap-1"
                                         style={{ background: brandAccent, color: '#fff', borderRadius: '10px', boxShadow: '0 2px 8px rgba(0,0,0,0.3)' }}
                                     >
+                                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="9" cy="9" r="1"/><circle cx="15" cy="15" r="1"/><path d="M16 8l-8 8"/></svg>
                                         {template.discountLabel}
                                     </span>
                                 )}
                                 {template.badges && template.badges.map((badge, i) => (
                                     <span
                                         key={i}
-                                        className="text-[10px] font-semibold px-2.5 py-1"
-                                        style={{ background: '#fff', color: '#111', borderRadius: '8px', boxShadow: '0 1px 4px rgba(0,0,0,0.15)' }}
+                                        className="text-[11px] font-semibold px-3 py-1.5 inline-flex items-center gap-1"
+                                        style={{ background: '#fff', color: '#111', borderRadius: '10px', boxShadow: '0 1px 4px rgba(0,0,0,0.15)' }}
                                     >
+                                        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 12l2 2 4-4"/><circle cx="12" cy="12" r="10"/></svg>
                                         {badge}
                                     </span>
                                 ))}
@@ -438,8 +440,8 @@ export function InstagramTemplatePreview(props: InstagramTemplatePreviewProps) {
                             {/* Card de color centrada abajo */}
                             <div className="absolute inset-x-0 bottom-0 px-4 pb-4">
                                 {/* Logo flotante sin fondo: mitad dentro, mitad fuera */}
-                                <div className="flex justify-center" style={{ marginBottom: '-24px', position: 'relative', zIndex: 3 }}>
-                                    <img src="/logo-light.png" alt={template.branding.appName} style={{ width: '40px', height: '40px', objectFit: 'contain', filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.3))' }} />
+                                <div className="flex justify-center" style={{ marginBottom: '-22px', position: 'relative', zIndex: 3 }}>
+                                    <img src="/logo-light.png" alt={template.branding.appName} style={{ width: '36px', height: '36px', objectFit: 'contain', filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.3))' }} />
                                 </div>
                                 <div
                                     className="overflow-hidden text-center"
@@ -461,26 +463,31 @@ export function InstagramTemplatePreview(props: InstagramTemplatePreviewProps) {
                                                 {template.priceLabel}
                                             </div>
                                         )}
-                                        {/* Título */}
+                                        {/* Título — 1 línea */}
                                         {template.title && (
-                                            <div className="font-black mt-2 leading-tight line-clamp-2 uppercase" style={{ color: '#fff', fontSize: '0.95rem' }}>
+                                            <div className="font-black mt-2 leading-tight line-clamp-1 uppercase" style={{ color: '#fff', fontSize: '0.95rem' }}>
                                                 {template.title}
                                             </div>
                                         )}
-                                        {/* Info: Sección - Condición - Km - Combustible */}
+                                        {/* Highlights con iconos */}
                                         {template.highlights && template.highlights.length > 0 && (
-                                            <div className="text-[11px] font-medium mt-1.5 uppercase" style={{ color: 'rgba(255,255,255,0.7)' }}>
-                                                {template.highlights.join(' - ')}
+                                            <div className="flex items-center justify-center gap-2 mt-1.5 flex-wrap">
+                                                {template.highlights.slice(0, 4).map((h, i) => (
+                                                    <span key={i} className="inline-flex items-center gap-0.5 text-[10px] font-semibold uppercase" style={{ color: 'rgba(255,255,255,0.8)' }}>
+                                                        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
+                                                        {h}
+                                                    </span>
+                                                ))}
                                             </div>
                                         )}
-                                        {/* Comuna: fondo blanco, texto color principal, pin */}
+                                        {/* Comuna con icono pin */}
                                         {template.locationLabel && (
-                                            <div className="flex justify-center mt-3">
+                                            <div className="flex justify-center mt-2.5">
                                                 <span
-                                                    className="text-[10px] font-bold px-3 py-1 inline-flex items-center gap-1"
+                                                    className="text-[11px] font-bold px-3.5 py-1.5 inline-flex items-center gap-1"
                                                     style={{ background: '#fff', color: brandAccent, borderRadius: '9999px' }}
                                                 >
-                                                    <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5a2.5 2.5 0 1 1 0-5 2.5 2.5 0 0 1 0 5z"/></svg>
+                                                    <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5a2.5 2.5 0 1 1 0-5 2.5 2.5 0 0 1 0 5z"/></svg>
                                                     {template.locationLabel}
                                                 </span>
                                             </div>
@@ -492,26 +499,28 @@ export function InstagramTemplatePreview(props: InstagramTemplatePreviewProps) {
                     ) : template.overlayVariant === 'signature-complete' ? (
                         <>
                             {/* ═══ PREMIUM ═══ Diseño elegante oscuro, branding fuerte */}
-                            {/* Logo light centrado arriba */}
-                            <div className="absolute inset-x-0 top-0 flex justify-center" style={{ paddingTop: '12px', zIndex: 3 }}>
-                                <img src="/logo-light.png" alt={template.branding.appName} style={{ width: '40px', height: '40px', objectFit: 'contain', opacity: 0.6, filter: 'drop-shadow(0 1px 3px rgba(0,0,0,0.4))' }} />
+                            {/* Logo light top-left like Básico */}
+                            <div className="absolute top-4 left-4" style={{ opacity: 0.6, zIndex: 3 }}>
+                                <img src="/logo-light.png" alt={template.branding.appName} style={{ width: '36px', height: '36px', objectFit: 'contain', filter: 'drop-shadow(0 1px 3px rgba(0,0,0,0.4))' }} />
                             </div>
                             {/* Columna derecha: descuento + badges servicios */}
                             <div className="absolute top-3 right-3 flex flex-col items-end gap-1.5" style={{ zIndex: 3 }}>
                                 {template.discountLabel && (
                                     <span
-                                        className="text-sm font-bold px-4 py-1.5"
+                                        className="text-sm font-bold px-4 py-1.5 inline-flex items-center gap-1"
                                         style={{ background: brandAccent, color: '#fff', borderRadius: '10px', boxShadow: '0 2px 8px rgba(0,0,0,0.3)' }}
                                     >
+                                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="9" cy="9" r="1"/><circle cx="15" cy="15" r="1"/><path d="M16 8l-8 8"/></svg>
                                         {template.discountLabel}
                                     </span>
                                 )}
                                 {template.badges && template.badges.map((badge, i) => (
                                     <span
                                         key={i}
-                                        className="text-[10px] font-semibold px-2.5 py-1"
-                                        style={{ background: '#fff', color: '#111', borderRadius: '8px', boxShadow: '0 1px 4px rgba(0,0,0,0.15)' }}
+                                        className="text-[11px] font-semibold px-3 py-1.5 inline-flex items-center gap-1"
+                                        style={{ background: '#fff', color: '#111', borderRadius: '10px', boxShadow: '0 1px 4px rgba(0,0,0,0.15)' }}
                                     >
+                                        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 12l2 2 4-4"/><circle cx="12" cy="12" r="10"/></svg>
                                         {badge}
                                     </span>
                                 ))}
@@ -534,26 +543,31 @@ export function InstagramTemplatePreview(props: InstagramTemplatePreviewProps) {
                                             {template.priceLabel}
                                         </div>
                                     )}
-                                    {/* Título bold */}
+                                    {/* Título — 1 línea */}
                                     {template.title && (
-                                        <div className="font-black mt-2 leading-tight line-clamp-2 uppercase" style={{ color: '#fff', fontSize: '0.95rem' }}>
+                                        <div className="font-black mt-2 leading-tight line-clamp-1 uppercase" style={{ color: '#fff', fontSize: '0.95rem' }}>
                                             {template.title}
                                         </div>
                                     )}
-                                    {/* Info como texto */}
+                                    {/* Highlights con iconos */}
                                     {template.highlights && template.highlights.length > 0 && (
-                                        <div className="text-[11px] font-medium mt-1.5 uppercase" style={{ color: 'rgba(255,255,255,0.55)' }}>
-                                            {template.highlights.join(' - ')}
+                                        <div className="flex items-center justify-center gap-2 mt-1.5 flex-wrap">
+                                            {template.highlights.slice(0, 4).map((h, i) => (
+                                                <span key={i} className="inline-flex items-center gap-0.5 text-[10px] font-semibold uppercase" style={{ color: 'rgba(255,255,255,0.65)' }}>
+                                                    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
+                                                    {h}
+                                                </span>
+                                            ))}
                                         </div>
                                     )}
-                                    {/* Comuna: fondo blanco, texto color principal, pin */}
+                                    {/* Comuna con icono pin */}
                                     {template.locationLabel && (
-                                        <div className="flex justify-center mt-3">
+                                        <div className="flex justify-center mt-2.5">
                                             <span
-                                                className="text-[10px] font-bold px-3 py-1 inline-flex items-center gap-1"
+                                                className="text-[11px] font-bold px-3.5 py-1.5 inline-flex items-center gap-1"
                                                 style={{ background: '#fff', color: brandAccent, borderRadius: '9999px' }}
                                             >
-                                                <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5a2.5 2.5 0 1 1 0-5 2.5 2.5 0 0 1 0 5z"/></svg>
+                                                <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5a2.5 2.5 0 1 1 0-5 2.5 2.5 0 0 1 0 5z"/></svg>
                                                 {template.locationLabel}
                                             </span>
                                         </div>

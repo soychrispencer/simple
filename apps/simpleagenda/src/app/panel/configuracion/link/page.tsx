@@ -10,6 +10,12 @@ import {
     IconEye,
     IconEyeOff,
 } from '@tabler/icons-react';
+import {
+    PanelCard,
+    PanelButton,
+    PanelSwitch,
+    PanelPageHeader,
+} from '@simple/ui';
 import { fetchAgendaProfile, saveAgendaProfile, type AgendaProfile } from '@/lib/agenda-api';
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3004';
@@ -39,11 +45,10 @@ export default function LinkReservasPage() {
         setTimeout(() => setCopied(false), 2000);
     };
 
-    const handleTogglePublish = async () => {
+    const handleTogglePublish = async (next: boolean) => {
         if (!profile) return;
         setTogglingPublish(true);
         setPublishSaved(false);
-        const next = !profile.isPublished;
         await saveAgendaProfile({ isPublished: next } as Partial<AgendaProfile>);
         setProfile((prev) => prev ? { ...prev, isPublished: next } : prev);
         setTogglingPublish(false);
@@ -62,45 +67,42 @@ export default function LinkReservasPage() {
     if (!profile?.slug) {
         return (
             <div className="container-app panel-page py-8 max-w-lg">
-                <a href="/panel/configuracion" className="inline-flex items-center gap-1 text-xs font-medium mb-3 transition-colors" style={{ color: 'var(--fg-muted)' }}>
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
-                    Configuracion
-                </a>
-                <h1 className="text-xl font-bold mb-1" style={{ color: 'var(--fg)' }}>Link de reservas</h1>
-                <div className="mt-8 rounded-2xl border p-6 flex flex-col items-center gap-3 text-center"
-                    style={{ borderColor: 'var(--border)', background: 'var(--surface)' }}>
+                <PanelPageHeader
+                    backHref="/panel/configuracion"
+                    title="Link de reservas"
+                />
+                <PanelCard size="lg" className="flex flex-col items-center gap-3 text-center">
                     <IconAlertCircle size={32} style={{ color: 'var(--fg-muted)' }} />
                     <p className="text-sm font-medium" style={{ color: 'var(--fg)' }}>Primero configura tu perfil</p>
                     <p className="text-xs" style={{ color: 'var(--fg-muted)' }}>
                         Define tu nombre y slug en Perfil profesional para obtener tu link público.
                     </p>
-                    <a
-                        href="/panel/configuracion/perfil"
-                        className="mt-1 inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-opacity hover:opacity-90"
-                        style={{ background: 'var(--accent)', color: '#fff' }}
-                    >
-                        Configurar perfil
-                    </a>
-                </div>
+                    <div className="mt-1">
+                        <a
+                            href="/panel/configuracion/perfil"
+                            className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-opacity hover:opacity-90"
+                            style={{ background: 'var(--accent)', color: '#fff' }}
+                        >
+                            Configurar perfil
+                        </a>
+                    </div>
+                </PanelCard>
             </div>
         );
     }
 
     return (
         <div className="container-app panel-page py-8 max-w-lg">
-            <a href="/panel/configuracion" className="inline-flex items-center gap-1 text-xs font-medium mb-3 transition-colors" style={{ color: 'var(--fg-muted)' }}>
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
-                Configuracion
-            </a>
-            <h1 className="text-xl font-bold mb-1" style={{ color: 'var(--fg)' }}>Link de reservas</h1>
-            <p className="text-sm mb-8" style={{ color: 'var(--fg-muted)' }}>
-                Comparte este link con tus pacientes para que reserven directamente.
-            </p>
+            <PanelPageHeader
+                backHref="/panel/configuracion"
+                title="Link de reservas"
+                description="Comparte este link con tus pacientes para que reserven directamente."
+            />
 
             <div className="flex flex-col gap-4">
 
                 {/* URL card */}
-                <div className="rounded-2xl border p-5" style={{ borderColor: 'var(--border)', background: 'var(--surface)' }}>
+                <PanelCard size="md">
                     <div className="flex items-center justify-between mb-3">
                         <p className="text-xs font-semibold uppercase tracking-wide" style={{ color: 'var(--fg-muted)' }}>
                             Tu link público
@@ -129,31 +131,31 @@ export default function LinkReservasPage() {
 
                     {/* Actions */}
                     <div className="flex gap-2">
-                        <button
+                        <PanelButton
+                            variant="accent"
                             onClick={() => void handleCopy()}
-                            className="flex-1 inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold transition-opacity hover:opacity-90"
-                            style={{ background: 'var(--accent)', color: '#fff' }}
+                            className="flex-1 justify-center"
                         >
                             {copied ? <IconCheck size={15} /> : <IconCopy size={15} />}
                             {copied ? 'Copiado' : 'Copiar link'}
-                        </button>
+                        </PanelButton>
                         <a
                             href={publicUrl!}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl border text-sm transition-colors hover:bg-[var(--bg-subtle)]"
+                            className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl border text-sm transition-colors hover:bg-(--bg-subtle)"
                             style={{ borderColor: 'var(--border)', color: 'var(--fg-secondary)' }}
                         >
                             <IconExternalLink size={15} />
                             Ver página
                         </a>
                     </div>
-                </div>
+                </PanelCard>
 
                 {/* Publish toggle */}
-                <div className="rounded-2xl border p-5" style={{ borderColor: 'var(--border)', background: 'var(--surface)' }}>
+                <PanelCard size="md">
                     <div className="flex items-start justify-between gap-4">
-                        <div className="flex-1">
+                        <div className="flex-1 min-w-0">
                             <p className="text-sm font-semibold mb-0.5" style={{ color: 'var(--fg)' }}>
                                 {profile.isPublished ? 'Página activa' : 'Página inactiva'}
                             </p>
@@ -163,31 +165,25 @@ export default function LinkReservasPage() {
                                     : 'Tu página no es visible para nadie. Actívala cuando estés listo.'}
                             </p>
                         </div>
-                        <button
-                            onClick={() => void handleTogglePublish()}
-                            disabled={togglingPublish}
-                            className="relative w-11 h-6 rounded-full transition-colors shrink-0 disabled:opacity-60"
-                            style={{ background: profile.isPublished ? 'var(--accent)' : 'var(--border)' }}
-                        >
-                            {togglingPublish
-                                ? <IconLoader2 size={12} className="animate-spin absolute inset-0 m-auto text-white" />
-                                : (
-                                    <span
-                                        className="absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white transition-transform"
-                                        style={{ transform: profile.isPublished ? 'translateX(20px)' : 'translateX(0)' }}
-                                    />
-                                )}
-                        </button>
+                        {togglingPublish ? (
+                            <IconLoader2 size={20} className="animate-spin shrink-0" style={{ color: 'var(--fg-muted)' }} />
+                        ) : (
+                            <PanelSwitch
+                                checked={profile.isPublished}
+                                onChange={(next) => void handleTogglePublish(next)}
+                                ariaLabel={profile.isPublished ? 'Despublicar página' : 'Publicar página'}
+                            />
+                        )}
                     </div>
                     {publishSaved && (
                         <p className="mt-3 text-xs flex items-center gap-1" style={{ color: 'var(--accent)' }}>
                             <IconCheck size={12} /> Guardado
                         </p>
                     )}
-                </div>
+                </PanelCard>
 
                 {/* How to share hint */}
-                <div className="rounded-2xl border p-4" style={{ borderColor: 'var(--border)', background: 'var(--surface)' }}>
+                <PanelCard size="sm">
                     <p className="text-xs font-semibold mb-2" style={{ color: 'var(--fg)' }}>Cómo compartir</p>
                     <ul className="flex flex-col gap-1.5">
                         {[
@@ -202,7 +198,7 @@ export default function LinkReservasPage() {
                             </li>
                         ))}
                     </ul>
-                </div>
+                </PanelCard>
 
             </div>
         </div>

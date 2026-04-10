@@ -1,22 +1,11 @@
 'use client';
 
-import { useEffect, useRef, useState, useCallback } from 'react';
-import { IconCheck, IconAlertCircle, IconLoader2, IconCamera, IconX, IconLink } from '@tabler/icons-react';
-import { fetchAgendaProfile, saveAgendaProfile, checkSlugAvailable, uploadAvatar } from '@/lib/agenda-api';
+import { useEffect, useRef, useState } from 'react';
+import { IconCheck, IconAlertCircle, IconLoader2, IconCamera, IconX, IconSparkles } from '@tabler/icons-react';
+import { fetchAgendaProfile, saveAgendaProfile, uploadAvatar } from '@/lib/agenda-api';
+import { generatePolicies } from '@/actions/generate-policies';
 import { LOCATION_REGIONS, getCommunesForRegion } from '@simple/utils';
-import { PanelCard, PanelField, PanelButton, PanelSwitch, PanelNotice, PanelBlockHeader, PanelPageHeader } from '@simple/ui';
-
-function normalizeSlug(value: string): string {
-    return value
-        .normalize('NFD')
-        .replace(/[\u0300-\u036f]/g, '')
-        .toLowerCase()
-        .trim()
-        .replace(/[^a-z0-9-]/g, '-')
-        .replace(/-+/g, '-')
-        .replace(/^-+|-+$/g, '')
-        .slice(0, 60);
-}
+import { PanelCard, PanelField, PanelButton, PanelNotice, PanelBlockHeader, PanelPageHeader } from '@simple/ui';
 
 const regionOptions = LOCATION_REGIONS.map((r) => ({ value: r.id, label: r.name }));
 
@@ -27,16 +16,10 @@ export default function PerfilConfigPage() {
     const [error, setError] = useState('');
     const [avatarUploading, setAvatarUploading] = useState(false);
     const [avatarError, setAvatarError] = useState(false);
+    const [generatingPolicies, setGeneratingPolicies] = useState(false);
     const fileInputRef = useRef<HTMLInputElement>(null);
 
-    // Slug availability
-    const [slugStatus, setSlugStatus] = useState<'idle' | 'checking' | 'available' | 'taken' | 'invalid'>('idle');
-    const [slugError, setSlugError] = useState('');
-    const slugTimerRef = useRef<ReturnType<typeof setTimeout>>(undefined);
-    const originalSlugRef = useRef('');
-
     const [form, setForm] = useState({
-        slug: '',
         displayName: '',
         profession: '',
         headline: '',
@@ -50,19 +33,15 @@ export default function PerfilConfigPage() {
         confirmationMode: 'auto' as 'auto' | 'manual',
         bookingWindowDays: 30,
         cancellationHours: 24,
-        isPublished: false,
         currency: 'CLP',
         encuadre: '',
-        requiresAdvancePayment: false,
-        advancePaymentInstructions: '',
     });
 
     useEffect(() => {
         const load = async () => {
             const profile = await fetchAgendaProfile();
             if (profile) {
-                const data = {
-                    slug: profile.slug ?? '',
+                setForm({
                     displayName: profile.displayName ?? '',
                     profession: profile.profession ?? '',
                     headline: profile.headline ?? '',
@@ -76,14 +55,9 @@ export default function PerfilConfigPage() {
                     confirmationMode: (profile.confirmationMode as 'auto' | 'manual') ?? 'auto',
                     bookingWindowDays: profile.bookingWindowDays ?? 30,
                     cancellationHours: profile.cancellationHours ?? 24,
-                    isPublished: profile.isPublished ?? false,
                     currency: profile.currency ?? 'CLP',
                     encuadre: profile.encuadre ?? '',
-                    requiresAdvancePayment: profile.requiresAdvancePayment ?? false,
-                    advancePaymentInstructions: profile.advancePaymentInstructions ?? '',
-                };
-                setForm(data);
-                originalSlugRef.current = data.slug;
+                });
             }
             setLoading(false);
         };
@@ -98,34 +72,6 @@ export default function PerfilConfigPage() {
         setSaved(false);
         setForm((prev) => ({ ...prev, [key]: value }));
     };
-
-    const handleSlugChange = useCallback((raw: string) => {
-        const slug = normalizeSlug(raw);
-        set('slug', slug);
-        setSlugError('');
-
-        if (!slug || slug.length < 3) {
-            setSlugStatus('idle');
-            return;
-        }
-        if (slug === originalSlugRef.current) {
-            setSlugStatus('idle');
-            return;
-        }
-
-        setSlugStatus('checking');
-        if (slugTimerRef.current) clearTimeout(slugTimerRef.current);
-        slugTimerRef.current = setTimeout(async () => {
-            const result = await checkSlugAvailable(slug);
-            if (result.available) {
-                setSlugStatus('available');
-                setSlugError('');
-            } else {
-                setSlugStatus(result.error?.includes('disponible') || result.error?.includes('uso') ? 'taken' : 'invalid');
-                setSlugError(result.error ?? 'No disponible');
-            }
-        }, 500);
-    }, []);
 
     const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
@@ -149,18 +95,31 @@ export default function PerfilConfigPage() {
         if (fileInputRef.current) fileInputRef.current.value = '';
     };
 
+    const handleGeneratePolicies = async () => {
+        setGeneratingPolicies(true);
+        setError('');
+        const result = await generatePolicies({
+            profession: form.profession,
+            displayName: form.displayName,
+            cancellationHours: form.cancellationHours,
+            bookingWindowDays: form.bookingWindowDays,
+            existingText: form.encuadre,
+        });
+        setGeneratingPolicies(false);
+        if (result.text) {
+            set('encuadre', result.text);
+        } else if (result.error) {
+            setError(result.error);
+        }
+    };
+
     const handleSave = async () => {
-        if (!form.slug) { setError('El link de tu agenda es requerido.'); return; }
-        if (form.slug.length < 3) { setError('El link debe tener al menos 3 caracteres.'); return; }
         if (!form.displayName.trim()) { setError('El nombre visible es requerido.'); return; }
-        if (slugStatus === 'taken' || slugStatus === 'invalid') { setError(slugError || 'El link no está disponible.'); return; }
         setSaving(true);
         setError('');
         const result = await saveAgendaProfile(form);
         setSaving(false);
         if (!result.ok) { setError(result.error ?? 'Error al guardar.'); return; }
-        originalSlugRef.current = form.slug;
-        setSlugStatus('idle');
         setSaved(true);
         setTimeout(() => setSaved(false), 3000);
     };
@@ -172,8 +131,6 @@ export default function PerfilConfigPage() {
             </div>
         );
     }
-
-    const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3004';
 
     return (
         <div className="container-app panel-page py-8 max-w-2xl">
@@ -226,39 +183,6 @@ export default function PerfilConfigPage() {
                             )}
                         </div>
                     </div>
-                </PanelCard>
-
-                {/* Link publico */}
-                <PanelCard size="md">
-                    <PanelBlockHeader title="Tu link de reservas" className="mb-3" />
-                    <div className="flex items-center rounded-xl border overflow-hidden" style={{ borderColor: slugStatus === 'taken' || slugStatus === 'invalid' ? 'var(--color-error)' : slugStatus === 'available' ? 'var(--color-success)' : 'var(--border)' }}>
-                        <span className="px-3 py-2.5 text-sm shrink-0 border-r" style={{ borderColor: 'var(--border)', background: 'var(--bg-subtle)', color: 'var(--fg-muted)' }}>
-                            <IconLink size={14} className="inline mr-1 opacity-60" />
-                            {APP_URL.replace(/^https?:\/\//, '')}/
-                        </span>
-                        <input
-                            type="text"
-                            value={form.slug}
-                            onChange={(e) => handleSlugChange(e.target.value)}
-                            placeholder="tu-nombre"
-                            className="flex-1 px-3 py-2.5 text-sm outline-none bg-transparent"
-                            style={{ color: 'var(--fg)' }}
-                        />
-                        <div className="pr-3 shrink-0">
-                            {slugStatus === 'checking' && <IconLoader2 size={14} className="animate-spin" style={{ color: 'var(--fg-muted)' }} />}
-                            {slugStatus === 'available' && <IconCheck size={14} style={{ color: 'var(--color-success)' }} />}
-                            {(slugStatus === 'taken' || slugStatus === 'invalid') && <IconX size={14} style={{ color: 'var(--color-error)' }} />}
-                        </div>
-                    </div>
-                    {slugError && <p className="text-xs mt-1.5" style={{ color: 'var(--color-error)' }}>{slugError}</p>}
-                    {!slugError && (
-                        <p className="text-xs mt-1.5" style={{ color: 'var(--fg-muted)' }}>
-                            Tu link publico:{' '}
-                            <a href={`${APP_URL}/${form.slug}`} target="_blank" rel="noopener noreferrer" className="underline" style={{ color: 'var(--accent)' }}>
-                                {APP_URL.replace(/^https?:\/\//, '')}/{form.slug}
-                            </a>
-                        </p>
-                    )}
                 </PanelCard>
 
                 {/* Info basica */}
@@ -382,65 +306,38 @@ export default function PerfilConfigPage() {
                     </div>
                 </PanelCard>
 
-                {/* Encuadre */}
+                {/* Políticas y condiciones */}
                 <PanelCard size="md">
                     <PanelBlockHeader
-                        title="Encuadre terapeutico"
-                        description="Si lo configuras, el paciente debera leerlo y aceptarlo antes de reservar."
+                        title="Políticas y condiciones"
+                        description="El paciente deberá leerlas y aceptarlas antes de reservar."
                         className="mb-3"
+                        actions={
+                            <PanelButton
+                                variant="secondary"
+                                size="sm"
+                                onClick={() => void handleGeneratePolicies()}
+                                disabled={generatingPolicies}
+                            >
+                                {generatingPolicies
+                                    ? <IconLoader2 size={14} className="animate-spin" />
+                                    : <IconSparkles size={14} />}
+                                {generatingPolicies ? 'Generando...' : 'Generar con IA'}
+                            </PanelButton>
+                        }
                     />
-                    <PanelField label="Texto del encuadre">
+                    <PanelField
+                        label="Texto de políticas"
+                        hint="Puedes generarlas con IA y luego editarlas a tu gusto."
+                    >
                         <textarea
                             value={form.encuadre}
                             onChange={(e) => set('encuadre', e.target.value)}
-                            placeholder="Escribe aqui tus politicas y condiciones para los pacientes..."
-                            rows={4}
+                            placeholder="Escribe aquí tus políticas y condiciones para los pacientes..."
+                            rows={8}
                             className="form-textarea"
                         />
                     </PanelField>
-                </PanelCard>
-
-                {/* Pago anticipado */}
-                <PanelCard size="md">
-                    <div className="flex items-center justify-between mb-4">
-                        <div>
-                            <h2 className="text-sm font-semibold" style={{ color: 'var(--fg)' }}>Pago anticipado</h2>
-                            <p className="text-xs mt-0.5" style={{ color: 'var(--fg-muted)' }}>
-                                El paciente vera instrucciones de pago antes de confirmar su cita.
-                            </p>
-                        </div>
-                        <PanelSwitch
-                            checked={form.requiresAdvancePayment}
-                            onChange={(v) => set('requiresAdvancePayment', v)}
-                        />
-                    </div>
-                    {form.requiresAdvancePayment && (
-                        <PanelField label="Instrucciones de pago">
-                            <textarea
-                                value={form.advancePaymentInstructions}
-                                onChange={(e) => set('advancePaymentInstructions', e.target.value)}
-                                placeholder="Ej: Transferir a Banco Estado RUT 12.345.678-9. Enviar comprobante por WhatsApp antes de la sesion."
-                                rows={3}
-                                className="form-textarea"
-                            />
-                        </PanelField>
-                    )}
-                </PanelCard>
-
-                {/* Visibilidad */}
-                <PanelCard size="md">
-                    <div className="flex items-center justify-between">
-                        <div>
-                            <h2 className="text-sm font-semibold" style={{ color: 'var(--fg)' }}>Pagina publica</h2>
-                            <p className="text-xs mt-0.5" style={{ color: 'var(--fg-muted)' }}>
-                                {form.isPublished ? 'Tu agenda es visible para pacientes.' : 'Tu agenda esta oculta al publico.'}
-                            </p>
-                        </div>
-                        <PanelSwitch
-                            checked={form.isPublished}
-                            onChange={(v) => set('isPublished', v)}
-                        />
-                    </div>
                 </PanelCard>
 
                 {error && (
@@ -449,14 +346,16 @@ export default function PerfilConfigPage() {
                     </PanelNotice>
                 )}
 
-                <PanelButton
-                    variant="accent"
-                    onClick={() => void handleSave()}
-                    disabled={saving}
-                >
-                    {saving ? <IconLoader2 size={14} className="animate-spin" /> : saved ? <IconCheck size={14} /> : null}
-                    {saving ? 'Guardando...' : saved ? 'Guardado' : 'Guardar cambios'}
-                </PanelButton>
+                <div className="flex">
+                    <PanelButton
+                        variant="accent"
+                        onClick={() => void handleSave()}
+                        disabled={saving}
+                    >
+                        {saving ? <IconLoader2 size={14} className="animate-spin" /> : saved ? <IconCheck size={14} /> : null}
+                        {saving ? 'Guardando...' : saved ? 'Guardado' : 'Guardar cambios'}
+                    </PanelButton>
+                </div>
             </div>
         </div>
     );

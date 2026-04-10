@@ -1,7 +1,16 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { IconPlus, IconTrash, IconLoader2, IconBriefcase } from '@tabler/icons-react';
+import { IconPlus, IconTrash, IconLoader2, IconEdit, IconAlertCircle } from '@tabler/icons-react';
+import {
+    PanelCard,
+    PanelField,
+    PanelButton,
+    PanelSwitch,
+    PanelNotice,
+    PanelPageHeader,
+    PanelEmptyState,
+} from '@simple/ui';
 import {
     fetchAgendaServices,
     createAgendaService,
@@ -42,6 +51,7 @@ export default function ServiciosConfigPage() {
     const [form, setForm] = useState<ServiceForm>(emptyForm());
     const [saving, setSaving] = useState(false);
     const [deletingId, setDeletingId] = useState<string | null>(null);
+    const [togglingId, setTogglingId] = useState<string | null>(null);
     const [error, setError] = useState('');
 
     useEffect(() => {
@@ -83,6 +93,7 @@ export default function ServiciosConfigPage() {
 
     const handleSave = async () => {
         if (!form.name.trim()) { setError('El nombre del servicio es requerido.'); return; }
+        if (!form.isOnline && !form.isPresential) { setError('Selecciona al menos una modalidad.'); return; }
         setSaving(true);
         setError('');
         const body = {
@@ -110,142 +121,151 @@ export default function ServiciosConfigPage() {
         setServices((prev) => prev.filter((s) => s.id !== id));
     };
 
+    const handleToggleActive = async (service: AgendaService) => {
+        setTogglingId(service.id);
+        const next = !service.isActive;
+        const result = await updateAgendaService(service.id, { isActive: next });
+        if (result.ok) {
+            setServices((prev) => prev.map((s) => s.id === service.id ? { ...s, isActive: next } : s));
+        }
+        setTogglingId(null);
+    };
+
     return (
         <div className="container-app panel-page py-8 max-w-2xl">
-            <a href="/panel/configuracion" className="inline-flex items-center gap-1 text-xs font-medium mb-3 transition-colors" style={{ color: 'var(--fg-muted)' }}>
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
-                Configuracion
-            </a>
-            <div className="flex items-center justify-between mb-6">
-                <div>
-                    <h1 className="text-xl font-bold" style={{ color: 'var(--fg)' }}>Servicios y sesiones</h1>
-                    <p className="text-sm mt-0.5" style={{ color: 'var(--fg-muted)' }}>
-                        Define los tipos de consulta que ofreces.
-                    </p>
-                </div>
-                {!showForm && (
-                    <button
-                        onClick={() => { setShowForm(true); setEditingId(null); setForm(emptyForm()); setError(''); }}
-                        className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-opacity hover:opacity-90"
-                        style={{ background: 'var(--accent)', color: '#fff' }}
-                    >
-                        <IconPlus size={15} />
-                        Nuevo servicio
-                    </button>
-                )}
-            </div>
+            <PanelPageHeader
+                backHref="/panel/configuracion"
+                title="Servicios y sesiones"
+                description="Define los tipos de consulta que ofreces."
+                actions={
+                    !showForm ? (
+                        <PanelButton
+                            variant="accent"
+                            size="sm"
+                            onClick={() => { setShowForm(true); setEditingId(null); setForm(emptyForm()); setError(''); }}
+                        >
+                            <IconPlus size={15} />
+                            Nuevo servicio
+                        </PanelButton>
+                    ) : null
+                }
+            />
 
             {/* Form */}
             {showForm && (
-                <div className="rounded-2xl border p-5 mb-6" style={{ borderColor: 'var(--accent)', background: 'var(--accent-soft)' }}>
-                    <h2 className="text-sm font-semibold mb-4" style={{ color: 'var(--fg)' }}>
-                        {editingId ? 'Editar servicio' : 'Nuevo servicio'}
-                    </h2>
-                    <div className="flex flex-col gap-4">
-                        <Field label="Nombre *">
-                            <input
-                                type="text"
-                                value={form.name}
-                                onChange={(e) => set('name', e.target.value)}
-                                placeholder="Ej: Consulta individual"
-                                className="field-input"
-                            />
-                        </Field>
-                        <Field label="Descripción">
-                            <input
-                                type="text"
-                                value={form.description}
-                                onChange={(e) => set('description', e.target.value)}
-                                placeholder="Breve descripción (opcional)"
-                                className="field-input"
-                            />
-                        </Field>
-
-                        <div className="grid grid-cols-2 gap-4">
-                            <Field label="Duración">
-                                <select
-                                    value={form.durationMinutes}
-                                    onChange={(e) => set('durationMinutes', Number(e.target.value))}
-                                    className="field-input"
-                                >
-                                    {DURATIONS.map((d) => (
-                                        <option key={d} value={d}>{d} minutos</option>
-                                    ))}
-                                    <option value={form.durationMinutes}>{form.durationMinutes} min</option>
-                                </select>
-                            </Field>
-                            <Field label="Precio (CLP)">
+                <div className="mb-6">
+                    <PanelCard size="md" className="border-[--accent]">
+                        <h2 className="text-sm font-semibold mb-4" style={{ color: 'var(--fg)' }}>
+                            {editingId ? 'Editar servicio' : 'Nuevo servicio'}
+                        </h2>
+                        <div className="flex flex-col gap-4">
+                            <PanelField label="Nombre" required>
                                 <input
-                                    type="number"
-                                    min={0}
-                                    value={form.price}
-                                    onChange={(e) => set('price', e.target.value)}
-                                    placeholder="Ej: 50000"
-                                    className="field-input"
+                                    type="text"
+                                    value={form.name}
+                                    onChange={(e) => set('name', e.target.value)}
+                                    placeholder="Ej: Consulta individual"
+                                    className="form-input"
                                 />
-                            </Field>
-                        </div>
+                            </PanelField>
+                            <PanelField label="Descripción">
+                                <input
+                                    type="text"
+                                    value={form.description}
+                                    onChange={(e) => set('description', e.target.value)}
+                                    placeholder="Breve descripción (opcional)"
+                                    className="form-input"
+                                />
+                            </PanelField>
 
-                        <Field label="Modalidad">
-                            <div className="flex gap-3">
-                                {([['isOnline', 'Online'], ['isPresential', 'Presencial']] as [keyof ServiceForm, string][]).map(([key, label]) => (
-                                    <button
-                                        key={key}
-                                        onClick={() => set(key, !form[key])}
-                                        className="flex-1 py-2.5 rounded-xl border text-sm transition-colors"
-                                        style={{
-                                            borderColor: form[key] ? 'var(--accent)' : 'var(--border)',
-                                            background: form[key] ? 'var(--accent-subtle)' : 'transparent',
-                                            color: form[key] ? 'var(--accent)' : 'var(--fg-secondary)',
-                                            fontWeight: form[key] ? 600 : 400,
-                                        }}
+                            <div className="grid grid-cols-2 gap-4">
+                                <PanelField label="Duración">
+                                    <select
+                                        value={form.durationMinutes}
+                                        onChange={(e) => set('durationMinutes', Number(e.target.value))}
+                                        className="form-select"
                                     >
-                                        {label}
-                                    </button>
-                                ))}
-                            </div>
-                        </Field>
-
-                        <Field label="Color en el calendario">
-                            <div className="flex gap-2 flex-wrap">
-                                {COLORS.map((c) => (
-                                    <button
-                                        key={c}
-                                        onClick={() => set('color', c)}
-                                        className="w-7 h-7 rounded-full transition-transform hover:scale-110"
-                                        style={{
-                                            background: c,
-                                            outline: form.color === c ? `2px solid ${c}` : 'none',
-                                            outlineOffset: '2px',
-                                        }}
+                                        {DURATIONS.map((d) => (
+                                            <option key={d} value={d}>{d} minutos</option>
+                                        ))}
+                                    </select>
+                                </PanelField>
+                                <PanelField label="Precio (CLP)">
+                                    <input
+                                        type="number"
+                                        min={0}
+                                        value={form.price}
+                                        onChange={(e) => set('price', e.target.value)}
+                                        placeholder="Ej: 50000"
+                                        className="form-input"
                                     />
-                                ))}
+                                </PanelField>
                             </div>
-                        </Field>
 
-                        {error && (
-                            <p className="text-sm" style={{ color: '#dc2626' }}>{error}</p>
-                        )}
+                            <PanelField label="Modalidad">
+                                <div className="flex gap-3">
+                                    {([['isOnline', 'Online'], ['isPresential', 'Presencial']] as [keyof ServiceForm, string][]).map(([key, label]) => (
+                                        <button
+                                            key={key}
+                                            type="button"
+                                            onClick={() => set(key, !form[key])}
+                                            className="flex-1 py-2.5 rounded-xl border text-sm transition-colors"
+                                            style={{
+                                                borderColor: form[key] ? 'var(--accent)' : 'var(--border)',
+                                                background: form[key] ? 'var(--accent-soft)' : 'transparent',
+                                                color: form[key] ? 'var(--accent)' : 'var(--fg-secondary)',
+                                                fontWeight: form[key] ? 600 : 400,
+                                            }}
+                                        >
+                                            {label}
+                                        </button>
+                                    ))}
+                                </div>
+                            </PanelField>
 
-                        <div className="flex gap-3">
-                            <button
-                                onClick={() => void handleSave()}
-                                disabled={saving}
-                                className="inline-flex items-center gap-2 px-5 py-2 rounded-xl text-sm font-semibold transition-opacity hover:opacity-90 disabled:opacity-60"
-                                style={{ background: 'var(--accent)', color: '#fff' }}
-                            >
-                                {saving && <IconLoader2 size={14} className="animate-spin" />}
-                                {saving ? 'Guardando...' : 'Guardar'}
-                            </button>
-                            <button
-                                onClick={handleCancel}
-                                className="px-5 py-2 rounded-xl text-sm border transition-colors hover:bg-(--bg-subtle)"
-                                style={{ borderColor: 'var(--border)', color: 'var(--fg-secondary)' }}
-                            >
-                                Cancelar
-                            </button>
+                            <PanelField label="Color en el calendario">
+                                <div className="flex gap-2 flex-wrap">
+                                    {COLORS.map((c) => (
+                                        <button
+                                            key={c}
+                                            type="button"
+                                            onClick={() => set('color', c)}
+                                            aria-label={`Color ${c}`}
+                                            className="w-7 h-7 rounded-full transition-transform hover:scale-110"
+                                            style={{
+                                                background: c,
+                                                outline: form.color === c ? `2px solid ${c}` : 'none',
+                                                outlineOffset: '2px',
+                                            }}
+                                        />
+                                    ))}
+                                </div>
+                            </PanelField>
+
+                            {error && (
+                                <PanelNotice tone="error">
+                                    <span className="flex items-center gap-2"><IconAlertCircle size={14} /> {error}</span>
+                                </PanelNotice>
+                            )}
+
+                            <div className="flex gap-3">
+                                <PanelButton
+                                    variant="accent"
+                                    onClick={() => void handleSave()}
+                                    disabled={saving}
+                                >
+                                    {saving ? <IconLoader2 size={14} className="animate-spin" /> : null}
+                                    {saving ? 'Guardando...' : 'Guardar'}
+                                </PanelButton>
+                                <PanelButton
+                                    variant="secondary"
+                                    onClick={handleCancel}
+                                >
+                                    Cancelar
+                                </PanelButton>
+                            </div>
                         </div>
-                    </div>
+                    </PanelCard>
                 </div>
             )}
 
@@ -255,80 +275,90 @@ export default function ServiciosConfigPage() {
                     <IconLoader2 size={15} className="animate-spin" /> Cargando servicios...
                 </div>
             ) : services.length === 0 && !showForm ? (
-                <div className="rounded-2xl border flex flex-col items-center justify-center py-16 text-center" style={{ borderColor: 'var(--border)', background: 'var(--surface)' }}>
-                    <div className="w-12 h-12 rounded-2xl flex items-center justify-center mb-3" style={{ background: 'var(--accent-soft)', color: 'var(--accent)' }}>
-                        <IconBriefcase size={20} />
-                    </div>
-                    <p className="text-sm font-medium mb-1" style={{ color: 'var(--fg)' }}>Sin servicios aún</p>
-                    <p className="text-sm" style={{ color: 'var(--fg-muted)' }}>Agrega tu primer tipo de sesión.</p>
-                </div>
+                <PanelEmptyState
+                    title="Sin servicios aún"
+                    description="Agrega tu primer tipo de sesión para empezar a recibir reservas."
+                    action={
+                        <PanelButton
+                            variant="accent"
+                            size="sm"
+                            onClick={() => { setShowForm(true); setEditingId(null); setForm(emptyForm()); setError(''); }}
+                        >
+                            <IconPlus size={15} /> Agregar servicio
+                        </PanelButton>
+                    }
+                />
             ) : (
                 <div className="flex flex-col gap-3">
-                    {services.map((service) => (
-                        <div
-                            key={service.id}
-                            className="flex items-center gap-4 p-4 rounded-2xl border"
-                            style={{ borderColor: 'var(--border)', background: 'var(--surface)' }}
-                        >
-                            <div
-                                className="w-3 h-10 rounded-full shrink-0"
-                                style={{ background: service.color ?? 'var(--accent)' }}
-                            />
-                            <div className="flex-1 min-w-0">
-                                <p className="text-sm font-semibold" style={{ color: 'var(--fg)' }}>{service.name}</p>
-                                <p className="text-xs mt-0.5" style={{ color: 'var(--fg-muted)' }}>
-                                    {service.durationMinutes} min
-                                    {service.price ? ` · ${new Intl.NumberFormat('es-CL', { style: 'currency', currency: service.currency, minimumFractionDigits: 0 }).format(parseFloat(service.price))}` : ''}
-                                    {service.isOnline ? ' · Online' : ''}
-                                    {service.isPresential ? ' · Presencial' : ''}
-                                </p>
-                            </div>
-                            <div className="flex items-center gap-2">
-                                <button
-                                    onClick={() => handleEdit(service)}
-                                    className="text-xs px-3 py-1.5 rounded-lg border transition-colors hover:bg-(--bg-subtle)"
-                                    style={{ borderColor: 'var(--border)', color: 'var(--fg-secondary)' }}
-                                >
-                                    Editar
-                                </button>
-                                <button
-                                    onClick={() => void handleDelete(service.id)}
-                                    disabled={deletingId === service.id}
-                                    className="w-7 h-7 rounded-lg flex items-center justify-center border transition-colors hover:bg-red-500/10 hover:border-red-500/40 disabled:opacity-50"
-                                    style={{ borderColor: 'var(--border)', color: 'var(--fg-muted)' }}
-                                >
-                                    {deletingId === service.id
-                                        ? <IconLoader2 size={13} className="animate-spin" />
-                                        : <IconTrash size={13} />}
-                                </button>
-                            </div>
-                        </div>
-                    ))}
+                    {services.map((service) => {
+                        const isToggling = togglingId === service.id;
+                        const isDeleting = deletingId === service.id;
+                        return (
+                            <PanelCard
+                                key={service.id}
+                                size="sm"
+                                className={service.isActive ? '' : 'opacity-60'}
+                            >
+                                <div className="flex items-center gap-4">
+                                    <div
+                                        className="w-3 h-10 rounded-full shrink-0"
+                                        style={{ background: service.color ?? 'var(--accent)' }}
+                                    />
+                                    <div className="flex-1 min-w-0">
+                                        <div className="flex items-center gap-2 flex-wrap">
+                                            <p className="text-sm font-semibold" style={{ color: 'var(--fg)' }}>{service.name}</p>
+                                            {!service.isActive && (
+                                                <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium" style={{ background: 'var(--bg-muted)', color: 'var(--fg-muted)' }}>
+                                                    Inactivo
+                                                </span>
+                                            )}
+                                        </div>
+                                        <p className="text-xs mt-0.5" style={{ color: 'var(--fg-muted)' }}>
+                                            {service.durationMinutes} min
+                                            {service.price ? ` · ${new Intl.NumberFormat('es-CL', { style: 'currency', currency: service.currency, minimumFractionDigits: 0 }).format(parseFloat(service.price))}` : ''}
+                                            {service.isOnline ? ' · Online' : ''}
+                                            {service.isPresential ? ' · Presencial' : ''}
+                                        </p>
+                                    </div>
+                                    <div className="flex items-center gap-3 shrink-0">
+                                        {isToggling ? (
+                                            <IconLoader2 size={14} className="animate-spin" style={{ color: 'var(--fg-muted)' }} />
+                                        ) : (
+                                            <PanelSwitch
+                                                checked={service.isActive}
+                                                onChange={() => void handleToggleActive(service)}
+                                                size="sm"
+                                                ariaLabel={service.isActive ? 'Desactivar servicio' : 'Activar servicio'}
+                                            />
+                                        )}
+                                        <button
+                                            type="button"
+                                            onClick={() => handleEdit(service)}
+                                            aria-label="Editar"
+                                            className="w-7 h-7 rounded-lg flex items-center justify-center border transition-colors hover:bg-(--bg-subtle)"
+                                            style={{ borderColor: 'var(--border)', color: 'var(--fg-secondary)' }}
+                                        >
+                                            <IconEdit size={13} />
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={() => void handleDelete(service.id)}
+                                            disabled={isDeleting}
+                                            aria-label="Eliminar"
+                                            className="w-7 h-7 rounded-lg flex items-center justify-center border transition-colors hover:bg-red-500/10 hover:border-red-500/40 disabled:opacity-50"
+                                            style={{ borderColor: 'var(--border)', color: 'var(--fg-muted)' }}
+                                        >
+                                            {isDeleting
+                                                ? <IconLoader2 size={13} className="animate-spin" />
+                                                : <IconTrash size={13} />}
+                                        </button>
+                                    </div>
+                                </div>
+                            </PanelCard>
+                        );
+                    })}
                 </div>
             )}
-
-            <style>{`
-                .field-input {
-                    width: 100%;
-                    padding: 0.5rem 0.75rem;
-                    border-radius: 0.75rem;
-                    border: 1px solid var(--border);
-                    background: var(--bg);
-                    color: var(--fg);
-                    font-size: 0.875rem;
-                    outline: none;
-                }
-                .field-input:focus { border-color: var(--accent); }
-            `}</style>
-        </div>
-    );
-}
-
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
-    return (
-        <div className="flex flex-col gap-1.5">
-            <label className="text-xs font-medium" style={{ color: 'var(--fg-muted)' }}>{label}</label>
-            {children}
         </div>
     );
 }

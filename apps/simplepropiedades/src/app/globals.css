@@ -1,5 +1,6 @@
 @import "../../../../packages/ui/src/theme-base.css";
 @import "tailwindcss";
+@source "../../../../packages/ui/src";
 
 :root {
     --accent: #3232FF;

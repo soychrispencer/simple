@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { Suspense, useEffect, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import {
     IconCash,
@@ -12,6 +12,14 @@ import {
     IconAlertCircle,
     IconCreditCard,
 } from '@tabler/icons-react';
+import {
+    PanelCard,
+    PanelField,
+    PanelButton,
+    PanelSwitch,
+    PanelNotice,
+    PanelPageHeader,
+} from '@simple/ui';
 import {
     fetchAgendaProfile,
     saveAgendaProfile,
@@ -29,23 +37,19 @@ const CL_BANKS = [
 
 const ACCOUNT_TYPES = ['Cuenta Corriente', 'Cuenta Vista', 'Cuenta RUT', 'Cuenta de Ahorro'];
 
-export default function CobrosConfigPage() {
+function CobrosConfigPageInner() {
     const searchParams = useSearchParams();
     const mpParam = searchParams.get('mp');
 
     const [loading, setLoading] = useState(true);
-    const [profile, setProfile] = useState<AgendaProfile | null>(null);
     const [mpConnected, setMpConnected] = useState(false);
     const [mpUserId, setMpUserId] = useState<string | null>(null);
     const [disconnecting, setDisconnecting] = useState(false);
 
-    // Require advance payment toggle
     const [requiresAdvancePayment, setRequiresAdvancePayment] = useState(false);
-
-    // Payment link
+    const [advancePaymentInstructions, setAdvancePaymentInstructions] = useState('');
     const [paymentLinkUrl, setPaymentLinkUrl] = useState('');
 
-    // Bank transfer
     const [bankData, setBankData] = useState<BankTransferData>({
         bank: '', accountType: '', accountNumber: '',
         holderName: '', holderRut: '', holderEmail: '', alias: '',
@@ -63,8 +67,8 @@ export default function CobrosConfigPage() {
         const load = async () => {
             const [prof, mpStatus] = await Promise.all([fetchAgendaProfile(), fetchMercadoPagoStatus()]);
             if (prof) {
-                setProfile(prof);
                 setRequiresAdvancePayment(prof.requiresAdvancePayment ?? false);
+                setAdvancePaymentInstructions(prof.advancePaymentInstructions ?? '');
                 setPaymentLinkUrl(prof.paymentLinkUrl ?? '');
                 if (prof.bankTransferData) {
                     setBankData({ alias: '', ...prof.bankTransferData });
@@ -85,6 +89,7 @@ export default function CobrosConfigPage() {
             : null;
         await saveAgendaProfile({
             requiresAdvancePayment,
+            advancePaymentInstructions: advancePaymentInstructions || null,
             paymentLinkUrl: paymentLinkUrl || null,
             bankTransferData: bankPayload,
         } as Partial<AgendaProfile>);
@@ -107,59 +112,65 @@ export default function CobrosConfigPage() {
 
     return (
         <div className="container-app panel-page py-8 max-w-2xl">
-            <a href="/panel/configuracion" className="inline-flex items-center gap-1 text-xs font-medium mb-3 transition-colors" style={{ color: 'var(--fg-muted)' }}>
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
-                Configuracion
-            </a>
-            <h1 className="text-xl font-bold mb-1" style={{ color: 'var(--fg)' }}>Métodos de cobro</h1>
-            <p className="text-sm mb-8" style={{ color: 'var(--fg-muted)' }}>
-                Configura cómo quieres recibir los pagos de tus clientes.
-            </p>
+            <PanelPageHeader
+                backHref="/panel/configuracion"
+                title="Métodos de cobro"
+                description="Configura cómo quieres recibir los pagos de tus pacientes."
+            />
 
             {flash && (
-                <div
-                    className="flex items-center gap-2 p-3 rounded-xl text-sm mb-6"
-                    style={{
-                        background: flash.type === 'success' ? 'rgba(13,148,136,0.1)' : 'rgba(220,38,38,0.1)',
-                        color: flash.type === 'success' ? 'var(--accent)' : '#dc2626',
-                    }}
-                >
-                    {flash.type === 'success' ? <IconCheck size={15} /> : <IconAlertCircle size={15} />}
-                    {flash.message}
+                <div className="mb-6">
+                    <PanelNotice tone={flash.type === 'success' ? 'success' : 'error'}>
+                        <span className="flex items-center gap-2">
+                            {flash.type === 'success' ? <IconCheck size={15} /> : <IconAlertCircle size={15} />}
+                            {flash.message}
+                        </span>
+                    </PanelNotice>
                 </div>
             )}
 
             <div className="flex flex-col gap-5">
 
-                {/* Require advance payment toggle */}
-                <div className="rounded-2xl border p-5" style={{ borderColor: 'var(--border)', background: 'var(--surface)' }}>
-                    <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-3">
-                            <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ background: 'var(--accent-soft)', color: 'var(--accent)' }}>
+                {/* Exigir pago anticipado */}
+                <PanelCard size="md">
+                    <div className="flex items-start justify-between gap-4">
+                        <div className="flex items-start gap-3 flex-1 min-w-0">
+                            <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0" style={{ background: 'var(--accent-soft)', color: 'var(--accent)' }}>
                                 <IconCreditCard size={18} />
                             </div>
-                            <div>
+                            <div className="min-w-0">
                                 <p className="text-sm font-semibold" style={{ color: 'var(--fg)' }}>Exigir pago anticipado</p>
                                 <p className="text-xs mt-0.5" style={{ color: 'var(--fg-muted)' }}>
-                                    El cliente verá las opciones de pago antes de confirmar su reserva.
+                                    El paciente verá instrucciones de pago antes de confirmar su reserva.
                                 </p>
                             </div>
                         </div>
-                        <button
-                            onClick={() => setRequiresAdvancePayment(!requiresAdvancePayment)}
-                            className="relative w-11 h-6 rounded-full transition-colors shrink-0 ml-4"
-                            style={{ background: requiresAdvancePayment ? 'var(--accent)' : 'var(--border)' }}
-                        >
-                            <span
-                                className="absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white transition-transform"
-                                style={{ transform: requiresAdvancePayment ? 'translateX(20px)' : 'translateX(0)' }}
-                            />
-                        </button>
+                        <PanelSwitch
+                            checked={requiresAdvancePayment}
+                            onChange={setRequiresAdvancePayment}
+                            ariaLabel="Exigir pago anticipado"
+                        />
                     </div>
-                </div>
+                    {requiresAdvancePayment && (
+                        <div className="mt-4">
+                            <PanelField
+                                label="Instrucciones de pago"
+                                hint="Aparecerán en la pantalla de confirmación de reserva."
+                            >
+                                <textarea
+                                    value={advancePaymentInstructions}
+                                    onChange={(e) => setAdvancePaymentInstructions(e.target.value)}
+                                    placeholder="Ej: Transferir a Banco Estado RUT 12.345.678-9. Enviar comprobante por WhatsApp antes de la sesión."
+                                    rows={3}
+                                    className="form-textarea"
+                                />
+                            </PanelField>
+                        </div>
+                    )}
+                </PanelCard>
 
                 {/* MercadoPago */}
-                <div className="rounded-2xl border p-5" style={{ borderColor: 'var(--border)', background: 'var(--surface)' }}>
+                <PanelCard size="md">
                     <div className="flex items-start gap-4">
                         <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0" style={{ background: 'rgba(0,158,227,0.1)', color: '#009EE3' }}>
                             <IconCash size={20} />
@@ -185,15 +196,17 @@ export default function CobrosConfigPage() {
                                     {mpUserId && (
                                         <p className="text-xs" style={{ color: 'var(--fg-muted)' }}>ID de usuario: <span style={{ color: 'var(--fg)' }}>{mpUserId}</span></p>
                                     )}
-                                    <button
-                                        onClick={() => void handleDisconnectMp()}
-                                        disabled={disconnecting}
-                                        className="self-start inline-flex items-center gap-2 px-4 py-2 rounded-xl border text-sm transition-colors hover:bg-(--bg-subtle) disabled:opacity-60"
-                                        style={{ borderColor: 'var(--border)', color: 'var(--fg-secondary)' }}
-                                    >
-                                        {disconnecting ? <IconLoader2 size={14} className="animate-spin" /> : <IconX size={14} />}
-                                        Desconectar
-                                    </button>
+                                    <div>
+                                        <PanelButton
+                                            variant="secondary"
+                                            size="sm"
+                                            onClick={() => void handleDisconnectMp()}
+                                            disabled={disconnecting}
+                                        >
+                                            {disconnecting ? <IconLoader2 size={14} className="animate-spin" /> : <IconX size={14} />}
+                                            Desconectar
+                                        </PanelButton>
+                                    </div>
                                 </div>
                             ) : (
                                 <a
@@ -207,12 +220,12 @@ export default function CobrosConfigPage() {
                             )}
                         </div>
                     </div>
-                </div>
+                </PanelCard>
 
-                {/* Payment link */}
-                <div className="rounded-2xl border p-5" style={{ borderColor: 'var(--border)', background: 'var(--surface)' }}>
+                {/* Link de pago */}
+                <PanelCard size="md">
                     <div className="flex items-start gap-4">
-                        <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0" style={{ background: hasPaymentLink ? 'rgba(13,148,136,0.1)' : 'var(--accent-soft)', color: hasPaymentLink ? 'var(--accent)' : 'var(--accent)' }}>
+                        <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0" style={{ background: 'var(--accent-soft)', color: 'var(--accent)' }}>
                             <IconLink size={18} />
                         </div>
                         <div className="flex-1 min-w-0">
@@ -232,15 +245,14 @@ export default function CobrosConfigPage() {
                                 value={paymentLinkUrl}
                                 onChange={(e) => setPaymentLinkUrl(e.target.value)}
                                 placeholder="https://mpago.la/tu-link-de-pago"
-                                className="w-full px-3 py-2 rounded-xl border text-sm outline-none"
-                                style={{ borderColor: 'var(--border)', background: 'var(--bg)', color: 'var(--fg)' }}
+                                className="form-input"
                             />
                         </div>
                     </div>
-                </div>
+                </PanelCard>
 
-                {/* Bank transfer */}
-                <div className="rounded-2xl border p-5" style={{ borderColor: 'var(--border)', background: 'var(--surface)' }}>
+                {/* Transferencia bancaria */}
+                <PanelCard size="md">
                     <div className="flex items-start gap-4">
                         <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0" style={{ background: hasBankData ? 'rgba(13,148,136,0.1)' : 'var(--accent-soft)', color: 'var(--accent)' }}>
                             <IconBuildingBank size={18} />
@@ -255,82 +267,73 @@ export default function CobrosConfigPage() {
                                 )}
                             </div>
                             <p className="text-xs mb-4" style={{ color: 'var(--fg-muted)' }}>
-                                Tus datos de cuenta para que el cliente pueda transferirte directamente.
+                                Tus datos de cuenta para que el paciente pueda transferirte directamente.
                             </p>
                             <div className="grid sm:grid-cols-2 gap-3">
-                                <div className="flex flex-col gap-1">
-                                    <label className="text-xs" style={{ color: 'var(--fg-muted)' }}>Banco</label>
+                                <PanelField label="Banco">
                                     <select
                                         value={bankData.bank}
                                         onChange={(e) => setBankData((p) => ({ ...p, bank: e.target.value }))}
-                                        className="field-input"
+                                        className="form-select"
                                     >
                                         <option value="">— Seleccionar —</option>
                                         {CL_BANKS.map((b) => <option key={b} value={b}>{b}</option>)}
                                     </select>
-                                </div>
-                                <div className="flex flex-col gap-1">
-                                    <label className="text-xs" style={{ color: 'var(--fg-muted)' }}>Tipo de cuenta</label>
+                                </PanelField>
+                                <PanelField label="Tipo de cuenta">
                                     <select
                                         value={bankData.accountType}
                                         onChange={(e) => setBankData((p) => ({ ...p, accountType: e.target.value }))}
-                                        className="field-input"
+                                        className="form-select"
                                     >
                                         <option value="">— Seleccionar —</option>
                                         {ACCOUNT_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
                                     </select>
-                                </div>
-                                <div className="flex flex-col gap-1">
-                                    <label className="text-xs" style={{ color: 'var(--fg-muted)' }}>Número de cuenta</label>
-                                    <input type="text" value={bankData.accountNumber} onChange={(e) => setBankData((p) => ({ ...p, accountNumber: e.target.value }))} placeholder="123456789" className="field-input" />
-                                </div>
-                                <div className="flex flex-col gap-1">
-                                    <label className="text-xs" style={{ color: 'var(--fg-muted)' }}>Nombre del titular</label>
-                                    <input type="text" value={bankData.holderName} onChange={(e) => setBankData((p) => ({ ...p, holderName: e.target.value }))} placeholder="María González" className="field-input" />
-                                </div>
-                                <div className="flex flex-col gap-1">
-                                    <label className="text-xs" style={{ color: 'var(--fg-muted)' }}>RUT del titular</label>
-                                    <input type="text" value={bankData.holderRut} onChange={(e) => setBankData((p) => ({ ...p, holderRut: e.target.value }))} placeholder="12.345.678-9" className="field-input" />
-                                </div>
-                                <div className="flex flex-col gap-1">
-                                    <label className="text-xs" style={{ color: 'var(--fg-muted)' }}>Email del titular</label>
-                                    <input type="email" value={bankData.holderEmail} onChange={(e) => setBankData((p) => ({ ...p, holderEmail: e.target.value }))} placeholder="tu@email.com" className="field-input" />
-                                </div>
-                                <div className="flex flex-col gap-1 sm:col-span-2">
-                                    <label className="text-xs" style={{ color: 'var(--fg-muted)' }}>Alias / mensaje para el cliente (opcional)</label>
-                                    <input type="text" value={bankData.alias ?? ''} onChange={(e) => setBankData((p) => ({ ...p, alias: e.target.value }))} placeholder="Ej: Pago sesión psicología" className="field-input" />
-                                </div>
+                                </PanelField>
+                                <PanelField label="Número de cuenta">
+                                    <input type="text" value={bankData.accountNumber} onChange={(e) => setBankData((p) => ({ ...p, accountNumber: e.target.value }))} placeholder="123456789" className="form-input" />
+                                </PanelField>
+                                <PanelField label="Nombre del titular">
+                                    <input type="text" value={bankData.holderName} onChange={(e) => setBankData((p) => ({ ...p, holderName: e.target.value }))} placeholder="María González" className="form-input" />
+                                </PanelField>
+                                <PanelField label="RUT del titular">
+                                    <input type="text" value={bankData.holderRut} onChange={(e) => setBankData((p) => ({ ...p, holderRut: e.target.value }))} placeholder="12.345.678-9" className="form-input" />
+                                </PanelField>
+                                <PanelField label="Email del titular">
+                                    <input type="email" value={bankData.holderEmail} onChange={(e) => setBankData((p) => ({ ...p, holderEmail: e.target.value }))} placeholder="tu@email.com" className="form-input" />
+                                </PanelField>
+                                <PanelField label="Alias / mensaje para el paciente (opcional)" className="sm:col-span-2">
+                                    <input type="text" value={bankData.alias ?? ''} onChange={(e) => setBankData((p) => ({ ...p, alias: e.target.value }))} placeholder="Ej: Pago sesión psicología" className="form-input" />
+                                </PanelField>
                             </div>
                         </div>
                     </div>
-                </div>
+                </PanelCard>
 
                 {/* Save button */}
-                <button
-                    onClick={() => void handleSave()}
-                    disabled={saving}
-                    className="self-start inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold transition-opacity hover:opacity-90 disabled:opacity-60"
-                    style={{ background: 'var(--accent)', color: '#fff' }}
-                >
-                    {saving ? <IconLoader2 size={14} className="animate-spin" /> : saved ? <IconCheck size={14} /> : null}
-                    {saving ? 'Guardando...' : saved ? 'Guardado' : 'Guardar cambios'}
-                </button>
+                <div>
+                    <PanelButton
+                        variant="accent"
+                        onClick={() => void handleSave()}
+                        disabled={saving}
+                    >
+                        {saving ? <IconLoader2 size={14} className="animate-spin" /> : saved ? <IconCheck size={14} /> : null}
+                        {saving ? 'Guardando...' : saved ? 'Guardado' : 'Guardar cambios'}
+                    </PanelButton>
+                </div>
             </div>
-
-            <style>{`
-                .field-input {
-                    width: 100%;
-                    padding: 0.5rem 0.75rem;
-                    border-radius: 0.75rem;
-                    border: 1px solid var(--border);
-                    background: var(--bg);
-                    color: var(--fg);
-                    font-size: 0.875rem;
-                    outline: none;
-                }
-                .field-input:focus { border-color: var(--accent); }
-            `}</style>
-
         </div>
+    );
+}
+
+export default function CobrosConfigPage() {
+    return (
+        <Suspense fallback={
+            <div className="container-app panel-page py-8 flex items-center gap-2 text-sm" style={{ color: 'var(--fg-muted)' }}>
+                <IconLoader2 size={16} className="animate-spin" /> Cargando...
+            </div>
+        }>
+            <CobrosConfigPageInner />
+        </Suspense>
     );
 }
