@@ -62,6 +62,10 @@ export default function LinkReservasPage() {
     if (!profile?.slug) {
         return (
             <div className="container-app panel-page py-8 max-w-lg">
+                <a href="/panel/configuracion" className="inline-flex items-center gap-1 text-xs font-medium mb-3 transition-colors" style={{ color: 'var(--fg-muted)' }}>
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
+                    Configuracion
+                </a>
                 <h1 className="text-xl font-bold mb-1" style={{ color: 'var(--fg)' }}>Link de reservas</h1>
                 <div className="mt-8 rounded-2xl border p-6 flex flex-col items-center gap-3 text-center"
                     style={{ borderColor: 'var(--border)', background: 'var(--surface)' }}>
@@ -84,6 +88,10 @@ export default function LinkReservasPage() {
 
     return (
         <div className="container-app panel-page py-8 max-w-lg">
+            <a href="/panel/configuracion" className="inline-flex items-center gap-1 text-xs font-medium mb-3 transition-colors" style={{ color: 'var(--fg-muted)' }}>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
+                Configuracion
+            </a>
             <h1 className="text-xl font-bold mb-1" style={{ color: 'var(--fg)' }}>Link de reservas</h1>
             <p className="text-sm mb-8" style={{ color: 'var(--fg-muted)' }}>
                 Comparte este link con tus pacientes para que reserven directamente.

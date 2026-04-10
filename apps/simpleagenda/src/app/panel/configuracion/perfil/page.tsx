@@ -178,6 +178,7 @@ export default function PerfilConfigPage() {
     return (
         <div className="container-app panel-page py-8 max-w-2xl">
             <PanelPageHeader
+                backHref="/panel/configuracion"
                 title="Perfil profesional"
                 description="Esta información aparecerá en tu página pública de reservas."
             />

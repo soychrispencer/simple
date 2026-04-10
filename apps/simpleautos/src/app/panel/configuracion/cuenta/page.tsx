@@ -40,6 +40,7 @@ export default function CuentaPage() {
     return (
         <div className="container-app panel-page py-8 max-w-2xl">
             <PanelPageHeader
+                backHref="/panel/configuracion"
                 title="Cuenta"
                 description="Datos base de tu sesion y tu informacion principal."
             />

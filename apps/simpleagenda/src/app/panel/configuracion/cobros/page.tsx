@@ -107,6 +107,10 @@ export default function CobrosConfigPage() {
 
     return (
         <div className="container-app panel-page py-8 max-w-2xl">
+            <a href="/panel/configuracion" className="inline-flex items-center gap-1 text-xs font-medium mb-3 transition-colors" style={{ color: 'var(--fg-muted)' }}>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
+                Configuracion
+            </a>
             <h1 className="text-xl font-bold mb-1" style={{ color: 'var(--fg)' }}>Métodos de cobro</h1>
             <p className="text-sm mb-8" style={{ color: 'var(--fg-muted)' }}>
                 Configura cómo quieres recibir los pagos de tus clientes.

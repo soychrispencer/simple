@@ -710,6 +710,7 @@ type PanelPageHeaderProps = {
     title: string;
     description?: React.ReactNode;
     actions?: React.ReactNode;
+    backHref?: string;
     className?: string;
 };
 
@@ -2844,21 +2845,35 @@ export function PanelListRow(props: PanelListRowProps) {
 }
 
 export function PanelPageHeader(props: PanelPageHeaderProps) {
-    const { title, description, actions, className } = props;
+    const { title, description, actions, backHref, className } = props;
 
     return (
-        <div className={joinClasses('mb-6 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between', className)}>
-            <div className="min-w-0">
-                <h1 className="type-page-title" style={{ color: 'var(--fg)' }}>
-                    {title}
-                </h1>
-                {description ? (
-                    <p className="type-page-subtitle mt-1" style={{ color: 'var(--fg-muted)' }}>
-                        {description}
-                    </p>
-                ) : null}
+        <div className={joinClasses('mb-6', className)}>
+            {backHref ? (
+                <a
+                    href={backHref}
+                    className="inline-flex items-center gap-1 text-xs font-medium mb-3 transition-colors"
+                    style={{ color: 'var(--fg-muted)' }}
+                    onMouseEnter={(e) => { e.currentTarget.style.color = 'var(--accent)'; }}
+                    onMouseLeave={(e) => { e.currentTarget.style.color = 'var(--fg-muted)'; }}
+                >
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
+                    Configuracion
+                </a>
+            ) : null}
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                <div className="min-w-0">
+                    <h1 className="text-xl font-bold" style={{ color: 'var(--fg)' }}>
+                        {title}
+                    </h1>
+                    {description ? (
+                        <p className="text-sm mt-1" style={{ color: 'var(--fg-muted)' }}>
+                            {description}
+                        </p>
+                    ) : null}
+                </div>
+                {actions ? <div className="flex items-center gap-2 flex-wrap sm:justify-end">{actions}</div> : null}
             </div>
-            {actions ? <div className="flex items-center gap-2 flex-wrap sm:justify-end">{actions}</div> : null}
         </div>
     );
 }

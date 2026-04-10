@@ -56,7 +56,7 @@ export default function ConfiguracionPage() {
                 Personaliza tu agenda y página de reservas.
             </p>
 
-            <div className="flex flex-col gap-3">
+            <div className="grid sm:grid-cols-2 gap-3">
                 {CONFIG_SECTIONS.map((section) => (
                     <Link
                         key={section.href}

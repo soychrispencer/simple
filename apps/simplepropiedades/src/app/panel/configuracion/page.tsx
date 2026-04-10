@@ -40,7 +40,7 @@ export default function ConfiguracionPage() {
             <h1 className="text-xl font-bold mb-1" style={{ color: 'var(--fg)' }}>Configuracion</h1>
             <p className="text-sm mb-8" style={{ color: 'var(--fg-muted)' }}>Gestiona tu cuenta y preferencias.</p>
 
-            <div className="flex flex-col gap-3">
+            <div className="grid sm:grid-cols-2 gap-3">
                 {CONFIG_SECTIONS.map((section) => (
                     <Link
                         key={section.href}

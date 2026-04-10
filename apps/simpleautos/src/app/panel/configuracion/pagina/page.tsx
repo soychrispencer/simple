@@ -7,6 +7,7 @@ export default function PaginaPublicaPage() {
     return (
         <div className="container-app panel-page py-8 max-w-2xl">
             <PanelPageHeader
+                backHref="/panel/configuracion"
                 title="Pagina publica"
                 description="Personaliza tu perfil visible para compradores."
             />

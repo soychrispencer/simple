@@ -36,6 +36,7 @@ export default function DireccionesPage() {
     return (
         <div className="container-app panel-page py-8 max-w-2xl">
             <PanelPageHeader
+                backHref="/panel/configuracion"
                 title="Direcciones"
                 description="Gestiona tus direcciones de despacho y retiro."
             />

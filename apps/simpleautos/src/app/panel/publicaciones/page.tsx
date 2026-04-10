@@ -1276,22 +1276,13 @@ export default function PublicacionesPage() {
                                                                 background: isSelected ? `${template.colors.accent}12` : 'var(--surface)',
                                                             }}
                                                         >
-                                                            <div
-                                                                className="relative mb-2 overflow-hidden rounded-lg"
-                                                                style={{
-                                                                    aspectRatio: template.layoutVariant === 'portrait' ? '4 / 5' : '1 / 1',
-                                                                    background: `linear-gradient(180deg, ${template.colors.background} 0%, ${template.colors.secondary} 100%)`,
-                                                                }}
-                                                            >
-                                                                <div className="absolute left-1.5 top-1.5 flex min-h-[20px] items-center">
-                                                                    <img src="/logo.png" alt={template.branding.appName} className="h-3 w-auto object-contain sm:h-3.5" />
-                                                                </div>
-                                                                <div className="absolute inset-x-1.5 bottom-1.5 rounded-lg p-1.5 sm:p-2" style={{ background: template.colors.surface, color: template.overlayVariant === 'auto-spec' ? template.colors.textPrimary : template.colors.textInverse }}>
-                                                                    <div className="text-[8px] font-semibold uppercase tracking-[0.14em] opacity-80 line-clamp-1">{template.eyebrow}</div>
-                                                                    <div className="mt-1 text-[10px] sm:text-xs font-bold leading-tight line-clamp-1">{template.name}</div>
-                                                                    <div className="mt-1 text-[9px] sm:text-[10px] font-black line-clamp-1" style={{ color: template.colors.accent }}>{template.priceLabel}</div>
-                                                                </div>
-                                                            </div>
+                                                            <InstagramTemplatePreview
+                                                                className="mb-2"
+                                                                imageUrl={getListingImages(previewListing)[0] ?? null}
+                                                                template={template}
+                                                                layoutVariant={template.layoutVariant}
+                                                                fallback={<IconCar size={24} />}
+                                                            />
                                                             <div className="text-[10px] sm:text-xs font-semibold line-clamp-1" style={{ color: 'var(--fg)' }}>{template.name}</div>
                                                             <div className="hidden sm:block text-[11px]" style={{ color: 'var(--fg-secondary)' }}>{template.ctaLabel}</div>
                                                         </button>
