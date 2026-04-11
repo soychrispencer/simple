@@ -16775,15 +16775,12 @@ async function bootstrapMissingTables() {
         ON instagram_accounts(user_id, vertical)
     `);
     // profile_picture_url era varchar(500) pero URLs de CDN de Instagram superan ese límite
-    await db.execute(sql`
-        ALTER TABLE instagram_accounts
-            ALTER COLUMN profile_picture_url TYPE text
-    `);
-    // instagram_permalink también puede superar varchar(500)
-    await db.execute(sql`
-        ALTER TABLE instagram_publications
-            ALTER COLUMN instagram_permalink TYPE text
-    `);
+    try {
+        await db.execute(sql`
+            ALTER TABLE instagram_accounts
+                ALTER COLUMN profile_picture_url TYPE text
+        `);
+    } catch { /* already text */ }
     // instagram_publications (migration 0003)
     await db.execute(sql`
         CREATE TABLE IF NOT EXISTS instagram_publications (
@@ -16805,6 +16802,13 @@ async function bootstrapMissingTables() {
             updated_at timestamp NOT NULL DEFAULT now()
         )
     `);
+    // instagram_permalink puede superar varchar(500)
+    try {
+        await db.execute(sql`
+            ALTER TABLE instagram_publications
+                ALTER COLUMN instagram_permalink TYPE text
+        `);
+    } catch { /* already text */ }
     // address_book (migration 0024)
     await db.execute(sql`
         CREATE TABLE IF NOT EXISTS address_book (
@@ -17085,6 +17089,14 @@ async function bootstrapMissingTables() {
                 ADD COLUMN IF NOT EXISTS wa_notifications_enabled boolean DEFAULT true,
                 ADD COLUMN IF NOT EXISTS wa_notify_professional boolean DEFAULT false,
                 ADD COLUMN IF NOT EXISTS wa_professional_phone varchar(30)
+        `);
+    } catch { /* ignore */ }
+
+    try {
+        await db.execute(sql`
+            ALTER TABLE agenda_professional_profiles
+                ADD COLUMN IF NOT EXISTS plan varchar(20) NOT NULL DEFAULT 'free',
+                ADD COLUMN IF NOT EXISTS plan_expires_at timestamp
         `);
     } catch { /* ignore */ }
 

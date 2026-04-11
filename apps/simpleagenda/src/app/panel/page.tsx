@@ -7,11 +7,11 @@ import {
     IconCreditCard,
     IconClockHour4,
     IconLoader2,
-    IconCheck,
     IconTrendingUp,
     IconTrendingDown,
     IconMinus,
     IconChevronRight,
+    IconSettings,
 } from '@tabler/icons-react';
 import Link from 'next/link';
 import { fetchAgendaStats, fetchAgendaProfile, type AgendaStats, type AgendaWeekDay, type AgendaProfile } from '@/lib/agenda-api';
@@ -142,30 +142,12 @@ export default function PanelHomePage() {
         void load();
     }, []);
 
-    const setupSteps = [
-        {
-            label: 'Completa tu perfil profesional',
-            href: '/panel/configuracion/perfil',
-            done: !!(profile?.displayName && profile?.profession),
-        },
-        {
-            label: 'Agrega tus servicios o tipos de sesión',
-            href: '/panel/configuracion/servicios',
-            done: stats?.hasServices === true,
-        },
-        {
-            label: 'Configura tu disponibilidad semanal',
-            href: '/panel/configuracion/disponibilidad',
-            done: stats?.hasRules === true,
-        },
-        {
-            label: 'Publica tu agenda y comparte tu link',
-            href: '/panel/configuracion/link',
-            done: profile?.isPublished === true,
-        },
-    ];
-
-    const setupDone = !loading && setupSteps.every((s) => s.done);
+    const isSetupIncomplete = !loading && !(
+        profile?.displayName && profile?.profession &&
+        stats?.hasServices &&
+        stats?.hasRules &&
+        profile?.isPublished
+    );
     const greeting = profile?.displayName ? `Hola, ${profile.displayName.split(' ')[0]}` : 'Bienvenido';
 
     const statCards = [
@@ -312,59 +294,25 @@ export default function PanelHomePage() {
                 </div>
             </div>
 
-            {/* Setup checklist — hidden if all done */}
-            {!setupDone && !loading && (
-                <div className="rounded-2xl border p-5" style={{ borderColor: 'var(--border)', background: 'var(--surface)' }}>
-                    <div className="flex items-center justify-between mb-1">
-                        <h2 className="text-sm font-semibold" style={{ color: 'var(--fg)' }}>Configura tu agenda</h2>
-                        <span className="text-xs px-2 py-0.5 rounded-full" style={{ background: 'var(--accent-soft)', color: 'var(--accent)' }}>
-                            {setupSteps.filter((s) => s.done).length}/{setupSteps.length} pasos
-                        </span>
+            {/* Setup banner — shown while agenda is not fully configured */}
+            {isSetupIncomplete && (
+                <Link
+                    href="/panel/configuracion"
+                    className="flex items-center gap-4 rounded-2xl border p-4 transition-colors hover:border-[--accent-border]"
+                    style={{ borderColor: 'var(--border)', background: 'var(--surface)' }}
+                >
+                    <div
+                        className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0"
+                        style={{ background: 'var(--accent-soft)', color: 'var(--accent)' }}
+                    >
+                        <IconSettings size={17} />
                     </div>
-                    <p className="text-xs mb-4" style={{ color: 'var(--fg-muted)' }}>Completa estos pasos para empezar a recibir reservas.</p>
-
-                    {/* Progress bar */}
-                    <div className="h-1 rounded-full mb-4 overflow-hidden" style={{ background: 'var(--border)' }}>
-                        <div
-                            className="h-full rounded-full transition-all"
-                            style={{
-                                width: `${(setupSteps.filter((s) => s.done).length / setupSteps.length) * 100}%`,
-                                background: 'var(--accent)',
-                            }}
-                        />
+                    <div className="flex-1 min-w-0">
+                        <p className="text-sm font-semibold" style={{ color: 'var(--fg)' }}>Termina de configurar tu agenda</p>
+                        <p className="text-xs mt-0.5" style={{ color: 'var(--fg-muted)' }}>Completa los pasos para empezar a recibir reservas.</p>
                     </div>
-
-                    <div className="flex flex-col gap-2">
-                        {setupSteps.map((step) => (
-                            <Link
-                                key={step.label}
-                                href={step.href}
-                                className="flex items-center gap-3 p-3 rounded-xl border transition-colors hover:border-[--accent-border]"
-                                style={{ borderColor: 'var(--border)', opacity: step.done ? 0.55 : 1 }}
-                            >
-                                <span
-                                    className="w-5 h-5 rounded-full flex items-center justify-center shrink-0 transition-colors"
-                                    style={{
-                                        background: step.done ? 'var(--accent)' : 'transparent',
-                                        border: step.done ? 'none' : '1.5px solid var(--border)',
-                                    }}
-                                >
-                                    {step.done && <IconCheck size={11} color="#fff" />}
-                                </span>
-                                <span
-                                    className="text-sm flex-1"
-                                    style={{
-                                        color: step.done ? 'var(--fg-muted)' : 'var(--fg)',
-                                        textDecoration: step.done ? 'line-through' : 'none',
-                                    }}
-                                >
-                                    {step.label}
-                                </span>
-                                {!step.done && <IconChevronRight size={14} style={{ color: 'var(--fg-muted)' }} />}
-                            </Link>
-                        ))}
-                    </div>
-                </div>
+                    <IconChevronRight size={16} style={{ color: 'var(--fg-muted)' }} />
+                </Link>
             )}
         </div>
     );

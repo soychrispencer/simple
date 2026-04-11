@@ -1,7 +1,8 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
-import { IconLoader2, IconPlus, IconTrash, IconCheck, IconCalendarOff, IconAlertCircle } from '@tabler/icons-react';
+import { useEffect, useState } from 'react';
+import { IconLoader2, IconPlus, IconTrash, IconCalendarOff, IconAlertCircle, IconChevronRight } from '@tabler/icons-react';
+import Link from 'next/link';
 import {
     PanelCard,
     PanelField,
@@ -59,15 +60,25 @@ function formatDateRange(startsAt: string, endsAt: string) {
     return `${dateFmt.format(start)} — ${dateFmt.format(end)}`;
 }
 
+// Local draft state per rule
+type RuleDraft = {
+    startTime: string;
+    endTime: string;
+    breakStart: string;
+    breakEnd: string;
+};
+
 export default function DisponibilidadConfigPage() {
     const [rules, setRules] = useState<AvailabilityRule[]>([]);
     const [blockedSlots, setBlockedSlots] = useState<BlockedSlot[]>([]);
     const [loading, setLoading] = useState(true);
     const [loadError, setLoadError] = useState('');
+    const [drafts, setDrafts] = useState<Record<string, RuleDraft>>({});
     const [saving, setSaving] = useState<string | null>(null);
-    const [autoSaved, setAutoSaved] = useState<string | null>(null);
     const [ruleErrors, setRuleErrors] = useState<Record<string, string>>({});
+    const [togglingId, setTogglingId] = useState<string | null>(null);
     const [deleting, setDeleting] = useState<string | null>(null);
+    const [addingDay, setAddingDay] = useState(false);
     const [loadingDefault, setLoadingDefault] = useState(false);
     const [defaultError, setDefaultError] = useState('');
 
@@ -80,8 +91,6 @@ export default function DisponibilidadConfigPage() {
     const [blockError, setBlockError] = useState('');
     const [deletingBlock, setDeletingBlock] = useState<string | null>(null);
 
-    const debounceTimers = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
-
     useEffect(() => { void load(); }, []);
 
     const load = async () => {
@@ -89,8 +98,15 @@ export default function DisponibilidadConfigPage() {
         setLoadError('');
         try {
             const data = await fetchAgendaAvailability();
-            setRules(data.rules.slice().sort((a, b) => DAY_ORDER.indexOf(a.dayOfWeek) - DAY_ORDER.indexOf(b.dayOfWeek)));
+            const sorted = data.rules.slice().sort((a, b) => DAY_ORDER.indexOf(a.dayOfWeek) - DAY_ORDER.indexOf(b.dayOfWeek));
+            setRules(sorted);
             setBlockedSlots(data.blockedSlots.slice().sort((a, b) => a.startsAt.localeCompare(b.startsAt)));
+            // Initialize drafts from loaded rules
+            const init: Record<string, RuleDraft> = {};
+            for (const r of sorted) {
+                init[r.id] = { startTime: r.startTime, endTime: r.endTime, breakStart: r.breakStart ?? '', breakEnd: r.breakEnd ?? '' };
+            }
+            setDrafts(init);
         } catch {
             setLoadError('No se pudo cargar la disponibilidad. Verifica tu conexión e intenta de nuevo.');
         } finally {
@@ -98,7 +114,9 @@ export default function DisponibilidadConfigPage() {
         }
     };
 
-    const clearRuleError = (id: string) => {
+    const setDraft = (id: string, field: keyof RuleDraft, value: string) => {
+        setDrafts((prev) => ({ ...prev, [id]: { ...prev[id], [field]: value } }));
+        // Clear error when user edits
         setRuleErrors((prev) => {
             if (!(id in prev)) return prev;
             const next = { ...prev };
@@ -107,68 +125,75 @@ export default function DisponibilidadConfigPage() {
         });
     };
 
+    const isDirty = (rule: AvailabilityRule) => {
+        const d = drafts[rule.id];
+        if (!d) return false;
+        return (
+            d.startTime !== rule.startTime ||
+            d.endTime !== rule.endTime ||
+            d.breakStart !== (rule.breakStart ?? '') ||
+            d.breakEnd !== (rule.breakEnd ?? '')
+        );
+    };
+
     const handleToggle = async (rule: AvailabilityRule) => {
         const next = !rule.isActive;
+        setTogglingId(rule.id);
         setRules((prev) => prev.map((r) => r.id === rule.id ? { ...r, isActive: next } : r));
-        setSaving(rule.id);
-        clearRuleError(rule.id);
         const result = await updateAvailabilityRule(rule.id, { isActive: next });
-        setSaving(null);
+        setTogglingId(null);
         if (!result.ok) {
             setRules((prev) => prev.map((r) => r.id === rule.id ? { ...r, isActive: !next } : r));
             setRuleErrors((prev) => ({ ...prev, [rule.id]: result.error ?? 'No se pudo guardar.' }));
         }
     };
 
-    const handleChange = (
-        rule: AvailabilityRule,
-        field: 'startTime' | 'endTime' | 'breakStart' | 'breakEnd',
-        value: string,
-    ) => {
-        const normalized: string | null = field === 'breakStart' || field === 'breakEnd'
-            ? (value || null)
-            : value;
-        const updated = { ...rule, [field]: normalized } as AvailabilityRule;
-        setRules((prev) => prev.map((r) => r.id === rule.id ? updated : r));
-        clearRuleError(rule.id);
+    const handleSave = async (rule: AvailabilityRule) => {
+        const d = drafts[rule.id];
+        if (!d) return;
 
-        clearTimeout(debounceTimers.current[rule.id]);
-        debounceTimers.current[rule.id] = setTimeout(async () => {
-            // Client-side validation before saving
-            if (updated.endTime <= updated.startTime) {
-                setRuleErrors((prev) => ({ ...prev, [rule.id]: 'La hora de fin debe ser posterior al inicio.' }));
-                return;
-            }
-            if (updated.breakStart && updated.breakEnd && updated.breakEnd <= updated.breakStart) {
-                setRuleErrors((prev) => ({ ...prev, [rule.id]: 'La pausa fin debe ser posterior al inicio de pausa.' }));
-                return;
-            }
-            setSaving(rule.id);
-            const result = await updateAvailabilityRule(rule.id, {
-                startTime: updated.startTime,
-                endTime: updated.endTime,
-                breakStart: updated.breakStart ?? null,
-                breakEnd: updated.breakEnd ?? null,
-            });
-            setSaving(null);
-            if (!result.ok) {
-                setRuleErrors((prev) => ({ ...prev, [rule.id]: result.error ?? 'No se pudo guardar.' }));
-                return;
-            }
-            setAutoSaved(rule.id);
-            setTimeout(() => setAutoSaved((prev) => prev === rule.id ? null : prev), 1500);
-        }, 600);
+        if (d.endTime <= d.startTime) {
+            setRuleErrors((prev) => ({ ...prev, [rule.id]: 'La hora de fin debe ser posterior al inicio.' }));
+            return;
+        }
+        if (d.breakStart && d.breakEnd && d.breakEnd <= d.breakStart) {
+            setRuleErrors((prev) => ({ ...prev, [rule.id]: 'La hora de fin de pausa debe ser posterior al inicio.' }));
+            return;
+        }
+
+        setSaving(rule.id);
+        const result = await updateAvailabilityRule(rule.id, {
+            startTime: d.startTime,
+            endTime: d.endTime,
+            breakStart: d.breakStart || null,
+            breakEnd: d.breakEnd || null,
+        });
+        setSaving(null);
+
+        if (!result.ok) {
+            setRuleErrors((prev) => ({ ...prev, [rule.id]: result.error ?? 'No se pudo guardar.' }));
+            return;
+        }
+        // Sync rule with saved values
+        setRules((prev) => prev.map((r) => r.id === rule.id ? {
+            ...r,
+            startTime: d.startTime,
+            endTime: d.endTime,
+            breakStart: d.breakStart || null,
+            breakEnd: d.breakEnd || null,
+        } : r));
     };
 
     const handleDelete = async (id: string) => {
         setDeleting(id);
         await deleteAvailabilityRule(id);
         setRules((prev) => prev.filter((r) => r.id !== id));
+        setDrafts((prev) => { const next = { ...prev }; delete next[id]; return next; });
         setDeleting(null);
     };
 
     const handleAddDay = async (dayOfWeek: number) => {
-        setSaving('new');
+        setAddingDay(true);
         setDefaultError('');
         try {
             const result = await createAvailabilityRule({
@@ -180,14 +205,16 @@ export default function DisponibilidadConfigPage() {
                 isActive: true,
             });
             if (result.ok && result.rule) {
-                setRules((prev) => [...prev, result.rule!].sort((a, b) => DAY_ORDER.indexOf(a.dayOfWeek) - DAY_ORDER.indexOf(b.dayOfWeek)));
+                const r = result.rule;
+                setRules((prev) => [...prev, r].sort((a, b) => DAY_ORDER.indexOf(a.dayOfWeek) - DAY_ORDER.indexOf(b.dayOfWeek)));
+                setDrafts((prev) => ({ ...prev, [r.id]: { startTime: r.startTime, endTime: r.endTime, breakStart: r.breakStart ?? '', breakEnd: r.breakEnd ?? '' } }));
             } else if (!result.ok) {
                 setDefaultError(result.error ?? 'No se pudo agregar el día. ¿Configuraste tu perfil primero?');
             }
         } catch {
             setDefaultError('Error de conexión al agregar el día.');
         } finally {
-            setSaving(null);
+            setAddingDay(false);
         }
     };
 
@@ -213,27 +240,14 @@ export default function DisponibilidadConfigPage() {
 
     const handleAddBlockedSlot = async () => {
         setBlockError('');
-        if (!blockStartDate || !blockEndDate) {
-            setBlockError('Selecciona las fechas de inicio y fin.');
-            return;
-        }
-        if (blockEndDate < blockStartDate) {
-            setBlockError('La fecha de fin debe ser igual o posterior a la de inicio.');
-            return;
-        }
+        if (!blockStartDate || !blockEndDate) { setBlockError('Selecciona las fechas de inicio y fin.'); return; }
+        if (blockEndDate < blockStartDate) { setBlockError('La fecha de fin debe ser igual o posterior a la de inicio.'); return; }
         setBlockSaving(true);
         const startsAt = new Date(`${blockStartDate}T00:00:00`).toISOString();
         const endsAt = new Date(`${blockEndDate}T23:59:59`).toISOString();
-        const result = await createBlockedSlot({
-            startsAt,
-            endsAt,
-            reason: blockReason || undefined,
-        });
+        const result = await createBlockedSlot({ startsAt, endsAt, reason: blockReason || undefined });
         setBlockSaving(false);
-        if (!result.ok) {
-            setBlockError(result.error ?? 'Error al guardar el bloqueo.');
-            return;
-        }
+        if (!result.ok) { setBlockError(result.error ?? 'Error al guardar el bloqueo.'); return; }
         if (result.slot) {
             setBlockedSlots((prev) => [...prev, result.slot!].sort((a, b) => a.startsAt.localeCompare(b.startsAt)));
         }
@@ -264,19 +278,12 @@ export default function DisponibilidadConfigPage() {
     if (loadError) {
         return (
             <div className="container-app panel-page py-8 max-w-2xl">
-                <PanelPageHeader
-                    backHref="/panel/configuracion"
-                    title="Disponibilidad"
-                />
+                <PanelPageHeader backHref="/panel/configuracion" title="Disponibilidad" />
                 <div className="rounded-2xl border px-5 py-4 text-sm flex items-center gap-3" style={{ borderColor: 'rgba(185,28,28,0.20)', background: 'rgba(185,28,28,0.06)', color: '#b91c1c' }}>
                     <IconAlertCircle size={16} className="shrink-0" />
                     <div>
                         <p className="font-medium">{loadError}</p>
-                        <button
-                            type="button"
-                            className="underline text-xs mt-1 opacity-80 hover:opacity-100"
-                            onClick={() => void load()}
-                        >
+                        <button type="button" className="underline text-xs mt-1 opacity-80 hover:opacity-100" onClick={() => void load()}>
                             Reintentar
                         </button>
                     </div>
@@ -306,7 +313,6 @@ export default function DisponibilidadConfigPage() {
                 }
             />
 
-            {/* Error al crear reglas / cargar típico */}
             {defaultError && (
                 <div className="mb-4 rounded-2xl border px-4 py-3 text-sm flex items-center gap-2" style={{ borderColor: 'rgba(185,28,28,0.20)', background: 'rgba(185,28,28,0.06)', color: '#b91c1c' }}>
                     <IconAlertCircle size={15} className="shrink-0" />
@@ -323,29 +329,29 @@ export default function DisponibilidadConfigPage() {
                     />
                 ) : (
                     rules.map((rule) => {
-                        const dayLabel = DAYS.find((d) => d.value === rule.dayOfWeek)?.label ?? `Día ${rule.dayOfWeek}`;
+                        const d = drafts[rule.id] ?? { startTime: rule.startTime, endTime: rule.endTime, breakStart: rule.breakStart ?? '', breakEnd: rule.breakEnd ?? '' };
+                        const dayLabel = DAYS.find((day) => day.value === rule.dayOfWeek)?.label ?? `Día ${rule.dayOfWeek}`;
                         const isSaving = saving === rule.id;
+                        const isToggling = togglingId === rule.id;
                         const isDeleting = deleting === rule.id;
-                        const isAutoSaved = autoSaved === rule.id;
+                        const dirty = isDirty(rule);
                         const timeError = ruleErrors[rule.id] ?? null;
 
                         return (
-                            <PanelCard
-                                key={rule.id}
-                                size="sm"
-                                className={rule.isActive ? '' : 'opacity-60'}
-                            >
+                            <PanelCard key={rule.id} size="sm" className={rule.isActive ? '' : 'opacity-60'}>
                                 <div className="flex items-center justify-between gap-3 mb-3">
                                     <div className="flex items-center gap-3">
-                                        <PanelSwitch
-                                            checked={rule.isActive}
-                                            onChange={() => void handleToggle(rule)}
-                                            size="sm"
-                                            ariaLabel={rule.isActive ? 'Desactivar día' : 'Activar día'}
-                                        />
+                                        {isToggling ? (
+                                            <IconLoader2 size={14} className="animate-spin" style={{ color: 'var(--fg-muted)' }} />
+                                        ) : (
+                                            <PanelSwitch
+                                                checked={rule.isActive}
+                                                onChange={() => void handleToggle(rule)}
+                                                size="sm"
+                                                ariaLabel={rule.isActive ? 'Desactivar día' : 'Activar día'}
+                                            />
+                                        )}
                                         <span className="text-sm font-semibold" style={{ color: 'var(--fg)' }}>{dayLabel}</span>
-                                        {isSaving && <IconLoader2 size={12} className="animate-spin" style={{ color: 'var(--fg-muted)' }} />}
-                                        {!isSaving && isAutoSaved && <IconCheck size={12} style={{ color: 'var(--accent)' }} />}
                                     </div>
                                     <button
                                         type="button"
@@ -361,46 +367,45 @@ export default function DisponibilidadConfigPage() {
 
                                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                                     <PanelField label="Inicio">
-                                        <select
-                                            value={rule.startTime}
-                                            onChange={(e) => handleChange(rule, 'startTime', e.target.value)}
-                                            className="form-select"
-                                        >
+                                        <select value={d.startTime} onChange={(e) => setDraft(rule.id, 'startTime', e.target.value)} className="form-select">
                                             {TIME_OPTIONS.map((t) => <option key={t} value={t}>{t}</option>)}
                                         </select>
                                     </PanelField>
                                     <PanelField label="Fin">
-                                        <select
-                                            value={rule.endTime}
-                                            onChange={(e) => handleChange(rule, 'endTime', e.target.value)}
-                                            className="form-select"
-                                        >
+                                        <select value={d.endTime} onChange={(e) => setDraft(rule.id, 'endTime', e.target.value)} className="form-select">
                                             {TIME_OPTIONS.map((t) => <option key={t} value={t}>{t}</option>)}
                                         </select>
                                     </PanelField>
                                     <PanelField label="Pausa inicio">
-                                        <select
-                                            value={rule.breakStart ?? ''}
-                                            onChange={(e) => handleChange(rule, 'breakStart', e.target.value)}
-                                            className="form-select"
-                                        >
+                                        <select value={d.breakStart} onChange={(e) => setDraft(rule.id, 'breakStart', e.target.value)} className="form-select">
                                             <option value="">Sin pausa</option>
                                             {TIME_OPTIONS.map((t) => <option key={t} value={t}>{t}</option>)}
                                         </select>
                                     </PanelField>
                                     <PanelField label="Pausa fin">
-                                        <select
-                                            value={rule.breakEnd ?? ''}
-                                            onChange={(e) => handleChange(rule, 'breakEnd', e.target.value)}
-                                            className="form-select"
-                                        >
+                                        <select value={d.breakEnd} onChange={(e) => setDraft(rule.id, 'breakEnd', e.target.value)} className="form-select">
                                             <option value="">—</option>
                                             {TIME_OPTIONS.map((t) => <option key={t} value={t}>{t}</option>)}
                                         </select>
                                     </PanelField>
                                 </div>
+
                                 {timeError && (
                                     <p className="mt-2 text-xs" style={{ color: '#dc2626' }}>{timeError}</p>
+                                )}
+
+                                {dirty && (
+                                    <div className="mt-3 flex justify-end">
+                                        <PanelButton
+                                            variant="accent"
+                                            size="sm"
+                                            onClick={() => void handleSave(rule)}
+                                            disabled={isSaving}
+                                        >
+                                            {isSaving ? <IconLoader2 size={13} className="animate-spin" /> : null}
+                                            {isSaving ? 'Guardando...' : 'Guardar'}
+                                        </PanelButton>
+                                    </div>
                                 )}
                             </PanelCard>
                         );
@@ -416,7 +421,7 @@ export default function DisponibilidadConfigPage() {
                             key={day.value}
                             type="button"
                             onClick={() => void handleAddDay(day.value)}
-                            disabled={saving === 'new'}
+                            disabled={addingDay}
                             className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-sm border transition-colors hover:border-[--accent] hover:text-[--accent] disabled:opacity-50"
                             style={{ borderColor: 'var(--border)', color: 'var(--fg-secondary)' }}
                         >
@@ -427,17 +432,13 @@ export default function DisponibilidadConfigPage() {
                 </div>
             )}
 
-            {/* Bloqueos de tiempo */}
+            {/* Días bloqueados */}
             <PanelBlockHeader
                 title="Días bloqueados"
                 description="Vacaciones, feriados o días libres en los que no aceptas reservas."
                 actions={
                     !showBlockedForm ? (
-                        <PanelButton
-                            variant="secondary"
-                            size="sm"
-                            onClick={() => setShowBlockedForm(true)}
-                        >
+                        <PanelButton variant="secondary" size="sm" onClick={() => setShowBlockedForm(true)}>
                             <IconPlus size={14} /> Bloquear fechas
                         </PanelButton>
                     ) : null
@@ -450,53 +451,22 @@ export default function DisponibilidadConfigPage() {
                         <div className="flex flex-col gap-4">
                             <div className="grid sm:grid-cols-2 gap-4">
                                 <PanelField label="Desde" required>
-                                    <input
-                                        type="date"
-                                        value={blockStartDate}
-                                        onChange={(e) => setBlockStartDate(e.target.value)}
-                                        className="form-input"
-                                    />
+                                    <input type="date" value={blockStartDate} onChange={(e) => setBlockStartDate(e.target.value)} className="form-input" />
                                 </PanelField>
                                 <PanelField label="Hasta" required>
-                                    <input
-                                        type="date"
-                                        value={blockEndDate}
-                                        onChange={(e) => setBlockEndDate(e.target.value)}
-                                        className="form-input"
-                                    />
+                                    <input type="date" value={blockEndDate} onChange={(e) => setBlockEndDate(e.target.value)} className="form-input" />
                                 </PanelField>
                             </div>
                             <PanelField label="Motivo" hint="Opcional, solo para tu referencia.">
-                                <input
-                                    type="text"
-                                    value={blockReason}
-                                    onChange={(e) => setBlockReason(e.target.value)}
-                                    placeholder="Ej: Vacaciones, congreso, feriado"
-                                    className="form-input"
-                                />
+                                <input type="text" value={blockReason} onChange={(e) => setBlockReason(e.target.value)} placeholder="Ej: Vacaciones, congreso, feriado" className="form-input" />
                             </PanelField>
-                            {blockError && (
-                                <p className="text-xs" style={{ color: '#dc2626' }}>{blockError}</p>
-                            )}
+                            {blockError && <p className="text-xs" style={{ color: '#dc2626' }}>{blockError}</p>}
                             <div className="flex gap-3">
-                                <PanelButton
-                                    variant="accent"
-                                    onClick={() => void handleAddBlockedSlot()}
-                                    disabled={blockSaving}
-                                >
+                                <PanelButton variant="accent" onClick={() => void handleAddBlockedSlot()} disabled={blockSaving}>
                                     {blockSaving ? <IconLoader2 size={14} className="animate-spin" /> : null}
                                     {blockSaving ? 'Guardando...' : 'Bloquear'}
                                 </PanelButton>
-                                <PanelButton
-                                    variant="secondary"
-                                    onClick={() => {
-                                        setShowBlockedForm(false);
-                                        setBlockStartDate('');
-                                        setBlockEndDate('');
-                                        setBlockReason('');
-                                        setBlockError('');
-                                    }}
-                                >
+                                <PanelButton variant="secondary" onClick={() => { setShowBlockedForm(false); setBlockStartDate(''); setBlockEndDate(''); setBlockReason(''); setBlockError(''); }}>
                                     Cancelar
                                 </PanelButton>
                             </div>
@@ -506,10 +476,7 @@ export default function DisponibilidadConfigPage() {
             )}
 
             {blockedSlots.length === 0 && !showBlockedForm ? (
-                <PanelEmptyState
-                    title="Sin bloqueos activos"
-                    description="Todos tus horarios de la semana están disponibles."
-                />
+                <PanelEmptyState title="Sin bloqueos activos" description="Todos tus horarios de la semana están disponibles." />
             ) : (
                 <div className="flex flex-col gap-2">
                     {blockedSlots.map((slot) => {
@@ -524,9 +491,7 @@ export default function DisponibilidadConfigPage() {
                                         <p className="text-sm font-semibold" style={{ color: 'var(--fg)' }}>
                                             {formatDateRange(slot.startsAt, slot.endsAt)}
                                         </p>
-                                        {slot.reason && (
-                                            <p className="text-xs mt-0.5" style={{ color: 'var(--fg-muted)' }}>{slot.reason}</p>
-                                        )}
+                                        {slot.reason && <p className="text-xs mt-0.5" style={{ color: 'var(--fg-muted)' }}>{slot.reason}</p>}
                                     </div>
                                     <button
                                         type="button"

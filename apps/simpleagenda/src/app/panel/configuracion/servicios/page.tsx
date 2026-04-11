@@ -1,7 +1,8 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { IconPlus, IconTrash, IconLoader2, IconEdit, IconAlertCircle } from '@tabler/icons-react';
+import { IconPlus, IconTrash, IconLoader2, IconEdit, IconAlertCircle, IconChevronRight } from '@tabler/icons-react';
+import Link from 'next/link';
 import {
     PanelCard,
     PanelField,
@@ -359,6 +360,22 @@ export default function ServiciosConfigPage() {
                     })}
                 </div>
             )}
+
+            {/* Siguiente paso */}
+            <div className="mt-10 pt-6" style={{ borderTop: '1px solid var(--border)' }}>
+                <Link
+                    href="/panel/configuracion/disponibilidad"
+                    className="flex items-center justify-between gap-4 p-4 rounded-2xl border transition-colors hover:border-[--accent-border]"
+                    style={{ borderColor: 'var(--border)', background: 'var(--surface)' }}
+                >
+                    <div>
+                        <p className="text-xs font-medium mb-0.5" style={{ color: 'var(--fg-muted)' }}>Siguiente paso</p>
+                        <p className="text-sm font-semibold" style={{ color: 'var(--fg)' }}>Disponibilidad</p>
+                        <p className="text-xs mt-0.5" style={{ color: 'var(--fg-muted)' }}>Define tus horarios semanales de atención.</p>
+                    </div>
+                    <IconChevronRight size={18} style={{ color: 'var(--accent)', flexShrink: 0 }} />
+                </Link>
+            </div>
         </div>
     );
 }

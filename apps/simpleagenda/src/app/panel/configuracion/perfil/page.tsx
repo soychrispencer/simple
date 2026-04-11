@@ -5,6 +5,8 @@ import { IconCheck, IconAlertCircle, IconLoader2, IconCamera, IconX, IconSparkle
 import { fetchAgendaProfile, saveAgendaProfile, uploadAvatar } from '@/lib/agenda-api';
 import { generatePolicies } from '@/actions/generate-policies';
 import { LOCATION_REGIONS, getCommunesForRegion } from '@simple/utils';
+import Link from 'next/link';
+import { IconChevronRight } from '@tabler/icons-react';
 import { PanelCard, PanelField, PanelButton, PanelNotice, PanelBlockHeader, PanelPageHeader } from '@simple/ui';
 
 const regionOptions = LOCATION_REGIONS.map((r) => ({ value: r.id, label: r.name }));
@@ -356,6 +358,22 @@ export default function PerfilConfigPage() {
                         {saving ? 'Guardando...' : saved ? 'Guardado' : 'Guardar cambios'}
                     </PanelButton>
                 </div>
+            </div>
+
+            {/* Siguiente paso */}
+            <div className="mt-10 pt-6" style={{ borderTop: '1px solid var(--border)' }}>
+                <Link
+                    href="/panel/configuracion/servicios"
+                    className="flex items-center justify-between gap-4 p-4 rounded-2xl border transition-colors hover:border-[--accent-border]"
+                    style={{ borderColor: 'var(--border)', background: 'var(--surface)' }}
+                >
+                    <div>
+                        <p className="text-xs font-medium mb-0.5" style={{ color: 'var(--fg-muted)' }}>Siguiente paso</p>
+                        <p className="text-sm font-semibold" style={{ color: 'var(--fg)' }}>Servicios y sesiones</p>
+                        <p className="text-xs mt-0.5" style={{ color: 'var(--fg-muted)' }}>Define los tipos de consulta, duración y precio.</p>
+                    </div>
+                    <IconChevronRight size={18} style={{ color: 'var(--accent)', flexShrink: 0 }} />
+                </Link>
             </div>
         </div>
     );
