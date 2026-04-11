@@ -1,7 +1,6 @@
 'use client';
 
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
 import { useTheme } from 'next-themes';
 import { useState, useEffect } from 'react';
 import {
@@ -16,25 +15,17 @@ import {
     IconUsers,
 } from '@tabler/icons-react';
 import { useAuth } from '@/context/auth-context';
-import { PanelButton } from '@simple/ui';
 import { NotificationBell } from '@/components/panel/notification-bell';
 
 export function Header() {
-    const router = useRouter();
     const { theme, setTheme } = useTheme();
     const [mounted, setMounted] = useState(false);
     const [accountOpen, setAccountOpen] = useState(false);
-    const { user, isLoggedIn, requireAuth, logout } = useAuth();
+    const { user, isLoggedIn, logout } = useAuth();
 
     useEffect(() => {
         setMounted(true);
     }, []);
-
-    const handlePanel = () => {
-        if (requireAuth(() => router.push('/panel'))) {
-            router.push('/panel');
-        }
-    };
 
     const userName = user?.name?.trim() || 'Usuario';
 
@@ -154,16 +145,6 @@ export function Header() {
                             </>
                         ) : null}
                     </div>
-
-                    {isLoggedIn ? (
-                        <PanelButton onClick={handlePanel} variant="primary" size="sm" className="hidden md:inline-flex h-9 px-4 text-sm">
-                            Mi agenda
-                        </PanelButton>
-                    ) : (
-                        <PanelButton onClick={handlePanel} variant="primary" size="sm" className="hidden md:inline-flex h-9 px-4 text-sm">
-                            Comenzar gratis
-                        </PanelButton>
-                    )}
                 </div>
             </div>
 
