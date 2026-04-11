@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
     IconPlus,
     IconTrash,
@@ -11,6 +11,7 @@ import {
     IconStarFilled,
     IconAlertCircle,
     IconExternalLink,
+    IconSearch,
 } from '@tabler/icons-react';
 import {
     PanelCard,
@@ -30,11 +31,56 @@ import {
     type AgendaLocation,
 } from '@/lib/agenda-api';
 
+// ── Google Places helpers ─────────────────────────────────────────────────────
+
+type GPlace = {
+    address_components?: Array<{ long_name?: string; short_name?: string; types?: string[] }>;
+    formatted_address?: string;
+    geometry?: { location?: { lat?: () => number; lng?: () => number } };
+    name?: string;
+};
+
+function normalizeStr(s: string | null | undefined) {
+    return (s ?? '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
+}
+
+function getComponent(place: GPlace, types: string[]) {
+    return place.address_components?.find(
+        (c) => Array.isArray(c.types) && types.every((t) => c.types?.includes(t))
+    ) ?? null;
+}
+
+function loadGoogleScript(apiKey: string): Promise<boolean> {
+    if (typeof window === 'undefined') return Promise.resolve(false);
+    const g = (window as any).google;
+    if (g?.maps?.places?.Autocomplete) return Promise.resolve(true);
+    const existing = document.querySelector<HTMLScriptElement>('script[data-google-places-script="true"]');
+    return new Promise((resolve) => {
+        if (existing) {
+            existing.addEventListener('load', () => resolve(!!(window as any).google?.maps?.places?.Autocomplete), { once: true });
+            existing.addEventListener('error', () => resolve(false), { once: true });
+            return;
+        }
+        const script = document.createElement('script');
+        script.src = `https://maps.googleapis.com/maps/api/js?key=${encodeURIComponent(apiKey)}&libraries=places&language=es&region=CL&loading=async`;
+        script.async = true;
+        script.defer = true;
+        script.dataset.googlePlacesScript = 'true';
+        script.onload = () => resolve(!!(window as any).google?.maps?.places?.Autocomplete);
+        script.onerror = () => resolve(false);
+        document.head.appendChild(script);
+    });
+}
+
+// ── Types ─────────────────────────────────────────────────────────────────────
+
 type LocationForm = {
     name: string;
     addressLine: string;
-    region: string;
-    city: string;
+    regionId: string;
+    regionName: string;
+    communeId: string;
+    communeName: string;
     notes: string;
     googleMapsUrl: string;
     isDefault: boolean;
@@ -43,14 +89,18 @@ type LocationForm = {
 const emptyForm = (): LocationForm => ({
     name: '',
     addressLine: '',
-    region: '',
-    city: '',
+    regionId: '',
+    regionName: '',
+    communeId: '',
+    communeName: '',
     notes: '',
     googleMapsUrl: '',
     isDefault: false,
 });
 
 const regionOptions = LOCATION_REGIONS.map((r) => ({ value: r.id, label: r.name }));
+
+// ── Page ──────────────────────────────────────────────────────────────────────
 
 export default function DireccionesConfigPage() {
     const [locations, setLocations] = useState<AgendaLocation[]>([]);
@@ -62,10 +112,96 @@ export default function DireccionesConfigPage() {
     const [deletingId, setDeletingId] = useState<string | null>(null);
     const [togglingId, setTogglingId] = useState<string | null>(null);
     const [error, setError] = useState('');
+    const [autocompleteReady, setAutocompleteReady] = useState(false);
+
+    const addressInputRef = useRef<HTMLInputElement>(null);
+    const autocompleteRef = useRef<any>(null);
+    const formRef = useRef(form);
+
+    useEffect(() => { formRef.current = form; }, [form]);
 
     useEffect(() => {
         void load();
     }, []);
+
+    useEffect(() => {
+        if (!showForm) return;
+        const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_BROWSER_KEY
+            || process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY
+            || '';
+        if (!apiKey || !addressInputRef.current) { setAutocompleteReady(false); return; }
+
+        let disposed = false;
+        void loadGoogleScript(apiKey).then((ready) => {
+            if (disposed || !ready || !addressInputRef.current) { setAutocompleteReady(false); return; }
+            const googleMaps = (window as any).google?.maps;
+            if (!googleMaps?.places?.Autocomplete) { setAutocompleteReady(false); return; }
+
+            if (autocompleteRef.current && googleMaps.event?.clearInstanceListeners) {
+                googleMaps.event.clearInstanceListeners(autocompleteRef.current);
+            }
+
+            const ac = new googleMaps.places.Autocomplete(addressInputRef.current, {
+                componentRestrictions: { country: 'cl' },
+                fields: ['address_components', 'formatted_address', 'geometry', 'name'],
+                types: ['address'],
+            });
+
+            ac.addListener('place_changed', () => {
+                const place = ac.getPlace?.() as GPlace | undefined;
+                if (!place) return;
+
+                const streetNum = getComponent(place, ['street_number'])?.long_name ?? '';
+                const route = getComponent(place, ['route'])?.long_name ?? '';
+                const addressLine = [route, streetNum].filter(Boolean).join(' ').trim()
+                    || place.name
+                    || place.formatted_address
+                    || '';
+
+                const regionNameFromPlace = getComponent(place, ['administrative_area_level_1'])?.long_name ?? '';
+                const communeNameFromPlace =
+                    getComponent(place, ['administrative_area_level_3'])?.long_name
+                    ?? getComponent(place, ['locality'])?.long_name
+                    ?? getComponent(place, ['administrative_area_level_2'])?.long_name
+                    ?? '';
+
+                const matchedRegion = regionNameFromPlace
+                    ? LOCATION_REGIONS.find((r) => normalizeStr(r.name) === normalizeStr(regionNameFromPlace))
+                    : null;
+
+                const communes = matchedRegion ? getCommunesForRegion(matchedRegion.id) : [];
+                const matchedCommune = communeNameFromPlace
+                    ? communes.find((c) => normalizeStr(c.name) === normalizeStr(communeNameFromPlace))
+                    : null;
+
+                const mapsUrl = place.geometry?.location?.lat && place.geometry?.location?.lng
+                    ? `https://www.google.com/maps?q=${place.geometry.location.lat()},${place.geometry.location.lng()}`
+                    : formRef.current.googleMapsUrl;
+
+                setForm((prev) => ({
+                    ...prev,
+                    addressLine,
+                    regionId: matchedRegion?.id ?? prev.regionId,
+                    regionName: matchedRegion?.name ?? regionNameFromPlace,
+                    communeId: matchedCommune?.id ?? prev.communeId,
+                    communeName: matchedCommune?.name ?? communeNameFromPlace,
+                    googleMapsUrl: mapsUrl,
+                }));
+            });
+
+            autocompleteRef.current = ac;
+            setAutocompleteReady(true);
+        });
+
+        return () => {
+            disposed = true;
+            const googleMaps = (window as any).google?.maps;
+            if (autocompleteRef.current && googleMaps?.event?.clearInstanceListeners) {
+                googleMaps.event.clearInstanceListeners(autocompleteRef.current);
+            }
+        };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [showForm]);
 
     const load = async () => {
         setLoading(true);
@@ -74,12 +210,12 @@ export default function DireccionesConfigPage() {
         setLoading(false);
     };
 
-    const set = (key: keyof LocationForm, value: string | boolean) => {
+    const set = <K extends keyof LocationForm>(key: K, value: LocationForm[K]) => {
         setForm((prev) => ({ ...prev, [key]: value }));
     };
 
-    const communeOptions = form.region
-        ? getCommunesForRegion(form.region).map((c) => ({ value: c.name, label: c.name }))
+    const communeOptions = form.regionId
+        ? getCommunesForRegion(form.regionId).map((c) => ({ value: c.id, label: c.name }))
         : [];
 
     const handleNew = () => {
@@ -91,11 +227,16 @@ export default function DireccionesConfigPage() {
 
     const handleEdit = (location: AgendaLocation) => {
         setEditingId(location.id);
+        const regionId = LOCATION_REGIONS.find((r) => r.name === location.region)?.id ?? '';
+        const communes = regionId ? getCommunesForRegion(regionId) : [];
+        const communeId = communes.find((c) => c.name === location.city)?.id ?? '';
         setForm({
             name: location.name,
             addressLine: location.addressLine,
-            region: location.region ?? '',
-            city: location.city ?? '',
+            regionId,
+            regionName: location.region ?? '',
+            communeId,
+            communeName: location.city ?? '',
             notes: location.notes ?? '',
             googleMapsUrl: location.googleMapsUrl ?? '',
             isDefault: location.isDefault,
@@ -119,8 +260,8 @@ export default function DireccionesConfigPage() {
         const body = {
             name: form.name.trim(),
             addressLine: form.addressLine.trim(),
-            region: form.region || null,
-            city: form.city || null,
+            region: form.regionName || form.regionId || null,
+            city: form.communeName || null,
             notes: form.notes || null,
             googleMapsUrl: form.googleMapsUrl || null,
             isDefault: form.isDefault,
@@ -154,26 +295,19 @@ export default function DireccionesConfigPage() {
     const handleSetDefault = async (location: AgendaLocation) => {
         if (location.isDefault) return;
         const result = await updateAgendaLocation(location.id, { isDefault: true });
-        if (result.ok) {
-            await load();
-        }
+        if (result.ok) await load();
     };
 
     return (
         <div className="container-app panel-page py-8 max-w-2xl">
             <PanelPageHeader
                 backHref="/panel/configuracion"
-                title="Direcciones de consulta"
-                description="Registra las direcciones donde atiendes de forma presencial."
+                title="Consultorios y direcciones"
+                description="Registra cada lugar donde atiendes. Puedes tener más de una dirección activa."
                 actions={
                     !showForm ? (
-                        <PanelButton
-                            variant="accent"
-                            size="sm"
-                            onClick={handleNew}
-                        >
-                            <IconPlus size={15} />
-                            Nueva dirección
+                        <PanelButton variant="accent" size="sm" onClick={handleNew}>
+                            <IconPlus size={15} /> Nueva dirección
                         </PanelButton>
                     ) : null
                 }
@@ -187,7 +321,8 @@ export default function DireccionesConfigPage() {
                             {editingId ? 'Editar dirección' : 'Nueva dirección'}
                         </h2>
                         <div className="flex flex-col gap-4">
-                            <PanelField label="Nombre de la consulta" required hint="Ej: Consulta Providencia, Centro Médico Las Condes">
+
+                            <PanelField label="Nombre del consultorio" required hint="Ej: Consulta Providencia, Centro Médico Las Condes">
                                 <input
                                     type="text"
                                     value={form.name}
@@ -197,23 +332,41 @@ export default function DireccionesConfigPage() {
                                 />
                             </PanelField>
 
-                            <PanelField label="Dirección completa" required>
-                                <input
-                                    type="text"
-                                    value={form.addressLine}
-                                    onChange={(e) => set('addressLine', e.target.value)}
-                                    placeholder="Ej: Av. Providencia 1234, Oficina 301"
-                                    className="form-input"
-                                />
+                            <PanelField
+                                label="Dirección"
+                                required
+                                hint={autocompleteReady
+                                    ? 'Escribe la calle y el número — selecciona la sugerencia para autocompletar región y comuna.'
+                                    : 'Escribe la calle y número. Región y comuna se completan automáticamente si Google Places está disponible.'}
+                            >
+                                <div className="relative">
+                                    <IconSearch
+                                        size={15}
+                                        className="absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none"
+                                        style={{ color: autocompleteReady ? 'var(--accent)' : 'var(--fg-muted)' }}
+                                    />
+                                    <input
+                                        ref={addressInputRef}
+                                        type="text"
+                                        value={form.addressLine}
+                                        onChange={(e) => set('addressLine', e.target.value)}
+                                        placeholder="Ej: Av. Providencia 1234, Oficina 301"
+                                        className="form-input pl-9"
+                                        autoComplete="street-address"
+                                    />
+                                </div>
                             </PanelField>
 
                             <div className="grid grid-cols-2 gap-4">
                                 <PanelField label="Región">
                                     <select
-                                        value={form.region}
+                                        value={form.regionId}
                                         onChange={(e) => {
-                                            set('region', e.target.value);
-                                            set('city', '');
+                                            const r = LOCATION_REGIONS.find((x) => x.id === e.target.value);
+                                            set('regionId', e.target.value);
+                                            set('regionName', r?.name ?? '');
+                                            set('communeId', '');
+                                            set('communeName', '');
                                         }}
                                         className="form-select"
                                     >
@@ -225,12 +378,16 @@ export default function DireccionesConfigPage() {
                                 </PanelField>
                                 <PanelField label="Comuna">
                                     <select
-                                        value={form.city}
-                                        onChange={(e) => set('city', e.target.value)}
-                                        disabled={!form.region}
+                                        value={form.communeId}
+                                        onChange={(e) => {
+                                            const c = communeOptions.find((x) => x.value === e.target.value);
+                                            set('communeId', e.target.value);
+                                            set('communeName', c?.label ?? '');
+                                        }}
+                                        disabled={!form.regionId}
                                         className="form-select"
                                     >
-                                        <option value="">{form.region ? 'Selecciona una comuna' : 'Selecciona región'}</option>
+                                        <option value="">{form.regionId ? 'Selecciona una comuna' : 'Selecciona región primero'}</option>
                                         {communeOptions.map((c) => (
                                             <option key={c.value} value={c.value}>{c.label}</option>
                                         ))}
@@ -238,10 +395,7 @@ export default function DireccionesConfigPage() {
                                 </PanelField>
                             </div>
 
-                            <PanelField
-                                label="Instrucciones de llegada"
-                                hint="Referencias visibles para el paciente antes de la sesión."
-                            >
+                            <PanelField label="Instrucciones de llegada" hint="Referencias visibles para el paciente antes de la sesión.">
                                 <textarea
                                     value={form.notes}
                                     onChange={(e) => set('notes', e.target.value)}
@@ -251,18 +405,28 @@ export default function DireccionesConfigPage() {
                                 />
                             </PanelField>
 
-                            <PanelField
-                                label="Link de Google Maps"
-                                hint="Opcional. Se comparte con el paciente en la confirmación."
-                            >
-                                <input
-                                    type="url"
-                                    value={form.googleMapsUrl}
-                                    onChange={(e) => set('googleMapsUrl', e.target.value)}
-                                    placeholder="https://maps.google.com/..."
-                                    className="form-input"
-                                />
-                            </PanelField>
+                            {form.googleMapsUrl && (
+                                <PanelField label="Link Google Maps" hint="Generado automáticamente al seleccionar la dirección. Puedes editarlo.">
+                                    <input
+                                        type="url"
+                                        value={form.googleMapsUrl}
+                                        onChange={(e) => set('googleMapsUrl', e.target.value)}
+                                        className="form-input"
+                                    />
+                                </PanelField>
+                            )}
+
+                            {!form.googleMapsUrl && (
+                                <PanelField label="Link de Google Maps" hint="Opcional. Se comparte con el paciente en la confirmación.">
+                                    <input
+                                        type="url"
+                                        value={form.googleMapsUrl}
+                                        onChange={(e) => set('googleMapsUrl', e.target.value)}
+                                        placeholder="https://maps.google.com/..."
+                                        className="form-input"
+                                    />
+                                </PanelField>
+                            )}
 
                             <label
                                 className="flex items-center gap-3 px-4 py-3 rounded-xl border cursor-pointer"
@@ -285,18 +449,11 @@ export default function DireccionesConfigPage() {
                             )}
 
                             <div className="flex gap-3">
-                                <PanelButton
-                                    variant="accent"
-                                    onClick={() => void handleSave()}
-                                    disabled={saving}
-                                >
+                                <PanelButton variant="accent" onClick={() => void handleSave()} disabled={saving}>
                                     {saving ? <IconLoader2 size={14} className="animate-spin" /> : null}
                                     {saving ? 'Guardando...' : 'Guardar'}
                                 </PanelButton>
-                                <PanelButton
-                                    variant="secondary"
-                                    onClick={handleCancel}
-                                >
+                                <PanelButton variant="secondary" onClick={handleCancel}>
                                     Cancelar
                                 </PanelButton>
                             </div>
@@ -312,14 +469,10 @@ export default function DireccionesConfigPage() {
                 </div>
             ) : locations.length === 0 && !showForm ? (
                 <PanelEmptyState
-                    title="Sin direcciones aún"
+                    title="Sin consultorios aún"
                     description="Agrega una dirección para mostrarla a tus pacientes cuando reserven sesiones presenciales."
                     action={
-                        <PanelButton
-                            variant="accent"
-                            size="sm"
-                            onClick={handleNew}
-                        >
+                        <PanelButton variant="accent" size="sm" onClick={handleNew}>
                             <IconPlus size={15} /> Agregar dirección
                         </PanelButton>
                     }
@@ -330,11 +483,7 @@ export default function DireccionesConfigPage() {
                         const isToggling = togglingId === location.id;
                         const isDeleting = deletingId === location.id;
                         return (
-                            <PanelCard
-                                key={location.id}
-                                size="sm"
-                                className={location.isActive ? '' : 'opacity-60'}
-                            >
+                            <PanelCard key={location.id} size="sm" className={location.isActive ? '' : 'opacity-60'}>
                                 <div className="flex items-start gap-4">
                                     <div
                                         className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0"
@@ -346,10 +495,7 @@ export default function DireccionesConfigPage() {
                                         <div className="flex items-center gap-2 flex-wrap">
                                             <p className="text-sm font-semibold" style={{ color: 'var(--fg)' }}>{location.name}</p>
                                             {location.isDefault && (
-                                                <span
-                                                    className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium"
-                                                    style={{ background: 'var(--accent-soft)', color: 'var(--accent)' }}
-                                                >
+                                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium" style={{ background: 'var(--accent-soft)', color: 'var(--accent)' }}>
                                                     <IconStarFilled size={9} /> Predeterminada
                                                 </span>
                                             )}
@@ -359,27 +505,17 @@ export default function DireccionesConfigPage() {
                                                 </span>
                                             )}
                                         </div>
-                                        <p className="text-xs mt-1" style={{ color: 'var(--fg-secondary)' }}>
-                                            {location.addressLine}
-                                        </p>
+                                        <p className="text-xs mt-1" style={{ color: 'var(--fg-secondary)' }}>{location.addressLine}</p>
                                         {(location.city || location.region) && (
                                             <p className="text-xs mt-0.5" style={{ color: 'var(--fg-muted)' }}>
                                                 {[location.city, location.region].filter(Boolean).join(', ')}
                                             </p>
                                         )}
                                         {location.notes && (
-                                            <p className="text-xs mt-1 italic" style={{ color: 'var(--fg-muted)' }}>
-                                                {location.notes}
-                                            </p>
+                                            <p className="text-xs mt-1 italic" style={{ color: 'var(--fg-muted)' }}>{location.notes}</p>
                                         )}
                                         {location.googleMapsUrl && (
-                                            <a
-                                                href={location.googleMapsUrl}
-                                                target="_blank"
-                                                rel="noopener noreferrer"
-                                                className="inline-flex items-center gap-1 text-xs mt-2 hover:underline"
-                                                style={{ color: 'var(--accent)' }}
-                                            >
+                                            <a href={location.googleMapsUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-xs mt-2 hover:underline" style={{ color: 'var(--accent)' }}>
                                                 <IconExternalLink size={11} /> Ver en Google Maps
                                             </a>
                                         )}
@@ -392,7 +528,7 @@ export default function DireccionesConfigPage() {
                                                 checked={location.isActive}
                                                 onChange={() => void handleToggleActive(location)}
                                                 size="sm"
-                                                ariaLabel={location.isActive ? 'Desactivar dirección' : 'Activar dirección'}
+                                                ariaLabel={location.isActive ? 'Desactivar' : 'Activar'}
                                             />
                                         )}
                                         {!location.isDefault && (
@@ -400,7 +536,7 @@ export default function DireccionesConfigPage() {
                                                 type="button"
                                                 onClick={() => void handleSetDefault(location)}
                                                 aria-label="Marcar como predeterminada"
-                                                className="w-7 h-7 rounded-lg flex items-center justify-center border transition-colors hover:bg-(--bg-subtle)"
+                                                className="w-7 h-7 rounded-lg flex items-center justify-center border transition-colors"
                                                 style={{ borderColor: 'var(--border)', color: 'var(--fg-muted)' }}
                                             >
                                                 <IconStar size={13} />
@@ -410,7 +546,7 @@ export default function DireccionesConfigPage() {
                                             type="button"
                                             onClick={() => handleEdit(location)}
                                             aria-label="Editar"
-                                            className="w-7 h-7 rounded-lg flex items-center justify-center border transition-colors hover:bg-(--bg-subtle)"
+                                            className="w-7 h-7 rounded-lg flex items-center justify-center border transition-colors"
                                             style={{ borderColor: 'var(--border)', color: 'var(--fg-secondary)' }}
                                         >
                                             <IconEdit size={13} />
@@ -423,9 +559,7 @@ export default function DireccionesConfigPage() {
                                             className="w-7 h-7 rounded-lg flex items-center justify-center border transition-colors hover:bg-red-500/10 hover:border-red-500/40 disabled:opacity-50"
                                             style={{ borderColor: 'var(--border)', color: 'var(--fg-muted)' }}
                                         >
-                                            {isDeleting
-                                                ? <IconLoader2 size={13} className="animate-spin" />
-                                                : <IconTrash size={13} />}
+                                            {isDeleting ? <IconLoader2 size={13} className="animate-spin" /> : <IconTrash size={13} />}
                                         </button>
                                     </div>
                                 </div>

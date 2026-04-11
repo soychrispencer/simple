@@ -4,12 +4,9 @@ import { useEffect, useRef, useState } from 'react';
 import { IconCheck, IconAlertCircle, IconLoader2, IconCamera, IconX, IconSparkles } from '@tabler/icons-react';
 import { fetchAgendaProfile, saveAgendaProfile, uploadAvatar } from '@/lib/agenda-api';
 import { generatePolicies } from '@/actions/generate-policies';
-import { LOCATION_REGIONS, getCommunesForRegion } from '@simple/utils';
 import Link from 'next/link';
-import { IconChevronRight } from '@tabler/icons-react';
+import { IconChevronRight, IconMapPin } from '@tabler/icons-react';
 import { PanelCard, PanelField, PanelButton, PanelNotice, PanelBlockHeader, PanelPageHeader } from '@simple/ui';
-
-const regionOptions = LOCATION_REGIONS.map((r) => ({ value: r.id, label: r.name }));
 
 export default function PerfilConfigPage() {
     const [loading, setLoading] = useState(true);
@@ -30,8 +27,6 @@ export default function PerfilConfigPage() {
         publicEmail: '',
         publicPhone: '',
         publicWhatsapp: '',
-        city: '',
-        region: '',
         confirmationMode: 'auto' as 'auto' | 'manual',
         bookingWindowDays: 30,
         cancellationHours: 24,
@@ -52,8 +47,6 @@ export default function PerfilConfigPage() {
                     publicEmail: profile.publicEmail ?? '',
                     publicPhone: profile.publicPhone ?? '',
                     publicWhatsapp: profile.publicWhatsapp ?? '',
-                    city: profile.city ?? '',
-                    region: profile.region ?? '',
                     confirmationMode: (profile.confirmationMode as 'auto' | 'manual') ?? 'auto',
                     bookingWindowDays: profile.bookingWindowDays ?? 30,
                     cancellationHours: profile.cancellationHours ?? 24,
@@ -65,10 +58,6 @@ export default function PerfilConfigPage() {
         };
         void load();
     }, []);
-
-    const communeOptions = form.region
-        ? getCommunesForRegion(form.region).map((c) => ({ value: c.name, label: c.name }))
-        : [];
 
     const set = (key: keyof typeof form, value: string | boolean | number) => {
         setSaved(false);
@@ -212,9 +201,9 @@ export default function PerfilConfigPage() {
                     </div>
                 </PanelCard>
 
-                {/* Contacto y ubicacion */}
+                {/* Contacto */}
                 <PanelCard size="md">
-                    <PanelBlockHeader title="Contacto y ubicacion" className="mb-3" />
+                    <PanelBlockHeader title="Contacto" className="mb-3" />
                     <div className="grid sm:grid-cols-2 gap-4">
                         <PanelField label="WhatsApp">
                             <input type="tel" value={form.publicWhatsapp} onChange={(e) => set('publicWhatsapp', e.target.value)} placeholder="+56 9 1234 5678" className="form-input" />
@@ -222,39 +211,32 @@ export default function PerfilConfigPage() {
                         <PanelField label="Telefono">
                             <input type="tel" value={form.publicPhone} onChange={(e) => set('publicPhone', e.target.value)} placeholder="+56 2 1234 5678" className="form-input" />
                         </PanelField>
-                        <PanelField label="Email publico">
+                        <PanelField label="Email publico" className="sm:col-span-2">
                             <input type="email" value={form.publicEmail} onChange={(e) => set('publicEmail', e.target.value)} placeholder="contacto@ejemplo.cl" className="form-input" />
-                        </PanelField>
-                        <PanelField label="Region">
-                            <select
-                                value={form.region}
-                                onChange={(e) => {
-                                    set('region', e.target.value);
-                                    set('city', '');
-                                }}
-                                className="form-select"
-                            >
-                                <option value="">Selecciona una region</option>
-                                {regionOptions.map((r) => (
-                                    <option key={r.value} value={r.value}>{r.label}</option>
-                                ))}
-                            </select>
-                        </PanelField>
-                        <PanelField label="Comuna">
-                            <select
-                                value={form.city}
-                                onChange={(e) => set('city', e.target.value)}
-                                disabled={!form.region}
-                                className="form-select"
-                            >
-                                <option value="">{form.region ? 'Selecciona una comuna' : 'Selecciona region primero'}</option>
-                                {communeOptions.map((c) => (
-                                    <option key={c.value} value={c.value}>{c.label}</option>
-                                ))}
-                            </select>
                         </PanelField>
                     </div>
                 </PanelCard>
+
+                {/* Ubicacion — gestionada desde Direcciones */}
+                <Link
+                    href="/panel/configuracion/direcciones"
+                    className="flex items-center gap-4 p-4 rounded-2xl border transition-colors hover:border-[--accent-border]"
+                    style={{ borderColor: 'var(--border)', background: 'var(--surface)' }}
+                >
+                    <div
+                        className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0"
+                        style={{ background: 'var(--accent-soft)', color: 'var(--accent)' }}
+                    >
+                        <IconMapPin size={16} />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                        <p className="text-sm font-semibold" style={{ color: 'var(--fg)' }}>Consultorios y direcciones</p>
+                        <p className="text-xs mt-0.5" style={{ color: 'var(--fg-muted)' }}>
+                            Agrega una o más direcciones donde atiendes presencialmente.
+                        </p>
+                    </div>
+                    <IconChevronRight size={16} style={{ color: 'var(--accent)' }} />
+                </Link>
 
                 {/* Configuracion de reservas */}
                 <PanelCard size="md">
