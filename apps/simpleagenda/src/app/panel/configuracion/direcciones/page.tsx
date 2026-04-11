@@ -117,6 +117,7 @@ export default function DireccionesConfigPage() {
     const addressInputRef = useRef<HTMLInputElement>(null);
     const autocompleteRef = useRef<any>(null);
     const formRef = useRef(form);
+    const addressKeyRef = useRef(0);
 
     useEffect(() => { formRef.current = form; }, [form]);
 
@@ -230,6 +231,7 @@ export default function DireccionesConfigPage() {
         const regionId = LOCATION_REGIONS.find((r) => r.name === location.region)?.id ?? '';
         const communes = regionId ? getCommunesForRegion(regionId) : [];
         const communeId = communes.find((c) => c.name === location.city)?.id ?? '';
+        addressKeyRef.current += 1;
         setForm({
             name: location.name,
             addressLine: location.addressLine,
@@ -248,6 +250,7 @@ export default function DireccionesConfigPage() {
     const handleCancel = () => {
         setShowForm(false);
         setEditingId(null);
+        addressKeyRef.current += 1;
         setForm(emptyForm());
         setError('');
     };
@@ -332,30 +335,33 @@ export default function DireccionesConfigPage() {
                                 />
                             </PanelField>
 
-                            <PanelField
-                                label="Dirección"
-                                required
-                                hint={autocompleteReady
-                                    ? 'Escribe la calle y el número — selecciona la sugerencia para autocompletar región y comuna.'
-                                    : 'Escribe la calle y número. Región y comuna se completan automáticamente si Google Places está disponible.'}
-                            >
-                                <div className="relative">
-                                    <IconSearch
-                                        size={15}
-                                        className="absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none"
-                                        style={{ color: autocompleteReady ? 'var(--accent)' : 'var(--fg-muted)' }}
-                                    />
-                                    <input
-                                        ref={addressInputRef}
-                                        type="text"
-                                        value={form.addressLine}
-                                        onChange={(e) => set('addressLine', e.target.value)}
-                                        placeholder="Ej: Av. Providencia 1234, Oficina 301"
-                                        className="form-input pl-9"
-                                        autoComplete="street-address"
-                                    />
+                            <div className="flex flex-col gap-1.5">
+                                <div className="flex items-center gap-2">
+                                    <label className="text-sm font-medium" style={{ color: 'var(--fg)' }}>
+                                        Dirección <span style={{ color: 'var(--accent)' }}>*</span>
+                                    </label>
+                                    {autocompleteReady && (
+                                        <span className="inline-flex items-center gap-0.5 text-[10px] font-medium px-1.5 py-0.5 rounded" style={{ background: 'var(--accent-soft)', color: 'var(--accent)' }}>
+                                            <IconSearch size={9} /> Google Places activo
+                                        </span>
+                                    )}
                                 </div>
-                            </PanelField>
+                                <input
+                                    key={addressKeyRef.current}
+                                    ref={addressInputRef}
+                                    type="text"
+                                    defaultValue={form.addressLine}
+                                    onChange={(e) => set('addressLine', e.target.value)}
+                                    placeholder="Ej: Av. Providencia 1234, Oficina 301"
+                                    className="form-input"
+                                    autoComplete="off"
+                                />
+                                <p className="text-xs" style={{ color: 'var(--fg-muted)' }}>
+                                    {autocompleteReady
+                                        ? 'Escribe la calle y el número — selecciona la sugerencia para autocompletar región y comuna.'
+                                        : 'Escribe la calle y número.'}
+                                </p>
+                            </div>
 
                             <div className="grid grid-cols-2 gap-4">
                                 <PanelField label="Región">
