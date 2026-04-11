@@ -64,7 +64,7 @@ function injectPriceBlock(description: string, priceBlock: string): string {
 
 function buildFallbackText(brand: string, model: string, data: QuickBasicData, communeName?: string): GeneratedText {
     const typeLabel = data.listingType === 'rent' ? 'en arriendo' : data.listingType === 'auction' ? 'en subasta' : 'en venta';
-    const titleParts = [brand, model, data.version, data.year, data.color, data.bodyType].filter(Boolean);
+    const titleParts = [brand, model, data.year, data.bodyType, data.color].filter(Boolean);
     const titulo = toTitleCase(titleParts.join(' ')).slice(0, 70);
     const kmRaw = data.mileage?.replace(/\D/g, '') ?? '';
     const kmNum = kmRaw ? Number(kmRaw) : null;
@@ -162,14 +162,14 @@ ${specs}
 
 REGLAS TÍTULO (máx 70 caracteres):
 - Formato Title Case
-- Incluir en orden: marca, modelo, versión (si hay), año, color (si hay), carrocería (si hay)
+- Incluir en orden: marca, modelo, año, carrocería (si hay), color (si hay)
 - Sin guiones ni símbolos especiales, solo espacios
 - Si supera 70 caracteres, omite primero carrocería, luego color
 
 REGLAS DESCRIPCIÓN (entre 400 y 700 caracteres):
 Usa el siguiente formato con saltos de línea reales (\\n):
 
-Línea 1 — TITULAR: emoji + "Marca Modelo [Versión] Año [Color]" + guión + slogan corto + 1-2 emojis.
+Línea 1 — TITULAR: emoji + "Marca Modelo Año [Carrocería] [Color]" + guión + slogan corto + 1-2 emojis.
 
 Línea vacía
 

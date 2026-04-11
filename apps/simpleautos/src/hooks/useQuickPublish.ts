@@ -131,7 +131,7 @@ function parseDigits(value: string | undefined): string {
 function buildFallbackText(basicData: QuickBasicData, location: ListingLocation | null): GeneratedText {
     const brand = basicData.brandName ?? (basicData.brandId === '__custom__' ? basicData.customBrand : basicData.brandId);
     const model = basicData.modelName ?? (basicData.modelId === '__custom__' ? basicData.customModel : basicData.modelId);
-    const title = [brand, model, basicData.year, basicData.version].filter(Boolean).join(' ').trim();
+    const title = [brand, model, basicData.year, basicData.bodyType, basicData.color].filter(Boolean).join(' ').trim();
     const specs = [
         basicData.mileage ? `${basicData.mileage} km` : '',
         basicData.transmission,
