@@ -32,6 +32,7 @@ export type AgendaProfile = {
     headline: string | null;
     bio: string | null;
     avatarUrl: string | null;
+    coverUrl: string | null;
     publicEmail: string | null;
     publicPhone: string | null;
     publicWhatsapp: string | null;
@@ -56,6 +57,13 @@ export type AgendaProfile = {
     mpUserId: string | null;
     paymentLinkUrl: string | null;
     bankTransferData: BankTransferData | null;
+    websiteUrl: string | null;
+    instagramUrl: string | null;
+    facebookUrl: string | null;
+    linkedinUrl: string | null;
+    tiktokUrl: string | null;
+    youtubeUrl: string | null;
+    twitterUrl: string | null;
     createdAt: string;
     updatedAt: string;
 };
@@ -367,6 +375,7 @@ export type AgendaStats = {
     thisMonthAppointments: number;
     hasServices: boolean;
     hasRules: boolean;
+    hasLocations: boolean;
 };
 
 export async function cancelPublicAppointment(appointmentId: string, reason?: string): Promise<{ ok: boolean; error?: string }> {

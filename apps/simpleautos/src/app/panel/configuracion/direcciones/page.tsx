@@ -38,11 +38,12 @@ export default function DireccionesPage() {
             <PanelPageHeader
                 backHref="/panel/configuracion"
                 title="Direcciones"
-                description="Gestiona tus direcciones de despacho y retiro."
+                description="Registra y gestiona tus direcciones. Puedes tener más de una activa."
             />
 
             <div className="space-y-4">
                 <AddressBookManager
+                    showHeader={false}
                     entries={addressBook}
                     regions={LOCATION_REGIONS.map((item) => ({ value: item.id, label: item.name }))}
                     getCommunes={(regionId) => getCommunesForRegion(regionId).map((item) => ({ value: item.id, label: item.name }))}
@@ -63,9 +64,8 @@ export default function DireccionesPage() {
                             addressLine1: draft.location.addressLine1,
                             addressLine2: draft.location.addressLine2,
                             postalCode: draft.location.postalCode,
+                            arrivalInstructions: draft.location.arrivalInstructions,
                             geoPoint: draft.location.geoPoint,
-                            contactName: draft.contactName,
-                            contactPhone: draft.contactPhone,
                             isDefault: draft.isDefault,
                         };
                         const result = draft.id

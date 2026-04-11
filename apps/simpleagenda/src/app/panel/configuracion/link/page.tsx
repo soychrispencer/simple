@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
     IconLoader2,
     IconCopy,
@@ -9,16 +9,21 @@ import {
     IconAlertCircle,
     IconEye,
     IconEyeOff,
+    IconEdit,
+    IconX,
 } from '@tabler/icons-react';
 import {
     PanelCard,
     PanelButton,
     PanelSwitch,
     PanelPageHeader,
+    PanelField,
 } from '@simple/ui';
-import { fetchAgendaProfile, saveAgendaProfile, type AgendaProfile } from '@/lib/agenda-api';
+import { fetchAgendaProfile, saveAgendaProfile, checkSlugAvailable, type AgendaProfile } from '@/lib/agenda-api';
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3004';
+
+const SLUG_RE = /^[a-z0-9-]{3,50}$/;
 
 export default function LinkReservasPage() {
     const [loading, setLoading] = useState(true);
@@ -26,6 +31,14 @@ export default function LinkReservasPage() {
     const [copied, setCopied] = useState(false);
     const [togglingPublish, setTogglingPublish] = useState(false);
     const [publishSaved, setPublishSaved] = useState(false);
+
+    const [editingSlug, setEditingSlug] = useState(false);
+    const [slugDraft, setSlugDraft] = useState('');
+    const [slugAvailable, setSlugAvailable] = useState<boolean | null>(null);
+    const [checkingSlug, setCheckingSlug] = useState(false);
+    const [savingSlug, setSavingSlug] = useState(false);
+    const [slugError, setSlugError] = useState('');
+    const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
     useEffect(() => {
         const load = async () => {
@@ -37,6 +50,47 @@ export default function LinkReservasPage() {
     }, []);
 
     const publicUrl = profile?.slug ? `${APP_URL}/${profile.slug}` : null;
+
+    const startEditSlug = () => {
+        setSlugDraft(profile?.slug ?? '');
+        setSlugAvailable(null);
+        setSlugError('');
+        setEditingSlug(true);
+    };
+
+    const cancelEditSlug = () => {
+        setEditingSlug(false);
+        setSlugDraft('');
+        setSlugError('');
+        setSlugAvailable(null);
+    };
+
+    const handleSlugChange = useCallback((val: string) => {
+        const clean = val.toLowerCase().replace(/[^a-z0-9-]/g, '');
+        setSlugDraft(clean);
+        setSlugAvailable(null);
+        setSlugError('');
+        if (!SLUG_RE.test(clean)) return;
+        if (clean === profile?.slug) { setSlugAvailable(true); return; }
+        if (debounceRef.current) clearTimeout(debounceRef.current);
+        setCheckingSlug(true);
+        debounceRef.current = setTimeout(async () => {
+            const res = await checkSlugAvailable(clean);
+            setCheckingSlug(false);
+            setSlugAvailable(res.available);
+        }, 500);
+    }, [profile?.slug]);
+
+    const handleSaveSlug = async () => {
+        if (!SLUG_RE.test(slugDraft)) { setSlugError('El link debe tener entre 3 y 50 caracteres (solo letras, números y guiones).'); return; }
+        if (slugAvailable === false) { setSlugError('Ese link ya está en uso.'); return; }
+        setSavingSlug(true);
+        const res = await saveAgendaProfile({ slug: slugDraft } as Partial<AgendaProfile>);
+        setSavingSlug(false);
+        if (!res.ok) { setSlugError(res.error ?? 'No se pudo guardar.'); return; }
+        setProfile((prev) => prev ? { ...prev, slug: slugDraft } : prev);
+        setEditingSlug(false);
+    };
 
     const handleCopy = async () => {
         if (!publicUrl) return;
@@ -119,37 +173,96 @@ export default function LinkReservasPage() {
                         </span>
                     </div>
 
-                    {/* URL display */}
-                    <div
-                        className="flex items-center gap-2 px-4 py-3 rounded-xl mb-4"
-                        style={{ background: 'var(--bg)', border: '1px solid var(--border)' }}
-                    >
-                        <span className="flex-1 text-sm truncate" style={{ color: 'var(--fg)' }}>
-                            {publicUrl}
-                        </span>
-                    </div>
+                    {/* URL display / edit */}
+                    {!editingSlug ? (
+                        <>
+                            <div
+                                className="flex items-center gap-2 px-4 py-3 rounded-xl mb-4"
+                                style={{ background: 'var(--bg)', border: '1px solid var(--border)' }}
+                            >
+                                <span className="flex-1 text-sm truncate" style={{ color: 'var(--fg)' }}>
+                                    {publicUrl}
+                                </span>
+                                <button
+                                    type="button"
+                                    onClick={startEditSlug}
+                                    className="shrink-0 p-1.5 rounded-lg transition-colors hover:opacity-70"
+                                    style={{ color: 'var(--fg-secondary)' }}
+                                    title="Editar link"
+                                >
+                                    <IconEdit size={14} />
+                                </button>
+                            </div>
 
-                    {/* Actions */}
-                    <div className="flex gap-2">
-                        <PanelButton
-                            variant="accent"
-                            onClick={() => void handleCopy()}
-                            className="flex-1 justify-center"
-                        >
-                            {copied ? <IconCheck size={15} /> : <IconCopy size={15} />}
-                            {copied ? 'Copiado' : 'Copiar link'}
-                        </PanelButton>
-                        <a
-                            href={publicUrl!}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl border text-sm transition-colors hover:bg-(--bg-subtle)"
-                            style={{ borderColor: 'var(--border)', color: 'var(--fg-secondary)' }}
-                        >
-                            <IconExternalLink size={15} />
-                            Ver página
-                        </a>
-                    </div>
+                            {/* Actions */}
+                            <div className="flex gap-2">
+                                <PanelButton
+                                    variant="accent"
+                                    onClick={() => void handleCopy()}
+                                    className="flex-1 justify-center"
+                                >
+                                    {copied ? <IconCheck size={15} /> : <IconCopy size={15} />}
+                                    {copied ? 'Copiado' : 'Copiar link'}
+                                </PanelButton>
+                                <a
+                                    href={publicUrl!}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl border text-sm transition-colors hover:opacity-80"
+                                    style={{ borderColor: 'var(--border)', color: 'var(--fg-secondary)' }}
+                                >
+                                    <IconExternalLink size={15} />
+                                    Ver página
+                                </a>
+                            </div>
+                        </>
+                    ) : (
+                        <div className="mb-1">
+                            <PanelField label="Personaliza tu link" hint={`${APP_URL}/`}>
+                                <div className="relative">
+                                    <input
+                                        type="text"
+                                        className="form-input pr-8"
+                                        value={slugDraft}
+                                        onChange={(e) => handleSlugChange(e.target.value)}
+                                        placeholder="tu-nombre"
+                                        autoFocus
+                                        spellCheck={false}
+                                    />
+                                    <div className="absolute right-2.5 top-1/2 -translate-y-1/2">
+                                        {checkingSlug && <IconLoader2 size={14} className="animate-spin" style={{ color: 'var(--fg-muted)' }} />}
+                                        {!checkingSlug && slugAvailable === true && slugDraft !== profile?.slug && <IconCheck size={14} style={{ color: 'var(--accent)' }} />}
+                                        {!checkingSlug && slugAvailable === false && <IconX size={14} style={{ color: 'var(--color-error)' }} />}
+                                    </div>
+                                </div>
+                            </PanelField>
+                            {slugError && (
+                                <p className="text-xs mt-1 flex items-center gap-1" style={{ color: 'var(--color-error)' }}>
+                                    <IconAlertCircle size={12} /> {slugError}
+                                </p>
+                            )}
+                            {slugDraft && !SLUG_RE.test(slugDraft) && (
+                                <p className="text-xs mt-1" style={{ color: 'var(--fg-muted)' }}>Solo letras minúsculas, números y guiones. Mínimo 3 caracteres.</p>
+                            )}
+                            {slugAvailable === false && !slugError && (
+                                <p className="text-xs mt-1" style={{ color: 'var(--color-error)' }}>Ese link ya está en uso, prueba otro.</p>
+                            )}
+                            {slugDraft !== profile?.slug && slugAvailable === true && (
+                                <p className="text-xs mt-1" style={{ color: 'var(--fg-muted)' }}>⚠️ Si cambias el link, tus links anteriores dejarán de funcionar.</p>
+                            )}
+                            <div className="flex gap-2 mt-3">
+                                <PanelButton
+                                    variant="accent"
+                                    onClick={() => void handleSaveSlug()}
+                                    disabled={savingSlug || checkingSlug || !SLUG_RE.test(slugDraft) || slugAvailable === false}
+                                >
+                                    {savingSlug ? <IconLoader2 size={14} className="animate-spin" /> : <IconCheck size={14} />}
+                                    {savingSlug ? 'Guardando...' : 'Guardar link'}
+                                </PanelButton>
+                                <PanelButton variant="secondary" onClick={cancelEditSlug}>Cancelar</PanelButton>
+                            </div>
+                        </div>
+                    )}
                 </PanelCard>
 
                 {/* Publish toggle */}

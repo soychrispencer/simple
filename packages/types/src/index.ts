@@ -1,17 +1,22 @@
 import { z } from 'zod';
 
-export const addressBookKindSchema = z.enum([
+export const listingLocationKindSchema = z.enum([
     'personal',
-    'shipping',
-    'billing',
-    'company',
+    'office',
+    'clinic',
+    'store',
     'branch',
+    'company',
     'warehouse',
+    'shipping',
     'pickup',
+    'billing',
     'other',
 ]);
+export type ListingLocationKind = z.infer<typeof listingLocationKindSchema>;
 
-export type AddressBookKind = z.infer<typeof addressBookKindSchema>;
+export const addressBookKindSchema = listingLocationKindSchema;
+export type AddressBookKind = ListingLocationKind;
 
 export const listingLocationSourceModeSchema = z.enum(['saved_address', 'custom', 'area_only']);
 export type ListingLocationSourceMode = z.infer<typeof listingLocationSourceModeSchema>;
@@ -52,8 +57,7 @@ export const addressBookEntrySchema = z.object({
     addressLine1: z.string().trim().nullable().default(null),
     addressLine2: z.string().trim().nullable().default(null),
     postalCode: z.string().trim().nullable().default(null),
-    contactName: z.string().trim().nullable().default(null),
-    contactPhone: z.string().trim().nullable().default(null),
+    arrivalInstructions: z.string().trim().nullable().default(null),
     isDefault: z.boolean().default(false),
     geoPoint: geoPointSchema.default({ latitude: null, longitude: null, precision: 'none' }),
     createdAt: z.number().int().nonnegative().optional(),
@@ -69,10 +73,13 @@ export const listingLocationSchema = z.object({
     regionName: z.string().trim().nullable().default(null),
     communeId: z.string().trim().nullable().default(null),
     communeName: z.string().trim().nullable().default(null),
+    label: z.string().trim().nullable().default(null),
+    kind: listingLocationKindSchema.nullable().default(null),
     neighborhood: z.string().trim().nullable().default(null),
     addressLine1: z.string().trim().nullable().default(null),
     addressLine2: z.string().trim().nullable().default(null),
     postalCode: z.string().trim().nullable().default(null),
+    arrivalInstructions: z.string().trim().nullable().default(null),
     geoPoint: geoPointSchema.default({ latitude: null, longitude: null, precision: 'none' }),
     visibilityMode: listingLocationVisibilityModeSchema.default('commune_only'),
     publicMapEnabled: z.boolean().default(true),

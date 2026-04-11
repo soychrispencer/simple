@@ -8,10 +8,12 @@ import {
     IconSun,
     IconMoon,
     IconUser,
-    IconMenu2,
-    IconX,
     IconLogout,
     IconCalendar,
+    IconLayoutDashboard,
+    IconSettings,
+    IconCreditCard,
+    IconUsers,
 } from '@tabler/icons-react';
 import { useAuth } from '@/context/auth-context';
 import { PanelButton } from '@simple/ui';
@@ -21,7 +23,6 @@ export function Header() {
     const router = useRouter();
     const { theme, setTheme } = useTheme();
     const [mounted, setMounted] = useState(false);
-    const [mobileOpen, setMobileOpen] = useState(false);
     const [accountOpen, setAccountOpen] = useState(false);
     const { user, isLoggedIn, requireAuth, logout } = useAuth();
 
@@ -59,7 +60,7 @@ export function Header() {
                     </Link>
                 </nav>
 
-                <div className="hidden md:flex items-center gap-2">
+                <div className="flex items-center gap-2">
                     {isLoggedIn ? <NotificationBell /> : null}
                     {mounted ? (
                         <button
@@ -71,6 +72,7 @@ export function Header() {
                         </button>
                     ) : null}
 
+                    {/* User dropdown - visible on all screen sizes */}
                     <div className="relative">
                         {isLoggedIn ? (
                             <>
@@ -84,20 +86,58 @@ export function Header() {
 
                                 {accountOpen ? (
                                     <div
-                                        className="absolute right-0 top-[calc(100%+8px)] z-50 w-[240px] rounded-xl border p-2 animate-slide-down"
+                                        className="absolute right-0 top-[calc(100%+8px)] z-50 w-[260px] rounded-xl border p-2 animate-slide-down"
                                         style={{ background: 'var(--surface)', borderColor: 'var(--border)', boxShadow: 'var(--shadow-md)' }}
                                     >
                                         <div className="px-2.5 py-2 mb-1 rounded-lg" style={{ background: 'var(--bg-subtle)' }}>
                                             <p className="text-sm font-medium" style={{ color: 'var(--fg)' }}>{userName}</p>
                                             <p className="text-xs" style={{ color: 'var(--fg-muted)' }}>{user?.email}</p>
                                         </div>
+                                        {/* Panel navigation items */}
                                         <Link
                                             href="/panel"
                                             onClick={() => setAccountOpen(false)}
                                             className="flex items-center gap-2 rounded-lg px-2.5 py-2 text-sm transition-colors hover:bg-(--bg-subtle)"
                                             style={{ color: 'var(--fg-secondary)' }}
                                         >
-                                            Mi panel
+                                            <IconLayoutDashboard size={16} />
+                                            Inicio
+                                        </Link>
+                                        <Link
+                                            href="/panel/agenda"
+                                            onClick={() => setAccountOpen(false)}
+                                            className="flex items-center gap-2 rounded-lg px-2.5 py-2 text-sm transition-colors hover:bg-(--bg-subtle)"
+                                            style={{ color: 'var(--fg-secondary)' }}
+                                        >
+                                            <IconCalendar size={16} />
+                                            Mi Agenda
+                                        </Link>
+                                        <Link
+                                            href="/panel/clientes"
+                                            onClick={() => setAccountOpen(false)}
+                                            className="flex items-center gap-2 rounded-lg px-2.5 py-2 text-sm transition-colors hover:bg-(--bg-subtle)"
+                                            style={{ color: 'var(--fg-secondary)' }}
+                                        >
+                                            <IconUsers size={16} />
+                                            Pacientes
+                                        </Link>
+                                        <Link
+                                            href="/panel/pagos"
+                                            onClick={() => setAccountOpen(false)}
+                                            className="flex items-center gap-2 rounded-lg px-2.5 py-2 text-sm transition-colors hover:bg-(--bg-subtle)"
+                                            style={{ color: 'var(--fg-secondary)' }}
+                                        >
+                                            <IconCreditCard size={16} />
+                                            Cobros
+                                        </Link>
+                                        <Link
+                                            href="/panel/configuracion"
+                                            onClick={() => setAccountOpen(false)}
+                                            className="flex items-center gap-2 rounded-lg px-2.5 py-2 text-sm transition-colors hover:bg-(--bg-subtle)"
+                                            style={{ color: 'var(--fg-secondary)' }}
+                                        >
+                                            <IconSettings size={16} />
+                                            Configuración
                                         </Link>
                                         <div className="mt-2 pt-2 border-t" style={{ borderColor: 'var(--border)' }}>
                                             <button
@@ -116,61 +156,17 @@ export function Header() {
                     </div>
 
                     {isLoggedIn ? (
-                        <PanelButton onClick={handlePanel} variant="primary" size="sm" className="h-9 px-4 text-sm">
+                        <PanelButton onClick={handlePanel} variant="primary" size="sm" className="hidden md:inline-flex h-9 px-4 text-sm">
                             Mi agenda
                         </PanelButton>
                     ) : (
-                        <PanelButton onClick={handlePanel} variant="primary" size="sm" className="h-9 px-4 text-sm">
+                        <PanelButton onClick={handlePanel} variant="primary" size="sm" className="hidden md:inline-flex h-9 px-4 text-sm">
                             Comenzar gratis
                         </PanelButton>
                     )}
                 </div>
-
-                <div className="flex md:hidden items-center gap-2">
-                    {isLoggedIn ? <NotificationBell /> : null}
-                    {mounted ? (
-                        <button
-                            onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
-                            className="header-icon-chip"
-                            aria-label="Cambiar tema"
-                        >
-                            {theme === 'dark' ? <IconSun size={16} /> : <IconMoon size={16} />}
-                        </button>
-                    ) : null}
-                    <button onClick={() => setMobileOpen(!mobileOpen)} className="header-icon-chip" aria-label="Menú">
-                        {mobileOpen ? <IconX size={18} /> : <IconMenu2 size={18} />}
-                    </button>
-                </div>
             </div>
 
-            {mobileOpen ? (
-                <div className="md:hidden animate-slide-down" style={{ borderTop: '1px solid var(--border)', background: 'var(--bg)' }}>
-                    <nav className="container-app flex flex-col py-4 gap-1">
-                        <Link href="/#como-funciona" className="py-2.5 px-3 text-base rounded-lg" style={{ color: 'var(--fg-secondary)' }} onClick={() => setMobileOpen(false)}>
-                            Funciones
-                        </Link>
-                        <Link href="/#planes" className="py-2.5 px-3 text-base rounded-lg" style={{ color: 'var(--fg-secondary)' }} onClick={() => setMobileOpen(false)}>
-                            Planes
-                        </Link>
-                        <div className="mt-3 flex gap-2">
-                            {isLoggedIn ? (
-                                <>
-                                    <PanelButton onClick={() => { setMobileOpen(false); router.push('/panel'); }} variant="secondary" className="flex-1 h-10 text-sm">
-                                        Mi panel
-                                    </PanelButton>
-                                    <PanelButton onClick={() => { setMobileOpen(false); void logout(); }} variant="secondary" className="flex-1 h-10 text-sm">
-                                        Salir
-                                    </PanelButton>
-                                </>
-                            ) : (
-                                <PanelButton onClick={() => { setMobileOpen(false); handlePanel(); }} variant="primary" className="flex-1 h-10 text-sm">
-                                    Comenzar gratis
-                                </PanelButton>
-                            )}
-                        </div>
-                    </nav>
-                </div>
-            ) : null}
         </header>
     );
 }

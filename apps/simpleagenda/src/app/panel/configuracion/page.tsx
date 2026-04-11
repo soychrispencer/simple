@@ -42,6 +42,7 @@ export default function ConfiguracionPage() {
     const serviciosDone = stats?.hasServices === true;
     const disponibilidadDone = stats?.hasRules === true;
     const cobrosDone = !!(profile?.mpAccessToken || profile?.paymentLinkUrl || profile?.bankTransferData);
+    const locationsDone = stats?.hasLocations === true;
     const publicadoDone = profile?.isPublished === true;
 
     const sections: Section[] = [
@@ -78,6 +79,14 @@ export default function ConfiguracionPage() {
             required: false,
         },
         {
+            href: '/panel/configuracion/direcciones',
+            icon: IconMapPin,
+            title: 'Direcciones',
+            description: 'Consultorios y lugares donde atiendes presencialmente.',
+            done: locationsDone,
+            required: false,
+        },
+        {
             href: '/panel/configuracion/link',
             icon: IconLink,
             title: 'Publicar tu agenda',
@@ -88,12 +97,6 @@ export default function ConfiguracionPage() {
     ];
 
     const extras = [
-        {
-            href: '/panel/configuracion/direcciones',
-            icon: IconMapPin,
-            title: 'Direcciones de consulta',
-            description: 'Dónde atiendes de forma presencial.',
-        },
         {
             href: '/panel/configuracion/integraciones',
             icon: IconPlug,

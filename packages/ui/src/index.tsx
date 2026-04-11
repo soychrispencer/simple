@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react';
-import type { AddressBookEntry, AddressBookKind, ListingLocation, ListingLocationVisibilityMode } from '@simple/types';
+import type { AddressBookEntry, AddressBookKind, ListingLocation, ListingLocationKind, ListingLocationVisibilityMode } from '@simple/types';
 import { applyAddressBookEntryToLocation, createEmptyListingLocation, patchListingLocation } from '@simple/types';
 
 type SelectOption = {
@@ -37,10 +37,12 @@ type ListingLocationEditorProps = {
     showPublicPreviewCard?: boolean;
     showActionBar?: boolean;
     showGoogleMapsLink?: boolean;
+    showLocationMeta?: boolean;
     addressRequired?: boolean;
     showSimpleVisibilityToggle?: boolean;
     visibilityOptions?: VisibilityOption[];
     geocoding?: boolean;
+    googleMapsApiKey?: string;
     onGeocode?: () => void | Promise<void>;
     onSaveToAddressBook?: () => void | Promise<void>;
 };
@@ -98,8 +100,6 @@ export type AddressBookManagerSubmitInput = {
     id?: string;
     label: string;
     kind: AddressBookKind;
-    contactName: string | null;
-    contactPhone: string | null;
     isDefault: boolean;
     location: ListingLocation;
 };
@@ -639,6 +639,7 @@ export function InstagramTemplatePreview(props: InstagramTemplatePreviewProps) {
 type AddressBookManagerProps = {
     title?: string;
     description?: string;
+    showHeader?: boolean;
     entries: AddressBookEntry[];
     regions: SelectOption[];
     getCommunes: (regionId: string) => SelectOption[];
@@ -956,16 +957,22 @@ const DEFAULT_VISIBILITY_OPTIONS: VisibilityOption[] = [
     { value: 'hidden', label: 'Oculta' },
 ];
 
-const ADDRESS_KIND_OPTIONS: Array<{ value: AddressBookKind; label: string }> = [
-    { value: 'personal', label: 'Particular' },
-    { value: 'company', label: 'Empresa' },
-    { value: 'shipping', label: 'Envíos' },
-    { value: 'billing', label: 'Facturación' },
-    { value: 'branch', label: 'Sucursal' },
-    { value: 'warehouse', label: 'Bodega' },
-    { value: 'pickup', label: 'Retiro' },
-    { value: 'other', label: 'Otra' },
-];
+const LOCATION_KIND_LABELS: Record<ListingLocationKind, string> = {
+    personal: 'Dirección personal',
+    office: 'Oficina',
+    clinic: 'Consulta médica',
+    store: 'Local comercial',
+    branch: 'Sucursal',
+    company: 'Empresa',
+    warehouse: 'Bodega',
+    shipping: 'Envíos',
+    pickup: 'Retiro',
+    billing: 'Facturación',
+    other: 'Otro',
+};
+const ADDRESS_KIND_OPTIONS: Array<{ value: AddressBookKind; label: string }> = (
+    Object.keys(LOCATION_KIND_LABELS) as ListingLocationKind[]
+).map((k) => ({ value: k, label: LOCATION_KIND_LABELS[k] }));
 
 let googlePlacesScriptPromise: Promise<boolean> | null = null;
 
@@ -1008,19 +1015,18 @@ function ensureGooglePlacesDropdownStyles() {
             font-family: inherit !important;
         }
         .pac-item {
-            min-height: 52px !important;
-            display: grid !important;
-            grid-template-columns: 16px minmax(0, 1fr) !important;
-            align-items: start !important;
-            column-gap: 12px !important;
-            row-gap: 2px !important;
-            padding: 12px 16px !important;
+            display: flex !important;
+            align-items: center !important;
+            gap: 8px !important;
+            padding: 10px 16px !important;
             border-top: 1px solid var(--border) !important;
             color: var(--fg) !important;
-            font-size: 14px !important;
-            line-height: 1.3 !important;
+            font-size: 13px !important;
+            line-height: 1 !important;
             background: transparent !important;
-            white-space: normal !important;
+            white-space: nowrap !important;
+            overflow: hidden !important;
+            cursor: pointer !important;
         }
         .pac-item:first-child {
             border-top: 0 !important;
@@ -1029,34 +1035,28 @@ function ensureGooglePlacesDropdownStyles() {
         .pac-item-selected {
             background: var(--bg-subtle) !important;
         }
-        .pac-item-query,
-        .pac-matched {
-            color: var(--fg) !important;
-            font-size: 14px !important;
+        .pac-icon {
+            display: none !important;
         }
         .pac-item-query {
-            grid-column: 2 !important;
-            display: block !important;
+            flex-shrink: 0 !important;
+            font-size: 13px !important;
             font-weight: 600 !important;
-            line-height: 1.25 !important;
-        }
-        .pac-item span:not(.pac-icon):not(.pac-item-query) {
-            grid-column: 2 !important;
-            display: block !important;
-            margin-top: 1px !important;
-            color: var(--fg-muted) !important;
-            font-size: 12px !important;
-            line-height: 1.3 !important;
+            color: var(--fg) !important;
+            overflow: hidden !important;
+            text-overflow: ellipsis !important;
+            white-space: nowrap !important;
         }
         .pac-matched {
-            font-weight: 600 !important;
+            font-weight: 700 !important;
         }
-        .pac-icon {
-            grid-column: 1 !important;
-            grid-row: 1 / span 2 !important;
-            align-self: start !important;
-            margin: 4px 0 0 0 !important;
-            opacity: 0.5 !important;
+        .pac-item span:not(.pac-icon):not(.pac-item-query) {
+            flex: 1 !important;
+            font-size: 12px !important;
+            color: var(--fg-muted) !important;
+            overflow: hidden !important;
+            text-overflow: ellipsis !important;
+            white-space: nowrap !important;
         }
     `;
     document.head.appendChild(style);
@@ -1177,12 +1177,16 @@ function loadGooglePlacesScript(apiKey: string): Promise<boolean> {
         }
 
         const script = document.createElement('script');
-        script.src = `https://maps.googleapis.com/maps/api/js?key=${encodeURIComponent(apiKey)}&libraries=places&language=es&region=CL&loading=async`;
+        script.src = `https://maps.googleapis.com/maps/api/js?key=${encodeURIComponent(apiKey)}&libraries=places&language=es&region=CL`;
         script.async = true;
         script.defer = true;
         script.dataset.googlePlacesScript = 'true';
-        script.onload = () => resolve(Boolean((window as typeof window & { google?: any }).google?.maps?.places?.Autocomplete));
-        script.onerror = () => resolve(false);
+        script.onload = () => {
+            const ok = Boolean((window as typeof window & { google?: any }).google?.maps?.places?.Autocomplete);
+            if (!ok) googlePlacesScriptPromise = null;
+            resolve(ok);
+        };
+        script.onerror = () => { googlePlacesScriptPromise = null; resolve(false); };
         document.head.appendChild(script);
     });
 
@@ -3394,21 +3398,26 @@ export function ListingLocationEditor(props: ListingLocationEditorProps) {
         showPublicPreviewCard = true,
         showActionBar = true,
         showGoogleMapsLink = false,
+        showLocationMeta = false,
         addressRequired = false,
         showSimpleVisibilityToggle = true,
         visibilityOptions = DEFAULT_VISIBILITY_OPTIONS,
         geocoding = false,
+        googleMapsApiKey,
         onGeocode,
         onSaveToAddressBook,
     } = props;
-    const addressInputRef = useRef<HTMLInputElement | null>(null);
+    const [addressInputEl, setAddressInputEl] = useState<HTMLInputElement | null>(null);
+    const addressInputRef = (el: HTMLInputElement | null) => { setAddressInputEl(el); };
+    const addressInputElRef = useRef<HTMLInputElement | null>(null);
     const locationRef = useRef(location);
     const regionsRef = useRef(regions);
     const communesRef = useRef(communes);
     const allCommunesRef = useRef(allCommunes ?? communes);
     const onChangeRef = useRef(onChange);
     const autocompleteRef = useRef<any>(null);
-    const googlePlacesKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_BROWSER_KEY
+    const googlePlacesKey = googleMapsApiKey
+        || process.env.NEXT_PUBLIC_GOOGLE_MAPS_BROWSER_KEY
         || process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY
         || process.env.NEXT_PUBLIC_GOOGLE_MAPS_EMBED_KEY
         || '';
@@ -3445,7 +3454,11 @@ export function ListingLocationEditor(props: ListingLocationEditorProps) {
     }, [onChange]);
 
     useEffect(() => {
-        if (!googlePlacesKey || location.sourceMode === 'area_only' || !addressInputRef.current) {
+        addressInputElRef.current = addressInputEl;
+    }, [addressInputEl]);
+
+    useEffect(() => {
+        if (!googlePlacesKey || location.sourceMode === 'area_only' || !addressInputEl) {
             setAutocompleteReady(false);
             return;
         }
@@ -3454,7 +3467,7 @@ export function ListingLocationEditor(props: ListingLocationEditorProps) {
         ensureGooglePlacesDropdownStyles();
 
         void loadGooglePlacesScript(googlePlacesKey).then((ready) => {
-            if (disposed || !ready || !addressInputRef.current) {
+            if (disposed || !ready || !addressInputElRef.current) {
                 setAutocompleteReady(false);
                 return;
             }
@@ -3469,7 +3482,7 @@ export function ListingLocationEditor(props: ListingLocationEditorProps) {
                 googleMaps.event.clearInstanceListeners(autocompleteRef.current);
             }
 
-            const autocomplete = new googleMaps.places.Autocomplete(addressInputRef.current, {
+            const autocomplete = new googleMaps.places.Autocomplete(addressInputElRef.current, {
                 componentRestrictions: { country: 'cl' },
                 fields: ['address_components', 'formatted_address', 'geometry', 'name'],
                 types: ['address'],
@@ -3493,14 +3506,10 @@ export function ListingLocationEditor(props: ListingLocationEditorProps) {
                 googleMaps.event.clearInstanceListeners(autocompleteRef.current);
             }
         };
-    }, [googlePlacesKey, location.sourceMode]);
+    }, [googlePlacesKey, location.sourceMode, addressInputEl]);
 
-    const addressHint = autocompleteReady
-        ? 'Escribe la calle y el número. Si aparece una sugerencia, selecciónala.'
-        : (googlePlacesKey
-            ? 'Escribe la calle y el número. Si Google Places está disponible, verás sugerencias.'
-            : 'Escribe la calle y el número tal como aparece en Google Maps.');
-    const internalMapsUrl = showGoogleMapsLink
+    const addressHint = autocompleteReady ? 'Selecciona una sugerencia cuando aparezca.' : undefined;
+    const internalMapsUrl = (showGoogleMapsLink || showLocationMeta)
         ? buildGoogleMapsUrls(
             location.geoPoint.latitude,
             location.geoPoint.longitude,
@@ -3508,6 +3517,7 @@ export function ListingLocationEditor(props: ListingLocationEditorProps) {
             buildLocationQuery(location, 'internal')
         )?.externalUrl || null
         : null;
+    const kindOptions = ADDRESS_KIND_OPTIONS;
     const savedAddressSelectValue = location.sourceMode === 'saved_address' && location.sourceAddressId
         ? location.sourceAddressId
         : '__new__';
@@ -3545,36 +3555,82 @@ export function ListingLocationEditor(props: ListingLocationEditorProps) {
             />
         </Field>
     );
+    const mapsActionButtons = internalMapsUrl ? (
+        <div className="flex gap-2 flex-wrap">
+            <a
+                href={internalMapsUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-medium transition-colors hover:opacity-80"
+                style={{ borderColor: 'var(--border)', color: 'var(--fg-secondary)', background: 'var(--bg)' }}
+            >
+                Ver en Maps
+            </a>
+            <button
+                type="button"
+                onClick={() => {
+                    if (typeof navigator !== 'undefined' && navigator.share) {
+                        void navigator.share({ title: location.label || 'Dirección', url: internalMapsUrl });
+                    } else if (typeof navigator !== 'undefined' && navigator.clipboard) {
+                        void navigator.clipboard.writeText(internalMapsUrl);
+                    }
+                }}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-medium transition-colors hover:opacity-80"
+                style={{ borderColor: 'var(--border)', color: 'var(--fg-secondary)', background: 'var(--bg)' }}
+            >
+                Compartir
+            </button>
+        </div>
+    ) : null;
+    const locationMetaFields = showLocationMeta ? (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <Field label="Nombre de la dirección" required>
+                <input
+                    className="form-input"
+                    value={location.label || ''}
+                    onChange={(event) => onChange(patchListingLocation(location, { label: event.target.value }))}
+                    placeholder="Ej: Consulta Providencia"
+                />
+            </Field>
+            <Field label="Tipo">
+                <StyledSelect
+                    value={location.kind || ''}
+                    onChange={(nextValue) => onChange(patchListingLocation(location, { kind: (nextValue as ListingLocationKind) || null }))}
+                    placeholder="Seleccionar tipo"
+                    options={kindOptions}
+                />
+            </Field>
+        </div>
+    ) : null;
+    const arrivalField = showLocationMeta ? (
+        <Field label="Instrucciones de llegada" hint="Referencias visibles para el paciente antes de la sesión.">
+            <textarea
+                className="form-textarea"
+                value={location.arrivalInstructions || ''}
+                onChange={(event) => onChange(patchListingLocation(location, { arrivalInstructions: event.target.value }))}
+                placeholder="Ej: Piso 3, timbre 301. Estacionamiento disponible en el edificio."
+                rows={3}
+            />
+        </Field>
+    ) : null;
     const addressFields = location.sourceMode !== 'area_only' ? (
         simpleMode ? (
             <div className="grid grid-cols-1 gap-3">
                 <Field label="Dirección" required={addressRequired} error={fieldError(errors, 'addressLine1')} hint={addressHint}>
-                    <div className="flex flex-col gap-2 md:flex-row md:items-center">
-                        <input
-                            ref={addressInputRef}
-                            className="form-input"
-                            style={{ flex: 1 }}
-                            value={location.addressLine1 || ''}
-                            autoComplete="street-address"
-                            onChange={(event) => onChange(patchListingLocation(location, {
-                                addressLine1: event.target.value,
-                                sourceAddressId: location.sourceMode === 'saved_address' ? null : location.sourceAddressId,
-                                sourceMode: location.sourceMode === 'saved_address' ? 'custom' : location.sourceMode,
-                                ...clearResolvedGeo(location),
-                            }))}
-                            placeholder="Ej: Av. Italia 1452"
-                        />
-                        {internalMapsUrl ? (
-                            <a
-                                href={internalMapsUrl}
-                                target="_blank"
-                                rel="noreferrer"
-                                className="btn btn-outline h-10 px-3 text-sm whitespace-nowrap"
-                            >
-                                Ver en Google Maps
-                            </a>
-                        ) : null}
-                    </div>
+                    <input
+                        ref={addressInputRef}
+                        className="form-input"
+                        value={location.addressLine1 || ''}
+                        autoComplete="off"
+                        onChange={(event) => onChange(patchListingLocation(location, {
+                            addressLine1: event.target.value,
+                            sourceAddressId: location.sourceMode === 'saved_address' ? null : location.sourceAddressId,
+                            sourceMode: location.sourceMode === 'saved_address' ? 'custom' : location.sourceMode,
+                            ...clearResolvedGeo(location),
+                        }))}
+                        placeholder="Ej: Av. Italia 1452"
+                    />
+                    {mapsActionButtons}
                 </Field>
                 <Field label="Depto, oficina o referencia">
                     <input className="form-input" value={location.addressLine2 || ''} onChange={(event) => onChange(patchListingLocation(location, { addressLine2: event.target.value }))} placeholder="Ej: Depto 608, torre B o portón gris" />
@@ -3636,6 +3692,7 @@ export function ListingLocationEditor(props: ListingLocationEditorProps) {
             ) : null}
             {simpleMode ? (
                 <>
+                    {locationMetaFields}
                     {addressBookLoading || addressBook.length > 0 ? (
                         <Field label="Usar dirección">
                             <StyledSelect
@@ -3663,6 +3720,7 @@ export function ListingLocationEditor(props: ListingLocationEditorProps) {
                         {regionField}
                         {communeField}
                     </div>
+                    {arrivalField}
                     {(showSimpleVisibilityToggle || onSaveToAddressBook) ? (
                         <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
                             {showSimpleVisibilityToggle ? (
@@ -3780,8 +3838,6 @@ function createDraftFromEntry(entry?: AddressBookEntry | null): AddressBookManag
         id: entry?.id,
         label: entry?.label || '',
         kind: entry?.kind || 'personal',
-        contactName: entry?.contactName || null,
-        contactPhone: entry?.contactPhone || null,
         isDefault: entry?.isDefault || false,
         location: patchListingLocation(
             createEmptyListingLocation({
@@ -3789,6 +3845,8 @@ function createDraftFromEntry(entry?: AddressBookEntry | null): AddressBookManag
                 countryCode: entry?.countryCode || 'CL',
                 visibilityMode: 'exact',
                 publicMapEnabled: true,
+                label: entry?.label || null,
+                kind: (entry?.kind as any) || null,
             }),
             {
                 regionId: entry?.regionId || null,
@@ -3799,6 +3857,7 @@ function createDraftFromEntry(entry?: AddressBookEntry | null): AddressBookManag
                 addressLine1: entry?.addressLine1 || null,
                 addressLine2: entry?.addressLine2 || null,
                 postalCode: entry?.postalCode || null,
+                arrivalInstructions: (entry as any)?.arrivalInstructions || null,
                 geoPoint: entry?.geoPoint || undefined,
                 publicGeoPoint: entry?.geoPoint || undefined,
                 publicLabel: [entry?.addressLine1, entry?.communeName, entry?.regionName].filter(Boolean).join(', '),
@@ -3811,6 +3870,7 @@ export function AddressBookManager(props: AddressBookManagerProps) {
     const {
         title = 'Direcciones guardadas',
         description = 'Guarda direcciones particulares, de empresa, sucursal o envíos para reutilizarlas en publicaciones y operaciones.',
+        showHeader = true,
         entries,
         regions,
         getCommunes,
@@ -3843,7 +3903,7 @@ export function AddressBookManager(props: AddressBookManagerProps) {
         [regions, getCommunes]
     );
 
-    const submitDisabled = !draft.label.trim() || !draft.location.regionId || !draft.location.communeId || !draft.location.addressLine1?.trim();
+    const submitDisabled = !(draft.location.label?.trim() || draft.label.trim()) || !draft.location.regionId || !draft.location.communeId || !draft.location.addressLine1?.trim();
 
     const handleStartCreate = () => {
         setEditingId(null);
@@ -3873,10 +3933,12 @@ export function AddressBookManager(props: AddressBookManagerProps) {
     return (
         <div className="space-y-6">
             <div className="flex flex-wrap gap-4" style={{ justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                <div>
-                    <h2 className="text-base font-semibold mb-1" style={{ color: 'var(--fg)' }}>{title}</h2>
-                    <p className="text-sm" style={{ color: 'var(--fg-muted)' }}>{description}</p>
-                </div>
+                {showHeader ? (
+                    <div>
+                        <h2 className="text-base font-semibold mb-1" style={{ color: 'var(--fg)' }}>{title}</h2>
+                        <p className="text-sm" style={{ color: 'var(--fg-muted)' }}>{description}</p>
+                    </div>
+                ) : null}
                 {!composerOpen ? (
                     <button type="button" className="btn btn-primary h-10 px-4 text-sm" style={{ marginLeft: 'auto' }} onClick={handleStartCreate}>
                         + Agregar direccion
@@ -3896,10 +3958,8 @@ export function AddressBookManager(props: AddressBookManagerProps) {
                                 {entry.isDefault ? <span className="rounded-full px-2 py-1 text-[11px] font-medium" style={{ background: 'var(--bg-muted)', color: 'var(--fg-secondary)' }}>Predeterminada</span> : null}
                             </div>
                             <p className="text-sm mt-3" style={{ color: 'var(--fg-secondary)' }}>{addressSummary(entry)}</p>
-                            {(entry.contactName || entry.contactPhone) ? (
-                                <p className="text-xs mt-2" style={{ color: 'var(--fg-muted)' }}>
-                                    {[entry.contactName, entry.contactPhone].filter(Boolean).join(' · ')}
-                                </p>
+                            {(entry as any).arrivalInstructions ? (
+                                <p className="text-xs mt-2 italic" style={{ color: 'var(--fg-muted)' }}>{(entry as any).arrivalInstructions}</p>
                             ) : null}
                             <div className="mt-4 flex flex-wrap gap-2">
                                 <button type="button" className="btn btn-outline h-9 px-3 text-xs" onClick={() => handleEdit(entry)}>Editar</button>
@@ -3931,8 +3991,9 @@ export function AddressBookManager(props: AddressBookManagerProps) {
                                     <p className="text-sm font-semibold" style={{ color: 'var(--fg)' }}>Ubicación</p>
                                     <ListingLocationEditor
                                         simpleMode
+                                        showLocationMeta
                                         location={draft.location}
-                                        onChange={(next) => setDraft((current) => ({ ...current, location: patchListingLocation(next, { visibilityMode: 'exact', publicMapEnabled: true }) }))}
+                                        onChange={(next) => setDraft((current) => ({ ...current, location: patchListingLocation(next, { visibilityMode: 'exact', publicMapEnabled: true }), label: next.label?.trim() || current.label, kind: (next.kind as AddressBookKind | null) || current.kind }))}
                                         regions={regions}
                                         communes={communes}
                                         allCommunes={allCommunes}
@@ -3949,34 +4010,6 @@ export function AddressBookManager(props: AddressBookManagerProps) {
                                         showGoogleMapsLink
                                         addressRequired
                                     />
-                                </div>
-
-                                <div className="space-y-3">
-                                    <p className="text-sm font-semibold" style={{ color: 'var(--fg)' }}>Identificación</p>
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                        <Field label="Tipo">
-                                            <StyledSelect
-                                                value={draft.kind}
-                                                onChange={(nextValue) => setDraft((current) => ({ ...current, kind: nextValue as AddressBookKind }))}
-                                                options={ADDRESS_KIND_OPTIONS}
-                                            />
-                                        </Field>
-                                        <Field label="Etiqueta" required>
-                                            <input className="form-input" value={draft.label} onChange={(event) => setDraft((current) => ({ ...current, label: event.target.value }))} placeholder="Ej: Oficina Las Condes" />
-                                        </Field>
-                                    </div>
-                                </div>
-
-                                <div className="space-y-3">
-                                    <p className="text-sm font-semibold" style={{ color: 'var(--fg)' }}>Contacto</p>
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                        <Field label="Contacto">
-                                            <input className="form-input" value={draft.contactName || ''} onChange={(event) => setDraft((current) => ({ ...current, contactName: event.target.value || null }))} placeholder="Ej: Recepción" />
-                                        </Field>
-                                        <Field label="Teléfono">
-                                            <input className="form-input" value={draft.contactPhone || ''} onChange={(event) => setDraft((current) => ({ ...current, contactPhone: event.target.value || null }))} placeholder="+56 9 1234 5678" />
-                                        </Field>
-                                    </div>
                                 </div>
 
                                 <label className="flex items-center gap-3 rounded-xl border px-4 py-3 text-sm" style={{ borderColor: 'var(--border)', background: 'var(--bg)' }}>

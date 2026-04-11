@@ -162,8 +162,7 @@ type AddressBookEntry = {
     addressLine1: string | null;
     addressLine2: string | null;
     postalCode: string | null;
-    contactName: string | null;
-    contactPhone: string | null;
+    arrivalInstructions: string | null;
     isDefault: boolean;
     geoPoint: GeoPoint;
     createdAt: number;
@@ -1040,8 +1039,7 @@ const addressBookWriteSchema = z.object({
     addressLine1: z.string().trim().nullable().default(null),
     addressLine2: z.string().trim().nullable().default(null),
     postalCode: z.string().trim().nullable().default(null),
-    contactName: z.string().trim().nullable().default(null),
-    contactPhone: z.string().trim().nullable().default(null),
+    arrivalInstructions: z.string().trim().nullable().default(null),
     isDefault: z.boolean().default(false),
     geoPoint: geoPointSchema.optional(),
 });
@@ -1573,8 +1571,7 @@ async function loadDataFromDB() {
             addressLine1: entry.addressLine1,
             addressLine2: entry.addressLine2,
             postalCode: entry.postalCode,
-            contactName: entry.contactName,
-            contactPhone: entry.contactPhone,
+            arrivalInstructions: entry.arrivalInstructions ?? null,
             isDefault: entry.isDefault,
             geoPoint: (entry.geoPoint as GeoPoint) || makeGeoPoint(null, null, 'none'),
             createdAt: entry.createdAt.getTime(),
@@ -5241,8 +5238,7 @@ async function getAddressBookEntries(userId: string): Promise<AddressBookEntry[]
         addressLine1: row.addressLine1,
         addressLine2: row.addressLine2,
         postalCode: row.postalCode,
-        contactName: row.contactName,
-        contactPhone: row.contactPhone,
+        arrivalInstructions: row.arrivalInstructions ?? null,
         isDefault: row.isDefault,
         geoPoint: (row.geoPoint as GeoPoint) || makeGeoPoint(null, null, 'none'),
         createdAt: row.createdAt.getTime(),
@@ -5270,8 +5266,7 @@ async function upsertAddressBookEntry(
         addressLine1: input.addressLine1,
         addressLine2: input.addressLine2,
         postalCode: input.postalCode,
-        contactName: input.contactName,
-        contactPhone: input.contactPhone,
+        arrivalInstructions: input.arrivalInstructions ?? null,
         isDefault: input.isDefault,
         geoPoint: input.geoPoint ?? makeGeoPoint(null, null, 'none'),
         updatedAt: now,
@@ -14702,6 +14697,8 @@ app.patch('/api/agenda/profile', requireVerifiedSession, async (c) => {
         'encuadre', 'requiresAdvancePayment', 'advancePaymentInstructions',
         'waNotificationsEnabled', 'waNotifyProfessional', 'waProfessionalPhone',
         'paymentLinkUrl', 'bankTransferData',
+        'coverUrl',
+        'websiteUrl', 'instagramUrl', 'facebookUrl', 'linkedinUrl', 'tiktokUrl', 'youtubeUrl', 'twitterUrl',
     ] as const;
     const patch: Record<string, unknown> = { updatedAt: new Date() };
     for (const key of allowed) {
@@ -15254,6 +15251,7 @@ app.get('/api/agenda/stats', requireVerifiedSession, async (c) => {
         thisMonthApptCount,
         servicesCount,
         rulesCount,
+        locationsCount,
     ] = await Promise.all([
         db.select({ count: sql<number>`count(*)` }).from(agendaAppointments)
             .where(and(
@@ -15316,6 +15314,9 @@ app.get('/api/agenda/stats', requireVerifiedSession, async (c) => {
         // Setup checklist: active availability rules count
         db.select({ count: sql<number>`count(*)` }).from(agendaAvailabilityRules)
             .where(and(eq(agendaAvailabilityRules.professionalId, profile.id), eq(agendaAvailabilityRules.isActive, true))),
+        // Setup checklist: active locations count
+        db.select({ count: sql<number>`count(*)` }).from(agendaLocations)
+            .where(and(eq(agendaLocations.professionalId, profile.id), eq(agendaLocations.isActive, true))),
     ]);
 
     // Build 7-day week array Mon–Sun
@@ -15347,6 +15348,7 @@ app.get('/api/agenda/stats', requireVerifiedSession, async (c) => {
             thisMonthAppointments: Number(thisMonthApptCount[0]?.count ?? 0),
             hasServices: Number(servicesCount[0]?.count ?? 0) > 0,
             hasRules: Number(rulesCount[0]?.count ?? 0) > 0,
+            hasLocations: Number(locationsCount[0]?.count ?? 0) > 0,
         },
     });
 });
@@ -15906,6 +15908,9 @@ app.get('/api/public/agenda/:slug', async (c) => {
     const services = await db.select().from(agendaServices)
         .where(and(eq(agendaServices.professionalId, profile.id), eq(agendaServices.isActive, true)))
         .orderBy(asc(agendaServices.position));
+    const locations = await db.select().from(agendaLocations)
+        .where(and(eq(agendaLocations.professionalId, profile.id), eq(agendaLocations.isActive, true)))
+        .orderBy(asc(agendaLocations.position));
     return c.json({
         ok: true,
         profile: {
@@ -15915,8 +15920,18 @@ app.get('/api/public/agenda/:slug', async (c) => {
             headline: profile.headline,
             bio: profile.bio,
             avatarUrl: profile.avatarUrl,
+            coverUrl: profile.coverUrl ?? null,
             city: profile.city,
+            publicEmail: profile.publicEmail ?? null,
+            publicPhone: profile.publicPhone ?? null,
             publicWhatsapp: profile.publicWhatsapp,
+            websiteUrl: profile.websiteUrl ?? null,
+            instagramUrl: profile.instagramUrl ?? null,
+            facebookUrl: profile.facebookUrl ?? null,
+            linkedinUrl: profile.linkedinUrl ?? null,
+            tiktokUrl: profile.tiktokUrl ?? null,
+            youtubeUrl: profile.youtubeUrl ?? null,
+            twitterUrl: profile.twitterUrl ?? null,
             timezone: profile.timezone,
             bookingWindowDays: profile.bookingWindowDays,
             encuadre: profile.encuadre,
@@ -15929,6 +15944,15 @@ app.get('/api/public/agenda/:slug', async (c) => {
                 bankTransferData: profile.bankTransferData ?? null,
             },
             services,
+            locations: locations.map(loc => ({
+                id: loc.id,
+                name: loc.name,
+                addressLine: loc.addressLine,
+                city: loc.city,
+                region: loc.region,
+                notes: loc.notes,
+                googleMapsUrl: loc.googleMapsUrl,
+            })),
         },
     });
 });

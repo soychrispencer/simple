@@ -183,6 +183,20 @@
       "when": 1743465600000,
       "tag": "0025_instagram_url_text",
       "breakpoints": true
+    },
+    {
+      "idx": 26,
+      "version": "7",
+      "when": 1744380000000,
+      "tag": "0026_address_book_arrival_instructions",
+      "breakpoints": true
+    },
+    {
+      "idx": 27,
+      "version": "7",
+      "when": 1744382400000,
+      "tag": "0027_agenda_profile_social_links",
+      "breakpoints": true
     }
   ]
 }

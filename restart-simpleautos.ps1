@@ -1,4 +1,4 @@
-#!/usr/bin/env pwsh
+:#!/usr/bin/env pwsh
 $ErrorActionPreference = 'SilentlyContinue'
 
 Write-Host "==========================================" -ForegroundColor Cyan

@@ -210,7 +210,7 @@ export const publicProfileTeamMembers = pgTable('public_profile_team_members', {
 export const addressBook = pgTable('address_book', {
   id: uuid('id').primaryKey().defaultRandom(),
   userId: uuid('user_id').references(() => users.id).notNull(),
-  kind: varchar('kind', { length: 20 }).notNull().default('personal'), // 'personal' | 'shipping' | 'billing' | 'company' | 'branch' | 'warehouse' | 'pickup' | 'other'
+  kind: varchar('kind', { length: 20 }).notNull().default('personal'), // office | clinic | store | branch | company | personal | shipping | billing | warehouse | pickup | other
   label: varchar('label', { length: 100 }).notNull(),
   countryCode: varchar('country_code', { length: 3 }).notNull().default('CL'),
   regionId: varchar('region_id', { length: 50 }),
@@ -221,8 +221,7 @@ export const addressBook = pgTable('address_book', {
   addressLine1: varchar('address_line_1', { length: 255 }),
   addressLine2: varchar('address_line_2', { length: 255 }),
   postalCode: varchar('postal_code', { length: 20 }),
-  contactName: varchar('contact_name', { length: 160 }),
-  contactPhone: varchar('contact_phone', { length: 40 }),
+  arrivalInstructions: text('arrival_instructions'),
   isDefault: boolean('is_default').notNull().default(false),
   geoPoint: jsonb('geo_point'), // { latitude: number, longitude: number, precision: string }
   createdAt: timestamp('created_at').notNull().defaultNow(),
@@ -439,6 +438,14 @@ export const agendaProfessionalProfiles = pgTable('agenda_professional_profiles'
     holderEmail: string;
     alias?: string;
   } | null>(),
+  // Social media links
+  websiteUrl: varchar('website_url', { length: 500 }),
+  instagramUrl: varchar('instagram_url', { length: 500 }),
+  facebookUrl: varchar('facebook_url', { length: 500 }),
+  linkedinUrl: varchar('linkedin_url', { length: 500 }),
+  tiktokUrl: varchar('tiktok_url', { length: 500 }),
+  youtubeUrl: varchar('youtube_url', { length: 500 }),
+  twitterUrl: varchar('twitter_url', { length: 500 }),
   // Notifications
   notificationsLastSeenAt: timestamp('notifications_last_seen_at'),
   // Subscription plan
