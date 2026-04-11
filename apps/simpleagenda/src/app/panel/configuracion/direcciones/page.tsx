@@ -130,72 +130,79 @@ export default function DireccionesConfigPage() {
         const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_BROWSER_KEY
             || process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY
             || '';
-        if (!apiKey || !addressInputRef.current) { setAutocompleteReady(false); return; }
+        if (!apiKey) { setAutocompleteReady(false); return; }
 
         let disposed = false;
-        void loadGoogleScript(apiKey).then((ready) => {
-            if (disposed || !ready || !addressInputRef.current) { setAutocompleteReady(false); return; }
-            const googleMaps = (window as any).google?.maps;
-            if (!googleMaps?.places?.Autocomplete) { setAutocompleteReady(false); return; }
 
-            if (autocompleteRef.current && googleMaps.event?.clearInstanceListeners) {
-                googleMaps.event.clearInstanceListeners(autocompleteRef.current);
-            }
+        // Wait one tick so React finishes rendering the form and mounts the input
+        const timer = setTimeout(() => {
+            if (disposed || !addressInputRef.current) { setAutocompleteReady(false); return; }
 
-            const ac = new googleMaps.places.Autocomplete(addressInputRef.current, {
-                componentRestrictions: { country: 'cl' },
-                fields: ['address_components', 'formatted_address', 'geometry', 'name'],
-                types: ['address'],
+            void loadGoogleScript(apiKey).then((ready) => {
+                if (disposed || !ready || !addressInputRef.current) { setAutocompleteReady(false); return; }
+                const googleMaps = (window as any).google?.maps;
+                if (!googleMaps?.places?.Autocomplete) { setAutocompleteReady(false); return; }
+
+                if (autocompleteRef.current && googleMaps.event?.clearInstanceListeners) {
+                    googleMaps.event.clearInstanceListeners(autocompleteRef.current);
+                }
+
+                const ac = new googleMaps.places.Autocomplete(addressInputRef.current, {
+                    componentRestrictions: { country: 'cl' },
+                    fields: ['address_components', 'formatted_address', 'geometry', 'name'],
+                    types: ['address'],
+                });
+
+                ac.addListener('place_changed', () => {
+                    const place = ac.getPlace?.() as GPlace | undefined;
+                    if (!place) return;
+
+                    const streetNum = getComponent(place, ['street_number'])?.long_name ?? '';
+                    const route = getComponent(place, ['route'])?.long_name ?? '';
+                    const addressLine = [route, streetNum].filter(Boolean).join(' ').trim()
+                        || place.name
+                        || place.formatted_address
+                        || '';
+
+                    const regionNameFromPlace = getComponent(place, ['administrative_area_level_1'])?.long_name ?? '';
+                    const communeNameFromPlace =
+                        getComponent(place, ['administrative_area_level_3'])?.long_name
+                        ?? getComponent(place, ['locality'])?.long_name
+                        ?? getComponent(place, ['administrative_area_level_2'])?.long_name
+                        ?? '';
+
+                    const matchedRegion = regionNameFromPlace
+                        ? LOCATION_REGIONS.find((r) => normalizeStr(r.name) === normalizeStr(regionNameFromPlace))
+                        : null;
+
+                    const communes = matchedRegion ? getCommunesForRegion(matchedRegion.id) : [];
+                    const matchedCommune = communeNameFromPlace
+                        ? communes.find((c) => normalizeStr(c.name) === normalizeStr(communeNameFromPlace))
+                        : null;
+
+                    const mapsUrl = place.geometry?.location?.lat && place.geometry?.location?.lng
+                        ? `https://www.google.com/maps?q=${place.geometry.location.lat()},${place.geometry.location.lng()}`
+                        : formRef.current.googleMapsUrl;
+
+                    setForm((prev) => ({
+                        ...prev,
+                        addressLine,
+                        regionId: matchedRegion?.id ?? prev.regionId,
+                        regionName: matchedRegion?.name ?? regionNameFromPlace,
+                        communeId: matchedCommune?.id ?? prev.communeId,
+                        communeName: matchedCommune?.name ?? communeNameFromPlace,
+                        googleMapsUrl: mapsUrl,
+                    }));
+                });
+
+                autocompleteRef.current = ac;
+                setAutocompleteReady(true);
             });
-
-            ac.addListener('place_changed', () => {
-                const place = ac.getPlace?.() as GPlace | undefined;
-                if (!place) return;
-
-                const streetNum = getComponent(place, ['street_number'])?.long_name ?? '';
-                const route = getComponent(place, ['route'])?.long_name ?? '';
-                const addressLine = [route, streetNum].filter(Boolean).join(' ').trim()
-                    || place.name
-                    || place.formatted_address
-                    || '';
-
-                const regionNameFromPlace = getComponent(place, ['administrative_area_level_1'])?.long_name ?? '';
-                const communeNameFromPlace =
-                    getComponent(place, ['administrative_area_level_3'])?.long_name
-                    ?? getComponent(place, ['locality'])?.long_name
-                    ?? getComponent(place, ['administrative_area_level_2'])?.long_name
-                    ?? '';
-
-                const matchedRegion = regionNameFromPlace
-                    ? LOCATION_REGIONS.find((r) => normalizeStr(r.name) === normalizeStr(regionNameFromPlace))
-                    : null;
-
-                const communes = matchedRegion ? getCommunesForRegion(matchedRegion.id) : [];
-                const matchedCommune = communeNameFromPlace
-                    ? communes.find((c) => normalizeStr(c.name) === normalizeStr(communeNameFromPlace))
-                    : null;
-
-                const mapsUrl = place.geometry?.location?.lat && place.geometry?.location?.lng
-                    ? `https://www.google.com/maps?q=${place.geometry.location.lat()},${place.geometry.location.lng()}`
-                    : formRef.current.googleMapsUrl;
-
-                setForm((prev) => ({
-                    ...prev,
-                    addressLine,
-                    regionId: matchedRegion?.id ?? prev.regionId,
-                    regionName: matchedRegion?.name ?? regionNameFromPlace,
-                    communeId: matchedCommune?.id ?? prev.communeId,
-                    communeName: matchedCommune?.name ?? communeNameFromPlace,
-                    googleMapsUrl: mapsUrl,
-                }));
-            });
-
-            autocompleteRef.current = ac;
-            setAutocompleteReady(true);
-        });
+        }, 0);
 
         return () => {
             disposed = true;
+            clearTimeout(timer);
             const googleMaps = (window as any).google?.maps;
             if (autocompleteRef.current && googleMaps?.event?.clearInstanceListeners) {
                 googleMaps.event.clearInstanceListeners(autocompleteRef.current);
