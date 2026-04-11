@@ -100,7 +100,8 @@ export type AddressBookManagerSubmitInput = {
     location: ListingLocation;
 };
 
-function clampPreviewText(value: string, maxLength: number): string {
+function clampPreviewText(value: string | undefined, maxLength: number): string {
+    if (!value) return '';
     const normalized = value.replace(/\s+/g, ' ').trim();
     if (normalized.length <= maxLength) return normalized;
     return `${normalized.slice(0, Math.max(0, maxLength - 1)).trimEnd()}…`;
