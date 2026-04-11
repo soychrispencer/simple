@@ -12,18 +12,17 @@ import {
     IconCreditCard,
     IconMapPin,
     IconCheck,
-    IconLoader2,
-    IconLock,
 } from '@tabler/icons-react';
 import { fetchAgendaProfile, fetchAgendaStats, type AgendaProfile, type AgendaStats } from '@/lib/agenda-api';
 
-type StepStatus = 'done' | 'active' | 'locked';
-
-function stepStatus(done: boolean, prevDone: boolean): StepStatus {
-    if (done) return 'done';
-    if (prevDone) return 'active';
-    return 'locked';
-}
+type Section = {
+    href: string;
+    icon: React.ElementType;
+    title: string;
+    description: string;
+    done: boolean;
+    required: boolean;
+};
 
 export default function ConfiguracionPage() {
     const [profile, setProfile] = useState<AgendaProfile | null>(null);
@@ -45,51 +44,46 @@ export default function ConfiguracionPage() {
     const cobrosDone = !!(profile?.mpAccessToken || profile?.paymentLinkUrl || profile?.bankTransferData);
     const publicadoDone = profile?.isPublished === true;
 
-    const steps = [
+    const sections: Section[] = [
         {
-            num: 1,
             href: '/panel/configuracion/perfil',
             icon: IconUser,
             title: 'Perfil profesional',
             description: 'Foto, nombre, profesión, bio y políticas.',
             done: perfilDone,
-            status: stepStatus(perfilDone, true),
+            required: true,
         },
         {
-            num: 2,
             href: '/panel/configuracion/servicios',
             icon: IconBriefcase,
             title: 'Servicios y sesiones',
             description: 'Tipos de consulta, duración y precio.',
             done: serviciosDone,
-            status: stepStatus(serviciosDone, perfilDone),
+            required: true,
         },
         {
-            num: 3,
             href: '/panel/configuracion/disponibilidad',
             icon: IconClock,
             title: 'Disponibilidad',
             description: 'Horarios semanales y bloqueos de tiempo.',
             done: disponibilidadDone,
-            status: stepStatus(disponibilidadDone, serviciosDone),
+            required: true,
         },
         {
-            num: 4,
             href: '/panel/configuracion/cobros',
             icon: IconCreditCard,
             title: 'Métodos de cobro',
             description: 'MercadoPago, link de pago o transferencia.',
             done: cobrosDone,
-            status: stepStatus(cobrosDone, disponibilidadDone),
+            required: false,
         },
         {
-            num: 5,
             href: '/panel/configuracion/link',
             icon: IconLink,
             title: 'Publicar tu agenda',
             description: 'Activa tu link público y compártelo con tus pacientes.',
             done: publicadoDone,
-            status: stepStatus(publicadoDone, cobrosDone),
+            required: true,
         },
     ];
 
@@ -108,36 +102,37 @@ export default function ConfiguracionPage() {
         },
     ];
 
-    const completedCount = steps.filter((s) => s.done).length;
-    const allDone = completedCount === steps.length;
+    const requiredSections = sections.filter((s) => s.required);
+    const completedRequired = requiredSections.filter((s) => s.done).length;
+    const allReady = completedRequired === requiredSections.length;
 
     return (
         <div className="container-app panel-page py-8 max-w-2xl">
             <div className="mb-8">
                 <h1 className="text-2xl font-bold mb-1" style={{ color: 'var(--fg)' }}>Configuración</h1>
                 <p className="text-sm" style={{ color: 'var(--fg-muted)' }}>
-                    {allDone
+                    {allReady
                         ? 'Tu agenda está activa y lista para recibir reservas.'
-                        : 'Completa estos pasos para empezar a recibir reservas.'}
+                        : 'Ajusta cada sección a tu ritmo — todas están disponibles desde el inicio.'}
                 </p>
             </div>
 
-            {/* Progress bar */}
-            {!loading && !allDone && (
+            {/* Progress bar — solo si no está todo completo */}
+            {!loading && !allReady && (
                 <div className="mb-6">
                     <div className="flex items-center justify-between mb-2">
                         <span className="text-xs font-medium" style={{ color: 'var(--fg-muted)' }}>
-                            {completedCount} de {steps.length} pasos completados
+                            {completedRequired} de {requiredSections.length} secciones esenciales
                         </span>
                         <span className="text-xs font-semibold" style={{ color: 'var(--accent)' }}>
-                            {Math.round((completedCount / steps.length) * 100)}%
+                            {Math.round((completedRequired / requiredSections.length) * 100)}%
                         </span>
                     </div>
                     <div className="h-1.5 rounded-full overflow-hidden" style={{ background: 'var(--border)' }}>
                         <div
                             className="h-full rounded-full transition-all duration-500"
                             style={{
-                                width: `${(completedCount / steps.length) * 100}%`,
+                                width: `${(completedRequired / requiredSections.length) * 100}%`,
                                 background: 'var(--accent)',
                             }}
                         />
@@ -145,65 +140,55 @@ export default function ConfiguracionPage() {
                 </div>
             )}
 
-            {/* Steps */}
+            {/* Secciones */}
             <div className="flex flex-col gap-2 mb-10">
                 {loading
                     ? Array.from({ length: 5 }).map((_, i) => (
-                        <div
-                            key={i}
-                            className="h-18 rounded-2xl animate-pulse"
-                            style={{ background: 'var(--border)' }}
-                        />
+                        <div key={i} className="h-[72px] rounded-2xl animate-pulse" style={{ background: 'var(--border)' }} />
                     ))
-                    : steps.map((step, idx) => {
-                        const isLocked = step.status === 'locked';
-                        const isDone = step.status === 'done';
-                        const isActive = step.status === 'active';
-
-                        const inner = (
-                            <div
-                                className="flex items-center gap-4 p-4 rounded-2xl border transition-colors"
+                    : sections.map((section) => {
+                        const pendingRequired = section.required && !section.done;
+                        return (
+                            <Link
+                                key={section.href}
+                                href={section.href}
+                                className="flex items-center gap-4 p-4 rounded-2xl border transition-colors hover:border-[--accent-border]"
                                 style={{
-                                    borderColor: isActive ? 'var(--accent-border)' : 'var(--border)',
-                                    background: isActive ? 'var(--accent-soft)' : 'var(--surface)',
-                                    opacity: isLocked ? 0.45 : 1,
-                                    cursor: isLocked ? 'default' : 'pointer',
+                                    borderColor: pendingRequired ? 'var(--accent-border)' : 'var(--border)',
+                                    background: pendingRequired ? 'var(--accent-soft)' : 'var(--surface)',
                                 }}
                             >
-                                {/* Step indicator */}
+                                {/* Icono de estado */}
                                 <div
-                                    className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0 text-sm font-bold transition-colors"
+                                    className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0 transition-colors"
                                     style={{
-                                        background: isDone ? 'var(--accent)' : isActive ? 'var(--accent)' : 'var(--bg-muted)',
-                                        color: isDone || isActive ? '#fff' : 'var(--fg-muted)',
+                                        background: section.done ? 'var(--accent)' : 'var(--bg-muted)',
+                                        color: section.done ? '#fff' : 'var(--fg-muted)',
                                     }}
                                 >
-                                    {isDone ? <IconCheck size={15} /> : isLocked ? <IconLock size={13} /> : step.num}
+                                    {section.done
+                                        ? <IconCheck size={16} />
+                                        : <section.icon size={16} />
+                                    }
                                 </div>
 
                                 <div className="flex-1 min-w-0">
-                                    <p
-                                        className="text-sm font-semibold"
-                                        style={{ color: isDone ? 'var(--fg-muted)' : 'var(--fg)', textDecoration: isDone ? 'line-through' : 'none' }}
-                                    >
-                                        {step.title}
-                                    </p>
+                                    <div className="flex items-center gap-2">
+                                        <p className="text-sm font-semibold" style={{ color: 'var(--fg)' }}>
+                                            {section.title}
+                                        </p>
+                                        {!section.done && !section.required && (
+                                            <span className="text-[10px] font-medium px-1.5 py-0.5 rounded" style={{ background: 'var(--bg-muted)', color: 'var(--fg-muted)' }}>
+                                                Opcional
+                                            </span>
+                                        )}
+                                    </div>
                                     <p className="text-xs mt-0.5" style={{ color: 'var(--fg-muted)' }}>
-                                        {step.description}
+                                        {section.description}
                                     </p>
                                 </div>
 
-                                {!isLocked && (
-                                    <IconChevronRight size={16} style={{ color: isActive ? 'var(--accent)' : 'var(--fg-muted)' }} />
-                                )}
-                            </div>
-                        );
-
-                        return isLocked ? (
-                            <div key={step.href}>{inner}</div>
-                        ) : (
-                            <Link key={step.href} href={step.href} className="block">
-                                {inner}
+                                <IconChevronRight size={16} style={{ color: pendingRequired ? 'var(--accent)' : 'var(--fg-muted)' }} />
                             </Link>
                         );
                     })}

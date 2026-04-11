@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import {
     IconCalendar,
     IconUsers,
@@ -128,6 +129,7 @@ function RevenueTrend({ current, prev, loading }: { current: number; prev: numbe
 // ── Main page ─────────────────────────────────────────────────────────────────
 
 export default function PanelHomePage() {
+    const router = useRouter();
     const [stats, setStats] = useState<AgendaStats | null>(null);
     const [profile, setProfile] = useState<AgendaProfile | null>(null);
     const [loading, setLoading] = useState(true);
@@ -138,8 +140,13 @@ export default function PanelHomePage() {
             setStats(s);
             setProfile(p);
             setLoading(false);
+            // Redirigir al onboarding si el perfil está vacío (usuario nuevo)
+            if (!p?.displayName && !p?.profession) {
+                router.replace('/panel/onboarding');
+            }
         };
         void load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
     const isSetupIncomplete = !loading && !(
