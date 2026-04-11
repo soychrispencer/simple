@@ -401,30 +401,45 @@ export function InstagramTemplatePreview(props: InstagramTemplatePreviewProps) {
                         </>
                     ) : template.overlayVariant === 'essential-watermark' ? (
                         <>
-                            {/* ESSENTIAL: Vehículo protagonista, logo top-left 64x64 */}
-                            <div className="absolute top-3 left-3" style={{ opacity: 0.5 }}>
-                                <img src="/logo-light.png" alt={template.branding.appName} style={{ width: '40px', height: '40px', objectFit: 'contain', filter: 'drop-shadow(0 1px 3px rgba(0,0,0,0.5))' }} />
+                            {/* ═══ BÁSICO: Card naranja inferior, logo top-left */}
+                            {/* Logo 64x64 top-left */}
+                            <div className="absolute top-3 left-3" style={{ opacity: 0.6, zIndex: 2 }}>
+                                <img src="/logo-light.png" alt={template.branding.appName} style={{ width: '40px', height: '40px', objectFit: 'contain', filter: 'drop-shadow(0 1px 3px rgba(0,0,0,0.4))' }} />
                             </div>
-                            {/* Precio grande centrado abajo con gradient sutil */}
-                            <div
-                                className="absolute inset-x-0 bottom-0"
-                                style={{
-                                    background: 'linear-gradient(to top, rgba(0,0,0,0.65) 0%, rgba(0,0,0,0.3) 40%, transparent 100%)',
-                                    padding: '40px 16px 32px',
-                                }}
-                            >
-                                <div className="text-center">
-                                    <div className="text-[1.75rem] font-black text-white tracking-tight drop-shadow-lg">
+                            {/* Badges superiores derecha */}
+                            {template.highlights && template.highlights.length > 0 && (
+                                <div className="absolute top-3 right-3 flex flex-col gap-1.5 items-end" style={{ zIndex: 2 }}>
+                                    {template.highlights.slice(0, 3).map((highlight, i) => (
+                                        <span 
+                                            key={i} 
+                                            className="px-2.5 py-1 rounded-full text-[9px] font-semibold text-white bg-black/40 backdrop-blur-sm"
+                                            style={{ textShadow: '0 1px 2px rgba(0,0,0,0.5)' }}
+                                        >
+                                            {highlight}
+                                        </span>
+                                    ))}
+                                </div>
+                            )}
+                            {/* Card naranja en parte inferior */}
+                            <div className="absolute inset-x-0 bottom-0 px-3 pb-3" style={{ zIndex: 2 }}>
+                                <div 
+                                    className="rounded-xl p-3 text-white"
+                                    style={{ background: template.colors.accent || '#FF5722' }}
+                                >
+                                    <div className="text-[10px] uppercase tracking-wider opacity-90 mb-0.5">
+                                        {template.eyebrow}
+                                    </div>
+                                    <div className="text-lg font-black tracking-tight">
                                         {template.priceLabel}
                                     </div>
                                     {template.title && (
-                                        <div className="text-sm font-medium text-white/85 mt-1 line-clamp-1">
+                                        <div className="text-xs font-medium mt-0.5 line-clamp-1">
                                             {template.title}
                                         </div>
                                     )}
-                                    {template.eyebrow && (
-                                        <div className="text-xs text-white/60 mt-0.5">
-                                            {template.eyebrow}
+                                    {template.subtitle && (
+                                        <div className="text-[9px] opacity-80 mt-1">
+                                            {template.subtitle}
                                         </div>
                                     )}
                                 </div>
@@ -432,50 +447,57 @@ export function InstagramTemplatePreview(props: InstagramTemplatePreviewProps) {
                         </>
                     ) : template.overlayVariant === 'professional-centered' ? (
                         <>
-                            {/* PROFESSIONAL: Logo centrado 64x64 arriba de la tarjeta */}
-                            <div className="absolute inset-x-0 bottom-0 px-3 pb-4">
+                            {/* ═══ PROFESIONAL: Card naranja centrada, logo arriba */}
+                            {/* Badges superiores derecha */}
+                            {template.highlights && template.highlights.length > 0 && (
+                                <div className="absolute top-3 right-3 flex flex-col gap-1.5 items-end" style={{ zIndex: 2 }}>
+                                    {template.highlights.slice(0, 3).map((highlight, i) => (
+                                        <span 
+                                            key={i} 
+                                            className="px-2.5 py-1 rounded-full text-[9px] font-semibold text-white bg-black/40 backdrop-blur-sm"
+                                            style={{ textShadow: '0 1px 2px rgba(0,0,0,0.5)' }}
+                                        >
+                                            {highlight}
+                                        </span>
+                                    ))}
+                                </div>
+                            )}
+                            <div className="absolute inset-x-0 bottom-0 px-3 pb-4" style={{ zIndex: 2 }}>
                                 {/* Logo centrado arriba de la card */}
                                 <div className="flex justify-center" style={{ marginBottom: '-20px', position: 'relative', zIndex: 3 }}>
                                     <img src="/logo-light.png" alt={template.branding.appName} style={{ width: '40px', height: '40px', objectFit: 'contain', filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.4))' }} />
                                 </div>
+                                {/* Card naranja */}
                                 <div
-                                    className="rounded-2xl overflow-hidden"
+                                    className="rounded-2xl overflow-hidden text-white"
                                     style={{
-                                        background: 'rgba(255,255,255,0.95)',
-                                        backdropFilter: 'blur(12px)',
-                                        WebkitBackdropFilter: 'blur(12px)',
-                                        boxShadow: '0 8px 32px rgba(0,0,0,0.12), 0 2px 6px rgba(0,0,0,0.06)',
+                                        background: template.colors.accent || '#FF5722',
+                                        boxShadow: '0 8px 32px rgba(0,0,0,0.2)',
                                     }}
                                 >
-                                    {/* Barra superior accent */}
-                                    <div style={{ height: '3px', background: template.colors.accent }} />
-                                    <div className="px-4 py-3">
-                                        {/* Eyebrow: marca/modelo */}
-                                        {template.eyebrow && (
-                                            <div className="text-[10px] font-semibold uppercase tracking-[0.15em] mb-1" style={{ color: template.colors.accent }}>
-                                                {template.eyebrow}
-                                            </div>
-                                        )}
-                                        {/* Título del vehículo */}
+                                    <div className="px-4 py-3 pt-5">
+                                        {/* Precio grande */}
+                                        <div className="text-2xl font-black tracking-tight text-center">
+                                            {template.priceLabel}
+                                        </div>
+                                        {/* Título */}
                                         {template.title && (
-                                            <div className="text-sm font-bold leading-tight line-clamp-1" style={{ color: template.colors.textPrimary }}>
+                                            <div className="text-sm font-bold leading-tight line-clamp-1 text-center mt-1">
                                                 {template.title}
                                             </div>
                                         )}
-                                        {/* Precio destacado */}
-                                        <div className="text-2xl font-black tracking-tight mt-1" style={{ color: template.colors.textPrimary }}>
-                                            {template.priceLabel}
-                                        </div>
-                                        {/* Info secundaria: año, km, ubicación */}
+                                        {/* Info secundaria */}
                                         {template.subtitle && (
-                                            <div className="text-[11px] mt-1.5" style={{ color: template.colors.textSecondary ?? '#666' }}>
+                                            <div className="text-[10px] mt-1.5 text-center opacity-90">
                                                 {template.subtitle}
                                             </div>
                                         )}
-                                        {/* CTA */}
+                                        {/* Botón CTA */}
                                         {ctaLabel && (
-                                            <div className="text-xs font-bold mt-2" style={{ color: template.colors.accent }}>
-                                                {ctaLabel}
+                                            <div className="mt-2 flex justify-center">
+                                                <span className="px-4 py-1.5 rounded-full text-xs font-bold bg-white" style={{ color: template.colors.accent || '#FF5722' }}>
+                                                    {ctaLabel}
+                                                </span>
                                             </div>
                                         )}
                                     </div>
@@ -484,60 +506,61 @@ export function InstagramTemplatePreview(props: InstagramTemplatePreviewProps) {
                         </>
                     ) : template.overlayVariant === 'signature-complete' ? (
                         <>
-                            {/* SIGNATURE/PREMIUM: Logo top-left 64x64 */}
-                            <div className="absolute top-3 left-3" style={{ opacity: 0.6, zIndex: 3 }}>
+                            {/* ═══ PREMIUM: Diseño elaborado con card naranja */}
+                            {/* Logo top-left */}
+                            <div className="absolute top-3 left-3" style={{ opacity: 0.7, zIndex: 3 }}>
                                 <img src="/logo-light.png" alt={template.branding.appName} style={{ width: '40px', height: '40px', objectFit: 'contain', filter: 'drop-shadow(0 1px 3px rgba(0,0,0,0.4))' }} />
                             </div>
-                            {/* Footer con toda la info */}
-                            <div
-                                className="absolute inset-x-0 bottom-0"
-                                style={{
-                                    background: `linear-gradient(to top, ${template.colors.primary} 0%, ${template.colors.primary}ee 60%, transparent 100%)`,
-                                    padding: '48px 16px 16px',
-                                }}
-                            >
-                                {/* Título */}
-                                {template.title && (
-                                    <div className="text-sm font-bold text-white/90 leading-tight line-clamp-1 mb-1">
-                                        {template.title}
-                                    </div>
-                                )}
-                                {/* Precio grande */}
-                                <div className="text-[1.75rem] font-black tracking-tight" style={{ color: template.colors.accent }}>
-                                    {template.priceLabel}
+                            {/* Badges superiores derecha */}
+                            {template.highlights && template.highlights.length > 0 && (
+                                <div className="absolute top-3 right-3 flex flex-col gap-1.5 items-end" style={{ zIndex: 2 }}>
+                                    {template.highlights.slice(0, 3).map((highlight, i) => (
+                                        <span 
+                                            key={i} 
+                                            className="px-2.5 py-1 rounded-full text-[9px] font-semibold text-white bg-black/40 backdrop-blur-sm"
+                                            style={{ textShadow: '0 1px 2px rgba(0,0,0,0.5)' }}
+                                        >
+                                            {highlight}
+                                        </span>
+                                    ))}
                                 </div>
-                                {/* Highlights como tags */}
-                                {template.highlights && template.highlights.length > 0 && (
-                                    <div className="flex flex-wrap gap-1.5 mt-2">
-                                        {template.highlights.slice(0, 4).map((h, i) => (
-                                            <span
-                                                key={i}
-                                                className="text-[9px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded-full"
-                                                style={{ background: 'rgba(255,255,255,0.12)', color: 'rgba(255,255,255,0.85)' }}
-                                            >
-                                                {h}
-                                            </span>
-                                        ))}
+                            )}
+                            {/* Card naranja inferior con diseño elaborado */}
+                            <div className="absolute inset-x-0 bottom-0 px-3 pb-3" style={{ zIndex: 2 }}>
+                                <div 
+                                    className="rounded-xl p-3.5 text-white"
+                                    style={{ background: template.colors.accent || '#FF5722' }}
+                                >
+                                    {/* Header con eyebrow */}
+                                    <div className="flex items-center justify-between mb-1">
+                                        <span className="text-[9px] uppercase tracking-wider opacity-90">
+                                            {template.eyebrow}
+                                        </span>
                                     </div>
-                                )}
-                                {/* Subtítulo + CTA */}
-                                <div className="flex items-center justify-between mt-2 pt-2" style={{ borderTop: '1px solid rgba(255,255,255,0.1)' }}>
+                                    {/* Precio destacado */}
+                                    <div className="text-[1.75rem] font-black tracking-tight">
+                                        {template.priceLabel}
+                                    </div>
+                                    {/* Título */}
+                                    {template.title && (
+                                        <div className="text-sm font-semibold leading-tight line-clamp-1 mt-1">
+                                            {template.title}
+                                        </div>
+                                    )}
+                                    {/* Info adicional */}
                                     {template.subtitle && (
-                                        <div className="text-[10px] text-white/60">
+                                        <div className="text-[9px] opacity-80 mt-1.5">
                                             {template.subtitle}
                                         </div>
                                     )}
+                                    {/* CTA como badge */}
                                     {ctaLabel && (
-                                        <div className="text-[10px] font-bold" style={{ color: template.colors.accent }}>
-                                            {ctaLabel}
+                                        <div className="mt-2 flex justify-end">
+                                            <span className="px-3 py-1 rounded-full text-[10px] font-bold bg-white/20">
+                                                {ctaLabel}
+                                            </span>
                                         </div>
                                     )}
-                                </div>
-                                {/* Publicado vía SimpleAutos */}
-                                <div className="text-center mt-2">
-                                    <span className="text-[8px] text-white/30 uppercase tracking-widest">
-                                        Publicado vía {template.branding.appName}
-                                    </span>
                                 </div>
                             </div>
                         </>
