@@ -4245,11 +4245,30 @@ async function publishListingToInstagram(user: AppUser, listing: ListingRecord, 
         logDebug(`[instagram] failed to prepare cover image: ${e instanceof Error ? e.message : String(e)}`);
     }
 
+    // Template minimal para marca de agua en imágenes del carrusel (solo logo, sin overlay de texto)
+    const watermarkTemplate: InstagramRenderTemplate | null = options.template
+        ? {
+            ...options.template,
+            overlayVariant: 'essential-watermark',
+            title: '',
+            headline: '',
+            subtitle: undefined,
+            priceLabel: '',
+            offerPriceLabel: undefined,
+            discountLabel: undefined,
+            locationLabel: undefined,
+            highlights: [],
+            badges: [],
+            ctaLabel: '',
+            eyebrow: '',
+        }
+        : null;
+
     for (let i = 1; i < mediaUrls.length; i++) {
         try {
             const url = await prepareInstagramImageUrl(listing, i, {
                 layoutVariant: options.template?.layoutVariant ?? null,
-                template: null,
+                template: watermarkTemplate,
                 publishKey,
                 isCover: false,
             });
