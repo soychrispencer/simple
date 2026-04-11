@@ -78,23 +78,39 @@ function ensurePacStyles() {
     document.head.appendChild(style);
 }
 
+function waitForGooglePlaces(timeoutMs = 10000): Promise<boolean> {
+    return new Promise((resolve) => {
+        if ((window as any).google?.maps?.places?.Autocomplete) { resolve(true); return; }
+        const start = Date.now();
+        const interval = setInterval(() => {
+            if ((window as any).google?.maps?.places?.Autocomplete) {
+                clearInterval(interval);
+                resolve(true);
+            } else if (Date.now() - start > timeoutMs) {
+                clearInterval(interval);
+                resolve(false);
+            }
+        }, 100);
+    });
+}
+
 function loadGoogleScript(apiKey: string): Promise<boolean> {
     if (typeof window === 'undefined') return Promise.resolve(false);
-    const g = (window as any).google;
-    if (g?.maps?.places?.Autocomplete) return Promise.resolve(true);
+    if ((window as any).google?.maps?.places?.Autocomplete) return Promise.resolve(true);
+
     const existing = document.querySelector<HTMLScriptElement>('script[data-google-places-script="true"]');
+    if (existing) {
+        // Script already in DOM — API may still be loading asynchronously, poll for it
+        return waitForGooglePlaces();
+    }
+
     return new Promise((resolve) => {
-        if (existing) {
-            existing.addEventListener('load', () => resolve(!!(window as any).google?.maps?.places?.Autocomplete), { once: true });
-            existing.addEventListener('error', () => resolve(false), { once: true });
-            return;
-        }
         const script = document.createElement('script');
         script.src = `https://maps.googleapis.com/maps/api/js?key=${encodeURIComponent(apiKey)}&libraries=places&language=es&region=CL&loading=async`;
         script.async = true;
         script.defer = true;
         script.dataset.googlePlacesScript = 'true';
-        script.onload = () => resolve(!!(window as any).google?.maps?.places?.Autocomplete);
+        script.onload = () => waitForGooglePlaces().then(resolve);
         script.onerror = () => resolve(false);
         document.head.appendChild(script);
     });
