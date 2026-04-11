@@ -10,8 +10,9 @@ import {
     IconStar,
     IconStarFilled,
     IconAlertCircle,
-    IconExternalLink,
     IconSearch,
+    IconShare,
+    IconMap,
 } from '@tabler/icons-react';
 import {
     PanelCard,
@@ -464,28 +465,47 @@ export default function DireccionesConfigPage() {
                                 />
                             </PanelField>
 
-                            {form.googleMapsUrl && (
-                                <PanelField label="Link Google Maps" hint="Generado automáticamente al seleccionar la dirección. Puedes editarlo.">
+                            <div className="flex flex-col gap-1.5">
+                                <label className="text-sm font-medium" style={{ color: 'var(--fg)' }}>Link Google Maps</label>
+                                <div className="flex gap-2 items-center">
                                     <input
                                         type="url"
                                         value={form.googleMapsUrl}
                                         onChange={(e) => set('googleMapsUrl', e.target.value)}
-                                        className="form-input"
+                                        placeholder="Se genera al seleccionar dirección, o pega uno manualmente"
+                                        className="form-input flex-1"
                                     />
-                                </PanelField>
-                            )}
-
-                            {!form.googleMapsUrl && (
-                                <PanelField label="Link de Google Maps" hint="Opcional. Se comparte con el paciente en la confirmación.">
-                                    <input
-                                        type="url"
-                                        value={form.googleMapsUrl}
-                                        onChange={(e) => set('googleMapsUrl', e.target.value)}
-                                        placeholder="https://maps.google.com/..."
-                                        className="form-input"
-                                    />
-                                </PanelField>
-                            )}
+                                </div>
+                                {form.googleMapsUrl && (
+                                    <div className="flex gap-2 mt-1">
+                                        <a
+                                            href={form.googleMapsUrl}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-medium transition-colors hover:opacity-80"
+                                            style={{ borderColor: 'var(--border)', color: 'var(--fg-secondary)', background: 'var(--bg)' }}
+                                        >
+                                            <IconMap size={13} /> Ver en Maps
+                                        </a>
+                                        <button
+                                            type="button"
+                                            onClick={() => {
+                                                if (navigator.share) {
+                                                    void navigator.share({ title: form.name || 'Dirección', url: form.googleMapsUrl });
+                                                } else {
+                                                    void navigator.clipboard.writeText(form.googleMapsUrl);
+                                                    alert('Link copiado al portapapeles');
+                                                }
+                                            }}
+                                            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-medium transition-colors hover:opacity-80"
+                                            style={{ borderColor: 'var(--border)', color: 'var(--fg-secondary)', background: 'var(--bg)' }}
+                                        >
+                                            <IconShare size={13} /> Compartir
+                                        </button>
+                                    </div>
+                                )}
+                                <p className="text-xs" style={{ color: 'var(--fg-muted)' }}>Se comparte con el paciente en la confirmación de reserva.</p>
+                            </div>
 
                             <label
                                 className="flex items-center gap-3 px-4 py-3 rounded-xl border cursor-pointer"
@@ -574,9 +594,31 @@ export default function DireccionesConfigPage() {
                                             <p className="text-xs mt-1 italic" style={{ color: 'var(--fg-muted)' }}>{location.notes}</p>
                                         )}
                                         {location.googleMapsUrl && (
-                                            <a href={location.googleMapsUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-xs mt-2 hover:underline" style={{ color: 'var(--accent)' }}>
-                                                <IconExternalLink size={11} /> Ver en Google Maps
-                                            </a>
+                                            <div className="flex gap-2 mt-2">
+                                                <a
+                                                    href={location.googleMapsUrl}
+                                                    target="_blank"
+                                                    rel="noopener noreferrer"
+                                                    className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg border text-[11px] font-medium transition-colors hover:opacity-80"
+                                                    style={{ borderColor: 'var(--border)', color: 'var(--fg-secondary)', background: 'var(--bg)' }}
+                                                >
+                                                    <IconMap size={11} /> Ver en Maps
+                                                </a>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => {
+                                                        if (navigator.share) {
+                                                            void navigator.share({ title: location.name, url: location.googleMapsUrl! });
+                                                        } else {
+                                                            void navigator.clipboard.writeText(location.googleMapsUrl!);
+                                                        }
+                                                    }}
+                                                    className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg border text-[11px] font-medium transition-colors hover:opacity-80"
+                                                    style={{ borderColor: 'var(--border)', color: 'var(--fg-secondary)', background: 'var(--bg)' }}
+                                                >
+                                                    <IconShare size={11} /> Compartir
+                                                </button>
+                                            </div>
                                         )}
                                     </div>
                                     <div className="flex items-center gap-2 shrink-0">
