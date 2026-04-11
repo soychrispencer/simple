@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { IconLoader2, IconPlus, IconTrash, IconCheck, IconCalendarOff } from '@tabler/icons-react';
+import { IconLoader2, IconPlus, IconTrash, IconCheck, IconCalendarOff, IconAlertCircle } from '@tabler/icons-react';
 import {
     PanelCard,
     PanelField,
@@ -63,11 +63,13 @@ export default function DisponibilidadConfigPage() {
     const [rules, setRules] = useState<AvailabilityRule[]>([]);
     const [blockedSlots, setBlockedSlots] = useState<BlockedSlot[]>([]);
     const [loading, setLoading] = useState(true);
+    const [loadError, setLoadError] = useState('');
     const [saving, setSaving] = useState<string | null>(null);
     const [autoSaved, setAutoSaved] = useState<string | null>(null);
     const [ruleErrors, setRuleErrors] = useState<Record<string, string>>({});
     const [deleting, setDeleting] = useState<string | null>(null);
     const [loadingDefault, setLoadingDefault] = useState(false);
+    const [defaultError, setDefaultError] = useState('');
 
     // Blocked slot form
     const [showBlockedForm, setShowBlockedForm] = useState(false);
@@ -84,10 +86,16 @@ export default function DisponibilidadConfigPage() {
 
     const load = async () => {
         setLoading(true);
-        const data = await fetchAgendaAvailability();
-        setRules(data.rules.slice().sort((a, b) => DAY_ORDER.indexOf(a.dayOfWeek) - DAY_ORDER.indexOf(b.dayOfWeek)));
-        setBlockedSlots(data.blockedSlots.slice().sort((a, b) => a.startsAt.localeCompare(b.startsAt)));
-        setLoading(false);
+        setLoadError('');
+        try {
+            const data = await fetchAgendaAvailability();
+            setRules(data.rules.slice().sort((a, b) => DAY_ORDER.indexOf(a.dayOfWeek) - DAY_ORDER.indexOf(b.dayOfWeek)));
+            setBlockedSlots(data.blockedSlots.slice().sort((a, b) => a.startsAt.localeCompare(b.startsAt)));
+        } catch {
+            setLoadError('No se pudo cargar la disponibilidad. Verifica tu conexión e intenta de nuevo.');
+        } finally {
+            setLoading(false);
+        }
     };
 
     const clearRuleError = (id: string) => {
@@ -161,27 +169,46 @@ export default function DisponibilidadConfigPage() {
 
     const handleAddDay = async (dayOfWeek: number) => {
         setSaving('new');
-        const result = await createAvailabilityRule({
-            dayOfWeek,
-            startTime: '09:00',
-            endTime: '18:00',
-            breakStart: '13:00',
-            breakEnd: '14:00',
-            isActive: true,
-        });
-        if (result.ok && result.rule) {
-            setRules((prev) => [...prev, result.rule!].sort((a, b) => DAY_ORDER.indexOf(a.dayOfWeek) - DAY_ORDER.indexOf(b.dayOfWeek)));
+        setDefaultError('');
+        try {
+            const result = await createAvailabilityRule({
+                dayOfWeek,
+                startTime: '09:00',
+                endTime: '18:00',
+                breakStart: '13:00',
+                breakEnd: '14:00',
+                isActive: true,
+            });
+            if (result.ok && result.rule) {
+                setRules((prev) => [...prev, result.rule!].sort((a, b) => DAY_ORDER.indexOf(a.dayOfWeek) - DAY_ORDER.indexOf(b.dayOfWeek)));
+            } else if (!result.ok) {
+                setDefaultError(result.error ?? 'No se pudo agregar el día. ¿Configuraste tu perfil primero?');
+            }
+        } catch {
+            setDefaultError('Error de conexión al agregar el día.');
+        } finally {
+            setSaving(null);
         }
-        setSaving(null);
     };
 
     const handleLoadDefaults = async () => {
         setLoadingDefault(true);
-        for (const rule of DEFAULT_WEEK) {
-            await createAvailabilityRule(rule);
+        setDefaultError('');
+        try {
+            for (const rule of DEFAULT_WEEK) {
+                const result = await createAvailabilityRule(rule);
+                if (!result.ok) {
+                    setDefaultError(result.error ?? 'No se pudo crear el horario. ¿Configuraste tu perfil primero?');
+                    setLoadingDefault(false);
+                    return;
+                }
+            }
+            await load();
+        } catch {
+            setDefaultError('Error de conexión al cargar el horario típico.');
+        } finally {
+            setLoadingDefault(false);
         }
-        await load();
-        setLoadingDefault(false);
     };
 
     const handleAddBlockedSlot = async () => {
@@ -234,6 +261,30 @@ export default function DisponibilidadConfigPage() {
         );
     }
 
+    if (loadError) {
+        return (
+            <div className="container-app panel-page py-8 max-w-2xl">
+                <PanelPageHeader
+                    backHref="/panel/configuracion"
+                    title="Disponibilidad"
+                />
+                <div className="rounded-2xl border px-5 py-4 text-sm flex items-center gap-3" style={{ borderColor: 'rgba(185,28,28,0.20)', background: 'rgba(185,28,28,0.06)', color: '#b91c1c' }}>
+                    <IconAlertCircle size={16} className="shrink-0" />
+                    <div>
+                        <p className="font-medium">{loadError}</p>
+                        <button
+                            type="button"
+                            className="underline text-xs mt-1 opacity-80 hover:opacity-100"
+                            onClick={() => void load()}
+                        >
+                            Reintentar
+                        </button>
+                    </div>
+                </div>
+            </div>
+        );
+    }
+
     return (
         <div className="container-app panel-page py-8 max-w-2xl">
             <PanelPageHeader
@@ -254,6 +305,14 @@ export default function DisponibilidadConfigPage() {
                     ) : null
                 }
             />
+
+            {/* Error al crear reglas / cargar típico */}
+            {defaultError && (
+                <div className="mb-4 rounded-2xl border px-4 py-3 text-sm flex items-center gap-2" style={{ borderColor: 'rgba(185,28,28,0.20)', background: 'rgba(185,28,28,0.06)', color: '#b91c1c' }}>
+                    <IconAlertCircle size={15} className="shrink-0" />
+                    {defaultError}
+                </div>
+            )}
 
             {/* Horarios semanales */}
             <div className="flex flex-col gap-3 mb-6">

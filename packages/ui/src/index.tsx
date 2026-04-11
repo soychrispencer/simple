@@ -53,53 +53,6 @@ type LocationMapPreviewProps = {
     showTechnicalMeta?: boolean;
 };
 
-// Helper to get icon for highlight (matching backend logic)
-function getHighlightIcon(highlight: string): string {
-    const t = highlight.toLowerCase();
-    if (t.includes('dorm') || t.includes('hab')) return 'bed';
-    if (t.includes('baño')) return 'bath';
-    if (t.includes('m²') || t.includes('m2') || t.includes('mt') || t.includes('sup')) return 'ruler';
-    if (t.includes('casa')) return 'home';
-    if (t.includes('depto') || t.includes('departamento')) return 'building';
-    if (t.includes('estac')) return 'car';
-    if (t.includes('bodega')) return 'box';
-    if (t.includes('km') || t.includes('kilometraje')) return 'gauge';
-    if (t.includes('cilin')) return 'engine';
-    if (t.includes('hp') || t.includes('cv') || t.includes('potencia')) return 'zap';
-    if (t.includes('combustible') || t.includes('bencina') || t.includes('diesel') || t.includes('petroleo')) return 'fuel';
-    if (t.includes('transmis') || t.includes('manual') || t.includes('automatic')) return 'cog';
-    if (t.includes('condicion') || t.includes('nuevo') || t.includes('usado')) return 'tag';
-    if (t.includes('versión') || t.includes('version')) return 'info';
-    return 'clock';
-}
-
-const ICON_PATHS: Record<string, string> = {
-    bed: 'M3 7v10h18V7H3zm2 2h4v2H5V9zm6 0h6v2h-6V9zM5 13h14v2H5v-2z',
-    bath: 'M3 10h18v8a3 3 0 01-3 3H6a3 3 0 01-3-3v-8zm2 2v4a1 1 0 001 1h12a1 1 0 001-1v-4H5zM4 8h16V6H4v2z',
-    ruler: 'M3 6h18M3 10h4M3 14h2M3 18h6M9 10h2M13 10h2M17 10h2M11 14h2M15 14h4M7 18h2',
-    home: 'M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2V9z',
-    building: 'M6 22V10h12v12M2 22h20M8 6h8v4H8z',
-    car: 'M5 17a2 2 0 012 2v2h10v-2a2 2 0 012-2m-3-7h-2M6 10h2m-4 2h14a2 2 0 012 2v3H4v-3a2 2 0 012-2z',
-    box: 'M12 2l-8 4v16h16V6l-8-4zm0 2l6 3v12H6V7l6-3z',
-    gauge: 'M12 2a10 10 0 100 20 10 10 0 000-20zm0 4v6l4 2',
-    engine: 'M4 10h12v8H4zM16 12h2v4h-2M2 12h2v4H2',
-    zap: 'M13 2L3 14h9l-1 8 10-12h-9l1-8z',
-    fuel: 'M3 22v-8h12v8M6 14V4a2 2 0 012-2h6l4 4v8',
-    cog: 'M12 15a3 3 0 100-6 3 3 0 000 6zm-8-3h2m14 0h2M4.2 7.5l1.4 1.4m11.8 11.8l1.4 1.4M2 12h2m16 0h2M4.2 16.5l1.4-1.4m11.8-11.8l1.4-1.4',
-    tag: 'M20.6 13.8L12 22l-8.6-8.2a4 4 0 010-5.6L8 4h8l4.6 4.2a4 4 0 010 5.6z',
-    info: 'M12 2a10 10 0 100 20 10 10 0 000-20zm0 6v2h2m-2 4v6',
-    clock: 'M12 6v6l4 2M12 2a10 10 0 100 20 10 10 0 000-20z',
-};
-
-function HighlightIcon({ icon, size = 10, color = 'currentColor' }: { icon: string; size?: number; color?: string }) {
-    const path = ICON_PATHS[icon] || ICON_PATHS.clock;
-    return (
-        <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <path d={path} />
-        </svg>
-    );
-}
-
 export type InstagramTemplatePreviewData = {
     layoutVariant: 'square' | 'portrait';
     overlayVariant: string;
@@ -116,18 +69,14 @@ export type InstagramTemplatePreviewData = {
     branding: {
         appName: string;
         badgeText: string;
-        appId?: 'simpleautos' | 'simplepropiedades';
     };
     eyebrow: string;
     headline: string;
     priceLabel: string;
-    offerPriceLabel?: string;
-    discountLabel?: string;
     title?: string;
     subtitle?: string;
     locationLabel: string;
     highlights: string[];
-    badges?: string[];
     ctaLabel: string;
 };
 
@@ -151,15 +100,13 @@ export type AddressBookManagerSubmitInput = {
     location: ListingLocation;
 };
 
-function clampPreviewText(value: string | undefined | null, maxLength: number): string {
-    if (!value) return '';
+function clampPreviewText(value: string, maxLength: number): string {
     const normalized = value.replace(/\s+/g, ' ').trim();
     if (normalized.length <= maxLength) return normalized;
     return `${normalized.slice(0, Math.max(0, maxLength - 1)).trimEnd()}…`;
 }
 
-function splitPreviewPrice(value: string | undefined | null): { prefix: string; amount: string } {
-    if (!value) return { prefix: '', amount: '' };
+function splitPreviewPrice(value: string): { prefix: string; amount: string } {
     const normalized = value.replace(/\s+/g, ' ').trim();
     const ufMatch = normalized.match(/^(UF)\s*(.+)$/i);
     if (ufMatch) {
@@ -195,13 +142,12 @@ export function InstagramTemplatePreview(props: InstagramTemplatePreviewProps) {
     const ctaLabel = template ? clampPreviewText(template.ctaLabel, 24) : '';
     const priceLockup = template ? splitPreviewPrice(template.priceLabel) : { prefix: '', amount: '' };
     const effectiveLayoutVariant = template?.layoutVariant ?? layoutVariant ?? 'square';
-    const brandAccent = template?.branding.appId === 'simplepropiedades' ? '#3232FF' : '#ff3600';
 
     return (
         <div
             className={`relative overflow-hidden rounded-2xl border ${className ?? ''}`.trim()}
             style={{
-                aspectRatio: effectiveLayoutVariant === 'portrait' ? '3 / 4' : '1 / 1',
+                aspectRatio: effectiveLayoutVariant === 'portrait' ? '4 / 5' : '1 / 1',
                 borderColor: 'var(--border)',
                 background: template?.colors.background ?? 'rgba(0,0,0,0.05)',
                 ...style,
@@ -454,89 +400,81 @@ export function InstagramTemplatePreview(props: InstagramTemplatePreviewProps) {
                         </>
                     ) : template.overlayVariant === 'essential-watermark' ? (
                         <>
-                            {/* ═══ BÁSICO ═══ Solo logo esquina superior izquierda */}
+                            {/* ESSENTIAL: Vehículo protagonista, logo top-left 64x64 */}
                             <div className="absolute top-3 left-3" style={{ opacity: 0.5 }}>
-                                <img src="/logo-light.png" alt={template.branding.appName} style={{ width: '50px', height: '50px', objectFit: 'contain', filter: 'drop-shadow(0 1px 3px rgba(0,0,0,0.5))' }} />
+                                <img src="/logo-light.png" alt={template.branding.appName} style={{ width: '40px', height: '40px', objectFit: 'contain', filter: 'drop-shadow(0 1px 3px rgba(0,0,0,0.5))' }} />
+                            </div>
+                            {/* Precio grande centrado abajo con gradient sutil */}
+                            <div
+                                className="absolute inset-x-0 bottom-0"
+                                style={{
+                                    background: 'linear-gradient(to top, rgba(0,0,0,0.65) 0%, rgba(0,0,0,0.3) 40%, transparent 100%)',
+                                    padding: '40px 16px 32px',
+                                }}
+                            >
+                                <div className="text-center">
+                                    <div className="text-[1.75rem] font-black text-white tracking-tight drop-shadow-lg">
+                                        {template.priceLabel}
+                                    </div>
+                                    {template.title && (
+                                        <div className="text-sm font-medium text-white/85 mt-1 line-clamp-1">
+                                            {template.title}
+                                        </div>
+                                    )}
+                                    {template.eyebrow && (
+                                        <div className="text-xs text-white/60 mt-0.5">
+                                            {template.eyebrow}
+                                        </div>
+                                    )}
+                                </div>
                             </div>
                         </>
                     ) : template.overlayVariant === 'professional-centered' ? (
                         <>
-                            {/* ═══ PROFESIONAL ═══ Card de color con logo, precio, título, info, badges */}
-                            {/* Columna derecha: descuento + badges servicios */}
-                            <div className="absolute top-3 right-3 flex flex-col items-end gap-1.5" style={{ zIndex: 3 }}>
-                                {template.discountLabel && (
-                                    <span
-                                        className="text-sm font-bold px-3 py-1.5 inline-flex items-center gap-1 whitespace-nowrap"
-                                        style={{ background: brandAccent, color: '#fff', borderRadius: '10px', boxShadow: '0 2px 8px rgba(0,0,0,0.3)' }}
-                                    >
-                                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="9" cy="9" r="1"/><circle cx="15" cy="15" r="1"/><path d="M16 8l-8 8"/></svg>
-                                        {template.discountLabel}
-                                    </span>
-                                )}
-                                {template.badges && template.badges.map((badge, i) => (
-                                    <span
-                                        key={i}
-                                        className="text-[11px] font-semibold px-2.5 py-1.5 inline-flex items-center gap-1 whitespace-nowrap"
-                                        style={{ background: '#fff', color: '#111', borderRadius: '10px', boxShadow: '0 1px 4px rgba(0,0,0,0.15)' }}
-                                    >
-                                        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 12l2 2 4-4"/><circle cx="12" cy="12" r="10"/></svg>
-                                        {badge}
-                                    </span>
-                                ))}
-                            </div>
-                            {/* Card de color centrada abajo */}
-                            <div className="absolute inset-x-0 bottom-0 px-4 pb-4">
-                                {/* Logo flotante sin fondo: mitad dentro, mitad fuera */}
-                                <div className="flex justify-center" style={{ marginBottom: '-25px', position: 'relative', zIndex: 3 }}>
-                                    <img src="/logo-light.png" alt={template.branding.appName} style={{ width: '50px', height: '50px', objectFit: 'contain', filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.3))' }} />
+                            {/* PROFESSIONAL: Logo centrado 64x64 arriba de la tarjeta */}
+                            <div className="absolute inset-x-0 bottom-0 px-3 pb-4">
+                                {/* Logo centrado arriba de la card */}
+                                <div className="flex justify-center" style={{ marginBottom: '-20px', position: 'relative', zIndex: 3 }}>
+                                    <img src="/logo-light.png" alt={template.branding.appName} style={{ width: '40px', height: '40px', objectFit: 'contain', filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.4))' }} />
                                 </div>
                                 <div
-                                    className="overflow-hidden text-center"
+                                    className="rounded-2xl overflow-hidden"
                                     style={{
-                                        background: brandAccent,
-                                        borderRadius: '16px',
-                                        position: 'relative',
-                                        zIndex: 1,
+                                        background: 'rgba(255,255,255,0.95)',
+                                        backdropFilter: 'blur(12px)',
+                                        WebkitBackdropFilter: 'blur(12px)',
+                                        boxShadow: '0 8px 32px rgba(0,0,0,0.12), 0 2px 6px rgba(0,0,0,0.06)',
                                     }}
                                 >
-                                    <div className="px-5 pb-4" style={{ paddingTop: '36px' }}>
-                                        {/* Precio grande blanco */}
-                                        <div style={{ fontSize: '2.4rem', fontWeight: 900, letterSpacing: '-0.02em', lineHeight: 1, color: '#fff' }}>
-                                            {template.offerPriceLabel || template.priceLabel}
-                                        </div>
-                                        {/* Precio original tachado si hay oferta */}
-                                        {template.offerPriceLabel && (
-                                            <div className="text-sm line-through mt-1" style={{ color: 'rgba(255,255,255,0.5)' }}>
-                                                {template.priceLabel}
+                                    {/* Barra superior accent */}
+                                    <div style={{ height: '3px', background: template.colors.accent }} />
+                                    <div className="px-4 py-3">
+                                        {/* Eyebrow: marca/modelo */}
+                                        {template.eyebrow && (
+                                            <div className="text-[10px] font-semibold uppercase tracking-[0.15em] mb-1" style={{ color: template.colors.accent }}>
+                                                {template.eyebrow}
                                             </div>
                                         )}
-                                        {/* Título — 1 línea */}
+                                        {/* Título del vehículo */}
                                         {template.title && (
-                                            <div className="font-black mt-2 leading-tight line-clamp-1 uppercase" style={{ color: '#fff', fontSize: '0.95rem' }}>
+                                            <div className="text-sm font-bold leading-tight line-clamp-1" style={{ color: template.colors.textPrimary }}>
                                                 {template.title}
                                             </div>
                                         )}
-                                        {/* Highlights con iconos */}
-                                        {template.highlights && template.highlights.length > 0 && (
-                                            <div className="flex items-center justify-center gap-2 mt-1.5 flex-wrap">
-                                                {template.highlights.slice(0, 4).map((h, i) => (
-                                                    <span key={i} className="inline-flex items-center gap-0.5 text-[10px] font-semibold uppercase" style={{ color: 'rgba(255,255,255,0.8)' }}>
-                                                        <HighlightIcon icon={getHighlightIcon(h)} size={10} color="currentColor" />
-                                                        {h}
-                                                    </span>
-                                                ))}
+                                        {/* Precio destacado */}
+                                        <div className="text-2xl font-black tracking-tight mt-1" style={{ color: template.colors.textPrimary }}>
+                                            {template.priceLabel}
+                                        </div>
+                                        {/* Info secundaria: año, km, ubicación */}
+                                        {template.subtitle && (
+                                            <div className="text-[11px] mt-1.5" style={{ color: template.colors.textSecondary ?? '#666' }}>
+                                                {template.subtitle}
                                             </div>
                                         )}
-                                        {/* Comuna con icono pin */}
-                                        {template.locationLabel && (
-                                            <div className="flex justify-center mt-2.5">
-                                                <span
-                                                    className="text-[11px] font-bold px-3.5 py-1.5 inline-flex items-center gap-1"
-                                                    style={{ background: '#fff', color: brandAccent, borderRadius: '9999px' }}
-                                                >
-                                                    <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5a2.5 2.5 0 1 1 0-5 2.5 2.5 0 0 1 0 5z"/></svg>
-                                                    {template.locationLabel}
-                                                </span>
+                                        {/* CTA */}
+                                        {ctaLabel && (
+                                            <div className="text-xs font-bold mt-2" style={{ color: template.colors.accent }}>
+                                                {ctaLabel}
                                             </div>
                                         )}
                                     </div>
@@ -545,95 +483,121 @@ export function InstagramTemplatePreview(props: InstagramTemplatePreviewProps) {
                         </>
                     ) : template.overlayVariant === 'signature-complete' ? (
                         <>
-                            {/* ═══ PREMIUM ═══ Diseño elegante oscuro, branding fuerte */}
-                            {/* Logo light top-left */}
+                            {/* SIGNATURE/PREMIUM: Logo top-left 64x64 */}
                             <div className="absolute top-3 left-3" style={{ opacity: 0.6, zIndex: 3 }}>
-                                <img src="/logo-light.png" alt={template.branding.appName} style={{ width: '50px', height: '50px', objectFit: 'contain', filter: 'drop-shadow(0 1px 3px rgba(0,0,0,0.4))' }} />
+                                <img src="/logo-light.png" alt={template.branding.appName} style={{ width: '40px', height: '40px', objectFit: 'contain', filter: 'drop-shadow(0 1px 3px rgba(0,0,0,0.4))' }} />
                             </div>
-                            {/* Columna derecha: descuento + badges servicios */}
-                            <div className="absolute top-3 right-3 flex flex-col items-end gap-1.5" style={{ zIndex: 3 }}>
-                                {template.discountLabel && (
-                                    <span
-                                        className="text-sm font-bold px-3 py-1.5 inline-flex items-center gap-1 whitespace-nowrap"
-                                        style={{ background: brandAccent, color: '#fff', borderRadius: '10px', boxShadow: '0 2px 8px rgba(0,0,0,0.3)' }}
-                                    >
-                                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="9" cy="9" r="1"/><circle cx="15" cy="15" r="1"/><path d="M16 8l-8 8"/></svg>
-                                        {template.discountLabel}
-                                    </span>
-                                )}
-                                {template.badges && template.badges.map((badge, i) => (
-                                    <span
-                                        key={i}
-                                        className="text-[11px] font-semibold px-2.5 py-1.5 inline-flex items-center gap-1 whitespace-nowrap"
-                                        style={{ background: '#fff', color: '#111', borderRadius: '10px', boxShadow: '0 1px 4px rgba(0,0,0,0.15)' }}
-                                    >
-                                        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 12l2 2 4-4"/><circle cx="12" cy="12" r="10"/></svg>
-                                        {badge}
-                                    </span>
-                                ))}
-                            </div>
-                            {/* Gradiente elegante inferior */}
+                            {/* Footer con toda la info */}
                             <div
                                 className="absolute inset-x-0 bottom-0"
                                 style={{
-                                    background: 'linear-gradient(to top, rgba(0,0,0,0.95) 0%, rgba(0,0,0,0.75) 40%, rgba(0,0,0,0.3) 70%, transparent 100%)',
-                                    padding: '80px 20px 20px',
+                                    background: `linear-gradient(to top, ${template.colors.primary} 0%, ${template.colors.primary}ee 60%, transparent 100%)`,
+                                    padding: '48px 16px 16px',
                                 }}
                             >
-                                <div className="text-center">
-                                    {/* Precio grande */}
-                                    <div style={{ fontSize: '2.4rem', fontWeight: 900, letterSpacing: '-0.02em', lineHeight: 1, color: '#fff' }}>
-                                        {template.offerPriceLabel || template.priceLabel}
+                                {/* Título */}
+                                {template.title && (
+                                    <div className="text-sm font-bold text-white/90 leading-tight line-clamp-1 mb-1">
+                                        {template.title}
                                     </div>
-                                    {template.offerPriceLabel && (
-                                        <div className="text-sm line-through mt-1" style={{ color: 'rgba(255,255,255,0.4)' }}>
-                                            {template.priceLabel}
-                                        </div>
-                                    )}
-                                    {/* Título — 1 línea */}
-                                    {template.title && (
-                                        <div className="font-black mt-2 leading-tight line-clamp-1 uppercase" style={{ color: '#fff', fontSize: '0.95rem' }}>
-                                            {template.title}
-                                        </div>
-                                    )}
-                                    {/* Highlights con iconos */}
-                                    {template.highlights && template.highlights.length > 0 && (
-                                        <div className="flex items-center justify-center gap-2 mt-1.5 flex-wrap">
-                                            {template.highlights.slice(0, 4).map((h, i) => (
-                                                <span key={i} className="inline-flex items-center gap-0.5 text-[10px] font-semibold uppercase" style={{ color: 'rgba(255,255,255,0.65)' }}>
-                                                    <HighlightIcon icon={getHighlightIcon(h)} size={10} color="currentColor" />
-                                                    {h}
-                                                </span>
-                                            ))}
-                                        </div>
-                                    )}
-                                    {/* Comuna con icono pin */}
-                                    {template.locationLabel && (
-                                        <div className="flex justify-center mt-2.5">
+                                )}
+                                {/* Precio grande */}
+                                <div className="text-[1.75rem] font-black tracking-tight" style={{ color: template.colors.accent }}>
+                                    {template.priceLabel}
+                                </div>
+                                {/* Highlights como tags */}
+                                {template.highlights && template.highlights.length > 0 && (
+                                    <div className="flex flex-wrap gap-1.5 mt-2">
+                                        {template.highlights.slice(0, 4).map((h, i) => (
                                             <span
-                                                className="text-[11px] font-bold px-3.5 py-1.5 inline-flex items-center gap-1"
-                                                style={{ background: '#fff', color: brandAccent, borderRadius: '9999px' }}
+                                                key={i}
+                                                className="text-[9px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded-full"
+                                                style={{ background: 'rgba(255,255,255,0.12)', color: 'rgba(255,255,255,0.85)' }}
                                             >
-                                                <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5a2.5 2.5 0 1 1 0-5 2.5 2.5 0 0 1 0 5z"/></svg>
-                                                {template.locationLabel}
+                                                {h}
                                             </span>
+                                        ))}
+                                    </div>
+                                )}
+                                {/* Subtítulo + CTA */}
+                                <div className="flex items-center justify-between mt-2 pt-2" style={{ borderTop: '1px solid rgba(255,255,255,0.1)' }}>
+                                    {template.subtitle && (
+                                        <div className="text-[10px] text-white/60">
+                                            {template.subtitle}
                                         </div>
                                     )}
+                                    {ctaLabel && (
+                                        <div className="text-[10px] font-bold" style={{ color: template.colors.accent }}>
+                                            {ctaLabel}
+                                        </div>
+                                    )}
+                                </div>
+                                {/* Publicado vía SimpleAutos */}
+                                <div className="text-center mt-2">
+                                    <span className="text-[8px] text-white/30 uppercase tracking-widest">
+                                        Publicado vía {template.branding.appName}
+                                    </span>
                                 </div>
                             </div>
                         </>
                     ) : (
                         <>
-                            {/* Fallback genérico */}
+                            <div className="absolute left-4 top-4">
+                                <img src="/logo.png" alt={template.branding.appName} className="h-8 w-8 object-contain" />
+                            </div>
+                            <div
+                                className="absolute right-4 top-4 rounded-full px-4 py-2 text-[11px] font-bold uppercase tracking-[0.22em]"
+                                style={{ background: template.colors.accent, color: template.colors.textInverse }}
+                            >
+                                {template.branding.badgeText}
+                            </div>
                             <div
                                 className="absolute inset-x-0 bottom-0 p-4"
-                                style={{ background: 'linear-gradient(180deg, transparent 0%, rgba(0,0,0,0.8) 50%)', color: '#fff' }}
+                                style={{
+                                    background: template.overlayVariant === 'auto-spec'
+                                        ? 'linear-gradient(180deg, rgba(255,255,255,0) 0%, rgba(245,242,235,0.95) 52%)'
+                                        : 'linear-gradient(180deg, rgba(0,0,0,0) 0%, rgba(17,17,17,0.86) 50%)',
+                                    color: template.overlayVariant === 'auto-spec'
+                                        ? template.colors.textPrimary
+                                        : template.colors.textInverse,
+                                }}
                             >
+                                <div className="mb-2 text-xs font-semibold uppercase tracking-[0.2em] opacity-80">
+                                    {template.eyebrow}
+                                </div>
                                 <div className="mb-2 max-w-[80%] text-[2rem] font-black leading-none line-clamp-2">
                                     {headline}
                                 </div>
-                                <div className="text-[2rem] font-black leading-none">
-                                    {template.priceLabel}
+                                <div className="mb-3 flex flex-wrap gap-2 text-[11px] font-semibold uppercase tracking-[0.16em]">
+                                    {template.highlights.slice(0, 4).map((item) => (
+                                        <span
+                                            key={item}
+                                            className="rounded-full px-2.5 py-1"
+                                            style={{
+                                                background: template.overlayVariant === 'auto-spec'
+                                                    ? 'rgba(17,17,17,0.08)'
+                                                    : 'rgba(255,255,255,0.12)',
+                                            }}
+                                        >
+                                            {item}
+                                        </span>
+                                    ))}
+                                </div>
+                                {ctaLabel ? (
+                                    <div className="mb-3 text-[11px] font-semibold uppercase tracking-[0.18em] opacity-85">
+                                        {ctaLabel}
+                                    </div>
+                                ) : null}
+                                <div className="flex items-end justify-between gap-3">
+                                    <div
+                                        className="text-[2.1rem] font-black leading-none"
+                                        style={{ color: template.colors.accent }}
+                                    >
+                                        {template.priceLabel}
+                                    </div>
+                                    <div className="text-right text-sm font-semibold">
+                                        {locationLabel}
+                                    </div>
                                 </div>
                             </div>
                         </>
