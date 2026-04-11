@@ -1,4 +1,4 @@
--- Add cover and social media link columns to agenda_professional_profiles
+-- Add missing columns to agenda_professional_profiles
 ALTER TABLE agenda_professional_profiles ADD COLUMN IF NOT EXISTS cover_url varchar(500);
 ALTER TABLE agenda_professional_profiles ADD COLUMN IF NOT EXISTS website_url varchar(500);
 ALTER TABLE agenda_professional_profiles ADD COLUMN IF NOT EXISTS instagram_url varchar(500);
