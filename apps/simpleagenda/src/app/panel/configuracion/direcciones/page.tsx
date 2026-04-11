@@ -50,6 +50,34 @@ function getComponent(place: GPlace, types: string[]) {
     ) ?? null;
 }
 
+function ensurePacStyles() {
+    if (document.getElementById('simple-pac-styles')) return;
+    const style = document.createElement('style');
+    style.id = 'simple-pac-styles';
+    style.textContent = `
+        .pac-container {
+            z-index: 99999 !important;
+            border-radius: 8px;
+            border: 1px solid #e2e8f0;
+            box-shadow: 0 4px 16px rgba(0,0,0,0.12);
+            font-family: inherit;
+            margin-top: 2px;
+        }
+        .pac-item {
+            padding: 8px 12px;
+            cursor: pointer;
+            font-size: 13px;
+        }
+        .pac-item:hover, .pac-item-selected {
+            background: #f1f5f9;
+        }
+        .pac-item-query {
+            font-size: 13px;
+        }
+    `;
+    document.head.appendChild(style);
+}
+
 function loadGoogleScript(apiKey: string): Promise<boolean> {
     if (typeof window === 'undefined') return Promise.resolve(false);
     const g = (window as any).google;
@@ -146,6 +174,8 @@ export default function DireccionesConfigPage() {
                 if (autocompleteRef.current && googleMaps.event?.clearInstanceListeners) {
                     googleMaps.event.clearInstanceListeners(autocompleteRef.current);
                 }
+
+                ensurePacStyles();
 
                 const ac = new googleMaps.places.Autocomplete(addressInputRef.current, {
                     componentRestrictions: { country: 'cl' },
