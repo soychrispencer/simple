@@ -4095,7 +4095,7 @@ async function prepareInstagramImageUrl(
             let logoPlacement: { width: number; height: number; top: number; left: number; opacity?: number };
             if (variant === 'essential-watermark') {
                 // Básico: top-left corner watermark
-                logoPlacement = { width: 64, height: 64, top: 36, left: 36, opacity: 0.5 };
+                logoPlacement = { width: 96, height: 96, top: 36, left: 36, opacity: 0.5 };
             } else if (variant === 'professional-centered') {
                 // Profesional: centered above brandAccent card - calculate card height dynamically
                 const t = options.template;
@@ -4110,10 +4110,10 @@ async function prepareInstagramImageUrl(
                 if (hasLocation) cardHeight += 56;
                 cardHeight = Math.max(cardHeight, 260);
                 const cardY = targetHeight - 40 - cardHeight;
-                logoPlacement = { width: 64, height: 64, top: cardY - 32, left: (1080 - 64) / 2 };
+                logoPlacement = { width: 96, height: 96, top: cardY - 48, left: (1080 - 96) / 2 };
             } else if (variant === 'signature-complete') {
-                // Premium: top-left like Básico, subtle opacity
-                logoPlacement = { width: 64, height: 64, top: 36, left: 36, opacity: 0.6 };
+                // Premium: top-left, subtle opacity
+                logoPlacement = { width: 96, height: 96, top: 36, left: 36, opacity: 0.6 };
             } else if (variant.startsWith('property')) {
                 logoPlacement = { width: 48, height: 48, top: 34, left: 42 };
             } else {

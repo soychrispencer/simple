@@ -129,6 +129,43 @@ function splitPreviewPrice(value: string | undefined | null): { prefix: string; 
     return { prefix: '', amount: normalized };
 }
 
+const PREVIEW_ICON_PATHS: Record<string, string> = {
+    venta: 'M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5',
+    arriendo: 'M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2V9z',
+    usado: 'M22 11.08V12a10 10 0 11-5.93-9.14M22 4L12 14.01l-3-3',
+    nuevo: 'M12 2l3.09 6.26L22 9.27l-5 4.87L18.18 22 12 18.56 5.82 22 7 14.14l-5-4.87 6.91-1.01L12 2z',
+    bencina: 'M3 22V6a2 2 0 012-2h6a2 2 0 012 2v16M3 10h10M14 10l3-3 2 2v8a2 2 0 01-2 2h-3',
+    diesel: 'M3 22V6a2 2 0 012-2h6a2 2 0 012 2v16M3 10h10M14 10l3-3 2 2v8a2 2 0 01-2 2h-3',
+    km: 'M12 22c5.52 0 10-4.48 10-10S17.52 2 12 2 2 6.48 2 12s4.48 10 10 10zM12 6v6l4.5 2.5',
+    manual: 'M12 2v20M2 12h20M4.93 4.93l14.14 14.14M19.07 4.93L4.93 19.07',
+    automatico: 'M12 22c5.52 0 10-4.48 10-10S17.52 2 12 2 2 6.48 2 12s4.48 10 10 10zM12 6v6l4 2',
+    servicio: 'M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138c.065.71.327 1.39.806 1.946a3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z',
+};
+
+function getPreviewIconKey(text: string): string {
+    const t = text.toLowerCase().trim();
+    if (t === 'venta') return 'venta';
+    if (t === 'arriendo') return 'arriendo';
+    if (t === 'usado' || t === 'semi-nuevo') return 'usado';
+    if (t === 'nuevo') return 'nuevo';
+    if (t.includes('km')) return 'km';
+    if (t.includes('bencina') || t.includes('gasolina')) return 'bencina';
+    if (t.includes('diesel') || t.includes('diésel')) return 'diesel';
+    if (t.includes('manual')) return 'manual';
+    if (t.includes('automá') || t.includes('automat')) return 'automatico';
+    return 'servicio';
+}
+
+function HighlightIcon({ text, size = 10, color = 'currentColor' }: { text: string; size?: number; color?: string }) {
+    const key = getPreviewIconKey(text);
+    const d = PREVIEW_ICON_PATHS[key] || PREVIEW_ICON_PATHS['servicio'];
+    return (
+        <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d={d} />
+        </svg>
+    );
+}
+
 function describePreviewHighlight(value: string): string {
     const normalized = value.toLowerCase();
     if (normalized.includes('m²') || normalized.includes('m2')) return 'Superficie';
@@ -474,7 +511,7 @@ export function InstagramTemplatePreview(props: InstagramTemplatePreviewProps) {
                                             <div className="flex items-center justify-center gap-2 mt-1.5 flex-wrap">
                                                 {template.highlights.slice(0, 4).map((h, i) => (
                                                     <span key={i} className="inline-flex items-center gap-0.5 text-[10px] font-semibold uppercase" style={{ color: 'rgba(255,255,255,0.8)' }}>
-                                                        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
+                                                        <HighlightIcon text={h} size={10} color="rgba(255,255,255,0.8)" />
                                                         {h}
                                                     </span>
                                                 ))}
@@ -499,9 +536,9 @@ export function InstagramTemplatePreview(props: InstagramTemplatePreviewProps) {
                     ) : template.overlayVariant === 'signature-complete' ? (
                         <>
                             {/* ═══ PREMIUM ═══ Diseño elegante oscuro, branding fuerte */}
-                            {/* Logo light centrado arriba */}
-                            <div className="absolute inset-x-0 top-0 flex justify-center" style={{ paddingTop: '12px', zIndex: 3 }}>
-                                <img src="/logo-light.png" alt={template.branding.appName} style={{ width: '40px', height: '40px', objectFit: 'contain', opacity: 0.6, filter: 'drop-shadow(0 1px 3px rgba(0,0,0,0.4))' }} />
+                            {/* Logo light top-left */}
+                            <div className="absolute top-4 left-4" style={{ zIndex: 3, opacity: 0.6 }}>
+                                <img src="/logo-light.png" alt={template.branding.appName} style={{ width: '40px', height: '40px', objectFit: 'contain', filter: 'drop-shadow(0 1px 3px rgba(0,0,0,0.4))' }} />
                             </div>
                             {/* Columna derecha: descuento + badges servicios */}
                             <div className="absolute top-3 right-3 flex flex-col items-end gap-1.5" style={{ zIndex: 3 }}>
@@ -554,7 +591,7 @@ export function InstagramTemplatePreview(props: InstagramTemplatePreviewProps) {
                                         <div className="flex items-center justify-center gap-2 mt-1.5 flex-wrap">
                                             {template.highlights.slice(0, 4).map((h, i) => (
                                                 <span key={i} className="inline-flex items-center gap-0.5 text-[10px] font-semibold uppercase" style={{ color: 'rgba(255,255,255,0.65)' }}>
-                                                    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
+                                                    <HighlightIcon text={h} size={10} color="rgba(255,255,255,0.65)" />
                                                     {h}
                                                 </span>
                                             ))}
