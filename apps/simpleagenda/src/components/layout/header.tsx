@@ -173,18 +173,6 @@ export function Header() {
                         </div>
                     )}
 
-                    {/* Desktop Action Button */}
-                    {isLoggedIn && (
-                        <PanelButton 
-                            onClick={handleNuevaCita} 
-                            variant="primary" 
-                            size="sm" 
-                            className="hidden md:flex h-9 px-4 text-sm"
-                        >
-                            <IconPlus size={14} /> Nueva cita
-                        </PanelButton>
-                    )}
-
                     {/* Mobile Menu Button (Hamburger) */}
                     <div className="relative md:hidden" ref={menuRef}>
                         <button

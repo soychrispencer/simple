@@ -279,13 +279,6 @@ export function Header() {
                         </div>
                     )}
 
-                    {/* Desktop Action Button */}
-                    {isLoggedIn && (
-                        <PanelButton onClick={handlePublicar} variant="primary" size="sm" className="hidden md:flex h-9 px-4 text-sm">
-                            <IconPlus size={13} /> Publicar
-                        </PanelButton>
-                    )}
-
                     {/* Mobile Menu (Hamburger) - Public Nav + Action */}
                     <div className="relative md:hidden" ref={menuRef}>
                         <button
