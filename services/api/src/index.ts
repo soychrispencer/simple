@@ -103,6 +103,9 @@ import {
     agendaSessionNotes,
     agendaPayments,
     pushSubscriptions,
+    subscriptionPlans,
+    subscriptions,
+    paymentOrders,
 } from './db/schema.js';
 import bcrypt from 'bcryptjs';
 import webpush from 'web-push';
@@ -119,6 +122,7 @@ import {
     sendTestMessage,
 } from './whatsapp.js';
 import { getStorageProvider } from './storage-providers/index.js';
+import paymentsRouter from './routes/payments.js';
 
 type UserRole = 'user' | 'admin' | 'superadmin';
 type UserStatus = 'active' | 'verified' | 'suspended';
@@ -12416,6 +12420,9 @@ app.get('/api/panel/notifications', async (c) => {
 
     return c.json({ ok: true, items });
 });
+
+// Payments and subscriptions router
+app.route('/api/payments', paymentsRouter);
 
 app.get('/api/admin/overview', async (c) => {
     const adminUser = await authUser(c);

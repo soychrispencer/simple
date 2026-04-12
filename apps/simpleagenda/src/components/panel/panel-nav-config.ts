@@ -4,6 +4,7 @@ import {
     IconUsers,
     IconCreditCard,
     IconSettings,
+    IconCoin,
     type Icon,
 } from '@tabler/icons-react';
 
@@ -22,6 +23,7 @@ const BASE_ITEMS: PanelNavItem[] = [
     { href: '/panel/agenda', label: 'Mi Agenda', icon: IconCalendar },
     { href: '/panel/clientes', label: 'Pacientes', icon: IconUsers },
     { href: '/panel/pagos', label: 'Cobros', icon: IconCreditCard },
+    { href: '/panel/suscripciones', label: 'Suscripciones', icon: IconCoin },
     { href: '/panel/configuracion', label: 'Configuración', icon: IconSettings },
 ];
 
