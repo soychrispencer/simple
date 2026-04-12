@@ -347,7 +347,7 @@ function AgendaSubscriptionsSection() {
     );
 }
 
-// ── Marketplace subscription section ─────────────────────────────────────────
+// ── Marketplace subscription section (per-vertical) ──────────────────────────
 
 interface MktSub {
     id: string;
@@ -363,19 +363,16 @@ interface MktSub {
     cancelledAt: string | null;
 }
 
-const MKT_PLANS: Record<string, { id: string; label: string }[]> = {
-    autos: [
-        { id: 'free', label: 'Gratuito' },
-        { id: 'basic', label: 'Básico' },
-        { id: 'pro', label: 'Profesional' },
-        { id: 'enterprise', label: 'Empresarial' },
-    ],
-    propiedades: [
-        { id: 'free', label: 'Gratuito' },
-        { id: 'basic', label: 'Básico' },
-        { id: 'pro', label: 'Profesional' },
-        { id: 'enterprise', label: 'Empresarial' },
-    ],
+const MKT_PLANS = [
+    { id: 'free',       label: 'Gratuito' },
+    { id: 'basic',      label: 'Básico' },
+    { id: 'pro',        label: 'Profesional' },
+    { id: 'enterprise', label: 'Empresarial' },
+];
+
+const VERTICAL_LABEL: Record<string, string> = {
+    autos: 'SimpleAutos',
+    propiedades: 'SimplePropiedades',
 };
 
 function SetMktPlanModal({ sub, onClose, onSaved }: { sub: MktSub; onClose: () => void; onSaved: () => void }) {
@@ -383,7 +380,6 @@ function SetMktPlanModal({ sub, onClose, onSaved }: { sub: MktSub; onClose: () =
     const [expiresAt, setExpiresAt] = useState('');
     const [saving, setSaving] = useState(false);
     const [error, setError] = useState('');
-    const plans = MKT_PLANS[sub.vertical] ?? [];
 
     const handleSave = async () => {
         setSaving(true);
@@ -406,13 +402,16 @@ function SetMktPlanModal({ sub, onClose, onSaved }: { sub: MktSub; onClose: () =
             <div className="w-full max-w-md rounded-2xl p-6 shadow-2xl" style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}>
                 <h2 className="text-base font-semibold mb-0.5" style={{ color: 'var(--fg)' }}>Gestionar plan</h2>
                 <p className="text-xs mb-5" style={{ color: 'var(--fg-muted)' }}>
-                    {sub.userName} · <span className="font-mono">{sub.userEmail}</span> · {sub.vertical}
+                    {sub.userName} · <span className="font-mono">{sub.userEmail}</span>
+                    <span className="ml-2 inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium" style={{ background: 'var(--bg-muted)', color: 'var(--fg-muted)' }}>
+                        {VERTICAL_LABEL[sub.vertical] ?? sub.vertical}
+                    </span>
                 </p>
                 <div className="flex flex-col gap-4">
                     <div>
                         <label className="block text-xs font-medium mb-1.5" style={{ color: 'var(--fg)' }}>Plan</label>
                         <select value={planId} onChange={(e) => setPlanId(e.target.value)} className="form-select w-full">
-                            {plans.map((p) => <option key={p.id} value={p.id}>{p.label}</option>)}
+                            {MKT_PLANS.map((p) => <option key={p.id} value={p.id}>{p.label}</option>)}
                         </select>
                     </div>
                     {planId !== 'free' && (
@@ -436,11 +435,10 @@ function SetMktPlanModal({ sub, onClose, onSaved }: { sub: MktSub; onClose: () =
     );
 }
 
-function MarketplaceSubscriptionsSection() {
+function VerticalSubscriptionsSection({ vertical }: { vertical: 'autos' | 'propiedades' }) {
     const [subs, setSubs] = useState<MktSub[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
-    const [verticalFilter, setVerticalFilter] = useState<string>('all');
     const [statusFilter, setStatusFilter] = useState<string>('all');
     const [search, setSearch] = useState('');
     const [editSub, setEditSub] = useState<MktSub | null>(null);
@@ -449,15 +447,14 @@ function MarketplaceSubscriptionsSection() {
         setLoading(true);
         setError('');
         try {
-            const params = new URLSearchParams();
-            if (verticalFilter !== 'all') params.append('vertical', verticalFilter);
+            const params = new URLSearchParams({ vertical });
             if (statusFilter !== 'all') params.append('status', statusFilter);
             const res = await fetch(`${API_BASE}/api/subscriptions/admin/all?${params.toString()}`, { credentials: 'include' });
             const data = await res.json() as { ok: boolean; subscriptions?: MktSub[]; error?: string };
             if (!data.ok) { setError(data.error ?? 'Error'); return; }
-            setSubs((data.subscriptions ?? []).filter((s) => s.vertical === 'autos' || s.vertical === 'propiedades'));
+            setSubs(data.subscriptions ?? []);
         } catch { setError('Error de conexión'); } finally { setLoading(false); }
-    }, [verticalFilter, statusFilter]);
+    }, [vertical, statusFilter]);
 
     useEffect(() => { void fetchSubs(); }, [fetchSubs]);
 
@@ -467,9 +464,10 @@ function MarketplaceSubscriptionsSection() {
         return s.userName.toLowerCase().includes(q) || s.userEmail.toLowerCase().includes(q);
     });
 
-    const countActive = subs.filter((s) => s.status === 'active').length;
-    const countAutos = subs.filter((s) => s.vertical === 'autos').length;
-    const countProp = subs.filter((s) => s.vertical === 'propiedades').length;
+    const countActive    = subs.filter((s) => s.status === 'active').length;
+    const countCancelled = subs.filter((s) => s.status === 'cancelled').length;
+    const countPaused    = subs.filter((s) => s.status === 'paused').length;
+    const verticalName   = VERTICAL_LABEL[vertical] ?? vertical;
 
     return (
         <>
@@ -481,30 +479,25 @@ function MarketplaceSubscriptionsSection() {
                 />
             )}
             <div className="grid grid-cols-3 gap-3 mb-5">
-                <PanelStatCard label="Activas" value={String(countActive)} meta="Marketplace" />
-                <PanelStatCard label="SimpleAutos" value={String(countAutos)} meta="Autos" />
-                <PanelStatCard label="Propiedades" value={String(countProp)} meta="Propiedades" />
+                <PanelStatCard label="Activas"    value={String(countActive)}    meta={verticalName} />
+                <PanelStatCard label="Canceladas" value={String(countCancelled)} meta={verticalName} />
+                <PanelStatCard label="Pausadas"   value={String(countPaused)}    meta={verticalName} />
             </div>
             <PanelCard size="md">
                 <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
                     <div>
-                        <h2 className="type-section-title" style={{ color: 'var(--fg)' }}>Planes Marketplace</h2>
-                        <p className="text-xs mt-0.5" style={{ color: 'var(--fg-muted)' }}>SimpleAutos y SimplePropiedades — solo superadmin.</p>
+                        <h2 className="type-section-title" style={{ color: 'var(--fg)' }}>Planes {verticalName}</h2>
+                        <p className="text-xs mt-0.5" style={{ color: 'var(--fg-muted)' }}>Gestión manual de suscripciones — solo superadmin.</p>
                     </div>
                     <div className="flex flex-wrap gap-2 items-end">
                         <input type="text" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Buscar usuario..." className="form-input h-9 text-sm w-44" />
-                        <select value={verticalFilter} onChange={(e) => setVerticalFilter(e.target.value)} className="form-select h-9 text-sm">
-                            <option value="all">Todas</option>
-                            <option value="autos">SimpleAutos</option>
-                            <option value="propiedades">Propiedades</option>
-                        </select>
                         <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className="form-select h-9 text-sm">
                             <option value="all">Todos</option>
                             <option value="active">Activa</option>
                             <option value="cancelled">Cancelada</option>
                             <option value="paused">Pausada</option>
                         </select>
-                        <PanelButton variant="secondary" size="sm" className="h-9" onClick={() => void fetchSubs()}>↺</PanelButton>
+                        <PanelButton variant="secondary" size="sm" className="h-9" onClick={() => void fetchSubs()}>↺ Actualizar</PanelButton>
                     </div>
                 </div>
                 {loading ? (
@@ -512,7 +505,7 @@ function MarketplaceSubscriptionsSection() {
                 ) : error ? (
                     <PanelNotice tone="error">{error}</PanelNotice>
                 ) : filtered.length === 0 ? (
-                    <PanelNotice tone="neutral">Sin resultados.</PanelNotice>
+                    <PanelNotice tone="neutral">Sin suscripciones registradas.</PanelNotice>
                 ) : (
                     <div className="space-y-2">
                         {filtered.map((sub) => (
@@ -525,16 +518,13 @@ function MarketplaceSubscriptionsSection() {
                                         <div className="min-w-0">
                                             <div className="flex flex-wrap items-center gap-2">
                                                 <p className="text-sm font-medium" style={{ color: 'var(--fg)' }}>{sub.userName}</p>
-                                                <StatusBadge status={sub.status} />
-                                                <span className="text-[10px] px-1.5 py-0.5 rounded-full font-medium" style={{ background: 'var(--bg-muted)', color: 'var(--fg-muted)' }}>
-                                                    {sub.vertical === 'autos' ? 'SimpleAutos' : 'Propiedades'}
-                                                </span>
+                                                <MktStatusBadge status={sub.status} />
                                             </div>
                                             <p className="mt-0.5 text-xs break-all" style={{ color: 'var(--fg-muted)' }}>{sub.userEmail}</p>
                                         </div>
                                     </div>
                                     <div className="flex flex-wrap items-center gap-4">
-                                        <SubMeta label="Plan" value={sub.planName} />
+                                        <SubMeta label="Plan"   value={sub.planName} />
                                         <SubMeta label="Inicio" value={fmtDate(sub.startedAt)} />
                                         <SubMeta label="Expira" value={fmtDate(sub.expiresAt)} />
                                         <PanelButton variant="secondary" size="sm" onClick={() => setEditSub(sub)}>Editar plan</PanelButton>
@@ -549,6 +539,20 @@ function MarketplaceSubscriptionsSection() {
     );
 }
 
+function MktStatusBadge({ status }: { status: string }) {
+    const map: Record<string, { label: string; bg: string; color: string }> = {
+        active:    { label: 'Activa',    bg: 'rgba(34,197,94,0.12)',  color: 'rgb(21,128,61)' },
+        cancelled: { label: 'Cancelada', bg: 'rgba(244,63,94,0.12)',  color: 'rgb(190,18,60)' },
+        paused:    { label: 'Pausada',   bg: 'rgba(234,179,8,0.12)',  color: 'rgb(161,98,7)' },
+    };
+    const cfg = map[status] ?? { label: status, bg: 'var(--bg-muted)', color: 'var(--fg-muted)' };
+    return (
+        <span className="inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-medium" style={{ background: cfg.bg, color: cfg.color }}>
+            {cfg.label}
+        </span>
+    );
+}
+
 // ── Main page ─────────────────────────────────────────────────────────────────
 
 export default function SubscriptionsPage() {
@@ -559,9 +563,17 @@ export default function SubscriptionsPage() {
     );
 }
 
+type Tab = 'agenda' | 'autos' | 'propiedades';
+
+const TABS: { key: Tab; label: string }[] = [
+    { key: 'agenda',       label: 'SimpleAgenda' },
+    { key: 'autos',        label: 'SimpleAutos' },
+    { key: 'propiedades',  label: 'SimplePropiedades' },
+];
+
 function SubscriptionsContent({ user }: { user: AdminSessionUser }) {
     const isSuperAdmin = user.role === 'superadmin';
-    const [tab, setTab] = useState<'agenda' | 'marketplace'>('agenda');
+    const [tab, setTab] = useState<Tab>('agenda');
 
     return (
         <div className="container-app panel-page py-8">
@@ -575,7 +587,7 @@ function SubscriptionsContent({ user }: { user: AdminSessionUser }) {
             ) : (
                 <>
                     <div className="flex gap-1 mb-6 p-1 rounded-xl w-fit" style={{ background: 'var(--bg-muted)' }}>
-                        {([['agenda', 'SimpleAgenda'], ['marketplace', 'Marketplace']] as const).map(([key, label]) => (
+                        {TABS.map(({ key, label }) => (
                             <button
                                 key={key}
                                 onClick={() => setTab(key)}
@@ -590,7 +602,9 @@ function SubscriptionsContent({ user }: { user: AdminSessionUser }) {
                             </button>
                         ))}
                     </div>
-                    {tab === 'agenda' ? <AgendaSubscriptionsSection /> : <MarketplaceSubscriptionsSection />}
+                    {tab === 'agenda'      && <AgendaSubscriptionsSection />}
+                    {tab === 'autos'       && <VerticalSubscriptionsSection vertical="autos" />}
+                    {tab === 'propiedades' && <VerticalSubscriptionsSection vertical="propiedades" />}
                 </>
             )}
         </div>
