@@ -14024,6 +14024,60 @@ app.get('/api/subscriptions/catalog', async (c) => {
     });
 });
 
+app.get('/api/subscriptions/admin/all', async (c) => {
+    const user = await authUser(c);
+    if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
+    if (!isAdminRole(user.role)) return c.json({ ok: false, error: 'No autorizado' }, 403);
+
+    const verticalFilter = c.req.query('vertical') as VerticalType | undefined;
+    const statusFilter = c.req.query('status');
+
+    const allUsers = await listAdminUsersSnapshot();
+    const userMap = new Map(allUsers.map((u) => [u.id, u]));
+
+    const results: {
+        id: string;
+        userId: string;
+        userName: string;
+        userEmail: string;
+        vertical: string;
+        planId: string;
+        planName: string;
+        status: string;
+        providerStatus: string | null;
+        startedAt: string;
+        expiresAt: string | null;
+        cancelledAt: string | null;
+    }[] = [];
+
+    for (const [userId, subs] of activeSubscriptionsByUser.entries()) {
+        const u = userMap.get(userId);
+        for (const sub of subs) {
+            if (verticalFilter && sub.vertical !== verticalFilter) continue;
+            if (statusFilter && sub.status !== statusFilter) continue;
+            const plan = getSubscriptionPlanById(sub.planId as SubscriptionPlanId, sub.vertical);
+            results.push({
+                id: sub.id,
+                userId,
+                userName: u?.name ?? 'Usuario',
+                userEmail: u?.email ?? '',
+                vertical: sub.vertical,
+                planId: sub.planId,
+                planName: plan?.name ?? sub.planId,
+                status: sub.status,
+                providerStatus: sub.providerStatus ?? null,
+                startedAt: new Date(sub.startedAt).toISOString(),
+                expiresAt: sub.expiresAt ? new Date(sub.expiresAt).toISOString() : null,
+                cancelledAt: sub.cancelledAt ? new Date(sub.cancelledAt).toISOString() : null,
+            });
+        }
+    }
+
+    results.sort((a, b) => new Date(b.startedAt).getTime() - new Date(a.startedAt).getTime());
+
+    return c.json({ ok: true, subscriptions: results, total: results.length });
+});
+
 app.post('/api/payments/checkout', async (c) => {
     const user = await authUser(c);
     if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);

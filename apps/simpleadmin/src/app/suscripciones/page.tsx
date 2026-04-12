@@ -2,6 +2,9 @@
 
 import { useEffect, useState } from 'react';
 import { IconLoader2, IconCreditCard, IconUsers, IconBuildingStore } from '@tabler/icons-react';
+import { AdminProtectedPage } from '@/components/admin-protected-page';
+
+const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000';
 
 interface SubscriptionView {
   id: string;
@@ -58,6 +61,14 @@ function getStatusBadge(status: string) {
 }
 
 export default function SubscriptionsPage() {
+  return (
+    <AdminProtectedPage>
+      {() => <SubscriptionsContent />}
+    </AdminProtectedPage>
+  );
+}
+
+function SubscriptionsContent() {
   const [subscriptions, setSubscriptions] = useState<SubscriptionView[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -73,7 +84,7 @@ export default function SubscriptionsPage() {
     if (statusFilter !== 'all') params.append('status', statusFilter);
 
     try {
-      const res = await fetch(`/api/payments/admin/all?${params.toString()}`, {
+      const res = await fetch(`${API_BASE}/api/subscriptions/admin/all?${params.toString()}`, {
         credentials: 'include',
       });
       const data: SubscriptionsResponse = await res.json();
@@ -104,7 +115,7 @@ export default function SubscriptionsPage() {
   };
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="p-6 space-y-6" style={{ maxWidth: '100%' }}>
       <div>
         <h1 className="text-2xl font-semibold">Suscripciones</h1>
         <p className="text-sm mt-1 text-gray-500">
