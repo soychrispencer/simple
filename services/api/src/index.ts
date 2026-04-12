@@ -14157,11 +14157,11 @@ app.post('/api/payments/checkout', async (c) => {
                 if (order.vertical !== vertical || order.listingId !== listing.id) return false;
                 return order.status === 'active' || order.status === 'scheduled' || order.status === 'paused';
             });
-            if (existingBoost) {
+            if (existingBoost && user.role !== 'superadmin') {
                 return c.json({ ok: false, error: 'Ya tienes un boost vigente para esta publicación' }, 409);
             }
 
-            if (countReservedSlots(vertical, section) >= MAX_BOOST_SLOTS_PER_SECTION) {
+            if (countReservedSlots(vertical, section) >= MAX_BOOST_SLOTS_PER_SECTION && user.role !== 'superadmin') {
                 return c.json({ ok: false, error: 'No quedan cupos en esta sección para el periodo seleccionado' }, 409);
             }
 
@@ -14702,7 +14702,8 @@ async function getAgendaProfile(userId: string) {
 
 const FREE_TIER_LIMITS = { maxClientsTotal: 5, maxAppointmentsPerMonth: 10 };
 
-function isFreePlan(profile: { plan: string; planExpiresAt: Date | null }): boolean {
+function isFreePlan(profile: { plan: string; planExpiresAt: Date | null }, userRole?: string): boolean {
+    if (userRole === 'superadmin') return false;
     if (profile.plan === 'free') return true;
     if (profile.plan === 'pro' && profile.planExpiresAt && profile.planExpiresAt < new Date()) return true;
     return false;
@@ -15155,7 +15156,7 @@ app.post('/api/agenda/clients', requireVerifiedSession, async (c) => {
     if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
     const profile = await getAgendaProfile(user.id);
     if (!profile) return c.json({ ok: false, error: 'Perfil no encontrado' }, 404);
-    if (isFreePlan(profile)) {
+    if (isFreePlan(profile, user.role)) {
         const limitError = await checkClientLimit(profile.id);
         if (limitError) return c.json({ ok: false, error: limitError }, 403);
     }
@@ -15240,7 +15241,7 @@ app.post('/api/agenda/appointments', requireVerifiedSession, async (c) => {
     if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
     const profile = await getAgendaProfile(user.id);
     if (!profile) return c.json({ ok: false, error: 'Perfil no encontrado' }, 404);
-    if (isFreePlan(profile)) {
+    if (isFreePlan(profile, user.role)) {
         const limitError = await checkAppointmentLimit(profile.id);
         if (limitError) return c.json({ ok: false, error: limitError }, 403);
     }
@@ -15712,7 +15713,7 @@ app.get('/api/agenda/google-calendar/auth', requireVerifiedSession, async (c) =>
     const user = await authUser(c);
     if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
     const profile = await getAgendaProfile(user.id);
-    if (profile && isFreePlan(profile)) return c.redirect(`${process.env.AGENDA_APP_URL ?? 'http://localhost:3002'}/panel/configuracion/integraciones?gc=upgrade`);
+    if (profile && isFreePlan(profile, user.role)) return c.redirect(`${process.env.AGENDA_APP_URL ?? 'http://localhost:3002'}/panel/configuracion/integraciones?gc=upgrade`);
     const oauth2Client = getGoogleOAuth2Client();
     const url = oauth2Client.generateAuthUrl({
         access_type: 'offline',
@@ -15787,7 +15788,7 @@ app.get('/api/agenda/mercadopago/auth', requireVerifiedSession, async (c) => {
     const user = await authUser(c);
     if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
     const mpProfile = await getAgendaProfile(user.id);
-    if (mpProfile && isFreePlan(mpProfile)) return c.redirect(`${process.env.AGENDA_APP_URL ?? 'http://localhost:3002'}/panel/configuracion/integraciones?mp=upgrade`);
+    if (mpProfile && isFreePlan(mpProfile, user.role)) return c.redirect(`${process.env.AGENDA_APP_URL ?? 'http://localhost:3002'}/panel/configuracion/integraciones?mp=upgrade`);
     const appId = process.env.MP_AGENDA_APP_ID;
     if (!appId) return c.json({ ok: false, error: 'MP_AGENDA_APP_ID no configurado' }, 500);
     const redirectUri = encodeURIComponent(`${process.env.API_BASE_URL ?? 'http://localhost:4000'}/api/agenda/mercadopago/callback`);
@@ -15925,7 +15926,7 @@ app.post('/api/agenda/whatsapp/test', requireVerifiedSession, async (c) => {
     if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
     const profile = await getAgendaProfile(user.id);
     if (!profile) return c.json({ ok: false, error: 'Perfil no encontrado' }, 404);
-    if (isFreePlan(profile)) return c.json({ ok: false, error: 'Requiere plan Profesional.' }, 403);
+    if (isFreePlan(profile, user.role)) return c.json({ ok: false, error: 'Requiere plan Profesional.' }, 403);
     const phone = profile.waProfessionalPhone ?? profile.publicWhatsapp ?? profile.publicPhone;
     if (!phone) return c.json({ ok: false, error: 'No hay número de WhatsApp configurado' }, 400);
     try {
@@ -16162,6 +16163,76 @@ app.post('/api/agenda/reminders/send', async (c) => {
     }
 
     return c.json({ ok: true, sent });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Marketplace — Admin subscription management (superadmin only)
+// ─────────────────────────────────────────────────────────────────────────────
+
+app.post('/api/admin/subscriptions/set-plan', async (c) => {
+    const admin = await authUser(c);
+    if (!admin) return c.json({ ok: false, error: 'No autenticado' }, 401);
+    if (admin.role !== 'superadmin') return c.json({ ok: false, error: 'Solo superadmin' }, 403);
+
+    const body = await c.req.json().catch(() => ({})) as Record<string, unknown>;
+    const { userId, vertical, planId, expiresAt } = body as { userId?: string; vertical?: string; planId?: string; expiresAt?: string | null };
+
+    if (!userId || !vertical || !planId) return c.json({ ok: false, error: 'userId, vertical y planId son requeridos' }, 400);
+    const v = parseVertical(vertical);
+    if (!['autos', 'propiedades'].includes(v)) return c.json({ ok: false, error: 'Vertical debe ser autos o propiedades' }, 400);
+
+    if (planId === 'free') {
+        // Cancel active subscription
+        const current = activeSubscriptionsByUser.get(userId) ?? [];
+        const updated = current.map((item) => {
+            if (item.vertical !== v || item.status !== 'active') return item;
+            return { ...item, status: 'cancelled' as const, updatedAt: Date.now() };
+        });
+        activeSubscriptionsByUser.set(userId, updated);
+        console.info(`[admin] Marketplace sub cancelled: userId=${userId} vertical=${v} by superadmin=${admin.id}`);
+        return c.json({ ok: true, planId: 'free' });
+    }
+
+    const plan = getPaidSubscriptionPlan(v, planId as Exclude<SubscriptionPlanId, 'free'>);
+    if (!plan) return c.json({ ok: false, error: 'Plan no encontrado' }, 400);
+
+    const expiry = expiresAt ? new Date(expiresAt).getTime() : Date.now() + 365 * 24 * 60 * 60 * 1000;
+    const sub: ActiveSubscription = {
+        id: makeSubscriptionId(v, planId as Exclude<SubscriptionPlanId, 'free'>),
+        userId,
+        vertical: v,
+        planId: planId as Exclude<SubscriptionPlanId, 'free'>,
+        planName: plan.name,
+        priceMonthly: plan.priceMonthly,
+        currency: 'CLP',
+        features: plan.features,
+        status: 'active',
+        providerPreapprovalId: `admin-manual-${admin.id}`,
+        providerStatus: 'manual',
+        startedAt: Date.now(),
+        updatedAt: Date.now(),
+    };
+    upsertActiveSubscription(sub);
+    console.info(`[admin] Marketplace sub set: userId=${userId} vertical=${v} planId=${planId} expiresAt=${new Date(expiry).toISOString()} by superadmin=${admin.id}`);
+    return c.json({ ok: true, planId, expiresAt: new Date(expiry).toISOString() });
+});
+
+app.delete('/api/admin/subscriptions/cancel-plan', async (c) => {
+    const admin = await authUser(c);
+    if (!admin) return c.json({ ok: false, error: 'No autenticado' }, 401);
+    if (admin.role !== 'superadmin') return c.json({ ok: false, error: 'Solo superadmin' }, 403);
+
+    const body = await c.req.json().catch(() => ({})) as { userId?: string; vertical?: string };
+    if (!body.userId || !body.vertical) return c.json({ ok: false, error: 'userId y vertical son requeridos' }, 400);
+    const v = parseVertical(body.vertical);
+
+    const current = activeSubscriptionsByUser.get(body.userId) ?? [];
+    const updated = current.map((item) => {
+        if (item.vertical !== v || item.status !== 'active') return item;
+        return { ...item, status: 'cancelled' as const, updatedAt: Date.now() };
+    });
+    activeSubscriptionsByUser.set(body.userId, updated);
+    return c.json({ ok: true });
 });
 
 // ─────────────────────────────────────────────────────────────────────────────

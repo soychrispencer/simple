@@ -347,6 +347,208 @@ function AgendaSubscriptionsSection() {
     );
 }
 
+// ── Marketplace subscription section ─────────────────────────────────────────
+
+interface MktSub {
+    id: string;
+    userId: string;
+    userName: string;
+    userEmail: string;
+    vertical: 'autos' | 'propiedades';
+    planId: string;
+    planName: string;
+    status: string;
+    startedAt: string;
+    expiresAt: string | null;
+    cancelledAt: string | null;
+}
+
+const MKT_PLANS: Record<string, { id: string; label: string }[]> = {
+    autos: [
+        { id: 'free', label: 'Gratuito' },
+        { id: 'basic', label: 'Básico' },
+        { id: 'pro', label: 'Profesional' },
+        { id: 'enterprise', label: 'Empresarial' },
+    ],
+    propiedades: [
+        { id: 'free', label: 'Gratuito' },
+        { id: 'basic', label: 'Básico' },
+        { id: 'pro', label: 'Profesional' },
+        { id: 'enterprise', label: 'Empresarial' },
+    ],
+};
+
+function SetMktPlanModal({ sub, onClose, onSaved }: { sub: MktSub; onClose: () => void; onSaved: () => void }) {
+    const [planId, setPlanId] = useState(sub.planId);
+    const [expiresAt, setExpiresAt] = useState('');
+    const [saving, setSaving] = useState(false);
+    const [error, setError] = useState('');
+    const plans = MKT_PLANS[sub.vertical] ?? [];
+
+    const handleSave = async () => {
+        setSaving(true);
+        setError('');
+        try {
+            const res = await fetch(`${API_BASE}/api/admin/subscriptions/set-plan`, {
+                method: 'POST',
+                credentials: 'include',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ userId: sub.userId, vertical: sub.vertical, planId, expiresAt: expiresAt || null }),
+            });
+            const data = await res.json() as { ok: boolean; error?: string };
+            if (!data.ok) { setError(data.error ?? 'Error'); setSaving(false); return; }
+            onSaved();
+        } catch { setError('Error de conexión'); setSaving(false); }
+    };
+
+    return (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(0,0,0,0.45)' }}>
+            <div className="w-full max-w-md rounded-2xl p-6 shadow-2xl" style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}>
+                <h2 className="text-base font-semibold mb-0.5" style={{ color: 'var(--fg)' }}>Gestionar plan</h2>
+                <p className="text-xs mb-5" style={{ color: 'var(--fg-muted)' }}>
+                    {sub.userName} · <span className="font-mono">{sub.userEmail}</span> · {sub.vertical}
+                </p>
+                <div className="flex flex-col gap-4">
+                    <div>
+                        <label className="block text-xs font-medium mb-1.5" style={{ color: 'var(--fg)' }}>Plan</label>
+                        <select value={planId} onChange={(e) => setPlanId(e.target.value)} className="form-select w-full">
+                            {plans.map((p) => <option key={p.id} value={p.id}>{p.label}</option>)}
+                        </select>
+                    </div>
+                    {planId !== 'free' && (
+                        <div>
+                            <label className="block text-xs font-medium mb-1.5" style={{ color: 'var(--fg)' }}>
+                                Fecha de expiración <span style={{ color: 'var(--fg-muted)' }}>(vacío = 1 año)</span>
+                            </label>
+                            <input type="date" value={expiresAt} onChange={(e) => setExpiresAt(e.target.value)} className="form-input w-full" />
+                        </div>
+                    )}
+                    {error && <p className="text-xs" style={{ color: 'rgb(190,18,60)' }}>{error}</p>}
+                    <div className="flex gap-2 pt-1">
+                        <PanelButton variant="secondary" onClick={onClose} disabled={saving} className="flex-1">Cancelar</PanelButton>
+                        <PanelButton variant="accent" onClick={() => void handleSave()} disabled={saving} className="flex-1">
+                            {saving ? 'Guardando...' : 'Guardar'}
+                        </PanelButton>
+                    </div>
+                </div>
+            </div>
+        </div>
+    );
+}
+
+function MarketplaceSubscriptionsSection() {
+    const [subs, setSubs] = useState<MktSub[]>([]);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState('');
+    const [verticalFilter, setVerticalFilter] = useState<string>('all');
+    const [statusFilter, setStatusFilter] = useState<string>('all');
+    const [search, setSearch] = useState('');
+    const [editSub, setEditSub] = useState<MktSub | null>(null);
+
+    const fetchSubs = useCallback(async () => {
+        setLoading(true);
+        setError('');
+        try {
+            const params = new URLSearchParams();
+            if (verticalFilter !== 'all') params.append('vertical', verticalFilter);
+            if (statusFilter !== 'all') params.append('status', statusFilter);
+            const res = await fetch(`${API_BASE}/api/subscriptions/admin/all?${params.toString()}`, { credentials: 'include' });
+            const data = await res.json() as { ok: boolean; subscriptions?: MktSub[]; error?: string };
+            if (!data.ok) { setError(data.error ?? 'Error'); return; }
+            setSubs((data.subscriptions ?? []).filter((s) => s.vertical === 'autos' || s.vertical === 'propiedades'));
+        } catch { setError('Error de conexión'); } finally { setLoading(false); }
+    }, [verticalFilter, statusFilter]);
+
+    useEffect(() => { void fetchSubs(); }, [fetchSubs]);
+
+    const filtered = subs.filter((s) => {
+        if (!search) return true;
+        const q = search.toLowerCase();
+        return s.userName.toLowerCase().includes(q) || s.userEmail.toLowerCase().includes(q);
+    });
+
+    const countActive = subs.filter((s) => s.status === 'active').length;
+    const countAutos = subs.filter((s) => s.vertical === 'autos').length;
+    const countProp = subs.filter((s) => s.vertical === 'propiedades').length;
+
+    return (
+        <>
+            {editSub && (
+                <SetMktPlanModal
+                    sub={editSub}
+                    onClose={() => setEditSub(null)}
+                    onSaved={() => { setEditSub(null); void fetchSubs(); }}
+                />
+            )}
+            <div className="grid grid-cols-3 gap-3 mb-5">
+                <PanelStatCard label="Activas" value={String(countActive)} meta="Marketplace" />
+                <PanelStatCard label="SimpleAutos" value={String(countAutos)} meta="Autos" />
+                <PanelStatCard label="Propiedades" value={String(countProp)} meta="Propiedades" />
+            </div>
+            <PanelCard size="md">
+                <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+                    <div>
+                        <h2 className="type-section-title" style={{ color: 'var(--fg)' }}>Planes Marketplace</h2>
+                        <p className="text-xs mt-0.5" style={{ color: 'var(--fg-muted)' }}>SimpleAutos y SimplePropiedades — solo superadmin.</p>
+                    </div>
+                    <div className="flex flex-wrap gap-2 items-end">
+                        <input type="text" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Buscar usuario..." className="form-input h-9 text-sm w-44" />
+                        <select value={verticalFilter} onChange={(e) => setVerticalFilter(e.target.value)} className="form-select h-9 text-sm">
+                            <option value="all">Todas</option>
+                            <option value="autos">SimpleAutos</option>
+                            <option value="propiedades">Propiedades</option>
+                        </select>
+                        <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className="form-select h-9 text-sm">
+                            <option value="all">Todos</option>
+                            <option value="active">Activa</option>
+                            <option value="cancelled">Cancelada</option>
+                            <option value="paused">Pausada</option>
+                        </select>
+                        <PanelButton variant="secondary" size="sm" className="h-9" onClick={() => void fetchSubs()}>↺</PanelButton>
+                    </div>
+                </div>
+                {loading ? (
+                    <PanelNotice tone="neutral">Cargando...</PanelNotice>
+                ) : error ? (
+                    <PanelNotice tone="error">{error}</PanelNotice>
+                ) : filtered.length === 0 ? (
+                    <PanelNotice tone="neutral">Sin resultados.</PanelNotice>
+                ) : (
+                    <div className="space-y-2">
+                        {filtered.map((sub) => (
+                            <article key={sub.id} className="rounded-xl border px-4 py-3" style={{ borderColor: 'var(--border)', background: 'var(--surface)' }}>
+                                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                                    <div className="flex min-w-0 items-start gap-3">
+                                        <div className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-xs font-semibold" style={{ background: 'var(--bg-muted)', color: 'var(--fg-muted)' }}>
+                                            {sub.userName.charAt(0).toUpperCase()}
+                                        </div>
+                                        <div className="min-w-0">
+                                            <div className="flex flex-wrap items-center gap-2">
+                                                <p className="text-sm font-medium" style={{ color: 'var(--fg)' }}>{sub.userName}</p>
+                                                <StatusBadge status={sub.status} />
+                                                <span className="text-[10px] px-1.5 py-0.5 rounded-full font-medium" style={{ background: 'var(--bg-muted)', color: 'var(--fg-muted)' }}>
+                                                    {sub.vertical === 'autos' ? 'SimpleAutos' : 'Propiedades'}
+                                                </span>
+                                            </div>
+                                            <p className="mt-0.5 text-xs break-all" style={{ color: 'var(--fg-muted)' }}>{sub.userEmail}</p>
+                                        </div>
+                                    </div>
+                                    <div className="flex flex-wrap items-center gap-4">
+                                        <SubMeta label="Plan" value={sub.planName} />
+                                        <SubMeta label="Inicio" value={fmtDate(sub.startedAt)} />
+                                        <SubMeta label="Expira" value={fmtDate(sub.expiresAt)} />
+                                        <PanelButton variant="secondary" size="sm" onClick={() => setEditSub(sub)}>Editar plan</PanelButton>
+                                    </div>
+                                </div>
+                            </article>
+                        ))}
+                    </div>
+                )}
+            </PanelCard>
+        </>
+    );
+}
+
 // ── Main page ─────────────────────────────────────────────────────────────────
 
 export default function SubscriptionsPage() {
@@ -359,18 +561,37 @@ export default function SubscriptionsPage() {
 
 function SubscriptionsContent({ user }: { user: AdminSessionUser }) {
     const isSuperAdmin = user.role === 'superadmin';
+    const [tab, setTab] = useState<'agenda' | 'marketplace'>('agenda');
 
     return (
         <div className="container-app panel-page py-8">
             <div className="mb-6">
                 <h1 className="type-page-title" style={{ color: 'var(--fg)' }}>Suscripciones</h1>
-                <p className="type-page-subtitle mt-1">Gestión de planes y suscripciones de todos los usuarios.</p>
+                <p className="type-page-subtitle mt-1">Gestión manual de planes para todas las verticales.</p>
             </div>
 
-            {isSuperAdmin ? (
-                <AgendaSubscriptionsSection />
-            ) : (
+            {!isSuperAdmin ? (
                 <PanelNotice tone="neutral">Solo el superadmin puede gestionar planes de suscripción.</PanelNotice>
+            ) : (
+                <>
+                    <div className="flex gap-1 mb-6 p-1 rounded-xl w-fit" style={{ background: 'var(--bg-muted)' }}>
+                        {([['agenda', 'SimpleAgenda'], ['marketplace', 'Marketplace']] as const).map(([key, label]) => (
+                            <button
+                                key={key}
+                                onClick={() => setTab(key)}
+                                className="px-4 py-1.5 rounded-lg text-sm font-medium transition-colors"
+                                style={{
+                                    background: tab === key ? 'var(--surface)' : 'transparent',
+                                    color: tab === key ? 'var(--fg)' : 'var(--fg-muted)',
+                                    boxShadow: tab === key ? '0 1px 3px rgba(0,0,0,0.08)' : 'none',
+                                }}
+                            >
+                                {label}
+                            </button>
+                        ))}
+                    </div>
+                    {tab === 'agenda' ? <AgendaSubscriptionsSection /> : <MarketplaceSubscriptionsSection />}
+                </>
             )}
         </div>
     );
