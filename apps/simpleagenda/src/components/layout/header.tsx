@@ -15,6 +15,8 @@ import {
     IconCreditCard,
     IconUsers,
     IconPlus,
+    IconMenu2,
+    IconX,
 } from '@tabler/icons-react';
 import { useAuth } from '@/context/auth-context';
 import { PanelButton } from '@simple/ui';
@@ -37,7 +39,9 @@ export function Header() {
     const router = useRouter();
     const { theme, setTheme } = useTheme();
     const [mounted, setMounted] = useState(false);
+    const [menuOpen, setMenuOpen] = useState(false);
     const [accountOpen, setAccountOpen] = useState(false);
+    const menuRef = useRef<HTMLDivElement>(null);
     const accountRef = useRef<HTMLDivElement>(null);
     const { user, isLoggedIn, logout, openAuth, requireAuth } = useAuth();
 
@@ -47,6 +51,9 @@ export function Header() {
 
     useEffect(() => {
         const handleOutside = (e: MouseEvent) => {
+            if (!menuRef.current?.contains(e.target as Node)) {
+                setMenuOpen(false);
+            }
             if (!accountRef.current?.contains(e.target as Node)) {
                 setAccountOpen(false);
             }
@@ -104,91 +111,128 @@ export function Header() {
                         </button>
                     )}
 
-                    {/* User Dropdown */}
-                    <div className="relative" ref={accountRef}>
-                        {isLoggedIn ? (
-                            <>
-                                <button
-                                    onClick={() => setAccountOpen((prev) => !prev)}
-                                    className="header-icon-chip"
-                                    aria-label="Menú de cuenta"
-                                    aria-expanded={accountOpen}
-                                >
-                                    <IconUser size={16} />
-                                </button>
+                    {/* Mobile Menu Button (Hamburger) */}
+                    <div className="relative md:hidden" ref={menuRef}>
+                        <button
+                            onClick={() => setMenuOpen((prev) => !prev)}
+                            className="header-icon-chip"
+                            aria-label="Menú"
+                            aria-expanded={menuOpen}
+                        >
+                            {menuOpen ? <IconX size={18} /> : <IconMenu2 size={18} />}
+                        </button>
 
-                                {accountOpen && (
-                                    <div
-                                        className="absolute right-0 top-[calc(100%+8px)] z-50 w-[260px] rounded-xl border p-2 animate-slide-down"
-                                        style={{ background: 'var(--surface)', borderColor: 'var(--border)', boxShadow: 'var(--shadow-md)' }}
+                        {menuOpen && (
+                            <div
+                                className="absolute right-0 top-[calc(100%+8px)] z-50 w-[260px] rounded-xl border p-2 animate-slide-down"
+                                style={{ background: 'var(--surface)', borderColor: 'var(--border)', boxShadow: 'var(--shadow-md)' }}
+                            >
+                                {/* Action Button */}
+                                {isLoggedIn ? (
+                                    <PanelButton
+                                        onClick={() => {
+                                            setMenuOpen(false);
+                                            handleNuevaCita();
+                                        }}
+                                        variant="primary"
+                                        className="w-full h-10 text-sm mb-2"
                                     >
-                                        {/* User Info */}
-                                        <div className="px-2.5 py-2 mb-1 rounded-lg" style={{ background: 'var(--bg-subtle)' }}>
-                                            <p className="text-sm font-medium" style={{ color: 'var(--fg)' }}>{userName}</p>
-                                            <p className="text-xs" style={{ color: 'var(--fg-muted)' }}>{user?.email}</p>
-                                        </div>
-
-                                        {/* Public Nav (mobile accessible) */}
-                                        <div className="md:hidden">
-                                            {publicNav.map((item) => (
-                                                <Link
-                                                    key={item.href}
-                                                    href={item.href}
-                                                    onClick={() => setAccountOpen(false)}
-                                                    className="flex items-center gap-2 rounded-lg px-2.5 py-2 text-sm transition-colors hover:bg-(--bg-subtle)"
-                                                    style={{ color: 'var(--fg-secondary)' }}
-                                                >
-                                                    {item.label}
-                                                </Link>
-                                            ))}
-                                            <div className="my-1 border-t" style={{ borderColor: 'var(--border)' }} />
-                                        </div>
-
-                                        {/* Panel Nav */}
-                                        {panelNav.map((item) => {
-                                            const Icon = item.icon;
-                                            return (
-                                                <Link
-                                                    key={item.href}
-                                                    href={item.href}
-                                                    onClick={() => setAccountOpen(false)}
-                                                    className="flex items-center gap-2 rounded-lg px-2.5 py-2 text-sm transition-colors hover:bg-(--bg-subtle)"
-                                                    style={{ color: 'var(--fg-secondary)' }}
-                                                >
-                                                    <Icon size={16} />
-                                                    {item.label}
-                                                </Link>
-                                            );
-                                        })}
-
-                                        {/* Logout */}
-                                        <div className="mt-2 pt-2 border-t" style={{ borderColor: 'var(--border)' }}>
-                                            <button
-                                                onClick={() => { setAccountOpen(false); void logout(); }}
-                                                className="w-full flex items-center gap-2 rounded-lg px-2.5 py-2 text-sm transition-colors hover:bg-(--bg-subtle)"
-                                                style={{ color: 'var(--fg-secondary)' }}
-                                            >
-                                                <IconLogout size={14} />
-                                                Cerrar sesión
-                                            </button>
-                                        </div>
-                                    </div>
+                                        <IconPlus size={14} /> Nueva cita
+                                    </PanelButton>
+                                ) : (
+                                    <PanelButton
+                                        onClick={() => {
+                                            setMenuOpen(false);
+                                            openAuth();
+                                        }}
+                                        variant="primary"
+                                        className="w-full h-10 text-sm mb-2"
+                                    >
+                                        Iniciar sesión
+                                    </PanelButton>
                                 )}
-                            </>
-                        ) : (
-                            <PanelButton onClick={openAuth} variant="primary" size="sm" className="h-9 px-4 text-sm">
-                                Iniciar sesión
-                            </PanelButton>
+                                
+                                <div className="my-2 border-t" style={{ borderColor: 'var(--border)' }} />
+                                
+                                {/* Public Navigation */}
+                                {publicNav.map((item) => (
+                                    <Link
+                                        key={item.href}
+                                        href={item.href}
+                                        onClick={() => setMenuOpen(false)}
+                                        className="flex items-center gap-2 rounded-lg px-2.5 py-2 text-sm transition-colors hover:bg-(--bg-subtle)"
+                                        style={{ color: 'var(--fg-secondary)' }}
+                                    >
+                                        {item.label}
+                                    </Link>
+                                ))}
+                            </div>
                         )}
                     </div>
 
-                    {/* Action Button - Solo logueado */}
+                    {/* User Menu (Avatar) - Solo panel */}
+                    {isLoggedIn && (
+                        <div className="relative" ref={accountRef}>
+                            <button
+                                onClick={() => setAccountOpen((prev) => !prev)}
+                                className="header-icon-chip"
+                                aria-label="Panel de usuario"
+                                aria-expanded={accountOpen}
+                            >
+                                <IconUser size={16} />
+                            </button>
+
+                            {accountOpen && (
+                                <div
+                                    className="absolute right-0 top-[calc(100%+8px)] z-50 w-[260px] rounded-xl border p-2 animate-slide-down"
+                                    style={{ background: 'var(--surface)', borderColor: 'var(--border)', boxShadow: 'var(--shadow-md)' }}
+                                >
+                                    {/* User Info */}
+                                    <div className="px-2.5 py-2 mb-1 rounded-lg" style={{ background: 'var(--bg-subtle)' }}>
+                                        <p className="text-sm font-medium" style={{ color: 'var(--fg)' }}>{userName}</p>
+                                        <p className="text-xs" style={{ color: 'var(--fg-muted)' }}>{user?.email}</p>
+                                    </div>
+
+                                    {/* Panel Nav */}
+                                    {panelNav.map((item) => {
+                                        const Icon = item.icon;
+                                        return (
+                                            <Link
+                                                key={item.href}
+                                                href={item.href}
+                                                onClick={() => setAccountOpen(false)}
+                                                className="flex items-center gap-2 rounded-lg px-2.5 py-2 text-sm transition-colors hover:bg-(--bg-subtle)"
+                                                style={{ color: 'var(--fg-secondary)' }}
+                                            >
+                                                <Icon size={16} />
+                                                {item.label}
+                                            </Link>
+                                        );
+                                    })}
+
+                                    {/* Logout */}
+                                    <div className="mt-2 pt-2 border-t" style={{ borderColor: 'var(--border)' }}>
+                                        <button
+                                            onClick={() => { setAccountOpen(false); void logout(); }}
+                                            className="w-full flex items-center gap-2 rounded-lg px-2.5 py-2 text-sm transition-colors hover:bg-(--bg-subtle)"
+                                            style={{ color: 'var(--fg-secondary)' }}
+                                        >
+                                            <IconLogout size={14} />
+                                            Cerrar sesión
+                                        </button>
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                    )}
+
+                    {/* Desktop Action Button */}
                     {isLoggedIn && (
                         <PanelButton 
                             onClick={handleNuevaCita} 
                             variant="primary" 
                             size="sm" 
-                            className="hidden sm:flex h-9 px-4 text-sm"
+                            className="hidden md:flex h-9 px-4 text-sm"
                         >
                             <IconPlus size={14} /> Nueva cita
                         </PanelButton>
