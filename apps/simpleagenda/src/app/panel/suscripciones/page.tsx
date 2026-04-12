@@ -1,11 +1,6 @@
 import type { Metadata } from 'next';
 import { Suspense } from 'react';
-import dynamic from 'next/dynamic';
-
-const SubscriptionManager = dynamic(
-  () => import('@/components/panel/subscription-manager'),
-  { ssr: false }
-);
+import SubscriptionWrapper from './subscription-wrapper';
 
 export const metadata: Metadata = {
   title: 'Suscripciones - SimpleAgenda',
@@ -32,7 +27,7 @@ export default function SubscriptionsPage() {
         </p>
       </div>
       <Suspense fallback={<SubscriptionSkeleton />}>
-        <SubscriptionManager />
+        <SubscriptionWrapper />
       </Suspense>
     </section>
   );
