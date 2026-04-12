@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
-import { IconCheck, IconCreditCard, IconLoader2 } from '@tabler/icons-react';
+import { IconCheck, IconCreditCard, IconLoader2, IconAlertCircle, IconX } from '@tabler/icons-react';
 import { PanelBlockHeader, PanelButton, PanelCard, PanelNotice, PanelStatusBadge } from '@simple/ui';
 import {
   confirmCheckout,
@@ -12,6 +12,9 @@ import {
   type PaymentOrderView,
   type SubscriptionPlan,
 } from '@/lib/payments';
+import { fetchAgendaProfile } from '@/lib/agenda-api';
+
+const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000';
 
 function formatMoney(value: number): string {
   return value.toLocaleString('es-CL');
@@ -31,6 +34,133 @@ function subscriptionLabel(status: PaymentOrderStatus): string {
   if (status === 'cancelled') return 'Cancelado';
   return 'Rechazado';
 }
+
+// ── Agenda plan cancel card ───────────────────────────────────────────────────
+
+function AgendaPlanCard() {
+  const [agendaPlan, setAgendaPlan] = useState<'free' | 'pro'>('free');
+  const [planExpiresAt, setPlanExpiresAt] = useState<string | null>(null);
+  const [loadingPlan, setLoadingPlan] = useState(true);
+  const [confirmCancel, setConfirmCancel] = useState(false);
+  const [cancelling, setCancelling] = useState(false);
+  const [cancelError, setCancelError] = useState('');
+  const [cancelSuccess, setCancelSuccess] = useState(false);
+
+  const loadPlan = async () => {
+    setLoadingPlan(true);
+    const prof = await fetchAgendaProfile();
+    if (prof) {
+      setAgendaPlan(prof.plan as 'free' | 'pro');
+      setPlanExpiresAt(prof.planExpiresAt);
+    }
+    setLoadingPlan(false);
+  };
+
+  useEffect(() => { void loadPlan(); }, []);
+
+  const handleCancel = async () => {
+    setCancelling(true);
+    setCancelError('');
+    try {
+      const res = await fetch(`${API_BASE}/api/agenda/subscription/cancel`, {
+        method: 'POST',
+        credentials: 'include',
+      });
+      const data = await res.json() as { ok: boolean; error?: string };
+      if (!data.ok) { setCancelError(data.error ?? 'Error al cancelar'); setCancelling(false); return; }
+      setCancelSuccess(true);
+      setAgendaPlan('free');
+      setPlanExpiresAt(null);
+      setConfirmCancel(false);
+    } catch {
+      setCancelError('Error de conexión');
+    } finally {
+      setCancelling(false);
+    }
+  };
+
+  const isPro = agendaPlan === 'pro';
+  const isExpired = isPro && planExpiresAt && new Date(planExpiresAt) < new Date();
+  const fmtDate = (iso: string) => new Date(iso).toLocaleDateString('es-CL', { day: '2-digit', month: 'long', year: 'numeric' });
+
+  return (
+    <PanelCard size="lg">
+      <PanelBlockHeader title="Plan SimpleAgenda" description="Estado actual de tu plan y opciones de cancelación." />
+
+      {loadingPlan ? (
+        <div className="h-16 rounded-xl animate-pulse" style={{ background: 'var(--bg-muted)' }} />
+      ) : cancelSuccess ? (
+        <PanelNotice tone="success">Tu plan ha sido cancelado. Ahora estás en el plan Gratuito.</PanelNotice>
+      ) : (
+        <div className="rounded-2xl border p-5" style={{ borderColor: 'var(--border)', background: 'var(--bg-subtle)' }}>
+          <div className="flex items-start justify-between gap-4 flex-wrap">
+            <div>
+              <p className="text-xs uppercase tracking-wide mb-1" style={{ color: 'var(--fg-muted)' }}>Plan actual</p>
+              <p className="text-xl font-semibold" style={{ color: 'var(--fg)' }}>
+                {isPro ? 'Profesional' : 'Gratuito'}
+              </p>
+              {isPro && planExpiresAt && (
+                <p className="text-xs mt-1" style={{ color: isExpired ? 'rgb(190,18,60)' : 'var(--fg-muted)' }}>
+                  {isExpired ? 'Expiró el' : 'Expira el'} {fmtDate(planExpiresAt)}
+                </p>
+              )}
+              {isPro && !planExpiresAt && (
+                <p className="text-xs mt-1" style={{ color: 'var(--fg-muted)' }}>Sin fecha de expiración</p>
+              )}
+            </div>
+            <PanelStatusBadge
+              label={isPro && !isExpired ? 'Pro activo' : isPro && isExpired ? 'Expirado' : 'Gratuito'}
+              tone={isPro && !isExpired ? 'success' : isPro && isExpired ? 'danger' : 'neutral'}
+            />
+          </div>
+
+          {isPro && !isExpired && !confirmCancel && (
+            <div className="mt-5 pt-4" style={{ borderTop: '1px solid var(--border)' }}>
+              <button
+                onClick={() => setConfirmCancel(true)}
+                className="text-xs underline"
+                style={{ color: 'var(--fg-muted)' }}
+              >
+                Cancelar mi suscripción
+              </button>
+            </div>
+          )}
+
+          {confirmCancel && (
+            <div className="mt-4 pt-4 rounded-xl p-4" style={{ borderTop: '1px solid var(--border)', background: 'rgba(244,63,94,0.05)', border: '1px solid rgba(244,63,94,0.2)' }}>
+              <div className="flex items-start gap-2 mb-3">
+                <IconAlertCircle size={15} style={{ color: 'rgb(190,18,60)', flexShrink: 0, marginTop: 1 }} />
+                <div>
+                  <p className="text-sm font-semibold mb-0.5" style={{ color: 'var(--fg)' }}>¿Confirmas la cancelación?</p>
+                  <p className="text-xs" style={{ color: 'var(--fg-muted)' }}>
+                    Tu cuenta pasará al plan Gratuito de inmediato. Perderás acceso a las funciones Pro (integraciones, notificaciones WhatsApp, límites ampliados).
+                  </p>
+                </div>
+              </div>
+              {cancelError && <p className="text-xs mb-2" style={{ color: 'rgb(190,18,60)' }}>{cancelError}</p>}
+              <div className="flex gap-2">
+                <PanelButton variant="secondary" size="sm" onClick={() => setConfirmCancel(false)} disabled={cancelling}>
+                  <IconX size={13} /> Mantener plan
+                </PanelButton>
+                <button
+                  onClick={() => void handleCancel()}
+                  disabled={cancelling}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold border transition-opacity hover:opacity-80 disabled:opacity-50"
+                  style={{ background: 'rgba(244,63,94,0.1)', color: 'rgb(190,18,60)', borderColor: 'rgba(244,63,94,0.3)' }}
+                >
+                  {cancelling ? <IconLoader2 size={13} className="animate-spin" /> : null}
+                  {cancelling ? 'Cancelando...' : 'Sí, cancelar'}
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+    </PanelCard>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 
 export default function SubscriptionManager() {
   const searchParams = useSearchParams();
@@ -230,6 +360,8 @@ export default function SubscriptionManager() {
           })}
         </div>
       </PanelCard>
+
+      <AgendaPlanCard />
 
       <PanelCard size="lg">
         <PanelBlockHeader

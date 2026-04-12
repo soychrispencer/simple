@@ -16165,6 +16165,117 @@ app.post('/api/agenda/reminders/send', async (c) => {
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
+// SimpleAgenda — Admin plan management (superadmin only)
+// ─────────────────────────────────────────────────────────────────────────────
+
+app.get('/api/admin/agenda/subscriptions', async (c) => {
+    const admin = await authUser(c);
+    if (!admin) return c.json({ ok: false, error: 'No autenticado' }, 401);
+    if (admin.role !== 'superadmin') return c.json({ ok: false, error: 'Solo superadmin puede acceder' }, 403);
+
+    const profiles = await db.select({
+        id: agendaProfessionalProfiles.id,
+        userId: agendaProfessionalProfiles.userId,
+        displayName: agendaProfessionalProfiles.displayName,
+        slug: agendaProfessionalProfiles.slug,
+        plan: agendaProfessionalProfiles.plan,
+        planExpiresAt: agendaProfessionalProfiles.planExpiresAt,
+        isPublished: agendaProfessionalProfiles.isPublished,
+        createdAt: agendaProfessionalProfiles.createdAt,
+    }).from(agendaProfessionalProfiles).orderBy(desc(agendaProfessionalProfiles.createdAt));
+
+    const allUsers = await listAdminUsersSnapshot();
+    const userMap = new Map(allUsers.map((u) => [u.id, u]));
+
+    const result = profiles.map((p) => {
+        const u = userMap.get(p.userId);
+        const expired = p.plan === 'pro' && p.planExpiresAt && p.planExpiresAt < new Date();
+        return {
+            profileId: p.id,
+            userId: p.userId,
+            userName: u?.name ?? 'Sin nombre',
+            userEmail: u?.email ?? '',
+            displayName: p.displayName ?? '',
+            slug: p.slug,
+            plan: p.plan,
+            planExpiresAt: p.planExpiresAt ? p.planExpiresAt.toISOString() : null,
+            isPublished: p.isPublished,
+            status: p.plan === 'pro' && !expired ? 'active' : expired ? 'expired' : 'free',
+            createdAt: p.createdAt.toISOString(),
+        };
+    });
+
+    return c.json({ ok: true, subscriptions: result });
+});
+
+app.post('/api/admin/agenda/set-plan', async (c) => {
+    const admin = await authUser(c);
+    if (!admin) return c.json({ ok: false, error: 'No autenticado' }, 401);
+    if (admin.role !== 'superadmin') return c.json({ ok: false, error: 'Solo superadmin puede acceder' }, 403);
+
+    const body = await c.req.json().catch(() => ({})) as Record<string, unknown>;
+    const { profileId, plan, expiresAt, notes } = body as { profileId?: string; plan?: string; expiresAt?: string | null; notes?: string };
+
+    if (!profileId || !plan) return c.json({ ok: false, error: 'Se requiere profileId y plan' }, 400);
+    if (!['free', 'pro'].includes(plan)) return c.json({ ok: false, error: 'Plan debe ser free o pro' }, 400);
+
+    const profile = await db.query.agendaProfessionalProfiles.findFirst({
+        where: eq(agendaProfessionalProfiles.id, profileId),
+    });
+    if (!profile) return c.json({ ok: false, error: 'Perfil no encontrado' }, 404);
+
+    const expiry = plan === 'pro' && expiresAt ? new Date(expiresAt) : plan === 'free' ? null : null;
+
+    await db.update(agendaProfessionalProfiles).set({
+        plan,
+        planExpiresAt: expiry,
+        updatedAt: new Date(),
+    }).where(eq(agendaProfessionalProfiles.id, profileId));
+
+    console.info(`[admin] Plan set: profileId=${profileId} plan=${plan} expiresAt=${expiry?.toISOString() ?? 'none'} by superadmin=${admin.id} notes=${notes ?? ''}`);
+
+    return c.json({ ok: true, plan, expiresAt: expiry?.toISOString() ?? null });
+});
+
+app.delete('/api/admin/agenda/cancel-plan', async (c) => {
+    const admin = await authUser(c);
+    if (!admin) return c.json({ ok: false, error: 'No autenticado' }, 401);
+    if (admin.role !== 'superadmin') return c.json({ ok: false, error: 'Solo superadmin puede acceder' }, 403);
+
+    const body = await c.req.json().catch(() => ({})) as { profileId?: string };
+    if (!body.profileId) return c.json({ ok: false, error: 'Se requiere profileId' }, 400);
+
+    await db.update(agendaProfessionalProfiles).set({
+        plan: 'free',
+        planExpiresAt: null,
+        updatedAt: new Date(),
+    }).where(eq(agendaProfessionalProfiles.id, body.profileId));
+
+    return c.json({ ok: true });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// SimpleAgenda — User self-cancel subscription
+// ─────────────────────────────────────────────────────────────────────────────
+
+app.post('/api/agenda/subscription/cancel', requireVerifiedSession, async (c) => {
+    const user = await authUser(c);
+    if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
+    const profile = await getAgendaProfile(user.id);
+    if (!profile) return c.json({ ok: false, error: 'Perfil no encontrado' }, 404);
+    if (profile.plan === 'free') return c.json({ ok: false, error: 'No tienes un plan activo que cancelar' }, 400);
+
+    await db.update(agendaProfessionalProfiles).set({
+        plan: 'free',
+        planExpiresAt: null,
+        updatedAt: new Date(),
+    }).where(eq(agendaProfessionalProfiles.id, profile.id));
+
+    console.info(`[agenda] User self-cancelled plan: userId=${user.id} profileId=${profile.id}`);
+    return c.json({ ok: true });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
 // SimpleAgenda — Public booking
 // ─────────────────────────────────────────────────────────────────────────────
 
