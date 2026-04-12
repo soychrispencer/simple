@@ -5,6 +5,7 @@ import {
     IconMapPin,
     IconPlugConnected,
     IconChevronRight,
+    IconCreditCard,
 } from '@tabler/icons-react';
 
 const CONFIG_SECTIONS = [
@@ -31,6 +32,12 @@ const CONFIG_SECTIONS = [
         icon: IconPlugConnected,
         title: 'Integraciones',
         description: 'Conecta Instagram y otros servicios externos.',
+    },
+    {
+        href: '/panel/suscripciones',
+        icon: IconCreditCard,
+        title: 'Suscripción',
+        description: 'Gestiona tu plan y método de pago mensual.',
     },
 ];
 
