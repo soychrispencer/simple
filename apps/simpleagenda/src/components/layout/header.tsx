@@ -111,65 +111,6 @@ export function Header() {
                         </button>
                     )}
 
-                    {/* Mobile Menu Button (Hamburger) */}
-                    <div className="relative md:hidden" ref={menuRef}>
-                        <button
-                            onClick={() => setMenuOpen((prev) => !prev)}
-                            className="header-icon-chip"
-                            aria-label="Menú"
-                            aria-expanded={menuOpen}
-                        >
-                            {menuOpen ? <IconX size={18} /> : <IconMenu2 size={18} />}
-                        </button>
-
-                        {menuOpen && (
-                            <div
-                                className="absolute right-0 top-[calc(100%+8px)] z-50 w-[260px] rounded-xl border p-2 animate-slide-down"
-                                style={{ background: 'var(--surface)', borderColor: 'var(--border)', boxShadow: 'var(--shadow-md)' }}
-                            >
-                                {/* Action Button */}
-                                {isLoggedIn ? (
-                                    <PanelButton
-                                        onClick={() => {
-                                            setMenuOpen(false);
-                                            handleNuevaCita();
-                                        }}
-                                        variant="primary"
-                                        className="w-full h-10 text-sm mb-2"
-                                    >
-                                        <IconPlus size={14} /> Nueva cita
-                                    </PanelButton>
-                                ) : (
-                                    <PanelButton
-                                        onClick={() => {
-                                            setMenuOpen(false);
-                                            openAuth();
-                                        }}
-                                        variant="primary"
-                                        className="w-full h-10 text-sm mb-2"
-                                    >
-                                        Iniciar sesión
-                                    </PanelButton>
-                                )}
-                                
-                                <div className="my-2 border-t" style={{ borderColor: 'var(--border)' }} />
-                                
-                                {/* Public Navigation */}
-                                {publicNav.map((item) => (
-                                    <Link
-                                        key={item.href}
-                                        href={item.href}
-                                        onClick={() => setMenuOpen(false)}
-                                        className="flex items-center gap-2 rounded-lg px-2.5 py-2 text-sm transition-colors hover:bg-(--bg-subtle)"
-                                        style={{ color: 'var(--fg-secondary)' }}
-                                    >
-                                        {item.label}
-                                    </Link>
-                                ))}
-                            </div>
-                        )}
-                    </div>
-
                     {/* User Menu (Avatar) - Solo panel */}
                     {isLoggedIn && (
                         <div className="relative" ref={accountRef}>
@@ -243,6 +184,65 @@ export function Header() {
                             <IconPlus size={14} /> Nueva cita
                         </PanelButton>
                     )}
+
+                    {/* Mobile Menu Button (Hamburger) */}
+                    <div className="relative md:hidden" ref={menuRef}>
+                        <button
+                            onClick={() => setMenuOpen((prev) => !prev)}
+                            className="header-icon-chip"
+                            aria-label="Menú"
+                            aria-expanded={menuOpen}
+                        >
+                            {menuOpen ? <IconX size={18} /> : <IconMenu2 size={18} />}
+                        </button>
+
+                        {menuOpen && (
+                            <div
+                                className="absolute right-0 top-[calc(100%+8px)] z-50 w-[260px] rounded-xl border p-2 animate-slide-down"
+                                style={{ background: 'var(--surface)', borderColor: 'var(--border)', boxShadow: 'var(--shadow-md)' }}
+                            >
+                                {/* Action Button */}
+                                {isLoggedIn ? (
+                                    <PanelButton
+                                        onClick={() => {
+                                            setMenuOpen(false);
+                                            handleNuevaCita();
+                                        }}
+                                        variant="primary"
+                                        className="w-full h-10 text-sm mb-2"
+                                    >
+                                        <IconPlus size={14} /> Nueva cita
+                                    </PanelButton>
+                                ) : (
+                                    <PanelButton
+                                        onClick={() => {
+                                            setMenuOpen(false);
+                                            openAuth();
+                                        }}
+                                        variant="primary"
+                                        className="w-full h-10 text-sm mb-2"
+                                    >
+                                        Iniciar sesión
+                                    </PanelButton>
+                                )}
+                                
+                                <div className="my-2 border-t" style={{ borderColor: 'var(--border)' }} />
+                                
+                                {/* Public Navigation */}
+                                {publicNav.map((item) => (
+                                    <Link
+                                        key={item.href}
+                                        href={item.href}
+                                        onClick={() => setMenuOpen(false)}
+                                        className="flex items-center gap-2 rounded-lg px-2.5 py-2 text-sm transition-colors hover:bg-(--bg-subtle)"
+                                        style={{ color: 'var(--fg-secondary)' }}
+                                    >
+                                        {item.label}
+                                    </Link>
+                                ))}
+                            </div>
+                        )}
+                    </div>
                 </div>
             </div>
         </header>

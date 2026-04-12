@@ -210,71 +210,6 @@ export function Header() {
                         </button>
                     )}
 
-                    {/* Mobile Menu (Hamburger) - Public Nav + Action */}
-                    <div className="relative md:hidden" ref={menuRef}>
-                        <button
-                            onClick={() => setMenuOpen((prev) => !prev)}
-                            className="header-icon-chip"
-                            aria-label="Menú"
-                            aria-expanded={menuOpen}
-                        >
-                            {menuOpen ? <IconX size={18} /> : <IconMenu2 size={18} />}
-                        </button>
-
-                        {menuOpen && (
-                            <div
-                                className="absolute right-0 top-[calc(100%+8px)] z-50 w-[260px] rounded-xl border p-2 animate-slide-down"
-                                style={{ background: 'var(--surface)', borderColor: 'var(--border)', boxShadow: 'var(--shadow-md)' }}
-                            >
-                                {/* Action Button */}
-                                {isLoggedIn ? (
-                                    <PanelButton
-                                        onClick={() => {
-                                            setMenuOpen(false);
-                                            handlePublicar();
-                                        }}
-                                        variant="primary"
-                                        className="w-full h-10 text-sm mb-2"
-                                    >
-                                        <IconPlus size={14} /> Publicar
-                                    </PanelButton>
-                                ) : (
-                                    <PanelButton
-                                        onClick={() => {
-                                            setMenuOpen(false);
-                                            openAuth();
-                                        }}
-                                        variant="primary"
-                                        className="w-full h-10 text-sm mb-2"
-                                    >
-                                        Iniciar sesión
-                                    </PanelButton>
-                                )}
-                                
-                                <div className="my-2 border-t" style={{ borderColor: 'var(--border)' }} />
-                                
-                                {/* Public Navigation */}
-                                {links.map((l) => (
-                                    <Link
-                                        key={l.href}
-                                        href={l.href}
-                                        onClick={() => setMenuOpen(false)}
-                                        className="flex items-center gap-2 rounded-lg px-2.5 py-2 text-sm transition-colors hover:bg-(--bg-subtle)"
-                                        style={{ color: 'var(--fg-secondary)' }}
-                                    >
-                                        <span>{l.label}</span>
-                                        {l.isNew ? (
-                                            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] font-medium" style={{ background: 'var(--bg-muted)', color: 'var(--fg-muted)' }}>
-                                                <IconSparkles size={10} />
-                                                Nuevo
-                                            </span>
-                                        ) : null}
-                                    </Link>
-                                ))}
-                            </div>
-                        )}
-                    </div>
-
                     {/* User Menu (Avatar) - Solo panel */}
                     {isLoggedIn && (
                         <div className="relative" ref={accountRef}>
@@ -350,6 +285,71 @@ export function Header() {
                             <IconPlus size={13} /> Publicar
                         </PanelButton>
                     )}
+
+                    {/* Mobile Menu (Hamburger) - Public Nav + Action */}
+                    <div className="relative md:hidden" ref={menuRef}>
+                        <button
+                            onClick={() => setMenuOpen((prev) => !prev)}
+                            className="header-icon-chip"
+                            aria-label="Menú"
+                            aria-expanded={menuOpen}
+                        >
+                            {menuOpen ? <IconX size={18} /> : <IconMenu2 size={18} />}
+                        </button>
+
+                        {menuOpen && (
+                            <div
+                                className="absolute right-0 top-[calc(100%+8px)] z-50 w-[260px] rounded-xl border p-2 animate-slide-down"
+                                style={{ background: 'var(--surface)', borderColor: 'var(--border)', boxShadow: 'var(--shadow-md)' }}
+                            >
+                                {/* Action Button */}
+                                {isLoggedIn ? (
+                                    <PanelButton
+                                        onClick={() => {
+                                            setMenuOpen(false);
+                                            handlePublicar();
+                                        }}
+                                        variant="primary"
+                                        className="w-full h-10 text-sm mb-2"
+                                    >
+                                        <IconPlus size={14} /> Publicar
+                                    </PanelButton>
+                                ) : (
+                                    <PanelButton
+                                        onClick={() => {
+                                            setMenuOpen(false);
+                                            openAuth();
+                                        }}
+                                        variant="primary"
+                                        className="w-full h-10 text-sm mb-2"
+                                    >
+                                        Iniciar sesión
+                                    </PanelButton>
+                                )}
+                                
+                                <div className="my-2 border-t" style={{ borderColor: 'var(--border)' }} />
+                                
+                                {/* Public Navigation */}
+                                {links.map((l) => (
+                                    <Link
+                                        key={l.href}
+                                        href={l.href}
+                                        onClick={() => setMenuOpen(false)}
+                                        className="flex items-center gap-2 rounded-lg px-2.5 py-2 text-sm transition-colors hover:bg-(--bg-subtle)"
+                                        style={{ color: 'var(--fg-secondary)' }}
+                                    >
+                                        <span>{l.label}</span>
+                                        {l.isNew ? (
+                                            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] font-medium" style={{ background: 'var(--bg-muted)', color: 'var(--fg-muted)' }}>
+                                                <IconSparkles size={10} />
+                                                Nuevo
+                                            </span>
+                                        ) : null}
+                                    </Link>
+                                ))}
+                            </div>
+                        )}
+                    </div>
                 </div>
             </div>
         </header>
