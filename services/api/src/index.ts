@@ -8812,7 +8812,7 @@ function getEnvStatus() {
     };
 }
 
-async function authUser(c: Context): Promise<AppUser | null> {
+export async function authUser(c: Context): Promise<AppUser | null> {
     const token = getCookie(c, SESSION_COOKIE);
     if (!token) return null;
     let userId: string | null = null;

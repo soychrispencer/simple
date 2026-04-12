@@ -1,5 +1,5 @@
-import { Hono } from 'hono';
-import { eq, and, desc, sql } from 'drizzle-orm';
+import { Hono, type Context } from 'hono';
+import { eq, and, desc } from 'drizzle-orm';
 import { z } from 'zod';
 import { db } from '../db/index.js';
 import {
@@ -9,20 +9,18 @@ import {
   users,
 } from '../db/schema.js';
 import {
-  createCheckoutPreference,
   createPreapproval,
   getPaymentById,
   getPreapprovalById,
   isMercadoPagoConfigured,
 } from '../mercadopago.js';
+import { authUser } from '../index.js';
 
 const app = new Hono();
 
-// Helper to get auth user from context
-async function getAuthUser(c: any) {
-  const user = c.get('user');
-  if (!user) return null;
-  return user;
+// Helper to get auth user from context using the exported authUser function
+async function getAuthUser(c: Context) {
+  return authUser(c);
 }
 
 // Schema validations
