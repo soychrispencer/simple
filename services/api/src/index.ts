@@ -14048,8 +14048,36 @@ app.get('/api/subscriptions/catalog', async (c) => {
     const vertical = parseVertical(c.req.query('vertical'));
     const plans = getSubscriptionPlans(vertical);
     const freePlan = plans.find((plan) => plan.id === 'free') ?? null;
-    const currentSubscription = getCurrentSubscription(user.id, vertical);
     const orders = getPaymentOrdersForUser(user.id, { vertical, kind: 'subscription' }).map((order) => paymentOrderToResponse(order));
+
+    let currentSubscription: ReturnType<typeof activeSubscriptionToResponse> = null;
+
+    if (vertical === 'agenda') {
+        const profile = await db.query.agendaProfessionalProfiles.findFirst({
+            where: eq(agendaProfessionalProfiles.userId, user.id),
+        });
+        if (profile && profile.plan !== 'free') {
+            const isExpired = profile.plan === 'pro' && profile.planExpiresAt && profile.planExpiresAt < new Date();
+            if (!isExpired) {
+                const matchedPlan = plans.find((p) => p.id === profile.plan);
+                currentSubscription = {
+                    id: `agenda-${profile.id}`,
+                    vertical: 'agenda' as const,
+                    planId: profile.plan as Exclude<SubscriptionPlanId, 'free'>,
+                    planName: matchedPlan?.name ?? profile.plan,
+                    priceMonthly: matchedPlan?.priceMonthly ?? 0,
+                    currency: 'CLP',
+                    features: matchedPlan?.features ?? [],
+                    status: 'active' as const,
+                    providerStatus: 'manual',
+                    startedAt: profile.createdAt.getTime(),
+                    updatedAt: profile.updatedAt.getTime(),
+                };
+            }
+        }
+    } else {
+        currentSubscription = activeSubscriptionToResponse(getCurrentSubscription(user.id, vertical));
+    }
 
     return c.json({
         ok: true,
@@ -14057,7 +14085,7 @@ app.get('/api/subscriptions/catalog', async (c) => {
         mercadoPagoEnabled: isMercadoPagoConfigured(),
         plans,
         freePlan,
-        currentSubscription: activeSubscriptionToResponse(currentSubscription),
+        currentSubscription,
         orders,
     });
 });
