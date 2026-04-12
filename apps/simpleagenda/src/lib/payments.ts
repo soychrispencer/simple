@@ -96,7 +96,7 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
 export async function fetchSubscriptionCatalog(): Promise<SubscriptionCatalogResponse | null> {
   try {
     return await request<SubscriptionCatalogResponse>(
-      `/api/payments/catalog?vertical=agenda`
+      `/api/subscriptions/catalog?vertical=agenda`
     );
   } catch (error) {
     console.error('Error fetching subscription catalog:', error);
@@ -109,7 +109,12 @@ export async function startSubscriptionCheckout(
 ): Promise<CheckoutStartResponse> {
   return request<CheckoutStartResponse>('/api/payments/checkout', {
     method: 'POST',
-    body: JSON.stringify(input),
+    body: JSON.stringify({
+      kind: 'subscription',
+      vertical: 'agenda',
+      planId: input.planId,
+      returnUrl: input.returnUrl,
+    }),
   });
 }
 

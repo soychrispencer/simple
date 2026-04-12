@@ -126,7 +126,7 @@ import paymentsRouter from './routes/payments.js';
 
 type UserRole = 'user' | 'admin' | 'superadmin';
 type UserStatus = 'active' | 'verified' | 'suspended';
-type VerticalType = 'autos' | 'propiedades';
+type VerticalType = 'autos' | 'propiedades' | 'agenda';
 type AddressBookKind = 'personal' | 'shipping' | 'billing' | 'company' | 'branch' | 'warehouse' | 'pickup' | 'other';
 type ListingLocationSourceMode = 'saved_address' | 'custom' | 'area_only';
 
@@ -977,7 +977,7 @@ const followToggleSchema = z.object({
     vertical: z.enum(['autos', 'propiedades']),
 });
 
-const boostVerticalSchema = z.enum(['autos', 'propiedades']);
+const boostVerticalSchema = z.enum(['autos', 'propiedades', 'agenda']);
 const boostPlanIdSchema = z.enum(['boost_starter', 'boost_pro', 'boost_max']);
 const boostSectionSchema = z.enum(['sale', 'rent', 'auction', 'project']);
 const portalKeySchema = z.enum(['yapo', 'chileautos', 'mercadolibre', 'facebook']);
@@ -1225,9 +1225,12 @@ const createCheckoutSchema = z.discriminatedUnion('kind', [
         kind: z.literal('subscription'),
         vertical: boostVerticalSchema,
         returnUrl: z.string().url(),
+        planId: paidSubscriptionPlanIdSchema.optional(), // top-level (agenda)
         subscription: z.object({
             planId: paidSubscriptionPlanIdSchema,
-        }),
+        }).optional(),
+    }).refine((d) => d.planId != null || d.subscription?.planId != null, {
+        message: 'planId is required',
     }),
 ]);
 
@@ -2738,6 +2741,41 @@ const SUBSCRIPTION_PLANS_BY_VERTICAL: Record<VerticalType, SubscriptionPlanRecor
             customBranding: true,
             apiAccess: true,
             features: ['Publicaciones ilimitadas', 'Destacados ilimitados', 'API y branding propio', 'Soporte prioritario 24/7'],
+        },
+    ],
+    agenda: [
+        {
+            id: 'free',
+            name: 'Gratuito',
+            description: 'Plan base para profesionales que están comenzando.',
+            priceMonthly: 0,
+            currency: 'CLP',
+            maxListings: 1,
+            maxFeaturedListings: 0,
+            maxImagesPerListing: 5,
+            analyticsEnabled: false,
+            crmEnabled: false,
+            prioritySupport: false,
+            customBranding: false,
+            apiAccess: false,
+            features: ['1 profesional', 'Hasta 50 citas mensuales', 'Clientes ilimitados', 'Soporte por email'],
+        },
+        {
+            id: 'pro',
+            name: 'Profesional',
+            description: 'Para profesionales que quieren crecer su agenda.',
+            priceMonthly: 14990,
+            currency: 'CLP',
+            maxListings: 3,
+            maxFeaturedListings: 1,
+            maxImagesPerListing: 20,
+            analyticsEnabled: true,
+            crmEnabled: true,
+            prioritySupport: true,
+            customBranding: true,
+            apiAccess: false,
+            recommended: true,
+            features: ['3 profesionales', 'Citas ilimitadas', 'Recordatorios WhatsApp + Email', 'Estadísticas avanzadas', 'Gestión de cobros', 'Soporte prioritario'],
         },
     ],
 };
@@ -7251,7 +7289,9 @@ function usernameFromName(name: string): string {
 }
 
 function parseVertical(raw: string | undefined): VerticalType {
-    return raw === 'propiedades' ? 'propiedades' : 'autos';
+    if (raw === 'propiedades') return 'propiedades';
+    if (raw === 'agenda') return 'agenda';
+    return 'autos';
 }
 
 function getUrlPathSegment(url: string, fromEnd = 1): string {
@@ -14164,9 +14204,12 @@ app.post('/api/payments/checkout', async (c) => {
         }
 
         const vertical = checkoutData.vertical;
-        const subscriptionInput = checkoutData.subscription;
+        const resolvedPlanId = checkoutData.planId ?? checkoutData.subscription?.planId;
+        if (!resolvedPlanId) {
+            return c.json({ ok: false, error: 'planId es requerido' }, 400);
+        }
         const returnUrl = ensureMercadoPagoSubscriptionReturnUrl(vertical, checkoutData.returnUrl);
-        const plan = getPaidSubscriptionPlan(vertical, subscriptionInput.planId);
+        const plan = getPaidSubscriptionPlan(vertical, resolvedPlanId);
         if (!plan) {
             return c.json({ ok: false, error: 'Plan no disponible' }, 400);
         }
@@ -14178,7 +14221,7 @@ app.post('/api/payments/checkout', async (c) => {
         const orderId = makePaymentOrderId('subscription');
         const preapproval = await createPreapproval({
             externalReference: orderId,
-            reason: `Suscripción ${plan.name} · ${vertical === 'autos' ? 'SimpleAutos' : 'SimplePropiedades'}`,
+            reason: `Suscripción ${plan.name} · ${vertical === 'autos' ? 'SimpleAutos' : vertical === 'propiedades' ? 'SimplePropiedades' : 'SimpleAgenda'}`,
             amount: plan.priceMonthly,
             currencyId: plan.currency,
             payerEmail: user.email,
