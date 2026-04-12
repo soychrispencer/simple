@@ -14105,8 +14105,8 @@ app.get('/api/subscriptions/admin/all', async (c) => {
                 status: sub.status,
                 providerStatus: sub.providerStatus ?? null,
                 startedAt: new Date(sub.startedAt).toISOString(),
-                expiresAt: sub.expiresAt ? new Date(sub.expiresAt).toISOString() : null,
-                cancelledAt: sub.cancelledAt ? new Date(sub.cancelledAt).toISOString() : null,
+                expiresAt: null,
+                cancelledAt: null,
             });
         }
     }
