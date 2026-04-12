@@ -78,7 +78,7 @@ const PRO_FEATURES = ['Citas y pacientes ilimitados', 'Notas clinicas por sesion
 
 const FAQS: { q: string; a: string }[] = [
     { q: 'Es realmente gratis?', a: 'Si. El plan gratuito incluye hasta 10 citas mensuales y 5 pacientes sin costo. No necesitas tarjeta de credito para comenzar.' },
-    { q: 'Puedo cambiar de plan en cualquier momento?', a: 'Claro. Puedes actualizar a Pro cuando quieras, y si decides volver al plan gratuito, tus datos se mantienen intactos.' },
+    { q: 'Puedo cambiar de plan en cualquier momento?', a: 'Claro. Puedes actualizar a Pro cuando quieras desde tu panel. Si decides volver al plan gratuito, tus datos se mantienen intactos.' },
     { q: 'Mis pacientes necesitan crear una cuenta?', a: 'No. Tus pacientes reservan directamente desde tu pagina publica sin necesidad de registrarse.' },
     { q: 'Que metodos de pago acepta?', a: 'Puedes configurar MercadoPago, transferencia bancaria o un link de pago personalizado para que tus pacientes paguen por adelantado.' },
     { q: 'Funciona para consultas presenciales y online?', a: 'Si. Puedes configurar servicios presenciales, online o ambos. Cada servicio puede tener duracion y precio diferente.' },
@@ -441,8 +441,8 @@ export default function HomePage() {
                             <h3 className="text-lg font-bold" style={{ color: 'var(--fg)' }}>Profesional</h3>
                             <p className="text-sm mt-1" style={{ color: 'var(--fg-muted)' }}>Para profesionales con practica activa.</p>
                             <div className="flex items-baseline gap-1 mt-4">
-                                <span className="text-4xl font-bold" style={{ color: 'var(--fg)' }}>$12.990</span>
-                                <span className="text-sm" style={{ color: 'var(--fg-muted)' }}>/mes</span>
+                                <span className="text-4xl font-bold" style={{ color: 'var(--fg)' }}>$14.990</span>
+                                <span className="text-sm" style={{ color: 'var(--fg-muted)' }}>/mes + IVA</span>
                             </div>
                         </div>
                         <hr style={{ borderColor: 'var(--border)' }} />
@@ -459,7 +459,7 @@ export default function HomePage() {
                             className="btn btn-primary w-full h-11 text-sm"
                             style={{ borderRadius: '12px', background: 'var(--accent)', color: 'var(--accent-contrast)', borderColor: 'var(--accent)' }}
                         >
-                            Probar 14 dias gratis
+                            Suscribirme al plan Pro
                         </button>
                     </div>
                 </div>
