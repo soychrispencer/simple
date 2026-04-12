@@ -84,6 +84,24 @@ export function Header() {
                                             <p className="text-sm font-medium" style={{ color: 'var(--fg)' }}>{userName}</p>
                                             <p className="text-xs" style={{ color: 'var(--fg-muted)' }}>{user?.email}</p>
                                         </div>
+                                        {/* Public navigation links - especially useful on mobile */}
+                                        <Link
+                                            href="/#como-funciona"
+                                            onClick={() => setAccountOpen(false)}
+                                            className="flex items-center gap-2 rounded-lg px-2.5 py-2 text-sm transition-colors hover:bg-(--bg-subtle)"
+                                            style={{ color: 'var(--fg-secondary)' }}
+                                        >
+                                            Funciones
+                                        </Link>
+                                        <Link
+                                            href="/#planes"
+                                            onClick={() => setAccountOpen(false)}
+                                            className="flex items-center gap-2 rounded-lg px-2.5 py-2 text-sm transition-colors hover:bg-(--bg-subtle)"
+                                            style={{ color: 'var(--fg-secondary)' }}
+                                        >
+                                            Planes
+                                        </Link>
+                                        <div className="my-1 border-t" style={{ borderColor: 'var(--border)' }}></div>
                                         {/* Panel navigation items */}
                                         <Link
                                             href="/panel"
