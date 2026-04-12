@@ -2583,6 +2583,12 @@ const BOOST_PRICE_BY_VERTICAL_SECTION: Record<VerticalType, Record<BoostSection,
         auction: { boost_starter: 12990, boost_pro: 23990, boost_max: 39990 },
         project: { boost_starter: 14990, boost_pro: 27990, boost_max: 44990 },
     },
+    agenda: {
+        sale: { boost_starter: 0, boost_pro: 0, boost_max: 0 },
+        rent: { boost_starter: 0, boost_pro: 0, boost_max: 0 },
+        auction: { boost_starter: 0, boost_pro: 0, boost_max: 0 },
+        project: { boost_starter: 0, boost_pro: 0, boost_max: 0 },
+    },
 };
 
 const AD_FORMAT_LABELS: Record<AdFormat, string> = {
@@ -2604,6 +2610,11 @@ const AD_PRICING_BY_VERTICAL: Record<VerticalType, Record<AdFormat, Record<AdDur
         hero: { 7: 29990, 15: 49990, 30: 79990 },
         card: { 7: 9990, 15: 14990, 30: 24990 },
         inline: { 7: 4990, 15: 9990, 30: 14990 },
+    },
+    agenda: {
+        hero: { 7: 0, 15: 0, 30: 0 },
+        card: { 7: 0, 15: 0, 30: 0 },
+        inline: { 7: 0, 15: 0, 30: 0 },
     },
 };
 
