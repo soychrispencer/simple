@@ -105,13 +105,13 @@ export default function SubscriptionManager() {
     [plans, freePlan, currentPlanId]
   );
 
-  const startCheckout = async (planId: 'basic' | 'pro' | 'enterprise') => {
+  const startCheckout = async (planId: string) => {
     setBusyPlanId(planId);
     setError('');
     setMessage('');
 
     const result = await startSubscriptionCheckout({
-      planId,
+      planId: planId as 'free' | 'basic' | 'pro' | 'enterprise',
       returnUrl: `${window.location.origin}/panel/suscripciones`,
     });
 
@@ -217,7 +217,7 @@ export default function SubscriptionManager() {
                   variant={isCurrent ? 'secondary' : 'primary'}
                   disabled={!isPaid || isCurrent || busyPlanId === plan.id || !mercadoPagoEnabled}
                   onClick={() => {
-                    if (plan.id === 'basic' || plan.id === 'pro' || plan.id === 'enterprise') {
+                    if (plan.id !== 'free') {
                       void startCheckout(plan.id);
                     }
                   }}

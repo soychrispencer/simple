@@ -14055,7 +14055,7 @@ app.get('/api/subscriptions/admin/all', async (c) => {
         for (const sub of subs) {
             if (verticalFilter && sub.vertical !== verticalFilter) continue;
             if (statusFilter && sub.status !== statusFilter) continue;
-            const plan = getSubscriptionPlanById(sub.planId as SubscriptionPlanId, sub.vertical);
+            const plan = getSubscriptionPlans(sub.vertical).find((p) => p.id === sub.planId);
             results.push({
                 id: sub.id,
                 userId,

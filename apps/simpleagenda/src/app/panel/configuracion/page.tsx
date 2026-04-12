@@ -12,6 +12,7 @@ import {
     IconCreditCard,
     IconMapPin,
     IconCheck,
+    IconCoin,
 } from '@tabler/icons-react';
 import { fetchAgendaProfile, fetchAgendaStats, type AgendaProfile, type AgendaStats } from '@/lib/agenda-api';
 
@@ -102,6 +103,12 @@ export default function ConfiguracionPage() {
             icon: IconPlug,
             title: 'Integraciones',
             description: 'Google Calendar, WhatsApp y otras conexiones.',
+        },
+        {
+            href: '/panel/suscripciones',
+            icon: IconCoin,
+            title: 'Suscripción',
+            description: 'Gestiona tu plan y método de pago mensual.',
         },
     ];
 

@@ -1,4 +1,4 @@
-const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3002';
+const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000';
 
 export type PaymentOrderStatus =
   | 'pending'
@@ -112,8 +112,10 @@ export async function startSubscriptionCheckout(
     body: JSON.stringify({
       kind: 'subscription',
       vertical: 'agenda',
-      planId: input.planId,
       returnUrl: input.returnUrl,
+      subscription: {
+        planId: input.planId,
+      },
     }),
   });
 }

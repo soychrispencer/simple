@@ -2,7 +2,6 @@ import {
     IconLayoutDashboard,
     IconCalendar,
     IconUsers,
-    IconCreditCard,
     IconSettings,
     IconCoin,
     type Icon,
@@ -22,8 +21,7 @@ const BASE_ITEMS: PanelNavItem[] = [
     { href: '/panel', label: 'Inicio', icon: IconLayoutDashboard },
     { href: '/panel/agenda', label: 'Mi Agenda', icon: IconCalendar },
     { href: '/panel/clientes', label: 'Pacientes', icon: IconUsers },
-    { href: '/panel/pagos', label: 'Cobros', icon: IconCreditCard },
-    { href: '/panel/suscripciones', label: 'Suscripciones', icon: IconCoin },
+    { href: '/panel/pagos', label: 'Cobros', icon: IconCoin },
     { href: '/panel/configuracion', label: 'Configuración', icon: IconSettings },
 ];
 
