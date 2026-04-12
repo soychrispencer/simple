@@ -10,7 +10,10 @@ function asString(value: unknown): string {
 }
 
 const SESSION_COOKIE = 'simple_session';
-const SESSION_SECRET = asString(process.env.SESSION_SECRET);
+// Read lazily so env is guaranteed loaded at call time
+function getSessionSecret(): string {
+    return asString(process.env.SESSION_SECRET);
+}
 
 export type AppUser = {
     id: string;
@@ -68,7 +71,7 @@ export async function authUser(c: Context): Promise<AppUser | null> {
 
     let userId: string | null = null;
     try {
-        const payload = jwt.verify(token, SESSION_SECRET) as jwt.JwtPayload;
+        const payload = jwt.verify(token, getSessionSecret()) as jwt.JwtPayload;
         userId = typeof payload.sub === 'string' ? payload.sub : null;
     } catch {
         userId = null;
