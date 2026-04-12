@@ -4,7 +4,6 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useEffect, useMemo, useState } from 'react';
 import {
-    IconArrowLeft,
     IconChevronLeft,
     IconChevronRight,
     IconX,
@@ -181,22 +180,6 @@ export function PanelShell({ children }: { children: React.ReactNode }) {
                     </div>
 
                     <SidebarNav items={navItems} pathname={pathname} collapsed={collapsed} />
-
-                    <div className="pt-3 mt-3 border-t" style={{ borderColor: 'var(--border)' }}>
-                        <Link
-                            href="/ventas"
-                            className={`group flex h-10 items-center rounded-[10px] border transition-colors hover:bg-(--bg-subtle) hover:border-(--border-strong) hover:text-(--fg) ${
-                                collapsed ? 'justify-center' : 'gap-2 px-2.5'
-                            }`}
-                            style={{ borderColor: 'var(--border)', color: 'var(--fg-secondary)' }}
-                            title={collapsed ? 'Ir al marketplace' : undefined}
-                        >
-                            <span className="w-7 h-7 rounded-lg flex items-center justify-center bg-(--bg-muted)">
-                                <IconArrowLeft size={13} stroke={1.9} />
-                            </span>
-                            {!collapsed ? <span className="text-sm">Ir al marketplace</span> : null}
-                        </Link>
-                    </div>
                 </div>
             </aside>
 
@@ -259,20 +242,6 @@ export function PanelShell({ children }: { children: React.ReactNode }) {
                                 collapsed={false}
                                 onNavigate={() => setMobileOpen(false)}
                             />
-
-                            <div className="pt-3 mt-3 border-t" style={{ borderColor: 'var(--border)' }}>
-                                <Link
-                                    href="/ventas"
-                                    onClick={() => setMobileOpen(false)}
-                                    className="group flex h-10 items-center gap-2 rounded-[10px] border px-2.5 transition-colors hover:bg-(--bg-subtle) hover:border-(--border-strong) hover:text-(--fg)"
-                                    style={{ borderColor: 'var(--border)', color: 'var(--fg-secondary)' }}
-                                >
-                                    <span className="w-7 h-7 rounded-lg flex items-center justify-center bg-(--bg-muted)">
-                                        <IconArrowLeft size={13} stroke={1.9} />
-                                    </span>
-                                    <span className="text-sm">Ir al marketplace</span>
-                                </Link>
-                            </div>
                         </div>
                     </aside>
                 </div>

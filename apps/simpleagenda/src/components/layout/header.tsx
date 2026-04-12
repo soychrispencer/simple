@@ -21,6 +21,7 @@ import {
 import { useAuth } from '@/context/auth-context';
 import { PanelButton } from '@simple/ui';
 import { NotificationBell } from '@/components/panel/notification-bell';
+import { isPanelNavActive } from '@/components/panel/panel-nav-config';
 
 const publicNav = [
     { href: '/#como-funciona', label: 'Funciones' },
@@ -145,18 +146,26 @@ export function Header() {
                                     <nav className="space-y-1" aria-label="Navegación de panel">
                                         {panelNav.map((item) => {
                                             const Icon = item.icon;
+                                            const active = isPanelNavActive(pathname, item.href);
                                             return (
                                                 <Link
                                                     key={item.href}
                                                     href={item.href}
                                                     onClick={() => setAccountOpen(false)}
-                                                    className="group flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm transition-colors hover:bg-(--bg-subtle)"
-                                                    style={{ color: 'var(--fg-secondary)' }}
+                                                    className="group flex items-center gap-2.5 rounded-xl px-2.5 py-2 text-sm transition-colors hover:bg-(--bg-subtle)"
+                                                    style={{ color: active ? 'var(--fg)' : 'var(--fg-secondary)', background: active ? 'var(--bg-subtle)' : 'transparent' }}
                                                 >
-                                                    <span className="w-7 h-7 rounded-lg border flex items-center justify-center" style={{ borderColor: 'var(--border)', color: 'var(--fg-muted)' }}>
-                                                        <Icon size={14} stroke={1.9} />
+                                                    <span
+                                                        className="w-9 h-9 rounded-[10px] border flex items-center justify-center transition-colors group-hover:border-(--border-strong) group-hover:text-(--fg)"
+                                                        style={{
+                                                            borderColor: active ? 'var(--button-primary-border)' : 'var(--border)',
+                                                            background: active ? 'var(--button-primary-bg)' : 'color-mix(in srgb, var(--bg-subtle) 70%, transparent)',
+                                                            color: active ? 'var(--button-primary-color)' : 'var(--fg-secondary)',
+                                                        }}
+                                                    >
+                                                        <Icon size={17} stroke={1.9} />
                                                     </span>
-                                                    <span className="flex-1 truncate">{item.label}</span>
+                                                    <span className="flex-1 truncate font-medium">{item.label}</span>
                                                 </Link>
                                             );
                                         })}
@@ -166,13 +175,13 @@ export function Header() {
                                     <div className="mt-2 pt-2 border-t" style={{ borderColor: 'var(--border)' }}>
                                         <button
                                             onClick={() => { setAccountOpen(false); void logout(); }}
-                                            className="group w-full flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm transition-colors hover:bg-(--bg-subtle)"
+                                            className="group w-full flex items-center gap-2.5 rounded-xl px-2.5 py-2 text-sm transition-colors hover:bg-(--bg-subtle)"
                                             style={{ color: 'var(--fg-secondary)' }}
                                         >
-                                            <span className="w-7 h-7 rounded-lg border flex items-center justify-center" style={{ borderColor: 'var(--border)' }}>
-                                                <IconLogout size={14} stroke={1.9} />
+                                            <span className="w-9 h-9 rounded-[10px] border flex items-center justify-center transition-colors group-hover:border-(--border-strong) group-hover:text-(--fg)" style={{ borderColor: 'var(--border)', color: 'var(--fg-secondary)' }}>
+                                                <IconLogout size={17} stroke={1.9} />
                                             </span>
-                                            Cerrar sesión
+                                            <span className="font-medium">Cerrar sesión</span>
                                         </button>
                                     </div>
                                 </div>
