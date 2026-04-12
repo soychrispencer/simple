@@ -15,13 +15,14 @@ import {
     IconUsers,
 } from '@tabler/icons-react';
 import { useAuth } from '@/context/auth-context';
+import { PanelButton } from '@simple/ui';
 import { NotificationBell } from '@/components/panel/notification-bell';
 
 export function Header() {
     const { theme, setTheme } = useTheme();
     const [mounted, setMounted] = useState(false);
     const [accountOpen, setAccountOpen] = useState(false);
-    const { user, isLoggedIn, logout } = useAuth();
+    const { user, isLoggedIn, logout, openAuth } = useAuth();
 
     useEffect(() => {
         setMounted(true);
@@ -162,13 +163,9 @@ export function Header() {
                                 ) : null}
                             </>
                         ) : (
-                            <Link
-                                href="/auth/login"
-                                className="header-icon-chip text-sm font-medium"
-                                style={{ color: 'var(--fg-secondary)' }}
-                            >
+                            <PanelButton onClick={openAuth} variant="primary" size="sm" className="h-9 px-4 text-sm">
                                 Iniciar sesión
-                            </Link>
+                            </PanelButton>
                         )}
                     </div>
                 </div>
