@@ -161,7 +161,15 @@ export function Header() {
                                     </div>
                                 ) : null}
                             </>
-                        ) : null}
+                        ) : (
+                            <Link
+                                href="/auth/login"
+                                className="header-icon-chip text-sm font-medium"
+                                style={{ color: 'var(--fg-secondary)' }}
+                            >
+                                Iniciar sesión
+                            </Link>
+                        )}
                     </div>
                 </div>
             </div>
