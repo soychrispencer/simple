@@ -33,6 +33,7 @@ import {
     fetchMercadoPagoStatus,
     getMercadoPagoAuthUrl,
     disconnectMercadoPago,
+    isPlanActive,
     type AgendaProfile,
 } from '@/lib/agenda-api';
 
@@ -44,9 +45,9 @@ function ProGate({ feature }: { feature: string }) {
         >
             <IconLock size={15} style={{ color: 'var(--accent)', flexShrink: 0 }} />
             <p className="text-xs" style={{ color: 'var(--fg-muted)' }}>
-                <strong style={{ color: 'var(--fg)' }}>{feature}</strong> está disponible en el plan Profesional.{' '}
+                <strong style={{ color: 'var(--fg)' }}>{feature}</strong> está disponible en el plan Pro o Empresa.{' '}
                 <Link href="/panel/suscripciones" className="underline" style={{ color: 'var(--accent)' }}>
-                    Actualizar plan →
+                    Ver planes →
                 </Link>
             </p>
         </div>
@@ -98,8 +99,7 @@ function IntegracionesPageInner() {
                 fetchMercadoPagoStatus(),
             ]);
             if (prof) {
-                const planActive = prof.plan === 'pro' && (!prof.planExpiresAt || new Date(prof.planExpiresAt) >= new Date());
-                setIsPro(planActive);
+                setIsPro(isPlanActive(prof));
                 setWaEnabled(prof.waNotificationsEnabled ?? true);
                 setWaNotifyProf(prof.waNotifyProfessional ?? true);
                 setWaProfPhone(prof.waProfessionalPhone ?? '');

@@ -42,7 +42,7 @@ export default function ConfiguracionPage() {
     const perfilDone = !!(profile?.displayName && profile?.profession);
     const serviciosDone = stats?.hasServices === true;
     const disponibilidadDone = stats?.hasRules === true;
-    const cobrosDone = !!(profile?.mpAccessToken || profile?.paymentLinkUrl || profile?.bankTransferData);
+    const cobrosDone = !!(profile?.acceptsTransfer || profile?.acceptsMp || profile?.acceptsPaymentLink);
     const locationsDone = stats?.hasLocations === true;
     const publicadoDone = profile?.isPublished === true;
 

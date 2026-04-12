@@ -13,6 +13,7 @@ import {
     IconUser,
 } from '@tabler/icons-react';
 import { fetchAgendaClient, updateAgendaClient, type AgendaClient, type AgendaAppointment } from '@/lib/agenda-api';
+import { vocab } from '@/lib/vocabulary';
 import { fmtDateLong as formatDate, fmtTime as formatTime } from '@/lib/format';
 
 const STATUS_LABELS: Record<string, string> = {
@@ -89,7 +90,7 @@ export default function ClienteFichaPage() {
                 style={{ color: 'var(--fg-muted)' }}
             >
                 <IconArrowLeft size={14} />
-                Volver a pacientes
+                Volver a {vocab.clients}
             </button>
 
             {/* Header card */}

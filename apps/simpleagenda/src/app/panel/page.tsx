@@ -141,7 +141,7 @@ export default function PanelHomePage() {
             setProfile(p);
             setLoading(false);
             // Redirigir al onboarding si el perfil está vacío (usuario nuevo)
-            if (!p?.displayName && !p?.profession) {
+            if (p && !p.displayName && !p.profession) {
                 router.replace('/panel/onboarding');
             }
         };

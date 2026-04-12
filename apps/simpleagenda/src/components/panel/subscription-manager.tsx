@@ -12,7 +12,7 @@ import {
   type PaymentOrderView,
   type SubscriptionPlan,
 } from '@/lib/payments';
-import { fetchAgendaProfile } from '@/lib/agenda-api';
+import { fetchAgendaProfile, isPlanActive } from '@/lib/agenda-api';
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000';
 
@@ -37,8 +37,14 @@ function subscriptionLabel(status: PaymentOrderStatus): string {
 
 // ── Agenda plan cancel card ───────────────────────────────────────────────────
 
+const PLAN_NAMES: Record<string, string> = {
+  free: 'Gratuito',
+  pro: 'Profesional',
+  enterprise: 'Empresa',
+};
+
 function AgendaPlanCard() {
-  const [agendaPlan, setAgendaPlan] = useState<'free' | 'pro'>('free');
+  const [agendaPlan, setAgendaPlan] = useState<string>('free');
   const [planExpiresAt, setPlanExpiresAt] = useState<string | null>(null);
   const [loadingPlan, setLoadingPlan] = useState(true);
   const [confirmCancel, setConfirmCancel] = useState(false);
@@ -48,11 +54,13 @@ function AgendaPlanCard() {
 
   const loadPlan = async () => {
     setLoadingPlan(true);
-    const prof = await fetchAgendaProfile();
-    if (prof) {
-      setAgendaPlan(prof.plan as 'free' | 'pro');
-      setPlanExpiresAt(prof.planExpiresAt);
-    }
+    try {
+      const prof = await fetchAgendaProfile();
+      if (prof) {
+        setAgendaPlan(prof.plan);
+        setPlanExpiresAt(prof.planExpiresAt);
+      }
+    } catch { /* silencioso */ }
     setLoadingPlan(false);
   };
 
@@ -79,8 +87,10 @@ function AgendaPlanCard() {
     }
   };
 
-  const isPro = agendaPlan === 'pro';
-  const isExpired = isPro && planExpiresAt && new Date(planExpiresAt) < new Date();
+  const isPaid = agendaPlan !== 'free';
+  const isExpired = agendaPlan === 'pro' && planExpiresAt != null && new Date(planExpiresAt) < new Date();
+  const isActive = isPaid && !isExpired;
+  const planName = PLAN_NAMES[agendaPlan] ?? agendaPlan;
   const fmtDate = (iso: string) => new Date(iso).toLocaleDateString('es-CL', { day: '2-digit', month: 'long', year: 'numeric' });
 
   return (
@@ -96,25 +106,23 @@ function AgendaPlanCard() {
           <div className="flex items-start justify-between gap-4 flex-wrap">
             <div>
               <p className="text-xs uppercase tracking-wide mb-1" style={{ color: 'var(--fg-muted)' }}>Plan actual</p>
-              <p className="text-xl font-semibold" style={{ color: 'var(--fg)' }}>
-                {isPro ? 'Profesional' : 'Gratuito'}
-              </p>
-              {isPro && planExpiresAt && (
+              <p className="text-xl font-semibold" style={{ color: 'var(--fg)' }}>{planName}</p>
+              {isPaid && planExpiresAt && (
                 <p className="text-xs mt-1" style={{ color: isExpired ? 'rgb(190,18,60)' : 'var(--fg-muted)' }}>
                   {isExpired ? 'Expiró el' : 'Expira el'} {fmtDate(planExpiresAt)}
                 </p>
               )}
-              {isPro && !planExpiresAt && (
+              {isPaid && !planExpiresAt && (
                 <p className="text-xs mt-1" style={{ color: 'var(--fg-muted)' }}>Sin fecha de expiración</p>
               )}
             </div>
             <PanelStatusBadge
-              label={isPro && !isExpired ? 'Pro activo' : isPro && isExpired ? 'Expirado' : 'Gratuito'}
-              tone={isPro && !isExpired ? 'success' : isPro && isExpired ? 'danger' : 'neutral'}
+              label={isActive ? `${planName} activo` : isExpired ? 'Expirado' : 'Gratuito'}
+              tone={isActive ? 'success' : isExpired ? 'danger' : 'neutral'}
             />
           </div>
 
-          {isPro && !isExpired && !confirmCancel && (
+          {isActive && agendaPlan === 'pro' && !confirmCancel && (
             <div className="mt-5 pt-4" style={{ borderTop: '1px solid var(--border)' }}>
               <button
                 onClick={() => setConfirmCancel(true)}
@@ -358,6 +366,39 @@ export default function SubscriptionManager() {
               </article>
             );
           })}
+
+          {/* Plan Empresa — próximamente */}
+          <article
+            className="rounded-2xl border p-5 opacity-60"
+            style={{ borderColor: 'var(--border)', background: 'var(--surface)', borderStyle: 'dashed' }}
+          >
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <p className="text-lg font-semibold" style={{ color: 'var(--fg)' }}>Empresa</p>
+                <p className="mt-1 text-sm" style={{ color: 'var(--fg-secondary)' }}>Para clínicas y equipos profesionales.</p>
+              </div>
+              <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium" style={{ background: 'var(--bg-muted)', color: 'var(--fg-muted)' }}>
+                Próximamente
+              </span>
+            </div>
+            <p className="mt-4 text-2xl font-semibold" style={{ color: 'var(--fg-muted)' }}>—</p>
+            <p className="text-xs" style={{ color: 'var(--fg-muted)' }}>precio a confirmar</p>
+            <div className="mt-4 space-y-2">
+              {['Todo lo del plan Pro', 'Múltiples profesionales', 'Panel de administración', 'Soporte prioritario'].map((f) => (
+                <div key={f} className="flex items-start gap-2 text-sm">
+                  <IconCheck size={14} className="mt-0.5 shrink-0" style={{ color: 'var(--fg-muted)' }} />
+                  <span style={{ color: 'var(--fg-muted)' }}>{f}</span>
+                </div>
+              ))}
+            </div>
+            <button
+              disabled
+              className="mt-5 w-full py-2.5 rounded-xl text-sm font-semibold border cursor-not-allowed"
+              style={{ borderColor: 'var(--border)', color: 'var(--fg-muted)', background: 'var(--bg-muted)' }}
+            >
+              Próximamente
+            </button>
+          </article>
         </div>
       </PanelCard>
 

@@ -21,6 +21,7 @@ import {
     type AgendaAppointment,
 } from '@/lib/agenda-api';
 import { fmtCLP, fmtDateMedium as fmtDate } from '@/lib/format';
+import { vocab } from '@/lib/vocabulary';
 
 const METHOD_LABELS: Record<string, string> = {
     transfer: 'Transferencia',
@@ -279,7 +280,7 @@ export default function PagosPage() {
                             {/* Client */}
                             {clients.length > 0 && (
                                 <div className="flex flex-col gap-1.5">
-                                    <label className="text-xs font-medium" style={{ color: 'var(--fg-muted)' }}>Paciente</label>
+                                    <label className="text-xs font-medium" style={{ color: 'var(--fg-muted)' }}>{vocab.Client}</label>
                                     <select
                                         value={form.clientId}
                                         onChange={(e) => setForm((p) => ({ ...p, clientId: e.target.value, appointmentId: '' }))}
@@ -317,7 +318,7 @@ export default function PagosPage() {
                                                 <option key={a.id} value={a.id}>
                                                     {new Date(a.startsAt).toLocaleDateString('es-CL', { day: 'numeric', month: 'short' })}
                                                     {' — '}
-                                                    {a.clientName ?? clientName(a.clientId ?? null) ?? 'Paciente'}
+                                                    {a.clientName ?? clientName(a.clientId ?? null) ?? vocab.Client}
                                                     {a.price ? ` ($${Number(a.price).toLocaleString('es-CL')})` : ''}
                                                 </option>
                                             ))}

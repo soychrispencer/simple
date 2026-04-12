@@ -22,6 +22,7 @@ import Link from 'next/link';
 import {
     fetchAgendaProfile,
     saveAgendaProfile,
+    isPlanActive,
     type AgendaProfile,
     type BankTransferData,
 } from '@/lib/agenda-api';
@@ -63,8 +64,7 @@ function CobrosConfigPageInner() {
         const load = async () => {
             const prof = await fetchAgendaProfile();
             if (prof) {
-                const planActive = prof.plan === 'pro' && (!prof.planExpiresAt || new Date(prof.planExpiresAt) >= new Date());
-                setIsPro(planActive);
+                setIsPro(isPlanActive(prof));
                 setMpConnected(!!prof.mpAccessToken);
                 setAcceptsTransfer(prof.acceptsTransfer ?? false);
                 setAcceptsMp(prof.acceptsMp ?? false);
@@ -280,7 +280,7 @@ function CobrosConfigPageInner() {
                         <div className="mt-4 pt-4" style={{ borderTop: '1px solid var(--border)' }}>
                             <p className="text-xs" style={{ color: 'var(--fg-muted)' }}>
                                 MercadoPago está disponible en el{' '}
-                                <Link href="/panel/suscripciones" className="underline" style={{ color: 'var(--accent)' }}>plan Profesional</Link>.
+                                <Link href="/panel/suscripciones" className="underline" style={{ color: 'var(--accent)' }}>plan Pro o Empresa</Link>.
                             </p>
                         </div>
                     )}

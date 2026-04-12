@@ -6,8 +6,22 @@ async function apiFetch<T>(path: string, options?: RequestInit): Promise<T> {
         credentials: 'include',
         headers: { 'Content-Type': 'application/json', ...options?.headers },
     });
+    if (!res.ok) {
+        const err = await res.json().catch(() => ({ error: `HTTP ${res.status}` })) as { error?: string };
+        throw new Error(err.error ?? `HTTP ${res.status}`);
+    }
     const data = await res.json() as T;
     return data;
+}
+
+export type AgendaPlanId = 'free' | 'pro' | 'enterprise';
+
+export function isPlanActive(profile: { plan: string; planExpiresAt: string | null }, minPlan: AgendaPlanId = 'pro'): boolean {
+    const RANK: Record<AgendaPlanId, number> = { free: 0, pro: 1, enterprise: 2 };
+    const planId = profile.plan as AgendaPlanId;
+    if ((RANK[planId] ?? 0) < (RANK[minPlan] ?? 1)) return false;
+    if (planId === 'pro' && profile.planExpiresAt && new Date(profile.planExpiresAt) < new Date()) return false;
+    return true;
 }
 
 // ── Profile ──────────────────────────────────────────────────────────────────
@@ -393,9 +407,27 @@ export async function cancelPublicAppointment(appointmentId: string, reason?: st
 }
 
 
+const EMPTY_STATS: AgendaStats = {
+    todayCount: 0,
+    activeClients: 0,
+    pendingPayments: 0,
+    nextAppointment: null,
+    weeklyData: [],
+    thisMonthRevenue: 0,
+    lastMonthRevenue: 0,
+    thisMonthAppointments: 0,
+    hasServices: false,
+    hasRules: false,
+    hasLocations: false,
+};
+
 export async function fetchAgendaStats(): Promise<AgendaStats> {
-    const data = await apiFetch<{ ok: boolean; stats: AgendaStats }>('/api/agenda/stats');
-    return data.stats ?? { todayCount: 0, activeClients: 0, pendingPayments: 0, nextAppointment: null, weeklyData: [], thisMonthRevenue: 0, lastMonthRevenue: 0, thisMonthAppointments: 0 };
+    try {
+        const data = await apiFetch<{ ok: boolean; stats: AgendaStats }>('/api/agenda/stats');
+        return data.stats ?? EMPTY_STATS;
+    } catch {
+        return EMPTY_STATS;
+    }
 }
 
 // ── Update appointment ────────────────────────────────────────────────────────

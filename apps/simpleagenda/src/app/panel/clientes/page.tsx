@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { IconPlus, IconSearch, IconLoader2, IconUsers, IconX, IconDownload } from '@tabler/icons-react';
 import Link from 'next/link';
 import { fetchAgendaClients, createAgendaClient, type AgendaClient } from '@/lib/agenda-api';
+import { vocab } from '@/lib/vocabulary';
 
 type ClientForm = {
     firstName: string;
@@ -110,7 +111,7 @@ export default function ClientesPage() {
         const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
-        a.href = url; a.download = 'pacientes.csv'; a.click();
+        a.href = url; a.download = vocab.exportFilename; a.click();
         URL.revokeObjectURL(url);
     };
 
@@ -118,9 +119,9 @@ export default function ClientesPage() {
         <div className="container-app panel-page py-8">
             <div className="flex items-center justify-between mb-6">
                 <div>
-                    <h1 className="text-xl font-bold" style={{ color: 'var(--fg)' }}>Pacientes</h1>
+                    <h1 className="text-xl font-bold" style={{ color: 'var(--fg)' }}>{vocab.Clients}</h1>
                     <p className="text-sm mt-0.5" style={{ color: 'var(--fg-muted)' }}>
-                        {clients.length} paciente{clients.length !== 1 ? 's' : ''}
+                        {clients.length} {clients.length !== 1 ? vocab.clients : vocab.client}
                     </p>
                 </div>
                 <div className="flex items-center gap-2">
@@ -140,7 +141,7 @@ export default function ClientesPage() {
                         style={{ background: 'var(--accent)', color: '#fff' }}
                     >
                         <IconPlus size={15} />
-                        Nuevo paciente
+                        {vocab.newClient}
                     </button>
                 </div>
             </div>
@@ -164,7 +165,7 @@ export default function ClientesPage() {
                     <button className="absolute inset-0 bg-black/40 backdrop-blur-[2px]" onClick={() => setShowForm(false)} />
                     <div className="relative w-full max-w-lg rounded-2xl border p-5 max-h-[90vh] overflow-y-auto" style={{ background: 'var(--surface)', borderColor: 'var(--border)', boxShadow: 'var(--shadow-md)' }}>
                         <div className="flex items-center justify-between mb-5">
-                            <h2 className="text-base font-semibold" style={{ color: 'var(--fg)' }}>Nuevo paciente</h2>
+                            <h2 className="text-base font-semibold" style={{ color: 'var(--fg)' }}>{vocab.newClient}</h2>
                             <button onClick={() => setShowForm(false)} className="w-7 h-7 rounded-lg flex items-center justify-center border transition-colors hover:bg-(--bg-subtle)" style={{ borderColor: 'var(--border)', color: 'var(--fg-muted)' }}>
                                 <IconX size={14} />
                             </button>
@@ -237,7 +238,7 @@ export default function ClientesPage() {
                                     style={{ background: 'var(--accent)', color: '#fff' }}
                                 >
                                     {saving && <IconLoader2 size={14} className="animate-spin" />}
-                                    {saving ? 'Guardando...' : 'Crear paciente'}
+                                    {saving ? 'Guardando...' : `Crear ${vocab.client}`}
                                 </button>
                                 <button
                                     onClick={() => setShowForm(false)}
@@ -263,10 +264,10 @@ export default function ClientesPage() {
                         <IconUsers size={20} />
                     </div>
                     <p className="text-sm font-medium mb-1" style={{ color: 'var(--fg)' }}>
-                        {query ? 'Sin resultados' : 'Aún no tienes pacientes'}
+                        {query ? 'Sin resultados' : vocab.noClients}
                     </p>
                     <p className="text-sm" style={{ color: 'var(--fg-muted)' }}>
-                        {query ? `No encontramos pacientes con "${query}"` : 'Agrega tu primer paciente para comenzar.'}
+                        {query ? `No encontramos ${vocab.clients} con "${query}"` : vocab.addFirstClient}
                     </p>
                 </div>
             ) : (
