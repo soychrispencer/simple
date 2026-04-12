@@ -14,7 +14,7 @@ import {
   getPreapprovalById,
   isMercadoPagoConfigured,
 } from '../mercadopago.js';
-import { authUser } from '../index.js';
+import { authUser } from '../auth.js';
 
 const app = new Hono();
 
