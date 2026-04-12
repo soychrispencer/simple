@@ -22,6 +22,7 @@ import {
     createAvailabilityRule,
     saveAgendaProfile as publishProfile,
 } from '@/lib/agenda-api';
+import { vocab } from '@/lib/vocabulary';
 
 const DURATIONS = [30, 45, 50, 60, 90, 120];
 const DAYS = [
@@ -443,7 +444,7 @@ export default function OnboardingPage() {
                         <div>
                             <h2 className="text-2xl font-bold mb-2" style={{ color: 'var(--fg)' }}>¡Tu agenda está lista!</h2>
                             <p className="text-sm" style={{ color: 'var(--fg-muted)' }}>
-                                Comparte tu link con tus pacientes y empieza a recibir reservas.
+                                Comparte tu link con tus {vocab.clients} y empieza a recibir reservas.
                             </p>
                         </div>
 

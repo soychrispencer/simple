@@ -33,6 +33,7 @@ import {
     type AgendaClient,
 } from '@/lib/agenda-api';
 import { fmtDateShort as formatDate, fmtTime as formatTime } from '@/lib/format';
+import { vocab } from '@/lib/vocabulary';
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -52,7 +53,8 @@ function addDays(date: Date, n: number): Date {
 }
 
 function isoDateInput(date: Date): string {
-    return date.toISOString().slice(0, 16);
+    const pad = (n: number) => String(n).padStart(2, '0');
+    return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
 }
 
 const STATUS_LABELS: Record<string, string> = {
@@ -155,18 +157,21 @@ export default function AgendaPage() {
         setLoading(true);
         const from = view === 'month' ? getMonthStart(monthDate).toISOString() : weekStart.toISOString();
         const to   = view === 'month' ? getMonthEnd(monthDate).toISOString()   : weekEnd.toISOString();
-        const [appts, svcs, cls] = await Promise.all([
+        const [appts, svcs] = await Promise.all([
             fetchAgendaAppointments(from, to),
             fetchAgendaServices(),
-            fetchAgendaClients(),
         ]);
         setAppointments(appts);
         setServices(svcs);
-        setClients(cls);
         setLoading(false);
     }, [view, weekStart, monthDate]); // eslint-disable-line react-hooks/exhaustive-deps
 
     useEffect(() => { void load(); }, [load]);
+
+    // Load clients once on mount — they don't change per week/month
+    useEffect(() => {
+        void fetchAgendaClients().then(setClients);
+    }, []);
 
     // Group appointments by YYYY-MM-DD
     const byDay: AppointmentsByDay = {};
@@ -228,7 +233,7 @@ export default function AgendaPage() {
     const handleCreate = async () => {
         setCreateError('');
         if (!form.clientName.trim() && !form.clientId) {
-            setCreateError('Indica el nombre del paciente o selecciona uno existente.');
+            setCreateError(`Indica el nombre del ${vocab.client} o selecciona uno existente.`);
             return;
         }
         setCreating(true);
@@ -680,7 +685,7 @@ export default function AgendaPage() {
                     <div className="flex flex-col gap-4">
                         {/* Client */}
                         <div className="flex flex-col gap-1.5">
-                            <label className="text-xs font-medium" style={{ color: 'var(--fg-muted)' }}>Paciente</label>
+                            <label className="text-xs font-medium" style={{ color: 'var(--fg-muted)' }}>{vocab.Client}</label>
                             {clients.length > 0 ? (
                                 <select
                                     value={form.clientId}
@@ -698,7 +703,7 @@ export default function AgendaPage() {
                             {!form.clientId && (
                                 <input
                                     type="text"
-                                    placeholder="Nombre del paciente *"
+                                    placeholder={`Nombre del ${vocab.client} *`}
                                     value={form.clientName}
                                     onChange={(e) => setForm((p) => ({ ...p, clientName: e.target.value }))}
                                     className="field-input"

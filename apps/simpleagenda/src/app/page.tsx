@@ -32,12 +32,12 @@ const FEATURES = [
     {
         icon: IconCalendar,
         title: 'Agenda inteligente',
-        desc: 'Calendario visual con reservas online. Tus pacientes eligen horario segun tu disponibilidad real.',
+        desc: 'Calendario visual con reservas online. Tus pacientes eligen horario según tu disponibilidad real.',
     },
     {
         icon: IconUsers,
         title: 'Ficha de pacientes',
-        desc: 'Historial de sesiones, notas clinicas y datos de contacto en un solo lugar.',
+        desc: 'Historial de sesiones, notas clínicas y datos de contacto en un solo lugar.',
     },
     {
         icon: IconCreditCard,
@@ -46,43 +46,43 @@ const FEATURES = [
     },
     {
         icon: IconBell,
-        title: 'Recordatorios automaticos',
-        desc: 'Reduce inasistencias con recordatorios por email antes de cada sesion.',
+        title: 'Recordatorios automáticos',
+        desc: 'Reduce inasistencias con recordatorios por email antes de cada sesión.',
     },
 ];
 
 const STEPS = [
     { icon: IconLink, title: 'Crea tu perfil', desc: 'Configura tus servicios, horarios y pagos en menos de 5 minutos.' },
-    { icon: IconCalendar, title: 'Comparte tu link', desc: 'Envia tu pagina de reservas por WhatsApp, email o redes sociales.' },
-    { icon: IconClockHour4, title: 'Recibe reservas', desc: 'Tus pacientes eligen horario y reservan. Recibes la confirmacion al instante.' },
+    { icon: IconCalendar, title: 'Comparte tu link', desc: 'Envía tu página de reservas por WhatsApp, email o redes sociales.' },
+    { icon: IconClockHour4, title: 'Recibe reservas', desc: 'Tus pacientes eligen horario y reservan. Recibes la confirmación al instante.' },
 ];
 
 const DIFFERENTIATORS = [
     { icon: IconShieldCheck, title: 'Sin comisiones ocultas', desc: 'Sin cobros por cita ni porcentajes sobre tus ingresos.' },
     { icon: IconDeviceMobile, title: 'Desde cualquier dispositivo', desc: 'Celular, tablet o computador. Sin descargar nada.' },
-    { icon: IconHeartHandshake, title: 'Hecho para salud', desc: 'Pensado para psicologos, terapeutas y profesionales independientes.' },
+    { icon: IconHeartHandshake, title: 'Hecho para salud', desc: 'Pensado para psicólogos, terapeutas y profesionales independientes.' },
     { icon: IconClockHour4, title: 'Listo en 5 minutos', desc: 'Sin curva de aprendizaje. Empieza a recibir reservas hoy.' },
 ];
 
 const PROFESSIONALS = [
-    { icon: IconBrain, label: 'Psicologos' },
-    { icon: IconStethoscope, label: 'Medicos' },
+    { icon: IconBrain, label: 'Psicólogos' },
+    { icon: IconStethoscope, label: 'Médicos' },
     { icon: IconApple, label: 'Nutricionistas' },
-    { icon: IconYoga, label: 'Kinesologos' },
+    { icon: IconYoga, label: 'Kinesiólogos' },
     { icon: IconMoodSmile, label: 'Terapeutas' },
-    { icon: IconEar, label: 'Fonoaudiologos' },
+    { icon: IconEar, label: 'Fonoaudiólogos' },
 ];
 
-const FREE_FEATURES = ['Hasta 10 citas al mes', 'Hasta 5 pacientes', 'Pagina de reserva publica', 'Recordatorios por email'];
-const PRO_FEATURES = ['Citas y pacientes ilimitados', 'Notas clinicas por sesion', 'Control de pagos y cobros', 'Recordatorios email + WhatsApp', 'Estadisticas de consulta', 'Soporte prioritario'];
+const FREE_FEATURES = ['Hasta 10 citas al mes', 'Hasta 5 pacientes', 'Página de reserva pública', 'Recordatorios por email'];
+const PRO_FEATURES = ['Citas y pacientes ilimitados', 'Notas clínicas por sesión', 'Control de pagos y cobros', 'Recordatorios email + WhatsApp', 'Estadísticas de consulta', 'Soporte prioritario'];
 
 const FAQS: { q: string; a: string }[] = [
-    { q: 'Es realmente gratis?', a: 'Si. El plan gratuito incluye hasta 10 citas mensuales y 5 pacientes sin costo. No necesitas tarjeta de credito para comenzar.' },
-    { q: 'Puedo cambiar de plan en cualquier momento?', a: 'Claro. Puedes actualizar a Pro cuando quieras desde tu panel. Si decides volver al plan gratuito, tus datos se mantienen intactos.' },
-    { q: 'Mis pacientes necesitan crear una cuenta?', a: 'No. Tus pacientes reservan directamente desde tu pagina publica sin necesidad de registrarse.' },
-    { q: 'Que metodos de pago acepta?', a: 'Puedes configurar MercadoPago, transferencia bancaria o un link de pago personalizado para que tus pacientes paguen por adelantado.' },
-    { q: 'Funciona para consultas presenciales y online?', a: 'Si. Puedes configurar servicios presenciales, online o ambos. Cada servicio puede tener duracion y precio diferente.' },
-    { q: 'Puedo cancelar cuando quiera?', a: 'Absolutamente. Sin contratos ni permanencia. Cancela tu plan Pro en cualquier momento desde tu panel.' },
+    { q: '¿Es realmente gratis?', a: 'Sí. El plan gratuito incluye hasta 10 citas mensuales y 5 pacientes sin costo. No necesitas tarjeta de crédito para comenzar.' },
+    { q: '¿Puedo cambiar de plan en cualquier momento?', a: 'Claro. Puedes actualizar a Pro cuando quieras desde tu panel. Si decides volver al plan gratuito, tus datos se mantienen intactos.' },
+    { q: '¿Mis pacientes necesitan crear una cuenta?', a: 'No. Tus pacientes reservan directamente desde tu página pública sin necesidad de registrarse.' },
+    { q: '¿Qué métodos de pago acepta?', a: 'Puedes configurar MercadoPago, transferencia bancaria o un link de pago personalizado para que tus pacientes paguen por adelantado.' },
+    { q: '¿Funciona para consultas presenciales y online?', a: 'Sí. Puedes configurar servicios presenciales, online o ambos. Cada servicio puede tener duración y precio diferente.' },
+    { q: '¿Puedo cancelar cuando quiera?', a: 'Absolutamente. Sin contratos ni permanencia. Cancela tu plan Pro en cualquier momento desde tu panel.' },
 ];
 
 /* ────────────────────────── Helpers ────────────────────────── */
@@ -150,7 +150,7 @@ export default function HomePage() {
                             className="text-base sm:text-lg leading-relaxed mb-8 max-w-xl mx-auto animate-slide-up"
                             style={{ color: 'var(--fg-secondary)', animationDelay: '80ms' }}
                         >
-                            Citas, pacientes y pagos en un solo lugar. Tus pacientes reservan online y tu recibes todo organizado.
+                            Citas, pacientes y pagos en un solo lugar. Tus pacientes reservan online y tú recibes todo organizado.
                         </p>
                         <div className="flex flex-col sm:flex-row gap-3 justify-center animate-slide-up" style={{ animationDelay: '140ms' }}>
                             <button
@@ -218,8 +218,8 @@ export default function HomePage() {
                         {/* Right — differentiators + professionals */}
                         <div>
                             <p className="text-xs font-semibold uppercase tracking-wider mb-3" style={{ color: 'var(--accent)' }}>Ventajas</p>
-                            <h2 className="text-2xl sm:text-3xl font-bold mb-3" style={{ color: 'var(--fg)' }}>Por que elegir SimpleAgenda?</h2>
-                            <p className="mb-8" style={{ color: 'var(--fg-muted)' }}>Diseñado para simplificar el dia a dia de profesionales de salud.</p>
+                            <h2 className="text-2xl sm:text-3xl font-bold mb-3" style={{ color: 'var(--fg)' }}>¿Por qué elegir SimpleAgenda?</h2>
+                            <p className="mb-8" style={{ color: 'var(--fg-muted)' }}>Diseñado para simplificar el día a día de profesionales de salud.</p>
 
                             <div className="grid sm:grid-cols-2 gap-4">
                                 {DIFFERENTIATORS.map((d, i) => (
@@ -296,10 +296,10 @@ export default function HomePage() {
                         </div>
                         <h3 className="text-xl font-bold mb-3" style={{ color: 'var(--fg)' }}>Reservas online 24/7</h3>
                         <p className="leading-relaxed mb-5" style={{ color: 'var(--fg-muted)' }}>
-                            Tus pacientes eligen servicio, fecha y hora desde tu pagina publica. Sin llamadas, sin WhatsApp ida y vuelta.
+                            Tus pacientes eligen servicio, fecha y hora desde tu página pública. Sin llamadas, sin WhatsApp ida y vuelta.
                         </p>
                         <ul className="flex flex-col gap-2">
-                            {['Pagina de reservas con tu marca', 'Seleccion de servicio y horario', 'Confirmacion automatica por email'].map((item) => (
+                            {['Página de reservas con tu marca', 'Selección de servicio y horario', 'Confirmación automática por email'].map((item) => (
                                 <li key={item} className="flex items-center gap-2 text-sm" style={{ color: 'var(--fg-secondary)' }}>
                                     <IconCheck size={14} style={{ color: 'var(--accent)' }} />
                                     {item}
@@ -320,7 +320,7 @@ export default function HomePage() {
                             Visualiza citas, ingresos y pacientes activos desde un dashboard claro. Registra pagos y lleva el control financiero.
                         </p>
                         <ul className="flex flex-col gap-2">
-                            {['Dashboard con metricas clave', 'Historial de pagos por paciente', 'Notas clinicas por sesion'].map((item) => (
+                            {['Dashboard con métricas clave', 'Historial de pagos por paciente', 'Notas clínicas por sesión'].map((item) => (
                                 <li key={item} className="flex items-center gap-2 text-sm" style={{ color: 'var(--fg-secondary)' }}>
                                     <IconCheck size={14} style={{ color: 'var(--accent)' }} />
                                     {item}
@@ -363,7 +363,7 @@ export default function HomePage() {
             <section id="como-funciona" style={{ background: 'var(--bg-subtle)' }}>
                 <div className="container-app py-16 sm:py-20 lg:py-24">
                     <div className="text-center mb-10 sm:mb-12">
-                        <p className="text-xs font-semibold uppercase tracking-wider mb-3" style={{ color: 'var(--accent)' }}>Como funciona</p>
+                        <p className="text-xs font-semibold uppercase tracking-wider mb-3" style={{ color: 'var(--accent)' }}>Cómo funciona</p>
                         <h3 className="text-xl sm:text-2xl font-bold mb-3" style={{ color: 'var(--fg)' }}>Empieza en 3 pasos</h3>
                         <p className="max-w-md mx-auto text-sm" style={{ color: 'var(--fg-muted)' }}>Sin curva de aprendizaje. Configura una vez y listo.</p>
                     </div>
@@ -439,7 +439,7 @@ export default function HomePage() {
                         </div>
                         <div>
                             <h3 className="text-lg font-bold" style={{ color: 'var(--fg)' }}>Profesional</h3>
-                            <p className="text-sm mt-1" style={{ color: 'var(--fg-muted)' }}>Para profesionales con practica activa.</p>
+                            <p className="text-sm mt-1" style={{ color: 'var(--fg-muted)' }}>Para profesionales con práctica activa.</p>
                             <div className="flex items-baseline gap-1 mt-4">
                                 <span className="text-4xl font-bold" style={{ color: 'var(--fg)' }}>$14.990</span>
                                 <span className="text-sm" style={{ color: 'var(--fg-muted)' }}>/mes + IVA</span>
@@ -499,10 +499,10 @@ export default function HomePage() {
 
                     <div className="relative z-10 max-w-lg mx-auto">
                         <h2 className="text-2xl sm:text-3xl lg:text-4xl font-bold mb-4 text-white" style={{ letterSpacing: '-0.02em' }}>
-                            Listo para organizar tu consulta?
+                            ¿Listo para organizar tu consulta?
                         </h2>
                         <p className="text-base mb-8" style={{ color: 'rgba(255,255,255,0.8)' }}>
-                            Configura tu agenda en menos de 5 minutos. Sin tarjeta de credito, sin compromiso.
+                            Configura tu agenda en menos de 5 minutos. Sin tarjeta de crédito, sin compromiso.
                         </p>
                         <button
                             onClick={handleCTA}

@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { IconCheck, IconAlertCircle, IconLoader2, IconCamera, IconX, IconSparkles, IconBrandInstagram, IconBrandFacebook, IconBrandLinkedin, IconBrandTiktok, IconBrandYoutube, IconBrandX, IconWorld, IconChevronDown } from '@tabler/icons-react';
 import { fetchAgendaProfile, saveAgendaProfile, uploadAvatar, fetchAgendaLocations, updateAgendaLocation, type AgendaLocation } from '@/lib/agenda-api';
+import { vocab } from '@/lib/vocabulary';
 import { generatePolicies } from '@/actions/generate-policies';
 import Link from 'next/link';
 import { IconChevronRight, IconMapPin, IconPlus, IconLoader2 as IconLoader2Loc } from '@tabler/icons-react';
@@ -273,7 +274,7 @@ export default function PerfilConfigPage() {
 
                 {/* Info basica */}
                 <PanelCard size="md">
-                    <PanelBlockHeader title="Informacion publica" className="mb-3" />
+                    <PanelBlockHeader title="Información pública" className="mb-3" />
                     <div className="grid sm:grid-cols-2 gap-4">
                         <PanelField label="Nombre visible" required>
                             <input type="text" value={form.displayName} onChange={(e) => set('displayName', e.target.value)} placeholder="Ej: Dra. Maria Gonzalez" className="form-input" />
@@ -288,7 +289,7 @@ export default function PerfilConfigPage() {
                             <textarea
                                 value={form.bio}
                                 onChange={(e) => set('bio', e.target.value)}
-                                placeholder="Cuentale a tus pacientes sobre ti, tu enfoque y experiencia..."
+                                placeholder={`Cuéntale a tus ${vocab.clients} sobre ti, tu enfoque y experiencia...`}
                                 rows={4}
                                 className="form-textarea"
                             />
@@ -480,7 +481,7 @@ export default function PerfilConfigPage() {
 
                 {/* Configuracion de reservas */}
                 <PanelCard size="md">
-                    <PanelBlockHeader title="Configuracion de reservas" className="mb-3" />
+                    <PanelBlockHeader title="Configuración de reservas" className="mb-3" />
                     <div className="grid sm:grid-cols-2 gap-4">
                         <PanelField label="Confirmacion de citas" className="sm:col-span-2">
                             <div className="flex gap-3">
@@ -534,7 +535,7 @@ export default function PerfilConfigPage() {
                 <PanelCard size="md">
                     <PanelBlockHeader
                         title="Políticas y condiciones"
-                        description="El paciente deberá leerlas y aceptarlas antes de reservar."
+                        description={`El ${vocab.client} deberá leerlas y aceptarlas antes de reservar.`}
                         className="mb-3"
                         actions={
                             <PanelButton
@@ -557,7 +558,7 @@ export default function PerfilConfigPage() {
                         <textarea
                             value={form.encuadre}
                             onChange={(e) => set('encuadre', e.target.value)}
-                            placeholder="Escribe aquí tus políticas y condiciones para los pacientes..."
+                            placeholder={`Escribe aquí tus políticas y condiciones para los ${vocab.clients}...`}
                             rows={8}
                             className="form-textarea"
                         />
