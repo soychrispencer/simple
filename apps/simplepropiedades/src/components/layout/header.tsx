@@ -139,65 +139,61 @@ export function Header() {
 
                 {/* Right Side Actions */}
                 <div className="flex items-center gap-2">
-                    {/* Notifications */}
-                    <div className="relative" ref={notificationsRef}>
-                        <button
-                            onClick={() => {
-                                if (!isLoggedIn) {
-                                    if (requireAuth(() => router.push('/panel/notificaciones'))) {
-                                        router.push('/panel/notificaciones');
-                                    }
-                                    return;
-                                }
-                                setNotificationsOpen((prev) => !prev);
-                                setAccountOpen(false);
-                                setMenuOpen(false);
-                            }}
-                            className="relative header-icon-chip"
-                            aria-label="Notificaciones"
-                            aria-expanded={isLoggedIn ? notificationsOpen : undefined}
-                        >
-                            <IconBell size={16} stroke={1.9} />
-                            {isLoggedIn && unreadNotifications > 0 ? (
-                                <span
-                                    className="absolute -top-1 -right-1 min-w-4 h-4 rounded-full px-1 flex items-center justify-center text-[10px] font-semibold"
-                                    style={{ background: 'var(--fg)', color: 'var(--bg)' }}
-                                >
-                                    {unreadNotifications > 9 ? '9+' : unreadNotifications}
-                                </span>
-                            ) : null}
-                        </button>
-
-                        {isLoggedIn && notificationsOpen ? (
-                            <div
-                                className="absolute right-0 top-[calc(100%+8px)] z-50 w-[min(320px,calc(100vw-1rem))] rounded-xl border p-2 animate-slide-down"
-                                style={{ background: 'var(--surface)', borderColor: 'var(--border)', boxShadow: 'var(--shadow-md)' }}
+                    {/* Notifications - only when logged in */}
+                    {isLoggedIn && (
+                        <div className="relative" ref={notificationsRef}>
+                            <button
+                                onClick={() => {
+                                    setNotificationsOpen((prev) => !prev);
+                                    setAccountOpen(false);
+                                    setMenuOpen(false);
+                                }}
+                                className="relative header-icon-chip"
+                                aria-label="Notificaciones"
+                                aria-expanded={notificationsOpen}
                             >
-                                <div className="px-2.5 py-2 mb-1 flex items-center justify-between">
-                                    <p className="text-sm font-medium" style={{ color: 'var(--fg)' }}>Notificaciones</p>
-                                    <span className="text-xs" style={{ color: 'var(--fg-muted)' }}>{unreadNotifications} sin leer</span>
+                                <IconBell size={16} stroke={1.9} />
+                                {unreadNotifications > 0 ? (
+                                    <span
+                                        className="absolute -top-1 -right-1 min-w-4 h-4 rounded-full px-1 flex items-center justify-center text-[10px] font-semibold"
+                                        style={{ background: 'var(--fg)', color: 'var(--bg)' }}
+                                    >
+                                        {unreadNotifications > 9 ? '9+' : unreadNotifications}
+                                    </span>
+                                ) : null}
+                            </button>
+
+                            {notificationsOpen ? (
+                                <div
+                                    className="absolute right-0 top-[calc(100%+8px)] z-50 w-[min(320px,calc(100vw-1rem))] rounded-xl border p-2 animate-slide-down"
+                                    style={{ background: 'var(--surface)', borderColor: 'var(--border)', boxShadow: 'var(--shadow-md)' }}
+                                >
+                                    <div className="px-2.5 py-2 mb-1 flex items-center justify-between">
+                                        <p className="text-sm font-medium" style={{ color: 'var(--fg)' }}>Notificaciones</p>
+                                        <span className="text-xs" style={{ color: 'var(--fg-muted)' }}>{unreadNotifications} sin leer</span>
+                                    </div>
+                                    <div className="space-y-1">
+                                        {notifications.length === 0 ? (
+                                            <div className="px-2.5 py-3 text-sm" style={{ color: 'var(--fg-muted)' }}>Sin novedades por ahora.</div>
+                                        ) : notifications.map((item) => (
+                                            <Link
+                                                key={item.id}
+                                                href={item.href}
+                                                onClick={() => setNotificationsOpen(false)}
+                                                className="flex items-start gap-2.5 rounded-lg px-2.5 py-2 transition-colors hover:bg-(--bg-subtle)"
+                                            >
+                                                <span className="mt-1.5 h-1.5 w-1.5 rounded-full shrink-0" style={{ background: 'var(--fg)' }} />
+                                                <span className="min-w-0 flex-1">
+                                                    <p className="text-sm leading-5" style={{ color: 'var(--fg)' }}>{item.title}</p>
+                                                    <p className="text-xs mt-0.5" style={{ color: 'var(--fg-muted)' }}>{item.time}</p>
+                                                </span>
+                                            </Link>
+                                        ))}
+                                    </div>
                                 </div>
-                                <div className="space-y-1">
-                                    {notifications.length === 0 ? (
-                                        <div className="px-2.5 py-3 text-sm" style={{ color: 'var(--fg-muted)' }}>Sin novedades por ahora.</div>
-                                    ) : notifications.map((item) => (
-                                        <Link
-                                            key={item.id}
-                                            href={item.href}
-                                            onClick={() => setNotificationsOpen(false)}
-                                            className="flex items-start gap-2.5 rounded-lg px-2.5 py-2 transition-colors hover:bg-(--bg-subtle)"
-                                        >
-                                            <span className="mt-1.5 h-1.5 w-1.5 rounded-full shrink-0" style={{ background: 'var(--fg)' }} />
-                                            <span className="min-w-0 flex-1">
-                                                <p className="text-sm leading-5" style={{ color: 'var(--fg)' }}>{item.title}</p>
-                                                <p className="text-xs mt-0.5" style={{ color: 'var(--fg-muted)' }}>{item.time}</p>
-                                            </span>
-                                        </Link>
-                                    ))}
-                                </div>
-                            </div>
-                        ) : null}
-                    </div>
+                            ) : null}
+                        </div>
+                    )}
 
                     {/* Theme Toggle */}
                     {mounted && (

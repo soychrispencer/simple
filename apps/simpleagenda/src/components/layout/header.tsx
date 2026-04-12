@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { useRouter, usePathname } from 'next/navigation';
 import { useTheme } from 'next-themes';
 import { useState, useEffect, useRef } from 'react';
 import {
@@ -37,6 +37,7 @@ const panelNav = [
 
 export function Header() {
     const router = useRouter();
+    const pathname = usePathname() ?? '';
     const { theme, setTheme } = useTheme();
     const [mounted, setMounted] = useState(false);
     const [menuOpen, setMenuOpen] = useState(false);
@@ -48,6 +49,11 @@ export function Header() {
     useEffect(() => {
         setMounted(true);
     }, []);
+
+    useEffect(() => {
+        setMenuOpen(false);
+        setAccountOpen(false);
+    }, [pathname, isLoggedIn]);
 
     useEffect(() => {
         const handleOutside = (e: MouseEvent) => {
@@ -91,6 +97,7 @@ export function Header() {
                             key={item.href}
                             href={item.href}
                             className="header-nav-link px-3.5 py-2 text-sm font-medium rounded-lg transition-colors duration-200"
+                            data-active={pathname === item.href || pathname.startsWith(`${item.href}/`) ? 'true' : 'false'}
                         >
                             {item.label}
                         </Link>

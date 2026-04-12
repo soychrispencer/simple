@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo } from 'react';
+import { useMemo, useEffect } from 'react';
 import { AdminShell } from '@/components/admin-shell';
 import { useAuth } from '@simple/auth';
 import { AdminSessionUser } from '@/lib/api';
@@ -12,6 +12,13 @@ export function AdminProtectedPage(props: { children: (user: AdminSessionUser) =
         () => !!user && (user.role === 'admin' || user.role === 'superadmin'),
         [user],
     );
+
+    // Move requireAuth to useEffect to avoid setState during render
+    useEffect(() => {
+        if (!authLoading && !user) {
+            requireAuth();
+        }
+    }, [authLoading, user, requireAuth]);
 
     if (authLoading) {
         return (
@@ -25,8 +32,6 @@ export function AdminProtectedPage(props: { children: (user: AdminSessionUser) =
     }
 
     if (!user) {
-        requireAuth();
-
         return (
             <div className="flex min-h-screen items-center justify-center" style={{ background: 'var(--bg)' }}>
                 <p style={{ color: 'var(--fg-muted)' }}>Abre el modal para iniciar sesión.</p>
