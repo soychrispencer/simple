@@ -1,8 +1,9 @@
 'use client';
 
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { useTheme } from 'next-themes';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import {
     IconSun,
     IconMoon,
@@ -13,26 +14,59 @@ import {
     IconSettings,
     IconCreditCard,
     IconUsers,
+    IconPlus,
 } from '@tabler/icons-react';
 import { useAuth } from '@/context/auth-context';
 import { PanelButton } from '@simple/ui';
 import { NotificationBell } from '@/components/panel/notification-bell';
 
+const publicNav = [
+    { href: '/#como-funciona', label: 'Funciones' },
+    { href: '/#planes', label: 'Planes' },
+];
+
+const panelNav = [
+    { href: '/panel', label: 'Inicio', icon: IconLayoutDashboard },
+    { href: '/panel/agenda', label: 'Mi Agenda', icon: IconCalendar },
+    { href: '/panel/clientes', label: 'Pacientes', icon: IconUsers },
+    { href: '/panel/pagos', label: 'Cobros', icon: IconCreditCard },
+    { href: '/panel/configuracion', label: 'Configuración', icon: IconSettings },
+];
+
 export function Header() {
+    const router = useRouter();
     const { theme, setTheme } = useTheme();
     const [mounted, setMounted] = useState(false);
     const [accountOpen, setAccountOpen] = useState(false);
-    const { user, isLoggedIn, logout, openAuth } = useAuth();
+    const accountRef = useRef<HTMLDivElement>(null);
+    const { user, isLoggedIn, logout, openAuth, requireAuth } = useAuth();
 
     useEffect(() => {
         setMounted(true);
     }, []);
+
+    useEffect(() => {
+        const handleOutside = (e: MouseEvent) => {
+            if (!accountRef.current?.contains(e.target as Node)) {
+                setAccountOpen(false);
+            }
+        };
+        document.addEventListener('pointerdown', handleOutside);
+        return () => document.removeEventListener('pointerdown', handleOutside);
+    }, []);
+
+    const handleNuevaCita = () => {
+        if (requireAuth(() => router.push('/panel/agenda/nueva'))) {
+            router.push('/panel/agenda/nueva');
+        }
+    };
 
     const userName = user?.name?.trim() || 'Usuario';
 
     return (
         <header className="relative z-40 transition-all duration-300" style={{ borderBottom: '1px solid var(--border)' }}>
             <div className="container-app flex items-center justify-between h-16">
+                {/* Logo */}
                 <Link href="/" className="flex items-center gap-1 group shrink-0">
                     <div className="w-8 h-8 rounded-xl flex items-center justify-center" style={{ background: 'var(--accent)', color: '#fff' }}>
                         <IconCalendar size={16} />
@@ -43,18 +77,24 @@ export function Header() {
                     </span>
                 </Link>
 
+                {/* Desktop Navigation */}
                 <nav className="hidden md:flex items-center gap-1">
-                    <Link href="/#como-funciona" className="header-nav-link px-3.5 py-2 text-sm font-medium rounded-lg transition-colors duration-200">
-                        Funciones
-                    </Link>
-                    <Link href="/#planes" className="header-nav-link px-3.5 py-2 text-sm font-medium rounded-lg transition-colors duration-200">
-                        Planes
-                    </Link>
+                    {publicNav.map((item) => (
+                        <Link
+                            key={item.href}
+                            href={item.href}
+                            className="header-nav-link px-3.5 py-2 text-sm font-medium rounded-lg transition-colors duration-200"
+                        >
+                            {item.label}
+                        </Link>
+                    ))}
                 </nav>
 
+                {/* Right Side Actions */}
                 <div className="flex items-center gap-2">
-                    {isLoggedIn ? <NotificationBell /> : null}
-                    {mounted ? (
+                    {isLoggedIn && <NotificationBell />}
+                    
+                    {mounted && (
                         <button
                             onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
                             className="header-icon-chip"
@@ -62,93 +102,66 @@ export function Header() {
                         >
                             {theme === 'dark' ? <IconSun size={16} /> : <IconMoon size={16} />}
                         </button>
-                    ) : null}
+                    )}
 
-                    {/* User dropdown - visible on all screen sizes */}
-                    <div className="relative">
+                    {/* User Dropdown */}
+                    <div className="relative" ref={accountRef}>
                         {isLoggedIn ? (
                             <>
                                 <button
                                     onClick={() => setAccountOpen((prev) => !prev)}
                                     className="header-icon-chip"
                                     aria-label="Menú de cuenta"
+                                    aria-expanded={accountOpen}
                                 >
                                     <IconUser size={16} />
                                 </button>
 
-                                {accountOpen ? (
+                                {accountOpen && (
                                     <div
                                         className="absolute right-0 top-[calc(100%+8px)] z-50 w-[260px] rounded-xl border p-2 animate-slide-down"
                                         style={{ background: 'var(--surface)', borderColor: 'var(--border)', boxShadow: 'var(--shadow-md)' }}
                                     >
+                                        {/* User Info */}
                                         <div className="px-2.5 py-2 mb-1 rounded-lg" style={{ background: 'var(--bg-subtle)' }}>
                                             <p className="text-sm font-medium" style={{ color: 'var(--fg)' }}>{userName}</p>
                                             <p className="text-xs" style={{ color: 'var(--fg-muted)' }}>{user?.email}</p>
                                         </div>
-                                        {/* Public navigation links - especially useful on mobile */}
-                                        <Link
-                                            href="/#como-funciona"
-                                            onClick={() => setAccountOpen(false)}
-                                            className="flex items-center gap-2 rounded-lg px-2.5 py-2 text-sm transition-colors hover:bg-(--bg-subtle)"
-                                            style={{ color: 'var(--fg-secondary)' }}
-                                        >
-                                            Funciones
-                                        </Link>
-                                        <Link
-                                            href="/#planes"
-                                            onClick={() => setAccountOpen(false)}
-                                            className="flex items-center gap-2 rounded-lg px-2.5 py-2 text-sm transition-colors hover:bg-(--bg-subtle)"
-                                            style={{ color: 'var(--fg-secondary)' }}
-                                        >
-                                            Planes
-                                        </Link>
-                                        <div className="my-1 border-t" style={{ borderColor: 'var(--border)' }}></div>
-                                        {/* Panel navigation items */}
-                                        <Link
-                                            href="/panel"
-                                            onClick={() => setAccountOpen(false)}
-                                            className="flex items-center gap-2 rounded-lg px-2.5 py-2 text-sm transition-colors hover:bg-(--bg-subtle)"
-                                            style={{ color: 'var(--fg-secondary)' }}
-                                        >
-                                            <IconLayoutDashboard size={16} />
-                                            Inicio
-                                        </Link>
-                                        <Link
-                                            href="/panel/agenda"
-                                            onClick={() => setAccountOpen(false)}
-                                            className="flex items-center gap-2 rounded-lg px-2.5 py-2 text-sm transition-colors hover:bg-(--bg-subtle)"
-                                            style={{ color: 'var(--fg-secondary)' }}
-                                        >
-                                            <IconCalendar size={16} />
-                                            Mi Agenda
-                                        </Link>
-                                        <Link
-                                            href="/panel/clientes"
-                                            onClick={() => setAccountOpen(false)}
-                                            className="flex items-center gap-2 rounded-lg px-2.5 py-2 text-sm transition-colors hover:bg-(--bg-subtle)"
-                                            style={{ color: 'var(--fg-secondary)' }}
-                                        >
-                                            <IconUsers size={16} />
-                                            Pacientes
-                                        </Link>
-                                        <Link
-                                            href="/panel/pagos"
-                                            onClick={() => setAccountOpen(false)}
-                                            className="flex items-center gap-2 rounded-lg px-2.5 py-2 text-sm transition-colors hover:bg-(--bg-subtle)"
-                                            style={{ color: 'var(--fg-secondary)' }}
-                                        >
-                                            <IconCreditCard size={16} />
-                                            Cobros
-                                        </Link>
-                                        <Link
-                                            href="/panel/configuracion"
-                                            onClick={() => setAccountOpen(false)}
-                                            className="flex items-center gap-2 rounded-lg px-2.5 py-2 text-sm transition-colors hover:bg-(--bg-subtle)"
-                                            style={{ color: 'var(--fg-secondary)' }}
-                                        >
-                                            <IconSettings size={16} />
-                                            Configuración
-                                        </Link>
+
+                                        {/* Public Nav (mobile accessible) */}
+                                        <div className="md:hidden">
+                                            {publicNav.map((item) => (
+                                                <Link
+                                                    key={item.href}
+                                                    href={item.href}
+                                                    onClick={() => setAccountOpen(false)}
+                                                    className="flex items-center gap-2 rounded-lg px-2.5 py-2 text-sm transition-colors hover:bg-(--bg-subtle)"
+                                                    style={{ color: 'var(--fg-secondary)' }}
+                                                >
+                                                    {item.label}
+                                                </Link>
+                                            ))}
+                                            <div className="my-1 border-t" style={{ borderColor: 'var(--border)' }} />
+                                        </div>
+
+                                        {/* Panel Nav */}
+                                        {panelNav.map((item) => {
+                                            const Icon = item.icon;
+                                            return (
+                                                <Link
+                                                    key={item.href}
+                                                    href={item.href}
+                                                    onClick={() => setAccountOpen(false)}
+                                                    className="flex items-center gap-2 rounded-lg px-2.5 py-2 text-sm transition-colors hover:bg-(--bg-subtle)"
+                                                    style={{ color: 'var(--fg-secondary)' }}
+                                                >
+                                                    <Icon size={16} />
+                                                    {item.label}
+                                                </Link>
+                                            );
+                                        })}
+
+                                        {/* Logout */}
                                         <div className="mt-2 pt-2 border-t" style={{ borderColor: 'var(--border)' }}>
                                             <button
                                                 onClick={() => { setAccountOpen(false); void logout(); }}
@@ -160,7 +173,7 @@ export function Header() {
                                             </button>
                                         </div>
                                     </div>
-                                ) : null}
+                                )}
                             </>
                         ) : (
                             <PanelButton onClick={openAuth} variant="primary" size="sm" className="h-9 px-4 text-sm">
@@ -168,9 +181,20 @@ export function Header() {
                             </PanelButton>
                         )}
                     </div>
+
+                    {/* Action Button - Solo logueado */}
+                    {isLoggedIn && (
+                        <PanelButton 
+                            onClick={handleNuevaCita} 
+                            variant="primary" 
+                            size="sm" 
+                            className="hidden sm:flex h-9 px-4 text-sm"
+                        >
+                            <IconPlus size={14} /> Nueva cita
+                        </PanelButton>
+                    )}
                 </div>
             </div>
-
         </header>
     );
 }

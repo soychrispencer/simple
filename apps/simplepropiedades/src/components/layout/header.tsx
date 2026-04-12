@@ -245,25 +245,27 @@ export function Header() {
                                             <p className="text-xs" style={{ color: 'var(--fg-muted)' }}>{user?.email}</p>
                                         </div>
 
-                                        {/* Public navigation links */}
-                                        {links.map((l) => (
-                                            <Link
-                                                key={l.href}
-                                                href={l.href}
-                                                onClick={() => setAccountOpen(false)}
-                                                className="flex items-center gap-2 rounded-lg px-2.5 py-2 text-sm transition-colors hover:bg-(--bg-subtle)"
-                                                style={{ color: 'var(--fg-secondary)' }}
-                                            >
-                                                <span>{l.label}</span>
-                                                {l.isNew ? (
-                                                    <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] font-medium" style={{ background: 'var(--bg-muted)', color: 'var(--fg-muted)' }}>
-                                                        <IconSparkles size={10} />
-                                                        Nuevo
-                                                    </span>
-                                                ) : null}
-                                            </Link>
-                                        ))}
-                                        <div className="my-1 border-t" style={{ borderColor: 'var(--border)' }}></div>
+                                        {/* Public navigation links - mobile only */}
+                                        <div className="md:hidden">
+                                            {links.map((l) => (
+                                                <Link
+                                                    key={l.href}
+                                                    href={l.href}
+                                                    onClick={() => setAccountOpen(false)}
+                                                    className="flex items-center gap-2 rounded-lg px-2.5 py-2 text-sm transition-colors hover:bg-(--bg-subtle)"
+                                                    style={{ color: 'var(--fg-secondary)' }}
+                                                >
+                                                    <span>{l.label}</span>
+                                                    {l.isNew ? (
+                                                        <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] font-medium" style={{ background: 'var(--bg-muted)', color: 'var(--fg-muted)' }}>
+                                                            <IconSparkles size={10} />
+                                                            Nuevo
+                                                        </span>
+                                                    ) : null}
+                                                </Link>
+                                            ))}
+                                            <div className="my-1 border-t" style={{ borderColor: 'var(--border)' }} />
+                                        </div>
 
                                         <nav className="space-y-1" aria-label="Navegación de panel">
                                             {panelItems.map((item) => {
@@ -329,9 +331,11 @@ export function Header() {
                         )}
                     </div>
 
-                    <PanelButton onClick={handlePublicar} variant="primary" size="sm" className="h-9 px-4 text-sm">
-                        <IconPlus size={13} /> Publicar
-                    </PanelButton>
+                    {isLoggedIn && (
+                        <PanelButton onClick={handlePublicar} variant="primary" size="sm" className="hidden sm:flex h-9 px-4 text-sm">
+                            <IconPlus size={13} /> Publicar
+                        </PanelButton>
+                    )}
                 </div>
             </div>
         </header>
