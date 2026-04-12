@@ -2768,7 +2768,7 @@ const SUBSCRIPTION_PLANS_BY_VERTICAL: Record<VerticalType, SubscriptionPlanRecor
             prioritySupport: false,
             customBranding: false,
             apiAccess: false,
-            features: ['Hasta 10 citas al mes', 'Hasta 5 pacientes', 'Página de reserva pública', 'Recordatorios por email'],
+            features: ['Hasta 10 citas al mes', 'Hasta 5 pacientes', 'Página de reserva pública', 'Confirmación por email al paciente', 'Recordatorio automático 24h antes'],
         },
         {
             id: 'pro',
@@ -2785,7 +2785,7 @@ const SUBSCRIPTION_PLANS_BY_VERTICAL: Record<VerticalType, SubscriptionPlanRecor
             customBranding: false,
             apiAccess: false,
             recommended: true,
-            features: ['Citas y pacientes ilimitados', 'Notas clínicas por sesión', 'Control de pagos y cobros', 'Recordatorios email + WhatsApp', 'Estadísticas de consulta', 'Soporte prioritario'],
+            features: ['Citas y pacientes ilimitados', 'Notas clínicas por sesión', 'Control de pagos y cobros', 'Recordatorios por email y WhatsApp', 'Recordatorio 30 min antes por WhatsApp', 'Estadísticas de consulta', 'Sincronización con Google Calendar'],
         },
     ],
 };
@@ -7271,6 +7271,44 @@ async function sendBookingConfirmationEmail(clientEmail: string, data: BookingEm
         subject,
         text: textBody,
         html: buildBookingEmailHtml(data),
+    });
+}
+
+async function sendAppointmentReminderEmail(clientEmail: string, data: {
+    clientName: string;
+    professionalName: string;
+    dateLabel: string;
+    modality: string;
+    meetingUrl?: string | null;
+    location?: string | null;
+    cancelUrl: string;
+}): Promise<void> {
+    const transporter = getAuthMailerTransporter();
+    if (!transporter) {
+        if (process.env.NODE_ENV === 'production') return;
+        console.info(`[agenda] Reminder for ${clientEmail}: ${data.dateLabel}`);
+        return;
+    }
+    const subject = `Recordatorio: tu cita con ${data.professionalName} es mañana`;
+    const locationLine = data.modality === 'online'
+        ? (data.meetingUrl ? `Enlace: ${data.meetingUrl}` : 'Modalidad: Online')
+        : (data.location ? `Lugar: ${data.location}` : 'Modalidad: Presencial');
+    const text = [
+        subject,
+        '',
+        `Hola ${data.clientName},`,
+        `Te recordamos que tienes una cita mañana: ${data.dateLabel}.`,
+        locationLine,
+        '',
+        `Para cancelar: ${data.cancelUrl}`,
+        '',
+        'SimpleAgenda',
+    ].join('\n');
+    await transporter.sendMail({
+        from: `SimpleAgenda <${asString(process.env.SMTP_FROM).replace(/.*<(.+)>/, '$1') || asString(process.env.SMTP_FROM)}>`,
+        to: clientEmail,
+        subject,
+        text,
     });
 }
 
@@ -15253,6 +15291,45 @@ app.post('/api/agenda/appointments', requireVerifiedSession, async (c) => {
         url: '/panel/agenda',
     });
 
+    // Email confirmation to client (only first occurrence if recurring)
+    const clientEmail = firstAppt.clientEmail;
+    if (clientEmail) {
+        const agendaAppUrl = asString(process.env.AGENDA_APP_URL) || 'https://simpleagenda.app';
+        const cancelUrl = `${agendaAppUrl}/cancelar?appt=${firstAppt.id}&slug=${profile.slug}`;
+        let serviceName: string | null = null;
+        if (firstAppt.serviceId) {
+            const svc = await db.query.agendaServices.findFirst({ where: eq(agendaServices.id, firstAppt.serviceId) });
+            serviceName = svc?.name ?? null;
+        }
+        void sendBookingConfirmationEmail(clientEmail, {
+            appointmentId: firstAppt.id,
+            clientName: firstAppt.clientName ?? 'Paciente',
+            professionalName: profile.displayName ?? 'el profesional',
+            slug: profile.slug,
+            serviceName,
+            startsAt: firstAppt.startsAt,
+            endsAt: firstAppt.endsAt,
+            durationMinutes: firstAppt.durationMinutes,
+            modality: firstAppt.modality,
+            price: firstAppt.price,
+            currency: firstAppt.currency,
+            timezone: tz,
+            status: 'confirmed',
+            paymentMethods: null,
+            cancelUrl,
+            appUrl: agendaAppUrl,
+        });
+    }
+
+    // WhatsApp notification to professional (Pro plan, if configured)
+    if (!isFreePlan(profile) && profile.waNotificationsEnabled && profile.waNotifyProfessional && profile.waProfessionalPhone) {
+        void notifyProfessionalNewBooking(
+            profile.waProfessionalPhone,
+            { displayName: profile.displayName, timezone: tz, cancellationHours: profile.cancellationHours ?? 24 },
+            { clientName: firstAppt.clientName, clientPhone: firstAppt.clientPhone, startsAt: firstAppt.startsAt, endsAt: firstAppt.endsAt },
+        );
+    }
+
     return c.json({ ok: true, appointment: appointments[0], appointments });
 });
 
@@ -16004,6 +16081,81 @@ app.post('/api/agenda/push/unsubscribe', requireVerifiedSession, async (c) => {
     if (!endpoint) return c.json({ ok: false, error: 'endpoint requerido' }, 400);
     await db.delete(pushSubscriptions).where(and(eq(pushSubscriptions.userId, user.id), eq(pushSubscriptions.endpoint, endpoint)));
     return c.json({ ok: true });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// SimpleAgenda — Reminders cron  (POST /api/agenda/reminders/send)
+// Call this endpoint once per hour from a scheduler (Vercel Cron, cron-job.org, etc.)
+// Protected by CRON_SECRET header.
+// ─────────────────────────────────────────────────────────────────────────────
+
+app.post('/api/agenda/reminders/send', async (c) => {
+    const cronSecret = asString(process.env.CRON_SECRET);
+    if (cronSecret) {
+        const authHeader = c.req.header('authorization') ?? '';
+        if (authHeader !== `Bearer ${cronSecret}`) {
+            return c.json({ ok: false, error: 'No autorizado' }, 401);
+        }
+    }
+
+    const now = new Date();
+    // Window: appointments starting between 23h and 25h from now
+    const windowStart = new Date(now.getTime() + 23 * 60 * 60 * 1000);
+    const windowEnd   = new Date(now.getTime() + 25 * 60 * 60 * 1000);
+
+    const appts = await db.select().from(agendaAppointments)
+        .where(and(
+            gte(agendaAppointments.startsAt, windowStart),
+            lte(agendaAppointments.startsAt, windowEnd),
+            eq(agendaAppointments.status, 'confirmed'),
+            isNull(agendaAppointments.reminderSentAt),
+        ));
+
+    let sent = 0;
+    const agendaAppUrl = asString(process.env.AGENDA_APP_URL) || 'https://simpleagenda.app';
+
+    for (const appt of appts) {
+        const profile = await db.query.agendaProfessionalProfiles.findFirst({
+            where: eq(agendaProfessionalProfiles.id, appt.professionalId),
+        });
+        if (!profile) continue;
+
+        const tz = profile.timezone ?? 'America/Santiago';
+        const fmtT = (d: Date) => d.toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: tz });
+        const fmtD = (d: Date) => d.toLocaleDateString('es-CL', { weekday: 'long', day: 'numeric', month: 'long', timeZone: tz });
+        const dateLabel = `${fmtD(appt.startsAt)} a las ${fmtT(appt.startsAt)}`;
+        const cancelUrl = `${agendaAppUrl}/cancelar?appt=${appt.id}&slug=${profile.slug}`;
+
+        // Email reminder to client
+        if (appt.clientEmail) {
+            void sendAppointmentReminderEmail(appt.clientEmail, {
+                clientName: appt.clientName ?? 'Paciente',
+                professionalName: profile.displayName ?? 'el profesional',
+                dateLabel,
+                modality: appt.modality,
+                meetingUrl: appt.meetingUrl,
+                location: appt.location,
+                cancelUrl,
+            });
+        }
+
+        // WhatsApp reminder to client (Pro plan only)
+        if (!isFreePlan(profile) && profile.waNotificationsEnabled) {
+            void notifyReminder24h(
+                { clientName: appt.clientName, clientPhone: appt.clientPhone, startsAt: appt.startsAt, endsAt: appt.endsAt },
+                { displayName: profile.displayName, timezone: tz, cancellationHours: profile.cancellationHours ?? 24 },
+            );
+        }
+
+        // Mark as sent
+        await db.update(agendaAppointments)
+            .set({ reminderSentAt: new Date() })
+            .where(eq(agendaAppointments.id, appt.id));
+
+        sent++;
+    }
+
+    return c.json({ ok: true, sent });
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
