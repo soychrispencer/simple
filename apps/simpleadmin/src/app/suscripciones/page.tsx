@@ -201,9 +201,9 @@ function CancelPlanModal({ sub, onClose, onCancelled }: { sub: AgendaSub; onClos
                 {error && <p className="text-xs mb-3" style={{ color: 'rgb(190,18,60)' }}>{error}</p>}
                 <div className="flex gap-2">
                     <PanelButton variant="secondary" onClick={onClose} disabled={cancelling} className="flex-1">Volver</PanelButton>
-                    <PanelButton variant="secondary" onClick={() => void handleCancel()} disabled={cancelling} className="flex-1" style={{ background: 'rgba(244,63,94,0.1)', color: 'rgb(190,18,60)', border: '1px solid rgba(244,63,94,0.3)' }}>
+                    <button onClick={() => void handleCancel()} disabled={cancelling} className="flex-1 rounded-xl px-4 py-2 text-sm font-medium border transition-colors disabled:opacity-50" style={{ background: 'rgba(244,63,94,0.1)', color: 'rgb(190,18,60)', borderColor: 'rgba(244,63,94,0.3)' }}>
                         {cancelling ? 'Cancelando...' : 'Confirmar cancelación'}
-                    </PanelButton>
+                    </button>
                 </div>
             </div>
         </div>
@@ -331,9 +331,9 @@ function AgendaSubscriptionsSection() {
                                                 Editar plan
                                             </PanelButton>
                                             {sub.plan === 'pro' && (
-                                                <PanelButton variant="secondary" size="sm" onClick={() => setCancelSub(sub)} style={{ color: 'rgb(190,18,60)', borderColor: 'rgba(244,63,94,0.3)' }}>
+                                                <button onClick={() => setCancelSub(sub)} className="rounded-lg px-3 py-1 text-xs font-medium border transition-colors" style={{ color: 'rgb(190,18,60)', borderColor: 'rgba(244,63,94,0.3)', background: 'rgba(244,63,94,0.06)' }}>
                                                     Cancelar
-                                                </PanelButton>
+                                                </button>
                                             )}
                                         </div>
                                     </div>
