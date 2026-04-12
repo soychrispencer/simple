@@ -27,6 +27,8 @@ export type AgendaProfile = {
     userId: string;
     slug: string;
     isPublished: boolean;
+    plan: string;
+    planExpiresAt: string | null;
     profession: string | null;
     displayName: string | null;
     headline: string | null;

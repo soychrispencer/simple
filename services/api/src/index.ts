@@ -15710,6 +15710,8 @@ async function syncToGoogleCalendar(
 app.get('/api/agenda/google-calendar/auth', requireVerifiedSession, async (c) => {
     const user = await authUser(c);
     if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
+    const profile = await getAgendaProfile(user.id);
+    if (profile && isFreePlan(profile)) return c.redirect(`${process.env.AGENDA_APP_URL ?? 'http://localhost:3002'}/panel/configuracion/integraciones?gc=upgrade`);
     const oauth2Client = getGoogleOAuth2Client();
     const url = oauth2Client.generateAuthUrl({
         access_type: 'offline',
@@ -15783,6 +15785,8 @@ app.get('/api/agenda/google-calendar/status', requireVerifiedSession, async (c) 
 app.get('/api/agenda/mercadopago/auth', requireVerifiedSession, async (c) => {
     const user = await authUser(c);
     if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
+    const mpProfile = await getAgendaProfile(user.id);
+    if (mpProfile && isFreePlan(mpProfile)) return c.redirect(`${process.env.AGENDA_APP_URL ?? 'http://localhost:3002'}/panel/configuracion/integraciones?mp=upgrade`);
     const appId = process.env.MP_AGENDA_APP_ID;
     if (!appId) return c.json({ ok: false, error: 'MP_AGENDA_APP_ID no configurado' }, 500);
     const redirectUri = encodeURIComponent(`${process.env.API_BASE_URL ?? 'http://localhost:4000'}/api/agenda/mercadopago/callback`);
@@ -15795,11 +15799,11 @@ app.get('/api/agenda/mercadopago/auth', requireVerifiedSession, async (c) => {
 app.get('/api/agenda/mercadopago/callback', async (c) => {
     const code = c.req.query('code');
     const state = c.req.query('state'); // userId
-    if (!code || !state) return c.redirect(`${process.env.AGENDA_APP_URL ?? 'http://localhost:3002'}/panel/configuracion/cobros?mp=error`);
+    if (!code || !state) return c.redirect(`${process.env.AGENDA_APP_URL ?? 'http://localhost:3002'}/panel/configuracion/integraciones?mp=error`);
     try {
         const appId = process.env.MP_AGENDA_APP_ID;
         const appSecret = process.env.MP_AGENDA_APP_SECRET;
-        if (!appId || !appSecret) return c.redirect(`${process.env.AGENDA_APP_URL ?? 'http://localhost:3002'}/panel/configuracion/cobros?mp=error`);
+        if (!appId || !appSecret) return c.redirect(`${process.env.AGENDA_APP_URL ?? 'http://localhost:3002'}/panel/configuracion/integraciones?mp=error`);
 
         const redirectUri = `${process.env.API_BASE_URL ?? 'http://localhost:4000'}/api/agenda/mercadopago/callback`;
         const tokenRes = await fetch('https://api.mercadopago.com/oauth/token', {
@@ -15819,7 +15823,7 @@ app.get('/api/agenda/mercadopago/callback', async (c) => {
         const profile = await db.query.agendaProfessionalProfiles.findFirst({
             where: eq(agendaProfessionalProfiles.userId, state),
         });
-        if (!profile) return c.redirect(`${process.env.AGENDA_APP_URL ?? 'http://localhost:3002'}/panel/configuracion/cobros?mp=error`);
+        if (!profile) return c.redirect(`${process.env.AGENDA_APP_URL ?? 'http://localhost:3002'}/panel/configuracion/integraciones?mp=error`);
 
         await db.update(agendaProfessionalProfiles).set({
             mpAccessToken: tokens.access_token,
@@ -15829,10 +15833,10 @@ app.get('/api/agenda/mercadopago/callback', async (c) => {
             updatedAt: new Date(),
         }).where(eq(agendaProfessionalProfiles.id, profile.id));
 
-        return c.redirect(`${process.env.AGENDA_APP_URL ?? 'http://localhost:3002'}/panel/configuracion/cobros?mp=connected`);
+        return c.redirect(`${process.env.AGENDA_APP_URL ?? 'http://localhost:3002'}/panel/configuracion/integraciones?mp=connected`);
     } catch (e) {
         console.error('[agenda] MP OAuth callback error:', e);
-        return c.redirect(`${process.env.AGENDA_APP_URL ?? 'http://localhost:3002'}/panel/configuracion/cobros?mp=error`);
+        return c.redirect(`${process.env.AGENDA_APP_URL ?? 'http://localhost:3002'}/panel/configuracion/integraciones?mp=error`);
     }
 });
 
@@ -15920,6 +15924,7 @@ app.post('/api/agenda/whatsapp/test', requireVerifiedSession, async (c) => {
     if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
     const profile = await getAgendaProfile(user.id);
     if (!profile) return c.json({ ok: false, error: 'Perfil no encontrado' }, 404);
+    if (isFreePlan(profile)) return c.json({ ok: false, error: 'Requiere plan Profesional.' }, 403);
     const phone = profile.waProfessionalPhone ?? profile.publicWhatsapp ?? profile.publicPhone;
     if (!phone) return c.json({ ok: false, error: 'No hay número de WhatsApp configurado' }, 400);
     try {
