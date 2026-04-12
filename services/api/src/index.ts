@@ -16208,9 +16208,9 @@ app.get('/api/public/agenda/:slug', async (c) => {
             advancePaymentInstructions: profile.advancePaymentInstructions,
             paymentMethods: {
                 requiresAdvancePayment: profile.requiresAdvancePayment,
-                mpConnected: !!(profile.mpAccessToken),
-                paymentLinkUrl: profile.paymentLinkUrl ?? null,
-                bankTransferData: profile.bankTransferData ?? null,
+                mpConnected: !!(profile.acceptsMp && profile.mpAccessToken),
+                paymentLinkUrl: profile.acceptsPaymentLink ? (profile.paymentLinkUrl ?? null) : null,
+                bankTransferData: profile.acceptsTransfer ? (profile.bankTransferData ?? null) : null,
             },
             services,
             locations: locations.map(loc => ({
