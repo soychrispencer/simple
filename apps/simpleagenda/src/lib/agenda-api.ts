@@ -29,6 +29,9 @@ export type AgendaProfile = {
     isPublished: boolean;
     plan: string;
     planExpiresAt: string | null;
+    acceptsTransfer: boolean;
+    acceptsMp: boolean;
+    acceptsPaymentLink: boolean;
     profession: string | null;
     displayName: string | null;
     headline: string | null;

@@ -14844,6 +14844,7 @@ app.patch('/api/agenda/profile', requireVerifiedSession, async (c) => {
         'publicEmail', 'publicPhone', 'publicWhatsapp', 'city', 'region', 'address',
         'currency', 'timezone', 'bookingWindowDays', 'cancellationHours', 'confirmationMode',
         'encuadre', 'requiresAdvancePayment', 'advancePaymentInstructions',
+        'acceptsTransfer', 'acceptsMp', 'acceptsPaymentLink',
         'waNotificationsEnabled', 'waNotifyProfessional', 'waProfessionalPhone',
         'paymentLinkUrl', 'bankTransferData',
         'coverUrl',
@@ -16389,7 +16390,7 @@ app.post('/api/public/agenda/:slug/book', async (c) => {
         currency: profile.currency,
         policyAgreed: body.policyAgreed === true,
         policyAgreedAt: body.policyAgreed === true ? new Date() : null,
-        paymentStatus: profile.requiresAdvancePayment ? 'pending' : 'not_required',
+        paymentStatus: (profile.requiresAdvancePayment && (profile.acceptsTransfer || profile.acceptsMp || profile.acceptsPaymentLink)) ? 'pending' : 'not_required',
     }).returning();
 
     // WhatsApp: confirm to client
@@ -16430,9 +16431,9 @@ app.post('/api/public/agenda/:slug/book', async (c) => {
         url: '/panel/agenda',
     });
 
-    // If requiresAdvancePayment AND professional has MP connected → create checkout preference
+    // If requiresAdvancePayment AND MP is enabled+connected → create checkout preference
     let checkoutUrl: string | null = null;
-    if (profile.requiresAdvancePayment && profile.mpAccessToken && price) {
+    if (profile.requiresAdvancePayment && profile.acceptsMp && profile.mpAccessToken && price) {
         try {
             const baseUrl = process.env.AGENDA_APP_URL ?? 'http://localhost:3002';
             const pref = await createCheckoutPreference({
@@ -16477,9 +16478,9 @@ app.post('/api/public/agenda/:slug/book', async (c) => {
             status,
             paymentMethods: {
                 requiresAdvancePayment: profile.requiresAdvancePayment,
-                mpConnected: !!(profile.mpAccessToken),
-                paymentLinkUrl: profile.paymentLinkUrl ?? null,
-                bankTransferData: (profile.bankTransferData ?? null) as Record<string, string> | null,
+                mpConnected: !!(profile.acceptsMp && profile.mpAccessToken),
+                paymentLinkUrl: profile.acceptsPaymentLink ? (profile.paymentLinkUrl ?? null) : null,
+                bankTransferData: profile.acceptsTransfer ? ((profile.bankTransferData ?? null) as Record<string, string> | null) : null,
                 checkoutUrl,
             },
             cancelUrl,
@@ -16497,10 +16498,10 @@ app.post('/api/public/agenda/:slug/book', async (c) => {
         },
         checkoutUrl,
         paymentMethods: {
-            mpConnected: !!(profile.mpAccessToken),
-            paymentLinkUrl: profile.paymentLinkUrl ?? null,
-            bankTransferData: profile.bankTransferData ?? null,
             requiresAdvancePayment: profile.requiresAdvancePayment,
+            mpConnected: !!(profile.acceptsMp && profile.mpAccessToken),
+            paymentLinkUrl: profile.acceptsPaymentLink ? (profile.paymentLinkUrl ?? null) : null,
+            bankTransferData: profile.acceptsTransfer ? (profile.bankTransferData ?? null) : null,
         },
     });
 });

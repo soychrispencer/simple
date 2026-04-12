@@ -426,6 +426,10 @@ export const agendaProfessionalProfiles = pgTable('agenda_professional_profiles'
   mpPublicKey: varchar('mp_public_key', { length: 255 }),
   mpUserId: varchar('mp_user_id', { length: 100 }),
   mpRefreshToken: text('mp_refresh_token'),
+  // Active payment methods (which ones the professional has enabled)
+  acceptsTransfer: boolean('accepts_transfer').notNull().default(false),
+  acceptsMp: boolean('accepts_mp').notNull().default(false),
+  acceptsPaymentLink: boolean('accepts_payment_link').notNull().default(false),
   // Payment link (any URL)
   paymentLinkUrl: varchar('payment_link_url', { length: 500 }),
   // Bank transfer (structured jsonb)
