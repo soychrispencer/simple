@@ -14756,35 +14756,29 @@ async function checkAppointmentLimit(profileId: string): Promise<string | null> 
     return null;
 }
 
-/** Generate time slots for a given date based on availability rules and existing appointments */
+/** Generate time slots for a given date based on availability rules and existing appointments.
+ *  dateMidnight must be the UTC epoch that represents 00:00:00 in the professional's timezone.
+ *  Time strings (startTime, endTime, breakStart, breakEnd) are in "HH:MM" local time. */
 function generateSlots(
     rules: { startTime: string; endTime: string; breakStart?: string | null; breakEnd?: string | null }[],
     durationMinutes: number,
     dateMidnight: Date,
     existingAppts: { startsAt: Date; endsAt: Date }[],
     blockedSlots: { startsAt: Date; endsAt: Date }[],
-    timezone: string,
+    _timezone: string,
 ): { startsAt: string; endsAt: string }[] {
     const slots: { startsAt: string; endsAt: string }[] = [];
+    const toMs = (hhmm: string) => {
+        const [h, m] = hhmm.split(':').map(Number);
+        return (h * 60 + m) * 60_000;
+    };
 
     for (const rule of rules) {
-        const [sh, sm] = rule.startTime.split(':').map(Number);
-        const [eh, em] = rule.endTime.split(':').map(Number);
-        let cursor = new Date(dateMidnight);
-        cursor.setHours(sh, sm, 0, 0);
-        const end = new Date(dateMidnight);
-        end.setHours(eh, em, 0, 0);
+        let cursor = new Date(dateMidnight.getTime() + toMs(rule.startTime));
+        const end  = new Date(dateMidnight.getTime() + toMs(rule.endTime));
 
-        let bStart: Date | null = null;
-        let bEnd: Date | null = null;
-        if (rule.breakStart && rule.breakEnd) {
-            const [bsh, bsm] = rule.breakStart.split(':').map(Number);
-            const [beh, bem] = rule.breakEnd.split(':').map(Number);
-            bStart = new Date(dateMidnight);
-            bStart.setHours(bsh, bsm, 0, 0);
-            bEnd = new Date(dateMidnight);
-            bEnd.setHours(beh, bem, 0, 0);
-        }
+        const bStart = rule.breakStart ? new Date(dateMidnight.getTime() + toMs(rule.breakStart)) : null;
+        const bEnd   = rule.breakEnd   ? new Date(dateMidnight.getTime() + toMs(rule.breakEnd))   : null;
 
         while (cursor < end) {
             const slotEnd = new Date(cursor.getTime() + durationMinutes * 60_000);
@@ -14792,7 +14786,7 @@ function generateSlots(
 
             const inBreak = bStart && bEnd && cursor < bEnd && slotEnd > bStart;
             const clash = existingAppts.some(
-                (a) => cursor < a.endsAt && slotEnd > a.startsAt && !['cancelled', 'no_show'].includes((a as any).status ?? ''),
+                (a) => cursor < a.endsAt && slotEnd > a.startsAt,
             );
             const blocked = blockedSlots.some((b) => cursor < b.endsAt && slotEnd > b.startsAt);
             const inPast = cursor <= new Date();
@@ -16489,8 +16483,20 @@ app.get('/api/public/agenda/:slug/slots', async (c) => {
     });
     if (!profile) return c.json({ ok: false, error: 'Perfil no encontrado' }, 404);
 
-    const date = new Date(dateStr + 'T00:00:00');
-    const dayOfWeek = date.getDay();
+    const tz = profile.timezone ?? 'America/Santiago';
+
+    // Derive dayOfWeek and day boundaries in the professional's local timezone
+    // dateStr is YYYY-MM-DD as selected by the user in the booking UI (already in prof tz)
+    const dayOfWeek = new Date(
+        new Date(`${dateStr}T12:00:00`).toLocaleString('en-US', { timeZone: tz })
+    ).getDay();
+
+    // Build day start/end as UTC timestamps corresponding to 00:00–23:59:59 in prof tz
+    // Strategy: format dateStr midnight in prof tz, then parse as UTC epoch
+    const tzOffsetMs = new Date(`${dateStr}T00:00:00`).getTime()
+        - new Date(new Date(`${dateStr}T00:00:00`).toLocaleString('en-US', { timeZone: tz })).getTime();
+    const dayStart = new Date(new Date(`${dateStr}T00:00:00`).getTime() + tzOffsetMs);
+    const dayEnd   = new Date(dayStart.getTime() + 24 * 60 * 60 * 1000 - 1);
 
     const rules = await db.select().from(agendaAvailabilityRules)
         .where(and(
@@ -16507,8 +16513,6 @@ app.get('/api/public/agenda/:slug/slots', async (c) => {
         if (svc) durationMinutes = svc.durationMinutes;
     }
 
-    const dayStart = new Date(dateStr + 'T00:00:00');
-    const dayEnd = new Date(dateStr + 'T23:59:59');
     const [existingAppts, blockedSlots] = await Promise.all([
         db.select().from(agendaAppointments)
             .where(and(
@@ -16525,7 +16529,7 @@ app.get('/api/public/agenda/:slug/slots', async (c) => {
             )),
     ]);
 
-    const slots = generateSlots(rules, durationMinutes, dayStart, existingAppts, blockedSlots, profile.timezone);
+    const slots = generateSlots(rules, durationMinutes, dayStart, existingAppts, blockedSlots, tz);
     return c.json({ ok: true, slots });
 });
 
@@ -16644,6 +16648,44 @@ app.post('/api/public/agenda/:slug/book', async (c) => {
         policyAgreedAt: body.policyAgreed === true ? new Date() : null,
         paymentStatus: (profile.requiresAdvancePayment && (profile.acceptsTransfer || profile.acceptsMp || profile.acceptsPaymentLink)) ? 'pending' : 'not_required',
     }).returning();
+
+    // Create or link client record so the patient appears in the professional's client list
+    const bookingEmail = typeof body.clientEmail === 'string' && body.clientEmail ? body.clientEmail : null;
+    const bookingPhone = typeof body.clientPhone === 'string' && body.clientPhone ? body.clientPhone : null;
+    const clientFullName = String(body.clientName).trim();
+    const nameParts = clientFullName.split(/\s+/);
+    const bookingFirstName = nameParts[0] ?? clientFullName;
+    const bookingLastName = nameParts.slice(1).join(' ') || null;
+
+    // Try to find existing client by email or phone
+    let existingClient = null;
+    if (bookingEmail) {
+        existingClient = await db.query.agendaClients.findFirst({
+            where: and(eq(agendaClients.professionalId, profile.id), eq(agendaClients.email, bookingEmail)),
+        });
+    }
+    if (!existingClient && bookingPhone) {
+        existingClient = await db.query.agendaClients.findFirst({
+            where: and(eq(agendaClients.professionalId, profile.id), eq(agendaClients.phone, bookingPhone)),
+        });
+    }
+    if (!existingClient) {
+        // Create new client
+        const [newClient] = await db.insert(agendaClients).values({
+            professionalId: profile.id,
+            firstName: bookingFirstName,
+            lastName: bookingLastName,
+            email: bookingEmail,
+            phone: bookingPhone,
+        }).returning({ id: agendaClients.id });
+        // Link appointment to the new client
+        if (newClient) {
+            await db.update(agendaAppointments).set({ clientId: newClient.id }).where(eq(agendaAppointments.id, appointment.id));
+        }
+    } else {
+        // Link appointment to existing client
+        await db.update(agendaAppointments).set({ clientId: existingClient.id }).where(eq(agendaAppointments.id, appointment.id));
+    }
 
     // WhatsApp: confirm to client
     const clientPhone = typeof body.clientPhone === 'string' ? body.clientPhone : null;
