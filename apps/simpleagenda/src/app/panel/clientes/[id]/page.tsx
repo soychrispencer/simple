@@ -88,7 +88,7 @@ export default function ClienteFichaPage() {
     const sortedAppts = [...appointments].sort((a, b) => new Date(a.startsAt).getTime() - new Date(b.startsAt).getTime());
 
     const age = client.dateOfBirth ? (() => {
-        const dob = new Date(client.dateOfBirth);
+        const dob = new Date(client.dateOfBirth + 'T12:00:00');
         const today = new Date();
         let a = today.getFullYear() - dob.getFullYear();
         const m = today.getMonth() - dob.getMonth();

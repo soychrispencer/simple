@@ -355,8 +355,8 @@ export default function AgendaPage() {
         setEditSaving(false);
         if (result.ok && result.appointment) {
             setSelectedAppt(result.appointment);
-            setAppointments((prev) => prev.map((a) => a.id === result.appointment!.id ? result.appointment! : a));
             setShowEdit(false);
+            await load();
         }
     };
 
@@ -364,6 +364,7 @@ export default function AgendaPage() {
         setSavingStatus(status);
         await patchAppointmentStatus(appt.id, status);
         setSavingStatus(null);
+        setConfirmCancelId(null);
         setSelectedAppt((prev) => prev ? { ...prev, status } : null);
         setAppointments((prev) => prev.map((a) => a.id === appt.id ? { ...a, status } : a));
     };
@@ -622,8 +623,7 @@ export default function AgendaPage() {
                                     onChange={(e) => setNoteContent(e.target.value)}
                                     rows={4}
                                     placeholder="Observaciones clínicas, evolución, temas tratados..."
-                                    className="w-full text-sm resize-none outline-none rounded-xl p-3 border"
-                                    style={{ background: 'var(--bg)', borderColor: 'var(--border)', color: 'var(--fg)' }}
+                                    className="field-input resize-none"
                                 />
                             )}
                         </div>

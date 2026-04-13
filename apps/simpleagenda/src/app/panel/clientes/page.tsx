@@ -109,7 +109,7 @@ export default function ClientesPage() {
             whatsapp: editForm.whatsapp || null, rut: editForm.rut || null,
             dateOfBirth: editForm.dateOfBirth || null, gender: editForm.gender || null,
             occupation: editForm.occupation || null, city: editForm.city || null,
-            referredBy: editForm.referredBy || null,
+            referredBy: editForm.referredBy || null, internalNotes: editForm.internalNotes || null,
         });
         setEditSaving(false);
         if (!result.ok) { setEditError(result.error ?? 'Error al guardar.'); return; }
@@ -211,8 +211,7 @@ export default function ClientesPage() {
                     value={query}
                     onChange={(e) => setQuery(e.target.value)}
                     placeholder="Buscar por nombre, correo o teléfono..."
-                    className="w-full h-10 pl-9 pr-4 rounded-xl border text-sm outline-none"
-                    style={{ borderColor: 'var(--border)', background: 'var(--surface)', color: 'var(--fg)' }}
+                    className="field-input pl-9"
                 />
             </div>
 
@@ -416,6 +415,9 @@ export default function ClientesPage() {
                                 <Field label="Ciudad"><input type="text" value={editForm.city} onChange={(e) => setEditForm((p) => ({ ...p, city: e.target.value }))} className="field-input" /></Field>
                             </div>
                             <Field label="Derivado por / cómo llegó"><input type="text" value={editForm.referredBy} onChange={(e) => setEditForm((p) => ({ ...p, referredBy: e.target.value }))} className="field-input" /></Field>
+                            <Field label="Notas internas">
+                                <textarea value={editForm.internalNotes} onChange={(e) => setEditForm((p) => ({ ...p, internalNotes: e.target.value }))} rows={3} placeholder="Notas privadas sobre este paciente..." className="field-input resize-none" />
+                            </Field>
                             {editError && <p className="flex items-center gap-1.5 text-sm" style={{ color: '#dc2626' }}><IconAlertCircle size={13} />{editError}</p>}
                             <div className="flex gap-3 pt-2 border-t" style={{ borderColor: 'var(--border)' }}>
                                 <button onClick={() => void handleEditSave()} disabled={editSaving} className="flex-1 inline-flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-semibold transition-opacity hover:opacity-90 disabled:opacity-60" style={{ background: 'var(--accent)', color: '#fff' }}>
