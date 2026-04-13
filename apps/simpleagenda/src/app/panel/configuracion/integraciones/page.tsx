@@ -84,13 +84,14 @@ function IntegracionesPageInner() {
     const [flash, setFlash] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
 
     useEffect(() => {
+        const message = searchParams.get('message');
         if (gcParam === 'connected') setFlash({ type: 'success', message: 'Google Calendar conectado correctamente.' });
-        else if (gcParam === 'error') setFlash({ type: 'error', message: 'Error al conectar con Google Calendar.' });
-        else if (gcParam === 'upgrade') setFlash({ type: 'error', message: 'Necesitas el plan Profesional para conectar Google Calendar.' });
+        else if (gcParam === 'error') setFlash({ type: 'error', message: message || 'Error al conectar con Google Calendar.' });
+        else if (gcParam === 'upgrade') setFlash({ type: 'error', message: 'Necesitas el plan Pro o Empresa para conectar Google Calendar.' });
 
         if (mpParam === 'connected') setFlash({ type: 'success', message: 'MercadoPago conectado correctamente.' });
         else if (mpParam === 'error') setFlash({ type: 'error', message: 'Error al conectar con MercadoPago.' });
-        else if (mpParam === 'upgrade') setFlash({ type: 'error', message: 'Necesitas el plan Profesional para conectar MercadoPago.' });
+        else if (mpParam === 'upgrade') setFlash({ type: 'error', message: 'Necesitas el plan Pro o Empresa para conectar MercadoPago.' });
 
         const load = async () => {
             const [prof, gcStatus, mpStatus] = await Promise.all([
@@ -188,9 +189,11 @@ function IntegracionesPageInner() {
                                         <IconCheck size={10} /> Conectado
                                     </span>
                                 )}
-                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium" style={{ background: 'rgba(234,179,8,0.1)', color: '#b45309' }}>
-                                    Pro
-                                </span>
+                                {!loading && !isPro && (
+                                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium" style={{ background: 'rgba(234,179,8,0.1)', color: '#b45309' }}>
+                                        Pro
+                                    </span>
+                                )}
                             </div>
                             <p className="text-xs mb-4" style={{ color: 'var(--fg-muted)' }}>
                                 Conecta tu cuenta de MercadoPago para cobros en línea. Los pagos llegan directamente a ti.
@@ -239,9 +242,11 @@ function IntegracionesPageInner() {
                                         <IconCheck size={10} /> Conectado
                                     </span>
                                 )}
-                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium" style={{ background: 'rgba(234,179,8,0.1)', color: '#b45309' }}>
-                                    Pro
-                                </span>
+                                {!loading && !isPro && (
+                                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium" style={{ background: 'rgba(234,179,8,0.1)', color: '#b45309' }}>
+                                        Pro
+                                    </span>
+                                )}
                             </div>
                             <p className="text-xs mb-4" style={{ color: 'var(--fg-muted)' }}>
                                 Sincroniza tus citas automáticamente. Cada reserva o cancelación se refleja en tu calendario.
@@ -287,9 +292,11 @@ function IntegracionesPageInner() {
                         <div className="flex-1 min-w-0">
                             <div className="flex items-center gap-2 mb-0.5">
                                 <h2 className="text-sm font-semibold" style={{ color: 'var(--fg)' }}>WhatsApp</h2>
-                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium" style={{ background: 'rgba(234,179,8,0.1)', color: '#b45309' }}>
-                                    Pro
-                                </span>
+                                {!loading && !isPro && (
+                                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium" style={{ background: 'rgba(234,179,8,0.1)', color: '#b45309' }}>
+                                        Pro
+                                    </span>
+                                )}
                             </div>
                             <p className="text-xs mb-4" style={{ color: 'var(--fg-muted)' }}>
                                 Confirmaciones, recordatorios y cancelaciones vía WhatsApp. Los mensajes salen desde <strong>SimpleAgenda</strong>.

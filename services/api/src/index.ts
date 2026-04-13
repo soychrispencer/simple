@@ -15814,19 +15814,27 @@ app.get('/api/agenda/google-calendar/auth', requireVerifiedSession, async (c) =>
 app.get('/api/agenda/google-calendar/callback', async (c) => {
     const code = c.req.query('code');
     const state = c.req.query('state'); // userId
-    if (!code || !state) return c.redirect('/panel/configuracion/integraciones?gc=error');
+    if (!code || !state) {
+        console.error('[agenda] Google Calendar callback: missing code or state');
+        return c.redirect(`${process.env.AGENDA_APP_URL ?? 'http://localhost:3002'}/panel/configuracion/integraciones?gc=error&message=${encodeURIComponent('Faltan parámetros de autenticación')}`);
+    }
     try {
         const oauth2Client = getGoogleOAuth2Client();
         const { tokens } = await oauth2Client.getToken(code);
+        console.log('[agenda] Google Calendar tokens obtained:', { hasAccessToken: !!tokens.access_token, hasRefreshToken: !!tokens.refresh_token });
         oauth2Client.setCredentials(tokens);
         const calendarApi = google.calendar({ version: 'v3', auth: oauth2Client });
         const calList = await calendarApi.calendarList.list({ minAccessRole: 'owner' });
         const primaryCal = calList.data.items?.find((c) => c.primary) ?? calList.data.items?.[0];
+        console.log('[agenda] Google Calendar primary calendar:', primaryCal?.id, primaryCal?.summary);
 
         const profile = await db.query.agendaProfessionalProfiles.findFirst({
             where: eq(agendaProfessionalProfiles.userId, state),
         });
-        if (!profile) return c.redirect('/panel/configuracion/integraciones?gc=error');
+        if (!profile) {
+            console.error('[agenda] Google Calendar callback: profile not found for userId:', state);
+            return c.redirect(`${process.env.AGENDA_APP_URL ?? 'http://localhost:3002'}/panel/configuracion/integraciones?gc=error&message=${encodeURIComponent('Perfil no encontrado')}`);
+        }
 
         await db.update(agendaProfessionalProfiles).set({
             googleCalendarId: primaryCal?.id ?? null,
@@ -15836,10 +15844,12 @@ app.get('/api/agenda/google-calendar/callback', async (c) => {
             updatedAt: new Date(),
         }).where(eq(agendaProfessionalProfiles.id, profile.id));
 
+        console.log('[agenda] Google Calendar connected successfully for profile:', profile.id);
         return c.redirect(`${process.env.AGENDA_APP_URL ?? 'http://localhost:3002'}/panel/configuracion/integraciones?gc=connected`);
     } catch (e) {
         console.error('[agenda] Google Calendar callback error:', e);
-        return c.redirect(`${process.env.AGENDA_APP_URL ?? 'http://localhost:3002'}/panel/configuracion/integraciones?gc=error`);
+        const errorMessage = e instanceof Error ? e.message : 'Error desconocido';
+        return c.redirect(`${process.env.AGENDA_APP_URL ?? 'http://localhost:3002'}/panel/configuracion/integraciones?gc=error&message=${encodeURIComponent(errorMessage)}`);
     }
 });
 
