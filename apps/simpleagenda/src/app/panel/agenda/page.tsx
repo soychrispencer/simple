@@ -216,10 +216,16 @@ export default function AgendaPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [searchParams]);
 
-    // Group appointments by YYYY-MM-DD
+    // Helper: local YYYY-MM-DD key from any Date
+    const localKey = (d: Date) => {
+        const p = (n: number) => String(n).padStart(2, '0');
+        return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
+    };
+
+    // Group appointments by local YYYY-MM-DD
     const byDay: AppointmentsByDay = {};
     for (const appt of appointments) {
-        const key = appt.startsAt.slice(0, 10);
+        const key = localKey(new Date(appt.startsAt));
         if (!byDay[key]) byDay[key] = [];
         byDay[key].push(appt);
     }
@@ -363,7 +369,7 @@ export default function AgendaPage() {
         setAppointments((prev) => prev.map((a) => a.id === appt.id ? { ...a, status } : a));
     };
 
-    const todayKey = new Date().toISOString().slice(0, 10);
+    const todayKey = localKey(new Date());
     const weekLabel = `${weekStart.toLocaleDateString('es-CL', { day: 'numeric', month: 'short' })} — ${weekEnd.toLocaleDateString('es-CL', { day: 'numeric', month: 'short', year: 'numeric' })}`;
     const monthLabel = monthDate.toLocaleDateString('es-CL', { month: 'long', year: 'numeric' });
     const dayHeaders = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'];
@@ -434,7 +440,7 @@ export default function AgendaPage() {
                     </div>
                     <div className="grid grid-cols-7">
                         {monthGridDays.map((day) => {
-                            const key = day.toISOString().slice(0, 10);
+                            const key = localKey(day);
                             const isToday = key === todayKey;
                             const isCurrentMonth = day.getMonth() === monthDate.getMonth();
                             const dayAppts = (byDay[key] ?? []).sort((a, b) => a.startsAt.localeCompare(b.startsAt));
@@ -481,7 +487,7 @@ export default function AgendaPage() {
                 {/* Day headers */}
                 <div className="grid grid-cols-7 border-b" style={{ borderColor: 'var(--border)', background: 'var(--surface)' }}>
                     {weekDays.map((day) => {
-                        const key = day.toISOString().slice(0, 10);
+                        const key = localKey(day);
                         const isToday = key === todayKey;
                         return (
                             <div
@@ -508,21 +514,8 @@ export default function AgendaPage() {
 
                 {/* Day columns */}
                 <div className="grid grid-cols-7 min-h-80">
-                    {!loading && appointments.length === 0 && (
-                        <div className="col-span-7 flex flex-col items-center justify-center py-16 text-center px-4" style={{ color: 'var(--fg-muted)' }}>
-                            <IconCalendar size={32} className="mb-3 opacity-30" />
-                            <p className="text-sm">Sin citas esta semana</p>
-                            <button
-                                onClick={() => handleCreateOpen()}
-                                className="mt-3 text-xs underline transition-opacity hover:opacity-70"
-                                style={{ color: 'var(--accent)' }}
-                            >
-                                Agregar cita
-                            </button>
-                        </div>
-                    )}
                     {weekDays.map((day) => {
-                        const key = day.toISOString().slice(0, 10);
+                        const key = localKey(day);
                         const dayAppts = (byDay[key] ?? []).sort((a, b) => a.startsAt.localeCompare(b.startsAt));
                         const isToday = key === todayKey;
                         return (
