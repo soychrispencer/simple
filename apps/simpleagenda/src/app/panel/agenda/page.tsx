@@ -173,12 +173,11 @@ export default function AgendaPage() {
             (c.phone ?? '').includes(q);
     });
 
-    const weekEnd = addDays(weekStart, 6);
-
     const load = useCallback(async () => {
         setLoading(true);
+        const wEnd = addDays(weekStart, 6); wEnd.setHours(23, 59, 59, 999);
         const from = view === 'month' ? getMonthStart(monthDate).toISOString() : weekStart.toISOString();
-        const to   = view === 'month' ? getMonthEnd(monthDate).toISOString()   : weekEnd.toISOString();
+        const to   = view === 'month' ? getMonthEnd(monthDate).toISOString()   : wEnd.toISOString();
         const [appts, svcs] = await Promise.all([
             fetchAgendaAppointments(from, to),
             fetchAgendaServices(),
@@ -369,6 +368,7 @@ export default function AgendaPage() {
         setAppointments((prev) => prev.map((a) => a.id === appt.id ? { ...a, status } : a));
     };
 
+    const weekEnd = addDays(weekStart, 6);
     const todayKey = localKey(new Date());
     const weekLabel = `${weekStart.toLocaleDateString('es-CL', { day: 'numeric', month: 'short' })} — ${weekEnd.toLocaleDateString('es-CL', { day: 'numeric', month: 'short', year: 'numeric' })}`;
     const monthLabel = monthDate.toLocaleDateString('es-CL', { month: 'long', year: 'numeric' });
