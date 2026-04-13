@@ -2,6 +2,50 @@
 @import "tailwindcss";
 @source "../../../../packages/ui/src";
 
+.field-input {
+    width: 100%;
+    padding: 0.5rem 0.75rem;
+    border-radius: 0.75rem;
+    border: 1px solid var(--border-strong, rgba(0,0,0,0.15));
+    background: var(--bg-subtle, #f4f4f5);
+    color: var(--fg);
+    font-size: 0.875rem;
+    outline: none;
+    transition: border-color 0.15s, box-shadow 0.15s;
+}
+.field-input::placeholder { color: var(--fg-muted); }
+.field-input:focus {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px color-mix(in oklab, var(--accent) 15%, transparent);
+}
+.dark .field-input,
+[data-theme="dark"] .field-input {
+    border-color: rgba(255,255,255,0.14);
+    background: var(--bg-muted, #252525);
+}
+
+.booking-input {
+    width: 100%;
+    padding: 0.625rem 0.875rem;
+    border-radius: 0.75rem;
+    border: 1px solid var(--border-strong, rgba(0,0,0,0.15));
+    background: var(--bg-subtle, #f4f4f5);
+    color: var(--fg);
+    font-size: 0.875rem;
+    outline: none;
+    transition: border-color 0.15s, box-shadow 0.15s;
+}
+.booking-input::placeholder { color: var(--fg-muted); }
+.booking-input:focus {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px color-mix(in oklab, var(--accent) 15%, transparent);
+}
+.dark .booking-input,
+[data-theme="dark"] .booking-input {
+    border-color: rgba(255,255,255,0.14);
+    background: var(--bg-muted, #252525);
+}
+
 :root {
     --accent: #0D9488;
     --accent-subtle: rgba(13, 148, 136, 0.12);
