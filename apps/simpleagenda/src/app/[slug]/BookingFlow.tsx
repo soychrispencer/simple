@@ -84,6 +84,7 @@ export default function BookingFlow({ profile }: { profile: PublicProfile }) {
 
     // Patient info
     const [clientName, setClientName] = useState('');
+    const [clientLastName, setClientLastName] = useState('');
     const [clientEmail, setClientEmail] = useState('');
     const [clientPhone, setClientPhone] = useState('');
     const [clientNotes, setClientNotes] = useState('');
@@ -120,6 +121,7 @@ export default function BookingFlow({ profile }: { profile: PublicProfile }) {
         setSelectedDate(null);
         setSelectedSlot(null);
         setClientName('');
+        setClientLastName('');
         setClientEmail('');
         setClientPhone('');
         setClientNotes('');
@@ -172,6 +174,10 @@ export default function BookingFlow({ profile }: { profile: PublicProfile }) {
             setInfoError('El nombre es requerido.');
             return;
         }
+        if (!clientLastName.trim()) {
+            setInfoError('El apellido es requerido.');
+            return;
+        }
         if (clientEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(clientEmail.trim())) {
             setInfoError('El email no es válido.');
             return;
@@ -199,12 +205,12 @@ export default function BookingFlow({ profile }: { profile: PublicProfile }) {
     };
 
     const handleSubmit = async () => {
-        if (!selectedService || !selectedSlot || !clientName.trim()) return;
+        if (!selectedService || !selectedSlot || !clientName.trim() || !clientLastName.trim()) return;
         setSubmitting(true);
         setSubmitError('');
         const result = await bookAppointment(profile.slug, {
             serviceId: selectedService.id,
-            clientName: clientName.trim(),
+            clientName: `${clientName.trim()} ${clientLastName.trim()}`.trim(),
             clientEmail: clientEmail || undefined,
             clientPhone: clientPhone || undefined,
             clientNotes: clientNotes || undefined,
@@ -222,12 +228,12 @@ export default function BookingFlow({ profile }: { profile: PublicProfile }) {
     };
 
     const handleSubmitAndRedirect = async (method: 'mp' | 'link') => {
-        if (!selectedService || !selectedSlot || !clientName.trim()) return;
+        if (!selectedService || !selectedSlot || !clientName.trim() || !clientLastName.trim()) return;
         setSubmitting(true);
         setSubmitError('');
         const result = await bookAppointment(profile.slug, {
             serviceId: selectedService.id,
-            clientName: clientName.trim(),
+            clientName: `${clientName.trim()} ${clientLastName.trim()}`.trim(),
             clientEmail: clientEmail || undefined,
             clientPhone: clientPhone || undefined,
             clientNotes: clientNotes || undefined,
@@ -439,21 +445,33 @@ export default function BookingFlow({ profile }: { profile: PublicProfile }) {
                                     </div>
                                 )}
                                 <div className="flex flex-col gap-4">
-                                    <div>
-                                        <label className="text-xs font-medium block mb-1.5" style={{ color: 'var(--fg-muted)' }}>
-                                            <IconUser size={11} className="inline mr-1" />Nombre completo *
-                                        </label>
-                                        <input
-                                            type="text"
-                                            value={clientName}
-                                            onChange={(e) => { setClientName(e.target.value); setInfoError(''); }}
-                                            placeholder="Tu nombre"
-                                            className="booking-input"
-                                        />
+                                    <div className="grid grid-cols-2 gap-3">
+                                        <div>
+                                            <label className="text-xs font-medium block mb-1.5" style={{ color: 'var(--fg-muted)' }}>
+                                                <IconUser size={11} className="inline mr-1" />Nombre *
+                                            </label>
+                                            <input
+                                                type="text"
+                                                value={clientName}
+                                                onChange={(e) => { setClientName(e.target.value); setInfoError(''); }}
+                                                placeholder="Tu nombre"
+                                                className="booking-input"
+                                            />
+                                        </div>
+                                        <div>
+                                            <label className="text-xs font-medium block mb-1.5" style={{ color: 'var(--fg-muted)' }}>Apellido *</label>
+                                            <input
+                                                type="text"
+                                                value={clientLastName}
+                                                onChange={(e) => { setClientLastName(e.target.value); setInfoError(''); }}
+                                                placeholder="Tu apellido"
+                                                className="booking-input"
+                                            />
+                                        </div>
                                     </div>
                                     <div>
                                         <label className="text-xs font-medium block mb-1.5" style={{ color: 'var(--fg-muted)' }}>
-                                            <IconMail size={11} className="inline mr-1" />Email *
+                                            <IconMail size={11} className="inline mr-1" />Email
                                         </label>
                                         <input type="email" value={clientEmail} onChange={(e) => { setClientEmail(e.target.value); setInfoError(''); }} placeholder="tu@email.com" className="booking-input" />
                                     </div>
@@ -474,7 +492,7 @@ export default function BookingFlow({ profile }: { profile: PublicProfile }) {
                                     )}
                                     <button
                                         onClick={handleInfoNext}
-                                        disabled={!clientName.trim()}
+                                        disabled={!clientName.trim() || !clientLastName.trim()}
                                         className="w-full py-3 rounded-xl text-sm font-semibold transition-opacity hover:opacity-90 disabled:opacity-50"
                                         style={{ background: 'var(--accent)', color: '#fff' }}
                                     >
@@ -683,19 +701,6 @@ export default function BookingFlow({ profile }: { profile: PublicProfile }) {
                 </div>
             </div>
 
-            <style>{`
-                .booking-input {
-                    width: 100%;
-                    padding: 0.625rem 0.875rem;
-                    border-radius: 0.75rem;
-                    border: 1px solid var(--border);
-                    background: var(--bg);
-                    color: var(--fg);
-                    font-size: 0.875rem;
-                    outline: none;
-                }
-                .booking-input:focus { border-color: var(--accent); }
-            `}</style>
         </>
     );
 }

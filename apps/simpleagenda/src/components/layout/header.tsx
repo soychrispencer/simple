@@ -70,8 +70,8 @@ export function Header() {
     }, []);
 
     const handleNuevaCita = () => {
-        if (requireAuth(() => router.push('/panel/agenda/nueva'))) {
-            router.push('/panel/agenda/nueva');
+        if (requireAuth(() => router.push('/panel/agenda?nueva=1'))) {
+            router.push('/panel/agenda?nueva=1');
         }
     };
 
@@ -190,25 +190,27 @@ export function Header() {
                     )}
 
                     {/* Desktop Action Button - Only visible on desktop */}
-                    {isLoggedIn ? (
-                        <PanelButton 
-                            onClick={handleNuevaCita} 
-                            variant="primary" 
-                            size="sm" 
-                            className="hidden md:flex h-9 px-4 text-sm"
-                        >
-                            <IconPlus size={14} /> Nueva cita
-                        </PanelButton>
-                    ) : (
-                        <PanelButton 
-                            onClick={openAuth} 
-                            variant="primary" 
-                            size="sm" 
-                            className="hidden md:flex h-9 px-4 text-sm"
-                        >
-                            Iniciar sesión
-                        </PanelButton>
-                    )}
+                    <div className="hidden md:block">
+                        {isLoggedIn ? (
+                            <PanelButton 
+                                onClick={handleNuevaCita} 
+                                variant="primary" 
+                                size="sm" 
+                                className="h-9 px-4 text-sm"
+                            >
+                                <IconPlus size={14} /> Nueva cita
+                            </PanelButton>
+                        ) : (
+                            <PanelButton 
+                                onClick={openAuth} 
+                                variant="primary" 
+                                size="sm" 
+                                className="h-9 px-4 text-sm"
+                            >
+                                Iniciar sesión
+                            </PanelButton>
+                        )}
+                    </div>
 
                     {/* Mobile Menu Button (Hamburger) - Only visible on mobile */}
                     <div className="relative md:hidden" ref={menuRef}>

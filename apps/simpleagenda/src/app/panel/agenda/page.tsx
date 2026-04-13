@@ -1,6 +1,7 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
+import { useSearchParams, useRouter } from 'next/navigation';
 import {
     IconChevronLeft,
     IconChevronRight,
@@ -16,6 +17,7 @@ import {
     IconBan,
     IconNotes,
     IconEdit,
+    IconSearch,
     IconLayoutGrid,
     IconLayoutColumns,
 } from '@tabler/icons-react';
@@ -26,11 +28,13 @@ import {
     updateAgendaAppointment,
     fetchAgendaServices,
     fetchAgendaClients,
+    fetchAgendaLocations,
     fetchAgendaNote,
     saveAgendaNote,
     type AgendaAppointment,
     type AgendaService,
     type AgendaClient,
+    type AgendaLocation,
 } from '@/lib/agenda-api';
 import { fmtDateShort as formatDate, fmtTime as formatTime } from '@/lib/format';
 import { vocab } from '@/lib/vocabulary';
@@ -110,6 +114,8 @@ type ViewMode = 'week' | 'month';
 // ── Main Component ────────────────────────────────────────────────────────────
 
 export default function AgendaPage() {
+    const searchParams = useSearchParams();
+    const router = useRouter();
     const [view, setView] = useState<ViewMode>('week');
     const [weekStart, setWeekStart] = useState(() => getWeekStart(new Date()));
     const [monthDate, setMonthDate] = useState(() => new Date());
@@ -117,6 +123,10 @@ export default function AgendaPage() {
     const [loading, setLoading] = useState(true);
     const [services, setServices] = useState<AgendaService[]>([]);
     const [clients, setClients] = useState<AgendaClient[]>([]);
+    const [locations, setLocations] = useState<AgendaLocation[]>([]);
+    const [clientSearch, setClientSearch] = useState('');
+    const [clientDropOpen, setClientDropOpen] = useState(false);
+    const clientDropRef = useRef<HTMLDivElement>(null);
 
     // Modal states
     const [showCreate, setShowCreate] = useState(false);
@@ -135,6 +145,9 @@ export default function AgendaPage() {
     const [editForm, setEditForm] = useState({ startsAt: '', durationMinutes: 60, price: '', internalNotes: '' });
     const [editSaving, setEditSaving] = useState(false);
 
+    // Cancel confirmation
+    const [confirmCancelId, setConfirmCancelId] = useState<string | null>(null);
+
     // Create form
     const [form, setForm] = useState({
         clientId: '',
@@ -144,12 +157,21 @@ export default function AgendaPage() {
         startsAt: isoDateInput(new Date()),
         durationMinutes: 50,
         modality: 'online',
+        location: '',
         price: '',
         internalNotes: '',
         repeatWeekly: 0,
     });
     const [creating, setCreating] = useState(false);
     const [createError, setCreateError] = useState('');
+
+    const filteredClients = clients.filter((c) => {
+        const q = clientSearch.toLowerCase();
+        if (!q) return true;
+        return `${c.firstName} ${c.lastName ?? ''}`.toLowerCase().includes(q) ||
+            (c.email ?? '').toLowerCase().includes(q) ||
+            (c.phone ?? '').includes(q);
+    });
 
     const weekEnd = addDays(weekStart, 6);
 
@@ -168,10 +190,31 @@ export default function AgendaPage() {
 
     useEffect(() => { void load(); }, [load]);
 
-    // Load clients once on mount — they don't change per week/month
+    // Load clients and locations once on mount
     useEffect(() => {
         void fetchAgendaClients().then(setClients);
+        void fetchAgendaLocations().then(setLocations);
     }, []);
+
+    // Close client dropdown on outside click
+    useEffect(() => {
+        const handler = (e: MouseEvent) => {
+            if (clientDropRef.current && !clientDropRef.current.contains(e.target as Node)) {
+                setClientDropOpen(false);
+            }
+        };
+        if (clientDropOpen) document.addEventListener('mousedown', handler);
+        return () => document.removeEventListener('mousedown', handler);
+    }, [clientDropOpen]);
+
+    // Open create modal if ?nueva=1 is in the URL
+    useEffect(() => {
+        if (searchParams.get('nueva') === '1') {
+            handleCreateOpen();
+            router.replace('/panel/agenda');
+        }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [searchParams]);
 
     // Group appointments by YYYY-MM-DD
     const byDay: AppointmentsByDay = {};
@@ -203,10 +246,13 @@ export default function AgendaPage() {
             startsAt: date ? isoDateInput(date) : isoDateInput(new Date()),
             durationMinutes: services[0]?.durationMinutes ?? 50,
             modality: 'online',
+            location: '',
             price: services[0]?.price ?? '',
             internalNotes: '',
             repeatWeekly: 0,
         });
+        setClientSearch('');
+        setClientDropOpen(false);
         setShowCreate(true);
     };
 
@@ -243,6 +289,7 @@ export default function AgendaPage() {
             clientName: form.clientName || null,
             clientEmail: form.clientEmail || null,
             serviceId: form.serviceId || null,
+            location: form.modality === 'presential' ? (form.location || null) : null,
             price: form.price || null,
             repeatWeekly: form.repeatWeekly > 0 ? form.repeatWeekly : undefined,
         });
@@ -278,8 +325,12 @@ export default function AgendaPage() {
 
     const handleOpenEdit = () => {
         if (!selectedAppt) return;
+        // Convert UTC ISO to local datetime-local string
+        const localDt = new Date(selectedAppt.startsAt);
+        const pad = (n: number) => String(n).padStart(2, '0');
+        const localStr = `${localDt.getFullYear()}-${pad(localDt.getMonth() + 1)}-${pad(localDt.getDate())}T${pad(localDt.getHours())}:${pad(localDt.getMinutes())}`;
         setEditForm({
-            startsAt: selectedAppt.startsAt.slice(0, 16),
+            startsAt: localStr,
             durationMinutes: selectedAppt.durationMinutes,
             price: selectedAppt.price ?? '',
             internalNotes: selectedAppt.internalNotes ?? '',
@@ -457,6 +508,19 @@ export default function AgendaPage() {
 
                 {/* Day columns */}
                 <div className="grid grid-cols-7 min-h-80">
+                    {!loading && appointments.length === 0 && (
+                        <div className="col-span-7 flex flex-col items-center justify-center py-16 text-center px-4" style={{ color: 'var(--fg-muted)' }}>
+                            <IconCalendar size={32} className="mb-3 opacity-30" />
+                            <p className="text-sm">Sin citas esta semana</p>
+                            <button
+                                onClick={() => handleCreateOpen()}
+                                className="mt-3 text-xs underline transition-opacity hover:opacity-70"
+                                style={{ color: 'var(--accent)' }}
+                            >
+                                Agregar cita
+                            </button>
+                        </div>
+                    )}
                     {weekDays.map((day) => {
                         const key = day.toISOString().slice(0, 10);
                         const dayAppts = (byDay[key] ?? []).sort((a, b) => a.startsAt.localeCompare(b.startsAt));
@@ -520,7 +584,7 @@ export default function AgendaPage() {
                             {selectedAppt.modality === 'online' && <InfoRow icon={<IconVideo size={14} />} label="Online" />}
                             {selectedAppt.modality === 'presential' && <InfoRow icon={<IconMapPin size={14} />} label={selectedAppt.location ?? 'Presencial'} />}
                             {selectedAppt.price && (
-                                <InfoRow icon={<span className="text-[11px] font-bold">$</span>} label={`${new Intl.NumberFormat('es-CL').format(parseFloat(selectedAppt.price))} ${selectedAppt.currency}`} />
+                                <InfoRow icon={<span className="text-[11px] font-bold">$</span>} label={new Intl.NumberFormat('es-CL', { style: 'currency', currency: 'CLP', minimumFractionDigits: 0 }).format(parseFloat(selectedAppt.price))} />
                             )}
                         </div>
 
@@ -573,37 +637,59 @@ export default function AgendaPage() {
 
                         {/* Status actions */}
                         {selectedAppt.status !== 'cancelled' && selectedAppt.status !== 'completed' && (
-                            <div className="flex gap-2 pt-2 border-t" style={{ borderColor: 'var(--border)' }}>
-                                {selectedAppt.status !== 'completed' && (
+                            <div className="flex flex-col gap-2 pt-2 border-t" style={{ borderColor: 'var(--border)' }}>
+                                <div className="flex gap-2">
+                                    {selectedAppt.status !== 'completed' && (
+                                        <button
+                                            onClick={() => void handleStatusChange(selectedAppt, 'completed')}
+                                            disabled={savingStatus === 'completed'}
+                                            className="flex-1 inline-flex items-center justify-center gap-2 py-2 rounded-xl text-sm font-semibold transition-opacity hover:opacity-90 disabled:opacity-60"
+                                            style={{ background: '#6366F1', color: '#fff' }}
+                                        >
+                                            {savingStatus === 'completed' ? <IconLoader2 size={13} className="animate-spin" /> : <IconCheck size={13} />}
+                                            Completada
+                                        </button>
+                                    )}
+                                    {selectedAppt.status !== 'no_show' && (
+                                        <button
+                                            onClick={() => void handleStatusChange(selectedAppt, 'no_show')}
+                                            disabled={savingStatus === 'no_show'}
+                                            className="flex-1 inline-flex items-center justify-center gap-2 py-2 rounded-xl text-sm font-semibold transition-opacity hover:opacity-90 disabled:opacity-60"
+                                            style={{ background: 'var(--bg-subtle)', color: 'var(--fg-secondary)', border: '1px solid var(--border)' }}
+                                        >
+                                            No asistió
+                                        </button>
+                                    )}
                                     <button
-                                        onClick={() => void handleStatusChange(selectedAppt, 'completed')}
-                                        disabled={savingStatus === 'completed'}
-                                        className="flex-1 inline-flex items-center justify-center gap-2 py-2 rounded-xl text-sm font-semibold transition-opacity hover:opacity-90 disabled:opacity-60"
-                                        style={{ background: '#6366F1', color: '#fff' }}
+                                        onClick={() => setConfirmCancelId(selectedAppt.id)}
+                                        disabled={!!savingStatus}
+                                        className="w-9 h-9 rounded-xl flex items-center justify-center border transition-colors hover:bg-red-500/10 hover:border-red-500/40 disabled:opacity-50"
+                                        style={{ borderColor: 'var(--border)', color: '#EF4444' }}
+                                        title="Cancelar cita"
                                     >
-                                        {savingStatus === 'completed' ? <IconLoader2 size={13} className="animate-spin" /> : <IconCheck size={13} />}
-                                        Completada
+                                        <IconBan size={14} />
                                     </button>
+                                </div>
+                                {confirmCancelId === selectedAppt.id && (
+                                    <div className="flex items-center gap-2 px-3 py-2 rounded-xl text-xs" style={{ background: 'rgba(239,68,68,0.06)', border: '1px solid rgba(239,68,68,0.2)' }}>
+                                        <span className="flex-1" style={{ color: 'var(--fg)' }}>¿Cancelar esta cita?</span>
+                                        <button
+                                            onClick={() => { setConfirmCancelId(null); void handleStatusChange(selectedAppt, 'cancelled'); }}
+                                            disabled={savingStatus === 'cancelled'}
+                                            className="px-2.5 py-1 rounded-lg text-xs font-semibold transition-opacity hover:opacity-90"
+                                            style={{ background: '#EF4444', color: '#fff' }}
+                                        >
+                                            {savingStatus === 'cancelled' ? <IconLoader2 size={11} className="animate-spin" /> : 'Sí, cancelar'}
+                                        </button>
+                                        <button
+                                            onClick={() => setConfirmCancelId(null)}
+                                            className="px-2.5 py-1 rounded-lg text-xs border transition-colors"
+                                            style={{ borderColor: 'var(--border)', color: 'var(--fg-secondary)' }}
+                                        >
+                                            No
+                                        </button>
+                                    </div>
                                 )}
-                                {selectedAppt.status !== 'no_show' && (
-                                    <button
-                                        onClick={() => void handleStatusChange(selectedAppt, 'no_show')}
-                                        disabled={savingStatus === 'no_show'}
-                                        className="flex-1 inline-flex items-center justify-center gap-2 py-2 rounded-xl text-sm font-semibold transition-opacity hover:opacity-90 disabled:opacity-60"
-                                        style={{ background: 'var(--bg-subtle)', color: 'var(--fg-secondary)', border: '1px solid var(--border)' }}
-                                    >
-                                        No asistió
-                                    </button>
-                                )}
-                                <button
-                                    onClick={() => void handleStatusChange(selectedAppt, 'cancelled')}
-                                    disabled={savingStatus === 'cancelled'}
-                                    className="w-9 h-9 rounded-xl flex items-center justify-center border transition-colors hover:bg-red-500/10 hover:border-red-500/40 disabled:opacity-50"
-                                    style={{ borderColor: 'var(--border)', color: '#EF4444' }}
-                                    title="Cancelar cita"
-                                >
-                                    {savingStatus === 'cancelled' ? <IconLoader2 size={13} className="animate-spin" /> : <IconBan size={14} />}
-                                </button>
                             </div>
                         )}
                     </div>
@@ -681,24 +767,71 @@ export default function AgendaPage() {
 
             {/* Create appointment modal */}
             {showCreate && (
-                <Modal title="Nueva cita" onClose={() => setShowCreate(false)}>
+                <Modal title="Nueva cita" onClose={() => { setShowCreate(false); setClientSearch(''); setClientDropOpen(false); }}>
                     <div className="flex flex-col gap-4">
-                        {/* Client */}
+                        {/* Client — searchable combobox */}
                         <div className="flex flex-col gap-1.5">
                             <label className="text-xs font-medium" style={{ color: 'var(--fg-muted)' }}>{vocab.Client}</label>
                             {clients.length > 0 ? (
-                                <select
-                                    value={form.clientId}
-                                    onChange={(e) => handleClientChange(e.target.value)}
-                                    className="field-input"
-                                >
-                                    <option value="">— Nuevo / sin ficha —</option>
-                                    {clients.map((c) => (
-                                        <option key={c.id} value={c.id}>
-                                            {c.firstName} {c.lastName ?? ''}
-                                        </option>
-                                    ))}
-                                </select>
+                                <div ref={clientDropRef} className="relative">
+                                    {/* Selected display or search input */}
+                                    {form.clientId ? (
+                                        <div className="field-input flex items-center justify-between gap-2">
+                                            <span className="text-sm truncate" style={{ color: 'var(--fg)' }}>
+                                                {clients.find((c) => c.id === form.clientId)?.firstName} {clients.find((c) => c.id === form.clientId)?.lastName ?? ''}
+                                            </span>
+                                            <button
+                                                onClick={() => { handleClientChange(''); setClientSearch(''); }}
+                                                className="shrink-0 text-xs"
+                                                style={{ color: 'var(--fg-muted)' }}
+                                            >
+                                                <IconX size={13} />
+                                            </button>
+                                        </div>
+                                    ) : (
+                                        <div className="relative">
+                                            <IconSearch size={13} className="absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" style={{ color: 'var(--fg-muted)' }} />
+                                            <input
+                                                type="text"
+                                                value={clientSearch}
+                                                onChange={(e) => { setClientSearch(e.target.value); setClientDropOpen(true); }}
+                                                onFocus={() => setClientDropOpen(true)}
+                                                placeholder={`Buscar ${vocab.client} existente...`}
+                                                className="field-input pl-8"
+                                            />
+                                        </div>
+                                    )}
+                                    {/* Dropdown list */}
+                                    {clientDropOpen && !form.clientId && (
+                                        <div
+                                            className="absolute top-full left-0 right-0 z-50 mt-1 rounded-xl border max-h-48 overflow-y-auto"
+                                            style={{ background: 'var(--surface)', borderColor: 'var(--border)', boxShadow: 'var(--shadow-md)' }}
+                                        >
+                                            <button
+                                                onClick={() => { handleClientChange(''); setClientDropOpen(false); setClientSearch(''); }}
+                                                className="w-full text-left px-3 py-2 text-xs hover:bg-(--bg-subtle) transition-colors"
+                                                style={{ color: 'var(--fg-muted)' }}
+                                            >
+                                                — Nuevo / sin ficha —
+                                            </button>
+                                            {filteredClients.length === 0 ? (
+                                                <p className="px-3 py-2 text-xs" style={{ color: 'var(--fg-muted)' }}>Sin resultados</p>
+                                            ) : filteredClients.map((c) => (
+                                                <button
+                                                    key={c.id}
+                                                    onClick={() => { handleClientChange(c.id); setClientDropOpen(false); setClientSearch(''); }}
+                                                    className="w-full text-left px-3 py-2 text-xs hover:bg-(--bg-subtle) transition-colors"
+                                                    style={{ color: 'var(--fg)' }}
+                                                >
+                                                    <span className="font-medium">{c.firstName} {c.lastName ?? ''}</span>
+                                                    {(c.email || c.phone) && (
+                                                        <span className="ml-1.5" style={{ color: 'var(--fg-muted)' }}>{c.email ?? c.phone}</span>
+                                                    )}
+                                                </button>
+                                            ))}
+                                        </div>
+                                    )}
+                                </div>
                             ) : null}
                             {!form.clientId && (
                                 <input
@@ -769,6 +902,35 @@ export default function AgendaPage() {
                             </div>
                         </div>
 
+                        {/* Location (presential only) */}
+                        {form.modality === 'presential' && (
+                            <div className="flex flex-col gap-1.5">
+                                <label className="text-xs font-medium" style={{ color: 'var(--fg-muted)' }}>Ubicación</label>
+                                {locations.length > 0 ? (
+                                    <select
+                                        value={form.location}
+                                        onChange={(e) => setForm((p) => ({ ...p, location: e.target.value }))}
+                                        className="field-input"
+                                    >
+                                        <option value="">— Sin especificar —</option>
+                                        {locations.filter((l) => l.isActive).map((l) => (
+                                            <option key={l.id} value={l.addressLine}>
+                                                {l.name}{l.addressLine ? ` — ${l.addressLine}` : ''}
+                                            </option>
+                                        ))}
+                                    </select>
+                                ) : (
+                                    <input
+                                        type="text"
+                                        placeholder="Dirección o nombre del lugar"
+                                        value={form.location}
+                                        onChange={(e) => setForm((p) => ({ ...p, location: e.target.value }))}
+                                        className="field-input"
+                                    />
+                                )}
+                            </div>
+                        )}
+
                         {/* Price */}
                         <div className="flex flex-col gap-1.5">
                             <label className="text-xs font-medium" style={{ color: 'var(--fg-muted)' }}>Precio (CLP)</label>
@@ -819,7 +981,7 @@ export default function AgendaPage() {
                                 {creating ? 'Guardando...' : 'Crear cita'}
                             </button>
                             <button
-                                onClick={() => setShowCreate(false)}
+                                onClick={() => { setShowCreate(false); setClientSearch(''); setClientDropOpen(false); }}
                                 className="px-4 py-2.5 rounded-xl text-sm border transition-colors hover:bg-(--bg-subtle)"
                                 style={{ borderColor: 'var(--border)', color: 'var(--fg-secondary)' }}
                             >
@@ -830,19 +992,6 @@ export default function AgendaPage() {
                 </Modal>
             )}
 
-            <style>{`
-                .field-input {
-                    width: 100%;
-                    padding: 0.5rem 0.75rem;
-                    border-radius: 0.75rem;
-                    border: 1px solid var(--border);
-                    background: var(--bg);
-                    color: var(--fg);
-                    font-size: 0.875rem;
-                    outline: none;
-                }
-                .field-input:focus { border-color: var(--accent); }
-            `}</style>
         </div>
     );
 }

@@ -5,15 +5,14 @@ import { useParams, useRouter } from 'next/navigation';
 import {
     IconArrowLeft,
     IconCalendar,
-    IconMail,
-    IconPhone,
     IconLoader2,
-    IconEdit,
     IconCheck,
-    IconUser,
+    IconNotes,
+    IconChevronDown,
+    IconVideo,
+    IconMapPin,
 } from '@tabler/icons-react';
 import { fetchAgendaClient, updateAgendaClient, type AgendaClient, type AgendaAppointment } from '@/lib/agenda-api';
-import { vocab } from '@/lib/vocabulary';
 import { fmtDateLong as formatDate, fmtTime as formatTime } from '@/lib/format';
 
 const STATUS_LABELS: Record<string, string> = {
@@ -40,10 +39,18 @@ export default function ClienteFichaPage() {
     const [client, setClient] = useState<AgendaClient | null>(null);
     const [appointments, setAppointments] = useState<AgendaAppointment[]>([]);
     const [loading, setLoading] = useState(true);
-    const [editing, setEditing] = useState(false);
     const [saving, setSaving] = useState(false);
     const [notes, setNotes] = useState('');
     const [notesSaved, setNotesSaved] = useState(false);
+    const [expandedNotes, setExpandedNotes] = useState<Set<string>>(new Set());
+
+    const toggleApptNotes = (apptId: string) => {
+        setExpandedNotes((prev) => {
+            const next = new Set(prev);
+            if (next.has(apptId)) next.delete(apptId); else next.add(apptId);
+            return next;
+        });
+    };
 
     useEffect(() => {
         const load = async () => {
@@ -78,6 +85,16 @@ export default function ClienteFichaPage() {
 
     const fullName = `${client.firstName} ${client.lastName ?? ''}`.trim();
     const initials = `${client.firstName.charAt(0)}${(client.lastName ?? '').charAt(0)}`.toUpperCase();
+    const sortedAppts = [...appointments].sort((a, b) => new Date(a.startsAt).getTime() - new Date(b.startsAt).getTime());
+
+    const age = client.dateOfBirth ? (() => {
+        const dob = new Date(client.dateOfBirth);
+        const today = new Date();
+        let a = today.getFullYear() - dob.getFullYear();
+        const m = today.getMonth() - dob.getMonth();
+        if (m < 0 || (m === 0 && today.getDate() < dob.getDate())) a--;
+        return a;
+    })() : null;
     const completedAppts = appointments.filter((a) => a.status === 'completed');
     const totalPaid = completedAppts.reduce((sum, a) => sum + (a.price ? parseFloat(a.price) : 0), 0);
 
@@ -90,66 +107,52 @@ export default function ClienteFichaPage() {
                 style={{ color: 'var(--fg-muted)' }}
             >
                 <IconArrowLeft size={14} />
-                Volver a {vocab.clients}
+                Volver a pacientes
             </button>
 
             {/* Header card */}
-            <div className="rounded-2xl border p-5 mb-6 flex items-center gap-5" style={{ borderColor: 'var(--border)', background: 'var(--surface)' }}>
-                <div
-                    className="w-16 h-16 rounded-full flex items-center justify-center text-xl font-bold shrink-0"
-                    style={{ background: 'var(--accent-subtle)', color: 'var(--accent)' }}
-                >
-                    {initials}
-                </div>
-                <div className="flex-1 min-w-0">
-                    <h1 className="text-xl font-bold" style={{ color: 'var(--fg)' }}>{fullName}</h1>
-                    <div className="flex flex-wrap gap-3 mt-1.5">
-                        {client.email && (
-                            <a href={`mailto:${client.email}`} className="flex items-center gap-1 text-xs hover:underline" style={{ color: 'var(--fg-muted)' }}>
-                                <IconMail size={12} />{client.email}
-                            </a>
-                        )}
-                        {client.phone && (
-                            <a href={`tel:${client.phone}`} className="flex items-center gap-1 text-xs hover:underline" style={{ color: 'var(--fg-muted)' }}>
-                                <IconPhone size={12} />{client.phone}
-                            </a>
-                        )}
-                        {client.city && (
-                            <span className="text-xs" style={{ color: 'var(--fg-muted)' }}>{client.city}</span>
-                        )}
+            <div className="rounded-2xl border p-5 mb-6" style={{ borderColor: 'var(--border)', background: 'var(--surface)' }}>
+                <div className="flex items-start gap-4">
+                    <div
+                        className="w-14 h-14 rounded-full flex items-center justify-center text-lg font-bold shrink-0"
+                        style={{ background: 'var(--accent-subtle)', color: 'var(--accent)' }}
+                    >
+                        {initials}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                        <h1 className="text-xl font-bold" style={{ color: 'var(--fg)' }}>{fullName}</h1>
+                        {client.city && <p className="text-xs mt-0.5" style={{ color: 'var(--fg-muted)' }}>{client.city}</p>}
                     </div>
                 </div>
-                <button
-                    onClick={() => setEditing(!editing)}
-                    className="w-9 h-9 rounded-xl flex items-center justify-center border transition-colors hover:bg-(--bg-subtle)"
-                    style={{ borderColor: 'var(--border)', color: 'var(--fg-muted)' }}
-                >
-                    <IconEdit size={15} />
-                </button>
             </div>
 
-            <div className="grid sm:grid-cols-3 gap-4 mb-6">
+            <div className={`grid gap-4 mb-6 ${age !== null ? 'sm:grid-cols-4' : 'sm:grid-cols-3'}`}>
                 <StatCard label="Sesiones" value={String(completedAppts.length)} />
                 <StatCard label="Total cobrado" value={totalPaid > 0 ? new Intl.NumberFormat('es-CL', { style: 'currency', currency: 'CLP', minimumFractionDigits: 0 }).format(totalPaid) : '$0'} />
-                <StatCard label="Primera cita" value={appointments.length > 0 ? formatDate(appointments[appointments.length - 1].startsAt) : '—'} />
+                <StatCard label="Primera cita" value={sortedAppts.length > 0 ? formatDate(sortedAppts[0].startsAt) : '—'} />
+                {age !== null && <StatCard label="Edad" value={`${age} años`} />}
             </div>
 
             {/* Info */}
-            <div className="grid sm:grid-cols-2 gap-4 mb-6">
-                {[
-                    { label: 'RUT', value: client.rut },
-                    { label: 'Fecha de nacimiento', value: client.dateOfBirth },
-                    { label: 'Género', value: client.gender },
-                    { label: 'Ocupación', value: client.occupation },
-                    { label: 'WhatsApp', value: client.whatsapp },
-                    { label: 'Derivado por', value: client.referredBy },
-                ].filter((f) => f.value).map((f) => (
-                    <div key={f.label} className="flex flex-col gap-0.5">
-                        <p className="text-xs" style={{ color: 'var(--fg-muted)' }}>{f.label}</p>
-                        <p className="text-sm" style={{ color: 'var(--fg)' }}>{f.value}</p>
-                    </div>
-                ))}
-            </div>
+            {[client.rut, client.dateOfBirth, client.gender, client.occupation, client.phone, client.email, client.whatsapp, client.referredBy].some(Boolean) && (
+                <div className="grid sm:grid-cols-2 gap-4 mb-6">
+                    {[
+                        { label: 'Teléfono', value: client.phone },
+                        { label: 'Email', value: client.email },
+                        { label: 'WhatsApp', value: client.whatsapp },
+                        { label: 'RUT', value: client.rut },
+                        { label: 'Fecha de nacimiento', value: client.dateOfBirth ? new Date(client.dateOfBirth + 'T12:00:00').toLocaleDateString('es-CL', { day: 'numeric', month: 'long', year: 'numeric' }) : null },
+                        { label: 'Género', value: client.gender },
+                        { label: 'Ocupación', value: client.occupation },
+                        { label: 'Derivado por', value: client.referredBy },
+                    ].filter((f) => f.value).map((f) => (
+                        <div key={f.label} className="flex flex-col gap-0.5">
+                            <p className="text-xs" style={{ color: 'var(--fg-muted)' }}>{f.label}</p>
+                            <p className="text-sm" style={{ color: 'var(--fg)' }}>{f.value}</p>
+                        </div>
+                    ))}
+                </div>
+            )}
 
             {/* Internal notes */}
             <div className="rounded-2xl border p-5 mb-6" style={{ borderColor: 'var(--border)', background: 'var(--surface)' }}>
@@ -186,29 +189,76 @@ export default function ClienteFichaPage() {
                 </div>
             ) : (
                 <div className="flex flex-col gap-2">
-                    {appointments.map((appt) => (
-                        <div
-                            key={appt.id}
-                            className="flex items-center gap-4 p-4 rounded-2xl border"
-                            style={{ borderColor: 'var(--border)', background: 'var(--surface)' }}
-                        >
+                    {sortedAppts.map((appt) => {
+                        const hasNotes = !!(appt.sessionNote ?? appt.internalNotes ?? appt.clientNotes);
+                        const expanded = expandedNotes.has(appt.id);
+                        return (
                             <div
-                                className="w-2 h-2 rounded-full shrink-0 mt-0.5"
-                                style={{ background: STATUS_COLORS[appt.status] ?? 'var(--fg-muted)' }}
-                            />
-                            <div className="flex-1 min-w-0">
-                                <p className="text-sm font-medium" style={{ color: 'var(--fg)' }}>
-                                    {formatDate(appt.startsAt)} — {formatTime(appt.startsAt)}
-                                </p>
-                                <p className="text-xs mt-0.5" style={{ color: 'var(--fg-muted)' }}>
-                                    {STATUS_LABELS[appt.status] ?? appt.status}
-                                    {appt.price ? ` · ${new Intl.NumberFormat('es-CL', { style: 'currency', currency: appt.currency, minimumFractionDigits: 0 }).format(parseFloat(appt.price))}` : ''}
-                                </p>
+                                key={appt.id}
+                                className="rounded-2xl border overflow-hidden"
+                                style={{ borderColor: 'var(--border)', background: 'var(--surface)' }}
+                            >
+                                <div className="flex items-center gap-4 p-4">
+                                    <div
+                                        className="w-2 h-2 rounded-full shrink-0 mt-0.5"
+                                        style={{ background: STATUS_COLORS[appt.status] ?? 'var(--fg-muted)' }}
+                                    />
+                                    <div className="flex-1 min-w-0">
+                                        <p className="text-sm font-medium" style={{ color: 'var(--fg)' }}>
+                                            {formatDate(appt.startsAt)} — {formatTime(appt.startsAt)}
+                                        </p>
+                                        <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 mt-0.5">
+                                            <p className="text-xs" style={{ color: 'var(--fg-muted)' }}>
+                                                {STATUS_LABELS[appt.status] ?? appt.status}
+                                                {appt.price ? ` · ${new Intl.NumberFormat('es-CL', { style: 'currency', currency: appt.currency, minimumFractionDigits: 0 }).format(parseFloat(appt.price))}` : ''}
+                                            </p>
+                                            <span className="inline-flex items-center gap-1 text-xs" style={{ color: 'var(--fg-muted)' }}>
+                                                {appt.modality === 'online'
+                                                    ? <><IconVideo size={11} /> Online</>
+                                                    : <><IconMapPin size={11} /> Presencial{appt.location ? ` · ${appt.location}` : ''}</>}
+                                            </span>
+                                        </div>
+                                    </div>
+                                    {hasNotes && (
+                                        <button
+                                            onClick={() => toggleApptNotes(appt.id)}
+                                            className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium border transition-colors hover:bg-(--bg-subtle) shrink-0"
+                                            style={{ borderColor: 'var(--border)', color: 'var(--fg-muted)' }}
+                                        >
+                                            <IconNotes size={12} />
+                                            Notas
+                                            <IconChevronDown size={11} className={`transition-transform ${expanded ? 'rotate-180' : ''}`} />
+                                        </button>
+                                    )}
+                                </div>
+                                {expanded && (
+                                    <div className="px-4 pb-4 flex flex-col gap-3 border-t pt-3" style={{ borderColor: 'var(--border)' }}>
+                                        {appt.sessionNote && (
+                                            <div>
+                                                <p className="text-[10px] font-semibold uppercase tracking-wide mb-1" style={{ color: 'var(--fg-muted)' }}>Nota de sesión</p>
+                                                <p className="text-sm whitespace-pre-wrap" style={{ color: 'var(--fg)' }}>{appt.sessionNote}</p>
+                                            </div>
+                                        )}
+                                        {appt.internalNotes && (
+                                            <div>
+                                                <p className="text-[10px] font-semibold uppercase tracking-wide mb-1" style={{ color: 'var(--fg-muted)' }}>Notas internas</p>
+                                                <p className="text-sm whitespace-pre-wrap" style={{ color: 'var(--fg)' }}>{appt.internalNotes}</p>
+                                            </div>
+                                        )}
+                                        {appt.clientNotes && (
+                                            <div>
+                                                <p className="text-[10px] font-semibold uppercase tracking-wide mb-1" style={{ color: 'var(--fg-muted)' }}>Notas del paciente</p>
+                                                <p className="text-sm whitespace-pre-wrap" style={{ color: 'var(--fg)' }}>{appt.clientNotes}</p>
+                                            </div>
+                                        )}
+                                    </div>
+                                )}
                             </div>
-                        </div>
-                    ))}
+                        );
+                    })}
                 </div>
             )}
+
         </div>
     );
 }

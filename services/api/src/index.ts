@@ -69,7 +69,7 @@ import {
 } from './instagram.js';
 import { db } from './db/index.js';
 import { migrate } from 'drizzle-orm/postgres-js/migrator';
-import { eq, and, or, desc, asc, gt, lt, gte, lte, isNull, sql } from 'drizzle-orm';
+import { eq, and, or, desc, asc, gt, lt, gte, lte, isNull, sql, inArray } from 'drizzle-orm';
 import {
     users,
     listings,
@@ -15226,7 +15226,17 @@ app.get('/api/agenda/clients/:id', requireVerifiedSession, async (c) => {
     const appointments = await db.select().from(agendaAppointments)
         .where(and(eq(agendaAppointments.clientId, id), eq(agendaAppointments.professionalId, profile.id)))
         .orderBy(desc(agendaAppointments.startsAt));
-    return c.json({ ok: true, client, appointments });
+    const apptIds = appointments.map((a) => a.id);
+    const sessionNotes = apptIds.length > 0
+        ? await db.select().from(agendaSessionNotes).where(inArray(agendaSessionNotes.appointmentId, apptIds))
+        : [];
+    const notesByAppt: Record<string, string> = {};
+    for (const n of sessionNotes) notesByAppt[n.appointmentId] = n.content;
+    const appointmentsWithNotes = appointments.map((a) => ({
+        ...a,
+        sessionNote: notesByAppt[a.id] ?? null,
+    }));
+    return c.json({ ok: true, client, appointments: appointmentsWithNotes });
 });
 
 app.put('/api/agenda/clients/:id', requireVerifiedSession, async (c) => {
@@ -15245,6 +15255,19 @@ app.put('/api/agenda/clients/:id', requireVerifiedSession, async (c) => {
         .returning();
     if (!updated) return c.json({ ok: false, error: 'Cliente no encontrado' }, 404);
     return c.json({ ok: true, client: updated });
+});
+
+app.delete('/api/agenda/clients/:id', requireVerifiedSession, async (c) => {
+    const user = await authUser(c);
+    if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
+    const profile = await getAgendaProfile(user.id);
+    if (!profile) return c.json({ ok: false, error: 'Perfil no encontrado' }, 404);
+    const id = c.req.param('id') ?? '';
+    const [deleted] = await db.delete(agendaClients)
+        .where(and(eq(agendaClients.id, id), eq(agendaClients.professionalId, profile.id)))
+        .returning({ id: agendaClients.id });
+    if (!deleted) return c.json({ ok: false, error: 'Cliente no encontrado' }, 404);
+    return c.json({ ok: true });
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -15300,6 +15323,7 @@ app.post('/api/agenda/appointments', requireVerifiedSession, async (c) => {
             endsAt: new Date(endsAt.getTime() + offsetMs),
             durationMinutes,
             modality: typeof body.modality === 'string' ? body.modality : 'online',
+            location: typeof body.location === 'string' ? body.location || null : null,
             status: 'confirmed',
             price: typeof body.price === 'string' && body.price ? body.price : null,
             currency: profile.currency,
@@ -15683,6 +15707,19 @@ app.patch('/api/agenda/payments/:id', requireVerifiedSession, async (c) => {
         .returning();
     if (!updated) return c.json({ ok: false, error: 'Cobro no encontrado' }, 404);
     return c.json({ ok: true, payment: updated });
+});
+
+app.delete('/api/agenda/payments/:id', requireVerifiedSession, async (c) => {
+    const user = await authUser(c);
+    if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
+    const profile = await getAgendaProfile(user.id);
+    if (!profile) return c.json({ ok: false, error: 'Perfil no encontrado' }, 404);
+    const id = c.req.param('id') ?? '';
+    const [deleted] = await db.delete(agendaPayments)
+        .where(and(eq(agendaPayments.id, id), eq(agendaPayments.professionalId, profile.id)))
+        .returning({ id: agendaPayments.id });
+    if (!deleted) return c.json({ ok: false, error: 'Cobro no encontrado' }, 404);
+    return c.json({ ok: true });
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -17624,6 +17661,15 @@ async function bootstrapMissingTables() {
             ALTER TABLE agenda_professional_profiles
                 ADD COLUMN IF NOT EXISTS plan varchar(20) NOT NULL DEFAULT 'free',
                 ADD COLUMN IF NOT EXISTS plan_expires_at timestamp
+        `);
+    } catch { /* ignore */ }
+
+    try {
+        await db.execute(sql`
+            ALTER TABLE agenda_professional_profiles
+                ADD COLUMN IF NOT EXISTS accepts_transfer boolean NOT NULL DEFAULT false,
+                ADD COLUMN IF NOT EXISTS accepts_mp boolean NOT NULL DEFAULT false,
+                ADD COLUMN IF NOT EXISTS accepts_payment_link boolean NOT NULL DEFAULT false
         `);
     } catch { /* ignore */ }
 

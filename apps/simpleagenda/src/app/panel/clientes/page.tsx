@@ -1,9 +1,9 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { IconPlus, IconSearch, IconLoader2, IconUsers, IconX, IconDownload } from '@tabler/icons-react';
+import { useEffect, useState, useRef } from 'react';
+import { IconPlus, IconSearch, IconLoader2, IconUsers, IconX, IconDownload, IconEdit, IconTrash, IconAlertCircle, IconCheck, IconPhone, IconMail, IconBrandWhatsapp, IconChevronDown } from '@tabler/icons-react';
 import Link from 'next/link';
-import { fetchAgendaClients, createAgendaClient, type AgendaClient } from '@/lib/agenda-api';
+import { fetchAgendaClients, createAgendaClient, updateAgendaClient, deleteAgendaClient, type AgendaClient } from '@/lib/agenda-api';
 import { vocab } from '@/lib/vocabulary';
 
 type ClientForm = {
@@ -36,15 +36,30 @@ const emptyForm = (): ClientForm => ({
     internalNotes: '',
 });
 
+type EditForm = ClientForm & Record<string, string>;
+
 export default function ClientesPage() {
     const [clients, setClients] = useState<AgendaClient[]>([]);
     const [filtered, setFiltered] = useState<AgendaClient[]>([]);
     const [loading, setLoading] = useState(true);
     const [query, setQuery] = useState('');
+
+    // Create
     const [showForm, setShowForm] = useState(false);
     const [form, setForm] = useState<ClientForm>(emptyForm());
     const [saving, setSaving] = useState(false);
     const [error, setError] = useState('');
+
+    // Edit
+    const [editClient, setEditClient] = useState<AgendaClient | null>(null);
+    const [editForm, setEditForm] = useState<EditForm>(emptyForm());
+    const [editSaving, setEditSaving] = useState(false);
+    const [editError, setEditError] = useState('');
+
+    // Delete
+    const [deleteClient, setDeleteClient] = useState<AgendaClient | null>(null);
+    const [deleting, setDeleting] = useState(false);
+    const [deleteError, setDeleteError] = useState('');
 
     useEffect(() => {
         void load();
@@ -70,6 +85,48 @@ export default function ClientesPage() {
 
     const set = (key: keyof ClientForm, value: string) => {
         setForm((prev) => ({ ...prev, [key]: value }));
+    };
+
+    const openEdit = (c: AgendaClient, e: React.MouseEvent) => {
+        e.preventDefault();
+        setEditForm({
+            firstName: c.firstName, lastName: c.lastName ?? '',
+            email: c.email ?? '', phone: c.phone ?? '', whatsapp: c.whatsapp ?? '',
+            rut: c.rut ?? '', dateOfBirth: c.dateOfBirth ?? '', gender: c.gender ?? '',
+            occupation: c.occupation ?? '', city: c.city ?? '', referredBy: c.referredBy ?? '',
+            internalNotes: c.internalNotes ?? '',
+        });
+        setEditError('');
+        setEditClient(c);
+    };
+
+    const handleEditSave = async () => {
+        if (!editClient || !editForm.firstName.trim()) { setEditError('El nombre es requerido.'); return; }
+        setEditSaving(true); setEditError('');
+        const result = await updateAgendaClient(editClient.id, {
+            firstName: editForm.firstName.trim(), lastName: editForm.lastName || null,
+            email: editForm.email || null, phone: editForm.phone || null,
+            whatsapp: editForm.whatsapp || null, rut: editForm.rut || null,
+            dateOfBirth: editForm.dateOfBirth || null, gender: editForm.gender || null,
+            occupation: editForm.occupation || null, city: editForm.city || null,
+            referredBy: editForm.referredBy || null,
+        });
+        setEditSaving(false);
+        if (!result.ok) { setEditError(result.error ?? 'Error al guardar.'); return; }
+        if (result.client) {
+            setClients((prev) => prev.map((c) => c.id === result.client!.id ? result.client! : c));
+        }
+        setEditClient(null);
+    };
+
+    const handleDelete = async () => {
+        if (!deleteClient) return;
+        setDeleting(true); setDeleteError('');
+        const result = await deleteAgendaClient(deleteClient.id);
+        setDeleting(false);
+        if (!result.ok) { setDeleteError(result.error ?? 'Error al eliminar.'); return; }
+        setClients((prev) => prev.filter((c) => c.id !== deleteClient.id));
+        setDeleteClient(null);
     };
 
     const handleSave = async () => {
@@ -273,43 +330,130 @@ export default function ClientesPage() {
             ) : (
                 <div className="flex flex-col gap-2">
                     {filtered.map((client) => (
-                        <Link
+                        <div
                             key={client.id}
-                            href={`/panel/clientes/${client.id}`}
                             className="flex items-center gap-4 p-4 rounded-2xl border transition-colors hover:border-[--accent-border]"
                             style={{ borderColor: 'var(--border)', background: 'var(--surface)' }}
                         >
-                            <div
-                                className="w-10 h-10 rounded-full flex items-center justify-center text-sm font-semibold shrink-0"
-                                style={{ background: 'var(--accent-subtle)', color: 'var(--accent)' }}
-                            >
+                            {/* Avatar — click goes to detail */}
+                            <Link href={`/panel/clientes/${client.id}`} className="w-10 h-10 rounded-full flex items-center justify-center text-sm font-semibold shrink-0" style={{ background: 'var(--accent-subtle)', color: 'var(--accent)' }}>
                                 {initials(client)}
-                            </div>
-                            <div className="flex-1 min-w-0">
-                                <p className="text-sm font-semibold" style={{ color: 'var(--fg)' }}>{fullName(client)}</p>
+                            </Link>
+
+                            {/* Info — click goes to detail */}
+                            <Link href={`/panel/clientes/${client.id}`} className="flex-1 min-w-0">
+                                <div className="flex items-center gap-2 flex-wrap">
+                                    <p className="text-sm font-semibold" style={{ color: 'var(--fg)' }}>{fullName(client)}</p>
+                                </div>
                                 <p className="text-xs mt-0.5" style={{ color: 'var(--fg-muted)' }}>
                                     {[client.email, client.phone].filter(Boolean).join(' · ') || 'Sin contacto registrado'}
                                 </p>
+                            </Link>
+
+                            {/* Action buttons — always visible */}
+                            <div className="flex items-center gap-1.5 shrink-0">
+                                <ContactMenu client={client} />
+                                <button
+                                    onClick={(e) => openEdit(client, e)}
+                                    title="Editar"
+                                    className="w-8 h-8 rounded-lg flex items-center justify-center border transition-colors hover:bg-(--bg-subtle)"
+                                    style={{ borderColor: 'var(--border)', color: 'var(--fg-muted)' }}
+                                >
+                                    <IconEdit size={14} />
+                                </button>
+                                <button
+                                    onClick={(e) => { e.preventDefault(); setDeleteError(''); setDeleteClient(client); }}
+                                    title="Eliminar"
+                                    className="w-8 h-8 rounded-lg flex items-center justify-center border transition-colors hover:bg-red-500/10"
+                                    style={{ borderColor: 'var(--border)', color: '#dc2626' }}
+                                >
+                                    <IconTrash size={14} />
+                                </button>
                             </div>
-                            {client.city && <p className="text-xs shrink-0" style={{ color: 'var(--fg-muted)' }}>{client.city}</p>}
-                        </Link>
+                        </div>
                     ))}
                 </div>
             )}
 
-            <style>{`
-                .field-input {
-                    width: 100%;
-                    padding: 0.5rem 0.75rem;
-                    border-radius: 0.75rem;
-                    border: 1px solid var(--border);
-                    background: var(--bg);
-                    color: var(--fg);
-                    font-size: 0.875rem;
-                    outline: none;
-                }
-                .field-input:focus { border-color: var(--accent); }
-            `}</style>
+            {/* ── Edit modal ──────────────────────────────────────────── */}
+            {editClient && (
+                <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4">
+                    <button className="absolute inset-0 bg-black/40 backdrop-blur-[2px]" onClick={() => setEditClient(null)} />
+                    <div className="relative w-full max-w-lg rounded-2xl border p-5 max-h-[90vh] overflow-y-auto" style={{ background: 'var(--surface)', borderColor: 'var(--border)', boxShadow: 'var(--shadow-md)' }}>
+                        <div className="flex items-center justify-between mb-5">
+                            <h2 className="text-base font-semibold" style={{ color: 'var(--fg)' }}>Editar {vocab.client}</h2>
+                            <button onClick={() => setEditClient(null)} className="w-7 h-7 rounded-lg flex items-center justify-center border transition-colors hover:bg-(--bg-subtle)" style={{ borderColor: 'var(--border)', color: 'var(--fg-muted)' }}>
+                                <IconX size={14} />
+                            </button>
+                        </div>
+                        <div className="flex flex-col gap-4">
+                            <div className="grid grid-cols-2 gap-3">
+                                <Field label="Nombre *"><input type="text" value={editForm.firstName} onChange={(e) => setEditForm((p) => ({ ...p, firstName: e.target.value }))} className="field-input" /></Field>
+                                <Field label="Apellido"><input type="text" value={editForm.lastName} onChange={(e) => setEditForm((p) => ({ ...p, lastName: e.target.value }))} className="field-input" /></Field>
+                            </div>
+                            <div className="grid grid-cols-2 gap-3">
+                                <Field label="Email"><input type="email" value={editForm.email} onChange={(e) => setEditForm((p) => ({ ...p, email: e.target.value }))} className="field-input" /></Field>
+                                <Field label="Teléfono"><input type="tel" value={editForm.phone} onChange={(e) => setEditForm((p) => ({ ...p, phone: e.target.value }))} className="field-input" /></Field>
+                            </div>
+                            <div className="grid grid-cols-2 gap-3">
+                                <Field label="WhatsApp"><input type="tel" value={editForm.whatsapp} onChange={(e) => setEditForm((p) => ({ ...p, whatsapp: e.target.value }))} className="field-input" /></Field>
+                                <Field label="RUT"><input type="text" value={editForm.rut} onChange={(e) => setEditForm((p) => ({ ...p, rut: e.target.value }))} className="field-input" /></Field>
+                            </div>
+                            <div className="grid grid-cols-2 gap-3">
+                                <Field label="Fecha de nacimiento"><input type="date" value={editForm.dateOfBirth} onChange={(e) => setEditForm((p) => ({ ...p, dateOfBirth: e.target.value }))} className="field-input" /></Field>
+                                <Field label="Género">
+                                    <select value={editForm.gender} onChange={(e) => setEditForm((p) => ({ ...p, gender: e.target.value }))} className="field-input">
+                                        <option value="">—</option>
+                                        <option value="femenino">Femenino</option>
+                                        <option value="masculino">Masculino</option>
+                                        <option value="no_binario">No binario</option>
+                                        <option value="prefiere_no_decir">Prefiere no decir</option>
+                                    </select>
+                                </Field>
+                            </div>
+                            <div className="grid grid-cols-2 gap-3">
+                                <Field label="Ocupación"><input type="text" value={editForm.occupation} onChange={(e) => setEditForm((p) => ({ ...p, occupation: e.target.value }))} className="field-input" /></Field>
+                                <Field label="Ciudad"><input type="text" value={editForm.city} onChange={(e) => setEditForm((p) => ({ ...p, city: e.target.value }))} className="field-input" /></Field>
+                            </div>
+                            <Field label="Derivado por / cómo llegó"><input type="text" value={editForm.referredBy} onChange={(e) => setEditForm((p) => ({ ...p, referredBy: e.target.value }))} className="field-input" /></Field>
+                            {editError && <p className="flex items-center gap-1.5 text-sm" style={{ color: '#dc2626' }}><IconAlertCircle size={13} />{editError}</p>}
+                            <div className="flex gap-3 pt-2 border-t" style={{ borderColor: 'var(--border)' }}>
+                                <button onClick={() => void handleEditSave()} disabled={editSaving} className="flex-1 inline-flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-semibold transition-opacity hover:opacity-90 disabled:opacity-60" style={{ background: 'var(--accent)', color: '#fff' }}>
+                                    {editSaving ? <IconLoader2 size={14} className="animate-spin" /> : <IconCheck size={14} />}
+                                    {editSaving ? 'Guardando...' : 'Guardar cambios'}
+                                </button>
+                                <button onClick={() => setEditClient(null)} className="px-4 py-2.5 rounded-xl text-sm border transition-colors hover:bg-(--bg-subtle)" style={{ borderColor: 'var(--border)', color: 'var(--fg-secondary)' }}>Cancelar</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* ── Delete confirmation ─────────────────────────────────── */}
+            {deleteClient && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+                    <button className="absolute inset-0 bg-black/40 backdrop-blur-[2px]" onClick={() => setDeleteClient(null)} />
+                    <div className="relative w-full max-w-sm rounded-2xl border p-6" style={{ background: 'var(--surface)', borderColor: 'var(--border)', boxShadow: 'var(--shadow-md)' }}>
+                        <div className="flex items-start gap-3 mb-4">
+                            <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0" style={{ background: 'rgba(220,38,38,0.1)', color: '#dc2626' }}>
+                                <IconAlertCircle size={18} />
+                            </div>
+                            <div>
+                                <p className="text-sm font-semibold mb-1" style={{ color: 'var(--fg)' }}>¿Eliminar {vocab.client}?</p>
+                                <p className="text-xs" style={{ color: 'var(--fg-muted)' }}>Esta acción no se puede deshacer. Se eliminarán todos los datos de <strong>{fullName(deleteClient)}</strong>.</p>
+                            </div>
+                        </div>
+                        {deleteError && <p className="text-xs mb-3" style={{ color: '#dc2626' }}>{deleteError}</p>}
+                        <div className="flex gap-2">
+                            <button onClick={() => void handleDelete()} disabled={deleting} className="flex-1 inline-flex items-center justify-center gap-2 py-2 rounded-xl text-sm font-semibold border transition-opacity hover:opacity-80 disabled:opacity-50" style={{ background: 'rgba(220,38,38,0.1)', color: '#dc2626', borderColor: 'rgba(220,38,38,0.3)' }}>
+                                {deleting ? <IconLoader2 size={13} className="animate-spin" /> : <IconTrash size={13} />}
+                                {deleting ? 'Eliminando...' : 'Sí, eliminar'}
+                            </button>
+                            <button onClick={() => setDeleteClient(null)} disabled={deleting} className="flex-1 py-2 rounded-xl text-sm border transition-colors hover:bg-(--bg-subtle)" style={{ borderColor: 'var(--border)', color: 'var(--fg-secondary)' }}>Cancelar</button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }
@@ -319,6 +463,78 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
         <div className="flex flex-col gap-1.5">
             <label className="text-xs font-medium" style={{ color: 'var(--fg-muted)' }}>{label}</label>
             {children}
+        </div>
+    );
+}
+
+function ContactMenu({ client }: { client: AgendaClient }) {
+    const [open, setOpen] = useState(false);
+    const ref = useRef<HTMLDivElement>(null);
+
+    const waNumber = (client.whatsapp ?? client.phone ?? '').replace(/[^0-9]/g, '');
+
+    // Close on outside click
+    useEffect(() => {
+        const handler = (e: MouseEvent) => {
+            if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+        };
+        if (open) document.addEventListener('mousedown', handler);
+        return () => document.removeEventListener('mousedown', handler);
+    }, [open]);
+
+    if (!client.phone && !client.email) return null;
+
+    return (
+        <div ref={ref} className="relative">
+            <button
+                onClick={(e) => { e.preventDefault(); setOpen((v) => !v); }}
+                className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-medium border transition-colors hover:bg-(--bg-subtle)"
+                style={{ borderColor: 'var(--border)', color: 'var(--fg-muted)' }}
+            >
+                Contactar <IconChevronDown size={11} className={`transition-transform ${open ? 'rotate-180' : ''}`} />
+            </button>
+            {open && (
+                <div
+                    className="absolute right-0 top-full mt-1 z-50 min-w-[160px] rounded-xl border py-1 shadow-lg"
+                    style={{ background: 'var(--surface)', borderColor: 'var(--border)' }}
+                >
+                    {client.phone && (
+                        <a
+                            href={`tel:${client.phone}`}
+                            onClick={() => setOpen(false)}
+                            className="flex items-center gap-2.5 px-3 py-2 text-xs hover:bg-(--bg-subtle) transition-colors"
+                            style={{ color: 'var(--fg-secondary)' }}
+                        >
+                            <IconPhone size={13} style={{ color: 'var(--fg-muted)' }} />
+                            Llamar
+                        </a>
+                    )}
+                    {client.email && (
+                        <a
+                            href={`mailto:${client.email}`}
+                            onClick={() => setOpen(false)}
+                            className="flex items-center gap-2.5 px-3 py-2 text-xs hover:bg-(--bg-subtle) transition-colors"
+                            style={{ color: 'var(--fg-secondary)' }}
+                        >
+                            <IconMail size={13} style={{ color: 'var(--fg-muted)' }} />
+                            Correo
+                        </a>
+                    )}
+                    {waNumber && (
+                        <a
+                            href={`https://wa.me/${waNumber}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            onClick={() => setOpen(false)}
+                            className="flex items-center gap-2.5 px-3 py-2 text-xs hover:bg-(--bg-subtle) transition-colors"
+                            style={{ color: 'var(--fg-secondary)' }}
+                        >
+                            <IconBrandWhatsapp size={13} style={{ color: '#22c55e' }} />
+                            WhatsApp
+                        </a>
+                    )}
+                </div>
+            )}
         </div>
     );
 }

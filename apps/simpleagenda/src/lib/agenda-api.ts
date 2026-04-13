@@ -20,7 +20,7 @@ export function isPlanActive(profile: { plan: string; planExpiresAt: string | nu
     const RANK: Record<AgendaPlanId, number> = { free: 0, pro: 1, enterprise: 2 };
     const planId = profile.plan as AgendaPlanId;
     if ((RANK[planId] ?? 0) < (RANK[minPlan] ?? 1)) return false;
-    if (planId === 'pro' && profile.planExpiresAt && new Date(profile.planExpiresAt) < new Date()) return false;
+    if ((planId === 'pro' || planId === 'enterprise') && profile.planExpiresAt && new Date(profile.planExpiresAt) < new Date()) return false;
     return true;
 }
 
@@ -274,6 +274,10 @@ export async function updateAgendaClient(id: string, body: Partial<AgendaClient>
     return apiFetch(`/api/agenda/clients/${id}`, { method: 'PUT', body: JSON.stringify(body) });
 }
 
+export async function deleteAgendaClient(id: string): Promise<{ ok: boolean; error?: string }> {
+    return apiFetch(`/api/agenda/clients/${id}`, { method: 'DELETE' });
+}
+
 // ── Appointments ──────────────────────────────────────────────────────────────
 
 export type AgendaAppointment = {
@@ -300,6 +304,7 @@ export type AgendaAppointment = {
     cancellationReason: string | null;
     createdAt: string;
     updatedAt: string;
+    sessionNote?: string | null;
     service?: AgendaService;
     client?: AgendaClient;
 };
@@ -351,6 +356,10 @@ export async function createAgendaPayment(body: Partial<AgendaPayment>): Promise
 
 export async function patchAgendaPayment(id: string, body: Partial<AgendaPayment>): Promise<{ ok: boolean; payment?: AgendaPayment; error?: string }> {
     return apiFetch(`/api/agenda/payments/${id}`, { method: 'PATCH', body: JSON.stringify(body) });
+}
+
+export async function deleteAgendaPayment(id: string): Promise<{ ok: boolean; error?: string }> {
+    return apiFetch(`/api/agenda/payments/${id}`, { method: 'DELETE' });
 }
 
 // ── Session notes ─────────────────────────────────────────────────────────────
