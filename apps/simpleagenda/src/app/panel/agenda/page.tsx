@@ -575,7 +575,22 @@ export default function AgendaPage() {
                             <InfoRow icon={<IconUser size={14} />} label={selectedAppt.clientName ?? selectedAppt.client?.firstName ?? '—'} />
                             <InfoRow icon={<IconClock size={14} />} label={`${formatTime(selectedAppt.startsAt)} — ${formatTime(selectedAppt.endsAt)} (${selectedAppt.durationMinutes} min)`} />
                             <InfoRow icon={<IconCalendar size={14} />} label={formatDate(new Date(selectedAppt.startsAt))} />
-                            {selectedAppt.modality === 'online' && <InfoRow icon={<IconVideo size={14} />} label="Online" />}
+                            {selectedAppt.modality === 'online' && (
+                                <>
+                                    <InfoRow icon={<IconVideo size={14} />} label="Online" />
+                                    {selectedAppt.meetingUrl && (
+                                        <a
+                                            href={selectedAppt.meetingUrl}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold border transition-colors hover:bg-(--bg-subtle)"
+                                            style={{ borderColor: 'var(--accent)', color: 'var(--accent)' }}
+                                        >
+                                            <IconVideo size={12} /> Unirse a Google Meet
+                                        </a>
+                                    )}
+                                </>
+                            )}
                             {selectedAppt.modality === 'presential' && <InfoRow icon={<IconMapPin size={14} />} label={selectedAppt.location ?? 'Presencial'} />}
                             {selectedAppt.price && (
                                 <InfoRow icon={<span className="text-[11px] font-bold">$</span>} label={new Intl.NumberFormat('es-CL', { style: 'currency', currency: 'CLP', minimumFractionDigits: 0 }).format(parseFloat(selectedAppt.price))} />

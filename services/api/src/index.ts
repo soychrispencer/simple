@@ -15326,9 +15326,9 @@ app.post('/api/agenda/appointments', requireVerifiedSession, async (c) => {
         appointments.push(appt);
         // Sync first occurrence to Google Calendar
         if (i === 0) {
-            const eventId = await syncToGoogleCalendar(profile, { ...appt, googleEventId: null }, 'create');
-            if (eventId) {
-                await db.update(agendaAppointments).set({ googleEventId: eventId }).where(eq(agendaAppointments.id, appt.id));
+            const syncResult = await syncToGoogleCalendar(profile, { ...appt, googleEventId: null, modality: appt.modality }, 'create');
+            if (syncResult?.eventId) {
+                await db.update(agendaAppointments).set({ googleEventId: syncResult.eventId }).where(eq(agendaAppointments.id, appt.id));
             }
         }
     }
@@ -15733,9 +15733,9 @@ function getGoogleOAuth2Client() {
 // Helper: sync an appointment to Google Calendar (create/update/delete event)
 async function syncToGoogleCalendar(
     profile: { googleAccessToken: string | null; googleRefreshToken: string | null; googleTokenExpiry: Date | null; googleCalendarId: string | null; displayName: string | null },
-    appointment: { id: string; startsAt: Date; endsAt: Date; clientName: string | null; clientEmail: string | null; internalNotes: string | null; googleEventId: string | null },
+    appointment: { id: string; startsAt: Date; endsAt: Date; clientName: string | null; clientEmail: string | null; internalNotes: string | null; googleEventId: string | null; modality: string | null },
     action: 'create' | 'update' | 'delete',
-): Promise<string | null> {
+): Promise<{ eventId: string | null; meetingUrl: string | null } | null> {
     if (!profile.googleAccessToken || !profile.googleCalendarId) return null;
     try {
         const oauth2Client = getGoogleOAuth2Client();
@@ -15749,10 +15749,11 @@ async function syncToGoogleCalendar(
         if (action === 'delete') {
             if (!appointment.googleEventId) return null;
             await calApi.events.delete({ calendarId: profile.googleCalendarId, eventId: appointment.googleEventId }).catch(() => null);
-            return null;
+            return { eventId: null, meetingUrl: null };
         }
 
-        const resource = {
+        const isOnline = appointment.modality === 'online';
+        const resource: any = {
             summary: appointment.clientName ? `Sesión con ${appointment.clientName}` : 'Sesión',
             description: appointment.internalNotes ?? undefined,
             start: { dateTime: appointment.startsAt.toISOString() },
@@ -15760,13 +15761,35 @@ async function syncToGoogleCalendar(
             attendees: appointment.clientEmail ? [{ email: appointment.clientEmail }] : undefined,
         };
 
-        if (!appointment.googleEventId) {
-            const res = await calApi.events.insert({ calendarId: profile.googleCalendarId, requestBody: resource, sendUpdates: 'none' });
-            return res.data.id ?? null;
-        } else {
-            await calApi.events.update({ calendarId: profile.googleCalendarId, eventId: appointment.googleEventId, requestBody: resource, sendUpdates: 'none' });
-            return appointment.googleEventId;
+        // Add Google Meet conference for online appointments
+        if (isOnline) {
+            resource.conferenceData = {
+                createRequest: {
+                    requestId: appointment.id,
+                    conferenceSolutionKey: { type: 'hangoutsMeet' },
+                },
+            };
         }
+
+        let eventId: string | null = null;
+        let meetingUrl: string | null = null;
+
+        if (!appointment.googleEventId) {
+            const res = await calApi.events.insert({ calendarId: profile.googleCalendarId, requestBody: resource, conferenceDataVersion: 1, sendUpdates: 'none' });
+            eventId = res.data.id ?? null;
+            meetingUrl = res.data.conferenceData?.entryPoints?.[0]?.uri ?? null;
+        } else {
+            const res = await calApi.events.update({ calendarId: profile.googleCalendarId, eventId: appointment.googleEventId, requestBody: resource, conferenceDataVersion: 1, sendUpdates: 'none' });
+            eventId = appointment.googleEventId;
+            meetingUrl = res.data.conferenceData?.entryPoints?.[0]?.uri ?? null;
+        }
+
+        // If online and meetingUrl was obtained, update the appointment
+        if (isOnline && meetingUrl) {
+            await db.update(agendaAppointments).set({ meetingUrl }).where(eq(agendaAppointments.id, appointment.id));
+        }
+
+        return { eventId, meetingUrl };
     } catch (e) {
         console.error('[agenda] Google Calendar sync error:', e);
         return null;
@@ -16709,9 +16732,9 @@ app.post('/api/public/agenda/:slug/book', async (c) => {
     }
 
     // Sync to Google Calendar
-    void syncToGoogleCalendar(profile, { ...appointment, googleEventId: null }, 'create').then(async (eventId) => {
-        if (eventId) {
-            await db.update(agendaAppointments).set({ googleEventId: eventId }).where(eq(agendaAppointments.id, appointment.id));
+    void syncToGoogleCalendar(profile, { ...appointment, googleEventId: null, modality: appointment.modality }, 'create').then(async (result) => {
+        if (result?.eventId) {
+            await db.update(agendaAppointments).set({ googleEventId: result.eventId }).where(eq(agendaAppointments.id, appointment.id));
         }
     });
 
