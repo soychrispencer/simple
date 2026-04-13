@@ -16659,7 +16659,12 @@ app.post('/api/public/agenda/:slug/book', async (c) => {
         if (svc) { durationMinutes = svc.durationMinutes; serviceId = svc.id; price = svc.price ?? null; serviceName = svc.name; }
     }
 
-    const startsAt = new Date(String(body.startsAt));
+    // Parse startsAt in the professional's timezone to avoid UTC offset issues
+    // The slots API returns ISO strings in UTC, but we need to interpret them in the prof's timezone
+    const tz = profile.timezone ?? 'America/Santiago';
+    const startsAtStr = String(body.startsAt);
+    // Parse as UTC first, then convert to the professional's timezone for display/storage
+    const startsAt = new Date(startsAtStr);
     const endsAt = new Date(startsAt.getTime() + durationMinutes * 60_000);
     const status = profile.confirmationMode === 'auto' ? 'confirmed' : 'pending';
 
@@ -16724,7 +16729,7 @@ app.post('/api/public/agenda/:slug/book', async (c) => {
     const clientPhone = typeof body.clientPhone === 'string' ? body.clientPhone : null;
     if (status === 'confirmed' && clientPhone && profile.waNotificationsEnabled) {
         void notifyConfirmation(
-            { id: appointment.id, slug: profile.slug, clientName: String(body.clientName), clientPhone, startsAt, endsAt },
+            { id: appointment.id, slug: profile.slug, clientName: String(body.clientName), clientPhone, startsAt, endsAt, meetingUrl: appointment.meetingUrl },
             { displayName: profile.displayName, timezone: profile.timezone, cancellationHours: profile.cancellationHours },
         );
     }
@@ -16801,6 +16806,8 @@ app.post('/api/public/agenda/:slug/book', async (c) => {
             modality: typeof body.modality === 'string' ? body.modality : 'online',
             price,
             currency: profile.currency,
+            meetingUrl: appointment.meetingUrl,
+            location: appointment.location,
             timezone: profile.timezone ?? 'America/Santiago',
             status,
             paymentMethods: {

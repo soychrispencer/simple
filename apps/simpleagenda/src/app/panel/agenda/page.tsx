@@ -31,15 +31,26 @@ import {
     fetchAgendaLocations,
     fetchAgendaNote,
     saveAgendaNote,
+    fetchAgendaProfile,
     type AgendaAppointment,
     type AgendaService,
     type AgendaClient,
     type AgendaLocation,
+    type AgendaProfile,
 } from '@/lib/agenda-api';
-import { fmtDateShort as formatDate, fmtTime as formatTime } from '@/lib/format';
+import { fmtDateShort as formatDate, fmtTime as formatTime, fmtDateTz } from '@/lib/format';
 import { vocab } from '@/lib/vocabulary';
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
+
+function formatTimeTz(iso: string, tz: string): string {
+    return new Date(iso).toLocaleTimeString('es-CL', {
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: false,
+        timeZone: tz,
+    });
+}
 
 function getWeekStart(date: Date): Date {
     const d = new Date(date);
@@ -124,6 +135,7 @@ export default function AgendaPage() {
     const [services, setServices] = useState<AgendaService[]>([]);
     const [clients, setClients] = useState<AgendaClient[]>([]);
     const [locations, setLocations] = useState<AgendaLocation[]>([]);
+    const [profile, setProfile] = useState<AgendaProfile | null>(null);
     const [clientSearch, setClientSearch] = useState('');
     const [clientDropOpen, setClientDropOpen] = useState(false);
     const clientDropRef = useRef<HTMLDivElement>(null);
@@ -189,10 +201,11 @@ export default function AgendaPage() {
 
     useEffect(() => { void load(); }, [load]);
 
-    // Load clients and locations once on mount
+    // Load clients, locations, and profile once on mount
     useEffect(() => {
         void fetchAgendaClients().then(setClients);
         void fetchAgendaLocations().then(setLocations);
+        void fetchAgendaProfile().then(setProfile);
     }, []);
 
     // Close client dropdown on outside click
@@ -469,7 +482,7 @@ export default function AgendaPage() {
                                             className="w-full text-left px-1.5 py-0.5 rounded text-[10px] font-medium truncate mb-0.5 transition-opacity hover:opacity-80"
                                             style={{ background: STATUS_COLORS[appt.status] ?? 'var(--accent)', color: '#fff' }}
                                         >
-                                            {formatTime(appt.startsAt)} {appt.clientName ?? appt.client?.firstName ?? '—'}
+                                            {profile ? formatTimeTz(appt.startsAt, profile.timezone) : formatTime(appt.startsAt)} {appt.clientName ?? appt.client?.firstName ?? '—'}
                                         </button>
                                     ))}
                                     {!loading && dayAppts.length > 3 && (
@@ -544,7 +557,7 @@ export default function AgendaPage() {
                                         }}
                                     >
                                         <p className="font-semibold leading-tight truncate">
-                                            {formatTime(appt.startsAt)}
+                                            {profile ? formatTimeTz(appt.startsAt, profile.timezone) : formatTime(appt.startsAt)}
                                         </p>
                                         <p className="leading-tight truncate opacity-90">
                                             {appt.clientName ?? appt.client?.firstName ?? '—'}
@@ -573,8 +586,8 @@ export default function AgendaPage() {
 
                         <div className="flex flex-col gap-2">
                             <InfoRow icon={<IconUser size={14} />} label={selectedAppt.clientName ?? selectedAppt.client?.firstName ?? '—'} />
-                            <InfoRow icon={<IconClock size={14} />} label={`${formatTime(selectedAppt.startsAt)} — ${formatTime(selectedAppt.endsAt)} (${selectedAppt.durationMinutes} min)`} />
-                            <InfoRow icon={<IconCalendar size={14} />} label={formatDate(new Date(selectedAppt.startsAt))} />
+                            <InfoRow icon={<IconClock size={14} />} label={`${profile ? formatTimeTz(selectedAppt.startsAt, profile.timezone) : formatTime(selectedAppt.startsAt)} — ${profile ? formatTimeTz(selectedAppt.endsAt, profile.timezone) : formatTime(selectedAppt.endsAt)} (${selectedAppt.durationMinutes} min)`} />
+                            <InfoRow icon={<IconCalendar size={14} />} label={profile ? fmtDateTz(selectedAppt.startsAt, profile.timezone) : formatDate(new Date(selectedAppt.startsAt))} />
                             {selectedAppt.modality === 'online' && (
                                 <>
                                     <InfoRow icon={<IconVideo size={14} />} label="Online" />

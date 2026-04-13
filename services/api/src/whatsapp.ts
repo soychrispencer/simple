@@ -123,7 +123,7 @@ export type WaProfessionalInfo = {
  * Params: [clientName, professionalName, date, time, cancelUrl]
  */
 export async function notifyConfirmation(
-    appt: WaAppointmentInfo & { id?: string; slug?: string },
+    appt: WaAppointmentInfo & { id?: string; slug?: string; meetingUrl?: string | null },
     prof: WaProfessionalInfo,
 ): Promise<void> {
     if (!appt.clientPhone) return;
@@ -139,6 +139,7 @@ export async function notifyConfirmation(
             fmtDateTz(appt.startsAt, prof.timezone),
             fmtTime(appt.startsAt, prof.timezone),
             cancelUrl,
+            appt.meetingUrl ?? '',
         ],
         'agenda',
     );
