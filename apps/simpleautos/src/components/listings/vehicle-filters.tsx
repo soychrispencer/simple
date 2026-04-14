@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
+import { IconChevronDown, IconAdjustmentsHorizontal } from '@tabler/icons-react';
 import ModernSelect from '@/components/ui/modern-select';
 import { LOCATION_REGIONS, getCommunesForRegion } from '@simple/utils';
 import { loadPublishWizardCatalog, type CatalogBrand, type CatalogModel } from '@/lib/publish-wizard-catalog';
@@ -100,6 +101,7 @@ export default function VehicleFilters({ currentVehicleType = '' }: VehicleFilte
     const router = useRouter();
     const searchParamsRef = useRef(searchParams);
     const [catalog, setCatalog] = useState<{ brands: CatalogBrand[]; models: CatalogModel[] } | null>(null);
+    const [isExpanded, setIsExpanded] = useState(false);
     
     // Filtros básicos
     const [query, setQuery] = useState('');
@@ -306,28 +308,43 @@ export default function VehicleFilters({ currentVehicleType = '' }: VehicleFilte
             <div className="space-y-4">
                 <div className="flex items-center justify-between">
                     <h3 className="font-semibold" style={{ color: 'var(--fg)' }}>Filtros</h3>
-                    <button
-                        type="button"
-                        onClick={clearFilters}
-                        className="text-xs underline"
-                        style={{ color: 'var(--fg-muted)' }}
-                    >
-                        Limpiar filtros
-                    </button>
+                    <div className="flex items-center gap-2">
+                        <button
+                            type="button"
+                            onClick={clearFilters}
+                            className="text-xs underline hidden sm:inline-block"
+                            style={{ color: 'var(--fg-muted)' }}
+                        >
+                            Limpiar filtros
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => setIsExpanded(!isExpanded)}
+                            className="sm:hidden flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-medium transition-colors"
+                            style={{ borderColor: 'var(--border)', background: 'var(--bg-subtle)', color: 'var(--fg)' }}
+                            aria-label={isExpanded ? 'Contraer filtros' : 'Expandir filtros'}
+                        >
+                            <IconAdjustmentsHorizontal size={14} />
+                            {isExpanded ? 'Ocultar' : 'Filtros'}
+                            <IconChevronDown size={14} style={{ transform: isExpanded ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s' }} />
+                        </button>
+                    </div>
                 </div>
 
-                {/* Búsqueda */}
-                <div>
-                    <label className="block text-xs mb-2" style={{ color: 'var(--fg-secondary)' }}>Buscar</label>
-                    <input
-                        type="text"
-                        value={query}
-                        onChange={(e) => setQuery(e.target.value)}
-                        placeholder="Marca, modelo o versión"
-                        className="w-full h-9 px-3 rounded-lg border text-sm"
-                        style={{ borderColor: 'var(--border)', background: 'var(--bg-subtle)', color: 'var(--fg)' }}
-                    />
-                </div>
+                {/* Contenido de filtros - visible en desktop, expandible en móvil */}
+                <div className={`space-y-4 ${isExpanded ? 'block' : 'hidden sm:block'}`}>
+                    {/* Búsqueda */}
+                    <div>
+                        <label className="block text-xs mb-2" style={{ color: 'var(--fg-secondary)' }}>Buscar</label>
+                        <input
+                            type="text"
+                            value={query}
+                            onChange={(e) => setQuery(e.target.value)}
+                            placeholder="Marca, modelo o versión"
+                            className="w-full h-9 px-3 rounded-lg border text-sm"
+                            style={{ borderColor: 'var(--border)', background: 'var(--bg-subtle)', color: 'var(--fg)' }}
+                        />
+                    </div>
 
                 {/* Tipo de vehículo */}
                 <div>
@@ -580,6 +597,7 @@ export default function VehicleFilters({ currentVehicleType = '' }: VehicleFilte
                         />
                     </div>
                 )}
+                </div>
             </div>
         </PanelCard>
     );
