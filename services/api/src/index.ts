@@ -13485,16 +13485,16 @@ app.get('/api/public/listings', (c) => {
             const locationData = asObject(listing.locationData);
             const rawData = asObject(listing.rawData);
             const location = asObject(rawData.location);
-            const listingRegion = (asString(locationData.regionName) || asString(location.regionName) || '').toLowerCase();
-            return listingRegion === region.toLowerCase();
+            const listingRegionId = (asString(locationData.regionId) || asString(location.regionId) || '').toLowerCase();
+            return listingRegionId === region.toLowerCase();
         })
         .filter((listing) => {
             if (!commune) return true;
             const locationData = asObject(listing.locationData);
             const rawData = asObject(listing.rawData);
             const location = asObject(rawData.location);
-            const listingCommune = (asString(locationData.communeName) || asString(location.communeName) || '').toLowerCase();
-            return listingCommune === commune.toLowerCase();
+            const listingCommuneId = (asString(locationData.communeId) || asString(location.communeId) || '').toLowerCase();
+            return listingCommuneId === commune.toLowerCase();
         })
         .filter((listing) => {
             if (!brand) return true;
