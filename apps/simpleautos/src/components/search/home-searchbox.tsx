@@ -329,8 +329,8 @@ export default function HomeSearchBox() {
                 </div>
 
                 <form onSubmit={handleSubmit} className="p-3 sm:p-4 space-y-3">
-                    <div className="grid grid-cols-1 md:grid-cols-12 gap-2.5 items-stretch">
-                        <div className="md:col-span-6 relative" ref={inputWrapRef}>
+                    <div className="flex flex-col md:flex-row gap-2.5 items-stretch">
+                        <div className="flex-1 relative" ref={inputWrapRef}>
                             <IconSearch size={15} className="absolute left-4 top-1/2 -translate-y-1/2 pointer-events-none" style={{ color: 'var(--fg-muted)' }} />
                             <input
                                 type="text"
@@ -374,7 +374,7 @@ export default function HomeSearchBox() {
                             ) : null}
                         </div>
 
-                        <div className="md:col-span-3">
+                        <div className="md:w-40">
                             <ModernSelect
                                 value={filters.region}
                                 onChange={(value) => {
@@ -388,7 +388,7 @@ export default function HomeSearchBox() {
                             />
                         </div>
 
-                        <div className="md:col-span-3">
+                        <div className="md:w-40">
                             <ModernSelect
                                 value={filters.commune}
                                 onChange={(value) => setFilters((current) => ({ ...current, commune: value }))}
@@ -400,7 +400,7 @@ export default function HomeSearchBox() {
                             />
                         </div>
 
-                        <PanelButton type="submit" variant="primary" className="h-11 justify-center md:col-span-2">
+                        <PanelButton type="submit" variant="primary" className="h-11 justify-center md:w-auto md:px-6">
                             <IconSearch size={14} />
                             Buscar
                         </PanelButton>
