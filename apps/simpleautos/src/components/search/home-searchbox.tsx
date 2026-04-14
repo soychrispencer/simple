@@ -408,12 +408,12 @@ export default function HomeSearchBox() {
                     {/* Sin chips visuales: mantenemos interacción simple y limpia. */}
 
                     {showAdvanced ? (
-                        <div className="rounded-xl border p-3 sm:p-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5" style={{ borderColor: 'var(--border)', background: 'var(--bg-subtle)' }}">
+                        <div className="rounded-xl border p-3 sm:p-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5" style={{ borderColor: "var(--border)", background: "var(--bg-subtle)" }}>
                             <div>
-                                <label className="block text-xs mb-1.5" style={{ color: 'var(--fg-muted)' }}>Marca</label>
+                                <label className="block text-xs mb-1.5" style={{ color: "var(--fg-muted)" }}>Marca</label>
                                 <ModernSelect
                                     value={filters.brand}
-                                    onChange={(value) => setFilters((current) => ({ ...current, brand: value, model: '' }))}
+                                    onChange={(value) => setFilters((current) => ({ ...current, brand: value, model: "" }))}
                                     options={brandOptions}
                                     placeholder="Sin preferencia"
                                     ariaLabel="Marca"
@@ -422,7 +422,7 @@ export default function HomeSearchBox() {
                             </div>
 
                             <div>
-                                <label className="block text-xs mb-1.5" style={{ color: 'var(--fg-muted)' }}>Modelo</label>
+                                <label className="block text-xs mb-1.5" style={{ color: "var(--fg-muted)" }}>Modelo</label>
                                 <ModernSelect
                                     value={filters.model}
                                     onChange={(value) => setFilters((current) => ({ ...current, model: value }))}
@@ -435,7 +435,7 @@ export default function HomeSearchBox() {
                             </div>
 
                             <div>
-                                <label className="block text-xs mb-1.5" style={{ color: 'var(--fg-muted)' }}>Precio desde</label>
+                                <label className="block text-xs mb-1.5" style={{ color: "var(--fg-muted)" }}>Precio desde</label>
                                 <input
                                     type="number"
                                     value={filters.priceFrom}
@@ -446,7 +446,7 @@ export default function HomeSearchBox() {
                             </div>
 
                             <div>
-                                <label className="block text-xs mb-1.5" style={{ color: 'var(--fg-muted)' }}>Precio hasta</label>
+                                <label className="block text-xs mb-1.5" style={{ color: "var(--fg-muted)" }}>Precio hasta</label>
                                 <input
                                     type="number"
                                     value={filters.priceTo}
@@ -457,7 +457,7 @@ export default function HomeSearchBox() {
                             </div>
 
                             <div>
-                                <label className="block text-xs mb-1.5" style={{ color: 'var(--fg-muted)' }}>Año desde</label>
+                                <label className="block text-xs mb-1.5" style={{ color: "var(--fg-muted)" }}>Año desde</label>
                                 <ModernSelect
                                     value={filters.yearFrom}
                                     onChange={(value) => setFilters((current) => ({ ...current, yearFrom: value }))}
@@ -469,7 +469,7 @@ export default function HomeSearchBox() {
                             </div>
 
                             <div>
-                                <label className="block text-xs mb-1.5" style={{ color: 'var(--fg-muted)' }}>Año hasta</label>
+                                <label className="block text-xs mb-1.5" style={{ color: "var(--fg-muted)" }}>Año hasta</label>
                                 <ModernSelect
                                     value={filters.yearTo}
                                     onChange={(value) => setFilters((current) => ({ ...current, yearTo: value }))}
@@ -481,7 +481,7 @@ export default function HomeSearchBox() {
                             </div>
 
                             <div>
-                                <label className="block text-xs mb-1.5" style={{ color: 'var(--fg-muted)' }}>Combustible</label>
+                                <label className="block text-xs mb-1.5" style={{ color: "var(--fg-muted)" }}>Combustible</label>
                                 <ModernSelect
                                     value={filters.fuel}
                                     onChange={(value) => setFilters((current) => ({ ...current, fuel: value }))}
@@ -498,7 +498,7 @@ export default function HomeSearchBox() {
                                     variant="secondary"
                                     size="sm"
                                     className="h-9 px-3 text-xs"
-                                    onClick={() => setFilters((current) => ({ ...current, brand: '', model: '', priceFrom: '', priceTo: '', yearFrom: '', yearTo: '', fuel: '' }))}
+                                    onClick={() => setFilters((current) => ({ ...current, brand: "", model: "", priceFrom: "", priceTo: "", yearFrom: "", yearTo: "", fuel: "" }))}
                                 >
                                     Limpiar filtros avanzados
                                 </PanelButton>
