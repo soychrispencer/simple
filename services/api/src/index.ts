@@ -13449,6 +13449,16 @@ app.get('/api/public/listings', (c) => {
     const limitRaw = Number(c.req.query('limit') ?? '60');
     const limit = Number.isFinite(limitRaw) ? Math.min(120, Math.max(1, limitRaw)) : 60;
 
+    // Search filters
+    const q = c.req.query('q');
+    const region = c.req.query('region');
+    const price = c.req.query('price');
+    const brand = c.req.query('brand');
+    const yearFrom = c.req.query('year_from');
+    const yearTo = c.req.query('year_to');
+    const fuel = c.req.query('fuel');
+    const transmission = c.req.query('transmission');
+
     const items = Array.from(listingsById.values())
         .filter((listing) => listing.vertical === vertical)
         .filter((listing) => isPublicListingVisible(listing))
@@ -13456,6 +13466,52 @@ app.get('/api/public/listings', (c) => {
             if (!section) return true;
             const normalized = parseBoostSection(section, vertical);
             return listing.section === normalized;
+        })
+        .filter((listing) => {
+            if (!q) return true;
+            const query = q.toLowerCase();
+            const title = listing.title?.toLowerCase() ?? '';
+            const description = listing.description?.toLowerCase() ?? '';
+            const brandField = listing.brand?.toLowerCase() ?? '';
+            return title.includes(query) || description.includes(query) || brandField.includes(query);
+        })
+        .filter((listing) => {
+            if (!region) return true;
+            const listingRegion = listing.region?.toLowerCase() ?? '';
+            return listingRegion === region.toLowerCase();
+        })
+        .filter((listing) => {
+            if (!brand) return true;
+            const listingBrand = listing.brand?.toLowerCase() ?? '';
+            return listingBrand === brand.toLowerCase();
+        })
+        .filter((listing) => {
+            if (!fuel) return true;
+            const listingFuel = listing.fuel?.toLowerCase() ?? '';
+            return listingFuel === fuel.toLowerCase();
+        })
+        .filter((listing) => {
+            if (!transmission) return true;
+            const listingTransmission = listing.transmission?.toLowerCase() ?? '';
+            return listingTransmission === transmission.toLowerCase();
+        })
+        .filter((listing) => {
+            if (!yearFrom) return true;
+            const listingYear = listing.year ? Number(listing.year) : 0;
+            return listingYear >= Number(yearFrom);
+        })
+        .filter((listing) => {
+            if (!yearTo) return true;
+            const listingYear = listing.year ? Number(listing.year) : 0;
+            return listingYear <= Number(yearTo);
+        })
+        .filter((listing) => {
+            if (!price) return true;
+            const listingPrice = listing.price ? Number(listing.price) : 0;
+            if (price === 'low') return listingPrice < 5000000;
+            if (price === 'mid') return listingPrice >= 5000000 && listingPrice < 15000000;
+            if (price === 'high') return listingPrice >= 15000000;
+            return true;
         })
         .sort((a, b) => b.updatedAt - a.updatedAt)
         .slice(0, limit)
