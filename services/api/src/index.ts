@@ -13472,42 +13472,57 @@ app.get('/api/public/listings', (c) => {
             const query = q.toLowerCase();
             const title = listing.title?.toLowerCase() ?? '';
             const description = listing.description?.toLowerCase() ?? '';
-            const brandField = listing.brand?.toLowerCase() ?? '';
+            const rawData = asObject(listing.rawData);
+            const basic = asObject(rawData.basic);
+            const brandField = (asString(basic.brand) || asString(rawData.brand) || '').toLowerCase();
             return title.includes(query) || description.includes(query) || brandField.includes(query);
         })
         .filter((listing) => {
             if (!region) return true;
-            const listingRegion = listing.region?.toLowerCase() ?? '';
+            const locationData = asObject(listing.locationData);
+            const rawData = asObject(listing.rawData);
+            const location = asObject(rawData.location);
+            const listingRegion = (asString(locationData.regionName) || asString(location.regionName) || '').toLowerCase();
             return listingRegion === region.toLowerCase();
         })
         .filter((listing) => {
             if (!brand) return true;
-            const listingBrand = listing.brand?.toLowerCase() ?? '';
+            const rawData = asObject(listing.rawData);
+            const basic = asObject(rawData.basic);
+            const listingBrand = (asString(basic.brand) || asString(rawData.brand) || '').toLowerCase();
             return listingBrand === brand.toLowerCase();
         })
         .filter((listing) => {
             if (!fuel) return true;
-            const listingFuel = listing.fuel?.toLowerCase() ?? '';
+            const rawData = asObject(listing.rawData);
+            const basic = asObject(rawData.basic);
+            const listingFuel = (asString(basic.fuelType) || asString(rawData.fuelType) || '').toLowerCase();
             return listingFuel === fuel.toLowerCase();
         })
         .filter((listing) => {
             if (!transmission) return true;
-            const listingTransmission = listing.transmission?.toLowerCase() ?? '';
+            const rawData = asObject(listing.rawData);
+            const basic = asObject(rawData.basic);
+            const listingTransmission = (asString(basic.transmission) || asString(rawData.transmission) || '').toLowerCase();
             return listingTransmission === transmission.toLowerCase();
         })
         .filter((listing) => {
             if (!yearFrom) return true;
-            const listingYear = listing.year ? Number(listing.year) : 0;
+            const rawData = asObject(listing.rawData);
+            const basic = asObject(rawData.basic);
+            const listingYear = parseNumberFromString(basic.year) ?? parseNumberFromString(rawData.year) ?? 0;
             return listingYear >= Number(yearFrom);
         })
         .filter((listing) => {
             if (!yearTo) return true;
-            const listingYear = listing.year ? Number(listing.year) : 0;
+            const rawData = asObject(listing.rawData);
+            const basic = asObject(rawData.basic);
+            const listingYear = parseNumberFromString(basic.year) ?? parseNumberFromString(rawData.year) ?? 0;
             return listingYear <= Number(yearTo);
         })
         .filter((listing) => {
             if (!price) return true;
-            const listingPrice = listing.price ? Number(listing.price) : 0;
+            const listingPrice = parseNumberFromString(listing.price) ?? 0;
             if (price === 'low') return listingPrice < 5000000;
             if (price === 'mid') return listingPrice >= 5000000 && listingPrice < 15000000;
             if (price === 'high') return listingPrice >= 15000000;
