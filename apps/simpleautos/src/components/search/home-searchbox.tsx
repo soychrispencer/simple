@@ -114,9 +114,6 @@ const SUGGESTIONS_BY_TAB: Record<AutosTab, Suggestion[]> = {
     ],
 };
 
-
-
-
 const FUEL_OPTIONS = [
     { value: 'bencina', label: 'Bencina' },
     { value: 'diesel', label: 'Diésel' },
@@ -325,7 +322,7 @@ export default function HomeSearchBox() {
                 return searchable.includes(query);
             })
             .slice(0, 6);
-    }, [filters.query, filters.tab]);
+    }, [filters.query, filters.tab, selectedVehicleType]);
 
     const handleSubmit = (event?: FormEvent<HTMLFormElement>) => {
         event?.preventDefault();
@@ -481,6 +478,9 @@ export default function HomeSearchBox() {
                                     className="absolute left-0 right-0 top-[calc(100%+0.35rem)] rounded-xl border overflow-hidden z-30"
                                     style={{ borderColor: 'var(--border)', background: 'var(--surface)', boxShadow: 'var(--shadow-lg)' }}
                                 >
+                                    <div className="px-3 py-1.5 text-xs border-b" style={{ borderColor: 'var(--border)', color: 'var(--fg-muted)', background: 'var(--bg-subtle)' }}>
+                                        Sugerencias (↓↑ para navegar, Enter para seleccionar)
+                                    </div>
                                     {suggestions.map((suggestion, index) => (
                                         <button
                                             key={suggestion.label}
@@ -488,7 +488,7 @@ export default function HomeSearchBox() {
                                             type="button"
                                             role="option"
                                             aria-selected={index === activeSuggestion}
-                                            onClick={() => applySuggestion(suggestion, true)}
+                                            onClick={() => applySuggestion(suggestion, false)}
                                             className={`w-full text-left px-3 py-2.5 border-b last:border-b-0 hover:bg-[var(--bg-subtle)] transition-colors ${index === activeSuggestion ? 'bg-[var(--bg-subtle)]' : ''}`}
                                             style={{ borderColor: 'var(--border)' }}
                                         >
@@ -578,8 +578,16 @@ export default function HomeSearchBox() {
                                 <label className="block text-xs mb-1.5" style={{ color: "var(--fg-muted)" }}>Precio desde</label>
                                 <input
                                     type="number"
+                                    min="0"
                                     value={filters.priceFrom}
-                                    onChange={(event) => setFilters((current) => ({ ...current, priceFrom: event.target.value }))}
+                                    onChange={(event) => setFilters((current) => {
+                                        const newPriceFrom = event.target.value;
+                                        // Si priceFrom > priceTo, limpiar priceTo
+                                        if (newPriceFrom && current.priceTo && parseInt(newPriceFrom) > parseInt(current.priceTo)) {
+                                            return { ...current, priceFrom: newPriceFrom, priceTo: "" };
+                                        }
+                                        return { ...current, priceFrom: newPriceFrom };
+                                    })}
                                     placeholder="Sin mínimo"
                                     className="form-input h-10"
                                 />
@@ -589,8 +597,16 @@ export default function HomeSearchBox() {
                                 <label className="block text-xs mb-1.5" style={{ color: "var(--fg-muted)" }}>Precio hasta</label>
                                 <input
                                     type="number"
+                                    min="0"
                                     value={filters.priceTo}
-                                    onChange={(event) => setFilters((current) => ({ ...current, priceTo: event.target.value }))}
+                                    onChange={(event) => setFilters((current) => {
+                                        const newPriceTo = event.target.value;
+                                        // Si priceTo < priceFrom, limpiar priceFrom
+                                        if (newPriceTo && current.priceFrom && parseInt(newPriceTo) < parseInt(current.priceFrom)) {
+                                            return { ...current, priceTo: newPriceTo, priceFrom: "" };
+                                        }
+                                        return { ...current, priceTo: newPriceTo };
+                                    })}
                                     placeholder="Sin máximo"
                                     className="form-input h-10"
                                 />
