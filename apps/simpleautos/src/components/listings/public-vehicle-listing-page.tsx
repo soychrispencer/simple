@@ -7,6 +7,7 @@ import InlineResultAd from '@/components/ads/inline-result-ad';
 import { PublicBreadcrumbs } from '@/components/layout/public-breadcrumbs';
 import ModernSelect from '@/components/ui/modern-select';
 import VehicleListingCard, { type VehicleListingCardData } from '@/components/listings/vehicle-listing-card';
+import VehicleFilters, { type VehicleType } from '@/components/listings/vehicle-filters';
 import { fetchPublicListings, type PublicListing, type PublicListingSection, type PublicListingsFilters } from '@/lib/public-listings';
 import { PanelCard, PanelNotice, PanelPageHeader, PanelSegmentedToggle } from '@simple/ui';
 
@@ -68,6 +69,14 @@ function PublicVehicleListingPageContent(props: {
                 year_from: searchParams.get('year_from') || undefined,
                 year_to: searchParams.get('year_to') || undefined,
                 fuel: searchParams.get('fuel') || undefined,
+                vehicle_type: searchParams.get('vehicle_type') || undefined,
+                motorcycle_type: searchParams.get('motorcycle_type') || undefined,
+                truck_type: searchParams.get('truck_type') || undefined,
+                truck_body_type: searchParams.get('truck_body_type') || undefined,
+                bus_type: searchParams.get('bus_type') || undefined,
+                machinery_type: searchParams.get('machinery_type') || undefined,
+                nautical_type: searchParams.get('nautical_type') || undefined,
+                aerial_type: searchParams.get('aerial_type') || undefined,
             };
             const nextItems = await fetchPublicListings(props.section, filters);
             setItems(nextItems);
@@ -84,6 +93,8 @@ function PublicVehicleListingPageContent(props: {
     }, [items, sortOrder]);
 
     const cards = useMemo(() => sortedItems.map((item) => toCardData(item)), [sortedItems]);
+
+    const currentVehicleType = (searchParams.get('vehicle_type') || '') as VehicleType | '';
 
     return (
         <div className="container-app py-6">
@@ -128,25 +139,33 @@ function PublicVehicleListingPageContent(props: {
 
             <InlineResultAd section={props.section === 'auction' ? 'subastas' : props.section === 'rent' ? 'arriendos' : 'ventas'} className="mb-5" />
 
-            {loading ? (
-                <div className={viewMode === 'grid' ? 'grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4' : 'space-y-3'}>
-                    {Array.from({ length: 6 }).map((_, index) => (
-                        <div key={index} className="h-72 rounded-xl animate-pulse" style={{ background: 'var(--bg-muted)' }} />
-                    ))}
+            <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+                <div className="lg:col-span-1">
+                    <VehicleFilters currentVehicleType={currentVehicleType} />
                 </div>
-            ) : cards.length === 0 ? (
-                <PanelCard size="lg">
-                    <PanelNotice tone="neutral">
-                        Aún no hay publicaciones en esta sección. Crea una desde el panel para verla aquí.
-                    </PanelNotice>
-                </PanelCard>
-            ) : (
-                <div className={viewMode === 'grid' ? 'grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4' : 'space-y-3'}>
-                    {cards.map((item) => (
-                        <VehicleListingCard key={item.id} data={item} mode={viewMode} />
-                    ))}
+
+                <div className="lg:col-span-3">
+                    {loading ? (
+                        <div className={viewMode === 'grid' ? 'grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4' : 'space-y-3'}>
+                            {Array.from({ length: 6 }).map((_, index) => (
+                                <div key={index} className="h-72 rounded-xl animate-pulse" style={{ background: 'var(--bg-muted)' }} />
+                            ))}
+                        </div>
+                    ) : cards.length === 0 ? (
+                        <PanelCard size="lg">
+                            <PanelNotice tone="neutral">
+                                Aún no hay publicaciones en esta sección. Crea una desde el panel para verla aquí.
+                            </PanelNotice>
+                        </PanelCard>
+                    ) : (
+                        <div className={viewMode === 'grid' ? 'grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4' : 'space-y-3'}>
+                            {cards.map((item) => (
+                                <VehicleListingCard key={item.id} data={item} mode={viewMode} />
+                            ))}
+                        </div>
+                    )}
                 </div>
-            )}
+            </div>
         </div>
     );
 }

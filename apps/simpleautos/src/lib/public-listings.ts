@@ -133,6 +133,14 @@ export type PublicListingsFilters = {
     year_from?: string;
     year_to?: string;
     fuel?: string;
+    vehicle_type?: string;
+    motorcycle_type?: string;
+    truck_type?: string;
+    truck_body_type?: string;
+    bus_type?: string;
+    machinery_type?: string;
+    nautical_type?: string;
+    aerial_type?: string;
 };
 
 export async function fetchPublicListings(section?: PublicListingSection, filters?: PublicListingsFilters): Promise<PublicListing[]> {
@@ -149,6 +157,14 @@ export async function fetchPublicListings(section?: PublicListingSection, filter
     if (filters?.year_from) params.set('year_from', filters.year_from);
     if (filters?.year_to) params.set('year_to', filters.year_to);
     if (filters?.fuel) params.set('fuel', filters.fuel);
+    if (filters?.vehicle_type) params.set('vehicle_type', filters.vehicle_type);
+    if (filters?.motorcycle_type) params.set('motorcycle_type', filters.motorcycle_type);
+    if (filters?.truck_type) params.set('truck_type', filters.truck_type);
+    if (filters?.truck_body_type) params.set('truck_body_type', filters.truck_body_type);
+    if (filters?.bus_type) params.set('bus_type', filters.bus_type);
+    if (filters?.machinery_type) params.set('machinery_type', filters.machinery_type);
+    if (filters?.nautical_type) params.set('nautical_type', filters.nautical_type);
+    if (filters?.aerial_type) params.set('aerial_type', filters.aerial_type);
 
     const data = await apiRequest<ListingsResponse>(`/api/public/listings?${params.toString()}`);
     return Array.isArray(data?.items) ? data.items : [];

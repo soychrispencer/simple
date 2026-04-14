@@ -4,15 +4,27 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 import {
     IconAdjustmentsHorizontal,
+    IconCamera,
     IconChevronDown,
+    IconClock,
+    IconFlame,
+    IconMap,
     IconMapPin,
+    IconMicrophone,
     IconSearch,
     IconX,
 } from '@tabler/icons-react';
 import ModernSelect from '@/components/ui/modern-select';
 import { PanelButton } from '@simple/ui';
-import { loadPublishWizardCatalog, type CatalogBrand, type CatalogModel } from '@/lib/publish-wizard-catalog';
 import { LOCATION_REGIONS, getCommunesForRegion } from '@simple/utils';
+import { loadPublishWizardCatalog, type CatalogBrand, type CatalogModel } from '@/lib/publish-wizard-catalog';
+import dynamic from 'next/dynamic';
+
+const SearchMap = dynamic(() => import('../map/search-map'), {
+    ssr: false,
+});
+
+import { fetchPublicListings, type PublicListing } from '../../lib/public-listings';
 
 type AutosTab = 'comprar' | 'arrendar' | 'subastas';
 
@@ -39,6 +51,25 @@ type Suggestion = {
     brand?: string;
     fuel?: string;
 };
+
+type FilterChip = {
+    key: string;
+    label: string;
+    value: string;
+    type: 'brand' | 'model' | 'vehicleType' | 'fuel' | 'region' | 'commune' | 'price' | 'year';
+};
+
+type PreviewResult = {
+    id: string;
+    title: string;
+    price: string;
+    location: string;
+    image: string;
+    year: string;
+};
+
+const SEARCH_HISTORY_KEY = 'simpleautos:search-history';
+const MAX_HISTORY_ITEMS = 5;
 
 const STORAGE_KEY = 'simpleautos:home-searchbox-v2';
 
@@ -121,8 +152,11 @@ const FUEL_OPTIONS = [
     { value: 'electrico', label: 'Eléctrico' },
 ];
 
-const CURRENT_YEAR = new Date().getFullYear() + 1;
-const YEAR_OPTIONS = Array.from({ length: 26 }, (_, index) => String(CURRENT_YEAR - index));
+const CURRENT_YEAR = new Date().getFullYear();
+const YEAR_OPTIONS = Array.from({ length: 30 }, (_, i) => ({
+    value: (CURRENT_YEAR - i).toString(),
+    label: (CURRENT_YEAR - i).toString(),
+}));
 
 function isAutosTab(value: string): value is AutosTab {
     return value === 'comprar' || value === 'arrendar' || value === 'subastas';
@@ -136,41 +170,62 @@ function normalizeText(value: string): string {
         .trim();
 }
 
-function parseAutosIntent(query: string, brands: CatalogBrand[], models: CatalogModel[]): Partial<AutosFilters> {
+function detectVehicleType(query: string): VehicleType | '' {
     const normalized = normalizeText(query);
-    if (!normalized) return {};
+    if (!normalized) return '';
 
-    const intent: Partial<AutosFilters> = {};
-
-    const matchedRegion = LOCATION_REGIONS.find((region) => normalized.includes(normalizeText(region.name)));
-    if (matchedRegion) intent.region = matchedRegion.id;
-
-    const matchedBrand = brands.find((brand) => normalized.includes(normalizeText(brand.name)));
-    if (matchedBrand) {
-        intent.brand = matchedBrand.id;
-        const brandModels = models.filter((m) => m.brandId === matchedBrand.id);
-        const matchedModel = brandModels.find((model) => normalized.includes(normalizeText(model.name)));
-        if (matchedModel) intent.model = matchedModel.id;
-    }
-
-    if (/\bhibrid/.test(normalized)) intent.fuel = 'hibrido';
-    else if (/\bdiesel|di[eé]sel/.test(normalized)) intent.fuel = 'diesel';
-    else if (/\belectr/.test(normalized)) intent.fuel = 'electrico';
-    else if (/\bbencina|gasolina/.test(normalized)) intent.fuel = 'bencina';
-
-    return intent;
+    if (/\b(moto|motocicleta|motorcycle)\b/.test(normalized)) return 'motorcycle';
+    if (/\b(camión|camion|truck|camioneta)\b/.test(normalized)) return 'truck';
+    if (/\b(bus|buses|ómnibus|omnibus)\b/.test(normalized)) return 'bus';
+    if (/\b(maquinaria|maquina|machinery)\b/.test(normalized)) return 'machinery';
+    if (/\b(náutica|nautica|barco|embarcación|embarcacion|bote)\b/.test(normalized)) return 'nautical';
+    if (/\b(aéreo|aereo|aviación|aviacion|avión|avion|helicóptero|helicoptero)\b/.test(normalized)) return 'aerial';
+    
+    return '';
 }
 
-function mergeFiltersWithIntent(base: AutosFilters, intent: Partial<AutosFilters>): AutosFilters {
-    const merged = { ...base };
-    if (intent.region) merged.region = intent.region;
-    if (intent.brand) merged.brand = intent.brand;
-    else merged.brand = '';
-    if (intent.model) merged.model = intent.model;
-    else merged.model = '';
-    if (intent.fuel) merged.fuel = intent.fuel;
-    else merged.fuel = '';
-    return merged;
+function levenshteinDistance(a: string, b: string): number {
+    const matrix = [];
+    for (let i = 0; i <= b.length; i++) {
+        matrix[i] = [i];
+    }
+    for (let j = 0; j <= a.length; j++) {
+        matrix[0][j] = j;
+    }
+    for (let i = 1; i <= b.length; i++) {
+        for (let j = 1; j <= a.length; j++) {
+            if (b.charAt(i - 1) === a.charAt(j - 1)) {
+                matrix[i][j] = matrix[i - 1][j - 1];
+            } else {
+                matrix[i][j] = Math.min(
+                    matrix[i - 1][j - 1] + 1,
+                    matrix[i][j - 1] + 1,
+                    matrix[i - 1][j] + 1
+                );
+            }
+        }
+    }
+    return matrix[b.length][a.length];
+}
+
+function findClosestMatch(query: string, options: string[], threshold = 2): string | null {
+    const normalized = normalizeText(query);
+    if (normalized.length < 3) return null;
+    
+    let bestMatch: string | null = null;
+    let bestDistance = threshold;
+    
+    for (const option of options) {
+        const normalizedOption = normalizeText(option);
+        const distance = levenshteinDistance(normalized, normalizedOption);
+        
+        if (distance < bestDistance) {
+            bestDistance = distance;
+            bestMatch = option;
+        }
+    }
+    
+    return bestMatch;
 }
 
 function buildSearchParams(filters: AutosFilters): URLSearchParams {
@@ -259,6 +314,178 @@ function readFiltersFromURL(searchParams: URLSearchParams): Partial<AutosFilters
     return filters;
 }
 
+function getActiveFilters(filters: AutosFilters, catalog: { brands: CatalogBrand[]; models: CatalogModel[] } | null): FilterChip[] {
+    const chips: FilterChip[] = [];
+    
+    if (filters.brand) {
+        const brand = catalog?.brands.find(b => b.id === filters.brand);
+        chips.push({
+            key: 'brand',
+            label: brand?.name || filters.brand,
+            value: filters.brand,
+            type: 'brand',
+        });
+    }
+    
+    if (filters.model) {
+        const model = catalog?.models.find(m => m.id === filters.model);
+        chips.push({
+            key: 'model',
+            label: model?.name || filters.model,
+            value: filters.model,
+            type: 'model',
+        });
+    }
+    
+    if (filters.vehicleType) {
+        const vehicleType = VEHICLE_TYPE_OPTIONS.find(v => v.value === filters.vehicleType);
+        chips.push({
+            key: 'vehicleType',
+            label: vehicleType?.label || filters.vehicleType,
+            value: filters.vehicleType,
+            type: 'vehicleType',
+        });
+    }
+    
+    if (filters.fuel) {
+        const fuel = FUEL_OPTIONS.find(f => f.value === filters.fuel);
+        chips.push({
+            key: 'fuel',
+            label: fuel?.label || filters.fuel,
+            value: filters.fuel,
+            type: 'fuel',
+        });
+    }
+    
+    if (filters.region) {
+        const region = LOCATION_REGIONS.find(r => r.id === filters.region);
+        chips.push({
+            key: 'region',
+            label: region?.name || filters.region,
+            value: filters.region,
+            type: 'region',
+        });
+    }
+    
+    if (filters.commune) {
+        const communes = getCommunesForRegion(filters.region);
+        const commune = communes.find(c => c.id === filters.commune);
+        chips.push({
+            key: 'commune',
+            label: commune?.name || filters.commune,
+            value: filters.commune,
+            type: 'commune',
+        });
+    }
+    
+    if (filters.priceFrom || filters.priceTo) {
+        const priceLabel = filters.priceFrom && filters.priceTo 
+            ? `$${filters.priceFrom}M - $${filters.priceTo}M`
+            : filters.priceFrom 
+                ? `Desde $${filters.priceFrom}M` 
+                : `Hasta $${filters.priceTo}M`;
+        chips.push({
+            key: 'price',
+            label: priceLabel,
+            value: `${filters.priceFrom}-${filters.priceTo}`,
+            type: 'price',
+        });
+    }
+    
+    if (filters.yearFrom || filters.yearTo) {
+        const yearLabel = filters.yearFrom && filters.yearTo 
+            ? `${filters.yearFrom} - ${filters.yearTo}`
+            : filters.yearFrom 
+                ? `Desde ${filters.yearFrom}` 
+                : `Hasta ${filters.yearTo}`;
+        chips.push({
+            key: 'year',
+            label: yearLabel,
+            value: `${filters.yearFrom}-${filters.yearTo}`,
+            type: 'year',
+        });
+    }
+    
+    return chips;
+}
+
+function getSearchHistory(): string[] {
+    if (typeof window === 'undefined') return [];
+    
+    try {
+        const raw = window.localStorage.getItem(SEARCH_HISTORY_KEY);
+        if (!raw) return [];
+        return JSON.parse(raw) as string[];
+    } catch {
+        return [];
+    }
+}
+
+function addToSearchHistory(query: string): void {
+    if (typeof window === 'undefined' || !query.trim()) return;
+    
+    try {
+        const history = getSearchHistory();
+        const filtered = history.filter(h => h !== query);
+        const updated = [query, ...filtered].slice(0, MAX_HISTORY_ITEMS);
+        window.localStorage.setItem(SEARCH_HISTORY_KEY, JSON.stringify(updated));
+    } catch {
+        // Ignorar errores
+    }
+}
+
+const TRENDING_SEARCHES = [
+    'Toyota Corolla',
+    'SUV 4x4',
+    'Buses',
+    'Motos',
+    'Camionetas',
+    'Eléctricos',
+    'Híbridos',
+    'Pick-ups',
+];
+
+function getPersonalizedSuggestions(history: string[]): string[] {
+    if (history.length === 0) return [];
+    
+    // Analizar historial para detectar patrones
+    const brands = new Set<string>();
+    const vehicleTypes = new Set<string>();
+    
+    for (const query of history) {
+        const normalized = normalizeText(query);
+        
+        // Detectar marcas comunes
+        if (/\b(toyota|hyundai|kia|chevrolet|nissan|volkswagen|suzuki|renault|peugeot)\b/i.test(normalized)) {
+            const match = normalized.match(/\b(toyota|hyundai|kia|chevrolet|nissan|volkswagen|suzuki|renault|peugeot)\b/i);
+            if (match) brands.add(match[1]);
+        }
+        
+        // Detectar tipos de vehículo
+        if (/\b(suv|camioneta|pickup|moto|camión|camion|bus)\b/i.test(normalized)) {
+            const match = normalized.match(/\b(suv|camioneta|pickup|moto|camión|camion|bus)\b/i);
+            if (match) vehicleTypes.add(match[1]);
+        }
+    }
+    
+    // Generar sugerencias personalizadas
+    const suggestions: string[] = [];
+    
+    // Sugerir búsquedas relacionadas con marcas favoritas
+    brands.forEach(brand => {
+        suggestions.push(`${brand.charAt(0).toUpperCase() + brand.slice(1)} SUV`);
+        suggestions.push(`${brand.charAt(0).toUpperCase() + brand.slice(1)} 2024`);
+    });
+    
+    // Sugerir búsquedas relacionadas con tipos favoritos
+    vehicleTypes.forEach(type => {
+        suggestions.push(`${type.charAt(0).toUpperCase() + type.slice(1)} económico`);
+        suggestions.push(`${type.charAt(0).toUpperCase() + type.slice(1)} nuevo`);
+    });
+    
+    return suggestions.slice(0, 4);
+}
+
 export default function HomeSearchBox() {
     const router = useRouter();
     const searchParams = useSearchParams();
@@ -269,32 +496,77 @@ export default function HomeSearchBox() {
     const [activeSuggestion, setActiveSuggestion] = useState(-1);
     const [catalog, setCatalog] = useState<{ brands: CatalogBrand[]; models: CatalogModel[] } | null>(null);
     const [catalogLoading, setCatalogLoading] = useState(true);
+    const [searchHistory, setSearchHistory] = useState<string[]>([]);
+    const [previewResults, setPreviewResults] = useState<PreviewResult[]>([]);
+    const [showPreview, setShowPreview] = useState(false);
+    const [showMap, setShowMap] = useState(false);
+    const [uploadedImage, setUploadedImage] = useState<string | null>(null);
+    const [isListening, setIsListening] = useState(false);
+    const [isInitialMount, setIsInitialMount] = useState(true);
+    const [mapPublications, setMapPublications] = useState<any[]>([]);
+    const [loadingPublications, setLoadingPublications] = useState(false);
     const inputWrapRef = useRef<HTMLDivElement | null>(null);
     const inputRef = useRef<HTMLInputElement | null>(null);
+    const fileInputRef = useRef<HTMLInputElement | null>(null);
+    const recognitionRef = useRef<any>(null);
 
     useEffect(() => {
-        const storageFilters = readFiltersFromStorage();
+        // Solo leer filtros de URL, ignorar localStorage para evitar redirección
         const urlFilters = readFiltersFromURL(searchParams);
-        // URL tiene prioridad sobre localStorage
-        const mergedFilters = { ...storageFilters, ...urlFilters };
+        
+        // Si no hay parámetros de URL, usar filtros por defecto
+        const mergedFilters = Object.keys(urlFilters).length > 0 ? { ...DEFAULT_FILTERS, ...urlFilters } : DEFAULT_FILTERS;
         setFilters(mergedFilters);
         setHydrated(true);
+        
+        // Cargar historial de búsqueda
+        setSearchHistory(getSearchHistory());
+        
         loadPublishWizardCatalog()
             .then(setCatalog)
             .catch(() => {
                 // Error silencioso - el catálogo se mantendrá null
             })
             .finally(() => setCatalogLoading(false));
-    }, [searchParams]);
+        
+        // Marcar que ya no es el montaje inicial después de cargar
+        setTimeout(() => setIsInitialMount(false), 1000);
+    }, [searchParams.toString()]);
 
     useEffect(() => {
         if (!hydrated) return;
         // Debounce para evitar escrituras excesivas a localStorage
-        const timer = setTimeout(() => {
-            writeFiltersToStorage(filters);
-        }, 300);
-        return () => clearTimeout(timer);
+        // DESACTIVADO POR AHORA para evitar efectos secundarios
+        // const timer = setTimeout(() => {
+        //     writeFiltersToStorage(filters);
+        // }, 300);
+        // return () => clearTimeout(timer);
     }, [filters, hydrated]);
+
+    const tabMeta = TAB_META[filters.tab];
+
+    // Filtros en tiempo real - DESACTIVADO POR AHORA para evitar redirección automática
+    // TODO: Reactivar cuando se resuelva el problema de redirección
+    // useEffect(() => {
+    //     if (!hydrated || isInitialMount) return;
+    //     
+    //     // Solo actualizar si hay filtros activos que no sean query
+    //     const hasActiveFilters = filters.brand || filters.model || filters.vehicleType || filters.fuel || 
+    //                              filters.region || filters.commune || filters.priceFrom || filters.priceTo || 
+    //                              filters.yearFrom || filters.yearTo;
+    //     
+    //     if (!hasActiveFilters) return;
+    //     
+    //     const timer = setTimeout(() => {
+    //         const params = buildSearchParams(filters);
+    //         const queryString = params.toString();
+    //         router.replace(queryString ? `${tabMeta.href}?${queryString}` : tabMeta.href, { scroll: false });
+    //     }, 500); // 500ms debounce para filtros en tiempo real
+    //     
+    //     return () => clearTimeout(timer);
+    // }, [filters.brand, filters.model, filters.vehicleType, filters.fuel, 
+    //     filters.region, filters.commune, filters.priceFrom, filters.priceTo, 
+    //     filters.yearFrom, filters.yearTo, hydrated, isInitialMount, tabMeta.href, router]);
 
     useEffect(() => {
         const onPointerDown = (event: PointerEvent) => {
@@ -306,8 +578,6 @@ export default function HomeSearchBox() {
         window.addEventListener('pointerdown', onPointerDown);
         return () => window.removeEventListener('pointerdown', onPointerDown);
     }, []);
-
-    const tabMeta = TAB_META[filters.tab];
 
     const selectedVehicleType = filters.vehicleType || 'car';
     const brandOptions = catalog?.brands.filter(b => b.vehicleTypes.includes(selectedVehicleType)).map(b => ({ value: b.id, label: b.name })) || [];
@@ -327,24 +597,226 @@ export default function HomeSearchBox() {
             .slice(0, 6);
     }, [filters.query, filters.tab]);
 
+    const brandSuggestions = useMemo(() => {
+        const query = filters.query.trim().toLowerCase();
+        if (query.length < 2) return [];
+        
+        const selectedVehicleType = filters.vehicleType || 'car';
+        return catalog?.brands
+            .filter(b => b.vehicleTypes.includes(selectedVehicleType))
+            .filter(b => normalizeText(b.name).includes(query))
+            .slice(0, 5)
+            .map(b => ({ id: b.id, name: b.name, type: 'brand' as const })) || [];
+    }, [filters.query, filters.vehicleType, catalog]);
+
+    const modelSuggestions = useMemo(() => {
+        const query = filters.query.trim().toLowerCase();
+        if (query.length < 2) return [];
+        
+        const selectedVehicleType = filters.vehicleType || 'car';
+        return catalog?.models
+            .filter(m => m.vehicleTypes.includes(selectedVehicleType))
+            .filter(m => normalizeText(m.name).includes(query))
+            .slice(0, 5)
+            .map(m => ({ id: m.id, name: m.name, type: 'model' as const })) || [];
+    }, [filters.query, filters.vehicleType, catalog]);
+
+    const vehicleTypeSuggestions = useMemo(() => {
+        const query = filters.query.trim().toLowerCase();
+        if (query.length < 2) return [];
+        
+        return VEHICLE_TYPE_OPTIONS
+            .filter(v => normalizeText(v.label).includes(query))
+            .slice(0, 3)
+            .map(v => ({ id: v.value, name: v.label, type: 'vehicleType' as const }));
+    }, [filters.query]);
+
+    const typoCorrection = useMemo(() => {
+        const query = filters.query.trim();
+        if (query.length < 3) return null;
+        
+        // Buscar corrección en marcas
+        const allBrands = catalog?.brands.map(b => b.name) || [];
+        const brandMatch = findClosestMatch(query, allBrands, 2);
+        if (brandMatch) return { correction: brandMatch, type: 'brand' };
+        
+        // Buscar corrección en modelos
+        const allModels = catalog?.models.map(m => m.name) || [];
+        const modelMatch = findClosestMatch(query, allModels, 2);
+        if (modelMatch) return { correction: modelMatch, type: 'model' };
+        
+        return null;
+    }, [filters.query, catalog]);
+
+    const personalizedSuggestions = useMemo(() => getPersonalizedSuggestions(searchHistory), [searchHistory]);
+
+    const handleImageUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+        const file = event.target.files?.[0];
+        if (file) {
+            const reader = new FileReader();
+            reader.onloadend = () => {
+                setUploadedImage(reader.result as string);
+                
+                // Extraer metadatos básicos de la imagen
+                const imageDate = file.lastModified ? new Date(file.lastModified) : null;
+                if (imageDate) {
+                    // Estimar año del vehículo basado en la fecha de la foto
+                    const estimatedYear = imageDate.getFullYear();
+                    setFilters((current) => ({ ...current, yearFrom: estimatedYear.toString() }));
+                }
+            };
+            reader.readAsDataURL(file);
+        }
+    };
+
+    const searchByImage = () => {
+        if (uploadedImage) {
+            // Usar Google Reverse Image Search (gratuito)
+            const googleLensUrl = `https://lens.google.com/upload?hl=es-419`;
+            window.open(googleLensUrl, '_blank');
+        }
+    };
+
+    const toggleVoiceSearch = () => {
+        if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
+            // No hacer nada si no está soportado - el botón simplemente no funcionará
+            return;
+        }
+
+        if (isListening) {
+            // Detener reconocimiento
+            recognitionRef.current?.stop();
+            setIsListening(false);
+        } else {
+            // Iniciar reconocimiento
+            const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+            const recognition = new SpeechRecognition();
+            recognition.lang = 'es-CL';
+            recognition.continuous = false;
+            recognition.interimResults = false;
+
+            recognition.onresult = (event: any) => {
+                const transcript = event.results[0][0].transcript;
+                setFilters((current) => ({ ...current, query: transcript }));
+                setIsListening(false);
+            };
+
+            recognition.onerror = (error: any) => {
+                console.error('Error en reconocimiento de voz:', error);
+                setIsListening(false);
+            };
+
+            recognition.onend = () => {
+                setIsListening(false);
+            };
+
+            recognitionRef.current = recognition;
+            recognition.start();
+            setIsListening(true);
+        }
+    };
+
+    // Cargar publicaciones para el mapa
+    useEffect(() => {
+        if (!showMap) {
+            setMapPublications([]);
+            return;
+        }
+
+        const loadMapPublications = async () => {
+            setLoadingPublications(true);
+            try {
+                const section = filters.tab === 'comprar' ? 'sale' : filters.tab === 'arrendar' ? 'rent' : 'auction';
+                const listings = await fetchPublicListings(section as any, {
+                    q: filters.query,
+                    region: filters.region,
+                    commune: filters.commune,
+                    price_from: filters.priceFrom,
+                    price_to: filters.priceTo,
+                    brand: filters.brand,
+                    model: filters.model,
+                    year_from: filters.yearFrom,
+                    year_to: filters.yearTo,
+                    fuel: filters.fuel,
+                    vehicle_type: filters.vehicleType,
+                });
+
+                const mappedPublications = listings.map((listing: any) => ({
+                    id: listing.id,
+                    title: listing.title,
+                    price: listing.price,
+                    year: listing.summary?.find((s: string) => /^\d{4}$/.test(s)),
+                    location: listing.location,
+                    image: listing.images?.[0],
+                    href: listing.href,
+                }));
+
+                setMapPublications(mappedPublications);
+            } catch (error) {
+                console.error('Error loading publications for map:', error);
+                setMapPublications([]);
+            } finally {
+                setLoadingPublications(false);
+            }
+        };
+
+        loadMapPublications();
+    }, [showMap, filters.tab, filters.query, filters.region, filters.commune, filters.brand, filters.model, filters.priceFrom, filters.priceTo, filters.yearFrom, filters.yearTo, filters.fuel, filters.vehicleType]);
+
     const handleSubmit = (event?: FormEvent<HTMLFormElement>) => {
         event?.preventDefault();
         // Scroll to top
         window.scrollTo({ top: 0, behavior: 'smooth' });
         
-        let resolvedFilters = filters;
-        if (catalog) {
-            const intent = parseAutosIntent(filters.query, catalog.brands, catalog.models);
-            resolvedFilters = mergeFiltersWithIntent(filters, intent);
-            setFilters(resolvedFilters);
+        // Detectar tipo de vehículo en la consulta
+        const detectedVehicleType = detectVehicleType(filters.query);
+        const finalFilters = detectedVehicleType 
+            ? { ...filters, vehicleType: detectedVehicleType }
+            : filters;
+        
+        // Agregar al historial de búsqueda
+        if (filters.query.trim()) {
+            addToSearchHistory(filters.query);
+            setSearchHistory(getSearchHistory());
         }
         
-        const params = buildSearchParams(resolvedFilters);
+        const params = buildSearchParams(finalFilters);
         const queryString = params.toString();
         router.push(queryString ? `${tabMeta.href}?${queryString}` : tabMeta.href);
         setShowSuggestions(false);
         setActiveSuggestion(-1);
     };
+
+    const removeChip = (chip: FilterChip) => {
+        switch (chip.type) {
+            case 'brand':
+                setFilters((current) => ({ ...current, brand: '', model: '' }));
+                break;
+            case 'model':
+                setFilters((current) => ({ ...current, model: '' }));
+                break;
+            case 'vehicleType':
+                setFilters((current) => ({ ...current, vehicleType: '', brand: '', model: '' }));
+                break;
+            case 'fuel':
+                setFilters((current) => ({ ...current, fuel: '' }));
+                break;
+            case 'region':
+                setFilters((current) => ({ ...current, region: '', commune: '' }));
+                break;
+            case 'commune':
+                setFilters((current) => ({ ...current, commune: '' }));
+                break;
+            case 'price':
+                setFilters((current) => ({ ...current, priceFrom: '', priceTo: '' }));
+                break;
+            case 'year':
+                setFilters((current) => ({ ...current, yearFrom: '', yearTo: '' }));
+                break;
+        }
+    };
+
+    const activeChips = useMemo(() => getActiveFilters(filters, catalog), [filters, catalog]);
 
     const applySuggestion = (suggestion: Suggestion) => {
         setFilters((current) => ({
@@ -415,22 +887,6 @@ export default function HomeSearchBox() {
                         ))}
                     </div>
 
-                    <PanelButton
-                        type="button"
-                        variant="secondary"
-                        size="sm"
-                        className="h-8 w-8 shrink-0 justify-center px-0 sm:h-9 sm:w-auto sm:px-3"
-                        onClick={() => setShowAdvanced((current) => !current)}
-                        aria-label="Mostrar filtros avanzados"
-                    >
-                        <IconAdjustmentsHorizontal size={15} />
-                        <span className="hidden sm:inline">Más filtros</span>
-                        <IconChevronDown
-                            size={14}
-                            className="hidden sm:inline"
-                            style={{ transform: showAdvanced ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform 180ms ease' }}
-                        />
-                    </PanelButton>
                 </div>
 
                 <form onSubmit={handleSubmit} className="p-3 sm:p-4 space-y-3">
@@ -452,49 +908,289 @@ export default function HomeSearchBox() {
                                 onKeyDown={handleKeyDown}
                                 placeholder={tabMeta.placeholder}
                                 className="form-input h-11"
-                                style={{ paddingLeft: '2.75rem', paddingRight: '2.5rem' }}
+                                style={{ paddingLeft: '2.75rem', paddingRight: uploadedImage || isListening ? '7rem' : '4.5rem' }}
                                 aria-expanded={showSuggestions}
                                 aria-autocomplete="list"
                                 aria-controls={showSuggestions ? 'search-suggestions' : undefined}
                                 aria-activedescendant={activeSuggestion >= 0 ? `suggestion-${activeSuggestion}` : undefined}
                             />
-                            {filters.query ? (
+                            <input
+                                ref={fileInputRef}
+                                type="file"
+                                accept="image/*"
+                                onChange={handleImageUpload}
+                                className="hidden"
+                                aria-label="Subir imagen para búsqueda"
+                            />
+                            <button
+                                type="button"
+                                onClick={toggleVoiceSearch}
+                                className={`absolute right-3 top-1/2 -translate-y-1/2 h-6 w-6 rounded-full inline-flex items-center justify-center ${isListening ? 'animate-pulse' : ''}`}
+                                style={{ background: isListening ? 'var(--button-primary-bg)' : 'var(--bg-muted)', color: isListening ? 'var(--button-primary-color)' : 'var(--fg-secondary)' }}
+                                aria-label="Buscar por voz"
+                            >
+                                <IconMicrophone size={12} />
+                            </button>
+                            {uploadedImage ? (
+                                <div className="absolute right-3 top-1/2 -translate-y-1/2 flex gap-1">
+                                    <button
+                                        type="button"
+                                        onClick={searchByImage}
+                                        className="h-6 w-6 rounded-full inline-flex items-center justify-center"
+                                        style={{ background: 'var(--button-primary-bg)', color: 'var(--button-primary-color)' }}
+                                        aria-label="Buscar en Google Lens"
+                                        title="Buscar vehículos similares"
+                                    >
+                                        <IconSearch size={12} />
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={() => setUploadedImage(null)}
+                                        className="h-6 w-6 rounded-full inline-flex items-center justify-center"
+                                        style={{ background: 'var(--bg-muted)', color: 'var(--fg-secondary)' }}
+                                        aria-label="Eliminar imagen"
+                                    >
+                                        <IconX size={12} />
+                                    </button>
+                                </div>
+                            ) : (
+                                <button
+                                    type="button"
+                                    onClick={() => fileInputRef.current?.click()}
+                                    className="absolute right-12 top-1/2 -translate-y-1/2 h-6 w-6 rounded-full inline-flex items-center justify-center"
+                                    style={{ background: 'var(--bg-muted)', color: 'var(--fg-secondary)' }}
+                                    aria-label="Buscar por imagen"
+                                >
+                                    <IconCamera size={12} />
+                                </button>
+                            )}
+                            {filters.query && !uploadedImage ? (
                                 <button
                                     type="button"
                                     aria-label="Limpiar búsqueda"
                                     onClick={() => setFilters((current) => ({ ...current, query: '' }))}
-                                    className="absolute right-3 top-1/2 -translate-y-1/2 h-6 w-6 rounded-full inline-flex items-center justify-center"
+                                    className="absolute right-20 top-1/2 -translate-y-1/2 h-6 w-6 rounded-full inline-flex items-center justify-center"
                                     style={{ background: 'var(--bg-muted)', color: 'var(--fg-secondary)' }}
                                 >
                                     <IconX size={12} />
                                 </button>
                             ) : null}
 
-                            {showSuggestions && suggestions.length > 0 ? (
+                            {showSuggestions && (suggestions.length > 0 || searchHistory.length > 0 || filters.query.length < 2) ? (
                                 <div
                                     id="search-suggestions"
                                     role="listbox"
                                     className="absolute left-0 right-0 top-[calc(100%+0.35rem)] rounded-xl border overflow-hidden z-30"
                                     style={{ borderColor: 'var(--border)', background: 'var(--surface)', boxShadow: 'var(--shadow-lg)' }}
                                 >
-                                    <div className="px-3 py-1.5 text-xs border-b" style={{ borderColor: 'var(--border)', color: 'var(--fg-muted)', background: 'var(--bg-subtle)' }}>
-                                        Sugerencias (↓↑ para navegar, Enter para seleccionar)
-                                    </div>
-                                    {suggestions.map((suggestion, index) => (
-                                        <button
-                                            key={suggestion.label}
-                                            id={`suggestion-${index}`}
-                                            type="button"
-                                            role="option"
-                                            aria-selected={index === activeSuggestion}
-                                            onClick={() => applySuggestion(suggestion)}
-                                            className={`w-full text-left px-3 py-2.5 border-b last:border-b-0 hover:bg-[var(--bg-subtle)] transition-colors ${index === activeSuggestion ? 'bg-[var(--bg-subtle)]' : ''}`}
-                                            style={{ borderColor: 'var(--border)' }}
-                                        >
-                                            <p className="text-sm font-medium" style={{ color: 'var(--fg)' }}>{suggestion.label}</p>
-                                            <p className="text-xs" style={{ color: 'var(--fg-muted)' }}>{suggestion.hint}</p>
-                                        </button>
-                                    ))}
+                                    {/* Historial de búsqueda */}
+                                    {searchHistory.length > 0 && filters.query.length < 2 && (
+                                        <>
+                                            <div className="px-3 py-1.5 text-xs border-b flex items-center gap-2" style={{ borderColor: 'var(--border)', color: 'var(--fg-muted)', background: 'var(--bg-subtle)' }}>
+                                                <IconClock size={12} />
+                                                Recientes
+                                            </div>
+                                            {searchHistory.map((historyItem, index) => (
+                                                <button
+                                                    key={`history-${index}`}
+                                                    type="button"
+                                                    onClick={() => {
+                                                        setFilters((current) => ({ ...current, query: historyItem }));
+                                                        setShowSuggestions(false);
+                                                    }}
+                                                    className="w-full text-left px-3 py-2.5 border-b last:border-b-0 hover:bg-[var(--bg-subtle)] transition-colors"
+                                                    style={{ borderColor: 'var(--border)' }}
+                                                >
+                                                    <p className="text-sm" style={{ color: 'var(--fg)' }}>{historyItem}</p>
+                                                </button>
+                                            ))}
+                                        </>
+                                    )}
+
+                                    {/* Sugerencias personalizadas */}
+                                    {personalizedSuggestions.length > 0 && filters.query.length < 2 && (
+                                        <>
+                                            <div className="px-3 py-1.5 text-xs border-b flex items-center gap-2" style={{ borderColor: 'var(--border)', color: 'var(--fg-muted)', background: 'var(--bg-subtle)' }}>
+                                                <IconFlame size={12} />
+                                                Para ti
+                                            </div>
+                                            {personalizedSuggestions.map((suggestion, index) => (
+                                                <button
+                                                    key={`personalized-${index}`}
+                                                    type="button"
+                                                    onClick={() => {
+                                                        setFilters((current) => ({ ...current, query: suggestion }));
+                                                        handleSubmit();
+                                                    }}
+                                                    className="w-full text-left px-3 py-2.5 border-b last:border-b-0 hover:bg-[var(--bg-subtle)] transition-colors"
+                                                    style={{ borderColor: 'var(--border)' }}
+                                                >
+                                                    <p className="text-sm" style={{ color: 'var(--fg)' }}>{suggestion}</p>
+                                                </button>
+                                            ))}
+                                        </>
+                                    )}
+
+                                    {/* Búsquedas populares */}
+                                    {filters.query.length < 2 && (
+                                        <>
+                                            <div className="px-3 py-1.5 text-xs border-b flex items-center gap-2" style={{ borderColor: 'var(--border)', color: 'var(--fg-muted)', background: 'var(--bg-subtle)' }}>
+                                                <IconFlame size={12} />
+                                                Populares
+                                            </div>
+                                            {TRENDING_SEARCHES.map((trendingItem, index) => (
+                                                <button
+                                                    key={`trending-${index}`}
+                                                    type="button"
+                                                    onClick={() => {
+                                                        setFilters((current) => ({ ...current, query: trendingItem }));
+                                                        handleSubmit();
+                                                    }}
+                                                    className="w-full text-left px-3 py-2.5 border-b last:border-b-0 hover:bg-[var(--bg-subtle)] transition-colors"
+                                                    style={{ borderColor: 'var(--border)' }}
+                                                >
+                                                    <p className="text-sm" style={{ color: 'var(--fg)' }}>{trendingItem}</p>
+                                                </button>
+                                            ))}
+                                        </>
+                                    )}
+
+                                    {/* Sugerencias categorizadas */}
+                                    {filters.query.length >= 2 && (typoCorrection || brandSuggestions.length > 0 || modelSuggestions.length > 0 || vehicleTypeSuggestions.length > 0 || suggestions.length > 0) && (
+                                        <>
+                                            {/* Corrección de typo */}
+                                            {typoCorrection && (
+                                                <div className="px-3 py-2 border-b" style={{ borderColor: 'var(--border)', background: 'var(--bg-subtle)' }}>
+                                                    <p className="text-xs" style={{ color: 'var(--fg-muted)' }}>
+                                                        ¿Quisiste decir <span style={{ color: 'var(--fg)', fontWeight: 'medium' }}>{typoCorrection.correction}</span>?
+                                                    </p>
+                                                </div>
+                                            )}
+
+                                            {/* Marcas */}
+                                            {brandSuggestions.length > 0 && (
+                                                <>
+                                                    <div className="px-3 py-1.5 text-xs border-b" style={{ borderColor: 'var(--border)', color: 'var(--fg-muted)', background: 'var(--bg-subtle)' }}>
+                                                        Marcas
+                                                    </div>
+                                                    {brandSuggestions.map((brand, index) => (
+                                                        <button
+                                                            key={`brand-${index}`}
+                                                            type="button"
+                                                            onClick={() => {
+                                                                setFilters((current) => ({ ...current, brand: brand.id, model: '' }));
+                                                                setShowSuggestions(false);
+                                                            }}
+                                                            className="w-full text-left px-3 py-2.5 border-b last:border-b-0 hover:bg-[var(--bg-subtle)] transition-colors"
+                                                            style={{ borderColor: 'var(--border)' }}
+                                                        >
+                                                            <p className="text-sm" style={{ color: 'var(--fg)' }}>{brand.name}</p>
+                                                        </button>
+                                                    ))}
+                                                </>
+                                            )}
+
+                                            {/* Modelos */}
+                                            {modelSuggestions.length > 0 && (
+                                                <>
+                                                    <div className="px-3 py-1.5 text-xs border-b" style={{ borderColor: 'var(--border)', color: 'var(--fg-muted)', background: 'var(--bg-subtle)' }}>
+                                                        Modelos
+                                                    </div>
+                                                    {modelSuggestions.map((model, index) => (
+                                                        <button
+                                                            key={`model-${index}`}
+                                                            type="button"
+                                                            onClick={() => {
+                                                                setFilters((current) => ({ ...current, model: model.id }));
+                                                                setShowSuggestions(false);
+                                                            }}
+                                                            className="w-full text-left px-3 py-2.5 border-b last:border-b-0 hover:bg-[var(--bg-subtle)] transition-colors"
+                                                            style={{ borderColor: 'var(--border)' }}
+                                                        >
+                                                            <p className="text-sm" style={{ color: 'var(--fg)' }}>{model.name}</p>
+                                                        </button>
+                                                    ))}
+                                                </>
+                                            )}
+
+                                            {/* Tipos de vehículo */}
+                                            {vehicleTypeSuggestions.length > 0 && (
+                                                <>
+                                                    <div className="px-3 py-1.5 text-xs border-b" style={{ borderColor: 'var(--border)', color: 'var(--fg-muted)', background: 'var(--bg-subtle)' }}>
+                                                        Tipo de vehículo
+                                                    </div>
+                                                    {vehicleTypeSuggestions.map((vt, index) => (
+                                                        <button
+                                                            key={`vt-${index}`}
+                                                            type="button"
+                                                            onClick={() => {
+                                                                setFilters((current) => ({ ...current, vehicleType: vt.id as VehicleType, brand: '', model: '' }));
+                                                                setShowSuggestions(false);
+                                                            }}
+                                                            className="w-full text-left px-3 py-2.5 border-b last:border-b-0 hover:bg-[var(--bg-subtle)] transition-colors"
+                                                            style={{ borderColor: 'var(--border)' }}
+                                                        >
+                                                            <p className="text-sm" style={{ color: 'var(--fg)' }}>{vt.name}</p>
+                                                        </button>
+                                                    ))}
+                                                </>
+                                            )}
+
+                                            {/* Sugerencias */}
+                                            {suggestions.length > 0 && (
+                                                <>
+                                                    <div className="px-3 py-1.5 text-xs border-b" style={{ borderColor: 'var(--border)', color: 'var(--fg-muted)', background: 'var(--bg-subtle)' }}>
+                                                        Sugerencias (↓↑ para navegar, Enter para seleccionar)
+                                                    </div>
+                                                    {suggestions.map((suggestion, index) => (
+                                                        <button
+                                                            key={`${filters.tab}-${index}`}
+                                                            id={`suggestion-${index}`}
+                                                            type="button"
+                                                            role="option"
+                                                            aria-selected={index === activeSuggestion}
+                                                            onClick={() => applySuggestion(suggestion)}
+                                                            className={`w-full text-left px-3 py-2.5 border-b last:border-b-0 hover:bg-[var(--bg-subtle)] transition-colors ${index === activeSuggestion ? 'bg-[var(--bg-subtle)]' : ''}`}
+                                                            style={{ borderColor: 'var(--border)' }}
+                                                        >
+                                                            <p className="text-sm font-medium" style={{ color: 'var(--fg)' }}>{suggestion.label}</p>
+                                                            <p className="text-xs" style={{ color: 'var(--fg-muted)' }}>{suggestion.hint}</p>
+                                                        </button>
+                                                    ))}
+                                                </>
+                                            )}
+                                        </>
+                                    )}
+
+                                    {/* Preview de resultados */}
+                                    {showPreview && previewResults.length > 0 && (
+                                        <>
+                                            <div className="px-3 py-1.5 text-xs border-b" style={{ borderColor: 'var(--border)', color: 'var(--fg-muted)', background: 'var(--bg-subtle)' }}>
+                                                Resultados destacados
+                                            </div>
+                                            {previewResults.map((result) => (
+                                                <button
+                                                    key={result.id}
+                                                    type="button"
+                                                    onClick={() => {
+                                                        setFilters((current) => ({ ...current, query: result.title }));
+                                                        handleSubmit();
+                                                    }}
+                                                    className="w-full text-left px-3 py-2.5 border-b last:border-b-0 hover:bg-[var(--bg-subtle)] transition-colors flex items-center gap-3"
+                                                    style={{ borderColor: 'var(--border)' }}
+                                                >
+                                                    <div className="w-12 h-12 rounded-lg bg-[var(--bg-muted)] flex-shrink-0 flex items-center justify-center" style={{ background: 'var(--bg-muted)' }}>
+                                                        <IconSearch size={16} style={{ color: 'var(--fg-muted)' }} />
+                                                    </div>
+                                                    <div className="flex-1 min-w-0">
+                                                        <p className="text-sm font-medium truncate" style={{ color: 'var(--fg)' }}>{result.title}</p>
+                                                        <p className="text-xs" style={{ color: 'var(--fg-muted)' }}>{result.location} · {result.year}</p>
+                                                    </div>
+                                                    <p className="text-sm font-medium" style={{ color: 'var(--fg)' }}>{result.price}</p>
+                                                </button>
+                                            ))}
+                                        </>
+                                    )}
                                 </div>
                             ) : null}
                         </div>
@@ -509,7 +1205,6 @@ export default function HomeSearchBox() {
                                 placeholder="Región"
                                 ariaLabel="Región"
                                 triggerClassName="h-11"
-                                leadingIcon={<IconMapPin size={14} />}
                             />
                         </div>
 
@@ -525,180 +1220,56 @@ export default function HomeSearchBox() {
                             />
                         </div>
 
-                        <PanelButton type="submit" variant="primary" className="h-11 justify-center md:w-auto md:px-6">
-                            <IconSearch size={14} />
-                            Buscar
-                        </PanelButton>
+                        <div className="flex gap-2">
+                            <PanelButton type="submit" variant="primary" className="h-11 justify-center md:w-auto md:px-6">
+                                <IconSearch size={14} />
+                                Buscar
+                            </PanelButton>
+                            <PanelButton
+                                type="button"
+                                variant="secondary"
+                                size="sm"
+                                className="h-11 px-3 shrink-0"
+                                onClick={() => setShowMap((current) => !current)}
+                                aria-label="Ver mapa"
+                            >
+                                <IconMap size={15} />
+                            </PanelButton>
+                        </div>
                     </div>
 
-                    {/* Sin chips visuales: mantenemos interacción simple y limpia. */}
-
-                    {showAdvanced ? (
-                        <div className="rounded-xl border p-3 sm:p-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5" style={{ borderColor: "var(--border)", background: "var(--bg-subtle)" }}>
-                            <div>
-                                <label className="block text-xs mb-1.5" style={{ color: "var(--fg-muted)" }}>Tipo de vehículo</label>
-                                <ModernSelect
-                                    value={filters.vehicleType}
-                                    onChange={(value) => setFilters((current) => ({ ...current, vehicleType: value as VehicleType, brand: "", model: "" }))}
-                                    options={VEHICLE_TYPE_OPTIONS}
-                                    placeholder="Autos y SUV"
-                                    ariaLabel="Tipo de vehículo"
-                                    triggerClassName="h-10"
-                                />
-                            </div>
-
-                            <div>
-                                <label className="block text-xs mb-1.5" style={{ color: "var(--fg-muted)" }}>Marca</label>
-                                <ModernSelect
-                                    value={filters.brand}
-                                    onChange={(value) => setFilters((current) => ({ ...current, brand: value, model: "" }))}
-                                    options={brandOptions}
-                                    placeholder={catalogLoading ? "Cargando..." : brandOptions.length === 0 ? "No hay marcas disponibles" : "Sin preferencia"}
-                                    ariaLabel="Marca"
-                                    triggerClassName="h-10"
-                                    disabled={catalogLoading || brandOptions.length === 0}
-                                />
-                                {!catalogLoading && brandOptions.length === 0 && (
-                                    <p className="text-xs mt-1" style={{ color: 'var(--fg-muted)' }}>
-                                        No hay marcas disponibles para este tipo de vehículo
-                                    </p>
-                                )}
-                            </div>
-
-                            <div>
-                                <label className="block text-xs mb-1.5" style={{ color: "var(--fg-muted)" }}>Modelo</label>
-                                <ModernSelect
-                                    value={filters.model}
-                                    onChange={(value) => setFilters((current) => ({ ...current, model: value }))}
-                                    options={modelOptions}
-                                    placeholder={catalogLoading ? "Cargando..." : !filters.brand ? "Selecciona marca primero" : modelOptions.length === 0 ? "No hay modelos disponibles" : "Sin preferencia"}
-                                    ariaLabel="Modelo"
-                                    triggerClassName="h-10"
-                                    disabled={!filters.brand || catalogLoading || modelOptions.length === 0}
-                                />
-                                {filters.brand && !catalogLoading && modelOptions.length === 0 && (
-                                    <p className="text-xs mt-1" style={{ color: 'var(--fg-muted)' }}>
-                                        No hay modelos disponibles para esta marca
-                                    </p>
-                                )}
-                            </div>
-
-                            <div>
-                                <label className="block text-xs mb-1.5" style={{ color: "var(--fg-muted)" }}>Precio desde</label>
-                                <input
-                                    type="number"
-                                    min="0"
-                                    value={filters.priceFrom}
-                                    onChange={(event) => setFilters((current) => {
-                                        const newPriceFrom = event.target.value;
-                                        // Si priceFrom > priceTo, limpiar priceTo
-                                        if (newPriceFrom && current.priceTo && parseInt(newPriceFrom, 10) > parseInt(current.priceTo, 10)) {
-                                            return { ...current, priceFrom: newPriceFrom, priceTo: "" };
-                                        }
-                                        return { ...current, priceFrom: newPriceFrom };
-                                    })}
-                                    placeholder="Sin mínimo"
-                                    className="form-input h-10"
-                                />
-                            </div>
-
-                            <div>
-                                <label className="block text-xs mb-1.5" style={{ color: "var(--fg-muted)" }}>Precio hasta</label>
-                                <input
-                                    type="number"
-                                    min="0"
-                                    value={filters.priceTo}
-                                    onChange={(event) => setFilters((current) => {
-                                        const newPriceTo = event.target.value;
-                                        // Si priceTo < priceFrom, limpiar priceFrom
-                                        if (newPriceTo && current.priceFrom && parseInt(newPriceTo, 10) < parseInt(current.priceFrom, 10)) {
-                                            return { ...current, priceTo: newPriceTo, priceFrom: "" };
-                                        }
-                                        return { ...current, priceTo: newPriceTo };
-                                    })}
-                                    placeholder="Sin máximo"
-                                    className="form-input h-10"
-                                />
-                            </div>
-
-                            <div>
-                                <label className="block text-xs mb-1.5" style={{ color: "var(--fg-muted)" }}>Año desde</label>
-                                <ModernSelect
-                                    value={filters.yearFrom}
-                                    onChange={(value) => setFilters((current) => {
-                                        const newYearFrom = value;
-                                        // Si yearFrom > yearTo, limpiar yearTo
-                                        if (newYearFrom && current.yearTo && parseInt(newYearFrom, 10) > parseInt(current.yearTo, 10)) {
-                                            return { ...current, yearFrom: newYearFrom, yearTo: "" };
-                                        }
-                                        return { ...current, yearFrom: newYearFrom };
-                                    })}
-                                    options={YEAR_OPTIONS.map((year) => ({ value: year, label: year }))}
-                                    placeholder="Sin mínimo"
-                                    ariaLabel="Año desde"
-                                    triggerClassName="h-10"
-                                />
-                            </div>
-
-                            <div>
-                                <label className="block text-xs mb-1.5" style={{ color: "var(--fg-muted)" }}>Año hasta</label>
-                                <ModernSelect
-                                    value={filters.yearTo}
-                                    onChange={(value) => setFilters((current) => {
-                                        const newYearTo = value;
-                                        // Si yearTo < yearFrom, limpiar yearFrom
-                                        if (newYearTo && current.yearFrom && parseInt(newYearTo, 10) < parseInt(current.yearFrom, 10)) {
-                                            return { ...current, yearTo: newYearTo, yearFrom: "" };
-                                        }
-                                        return { ...current, yearTo: newYearTo };
-                                    })}
-                                    options={YEAR_OPTIONS.map((year) => ({ value: year, label: year }))}
-                                    placeholder="Sin máximo"
-                                    ariaLabel="Año hasta"
-                                    triggerClassName="h-10"
-                                />
-                            </div>
-
-                            <div>
-                                <label className="block text-xs mb-1.5" style={{ color: "var(--fg-muted)" }}>Combustible</label>
-                                <ModernSelect
-                                    value={filters.fuel}
-                                    onChange={(value) => setFilters((current) => ({ ...current, fuel: value }))}
-                                    options={FUEL_OPTIONS}
-                                    placeholder="Sin preferencia"
-                                    ariaLabel="Combustible"
-                                    triggerClassName="h-10"
-                                />
-                            </div>
-
-                            <div className="sm:col-span-2 lg:col-span-3 flex justify-end gap-2">
-                                <PanelButton
+                    {/* Chips visuales de filtros activos */}
+                    {activeChips.length > 0 && (
+                        <div className="flex flex-wrap gap-2 items-center mt-3">
+                            {activeChips.map((chip) => (
+                                <button
+                                    key={chip.key}
                                     type="button"
-                                    variant="secondary"
-                                    size="sm"
-                                    className="h-9 px-3 text-xs"
-                                    onClick={() => {
-                                        const cleared: AutosFilters = { ...filters, vehicleType: "", brand: "", model: "", priceFrom: "", priceTo: "", yearFrom: "", yearTo: "", fuel: "" };
-                                        setFilters(cleared);
-                                        // Actualizar URL sin filtros avanzados
-                                        const params = buildSearchParams(cleared);
-                                        const queryString = params.toString();
-                                        router.replace(queryString ? `${tabMeta.href}?${queryString}` : tabMeta.href, { scroll: false });
+                                    onClick={() => removeChip(chip)}
+                                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm border transition-all hover:border-[var(--border-strong)] hover:text-[var(--fg)]"
+                                    style={{
+                                        background: 'var(--bg-subtle)',
+                                        borderColor: 'var(--border)',
+                                        color: 'var(--fg-secondary)',
                                     }}
                                 >
-                                    Limpiar filtros avanzados
-                                </PanelButton>
-                                <PanelButton
-                                    type="submit"
-                                    variant="primary"
-                                    size="sm"
-                                    className="h-9 px-3 text-xs"
-                                >
-                                    Aplicar filtros
-                                </PanelButton>
-                            </div>
+                                    {chip.label}
+                                    <IconX size={12} />
+                                </button>
+                            ))}
+                            <button
+                                type="button"
+                                onClick={() => setFilters((current) => ({ ...current, brand: '', model: '', vehicleType: '', fuel: '', region: '', commune: '', priceFrom: '', priceTo: '', yearFrom: '', yearTo: '' }))}
+                                className="text-xs underline"
+                                style={{ color: 'var(--fg-muted)' }}
+                            >
+                                Limpiar todos
+                            </button>
                         </div>
-                    ) : null}
+                    )}
+
+                    {/* Mapa de búsqueda */}
+                    <SearchMap showMap={showMap} publications={mapPublications} brandColor="#ff3600" />
                 </form>
             </div>
         </section>
