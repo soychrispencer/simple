@@ -1729,18 +1729,6 @@ function normalizeCatalogPayload(payload: unknown): Omit<PublishWizardCatalog, '
 }
 
 export async function loadPublishWizardCatalog(signal?: AbortSignal): Promise<PublishWizardCatalog> {
-    // Temporarily use fallback only due to encoding issues in seed file
-    return {
-        brands: FALLBACK_BRANDS,
-        models: FALLBACK_MODELS,
-        versions: FALLBACK_VERSIONS,
-        regions: FALLBACK_REGIONS,
-        communes: FALLBACK_COMMUNES,
-        source: 'fallback',
-    };
-
-    // Original code (disabled due to encoding issues):
-    /*
     for (const path of CATALOG_PATHS) {
         try {
             const response = await fetch(path, {
@@ -1758,7 +1746,14 @@ export async function loadPublishWizardCatalog(signal?: AbortSignal): Promise<Pu
             // Fallback local si seed file ausente o inválido.
         }
     }
-    */
+    return {
+        brands: FALLBACK_BRANDS,
+        models: FALLBACK_MODELS,
+        versions: FALLBACK_VERSIONS,
+        regions: FALLBACK_REGIONS,
+        communes: FALLBACK_COMMUNES,
+        source: 'fallback',
+    };
 }
 
 // Nombres normalizados de marcas con presencia en Chile (construido desde FALLBACK_BRANDS)

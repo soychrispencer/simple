@@ -11,7 +11,8 @@ import {
 } from '@tabler/icons-react';
 import ModernSelect from '@/components/ui/modern-select';
 import { PanelButton } from '@simple/ui';
-import { loadPublishWizardCatalog, type CatalogBrand, type CatalogModel, type CatalogRegion, type CatalogCommune } from '@/lib/publish-wizard-catalog';
+import { loadPublishWizardCatalog, type CatalogBrand, type CatalogModel } from '@/lib/publish-wizard-catalog';
+import { LOCATION_REGIONS, LOCATION_COMMUNES, getCommunesForRegion, type CatalogRegion, type CatalogCommune } from '@simple/utils';
 
 type AutosTab = 'comprar' | 'arrendar' | 'subastas';
 
@@ -126,13 +127,13 @@ function normalizeText(value: string): string {
 }
 
 
-function parseAutosIntent(query: string, brands: CatalogBrand[], models: CatalogModel[], regions: CatalogRegion[]): Partial<AutosFilters> {
+function parseAutosIntent(query: string, brands: CatalogBrand[], models: CatalogModel[]): Partial<AutosFilters> {
     const normalized = normalizeText(query);
     if (!normalized) return {};
 
     const intent: Partial<AutosFilters> = {};
 
-    const matchedRegion = regions.find((region) => normalized.includes(normalizeText(region.name)));
+    const matchedRegion = LOCATION_REGIONS.find((region) => normalized.includes(normalizeText(region.name)));
     if (matchedRegion) intent.region = matchedRegion.id;
 
     const matchedBrand = brands.find((brand) => normalized.includes(normalizeText(brand.name)));
@@ -213,7 +214,7 @@ export default function HomeSearchBox() {
     const [hydrated, setHydrated] = useState(false);
     const [showAdvanced, setShowAdvanced] = useState(false);
     const [showSuggestions, setShowSuggestions] = useState(false);
-    const [catalog, setCatalog] = useState<{ brands: CatalogBrand[]; models: CatalogModel[]; regions: CatalogRegion[]; communes: CatalogCommune[] } | null>(null);
+    const [catalog, setCatalog] = useState<{ brands: CatalogBrand[]; models: CatalogModel[] } | null>(null);
     const inputWrapRef = useRef<HTMLDivElement | null>(null);
 
     useEffect(() => {
@@ -242,8 +243,8 @@ export default function HomeSearchBox() {
 
     const brandOptions = catalog?.brands.filter(b => b.vehicleTypes.includes('car')).map(b => ({ value: b.id, label: b.name })) || [];
     const modelOptions = catalog?.models.filter(m => m.brandId === filters.brand && m.vehicleTypes.includes('car')).map(m => ({ value: m.id, label: m.name })) || [];
-    const regionOptions = catalog?.regions.map(r => ({ value: r.id, label: r.name })) || [];
-    const communeOptions = catalog?.communes.filter(c => c.regionId === filters.region).map(c => ({ value: c.id, label: c.name })) || [];
+    const regionOptions = LOCATION_REGIONS.map(r => ({ value: r.id, label: r.name }));
+    const communeOptions = getCommunesForRegion(filters.region).map(c => ({ value: c.id, label: c.name }));
 
     const suggestions = useMemo(() => {
         const query = filters.query.trim().toLowerCase();
@@ -260,7 +261,7 @@ export default function HomeSearchBox() {
     const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
         event.preventDefault();
         if (!catalog) return;
-        const intent = parseAutosIntent(filters.query, catalog.brands, catalog.models, catalog.regions);
+        const intent = parseAutosIntent(filters.query, catalog.brands, catalog.models);
         const resolvedFilters = mergeFiltersWithIntent(filters, intent);
         setFilters(resolvedFilters);
         const params = buildSearchParams(resolvedFilters);
