@@ -11,6 +11,7 @@ import {
 } from '@tabler/icons-react';
 import ModernSelect from '@/components/ui/modern-select';
 import { PanelButton } from '@simple/ui';
+import { loadPublishWizardCatalog, type CatalogBrand, type CatalogModel, type CatalogRegion, type CatalogCommune } from '@/lib/publish-wizard-catalog';
 
 type AutosTab = 'comprar' | 'arrendar' | 'subastas';
 
@@ -18,12 +19,14 @@ type AutosFilters = {
     tab: AutosTab;
     query: string;
     region: string;
-    price: string;
+    commune: string;
+    priceFrom: string;
+    priceTo: string;
     brand: string;
+    model: string;
     yearFrom: string;
     yearTo: string;
     fuel: string;
-    transmission: string;
 };
 
 type Suggestion = {
@@ -40,12 +43,14 @@ const DEFAULT_FILTERS: AutosFilters = {
     tab: 'comprar',
     query: '',
     region: '',
-    price: '',
+    commune: '',
+    priceFrom: '',
+    priceTo: '',
     brand: '',
+    model: '',
     yearFrom: '',
     yearTo: '',
     fuel: '',
-    transmission: '',
 };
 
 const TAB_META: Record<
@@ -95,40 +100,8 @@ const SUGGESTIONS_BY_TAB: Record<AutosTab, Suggestion[]> = {
     ],
 };
 
-const REGION_OPTIONS = [
-    { value: 'rm', label: 'Región Metropolitana' },
-    { value: 'valparaiso', label: 'Valparaíso' },
-    { value: 'biobio', label: 'Biobío' },
-    { value: 'araucania', label: 'Araucanía' },
-    { value: 'antofagasta', label: 'Antofagasta' },
-];
 
-const SALE_PRICE_OPTIONS = [
-    { value: '0-5000000', label: 'Hasta $5M' },
-    { value: '5000000-10000000', label: '$5M - $10M' },
-    { value: '10000000-20000000', label: '$10M - $20M' },
-    { value: '20000000-40000000', label: '$20M - $40M' },
-    { value: '40000000+', label: '$40M+' },
-];
 
-const RENT_PRICE_OPTIONS = [
-    { value: '0-30000', label: 'Hasta $30.000/día' },
-    { value: '30000-50000', label: '$30.000 - $50.000/día' },
-    { value: '50000-80000', label: '$50.000 - $80.000/día' },
-    { value: '80000-120000', label: '$80.000 - $120.000/día' },
-    { value: '120000+', label: '$120.000+/día' },
-];
-
-const BRAND_OPTIONS = [
-    { value: 'toyota', label: 'Toyota' },
-    { value: 'hyundai', label: 'Hyundai' },
-    { value: 'kia', label: 'Kia' },
-    { value: 'chevrolet', label: 'Chevrolet' },
-    { value: 'nissan', label: 'Nissan' },
-    { value: 'suzuki', label: 'Suzuki' },
-    { value: 'mg', label: 'MG' },
-    { value: 'byd', label: 'BYD' },
-];
 
 const FUEL_OPTIONS = [
     { value: 'bencina', label: 'Bencina' },
@@ -137,25 +110,8 @@ const FUEL_OPTIONS = [
     { value: 'electrico', label: 'Eléctrico' },
 ];
 
-const TRANSMISSION_OPTIONS = [
-    { value: 'AT', label: 'AT' },
-    { value: 'MT', label: 'MT' },
-    { value: 'CVT', label: 'CVT' },
-];
-
 const CURRENT_YEAR = new Date().getFullYear() + 1;
 const YEAR_OPTIONS = Array.from({ length: 26 }, (_, index) => String(CURRENT_YEAR - index));
-const REGION_KEYWORDS: Record<string, string> = {
-    santiago: 'rm',
-    metropolitana: 'rm',
-    valparaiso: 'valparaiso',
-    vina: 'valparaiso',
-    biobio: 'biobio',
-    concepcion: 'biobio',
-    araucania: 'araucania',
-    temuco: 'araucania',
-    antofagasta: 'antofagasta',
-};
 
 function isAutosTab(value: string): value is AutosTab {
     return value === 'comprar' || value === 'arrendar' || value === 'subastas';
@@ -169,85 +125,28 @@ function normalizeText(value: string): string {
         .trim();
 }
 
-function parseRange(value: string): { min: number; max: number | null } {
-    if (value.includes('+')) {
-        return { min: Number(value.replace('+', '')), max: null };
-    }
 
-    const [minRaw, maxRaw] = value.split('-');
-    return {
-        min: Number(minRaw),
-        max: maxRaw ? Number(maxRaw) : null,
-    };
-}
-
-function pickPriceBucketByAmount(amount: number, options: Array<{ value: string }>): string | null {
-    for (const option of options) {
-        const { min, max } = parseRange(option.value);
-        if (max === null && amount >= min) return option.value;
-        if (max !== null && amount >= min && amount <= max) return option.value;
-    }
-    return null;
-}
-
-function extractAutosPriceBucket(query: string, tab: AutosTab): string | null {
-    const normalized = normalizeText(query);
-    const options = tab === 'arrendar' ? RENT_PRICE_OPTIONS : SALE_PRICE_OPTIONS;
-
-    const millionsMatch = normalized.match(/(\d{1,3}(?:[.,]\d+)?)\s*(m|millones?)/);
-    if (millionsMatch) {
-        const millions = Number(millionsMatch[1]?.replace(',', '.'));
-        if (!Number.isNaN(millions)) {
-            const amount = Math.round(millions * 1_000_000);
-            return pickPriceBucketByAmount(amount, options);
-        }
-    }
-
-    const thousandMatch = normalized.match(/(\d{1,3}(?:[.,]\d+)?)\s*k\b/);
-    if (thousandMatch) {
-        const thousands = Number(thousandMatch[1]?.replace(',', '.'));
-        if (!Number.isNaN(thousands)) {
-            const amount = Math.round(thousands * 1_000);
-            return pickPriceBucketByAmount(amount, options);
-        }
-    }
-
-    const rawPriceMatch = normalized.match(/\$?\s?(\d{6,9})\b/);
-    if (rawPriceMatch) {
-        const amount = Number(rawPriceMatch[1]);
-        if (!Number.isNaN(amount)) return pickPriceBucketByAmount(amount, options);
-    }
-
-    return null;
-}
-
-function parseAutosIntent(query: string, tab: AutosTab): Partial<AutosFilters> {
+function parseAutosIntent(query: string, brands: CatalogBrand[], models: CatalogModel[], regions: CatalogRegion[]): Partial<AutosFilters> {
     const normalized = normalizeText(query);
     if (!normalized) return {};
 
     const intent: Partial<AutosFilters> = {};
 
-    for (const [keyword, regionValue] of Object.entries(REGION_KEYWORDS)) {
-        if (normalized.includes(keyword)) {
-            intent.region = regionValue;
-            break;
-        }
-    }
+    const matchedRegion = regions.find((region) => normalized.includes(normalizeText(region.name)));
+    if (matchedRegion) intent.region = matchedRegion.id;
 
-    const matchedBrand = BRAND_OPTIONS.find((brand) => normalized.includes(normalizeText(brand.label)));
-    if (matchedBrand) intent.brand = matchedBrand.value;
+    const matchedBrand = brands.find((brand) => normalized.includes(normalizeText(brand.name)));
+    if (matchedBrand) {
+        intent.brand = matchedBrand.id;
+        const brandModels = models.filter((m) => m.brandId === matchedBrand.id);
+        const matchedModel = brandModels.find((model) => normalized.includes(normalizeText(model.name)));
+        if (matchedModel) intent.model = matchedModel.id;
+    }
 
     if (/\bhibrid/.test(normalized)) intent.fuel = 'hibrido';
     else if (/\bdiesel|di[eé]sel/.test(normalized)) intent.fuel = 'diesel';
     else if (/\belectr/.test(normalized)) intent.fuel = 'electrico';
     else if (/\bbencina|gasolina/.test(normalized)) intent.fuel = 'bencina';
-
-    if (/\bcvt\b/.test(normalized)) intent.transmission = 'CVT';
-    else if (/\bmt\b|manual/.test(normalized)) intent.transmission = 'MT';
-    else if (/\bat\b|automatic/.test(normalized)) intent.transmission = 'AT';
-
-    const bucket = extractAutosPriceBucket(normalized, tab);
-    if (bucket) intent.price = bucket;
 
     return intent;
 }
@@ -257,12 +156,10 @@ function mergeFiltersWithIntent(base: AutosFilters, intent: Partial<AutosFilters
     if (intent.region) merged.region = intent.region;
     if (intent.brand) merged.brand = intent.brand;
     else merged.brand = '';
+    if (intent.model) merged.model = intent.model;
+    else merged.model = '';
     if (intent.fuel) merged.fuel = intent.fuel;
     else merged.fuel = '';
-    if (intent.transmission) merged.transmission = intent.transmission;
-    else merged.transmission = '';
-    if (intent.price) merged.price = intent.price;
-    else merged.price = '';
     return merged;
 }
 
@@ -271,12 +168,14 @@ function buildSearchParams(filters: AutosFilters): URLSearchParams {
     const query = filters.query.trim();
     if (query) params.set('q', query);
     if (filters.region) params.set('region', filters.region);
-    if (filters.price) params.set('price', filters.price);
+    if (filters.commune) params.set('commune', filters.commune);
+    if (filters.priceFrom) params.set('price_from', filters.priceFrom);
+    if (filters.priceTo) params.set('price_to', filters.priceTo);
     if (filters.brand) params.set('brand', filters.brand);
+    if (filters.model) params.set('model', filters.model);
     if (filters.yearFrom) params.set('year_from', filters.yearFrom);
     if (filters.yearTo) params.set('year_to', filters.yearTo);
     if (filters.fuel) params.set('fuel', filters.fuel);
-    if (filters.transmission) params.set('transmission', filters.transmission);
     return params;
 }
 
@@ -314,11 +213,13 @@ export default function HomeSearchBox() {
     const [hydrated, setHydrated] = useState(false);
     const [showAdvanced, setShowAdvanced] = useState(false);
     const [showSuggestions, setShowSuggestions] = useState(false);
+    const [catalog, setCatalog] = useState<{ brands: CatalogBrand[]; models: CatalogModel[]; regions: CatalogRegion[]; communes: CatalogCommune[] } | null>(null);
     const inputWrapRef = useRef<HTMLDivElement | null>(null);
 
     useEffect(() => {
         setFilters(readFiltersFromStorage());
         setHydrated(true);
+        loadPublishWizardCatalog().then(setCatalog);
     }, []);
 
     useEffect(() => {
@@ -338,8 +239,11 @@ export default function HomeSearchBox() {
     }, []);
 
     const tabMeta = TAB_META[filters.tab];
-    const priceOptions = filters.tab === 'arrendar' ? RENT_PRICE_OPTIONS : SALE_PRICE_OPTIONS;
-    const pricePlaceholder = filters.tab === 'arrendar' ? 'Precio por día' : 'Precio';
+
+    const brandOptions = catalog?.brands.filter(b => b.vehicleTypes.includes('car')).map(b => ({ value: b.id, label: b.name })) || [];
+    const modelOptions = catalog?.models.filter(m => m.brandId === filters.brand && m.vehicleTypes.includes('car')).map(m => ({ value: m.id, label: m.name })) || [];
+    const regionOptions = catalog?.regions.map(r => ({ value: r.id, label: r.name })) || [];
+    const communeOptions = catalog?.communes.filter(c => c.regionId === filters.region).map(c => ({ value: c.id, label: c.name })) || [];
 
     const suggestions = useMemo(() => {
         const query = filters.query.trim().toLowerCase();
@@ -355,7 +259,8 @@ export default function HomeSearchBox() {
 
     const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
         event.preventDefault();
-        const intent = parseAutosIntent(filters.query, filters.tab);
+        if (!catalog) return;
+        const intent = parseAutosIntent(filters.query, catalog.brands, catalog.models, catalog.regions);
         const resolvedFilters = mergeFiltersWithIntent(filters, intent);
         setFilters(resolvedFilters);
         const params = buildSearchParams(resolvedFilters);
@@ -371,7 +276,6 @@ export default function HomeSearchBox() {
             query: suggestion.label,
             brand: suggestion.brand ?? current.brand,
             fuel: suggestion.fuel ?? current.fuel,
-            transmission: suggestion.transmission ?? current.transmission,
         }));
         setShowSuggestions(false);
     };
@@ -469,11 +373,13 @@ export default function HomeSearchBox() {
                             ) : null}
                         </div>
 
-                        <div className="md:col-span-2">
+                        <div className="md:col-span-3">
                             <ModernSelect
                                 value={filters.region}
-                                onChange={(value) => setFilters((current) => ({ ...current, region: value }))}
-                                options={REGION_OPTIONS}
+                                onChange={(value) => {
+                                    setFilters((current) => ({ ...current, region: value, commune: '' }));
+                                }}
+                                options={regionOptions}
                                 placeholder="Región"
                                 ariaLabel="Región"
                                 triggerClassName="h-11"
@@ -481,14 +387,15 @@ export default function HomeSearchBox() {
                             />
                         </div>
 
-                        <div className="md:col-span-2">
+                        <div className="md:col-span-3">
                             <ModernSelect
-                                value={filters.price}
-                                onChange={(value) => setFilters((current) => ({ ...current, price: value }))}
-                                options={priceOptions}
-                                placeholder={pricePlaceholder}
-                                ariaLabel="Precio"
+                                value={filters.commune}
+                                onChange={(value) => setFilters((current) => ({ ...current, commune: value }))}
+                                options={communeOptions}
+                                placeholder="Comuna"
+                                ariaLabel="Comuna"
                                 triggerClassName="h-11"
+                                disabled={!filters.region}
                             />
                         </div>
 
@@ -501,16 +408,51 @@ export default function HomeSearchBox() {
                     {/* Sin chips visuales: mantenemos interacción simple y limpia. */}
 
                     {showAdvanced ? (
-                        <div className="rounded-xl border p-3 sm:p-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-2.5" style={{ borderColor: 'var(--border)', background: 'var(--bg-subtle)' }}>
+                        <div className="rounded-xl border p-3 sm:p-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5" style={{ borderColor: 'var(--border)', background: 'var(--bg-subtle)' }}">
                             <div>
                                 <label className="block text-xs mb-1.5" style={{ color: 'var(--fg-muted)' }}>Marca</label>
                                 <ModernSelect
                                     value={filters.brand}
-                                    onChange={(value) => setFilters((current) => ({ ...current, brand: value }))}
-                                    options={BRAND_OPTIONS}
+                                    onChange={(value) => setFilters((current) => ({ ...current, brand: value, model: '' }))}
+                                    options={brandOptions}
                                     placeholder="Sin preferencia"
                                     ariaLabel="Marca"
                                     triggerClassName="h-10"
+                                />
+                            </div>
+
+                            <div>
+                                <label className="block text-xs mb-1.5" style={{ color: 'var(--fg-muted)' }}>Modelo</label>
+                                <ModernSelect
+                                    value={filters.model}
+                                    onChange={(value) => setFilters((current) => ({ ...current, model: value }))}
+                                    options={modelOptions}
+                                    placeholder="Sin preferencia"
+                                    ariaLabel="Modelo"
+                                    triggerClassName="h-10"
+                                    disabled={!filters.brand}
+                                />
+                            </div>
+
+                            <div>
+                                <label className="block text-xs mb-1.5" style={{ color: 'var(--fg-muted)' }}>Precio desde</label>
+                                <input
+                                    type="number"
+                                    value={filters.priceFrom}
+                                    onChange={(event) => setFilters((current) => ({ ...current, priceFrom: event.target.value }))}
+                                    placeholder="Sin mínimo"
+                                    className="form-input h-10"
+                                />
+                            </div>
+
+                            <div>
+                                <label className="block text-xs mb-1.5" style={{ color: 'var(--fg-muted)' }}>Precio hasta</label>
+                                <input
+                                    type="number"
+                                    value={filters.priceTo}
+                                    onChange={(event) => setFilters((current) => ({ ...current, priceTo: event.target.value }))}
+                                    placeholder="Sin máximo"
+                                    className="form-input h-10"
                                 />
                             </div>
 
@@ -550,25 +492,13 @@ export default function HomeSearchBox() {
                                 />
                             </div>
 
-                            <div>
-                                <label className="block text-xs mb-1.5" style={{ color: 'var(--fg-muted)' }}>Transmisión</label>
-                                <ModernSelect
-                                    value={filters.transmission}
-                                    onChange={(value) => setFilters((current) => ({ ...current, transmission: value }))}
-                                    options={TRANSMISSION_OPTIONS}
-                                    placeholder="Sin preferencia"
-                                    ariaLabel="Transmisión"
-                                    triggerClassName="h-10"
-                                />
-                            </div>
-
-                            <div className="sm:col-span-2 lg:col-span-5 flex justify-end">
+                            <div className="sm:col-span-2 lg:col-span-3 flex justify-end">
                                 <PanelButton
                                     type="button"
                                     variant="secondary"
                                     size="sm"
                                     className="h-9 px-3 text-xs"
-                                    onClick={() => setFilters((current) => ({ ...current, brand: '', yearFrom: '', yearTo: '', fuel: '', transmission: '' }))}
+                                    onClick={() => setFilters((current) => ({ ...current, brand: '', model: '', priceFrom: '', priceTo: '', yearFrom: '', yearTo: '', fuel: '' }))}
                                 >
                                     Limpiar filtros avanzados
                                 </PanelButton>

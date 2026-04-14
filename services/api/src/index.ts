@@ -13452,12 +13452,14 @@ app.get('/api/public/listings', (c) => {
     // Search filters
     const q = c.req.query('q');
     const region = c.req.query('region');
-    const price = c.req.query('price');
+    const commune = c.req.query('commune');
+    const priceFrom = c.req.query('price_from');
+    const priceTo = c.req.query('price_to');
     const brand = c.req.query('brand');
+    const model = c.req.query('model');
     const yearFrom = c.req.query('year_from');
     const yearTo = c.req.query('year_to');
     const fuel = c.req.query('fuel');
-    const transmission = c.req.query('transmission');
 
     const items = Array.from(listingsById.values())
         .filter((listing) => listing.vertical === vertical)
@@ -13475,7 +13477,8 @@ app.get('/api/public/listings', (c) => {
             const rawData = asObject(listing.rawData);
             const basic = asObject(rawData.basic);
             const brandField = (asString(basic.brand) || asString(rawData.brand) || '').toLowerCase();
-            return title.includes(query) || description.includes(query) || brandField.includes(query);
+            const modelField = (asString(basic.model) || asString(rawData.model) || '').toLowerCase();
+            return title.includes(query) || description.includes(query) || brandField.includes(query) || modelField.includes(query);
         })
         .filter((listing) => {
             if (!region) return true;
@@ -13486,6 +13489,14 @@ app.get('/api/public/listings', (c) => {
             return listingRegion === region.toLowerCase();
         })
         .filter((listing) => {
+            if (!commune) return true;
+            const locationData = asObject(listing.locationData);
+            const rawData = asObject(listing.rawData);
+            const location = asObject(rawData.location);
+            const listingCommune = (asString(locationData.communeName) || asString(location.communeName) || '').toLowerCase();
+            return listingCommune === commune.toLowerCase();
+        })
+        .filter((listing) => {
             if (!brand) return true;
             const rawData = asObject(listing.rawData);
             const basic = asObject(rawData.basic);
@@ -13493,18 +13504,18 @@ app.get('/api/public/listings', (c) => {
             return listingBrand === brand.toLowerCase();
         })
         .filter((listing) => {
+            if (!model) return true;
+            const rawData = asObject(listing.rawData);
+            const basic = asObject(rawData.basic);
+            const listingModel = (asString(basic.model) || asString(rawData.model) || '').toLowerCase();
+            return listingModel === model.toLowerCase();
+        })
+        .filter((listing) => {
             if (!fuel) return true;
             const rawData = asObject(listing.rawData);
             const basic = asObject(rawData.basic);
             const listingFuel = (asString(basic.fuelType) || asString(rawData.fuelType) || '').toLowerCase();
             return listingFuel === fuel.toLowerCase();
-        })
-        .filter((listing) => {
-            if (!transmission) return true;
-            const rawData = asObject(listing.rawData);
-            const basic = asObject(rawData.basic);
-            const listingTransmission = (asString(basic.transmission) || asString(rawData.transmission) || '').toLowerCase();
-            return listingTransmission === transmission.toLowerCase();
         })
         .filter((listing) => {
             if (!yearFrom) return true;
@@ -13521,11 +13532,12 @@ app.get('/api/public/listings', (c) => {
             return listingYear <= Number(yearTo);
         })
         .filter((listing) => {
-            if (!price) return true;
             const listingPrice = parseNumberFromString(listing.price) ?? 0;
-            if (price === 'low') return listingPrice < 5000000;
-            if (price === 'mid') return listingPrice >= 5000000 && listingPrice < 15000000;
-            if (price === 'high') return listingPrice >= 15000000;
+            if (priceFrom && priceTo) {
+                return listingPrice >= Number(priceFrom) && listingPrice <= Number(priceTo);
+            }
+            if (priceFrom) return listingPrice >= Number(priceFrom);
+            if (priceTo) return listingPrice <= Number(priceTo);
             return true;
         })
         .sort((a, b) => b.updatedAt - a.updatedAt)

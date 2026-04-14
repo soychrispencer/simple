@@ -125,12 +125,14 @@ async function apiRequest<T>(path: string): Promise<T | null> {
 export type PublicListingsFilters = {
     q?: string;
     region?: string;
-    price?: string;
+    commune?: string;
+    price_from?: string;
+    price_to?: string;
     brand?: string;
+    model?: string;
     year_from?: string;
     year_to?: string;
     fuel?: string;
-    transmission?: string;
 };
 
 export async function fetchPublicListings(section?: PublicListingSection, filters?: PublicListingsFilters): Promise<PublicListing[]> {
@@ -139,12 +141,14 @@ export async function fetchPublicListings(section?: PublicListingSection, filter
     if (section) params.set('section', section);
     if (filters?.q) params.set('q', filters.q);
     if (filters?.region) params.set('region', filters.region);
-    if (filters?.price) params.set('price', filters.price);
+    if (filters?.commune) params.set('commune', filters.commune);
+    if (filters?.price_from) params.set('price_from', filters.price_from);
+    if (filters?.price_to) params.set('price_to', filters.price_to);
     if (filters?.brand) params.set('brand', filters.brand);
+    if (filters?.model) params.set('model', filters.model);
     if (filters?.year_from) params.set('year_from', filters.year_from);
     if (filters?.year_to) params.set('year_to', filters.year_to);
     if (filters?.fuel) params.set('fuel', filters.fuel);
-    if (filters?.transmission) params.set('transmission', filters.transmission);
 
     const data = await apiRequest<ListingsResponse>(`/api/public/listings?${params.toString()}`);
     return Array.isArray(data?.items) ? data.items : [];

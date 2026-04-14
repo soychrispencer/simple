@@ -60,12 +60,14 @@ function PublicVehicleListingPageContent(props: {
             const filters: PublicListingsFilters = {
                 q: searchParams.get('q') || undefined,
                 region: searchParams.get('region') || undefined,
-                price: searchParams.get('price') || undefined,
+                commune: searchParams.get('commune') || undefined,
+                price_from: searchParams.get('price_from') || undefined,
+                price_to: searchParams.get('price_to') || undefined,
                 brand: searchParams.get('brand') || undefined,
+                model: searchParams.get('model') || undefined,
                 year_from: searchParams.get('year_from') || undefined,
                 year_to: searchParams.get('year_to') || undefined,
                 fuel: searchParams.get('fuel') || undefined,
-                transmission: searchParams.get('transmission') || undefined,
             };
             const nextItems = await fetchPublicListings(props.section, filters);
             setItems(nextItems);
