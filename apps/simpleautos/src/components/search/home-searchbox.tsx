@@ -136,7 +136,6 @@ function normalizeText(value: string): string {
         .trim();
 }
 
-
 function parseAutosIntent(query: string, brands: CatalogBrand[], models: CatalogModel[]): Partial<AutosFilters> {
     const normalized = normalizeText(query);
     if (!normalized) return {};
@@ -290,7 +289,11 @@ export default function HomeSearchBox() {
 
     useEffect(() => {
         if (!hydrated) return;
-        writeFiltersToStorage(filters);
+        // Debounce para evitar escrituras excesivas a localStorage
+        const timer = setTimeout(() => {
+            writeFiltersToStorage(filters);
+        }, 300);
+        return () => clearTimeout(timer);
     }, [filters, hydrated]);
 
     useEffect(() => {
@@ -322,7 +325,7 @@ export default function HomeSearchBox() {
                 return searchable.includes(query);
             })
             .slice(0, 6);
-    }, [filters.query, filters.tab, selectedVehicleType]);
+    }, [filters.query, filters.tab]);
 
     const handleSubmit = (event?: FormEvent<HTMLFormElement>) => {
         event?.preventDefault();
@@ -343,7 +346,7 @@ export default function HomeSearchBox() {
         setActiveSuggestion(-1);
     };
 
-    const applySuggestion = (suggestion: Suggestion, submit = false) => {
+    const applySuggestion = (suggestion: Suggestion) => {
         setFilters((current) => ({
             ...current,
             query: suggestion.label,
@@ -352,10 +355,6 @@ export default function HomeSearchBox() {
         }));
         setShowSuggestions(false);
         setActiveSuggestion(-1);
-        if (submit) {
-            // Pequeño delay para que el estado se actualice antes de navegar
-            setTimeout(() => handleSubmit(), 0);
-        }
     };
 
     const handleKeyDown = (event: React.KeyboardEvent<HTMLInputElement>) => {
@@ -377,7 +376,7 @@ export default function HomeSearchBox() {
             case 'Enter':
                 if (activeSuggestion >= 0) {
                     event.preventDefault();
-                    applySuggestion(suggestions[activeSuggestion], true);
+                    applySuggestion(suggestions[activeSuggestion]);
                 }
                 break;
             case 'Escape':
@@ -488,7 +487,7 @@ export default function HomeSearchBox() {
                                             type="button"
                                             role="option"
                                             aria-selected={index === activeSuggestion}
-                                            onClick={() => applySuggestion(suggestion, false)}
+                                            onClick={() => applySuggestion(suggestion)}
                                             className={`w-full text-left px-3 py-2.5 border-b last:border-b-0 hover:bg-[var(--bg-subtle)] transition-colors ${index === activeSuggestion ? 'bg-[var(--bg-subtle)]' : ''}`}
                                             style={{ borderColor: 'var(--border)' }}
                                         >
@@ -554,11 +553,16 @@ export default function HomeSearchBox() {
                                     value={filters.brand}
                                     onChange={(value) => setFilters((current) => ({ ...current, brand: value, model: "" }))}
                                     options={brandOptions}
-                                    placeholder={catalogLoading ? "Cargando..." : "Sin preferencia"}
+                                    placeholder={catalogLoading ? "Cargando..." : brandOptions.length === 0 ? "No hay marcas disponibles" : "Sin preferencia"}
                                     ariaLabel="Marca"
                                     triggerClassName="h-10"
-                                    disabled={catalogLoading}
+                                    disabled={catalogLoading || brandOptions.length === 0}
                                 />
+                                {!catalogLoading && brandOptions.length === 0 && (
+                                    <p className="text-xs mt-1" style={{ color: 'var(--fg-muted)' }}>
+                                        No hay marcas disponibles para este tipo de vehículo
+                                    </p>
+                                )}
                             </div>
 
                             <div>
@@ -567,11 +571,16 @@ export default function HomeSearchBox() {
                                     value={filters.model}
                                     onChange={(value) => setFilters((current) => ({ ...current, model: value }))}
                                     options={modelOptions}
-                                    placeholder={catalogLoading ? "Cargando..." : filters.brand ? "Sin preferencia" : "Selecciona marca primero"}
+                                    placeholder={catalogLoading ? "Cargando..." : !filters.brand ? "Selecciona marca primero" : modelOptions.length === 0 ? "No hay modelos disponibles" : "Sin preferencia"}
                                     ariaLabel="Modelo"
                                     triggerClassName="h-10"
-                                    disabled={!filters.brand || catalogLoading}
+                                    disabled={!filters.brand || catalogLoading || modelOptions.length === 0}
                                 />
+                                {filters.brand && !catalogLoading && modelOptions.length === 0 && (
+                                    <p className="text-xs mt-1" style={{ color: 'var(--fg-muted)' }}>
+                                        No hay modelos disponibles para esta marca
+                                    </p>
+                                )}
                             </div>
 
                             <div>
@@ -583,7 +592,7 @@ export default function HomeSearchBox() {
                                     onChange={(event) => setFilters((current) => {
                                         const newPriceFrom = event.target.value;
                                         // Si priceFrom > priceTo, limpiar priceTo
-                                        if (newPriceFrom && current.priceTo && parseInt(newPriceFrom) > parseInt(current.priceTo)) {
+                                        if (newPriceFrom && current.priceTo && parseInt(newPriceFrom, 10) > parseInt(current.priceTo, 10)) {
                                             return { ...current, priceFrom: newPriceFrom, priceTo: "" };
                                         }
                                         return { ...current, priceFrom: newPriceFrom };
@@ -602,7 +611,7 @@ export default function HomeSearchBox() {
                                     onChange={(event) => setFilters((current) => {
                                         const newPriceTo = event.target.value;
                                         // Si priceTo < priceFrom, limpiar priceFrom
-                                        if (newPriceTo && current.priceFrom && parseInt(newPriceTo) < parseInt(current.priceFrom)) {
+                                        if (newPriceTo && current.priceFrom && parseInt(newPriceTo, 10) < parseInt(current.priceFrom, 10)) {
                                             return { ...current, priceTo: newPriceTo, priceFrom: "" };
                                         }
                                         return { ...current, priceTo: newPriceTo };
@@ -619,7 +628,7 @@ export default function HomeSearchBox() {
                                     onChange={(value) => setFilters((current) => {
                                         const newYearFrom = value;
                                         // Si yearFrom > yearTo, limpiar yearTo
-                                        if (newYearFrom && current.yearTo && parseInt(newYearFrom) > parseInt(current.yearTo)) {
+                                        if (newYearFrom && current.yearTo && parseInt(newYearFrom, 10) > parseInt(current.yearTo, 10)) {
                                             return { ...current, yearFrom: newYearFrom, yearTo: "" };
                                         }
                                         return { ...current, yearFrom: newYearFrom };
@@ -638,7 +647,7 @@ export default function HomeSearchBox() {
                                     onChange={(value) => setFilters((current) => {
                                         const newYearTo = value;
                                         // Si yearTo < yearFrom, limpiar yearFrom
-                                        if (newYearTo && current.yearFrom && parseInt(newYearTo) < parseInt(current.yearFrom)) {
+                                        if (newYearTo && current.yearFrom && parseInt(newYearTo, 10) < parseInt(current.yearFrom, 10)) {
                                             return { ...current, yearTo: newYearTo, yearFrom: "" };
                                         }
                                         return { ...current, yearTo: newYearTo };
