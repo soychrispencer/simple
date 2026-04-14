@@ -737,6 +737,8 @@ const FALLBACK_COMMUNES: CatalogCommune[] = [
     { id: 'll-castro', regionId: 'cl-10', name: 'Castro' },
 ];
 
+const FALLBACK_VERSIONS: CatalogVersion[] = [];
+
 const CATALOG_PATHS = [
     '/seeds/simpleautos-catalog.json',
     '/seeds/autos-catalog.json',
