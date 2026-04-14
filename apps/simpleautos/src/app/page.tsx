@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import { Suspense, useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import {
     IconArrowRight,
     IconSparkles,
@@ -372,7 +372,9 @@ export default function HomePage() {
                 </div>
 
                 <div className="relative z-11 -mt-12 md:-mt-16">
-                    <HomeSearchBox />
+                    <Suspense fallback={<div className="h-20 animate-pulse" style={{ background: 'var(--bg-muted)', borderRadius: '12px' }} />}>
+                        <HomeSearchBox />
+                    </Suspense>
                 </div>
 
                 <div className="container-app pt-8 pb-10">
