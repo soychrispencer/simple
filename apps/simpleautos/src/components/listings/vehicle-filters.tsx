@@ -334,8 +334,8 @@ export default function VehicleFilters({ currentVehicleType = '' }: VehicleFilte
                 {/* Contenido de filtros - visible en desktop, expandible en móvil */}
                 <div className={`space-y-4 ${isExpanded ? 'block' : 'hidden sm:block'}`}>
                     {/* Búsqueda */}
-                    <div>
-                        <label className="block text-xs mb-2" style={{ color: 'var(--fg-secondary)' }}>Buscar</label>
+                    <div className="space-y-1.5">
+                        <label className="block text-xs font-medium" style={{ color: 'var(--fg-secondary)' }}>Buscar</label>
                         <input
                             type="text"
                             value={query}
@@ -347,8 +347,8 @@ export default function VehicleFilters({ currentVehicleType = '' }: VehicleFilte
                     </div>
 
                 {/* Tipo de vehículo */}
-                <div>
-                    <label className="block text-xs mb-2" style={{ color: 'var(--fg-secondary)' }}>Tipo de vehículo</label>
+                <div className="space-y-1.5">
+                    <label className="block text-xs font-medium" style={{ color: 'var(--fg-secondary)' }}>Tipo de vehículo</label>
                     <ModernSelect
                         value={vehicleType}
                         onChange={(value) => {
@@ -364,8 +364,8 @@ export default function VehicleFilters({ currentVehicleType = '' }: VehicleFilte
                 </div>
 
                 {/* Marca */}
-                <div>
-                    <label className="block text-xs mb-2" style={{ color: 'var(--fg-secondary)' }}>Marca</label>
+                <div className="space-y-1.5">
+                    <label className="block text-xs font-medium" style={{ color: 'var(--fg-secondary)' }}>Marca</label>
                     <ModernSelect
                         value={brand}
                         onChange={setBrand}
@@ -377,8 +377,8 @@ export default function VehicleFilters({ currentVehicleType = '' }: VehicleFilte
                 </div>
 
                 {/* Modelo */}
-                <div>
-                    <label className="block text-xs mb-2" style={{ color: 'var(--fg-secondary)' }}>Modelo</label>
+                <div className="space-y-1.5">
+                    <label className="block text-xs font-medium" style={{ color: 'var(--fg-secondary)' }}>Modelo</label>
                     <ModernSelect
                         value={model}
                         onChange={setModel}
@@ -391,8 +391,8 @@ export default function VehicleFilters({ currentVehicleType = '' }: VehicleFilte
                 </div>
 
                 {/* Región */}
-                <div>
-                    <label className="block text-xs mb-2" style={{ color: 'var(--fg-secondary)' }}>Región</label>
+                <div className="space-y-1.5">
+                    <label className="block text-xs font-medium" style={{ color: 'var(--fg-secondary)' }}>Región</label>
                     <ModernSelect
                         value={region}
                         onChange={(value) => {
@@ -407,8 +407,8 @@ export default function VehicleFilters({ currentVehicleType = '' }: VehicleFilte
                 </div>
 
                 {/* Comuna */}
-                <div>
-                    <label className="block text-xs mb-2" style={{ color: 'var(--fg-secondary)' }}>Comuna</label>
+                <div className="space-y-1.5">
+                    <label className="block text-xs font-medium" style={{ color: 'var(--fg-secondary)' }}>Comuna</label>
                     <ModernSelect
                         value={commune}
                         onChange={setCommune}
@@ -422,8 +422,8 @@ export default function VehicleFilters({ currentVehicleType = '' }: VehicleFilte
 
                 {/* Precio */}
                 <div className="grid grid-cols-2 gap-2">
-                    <div>
-                        <label className="block text-xs mb-2" style={{ color: 'var(--fg-secondary)' }}>Precio desde</label>
+                    <div className="space-y-1.5">
+                        <label className="block text-xs font-medium" style={{ color: 'var(--fg-secondary)' }}>Precio desde</label>
                         <input
                             type="number"
                             min="0"
@@ -435,8 +435,8 @@ export default function VehicleFilters({ currentVehicleType = '' }: VehicleFilte
                             style={{ borderColor: 'var(--border)', background: 'var(--bg-subtle)', color: 'var(--fg)' }}
                         />
                     </div>
-                    <div>
-                        <label className="block text-xs mb-2" style={{ color: 'var(--fg-secondary)' }}>Precio hasta</label>
+                    <div className="space-y-1.5">
+                        <label className="block text-xs font-medium" style={{ color: 'var(--fg-secondary)' }}>Precio hasta</label>
                         <input
                             type="number"
                             min="0"
@@ -452,8 +452,8 @@ export default function VehicleFilters({ currentVehicleType = '' }: VehicleFilte
 
                 {/* Año */}
                 <div className="grid grid-cols-2 gap-2">
-                    <div>
-                        <label className="block text-xs mb-2" style={{ color: 'var(--fg-secondary)' }}>Año desde</label>
+                    <div className="space-y-1.5">
+                        <label className="block text-xs font-medium" style={{ color: 'var(--fg-secondary)' }}>Año desde</label>
                         <input
                             type="number"
                             min="1900"
@@ -466,8 +466,8 @@ export default function VehicleFilters({ currentVehicleType = '' }: VehicleFilte
                             style={{ borderColor: 'var(--border)', background: 'var(--bg-subtle)', color: 'var(--fg)' }}
                         />
                     </div>
-                    <div>
-                        <label className="block text-xs mb-2" style={{ color: 'var(--fg-secondary)' }}>Año hasta</label>
+                    <div className="space-y-1.5">
+                        <label className="block text-xs font-medium" style={{ color: 'var(--fg-secondary)' }}>Año hasta</label>
                         <input
                             type="number"
                             min="1900"
@@ -483,8 +483,8 @@ export default function VehicleFilters({ currentVehicleType = '' }: VehicleFilte
                 </div>
 
                 {/* Combustible */}
-                <div>
-                    <label className="block text-xs mb-2" style={{ color: 'var(--fg-secondary)' }}>Combustible</label>
+                <div className="space-y-1.5">
+                    <label className="block text-xs font-medium" style={{ color: 'var(--fg-secondary)' }}>Combustible</label>
                     <ModernSelect
                         value={fuel}
                         onChange={setFuel}
@@ -497,8 +497,8 @@ export default function VehicleFilters({ currentVehicleType = '' }: VehicleFilte
 
                 {/* Filtros específicos para motos */}
                 {vehicleType === 'motorcycle' && (
-                    <div>
-                        <label className="block text-xs mb-2" style={{ color: 'var(--fg-secondary)' }}>Tipo de moto</label>
+                    <div className="space-y-1.5">
+                        <label className="block text-xs font-medium" style={{ color: 'var(--fg-secondary)' }}>Tipo de moto</label>
                         <ModernSelect
                             value={motorcycleType}
                             onChange={setMotorcycleType}
@@ -513,8 +513,8 @@ export default function VehicleFilters({ currentVehicleType = '' }: VehicleFilte
                 {/* Filtros específicos para camiones */}
                 {vehicleType === 'truck' && (
                     <div className="space-y-3">
-                        <div>
-                            <label className="block text-xs mb-2" style={{ color: 'var(--fg-secondary)' }}>Tipo de camión</label>
+                        <div className="space-y-1.5">
+                            <label className="block text-xs font-medium" style={{ color: 'var(--fg-secondary)' }}>Tipo de camión</label>
                             <ModernSelect
                                 value={truckType}
                                 onChange={setTruckType}
@@ -524,8 +524,8 @@ export default function VehicleFilters({ currentVehicleType = '' }: VehicleFilte
                                 triggerClassName="h-9"
                             />
                         </div>
-                        <div>
-                            <label className="block text-xs mb-2" style={{ color: 'var(--fg-secondary)' }}>Tipo de carrocería</label>
+                        <div className="space-y-1.5">
+                            <label className="block text-xs font-medium" style={{ color: 'var(--fg-secondary)' }}>Tipo de carrocería</label>
                             <ModernSelect
                                 value={truckBodyType}
                                 onChange={setTruckBodyType}
@@ -540,8 +540,8 @@ export default function VehicleFilters({ currentVehicleType = '' }: VehicleFilte
 
                 {/* Filtros específicos para buses */}
                 {vehicleType === 'bus' && (
-                    <div>
-                        <label className="block text-xs mb-2" style={{ color: 'var(--fg-secondary)' }}>Tipo de bus</label>
+                    <div className="space-y-1.5">
+                        <label className="block text-xs font-medium" style={{ color: 'var(--fg-secondary)' }}>Tipo de bus</label>
                         <ModernSelect
                             value={busType}
                             onChange={setBusType}
@@ -555,8 +555,8 @@ export default function VehicleFilters({ currentVehicleType = '' }: VehicleFilte
 
                 {/* Filtros específicos para maquinaria */}
                 {vehicleType === 'machinery' && (
-                    <div>
-                        <label className="block text-xs mb-2" style={{ color: 'var(--fg-secondary)' }}>Tipo de maquinaria</label>
+                    <div className="space-y-1.5">
+                        <label className="block text-xs font-medium" style={{ color: 'var(--fg-secondary)' }}>Tipo de maquinaria</label>
                         <ModernSelect
                             value={machineryType}
                             onChange={setMachineryType}
@@ -570,8 +570,8 @@ export default function VehicleFilters({ currentVehicleType = '' }: VehicleFilte
 
                 {/* Filtros específicos para náutica */}
                 {vehicleType === 'nautical' && (
-                    <div>
-                        <label className="block text-xs mb-2" style={{ color: 'var(--fg-secondary)' }}>Tipo de embarcación</label>
+                    <div className="space-y-1.5">
+                        <label className="block text-xs font-medium" style={{ color: 'var(--fg-secondary)' }}>Tipo de embarcación</label>
                         <ModernSelect
                             value={nauticalType}
                             onChange={setNauticalType}
@@ -585,8 +585,8 @@ export default function VehicleFilters({ currentVehicleType = '' }: VehicleFilte
 
                 {/* Filtros específicos para aéreos */}
                 {vehicleType === 'aerial' && (
-                    <div>
-                        <label className="block text-xs mb-2" style={{ color: 'var(--fg-secondary)' }}>Tipo de aeronave</label>
+                    <div className="space-y-1.5">
+                        <label className="block text-xs font-medium" style={{ color: 'var(--fg-secondary)' }}>Tipo de aeronave</label>
                         <ModernSelect
                             value={aerialType}
                             onChange={setAerialType}
