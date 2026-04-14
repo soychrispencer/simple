@@ -374,7 +374,7 @@ export default function HomeSearchBox() {
                             ) : null}
                         </div>
 
-                        <div className="md:w-40">
+                        <div className="md:w-56">
                             <ModernSelect
                                 value={filters.region}
                                 onChange={(value) => {
@@ -388,7 +388,7 @@ export default function HomeSearchBox() {
                             />
                         </div>
 
-                        <div className="md:w-40">
+                        <div className="md:w-56">
                             <ModernSelect
                                 value={filters.commune}
                                 onChange={(value) => setFilters((current) => ({ ...current, commune: value }))}
