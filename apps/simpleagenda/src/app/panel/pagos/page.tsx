@@ -1,19 +1,22 @@
 'use client';
 
 import { useEffect, useState, useCallback } from 'react';
-import {
-    IconCreditCard,
-    IconPlus,
-    IconLoader2,
-    IconCheck,
-    IconX,
-    IconCash,
-    IconBuildingBank,
+import { 
+    IconCreditCard, 
+    IconPlus, 
+    IconLoader2, 
+    IconCheck, 
+    IconX, 
+    IconCash, 
+    IconBuildingBank, 
+    IconEdit, 
+    IconTrash 
 } from '@tabler/icons-react';
 import {
     fetchAgendaPayments,
     createAgendaPayment,
     patchAgendaPayment,
+    deleteAgendaPayment,
     fetchAgendaClients,
     fetchAgendaAppointments,
     type AgendaPayment,
@@ -51,6 +54,13 @@ export default function PagosPage() {
     const [loading, setLoading] = useState(true);
     const [showCreate, setShowCreate] = useState(false);
     const [markingPaid, setMarkingPaid] = useState<string | null>(null);
+    const [deletingId, setDeletingId] = useState<string | null>(null);
+    const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+    const [editingPayment, setEditingPayment] = useState<AgendaPayment | null>(null);
+    const [editAmount, setEditAmount] = useState('');
+    const [editMethod, setEditMethod] = useState('transfer');
+    const [editNotes, setEditNotes] = useState('');
+    const [editSaving, setEditSaving] = useState(false);
 
     const [form, setForm] = useState({
         clientId: '',
@@ -98,6 +108,41 @@ export default function PagosPage() {
         await load();
     };
 
+    const handleOpenEdit = (payment: AgendaPayment) => {
+        setEditingPayment(payment);
+        setEditAmount(String(payment.amount));
+        setEditMethod(payment.method ?? 'transfer');
+        setEditNotes(payment.notes ?? '');
+    };
+
+    const handleSaveEdit = async () => {
+        if (!editingPayment) return;
+        if (!editAmount || Number(editAmount) <= 0) return;
+        setEditSaving(true);
+        try {
+            await patchAgendaPayment(editingPayment.id, {
+                amount: editAmount,
+                method: editMethod,
+                notes: editNotes || undefined,
+            });
+            setEditingPayment(null);
+            await load();
+        } finally {
+            setEditSaving(false);
+        }
+    };
+
+    const handleDelete = async (id: string) => {
+        setDeletingId(id);
+        try {
+            await deleteAgendaPayment(id);
+            setConfirmDeleteId(null);
+            await load();
+        } finally {
+            setDeletingId(null);
+        }
+    };
+
     const handleCreate = async () => {
         setCreateError('');
         if (!form.amount || Number(form.amount) <= 0) {
@@ -105,26 +150,30 @@ export default function PagosPage() {
             return;
         }
         setCreating(true);
+        try {
+            // If appointment selected, pre-fill client
+            let clientId = form.clientId;
+            if (form.appointmentId && !clientId) {
+                const appt = appointments.find((a) => a.id === form.appointmentId);
+                if (appt?.clientId) clientId = appt.clientId;
+            }
 
-        // If appointment selected, pre-fill client
-        let clientId = form.clientId;
-        if (form.appointmentId && !clientId) {
-            const appt = appointments.find((a) => a.id === form.appointmentId);
-            if (appt?.clientId) clientId = appt.clientId;
+            await createAgendaPayment({
+                clientId: clientId || undefined,
+                appointmentId: form.appointmentId || undefined,
+                amount: form.amount,
+                method: form.method,
+                notes: form.notes || undefined,
+                status: form.status,
+            } as Partial<AgendaPayment>);
+            setShowCreate(false);
+            setForm({ clientId: '', appointmentId: '', amount: '', method: 'transfer', notes: '', status: 'pending' });
+            await load();
+        } catch {
+            setCreateError('Error de conexión. Intenta nuevamente.');
+        } finally {
+            setCreating(false);
         }
-
-        await createAgendaPayment({
-            clientId: clientId || undefined,
-            appointmentId: form.appointmentId || undefined,
-            amount: form.amount,
-            method: form.method,
-            notes: form.notes || undefined,
-            status: form.status,
-        } as Partial<AgendaPayment>);
-        setCreating(false);
-        setShowCreate(false);
-        setForm({ clientId: '', appointmentId: '', amount: '', method: 'transfer', notes: '', status: 'pending' });
-        await load();
     };
 
     const clientName = (clientId: string | null) => {
@@ -239,19 +288,55 @@ export default function PagosPage() {
                                 </p>
                             </div>
 
-                            {payment.status === 'pending' && (
+                            <div className="flex items-center gap-2 shrink-0">
+                                {payment.status === 'pending' && (
+                                    <button
+                                        onClick={() => void handleMarkPaid(payment)}
+                                        disabled={markingPaid === payment.id}
+                                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-opacity hover:opacity-90 disabled:opacity-60"
+                                        style={{ background: 'var(--accent)', color: '#fff' }}
+                                    >
+                                        {markingPaid === payment.id ? <IconLoader2 size={12} className="animate-spin" /> : <IconCheck size={12} />}
+                                        Pagado
+                                    </button>
+                                )}
                                 <button
-                                    onClick={() => void handleMarkPaid(payment)}
-                                    disabled={markingPaid === payment.id}
-                                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-opacity hover:opacity-90 disabled:opacity-60 shrink-0"
-                                    style={{ background: 'var(--accent)', color: '#fff' }}
+                                    onClick={() => handleOpenEdit(payment)}
+                                    className="w-7 h-7 rounded-lg flex items-center justify-center border transition-colors hover:bg-(--bg-subtle)"
+                                    style={{ borderColor: 'var(--border)', color: 'var(--fg-secondary)' }}
+                                    title="Editar cobro"
                                 >
-                                    {markingPaid === payment.id
-                                        ? <IconLoader2 size={12} className="animate-spin" />
-                                        : <IconCheck size={12} />}
-                                    Marcar pagado
+                                    <IconEdit size={13} />
                                 </button>
-                            )}
+                                {confirmDeleteId === payment.id ? (
+                                    <div className="flex items-center gap-1">
+                                        <button
+                                            onClick={() => void handleDelete(payment.id)}
+                                            disabled={deletingId === payment.id}
+                                            className="px-2 py-1 rounded-lg text-xs font-semibold transition-opacity hover:opacity-90"
+                                            style={{ background: '#EF4444', color: '#fff' }}
+                                        >
+                                            {deletingId === payment.id ? <IconLoader2 size={11} className="animate-spin" /> : 'Eliminar'}
+                                        </button>
+                                        <button
+                                            onClick={() => setConfirmDeleteId(null)}
+                                            className="px-2 py-1 rounded-lg text-xs border"
+                                            style={{ borderColor: 'var(--border)', color: 'var(--fg-secondary)' }}
+                                        >
+                                            No
+                                        </button>
+                                    </div>
+                                ) : (
+                                    <button
+                                        onClick={() => setConfirmDeleteId(payment.id)}
+                                        className="w-7 h-7 rounded-lg flex items-center justify-center border transition-colors hover:bg-red-500/10 hover:border-red-500/40"
+                                        style={{ borderColor: 'var(--border)', color: 'var(--fg-muted)' }}
+                                        title="Eliminar cobro"
+                                    >
+                                        <IconTrash size={13} />
+                                    </button>
+                                )}
+                            </div>
                         </div>
                     ))}
                 </div>
@@ -420,19 +505,87 @@ export default function PagosPage() {
                 </div>
             )}
 
-            <style>{`
-                .field-input {
-                    width: 100%;
-                    padding: 0.5rem 0.75rem;
-                    border-radius: 0.75rem;
-                    border: 1px solid var(--border);
-                    background: var(--bg);
-                    color: var(--fg);
-                    font-size: 0.875rem;
-                    outline: none;
-                }
-                .field-input:focus { border-color: var(--accent); }
-            `}</style>
+            {/* Edit payment modal */}
+            {editingPayment && (
+                <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4">
+                    <button className="absolute inset-0 bg-black/40 backdrop-blur-[2px]" onClick={() => setEditingPayment(null)} />
+                    <div
+                        className="relative w-full max-w-sm rounded-2xl border p-5"
+                        style={{ background: 'var(--surface)', borderColor: 'var(--border)', boxShadow: 'var(--shadow-md)' }}
+                    >
+                        <div className="flex items-center justify-between mb-5">
+                            <h2 className="text-base font-semibold" style={{ color: 'var(--fg)' }}>Editar cobro</h2>
+                            <button
+                                onClick={() => setEditingPayment(null)}
+                                className="w-7 h-7 rounded-lg flex items-center justify-center border transition-colors hover:bg-(--bg-subtle)"
+                                style={{ borderColor: 'var(--border)', color: 'var(--fg-muted)' }}
+                            >
+                                <IconX size={14} />
+                            </button>
+                        </div>
+                        <div className="flex flex-col gap-4">
+                            <div className="flex flex-col gap-1.5">
+                                <label className="text-xs font-medium" style={{ color: 'var(--fg-muted)' }}>Monto (CLP) *</label>
+                                <input
+                                    type="number"
+                                    min={0}
+                                    value={editAmount}
+                                    onChange={(e) => setEditAmount(e.target.value)}
+                                    className="field-input"
+                                />
+                            </div>
+                            <div className="flex flex-col gap-1.5">
+                                <label className="text-xs font-medium" style={{ color: 'var(--fg-muted)' }}>Método</label>
+                                <div className="grid grid-cols-2 gap-2">
+                                    {(['transfer', 'cash', 'card', 'mercadopago'] as const).map((m) => (
+                                        <button
+                                            key={m}
+                                            onClick={() => setEditMethod(m)}
+                                            className="py-2 px-3 rounded-xl border text-xs transition-colors"
+                                            style={{
+                                                borderColor: editMethod === m ? 'var(--accent)' : 'var(--border)',
+                                                color: editMethod === m ? 'var(--accent)' : 'var(--fg-secondary)',
+                                                fontWeight: editMethod === m ? 600 : 400,
+                                            }}
+                                        >
+                                            {METHOD_LABELS[m]}
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+                            <div className="flex flex-col gap-1.5">
+                                <label className="text-xs font-medium" style={{ color: 'var(--fg-muted)' }}>Nota interna (opcional)</label>
+                                <input
+                                    type="text"
+                                    value={editNotes}
+                                    onChange={(e) => setEditNotes(e.target.value)}
+                                    placeholder="Ej: sesión 3, abono"
+                                    className="field-input"
+                                />
+                            </div>
+                            <div className="flex gap-3 pt-2 border-t" style={{ borderColor: 'var(--border)' }}>
+                                <button
+                                    onClick={() => void handleSaveEdit()}
+                                    disabled={editSaving || !editAmount || Number(editAmount) <= 0}
+                                    className="flex-1 inline-flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-semibold transition-opacity hover:opacity-90 disabled:opacity-60"
+                                    style={{ background: 'var(--accent)', color: '#fff' }}
+                                >
+                                    {editSaving && <IconLoader2 size={14} className="animate-spin" />}
+                                    {editSaving ? 'Guardando...' : 'Guardar cambios'}
+                                </button>
+                                <button
+                                    onClick={() => setEditingPayment(null)}
+                                    className="px-4 py-2.5 rounded-xl text-sm border transition-colors hover:bg-(--bg-subtle)"
+                                    style={{ borderColor: 'var(--border)', color: 'var(--fg-secondary)' }}
+                                >
+                                    Cancelar
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+
         </div>
     );
 }

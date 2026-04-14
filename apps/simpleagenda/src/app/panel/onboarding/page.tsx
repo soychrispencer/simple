@@ -24,7 +24,7 @@ import {
 } from '@/lib/agenda-api';
 import { vocab } from '@/lib/vocabulary';
 
-const DURATIONS = [30, 45, 50, 60, 90, 120];
+const DURATIONS = [15, 20, 25, 30, 45, 50, 60, 90, 120];
 const DAYS = [
     { value: 1, label: 'Lu' },
     { value: 2, label: 'Ma' },
@@ -35,9 +35,9 @@ const DAYS = [
     { value: 0, label: 'Do' },
 ];
 const TIME_OPTIONS: string[] = [];
-for (let h = 7; h <= 22; h++) {
+for (let h = 6; h <= 23; h++) {
     TIME_OPTIONS.push(`${String(h).padStart(2, '0')}:00`);
-    if (h < 22) TIME_OPTIONS.push(`${String(h).padStart(2, '0')}:30`);
+    if (h < 23) TIME_OPTIONS.push(`${String(h).padStart(2, '0')}:30`);
 }
 
 const STEPS = [
@@ -81,7 +81,7 @@ export default function OnboardingPage() {
         void (async () => {
             const profile = await fetchAgendaProfile();
             if (profile?.displayName && profile?.profession) {
-                router.replace('/panel/configuracion');
+                router.replace('/panel');
                 return;
             }
             if (profile) {

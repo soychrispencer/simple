@@ -1,4 +1,4 @@
-const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000';
+import { API_BASE } from './api-config';
 
 export type PublicListingSection = 'sale' | 'rent' | 'auction';
 
@@ -122,9 +122,31 @@ async function apiRequest<T>(path: string): Promise<T | null> {
     }
 }
 
-export async function fetchPublicListings(section?: PublicListingSection): Promise<PublicListing[]> {
-    const suffix = section ? `&section=${encodeURIComponent(section)}` : '';
-    const data = await apiRequest<ListingsResponse>(`/api/public/listings?vertical=autos${suffix}`);
+export type PublicListingsFilters = {
+    q?: string;
+    region?: string;
+    price?: string;
+    brand?: string;
+    year_from?: string;
+    year_to?: string;
+    fuel?: string;
+    transmission?: string;
+};
+
+export async function fetchPublicListings(section?: PublicListingSection, filters?: PublicListingsFilters): Promise<PublicListing[]> {
+    const params = new URLSearchParams();
+    params.set('vertical', 'autos');
+    if (section) params.set('section', section);
+    if (filters?.q) params.set('q', filters.q);
+    if (filters?.region) params.set('region', filters.region);
+    if (filters?.price) params.set('price', filters.price);
+    if (filters?.brand) params.set('brand', filters.brand);
+    if (filters?.year_from) params.set('year_from', filters.year_from);
+    if (filters?.year_to) params.set('year_to', filters.year_to);
+    if (filters?.fuel) params.set('fuel', filters.fuel);
+    if (filters?.transmission) params.set('transmission', filters.transmission);
+
+    const data = await apiRequest<ListingsResponse>(`/api/public/listings?${params.toString()}`);
     return Array.isArray(data?.items) ? data.items : [];
 }
 

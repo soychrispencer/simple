@@ -94,6 +94,13 @@ const BASE_SLIDES: HeroSlide[] = [
 
 const EMPTY_CARD_ADS = getCardAdPlaceholders();
 
+const FEATURES = [
+    { icon: <IconShieldCheck size={20} />, t: 'Verificado', d: 'Todas las publicaciones pasan por moderación.' },
+    { icon: <IconClock size={20} />, t: 'Rápido', d: 'Publica en menos de 3 minutos.' },
+    { icon: <IconTrendingUp size={20} />, t: 'Boost', d: 'Destaca tus publicaciones y multiplica visitas.' },
+    { icon: <IconUsers size={20} />, t: 'Comunidad', d: 'Miles de compradores y vendedores activos.' },
+];
+
 function campaignToSlide(campaign: AdCampaign): HeroSlide {
     return {
         id: campaign.id,
@@ -127,28 +134,26 @@ export default function HomePage() {
     const dragDeltaXRef = useRef(0);
     const suppressClickRef = useRef(false);
 
-    const reloadSlides = useCallback(() => {
-        void (async () => {
-            const campaigns = await fetchPublicAdCampaigns();
-            const activeHeroSlides = getActiveHeroCampaigns(campaigns).map(campaignToSlide);
-            const activeCardAds = getActiveCampaignsByFormat(campaigns, 'card')
-                .slice(0, 3)
-                .map((campaign) => ({
-                    id: campaign.id,
-                    href: getCampaignDestinationHref(campaign),
-                    external:
-                        getCampaignDestinationHref(campaign).startsWith('http://') ||
-                        getCampaignDestinationHref(campaign).startsWith('https://'),
-                    title: campaign.overlayTitle?.trim() || '',
-                    subtitle: campaign.overlaySubtitle?.trim() || '',
-                    cta: campaign.overlayCta?.trim() || '',
-                    imageUrl: campaign.desktopImageDataUrl,
-                    mobileImageUrl: campaign.mobileImageDataUrl ?? undefined,
-                    overlayEnabled: campaign.overlayEnabled,
-                }));
-            setSlides([...activeHeroSlides, ...BASE_SLIDES]);
-            setCardAds(activeCardAds);
-        })();
+    const reloadSlides = useCallback(async () => {
+        const campaigns = await fetchPublicAdCampaigns();
+        const activeHeroSlides = getActiveHeroCampaigns(campaigns).map(campaignToSlide);
+        const activeCardAds = getActiveCampaignsByFormat(campaigns, 'card')
+            .slice(0, 3)
+            .map((campaign) => ({
+                id: campaign.id,
+                href: getCampaignDestinationHref(campaign),
+                external:
+                    getCampaignDestinationHref(campaign).startsWith('http://') ||
+                    getCampaignDestinationHref(campaign).startsWith('https://'),
+                title: campaign.overlayTitle?.trim() || '',
+                subtitle: campaign.overlaySubtitle?.trim() || '',
+                cta: campaign.overlayCta?.trim() || '',
+                imageUrl: campaign.desktopImageDataUrl,
+                mobileImageUrl: campaign.mobileImageDataUrl ?? undefined,
+                overlayEnabled: campaign.overlayEnabled,
+            }));
+        setSlides([...activeHeroSlides, ...BASE_SLIDES]);
+        setCardAds(activeCardAds);
     }, []);
 
     useEffect(() => {
@@ -378,7 +383,7 @@ export default function HomePage() {
                                 return (
                                     <article
                                         key={`empty-slot-${slotIndex}`}
-                                        className="relative overflow-hidden rounded-xl min-h-42.5"
+                                        className="relative overflow-hidden rounded-xl min-h-40"
                                         style={{
                                             border: '1px solid var(--border)',
                                             background: `linear-gradient(to right, rgba(0,0,0,0.58), rgba(0,0,0,0.24)), url(${placeholder.imageUrl}) center / cover no-repeat`,
@@ -399,7 +404,7 @@ export default function HomePage() {
                             return (
                                 <article
                                     key={ad.id}
-                                    className="relative rounded-xl overflow-hidden min-h-42.5"
+                                    className="relative rounded-xl overflow-hidden min-h-40"
                                     style={{ border: '1px solid var(--border)', background: image ? `linear-gradient(to right, rgba(0,0,0,0.45), rgba(0,0,0,0.2)), url(${image}) center / cover no-repeat` : 'var(--bg-muted)' }}
                                 >
                                     {hasLink ? (
@@ -434,12 +439,7 @@ export default function HomePage() {
                 <h2 className="text-2xl md:text-3xl font-semibold text-center mb-4" style={{ color: 'var(--fg)' }}>¿Por qué Simple?</h2>
                 <p className="text-center text-base mb-12" style={{ color: 'var(--fg-muted)' }}>La plataforma que simplifica cada paso.</p>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                    {[ 
-                        { icon: <IconShieldCheck size={20} />, t: 'Verificado', d: 'Todas las publicaciones pasan por moderación.' },
-                        { icon: <IconClock size={20} />, t: 'Rápido', d: 'Publica en menos de 3 minutos.' },
-                        { icon: <IconTrendingUp size={20} />, t: 'Boost', d: 'Destaca tus publicaciones y multiplica visitas.' },
-                        { icon: <IconUsers size={20} />, t: 'Comunidad', d: 'Miles de compradores y vendedores activos.' },
-                    ].map((feature) => (
+                    {FEATURES.map((feature) => (
                         <PanelCard key={feature.t} size="md" className="h-full">
                             <div className="mb-3" style={{ color: 'var(--fg-muted)' }}>{feature.icon}</div>
                             <h3 className="text-base font-semibold mb-1.5" style={{ color: 'var(--fg)' }}>{feature.t}</h3>
@@ -454,8 +454,8 @@ export default function HomePage() {
                     <h2 className="text-3xl md:text-4xl font-semibold mb-4" style={{ color: 'var(--fg)' }}>¿Listo para empezar?</h2>
                     <p className="text-base mb-8" style={{ color: 'var(--fg-muted)' }}>Publica gratis o deja que nos encarguemos con venta asistida.</p>
                     <div className="flex items-center justify-center gap-3">
-                        <Link href="/panel/publicar" className={getPanelButtonClassName({ className: 'h-12 px-8 text-sm' })} style={getPanelButtonStyle('primary')}>Publicar gratis</Link>
-                        <Link href="/servicios/venta-asistida" className={getPanelButtonClassName({ className: 'h-12 px-8 text-sm' })} style={getPanelButtonStyle('secondary')}>Venta asistida</Link>
+                        <Link href="/panel/publicar" aria-label="Publicar vehículo gratis" className={getPanelButtonClassName({ className: 'h-12 px-8 text-sm' })} style={getPanelButtonStyle('primary')}>Publicar gratis</Link>
+                        <Link href="/servicios/venta-asistida" aria-label="Solicitar venta asistida" className={getPanelButtonClassName({ className: 'h-12 px-8 text-sm' })} style={getPanelButtonStyle('secondary')}>Venta asistida</Link>
                     </div>
                 </div>
             </section>

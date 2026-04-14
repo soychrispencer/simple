@@ -13,7 +13,7 @@ export type SubscriptionPlan = {
   name: string;
   description: string;
   priceMonthly: number;
-  priceYearly: number;
+  priceYearly?: number;
   currency: string;
   features: string[];
   maxListings?: number;
@@ -50,7 +50,7 @@ export type SubscriptionCatalogResponse = {
 };
 
 export type CheckoutStartInput = {
-  planId: 'free' | 'basic' | 'pro' | 'enterprise';
+  planId: 'free' | 'pro' | 'enterprise';
   returnUrl: string;
 };
 

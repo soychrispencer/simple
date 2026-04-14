@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import { IconBrandInstagram, IconExternalLink, IconLoader2, IconPlugConnected, IconTrash, IconBrain, IconChartDots3, IconTestPipe, IconClock } from '@tabler/icons-react';
 import { PanelBlockHeader, PanelButton, PanelCard, PanelNotice, PanelStatusBadge, PanelSwitch } from '@simple/ui';
 import {
@@ -185,9 +186,11 @@ export default function InstagramIntegrationCard() {
                         <div className="flex items-start justify-between gap-3 flex-wrap">
                             <div className="flex items-center gap-3">
                                 {status.account.profilePictureUrl ? (
-                                    <img
+                                    <Image
                                         src={status.account.profilePictureUrl}
                                         alt={status.account.username}
+                                        width={48}
+                                        height={48}
                                         className="h-12 w-12 rounded-full border object-cover"
                                         style={{ borderColor: 'var(--border)' }}
                                     />

@@ -5,6 +5,7 @@ import { useSearchParams } from 'next/navigation';
 import { IconCheck, IconCreditCard, IconLoader2, IconAlertCircle, IconX } from '@tabler/icons-react';
 import { PanelBlockHeader, PanelButton, PanelCard, PanelNotice, PanelStatusBadge } from '@simple/ui';
 import {
+  cancelSubscription,
   confirmCheckout,
   fetchSubscriptionCatalog,
   startSubscriptionCheckout,
@@ -12,9 +13,7 @@ import {
   type PaymentOrderView,
   type SubscriptionPlan,
 } from '@/lib/payments';
-import { fetchAgendaProfile, isPlanActive } from '@/lib/agenda-api';
-
-const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000';
+import { fetchAgendaProfile } from '@/lib/agenda-api';
 
 function formatMoney(value: number): string {
   return value.toLocaleString('es-CL');
@@ -39,7 +38,7 @@ function subscriptionLabel(status: PaymentOrderStatus): string {
 
 const PLAN_NAMES: Record<string, string> = {
   free: 'Gratuito',
-  pro: 'Profesional',
+  pro: 'Pro',
   enterprise: 'Empresa',
 };
 
@@ -70,11 +69,7 @@ function AgendaPlanCard() {
     setCancelling(true);
     setCancelError('');
     try {
-      const res = await fetch(`${API_BASE}/api/agenda/subscription/cancel`, {
-        method: 'POST',
-        credentials: 'include',
-      });
-      const data = await res.json() as { ok: boolean; error?: string };
+        const data = await cancelSubscription();
       if (!data.ok) { setCancelError(data.error ?? 'Error al cancelar'); setCancelling(false); return; }
       setCancelSuccess(true);
       setAgendaPlan('free');
@@ -88,7 +83,7 @@ function AgendaPlanCard() {
   };
 
   const isPaid = agendaPlan !== 'free';
-  const isExpired = agendaPlan === 'pro' && planExpiresAt != null && new Date(planExpiresAt) < new Date();
+  const isExpired = (agendaPlan === 'pro' || agendaPlan === 'enterprise') && planExpiresAt != null && new Date(planExpiresAt) < new Date();
   const isActive = isPaid && !isExpired;
   const planName = PLAN_NAMES[agendaPlan] ?? agendaPlan;
   const fmtDate = (iso: string) => new Date(iso).toLocaleDateString('es-CL', { day: '2-digit', month: 'long', year: 'numeric' });
@@ -122,7 +117,7 @@ function AgendaPlanCard() {
             />
           </div>
 
-          {isActive && agendaPlan === 'pro' && !confirmCancel && (
+          {isActive && isPaid && !confirmCancel && (
             <div className="mt-5 pt-4" style={{ borderTop: '1px solid var(--border)' }}>
               <button
                 onClick={() => setConfirmCancel(true)}
@@ -249,7 +244,7 @@ export default function SubscriptionManager() {
     setMessage('');
 
     const result = await startSubscriptionCheckout({
-      planId: planId as 'free' | 'basic' | 'pro' | 'enterprise',
+      planId: planId as 'free' | 'pro' | 'enterprise',
       returnUrl: `${window.location.origin}/panel/suscripciones`,
     });
 
@@ -367,8 +362,8 @@ export default function SubscriptionManager() {
             );
           })}
 
-          {/* Plan Empresa — próximamente */}
-          <article
+          {/* Plan Empresa — próximamente (solo si no está en el catálogo) */}
+          {!plans.some((p) => p.id === 'enterprise') && <article
             className="rounded-2xl border p-5 opacity-60"
             style={{ borderColor: 'var(--border)', background: 'var(--surface)', borderStyle: 'dashed' }}
           >
@@ -398,7 +393,7 @@ export default function SubscriptionManager() {
             >
               Próximamente
             </button>
-          </article>
+          </article>}
         </div>
       </PanelCard>
 

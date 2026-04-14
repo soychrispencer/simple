@@ -735,7 +735,6 @@ export function useQuickPublish() {
                 }));
             }
         } catch (error) {
-            console.error('[QuickPublish] Publication failed:', error);
             setState((prev) => ({
                 ...prev,
                 isPublishing: false,

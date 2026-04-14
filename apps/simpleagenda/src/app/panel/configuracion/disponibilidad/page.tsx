@@ -34,9 +34,9 @@ const DAYS = [
 ];
 
 const TIME_OPTIONS: string[] = [];
-for (let h = 7; h <= 22; h++) {
+for (let h = 6; h <= 23; h++) {
     TIME_OPTIONS.push(`${String(h).padStart(2, '0')}:00`);
-    if (h < 22) TIME_OPTIONS.push(`${String(h).padStart(2, '0')}:30`);
+    if (h < 23) TIME_OPTIONS.push(`${String(h).padStart(2, '0')}:30`);
 }
 
 // Default week template: Mon-Fri 9:00-18:00 with 13:00-14:00 break

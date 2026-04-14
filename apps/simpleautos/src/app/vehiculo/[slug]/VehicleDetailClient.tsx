@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import Image from 'next/image';
 import { useState, type ReactNode } from 'react';
 import { 
     IconClock, IconEye, IconHeart, IconMapPin, IconUser, 
@@ -77,7 +78,7 @@ export default function VehicleDetailClient({ item }: VehicleDetailClientProps) 
                                             activeImageIndex === idx ? 'border-[#FF3600] scale-95 shadow-lg' : 'border-transparent opacity-60 hover:opacity-100'
                                         }`}
                                     >
-                                        <img src={img} alt={`${item.title} - ${idx + 1}`} className="h-full w-full object-cover" />
+                                        <Image src={img} alt={`${item.title} - ${idx + 1}`} width={96} height={64} className="h-full w-full object-cover" />
                                     </button>
                                 ))}
                             </div>
@@ -143,9 +144,9 @@ export default function VehicleDetailClient({ item }: VehicleDetailClientProps) 
                             <PanelBlockHeader title="Valor comercial" className="mb-4" />
                             <p className="text-4xl font-black tracking-tight" style={{ color: 'var(--fg)' }}>{item.price}</p>
                             <div className="mt-5 space-y-3.5 text-sm" style={{ color: 'var(--fg-secondary)' }}>
-                                <p className="flex items-center gap-3"><IconMapPin size={18} className="text-(--fg-muted)" /> {item.location || 'Ubicación no informada'}</p>
-                                <p className="flex items-center gap-3"><IconClock size={18} className="text-(--fg-muted)" /> Activa hace {item.days} días</p>
-                                <p className="flex items-center gap-3"><IconEye size={18} className="text-(--fg-muted)" /> {item.views.toLocaleString('es-CL')} visualizaciones</p>
+                                <p className="flex items-center gap-3"><IconMapPin size={18} className="text-[var(--fg-muted)]" /> {item.location || 'Ubicación no informada'}</p>
+                                <p className="flex items-center gap-3"><IconClock size={18} className="text-[var(--fg-muted)]" /> Activa hace {item.days} días</p>
+                                <p className="flex items-center gap-3"><IconEye size={18} className="text-[var(--fg-muted)]" /> {item.views.toLocaleString('es-CL')} visualizaciones</p>
                             </div>
                         </PanelCard>
 
@@ -188,7 +189,7 @@ function SpecItem({ icon, label, value }: { icon: ReactNode; label: string; valu
     return (
         <div className="flex flex-col items-center justify-center rounded-[24px] border p-4 text-center transition-all hover:shadow-md hover:-translate-y-1" style={{ borderColor: 'var(--border)', background: 'var(--bg)' }}>
             <span className="mb-2 text-[#FF3600] scale-110">{icon}</span>
-            <span className="text-[10px] uppercase font-black tracking-[0.15em] text-(--fg-muted)">{label}</span>
+            <span className="text-[10px] uppercase font-black tracking-[0.15em] text-[var(--fg-muted)]">{label}</span>
             <p className="mt-1.5 text-sm font-bold truncate w-full" style={{ color: 'var(--fg)' }}>{value}</p>
         </div>
     );
@@ -196,7 +197,7 @@ function SpecItem({ icon, label, value }: { icon: ReactNode; label: string; valu
 
 function MetricCard(props: { icon: ReactNode; label: string; value: string }) {
     return (
-        <div className="rounded-2xl p-4 transition-colors hover:bg-(--bg-subtle)" style={{ background: 'var(--bg-muted)' }}>
+        <div className="rounded-2xl p-4 transition-colors hover:bg-[var(--bg-subtle)]" style={{ background: 'var(--bg-muted)' }}>
             <div className="flex items-center gap-2.5" style={{ color: 'var(--fg-muted)' }}>
                 {props.icon}
                 <span className="text-[10px] font-black uppercase tracking-[0.12em]">{props.label}</span>

@@ -49,6 +49,9 @@ import {
     type PanelListing,
     savePanelListingDraft,
     updatePanelListing,
+    type CreatePanelListingInput,
+    type RawDataPhoto,
+    type RawDataDiscoverVideo,
 } from '@/lib/panel-listings';
 import {
     createEmptyListingLocation,
@@ -905,8 +908,8 @@ function mergeDraft(raw: unknown): { data: WizardData; valuationEstimate: Vehicl
                 ...defaults.media,
                 ...(parsed.data.media || {}),
                 photos: Array.isArray(parsed.data.media?.photos)
-                    ? parsed.data.media.photos.map((photo) => {
-                        const p = photo as any;
+                    ? parsed.data.media.photos.map((photo): RawDataPhoto => {
+                        const p = photo as Partial<RawDataPhoto>;
                         const resolvedPreview = typeof p.previewUrl === 'string' && p.previewUrl.startsWith('http')
                             ? p.previewUrl
                             : typeof p.url === 'string' && p.url.startsWith('http')
@@ -927,7 +930,7 @@ function mergeDraft(raw: unknown): { data: WizardData; valuationEstimate: Vehicl
                     : [],
                 discoverVideo: parsed.data.media?.discoverVideo
                     ? (() => {
-                        const dv = parsed.data.media.discoverVideo as any;
+                        const dv = parsed.data.media.discoverVideo as RawDataDiscoverVideo;
                         const resolvedPreview = typeof dv.previewUrl === 'string' && dv.previewUrl.startsWith('http')
                             ? dv.previewUrl
                             : typeof dv.url === 'string' && dv.url.startsWith('http')
@@ -938,11 +941,11 @@ function mergeDraft(raw: unknown): { data: WizardData; valuationEstimate: Vehicl
                             name: dv.name,
                             dataUrl: resolvedPreview,
                             previewUrl: resolvedPreview,
-                            width: typeof dv.width === 'number' ? dv.width : 0,
-                            height: typeof dv.height === 'number' ? dv.height : 0,
-                            sizeBytes: typeof dv.sizeBytes === 'number' ? dv.sizeBytes : 0,
-                            mimeType: typeof dv.mimeType === 'string' ? dv.mimeType : 'video/mp4',
-                            durationSeconds: typeof dv.durationSeconds === 'number' ? dv.durationSeconds : 0,
+                            width: dv.width ?? 0,
+                            height: dv.height ?? 0,
+                            sizeBytes: dv.sizeBytes ?? 0,
+                            mimeType: dv.mimeType ?? 'video/mp4',
+                            durationSeconds: dv.durationSeconds ?? 0,
                         };
                     })()
                     : null,

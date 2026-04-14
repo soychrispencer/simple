@@ -77,22 +77,22 @@ export function ColorPicker({
                 {matched ? (
                     <>
                         <span className="h-3.5 w-3.5 rounded-full shrink-0" style={{ background: matched.hex, border: '1px solid rgba(0,0,0,0.18)' }} />
-                        <span className="flex-1 text-sm text-(--fg)">{matched.label}</span>
+                        <span className="flex-1 text-sm text-[var(--fg)]">{matched.label}</span>
                     </>
                 ) : value ? (
                     <>
-                        <span className="h-3.5 w-3.5 rounded-full shrink-0 bg-(--bg-muted)" style={{ border: '1px solid rgba(0,0,0,0.12)' }} />
-                        <span className="flex-1 text-sm text-(--fg)">{value}</span>
+                        <span className="h-3.5 w-3.5 rounded-full shrink-0 bg-[var(--bg-muted)]" style={{ border: '1px solid rgba(0,0,0,0.12)' }} />
+                        <span className="flex-1 text-sm text-[var(--fg)]">{value}</span>
                     </>
                 ) : (
-                    <span className="flex-1 text-sm text-(--fg-muted)">Seleccionar</span>
+                    <span className="flex-1 text-sm text-[var(--fg-muted)]">Seleccionar</span>
                 )}
                 <IconChevronDown size={13} style={{ color: 'var(--fg-muted)', flexShrink: 0, transform: open ? 'rotate(180deg)' : undefined, transition: 'transform 150ms' }} />
             </button>
 
             {/* Dropdown */}
             {open && (
-                <div className="absolute z-50 top-full left-0 right-0 mt-1 rounded-(--radius) border border-(--border) bg-(--bg) shadow-lg p-1.5">
+                <div className="absolute z-50 top-full left-0 right-0 mt-1 rounded-[var(--radius)] border border-[var(--border)] bg-[var(--bg)] shadow-lg p-1.5">
                     <div className="flex flex-col max-h-60 overflow-y-auto">
                         {VEHICLE_COLORS.map(({ label, hex }) => (
                             <button
@@ -100,7 +100,7 @@ export function ColorPicker({
                                 type="button"
                                 onClick={() => selectColor(label)}
                                 className={`flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-sm text-left transition-colors ${
-                                    value === label ? 'bg-(--bg-subtle)' : 'hover:bg-(--bg-subtle)'
+                                    value === label ? 'bg-[var(--bg-subtle)]' : 'hover:bg-[var(--bg-subtle)]'
                                 }`}
                             >
                                 <span className="h-4 w-4 rounded-full shrink-0" style={{ background: hex, border: '1px solid rgba(0,0,0,0.18)' }} />
@@ -109,11 +109,11 @@ export function ColorPicker({
                             </button>
                         ))}
                     </div>
-                    <div className="border-t border-(--border) mt-1.5 pt-1.5">
+                    <div className="border-t border-[var(--border)] mt-1.5 pt-1.5">
                         <button
                             type="button"
                             onClick={activateCustom}
-                            className={`flex items-center gap-1.5 px-2 py-1.5 rounded-lg text-xs w-full text-left transition-colors hover:bg-(--bg-subtle) ${customMode ? 'bg-(--bg-subtle)' : ''}`}
+                            className={`flex items-center gap-1.5 px-2 py-1.5 rounded-lg text-xs w-full text-left transition-colors hover:bg-[var(--bg-subtle)] ${customMode ? 'bg-[var(--bg-subtle)]' : ''}`}
                         >
                             <IconPencil size={12} style={{ color: 'var(--fg-muted)', flexShrink: 0 }} />
                             <span style={{ color: 'var(--fg-secondary)' }}>Otro color…</span>

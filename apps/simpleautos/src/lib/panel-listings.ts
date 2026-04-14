@@ -17,6 +17,39 @@ export type ListingPortalSync = {
     lastError: string | null;
 };
 
+export type RawDataPhoto = {
+    id: string;
+    name: string;
+    dataUrl: string;
+    previewUrl: string;
+    url?: string;
+    isCover: boolean;
+    width: number;
+    height: number;
+    sizeBytes: number;
+    mimeType: string;
+};
+
+export type RawDataDiscoverVideo = {
+    id: string;
+    name: string;
+    dataUrl: string;
+    previewUrl: string;
+    url?: string;
+    width?: number;
+    height?: number;
+    sizeBytes?: number;
+    mimeType?: string;
+    durationSeconds?: number;
+};
+
+export type RawDataMedia = {
+    photos: RawDataPhoto[];
+    videoUrl: string;
+    discoverVideo: RawDataDiscoverVideo | null;
+    documents: unknown[];
+};
+
 export type PanelListing = {
     id: string;
     vertical: 'autos' | 'propiedades';

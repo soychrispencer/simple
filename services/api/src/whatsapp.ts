@@ -24,7 +24,7 @@
 
 import { fmtDateTz, fmtTime } from '@simple/utils';
 
-const GRAPH_API = 'https://graph.facebook.com/v19.0';
+const GRAPH_API = 'https://graph.facebook.com/v21.0';
 
 export type WaVertical = 'agenda' | 'autos' | 'propiedades';
 

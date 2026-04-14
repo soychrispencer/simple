@@ -1,3 +1,5 @@
+import { API_BASE } from './api-config';
+
 export type SocialVertical = 'autos' | 'propiedades';
 export type SocialSection = 'todos' | 'ventas' | 'arriendos' | 'subastas' | 'proyectos';
 
@@ -38,8 +40,6 @@ type ToggleFollowResponse = {
     following: boolean;
     followers: number;
 };
-
-const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000';
 
 async function apiRequest<T>(path: string, init?: RequestInit): Promise<T | null> {
     try {

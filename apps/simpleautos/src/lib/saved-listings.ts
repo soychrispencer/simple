@@ -1,3 +1,5 @@
+import { API_BASE } from './api-config';
+
 export type SavedListingRecord = {
     id: string;
     href: string;
@@ -40,7 +42,6 @@ type RemoveSavedResult = {
     error?: string;
 };
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000';
 const SAVED_EVENT = 'simple:saved-listings-updated';
 let savedListingsCache: SavedListingRecord[] = [];
 

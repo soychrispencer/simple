@@ -1,12 +1,13 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { IconArrowsSort, IconGridDots, IconList } from '@tabler/icons-react';
 import InlineResultAd from '@/components/ads/inline-result-ad';
 import { PublicBreadcrumbs } from '@/components/layout/public-breadcrumbs';
 import ModernSelect from '@/components/ui/modern-select';
 import VehicleListingCard, { type VehicleListingCardData } from '@/components/listings/vehicle-listing-card';
-import { fetchPublicListings, type PublicListing, type PublicListingSection } from '@/lib/public-listings';
+import { fetchPublicListings, type PublicListing, type PublicListingSection, type PublicListingsFilters } from '@/lib/public-listings';
 import { PanelCard, PanelNotice, PanelPageHeader, PanelSegmentedToggle } from '@simple/ui';
 
 type ViewMode = 'grid' | 'list';
@@ -47,6 +48,7 @@ export default function PublicVehicleListingPage(props: {
     breadcrumbLabel: string;
     description: string;
 }) {
+    const searchParams = useSearchParams();
     const [loading, setLoading] = useState(true);
     const [viewMode, setViewMode] = useState<ViewMode>('grid');
     const [sortOrder, setSortOrder] = useState('recent');
@@ -55,11 +57,21 @@ export default function PublicVehicleListingPage(props: {
     useEffect(() => {
         setLoading(true);
         void (async () => {
-            const nextItems = await fetchPublicListings(props.section);
+            const filters: PublicListingsFilters = {
+                q: searchParams.get('q') || undefined,
+                region: searchParams.get('region') || undefined,
+                price: searchParams.get('price') || undefined,
+                brand: searchParams.get('brand') || undefined,
+                year_from: searchParams.get('year_from') || undefined,
+                year_to: searchParams.get('year_to') || undefined,
+                fuel: searchParams.get('fuel') || undefined,
+                transmission: searchParams.get('transmission') || undefined,
+            };
+            const nextItems = await fetchPublicListings(props.section, filters);
             setItems(nextItems);
             setLoading(false);
         })();
-    }, [props.section]);
+    }, [props.section, searchParams]);
 
     const sortedItems = useMemo(() => {
         const next = [...items];

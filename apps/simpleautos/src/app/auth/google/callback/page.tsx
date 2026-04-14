@@ -50,7 +50,6 @@ export default function GoogleCallback() {
         }, 1000);
 
       } catch (error) {
-        console.error('Callback error:', error);
         setStatus('error');
       }
     };

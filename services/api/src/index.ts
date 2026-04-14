@@ -15371,6 +15371,8 @@ app.post('/api/agenda/appointments', requireVerifiedSession, async (c) => {
             paymentMethods: null,
             cancelUrl,
             appUrl: agendaAppUrl,
+        }).catch((err) => {
+            console.error('[agenda] Failed to send booking confirmation email to', clientEmail, ':', err);
         });
     }
 
@@ -15380,7 +15382,9 @@ app.post('/api/agenda/appointments', requireVerifiedSession, async (c) => {
             profile.waProfessionalPhone,
             { displayName: profile.displayName, timezone: tz, cancellationHours: profile.cancellationHours ?? 24 },
             { clientName: firstAppt.clientName, clientPhone: firstAppt.clientPhone, startsAt: firstAppt.startsAt, endsAt: firstAppt.endsAt },
-        );
+        ).catch((err) => {
+            console.error('[agenda] Failed to send WhatsApp alert to professional', profile.waProfessionalPhone, ':', err);
+        });
     }
 
     return c.json({ ok: true, appointment: appointments[0], appointments });
@@ -15445,7 +15449,9 @@ app.patch('/api/agenda/appointments/:id/status', requireVerifiedSession, async (
             void notifyCancellation(
                 { clientName: updated.clientName, clientPhone: phone, startsAt: updated.startsAt, endsAt: updated.endsAt },
                 { displayName: profile.displayName, timezone: profile.timezone, cancellationHours: profile.cancellationHours },
-            );
+            ).catch((err) => {
+                console.error('[agenda] Failed to send WhatsApp cancellation to', phone, ':', err);
+            });
         }
         void syncToGoogleCalendar(profile, updated, 'delete');
     } else {
@@ -16248,7 +16254,9 @@ app.post('/api/agenda/reminders/send', async (c) => {
             void notifyReminder24h(
                 { clientName: appt.clientName, clientPhone: appt.clientPhone, startsAt: appt.startsAt, endsAt: appt.endsAt },
                 { displayName: profile.displayName, timezone: tz, cancellationHours: profile.cancellationHours ?? 24 },
-            );
+            ).catch((err) => {
+                console.error('[agenda] Failed to send WhatsApp 24h reminder to', appt.clientPhone, ':', err);
+            });
         }
 
         // Mark as sent
@@ -16525,10 +16533,26 @@ app.get('/api/public/agenda/:slug/slots', async (c) => {
     ).getDay();
 
     // Build day start/end as UTC timestamps corresponding to 00:00–23:59:59 in prof tz
-    // Strategy: format dateStr midnight in prof tz, then parse as UTC epoch
-    const tzOffsetMs = new Date(`${dateStr}T00:00:00`).getTime()
-        - new Date(new Date(`${dateStr}T00:00:00`).toLocaleString('en-US', { timeZone: tz })).getTime();
-    const dayStart = new Date(new Date(`${dateStr}T00:00:00`).getTime() + tzOffsetMs);
+    // Parse dateStr as if it were in the professional's timezone, then convert to UTC
+    const localMidnight = new Date(`${dateStr}T00:00:00`);
+    const formatter = new Intl.DateTimeFormat('en-US', {
+        timeZone: tz,
+        year: 'numeric',
+        month: 'numeric',
+        day: 'numeric',
+        hour: 'numeric',
+        minute: 'numeric',
+        second: 'numeric',
+        hour12: false,
+    });
+    const parts = formatter.formatToParts(localMidnight);
+    const year = parseInt(parts.find(p => p.type === 'year')?.value || '0');
+    const month = parseInt(parts.find(p => p.type === 'month')?.value || '0') - 1;
+    const day = parseInt(parts.find(p => p.type === 'day')?.value || '0');
+    const hour = parseInt(parts.find(p => p.type === 'hour')?.value || '0');
+    const minute = parseInt(parts.find(p => p.type === 'minute')?.value || '0');
+    const second = parseInt(parts.find(p => p.type === 'second')?.value || '0');
+    const dayStart = new Date(Date.UTC(year, month, day, hour, minute, second));
     const dayEnd   = new Date(dayStart.getTime() + 24 * 60 * 60 * 1000 - 1);
 
     const rules = await db.select().from(agendaAvailabilityRules)
@@ -16611,7 +16635,9 @@ app.post('/api/public/agenda/appointments/:id/cancel', async (c) => {
                 profPhone,
                 { displayName: profile.displayName, timezone: profile.timezone, cancellationHours: profile.cancellationHours },
                 { clientName: `❌ CANCELACIÓN por ${updated.clientName}`, clientPhone: updated.clientPhone, startsAt: updated.startsAt, endsAt: updated.endsAt },
-            );
+            ).catch((err) => {
+                console.error('[agenda] Failed to send WhatsApp cancellation alert to professional', profPhone, ':', err);
+            });
         }
     }
 
@@ -16659,14 +16685,23 @@ app.post('/api/public/agenda/:slug/book', async (c) => {
         if (svc) { durationMinutes = svc.durationMinutes; serviceId = svc.id; price = svc.price ?? null; serviceName = svc.name; }
     }
 
-    // Parse startsAt in the professional's timezone to avoid UTC offset issues
-    // The slots API returns ISO strings in UTC, but we need to interpret them in the prof's timezone
-    const tz = profile.timezone ?? 'America/Santiago';
-    const startsAtStr = String(body.startsAt);
-    // Parse as UTC first, then convert to the professional's timezone for display/storage
-    const startsAt = new Date(startsAtStr);
+    // Parse startsAt - the slot is already in UTC from the slots API
+    const startsAt = new Date(String(body.startsAt));
     const endsAt = new Date(startsAt.getTime() + durationMinutes * 60_000);
     const status = profile.confirmationMode === 'auto' ? 'confirmed' : 'pending';
+
+    // Check for overlapping appointments
+    const existingAppts = await db.select().from(agendaAppointments)
+        .where(and(
+            eq(agendaAppointments.professionalId, profile.id),
+            eq(agendaAppointments.status, 'confirmed'),
+        ));
+    const hasOverlap = existingAppts.some(
+        (appt) => startsAt < appt.endsAt && endsAt > appt.startsAt
+    );
+    if (hasOverlap) {
+        return c.json({ ok: false, error: 'Este horario ya está reservado. Por favor selecciona otro.' }, 409);
+    }
 
     const [appointment] = await db.insert(agendaAppointments).values({
         professionalId: profile.id,
@@ -16731,7 +16766,9 @@ app.post('/api/public/agenda/:slug/book', async (c) => {
         void notifyConfirmation(
             { id: appointment.id, slug: profile.slug, clientName: String(body.clientName), clientPhone, startsAt, endsAt, meetingUrl: appointment.meetingUrl },
             { displayName: profile.displayName, timezone: profile.timezone, cancellationHours: profile.cancellationHours },
-        );
+        ).catch((err) => {
+            console.error('[agenda] Failed to send WhatsApp confirmation to', clientPhone, ':', err);
+        });
     }
 
     // WhatsApp: alert professional
@@ -16742,7 +16779,9 @@ app.post('/api/public/agenda/:slug/book', async (c) => {
                 profPhone,
                 { displayName: profile.displayName, timezone: profile.timezone, cancellationHours: profile.cancellationHours },
                 { clientName: String(body.clientName), clientPhone, startsAt, endsAt },
-            );
+            ).catch((err) => {
+                console.error('[agenda] Failed to send WhatsApp alert to professional', profPhone, ':', err);
+            });
         }
     }
 
@@ -16815,29 +16854,16 @@ app.post('/api/public/agenda/:slug/book', async (c) => {
                 mpConnected: !!(profile.acceptsMp && profile.mpAccessToken),
                 paymentLinkUrl: profile.acceptsPaymentLink ? (profile.paymentLinkUrl ?? null) : null,
                 bankTransferData: profile.acceptsTransfer ? ((profile.bankTransferData ?? null) as Record<string, string> | null) : null,
-                checkoutUrl,
+                checkoutUrl: checkoutUrl ?? null,
             },
             cancelUrl,
             appUrl: agendaAppUrl,
-        }).catch((err: unknown) => console.error('[agenda] booking email error:', err));
+        }).catch((err) => {
+            console.error('[agenda] Failed to send booking confirmation email to', clientEmail, ':', err);
+        });
     }
 
-    return c.json({
-        ok: true,
-        appointment: {
-            id: appointment.id,
-            status: appointment.status,
-            startsAt: appointment.startsAt,
-            paymentStatus: appointment.paymentStatus,
-        },
-        checkoutUrl,
-        paymentMethods: {
-            requiresAdvancePayment: profile.requiresAdvancePayment,
-            mpConnected: !!(profile.acceptsMp && profile.mpAccessToken),
-            paymentLinkUrl: profile.acceptsPaymentLink ? (profile.paymentLinkUrl ?? null) : null,
-            bankTransferData: profile.acceptsTransfer ? (profile.bankTransferData ?? null) : null,
-        },
-    });
+    return c.json({ ok: true, appointment });
 });
 
 // ==========================================

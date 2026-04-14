@@ -279,13 +279,13 @@ export default function PerfilConfigPage() {
                         <PanelField label="Nombre visible" required>
                             <input type="text" value={form.displayName} onChange={(e) => set('displayName', e.target.value)} placeholder="Ej: Dra. Maria Gonzalez" className="form-input" />
                         </PanelField>
-                        <PanelField label="Profesion">
+                        <PanelField label="Profesión">
                             <input type="text" value={form.profession} onChange={(e) => set('profession', e.target.value)} placeholder="Ej: Psicologa Clinica" className="form-input" />
                         </PanelField>
                         <PanelField label="Titular" hint="Aparece bajo tu nombre" className="sm:col-span-2">
                             <input type="text" value={form.headline} onChange={(e) => set('headline', e.target.value)} placeholder="Ej: Especialista en ansiedad y relaciones" className="form-input" />
                         </PanelField>
-                        <PanelField label="Biografia" className="sm:col-span-2">
+                        <PanelField label="Biografía" className="sm:col-span-2">
                             <textarea
                                 value={form.bio}
                                 onChange={(e) => set('bio', e.target.value)}
@@ -304,10 +304,10 @@ export default function PerfilConfigPage() {
                         <PanelField label="WhatsApp">
                             <input type="tel" value={form.publicWhatsapp} onChange={(e) => set('publicWhatsapp', e.target.value)} placeholder="+56 9 1234 5678" className="form-input" />
                         </PanelField>
-                        <PanelField label="Telefono">
+                        <PanelField label="Teléfono">
                             <input type="tel" value={form.publicPhone} onChange={(e) => set('publicPhone', e.target.value)} placeholder="+56 2 1234 5678" className="form-input" />
                         </PanelField>
-                        <PanelField label="Email publico">
+                        <PanelField label="Email público">
                             <input type="email" value={form.publicEmail} onChange={(e) => set('publicEmail', e.target.value)} placeholder="contacto@ejemplo.cl" className="form-input" />
                         </PanelField>
                         {/* Sitio web — siempre visible */}
@@ -483,7 +483,7 @@ export default function PerfilConfigPage() {
                 <PanelCard size="md">
                     <PanelBlockHeader title="Configuración de reservas" className="mb-3" />
                     <div className="grid sm:grid-cols-2 gap-4">
-                        <PanelField label="Confirmacion de citas" className="sm:col-span-2">
+                        <PanelField label="Confirmación de citas" className="sm:col-span-2">
                             <div className="flex gap-3">
                                 {(['auto', 'manual'] as const).map((mode) => (
                                     <button
@@ -508,7 +508,7 @@ export default function PerfilConfigPage() {
                             </p>
                         </PanelField>
 
-                        <PanelField label="Ventana de reserva (dias)" hint="Cuantos dias antes pueden reservar">
+                        <PanelField label="Ventana de reserva (días)" hint="Cuántos días antes pueden reservar">
                             <input
                                 type="number"
                                 min={1}
@@ -518,7 +518,7 @@ export default function PerfilConfigPage() {
                                 className="form-input"
                             />
                         </PanelField>
-                        <PanelField label="Aviso de cancelacion (horas)" hint="Minimo para cancelar">
+                        <PanelField label="Aviso de cancelación (horas)" hint="Mínimo de horas para cancelar">
                             <input
                                 type="number"
                                 min={0}

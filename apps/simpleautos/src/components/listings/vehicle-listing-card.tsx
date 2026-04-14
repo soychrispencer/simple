@@ -292,10 +292,11 @@ export default function VehicleListingCard({ data, mode }: Props) {
             {isImageUrl ? (
                 <>
                     <div className="absolute inset-0" style={{ background: 'var(--bg-muted)' }} />
-                    <img
+                    <Image
                         key={current}
                         src={current}
                         alt={data.title}
+                        fill
                         className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-300 ${imageFailed ? 'opacity-0' : 'opacity-100'}`}
                         onError={() => setImageFailed(true)}
                     />

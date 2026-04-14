@@ -96,15 +96,15 @@ export default function Step3Pricing({ data, onChange, isExtended = false, error
                 <div className="flex flex-col gap-4">
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                         <Field label={priceLabel} required error={errors.price}>
-                            <div className="relative flex items-center h-10.5 rounded-(--radius) border bg-(--bg-subtle) focus-within:border-(--accent-border) transition-colors overflow-hidden"
+                            <div className="relative flex items-center h-10.5 rounded-[var(--radius)] border bg-[var(--bg-subtle)] focus-within:border-[var(--accent-border)] transition-colors overflow-hidden"
                                  style={{ borderColor: errors.price ? 'var(--color-error, #ef4444)' : 'var(--border)' }}>
-                                <span className="pl-3 pr-1 text-sm font-medium text-(--fg-muted)">$</span>
+                                <span className="pl-3 pr-1 text-sm font-medium text-[var(--fg-muted)]">$</span>
                                 <input className="flex-1 bg-transparent border-none outline-none h-full text-sm pr-2"
                                     placeholder="Ej: 18.990.000" inputMode="numeric"
                                     value={data.price.replace(/^\$\s*/, '')}
                                     onChange={(e) => set({ price: formatPrice(e.target.value) })} />
                                 {isExtended && (
-                                    <div className="w-18 border-l border-(--border)">
+                                    <div className="w-18 border-l border-[var(--border)]">
                                         <ModernSelect
                                             value={data.currency || 'CLP'}
                                             onChange={(v) => set({ currency: v as 'CLP' | 'USD' })}

@@ -4,6 +4,7 @@ import './globals.css';
 import { ThemeProvider } from '@/components/theme-provider';
 import { ClientProviders } from '@/components/client-providers';
 import { buildSimpleAppMetadata } from '@simple/config';
+import { validateEnvVars } from '@/lib/env-validation';
 
 const inter = Inter({
     subsets: ['latin'],
@@ -14,6 +15,14 @@ const inter = Inter({
 export const metadata: Metadata = buildSimpleAppMetadata('simpleautos');
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? 'https://simpleautos.app';
+
+// Validar variables de entorno al inicio de la aplicación
+if (typeof window === 'undefined') {
+    const validation = validateEnvVars();
+    if (!validation.valid) {
+        console.error('[SimpleAutos] Configuración inválida. Por favor revisa las variables de entorno.');
+    }
+}
 
 const siteSchema = {
     '@context': 'https://schema.org',

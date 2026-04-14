@@ -123,6 +123,44 @@ npm run start              # Runear en producción
 - 📸 Integración Instagram (simulación)
 - 🌙 Modo claro/oscuro
 
+#### Rutas SimpleAutos (31 rutas)
+**Públicas:**
+- `/` - Home
+- `/ventas` - Listado de ventas
+- `/arriendos` - Listado de arriendos
+- `/subastas` - Listado de subastas
+- `/vehiculo/[slug]` - Detalle de vehículo
+- `/descubre` - Feed social
+- `/servicios` - Servicios
+- `/servicios/venta-asistida` - Venta asistida
+- `/blog` - Blog
+- `/nosotros` - Nosotros
+- `/contacto` - Contacto
+- `/faq` - Preguntas frecuentes
+- `/terminos` - Términos y condiciones
+- `/privacidad` - Política de privacidad
+- `/perfil/[username]` - Perfil público
+
+**Panel (autenticado):**
+- `/panel` - Dashboard
+- `/panel/publicar` - Wizard de publicación
+- `/panel/publicaciones` - Gestión de publicaciones
+- `/panel/guardados` - Favoritos
+- `/panel/mensajes` - Mensajes
+- `/panel/crm` - CRM
+- `/panel/estadisticas` - Estadísticas
+- `/panel/boost` - Boost/destacados
+- `/panel/publicidad` - Publicidad
+- `/panel/suscripciones` - Suscripciones
+- `/panel/configuracion` - Configuración
+- `/panel/equipo` - Equipo
+- `/panel/instagram` - Integración Instagram
+- `/panel/notificaciones` - Notificaciones
+
+**Auth:**
+- `/auth/reset-password` - Reset de contraseña
+- `/auth/verify-email` - Verificación de email
+
 ### SimpleAdmin
 - 📈 Dashboard global
 - 👥 Gestión de usuarios

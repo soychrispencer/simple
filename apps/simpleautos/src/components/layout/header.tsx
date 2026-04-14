@@ -180,7 +180,7 @@ export function Header() {
                                                 key={item.id}
                                                 href={item.href}
                                                 onClick={() => setNotificationsOpen(false)}
-                                                className="flex items-start gap-2.5 rounded-lg px-2.5 py-2 transition-colors hover:bg-(--bg-subtle)"
+                                                className="flex items-start gap-2.5 rounded-lg px-2.5 py-2 transition-colors hover:bg-[var(--bg-subtle)]"
                                             >
                                                 <span className="mt-1.5 h-1.5 w-1.5 rounded-full shrink-0" style={{ background: 'var(--fg)' }} />
                                                 <span className="min-w-0 flex-1">
@@ -241,11 +241,11 @@ export function Header() {
                                                     key={item.href}
                                                     href={item.href}
                                                     onClick={() => setAccountOpen(false)}
-                                                    className="group flex items-center gap-2.5 rounded-xl px-2.5 py-2 text-sm transition-colors hover:bg-(--bg-subtle)"
+                                                    className="group flex items-center gap-2.5 rounded-xl px-2.5 py-2 text-sm transition-colors hover:bg-[var(--bg-subtle)]"
                                                     style={{ color: active ? 'var(--fg)' : 'var(--fg-secondary)', background: active ? 'var(--bg-subtle)' : 'transparent' }}
                                                 >
                                                     <span
-                                                        className="w-9 h-9 rounded-[10px] border flex items-center justify-center transition-colors group-hover:border-(--border-strong) group-hover:text-(--fg)"
+                                                        className="w-9 h-9 rounded-[10px] border flex items-center justify-center transition-colors group-hover:border-[var(--border-strong)] group-hover:text-[var(--fg)]"
                                                         style={{
                                                             borderColor: active ? 'var(--button-primary-border)' : 'var(--border)',
                                                             background: active ? 'var(--button-primary-bg)' : 'color-mix(in srgb, var(--bg-subtle) 70%, transparent)',
@@ -268,10 +268,10 @@ export function Header() {
                                     <div className="mt-2 pt-2 border-t" style={{ borderColor: 'var(--border)' }}>
                                         <button
                                             onClick={() => { setAccountOpen(false); void logout(); }}
-                                            className="group w-full flex items-center gap-2.5 rounded-xl px-2.5 py-2 text-sm transition-colors hover:bg-(--bg-subtle)"
+                                            className="group w-full flex items-center gap-2.5 rounded-xl px-2.5 py-2 text-sm transition-colors hover:bg-[var(--bg-subtle)]"
                                             style={{ color: 'var(--fg-secondary)' }}
                                         >
-                                            <span className="w-9 h-9 rounded-[10px] border flex items-center justify-center transition-colors group-hover:border-(--border-strong) group-hover:text-(--fg)" style={{ borderColor: 'var(--border)', color: 'var(--fg-secondary)' }}>
+                                            <span className="w-9 h-9 rounded-[10px] border flex items-center justify-center transition-colors group-hover:border-[var(--border-strong)] group-hover:text-[var(--fg)]" style={{ borderColor: 'var(--border)', color: 'var(--fg-secondary)' }}>
                                                 <IconLogout size={17} stroke={1.9} />
                                             </span>
                                             <span className="font-medium">Cerrar sesión</span>
@@ -352,7 +352,7 @@ export function Header() {
                                         key={l.href}
                                         href={l.href}
                                         onClick={() => setMenuOpen(false)}
-                                        className="flex items-center gap-2 rounded-lg px-2.5 py-2 text-sm transition-colors hover:bg-(--bg-subtle)"
+                                        className="flex items-center gap-2 rounded-lg px-2.5 py-2 text-sm transition-colors hover:bg-[var(--bg-subtle)]"
                                         style={{ color: 'var(--fg-secondary)' }}
                                     >
                                         <span>{l.label}</span>

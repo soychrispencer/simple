@@ -22,7 +22,7 @@ import {
 
 const COLORS = ['#0D9488', '#3B82F6', '#8B5CF6', '#EC4899', '#F59E0B', '#10B981', '#EF4444', '#6366F1'];
 
-const DURATIONS = [30, 45, 50, 60, 90, 120];
+const DURATIONS = [15, 20, 25, 30, 45, 50, 60, 90, 120];
 
 type ServiceForm = {
     name: string;

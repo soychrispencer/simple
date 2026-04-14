@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState, useCallback, useRef } from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import {
     IconBrandInstagram,
     IconCar,
@@ -40,14 +41,15 @@ import {
     type InstagramTemplateView,
 } from '@/lib/instagram';
 import {
-    type ListingStatus,
-    type PanelListing,
-    type PortalKey,
+    deletePanelListing,
     fetchMyPanelListings,
     publishListingToPortal,
     renewPanelListing,
     updatePanelListingStatus,
-    deletePanelListing,
+    type PanelListing,
+    type ListingStatus,
+    type PortalKey,
+    type RawDataPhoto,
 } from '@/lib/panel-listings';
 import {
     InstagramTemplatePreview,
@@ -385,8 +387,7 @@ export default function PublicacionesPage() {
     const templatesCache = useRef<Map<string, { templates: InstagramTemplateView[]; timestamp: number }>>(new Map());
     const CACHE_DURATION = 5 * 60 * 1000; // 5 minutos
     
-    const loadInstagramTemplatesForListing = useCallback(async (listingId: string, forceRefresh = true) => {
-        // Cache desactivado temporalmente para debug - siempre forzar refresh
+    const loadInstagramTemplatesForListing = useCallback(async (listingId: string, forceRefresh = false) => {
         const now = Date.now();
         
         setTemplatesLoading(true);
@@ -615,7 +616,7 @@ export default function PublicacionesPage() {
             const publication = result.publication ?? result.result;
             if (result.ok && publication) {
                 setPublishingState('success');
-                setLastPublishedPermalink(publication.instagramPermalink);
+                setLastPublishedPermalink(publication.instagramPermalink ?? null);
                 setIsInstagramSuccess(true);
                 setNotice('¡Publicado exitosamente en Instagram!');
                 // No cerramos el modal inmediatamente, mostramos el éxito
@@ -700,8 +701,8 @@ export default function PublicacionesPage() {
     };
 
     const getListingCoverImage = (listing: PanelListing): string | null => {
-        const rawData = listing.rawData as any;
-        const photos: any[] = rawData?.media?.photos ?? [];
+        const rawData = listing.rawData as { media?: { photos?: RawDataPhoto[] } } | undefined;
+        const photos = rawData?.media?.photos ?? [];
         const cover = photos.find((p) => p?.isCover) ?? photos[0];
         const imageUrl = cover?.previewUrl || cover?.dataUrl || cover?.url;
         if (typeof imageUrl === 'string' && imageUrl.startsWith('http')) return imageUrl;
@@ -709,8 +710,8 @@ export default function PublicacionesPage() {
     };
 
     const getListingImages = (listing: PanelListing): string[] => {
-        const rawData = listing.rawData as any;
-        const photos: any[] = rawData?.media?.photos ?? [];
+        const rawData = listing.rawData as { media?: { photos?: RawDataPhoto[] } } | undefined;
+        const photos = rawData?.media?.photos ?? [];
         return photos.map(p => {
             const url = p?.previewUrl || p?.dataUrl || p?.url;
             return typeof url === 'string' && url.startsWith('http') ? url : null;
@@ -1029,7 +1030,7 @@ export default function PublicacionesPage() {
                             <article key={listing.id} className="rounded-xl p-4 flex flex-col sm:flex-row gap-4 transition-all relative" style={{ border: '1px solid var(--border)' }}>
                                 <div className="w-full sm:w-28 h-32 sm:h-auto rounded-lg overflow-hidden flex items-center justify-center shrink-0" style={{ background: 'var(--bg-muted)', color: 'var(--fg-faint)' }}>
                                     {coverImage ? (
-                                        <img src={coverImage} alt={listing.title || 'Portada'} className="w-full h-full object-cover" />
+                                        <Image src={coverImage} alt={listing.title || 'Portada'} width={112} height={128} className="w-full h-full object-cover" />
                                     ) : (
                                         <IconCar size={20} />
                                     )}
@@ -1079,7 +1080,7 @@ export default function PublicacionesPage() {
                             <article key={listing.id} className="rounded-xl overflow-hidden relative" style={{ border: '1px solid var(--border)' }}>
                                 <div className="aspect-4/3 flex items-center justify-center overflow-hidden" style={{ background: 'var(--bg-muted)', color: 'var(--fg-faint)' }}>
                                     {coverImage ? (
-                                        <img src={coverImage} alt={listing.title || 'Portada'} className="w-full h-full object-cover" />
+                                        <Image src={coverImage} alt={listing.title || 'Portada'} width={400} height={300} className="w-full h-full object-cover" />
                                     ) : (
                                         <IconCar size={26} />
                                     )}

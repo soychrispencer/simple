@@ -139,6 +139,61 @@ export type InstagramSchedulingInsights = {
     }>;
 };
 
+// Tipos específicos para reemplazar any
+export type InstagramPublishResult = {
+    success: boolean;
+    mediaId?: string;
+    permalink?: string;
+    instagramPermalink?: string;
+    publishedAt?: number;
+};
+
+export type InstagramContentOptimizations = {
+    captionImprovements: string[];
+    hashtagOptimizations: string[];
+    timingSuggestions: string[];
+    visualRecommendations: string[];
+};
+
+export type InstagramAnalyticsInsights = {
+    topPerformingPosts: Array<{
+        postId: string;
+        engagementRate: number;
+        reach: number;
+        likes: number;
+    }>;
+    bestPostingTimes: Array<{
+        day: string;
+        hour: number;
+        avgEngagement: number;
+    }>;
+    audienceGrowth: {
+        current: number;
+        previous: number;
+        growthRate: number;
+    };
+};
+
+export type InstagramAnalyticsSummary = {
+    totalImpressions: number;
+    totalReach: number;
+    avgEngagementRate: number;
+    totalLeads: number;
+    topHashtag: string;
+};
+
+export type InstagramABTestWinner = {
+    variantId: string;
+    variantName: string;
+    confidence: number;
+    improvement: number;
+    metrics: {
+        engagementRate: number;
+        reach: number;
+        clicks: number;
+    };
+};
+
 export type InstagramAccountView = {
     id: string;
     vertical: 'autos' | 'propiedades';
@@ -264,26 +319,26 @@ export async function publishListingToInstagramEnhanced(listingId: string, optio
     layoutVariant?: 'square' | 'portrait' | null;
 } = {}): Promise<{
     ok: boolean;
-    result?: any;
+    result?: InstagramPublishResult;
     publication?: InstagramPublicationView;
     aiContent?: InstagramAIContentView;
     template?: InstagramTemplateView;
     scheduledPost?: InstagramScheduledPostView;
     testCampaign?: InstagramABTestView;
-    optimizations?: any;
-    insights?: any;
+    optimizations?: InstagramContentOptimizations;
+    insights?: InstagramAnalyticsInsights;
     error?: string;
 }> {
     const { status, data } = await apiRequest<{
         ok: boolean;
-        result?: any;
+        result?: InstagramPublishResult;
         publication?: InstagramPublicationView;
         aiContent?: InstagramAIContentView;
         template?: InstagramTemplateView;
         scheduledPost?: InstagramScheduledPostView;
         testCampaign?: InstagramABTestView;
-        optimizations?: any;
-        insights?: any;
+        optimizations?: InstagramContentOptimizations;
+        insights?: InstagramAnalyticsInsights;
         error?: string;
     }>('/api/integrations/instagram/publish-enhanced', {
         method: 'POST',
@@ -340,8 +395,8 @@ export async function generateSmartTemplates(listingId: string): Promise<{
 export async function getInstagramInsights(listingId?: string, dateRange?: { from: Date; to: Date }): Promise<{
     ok: boolean;
     analytics?: InstagramAnalyticsView[];
-    summary?: any;
-    insights?: any;
+    summary?: InstagramAnalyticsSummary;
+    insights?: InstagramAnalyticsInsights;
     recommendations?: string[];
     error?: string;
 }> {
@@ -355,8 +410,8 @@ export async function getInstagramInsights(listingId?: string, dateRange?: { fro
     const { status, data } = await apiRequest<{
         ok: boolean;
         analytics?: InstagramAnalyticsView[];
-        summary?: any;
-        insights?: any;
+        summary?: InstagramAnalyticsSummary;
+        insights?: InstagramAnalyticsInsights;
         recommendations?: string[];
         error?: string;
     }>(`/api/integrations/instagram/insights?${params.toString()}`, {
@@ -400,16 +455,16 @@ export async function createABTestCampaign(listingId: string, baseContent: Insta
 // Analizar resultados de A/B test
 export async function analyzeABTestResults(campaignId: string): Promise<{
     ok: boolean;
-    insights?: any;
-    winner?: any;
+    insights?: InstagramAnalyticsInsights;
+    winner?: InstagramABTestWinner;
     recommendations?: string[];
     statisticalSignificance?: boolean;
     error?: string;
 }> {
     const { status, data } = await apiRequest<{
         ok: boolean;
-        insights?: any;
-        winner?: any;
+        insights?: InstagramAnalyticsInsights;
+        winner?: InstagramABTestWinner;
         recommendations?: string[];
         statisticalSignificance?: boolean;
         error?: string;

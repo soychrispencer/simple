@@ -42,13 +42,13 @@ function SidebarNav({
                         href={item.href}
                         onClick={onNavigate}
                         aria-current={active ? 'page' : undefined}
-                        className={`group relative flex h-11 items-center rounded-xl text-sm transition-colors hover:bg-(--bg-subtle) ${
+                        className={`group relative flex h-11 items-center rounded-xl text-sm transition-colors hover:bg-[var(--bg-subtle)] ${
                             collapsed ? 'justify-center px-1.5' : 'gap-2.5 px-2.5'
                         }`}
                         style={{ background: active ? 'var(--bg-subtle)' : 'transparent', color: active ? 'var(--fg)' : 'var(--fg-secondary)' }}
                     >
                         <span
-                            className="w-9 h-9 rounded-[10px] border flex items-center justify-center transition-colors group-hover:border-(--border-strong) group-hover:text-(--fg)"
+                            className="w-9 h-9 rounded-[10px] border flex items-center justify-center transition-colors group-hover:border-[var(--border-strong)] group-hover:text-[var(--fg)]"
                             style={{
                                 borderColor: active ? 'var(--button-primary-border)' : 'var(--border)',
                                 background: active
@@ -145,7 +145,7 @@ export function PanelShell({ children }: { children: React.ReactNode }) {
                     <div className={`mb-3 flex ${collapsed ? 'justify-center' : 'justify-end'}`}>
                         <button
                             onClick={() => setCollapsed((prev) => !prev)}
-                            className="w-8 h-8 rounded-[10px] flex items-center justify-center border transition-colors hover:bg-(--bg-subtle) hover:border-(--border-strong) hover:text-(--fg)"
+                            className="w-8 h-8 rounded-[10px] flex items-center justify-center border transition-colors hover:bg-[var(--bg-subtle)] hover:border-[var(--border-strong)] hover:text-[var(--fg)]"
                             style={{ borderColor: 'var(--border)', color: 'var(--fg-muted)' }}
                             aria-label={collapsed ? 'Expandir sidebar' : 'Contraer sidebar'}
                         >
@@ -205,7 +205,7 @@ export function PanelShell({ children }: { children: React.ReactNode }) {
                                 </span>
                                 <button
                                     onClick={() => setMobileOpen(false)}
-                                    className="w-8 h-8 rounded-[10px] flex items-center justify-center border transition-colors hover:bg-(--bg-subtle) hover:border-(--border-strong) hover:text-(--fg)"
+                                    className="w-8 h-8 rounded-[10px] flex items-center justify-center border transition-colors hover:bg-[var(--bg-subtle)] hover:border-[var(--border-strong)] hover:text-[var(--fg)]"
                                     style={{ borderColor: 'var(--border)', color: 'var(--fg-muted)' }}
                                     aria-label="Cerrar menú"
                                 >

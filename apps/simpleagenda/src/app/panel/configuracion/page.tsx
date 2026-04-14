@@ -15,6 +15,7 @@ import {
     IconCoin,
 } from '@tabler/icons-react';
 import { fetchAgendaProfile, fetchAgendaStats, type AgendaProfile, type AgendaStats } from '@/lib/agenda-api';
+import { vocab } from '@/lib/vocabulary';
 
 type Section = {
     href: string;
@@ -91,7 +92,7 @@ export default function ConfiguracionPage() {
             href: '/panel/configuracion/link',
             icon: IconLink,
             title: 'Publicar tu agenda',
-            description: 'Activa tu link público y compártelo con tus pacientes.',
+            description: `Activa tu link público y compártelo con tus ${vocab.clients}`,
             done: publicadoDone,
             required: true,
         },

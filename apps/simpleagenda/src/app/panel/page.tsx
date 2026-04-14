@@ -15,8 +15,9 @@ import {
     IconSettings,
 } from '@tabler/icons-react';
 import Link from 'next/link';
-import { fetchAgendaStats, fetchAgendaProfile, type AgendaStats, type AgendaWeekDay, type AgendaProfile } from '@/lib/agenda-api';
+import { fetchAgendaStats, fetchAgendaProfile, isPlanActive, type AgendaStats, type AgendaWeekDay, type AgendaProfile } from '@/lib/agenda-api';
 import { fmtCLP, fmtTime, fmtDateShort as fmtDate } from '@/lib/format';
+import { vocab } from '@/lib/vocabulary';
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -149,6 +150,13 @@ export default function PanelHomePage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
+    const isFreePlan = !loading && profile !== null && !isPlanActive(profile);
+    const clientsUsed = stats?.activeClients ?? 0;
+    const appsUsed = stats?.thisMonthAppointments ?? 0;
+    const clientsNearLimit = isFreePlan && clientsUsed >= 3;
+    const appsNearLimit = isFreePlan && appsUsed >= 7;
+    const showFreeBanner = isFreePlan && (clientsNearLimit || appsNearLimit);
+
     const isSetupIncomplete = !loading && !(
         profile?.displayName && profile?.profession &&
         stats?.hasServices &&
@@ -166,7 +174,7 @@ export default function PanelHomePage() {
             accent: true,
         },
         {
-            label: 'Pacientes activos',
+            label: `${vocab.Clients} activos`,
             value: loading ? null : String(stats?.activeClients ?? 0),
             icon: IconUsers,
             href: '/panel/clientes',
@@ -300,6 +308,29 @@ export default function PanelHomePage() {
                     </div>
                 </div>
             </div>
+
+            {/* Free plan limits banner */}
+            {showFreeBanner && (
+                <Link
+                    href="/panel/suscripciones"
+                    className="flex items-center gap-4 rounded-2xl border p-4 mb-3 transition-colors hover:border-[--accent-border]"
+                    style={{ borderColor: 'rgba(234,179,8,0.4)', background: 'rgba(234,179,8,0.06)' }}
+                >
+                    <div
+                        className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0"
+                        style={{ background: 'rgba(234,179,8,0.12)', color: 'rgb(161,120,0)' }}
+                    >
+                        <IconCreditCard size={17} />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                        <p className="text-sm font-semibold" style={{ color: 'var(--fg)' }}>Acercándote al límite del plan gratuito</p>
+                        <p className="text-xs mt-0.5" style={{ color: 'var(--fg-muted)' }}>
+                            {clientsNearLimit && `${clientsUsed}/5 ${vocab.clients}`}{clientsNearLimit && appsNearLimit ? ' · ' : ''}{appsNearLimit && `${appsUsed}/10 citas este mes`}. Actualiza a Pro para uso ilimitado.
+                        </p>
+                    </div>
+                    <IconChevronRight size={16} style={{ color: 'rgb(161,120,0)' }} />
+                </Link>
+            )}
 
             {/* Setup banner — shown while agenda is not fully configured */}
             {isSetupIncomplete && (

@@ -6,9 +6,7 @@ const nextConfig: NextConfig = {
     outputFileTracingRoot: path.join(process.cwd(), '../..'),
     transpilePackages: ['@simple/types', '@simple/config', '@simple/ui'],
     images: {
-        remotePatterns: [
-            { protocol: 'https', hostname: '**' },
-        ],
+        unoptimized: true,
     },
 };
 
