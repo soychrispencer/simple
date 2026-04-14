@@ -1,6 +1,6 @@
 'use client';
 
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 import {
     IconAdjustmentsHorizontal,
@@ -12,7 +12,7 @@ import {
 import ModernSelect from '@/components/ui/modern-select';
 import { PanelButton } from '@simple/ui';
 import { loadPublishWizardCatalog, type CatalogBrand, type CatalogModel } from '@/lib/publish-wizard-catalog';
-import { LOCATION_REGIONS, LOCATION_COMMUNES, getCommunesForRegion, type CatalogRegion, type CatalogCommune } from '@simple/utils';
+import { LOCATION_REGIONS, getCommunesForRegion, type CatalogRegion, type CatalogCommune } from '@simple/utils';
 
 type AutosTab = 'comprar' | 'arrendar' | 'subastas';
 
@@ -35,7 +35,6 @@ type Suggestion = {
     hint: string;
     brand?: string;
     fuel?: string;
-    transmission?: string;
 };
 
 const STORAGE_KEY = 'simpleautos:home-searchbox-v2';
@@ -82,13 +81,13 @@ const TAB_META: Record<
 const SUGGESTIONS_BY_TAB: Record<AutosTab, Suggestion[]> = {
     comprar: [
         { label: 'Toyota Corolla Cross', hint: 'SUV · Híbrido', brand: 'toyota', fuel: 'hibrido' },
-        { label: 'Hyundai Tucson', hint: 'SUV · Automático', brand: 'hyundai', transmission: 'AT' },
+        { label: 'Hyundai Tucson', hint: 'SUV · Automático', brand: 'hyundai' },
         { label: 'Kia Sportage', hint: 'SUV · Bencina', brand: 'kia', fuel: 'bencina' },
         { label: 'BYD Song Plus', hint: 'SUV · Eléctrico', brand: 'byd', fuel: 'electrico' },
         { label: 'Pick-up 4x4', hint: 'Trabajo y flota' },
     ],
     arrendar: [
-        { label: 'SUV para viaje', hint: 'Automático · 5 plazas', transmission: 'AT' },
+        { label: 'SUV para viaje', hint: 'Automático · 5 plazas' },
         { label: 'City car económico', hint: 'Bajo consumo', fuel: 'bencina' },
         { label: 'Van 7 pasajeros', hint: 'Turismo y traslados' },
         { label: 'Camioneta para obra', hint: 'Trabajo diario' },
@@ -208,8 +207,45 @@ function writeFiltersToStorage(filters: AutosFilters): void {
     }
 }
 
+function readFiltersFromURL(searchParams: URLSearchParams): Partial<AutosFilters> {
+    const filters: Partial<AutosFilters> = {};
+    
+    const q = searchParams.get('q');
+    if (q) filters.query = q;
+    
+    const region = searchParams.get('region');
+    if (region) filters.region = region;
+    
+    const commune = searchParams.get('commune');
+    if (commune) filters.commune = commune;
+    
+    const priceFrom = searchParams.get('price_from');
+    if (priceFrom) filters.priceFrom = priceFrom;
+    
+    const priceTo = searchParams.get('price_to');
+    if (priceTo) filters.priceTo = priceTo;
+    
+    const brand = searchParams.get('brand');
+    if (brand) filters.brand = brand;
+    
+    const model = searchParams.get('model');
+    if (model) filters.model = model;
+    
+    const yearFrom = searchParams.get('year_from');
+    if (yearFrom) filters.yearFrom = yearFrom;
+    
+    const yearTo = searchParams.get('year_to');
+    if (yearTo) filters.yearTo = yearTo;
+    
+    const fuel = searchParams.get('fuel');
+    if (fuel) filters.fuel = fuel;
+    
+    return filters;
+}
+
 export default function HomeSearchBox() {
     const router = useRouter();
+    const searchParams = useSearchParams();
     const [filters, setFilters] = useState<AutosFilters>(DEFAULT_FILTERS);
     const [hydrated, setHydrated] = useState(false);
     const [showAdvanced, setShowAdvanced] = useState(false);
@@ -218,10 +254,14 @@ export default function HomeSearchBox() {
     const inputWrapRef = useRef<HTMLDivElement | null>(null);
 
     useEffect(() => {
-        setFilters(readFiltersFromStorage());
+        const storageFilters = readFiltersFromStorage();
+        const urlFilters = readFiltersFromURL(searchParams);
+        // URL tiene prioridad sobre localStorage
+        const mergedFilters = { ...storageFilters, ...urlFilters };
+        setFilters(mergedFilters);
         setHydrated(true);
         loadPublishWizardCatalog().then(setCatalog);
-    }, []);
+    }, [searchParams]);
 
     useEffect(() => {
         if (!hydrated) return;
@@ -360,7 +400,7 @@ export default function HomeSearchBox() {
                                 >
                                     {suggestions.map((suggestion) => (
                                         <button
-                                            key={`${filters.tab}-${suggestion.label}`}
+                                            key={suggestion.label}
                                             type="button"
                                             onClick={() => applySuggestion(suggestion)}
                                             className="w-full text-left px-3 py-2.5 border-b last:border-b-0 hover:bg-[var(--bg-subtle)] transition-colors"
@@ -461,7 +501,14 @@ export default function HomeSearchBox() {
                                 <label className="block text-xs mb-1.5" style={{ color: "var(--fg-muted)" }}>Año desde</label>
                                 <ModernSelect
                                     value={filters.yearFrom}
-                                    onChange={(value) => setFilters((current) => ({ ...current, yearFrom: value }))}
+                                    onChange={(value) => setFilters((current) => {
+                                        const newYearFrom = value;
+                                        // Si yearFrom > yearTo, limpiar yearTo
+                                        if (newYearFrom && current.yearTo && parseInt(newYearFrom) > parseInt(current.yearTo)) {
+                                            return { ...current, yearFrom: newYearFrom, yearTo: "" };
+                                        }
+                                        return { ...current, yearFrom: newYearFrom };
+                                    })}
                                     options={YEAR_OPTIONS.map((year) => ({ value: year, label: year }))}
                                     placeholder="Sin mínimo"
                                     ariaLabel="Año desde"
@@ -473,7 +520,14 @@ export default function HomeSearchBox() {
                                 <label className="block text-xs mb-1.5" style={{ color: "var(--fg-muted)" }}>Año hasta</label>
                                 <ModernSelect
                                     value={filters.yearTo}
-                                    onChange={(value) => setFilters((current) => ({ ...current, yearTo: value }))}
+                                    onChange={(value) => setFilters((current) => {
+                                        const newYearTo = value;
+                                        // Si yearTo < yearFrom, limpiar yearFrom
+                                        if (newYearTo && current.yearFrom && parseInt(newYearTo) < parseInt(current.yearFrom)) {
+                                            return { ...current, yearTo: newYearTo, yearFrom: "" };
+                                        }
+                                        return { ...current, yearTo: newYearTo };
+                                    })}
                                     options={YEAR_OPTIONS.map((year) => ({ value: year, label: year }))}
                                     placeholder="Sin máximo"
                                     ariaLabel="Año hasta"
