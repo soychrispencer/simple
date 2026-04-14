@@ -12,9 +12,11 @@ import {
 import ModernSelect from '@/components/ui/modern-select';
 import { PanelButton } from '@simple/ui';
 import { loadPublishWizardCatalog, type CatalogBrand, type CatalogModel } from '@/lib/publish-wizard-catalog';
-import { LOCATION_REGIONS, getCommunesForRegion, type CatalogRegion, type CatalogCommune } from '@simple/utils';
+import { LOCATION_REGIONS, getCommunesForRegion } from '@simple/utils';
 
 type AutosTab = 'comprar' | 'arrendar' | 'subastas';
+
+type VehicleType = 'car' | 'motorcycle' | 'truck' | 'bus' | 'machinery' | 'nautical' | 'aerial';
 
 type AutosFilters = {
     tab: AutosTab;
@@ -28,6 +30,7 @@ type AutosFilters = {
     yearFrom: string;
     yearTo: string;
     fuel: string;
+    vehicleType: VehicleType | '';
 };
 
 type Suggestion = {
@@ -51,7 +54,18 @@ const DEFAULT_FILTERS: AutosFilters = {
     yearFrom: '',
     yearTo: '',
     fuel: '',
+    vehicleType: '',
 };
+
+const VEHICLE_TYPE_OPTIONS = [
+    { value: 'car', label: 'Autos y SUV' },
+    { value: 'motorcycle', label: 'Motos' },
+    { value: 'truck', label: 'Camiones' },
+    { value: 'bus', label: 'Buses' },
+    { value: 'machinery', label: 'Maquinaria' },
+    { value: 'nautical', label: 'Náutica' },
+    { value: 'aerial', label: 'Aéreos' },
+];
 
 const TAB_META: Record<
     AutosTab,
@@ -176,6 +190,7 @@ function buildSearchParams(filters: AutosFilters): URLSearchParams {
     if (filters.yearFrom) params.set('year_from', filters.yearFrom);
     if (filters.yearTo) params.set('year_to', filters.yearTo);
     if (filters.fuel) params.set('fuel', filters.fuel);
+    if (filters.vehicleType) params.set('vehicle_type', filters.vehicleType);
     return params;
 }
 
@@ -240,6 +255,11 @@ function readFiltersFromURL(searchParams: URLSearchParams): Partial<AutosFilters
     const fuel = searchParams.get('fuel');
     if (fuel) filters.fuel = fuel;
     
+    const vehicleType = searchParams.get('vehicle_type');
+    if (vehicleType && ['car', 'motorcycle', 'truck', 'bus', 'machinery', 'nautical', 'aerial'].includes(vehicleType)) {
+        filters.vehicleType = vehicleType as VehicleType;
+    }
+    
     return filters;
 }
 
@@ -250,8 +270,11 @@ export default function HomeSearchBox() {
     const [hydrated, setHydrated] = useState(false);
     const [showAdvanced, setShowAdvanced] = useState(false);
     const [showSuggestions, setShowSuggestions] = useState(false);
+    const [activeSuggestion, setActiveSuggestion] = useState(-1);
     const [catalog, setCatalog] = useState<{ brands: CatalogBrand[]; models: CatalogModel[] } | null>(null);
+    const [catalogLoading, setCatalogLoading] = useState(true);
     const inputWrapRef = useRef<HTMLDivElement | null>(null);
+    const inputRef = useRef<HTMLInputElement | null>(null);
 
     useEffect(() => {
         const storageFilters = readFiltersFromStorage();
@@ -260,7 +283,12 @@ export default function HomeSearchBox() {
         const mergedFilters = { ...storageFilters, ...urlFilters };
         setFilters(mergedFilters);
         setHydrated(true);
-        loadPublishWizardCatalog().then(setCatalog);
+        loadPublishWizardCatalog()
+            .then(setCatalog)
+            .catch(() => {
+                // Error silencioso - el catálogo se mantendrá null
+            })
+            .finally(() => setCatalogLoading(false));
     }, [searchParams]);
 
     useEffect(() => {
@@ -281,8 +309,9 @@ export default function HomeSearchBox() {
 
     const tabMeta = TAB_META[filters.tab];
 
-    const brandOptions = catalog?.brands.filter(b => b.vehicleTypes.includes('car')).map(b => ({ value: b.id, label: b.name })) || [];
-    const modelOptions = catalog?.models.filter(m => m.brandId === filters.brand && m.vehicleTypes.includes('car')).map(m => ({ value: m.id, label: m.name })) || [];
+    const selectedVehicleType = filters.vehicleType || 'car';
+    const brandOptions = catalog?.brands.filter(b => b.vehicleTypes.includes(selectedVehicleType)).map(b => ({ value: b.id, label: b.name })) || [];
+    const modelOptions = catalog?.models.filter(m => m.brandId === filters.brand && m.vehicleTypes.includes(selectedVehicleType)).map(m => ({ value: m.id, label: m.name })) || [];
     const regionOptions = LOCATION_REGIONS.map(r => ({ value: r.id, label: r.name }));
     const communeOptions = getCommunesForRegion(filters.region).map(c => ({ value: c.id, label: c.name }));
 
@@ -298,20 +327,26 @@ export default function HomeSearchBox() {
             .slice(0, 6);
     }, [filters.query, filters.tab]);
 
-    const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
-        event.preventDefault();
-        if (!catalog) return;
-        const intent = parseAutosIntent(filters.query, catalog.brands, catalog.models);
-        const resolvedFilters = mergeFiltersWithIntent(filters, intent);
-        setFilters(resolvedFilters);
+    const handleSubmit = (event?: FormEvent<HTMLFormElement>) => {
+        event?.preventDefault();
+        // Scroll to top
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+        
+        let resolvedFilters = filters;
+        if (catalog) {
+            const intent = parseAutosIntent(filters.query, catalog.brands, catalog.models);
+            resolvedFilters = mergeFiltersWithIntent(filters, intent);
+            setFilters(resolvedFilters);
+        }
+        
         const params = buildSearchParams(resolvedFilters);
-
         const queryString = params.toString();
         router.push(queryString ? `${tabMeta.href}?${queryString}` : tabMeta.href);
         setShowSuggestions(false);
+        setActiveSuggestion(-1);
     };
 
-    const applySuggestion = (suggestion: Suggestion) => {
+    const applySuggestion = (suggestion: Suggestion, submit = false) => {
         setFilters((current) => ({
             ...current,
             query: suggestion.label,
@@ -319,6 +354,40 @@ export default function HomeSearchBox() {
             fuel: suggestion.fuel ?? current.fuel,
         }));
         setShowSuggestions(false);
+        setActiveSuggestion(-1);
+        if (submit) {
+            // Pequeño delay para que el estado se actualice antes de navegar
+            setTimeout(() => handleSubmit(), 0);
+        }
+    };
+
+    const handleKeyDown = (event: React.KeyboardEvent<HTMLInputElement>) => {
+        if (!showSuggestions || suggestions.length === 0) return;
+
+        switch (event.key) {
+            case 'ArrowDown':
+                event.preventDefault();
+                setActiveSuggestion((prev) => 
+                    prev < suggestions.length - 1 ? prev + 1 : 0
+                );
+                break;
+            case 'ArrowUp':
+                event.preventDefault();
+                setActiveSuggestion((prev) => 
+                    prev > 0 ? prev - 1 : suggestions.length - 1
+                );
+                break;
+            case 'Enter':
+                if (activeSuggestion >= 0) {
+                    event.preventDefault();
+                    applySuggestion(suggestions[activeSuggestion], true);
+                }
+                break;
+            case 'Escape':
+                setShowSuggestions(false);
+                setActiveSuggestion(-1);
+                break;
+        }
     };
 
     return (
@@ -373,13 +442,25 @@ export default function HomeSearchBox() {
                         <div className="flex-1 relative" ref={inputWrapRef}>
                             <IconSearch size={15} className="absolute left-4 top-1/2 -translate-y-1/2 pointer-events-none" style={{ color: 'var(--fg-muted)' }} />
                             <input
+                                ref={inputRef}
                                 type="text"
                                 value={filters.query}
-                                onFocus={() => setShowSuggestions(true)}
-                                onChange={(event) => setFilters((current) => ({ ...current, query: event.target.value }))}
+                                onFocus={() => {
+                                    setShowSuggestions(true);
+                                    setActiveSuggestion(-1);
+                                }}
+                                onChange={(event) => {
+                                    setFilters((current) => ({ ...current, query: event.target.value }));
+                                    setActiveSuggestion(-1);
+                                }}
+                                onKeyDown={handleKeyDown}
                                 placeholder={tabMeta.placeholder}
                                 className="form-input h-11"
                                 style={{ paddingLeft: '2.75rem', paddingRight: '2.5rem' }}
+                                aria-expanded={showSuggestions}
+                                aria-autocomplete="list"
+                                aria-controls={showSuggestions ? 'search-suggestions' : undefined}
+                                aria-activedescendant={activeSuggestion >= 0 ? `suggestion-${activeSuggestion}` : undefined}
                             />
                             {filters.query ? (
                                 <button
@@ -395,15 +476,20 @@ export default function HomeSearchBox() {
 
                             {showSuggestions && suggestions.length > 0 ? (
                                 <div
+                                    id="search-suggestions"
+                                    role="listbox"
                                     className="absolute left-0 right-0 top-[calc(100%+0.35rem)] rounded-xl border overflow-hidden z-30"
                                     style={{ borderColor: 'var(--border)', background: 'var(--surface)', boxShadow: 'var(--shadow-lg)' }}
                                 >
-                                    {suggestions.map((suggestion) => (
+                                    {suggestions.map((suggestion, index) => (
                                         <button
                                             key={suggestion.label}
+                                            id={`suggestion-${index}`}
                                             type="button"
-                                            onClick={() => applySuggestion(suggestion)}
-                                            className="w-full text-left px-3 py-2.5 border-b last:border-b-0 hover:bg-[var(--bg-subtle)] transition-colors"
+                                            role="option"
+                                            aria-selected={index === activeSuggestion}
+                                            onClick={() => applySuggestion(suggestion, true)}
+                                            className={`w-full text-left px-3 py-2.5 border-b last:border-b-0 hover:bg-[var(--bg-subtle)] transition-colors ${index === activeSuggestion ? 'bg-[var(--bg-subtle)]' : ''}`}
                                             style={{ borderColor: 'var(--border)' }}
                                         >
                                             <p className="text-sm font-medium" style={{ color: 'var(--fg)' }}>{suggestion.label}</p>
@@ -451,14 +537,27 @@ export default function HomeSearchBox() {
                     {showAdvanced ? (
                         <div className="rounded-xl border p-3 sm:p-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5" style={{ borderColor: "var(--border)", background: "var(--bg-subtle)" }}>
                             <div>
+                                <label className="block text-xs mb-1.5" style={{ color: "var(--fg-muted)" }}>Tipo de vehículo</label>
+                                <ModernSelect
+                                    value={filters.vehicleType}
+                                    onChange={(value) => setFilters((current) => ({ ...current, vehicleType: value as VehicleType, brand: "", model: "" }))}
+                                    options={VEHICLE_TYPE_OPTIONS}
+                                    placeholder="Autos y SUV"
+                                    ariaLabel="Tipo de vehículo"
+                                    triggerClassName="h-10"
+                                />
+                            </div>
+
+                            <div>
                                 <label className="block text-xs mb-1.5" style={{ color: "var(--fg-muted)" }}>Marca</label>
                                 <ModernSelect
                                     value={filters.brand}
                                     onChange={(value) => setFilters((current) => ({ ...current, brand: value, model: "" }))}
                                     options={brandOptions}
-                                    placeholder="Sin preferencia"
+                                    placeholder={catalogLoading ? "Cargando..." : "Sin preferencia"}
                                     ariaLabel="Marca"
                                     triggerClassName="h-10"
+                                    disabled={catalogLoading}
                                 />
                             </div>
 
@@ -468,10 +567,10 @@ export default function HomeSearchBox() {
                                     value={filters.model}
                                     onChange={(value) => setFilters((current) => ({ ...current, model: value }))}
                                     options={modelOptions}
-                                    placeholder="Sin preferencia"
+                                    placeholder={catalogLoading ? "Cargando..." : filters.brand ? "Sin preferencia" : "Selecciona marca primero"}
                                     ariaLabel="Modelo"
                                     triggerClassName="h-10"
-                                    disabled={!filters.brand}
+                                    disabled={!filters.brand || catalogLoading}
                                 />
                             </div>
 
@@ -547,15 +646,30 @@ export default function HomeSearchBox() {
                                 />
                             </div>
 
-                            <div className="sm:col-span-2 lg:col-span-3 flex justify-end">
+                            <div className="sm:col-span-2 lg:col-span-3 flex justify-end gap-2">
                                 <PanelButton
                                     type="button"
                                     variant="secondary"
                                     size="sm"
                                     className="h-9 px-3 text-xs"
-                                    onClick={() => setFilters((current) => ({ ...current, brand: "", model: "", priceFrom: "", priceTo: "", yearFrom: "", yearTo: "", fuel: "" }))}
+                                    onClick={() => {
+                                        const cleared: AutosFilters = { ...filters, vehicleType: "", brand: "", model: "", priceFrom: "", priceTo: "", yearFrom: "", yearTo: "", fuel: "" };
+                                        setFilters(cleared);
+                                        // Actualizar URL sin filtros avanzados
+                                        const params = buildSearchParams(cleared);
+                                        const queryString = params.toString();
+                                        router.replace(queryString ? `${tabMeta.href}?${queryString}` : tabMeta.href, { scroll: false });
+                                    }}
                                 >
                                     Limpiar filtros avanzados
+                                </PanelButton>
+                                <PanelButton
+                                    type="submit"
+                                    variant="primary"
+                                    size="sm"
+                                    className="h-9 px-3 text-xs"
+                                >
+                                    Aplicar filtros
                                 </PanelButton>
                             </div>
                         </div>
