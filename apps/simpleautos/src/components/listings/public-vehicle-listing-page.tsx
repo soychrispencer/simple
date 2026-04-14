@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { Suspense, useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { IconArrowsSort, IconGridDots, IconList } from '@tabler/icons-react';
 import InlineResultAd from '@/components/ads/inline-result-ad';
@@ -42,7 +42,7 @@ function toCardData(item: PublicListing): VehicleListingCardData {
     };
 }
 
-export default function PublicVehicleListingPage(props: {
+function PublicVehicleListingPageContent(props: {
     section: PublicListingSection;
     title: string;
     breadcrumbLabel: string;
@@ -146,5 +146,26 @@ export default function PublicVehicleListingPage(props: {
                 </div>
             )}
         </div>
+    );
+}
+
+export default function PublicVehicleListingPage(props: {
+    section: PublicListingSection;
+    title: string;
+    breadcrumbLabel: string;
+    description: string;
+}) {
+    return (
+        <Suspense fallback={
+            <div className="container-app py-6">
+                <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
+                    {Array.from({ length: 6 }).map((_, index) => (
+                        <div key={index} className="h-72 rounded-xl animate-pulse" style={{ background: 'var(--bg-muted)' }} />
+                    ))}
+                </div>
+            </div>
+        }>
+            <PublicVehicleListingPageContent {...props} />
+        </Suspense>
     );
 }
