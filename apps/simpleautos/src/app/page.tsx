@@ -436,9 +436,9 @@ export default function HomePage() {
                 </div>
             </section>
 
-            <RecentListingsSlider />
-
             <BoostedListingsSlider />
+
+            <RecentListingsSlider />
 
             <section className="container-app py-20">
                 <h2 className="text-2xl md:text-3xl font-semibold text-center mb-4" style={{ color: 'var(--fg)' }}>¿Por qué Simple?</h2>
