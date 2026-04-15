@@ -4684,11 +4684,10 @@ async function listFeaturedBoosted(vertical: VerticalType, section: BoostSection
 
     if (uniqueBoosted.length >= limit) return uniqueBoosted.slice(0, limit);
 
-    // Limit organic fallback to max 2 items (not fill entire limit)
     const fallback = boostListingsSeed
         .filter((item) => item.vertical === vertical && item.section === section)
         .filter((item) => !uniqueIds.has(item.id))
-        .slice(0, Math.min(2, Math.max(0, limit - uniqueBoosted.length)))
+        .slice(0, Math.max(0, limit - uniqueBoosted.length))
         .map((listing) => {
             const owner = usersById.get(listing.ownerId);
             const sourceListing = listingsById.get(listing.id);
