@@ -18,6 +18,7 @@ export type AdminLeadSlaSignal = {
 export type AdminOverview = {
     stats: {
         usersTotal: number;
+        agendaListingsTotal?: number;
         autosListingsTotal: number;
         propiedadesListingsTotal: number;
         newServiceLeads: number;
@@ -40,11 +41,18 @@ export type AdminUserListItem = {
     totalListings: number;
     autosListings: number;
     propiedadesListings: number;
+    agendaListings: number;
+    subscriptions?: {
+        agenda?: { plan: 'free' | 'pro'; expiresAt: string | null; status: 'active' | 'expired' | 'free' } | null;
+        autos?: { planId: string; planName: string; status: string; expiresAt: string | null } | null;
+        propiedades?: { planId: string; planName: string; status: string; expiresAt: string | null } | null;
+    } | null;
 };
 
-type AdminUserListItemWire = Omit<AdminUserListItem, 'role' | 'status'> & {
+type AdminUserListItemWire = Omit<AdminUserListItem, 'role' | 'status' | 'subscriptions'> & {
     role: string;
     status: string;
+    subscriptions?: AdminUserListItem['subscriptions'];
 };
 
 export type AdminListingListItem = {

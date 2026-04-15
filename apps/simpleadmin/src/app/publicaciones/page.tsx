@@ -39,7 +39,6 @@ function PublicacionesContent() {
 
     const scopedItems = useMemo(() => {
         if (scope === 'autos' || scope === 'propiedades') return items.filter((item) => item.vertical === scope);
-        if (scope === 'plataforma') return [];
         return items;
     }, [items, scope]);
 
@@ -88,8 +87,8 @@ function PublicacionesContent() {
                 </div>
                 {loading ? (
                     <div className="px-4 py-6 text-sm" style={{ color: 'var(--fg-muted)' }}>Cargando publicaciones...</div>
-                ) : scope === 'plataforma' ? (
-                    <div className="px-4 py-6 text-sm" style={{ color: 'var(--fg-muted)' }}>La capa plataforma no tiene publicaciones propias. Usa General, SimpleAutos o SimplePropiedades.</div>
+                ) : scope === 'agenda' ? (
+                    <div className="px-4 py-6 text-sm" style={{ color: 'var(--fg-muted)' }}>La capa agenda no tiene publicaciones en este módulo. Usa General, SimpleAutos o SimplePropiedades.</div>
                 ) : filtered.length === 0 ? (
                     <div className="px-4 py-6 text-sm" style={{ color: 'var(--fg-muted)' }}>No encontramos publicaciones para ese filtro.</div>
                 ) : (

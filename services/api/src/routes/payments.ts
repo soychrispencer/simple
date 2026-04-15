@@ -25,7 +25,7 @@ async function getAuthUser(c: Context) {
 
 // Schema validations
 const startCheckoutSchema = z.object({
-  planId: z.enum(['free', 'basic', 'pro', 'enterprise']),
+  planId: z.enum(['free', 'pro', 'enterprise']),
   returnUrl: z.string().url(),
 });
 

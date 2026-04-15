@@ -118,7 +118,6 @@ export function AdminShell({ children, user }: { children: React.ReactNode; user
             { href: '/', icon: IconLayoutDashboard, label: 'Dashboard' },
             { href: '/usuarios', icon: IconUsers, label: 'Usuarios' },
             { href: '/publicaciones', icon: IconCar, label: 'Publicaciones' },
-            { href: '/suscripciones', icon: IconCreditCard, label: 'Suscripciones' },
             { href: '/reportes', icon: IconFlag, label: 'Leads' },
             { href: '/configuracion', icon: IconSettings, label: 'Configuración' },
         ],

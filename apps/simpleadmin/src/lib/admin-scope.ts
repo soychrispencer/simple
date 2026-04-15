@@ -1,14 +1,14 @@
-export type AdminScope = 'all' | 'autos' | 'propiedades' | 'plataforma';
+export type AdminScope = 'all' | 'agenda' | 'autos' | 'propiedades';
 
 export const ADMIN_SCOPE_ITEMS: Array<{ key: AdminScope; label: string }> = [
     { key: 'all', label: 'General' },
+    { key: 'agenda', label: 'SimpleAgenda' },
     { key: 'autos', label: 'SimpleAutos' },
     { key: 'propiedades', label: 'SimplePropiedades' },
-    { key: 'plataforma', label: 'Plataforma' },
 ];
 
 export function normalizeAdminScope(value: string | null | undefined): AdminScope {
-    if (value === 'autos' || value === 'propiedades' || value === 'plataforma') return value;
+    if (value === 'agenda' || value === 'autos' || value === 'propiedades') return value;
     return 'all';
 }
 

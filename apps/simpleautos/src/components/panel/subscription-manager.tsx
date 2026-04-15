@@ -105,7 +105,7 @@ export default function SubscriptionManager() {
         [plans, freePlan, currentPlanId]
     );
 
-    const startCheckout = async (planId: 'basic' | 'pro' | 'enterprise') => {
+    const startCheckout = async (planId: 'pro' | 'enterprise') => {
         setBusyPlanId(planId);
         setError('');
         setMessage('');
@@ -175,7 +175,7 @@ export default function SubscriptionManager() {
                     description="Elige el plan que quieres facturar mensualmente con Mercado Pago."
                 />
 
-                <div className="grid grid-cols-1 lg:grid-cols-4 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     {plans.map((plan) => {
                         const isCurrent = plan.id === currentPlanId;
                         const isPaid = plan.priceMonthly > 0 && plan.id !== 'free';
@@ -217,7 +217,7 @@ export default function SubscriptionManager() {
                                     variant={isCurrent ? 'secondary' : 'primary'}
                                     disabled={!isPaid || isCurrent || busyPlanId === plan.id || !mercadoPagoEnabled}
                                     onClick={() => {
-                                        if (plan.id === 'basic' || plan.id === 'pro' || plan.id === 'enterprise') {
+                                        if (plan.id === 'pro' || plan.id === 'enterprise') {
                                             void startCheckout(plan.id);
                                         }
                                     }}

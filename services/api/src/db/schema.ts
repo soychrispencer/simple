@@ -650,7 +650,7 @@ export const pushSubscriptions = pgTable('push_subscriptions', {
 export const subscriptionPlans = pgTable('subscription_plans', {
   id: uuid('id').primaryKey().defaultRandom(),
   vertical: varchar('vertical', { length: 20 }).notNull(), // 'autos' | 'propiedades' | 'agenda'
-  planId: varchar('plan_id', { length: 50 }).notNull(), // 'free' | 'basic' | 'pro' | 'enterprise'
+  planId: varchar('plan_id', { length: 50 }).notNull(), // 'free' | 'pro' | 'enterprise'
   name: varchar('name', { length: 255 }).notNull(),
   description: text('description').notNull(),
   priceMonthly: decimal('price_monthly', { precision: 10, scale: 2 }).notNull(),

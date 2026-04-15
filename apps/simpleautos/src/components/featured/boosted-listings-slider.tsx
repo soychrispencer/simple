@@ -134,13 +134,33 @@ export default function BoostedListingsSlider() {
                             Ordenadas por campañas Boost activas.
                         </p>
                     </div>
-                    <Link
-                        href={sectionMeta.href}
-                        className="text-sm font-medium inline-flex items-center gap-1"
-                        style={{ color: 'var(--fg-muted)' }}
-                    >
-                        Ver {sectionMeta.label.toLowerCase()} <IconArrowRight size={12} />
-                    </Link>
+                    <div className="flex items-center gap-3">
+                        <Link
+                            href={sectionMeta.href}
+                            className="text-sm font-medium inline-flex items-center gap-1"
+                            style={{ color: 'var(--fg-muted)' }}
+                        >
+                            Ver {sectionMeta.label.toLowerCase()} <IconArrowRight size={12} />
+                        </Link>
+                        <div className="hidden md:flex items-center gap-2">
+                            <button
+                                onClick={() => scrollByCards(-1)}
+                                className="w-9 h-9 rounded-md border flex items-center justify-center transition-colors hover:bg-(--bg-subtle) hover:border-(--border-strong)"
+                                style={{ borderColor: 'var(--border)', background: 'var(--surface)', color: 'var(--fg)' }}
+                                aria-label="Anterior"
+                            >
+                                <IconChevronLeft size={16} />
+                            </button>
+                            <button
+                                onClick={() => scrollByCards(1)}
+                                className="w-9 h-9 rounded-md border flex items-center justify-center transition-colors hover:bg-(--bg-subtle) hover:border-(--border-strong)"
+                                style={{ borderColor: 'var(--border)', background: 'var(--surface)', color: 'var(--fg)' }}
+                                aria-label="Siguiente"
+                            >
+                                <IconChevronRight size={16} />
+                            </button>
+                        </div>
+                    </div>
                 </div>
 
                 <div className="flex flex-wrap items-center gap-2 mb-4">
@@ -167,24 +187,6 @@ export default function BoostedListingsSlider() {
                         style={{ scrollbarWidth: 'none' }}
                     >
                         {cards}
-                    </div>
-                    <div className="hidden md:flex items-center gap-2 absolute right-0 -top-12">
-                        <button
-                            onClick={() => scrollByCards(-1)}
-                            className="w-9 h-9 rounded-md border flex items-center justify-center transition-colors hover:bg-(--bg-subtle) hover:border-(--border-strong)"
-                            style={{ borderColor: 'var(--border)', background: 'var(--surface)', color: 'var(--fg)' }}
-                            aria-label="Anterior"
-                        >
-                            <IconChevronLeft size={16} />
-                        </button>
-                        <button
-                            onClick={() => scrollByCards(1)}
-                            className="w-9 h-9 rounded-md border flex items-center justify-center transition-colors hover:bg-(--bg-subtle) hover:border-(--border-strong)"
-                            style={{ borderColor: 'var(--border)', background: 'var(--surface)', color: 'var(--fg)' }}
-                            aria-label="Siguiente"
-                        >
-                            <IconChevronRight size={16} />
-                        </button>
                     </div>
                 </div>
             </div>

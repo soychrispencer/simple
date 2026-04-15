@@ -38,7 +38,7 @@ export type PublicProfile = {
     vertical: 'propiedades';
     accountKind: 'individual' | 'independent' | 'company';
     accountKindLabel: string;
-    subscriptionPlanId: 'free' | 'basic' | 'pro' | 'enterprise';
+    subscriptionPlanId: 'free' | 'pro' | 'enterprise';
     subscriptionPlanName: string;
     headline: string | null;
     bio: string | null;

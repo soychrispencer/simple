@@ -10,7 +10,7 @@ export type AdFormat = 'hero' | 'card' | 'inline';
 export type AdDurationDays = 7 | 15 | 30;
 export type BoostSection = 'sale' | 'rent' | 'project';
 export type BoostPlanId = 'boost_starter' | 'boost_pro' | 'boost_max';
-export type SubscriptionPlanId = 'free' | 'basic' | 'pro' | 'enterprise';
+export type SubscriptionPlanId = 'free' | 'pro' | 'enterprise';
 
 export type PaymentOrderView = {
     id: string;
@@ -44,13 +44,14 @@ export type SubscriptionPlan = {
     customBranding: boolean;
     apiAccess: boolean;
     recommended?: boolean;
+    isComingSoon?: boolean;
     features: string[];
 };
 
 export type ActiveSubscription = {
     id: string;
     vertical: 'autos' | 'propiedades';
-    planId: 'basic' | 'pro' | 'enterprise';
+    planId: 'pro' | 'enterprise';
     planName: string;
     priceMonthly: number;
     currency: 'CLP';
@@ -160,7 +161,7 @@ export async function startAdvertisingCheckout(input: {
 
 export async function startSubscriptionCheckout(input: {
     returnUrl: string;
-    planId: 'basic' | 'pro' | 'enterprise';
+    planId: 'pro' | 'enterprise';
 }): Promise<{ ok: boolean; orderId?: string; checkoutUrl?: string | null; error?: string }> {
     const { data } = await apiRequest<StartCheckoutResponse>('/api/payments/checkout', {
         method: 'POST',

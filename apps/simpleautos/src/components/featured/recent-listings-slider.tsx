@@ -7,6 +7,7 @@ import {
     IconCar,
     IconChevronLeft,
     IconChevronRight,
+    IconClock,
     IconMapPin,
 } from '@tabler/icons-react';
 import { fetchPublicListings, type PublicListing } from '@/lib/public-listings';
@@ -91,7 +92,7 @@ export default function RecentListingsSlider() {
                         {item.sectionLabel}
                     </span>
                 </div>
-                <div className="p-4 space-y-1.5">
+                <div className="p-4 space-y-2">
                     <h3 className="text-sm font-semibold line-clamp-1" style={{ color: 'var(--fg)' }}>
                         {item.title}
                     </h3>
@@ -101,10 +102,16 @@ export default function RecentListingsSlider() {
                     <p className="text-xs line-clamp-1" style={{ color: 'var(--fg-secondary)' }}>
                         {item.summary.slice(0, 3).join(' • ')}
                     </p>
-                    <p className="text-xs inline-flex items-center gap-1" style={{ color: 'var(--fg-muted)' }}>
-                        <IconMapPin size={12} />
-                        {item.location}
-                    </p>
+                    <div className="flex items-center justify-between text-xs" style={{ color: 'var(--fg-muted)' }}>
+                        <span className="inline-flex items-center gap-1">
+                            <IconMapPin size={12} />
+                            {item.location}
+                        </span>
+                        <span className="inline-flex items-center gap-1">
+                            <IconClock size={12} />
+                            {item.publishedAgo}
+                        </span>
+                    </div>
                 </div>
             </Link>
         ));
@@ -126,13 +133,46 @@ export default function RecentListingsSlider() {
                             Las últimas publicaciones de vehículos.
                         </p>
                     </div>
-                    <Link
-                        href="/ventas"
-                        className="text-sm font-medium inline-flex items-center gap-1"
-                        style={{ color: 'var(--fg-muted)' }}
+                    <div className="flex items-center gap-3">
+                        <Link
+                            href="/ventas"
+                            className="text-sm font-medium inline-flex items-center gap-1"
+                            style={{ color: 'var(--fg-muted)' }}
+                        >
+                            Ver todas <IconArrowRight size={12} />
+                        </Link>
+                        <div className="hidden md:flex items-center gap-2">
+                            <button
+                                onClick={() => scrollByCards(-1)}
+                                className="w-9 h-9 rounded-md border flex items-center justify-center transition-colors hover:bg-(--bg-subtle) hover:border-(--border-strong)"
+                                style={{ borderColor: 'var(--border)', background: 'var(--surface)', color: 'var(--fg)' }}
+                                aria-label="Anterior"
+                            >
+                                <IconChevronLeft size={16} />
+                            </button>
+                            <button
+                                onClick={() => scrollByCards(1)}
+                                className="w-9 h-9 rounded-md border flex items-center justify-center transition-colors hover:bg-(--bg-subtle) hover:border-(--border-strong)"
+                                style={{ borderColor: 'var(--border)', background: 'var(--surface)', color: 'var(--fg)' }}
+                                aria-label="Siguiente"
+                            >
+                                <IconChevronRight size={16} />
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <div className="flex flex-wrap items-center gap-2 mb-4">
+                    <span
+                        className="h-9 px-4 rounded-md text-sm border flex items-center"
+                        style={{
+                            borderColor: 'var(--button-primary-border)',
+                            background: 'var(--button-primary-bg)',
+                            color: 'var(--button-primary-color)',
+                        }}
                     >
-                        Ver todas <IconArrowRight size={12} />
-                    </Link>
+                        Venta
+                    </span>
                 </div>
 
                 <div className="relative">
@@ -142,24 +182,6 @@ export default function RecentListingsSlider() {
                         style={{ scrollbarWidth: 'none' }}
                     >
                         {cards}
-                    </div>
-                    <div className="hidden md:flex items-center gap-2 absolute right-0 -top-12">
-                        <button
-                            onClick={() => scrollByCards(-1)}
-                            className="w-9 h-9 rounded-md border flex items-center justify-center transition-colors hover:bg-(--bg-subtle) hover:border-(--border-strong)"
-                            style={{ borderColor: 'var(--border)', background: 'var(--surface)', color: 'var(--fg)' }}
-                            aria-label="Anterior"
-                        >
-                            <IconChevronLeft size={16} />
-                        </button>
-                        <button
-                            onClick={() => scrollByCards(1)}
-                            className="w-9 h-9 rounded-md border flex items-center justify-center transition-colors hover:bg-(--bg-subtle) hover:border-(--border-strong)"
-                            style={{ borderColor: 'var(--border)', background: 'var(--surface)', color: 'var(--fg)' }}
-                            aria-label="Siguiente"
-                        >
-                            <IconChevronRight size={16} />
-                        </button>
                     </div>
                 </div>
             </div>

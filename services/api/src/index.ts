@@ -496,7 +496,7 @@ type AdOverlayAlign = 'left' | 'center' | 'right';
 type AdPlacementSection = 'home' | 'ventas' | 'arriendos' | 'subastas' | 'proyectos';
 type CheckoutKind = 'boost' | 'advertising' | 'subscription';
 type PaymentOrderStatus = 'pending' | 'approved' | 'authorized' | 'rejected' | 'cancelled';
-type SubscriptionPlanId = 'free' | 'basic' | 'pro' | 'enterprise';
+type SubscriptionPlanId = 'free' | 'pro' | 'enterprise';
 type ActiveSubscriptionStatus = 'active' | 'cancelled' | 'paused';
 type InstagramAccountStatus = 'connected' | 'error' | 'disconnected';
 type InstagramPublicationStatus = 'published' | 'failed';
@@ -542,6 +542,7 @@ type SubscriptionPlanRecord = {
     customBranding: boolean;
     apiAccess: boolean;
     recommended?: boolean;
+    isComingSoon?: boolean;
     features: string[];
 };
 
@@ -985,8 +986,8 @@ const adDurationDaysSchema = z.union([z.literal(7), z.literal(15), z.literal(30)
 const adDestinationTypeSchema = z.enum(['none', 'custom_url', 'listing', 'profile']);
 const adOverlayAlignSchema = z.enum(['left', 'center', 'right']);
 const adPlacementSectionSchema = z.enum(['home', 'ventas', 'arriendos', 'subastas', 'proyectos']);
-const subscriptionPlanIdSchema = z.enum(['free', 'basic', 'pro', 'enterprise']);
-const paidSubscriptionPlanIdSchema = z.enum(['basic', 'pro', 'enterprise']);
+const subscriptionPlanIdSchema = z.enum(['free', 'pro', 'enterprise']);
+const paidSubscriptionPlanIdSchema = z.enum(['pro', 'enterprise']);
 const listingStatusSchema = z.enum(['draft', 'active', 'paused', 'sold', 'archived']);
 const listingManageStatusSchema = z.enum(['draft', 'active', 'paused', 'sold', 'archived']);
 const addressBookKindSchema = z.enum(['personal', 'shipping', 'billing', 'company', 'branch', 'warehouse', 'pickup', 'other']);
@@ -2637,22 +2638,6 @@ const SUBSCRIPTION_PLANS_BY_VERTICAL: Record<VerticalType, SubscriptionPlanRecor
             features: ['3 publicaciones activas', '5 fotos por aviso', 'Soporte básico'],
         },
         {
-            id: 'basic',
-            name: 'Básico',
-            description: 'Para vendedores y corredoras pequeñas.',
-            priceMonthly: 14990,
-            currency: 'CLP',
-            maxListings: 10,
-            maxFeaturedListings: 1,
-            maxImagesPerListing: 10,
-            analyticsEnabled: false,
-            crmEnabled: false,
-            prioritySupport: false,
-            customBranding: false,
-            apiAccess: false,
-            features: ['10 publicaciones activas', '1 aviso destacado', '10 fotos por aviso', 'Estadísticas base'],
-        },
-        {
             id: 'pro',
             name: 'Profesional',
             description: 'Para equipos comerciales con operación diaria.',
@@ -2667,7 +2652,7 @@ const SUBSCRIPTION_PLANS_BY_VERTICAL: Record<VerticalType, SubscriptionPlanRecor
             customBranding: false,
             apiAccess: false,
             recommended: true,
-            features: ['50 publicaciones activas', '5 avisos destacados', 'CRM completo', 'Estadísticas avanzadas'],
+            features: ['50 publicaciones activas', '5 avisos destacados', 'CRM completo', 'Estadísticas avanzadas', '20 fotos por aviso'],
         },
         {
             id: 'enterprise',
@@ -2683,7 +2668,7 @@ const SUBSCRIPTION_PLANS_BY_VERTICAL: Record<VerticalType, SubscriptionPlanRecor
             prioritySupport: true,
             customBranding: true,
             apiAccess: true,
-            features: ['Publicaciones ilimitadas', 'Destacados ilimitados', 'API y branding propio', 'Soporte prioritario 24/7'],
+            features: ['Publicaciones ilimitadas', 'Destacados ilimitados', 'API y branding propio', 'Soporte prioritario 24/7', '50 fotos por aviso'],
         },
     ],
     propiedades: [
@@ -2701,23 +2686,7 @@ const SUBSCRIPTION_PLANS_BY_VERTICAL: Record<VerticalType, SubscriptionPlanRecor
             prioritySupport: false,
             customBranding: false,
             apiAccess: false,
-            features: ['3 publicaciones activas', '12 fotos por aviso', 'Soporte básico'],
-        },
-        {
-            id: 'basic',
-            name: 'Básico',
-            description: 'Para brokers y corredores independientes.',
-            priceMonthly: 14990,
-            currency: 'CLP',
-            maxListings: 10,
-            maxFeaturedListings: 1,
-            maxImagesPerListing: 20,
-            analyticsEnabled: false,
-            crmEnabled: false,
-            prioritySupport: false,
-            customBranding: false,
-            apiAccess: false,
-            features: ['10 propiedades activas', '1 destacada', '20 fotos por aviso', 'Estadísticas base'],
+            features: ['3 propiedades activas', '12 fotos por aviso', 'Soporte básico'],
         },
         {
             id: 'pro',
@@ -2734,7 +2703,7 @@ const SUBSCRIPTION_PLANS_BY_VERTICAL: Record<VerticalType, SubscriptionPlanRecor
             customBranding: false,
             apiAccess: false,
             recommended: true,
-            features: ['50 propiedades activas', '5 destacadas', 'CRM con pipeline', 'Estadísticas avanzadas'],
+            features: ['50 propiedades activas', '5 destacadas', 'CRM con pipeline', 'Estadísticas avanzadas', '30 fotos por aviso'],
         },
         {
             id: 'enterprise',
@@ -2750,7 +2719,7 @@ const SUBSCRIPTION_PLANS_BY_VERTICAL: Record<VerticalType, SubscriptionPlanRecor
             prioritySupport: true,
             customBranding: true,
             apiAccess: true,
-            features: ['Publicaciones ilimitadas', 'Destacados ilimitados', 'API y branding propio', 'Soporte prioritario 24/7'],
+            features: ['Publicaciones ilimitadas', 'Destacados ilimitados', 'API y branding propio', 'Soporte prioritario 24/7', '60 fotos por aviso'],
         },
     ],
     agenda: [
@@ -2786,6 +2755,23 @@ const SUBSCRIPTION_PLANS_BY_VERTICAL: Record<VerticalType, SubscriptionPlanRecor
             apiAccess: false,
             recommended: true,
             features: ['Citas y pacientes ilimitados', 'Notas clínicas por sesión', 'Control de pagos y cobros', 'Recordatorios por email y WhatsApp', 'Recordatorio 30 min antes por WhatsApp', 'Estadísticas de consulta', 'Sincronización con Google Calendar'],
+        },
+        {
+            id: 'enterprise',
+            name: 'Empresarial',
+            description: 'Próximamente. Plan para clínicas y centros médicos.',
+            priceMonthly: 0,
+            currency: 'CLP',
+            maxListings: 1,
+            maxFeaturedListings: 0,
+            maxImagesPerListing: 50,
+            analyticsEnabled: true,
+            crmEnabled: true,
+            prioritySupport: true,
+            customBranding: true,
+            apiAccess: true,
+            isComingSoon: true,
+            features: ['Múltiples profesionales', 'Gestión de salas', 'Reportes avanzados', 'Integraciones con sistemas de salud', 'Branding completo'],
         },
     ],
 };
@@ -3122,7 +3108,7 @@ function isValidPublicProfileSlug(value: string): boolean {
 function getDefaultPublicProfileAccountKind(user: AppUser, vertical: VerticalType): PublicProfileAccountKind {
     const planId = getEffectivePlanId(user, vertical);
     if (planId === 'enterprise') return 'company';
-    if (planId === 'pro' || planId === 'basic') return 'independent';
+    if (planId === 'pro') return 'independent';
     return 'individual';
 }
 
@@ -3153,7 +3139,7 @@ function getInstagramPublicationsForUser(userId: string, vertical?: VerticalType
     return [...filtered].sort((a, b) => b.createdAt - a.createdAt);
 }
 
-function getInstagramRequiredPlanIds(): Array<Exclude<SubscriptionPlanId, 'free' | 'basic'>> {
+function getInstagramRequiredPlanIds(): Array<Exclude<SubscriptionPlanId, 'free'>> {
     return ['pro', 'enterprise'];
 }
 
@@ -12657,6 +12643,117 @@ app.put('/api/admin/users/:id', async (c) => {
     return c.json({ ok: true, item: sanitizeUser(appUser) }, 200);
 });
 
+// Actualizar suscripciones de un usuario (superadmin only)
+app.patch('/api/admin/users/:id/subscriptions', async (c) => {
+    try {
+        const adminUser = await authUser(c);
+        if (!adminUser) return c.json({ ok: false, error: 'No autenticado' }, 401);
+        if (adminUser.role !== 'superadmin') return c.json({ ok: false, error: 'Solo superadmin puede acceder' }, 403);
+
+        const payload = await c.req.json().catch(() => null);
+        const userId = c.req.param('id') ?? '';
+
+        console.log('[admin subscriptions] userId:', userId, 'payload:', JSON.stringify(payload));
+
+        const targetUser = await getUserById(userId);
+        if (!targetUser) return c.json({ ok: false, error: 'Usuario no encontrado' }, 404);
+
+        const subData = payload?.subscriptions || {};
+        const results: Record<string, any> = {};
+
+    // 1. Actualizar SimpleAgenda (agendaProfessionalProfiles)
+    if (subData.agenda) {
+        const profile = await db.select()
+            .from(agendaProfessionalProfiles)
+            .where(eq(agendaProfessionalProfiles.userId, userId))
+            .limit(1);
+
+        if (profile.length > 0) {
+            const plan = subData.agenda.plan;
+            const expiresAt = subData.agenda.expiresAt ? new Date(subData.agenda.expiresAt) : null;
+
+            await db.update(agendaProfessionalProfiles)
+                .set({
+                    plan,
+                    planExpiresAt: expiresAt,
+                    updatedAt: new Date(),
+                })
+                .where(eq(agendaProfessionalProfiles.id, profile[0].id));
+
+            results.agenda = { plan, expiresAt: expiresAt?.toISOString() || null };
+        } else {
+            // Crear perfil si no existe
+            const plan = subData.agenda.plan;
+            const slug = `${targetUser.name.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '')}-${Date.now().toString(36)}`;
+            const expiresAt = subData.agenda.expiresAt ? new Date(subData.agenda.expiresAt) : null;
+
+            const [created] = await db.insert(agendaProfessionalProfiles).values({
+                userId,
+                slug,
+                displayName: targetUser.name,
+                plan,
+                planExpiresAt: expiresAt,
+            }).returning();
+
+            results.agenda = { plan, expiresAt: expiresAt?.toISOString() || null, created: true };
+        }
+    }
+
+    // 2. Actualizar SimpleAutos (subscriptions table - raw SQL)
+    if (subData.autos) {
+        const planId = subData.autos.planId || null;
+        const status = subData.autos.status || 'active';
+        const expiresAt = subData.autos.expiresAt ? new Date(subData.autos.expiresAt) : null;
+
+        const existing = await db.execute(sql`
+            SELECT id FROM subscriptions WHERE user_id = ${userId} AND vertical = 'autos' LIMIT 1
+        `);
+
+        if (existing.length > 0) {
+            await db.execute(sql`
+                UPDATE subscriptions SET plan_id = ${planId}, status = ${status}, expires_at = ${expiresAt}, updated_at = now()
+                WHERE id = ${(existing[0] as any).id}
+            `);
+        } else {
+            await db.execute(sql`
+                INSERT INTO subscriptions (user_id, plan_id, vertical, status, provider, expires_at)
+                VALUES (${userId}, ${planId}, 'autos', ${status}, 'manual', ${expiresAt})
+            `);
+        }
+        results.autos = { planId, status, expiresAt: expiresAt?.toISOString() || null };
+    }
+
+    // 3. Actualizar SimplePropiedades (subscriptions table - raw SQL)
+    if (subData.propiedades) {
+        const planId = subData.propiedades.planId || null;
+        const status = subData.propiedades.status || 'active';
+        const expiresAt = subData.propiedades.expiresAt ? new Date(subData.propiedades.expiresAt) : null;
+
+        const existing = await db.execute(sql`
+            SELECT id FROM subscriptions WHERE user_id = ${userId} AND vertical = 'propiedades' LIMIT 1
+        `);
+
+        if (existing.length > 0) {
+            await db.execute(sql`
+                UPDATE subscriptions SET plan_id = ${planId}, status = ${status}, expires_at = ${expiresAt}, updated_at = now()
+                WHERE id = ${(existing[0] as any).id}
+            `);
+        } else {
+            await db.execute(sql`
+                INSERT INTO subscriptions (user_id, plan_id, vertical, status, provider, expires_at)
+                VALUES (${userId}, ${planId}, 'propiedades', ${status}, 'manual', ${expiresAt})
+            `);
+        }
+        results.propiedades = { planId, status, expiresAt: expiresAt?.toISOString() || null };
+    }
+
+    return c.json({ ok: true, results }, 200);
+    } catch (error) {
+        console.error('[admin subscriptions] error:', error);
+        return c.json({ ok: false, error: 'Error al actualizar suscripciones' }, 500);
+    }
+});
+
 app.get('/api/admin/listings', async (c) => {
     const adminUser = await authUser(c);
     if (!adminUser) return c.json({ ok: false, error: 'No autenticado' }, 401);
@@ -14164,7 +14261,43 @@ app.get('/api/subscriptions/catalog', async (c) => {
             return c.json({ ok: false, error: 'Error al consultar el perfil de agenda. Verifica que las migraciones estén aplicadas.' }, 500);
         }
     } else {
-        currentSubscription = activeSubscriptionToResponse(getCurrentSubscription(user.id, vertical));
+        // For autos and propiedades: query from subscriptions table in database
+        try {
+            const subRows = await db.execute(sql`
+                SELECT id, plan_id, vertical, status, provider_status, started_at, updated_at
+                FROM subscriptions
+                WHERE user_id = ${user.id} AND vertical = ${vertical}
+                ORDER BY created_at DESC
+                LIMIT 1
+            `);
+
+            if (subRows.length > 0) {
+                const sub = subRows[0] as any;
+                const matchedPlan = plans.find((p) => p.id === sub.plan_id);
+                const isExpired = sub.expires_at && new Date(sub.expires_at) < new Date();
+                const subStatus = isExpired ? 'expired' : (sub.status || 'active');
+
+                if (subStatus !== 'expired' && subStatus !== 'cancelled') {
+                    currentSubscription = {
+                        id: sub.id,
+                        vertical: sub.vertical as 'autos' | 'propiedades',
+                        planId: sub.plan_id as Exclude<SubscriptionPlanId, 'free'>,
+                        planName: matchedPlan?.name ?? sub.plan_id,
+                        priceMonthly: matchedPlan?.priceMonthly ?? 0,
+                        currency: 'CLP',
+                        features: matchedPlan?.features ?? [],
+                        status: subStatus === 'active' ? 'active' : 'paused',
+                        providerStatus: sub.provider_status ?? 'manual',
+                        startedAt: new Date(sub.started_at).getTime(),
+                        updatedAt: new Date(sub.updated_at).getTime(),
+                    };
+                }
+            }
+        } catch (dbErr) {
+            console.error('[subscriptions/catalog] DB error for', vertical, ':', dbErr);
+            // Fallback to in-memory if DB query fails
+            currentSubscription = activeSubscriptionToResponse(getCurrentSubscription(user.id, vertical));
+        }
     }
 
     return c.json({
@@ -17863,6 +17996,73 @@ async function bootstrapMissingTables() {
                 ADD COLUMN IF NOT EXISTS accepts_payment_link boolean NOT NULL DEFAULT false
         `);
     } catch { /* ignore */ }
+
+    // subscription_plans table
+    await db.execute(sql`
+        CREATE TABLE IF NOT EXISTS subscription_plans (
+            id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+            vertical varchar(20) NOT NULL,
+            plan_id varchar(50) NOT NULL,
+            name varchar(255) NOT NULL,
+            description text NOT NULL DEFAULT '',
+            price_monthly decimal(10,2) NOT NULL DEFAULT 0,
+            price_yearly decimal(10,2) NOT NULL DEFAULT 0,
+            currency varchar(10) NOT NULL DEFAULT 'CLP',
+            max_listings integer NOT NULL DEFAULT 0,
+            max_featured_listings integer NOT NULL DEFAULT 0,
+            max_images_per_listing integer NOT NULL DEFAULT 0,
+            analytics_enabled boolean NOT NULL DEFAULT false,
+            crm_enabled boolean NOT NULL DEFAULT false,
+            priority_support boolean NOT NULL DEFAULT false,
+            custom_branding boolean NOT NULL DEFAULT false,
+            api_access boolean NOT NULL DEFAULT false,
+            is_active boolean NOT NULL DEFAULT true,
+            is_default boolean NOT NULL DEFAULT false,
+            features jsonb NOT NULL DEFAULT '[]',
+            created_at timestamp NOT NULL DEFAULT now(),
+            updated_at timestamp NOT NULL DEFAULT now()
+        )
+    `);
+
+    // subscriptions table (user subscriptions) - drop and recreate to ensure correct types
+    // Note: This is safe for development. For production, use proper migrations.
+    try {
+        await db.execute(sql`DROP TABLE IF EXISTS subscriptions`);
+    } catch { /* ignore */ }
+    await db.execute(sql`
+        CREATE TABLE IF NOT EXISTS subscriptions (
+            id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+            user_id uuid NOT NULL REFERENCES users(id),
+            plan_id varchar(50),
+            vertical varchar(20) NOT NULL,
+            status varchar(20) NOT NULL DEFAULT 'active',
+            provider varchar(30) NOT NULL DEFAULT 'mercadopago',
+            provider_subscription_id varchar(255),
+            provider_status varchar(50),
+            started_at timestamp NOT NULL DEFAULT now(),
+            expires_at timestamp,
+            cancelled_at timestamp,
+            created_at timestamp NOT NULL DEFAULT now(),
+            updated_at timestamp NOT NULL DEFAULT now()
+        )
+    `);
+    await db.execute(sql`
+        CREATE UNIQUE INDEX IF NOT EXISTS subscriptions_user_vertical_idx ON subscriptions(user_id, vertical)
+    `);
+    await db.execute(sql`
+        CREATE INDEX IF NOT EXISTS subscriptions_user_idx ON subscriptions(user_id)
+    `);
+    await db.execute(sql`
+        CREATE INDEX IF NOT EXISTS subscriptions_vertical_idx ON subscriptions(vertical)
+    `);
+
+    // Migration: Convert 'basic' plan subscriptions to 'pro'
+    try {
+        await db.execute(sql`
+            UPDATE subscriptions SET plan_id = 'pro' WHERE plan_id = 'basic'
+        `);
+        console.log('[simple-api] Migrated basic subscriptions to pro');
+    } catch { /* ignore if no basic subscriptions */ }
 
     // push subscriptions table (migration 0025)
     await db.execute(sql`

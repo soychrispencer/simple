@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
-import { IconAlertCircle, IconCheck, IconSearch, IconShield, IconTrash } from '@tabler/icons-react';
+import { IconAlertCircle, IconCheck, IconCreditCard, IconSearch, IconShield, IconTrash } from '@tabler/icons-react';
 import { AdminProtectedPage } from '@/components/admin-protected-page';
 import { fetchAdminUsers, type AdminUserListItem } from '@/lib/api';
 import { PanelButton, PanelCard, PanelNotice, PanelStatCard } from '@simple/ui';
@@ -18,7 +18,7 @@ export default function UsuariosPage() {
     );
 }
 
-type ActionMode = 'role' | 'delete' | null;
+type ActionMode = 'role' | 'subscription' | 'delete' | null;
 
 function UsuariosContent() {
     const searchParams = useSearchParams();
@@ -47,9 +47,9 @@ function UsuariosContent() {
     }, []);
 
     const scopedItems = useMemo(() => {
+        if (scope === 'agenda') return items.filter((item) => item.agendaListings > 0);
         if (scope === 'autos') return items.filter((item) => item.autosListings > 0);
         if (scope === 'propiedades') return items.filter((item) => item.propiedadesListings > 0);
-        if (scope === 'plataforma') return items.filter((item) => item.role === 'admin' || item.role === 'superadmin');
         return items;
     }, [items, scope]);
 
@@ -65,24 +65,26 @@ function UsuariosContent() {
         const admins = scopedItems.filter((item) => item.role === 'admin' || item.role === 'superadmin').length;
         const suspended = scopedItems.filter((item) => item.status === 'suspended').length;
         const listingLabel =
-            scope === 'autos'
-                ? 'Publicaciones autos'
-                : scope === 'propiedades'
-                    ? 'Publicaciones propiedades'
-                    : scope === 'plataforma'
-                        ? 'Accesos admin'
+            scope === 'agenda'
+                ? 'Publicaciones agenda'
+                : scope === 'autos'
+                    ? 'Publicaciones autos'
+                    : scope === 'propiedades'
+                        ? 'Publicaciones propiedades'
                         : 'Administradores';
         const listingValue =
-            scope === 'autos'
-                ? scopedItems.reduce((sum, item) => sum + item.autosListings, 0)
-                : scope === 'propiedades'
-                    ? scopedItems.reduce((sum, item) => sum + item.propiedadesListings, 0)
-                    : admins;
+            scope === 'agenda'
+                ? scopedItems.reduce((sum, item) => sum + item.agendaListings, 0)
+                : scope === 'autos'
+                    ? scopedItems.reduce((sum, item) => sum + item.autosListings, 0)
+                    : scope === 'propiedades'
+                        ? scopedItems.reduce((sum, item) => sum + item.propiedadesListings, 0)
+                        : admins;
 
         return [
             { label: 'Usuarios', value: total.toLocaleString('es-CL'), meta: `${filtered.length.toLocaleString('es-CL')} visibles` },
             { label: 'Verificados', value: verified.toLocaleString('es-CL'), meta: 'Cuentas habilitadas' },
-            { label: listingLabel, value: listingValue.toLocaleString('es-CL'), meta: scope === 'plataforma' ? 'Cuentas con privilegios' : 'Inventario ligado al scope' },
+            { label: listingLabel, value: listingValue.toLocaleString('es-CL'), meta: scope === 'all' ? 'Cuentas con privilegios' : 'Inventario ligado al scope' },
             { label: 'Suspendidos', value: suspended.toLocaleString('es-CL'), meta: 'Acceso bloqueado' },
         ];
     }, [filtered.length, scope, scopedItems]);
@@ -159,6 +161,37 @@ function UsuariosContent() {
         }
     };
 
+    const handleSaveSubscriptions = async (subscriptions: AdminUserListItem['subscriptions']) => {
+        if (!selectedUser) return;
+
+        setIsProcessing(true);
+        try {
+            const response = await fetch(`${API_BASE}/api/admin/users/${selectedUser.id}/subscriptions`, {
+                method: 'PATCH',
+                credentials: 'include',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ subscriptions }),
+            });
+
+            if (!response.ok) {
+                const data = await response.json().catch(() => ({}));
+                setMessage({ type: 'error', text: data.error || 'Error al actualizar suscripciones' });
+                return;
+            }
+
+            const updated: AdminUserListItem[] = items.map((user): AdminUserListItem =>
+                user.id === selectedUser.id ? { ...user, subscriptions } : user
+            );
+            setItems(updated);
+            setMessage({ type: 'success', text: 'Suscripciones actualizadas' });
+            setTimeout(handleCloseAction, 1200);
+        } catch {
+            setMessage({ type: 'error', text: 'Error de conexión' });
+        } finally {
+            setIsProcessing(false);
+        }
+    };
+
     return (
         <div className="container-app panel-page py-8">
             <div className="mb-6">
@@ -192,7 +225,7 @@ function UsuariosContent() {
                 {loading ? <PanelNotice tone="neutral">Cargando usuarios...</PanelNotice> : null}
                 {!loading && filtered.length === 0 ? (
                     <PanelNotice tone="neutral">
-                        {scope === 'plataforma' ? 'No encontramos administradores o cuentas de plataforma para ese filtro.' : 'No encontramos usuarios para ese filtro.'}
+                        {scope === 'all' ? 'No encontramos usuarios para ese filtro.' : `No encontramos usuarios para ${adminScopeLabel(scope)}.`}
                     </PanelNotice>
                 ) : null}
 
@@ -201,82 +234,66 @@ function UsuariosContent() {
                         {filtered.map((user) => (
                             <article
                                 key={user.id}
-                                className="rounded-xl border px-4 py-4 transition-colors"
+                                className="rounded-xl border p-5 transition-colors hover:border-[var(--accent)]/30"
                                 style={{ borderColor: 'var(--border)', background: 'var(--surface)' }}
                             >
-                                <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-                                    <div className="flex min-w-0 items-start gap-3">
+                                {/* Row 1: Main Info & Actions */}
+                                <div className="flex items-start justify-between gap-4">
+                                    <div className="flex items-start gap-4 min-w-0 flex-1">
                                         <div
-                                            className="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-xs font-semibold"
-                                            style={{ background: 'var(--bg-muted)', color: 'var(--fg-muted)' }}
+                                            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-sm font-semibold"
+                                            style={{ background: 'var(--accent-subtle)', color: 'var(--fg)' }}
                                         >
                                             {user.name.split(' ').map((chunk) => chunk[0]).join('').slice(0, 2).toUpperCase()}
                                         </div>
-
                                         <div className="min-w-0 flex-1">
-                                            <div className="flex flex-wrap items-center gap-2">
-                                                <p className="text-sm font-medium" style={{ color: 'var(--fg)' }}>{user.name}</p>
-                                                <span
-                                                    className="inline-flex items-center rounded-full px-2 py-1 text-[11px] font-medium"
-                                                    style={{
-                                                        background:
-                                                            user.role === 'superadmin'
-                                                                ? 'rgba(244, 63, 94, 0.12)'
-                                                                : user.role === 'admin'
-                                                                    ? 'rgba(59, 130, 246, 0.12)'
-                                                                    : 'var(--bg-muted)',
-                                                        color:
-                                                            user.role === 'superadmin'
-                                                                ? 'rgb(244, 63, 94)'
-                                                                : user.role === 'admin'
-                                                                    ? 'rgb(59, 130, 246)'
-                                                                    : 'var(--fg-secondary)',
-                                                    }}
-                                                >
-                                                    {user.role}
-                                                </span>
-                                                <span
-                                                    className="inline-flex items-center rounded-full px-2 py-1 text-[11px] font-medium"
-                                                    style={{
-                                                        background:
-                                                            user.status === 'verified'
-                                                                ? 'rgba(34, 197, 94, 0.12)'
-                                                                : user.status === 'active'
-                                                                    ? 'rgba(59, 130, 246, 0.12)'
-                                                                    : 'rgba(244, 63, 94, 0.12)',
-                                                        color:
-                                                            user.status === 'verified'
-                                                                ? 'rgb(34, 197, 94)'
-                                                                : user.status === 'active'
-                                                                    ? 'rgb(59, 130, 246)'
-                                                                    : 'rgb(244, 63, 94)',
-                                                    }}
-                                                >
-                                                    {user.status}
-                                                </span>
+                                            <div className="flex items-center gap-2 flex-wrap">
+                                                <span className="text-sm font-semibold" style={{ color: 'var(--fg)' }}>{user.name}</span>
+                                                <RoleBadge role={user.role} />
+                                                <StatusBadge status={user.status} />
                                             </div>
-                                            <p className="mt-1 text-sm break-all" style={{ color: 'var(--fg-secondary)' }}>{user.email}</p>
+                                            <p className="text-sm mt-0.5" style={{ color: 'var(--fg-secondary)' }}>{user.email}</p>
                                         </div>
                                     </div>
 
-                                    <div className="grid grid-cols-2 gap-3 lg:flex lg:items-center lg:gap-6">
-                                        <MetaItem label="Publicaciones" value={String(user.totalListings)} />
-                                        <MetaItem label="Autos" value={String(user.autosListings)} />
-                                        <MetaItem label="Propiedades" value={String(user.propiedadesListings)} />
-                                        <MetaItem label="Registro" value={new Date(user.createdAt).toLocaleDateString('es-CL')} />
-                                    </div>
-
-                                    <div className="flex flex-wrap gap-2">
-                                        <PanelButton variant="secondary" size="sm" className="h-9 px-3 text-sm" onClick={() => handleOpenAction('role', user)}>
-                                            <IconShield size={14} stroke={1.9} />
-                                            Rol
-                                        </PanelButton>
-                                        <PanelButton variant="secondary" size="sm" className="h-9 px-3 text-sm" onClick={() => handleOpenAction('delete', user)}>
-                                            <IconTrash size={14} stroke={1.9} />
-                                            Eliminar
-                                        </PanelButton>
+                                    <div className="flex items-center gap-1 shrink-0">
+                                        <ActionButton
+                                            onClick={() => handleOpenAction('role', user)}
+                                            icon={<IconShield size={16} />}
+                                            label="Rol"
+                                        />
+                                        <ActionButton
+                                            onClick={() => handleOpenAction('subscription', user)}
+                                            icon={<IconCreditCard size={16} />}
+                                            label="Suscripción"
+                                        />
+                                        <ActionButton
+                                            onClick={() => handleOpenAction('delete', user)}
+                                            icon={<IconTrash size={16} />}
+                                            label="Eliminar"
+                                            variant="danger"
+                                        />
                                     </div>
                                 </div>
+
+                                {/* Row 2: Stats Grid */}
+                                <div className="mt-4 grid grid-cols-2 sm:grid-cols-4 gap-3">
+                                    <StatItem label="Registro" value={new Date(user.createdAt).toLocaleDateString('es-CL')} />
+                                    <StatItem label="Publicaciones" value={String(user.totalListings || 0)} />
+                                    <StatItem label="Agenda" value={String(user.agendaListings || 0)} color="#8b5cf6" />
+                                    <StatItem label="Autos" value={String(user.autosListings || 0)} color="#3b82f6" />
+                                </div>
+
+                                {/* Row 3: Subscriptions */}
+                                {hasSubscriptions(user) && (
+                                    <div className="mt-4 pt-4 border-t" style={{ borderColor: 'var(--border)' }}>
+                                        <div className="flex items-center gap-2 flex-wrap">
+                                            {user.subscriptions?.agenda && <SubscriptionBadge vertical="Agenda" subscription={user.subscriptions.agenda} />}
+                                            {user.subscriptions?.autos && <SubscriptionBadge vertical="Autos" subscription={user.subscriptions.autos} />}
+                                            {user.subscriptions?.propiedades && <SubscriptionBadge vertical="Propiedades" subscription={user.subscriptions.propiedades} />}
+                                        </div>
+                                    </div>
+                                )}
                             </article>
                         ))}
                     </div>
@@ -375,8 +392,100 @@ function UsuariosContent() {
                     </div>
                 </div>
             ) : null}
+
+            {actionMode === 'subscription' && selectedUser ? (
+                <SubscriptionModal
+                    user={selectedUser}
+                    onClose={handleCloseAction}
+                    onSave={handleSaveSubscriptions}
+                    isProcessing={isProcessing}
+                    message={message}
+                />
+            ) : null}
         </div>
     );
+}
+
+function RoleBadge({ role }: { role: string }) {
+    const config: Record<string, { bg: string; color: string; label: string }> = {
+        superadmin: { bg: 'rgba(244, 63, 94, 0.12)', color: 'rgb(244, 63, 94)', label: 'Superadmin' },
+        admin: { bg: 'rgba(59, 130, 246, 0.12)', color: 'rgb(59, 130, 246)', label: 'Admin' },
+        user: { bg: 'var(--bg-muted)', color: 'var(--fg-secondary)', label: 'Usuario' },
+    };
+    const cfg = config[role] || config.user;
+    return (
+        <span className="inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium" style={{ background: cfg.bg, color: cfg.color }}>
+            {cfg.label}
+        </span>
+    );
+}
+
+function StatusBadge({ status }: { status: string }) {
+    const config: Record<string, { bg: string; color: string; label: string }> = {
+        verified: { bg: 'rgba(34, 197, 94, 0.12)', color: 'rgb(34, 197, 94)', label: 'Verificado' },
+        active: { bg: 'rgba(59, 130, 246, 0.12)', color: 'rgb(59, 130, 246)', label: 'Activo' },
+        suspended: { bg: 'rgba(244, 63, 94, 0.12)', color: 'rgb(244, 63, 94)', label: 'Suspendido' },
+    };
+    const cfg = config[status] || config.active;
+    return (
+        <span className="inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium" style={{ background: cfg.bg, color: cfg.color }}>
+            {cfg.label}
+        </span>
+    );
+}
+
+function StatPill({ icon, label, value, accent }: { icon: string; label: string; value: string; accent?: string }) {
+    return (
+        <div className="flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs" style={{ background: 'var(--bg-muted)' }}>
+            <span>{icon}</span>
+            <span style={{ color: 'var(--fg-muted)' }}>{label}:</span>
+            <span className="font-semibold" style={{ color: accent || 'var(--fg)' }}>{value}</span>
+        </div>
+    );
+}
+
+function ActionButton({
+    onClick,
+    icon,
+    label,
+    variant = 'default',
+}: {
+    onClick: () => void;
+    icon: React.ReactNode;
+    label: string;
+    variant?: 'default' | 'danger';
+}) {
+    return (
+        <button
+            onClick={onClick}
+            className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+                variant === 'danger'
+                    ? 'hover:bg-red-500/10 text-[var(--fg-muted)] hover:text-red-500'
+                    : 'hover:bg-[var(--bg-muted)] text-[var(--fg-muted)] hover:text-[var(--fg)]'
+            }`}
+            title={label}
+        >
+            {icon}
+            <span className="hidden sm:inline">{label}</span>
+        </button>
+    );
+}
+
+function StatItem({ label, value, color }: { label: string; value: string; color?: string }) {
+    return (
+        <div className="flex flex-col gap-0.5">
+            <span className="text-[10px] uppercase tracking-wider" style={{ color: 'var(--fg-muted)' }}>{label}</span>
+            <span className="text-sm font-medium" style={{ color: color || 'var(--fg)' }}>{value}</span>
+        </div>
+    );
+}
+
+function hasSubscriptions(user: AdminUserListItem): boolean {
+    return !!(user.subscriptions?.agenda || user.subscriptions?.autos || user.subscriptions?.propiedades);
+}
+
+function hasAnyListing(user: AdminUserListItem): boolean {
+    return (user.agendaListings > 0 || user.autosListings > 0 || user.propiedadesListings > 0);
 }
 
 function MetaItem({ label, value }: { label: string; value: string }) {
@@ -405,6 +514,245 @@ function FeedbackNotice({
         >
             {message.type === 'error' ? <IconAlertCircle size={16} /> : <IconCheck size={16} />}
             {message.text}
+        </div>
+    );
+}
+
+function SubscriptionBadge({ vertical, subscription }: { vertical: string; subscription: any }) {
+    const planLabel = subscription.plan || subscription.planName || 'Free';
+    const statusColor =
+        subscription.status === 'active' || subscription.status === 'pro'
+            ? 'rgba(34, 197, 94, 0.12)'
+            : subscription.status === 'expired'
+                ? 'rgba(244, 63, 94, 0.12)'
+                : 'var(--bg-muted)';
+    const statusTextColor =
+        subscription.status === 'active' || subscription.status === 'pro'
+            ? 'rgb(34, 197, 94)'
+            : subscription.status === 'expired'
+                ? 'rgb(244, 63, 94)'
+                : 'var(--fg-muted)';
+
+    return (
+        <span
+            className="inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-medium"
+            style={{ background: statusColor, color: statusTextColor }}
+        >
+            {vertical}: {planLabel}
+        </span>
+    );
+}
+
+function SubscriptionModal({
+    user,
+    onClose,
+    onSave,
+    isProcessing,
+    message,
+}: {
+    user: AdminUserListItem;
+    onClose: () => void;
+    onSave: (subscriptions: AdminUserListItem['subscriptions']) => void;
+    isProcessing: boolean;
+    message: { type: 'success' | 'error'; text: string } | null;
+}) {
+    const [subscriptions, setSubscriptions] = useState<AdminUserListItem['subscriptions']>(user.subscriptions || {
+        agenda: { plan: 'free', expiresAt: null, status: 'free' },
+        autos: null,
+        propiedades: null,
+    });
+
+    const updateAgenda = (plan: 'free' | 'pro', expiresAt: string | null) => {
+        setSubscriptions((prev) => ({
+            ...prev,
+            agenda: { plan, expiresAt, status: plan === 'pro' ? 'active' : 'free' },
+        }));
+    };
+
+    const updateAutos = (planId: string, planName: string) => {
+        setSubscriptions((prev) => ({
+            ...prev,
+            autos: { planId, planName, status: planId === 'free' ? 'free' : 'active', expiresAt: null },
+        }));
+    };
+
+    const updatePropiedades = (planId: string, planName: string) => {
+        setSubscriptions((prev) => ({
+            ...prev,
+            propiedades: { planId, planName, status: planId === 'free' ? 'free' : 'active', expiresAt: null },
+        }));
+    };
+
+    return (
+        <div className="fixed inset-0 z-80 flex items-center justify-center px-4 py-5">
+            <button
+                type="button"
+                aria-label="Cerrar modal"
+                onClick={onClose}
+                className="absolute inset-0"
+                style={{ background: 'rgba(0, 0, 0, 0.5)', backdropFilter: 'blur(4px)' }}
+            />
+            <div
+                className="relative z-1 w-full max-w-md rounded-xl border p-0 overflow-hidden"
+                style={{ borderColor: 'var(--border)', background: 'var(--surface)', boxShadow: 'var(--shadow-xl)' }}
+            >
+                {/* Header */}
+                <div className="px-5 py-4 border-b" style={{ borderColor: 'var(--border)', background: 'var(--bg-subtle)' }}>
+                    <h2 className="text-base font-semibold" style={{ color: 'var(--fg)' }}>Gestionar Suscripciones</h2>
+                    <p className="mt-0.5 text-xs" style={{ color: 'var(--fg-muted)' }}>
+                        {user.name} · {user.email}
+                    </p>
+                </div>
+
+                <div className="p-5 space-y-4">
+                    {/* SimpleAgenda */}
+                    <div className="rounded-lg border p-4" style={{ borderColor: 'var(--border)', background: 'var(--bg-subtle)' }}>
+                        <div className="flex items-center justify-between mb-3">
+                            <div className="flex items-center gap-2">
+                                <span className="w-2 h-2 rounded-full" style={{ background: '#8b5cf6' }} />
+                                <h3 className="text-sm font-medium" style={{ color: 'var(--fg)' }}>SimpleAgenda</h3>
+                            </div>
+                            <span className="text-xs px-2 py-0.5 rounded-full font-medium" style={{
+                                color: subscriptions?.agenda?.plan === 'pro' ? '#8b5cf6' : 'var(--fg-muted)',
+                                background: subscriptions?.agenda?.plan === 'pro' ? 'rgba(139, 92, 246, 0.1)' : 'var(--bg-muted)'
+                            }}>
+                                {subscriptions?.agenda?.plan === 'pro' ? 'Pro' : 'Free'}
+                            </span>
+                        </div>
+                        <div className="space-y-3">
+                            <div className="grid grid-cols-2 gap-2">
+                                <button
+                                    onClick={() => updateAgenda('free', null)}
+                                    className={`py-2 px-3 rounded-lg text-xs font-medium border transition-all ${
+                                        subscriptions?.agenda?.plan === 'free'
+                                            ? 'border-[var(--accent)] bg-[var(--accent-subtle)] text-[var(--fg)]'
+                                            : 'border-[var(--border)] text-[var(--fg-muted)] hover:border-[var(--accent)]/50'
+                                    }`}
+                                >
+                                    Free
+                                </button>
+                                <button
+                                    onClick={() => updateAgenda('pro', subscriptions?.agenda?.expiresAt || null)}
+                                    className={`py-2 px-3 rounded-lg text-xs font-medium border transition-all ${
+                                        subscriptions?.agenda?.plan === 'pro'
+                                            ? 'border-[var(--accent)] bg-[var(--accent-subtle)] text-[var(--fg)]'
+                                            : 'border-[var(--border)] text-[var(--fg-muted)] hover:border-[var(--accent)]/50'
+                                    }`}
+                                >
+                                    Pro
+                                </button>
+                            </div>
+                            {subscriptions?.agenda?.plan === 'pro' && (
+                                <div className="pt-2">
+                                    <label className="text-xs block mb-1.5" style={{ color: 'var(--fg-muted)' }}>Expiración (opcional)</label>
+                                    <input
+                                        type="date"
+                                        value={subscriptions?.agenda?.expiresAt || ''}
+                                        onChange={(e) => updateAgenda('pro', e.target.value || null)}
+                                        className="form-input w-full text-sm"
+                                    />
+                                </div>
+                            )}
+                        </div>
+                    </div>
+
+                    {/* SimpleAutos */}
+                    <div className="rounded-lg border p-4" style={{ borderColor: 'var(--border)', background: 'var(--bg-subtle)' }}>
+                        <div className="flex items-center justify-between mb-3">
+                            <div className="flex items-center gap-2">
+                                <span className="w-2 h-2 rounded-full" style={{ background: '#3b82f6' }} />
+                                <h3 className="text-sm font-medium" style={{ color: 'var(--fg)' }}>SimpleAutos</h3>
+                            </div>
+                            <span className="text-xs px-2 py-0.5 rounded-full font-medium" style={{
+                                color: subscriptions?.autos?.planId && subscriptions?.autos?.planId !== 'free' ? '#3b82f6' : 'var(--fg-muted)',
+                                background: subscriptions?.autos?.planId && subscriptions?.autos?.planId !== 'free' ? 'rgba(59, 130, 246, 0.1)' : 'var(--bg-muted)'
+                            }}>
+                                {subscriptions?.autos?.planName || 'Sin plan'}
+                            </span>
+                        </div>
+                        <select
+                            value={subscriptions?.autos?.planId || 'none'}
+                            onChange={(e) => {
+                                const planId = e.target.value;
+                                if (planId === 'none') {
+                                    setSubscriptions((prev) => ({ ...prev, autos: null }));
+                                } else {
+                                    const planNames: Record<string, string> = {
+                                        free: 'Gratuito',
+                                        pro: 'Profesional',
+                                        enterprise: 'Empresarial',
+                                    };
+                                    updateAutos(planId, planNames[planId] || planId);
+                                }
+                            }}
+                            className="form-select w-full text-sm"
+                        >
+                            <option value="none">Sin suscripción</option>
+                            <option value="free">Gratuito</option>
+                            <option value="pro">Profesional</option>
+                            <option value="enterprise">Empresarial</option>
+                        </select>
+                    </div>
+
+                    {/* SimplePropiedades */}
+                    <div className="rounded-lg border p-4" style={{ borderColor: 'var(--border)', background: 'var(--bg-subtle)' }}>
+                        <div className="flex items-center justify-between mb-3">
+                            <div className="flex items-center gap-2">
+                                <span className="w-2 h-2 rounded-full" style={{ background: '#10b981' }} />
+                                <h3 className="text-sm font-medium" style={{ color: 'var(--fg)' }}>SimplePropiedades</h3>
+                            </div>
+                            <span className="text-xs px-2 py-0.5 rounded-full font-medium" style={{
+                                color: subscriptions?.propiedades?.planId && subscriptions?.propiedades?.planId !== 'free' ? '#10b981' : 'var(--fg-muted)',
+                                background: subscriptions?.propiedades?.planId && subscriptions?.propiedades?.planId !== 'free' ? 'rgba(16, 185, 129, 0.1)' : 'var(--bg-muted)'
+                            }}>
+                                {subscriptions?.propiedades?.planName || 'Sin plan'}
+                            </span>
+                        </div>
+                        <select
+                            value={subscriptions?.propiedades?.planId || 'none'}
+                            onChange={(e) => {
+                                const planId = e.target.value;
+                                if (planId === 'none') {
+                                    setSubscriptions((prev) => ({ ...prev, propiedades: null }));
+                                } else {
+                                    const planNames: Record<string, string> = {
+                                        free: 'Gratuito',
+                                        pro: 'Profesional',
+                                        enterprise: 'Empresarial',
+                                    };
+                                    updatePropiedades(planId, planNames[planId] || planId);
+                                }
+                            }}
+                            className="form-select w-full text-sm"
+                        >
+                            <option value="none">Sin suscripción</option>
+                            <option value="free">Gratuito</option>
+                            <option value="pro">Profesional</option>
+                            <option value="enterprise">Empresarial</option>
+                        </select>
+                    </div>
+                </div>
+
+                {message ? (
+                    <div className="px-5 pb-2">
+                        <FeedbackNotice message={message} />
+                    </div>
+                ) : null}
+
+                {/* Footer */}
+                <div className="px-5 py-4 border-t flex gap-3" style={{ borderColor: 'var(--border)', background: 'var(--bg-subtle)' }}>
+                    <PanelButton variant="secondary" className="flex-1" onClick={onClose} disabled={isProcessing}>
+                        Cancelar
+                    </PanelButton>
+                    <PanelButton
+                        className="flex-1"
+                        onClick={() => onSave(subscriptions)}
+                        disabled={isProcessing}
+                    >
+                        {isProcessing ? 'Guardando...' : 'Guardar cambios'}
+                    </PanelButton>
+                </div>
+            </div>
         </div>
     );
 }

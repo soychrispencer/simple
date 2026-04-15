@@ -53,20 +53,18 @@ function DashboardContent() {
     }
 
     const scopedUsers =
-        scope === 'autos'
-            ? overview.recentUsers.filter((user) => user.autosListings > 0)
-            : scope === 'propiedades'
-                ? overview.recentUsers.filter((user) => user.propiedadesListings > 0)
-                : scope === 'plataforma'
-                    ? overview.recentUsers.filter((user) => user.role === 'admin' || user.role === 'superadmin')
+        scope === 'agenda'
+            ? overview.recentUsers.filter((user) => user.agendaListings > 0)
+            : scope === 'autos'
+                ? overview.recentUsers.filter((user) => user.autosListings > 0)
+                : scope === 'propiedades'
+                    ? overview.recentUsers.filter((user) => user.propiedadesListings > 0)
                     : overview.recentUsers;
 
     const scopedListings =
         scope === 'autos' || scope === 'propiedades'
             ? overview.recentListings.filter((listing) => listing.vertical === scope)
-            : scope === 'plataforma'
-                ? []
-                : overview.recentListings;
+            : overview.recentListings;
 
     const scopedLeads =
         scope === 'autos' || scope === 'propiedades'
@@ -84,32 +82,32 @@ function DashboardContent() {
     ].filter(Boolean).length;
 
     const cards =
-        scope === 'autos'
+        scope === 'agenda'
             ? [
-                  { label: 'Usuarios autos', value: scopedUsers.length.toLocaleString('es-CL'), meta: 'Con publicaciones o actividad en autos' },
-                  { label: 'Publicaciones', value: overview.stats.autosListingsTotal.toLocaleString('es-CL'), meta: 'Inventario de SimpleAutos' },
+                  { label: 'Usuarios agenda', value: scopedUsers.length.toLocaleString('es-CL'), meta: 'Con publicaciones o actividad en agenda' },
+                  { label: 'Publicaciones', value: (overview.stats.agendaListingsTotal ?? 0).toLocaleString('es-CL'), meta: 'Inventario de SimpleAgenda' },
                   { label: 'Leads recientes', value: scopedLeads.length.toLocaleString('es-CL'), meta: 'Últimos leads de la vertical' },
                   { label: 'Cobertura admin', value: overview.recentUsers.filter((user) => user.role !== 'user').length.toLocaleString('es-CL'), meta: 'Equipos con acceso administrativo' },
               ]
-            : scope === 'propiedades'
+            : scope === 'autos'
                 ? [
-                      { label: 'Usuarios propiedades', value: scopedUsers.length.toLocaleString('es-CL'), meta: 'Con publicaciones o actividad en propiedades' },
-                      { label: 'Publicaciones', value: overview.stats.propiedadesListingsTotal.toLocaleString('es-CL'), meta: 'Inventario de SimplePropiedades' },
+                      { label: 'Usuarios autos', value: scopedUsers.length.toLocaleString('es-CL'), meta: 'Con publicaciones o actividad en autos' },
+                      { label: 'Publicaciones', value: overview.stats.autosListingsTotal.toLocaleString('es-CL'), meta: 'Inventario de SimpleAutos' },
                       { label: 'Leads recientes', value: scopedLeads.length.toLocaleString('es-CL'), meta: 'Últimos leads de la vertical' },
                       { label: 'Cobertura admin', value: overview.recentUsers.filter((user) => user.role !== 'user').length.toLocaleString('es-CL'), meta: 'Equipos con acceso administrativo' },
                   ]
-                : scope === 'plataforma'
+                : scope === 'propiedades'
                     ? [
-                          { label: 'Usuarios', value: overview.stats.usersTotal.toLocaleString('es-CL'), meta: 'Base total de cuentas' },
-                          { label: 'Admins', value: scopedUsers.length.toLocaleString('es-CL'), meta: 'Accesos de control y soporte' },
-                          { label: 'Leads recientes', value: scopedLeads.length.toLocaleString('es-CL'), meta: 'Señales recientes del ecosistema' },
-                          { label: 'Config activas', value: configCount.toLocaleString('es-CL'), meta: 'Servicios backend correctamente configurados' },
-                      ]
+                          { label: 'Usuarios propiedades', value: scopedUsers.length.toLocaleString('es-CL'), meta: 'Con publicaciones o actividad en propiedades' },
+                          { label: 'Publicaciones', value: overview.stats.propiedadesListingsTotal.toLocaleString('es-CL'), meta: 'Inventario de SimplePropiedades' },
+                          { label: 'Leads recientes', value: scopedLeads.length.toLocaleString('es-CL'), meta: 'Últimos leads de la vertical' },
+                          { label: 'Cobertura admin', value: overview.recentUsers.filter((user) => user.role !== 'user').length.toLocaleString('es-CL'), meta: 'Equipos con acceso administrativo' },
+                    ]
                     : [
                           { label: 'Usuarios', value: overview.stats.usersTotal.toLocaleString('es-CL'), meta: 'Cuentas totales registradas' },
+                          { label: 'Agenda', value: (overview.stats.agendaListingsTotal ?? 0).toLocaleString('es-CL'), meta: 'Publicaciones en SimpleAgenda' },
                           { label: 'Autos', value: overview.stats.autosListingsTotal.toLocaleString('es-CL'), meta: 'Publicaciones en SimpleAutos' },
                           { label: 'Propiedades', value: overview.stats.propiedadesListingsTotal.toLocaleString('es-CL'), meta: 'Publicaciones en SimplePropiedades' },
-                          { label: 'Leads', value: overview.stats.newServiceLeads.toLocaleString('es-CL'), meta: 'Leads recientes del ecosistema' },
                       ];
 
     return (
@@ -200,7 +198,7 @@ function DashboardContent() {
 
                 {scopedListings.length === 0 ? (
                     <PanelNotice tone="neutral">
-                        {scope === 'plataforma' ? 'La capa plataforma no tiene publicaciones propias.' : 'Todavía no hay publicaciones creadas.'}
+                        {scope === 'agenda' ? 'Todavía no hay publicaciones en SimpleAgenda.' : 'Todavía no hay publicaciones creadas.'}
                     </PanelNotice>
                 ) : (
                     <PanelList className="border-0 rounded-[18px]">
