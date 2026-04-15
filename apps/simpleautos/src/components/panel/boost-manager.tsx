@@ -15,6 +15,7 @@ import ModernSelect from '@/components/ui/modern-select';
 import { PanelActions, PanelBlockHeader, PanelButton, PanelCard, PanelEmptyState, PanelNotice, PanelStatusBadge } from '@simple/ui';
 import {
     BOOST_SECTION_META,
+    activateFreeBoost,
     fetchBoostCatalog,
     fetchBoostOrders,
     updateBoostOrderStatus,
@@ -22,6 +23,7 @@ import {
     type BoostPlan,
     type BoostPlanId,
     type BoostSection,
+    type FreeBoostQuota,
 } from '@/lib/boost';
 import { confirmCheckout, startBoostCheckout } from '@/lib/payments';
 
@@ -58,6 +60,7 @@ export default function BoostManager() {
     const [plansBySection, setPlansBySection] = useState<Partial<Record<BoostSection, BoostPlan[]>>>({});
     const [reservedBySection, setReservedBySection] = useState<Partial<Record<BoostSection, { used: number; max: number }>>>({});
     const [orders, setOrders] = useState<BoostOrder[]>([]);
+    const [freeBoostQuota, setFreeBoostQuota] = useState<FreeBoostQuota>({ max: 0, used: 0, remaining: 0 });
 
     const [selectedListingId, setSelectedListingId] = useState('');
     const [selectedSection, setSelectedSection] = useState<BoostSection>('sale');
@@ -97,6 +100,7 @@ export default function BoostManager() {
         );
         setPlansBySection(catalog.plansBySection);
         setReservedBySection(catalog.reserved);
+        setFreeBoostQuota(catalog.freeBoostQuota ?? { max: 0, used: 0, remaining: 0 });
         setOrders(nextOrders);
 
         setLoading(false);
@@ -164,6 +168,39 @@ export default function BoostManager() {
         if (!selectedPlan) return;
         setSelectedPlanId(selectedPlan.id);
     }, [selectedPlan?.id]);
+
+    const hasFreeBoosts = freeBoostQuota.remaining === -1 || freeBoostQuota.remaining > 0;
+
+    const handleFreeBoost = async () => {
+        if (!selectedListing) {
+            setError('Selecciona una publicación para continuar.');
+            return;
+        }
+        if (!selectedPlan) {
+            setError('Selecciona un plan para continuar.');
+            return;
+        }
+
+        setSaving(true);
+        setError('');
+        setMessage('');
+
+        const result = await activateFreeBoost({
+            listingId: selectedListing.id,
+            section: selectedSection,
+            planId: selectedPlan.id,
+        });
+
+        if (!result.ok) {
+            setError(result.error ?? 'No pudimos activar el boost gratuito.');
+            setSaving(false);
+            return;
+        }
+
+        setMessage('¡Boost gratuito activado correctamente!');
+        setSaving(false);
+        await load();
+    };
 
     const activateBoost = async () => {
         if (!selectedListing) {
@@ -287,12 +324,39 @@ export default function BoostManager() {
                             })}
                         </div>
 
+                        {hasFreeBoosts ? (
+                            <div className="rounded-xl border p-3" style={{ borderColor: 'var(--color-success)', background: 'rgba(34, 197, 94, 0.06)' }}>
+                                <div className="flex items-center justify-between gap-3 flex-wrap">
+                                    <div className="text-sm" style={{ color: 'var(--fg-secondary)' }}>
+                                        <IconBolt size={14} className="inline -mt-0.5 mr-1" style={{ color: 'var(--color-success)' }} />
+                                        Boosts gratuitos este mes:{' '}
+                                        <strong style={{ color: 'var(--fg)' }}>
+                                            {freeBoostQuota.remaining === -1 ? 'Ilimitados' : `${freeBoostQuota.remaining} disponible${freeBoostQuota.remaining !== 1 ? 's' : ''}`}
+                                        </strong>
+                                        {freeBoostQuota.max > 0 ? (
+                                            <span className="ml-1" style={{ color: 'var(--fg-muted)' }}>
+                                                ({freeBoostQuota.used}/{freeBoostQuota.max} usados)
+                                            </span>
+                                        ) : null}
+                                    </div>
+                                    <PanelButton
+                                        onClick={handleFreeBoost}
+                                        disabled={saving || loading || !selectedPlan || !selectedListing}
+                                        variant="primary"
+                                    >
+                                        {saving ? <IconLoader2 size={14} className="animate-spin" /> : <IconBolt size={14} />}
+                                        Activar boost gratis
+                                    </PanelButton>
+                                </div>
+                            </div>
+                        ) : null}
+
                         <div className="rounded-xl border p-3" style={{ borderColor: 'var(--border)', background: 'var(--bg-subtle)' }}>
                             <PanelActions
                                 className="mt-0 text-sm"
                                 left={(
                                     <span style={{ color: 'var(--fg-secondary)' }}>
-                                        Cupos reservados en {BOOST_SECTION_META[selectedSection].label.toLowerCase()}:{' '}
+                                        Cupos en {BOOST_SECTION_META[selectedSection].label.toLowerCase()}:{' '}
                                         <strong style={{ color: 'var(--fg)' }}>
                                             {selectedCapacity?.used ?? 0}/{selectedCapacity?.max ?? 10}
                                         </strong>
@@ -302,10 +366,10 @@ export default function BoostManager() {
                                     <PanelButton
                                         onClick={activateBoost}
                                         disabled={saving || loading || !selectedPlan || !selectedListing}
-                                        variant="primary"
+                                        variant="secondary"
                                     >
                                         {saving ? <IconLoader2 size={14} className="animate-spin" /> : <IconBolt size={14} />}
-                                        Pagar boost
+                                        Pagar boost · ${selectedPlan ? formatMoney(selectedPlan.price) : '...'}
                                     </PanelButton>
                                 )}
                             />

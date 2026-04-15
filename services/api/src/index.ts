@@ -543,6 +543,7 @@ type SubscriptionPlanRecord = {
     apiAccess: boolean;
     recommended?: boolean;
     isComingSoon?: boolean;
+    maxFreeBoostsPerMonth: number;
     features: string[];
 };
 
@@ -1093,6 +1094,7 @@ const createBoostOrderSchema = z.object({
     planId: boostPlanIdSchema,
     startAt: z.number().int().positive().optional(),
     section: boostSectionSchema.optional(),
+    useFreeBoost: z.boolean().optional(),
 });
 
 const updateBoostOrderSchema = z.object({
@@ -1457,6 +1459,15 @@ async function loadDataFromDB() {
         listingsById.set(listing.id, mapListingRowToRecord(listing));
     }
     console.log(`Loaded ${listingResults.length} listings`);
+
+    // Sync boost listings from loaded listings
+    boostListingsSeed.length = 0;
+    for (const listing of listingsById.values()) {
+        if (listing.status === 'active') {
+            upsertBoostListingFromListing(listing);
+        }
+    }
+    console.log(`Synced ${boostListingsSeed.length} boost listings from DB`);
 
     // Load listing lead counts
     const listingLeadResults = await db.select({
@@ -2635,6 +2646,7 @@ const SUBSCRIPTION_PLANS_BY_VERTICAL: Record<VerticalType, SubscriptionPlanRecor
             prioritySupport: false,
             customBranding: false,
             apiAccess: false,
+            maxFreeBoostsPerMonth: 0,
             features: ['3 publicaciones activas', '5 fotos por aviso', 'Soporte básico'],
         },
         {
@@ -2652,7 +2664,8 @@ const SUBSCRIPTION_PLANS_BY_VERTICAL: Record<VerticalType, SubscriptionPlanRecor
             customBranding: false,
             apiAccess: false,
             recommended: true,
-            features: ['50 publicaciones activas', '5 avisos destacados', 'CRM completo', 'Estadísticas avanzadas', '20 fotos por aviso'],
+            maxFreeBoostsPerMonth: 1,
+            features: ['50 publicaciones activas', '5 avisos destacados', 'CRM completo', 'Estadísticas avanzadas', '20 fotos por aviso', '1 boost gratuito al mes'],
         },
         {
             id: 'enterprise',
@@ -2668,7 +2681,8 @@ const SUBSCRIPTION_PLANS_BY_VERTICAL: Record<VerticalType, SubscriptionPlanRecor
             prioritySupport: true,
             customBranding: true,
             apiAccess: true,
-            features: ['Publicaciones ilimitadas', 'Destacados ilimitados', 'API y branding propio', 'Soporte prioritario 24/7', '50 fotos por aviso'],
+            maxFreeBoostsPerMonth: 3,
+            features: ['Publicaciones ilimitadas', 'Destacados ilimitados', 'API y branding propio', 'Soporte prioritario 24/7', '50 fotos por aviso', '3 boosts gratuitos al mes'],
         },
     ],
     propiedades: [
@@ -2686,6 +2700,7 @@ const SUBSCRIPTION_PLANS_BY_VERTICAL: Record<VerticalType, SubscriptionPlanRecor
             prioritySupport: false,
             customBranding: false,
             apiAccess: false,
+            maxFreeBoostsPerMonth: 0,
             features: ['3 propiedades activas', '12 fotos por aviso', 'Soporte básico'],
         },
         {
@@ -2703,7 +2718,8 @@ const SUBSCRIPTION_PLANS_BY_VERTICAL: Record<VerticalType, SubscriptionPlanRecor
             customBranding: false,
             apiAccess: false,
             recommended: true,
-            features: ['50 propiedades activas', '5 destacadas', 'CRM con pipeline', 'Estadísticas avanzadas', '30 fotos por aviso'],
+            maxFreeBoostsPerMonth: 1,
+            features: ['50 propiedades activas', '5 destacadas', 'CRM con pipeline', 'Estadísticas avanzadas', '30 fotos por aviso', '1 boost gratuito al mes'],
         },
         {
             id: 'enterprise',
@@ -2719,7 +2735,8 @@ const SUBSCRIPTION_PLANS_BY_VERTICAL: Record<VerticalType, SubscriptionPlanRecor
             prioritySupport: true,
             customBranding: true,
             apiAccess: true,
-            features: ['Publicaciones ilimitadas', 'Destacados ilimitados', 'API y branding propio', 'Soporte prioritario 24/7', '60 fotos por aviso'],
+            maxFreeBoostsPerMonth: 3,
+            features: ['Publicaciones ilimitadas', 'Destacados ilimitados', 'API y branding propio', 'Soporte prioritario 24/7', '60 fotos por aviso', '3 boosts gratuitos al mes'],
         },
     ],
     agenda: [
@@ -2737,6 +2754,7 @@ const SUBSCRIPTION_PLANS_BY_VERTICAL: Record<VerticalType, SubscriptionPlanRecor
             prioritySupport: false,
             customBranding: false,
             apiAccess: false,
+            maxFreeBoostsPerMonth: 0,
             features: ['Hasta 10 citas al mes', 'Hasta 5 pacientes', 'Página de reserva pública', 'Confirmación por email al paciente', 'Recordatorio automático 24h antes'],
         },
         {
@@ -2754,6 +2772,7 @@ const SUBSCRIPTION_PLANS_BY_VERTICAL: Record<VerticalType, SubscriptionPlanRecor
             customBranding: false,
             apiAccess: false,
             recommended: true,
+            maxFreeBoostsPerMonth: 0,
             features: ['Citas y pacientes ilimitados', 'Notas clínicas por sesión', 'Control de pagos y cobros', 'Recordatorios por email y WhatsApp', 'Recordatorio 30 min antes por WhatsApp', 'Estadísticas de consulta', 'Sincronización con Google Calendar'],
         },
         {
@@ -2771,6 +2790,7 @@ const SUBSCRIPTION_PLANS_BY_VERTICAL: Record<VerticalType, SubscriptionPlanRecor
             customBranding: true,
             apiAccess: true,
             isComingSoon: true,
+            maxFreeBoostsPerMonth: 0,
             features: ['Múltiples profesionales', 'Gestión de salas', 'Reportes avanzados', 'Integraciones con sistemas de salud', 'Branding completo'],
         },
     ],
@@ -2858,6 +2878,24 @@ function countReservedSlots(vertical: VerticalType, section: BoostSection): numb
         if (order.section !== section) return false;
         return order.status === 'active' || order.status === 'scheduled' || order.status === 'paused';
     }).length;
+}
+
+function countFreeBoostsUsedThisMonth(userId: string, vertical: VerticalType): number {
+    const now = new Date();
+    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).getTime();
+    const orders = getBoostOrdersForUser(userId, vertical);
+    return orders.filter((order) => order.createdAt >= monthStart && order.price === 0).length;
+}
+
+function getFreeBoostQuota(user: AppUser, vertical: VerticalType): { max: number; used: number; remaining: number } {
+    if (user.role === 'superadmin') {
+        return { max: -1, used: 0, remaining: -1 }; // -1 = ilimitado
+    }
+    const planId = getEffectivePlanId(user, vertical);
+    const plan = getSubscriptionPlans(vertical).find((p) => p.id === planId);
+    const max = plan?.maxFreeBoostsPerMonth ?? 0;
+    const used = countFreeBoostsUsedThisMonth(user.id, vertical);
+    return { max, used, remaining: Math.max(0, max - used) };
 }
 
 function createBoostOrderRecord(input: {
@@ -14077,6 +14115,8 @@ app.get('/api/boost/catalog', async (c) => {
         ])
     );
 
+    const freeBoostQuota = getFreeBoostQuota(user, vertical);
+
     return c.json({
         ok: true,
         vertical,
@@ -14084,6 +14124,7 @@ app.get('/api/boost/catalog', async (c) => {
         listings,
         plansBySection,
         reserved,
+        freeBoostQuota,
     });
 });
 
@@ -14134,6 +14175,36 @@ app.post('/api/boost/orders', async (c) => {
     if (!selectedPlan) {
         return c.json({ ok: false, error: 'Plan no disponible' }, 400);
     }
+
+    // Handle free boost activation
+    if (parsed.data.useFreeBoost) {
+        const quota = getFreeBoostQuota(user, vertical);
+        if (quota.remaining === 0) {
+            return c.json({ ok: false, error: 'Ya usaste todos tus boosts gratuitos de este mes.' }, 403);
+        }
+        const freePlan = { ...selectedPlan, price: 0 };
+        const created = createBoostOrderRecord({
+            userId: user.id,
+            vertical,
+            listing,
+            section,
+            plan: freePlan,
+            startAt: parsed.data.startAt,
+        });
+        if (!created.ok || !created.order) {
+            return c.json({ ok: false, error: created.error ?? 'No pudimos crear el boost.' }, 409);
+        }
+        return c.json({
+            ok: true,
+            freeBoost: true,
+            order: {
+                ...created.order,
+                sectionLabel: sectionLabel(created.order.section),
+                listing,
+            },
+        });
+    }
+
     const created = createBoostOrderRecord({
         userId: user.id,
         vertical,

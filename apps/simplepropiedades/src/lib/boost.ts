@@ -63,6 +63,12 @@ export type FeaturedBoostItem = {
     } | null;
 };
 
+export type FreeBoostQuota = {
+    max: number;  // -1 = unlimited
+    used: number;
+    remaining: number; // -1 = unlimited
+};
+
 type BoostCatalogResponse = {
     ok: boolean;
     vertical: 'autos' | 'propiedades';
@@ -70,6 +76,7 @@ type BoostCatalogResponse = {
     listings: BoostListing[];
     plansBySection: Partial<Record<BoostSection, BoostPlan[]>>;
     reserved: Partial<Record<BoostSection, { used: number; max: number }>>;
+    freeBoostQuota: FreeBoostQuota;
 };
 
 type BoostOrdersResponse = {
@@ -141,6 +148,26 @@ export async function createBoostOrder(input: {
     });
 
     if (!data) return { ok: false, error: 'No pudimos crear el boost.' };
+    return { ok: data.ok, order: data.order, error: data.error };
+}
+
+export async function activateFreeBoost(input: {
+    listingId: string;
+    section: BoostSection;
+    planId: BoostPlanId;
+}): Promise<{ ok: boolean; order?: BoostOrder; error?: string }> {
+    const data = await apiRequest<CreateBoostOrderResponse>('/api/boost/orders', {
+        method: 'POST',
+        body: JSON.stringify({
+            vertical: 'propiedades',
+            listingId: input.listingId,
+            section: input.section,
+            planId: input.planId,
+            useFreeBoost: true,
+        }),
+    });
+
+    if (!data) return { ok: false, error: 'No pudimos activar el boost gratuito.' };
     return { ok: data.ok, order: data.order, error: data.error };
 }
 
