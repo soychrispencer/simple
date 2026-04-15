@@ -12,6 +12,7 @@ import {
 } from '@tabler/icons-react';
 import HomeSearchBox from '@/components/search/home-searchbox';
 import BoostedListingsSlider from '@/components/featured/boosted-listings-slider';
+import RecentListingsSlider from '@/components/featured/recent-listings-slider';
 import { PanelCard, getPanelButtonClassName, getPanelButtonStyle } from '@simple/ui';
 import { getCardAdPlaceholders } from '@/lib/ad-placeholders';
 import {
@@ -434,6 +435,8 @@ export default function HomePage() {
                     </div>
                 </div>
             </section>
+
+            <RecentListingsSlider />
 
             <BoostedListingsSlider />
 
