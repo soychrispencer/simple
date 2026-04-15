@@ -283,25 +283,27 @@ export function Header() {
                     )}
 
                     {/* Desktop Action Button - Only visible on desktop */}
-                    {isLoggedIn ? (
-                        <PanelButton 
-                            onClick={handlePublicar} 
-                            variant="primary" 
-                            size="sm" 
-                            className="hidden md:flex h-9 px-4 text-sm"
-                        >
-                            <IconPlus size={13} /> Publicar
-                        </PanelButton>
-                    ) : (
-                        <PanelButton 
-                            onClick={openAuth} 
-                            variant="primary" 
-                            size="sm" 
-                            className="hidden md:flex h-9 px-4 text-sm"
-                        >
-                            Iniciar sesión
-                        </PanelButton>
-                    )}
+                    <div className="hidden md:flex">
+                        {isLoggedIn ? (
+                            <PanelButton 
+                                onClick={handlePublicar} 
+                                variant="primary" 
+                                size="sm" 
+                                className="h-9 px-4 text-sm"
+                            >
+                                <IconPlus size={13} /> Publicar
+                            </PanelButton>
+                        ) : (
+                            <PanelButton 
+                                onClick={openAuth} 
+                                variant="primary" 
+                                size="sm" 
+                                className="h-9 px-4 text-sm"
+                            >
+                                Iniciar sesión
+                            </PanelButton>
+                        )}
+                    </div>
 
                     {/* Mobile Menu (Hamburger) - Only visible on mobile */}
                     <div className="relative md:hidden" ref={menuRef}>

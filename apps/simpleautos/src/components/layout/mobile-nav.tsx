@@ -1,15 +1,24 @@
 'use client';
 
+import React from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { IconHome, IconSearch, IconPlus, IconBookmark, IconUser } from '@tabler/icons-react';
 
+type NavItem = {
+    href: string;
+    icon: React.ComponentType<{ size?: number; strokeWidth?: number; style?: React.CSSProperties }>;
+    label: string;
+    primary?: boolean;
+};
+
 export function MobileNav() {
     const pathname = usePathname();
 
-    const items = [
+    const items: NavItem[] = [
         { href: '/', icon: IconHome, label: 'Inicio' },
         { href: '/ventas', icon: IconSearch, label: 'Buscar' },
+        { href: '/panel/publicar', icon: IconPlus, label: 'Publicar', primary: true },
         { href: '/panel/guardados', icon: IconBookmark, label: 'Guardados' },
         { href: '/panel', icon: IconUser, label: 'Perfil' },
     ];
@@ -28,6 +37,16 @@ export function MobileNav() {
                 {items.map((item) => {
                     const active = pathname === item.href;
                     const Icon = item.icon;
+                    if (item.primary) {
+                        return (
+                            <Link key={item.href} href={item.href} className="flex flex-col items-center gap-0.5 -mt-4">
+                                <div className="w-11 h-11 rounded-xl flex items-center justify-center" style={{ background: 'var(--fg)', color: 'var(--bg)', boxShadow: 'var(--shadow-md)' }}>
+                                    <Icon size={18} strokeWidth={2.5} />
+                                </div>
+                                <span className="text-xs font-medium" style={{ color: 'var(--fg)' }}>{item.label}</span>
+                            </Link>
+                        );
+                    }
                     return (
                         <Link key={item.href} href={item.href} className="flex flex-col items-center gap-0.5 py-1.5 px-2">
                             <Icon size={18} strokeWidth={active ? 2 : 1.5} style={{ color: active ? 'var(--fg)' : 'var(--fg-muted)' }} />
