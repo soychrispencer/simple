@@ -85,6 +85,12 @@ function formatMetric(value: number): string {
     return value.toLocaleString('es-CL');
 }
 
+function formatChileanPeso(price: string): string {
+    const num = parseInt(price.replace(/[^\d]/g, ''), 10);
+    if (isNaN(num)) return price;
+    return '$' + num.toLocaleString('es-CL');
+}
+
 function variantBadgeTone(variant: CardVariant | undefined): 'success' | 'warning' | 'info' {
     if (variant === 'rent') return 'warning';
     if (variant === 'project') return 'info';
@@ -199,11 +205,13 @@ export default function PropertyListingCard({ data, mode }: Props) {
     };
 
     const sellerAvatar = data.sellerAvatarUrl ? (
-        <Image src={data.sellerAvatarUrl} alt={data.sellerName} width={28} height={28} className="w-7 h-7 rounded-full object-cover" />
+        <div className="w-9 h-9 rounded-[10px] border overflow-hidden flex items-center justify-center" style={{ borderColor: 'var(--border)' }}>
+            <Image src={data.sellerAvatarUrl} alt={data.sellerName} width={36} height={36} className="w-full h-full object-cover" />
+        </div>
     ) : (
         <div
-            className="w-7 h-7 rounded-full flex items-center justify-center text-[10px] font-semibold"
-            style={{ background: 'var(--bg-muted)', color: 'var(--fg-secondary)' }}
+            className="w-9 h-9 rounded-[10px] border flex items-center justify-center text-[11px] font-semibold"
+            style={{ borderColor: 'var(--border)', background: 'transparent', color: 'var(--fg-muted)' }}
         >
             {initialsFromName(data.sellerName)}
         </div>
@@ -235,28 +243,26 @@ export default function PropertyListingCard({ data, mode }: Props) {
 
     const renderActionCluster = (stretch = false) => (
         <div
-            className={`inline-flex items-center gap-1 rounded-[14px] border p-1.5 ${stretch ? 'w-full' : ''}`}
+            className={`inline-flex items-center justify-center gap-1 rounded-[14px] border p-1.5 ${stretch ? 'w-full' : ''}`}
             style={actionGroupStyle}
         >
-            <PanelButton
+            <PanelIconButton
                 type="button"
+                label="Perfil del vendedor"
                 variant="ghost"
-                size="sm"
+                size="md"
                 onClick={openSellerProfile}
                 disabled={!sellerProfileHref}
-                className={`h-8 min-w-0 justify-start gap-2 rounded-[10px] border-transparent px-2.5 text-xs ${stretch ? 'flex-1' : ''}`}
+                className="rounded-[10px]"
             >
                 {sellerAvatar}
-                <span className="truncate" style={{ color: 'var(--fg-secondary)' }}>
-                    {data.sellerName}
-                </span>
-            </PanelButton>
+            </PanelIconButton>
             <PanelButton
                 type="button"
                 variant="secondary"
                 size="sm"
                 onClick={openListingFromCta}
-                className="h-8 shrink-0 rounded-[10px] px-3 text-xs"
+                className="h-8 shrink-0 rounded-[10px] px-6 text-xs"
             >
                 {ctaLabel}
             </PanelButton>
@@ -294,9 +300,10 @@ export default function PropertyListingCard({ data, mode }: Props) {
         );
     };
 
+    // Z-Index Hierarchy: z-10=carousel controls, z-20=badges/dots, z-30=status/save
     const renderMedia = (heightClass: string, isListMode = false) => (
         <div
-            className={`relative w-full ${heightClass} rounded-lg overflow-hidden shrink-0`}
+            className={`relative w-full ${heightClass} rounded-lg overflow-hidden shrink-0 transition-all motion-reduce:transition-none`}
             style={{ background: 'var(--bg-muted)' }}
         >
             {isImageUrl ? (
@@ -304,23 +311,25 @@ export default function PropertyListingCard({ data, mode }: Props) {
                     <img
                         src={current}
                         alt={data.title}
-                        className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-300 ${imageLoaded ? 'opacity-100' : 'opacity-0'}`}
+                        className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-300 motion-reduce:transition-none ${imageLoaded ? 'opacity-100' : 'opacity-0'}`}
                         onLoad={() => setImageLoaded(true)}
                         onError={() => setImageLoaded(true)}
+                        loading="lazy"
+                        decoding="async"
                     />
                     {!imageLoaded ? (
-                        <div className="absolute inset-0 animate-pulse" style={{ background: 'var(--bg-muted)' }} />
+                        <div className="absolute inset-0 animate-pulse bg-gradient-to-br from-slate-800 to-slate-900" />
                     ) : null}
                 </>
             ) : (
-                <div className="absolute inset-0" style={{ background: current }} />
+                <div className="absolute inset-0 animate-pulse bg-gradient-to-br from-slate-800 to-slate-900" style={{ background: current }} />
             )}
 
             <PanelStatusBadge
                 label={data.badge}
                 tone={variantBadgeTone(data.variant)}
                 variant="solid"
-                className="absolute top-2 left-2 shadow-sm"
+                className="absolute top-2 left-2 shadow-sm z-20"
             />
 
             {secondaryBadgeLabel ? (
@@ -328,13 +337,13 @@ export default function PropertyListingCard({ data, mode }: Props) {
                     label={secondaryBadgeLabel}
                     tone={secondaryBadgeTone(secondaryBadgeLabel)}
                     variant="solid"
-                    className="absolute top-2 left-20 shadow-sm"
+                    className="absolute top-2 left-20 shadow-sm z-20"
                 />
             ) : null}
 
             {data.discountLabel ? (
                 <div
-                    className={`absolute right-2 inline-flex items-center justify-center h-7 min-w-11.5 rounded-[9px] px-2 text-[11px] font-semibold ${
+                    className={`absolute right-2 inline-flex items-center justify-center h-7 min-w-11.5 rounded-[9px] px-2 text-[11px] font-semibold z-20 ${
                         isListMode ? 'top-2' : 'top-12'
                     }`}
                     style={{ background: 'var(--fg)', color: 'var(--bg)', boxShadow: 'var(--shadow-xs)' }}
@@ -348,28 +357,30 @@ export default function PropertyListingCard({ data, mode }: Props) {
                     <PanelIconButton
                         type="button"
                         label="Imagen anterior"
+                        aria-label="Imagen anterior"
                         variant="overlay"
-                        size="md"
+                        size="sm"
                         onClick={(event) => go(-1, event)}
-                        className="absolute left-2 top-1/2 -translate-y-1/2 rounded-full shadow-sm"
+                        className="absolute left-2 top-1/2 -translate-y-1/2 rounded-full shadow-sm z-10"
                     >
                         <IconChevronLeft size={14} />
                     </PanelIconButton>
                     <PanelIconButton
                         type="button"
-                        label="Siguiente imagen"
+                        label="Imagen siguiente"
+                        aria-label="Imagen siguiente"
                         variant="overlay"
-                        size="md"
+                        size="sm"
                         onClick={(event) => go(1, event)}
-                        className="absolute right-2 top-1/2 -translate-y-1/2 rounded-full shadow-sm"
+                        className="absolute right-2 top-1/2 -translate-y-1/2 rounded-full shadow-sm z-10"
                     >
                         <IconChevronRight size={14} />
                     </PanelIconButton>
-                    <div className="absolute bottom-2 left-1/2 -translate-x-1/2 flex items-center gap-1.5">
+                    <div className="absolute bottom-2 left-1/2 -translate-x-1/2 flex items-center gap-1.5 z-20 pointer-events-none">
                         {slides.map((_, index) => (
                             <span
                                 key={`dot-${data.id}-${index}`}
-                                className="rounded-full"
+                                className="rounded-full transition-all duration-200 motion-reduce:transition-none"
                                 style={{
                                     width: slide === index ? 20 : 7,
                                     height: 4,
@@ -386,85 +397,137 @@ export default function PropertyListingCard({ data, mode }: Props) {
     if (mode === 'list') {
         return (
             <article
-                className="relative rounded-xl border overflow-hidden cursor-pointer transition-all duration-300 hover:-translate-y-0.5"
+                className="relative rounded-xl border overflow-hidden cursor-pointer transition-all duration-300 hover:-translate-y-0.5 motion-reduce:transition-none p-3 sm:p-4 grid grid-cols-[100px_1fr] sm:grid-cols-[140px_1fr] xl:grid-cols-[280px_minmax(0,1fr)_240px] gap-3 sm:gap-4 focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-blue-500"
                 style={{ borderColor: 'var(--border)', background: 'var(--surface)' }}
                 onClick={openListing}
                 onMouseLeave={() => setMenuOpen(false)}
             >
                 {renderMenu()}
-                <div className="absolute top-4 right-4 z-20">
+                <div className="absolute top-3 right-3 z-30">
                     <PanelIconButton
                         type="button"
                         label={favorite ? 'Quitar de guardados' : 'Guardar propiedad'}
                         variant="overlay"
-                        size="md"
+                        size="sm"
                         onClick={toggleFavoriteState}
                         className="rounded-full shadow-sm"
                     >
-                        {favorite ? <IconBookmarkFilled size={16} /> : <IconBookmark size={16} />}
+                        {favorite ? <IconBookmarkFilled size={14} /> : <IconBookmark size={14} />}
                     </PanelIconButton>
                 </div>
 
-                <div className="grid grid-cols-1 xl:grid-cols-[280px_minmax(0,1fr)_240px] gap-4 p-4">
-                    {renderMedia('h-44 xl:h-full xl:min-h-[180px]', true)}
-
-                    <div className="min-w-0 flex flex-col justify-between gap-3">
-                        <div>
-                            <h3 className="text-[1.2rem] font-semibold leading-tight line-clamp-2" style={{ color: 'var(--fg)' }}>
-                                {data.title}
-                            </h3>
-                            <div className="mt-2.5 flex flex-wrap gap-1.5">
-                                {detailItems.map((item) => (
+                {/* Z-Index Hierarchy: z-10=carousel controls, z-20=badges/dots, z-30=status/save */}
+                <div className="w-full h-40 sm:h-44 xl:h-auto xl:min-h-[180px] aspect-[3/4] sm:aspect-4/3 rounded-lg overflow-hidden shrink-0 relative transition-all duration-300 motion-reduce:transition-none" style={{ background: 'var(--bg-muted)' }}>
+                    {isImageUrl ? (
+                        <>
+                            <img
+                                src={current}
+                                alt={data.title}
+                                className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-300 ${imageLoaded ? 'opacity-100' : 'opacity-0'}`}
+                                onLoad={() => setImageLoaded(true)}
+                                onError={() => setImageLoaded(true)}
+                                loading="lazy"
+                                decoding="async"
+                            />
+                            {!imageLoaded ? (
+                                <div className="absolute inset-0 animate-pulse bg-gradient-to-br from-slate-800 to-slate-900" />
+                            ) : null}
+                        </>
+                    ) : (
+                        <div className="absolute inset-0 animate-pulse bg-gradient-to-br from-slate-800 to-slate-900" style={{ background: current }} />
+                    )}
+                    <PanelStatusBadge
+                        label={data.badge}
+                        tone={variantBadgeTone(data.variant)}
+                        variant="solid"
+                        size="sm"
+                        className="absolute top-1.5 left-1.5 shadow-sm z-20 text-[10px]"
+                    />
+                    {max > 1 ? (
+                        <>
+                            <PanelIconButton
+                                type="button"
+                                label="Imagen anterior"
+                                aria-label="Imagen anterior"
+                                variant="overlay"
+                                size="sm"
+                                onClick={(event) => go(-1, event)}
+                                className="absolute left-0.5 top-1/2 -translate-y-1/2 rounded-full shadow-sm z-10"
+                            >
+                                <IconChevronLeft size={12} className="sm:w-[14px] sm:h-[14px]" />
+                            </PanelIconButton>
+                            <PanelIconButton
+                                type="button"
+                                label="Imagen siguiente"
+                                aria-label="Imagen siguiente"
+                                variant="overlay"
+                                size="sm"
+                                onClick={(event) => go(1, event)}
+                                className="absolute right-0.5 top-1/2 -translate-y-1/2 rounded-full shadow-sm z-10"
+                            >
+                                <IconChevronRight size={12} className="sm:w-[14px] sm:h-[14px]" />
+                            </PanelIconButton>
+                            <div className="absolute bottom-2 left-1/2 -translate-x-1/2 flex items-center gap-1.5 z-20 pointer-events-none">
+                                {slides.map((_, index) => (
                                     <span
-                                        key={`${data.id}-${item}`}
-                                        className="text-[11px] px-2 py-1 rounded-md"
-                                        style={{ background: 'var(--bg-muted)', color: 'var(--fg-secondary)' }}
-                                    >
-                                        {item}
-                                    </span>
+                                        key={`dot-${data.id}-${index}`}
+                                        className="rounded-full transition-all duration-200 motion-reduce:transition-none"
+                                        style={{
+                                            width: slide === index ? 20 : 7,
+                                            height: 4,
+                                            background: slide === index ? '#ffffff' : 'rgba(255,255,255,0.55)',
+                                        }}
+                                    />
                                 ))}
                             </div>
-                        </div>
+                        </>
+                    ) : null}
+                </div>
 
-                        <div className="flex flex-wrap items-center gap-3">
-                            {engagementItems.map((item) => (
+                <div className="min-w-0 flex flex-col justify-between">
+                    <div>
+                        <h3 className="text-sm sm:text-lg font-semibold leading-tight line-clamp-2" style={{ color: 'var(--fg)' }}>
+                            {data.title}
+                        </h3>
+                        <p className="font-bold text-sm sm:text-base mt-0.5" style={{ color: 'var(--fg)' }}>{formatChileanPeso(data.price)}</p>
+                        <div className="flex flex-wrap gap-1 mt-1">
+                            {detailItems.slice(0, 5).map((item) => (
                                 <span
-                                    key={`${data.id}-${item.key}`}
-                                    className="inline-flex items-center gap-1 text-[11px]"
-                                    style={{ color: 'var(--fg-muted)' }}
+                                    key={`${data.id}-${item}`}
+                                    className="text-[9px] sm:text-[11px] px-1.5 sm:px-2 py-0.5 rounded-md"
+                                    style={{ background: 'var(--bg-muted)', color: 'var(--fg-secondary)' }}
                                 >
-                                    {item.icon}
-                                    {item.value}
+                                    {item}
                                 </span>
                             ))}
                         </div>
+                        <div className="mt-0.5 flex flex-wrap items-center gap-2">
+                            <span className="inline-flex items-center gap-0.5 text-[10px]" style={{ color: 'var(--fg-muted)' }}>
+                                <IconMapPin size={9} /> {data.location}
+                            </span>
+                        </div>
                     </div>
 
-                    <div className="flex flex-col justify-between xl:items-end gap-3 xl:pr-10">
-                        <div className="text-left xl:text-right">
-                            {data.priceLabel ? (
-                                <p className="text-[11px] uppercase tracking-wide" style={{ color: 'var(--fg-muted)' }}>
-                                    {data.priceLabel}
-                                </p>
-                            ) : null}
-                            <div className="flex items-baseline gap-2 xl:justify-end">
-                                <p className="type-listing-price" style={{ color: 'var(--fg)' }}>
-                                    {data.price}
-                                </p>
-                                {data.priceOriginal ? (
-                                    <span className="text-xs line-through" style={{ color: 'var(--fg-muted)' }}>
-                                        {data.priceOriginal}
-                                    </span>
-                                ) : null}
-                            </div>
-                            {secondaryPriceInfo ? (
-                                <p className="text-xs mt-1" style={{ color: 'var(--fg-secondary)' }}>
-                                    {secondaryPriceInfo}
-                                </p>
-                            ) : null}
-                        </div>
-                        <div className="w-full xl:w-auto xl:max-w-full">{renderActionCluster(false)}</div>
+                    <div className="hidden sm:flex flex-wrap items-center gap-3 mt-2">
+                        {engagementItems.filter(item => item.key !== 'location').map((item) => (
+                            <span
+                                key={`${data.id}-${item.key}`}
+                                className="inline-flex items-center gap-1 text-[11px]"
+                                style={{ color: 'var(--fg-muted)' }}
+                            >
+                                {item.icon}
+                                {item.value}
+                            </span>
+                        ))}
                     </div>
+
+                    <div className="hidden xl:hidden sm:flex items-center gap-2 flex-nowrap mt-auto">
+                        {renderActionCluster(false)}
+                    </div>
+                </div>
+
+                <div className="hidden xl:flex flex-col justify-end xl:items-start gap-3 xl:pl-10">
+                    {renderActionCluster(false)}
                 </div>
             </article>
         );
@@ -472,7 +535,7 @@ export default function PropertyListingCard({ data, mode }: Props) {
 
     return (
         <article
-            className="relative rounded-xl border overflow-hidden transition-all duration-300 hover:-translate-y-1 cursor-pointer"
+            className="relative rounded-xl border overflow-hidden transition-all duration-300 hover:-translate-y-1 motion-reduce:transition-none cursor-pointer focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-blue-500"
             style={{ borderColor: 'var(--border)', background: 'var(--surface)' }}
             onClick={openListing}
             onMouseLeave={() => setMenuOpen(false)}
@@ -495,28 +558,23 @@ export default function PropertyListingCard({ data, mode }: Props) {
                     </div>
                 </div>
 
-            <div className="p-4 space-y-2.5">
-                <h3 className="text-[1.02rem] font-semibold leading-tight line-clamp-2" style={{ color: 'var(--fg)' }}>
-                    {data.title}
-                </h3>
-
-                {data.priceLabel ? (
-                    <p className="text-[11px] uppercase tracking-wide" style={{ color: 'var(--fg-muted)' }}>
-                        {data.priceLabel}
-                    </p>
-                ) : null}
-                <div className="flex items-baseline gap-2">
+            <div className="p-4 space-y-2.5 text-center">
+                <div className="flex items-baseline justify-center gap-2">
                     <p className="type-listing-price" style={{ color: 'var(--fg)' }}>
-                        {data.price}
+                        {formatChileanPeso(data.price)}
                     </p>
                     {data.priceOriginal ? (
                         <span className="text-xs line-through" style={{ color: 'var(--fg-muted)' }}>
-                            {data.priceOriginal}
+                            {formatChileanPeso(data.priceOriginal)}
                         </span>
                     ) : null}
                 </div>
 
-                <div className="flex flex-wrap gap-1.5">
+                <h3 className="text-[1.02rem] font-semibold leading-tight line-clamp-2" style={{ color: 'var(--fg)' }}>
+                    {data.title}
+                </h3>
+
+                <div className="flex flex-wrap gap-1.5 justify-center">
                     {detailItems.map((item) => (
                         <span
                             key={`${data.id}-${item}`}
@@ -528,24 +586,16 @@ export default function PropertyListingCard({ data, mode }: Props) {
                     ))}
                 </div>
 
+                <span className="inline-flex items-center justify-center gap-1 text-[11px]" style={{ color: 'var(--fg-muted)' }}>
+                    <IconMapPin size={12} />
+                    {data.location}
+                </span>
+
                 {secondaryPriceInfo ? (
                     <div className="text-xs" style={{ color: 'var(--fg-secondary)' }}>
                         {secondaryPriceInfo}
                     </div>
                 ) : null}
-
-                <div className="flex flex-wrap items-center gap-3">
-                    {engagementItems.map((item) => (
-                        <span
-                            key={`${data.id}-${item.key}`}
-                            className="inline-flex items-center gap-1 text-[11px]"
-                            style={{ color: 'var(--fg-muted)' }}
-                        >
-                            {item.icon}
-                            {item.value}
-                        </span>
-                    ))}
-                </div>
 
                 <div className="pt-0.5">{renderActionCluster(true)}</div>
             </div>

@@ -4,7 +4,11 @@ import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import {
     IconBrandWhatsapp,
+    IconChevronLeft,
+    IconChevronRight,
+    IconClock,
     IconCopy,
+    IconDots,
     IconEdit,
     IconEye,
     IconGridDots,
@@ -12,15 +16,20 @@ import {
     IconHome2,
     IconList,
     IconMapPin,
+    IconPlayerPause,
     IconPlus,
+    IconRefresh,
     IconShare3,
+    IconSquarePlus,
     IconTrendingUp,
+    IconTrash,
     IconX,
     IconPlugConnected,
     IconExternalLink,
 } from '@tabler/icons-react';
 import PanelSectionHeader from '@/components/panel/panel-section-header';
 import ModernSelect from '@/components/ui/modern-select';
+import { PanelIconButton } from '@simple/ui';
 import { useAuth } from '@/context/auth-context';
 import {
     fetchInstagramIntegrationStatus,
@@ -54,11 +63,12 @@ const PORTAL_ORDER: PortalKey[] = ['yapo', 'mercadolibre', 'facebook'];
 type FilterKey = 'all' | 'active' | 'review_required' | 'paused' | 'sold' | 'draft';
 type ManagedStatus = Extract<ListingStatus, 'draft' | 'active' | 'paused' | 'sold'>;
 
-const STATUS_LABELS: Record<Exclude<ListingStatus, 'sold'>, string> = {
+const STATUS_LABELS: Record<ListingStatus, string> = {
     active: 'Activa',
     paused: 'Pausada',
     draft: 'Borrador',
     archived: 'Archivada',
+    sold: 'Vendida',
 };
 
 function statusText(status: string): string {
@@ -136,6 +146,74 @@ function getListingCommune(listing: PanelListing): string {
     return parts[0] || 'Chile';
 }
 
+function formatChileanPeso(price: string): string {
+    const num = parseInt(price.replace(/[^\d]/g, ''), 10);
+    if (isNaN(num)) return price;
+    return '$' + num.toLocaleString('es-CL');
+}
+
+function orderPropertyTags(tags: string[]): string[] {
+    const allowedPatterns = [
+        /casa|departamento|oficina|terreno|local|bodega|estacionamiento/i,
+        /usado|nuevo|seminuevo|impecable|excelente|buen estado|como nuevo/i,
+        /m²|m2|metros|metraje|superficie/i,
+        /habitaciones|dormitorios|habitación|dormitorio/i,
+        /baños|baño/i
+    ];
+
+    const ordered: string[] = [];
+
+    for (const tag of tags) {
+        for (const pattern of allowedPatterns) {
+            if (pattern.test(tag)) {
+                ordered.push(tag);
+                break;
+            }
+        }
+    }
+
+    return ordered.filter(Boolean).slice(0, 5);
+}
+
+function getListingTags(listing: PanelListing): string[] {
+    const rawData = listing.rawData as any;
+    const payload = rawData || {};
+    const setup = payload.setup || {};
+    const basic = payload.basic || {};
+    const project = payload.project || {};
+    const summary: string[] = [];
+    const isProject = listing.section === 'project' || setup.operationType === 'project';
+    
+    // Extract property tags matching API logic
+    if (isProject) {
+        if (project.projectName) summary.push(String(project.projectName));
+        if (project.availableUnits) {
+            const units = parseInt(String(project.availableUnits).replace(/[^\d]/g, ''), 10);
+            if (!isNaN(units)) summary.push(`${units.toLocaleString('es-CL')} unidades`);
+        }
+    } else {
+        if (basic.propertyType) summary.push(String(basic.propertyType));
+        if (basic.condition) summary.push(String(basic.condition));
+        
+        if (basic.bedrooms) {
+            const bedrooms = parseInt(String(basic.bedrooms).replace(/[^\d]/g, ''), 10);
+            if (!isNaN(bedrooms)) summary.push(`${bedrooms} dormitorios`);
+        }
+        
+        if (basic.bathrooms) {
+            const bathrooms = parseInt(String(basic.bathrooms).replace(/[^\d]/g, ''), 10);
+            if (!isNaN(bathrooms)) summary.push(`${bathrooms} baños`);
+        }
+        
+        if (basic.totalArea || basic.surface) {
+            const surface = parseInt(String(basic.totalArea || basic.surface).replace(/[^\d]/g, ''), 10);
+            if (!isNaN(surface)) summary.push(`${surface.toLocaleString('es-CL')} m²`);
+        }
+    }
+    
+    return orderPropertyTags(summary.slice(0, 5));
+}
+
 export default function PublicacionesPage() {
     const { user, authLoading, requireAuth } = useAuth();
     const [listings, setListings] = useState<PanelListing[]>([]);
@@ -146,6 +224,7 @@ export default function PublicacionesPage() {
     const [notice, setNotice] = useState<string | null>(null);
     const [statusBusyKey, setStatusBusyKey] = useState<string | null>(null);
     const [portalBusyKey, setPortalBusyKey] = useState<string | null>(null);
+    const [carouselSlide, setCarouselSlide] = useState<Record<string, number>>({});
     const [instagramBusyKey, setInstagramBusyKey] = useState<string | null>(null);
 
     // Instagram Preview States
@@ -225,39 +304,59 @@ export default function PublicacionesPage() {
         void loadListings();
     };
 
-    const onChangeListingStatus = async (listing: PanelListing, nextStatus: ManagedStatus) => {
+    const onChangeListingStatus = async (listing: PanelListing, status: ManagedStatus) => {
         if (!user) {
             setNotice('Tu sesión expiró. Vuelve a iniciar sesión para continuar.');
             requireAuth(() => {
-                void onChangeListingStatus(listing, nextStatus);
+                void onChangeListingStatus(listing, status);
             });
             return;
         }
-        setStatusBusyKey(`${listing.id}:${nextStatus}`);
-        const result = await updatePanelListingStatus(listing.id, nextStatus);
+        setStatusBusyKey(`${listing.id}:${status}`);
+        const result = await updatePanelListingStatus(listing.id, status);
         setStatusBusyKey(null);
         if (!result.ok) {
             if (result.unauthorized) {
                 setNotice('Tu sesión expiró. Vuelve a iniciar sesión para continuar.');
                 requireAuth(() => {
-                    void onChangeListingStatus(listing, nextStatus);
+                    void onChangeListingStatus(listing, status);
                 });
                 return;
             }
-            setNotice(result.error || 'No se pudo cambiar el estado del aviso.');
+            setNotice(result.error || 'No se pudo actualizar el estado.');
             return;
         }
-        if (nextStatus === 'active') {
-            setNotice(listing.status === 'sold' ? 'Aviso reactivado.' : 'Aviso activado.');
-        } else if (nextStatus === 'paused') {
-            setNotice('Aviso pausado.');
-        } else if (nextStatus === 'draft') {
-            setNotice('Aviso movido a borrador.');
-        } else if (listing.section === 'project') {
-            setNotice('Publicación cerrada.');
-        } else {
-            setNotice(`Aviso marcado como ${getClosedLabel(listing.section).toLowerCase()}.`);
+        setNotice(`Estado actualizado a ${STATUS_LABELS[status]}.`);
+        void loadListings();
+    };
+
+    const onDeleteListing = async (listing: PanelListing) => {
+        const confirmed = window.confirm('¿Estás seguro que deseas eliminar esta publicación? Esta acción no se puede deshacer.');
+        if (!confirmed) return;
+
+        if (!user) {
+            setNotice('Tu sesión expiró. Vuelve a iniciar sesión para continuar.');
+            requireAuth(() => {
+                void onDeleteListing(listing);
+            });
+            return;
         }
+
+        setStatusBusyKey(`${listing.id}:delete`);
+        const result = await updatePanelListingStatus(listing.id, 'archived');
+        setStatusBusyKey(null);
+        if (!result.ok) {
+            if (result.unauthorized) {
+                setNotice('Tu sesión expiró. Vuelve a iniciar sesión para continuar.');
+                requireAuth(() => {
+                    void onDeleteListing(listing);
+                });
+                return;
+            }
+            setNotice(result.error || 'No se pudo eliminar la publicación.');
+            return;
+        }
+        setNotice('Publicación eliminada correctamente.');
         void loadListings();
     };
 
@@ -405,6 +504,7 @@ export default function PublicacionesPage() {
     const renderMenuItem = (
         label: string,
         onClick: () => void,
+        icon?: React.ReactNode,
         disabled = false,
         className = ''
     ) => (
@@ -415,7 +515,10 @@ export default function PublicacionesPage() {
             onClick={onClick}
             disabled={disabled}
         >
-            {label}
+            <div className="flex items-center gap-2">
+                {icon ? <span className="inline-flex">{icon}</span> : null}
+                <span>{label}</span>
+            </div>
         </button>
     );
 
@@ -424,25 +527,43 @@ export default function PublicacionesPage() {
             listing.publicationLifecycle?.state === 'review_required' ||
             listing.publicationLifecycle?.state === 'review_expired';
         const menuOpen = actionMenuOpenId === listing.id;
+        const closedLabel = listing.section === 'rent' ? 'Arrendado' : 'Vendido';
 
         return (
             <div className="relative">
                 <PanelButton
                     variant="secondary"
                     size="sm"
-                    className="h-7 px-3 text-xs"
+                    className="h-7 px-2"
                     onClick={() => {
                         setShareMenuOpenId(null);
                         setActionMenuOpenId((current) => (current === listing.id ? null : listing.id));
                     }}
                 >
-                    Acción
+                    <IconDots size={16} />
                 </PanelButton>
                 {menuOpen ? (
                     <div
-                        className="absolute right-0 mt-2 w-64 rounded-xl border p-2 z-20"
+                        className="absolute right-0 mt-2 w-64 rounded-xl border p-2 z-50"
                         style={{ borderColor: 'var(--border)', background: 'var(--surface)', boxShadow: 'var(--shadow-sm)' }}
                     >
+                        {renderMenuItem(
+                            'Ver',
+                            () => {
+                                closeMenus();
+                                window.open(listing.href || getFallbackHref(listing.section), '_blank');
+                            },
+                            <IconEye size={14} />
+                        )}
+                        {renderMenuItem(
+                            'Editar',
+                            () => {
+                                closeMenus();
+                                window.location.href = `/panel/publicar?edit=${encodeURIComponent(listing.id)}`;
+                            },
+                            <IconEdit size={14} />
+                        )}
+                        <div className="mx-2 my-1 border-t" style={{ borderColor: 'var(--border)' }} />
                         {needsRenewal
                             ? renderMenuItem(
                                   'Renovar',
@@ -450,6 +571,7 @@ export default function PublicacionesPage() {
                                       closeMenus();
                                       void onRenewListing(listing);
                                   },
+                                  <IconRefresh size={14} />, 
                                   statusBusyKey === `${listing.id}:renew`
                               )
                             : null}
@@ -460,6 +582,7 @@ export default function PublicacionesPage() {
                                       closeMenus();
                                       void onChangeListingStatus(listing, 'active');
                                   },
+                                  <IconSquarePlus size={14} />, 
                                   statusBusyKey === `${listing.id}:active`,
                                   needsRenewal ? 'mt-1' : ''
                               )
@@ -471,17 +594,19 @@ export default function PublicacionesPage() {
                                       closeMenus();
                                       void onChangeListingStatus(listing, 'paused');
                                   },
+                                  <IconPlayerPause size={14} />, 
                                   statusBusyKey === `${listing.id}:paused`,
                                   needsRenewal ? 'mt-1' : ''
                               )
                             : null}
                         {listing.status !== 'sold'
                             ? renderMenuItem(
-                                  getClosedActionLabel(listing.section),
+                                  closedLabel,
                                   () => {
                                       closeMenus();
                                       void onChangeListingStatus(listing, 'sold');
                                   },
+                                  <IconX size={14} />, 
                                   statusBusyKey === `${listing.id}:sold`,
                                   'mt-1'
                               )
@@ -493,19 +618,30 @@ export default function PublicacionesPage() {
                                       closeMenus();
                                       void onChangeListingStatus(listing, 'draft');
                                   },
+                                  <IconEdit size={14} />, 
                                   statusBusyKey === `${listing.id}:draft`,
                                   'mt-1'
                               )
                             : null}
+                        <div className="mx-2 my-1 border-t" style={{ borderColor: 'var(--border)' }} />
+                        {renderMenuItem(
+                            'Eliminar',
+                            () => {
+                                closeMenus();
+                                void onDeleteListing(listing);
+                            },
+                            <IconTrash size={14} />,
+                            false,
+                            'text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20'
+                        )}
                     </div>
                 ) : null}
             </div>
         );
     };
 
-    const renderShareMenu = (listing: PanelListing, size: 'compact' | 'regular' = 'compact') => {
+    const renderShareMenu = (listing: PanelListing) => {
         const menuOpen = shareMenuOpenId === listing.id;
-        const triggerClassName = size === 'regular' ? 'h-8 w-full px-3 text-xs sm:w-auto' : 'h-7 px-3 text-xs';
         const integrations = [...listing.integrations].sort(
             (a, b) => PORTAL_ORDER.indexOf(a.portal) - PORTAL_ORDER.indexOf(b.portal)
         );
@@ -515,54 +651,26 @@ export default function PublicacionesPage() {
                 <PanelButton
                     variant="secondary"
                     size="sm"
-                    className={triggerClassName}
+                    className="h-7 px-2"
                     onClick={() => {
                         setActionMenuOpenId(null);
                         setShareMenuOpenId((current) => (current === listing.id ? null : listing.id));
                     }}
                 >
-                    <IconShare3 size={11} /> Compartir
+                    <IconShare3 size={16} /> Compartir
                 </PanelButton>
                 {menuOpen ? (
                     <div
-                        className="absolute right-0 mt-2 w-72 rounded-xl border p-2 z-20"
+                        className="absolute right-0 mt-2 w-72 rounded-xl border p-2 z-50"
                         style={{ borderColor: 'var(--border)', background: 'var(--surface)', boxShadow: 'var(--shadow-sm)' }}
                     >
                         {renderMenuItem('Link', () => {
                             void copyListingLink(listing);
-                        })}
-                        {renderMenuItem('WhatsApp', () => shareOnWhatsapp(listing), false, 'mt-1')}
+                        }, <IconCopy size={14} />)}
+                        {renderMenuItem('WhatsApp', () => shareOnWhatsapp(listing), <IconBrandWhatsapp size={14} />, false, 'mt-1')}
                         {renderMenuItem(instagramBusyKey === `${listing.id}:instagram` ? 'Instagram publicando...' : 'Instagram', () => {
                             void shareOnInstagram(listing);
-                        }, instagramBusyKey === `${listing.id}:instagram`, 'mt-1')}
-                        {integrations.length > 0 ? (
-                            <>
-                                <div className="mx-3 my-2 border-t" style={{ borderColor: 'var(--border)' }} />
-                                <p className="px-3 pb-1 text-[11px] font-semibold uppercase tracking-[0.14em]" style={{ color: 'var(--fg-muted)' }}>
-                                    Integraciones
-                                </p>
-                                {integrations.map((integration) => {
-                                    const busy = portalBusyKey === `${listing.id}:${integration.portal}`;
-                                    return (
-                                        <button
-                                            key={integration.portal}
-                                            type="button"
-                                            className="mt-1 flex w-full items-center justify-between rounded-lg px-3 py-2 text-left text-sm transition-colors hover:bg-black/5 dark:hover:bg-white/5"
-                                            style={{ color: 'var(--fg)' }}
-                                            onClick={() => {
-                                                void onPublishPortal(listing, integration.portal);
-                                            }}
-                                            disabled={busy}
-                                        >
-                                            <span>{integration.label}</span>
-                                            <span className="text-[11px]" style={{ color: 'var(--fg-muted)' }}>
-                                                {busy ? 'Publicando...' : statusText(integration.status)}
-                                            </span>
-                                        </button>
-                                    );
-                                })}
-                            </>
-                        ) : null}
+                        }, <IconPlugConnected size={14} />, instagramBusyKey === `${listing.id}:instagram`, 'mt-1')}
                     </div>
                 ) : null}
             </div>
@@ -677,8 +785,8 @@ export default function PublicacionesPage() {
                     <PanelSegmentedToggle
                         className="shrink-0"
                         items={[
-                            { key: 'horizontal', label: 'Lista', icon: <IconList size={13} />, ariaLabel: 'Vista lista' },
                             { key: 'vertical', label: 'Tarjetas', icon: <IconGridDots size={13} />, ariaLabel: 'Vista tarjetas' },
+                            { key: 'horizontal', label: 'Lista', icon: <IconList size={13} />, ariaLabel: 'Vista lista' },
                         ]}
                         activeKey={viewMode}
                         onChange={(key) => setViewMode(key as 'horizontal' | 'vertical')}
@@ -705,8 +813,8 @@ export default function PublicacionesPage() {
                     <PanelSegmentedToggle
                         className="shrink-0"
                         items={[
-                            { key: 'horizontal', label: 'Lista', icon: <IconList size={13} />, ariaLabel: 'Vista lista' },
                             { key: 'vertical', label: 'Tarjetas', icon: <IconGridDots size={13} />, ariaLabel: 'Vista tarjetas' },
+                            { key: 'horizontal', label: 'Lista', icon: <IconList size={13} />, ariaLabel: 'Vista lista' },
                         ]}
                         activeKey={viewMode}
                         onChange={(key) => setViewMode(key as 'horizontal' | 'vertical')}
@@ -723,43 +831,109 @@ export default function PublicacionesPage() {
                     {filtered.map((listing) => {
                         const badge = publicationBadgeMeta(listing);
                         const lifecycleHint = publicationLifecycleHint(listing);
-                        const coverImage = getListingCoverImage(listing);
+                        const images = getListingImages(listing);
+                        const currentSlide = carouselSlide[listing.id] || 0;
+                        const currentImage = images[currentSlide] || null;
+                        const tags = getListingTags(listing);
+                        const sectionLabel = listing.section === 'sale' ? 'Venta' : listing.section === 'rent' ? 'Arriendo' : 'Proyecto';
+                        const sectionTone = listing.section === 'sale' ? 'success' : listing.section === 'rent' ? 'warning' : 'info';
+                        
+                        const goToSlide = (direction: number) => {
+                            const max = Math.max(1, images.length);
+                            setCarouselSlide(prev => ({
+                                ...prev,
+                                [listing.id]: ((prev[listing.id] || 0) + direction + max) % max
+                            }));
+                        };
+                        
                         return (
-                            <article key={listing.id} className="rounded-xl p-4 flex flex-col sm:flex-row gap-4" style={{ border: '1px solid var(--border)' }}>
-                                <div className="w-full sm:w-28 h-20 sm:h-auto rounded-lg flex items-center justify-center shrink-0 overflow-hidden" style={{ background: 'var(--bg-muted)', color: 'var(--fg-faint)' }}>
-                                    {coverImage ? (
-                                        <img src={coverImage} alt={listing.title} className="w-full h-full object-cover" />
+                            <article key={listing.id} className="rounded-xl p-3 sm:p-4 grid grid-cols-[100px_1fr] sm:grid-cols-[140px_1fr] xl:grid-cols-[280px_minmax(0,1fr)_240px] gap-3 sm:gap-4 transition-all duration-300 hover:-translate-y-0.5 motion-reduce:transition-none relative cursor-pointer focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-blue-500" style={{ border: '1px solid var(--border)', background: 'var(--surface)' }}>
+                                <PanelStatusBadge label={badge.label} tone={badge.tone} variant="solid" size="sm" className="hidden xl:block absolute top-2 right-2 shadow-sm z-30" />
+                                {/* Z-Index Hierarchy: z-10=carousel controls, z-20=badges/dots, z-30=status/save */}
+                                <div className="w-full h-40 sm:h-44 xl:h-auto xl:min-h-[180px] aspect-[3/4] sm:aspect-4/3 rounded-lg overflow-hidden flex items-center justify-center shrink-0 relative transition-all duration-300 motion-reduce:transition-none" style={{ background: 'var(--bg-muted)', color: 'var(--fg-faint)' }}>
+                                    <PanelStatusBadge label={sectionLabel} tone={sectionTone} variant="solid" size="sm" className="absolute top-1.5 left-1.5 shadow-sm z-20 text-[10px]" />
+                                    {currentImage ? (
+                                        <img src={currentImage} alt={listing.title} className="w-full h-full object-cover transition-opacity duration-300" loading="lazy" decoding="async" />
                                     ) : (
-                                        <IconHome2 size={20} />
+                                        <div className="absolute inset-0 animate-pulse bg-gradient-to-br from-slate-800 to-slate-900" />
                                     )}
+                                    {images.length > 1 ? (
+                                        <>
+                                            <PanelIconButton
+                                                type="button"
+                                                label="Imagen anterior"
+                                                aria-label="Imagen anterior"
+                                                variant="overlay"
+                                                size="sm"
+                                                onClick={(e) => { e.stopPropagation(); goToSlide(-1); }}
+                                                className="absolute left-0.5 top-1/2 -translate-y-1/2 rounded-full shadow-sm z-10"
+                                            >
+                                                <IconChevronLeft size={12} className="sm:w-[14px] sm:h-[14px]" />
+                                            </PanelIconButton>
+                                            <PanelIconButton
+                                                type="button"
+                                                label="Imagen siguiente"
+                                                aria-label="Imagen siguiente"
+                                                variant="overlay"
+                                                size="sm"
+                                                onClick={(e) => { e.stopPropagation(); goToSlide(1); }}
+                                                className="absolute right-0.5 top-1/2 -translate-y-1/2 rounded-full shadow-sm z-10"
+                                            >
+                                                <IconChevronRight size={12} className="sm:w-[14px] sm:h-[14px]" />
+                                            </PanelIconButton>
+                                            <div className="absolute bottom-2 left-1/2 -translate-x-1/2 flex items-center gap-1.5 z-20 pointer-events-none">
+                                                {images.map((_, idx) => (
+                                                    <span
+                                                        key={`dot-${listing.id}-${idx}`}
+                                                        className="rounded-full transition-all duration-200 motion-reduce:transition-none"
+                                                        style={{
+                                                            width: carouselSlide[listing.id] === idx ? 20 : 7,
+                                                            height: 4,
+                                                            background: carouselSlide[listing.id] === idx ? '#ffffff' : 'rgba(255,255,255,0.55)',
+                                                        }}
+                                                    />
+                                                ))}
+                                            </div>
+                                        </>
+                                    ) : null}
                                 </div>
-                                <div className="flex-1 min-w-0">
-                                    <div className="flex items-start justify-between gap-2 mb-1">
-                                        <div>
-                                            <h3 className="type-listing-title" style={{ color: 'var(--fg)' }}>{listing.title}</h3>
-                                            <p className="type-listing-price mt-0.5" style={{ color: 'var(--fg)' }}>{listing.price}</p>
-                                            {listing.location ? <p className="text-xs mt-1 flex items-center gap-1" style={{ color: 'var(--fg-muted)' }}><IconMapPin size={11} />{listing.location}</p> : null}
-                                        </div>
-                                        <PanelStatusBadge label={badge.label} tone={badge.tone} size="sm" className="shrink-0" />
+                                <div className="flex-1 min-w-0 flex flex-col justify-between">
+                                    <div>
+                                        <h3 className="text-sm sm:text-lg font-semibold leading-tight line-clamp-2" style={{ color: 'var(--fg)' }}>{listing.title}</h3>
+                                        <p className="font-bold text-sm sm:text-base mt-0.5" style={{ color: 'var(--fg)' }}>{formatChileanPeso(listing.price)}</p>
+                                        {tags.length > 0 ? (
+                                            <div className="flex flex-wrap gap-1 mt-1">
+                                                {tags.slice(0, 5).map((item) => (
+                                                    <span
+                                                        key={`${listing.id}-${item}`}
+                                                        className="text-[9px] sm:text-[11px] px-1.5 sm:px-2 py-0.5 rounded-md"
+                                                        style={{ background: 'var(--bg-muted)', color: 'var(--fg-secondary)' }}
+                                                    >
+                                                        {item}
+                                                    </span>
+                                                ))}
+                                            </div>
+                                        ) : null}
+                                        {listing.location ? <p className="flex text-[10px] mt-0.5 items-center gap-1" style={{ color: 'var(--fg-muted)' }}><IconMapPin size={9} />{listing.location}</p> : null}
                                     </div>
-                                    <div className="flex items-center gap-4 mt-2 text-xs" style={{ color: 'var(--fg-muted)' }}>
-                                        <span className="flex items-center gap-1"><IconEye size={11} />{listing.views}</span>
-                                        <span className="flex items-center gap-1"><IconHeart size={11} />{listing.favs}</span>
-                                        <span className="flex items-center gap-1"><IconTrendingUp size={11} />{listing.leads}</span>
-                                        <span>{listing.days}d publicada</span>
-                                        {instagramPublications.some(p => p.listingId === listing.id && p.status === 'published') && (
-                                            <span className="flex items-center gap-1 font-bold tracking-wider uppercase text-[9px] text-green-600 bg-green-500/10 px-1.5 py-0.5 rounded" style={{ marginLeft: 'auto' }}>
-                                                <IconPlugConnected size={10} /> Instagram OK
-                                            </span>
-                                        )}
+                                    <div className="hidden sm:flex flex-wrap items-center gap-x-2 gap-y-1 text-[10px] sm:text-xs mt-2" style={{ color: 'var(--fg-muted)' }}>
+                                        <span className="flex items-center gap-0.5 sm:gap-1"><IconEye size={10} className="sm:w-3 sm:h-3" />{listing.views}</span>
+                                        <span className="flex items-center gap-0.5 sm:gap-1"><IconHeart size={10} className="sm:w-3 sm:h-3" />{listing.favs}</span>
+                                        <span className="flex items-center gap-0.5 sm:gap-1"><IconTrendingUp size={10} className="sm:w-3 sm:h-3" />{listing.leads}</span>
+                                        <span className="hidden sm:inline">{listing.days}d</span>
+                                        {lifecycleHint ? <span className="hidden sm:flex items-center gap-0.5 sm:gap-1"><IconClock size={10} className="sm:w-3 sm:h-3" />{lifecycleHint}</span> : null}
                                     </div>
-                                    {lifecycleHint ? <p className="mt-2 text-xs" style={{ color: 'var(--fg-muted)' }}>{lifecycleHint}</p> : null}
-                                    <div className="grid grid-cols-2 sm:flex sm:items-center gap-2 mt-3">
-                                        <Link href={listing.href || getFallbackHref(listing.section)} className={getPanelButtonClassName({ size: 'sm', className: 'h-8 w-full px-3 text-xs sm:w-auto' })} style={getPanelButtonStyle('secondary')}><IconEye size={11} /> Ver</Link>
-                                        <Link href={`/panel/publicar?edit=${encodeURIComponent(listing.id)}`} className={getPanelButtonClassName({ size: 'sm', className: 'h-8 w-full px-3 text-xs sm:w-auto' })} style={getPanelButtonStyle('secondary')}><IconEdit size={11} /> Editar</Link>
-                                        <div className="col-span-2 sm:col-span-1">{renderActionMenu(listing)}</div>
-                                        <Link href={`/panel/publicidad?tab=boost&listingId=${encodeURIComponent(listing.id)}&section=${encodeURIComponent(listing.section)}`} className={getPanelButtonClassName({ size: 'sm', className: 'h-8 w-full px-3 text-xs sm:w-auto' })} style={getPanelButtonStyle('primary')}><IconTrendingUp size={11} /> Boost</Link>
-                                        <div className="w-full sm:w-auto">{renderShareMenu(listing, 'regular')}</div>
+                                    <div className="flex items-center justify-end gap-2 flex-nowrap mt-auto xl:hidden">
+                                        <Link href={`/panel/publicidad?tab=boost&listingId=${encodeURIComponent(listing.id)}&section=${encodeURIComponent(listing.section)}`} className={getPanelButtonClassName({ size: 'sm', className: 'h-7 sm:h-8 px-2 sm:px-4 text-[10px] sm:text-xs whitespace-nowrap' })} style={getPanelButtonStyle('primary')}><IconTrendingUp size={10} className="sm:w-3 sm:h-3" /> Boost</Link>
+                                        {renderShareMenu(listing)}
+                                        {renderActionMenu(listing)}
+                                    </div>
+                                </div>
+                                <div className="hidden xl:flex flex-col justify-end gap-3">
+                                    <div className="flex items-center justify-end gap-2 flex-nowrap">
+                                        <Link href={`/panel/publicidad?tab=boost&listingId=${encodeURIComponent(listing.id)}&section=${encodeURIComponent(listing.section)}`} className={getPanelButtonClassName({ size: 'sm', className: 'h-7 sm:h-8 px-2 sm:px-4 text-[10px] sm:text-xs whitespace-nowrap' })} style={getPanelButtonStyle('primary')}><IconTrendingUp size={10} className="sm:w-3 sm:h-3" /> Boost</Link>
+                                        {renderShareMenu(listing)}
+                                        {renderActionMenu(listing)}
                                     </div>
                                 </div>
                             </article>
@@ -773,37 +947,99 @@ export default function PublicacionesPage() {
                     {filtered.map((listing) => {
                         const badge = publicationBadgeMeta(listing);
                         const lifecycleHint = publicationLifecycleHint(listing);
-                        const coverImage = getListingCoverImage(listing);
+                        const images = getListingImages(listing);
+                        const currentSlide = carouselSlide[listing.id] || 0;
+                        const currentImage = images[currentSlide] || null;
+                        const tags = getListingTags(listing);
+                        const sectionLabel = listing.section === 'sale' ? 'Venta' : listing.section === 'rent' ? 'Arriendo' : 'Proyecto';
+                        const sectionTone = listing.section === 'sale' ? 'success' : listing.section === 'rent' ? 'warning' : 'info';
+                        
+                        const goToSlide = (direction: number) => {
+                            const max = Math.max(1, images.length);
+                            setCarouselSlide(prev => ({
+                                ...prev,
+                                [listing.id]: ((prev[listing.id] || 0) + direction + max) % max
+                            }));
+                        };
+                        
                         return (
-                            <article key={listing.id} className="rounded-xl overflow-hidden" style={{ border: '1px solid var(--border)' }}>
-                                <div className="aspect-4/3 flex items-center justify-center overflow-hidden" style={{ background: 'var(--bg-muted)', color: 'var(--fg-faint)' }}>
-                                    {coverImage ? (
-                                        <img src={coverImage} alt={listing.title} className="w-full h-full object-cover" />
+                            <article key={listing.id} className="rounded-xl relative cursor-pointer transition-all duration-300 hover:-translate-y-0.5 motion-reduce:transition-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-blue-500" style={{ border: '1px solid var(--border)', background: 'var(--surface)' }}>
+                                {/* Z-Index Hierarchy: z-10=carousel controls, z-20=badges/dots, z-30=status/save */}
+                                <div className="aspect-4/3 flex items-center justify-center overflow-hidden relative rounded-lg transition-all motion-reduce:transition-none" style={{ background: 'var(--bg-muted)', color: 'var(--fg-faint)' }} aria-live="polite">
+                                    <PanelStatusBadge label={sectionLabel} tone={sectionTone} variant="solid" size="sm" className="absolute top-2 left-2 shadow-sm z-20" />
+                                    <PanelStatusBadge label={badge.label} tone={badge.tone} variant="solid" size="sm" className="absolute top-2 right-2 shadow-sm z-30" />
+                                    {currentImage ? (
+                                        <img src={currentImage} alt={listing.title} className="w-full h-full object-cover rounded-lg transition-opacity duration-300" loading="lazy" decoding="async" />
                                     ) : (
-                                        <IconHome2 size={26} />
+                                        <div className="absolute inset-0 animate-pulse bg-gradient-to-br from-slate-800 to-slate-900" />
                                     )}
+                                    {images.length > 1 ? (
+                                        <>
+                                            <PanelIconButton
+                                                type="button"
+                                                label="Imagen anterior"
+                                                aria-label="Imagen anterior"
+                                                variant="overlay"
+                                                size="sm"
+                                                onClick={(e) => { e.stopPropagation(); goToSlide(-1); }}
+                                                className="absolute left-2 top-1/2 -translate-y-1/2 rounded-full shadow-sm z-10"
+                                            >
+                                                <IconChevronLeft size={14} />
+                                            </PanelIconButton>
+                                            <PanelIconButton
+                                                type="button"
+                                                label="Imagen siguiente"
+                                                aria-label="Imagen siguiente"
+                                                variant="overlay"
+                                                size="sm"
+                                                onClick={(e) => { e.stopPropagation(); goToSlide(1); }}
+                                                className="absolute right-2 top-1/2 -translate-y-1/2 rounded-full shadow-sm z-10"
+                                            >
+                                                <IconChevronRight size={14} />
+                                            </PanelIconButton>
+                                            <div className="absolute bottom-2 left-1/2 -translate-x-1/2 flex items-center gap-1.5 z-20 pointer-events-none">
+                                                {images.map((_, index) => (
+                                                    <span
+                                                        key={`dot-${listing.id}-${index}`}
+                                                        className="rounded-full transition-all duration-200 motion-reduce:transition-none"
+                                                        style={{
+                                                            width: currentSlide === index ? 20 : 7,
+                                                            height: 4,
+                                                            background: currentSlide === index ? '#ffffff' : 'rgba(255,255,255,0.55)',
+                                                        }}
+                                                    />
+                                                ))}
+                                            </div>
+                                        </>
+                                    ) : null}
                                 </div>
-                                <div className="p-4">
-                                    <div className="flex items-start justify-between gap-2 mb-1"><h3 className="type-listing-title line-clamp-1">{listing.title}</h3><PanelStatusBadge label={badge.label} tone={badge.tone} size="sm" className="shrink-0" /></div>
-                                    <p className="type-listing-price mb-1">{listing.price}</p>
-                                    {listing.location ? <p className="text-xs mb-2 flex items-center gap-1" style={{ color: 'var(--fg-muted)' }}><IconMapPin size={11} />{listing.location}</p> : null}
-                                    <div className="flex items-center gap-3 text-[11px]" style={{ color: 'var(--fg-muted)' }}>
+                                <div className="p-4 text-center space-y-2">
+                                    <p className="type-listing-price" style={{ color: 'var(--fg)' }}>{formatChileanPeso(listing.price)}</p>
+                                    <h3 className="type-listing-title line-clamp-2" style={{ color: 'var(--fg)' }}>{listing.title}</h3>
+                                    {tags.length > 0 ? (
+                                        <div className="flex flex-wrap gap-1.5 justify-center">
+                                            {tags.map((item) => (
+                                                <span
+                                                    key={`${listing.id}-${item}`}
+                                                    className="text-[11px] px-2 py-1 rounded-md"
+                                                    style={{ background: 'var(--bg-muted)', color: 'var(--fg-secondary)' }}
+                                                >
+                                                    {item}
+                                                </span>
+                                            ))}
+                                        </div>
+                                    ) : null}
+                                    {listing.location ? <p className="text-xs flex items-center justify-center gap-1" style={{ color: 'var(--fg-muted)' }}><IconMapPin size={11} />{listing.location}</p> : null}
+                                    <div className="flex items-center justify-center gap-3 text-[11px]" style={{ color: 'var(--fg-muted)' }}>
                                         <span className="flex items-center gap-1"><IconEye size={11} />{listing.views}</span>
                                         <span className="flex items-center gap-1"><IconHeart size={11} />{listing.favs}</span>
                                         <span className="flex items-center gap-1"><IconTrendingUp size={11} />{listing.leads}</span>
-                                        {instagramPublications.some(p => p.listingId === listing.id && p.status === 'published') && (
-                                            <span className="flex items-center gap-1 font-bold tracking-wider uppercase text-[9px] text-green-600 bg-green-500/10 px-1.5 py-0.5 rounded" style={{ marginLeft: 'auto' }}>
-                                                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6 9 17l-5-5"/></svg> IG
-                                            </span>
-                                        )}
+                                        {lifecycleHint ? <span className="flex items-center gap-1"><IconClock size={11} />{lifecycleHint}</span> : null}
                                     </div>
-                                    {lifecycleHint ? <p className="mt-2 text-xs" style={{ color: 'var(--fg-muted)' }}>{lifecycleHint}</p> : null}
-                                    <div className="flex items-center gap-2 mt-3 flex-wrap">
-                                        <Link href={listing.href || getFallbackHref(listing.section)} className={getPanelButtonClassName({ size: 'sm', className: 'h-7 px-3 text-xs' })} style={getPanelButtonStyle('secondary')}><IconEye size={11} /> Ver</Link>
-                                        <Link href={`/panel/publicar?edit=${encodeURIComponent(listing.id)}`} className={getPanelButtonClassName({ size: 'sm', className: 'h-7 px-3 text-xs' })} style={getPanelButtonStyle('secondary')}><IconEdit size={11} /> Editar</Link>
-                                        {renderActionMenu(listing)}
-                                        <Link href={`/panel/publicidad?tab=boost&listingId=${encodeURIComponent(listing.id)}&section=${encodeURIComponent(listing.section)}`} className={getPanelButtonClassName({ size: 'sm', className: 'h-7 px-3 text-xs' })} style={getPanelButtonStyle('primary')}><IconTrendingUp size={11} /> Boost</Link>
+                                    <div className="flex items-center justify-center gap-2 flex-wrap">
+                                        <Link href={`/panel/publicidad?tab=boost&listingId=${encodeURIComponent(listing.id)}&section=${encodeURIComponent(listing.section)}`} className={getPanelButtonClassName({ size: 'sm', className: 'h-7 px-6 text-xs' })} style={getPanelButtonStyle('primary')}><IconTrendingUp size={11} /> Boost</Link>
                                         {renderShareMenu(listing)}
+                                        {renderActionMenu(listing)}
                                     </div>
                                 </div>
                             </article>

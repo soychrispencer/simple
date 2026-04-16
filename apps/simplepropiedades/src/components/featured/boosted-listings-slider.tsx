@@ -4,11 +4,8 @@ import Link from 'next/link';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
     IconArrowRight,
-    IconBolt,
     IconChevronLeft,
     IconChevronRight,
-    IconHome2,
-    IconMapPin,
 } from '@tabler/icons-react';
 import {
     BOOST_SECTION_META,
@@ -16,8 +13,65 @@ import {
     type BoostSection,
     type FeaturedBoostItem,
 } from '@/lib/boost';
+import PropertyListingCard, { type PropertyListingCardData } from '@/components/listings/property-listing-card';
 
 const SECTIONS: BoostSection[] = ['sale', 'rent', 'project'];
+
+function orderPropertyTags(tags: string[]): string[] {
+    const allowedPatterns = [
+        /casa|departamento|oficina|terreno|local|bodega|estacionamiento/i,
+        /usado|nuevo|seminuevo|impecable|excelente|buen estado|como nuevo/i,
+        /m²|m2|metros|metraje|superficie/i,
+        /habitaciones|dormitorios|habitación|dormitorio/i,
+        /baños|baño/i
+    ];
+
+    const ordered: string[] = [];
+
+    for (const tag of tags) {
+        const lower = tag.toLowerCase();
+        for (let i = 0; i < allowedPatterns.length; i++) {
+            if (allowedPatterns[i].test(lower)) {
+                ordered[i] = tag;
+                break;
+            }
+        }
+    }
+
+    return ordered.filter(Boolean).slice(0, 5);
+}
+
+function mapFeaturedBoostToPropertyCard(item: FeaturedBoostItem): PropertyListingCardData {
+    const sectionLabel = item.section === 'sale' ? 'Venta' : item.section === 'rent' ? 'Arriendo' : 'Proyecto';
+    const metaItems = orderPropertyTags(
+        item.subtitle
+            .split(/[•\|;,]|\s+-\s+/g)
+            .map(p => p.trim())
+            .filter(p => p.length > 0)
+    );
+    const images = item.imageUrls && item.imageUrls.length > 0 ? item.imageUrls : (item.imageUrl ? [item.imageUrl] : []);
+    return {
+        id: item.id,
+        href: item.href,
+        title: item.title,
+        price: item.price,
+        priceLabel: undefined,
+        subtitle: item.subtitle,
+        meta: metaItems,
+        location: item.location,
+        sellerName: item.owner?.name || 'Vendedor',
+        sellerMeta: 'Publicado recientemente',
+        sellerAvatarUrl: undefined,
+        badge: sectionLabel,
+        variant: item.section,
+        images,
+        listedSince: 'Reciente',
+        engagement: {
+            views24h: 0,
+            saves: 0,
+        },
+    };
+}
 
 export default function BoostedListingsSlider() {
     const [section, setSection] = useState<BoostSection>('sale');
@@ -75,50 +129,9 @@ export default function BoostedListingsSlider() {
         }
 
         return items.map((item) => (
-            <Link
-                key={item.id}
-                href={item.href}
-                className="shrink-0 w-[280px] rounded-xl border overflow-hidden transition-all duration-300 hover:-translate-y-1"
-                style={{ borderColor: 'var(--border)', background: 'var(--surface)' }}
-            >
-                <div
-                    className="aspect-4/3 p-3 flex items-start justify-between"
-                    style={{
-                        background: item.imageUrl
-                            ? `linear-gradient(to bottom, rgba(0,0,0,0.2), rgba(0,0,0,0.55)), url(${item.imageUrl}) center / cover no-repeat`
-                            : 'var(--bg-muted)',
-                    }}
-                >
-                    <span
-                        className="inline-flex items-center gap-1 text-[11px] px-2 py-1 rounded-full"
-                        style={{
-                            background: item.boosted ? 'rgba(0,0,0,0.7)' : 'rgba(15,23,42,0.65)',
-                            color: '#ffffff',
-                        }}
-                    >
-                        <IconBolt size={12} />
-                        {item.boosted ? item.planName : 'Orgánica'}
-                    </span>
-                    <div className="w-8 h-8 rounded-full flex items-center justify-center" style={{ background: 'rgba(255,255,255,0.18)', color: '#ffffff' }}>
-                        <IconHome2 size={16} />
-                    </div>
-                </div>
-                <div className="p-4 space-y-1.5">
-                    <h3 className="text-sm font-semibold line-clamp-1" style={{ color: 'var(--fg)' }}>
-                        {item.title}
-                    </h3>
-                    <p className="text-lg font-semibold" style={{ color: 'var(--fg)' }}>
-                        {item.price}
-                    </p>
-                    <p className="text-xs line-clamp-1" style={{ color: 'var(--fg-secondary)' }}>
-                        {item.subtitle}
-                    </p>
-                    <p className="text-xs inline-flex items-center gap-1" style={{ color: 'var(--fg-muted)' }}>
-                        <IconMapPin size={12} />
-                        {item.location}
-                    </p>
-                </div>
-            </Link>
+            <div key={item.id} className="shrink-0 w-[280px]">
+                <PropertyListingCard data={mapFeaturedBoostToPropertyCard(item)} mode="grid" />
+            </div>
         ));
     }, [items, loading]);
 

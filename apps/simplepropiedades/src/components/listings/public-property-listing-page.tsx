@@ -16,6 +16,30 @@ function extractPriceNumber(value: string): number {
     return Number(normalized || '0');
 }
 
+function orderPropertyTags(tags: string[]): string[] {
+    const allowedPatterns = [
+        /casa|departamento|oficina|terreno|local|bodega|estacionamiento/i,
+        /usado|nuevo|seminuevo|impecable|excelente|buen estado|como nuevo/i,
+        /m²|m2|metros|metraje|superficie/i,
+        /habitaciones|dormitorios|habitación|dormitorio/i,
+        /baños|baño/i
+    ];
+
+    const ordered: string[] = [];
+
+    for (const tag of tags) {
+        const lower = tag.toLowerCase();
+        for (let i = 0; i < allowedPatterns.length; i++) {
+            if (allowedPatterns[i].test(lower)) {
+                ordered[i] = tag;
+                break;
+            }
+        }
+    }
+
+    return ordered.filter(Boolean).slice(0, 5);
+}
+
 function toCardData(item: PublicListing): PropertyListingCardData {
     return {
         id: item.id,
@@ -24,7 +48,7 @@ function toCardData(item: PublicListing): PropertyListingCardData {
         price: item.price,
         priceLabel: item.section === 'project' ? 'Proyecto' : item.section === 'rent' ? 'Arriendo' : 'Precio',
         subtitle: item.description,
-        meta: item.summary,
+        meta: orderPropertyTags(item.summary),
         highlights: item.summary,
         location: item.location || 'Chile',
         sellerName: item.seller?.name ?? 'Cuenta SimplePropiedades',

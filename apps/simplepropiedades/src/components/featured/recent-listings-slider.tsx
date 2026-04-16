@@ -7,16 +7,16 @@ import {
     IconChevronLeft,
     IconChevronRight,
 } from '@tabler/icons-react';
+import PropertyListingCard, { type PropertyListingCardData } from '@/components/listings/property-listing-card';
 import { fetchPublicListings, type PublicListing } from '@/lib/public-listings';
-import VehicleListingCard, { type VehicleListingCardData } from '@/components/listings/vehicle-listing-card';
 
-function orderVehicleTags(tags: string[]): string[] {
+function orderPropertyTags(tags: string[]): string[] {
     const allowedPatterns = [
-        /auto|sedán|hatchback|suv|camioneta|pickup|van|bus|deportivo|coupe|moto|cuatrimoto|convertible/i,
+        /casa|departamento|oficina|terreno|local|bodega|estacionamiento/i,
         /usado|nuevo|seminuevo|impecable|excelente|buen estado|como nuevo/i,
-        /km|kilometraje|kilómetro/i,
-        /bencina|diesel|híbrido|hibrido|eléctrico|electrico|gas|petróleo/i,
-        /automático|automatico|manual|cvt|secuencial/i
+        /m²|m2|metros|metraje|superficie/i,
+        /habitaciones|dormitorios|habitación|dormitorio/i,
+        /baños|baño/i
     ];
 
     const ordered: string[] = [];
@@ -34,8 +34,8 @@ function orderVehicleTags(tags: string[]): string[] {
     return ordered.filter(Boolean).slice(0, 5);
 }
 
-function mapPublicListingToVehicleCard(item: PublicListing): VehicleListingCardData {
-    const metaItems = orderVehicleTags(
+function mapPublicListingToPropertyCard(item: PublicListing): PropertyListingCardData {
+    const metaItems = orderPropertyTags(
         item.summary.slice(0, 5).filter(p => !p.includes('Publicación SimpleAutos') && !p.includes('Publicación SimplePropiedades'))
     );
     return {
@@ -46,7 +46,7 @@ function mapPublicListingToVehicleCard(item: PublicListing): VehicleListingCardD
         subtitle: item.description,
         meta: metaItems,
         location: item.location || 'Chile',
-        sellerName: item.seller?.name ?? 'SimpleAutos',
+        sellerName: item.seller?.name ?? 'SimplePropiedades',
         sellerMeta: `Actualizado hace ${item.publishedAgo}`,
         sellerAvatarUrl: undefined,
         sellerProfileHref: item.seller?.profileHref ?? undefined,
@@ -81,17 +81,8 @@ export default function RecentListingsSlider() {
     const scrollByCards = (direction: -1 | 1) => {
         const node = sliderRef.current;
         if (!node) return;
-        node.scrollBy({ left: direction * 328, behavior: 'smooth' });
-    };
-
-    const formatPrice = (price: string) => {
-        const num = parseInt(price, 10);
-        if (isNaN(num)) return price;
-        return new Intl.NumberFormat('es-CL', {
-            style: 'currency',
-            currency: 'CLP',
-            maximumFractionDigits: 0,
-        }).format(num);
+        const cardWidth = window.innerWidth >= 640 ? 280 : window.innerWidth / 2 - 16;
+        node.scrollBy({ left: direction * (cardWidth + 16), behavior: 'smooth' });
     };
 
     const cards = useMemo(() => {
@@ -99,13 +90,26 @@ export default function RecentListingsSlider() {
             return Array.from({ length: 4 }, (_, index) => (
                 <div
                     key={`placeholder-${index}`}
-                    className="shrink-0 w-[280px] rounded-xl border animate-pulse"
+                    className="shrink-0 w-[calc(50%-8px)] sm:w-[280px] rounded-xl border animate-pulse"
                     style={{ borderColor: 'var(--border)', background: 'var(--surface)' }}
                 >
-                    <div className="aspect-4/3" style={{ background: 'var(--bg-muted)' }} />
-                    <div className="p-4 space-y-2">
-                        <div className="h-4 rounded" style={{ background: 'var(--bg-muted)' }} />
-                        <div className="h-3 rounded w-3/4" style={{ background: 'var(--bg-muted)' }} />
+                    <div className="relative aspect-[4/3]" style={{ background: 'var(--bg-muted)' }}>
+                        <div className="absolute top-2 left-2 h-6 w-12 rounded" style={{ background: 'var(--border)' }} />
+                        <div className="absolute top-2 right-2 h-6 w-12 rounded" style={{ background: 'var(--border)' }} />
+                    </div>
+                    <div className="p-3 space-y-2">
+                        <div className="h-5 rounded w-2/3" style={{ background: 'var(--bg-muted)' }} />
+                        <div className="h-4 rounded w-full" style={{ background: 'var(--bg-muted)' }} />
+                        <div className="flex gap-1.5">
+                            <div className="h-3 rounded w-12" style={{ background: 'var(--bg-muted)' }} />
+                            <div className="h-3 rounded w-12" style={{ background: 'var(--bg-muted)' }} />
+                            <div className="h-3 rounded w-12" style={{ background: 'var(--bg-muted)' }} />
+                        </div>
+                        <div className="h-3 rounded w-1/2" style={{ background: 'var(--bg-muted)' }} />
+                        <div className="flex items-center gap-2 pt-2 border-t" style={{ borderColor: 'var(--border)' }}>
+                            <div className="w-5 h-5 rounded-full" style={{ background: 'var(--bg-muted)' }} />
+                            <div className="h-3 rounded w-20" style={{ background: 'var(--bg-muted)' }} />
+                        </div>
                     </div>
                 </div>
             ));
@@ -116,8 +120,8 @@ export default function RecentListingsSlider() {
         }
 
         return items.map((item) => (
-            <div key={item.id} className="shrink-0 w-[280px]">
-                <VehicleListingCard data={mapPublicListingToVehicleCard(item)} mode="grid" />
+            <div key={item.id} className="shrink-0 w-[calc(50%-8px)] sm:w-[280px]">
+                <PropertyListingCard data={mapPublicListingToPropertyCard(item)} mode="grid" />
             </div>
         ));
     }, [items, loading]);
@@ -135,7 +139,7 @@ export default function RecentListingsSlider() {
                             Recién llegados
                         </h2>
                         <p className="text-sm mt-1" style={{ color: 'var(--fg-secondary)' }}>
-                            Las últimas publicaciones de vehículos.
+                            Las últimas publicaciones de propiedades.
                         </p>
                     </div>
                     <div className="flex items-center gap-3">
@@ -149,7 +153,7 @@ export default function RecentListingsSlider() {
                         <div className="hidden md:flex items-center gap-2">
                             <button
                                 onClick={() => scrollByCards(-1)}
-                                className="w-9 h-9 rounded-md border flex items-center justify-center transition-colors hover:bg-(--bg-subtle) hover:border-(--border-strong)"
+                                className="w-9 h-9 rounded-md border flex items-center justify-center transition-colors hover:bg-[var(--bg-subtle)] hover:border-[var(--border-strong)]"
                                 style={{ borderColor: 'var(--border)', background: 'var(--surface)', color: 'var(--fg)' }}
                                 aria-label="Anterior"
                             >
@@ -157,7 +161,7 @@ export default function RecentListingsSlider() {
                             </button>
                             <button
                                 onClick={() => scrollByCards(1)}
-                                className="w-9 h-9 rounded-md border flex items-center justify-center transition-colors hover:bg-(--bg-subtle) hover:border-(--border-strong)"
+                                className="w-9 h-9 rounded-md border flex items-center justify-center transition-colors hover:bg-[var(--bg-subtle)] hover:border-[var(--border-strong)]"
                                 style={{ borderColor: 'var(--border)', background: 'var(--surface)', color: 'var(--fg)' }}
                                 aria-label="Siguiente"
                             >

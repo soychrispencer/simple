@@ -50,6 +50,7 @@ export type FeaturedBoostItem = {
     price: string;
     location: string;
     imageUrl?: string;
+    imageUrls?: string[];
     section: BoostSection;
     boosted: boolean;
     planName: string;

@@ -423,6 +423,7 @@ type BoostListingRecord = {
     price: string;
     location: string;
     imageUrl?: string;
+    imageUrls?: string[];
 };
 
 type BoostPlanRecord = {
@@ -4657,7 +4658,8 @@ async function listFeaturedBoosted(vertical: VerticalType, section: BoostSection
             if (!listing) return null;
             const owner = await getUserById(order.userId);
             const sourceListing = listingsById.get(listing.id);
-            const listingImageUrl = sourceListing ? extractListingMediaUrls(sourceListing)[0] ?? listing.imageUrl : listing.imageUrl;
+            const listingImageUrls = sourceListing ? extractListingMediaUrls(sourceListing) : [];
+            const imageUrl = listingImageUrls.length > 0 ? listingImageUrls[0] : listing.imageUrl;
             return {
                 id: listing.id,
                 href: listing.href,
@@ -4665,7 +4667,8 @@ async function listFeaturedBoosted(vertical: VerticalType, section: BoostSection
                 subtitle: listing.subtitle,
                 price: listing.price,
                 location: listing.location || 'Chile',
-                imageUrl: listingImageUrl,
+                imageUrl,
+                imageUrls: listingImageUrls,
                 section: listing.section,
                 boosted: true,
                 planName: order.planName,
@@ -6289,8 +6292,9 @@ function activeSubscriptionToResponse(subscription: ActiveSubscription | null) {
 }
 
 function upsertBoostListingFromListing(listing: ListingRecord): void {
-    const subtitle = listing.vertical === 'autos' ? 'Publicación SimpleAutos' : 'Publicación SimplePropiedades';
-    const imageUrl = extractListingMediaUrls(listing)[0] ?? '';
+    const summary = extractListingSummary(listing);
+    const subtitle = summary.join(' • ');
+    const imageUrls = extractListingMediaUrls(listing);
     const existing = boostListingsSeed.find((item) => item.id === listing.id && item.vertical === listing.vertical);
     if (existing) {
         existing.title = listing.title;
@@ -6299,7 +6303,8 @@ function upsertBoostListingFromListing(listing: ListingRecord): void {
         existing.location = listing.location || existing.location;
         existing.section = listing.section;
         existing.href = listing.href;
-        existing.imageUrl = imageUrl || existing.imageUrl;
+        existing.imageUrl = imageUrls[0] || existing.imageUrl;
+        existing.imageUrls = imageUrls;
         return;
     }
 
@@ -6313,7 +6318,8 @@ function upsertBoostListingFromListing(listing: ListingRecord): void {
         subtitle,
         price: listing.price,
         location: listing.location || '',
-        imageUrl,
+        imageUrl: imageUrls[0],
+        imageUrls,
     });
 }
 

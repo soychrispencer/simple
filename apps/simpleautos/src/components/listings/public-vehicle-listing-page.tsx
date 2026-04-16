@@ -18,6 +18,30 @@ function extractPriceNumber(value: string): number {
     return Number(normalized || '0');
 }
 
+function orderVehicleTags(tags: string[]): string[] {
+    const allowedPatterns = [
+        /auto|sedán|hatchback|suv|camioneta|pickup|van|bus|deportivo|coupe|moto|cuatrimoto|convertible/i,
+        /usado|nuevo|seminuevo|impecable|excelente|buen estado|como nuevo/i,
+        /km|kilometraje|kilómetro/i,
+        /bencina|diesel|híbrido|hibrido|eléctrico|electrico|gas|petróleo/i,
+        /automático|automatico|manual|cvt|secuencial/i
+    ];
+
+    const ordered: string[] = [];
+
+    for (const tag of tags) {
+        const lower = tag.toLowerCase();
+        for (let i = 0; i < allowedPatterns.length; i++) {
+            if (allowedPatterns[i].test(lower)) {
+                ordered[i] = tag;
+                break;
+            }
+        }
+    }
+
+    return ordered.filter(Boolean).slice(0, 5);
+}
+
 function toCardData(item: PublicListing): VehicleListingCardData {
     return {
         id: item.id,
@@ -26,7 +50,7 @@ function toCardData(item: PublicListing): VehicleListingCardData {
         price: item.price,
         priceLabel: item.section === 'rent' ? 'Arriendo' : item.section === 'auction' ? 'Oferta actual' : 'Precio',
         subtitle: item.description,
-        meta: item.summary,
+        meta: orderVehicleTags(item.summary),
         location: item.location || 'Chile',
         sellerName: item.seller?.name ?? 'Cuenta SimpleAutos',
         sellerMeta: `Actualizado hace ${item.publishedAgo}`,

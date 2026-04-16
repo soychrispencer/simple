@@ -50,6 +50,7 @@ export type FeaturedBoostItem = {
     price: string;
     location: string;
     imageUrl?: string;
+    imageUrls?: string[];
     section: BoostSection;
     boosted: boolean;
     planName: string;
@@ -58,8 +59,9 @@ export type FeaturedBoostItem = {
         id: string;
         email: string;
         name: string;
-        role: 'user' | 'admin' | 'superadmin';
-        avatar?: string;
+        username: string;
+        profileHref: string | null;
+        phone: string | null;
     } | null;
 };
 
