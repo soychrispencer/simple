@@ -23,11 +23,15 @@
         "tailwind-merge": "^3.5.0"
     },
     "peerDependencies": {
+        "@tabler/icons-react": "^3.31.0",
         "react": "^19.2.4",
-        "react-dom": "^19.2.4"
+        "react-dom": "^19.2.4",
+        "swiper": "^12.1.2"
     },
     "devDependencies": {
-        "typescript": "^5.9.3",
-        "@types/react": "^19.1.8"
+        "@tabler/icons-react": "^3.31.0",
+        "@types/react": "^19.1.8",
+        "swiper": "^12.1.2",
+        "typescript": "^5.9.3"
     }
 }

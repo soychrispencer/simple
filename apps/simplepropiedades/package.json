@@ -19,7 +19,8 @@
         "@simple/config": "*",
         "@simple/utils": "*",
         "@simple/ui": "*",
-        "@simple/auth": "*"
+        "@simple/auth": "*",
+        "swiper": "^12.1.2"
     },
     "devDependencies": {
         "@tailwindcss/postcss": "^4.2.1",

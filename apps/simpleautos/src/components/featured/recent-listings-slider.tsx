@@ -1,14 +1,13 @@
 'use client';
 
 import Link from 'next/link';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import {
-    IconArrowRight,
-    IconChevronLeft,
-    IconChevronRight,
-} from '@tabler/icons-react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { IconArrowRight } from '@tabler/icons-react';
+import { FeaturedCardSwiper } from '@simple/ui';
 import { fetchPublicListings, type PublicListing } from '@/lib/public-listings';
 import VehicleListingCard, { type VehicleListingCardData } from '@/components/listings/vehicle-listing-card';
+
+const MAX_CARDS = 30;
 
 function orderVehicleTags(tags: string[]): string[] {
     const allowedPatterns = [
@@ -65,12 +64,10 @@ export default function RecentListingsSlider() {
     const [items, setItems] = useState<PublicListing[]>([]);
     const [loading, setLoading] = useState(true);
 
-    const sliderRef = useRef<HTMLDivElement | null>(null);
-
     const loadItems = useCallback(async () => {
         setLoading(true);
         const listings = await fetchPublicListings('sale');
-        setItems(listings.slice(0, 8));
+        setItems(listings.slice(0, MAX_CARDS));
         setLoading(false);
     }, []);
 
@@ -78,49 +75,12 @@ export default function RecentListingsSlider() {
         loadItems();
     }, [loadItems]);
 
-    const scrollByCards = (direction: -1 | 1) => {
-        const node = sliderRef.current;
-        if (!node) return;
-        node.scrollBy({ left: direction * 328, behavior: 'smooth' });
-    };
-
-    const formatPrice = (price: string) => {
-        const num = parseInt(price, 10);
-        if (isNaN(num)) return price;
-        return new Intl.NumberFormat('es-CL', {
-            style: 'currency',
-            currency: 'CLP',
-            maximumFractionDigits: 0,
-        }).format(num);
-    };
-
-    const cards = useMemo(() => {
-        if (loading) {
-            return Array.from({ length: 4 }, (_, index) => (
-                <div
-                    key={`placeholder-${index}`}
-                    className="shrink-0 w-[280px] rounded-xl border animate-pulse"
-                    style={{ borderColor: 'var(--border)', background: 'var(--surface)' }}
-                >
-                    <div className="aspect-4/3" style={{ background: 'var(--bg-muted)' }} />
-                    <div className="p-4 space-y-2">
-                        <div className="h-4 rounded" style={{ background: 'var(--bg-muted)' }} />
-                        <div className="h-3 rounded w-3/4" style={{ background: 'var(--bg-muted)' }} />
-                    </div>
-                </div>
-            ));
-        }
-
-        if (items.length === 0) {
-            return null;
-        }
-
-        return items.map((item) => (
-            <div key={item.id} className="shrink-0 w-[280px]">
-                <VehicleListingCard data={mapPublicListingToVehicleCard(item)} mode="grid" />
-            </div>
-        ));
-    }, [items, loading]);
+    const slides = useMemo(() => {
+        return items.map((item) => ({
+            key: item.id,
+            node: <VehicleListingCard data={mapPublicListingToVehicleCard(item)} mode="grid" />,
+        }));
+    }, [items]);
 
     if (!loading && items.length === 0) {
         return null;
@@ -138,33 +98,13 @@ export default function RecentListingsSlider() {
                             Las últimas publicaciones de vehículos.
                         </p>
                     </div>
-                    <div className="flex items-center gap-3">
-                        <Link
-                            href="/ventas"
-                            className="text-sm font-medium inline-flex items-center gap-1"
-                            style={{ color: 'var(--fg-muted)' }}
-                        >
-                            Ver todas <IconArrowRight size={12} />
-                        </Link>
-                        <div className="hidden md:flex items-center gap-2">
-                            <button
-                                onClick={() => scrollByCards(-1)}
-                                className="w-9 h-9 rounded-md border flex items-center justify-center transition-colors hover:bg-(--bg-subtle) hover:border-(--border-strong)"
-                                style={{ borderColor: 'var(--border)', background: 'var(--surface)', color: 'var(--fg)' }}
-                                aria-label="Anterior"
-                            >
-                                <IconChevronLeft size={16} />
-                            </button>
-                            <button
-                                onClick={() => scrollByCards(1)}
-                                className="w-9 h-9 rounded-md border flex items-center justify-center transition-colors hover:bg-(--bg-subtle) hover:border-(--border-strong)"
-                                style={{ borderColor: 'var(--border)', background: 'var(--surface)', color: 'var(--fg)' }}
-                                aria-label="Siguiente"
-                            >
-                                <IconChevronRight size={16} />
-                            </button>
-                        </div>
-                    </div>
+                    <Link
+                        href="/ventas"
+                        className="text-sm font-medium inline-flex items-center gap-1"
+                        style={{ color: 'var(--fg-muted)' }}
+                    >
+                        Ver todas <IconArrowRight size={12} />
+                    </Link>
                 </div>
 
                 <div className="flex flex-wrap items-center gap-2 mb-4">
@@ -180,15 +120,25 @@ export default function RecentListingsSlider() {
                     </span>
                 </div>
 
-                <div className="relative">
-                    <div
-                        ref={sliderRef}
-                        className="flex gap-4 overflow-x-auto snap-x snap-mandatory pb-2"
-                        style={{ scrollbarWidth: 'none' }}
-                    >
-                        {cards}
+                {loading ? (
+                    <div className="flex gap-4 overflow-hidden">
+                        {Array.from({ length: 4 }, (_, index) => (
+                            <div
+                                key={`placeholder-${index}`}
+                                className="shrink-0 w-[calc(85%-8px)] sm:w-[45%] md:w-[32%] xl:w-[24%] rounded-2xl border animate-pulse"
+                                style={{ borderColor: 'var(--border)', background: 'var(--surface)' }}
+                            >
+                                <div className="aspect-4/3 rounded-t-2xl" style={{ background: 'var(--bg-muted)' }} />
+                                <div className="p-4 space-y-2">
+                                    <div className="h-4 rounded" style={{ background: 'var(--bg-muted)' }} />
+                                    <div className="h-3 rounded w-3/4" style={{ background: 'var(--bg-muted)' }} />
+                                </div>
+                            </div>
+                        ))}
                     </div>
-                </div>
+                ) : (
+                    <FeaturedCardSwiper items={slides} />
+                )}
             </div>
         </section>
     );

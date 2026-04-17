@@ -1,12 +1,9 @@
 'use client';
 
 import Link from 'next/link';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import {
-    IconArrowRight,
-    IconChevronLeft,
-    IconChevronRight,
-} from '@tabler/icons-react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { IconArrowRight } from '@tabler/icons-react';
+import { FeaturedCardSwiper } from '@simple/ui';
 import {
     BOOST_SECTION_META,
     fetchFeaturedBoosted,
@@ -16,6 +13,7 @@ import {
 import PropertyListingCard, { type PropertyListingCardData } from '@/components/listings/property-listing-card';
 
 const SECTIONS: BoostSection[] = ['sale', 'rent', 'project'];
+const MAX_CARDS = 30;
 
 function orderPropertyTags(tags: string[]): string[] {
     const allowedPatterns = [
@@ -78,13 +76,12 @@ export default function BoostedListingsSlider() {
     const [items, setItems] = useState<FeaturedBoostItem[]>([]);
     const [loading, setLoading] = useState(true);
 
-    const sliderRef = useRef<HTMLDivElement | null>(null);
     const sectionMeta = BOOST_SECTION_META[section];
 
     const loadItems = useCallback(async () => {
         setLoading(true);
-        const featured = await fetchFeaturedBoosted(section, 8);
-        setItems(featured);
+        const featured = await fetchFeaturedBoosted(section, MAX_CARDS);
+        setItems(featured.slice(0, MAX_CARDS));
         setLoading(false);
     }, [section]);
 
@@ -92,48 +89,12 @@ export default function BoostedListingsSlider() {
         loadItems();
     }, [loadItems]);
 
-    const scrollByCards = (direction: -1 | 1) => {
-        const node = sliderRef.current;
-        if (!node) return;
-        node.scrollBy({ left: direction * 328, behavior: 'smooth' });
-    };
-
-    const cards = useMemo(() => {
-        if (loading) {
-            return Array.from({ length: 4 }, (_, index) => (
-                <div
-                    key={`placeholder-${index}`}
-                    className="shrink-0 w-[280px] rounded-xl border animate-pulse"
-                    style={{ borderColor: 'var(--border)', background: 'var(--surface)' }}
-                >
-                    <div className="aspect-4/3" style={{ background: 'var(--bg-muted)' }} />
-                    <div className="p-4 space-y-2">
-                        <div className="h-4 rounded" style={{ background: 'var(--bg-muted)' }} />
-                        <div className="h-3 rounded w-3/4" style={{ background: 'var(--bg-muted)' }} />
-                    </div>
-                </div>
-            ));
-        }
-
-        if (items.length === 0) {
-            return (
-                <article
-                    className="w-full rounded-xl border p-8 text-center"
-                    style={{ borderColor: 'var(--border)', background: 'var(--surface)' }}
-                >
-                    <p className="text-sm" style={{ color: 'var(--fg-secondary)' }}>
-                        Aún no hay propiedades impulsadas en esta sección.
-                    </p>
-                </article>
-            );
-        }
-
-        return items.map((item) => (
-            <div key={item.id} className="shrink-0 w-[280px]">
-                <PropertyListingCard data={mapFeaturedBoostToPropertyCard(item)} mode="grid" />
-            </div>
-        ));
-    }, [items, loading]);
+    const slides = useMemo(() => {
+        return items.map((item) => ({
+            key: item.id,
+            node: <PropertyListingCard data={mapFeaturedBoostToPropertyCard(item)} mode="grid" />,
+        }));
+    }, [items]);
 
     return (
         <section style={{ borderTop: '1px solid var(--border)' }}>
@@ -173,32 +134,34 @@ export default function BoostedListingsSlider() {
                     ))}
                 </div>
 
-                <div className="relative">
-                    <div
-                        ref={sliderRef}
-                        className="flex gap-4 overflow-x-auto snap-x snap-mandatory pb-2"
+                {loading ? (
+                    <div className="flex gap-4 overflow-hidden">
+                        {Array.from({ length: 4 }, (_, index) => (
+                            <div
+                                key={`placeholder-${index}`}
+                                className="shrink-0 w-[calc(85%-8px)] sm:w-[45%] md:w-[32%] xl:w-[24%] rounded-2xl border animate-pulse"
+                                style={{ borderColor: 'var(--border)', background: 'var(--surface)' }}
+                            >
+                                <div className="aspect-[3/2] rounded-t-2xl" style={{ background: 'var(--bg-muted)' }} />
+                                <div className="p-4 space-y-2">
+                                    <div className="h-4 rounded" style={{ background: 'var(--bg-muted)' }} />
+                                    <div className="h-3 rounded w-3/4" style={{ background: 'var(--bg-muted)' }} />
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                ) : items.length === 0 ? (
+                    <article
+                        className="w-full rounded-xl border p-8 text-center"
+                        style={{ borderColor: 'var(--border)', background: 'var(--surface)' }}
                     >
-                        {cards}
-                    </div>
-                    <div className="hidden md:flex items-center gap-2 absolute right-0 -top-12">
-                        <button
-                            onClick={() => scrollByCards(-1)}
-                            className="w-9 h-9 rounded-md border flex items-center justify-center transition-colors hover:bg-(--bg-subtle) hover:border-(--border-strong)"
-                            style={{ borderColor: 'var(--border)', background: 'var(--surface)', color: 'var(--fg)' }}
-                            aria-label="Anterior"
-                        >
-                            <IconChevronLeft size={16} />
-                        </button>
-                        <button
-                            onClick={() => scrollByCards(1)}
-                            className="w-9 h-9 rounded-md border flex items-center justify-center transition-colors hover:bg-(--bg-subtle) hover:border-(--border-strong)"
-                            style={{ borderColor: 'var(--border)', background: 'var(--surface)', color: 'var(--fg)' }}
-                            aria-label="Siguiente"
-                        >
-                            <IconChevronRight size={16} />
-                        </button>
-                    </div>
-                </div>
+                        <p className="text-sm" style={{ color: 'var(--fg-secondary)' }}>
+                            Aún no hay propiedades impulsadas en esta sección.
+                        </p>
+                    </article>
+                ) : (
+                    <FeaturedCardSwiper items={slides} />
+                )}
             </div>
         </section>
     );
