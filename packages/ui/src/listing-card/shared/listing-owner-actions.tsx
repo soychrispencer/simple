@@ -87,7 +87,7 @@ export default function ListingOwnerActions({ primary, secondary = [], busyActio
                                         className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs transition hover:bg-[var(--bg-muted)] disabled:cursor-not-allowed disabled:opacity-50"
                                         style={{ color: toneColor }}
                                     >
-                                        {isBusy ? <IconLoader2 size={13} className="animate-spin" /> : null}
+                                        {isBusy ? <IconLoader2 size={13} className="animate-spin" /> : action.icon}
                                         <span>{action.label}</span>
                                     </button>
                                 );

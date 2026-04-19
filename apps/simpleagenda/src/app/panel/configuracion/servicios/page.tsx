@@ -1,7 +1,20 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { IconPlus, IconTrash, IconLoader2, IconEdit, IconAlertCircle, IconChevronRight } from '@tabler/icons-react';
+import {
+    IconPlus,
+    IconTrash,
+    IconLoader2,
+    IconEdit,
+    IconAlertCircle,
+    IconChevronRight,
+    IconPackage,
+    IconUsersGroup,
+    IconTag,
+    IconX,
+    IconArrowUp,
+    IconArrowDown,
+} from '@tabler/icons-react';
 import Link from 'next/link';
 import {
     PanelCard,
@@ -18,6 +31,8 @@ import {
     updateAgendaService,
     deleteAgendaService,
     type AgendaService,
+    type PreconsultField,
+    type PreconsultFieldType,
 } from '@/lib/agenda-api';
 
 const COLORS = ['#0D9488', '#3B82F6', '#8B5CF6', '#EC4899', '#F59E0B', '#10B981', '#EF4444', '#6366F1'];
@@ -32,6 +47,7 @@ type ServiceForm = {
     isOnline: boolean;
     isPresential: boolean;
     color: string;
+    preconsultFields: PreconsultField[];
 };
 
 const emptyForm = (): ServiceForm => ({
@@ -42,6 +58,22 @@ const emptyForm = (): ServiceForm => ({
     isOnline: true,
     isPresential: false,
     color: '#0D9488',
+    preconsultFields: [],
+});
+
+const FIELD_TYPE_LABELS: Record<PreconsultFieldType, string> = {
+    text: 'Texto corto',
+    textarea: 'Texto largo',
+    select: 'Selección',
+    checkbox: 'Sí / No',
+    number: 'Número',
+};
+
+const newField = (): PreconsultField => ({
+    id: (typeof crypto !== 'undefined' && 'randomUUID' in crypto) ? crypto.randomUUID() : Math.random().toString(36).slice(2),
+    label: '',
+    type: 'text',
+    required: false,
 });
 
 export default function ServiciosConfigPage() {
@@ -80,9 +112,34 @@ export default function ServiciosConfigPage() {
             isOnline: service.isOnline,
             isPresential: service.isPresential,
             color: service.color ?? '#0D9488',
+            preconsultFields: service.preconsultFields ?? [],
         });
         setShowForm(true);
         setError('');
+    };
+
+    const updateField = (id: string, patch: Partial<PreconsultField>) => {
+        setForm((prev) => ({
+            ...prev,
+            preconsultFields: prev.preconsultFields.map((f) => f.id === id ? { ...f, ...patch } : f),
+        }));
+    };
+    const removeField = (id: string) => {
+        setForm((prev) => ({ ...prev, preconsultFields: prev.preconsultFields.filter((f) => f.id !== id) }));
+    };
+    const addField = () => {
+        setForm((prev) => ({ ...prev, preconsultFields: [...prev.preconsultFields, newField()] }));
+    };
+    const moveField = (id: string, dir: -1 | 1) => {
+        setForm((prev) => {
+            const idx = prev.preconsultFields.findIndex((f) => f.id === id);
+            if (idx < 0) return prev;
+            const next = [...prev.preconsultFields];
+            const target = idx + dir;
+            if (target < 0 || target >= next.length) return prev;
+            [next[idx], next[target]] = [next[target], next[idx]];
+            return { ...prev, preconsultFields: next };
+        });
     };
 
     const handleCancel = () => {
@@ -105,6 +162,7 @@ export default function ServiciosConfigPage() {
             isOnline: form.isOnline,
             isPresential: form.isPresential,
             color: form.color,
+            preconsultFields: form.preconsultFields.filter((f) => f.label.trim()),
         };
         const result = editingId
             ? await updateAgendaService(editingId, body)
@@ -243,6 +301,100 @@ export default function ServiciosConfigPage() {
                                 </div>
                             </PanelField>
 
+                            <PanelField label="Preguntas pre-consulta (opcional)">
+                                <div className="flex flex-col gap-2">
+                                    <p className="text-xs" style={{ color: 'var(--fg-muted)' }}>
+                                        Preguntas que el paciente responderá al reservar esta sesión. Las respuestas las verás en la ficha de la cita.
+                                    </p>
+                                    {form.preconsultFields.length === 0 && (
+                                        <p className="text-xs" style={{ color: 'var(--fg-muted)' }}>Sin preguntas configuradas.</p>
+                                    )}
+                                    {form.preconsultFields.map((field, idx) => (
+                                        <div
+                                            key={field.id}
+                                            className="rounded-xl border p-3 flex flex-col gap-2"
+                                            style={{ borderColor: 'var(--border)', background: 'var(--bg-subtle)' }}
+                                        >
+                                            <div className="flex items-center gap-2">
+                                                <input
+                                                    type="text"
+                                                    value={field.label}
+                                                    onChange={(e) => updateField(field.id, { label: e.target.value })}
+                                                    placeholder="Ej: ¿Motivo de consulta?"
+                                                    className="form-input flex-1"
+                                                />
+                                                <button
+                                                    type="button"
+                                                    aria-label="Subir pregunta"
+                                                    onClick={() => moveField(field.id, -1)}
+                                                    disabled={idx === 0}
+                                                    className="w-8 h-8 rounded-lg border flex items-center justify-center disabled:opacity-30"
+                                                    style={{ borderColor: 'var(--border)', color: 'var(--fg-muted)' }}
+                                                >
+                                                    <IconArrowUp size={14} />
+                                                </button>
+                                                <button
+                                                    type="button"
+                                                    aria-label="Bajar pregunta"
+                                                    onClick={() => moveField(field.id, 1)}
+                                                    disabled={idx === form.preconsultFields.length - 1}
+                                                    className="w-8 h-8 rounded-lg border flex items-center justify-center disabled:opacity-30"
+                                                    style={{ borderColor: 'var(--border)', color: 'var(--fg-muted)' }}
+                                                >
+                                                    <IconArrowDown size={14} />
+                                                </button>
+                                                <button
+                                                    type="button"
+                                                    aria-label="Eliminar pregunta"
+                                                    onClick={() => removeField(field.id)}
+                                                    className="w-8 h-8 rounded-lg border flex items-center justify-center"
+                                                    style={{ borderColor: 'var(--border)', color: '#dc2626' }}
+                                                >
+                                                    <IconX size={14} />
+                                                </button>
+                                            </div>
+                                            <div className="flex items-center gap-3 flex-wrap">
+                                                <select
+                                                    value={field.type}
+                                                    onChange={(e) => updateField(field.id, { type: e.target.value as PreconsultFieldType, options: e.target.value === 'select' ? (field.options ?? []) : undefined })}
+                                                    className="form-select"
+                                                    style={{ minWidth: 150 }}
+                                                >
+                                                    {(Object.keys(FIELD_TYPE_LABELS) as PreconsultFieldType[]).map((t) => (
+                                                        <option key={t} value={t}>{FIELD_TYPE_LABELS[t]}</option>
+                                                    ))}
+                                                </select>
+                                                <label className="flex items-center gap-2 text-xs cursor-pointer" style={{ color: 'var(--fg-secondary)' }}>
+                                                    <input
+                                                        type="checkbox"
+                                                        checked={field.required}
+                                                        onChange={(e) => updateField(field.id, { required: e.target.checked })}
+                                                    />
+                                                    Obligatoria
+                                                </label>
+                                            </div>
+                                            {field.type === 'select' && (
+                                                <input
+                                                    type="text"
+                                                    value={(field.options ?? []).join(', ')}
+                                                    onChange={(e) => updateField(field.id, { options: e.target.value.split(',').map((s) => s.trim()).filter(Boolean) })}
+                                                    placeholder="Opciones separadas por coma"
+                                                    className="form-input"
+                                                />
+                                            )}
+                                        </div>
+                                    ))}
+                                    <button
+                                        type="button"
+                                        onClick={addField}
+                                        className="inline-flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-medium border border-dashed hover:bg-(--bg-subtle)"
+                                        style={{ borderColor: 'var(--border)', color: 'var(--fg-secondary)' }}
+                                    >
+                                        <IconPlus size={13} /> Agregar pregunta
+                                    </button>
+                                </div>
+                            </PanelField>
+
                             {error && (
                                 <PanelNotice tone="error">
                                     <span className="flex items-center gap-2"><IconAlertCircle size={14} /> {error}</span>
@@ -360,6 +512,64 @@ export default function ServiciosConfigPage() {
                     })}
                 </div>
             )}
+
+            {/* Más formas de vender */}
+            <div className="mt-10">
+                <p className="text-xs font-semibold uppercase tracking-wider mb-3" style={{ color: 'var(--fg-muted)' }}>
+                    Más formas de vender
+                </p>
+                <div className="flex flex-col gap-2">
+                    {[
+                        {
+                            href: '/panel/configuracion/packs',
+                            icon: IconPackage,
+                            title: 'Packs y bonos',
+                            description: 'Vende 5, 10 o más sesiones con precio especial.',
+                            badge: null,
+                        },
+                        {
+                            href: '/panel/configuracion/grupales',
+                            icon: IconUsersGroup,
+                            title: 'Sesiones grupales',
+                            description: 'Talleres y grupos con cupo limitado de participantes.',
+                            badge: null,
+                        },
+                        {
+                            href: '/panel/configuracion/promociones',
+                            icon: IconTag,
+                            title: 'Promociones',
+                            description: 'Descuentos por tiempo limitado o cupón.',
+                            badge: null,
+                        },
+                    ].map((item) => (
+                        <Link
+                            key={item.href}
+                            href={item.href}
+                            className="flex items-center gap-4 p-4 rounded-2xl border transition-colors hover:border-[--accent-border]"
+                            style={{ borderColor: 'var(--border)', background: 'var(--surface)' }}
+                        >
+                            <div
+                                className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0"
+                                style={{ background: 'var(--bg-muted)', color: 'var(--fg-muted)' }}
+                            >
+                                <item.icon size={16} />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-2 flex-wrap">
+                                    <p className="text-sm font-semibold" style={{ color: 'var(--fg)' }}>{item.title}</p>
+                                    {item.badge && (
+                                        <span className="text-[10px] font-medium px-1.5 py-0.5 rounded" style={{ background: 'var(--bg-muted)', color: 'var(--fg-muted)' }}>
+                                            {item.badge}
+                                        </span>
+                                    )}
+                                </div>
+                                <p className="text-xs mt-0.5" style={{ color: 'var(--fg-muted)' }}>{item.description}</p>
+                            </div>
+                            <IconChevronRight size={16} style={{ color: 'var(--fg-muted)' }} />
+                        </Link>
+                    ))}
+                </div>
+            </div>
 
             {/* Siguiente paso */}
             <div className="mt-10 pt-6" style={{ borderTop: '1px solid var(--border)' }}>

@@ -33,6 +33,12 @@ import {
     IconGridDots,
     IconPlugConnected,
     IconDots,
+    IconEyeOff,
+    IconCheck,
+    IconRocket,
+    IconChartBar,
+    IconRepeat,
+    IconPencil,
 } from '@tabler/icons-react';
 import PanelSectionHeader from '@/components/panel/panel-section-header';
 import ModernSelect from '@/components/ui/modern-select';
@@ -198,7 +204,16 @@ export default function PublicacionesPage() {
     const { user, authLoading, requireAuth } = useAuth();
     const [listings, setListings] = useState<PanelListing[]>([]);
     const [loading, setLoading] = useState(true);
-    const [viewMode, setViewMode] = useState<'horizontal' | 'vertical'>('horizontal');
+    const [viewMode, setViewMode] = useState<'horizontal' | 'vertical'>(() => {
+        if (typeof window === 'undefined') return 'horizontal';
+        const saved = window.localStorage.getItem('simpleautos:panel:publicaciones:viewMode');
+        return saved === 'vertical' ? 'vertical' : 'horizontal';
+    });
+    useEffect(() => {
+        if (typeof window !== 'undefined') {
+            window.localStorage.setItem('simpleautos:panel:publicaciones:viewMode', viewMode);
+        }
+    }, [viewMode]);
     const [filter, setFilter] = useState<FilterKey>('all');
     const [instagramPublications, setInstagramPublications] = useState<InstagramPublicationView[]>([]);
     const [actionMenuOpenId, setActionMenuOpenId] = useState<string | null>(null);
@@ -821,25 +836,48 @@ export default function PublicacionesPage() {
 
         const secondaryActions: OwnerListingAction[] = [];
 
+        // Editar
+        secondaryActions.push({
+            key: 'edit',
+            label: 'Editar',
+            icon: <IconPencil size={14} />,
+            onSelect: () => {
+                window.location.href = `/panel/publicar?edit=${encodeURIComponent(listing.id)}`;
+            },
+        });
+
+        // Ver publicación
         secondaryActions.push({
             key: 'view',
             label: 'Ver publicación',
+            icon: <IconEye size={14} />,
             onSelect: () => {
                 window.open(listing.href || getFallbackHref(listing.section), '_blank');
             },
         });
+
+        // Duplicar
         secondaryActions.push({
-            key: 'boost',
-            label: 'Impulsar',
-            tone: 'primary',
-            onSelect: () => {
-                window.location.href = `/panel/publicidad?tab=boost&listingId=${encodeURIComponent(listing.id)}&section=${encodeURIComponent(listing.section)}`;
+            key: 'duplicate',
+            label: 'Duplicar',
+            icon: <IconCopy size={14} />,
+            onSelect: async () => {
+                const { duplicatePanelListing } = await import('@/lib/panel-listings');
+                const result = await duplicatePanelListing(listing.id);
+                if (result.ok && result.item) {
+                    setNotice(`Publicación duplicada: "${result.item.title}". Recargando...`);
+                    await loadListings();
+                } else {
+                    alert(result.error ?? 'No se pudo duplicar la publicación');
+                }
             },
         });
+
         if (needsRenewal) {
             secondaryActions.push({
                 key: 'renew',
                 label: 'Renovar',
+                icon: <IconRefresh size={14} />,
                 onSelect: () => void onRenewListing(listing),
             });
         }
@@ -847,6 +885,8 @@ export default function PublicacionesPage() {
             secondaryActions.push({
                 key: 'active',
                 label: listing.status === 'sold' ? 'Reactivar' : 'Activar',
+                icon: <IconCheck size={14} className="text-green-500" />,
+                tone: 'primary',
                 onSelect: () => void onChangeListingStatus(listing, 'active'),
             });
         }
@@ -854,6 +894,7 @@ export default function PublicacionesPage() {
             secondaryActions.push({
                 key: 'paused',
                 label: 'Pausar',
+                icon: <IconPlayerPause size={14} />,
                 onSelect: () => void onChangeListingStatus(listing, 'paused'),
             });
         }
@@ -861,6 +902,7 @@ export default function PublicacionesPage() {
             secondaryActions.push({
                 key: 'sold',
                 label: closedLabel,
+                icon: <IconCheck size={14} />,
                 onSelect: () => void onChangeListingStatus(listing, 'sold'),
             });
         }
@@ -868,28 +910,14 @@ export default function PublicacionesPage() {
             secondaryActions.push({
                 key: 'draft',
                 label: 'Mover a borrador',
+                icon: <IconEyeOff size={14} />,
                 onSelect: () => void onChangeListingStatus(listing, 'draft'),
             });
         }
         secondaryActions.push({
-            key: 'copy',
-            label: 'Copiar link',
-            onSelect: () => void copyListingLink(listing),
-        });
-        secondaryActions.push({
-            key: 'whatsapp',
-            label: 'Compartir en WhatsApp',
-            onSelect: () => shareOnWhatsapp(listing),
-        });
-        secondaryActions.push({
-            key: 'instagram',
-            label: instagramBusyKey === `${listing.id}:instagram` ? 'Publicando...' : 'Publicar en Instagram',
-            disabled: instagramBusyKey === `${listing.id}:instagram`,
-            onSelect: () => void shareOnInstagram(listing),
-        });
-        secondaryActions.push({
             key: 'delete',
             label: 'Eliminar',
+            icon: <IconTrash size={14} />,
             tone: 'danger',
             onSelect: () => void onDeleteListing(listing),
         });
@@ -911,21 +939,24 @@ export default function PublicacionesPage() {
             metaTags: getListingTags(listing),
             status,
             statusLabel: badge.label,
-            statusHint: publicationLifecycleHint(listing) ?? undefined,
             engagement: {
                 views: listing.views,
+                clicks: listing.clicks,
                 saves: listing.favs,
                 messages: listing.leads,
+                conversionRate: listing.leads > 0 && listing.views > 0 ? (listing.leads / listing.views) * 100 : 0,
                 listedSinceLabel: `${listing.days}d`,
-            },
-            primaryAction: {
-                label: 'Editar',
-                onSelect: () => {
-                    window.location.href = `/panel/publicar?edit=${encodeURIComponent(listing.id)}`;
-                },
             },
             secondaryActions,
             busyActionKey: busyKey,
+            onBoost: () => {
+                window.location.href = `/panel/publicidad?tab=boost&listingId=${encodeURIComponent(listing.id)}&section=${encodeURIComponent(listing.section)}`;
+            },
+            shareOptions: {
+                onCopyLink: () => void copyListingLink(listing),
+                onShareWhatsapp: () => shareOnWhatsapp(listing),
+                onShareInstagram: () => void shareOnInstagram(listing),
+            },
         };
     };
 
@@ -1009,7 +1040,7 @@ export default function PublicacionesPage() {
                     className={
                         viewMode === 'horizontal'
                             ? 'space-y-3'
-                            : 'grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4'
+                            : 'grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4'
                     }
                 >
                     {filtered.map((listing) => (

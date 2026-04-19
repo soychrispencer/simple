@@ -69,7 +69,7 @@ import {
 } from './instagram.js';
 import { db } from './db/index.js';
 import { migrate } from 'drizzle-orm/postgres-js/migrator';
-import { eq, and, or, desc, asc, gt, lt, gte, lte, isNull, sql, inArray } from 'drizzle-orm';
+import { eq, and, or, desc, asc, gt, lt, gte, lte, isNull, sql, inArray, type SQL } from 'drizzle-orm';
 import {
     users,
     listings,
@@ -99,6 +99,7 @@ import {
     agendaLocations,
     agendaBlockedSlots,
     agendaClients,
+    agendaClientAttachments,
     agendaAppointments,
     agendaSessionNotes,
     agendaPayments,
@@ -106,6 +107,17 @@ import {
     subscriptionPlans,
     subscriptions,
     paymentOrders,
+    agendaAuditEvents,
+    agendaNotificationEvents,
+    agendaClientTags,
+    agendaClientTagAssignments,
+    agendaNpsResponses,
+    agendaReferrals,
+    agendaPromotions,
+    agendaPacks,
+    agendaClientPacks,
+    agendaGroupSessions,
+    agendaGroupAttendees,
 } from './db/schema.js';
 import bcrypt from 'bcryptjs';
 import webpush from 'web-push';
@@ -122,6 +134,8 @@ import {
     sendTestMessage,
 } from './whatsapp.js';
 import { getStorageProvider } from './storage-providers/index.js';
+import { rateLimit } from './rate-limit.js';
+import { logAudit, logNotification } from './audit.js';
 
 type UserRole = 'user' | 'admin' | 'superadmin';
 type UserStatus = 'active' | 'verified' | 'suspended';
@@ -4694,7 +4708,8 @@ async function listFeaturedBoosted(vertical: VerticalType, section: BoostSection
         .map((listing) => {
             const owner = usersById.get(listing.ownerId);
             const sourceListing = listingsById.get(listing.id);
-            const listingImageUrl = sourceListing ? extractListingMediaUrls(sourceListing)[0] ?? listing.imageUrl : listing.imageUrl;
+            const listingImageUrls = sourceListing ? extractListingMediaUrls(sourceListing) : (listing.imageUrls || []);
+            const imageUrl = listingImageUrls.length > 0 ? listingImageUrls[0] : listing.imageUrl;
             return {
                 id: listing.id,
                 href: listing.href,
@@ -4702,7 +4717,8 @@ async function listFeaturedBoosted(vertical: VerticalType, section: BoostSection
                 subtitle: listing.subtitle,
                 price: listing.price,
                 location: listing.location || 'Chile',
-                imageUrl: listingImageUrl,
+                imageUrl,
+                imageUrls: listingImageUrls,
                 section: listing.section,
                 boosted: false,
                 planName: 'Orgánico',
@@ -7112,6 +7128,8 @@ type BookingEmailData = {
     location?: string | null;
     timezone: string;
     status: string;
+    seriesDates?: Date[] | null;
+    seriesFrequency?: 'weekly' | 'biweekly' | 'monthly' | null;
     paymentMethods?: {
         requiresAdvancePayment: boolean;
         mpConnected: boolean;
@@ -7190,6 +7208,28 @@ function buildBookingEmailHtml(data: BookingEmailData & { cancelUrl: string; app
         ? `<div style="display:inline-block;padding:6px 14px;border-radius:999px;background:#fef3c7;color:#92400e;font-size:12px;font-weight:700;letter-spacing:.04em;">⏳ Pendiente de confirmación</div>`
         : `<div style="display:inline-block;padding:6px 14px;border-radius:999px;background:#d1fae5;color:#065f46;font-size:12px;font-weight:700;letter-spacing:.04em;">✅ Confirmada</div>`;
 
+    // Series section (if patient reserved multiple sessions)
+    let seriesSection = '';
+    const seriesDates = data.seriesDates ?? null;
+    if (seriesDates && seriesDates.length > 1) {
+        const freqLabel = data.seriesFrequency === 'weekly' ? 'semanal'
+            : data.seriesFrequency === 'biweekly' ? 'quincenal'
+            : data.seriesFrequency === 'monthly' ? 'mensual'
+            : 'recurrente';
+        const rows = seriesDates.map((d, i) => {
+            const ds = fmtBookingDateTime(d, data.timezone);
+            return `<tr><td style="padding:8px 14px;border-bottom:1px solid #e5e7eb;font-size:13px;color:#334155;"><span style="display:inline-block;width:22px;height:22px;border-radius:999px;background:${accentSoft};color:${accent};font-size:11px;font-weight:700;text-align:center;line-height:22px;margin-right:8px;">${i + 1}</span>${ds}</td></tr>`;
+        }).join('');
+        seriesSection = `
+        <div style="margin-top:20px;padding:16px;background:#faf5ff;border:1px solid #e9d5ff;border-radius:12px;">
+            <p style="margin:0 0 6px 0;font-size:13px;font-weight:700;color:#6b21a8;">🔁 Reserva ${freqLabel} — ${seriesDates.length} sesiones</p>
+            <p style="margin:0 0 10px 0;font-size:12px;color:#7c3aed;">Estas son todas las fechas reservadas:</p>
+            <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#ffffff;border-radius:10px;overflow:hidden;border:1px solid #ede9fe;">
+                ${rows}
+            </table>
+        </div>`;
+    }
+
     return `
     <div style="margin:0;padding:32px 16px;background:#f5f7fb;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;color:#0f172a;">
       <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:600px;margin:0 auto;">
@@ -7248,6 +7288,8 @@ function buildBookingEmailHtml(data: BookingEmailData & { cancelUrl: string; app
                 <a href="${data.meetingUrl}" style="font-size:13px;color:#2563eb;word-break:break-all;">${data.meetingUrl}</a>
               </div>` : ''}
 
+              ${seriesSection}
+
               ${paymentSection}
 
               <div style="margin-top:24px;border-top:1px solid #e5e7eb;padding-top:20px;">
@@ -7278,17 +7320,26 @@ async function sendBookingConfirmationEmail(clientEmail: string, data: BookingEm
         return;
     }
     const isPending = data.status === 'pending';
-    const subject = isPending
-        ? `Tu solicitud de cita con ${data.professionalName} fue recibida`
-        : `Tu cita con ${data.professionalName} está confirmada`;
+    const seriesCount = data.seriesDates && data.seriesDates.length > 1 ? data.seriesDates.length : 0;
+    const subject = seriesCount > 0
+        ? (isPending
+            ? `Tu solicitud de ${seriesCount} sesiones con ${data.professionalName} fue recibida`
+            : `Tus ${seriesCount} sesiones con ${data.professionalName} están confirmadas`)
+        : (isPending
+            ? `Tu solicitud de cita con ${data.professionalName} fue recibida`
+            : `Tu cita con ${data.professionalName} está confirmada`);
 
     const dateStr = fmtBookingDateTime(data.startsAt, data.timezone);
+    const seriesLines = seriesCount > 0 && data.seriesDates
+        ? ['', `Sesiones reservadas (${seriesCount}):`, ...data.seriesDates.map((d, i) => `  ${i + 1}. ${fmtBookingDateTime(d, data.timezone)}`)]
+        : [];
     const textBody = [
         subject,
         '',
         `Fecha y hora: ${dateStr}`,
         data.serviceName ? `Servicio: ${data.serviceName}` : '',
         `Modalidad: ${data.modality === 'presencial' ? 'Presencial' : 'Online'}`,
+        ...seriesLines,
         '',
         `Para cancelar: ${data.cancelUrl}`,
         '',
@@ -15135,6 +15186,7 @@ function isValidSlug(slug: string): { ok: true } | { ok: false; error: string } 
     return { ok: true };
 }
 
+app.use('/api/agenda/slug-available', rateLimit({ name: 'slug-available', limit: 20, windowMs: 60_000 }));
 app.get('/api/agenda/slug-available', requireVerifiedSession, async (c) => {
     const user = await authUser(c);
     if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
@@ -15170,6 +15222,7 @@ app.patch('/api/agenda/profile', requireVerifiedSession, async (c) => {
         'paymentLinkUrl', 'bankTransferData',
         'coverUrl',
         'websiteUrl', 'instagramUrl', 'facebookUrl', 'linkedinUrl', 'tiktokUrl', 'youtubeUrl', 'twitterUrl',
+        'allowsRecurrentBooking',
     ] as const;
     const patch: Record<string, unknown> = { updatedAt: new Date() };
     for (const key of allowed) {
@@ -15196,12 +15249,82 @@ app.patch('/api/agenda/profile', requireVerifiedSession, async (c) => {
         .set(patch)
         .where(eq(agendaProfessionalProfiles.id, profile.id))
         .returning();
+
+    // Audit: publish toggle + slug change are the most sensitive changes.
+    if ('isPublished' in body && body.isPublished !== profile.isPublished) {
+        await logAudit({
+            professionalId: profile.id,
+            userId: user.id,
+            entityType: 'profile',
+            entityId: profile.id,
+            action: body.isPublished ? 'publish' : 'unpublish',
+            ctx: c,
+        });
+    }
+    if ('slug' in body && patch.slug && patch.slug !== profile.slug) {
+        await logAudit({
+            professionalId: profile.id,
+            userId: user.id,
+            entityType: 'profile',
+            entityId: profile.id,
+            action: 'slug_change',
+            metadata: { from: profile.slug, to: patch.slug },
+            ctx: c,
+        });
+    }
+
     return c.json({ ok: true, profile: updated });
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
 // SimpleAgenda — Services
 // ─────────────────────────────────────────────────────────────────────────────
+
+type PreconsultFieldType = 'text' | 'textarea' | 'select' | 'checkbox' | 'number';
+type PreconsultField = { id: string; label: string; type: PreconsultFieldType; required: boolean; placeholder?: string; options?: string[] };
+
+function normalizePreconsultFields(raw: unknown): PreconsultField[] {
+    if (!Array.isArray(raw)) return [];
+    const allowed: PreconsultFieldType[] = ['text', 'textarea', 'select', 'checkbox', 'number'];
+    const out: PreconsultField[] = [];
+    for (const item of raw) {
+        if (!item || typeof item !== 'object') continue;
+        const rec = item as Record<string, unknown>;
+        const label = typeof rec.label === 'string' ? rec.label.trim().slice(0, 200) : '';
+        if (!label) continue;
+        const type = allowed.includes(rec.type as PreconsultFieldType) ? rec.type as PreconsultFieldType : 'text';
+        const id = typeof rec.id === 'string' && rec.id ? rec.id : randomUUID();
+        const field: PreconsultField = {
+            id,
+            label,
+            type,
+            required: rec.required === true,
+        };
+        if (typeof rec.placeholder === 'string') field.placeholder = rec.placeholder.slice(0, 200);
+        if ((type === 'select') && Array.isArray(rec.options)) {
+            field.options = rec.options.map((o) => String(o).slice(0, 100)).filter(Boolean).slice(0, 20);
+        }
+        out.push(field);
+        if (out.length >= 20) break;
+    }
+    return out;
+}
+
+type PreconsultResponse = { label: string; value: string };
+function normalizePreconsultResponses(raw: unknown, fields: PreconsultField[]): PreconsultResponse[] | null {
+    if (!fields.length) return null;
+    const byId = new Map<string, PreconsultField>(fields.map((f) => [f.id, f]));
+    const input = raw && typeof raw === 'object' && !Array.isArray(raw) ? raw as Record<string, unknown> : {};
+    const out: PreconsultResponse[] = [];
+    for (const field of fields) {
+        const v = input[field.id];
+        let value = '';
+        if (field.type === 'checkbox') value = v === true || v === 'true' ? 'Sí' : 'No';
+        else if (v !== undefined && v !== null) value = String(v).slice(0, 2000);
+        out.push({ label: field.label, value });
+    }
+    return out;
+}
 
 app.get('/api/agenda/services', requireVerifiedSession, async (c) => {
     const user = await authUser(c);
@@ -15232,7 +15355,17 @@ app.post('/api/agenda/services', requireVerifiedSession, async (c) => {
         isPresential: body.isPresential === true,
         color: typeof body.color === 'string' ? body.color : null,
         position: typeof body.position === 'number' ? body.position : 0,
+        preconsultFields: normalizePreconsultFields(body.preconsultFields),
     }).returning();
+    await logAudit({
+        professionalId: profile.id,
+        userId: user.id,
+        entityType: 'service',
+        entityId: service.id,
+        action: 'create',
+        metadata: { name: service.name, durationMinutes: service.durationMinutes },
+        ctx: c,
+    });
     return c.json({ ok: true, service });
 });
 
@@ -15247,10 +15380,20 @@ app.put('/api/agenda/services/:id', requireVerifiedSession, async (c) => {
     for (const key of ['name', 'description', 'durationMinutes', 'price', 'currency', 'isOnline', 'isPresential', 'color', 'position', 'isActive'] as const) {
         if (key in body) patch[key] = body[key] === '' ? null : body[key];
     }
+    if ('preconsultFields' in body) patch.preconsultFields = normalizePreconsultFields(body.preconsultFields);
     const [updated] = await db.update(agendaServices).set(patch)
         .where(and(eq(agendaServices.id, id), eq(agendaServices.professionalId, profile.id)))
         .returning();
     if (!updated) return c.json({ ok: false, error: 'Servicio no encontrado' }, 404);
+    await logAudit({
+        professionalId: profile.id,
+        userId: user.id,
+        entityType: 'service',
+        entityId: updated.id,
+        action: 'update',
+        metadata: { fields: Object.keys(body) },
+        ctx: c,
+    });
     return c.json({ ok: true, service: updated });
 });
 
@@ -15262,6 +15405,14 @@ app.delete('/api/agenda/services/:id', requireVerifiedSession, async (c) => {
     const id = c.req.param('id') ?? '';
     await db.update(agendaServices).set({ isActive: false, updatedAt: new Date() })
         .where(and(eq(agendaServices.id, id), eq(agendaServices.professionalId, profile.id)));
+    await logAudit({
+        professionalId: profile.id,
+        userId: user.id,
+        entityType: 'service',
+        entityId: id,
+        action: 'delete',
+        ctx: c,
+    });
     return c.json({ ok: true });
 });
 
@@ -15468,7 +15619,23 @@ app.get('/api/agenda/clients', requireVerifiedSession, async (c) => {
     const clients = await db.select().from(agendaClients)
         .where(eq(agendaClients.professionalId, profile.id))
         .orderBy(asc(agendaClients.firstName), asc(agendaClients.lastName));
-    return c.json({ ok: true, clients });
+
+    // Aggregate tag IDs per client in a single query (list view only needs IDs).
+    const clientIds = clients.map((c) => c.id);
+    const tagsByClient: Record<string, string[]> = {};
+    if (clientIds.length > 0) {
+        const rows = await db.select({
+            clientId: agendaClientTagAssignments.clientId,
+            tagId: agendaClientTagAssignments.tagId,
+        })
+            .from(agendaClientTagAssignments)
+            .where(inArray(agendaClientTagAssignments.clientId, clientIds));
+        for (const r of rows) {
+            (tagsByClient[r.clientId] ??= []).push(r.tagId);
+        }
+    }
+    const clientsWithTags = clients.map((cl) => ({ ...cl, tagIds: tagsByClient[cl.id] ?? [] }));
+    return c.json({ ok: true, clients: clientsWithTags });
 });
 
 app.post('/api/agenda/clients', requireVerifiedSession, async (c) => {
@@ -15523,7 +15690,17 @@ app.get('/api/agenda/clients/:id', requireVerifiedSession, async (c) => {
         ...a,
         sessionNote: notesByAppt[a.id] ?? null,
     }));
-    return c.json({ ok: true, client, appointments: appointmentsWithNotes });
+
+    const tagRows = await db.select({
+        id: agendaClientTags.id,
+        name: agendaClientTags.name,
+        color: agendaClientTags.color,
+    })
+        .from(agendaClientTagAssignments)
+        .innerJoin(agendaClientTags, eq(agendaClientTagAssignments.tagId, agendaClientTags.id))
+        .where(eq(agendaClientTagAssignments.clientId, id));
+
+    return c.json({ ok: true, client: { ...client, tags: tagRows }, appointments: appointmentsWithNotes });
 });
 
 app.put('/api/agenda/clients/:id', requireVerifiedSession, async (c) => {
@@ -15554,6 +15731,201 @@ app.delete('/api/agenda/clients/:id', requireVerifiedSession, async (c) => {
         .where(and(eq(agendaClients.id, id), eq(agendaClients.professionalId, profile.id)))
         .returning({ id: agendaClients.id });
     if (!deleted) return c.json({ ok: false, error: 'Cliente no encontrado' }, 404);
+    return c.json({ ok: true });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// SimpleAgenda — Client Tags
+// ─────────────────────────────────────────────────────────────────────────────
+
+app.get('/api/agenda/client-tags', requireVerifiedSession, async (c) => {
+    const user = await authUser(c);
+    if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
+    const profile = await getAgendaProfile(user.id);
+    if (!profile) return c.json({ ok: true, tags: [] });
+    const tags = await db.select().from(agendaClientTags)
+        .where(eq(agendaClientTags.professionalId, profile.id))
+        .orderBy(asc(agendaClientTags.position), asc(agendaClientTags.name));
+    return c.json({ ok: true, tags });
+});
+
+app.post('/api/agenda/client-tags', requireVerifiedSession, async (c) => {
+    const user = await authUser(c);
+    if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
+    const profile = await getAgendaProfile(user.id);
+    if (!profile) return c.json({ ok: false, error: 'Perfil no encontrado' }, 404);
+    const body = await c.req.json().catch(() => ({})) as Record<string, unknown>;
+    const name = typeof body.name === 'string' ? body.name.trim() : '';
+    if (!name) return c.json({ ok: false, error: 'El nombre de la etiqueta es requerido' }, 400);
+    if (name.length > 60) return c.json({ ok: false, error: 'Máx. 60 caracteres' }, 400);
+    try {
+        const [tag] = await db.insert(agendaClientTags).values({
+            professionalId: profile.id,
+            name,
+            color: typeof body.color === 'string' ? body.color || null : null,
+            position: typeof body.position === 'number' ? body.position : 0,
+        }).returning();
+        return c.json({ ok: true, tag });
+    } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        if (msg.includes('unique')) {
+            return c.json({ ok: false, error: 'Ya existe una etiqueta con ese nombre.' }, 409);
+        }
+        throw err;
+    }
+});
+
+app.put('/api/agenda/client-tags/:id', requireVerifiedSession, async (c) => {
+    const user = await authUser(c);
+    if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
+    const profile = await getAgendaProfile(user.id);
+    if (!profile) return c.json({ ok: false, error: 'Perfil no encontrado' }, 404);
+    const id = c.req.param('id') ?? '';
+    const body = await c.req.json().catch(() => ({})) as Record<string, unknown>;
+    const patch: Record<string, unknown> = { updatedAt: new Date() };
+    if (typeof body.name === 'string') {
+        const name = body.name.trim();
+        if (!name || name.length > 60) return c.json({ ok: false, error: 'Nombre inválido' }, 400);
+        patch.name = name;
+    }
+    if ('color' in body) patch.color = typeof body.color === 'string' ? body.color || null : null;
+    if (typeof body.position === 'number') patch.position = body.position;
+    const [updated] = await db.update(agendaClientTags).set(patch)
+        .where(and(eq(agendaClientTags.id, id), eq(agendaClientTags.professionalId, profile.id)))
+        .returning();
+    if (!updated) return c.json({ ok: false, error: 'Etiqueta no encontrada' }, 404);
+    return c.json({ ok: true, tag: updated });
+});
+
+app.delete('/api/agenda/client-tags/:id', requireVerifiedSession, async (c) => {
+    const user = await authUser(c);
+    if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
+    const profile = await getAgendaProfile(user.id);
+    if (!profile) return c.json({ ok: false, error: 'Perfil no encontrado' }, 404);
+    const id = c.req.param('id') ?? '';
+    // Verify ownership before deletion (avoid cross-professional tag wipe).
+    const tag = await db.query.agendaClientTags.findFirst({
+        where: and(eq(agendaClientTags.id, id), eq(agendaClientTags.professionalId, profile.id)),
+    });
+    if (!tag) return c.json({ ok: false, error: 'Etiqueta no encontrada' }, 404);
+    await db.delete(agendaClientTagAssignments).where(eq(agendaClientTagAssignments.tagId, id));
+    await db.delete(agendaClientTags).where(eq(agendaClientTags.id, id));
+    return c.json({ ok: true });
+});
+
+app.post('/api/agenda/clients/:id/tags', requireVerifiedSession, async (c) => {
+    const user = await authUser(c);
+    if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
+    const profile = await getAgendaProfile(user.id);
+    if (!profile) return c.json({ ok: false, error: 'Perfil no encontrado' }, 404);
+    const clientId = c.req.param('id') ?? '';
+    const body = await c.req.json().catch(() => ({})) as Record<string, unknown>;
+    const tagId = typeof body.tagId === 'string' ? body.tagId : '';
+    if (!tagId) return c.json({ ok: false, error: 'tagId requerido' }, 400);
+
+    // Verify both client and tag belong to this professional.
+    const [cl, tag] = await Promise.all([
+        db.query.agendaClients.findFirst({ where: and(eq(agendaClients.id, clientId), eq(agendaClients.professionalId, profile.id)) }),
+        db.query.agendaClientTags.findFirst({ where: and(eq(agendaClientTags.id, tagId), eq(agendaClientTags.professionalId, profile.id)) }),
+    ]);
+    if (!cl || !tag) return c.json({ ok: false, error: 'Cliente o etiqueta no encontrado' }, 404);
+
+    await db.insert(agendaClientTagAssignments)
+        .values({ clientId, tagId })
+        .onConflictDoNothing();
+    return c.json({ ok: true });
+});
+
+app.delete('/api/agenda/clients/:id/tags/:tagId', requireVerifiedSession, async (c) => {
+    const user = await authUser(c);
+    if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
+    const profile = await getAgendaProfile(user.id);
+    if (!profile) return c.json({ ok: false, error: 'Perfil no encontrado' }, 404);
+    const clientId = c.req.param('id') ?? '';
+    const tagId = c.req.param('tagId') ?? '';
+
+    const cl = await db.query.agendaClients.findFirst({
+        where: and(eq(agendaClients.id, clientId), eq(agendaClients.professionalId, profile.id)),
+    });
+    if (!cl) return c.json({ ok: false, error: 'Cliente no encontrado' }, 404);
+
+    await db.delete(agendaClientTagAssignments)
+        .where(and(eq(agendaClientTagAssignments.clientId, clientId), eq(agendaClientTagAssignments.tagId, tagId)));
+    return c.json({ ok: true });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// SimpleAgenda — Client Attachments (documents, images, prescriptions)
+// ─────────────────────────────────────────────────────────────────────────────
+
+const ATTACHMENT_KINDS = ['document', 'image', 'prescription', 'other'] as const;
+type AttachmentKind = typeof ATTACHMENT_KINDS[number];
+
+app.get('/api/agenda/clients/:id/attachments', requireVerifiedSession, async (c) => {
+    const user = await authUser(c);
+    if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
+    const profile = await getAgendaProfile(user.id);
+    if (!profile) return c.json({ ok: true, attachments: [] });
+    const clientId = c.req.param('id') ?? '';
+    const client = await db.query.agendaClients.findFirst({
+        where: and(eq(agendaClients.id, clientId), eq(agendaClients.professionalId, profile.id)),
+    });
+    if (!client) return c.json({ ok: false, error: 'Cliente no encontrado' }, 404);
+    const attachments = await db.select().from(agendaClientAttachments)
+        .where(eq(agendaClientAttachments.clientId, clientId))
+        .orderBy(desc(agendaClientAttachments.uploadedAt));
+    return c.json({ ok: true, attachments });
+});
+
+app.post('/api/agenda/clients/:id/attachments', requireVerifiedSession, async (c) => {
+    const user = await authUser(c);
+    if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
+    const profile = await getAgendaProfile(user.id);
+    if (!profile) return c.json({ ok: false, error: 'Perfil no encontrado' }, 404);
+    const clientId = c.req.param('id') ?? '';
+    const client = await db.query.agendaClients.findFirst({
+        where: and(eq(agendaClients.id, clientId), eq(agendaClients.professionalId, profile.id)),
+    });
+    if (!client) return c.json({ ok: false, error: 'Cliente no encontrado' }, 404);
+
+    const body = await c.req.json().catch(() => ({})) as Record<string, unknown>;
+    const name = typeof body.name === 'string' ? body.name.trim() : '';
+    const url = typeof body.url === 'string' ? body.url.trim() : '';
+    const mimeType = typeof body.mimeType === 'string' ? body.mimeType : null;
+    const sizeBytes = typeof body.sizeBytes === 'number' ? body.sizeBytes : null;
+    const rawKind = typeof body.kind === 'string' ? body.kind : 'document';
+    const kind: AttachmentKind = (ATTACHMENT_KINDS as readonly string[]).includes(rawKind) ? (rawKind as AttachmentKind) : 'document';
+
+    if (!name) return c.json({ ok: false, error: 'El nombre es requerido' }, 400);
+    if (!url) return c.json({ ok: false, error: 'El archivo es requerido' }, 400);
+
+    const [attachment] = await db.insert(agendaClientAttachments).values({
+        professionalId: profile.id,
+        clientId,
+        name,
+        url,
+        mimeType,
+        sizeBytes,
+        kind,
+    }).returning();
+    return c.json({ ok: true, attachment });
+});
+
+app.delete('/api/agenda/clients/:id/attachments/:aid', requireVerifiedSession, async (c) => {
+    const user = await authUser(c);
+    if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
+    const profile = await getAgendaProfile(user.id);
+    if (!profile) return c.json({ ok: false, error: 'Perfil no encontrado' }, 404);
+    const clientId = c.req.param('id') ?? '';
+    const attachmentId = c.req.param('aid') ?? '';
+    const [deleted] = await db.delete(agendaClientAttachments)
+        .where(and(
+            eq(agendaClientAttachments.id, attachmentId),
+            eq(agendaClientAttachments.clientId, clientId),
+            eq(agendaClientAttachments.professionalId, profile.id),
+        ))
+        .returning({ id: agendaClientAttachments.id });
+    if (!deleted) return c.json({ ok: false, error: 'Archivo no encontrado' }, 404);
     return c.json({ ok: true });
 });
 
@@ -15593,12 +15965,65 @@ app.post('/api/agenda/appointments', requireVerifiedSession, async (c) => {
     const durationMinutes = typeof body.durationMinutes === 'number' ? body.durationMinutes : 60;
     const startsAt = new Date(String(body.startsAt));
     const endsAt = new Date(startsAt.getTime() + durationMinutes * 60_000);
-    // Handle recurring weekly appointments
-    const repeatWeeks = typeof body.repeatWeekly === 'number' && body.repeatWeekly > 0 ? Math.min(body.repeatWeekly, 52) : 0;
+    // Handle recurring appointments
+    const rawFreq = typeof body.recurrenceFrequency === 'string' ? body.recurrenceFrequency : null;
+    const frequency: 'weekly' | 'biweekly' | 'monthly' | null =
+        rawFreq === 'weekly' || rawFreq === 'biweekly' || rawFreq === 'monthly' ? rawFreq : null;
+    // Back-compat: legacy `repeatWeekly` (weeks to repeat after first) still honored as weekly
+    const legacyRepeat = typeof body.repeatWeekly === 'number' && body.repeatWeekly > 0 ? Math.min(body.repeatWeekly, 52) : 0;
+    const recurrenceCount = typeof body.recurrenceCount === 'number' && body.recurrenceCount > 1
+        ? Math.min(body.recurrenceCount, 52)
+        : (frequency ? 1 : 0);
+    const effectiveFrequency = frequency ?? (legacyRepeat > 0 ? 'weekly' as const : null);
+    const totalOccurrences = effectiveFrequency
+        ? (frequency ? recurrenceCount : legacyRepeat + 1)
+        : 1;
+    const seriesId = totalOccurrences > 1 ? randomUUID() : null;
     const appointments: (typeof agendaAppointments.$inferSelect)[] = [];
 
-    for (let i = 0; i <= repeatWeeks; i++) {
-        const offsetMs = i * 7 * 24 * 60 * 60 * 1000;
+    // Validar y consumir bono (client pack) si aplica
+    const clientPackId = typeof body.clientPackId === 'string' && body.clientPackId ? body.clientPackId : null;
+    let clientPack: typeof agendaClientPacks.$inferSelect | null = null;
+    if (clientPackId) {
+        const bodyClientId = typeof body.clientId === 'string' ? body.clientId : null;
+        if (!bodyClientId) return c.json({ ok: false, error: 'Para usar un bono, selecciona primero un cliente.' }, 400);
+        clientPack = await db.query.agendaClientPacks.findFirst({
+            where: and(
+                eq(agendaClientPacks.id, clientPackId),
+                eq(agendaClientPacks.professionalId, profile.id),
+                eq(agendaClientPacks.clientId, bodyClientId),
+            ),
+        }) ?? null;
+        if (!clientPack) return c.json({ ok: false, error: 'Bono no encontrado para este cliente.' }, 404);
+        if (clientPack.status !== 'active') return c.json({ ok: false, error: 'Este bono ya no está activo.' }, 400);
+        if (clientPack.expiresAt && clientPack.expiresAt < new Date()) {
+            return c.json({ ok: false, error: 'Este bono ya expiró.' }, 400);
+        }
+        const remaining = clientPack.sessionsTotal - clientPack.sessionsUsed;
+        if (remaining < totalOccurrences) {
+            return c.json({ ok: false, error: `Al bono le quedan ${remaining} sesión(es), necesitas ${totalOccurrences}.` }, 400);
+        }
+        if (clientPack.appliesTo === 'services') {
+            const svcId = typeof body.serviceId === 'string' ? body.serviceId : null;
+            const list = Array.isArray(clientPack.serviceIds) ? clientPack.serviceIds : [];
+            if (!svcId || !list.includes(svcId)) {
+                return c.json({ ok: false, error: 'Este bono no aplica al servicio elegido.' }, 400);
+            }
+        }
+    }
+
+    const addOffset = (base: Date, index: number, freq: 'weekly' | 'biweekly' | 'monthly' | null): Date => {
+        if (!freq) return base;
+        const d = new Date(base.getTime());
+        if (freq === 'weekly') d.setDate(d.getDate() + index * 7);
+        else if (freq === 'biweekly') d.setDate(d.getDate() + index * 14);
+        else if (freq === 'monthly') d.setMonth(d.getMonth() + index);
+        return d;
+    };
+
+    for (let i = 0; i < totalOccurrences; i++) {
+        const occStart = addOffset(startsAt, i, effectiveFrequency);
+        const occEnd = addOffset(endsAt, i, effectiveFrequency);
         const [appt] = await db.insert(agendaAppointments).values({
             professionalId: profile.id,
             serviceId: typeof body.serviceId === 'string' ? body.serviceId || null : null,
@@ -15606,15 +16031,18 @@ app.post('/api/agenda/appointments', requireVerifiedSession, async (c) => {
             clientName: typeof body.clientName === 'string' ? body.clientName || null : null,
             clientEmail: typeof body.clientEmail === 'string' ? body.clientEmail || null : null,
             clientPhone: typeof body.clientPhone === 'string' ? body.clientPhone || null : null,
-            startsAt: new Date(startsAt.getTime() + offsetMs),
-            endsAt: new Date(endsAt.getTime() + offsetMs),
+            startsAt: occStart,
+            endsAt: occEnd,
             durationMinutes,
             modality: typeof body.modality === 'string' ? body.modality : 'online',
             location: typeof body.location === 'string' ? body.location || null : null,
             status: 'confirmed',
-            price: typeof body.price === 'string' && body.price ? body.price : null,
+            price: clientPack ? null : (typeof body.price === 'string' && body.price ? body.price : null),
             currency: profile.currency,
             internalNotes: typeof body.internalNotes === 'string' ? body.internalNotes || null : null,
+            seriesId,
+            recurrenceFrequency: seriesId ? effectiveFrequency : null,
+            clientPackId: clientPack?.id ?? null,
         }).returning();
         appointments.push(appt);
         // Sync first occurrence to Google Calendar
@@ -15624,6 +16052,15 @@ app.post('/api/agenda/appointments', requireVerifiedSession, async (c) => {
                 await db.update(agendaAppointments).set({ googleEventId: syncResult.eventId }).where(eq(agendaAppointments.id, appt.id));
             }
         }
+    }
+
+    // Consumir saldo del bono (una sesión por cita creada)
+    if (clientPack) {
+        const newUsed = clientPack.sessionsUsed + totalOccurrences;
+        const newStatus = newUsed >= clientPack.sessionsTotal ? 'completed' : clientPack.status;
+        await db.update(agendaClientPacks)
+            .set({ sessionsUsed: newUsed, status: newStatus, updatedAt: new Date() })
+            .where(eq(agendaClientPacks.id, clientPack.id));
     }
 
     // Push notification to professional
@@ -15661,6 +16098,8 @@ app.post('/api/agenda/appointments', requireVerifiedSession, async (c) => {
             currency: firstAppt.currency,
             timezone: tz,
             status: 'confirmed',
+            seriesDates: seriesId ? appointments.map((a) => a.startsAt) : null,
+            seriesFrequency: seriesId ? effectiveFrequency : null,
             paymentMethods: null,
             cancelUrl,
             appUrl: agendaAppUrl,
@@ -15671,10 +16110,12 @@ app.post('/api/agenda/appointments', requireVerifiedSession, async (c) => {
 
     // WhatsApp notification to professional (Pro plan, if configured)
     if (!isFreePlan(profile) && profile.waNotificationsEnabled && profile.waNotifyProfessional && profile.waProfessionalPhone) {
+        const proWaSeriesCount = seriesId ? appointments.length : null;
+        const proWaSeriesFreq = seriesId ? effectiveFrequency : null;
         void notifyProfessionalNewBooking(
             profile.waProfessionalPhone,
             { displayName: profile.displayName, timezone: tz, cancellationHours: profile.cancellationHours ?? 24 },
-            { clientName: firstAppt.clientName, clientPhone: firstAppt.clientPhone, startsAt: firstAppt.startsAt, endsAt: firstAppt.endsAt },
+            { clientName: firstAppt.clientName, clientPhone: firstAppt.clientPhone, startsAt: firstAppt.startsAt, endsAt: firstAppt.endsAt, seriesCount: proWaSeriesCount, seriesFrequency: proWaSeriesFreq },
         ).catch((err) => {
             console.error('[agenda] Failed to send WhatsApp alert to professional', profile.waProfessionalPhone, ':', err);
         });
@@ -15730,10 +16171,29 @@ app.patch('/api/agenda/appointments/:id/status', requireVerifiedSession, async (
         if (typeof body.cancellationReason === 'string') patch.cancellationReason = body.cancellationReason;
     }
 
+    // Capturar estado anterior (para revertir consumo de bono si cancela)
+    const prev = await db.query.agendaAppointments.findFirst({
+        where: and(eq(agendaAppointments.id, id), eq(agendaAppointments.professionalId, profile.id)),
+    });
+
     const [updated] = await db.update(agendaAppointments).set(patch)
         .where(and(eq(agendaAppointments.id, id), eq(agendaAppointments.professionalId, profile.id)))
         .returning();
     if (!updated) return c.json({ ok: false, error: 'Cita no encontrada' }, 404);
+
+    // Si cancelamos una cita que consumía un bono, devolver la sesión
+    if (status === 'cancelled' && prev && prev.status !== 'cancelled' && prev.clientPackId) {
+        const pack = await db.query.agendaClientPacks.findFirst({
+            where: eq(agendaClientPacks.id, prev.clientPackId),
+        });
+        if (pack && pack.sessionsUsed > 0) {
+            const newUsed = Math.max(0, pack.sessionsUsed - 1);
+            const newStatus = pack.status === 'completed' && newUsed < pack.sessionsTotal ? 'active' : pack.status;
+            await db.update(agendaClientPacks)
+                .set({ sessionsUsed: newUsed, status: newStatus, updatedAt: new Date() })
+                .where(eq(agendaClientPacks.id, pack.id));
+        }
+    }
 
     // Notify cancellation via WhatsApp + remove from Google Calendar
     if (status === 'cancelled') {
@@ -15751,7 +16211,54 @@ app.patch('/api/agenda/appointments/:id/status', requireVerifiedSession, async (
         void syncToGoogleCalendar(profile, updated, 'update');
     }
 
+    // Generate NPS token when appointment transitions to 'completed' (idempotent)
+    if (status === 'completed') {
+        void ensureNpsForAppointment(profile.id, updated.id, updated.clientId).catch((err) => {
+            console.error('[agenda] Failed to create NPS token for', updated.id, ':', err);
+        });
+    }
+
     return c.json({ ok: true, appointment: updated });
+});
+
+// Cancel recurring series — scope: 'future' cancels current + later, 'all' cancels all in series
+app.post('/api/agenda/appointments/:id/cancel-series', requireVerifiedSession, async (c) => {
+    const user = await authUser(c);
+    if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
+    const profile = await getAgendaProfile(user.id);
+    if (!profile) return c.json({ ok: false, error: 'Perfil no encontrado' }, 404);
+    const id = c.req.param('id') ?? '';
+    const body = await c.req.json().catch(() => ({})) as Record<string, unknown>;
+    const scope = body.scope === 'all' ? 'all' : 'future';
+
+    const anchor = await db.query.agendaAppointments.findFirst({
+        where: and(eq(agendaAppointments.id, id), eq(agendaAppointments.professionalId, profile.id)),
+    });
+    if (!anchor) return c.json({ ok: false, error: 'Cita no encontrada' }, 404);
+    if (!anchor.seriesId) return c.json({ ok: false, error: 'La cita no pertenece a una serie' }, 400);
+
+    const conditions = [
+        eq(agendaAppointments.professionalId, profile.id),
+        eq(agendaAppointments.seriesId, anchor.seriesId),
+        or(eq(agendaAppointments.status, 'confirmed'), eq(agendaAppointments.status, 'pending')),
+    ];
+    if (scope === 'future') {
+        conditions.push(gte(agendaAppointments.startsAt, anchor.startsAt));
+    }
+
+    const cancelled = await db.update(agendaAppointments).set({
+        status: 'cancelled',
+        cancelledAt: new Date(),
+        cancelledBy: 'professional',
+        cancellationReason: typeof body.cancellationReason === 'string' ? body.cancellationReason : null,
+        updatedAt: new Date(),
+    }).where(and(...conditions)).returning();
+
+    for (const appt of cancelled) {
+        void syncToGoogleCalendar(profile, appt, 'delete');
+    }
+
+    return c.json({ ok: true, count: cancelled.length, cancelled });
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -15891,6 +16398,1294 @@ app.get('/api/agenda/stats', requireVerifiedSession, async (c) => {
             hasLocations: Number(locationsCount[0]?.count ?? 0) > 0,
         },
     });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// SimpleAgenda — Analytics (extended metrics para el dashboard Analytics)
+// ─────────────────────────────────────────────────────────────────────────────
+
+app.get('/api/agenda/analytics', requireVerifiedSession, async (c) => {
+    const user = await authUser(c);
+    if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
+    const profile = await getAgendaProfile(user.id);
+    if (!profile) {
+        return c.json({ ok: true, analytics: {
+            monthly: [], byService: [], topClients: [], noShowRate: 0, totalCompleted: 0, totalCancelled: 0, totalNoShow: 0, nps: { avg: null, promoters: 0, passives: 0, detractors: 0, count: 0, score: null },
+        } });
+    }
+
+    const now = new Date();
+    const twelveMonthsAgo = new Date(now.getFullYear(), now.getMonth() - 11, 1);
+
+    const [monthlyRows, serviceRows, topClientsRows, statusCountsRows, npsRows] = await Promise.all([
+        // Ingresos y citas por mes (12 meses)
+        db.select({
+            month: sql<string>`to_char(${agendaPayments.paidAt}, 'YYYY-MM')`,
+            revenue: sql<string>`coalesce(sum(${agendaPayments.amount}), 0)`,
+        }).from(agendaPayments)
+            .where(and(
+                eq(agendaPayments.professionalId, profile.id),
+                eq(agendaPayments.status, 'paid'),
+                gte(agendaPayments.paidAt, twelveMonthsAgo),
+            ))
+            .groupBy(sql`to_char(${agendaPayments.paidAt}, 'YYYY-MM')`)
+            .orderBy(sql`to_char(${agendaPayments.paidAt}, 'YYYY-MM')`),
+        // Ingresos y citas por servicio (últimos 12 meses)
+        db.select({
+            serviceId: agendaServices.id,
+            serviceName: agendaServices.name,
+            count: sql<number>`count(${agendaAppointments.id})`,
+            revenue: sql<string>`coalesce(sum(${agendaAppointments.price}), 0)`,
+        }).from(agendaAppointments)
+            .leftJoin(agendaServices, eq(agendaAppointments.serviceId, agendaServices.id))
+            .where(and(
+                eq(agendaAppointments.professionalId, profile.id),
+                gte(agendaAppointments.startsAt, twelveMonthsAgo),
+                sql`${agendaAppointments.status} NOT IN ('cancelled', 'no_show')`,
+            ))
+            .groupBy(agendaServices.id, agendaServices.name)
+            .orderBy(sql`count(${agendaAppointments.id}) DESC`)
+            .limit(10),
+        // Top clientes por número de citas (últimos 12 meses)
+        db.select({
+            clientId: agendaAppointments.clientId,
+            clientName: agendaAppointments.clientName,
+            count: sql<number>`count(*)`,
+        }).from(agendaAppointments)
+            .where(and(
+                eq(agendaAppointments.professionalId, profile.id),
+                gte(agendaAppointments.startsAt, twelveMonthsAgo),
+                sql`${agendaAppointments.status} NOT IN ('cancelled', 'no_show')`,
+            ))
+            .groupBy(agendaAppointments.clientId, agendaAppointments.clientName)
+            .orderBy(sql`count(*) DESC`)
+            .limit(10),
+        // Conteos por status (global)
+        db.select({
+            status: agendaAppointments.status,
+            count: sql<number>`count(*)`,
+        }).from(agendaAppointments)
+            .where(eq(agendaAppointments.professionalId, profile.id))
+            .groupBy(agendaAppointments.status),
+        // NPS
+        db.select({
+            score: agendaNpsResponses.score,
+        }).from(agendaNpsResponses)
+            .where(and(
+                eq(agendaNpsResponses.professionalId, profile.id),
+                sql`${agendaNpsResponses.submittedAt} IS NOT NULL`,
+            )),
+    ]);
+
+    // Build 12-month array
+    const monthlyMap = new Map(monthlyRows.map((r) => [r.month, Number(r.revenue)]));
+    const monthly: Array<{ month: string; revenue: number; label: string }> = [];
+    const MONTH_LABELS = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
+    for (let i = 11; i >= 0; i--) {
+        const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+        const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+        monthly.push({ month: key, label: MONTH_LABELS[d.getMonth()], revenue: monthlyMap.get(key) ?? 0 });
+    }
+
+    const byService = serviceRows.map((r) => ({
+        serviceId: r.serviceId ?? null,
+        serviceName: r.serviceName ?? 'Sin servicio',
+        count: Number(r.count ?? 0),
+        revenue: Number(r.revenue ?? 0),
+    }));
+
+    const topClients = topClientsRows.map((r) => ({
+        clientId: r.clientId,
+        clientName: r.clientName ?? '—',
+        count: Number(r.count ?? 0),
+    }));
+
+    const statusMap = new Map(statusCountsRows.map((r) => [r.status, Number(r.count)]));
+    const totalCompleted = statusMap.get('completed') ?? 0;
+    const totalCancelled = statusMap.get('cancelled') ?? 0;
+    const totalNoShow = statusMap.get('no_show') ?? 0;
+    const finished = totalCompleted + totalNoShow;
+    const noShowRate = finished > 0 ? totalNoShow / finished : 0;
+
+    // NPS stats (score 9-10 = promoter, 7-8 = passive, 0-6 = detractor)
+    let promoters = 0, passives = 0, detractors = 0;
+    let sum = 0;
+    for (const r of npsRows) {
+        const s = r.score ?? -1;
+        if (s < 0) continue;
+        sum += s;
+        if (s >= 9) promoters++;
+        else if (s >= 7) passives++;
+        else detractors++;
+    }
+    const npsCount = promoters + passives + detractors;
+    const npsScore = npsCount > 0 ? Math.round(((promoters - detractors) / npsCount) * 100) : null;
+    const avg = npsCount > 0 ? sum / npsCount : null;
+
+    return c.json({
+        ok: true,
+        analytics: {
+            monthly,
+            byService,
+            topClients,
+            noShowRate,
+            totalCompleted,
+            totalCancelled,
+            totalNoShow,
+            nps: { avg, promoters, passives, detractors, count: npsCount, score: npsScore },
+        },
+    });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// SimpleAgenda — NPS (encuesta post-cita)
+// ─────────────────────────────────────────────────────────────────────────────
+
+async function ensureNpsForAppointment(professionalId: string, appointmentId: string, clientId: string | null): Promise<{ token: string } | null> {
+    const existing = await db.query.agendaNpsResponses.findFirst({
+        where: eq(agendaNpsResponses.appointmentId, appointmentId),
+    });
+    if (existing) return { token: existing.token };
+    const token = randomBytes(24).toString('hex');
+    const [created] = await db.insert(agendaNpsResponses).values({
+        professionalId, appointmentId, clientId, token,
+    }).returning();
+    return created ? { token: created.token } : null;
+}
+
+// GET público por token (para renderizar el form)
+app.get('/api/public/nps/:token', async (c) => {
+    const token = c.req.param('token') ?? '';
+    if (!token) return c.json({ ok: false, error: 'Token inválido' }, 400);
+    const record = await db.query.agendaNpsResponses.findFirst({
+        where: eq(agendaNpsResponses.token, token),
+    });
+    if (!record) return c.json({ ok: false, error: 'Encuesta no encontrada' }, 404);
+    const appt = await db.query.agendaAppointments.findFirst({
+        where: eq(agendaAppointments.id, record.appointmentId),
+    });
+    const profile = await db.query.agendaProfessionalProfiles.findFirst({
+        where: eq(agendaProfessionalProfiles.id, record.professionalId),
+    });
+    return c.json({
+        ok: true,
+        alreadySubmitted: !!record.submittedAt,
+        professional: profile ? { displayName: profile.displayName, slug: profile.slug, avatarUrl: profile.avatarUrl } : null,
+        appointment: appt ? { startsAt: appt.startsAt, clientName: appt.clientName } : null,
+        response: record.submittedAt ? { score: record.score, comment: record.comment } : null,
+    });
+});
+
+// POST público por token (envío de respuesta)
+app.post('/api/public/nps/:token', async (c) => {
+    const token = c.req.param('token') ?? '';
+    const body = await c.req.json().catch(() => ({})) as Record<string, unknown>;
+    const score = typeof body.score === 'number' ? Math.max(0, Math.min(10, Math.round(body.score))) : null;
+    if (score === null) return c.json({ ok: false, error: 'Puntuación inválida (0–10)' }, 400);
+    const comment = typeof body.comment === 'string' ? body.comment.slice(0, 2000) : null;
+    const record = await db.query.agendaNpsResponses.findFirst({
+        where: eq(agendaNpsResponses.token, token),
+    });
+    if (!record) return c.json({ ok: false, error: 'Encuesta no encontrada' }, 404);
+    if (record.submittedAt) return c.json({ ok: false, error: 'Esta encuesta ya fue respondida' }, 409);
+    await db.update(agendaNpsResponses).set({
+        score,
+        comment,
+        submittedAt: new Date(),
+    }).where(eq(agendaNpsResponses.id, record.id));
+    return c.json({ ok: true });
+});
+
+// GET profesional — listado de respuestas NPS
+app.get('/api/agenda/nps', requireVerifiedSession, async (c) => {
+    const user = await authUser(c);
+    if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
+    const profile = await getAgendaProfile(user.id);
+    if (!profile) return c.json({ ok: true, responses: [] });
+    const rows = await db.select({
+        id: agendaNpsResponses.id,
+        score: agendaNpsResponses.score,
+        comment: agendaNpsResponses.comment,
+        submittedAt: agendaNpsResponses.submittedAt,
+        sentAt: agendaNpsResponses.sentAt,
+        appointmentId: agendaNpsResponses.appointmentId,
+        clientName: agendaAppointments.clientName,
+    }).from(agendaNpsResponses)
+        .leftJoin(agendaAppointments, eq(agendaNpsResponses.appointmentId, agendaAppointments.id))
+        .where(and(
+            eq(agendaNpsResponses.professionalId, profile.id),
+            sql`${agendaNpsResponses.submittedAt} IS NOT NULL`,
+        ))
+        .orderBy(desc(agendaNpsResponses.submittedAt))
+        .limit(100);
+    return c.json({ ok: true, responses: rows });
+});
+
+// POST profesional — generar/renovar token NPS para una cita (idempotente)
+app.post('/api/agenda/nps/for-appointment', requireVerifiedSession, async (c) => {
+    const user = await authUser(c);
+    if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
+    const profile = await getAgendaProfile(user.id);
+    if (!profile) return c.json({ ok: false, error: 'Perfil no encontrado' }, 404);
+    const body = await c.req.json().catch(() => ({})) as Record<string, unknown>;
+    const appointmentId = typeof body.appointmentId === 'string' ? body.appointmentId : '';
+    if (!appointmentId) return c.json({ ok: false, error: 'appointmentId requerido' }, 400);
+    const appt = await db.query.agendaAppointments.findFirst({
+        where: and(eq(agendaAppointments.id, appointmentId), eq(agendaAppointments.professionalId, profile.id)),
+    });
+    if (!appt) return c.json({ ok: false, error: 'Cita no encontrada' }, 404);
+    const out = await ensureNpsForAppointment(profile.id, appointmentId, appt.clientId);
+    return c.json({ ok: true, token: out?.token ?? null });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// SimpleAgenda — Referidos (cliente recomienda a un conocido)
+// ─────────────────────────────────────────────────────────────────────────────
+
+const REFERRAL_STATUSES = ['pending', 'converted', 'rewarded', 'cancelled'] as const;
+type ReferralStatus = typeof REFERRAL_STATUSES[number];
+
+app.get('/api/agenda/referrals', requireVerifiedSession, async (c) => {
+    const user = await authUser(c);
+    if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
+    const profile = await getAgendaProfile(user.id);
+    if (!profile) return c.json({ ok: true, referrals: [], stats: { total: 0, converted: 0, pending: 0, rewarded: 0 } });
+
+    const rows = await db.select({
+        id: agendaReferrals.id,
+        referrerClientId: agendaReferrals.referrerClientId,
+        refereeClientId: agendaReferrals.refereeClientId,
+        refereeName: agendaReferrals.refereeName,
+        refereePhone: agendaReferrals.refereePhone,
+        status: agendaReferrals.status,
+        rewardNote: agendaReferrals.rewardNote,
+        createdAt: agendaReferrals.createdAt,
+        convertedAt: agendaReferrals.convertedAt,
+        rewardedAt: agendaReferrals.rewardedAt,
+        referrerFirstName: agendaClients.firstName,
+        referrerLastName: agendaClients.lastName,
+    }).from(agendaReferrals)
+        .leftJoin(agendaClients, eq(agendaReferrals.referrerClientId, agendaClients.id))
+        .where(eq(agendaReferrals.professionalId, profile.id))
+        .orderBy(desc(agendaReferrals.createdAt))
+        .limit(200);
+
+    const stats = { total: rows.length, converted: 0, pending: 0, rewarded: 0 };
+    for (const r of rows) {
+        if (r.status === 'converted') stats.converted++;
+        else if (r.status === 'pending') stats.pending++;
+        else if (r.status === 'rewarded') stats.rewarded++;
+    }
+    return c.json({ ok: true, referrals: rows, stats });
+});
+
+app.post('/api/agenda/referrals', requireVerifiedSession, async (c) => {
+    const user = await authUser(c);
+    if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
+    const profile = await getAgendaProfile(user.id);
+    if (!profile) return c.json({ ok: false, error: 'Perfil no encontrado' }, 404);
+    const body = await c.req.json().catch(() => ({})) as Record<string, unknown>;
+
+    const referrerClientId = typeof body.referrerClientId === 'string' ? body.referrerClientId : '';
+    if (!referrerClientId) return c.json({ ok: false, error: 'Selecciona quién refirió' }, 400);
+
+    const referrer = await db.query.agendaClients.findFirst({
+        where: and(eq(agendaClients.id, referrerClientId), eq(agendaClients.professionalId, profile.id)),
+    });
+    if (!referrer) return c.json({ ok: false, error: 'Paciente no encontrado' }, 404);
+
+    const refereeName = typeof body.refereeName === 'string' ? body.refereeName.trim().slice(0, 200) : '';
+    const refereePhone = typeof body.refereePhone === 'string' ? body.refereePhone.trim().slice(0, 40) : '';
+    const refereeClientId = typeof body.refereeClientId === 'string' && body.refereeClientId ? body.refereeClientId : null;
+    if (!refereeName && !refereeClientId) return c.json({ ok: false, error: 'Indica el nombre del referido' }, 400);
+
+    const [created] = await db.insert(agendaReferrals).values({
+        professionalId: profile.id,
+        referrerClientId,
+        refereeClientId,
+        refereeName: refereeName || null,
+        refereePhone: refereePhone || null,
+        rewardNote: typeof body.rewardNote === 'string' ? body.rewardNote.slice(0, 500) : null,
+    }).returning();
+
+    return c.json({ ok: true, referral: created });
+});
+
+app.patch('/api/agenda/referrals/:id', requireVerifiedSession, async (c) => {
+    const user = await authUser(c);
+    if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
+    const profile = await getAgendaProfile(user.id);
+    if (!profile) return c.json({ ok: false, error: 'Perfil no encontrado' }, 404);
+    const id = c.req.param('id') ?? '';
+    const body = await c.req.json().catch(() => ({})) as Record<string, unknown>;
+
+    const patch: Record<string, unknown> = {};
+    if (typeof body.status === 'string' && (REFERRAL_STATUSES as readonly string[]).includes(body.status)) {
+        const nextStatus = body.status as ReferralStatus;
+        patch.status = nextStatus;
+        if (nextStatus === 'converted') patch.convertedAt = new Date();
+        else if (nextStatus === 'rewarded') patch.rewardedAt = new Date();
+    }
+    if (typeof body.rewardNote === 'string') patch.rewardNote = body.rewardNote.slice(0, 500);
+    if (typeof body.refereeClientId === 'string') patch.refereeClientId = body.refereeClientId || null;
+
+    if (Object.keys(patch).length === 0) return c.json({ ok: false, error: 'Sin cambios' }, 400);
+
+    const [updated] = await db.update(agendaReferrals).set(patch)
+        .where(and(eq(agendaReferrals.id, id), eq(agendaReferrals.professionalId, profile.id)))
+        .returning();
+    if (!updated) return c.json({ ok: false, error: 'Referido no encontrado' }, 404);
+    return c.json({ ok: true, referral: updated });
+});
+
+app.delete('/api/agenda/referrals/:id', requireVerifiedSession, async (c) => {
+    const user = await authUser(c);
+    if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
+    const profile = await getAgendaProfile(user.id);
+    if (!profile) return c.json({ ok: false, error: 'Perfil no encontrado' }, 404);
+    const id = c.req.param('id') ?? '';
+    const [deleted] = await db.delete(agendaReferrals)
+        .where(and(eq(agendaReferrals.id, id), eq(agendaReferrals.professionalId, profile.id)))
+        .returning();
+    if (!deleted) return c.json({ ok: false, error: 'Referido no encontrado' }, 404);
+    return c.json({ ok: true });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// SimpleAgenda — Promociones / cupones
+// ─────────────────────────────────────────────────────────────────────────────
+
+const PROMOTION_DISCOUNT_TYPES = new Set(['percent', 'fixed']);
+const PROMOTION_APPLIES_TO = new Set(['all', 'services']);
+
+function normalizePromoCode(raw: unknown): string | null {
+    if (typeof raw !== 'string') return null;
+    const trimmed = raw.trim().toUpperCase();
+    if (!trimmed) return null;
+    if (trimmed.length > 40) return trimmed.slice(0, 40);
+    return trimmed;
+}
+
+function parseOptionalNumber(raw: unknown): number | null {
+    if (raw === null || raw === undefined || raw === '') return null;
+    const n = Number(raw);
+    return Number.isFinite(n) ? n : null;
+}
+
+function parseOptionalDate(raw: unknown): Date | null {
+    if (typeof raw !== 'string' || !raw) return null;
+    const d = new Date(raw);
+    return Number.isNaN(d.getTime()) ? null : d;
+}
+
+type PromotionRow = typeof agendaPromotions.$inferSelect;
+
+type PromotionApplicationError =
+    | 'not_found'
+    | 'inactive'
+    | 'not_started'
+    | 'expired'
+    | 'max_uses_reached'
+    | 'service_not_eligible'
+    | 'min_amount_not_reached'
+    | 'no_price';
+
+type PromotionApplicationResult =
+    | { ok: true; promotion: PromotionRow; discountAmount: number; finalPrice: number; originalPrice: number }
+    | { ok: false; error: PromotionApplicationError; message: string };
+
+function applyPromotionToPrice(
+    promotion: PromotionRow,
+    basePrice: number,
+    serviceId: string | null,
+    now: Date = new Date(),
+): PromotionApplicationResult {
+    if (!promotion.isActive) return { ok: false, error: 'inactive', message: 'Este cupón está desactivado.' };
+    if (promotion.startsAt && now < promotion.startsAt) return { ok: false, error: 'not_started', message: 'Este cupón aún no está vigente.' };
+    if (promotion.endsAt && now > promotion.endsAt) return { ok: false, error: 'expired', message: 'Este cupón ya expiró.' };
+    if (promotion.maxUses !== null && promotion.maxUses !== undefined && promotion.usesCount >= promotion.maxUses) {
+        return { ok: false, error: 'max_uses_reached', message: 'Este cupón alcanzó su límite de usos.' };
+    }
+    if (promotion.appliesTo === 'services') {
+        const list = Array.isArray(promotion.serviceIds) ? promotion.serviceIds : [];
+        if (!serviceId || !list.includes(serviceId)) {
+            return { ok: false, error: 'service_not_eligible', message: 'Este cupón no aplica al servicio elegido.' };
+        }
+    }
+    if (!Number.isFinite(basePrice) || basePrice <= 0) {
+        return { ok: false, error: 'no_price', message: 'Este servicio no tiene precio, no se puede aplicar un cupón.' };
+    }
+    const minAmount = promotion.minAmount ? Number(promotion.minAmount) : null;
+    if (minAmount !== null && basePrice < minAmount) {
+        return { ok: false, error: 'min_amount_not_reached', message: `Monto mínimo para este cupón: ${minAmount.toLocaleString('es-CL')}.` };
+    }
+
+    const value = Number(promotion.discountValue);
+    let discountAmount = 0;
+    if (promotion.discountType === 'percent') {
+        discountAmount = Math.round((basePrice * value) / 100);
+    } else {
+        discountAmount = Math.round(value);
+    }
+    if (discountAmount < 0) discountAmount = 0;
+    if (discountAmount > basePrice) discountAmount = basePrice;
+    const finalPrice = Math.max(0, basePrice - discountAmount);
+    return { ok: true, promotion, discountAmount, finalPrice, originalPrice: basePrice };
+}
+
+app.get('/api/agenda/promotions', requireVerifiedSession, async (c) => {
+    const user = await authUser(c);
+    if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
+    const profile = await getAgendaProfile(user.id);
+    if (!profile) return c.json({ ok: false, error: 'Perfil no encontrado' }, 404);
+    const rows = await db.select().from(agendaPromotions)
+        .where(eq(agendaPromotions.professionalId, profile.id))
+        .orderBy(desc(agendaPromotions.createdAt));
+    return c.json({ ok: true, promotions: rows });
+});
+
+app.post('/api/agenda/promotions', requireVerifiedSession, async (c) => {
+    const user = await authUser(c);
+    if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
+    const profile = await getAgendaProfile(user.id);
+    if (!profile) return c.json({ ok: false, error: 'Perfil no encontrado' }, 404);
+    const body = await c.req.json().catch(() => ({})) as Record<string, unknown>;
+
+    const label = typeof body.label === 'string' ? body.label.trim() : '';
+    if (!label) return c.json({ ok: false, error: 'Falta el nombre de la promoción.' }, 400);
+
+    const discountType = typeof body.discountType === 'string' && PROMOTION_DISCOUNT_TYPES.has(body.discountType) ? body.discountType : 'percent';
+    const discountValue = parseOptionalNumber(body.discountValue);
+    if (discountValue === null || discountValue <= 0) {
+        return c.json({ ok: false, error: 'El descuento debe ser mayor a 0.' }, 400);
+    }
+    if (discountType === 'percent' && discountValue > 100) {
+        return c.json({ ok: false, error: 'El porcentaje no puede superar 100.' }, 400);
+    }
+
+    const appliesTo = typeof body.appliesTo === 'string' && PROMOTION_APPLIES_TO.has(body.appliesTo) ? body.appliesTo : 'all';
+    const serviceIds: string[] = Array.isArray(body.serviceIds) ? body.serviceIds.filter((x): x is string => typeof x === 'string') : [];
+    if (appliesTo === 'services' && serviceIds.length === 0) {
+        return c.json({ ok: false, error: 'Selecciona al menos un servicio.' }, 400);
+    }
+
+    const code = normalizePromoCode(body.code);
+    const minAmount = parseOptionalNumber(body.minAmount);
+    const maxUses = parseOptionalNumber(body.maxUses);
+    const startsAt = parseOptionalDate(body.startsAt);
+    const endsAt = parseOptionalDate(body.endsAt);
+    if (startsAt && endsAt && endsAt < startsAt) {
+        return c.json({ ok: false, error: 'La fecha de fin es anterior al inicio.' }, 400);
+    }
+
+    try {
+        const [created] = await db.insert(agendaPromotions).values({
+            professionalId: profile.id,
+            code,
+            label,
+            description: typeof body.description === 'string' ? body.description : null,
+            discountType,
+            discountValue: String(discountValue),
+            appliesTo,
+            serviceIds,
+            minAmount: minAmount !== null ? String(minAmount) : null,
+            maxUses: maxUses !== null ? Math.floor(maxUses) : null,
+            startsAt,
+            endsAt,
+            isActive: body.isActive === false ? false : true,
+        }).returning();
+        await logAudit({
+            professionalId: profile.id,
+            entityType: 'promotion',
+            entityId: created.id,
+            action: 'create',
+            metadata: { code, discountType, discountValue },
+            ctx: c,
+        });
+        return c.json({ ok: true, promotion: created });
+    } catch (err: unknown) {
+        if (err && typeof err === 'object' && 'code' in err && (err as { code?: string }).code === '23505') {
+            return c.json({ ok: false, error: 'Ya existe un cupón con ese código.' }, 409);
+        }
+        throw err;
+    }
+});
+
+app.patch('/api/agenda/promotions/:id', requireVerifiedSession, async (c) => {
+    const user = await authUser(c);
+    if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
+    const profile = await getAgendaProfile(user.id);
+    if (!profile) return c.json({ ok: false, error: 'Perfil no encontrado' }, 404);
+    const id = c.req.param('id') ?? '';
+    const existing = await db.query.agendaPromotions.findFirst({
+        where: and(eq(agendaPromotions.id, id), eq(agendaPromotions.professionalId, profile.id)),
+    });
+    if (!existing) return c.json({ ok: false, error: 'Promoción no encontrada' }, 404);
+
+    const body = await c.req.json().catch(() => ({})) as Record<string, unknown>;
+    const patch: Partial<typeof agendaPromotions.$inferInsert> & { updatedAt: Date } = { updatedAt: new Date() };
+
+    if (typeof body.label === 'string') {
+        const label = body.label.trim();
+        if (!label) return c.json({ ok: false, error: 'El nombre no puede estar vacío.' }, 400);
+        patch.label = label;
+    }
+    if ('description' in body) patch.description = typeof body.description === 'string' ? body.description : null;
+    if (typeof body.code !== 'undefined') patch.code = normalizePromoCode(body.code);
+    if (typeof body.discountType === 'string' && PROMOTION_DISCOUNT_TYPES.has(body.discountType)) patch.discountType = body.discountType;
+    if ('discountValue' in body) {
+        const v = parseOptionalNumber(body.discountValue);
+        if (v === null || v <= 0) return c.json({ ok: false, error: 'Descuento inválido.' }, 400);
+        if ((patch.discountType ?? existing.discountType) === 'percent' && v > 100) {
+            return c.json({ ok: false, error: 'El porcentaje no puede superar 100.' }, 400);
+        }
+        patch.discountValue = String(v);
+    }
+    if (typeof body.appliesTo === 'string' && PROMOTION_APPLIES_TO.has(body.appliesTo)) patch.appliesTo = body.appliesTo;
+    if (Array.isArray(body.serviceIds)) patch.serviceIds = body.serviceIds.filter((x): x is string => typeof x === 'string');
+    if ('minAmount' in body) {
+        const v = parseOptionalNumber(body.minAmount);
+        patch.minAmount = v !== null ? String(v) : null;
+    }
+    if ('maxUses' in body) {
+        const v = parseOptionalNumber(body.maxUses);
+        patch.maxUses = v !== null ? Math.floor(v) : null;
+    }
+    if ('startsAt' in body) patch.startsAt = parseOptionalDate(body.startsAt);
+    if ('endsAt' in body) patch.endsAt = parseOptionalDate(body.endsAt);
+    if (typeof body.isActive === 'boolean') patch.isActive = body.isActive;
+
+    try {
+        const [updated] = await db.update(agendaPromotions)
+            .set(patch)
+            .where(and(eq(agendaPromotions.id, id), eq(agendaPromotions.professionalId, profile.id)))
+            .returning();
+        await logAudit({
+            professionalId: profile.id,
+            entityType: 'promotion',
+            entityId: id,
+            action: 'update',
+            metadata: { fields: Object.keys(patch).filter((k) => k !== 'updatedAt') },
+            ctx: c,
+        });
+        return c.json({ ok: true, promotion: updated });
+    } catch (err: unknown) {
+        if (err && typeof err === 'object' && 'code' in err && (err as { code?: string }).code === '23505') {
+            return c.json({ ok: false, error: 'Ya existe un cupón con ese código.' }, 409);
+        }
+        throw err;
+    }
+});
+
+app.delete('/api/agenda/promotions/:id', requireVerifiedSession, async (c) => {
+    const user = await authUser(c);
+    if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
+    const profile = await getAgendaProfile(user.id);
+    if (!profile) return c.json({ ok: false, error: 'Perfil no encontrado' }, 404);
+    const id = c.req.param('id') ?? '';
+    const [deleted] = await db.delete(agendaPromotions)
+        .where(and(eq(agendaPromotions.id, id), eq(agendaPromotions.professionalId, profile.id)))
+        .returning();
+    if (!deleted) return c.json({ ok: false, error: 'Promoción no encontrada' }, 404);
+    await logAudit({
+        professionalId: profile.id,
+        entityType: 'promotion',
+        entityId: id,
+        action: 'delete',
+        metadata: { code: deleted.code, label: deleted.label },
+        ctx: c,
+    });
+    return c.json({ ok: true });
+});
+
+// Validación pública del cupón (antes de reservar)
+app.post('/api/public/agenda/:slug/validate-promo', async (c) => {
+    const slug = c.req.param('slug') ?? '';
+    const profile = await db.query.agendaProfessionalProfiles.findFirst({
+        where: and(eq(agendaProfessionalProfiles.slug, slug), eq(agendaProfessionalProfiles.isPublished, true)),
+    });
+    if (!profile) return c.json({ ok: false, error: 'Perfil no encontrado' }, 404);
+
+    const body = await c.req.json().catch(() => ({})) as Record<string, unknown>;
+    const code = normalizePromoCode(body.code);
+    if (!code) return c.json({ ok: false, error: 'Ingresa un código.' }, 400);
+
+    const serviceId = typeof body.serviceId === 'string' ? body.serviceId : null;
+    let basePrice = parseOptionalNumber(body.basePrice) ?? 0;
+    if (serviceId && (!basePrice || basePrice <= 0)) {
+        const svc = await db.query.agendaServices.findFirst({ where: eq(agendaServices.id, serviceId) });
+        if (svc?.price) basePrice = Number(svc.price);
+    }
+
+    const promo = await db.query.agendaPromotions.findFirst({
+        where: and(
+            eq(agendaPromotions.professionalId, profile.id),
+            sql`lower(${agendaPromotions.code}) = lower(${code})`,
+        ),
+    });
+    if (!promo) return c.json({ ok: false, error: 'Cupón no válido.' }, 404);
+
+    const result = applyPromotionToPrice(promo, basePrice, serviceId);
+    if (!result.ok) return c.json({ ok: false, error: result.message }, 400);
+    return c.json({
+        ok: true,
+        promotion: {
+            id: result.promotion.id,
+            code: result.promotion.code,
+            label: result.promotion.label,
+            discountType: result.promotion.discountType,
+            discountValue: result.promotion.discountValue,
+        },
+        originalPrice: result.originalPrice,
+        discountAmount: result.discountAmount,
+        finalPrice: result.finalPrice,
+    });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// SimpleAgenda — Packs / bonos de sesiones
+// ─────────────────────────────────────────────────────────────────────────────
+
+const PACK_APPLIES_TO = new Set(['all', 'services']);
+const CLIENT_PACK_STATUS = new Set(['active', 'expired', 'completed', 'refunded']);
+
+function addDays(date: Date, days: number): Date {
+    const d = new Date(date);
+    d.setDate(d.getDate() + days);
+    return d;
+}
+
+// ── Definiciones de packs (catálogo del profesional) ───────────────────────
+
+app.get('/api/agenda/packs', requireVerifiedSession, async (c) => {
+    const user = await authUser(c);
+    if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
+    const profile = await getAgendaProfile(user.id);
+    if (!profile) return c.json({ ok: false, error: 'Perfil no encontrado' }, 404);
+    const rows = await db.select().from(agendaPacks)
+        .where(eq(agendaPacks.professionalId, profile.id))
+        .orderBy(agendaPacks.position, desc(agendaPacks.createdAt));
+    return c.json({ ok: true, packs: rows });
+});
+
+app.post('/api/agenda/packs', requireVerifiedSession, async (c) => {
+    const user = await authUser(c);
+    if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
+    const profile = await getAgendaProfile(user.id);
+    if (!profile) return c.json({ ok: false, error: 'Perfil no encontrado' }, 404);
+    const body = await c.req.json().catch(() => ({})) as Record<string, unknown>;
+
+    const name = typeof body.name === 'string' ? body.name.trim() : '';
+    if (!name) return c.json({ ok: false, error: 'Falta el nombre del pack.' }, 400);
+
+    const sessionsCount = parseOptionalNumber(body.sessionsCount);
+    if (sessionsCount === null || sessionsCount <= 0) {
+        return c.json({ ok: false, error: 'Indica cuántas sesiones incluye el pack.' }, 400);
+    }
+
+    const price = parseOptionalNumber(body.price);
+    if (price === null || price < 0) {
+        return c.json({ ok: false, error: 'El precio del pack es inválido.' }, 400);
+    }
+
+    const appliesTo = typeof body.appliesTo === 'string' && PACK_APPLIES_TO.has(body.appliesTo) ? body.appliesTo : 'all';
+    const serviceIds: string[] = Array.isArray(body.serviceIds) ? body.serviceIds.filter((x): x is string => typeof x === 'string') : [];
+    if (appliesTo === 'services' && serviceIds.length === 0) {
+        return c.json({ ok: false, error: 'Selecciona al menos un servicio para este pack.' }, 400);
+    }
+
+    const validityDays = parseOptionalNumber(body.validityDays);
+    const position = parseOptionalNumber(body.position);
+
+    const [created] = await db.insert(agendaPacks).values({
+        professionalId: profile.id,
+        name,
+        description: typeof body.description === 'string' ? body.description : null,
+        sessionsCount: Math.floor(sessionsCount),
+        price: String(price),
+        currency: typeof body.currency === 'string' ? body.currency : 'CLP',
+        appliesTo,
+        serviceIds,
+        validityDays: validityDays !== null ? Math.floor(validityDays) : null,
+        isActive: body.isActive === false ? false : true,
+        position: position !== null ? Math.floor(position) : 0,
+    }).returning();
+    await logAudit({
+        professionalId: profile.id,
+        entityType: 'pack',
+        entityId: created.id,
+        action: 'create',
+        metadata: { name, sessionsCount: created.sessionsCount, price: created.price },
+        ctx: c,
+    });
+    return c.json({ ok: true, pack: created });
+});
+
+app.patch('/api/agenda/packs/:id', requireVerifiedSession, async (c) => {
+    const user = await authUser(c);
+    if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
+    const profile = await getAgendaProfile(user.id);
+    if (!profile) return c.json({ ok: false, error: 'Perfil no encontrado' }, 404);
+    const id = c.req.param('id') ?? '';
+    const existing = await db.query.agendaPacks.findFirst({
+        where: and(eq(agendaPacks.id, id), eq(agendaPacks.professionalId, profile.id)),
+    });
+    if (!existing) return c.json({ ok: false, error: 'Pack no encontrado' }, 404);
+
+    const body = await c.req.json().catch(() => ({})) as Record<string, unknown>;
+    const patch: Partial<typeof agendaPacks.$inferInsert> & { updatedAt: Date } = { updatedAt: new Date() };
+
+    if (typeof body.name === 'string') {
+        const name = body.name.trim();
+        if (!name) return c.json({ ok: false, error: 'El nombre no puede estar vacío.' }, 400);
+        patch.name = name;
+    }
+    if ('description' in body) patch.description = typeof body.description === 'string' ? body.description : null;
+    if ('sessionsCount' in body) {
+        const v = parseOptionalNumber(body.sessionsCount);
+        if (v === null || v <= 0) return c.json({ ok: false, error: 'Cantidad de sesiones inválida.' }, 400);
+        patch.sessionsCount = Math.floor(v);
+    }
+    if ('price' in body) {
+        const v = parseOptionalNumber(body.price);
+        if (v === null || v < 0) return c.json({ ok: false, error: 'Precio inválido.' }, 400);
+        patch.price = String(v);
+    }
+    if (typeof body.currency === 'string') patch.currency = body.currency;
+    if (typeof body.appliesTo === 'string' && PACK_APPLIES_TO.has(body.appliesTo)) patch.appliesTo = body.appliesTo;
+    if (Array.isArray(body.serviceIds)) patch.serviceIds = body.serviceIds.filter((x): x is string => typeof x === 'string');
+    if ('validityDays' in body) {
+        const v = parseOptionalNumber(body.validityDays);
+        patch.validityDays = v !== null ? Math.floor(v) : null;
+    }
+    if (typeof body.isActive === 'boolean') patch.isActive = body.isActive;
+    if ('position' in body) {
+        const v = parseOptionalNumber(body.position);
+        if (v !== null) patch.position = Math.floor(v);
+    }
+
+    const [updated] = await db.update(agendaPacks)
+        .set(patch)
+        .where(and(eq(agendaPacks.id, id), eq(agendaPacks.professionalId, profile.id)))
+        .returning();
+    await logAudit({
+        professionalId: profile.id,
+        entityType: 'pack',
+        entityId: id,
+        action: 'update',
+        metadata: { fields: Object.keys(patch).filter((k) => k !== 'updatedAt') },
+        ctx: c,
+    });
+    return c.json({ ok: true, pack: updated });
+});
+
+app.delete('/api/agenda/packs/:id', requireVerifiedSession, async (c) => {
+    const user = await authUser(c);
+    if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
+    const profile = await getAgendaProfile(user.id);
+    if (!profile) return c.json({ ok: false, error: 'Perfil no encontrado' }, 404);
+    const id = c.req.param('id') ?? '';
+    const [deleted] = await db.delete(agendaPacks)
+        .where(and(eq(agendaPacks.id, id), eq(agendaPacks.professionalId, profile.id)))
+        .returning();
+    if (!deleted) return c.json({ ok: false, error: 'Pack no encontrado' }, 404);
+    await logAudit({
+        professionalId: profile.id,
+        entityType: 'pack',
+        entityId: id,
+        action: 'delete',
+        metadata: { name: deleted.name },
+        ctx: c,
+    });
+    return c.json({ ok: true });
+});
+
+// ── Client packs (bonos comprados con saldo de sesiones) ───────────────────
+
+app.get('/api/agenda/client-packs', requireVerifiedSession, async (c) => {
+    const user = await authUser(c);
+    if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
+    const profile = await getAgendaProfile(user.id);
+    if (!profile) return c.json({ ok: false, error: 'Perfil no encontrado' }, 404);
+
+    const clientId = c.req.query('clientId');
+    const status = c.req.query('status');
+    const conditions: SQL[] = [eq(agendaClientPacks.professionalId, profile.id)];
+    if (clientId) conditions.push(eq(agendaClientPacks.clientId, clientId));
+    if (status && CLIENT_PACK_STATUS.has(status)) conditions.push(eq(agendaClientPacks.status, status));
+
+    const rows = await db.select().from(agendaClientPacks)
+        .where(and(...conditions))
+        .orderBy(desc(agendaClientPacks.purchasedAt));
+    return c.json({ ok: true, clientPacks: rows });
+});
+
+app.post('/api/agenda/client-packs', requireVerifiedSession, async (c) => {
+    const user = await authUser(c);
+    if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
+    const profile = await getAgendaProfile(user.id);
+    if (!profile) return c.json({ ok: false, error: 'Perfil no encontrado' }, 404);
+    const body = await c.req.json().catch(() => ({})) as Record<string, unknown>;
+
+    const clientId = typeof body.clientId === 'string' ? body.clientId : '';
+    if (!clientId) return c.json({ ok: false, error: 'Selecciona un cliente.' }, 400);
+    const client = await db.query.agendaClients.findFirst({
+        where: and(eq(agendaClients.id, clientId), eq(agendaClients.professionalId, profile.id)),
+    });
+    if (!client) return c.json({ ok: false, error: 'Cliente no encontrado.' }, 404);
+
+    const packId = typeof body.packId === 'string' ? body.packId : null;
+    let name = typeof body.name === 'string' ? body.name.trim() : '';
+    let sessionsTotal = parseOptionalNumber(body.sessionsTotal);
+    let pricePaid = parseOptionalNumber(body.pricePaid);
+    let currency = typeof body.currency === 'string' ? body.currency : 'CLP';
+    let appliesTo = typeof body.appliesTo === 'string' && PACK_APPLIES_TO.has(body.appliesTo) ? body.appliesTo : 'all';
+    let serviceIds: string[] = Array.isArray(body.serviceIds) ? body.serviceIds.filter((x): x is string => typeof x === 'string') : [];
+    let expiresAt = parseOptionalDate(body.expiresAt);
+
+    if (packId) {
+        const pack = await db.query.agendaPacks.findFirst({
+            where: and(eq(agendaPacks.id, packId), eq(agendaPacks.professionalId, profile.id)),
+        });
+        if (!pack) return c.json({ ok: false, error: 'Pack no encontrado.' }, 404);
+        if (!name) name = pack.name;
+        if (sessionsTotal === null) sessionsTotal = pack.sessionsCount;
+        if (pricePaid === null && pack.price) pricePaid = Number(pack.price);
+        currency = pack.currency;
+        appliesTo = pack.appliesTo;
+        if (serviceIds.length === 0) serviceIds = Array.isArray(pack.serviceIds) ? pack.serviceIds : [];
+        if (!expiresAt && pack.validityDays && pack.validityDays > 0) {
+            expiresAt = addDays(new Date(), pack.validityDays);
+        }
+    }
+
+    if (!name) return c.json({ ok: false, error: 'Falta el nombre del pack.' }, 400);
+    if (sessionsTotal === null || sessionsTotal <= 0) {
+        return c.json({ ok: false, error: 'Indica cuántas sesiones incluye el pack.' }, 400);
+    }
+
+    const [created] = await db.insert(agendaClientPacks).values({
+        professionalId: profile.id,
+        packId: packId ?? null,
+        clientId,
+        name,
+        sessionsTotal: Math.floor(sessionsTotal),
+        sessionsUsed: 0,
+        pricePaid: pricePaid !== null ? String(pricePaid) : null,
+        currency,
+        appliesTo,
+        serviceIds,
+        expiresAt,
+        status: 'active',
+        notes: typeof body.notes === 'string' ? body.notes : null,
+    }).returning();
+    await logAudit({
+        professionalId: profile.id,
+        entityType: 'client_pack',
+        entityId: created.id,
+        action: 'create',
+        metadata: { clientId, packId, name, sessionsTotal: created.sessionsTotal },
+        ctx: c,
+    });
+    return c.json({ ok: true, clientPack: created });
+});
+
+app.patch('/api/agenda/client-packs/:id', requireVerifiedSession, async (c) => {
+    const user = await authUser(c);
+    if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
+    const profile = await getAgendaProfile(user.id);
+    if (!profile) return c.json({ ok: false, error: 'Perfil no encontrado' }, 404);
+    const id = c.req.param('id') ?? '';
+    const existing = await db.query.agendaClientPacks.findFirst({
+        where: and(eq(agendaClientPacks.id, id), eq(agendaClientPacks.professionalId, profile.id)),
+    });
+    if (!existing) return c.json({ ok: false, error: 'Bono no encontrado' }, 404);
+
+    const body = await c.req.json().catch(() => ({})) as Record<string, unknown>;
+    const patch: Partial<typeof agendaClientPacks.$inferInsert> & { updatedAt: Date } = { updatedAt: new Date() };
+
+    if (typeof body.name === 'string') {
+        const name = body.name.trim();
+        if (!name) return c.json({ ok: false, error: 'El nombre no puede estar vacío.' }, 400);
+        patch.name = name;
+    }
+    if ('sessionsTotal' in body) {
+        const v = parseOptionalNumber(body.sessionsTotal);
+        if (v === null || v <= 0) return c.json({ ok: false, error: 'Total de sesiones inválido.' }, 400);
+        if (v < existing.sessionsUsed) {
+            return c.json({ ok: false, error: 'El total no puede ser menor a las sesiones ya usadas.' }, 400);
+        }
+        patch.sessionsTotal = Math.floor(v);
+    }
+    if ('pricePaid' in body) {
+        const v = parseOptionalNumber(body.pricePaid);
+        patch.pricePaid = v !== null ? String(v) : null;
+    }
+    if (typeof body.currency === 'string') patch.currency = body.currency;
+    if (typeof body.appliesTo === 'string' && PACK_APPLIES_TO.has(body.appliesTo)) patch.appliesTo = body.appliesTo;
+    if (Array.isArray(body.serviceIds)) patch.serviceIds = body.serviceIds.filter((x): x is string => typeof x === 'string');
+    if ('expiresAt' in body) patch.expiresAt = parseOptionalDate(body.expiresAt);
+    if (typeof body.status === 'string' && CLIENT_PACK_STATUS.has(body.status)) patch.status = body.status;
+    if ('notes' in body) patch.notes = typeof body.notes === 'string' ? body.notes : null;
+
+    const [updated] = await db.update(agendaClientPacks)
+        .set(patch)
+        .where(and(eq(agendaClientPacks.id, id), eq(agendaClientPacks.professionalId, profile.id)))
+        .returning();
+    await logAudit({
+        professionalId: profile.id,
+        entityType: 'client_pack',
+        entityId: id,
+        action: 'update',
+        metadata: { fields: Object.keys(patch).filter((k) => k !== 'updatedAt') },
+        ctx: c,
+    });
+    return c.json({ ok: true, clientPack: updated });
+});
+
+app.delete('/api/agenda/client-packs/:id', requireVerifiedSession, async (c) => {
+    const user = await authUser(c);
+    if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
+    const profile = await getAgendaProfile(user.id);
+    if (!profile) return c.json({ ok: false, error: 'Perfil no encontrado' }, 404);
+    const id = c.req.param('id') ?? '';
+
+    // Si hay citas vinculadas a este bono, desvincularlas antes de borrar
+    await db.update(agendaAppointments)
+        .set({ clientPackId: null })
+        .where(eq(agendaAppointments.clientPackId, id));
+
+    const [deleted] = await db.delete(agendaClientPacks)
+        .where(and(eq(agendaClientPacks.id, id), eq(agendaClientPacks.professionalId, profile.id)))
+        .returning();
+    if (!deleted) return c.json({ ok: false, error: 'Bono no encontrado' }, 404);
+    await logAudit({
+        professionalId: profile.id,
+        entityType: 'client_pack',
+        entityId: id,
+        action: 'delete',
+        metadata: { clientId: deleted.clientId, name: deleted.name },
+        ctx: c,
+    });
+    return c.json({ ok: true });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// SimpleAgenda — Sesiones grupales (talleres, clases, grupos)
+// ─────────────────────────────────────────────────────────────────────────────
+
+const GROUP_SESSION_MODALITIES = new Set(['online', 'presential']);
+const GROUP_SESSION_STATUS = new Set(['scheduled', 'completed', 'cancelled']);
+const GROUP_ATTENDEE_STATUS = new Set(['registered', 'attended', 'no_show', 'cancelled']);
+
+app.get('/api/agenda/group-sessions', requireVerifiedSession, async (c) => {
+    const user = await authUser(c);
+    if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
+    const profile = await getAgendaProfile(user.id);
+    if (!profile) return c.json({ ok: false, error: 'Perfil no encontrado' }, 404);
+
+    const status = c.req.query('status');
+    const conditions: SQL[] = [eq(agendaGroupSessions.professionalId, profile.id)];
+    if (status && GROUP_SESSION_STATUS.has(status)) {
+        conditions.push(eq(agendaGroupSessions.status, status));
+    }
+    const rows = await db.select().from(agendaGroupSessions)
+        .where(and(...conditions))
+        .orderBy(desc(agendaGroupSessions.startsAt));
+
+    const ids = rows.map((r) => r.id);
+    const attendeeCounts = new Map<string, number>();
+    if (ids.length > 0) {
+        const counts = await db
+            .select({ sessionId: agendaGroupAttendees.sessionId, count: sql<number>`count(*)::int` })
+            .from(agendaGroupAttendees)
+            .where(and(
+                inArray(agendaGroupAttendees.sessionId, ids),
+                sql`${agendaGroupAttendees.status} <> 'cancelled'`,
+            ))
+            .groupBy(agendaGroupAttendees.sessionId);
+        for (const c of counts) attendeeCounts.set(c.sessionId, Number(c.count));
+    }
+    const withCounts = rows.map((r) => ({ ...r, attendeeCount: attendeeCounts.get(r.id) ?? 0 }));
+    return c.json({ ok: true, sessions: withCounts });
+});
+
+app.get('/api/agenda/group-sessions/:id', requireVerifiedSession, async (c) => {
+    const user = await authUser(c);
+    if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
+    const profile = await getAgendaProfile(user.id);
+    if (!profile) return c.json({ ok: false, error: 'Perfil no encontrado' }, 404);
+    const id = c.req.param('id') ?? '';
+    const session = await db.query.agendaGroupSessions.findFirst({
+        where: and(eq(agendaGroupSessions.id, id), eq(agendaGroupSessions.professionalId, profile.id)),
+    });
+    if (!session) return c.json({ ok: false, error: 'Sesión no encontrada' }, 404);
+    const attendees = await db.select().from(agendaGroupAttendees)
+        .where(eq(agendaGroupAttendees.sessionId, id))
+        .orderBy(agendaGroupAttendees.registeredAt);
+    return c.json({ ok: true, session, attendees });
+});
+
+app.post('/api/agenda/group-sessions', requireVerifiedSession, async (c) => {
+    const user = await authUser(c);
+    if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
+    const profile = await getAgendaProfile(user.id);
+    if (!profile) return c.json({ ok: false, error: 'Perfil no encontrado' }, 404);
+    const body = await c.req.json().catch(() => ({})) as Record<string, unknown>;
+
+    const title = typeof body.title === 'string' ? body.title.trim() : '';
+    if (!title) return c.json({ ok: false, error: 'Falta el título.' }, 400);
+    if (!body.startsAt) return c.json({ ok: false, error: 'Falta la fecha de inicio.' }, 400);
+
+    const startsAt = new Date(String(body.startsAt));
+    if (Number.isNaN(startsAt.getTime())) return c.json({ ok: false, error: 'Fecha inválida.' }, 400);
+    const durationMinutes = parseOptionalNumber(body.durationMinutes);
+    if (durationMinutes === null || durationMinutes <= 0) {
+        return c.json({ ok: false, error: 'Duración inválida.' }, 400);
+    }
+    const endsAt = new Date(startsAt.getTime() + durationMinutes * 60_000);
+
+    const capacity = parseOptionalNumber(body.capacity);
+    if (capacity === null || capacity <= 0) return c.json({ ok: false, error: 'Cupo inválido.' }, 400);
+    const price = parseOptionalNumber(body.price);
+    const modality = typeof body.modality === 'string' && GROUP_SESSION_MODALITIES.has(body.modality) ? body.modality : 'presential';
+
+    const [created] = await db.insert(agendaGroupSessions).values({
+        professionalId: profile.id,
+        serviceId: typeof body.serviceId === 'string' && body.serviceId ? body.serviceId : null,
+        title,
+        description: typeof body.description === 'string' ? body.description : null,
+        startsAt,
+        endsAt,
+        durationMinutes: Math.floor(durationMinutes),
+        capacity: Math.floor(capacity),
+        price: price !== null ? String(price) : null,
+        currency: typeof body.currency === 'string' ? body.currency : profile.currency,
+        modality,
+        location: typeof body.location === 'string' ? body.location : null,
+        meetingUrl: typeof body.meetingUrl === 'string' ? body.meetingUrl : null,
+        isPublic: body.isPublic === false ? false : true,
+        notes: typeof body.notes === 'string' ? body.notes : null,
+    }).returning();
+    await logAudit({
+        professionalId: profile.id,
+        entityType: 'group_session',
+        entityId: created.id,
+        action: 'create',
+        metadata: { title, capacity: created.capacity, startsAt: created.startsAt.toISOString() },
+        ctx: c,
+    });
+    return c.json({ ok: true, session: created });
+});
+
+app.patch('/api/agenda/group-sessions/:id', requireVerifiedSession, async (c) => {
+    const user = await authUser(c);
+    if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
+    const profile = await getAgendaProfile(user.id);
+    if (!profile) return c.json({ ok: false, error: 'Perfil no encontrado' }, 404);
+    const id = c.req.param('id') ?? '';
+    const existing = await db.query.agendaGroupSessions.findFirst({
+        where: and(eq(agendaGroupSessions.id, id), eq(agendaGroupSessions.professionalId, profile.id)),
+    });
+    if (!existing) return c.json({ ok: false, error: 'Sesión no encontrada' }, 404);
+
+    const body = await c.req.json().catch(() => ({})) as Record<string, unknown>;
+    const patch: Partial<typeof agendaGroupSessions.$inferInsert> & { updatedAt: Date } = { updatedAt: new Date() };
+
+    if (typeof body.title === 'string') {
+        const title = body.title.trim();
+        if (!title) return c.json({ ok: false, error: 'El título no puede estar vacío.' }, 400);
+        patch.title = title;
+    }
+    if ('description' in body) patch.description = typeof body.description === 'string' ? body.description : null;
+
+    let nextStarts = existing.startsAt;
+    let nextDuration = existing.durationMinutes;
+    if (typeof body.startsAt === 'string') {
+        const d = new Date(body.startsAt);
+        if (Number.isNaN(d.getTime())) return c.json({ ok: false, error: 'Fecha inválida.' }, 400);
+        patch.startsAt = d;
+        nextStarts = d;
+    }
+    if ('durationMinutes' in body) {
+        const v = parseOptionalNumber(body.durationMinutes);
+        if (v === null || v <= 0) return c.json({ ok: false, error: 'Duración inválida.' }, 400);
+        patch.durationMinutes = Math.floor(v);
+        nextDuration = Math.floor(v);
+    }
+    if ('startsAt' in body || 'durationMinutes' in body) {
+        patch.endsAt = new Date(nextStarts.getTime() + nextDuration * 60_000);
+    }
+
+    if ('capacity' in body) {
+        const v = parseOptionalNumber(body.capacity);
+        if (v === null || v <= 0) return c.json({ ok: false, error: 'Cupo inválido.' }, 400);
+        patch.capacity = Math.floor(v);
+    }
+    if ('price' in body) {
+        const v = parseOptionalNumber(body.price);
+        patch.price = v !== null ? String(v) : null;
+    }
+    if (typeof body.currency === 'string') patch.currency = body.currency;
+    if (typeof body.modality === 'string' && GROUP_SESSION_MODALITIES.has(body.modality)) patch.modality = body.modality;
+    if ('location' in body) patch.location = typeof body.location === 'string' ? body.location : null;
+    if ('meetingUrl' in body) patch.meetingUrl = typeof body.meetingUrl === 'string' ? body.meetingUrl : null;
+    if (typeof body.isPublic === 'boolean') patch.isPublic = body.isPublic;
+    if ('notes' in body) patch.notes = typeof body.notes === 'string' ? body.notes : null;
+    if ('serviceId' in body) patch.serviceId = typeof body.serviceId === 'string' && body.serviceId ? body.serviceId : null;
+    if (typeof body.status === 'string' && GROUP_SESSION_STATUS.has(body.status)) patch.status = body.status;
+
+    const [updated] = await db.update(agendaGroupSessions)
+        .set(patch)
+        .where(and(eq(agendaGroupSessions.id, id), eq(agendaGroupSessions.professionalId, profile.id)))
+        .returning();
+    await logAudit({
+        professionalId: profile.id,
+        entityType: 'group_session',
+        entityId: id,
+        action: 'update',
+        metadata: { fields: Object.keys(patch).filter((k) => k !== 'updatedAt') },
+        ctx: c,
+    });
+    return c.json({ ok: true, session: updated });
+});
+
+app.delete('/api/agenda/group-sessions/:id', requireVerifiedSession, async (c) => {
+    const user = await authUser(c);
+    if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
+    const profile = await getAgendaProfile(user.id);
+    if (!profile) return c.json({ ok: false, error: 'Perfil no encontrado' }, 404);
+    const id = c.req.param('id') ?? '';
+    const [deleted] = await db.delete(agendaGroupSessions)
+        .where(and(eq(agendaGroupSessions.id, id), eq(agendaGroupSessions.professionalId, profile.id)))
+        .returning();
+    if (!deleted) return c.json({ ok: false, error: 'Sesión no encontrada' }, 404);
+    await logAudit({
+        professionalId: profile.id,
+        entityType: 'group_session',
+        entityId: id,
+        action: 'delete',
+        metadata: { title: deleted.title },
+        ctx: c,
+    });
+    return c.json({ ok: true });
+});
+
+// ── Asistentes ─────────────────────────────────────────────────────────────
+
+app.post('/api/agenda/group-sessions/:id/attendees', requireVerifiedSession, async (c) => {
+    const user = await authUser(c);
+    if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
+    const profile = await getAgendaProfile(user.id);
+    if (!profile) return c.json({ ok: false, error: 'Perfil no encontrado' }, 404);
+    const sessionId = c.req.param('id') ?? '';
+    const session = await db.query.agendaGroupSessions.findFirst({
+        where: and(eq(agendaGroupSessions.id, sessionId), eq(agendaGroupSessions.professionalId, profile.id)),
+    });
+    if (!session) return c.json({ ok: false, error: 'Sesión no encontrada' }, 404);
+    if (session.status === 'cancelled') return c.json({ ok: false, error: 'Esta sesión está cancelada.' }, 400);
+
+    const body = await c.req.json().catch(() => ({})) as Record<string, unknown>;
+    const clientId = typeof body.clientId === 'string' && body.clientId ? body.clientId : null;
+    let clientName = typeof body.clientName === 'string' ? body.clientName.trim() : '';
+    let clientEmail = typeof body.clientEmail === 'string' ? body.clientEmail.trim() : '';
+    let clientPhone = typeof body.clientPhone === 'string' ? body.clientPhone.trim() : '';
+
+    if (clientId) {
+        const client = await db.query.agendaClients.findFirst({
+            where: and(eq(agendaClients.id, clientId), eq(agendaClients.professionalId, profile.id)),
+        });
+        if (!client) return c.json({ ok: false, error: 'Cliente no encontrado.' }, 404);
+        if (!clientName) clientName = `${client.firstName} ${client.lastName ?? ''}`.trim();
+        if (!clientEmail) clientEmail = client.email ?? '';
+        if (!clientPhone) clientPhone = client.phone ?? '';
+    }
+    if (!clientName) return c.json({ ok: false, error: 'Falta el nombre del asistente.' }, 400);
+
+    const currentCount = await db
+        .select({ count: sql<number>`count(*)::int` })
+        .from(agendaGroupAttendees)
+        .where(and(
+            eq(agendaGroupAttendees.sessionId, sessionId),
+            sql`${agendaGroupAttendees.status} <> 'cancelled'`,
+        ));
+    const taken = Number(currentCount[0]?.count ?? 0);
+    if (taken >= session.capacity) {
+        return c.json({ ok: false, error: 'No hay cupos disponibles en esta sesión.' }, 409);
+    }
+
+    const pricePaid = parseOptionalNumber(body.pricePaid);
+    const [created] = await db.insert(agendaGroupAttendees).values({
+        sessionId,
+        professionalId: profile.id,
+        clientId,
+        clientName,
+        clientEmail: clientEmail || null,
+        clientPhone: clientPhone || null,
+        status: 'registered',
+        pricePaid: pricePaid !== null ? String(pricePaid) : null,
+        paidAt: pricePaid !== null ? new Date() : null,
+        notes: typeof body.notes === 'string' ? body.notes : null,
+    }).returning();
+    await logAudit({
+        professionalId: profile.id,
+        entityType: 'group_attendee',
+        entityId: created.id,
+        action: 'create',
+        metadata: { sessionId, clientName, clientId },
+        ctx: c,
+    });
+    return c.json({ ok: true, attendee: created });
+});
+
+app.patch('/api/agenda/group-attendees/:id', requireVerifiedSession, async (c) => {
+    const user = await authUser(c);
+    if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
+    const profile = await getAgendaProfile(user.id);
+    if (!profile) return c.json({ ok: false, error: 'Perfil no encontrado' }, 404);
+    const id = c.req.param('id') ?? '';
+    const existing = await db.query.agendaGroupAttendees.findFirst({
+        where: and(eq(agendaGroupAttendees.id, id), eq(agendaGroupAttendees.professionalId, profile.id)),
+    });
+    if (!existing) return c.json({ ok: false, error: 'Asistente no encontrado' }, 404);
+
+    const body = await c.req.json().catch(() => ({})) as Record<string, unknown>;
+    const patch: Partial<typeof agendaGroupAttendees.$inferInsert> & { updatedAt: Date } = { updatedAt: new Date() };
+
+    if (typeof body.status === 'string' && GROUP_ATTENDEE_STATUS.has(body.status)) patch.status = body.status;
+    if (typeof body.clientName === 'string') {
+        const v = body.clientName.trim();
+        if (!v) return c.json({ ok: false, error: 'El nombre no puede estar vacío.' }, 400);
+        patch.clientName = v;
+    }
+    if ('clientEmail' in body) patch.clientEmail = typeof body.clientEmail === 'string' ? body.clientEmail : null;
+    if ('clientPhone' in body) patch.clientPhone = typeof body.clientPhone === 'string' ? body.clientPhone : null;
+    if ('pricePaid' in body) {
+        const v = parseOptionalNumber(body.pricePaid);
+        patch.pricePaid = v !== null ? String(v) : null;
+        if (v !== null && !existing.paidAt) patch.paidAt = new Date();
+        if (v === null) patch.paidAt = null;
+    }
+    if ('notes' in body) patch.notes = typeof body.notes === 'string' ? body.notes : null;
+
+    const [updated] = await db.update(agendaGroupAttendees)
+        .set(patch)
+        .where(and(eq(agendaGroupAttendees.id, id), eq(agendaGroupAttendees.professionalId, profile.id)))
+        .returning();
+    return c.json({ ok: true, attendee: updated });
+});
+
+app.delete('/api/agenda/group-attendees/:id', requireVerifiedSession, async (c) => {
+    const user = await authUser(c);
+    if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
+    const profile = await getAgendaProfile(user.id);
+    if (!profile) return c.json({ ok: false, error: 'Perfil no encontrado' }, 404);
+    const id = c.req.param('id') ?? '';
+    const [deleted] = await db.delete(agendaGroupAttendees)
+        .where(and(eq(agendaGroupAttendees.id, id), eq(agendaGroupAttendees.professionalId, profile.id)))
+        .returning();
+    if (!deleted) return c.json({ ok: false, error: 'Asistente no encontrado' }, 404);
+    return c.json({ ok: true });
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -16317,6 +18112,21 @@ app.get('/api/agenda/mercadopago/status', requireVerifiedSession, async (c) => {
 // SimpleAgenda — WhatsApp test
 // ─────────────────────────────────────────────────────────────────────────────
 
+app.get('/api/agenda/notifications/history', requireVerifiedSession, async (c) => {
+    const user = await authUser(c);
+    if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
+    const profile = await getAgendaProfile(user.id);
+    if (!profile) return c.json({ ok: true, events: [] });
+    const limitRaw = Number(c.req.query('limit') ?? 50);
+    const limit = Math.min(Math.max(isFinite(limitRaw) ? limitRaw : 50, 1), 200);
+    const events = await db.select()
+        .from(agendaNotificationEvents)
+        .where(eq(agendaNotificationEvents.professionalId, profile.id))
+        .orderBy(desc(agendaNotificationEvents.createdAt))
+        .limit(limit);
+    return c.json({ ok: true, events });
+});
+
 app.post('/api/agenda/whatsapp/test', requireVerifiedSession, async (c) => {
     const user = await authUser(c);
     if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
@@ -16327,9 +18137,24 @@ app.post('/api/agenda/whatsapp/test', requireVerifiedSession, async (c) => {
     if (!phone) return c.json({ ok: false, error: 'No hay número de WhatsApp configurado' }, 400);
     try {
         await sendTestMessage(phone, profile.displayName ?? user.name);
+        await logNotification({
+            professionalId: profile.id,
+            channel: 'whatsapp',
+            eventType: 'test',
+            recipient: phone,
+            status: 'sent',
+        });
         return c.json({ ok: true });
     } catch (e) {
         console.error('[agenda] WhatsApp test error:', e);
+        await logNotification({
+            professionalId: profile.id,
+            channel: 'whatsapp',
+            eventType: 'test',
+            recipient: phone,
+            status: 'failed',
+            errorMessage: e instanceof Error ? e.message : String(e),
+        });
         return c.json({ ok: false, error: 'Error al enviar mensaje' }, 500);
     }
 });
@@ -16748,6 +18573,17 @@ app.post('/api/agenda/subscription/cancel', requireVerifiedSession, async (c) =>
 // SimpleAgenda — Public booking
 // ─────────────────────────────────────────────────────────────────────────────
 
+// Rate limits for public booking endpoints — by IP
+const publicAgendaReadLimit = rateLimit({ name: 'agenda-read', limit: 60, windowMs: 60_000 });
+const publicAgendaSlotsLimit = rateLimit({ name: 'agenda-slots', limit: 30, windowMs: 60_000 });
+const publicAgendaBookLimit = rateLimit({ name: 'agenda-book', limit: 5, windowMs: 60_000 });
+const publicAgendaCancelLimit = rateLimit({ name: 'agenda-cancel', limit: 10, windowMs: 60_000 });
+
+app.use('/api/public/agenda/:slug', publicAgendaReadLimit);
+app.use('/api/public/agenda/:slug/slots', publicAgendaSlotsLimit);
+app.use('/api/public/agenda/:slug/book', publicAgendaBookLimit);
+app.use('/api/public/agenda/appointments/:id/cancel', publicAgendaCancelLimit);
+
 app.get('/api/public/agenda/:slug', async (c) => {
     const slug = c.req.param('slug') ?? '';
     const profile = await db.query.agendaProfessionalProfiles.findFirst({
@@ -16783,6 +18619,7 @@ app.get('/api/public/agenda/:slug', async (c) => {
             twitterUrl: profile.twitterUrl ?? null,
             timezone: profile.timezone,
             bookingWindowDays: profile.bookingWindowDays,
+            allowsRecurrentBooking: profile.allowsRecurrentBooking,
             encuadre: profile.encuadre,
             requiresAdvancePayment: profile.requiresAdvancePayment,
             advancePaymentInstructions: profile.advancePaymentInstructions,
@@ -16920,6 +18757,18 @@ app.post('/api/public/agenda/appointments/:id/cancel', async (c) => {
         .where(eq(agendaAppointments.id, id))
         .returning();
 
+    await logAudit({
+        professionalId: updated.professionalId,
+        entityType: 'appointment',
+        entityId: updated.id,
+        action: 'cancel',
+        metadata: {
+            source: 'client_self_cancel',
+            reason: typeof body.reason === 'string' ? body.reason.slice(0, 200) : null,
+        },
+        ctx: c,
+    });
+
     // Notify professional via WhatsApp
     if (profile?.waNotifyProfessional) {
         const profPhone = profile.waProfessionalPhone ?? profile.publicWhatsapp ?? profile.publicPhone;
@@ -16973,9 +18822,48 @@ app.post('/api/public/agenda/:slug/book', async (c) => {
     let serviceId: string | null = null;
     let price: string | null = null;
     let serviceName: string | null = null;
+    let preconsultFieldsForService: PreconsultField[] = [];
     if (typeof body.serviceId === 'string' && body.serviceId) {
         const svc = await db.query.agendaServices.findFirst({ where: eq(agendaServices.id, body.serviceId) });
-        if (svc) { durationMinutes = svc.durationMinutes; serviceId = svc.id; price = svc.price ?? null; serviceName = svc.name; }
+        if (svc) {
+            durationMinutes = svc.durationMinutes;
+            serviceId = svc.id;
+            price = svc.price ?? null;
+            serviceName = svc.name;
+            preconsultFieldsForService = normalizePreconsultFields(svc.preconsultFields);
+        }
+    }
+
+    // Aplicar cupón si se envió uno válido
+    let appliedPromotion: PromotionRow | null = null;
+    let originalPriceForPromo: number | null = null;
+    let discountAmount: number | null = null;
+    const promoCode = normalizePromoCode(body.promotionCode);
+    if (promoCode) {
+        const basePrice = price ? Number(price) : 0;
+        const promo = await db.query.agendaPromotions.findFirst({
+            where: and(
+                eq(agendaPromotions.professionalId, profile.id),
+                sql`lower(${agendaPromotions.code}) = lower(${promoCode})`,
+            ),
+        });
+        if (!promo) return c.json({ ok: false, error: 'Cupón no válido.' }, 400);
+        const result = applyPromotionToPrice(promo, basePrice, serviceId);
+        if (!result.ok) return c.json({ ok: false, error: result.message }, 400);
+        appliedPromotion = result.promotion;
+        originalPriceForPromo = result.originalPrice;
+        discountAmount = result.discountAmount;
+        price = String(result.finalPrice);
+    }
+    const preconsultResponses = normalizePreconsultResponses(body.preconsultResponses, preconsultFieldsForService);
+    // Validate required fields
+    if (preconsultResponses) {
+        for (let i = 0; i < preconsultFieldsForService.length; i++) {
+            const field = preconsultFieldsForService[i];
+            if (field.required && !preconsultResponses[i].value.trim()) {
+                return c.json({ ok: false, error: `Falta responder: ${field.label}` }, 400);
+            }
+        }
     }
 
     // Parse startsAt - the slot is already in UTC from the slots API
@@ -16983,37 +18871,96 @@ app.post('/api/public/agenda/:slug/book', async (c) => {
     const endsAt = new Date(startsAt.getTime() + durationMinutes * 60_000);
     const status = profile.confirmationMode === 'auto' ? 'confirmed' : 'pending';
 
-    // Check for overlapping appointments
+    // Parse recurrence
+    const rawFreq = typeof body.recurrenceFrequency === 'string' ? body.recurrenceFrequency : null;
+    const requestedFrequency: 'weekly' | 'biweekly' | 'monthly' | null =
+        rawFreq === 'weekly' || rawFreq === 'biweekly' || rawFreq === 'monthly' ? rawFreq : null;
+    if (requestedFrequency && !profile.allowsRecurrentBooking) {
+        return c.json({ ok: false, error: 'Este profesional no permite reservar sesiones recurrentes.' }, 403);
+    }
+    const publicFrequency = requestedFrequency;
+    const recurrenceCountRaw = typeof body.recurrenceCount === 'number' ? body.recurrenceCount : 1;
+    const publicTotalOccurrences = publicFrequency
+        ? Math.max(2, Math.min(recurrenceCountRaw, 26))
+        : 1;
+    const publicSeriesId = publicTotalOccurrences > 1 ? randomUUID() : null;
+
+    const addOffsetPub = (base: Date, index: number, freq: 'weekly' | 'biweekly' | 'monthly' | null): Date => {
+        if (!freq || index === 0) return new Date(base.getTime());
+        const d = new Date(base.getTime());
+        if (freq === 'weekly') d.setDate(d.getDate() + index * 7);
+        else if (freq === 'biweekly') d.setDate(d.getDate() + index * 14);
+        else if (freq === 'monthly') d.setMonth(d.getMonth() + index);
+        return d;
+    };
+
+    // Build occurrences
+    const occurrences: Array<{ startsAt: Date; endsAt: Date }> = [];
+    for (let i = 0; i < publicTotalOccurrences; i++) {
+        occurrences.push({
+            startsAt: addOffsetPub(startsAt, i, publicFrequency),
+            endsAt: addOffsetPub(endsAt, i, publicFrequency),
+        });
+    }
+
+    // Check for overlapping appointments across ALL occurrences
     const existingAppts = await db.select().from(agendaAppointments)
         .where(and(
             eq(agendaAppointments.professionalId, profile.id),
             eq(agendaAppointments.status, 'confirmed'),
         ));
-    const hasOverlap = existingAppts.some(
-        (appt) => startsAt < appt.endsAt && endsAt > appt.startsAt
-    );
-    if (hasOverlap) {
-        return c.json({ ok: false, error: 'Este horario ya está reservado. Por favor selecciona otro.' }, 409);
+    for (let i = 0; i < occurrences.length; i++) {
+        const occ = occurrences[i];
+        const hasOverlap = existingAppts.some(
+            (appt) => occ.startsAt < appt.endsAt && occ.endsAt > appt.startsAt,
+        );
+        if (hasOverlap) {
+            const label = occ.startsAt.toLocaleString('es-CL', { day: '2-digit', month: 'long', hour: '2-digit', minute: '2-digit', timeZone: profile.timezone ?? 'America/Santiago' });
+            const msg = publicTotalOccurrences > 1
+                ? `El horario del ${label} ya está reservado. Reduce la cantidad de sesiones o elige otro día.`
+                : 'Este horario ya está reservado. Por favor selecciona otro.';
+            return c.json({ ok: false, error: msg }, 409);
+        }
     }
 
-    const [appointment] = await db.insert(agendaAppointments).values({
-        professionalId: profile.id,
-        serviceId,
-        clientName: String(body.clientName),
-        clientEmail: typeof body.clientEmail === 'string' ? body.clientEmail || null : null,
-        clientPhone: typeof body.clientPhone === 'string' ? body.clientPhone || null : null,
-        clientNotes: typeof body.clientNotes === 'string' ? body.clientNotes || null : null,
-        startsAt,
-        endsAt,
-        durationMinutes,
-        modality: typeof body.modality === 'string' ? body.modality : 'online',
-        status,
-        price,
-        currency: profile.currency,
-        policyAgreed: body.policyAgreed === true,
-        policyAgreedAt: body.policyAgreed === true ? new Date() : null,
-        paymentStatus: (profile.requiresAdvancePayment && (profile.acceptsTransfer || profile.acceptsMp || profile.acceptsPaymentLink)) ? 'pending' : 'not_required',
-    }).returning();
+    // Insert all occurrences
+    const insertedAppointments: (typeof agendaAppointments.$inferSelect)[] = [];
+    for (const occ of occurrences) {
+        const [inserted] = await db.insert(agendaAppointments).values({
+            professionalId: profile.id,
+            serviceId,
+            clientName: String(body.clientName),
+            clientEmail: typeof body.clientEmail === 'string' ? body.clientEmail || null : null,
+            clientPhone: typeof body.clientPhone === 'string' ? body.clientPhone || null : null,
+            clientNotes: typeof body.clientNotes === 'string' ? body.clientNotes || null : null,
+            startsAt: occ.startsAt,
+            endsAt: occ.endsAt,
+            durationMinutes,
+            modality: typeof body.modality === 'string' ? body.modality : 'online',
+            status,
+            price,
+            currency: profile.currency,
+            policyAgreed: body.policyAgreed === true,
+            policyAgreedAt: body.policyAgreed === true ? new Date() : null,
+            paymentStatus: (profile.requiresAdvancePayment && (profile.acceptsTransfer || profile.acceptsMp || profile.acceptsPaymentLink)) ? 'pending' : 'not_required',
+            seriesId: publicSeriesId,
+            recurrenceFrequency: publicSeriesId ? publicFrequency : null,
+            preconsultResponses: preconsultResponses ?? null,
+            promotionId: appliedPromotion?.id ?? null,
+            promotionCode: appliedPromotion?.code ?? null,
+            originalPrice: originalPriceForPromo !== null ? String(originalPriceForPromo) : null,
+            discountAmount: discountAmount !== null ? String(discountAmount) : null,
+        }).returning();
+        insertedAppointments.push(inserted);
+    }
+    const appointment = insertedAppointments[0];
+
+    // Incrementar uso del cupón (1 por reserva, no por ocurrencia recurrente)
+    if (appliedPromotion) {
+        await db.update(agendaPromotions)
+            .set({ usesCount: sql`${agendaPromotions.usesCount} + 1`, updatedAt: new Date() })
+            .where(eq(agendaPromotions.id, appliedPromotion.id));
+    }
 
     // Create or link client record so the patient appears in the professional's client list
     const bookingEmail = typeof body.clientEmail === 'string' && body.clientEmail ? body.clientEmail : null;
@@ -17035,6 +18982,7 @@ app.post('/api/public/agenda/:slug/book', async (c) => {
             where: and(eq(agendaClients.professionalId, profile.id), eq(agendaClients.phone, bookingPhone)),
         });
     }
+    const seriesAppointmentIds = insertedAppointments.map((a) => a.id);
     if (!existingClient) {
         // Create new client
         const [newClient] = await db.insert(agendaClients).values({
@@ -17044,23 +18992,60 @@ app.post('/api/public/agenda/:slug/book', async (c) => {
             email: bookingEmail,
             phone: bookingPhone,
         }).returning({ id: agendaClients.id });
-        // Link appointment to the new client
+        // Link all occurrences to the new client
         if (newClient) {
-            await db.update(agendaAppointments).set({ clientId: newClient.id }).where(eq(agendaAppointments.id, appointment.id));
+            await db.update(agendaAppointments).set({ clientId: newClient.id }).where(inArray(agendaAppointments.id, seriesAppointmentIds));
         }
     } else {
-        // Link appointment to existing client
-        await db.update(agendaAppointments).set({ clientId: existingClient.id }).where(eq(agendaAppointments.id, appointment.id));
+        // Link all occurrences to existing client
+        await db.update(agendaAppointments).set({ clientId: existingClient.id }).where(inArray(agendaAppointments.id, seriesAppointmentIds));
+    }
+
+    // Google Calendar + Meet: await sync for online appointments so the Meet URL
+    // reaches the client's confirmation email/WhatsApp on the same request.
+    // For in-person bookings it stays fire-and-forget to keep the response snappy.
+    const isOnlineBooking = (typeof body.modality === 'string' ? body.modality : 'online') === 'online';
+    const gcConnected = !!(profile.googleAccessToken && profile.googleCalendarId);
+    if (isOnlineBooking && gcConnected) {
+        const syncResult = await syncToGoogleCalendar(
+            profile,
+            { ...appointment, googleEventId: null, modality: appointment.modality },
+            'create',
+        );
+        if (syncResult?.eventId) {
+            await db.update(agendaAppointments).set({ googleEventId: syncResult.eventId }).where(eq(agendaAppointments.id, appointment.id));
+        }
+        if (syncResult?.meetingUrl) {
+            appointment.meetingUrl = syncResult.meetingUrl;
+        }
     }
 
     // WhatsApp: confirm to client
     const clientPhone = typeof body.clientPhone === 'string' ? body.clientPhone : null;
+    const waSeriesCount = publicSeriesId ? insertedAppointments.length : null;
+    const waSeriesFreq = publicSeriesId ? publicFrequency : null;
     if (status === 'confirmed' && clientPhone && profile.waNotificationsEnabled) {
         void notifyConfirmation(
-            { id: appointment.id, slug: profile.slug, clientName: String(body.clientName), clientPhone, startsAt, endsAt, meetingUrl: appointment.meetingUrl },
+            { id: appointment.id, slug: profile.slug, clientName: String(body.clientName), clientPhone, startsAt, endsAt, meetingUrl: appointment.meetingUrl, seriesCount: waSeriesCount, seriesFrequency: waSeriesFreq },
             { displayName: profile.displayName, timezone: profile.timezone, cancellationHours: profile.cancellationHours },
-        ).catch((err) => {
+        ).then(() => logNotification({
+            professionalId: profile.id,
+            appointmentId: appointment.id,
+            channel: 'whatsapp',
+            eventType: 'confirmation',
+            recipient: clientPhone,
+            status: 'sent',
+        })).catch((err) => {
             console.error('[agenda] Failed to send WhatsApp confirmation to', clientPhone, ':', err);
+            void logNotification({
+                professionalId: profile.id,
+                appointmentId: appointment.id,
+                channel: 'whatsapp',
+                eventType: 'confirmation',
+                recipient: clientPhone,
+                status: 'failed',
+                errorMessage: err instanceof Error ? err.message : String(err),
+            });
         });
     }
 
@@ -17071,19 +19056,22 @@ app.post('/api/public/agenda/:slug/book', async (c) => {
             void notifyProfessionalNewBooking(
                 profPhone,
                 { displayName: profile.displayName, timezone: profile.timezone, cancellationHours: profile.cancellationHours },
-                { clientName: String(body.clientName), clientPhone, startsAt, endsAt },
+                { clientName: String(body.clientName), clientPhone, startsAt, endsAt, seriesCount: waSeriesCount, seriesFrequency: waSeriesFreq },
             ).catch((err) => {
                 console.error('[agenda] Failed to send WhatsApp alert to professional', profPhone, ':', err);
             });
         }
     }
 
-    // Sync to Google Calendar
-    void syncToGoogleCalendar(profile, { ...appointment, googleEventId: null, modality: appointment.modality }, 'create').then(async (result) => {
-        if (result?.eventId) {
-            await db.update(agendaAppointments).set({ googleEventId: result.eventId }).where(eq(agendaAppointments.id, appointment.id));
-        }
-    });
+    // Sync to Google Calendar (for presential bookings — online was awaited above so Meet URL
+    // makes it into the notifications). Skip if already synced.
+    if (!(isOnlineBooking && gcConnected)) {
+        void syncToGoogleCalendar(profile, { ...appointment, googleEventId: null, modality: appointment.modality }, 'create').then(async (result) => {
+            if (result?.eventId) {
+                await db.update(agendaAppointments).set({ googleEventId: result.eventId }).where(eq(agendaAppointments.id, appointment.id));
+            }
+        });
+    }
 
     // Push notification to professional
     const tz3 = profile.timezone ?? 'America/Santiago';
@@ -17142,6 +19130,8 @@ app.post('/api/public/agenda/:slug/book', async (c) => {
             location: appointment.location,
             timezone: profile.timezone ?? 'America/Santiago',
             status,
+            seriesDates: publicSeriesId ? insertedAppointments.map((a) => a.startsAt) : null,
+            seriesFrequency: publicSeriesId ? publicFrequency : null,
             paymentMethods: {
                 requiresAdvancePayment: profile.requiresAdvancePayment,
                 mpConnected: !!(profile.acceptsMp && profile.mpAccessToken),
@@ -17156,7 +19146,23 @@ app.post('/api/public/agenda/:slug/book', async (c) => {
         });
     }
 
-    return c.json({ ok: true, appointment });
+    await logAudit({
+        professionalId: profile.id,
+        entityType: 'appointment',
+        entityId: appointment.id,
+        action: 'create',
+        metadata: {
+            source: 'public_booking',
+            seriesId: publicSeriesId,
+            occurrences: insertedAppointments.length,
+            serviceId,
+            serviceName,
+            clientName: typeof body.clientName === 'string' ? body.clientName.slice(0, 100) : null,
+        },
+        ctx: c,
+    });
+
+    return c.json({ ok: true, appointment, appointments: insertedAppointments, seriesId: publicSeriesId });
 });
 
 // ==========================================
@@ -17652,10 +19658,33 @@ function registerAgendaCronJobs() {
 
             for (const { appt, prof } of appts) {
                 if (!appt.clientPhone) continue;
-                await notifyReminder24h(
-                    { clientName: appt.clientName, clientPhone: appt.clientPhone, startsAt: appt.startsAt, endsAt: appt.endsAt },
-                    { displayName: prof.displayName, timezone: prof.timezone, cancellationHours: prof.cancellationHours },
-                );
+                try {
+                    await notifyReminder24h(
+                        { clientName: appt.clientName, clientPhone: appt.clientPhone, startsAt: appt.startsAt, endsAt: appt.endsAt },
+                        { displayName: prof.displayName, timezone: prof.timezone, cancellationHours: prof.cancellationHours },
+                    );
+                    await logNotification({
+                        professionalId: prof.id,
+                        appointmentId: appt.id,
+                        clientId: appt.clientId,
+                        channel: 'whatsapp',
+                        eventType: 'reminder_24h',
+                        recipient: appt.clientPhone,
+                        status: 'sent',
+                    });
+                } catch (err) {
+                    console.error('[agenda] 24h reminder failed for', appt.id, ':', err);
+                    await logNotification({
+                        professionalId: prof.id,
+                        appointmentId: appt.id,
+                        clientId: appt.clientId,
+                        channel: 'whatsapp',
+                        eventType: 'reminder_24h',
+                        recipient: appt.clientPhone,
+                        status: 'failed',
+                        errorMessage: err instanceof Error ? err.message : String(err),
+                    });
+                }
                 await db.update(agendaAppointments)
                     .set({ reminderSentAt: now })
                     .where(eq(agendaAppointments.id, appt.id));
@@ -17688,10 +19717,33 @@ function registerAgendaCronJobs() {
 
             for (const { appt, prof } of appts) {
                 if (!appt.clientPhone) continue;
-                await notifyReminder30min(
-                    { clientName: appt.clientName, clientPhone: appt.clientPhone, startsAt: appt.startsAt, endsAt: appt.endsAt },
-                    { displayName: prof.displayName, timezone: prof.timezone, cancellationHours: prof.cancellationHours },
-                );
+                try {
+                    await notifyReminder30min(
+                        { clientName: appt.clientName, clientPhone: appt.clientPhone, startsAt: appt.startsAt, endsAt: appt.endsAt },
+                        { displayName: prof.displayName, timezone: prof.timezone, cancellationHours: prof.cancellationHours },
+                    );
+                    await logNotification({
+                        professionalId: prof.id,
+                        appointmentId: appt.id,
+                        clientId: appt.clientId,
+                        channel: 'whatsapp',
+                        eventType: 'reminder_30min',
+                        recipient: appt.clientPhone,
+                        status: 'sent',
+                    });
+                } catch (err) {
+                    console.error('[agenda] 30min reminder failed for', appt.id, ':', err);
+                    await logNotification({
+                        professionalId: prof.id,
+                        appointmentId: appt.id,
+                        clientId: appt.clientId,
+                        channel: 'whatsapp',
+                        eventType: 'reminder_30min',
+                        recipient: appt.clientPhone,
+                        status: 'failed',
+                        errorMessage: err instanceof Error ? err.message : String(err),
+                    });
+                }
                 await db.update(agendaAppointments)
                     .set({ reminder30minSentAt: now })
                     .where(eq(agendaAppointments.id, appt.id));
@@ -17928,6 +19980,22 @@ async function bootstrapMissingTables() {
     await db.execute(sql`CREATE INDEX IF NOT EXISTS agenda_clients_professional_idx ON agenda_clients(professional_id)`);
 
     await db.execute(sql`
+        CREATE TABLE IF NOT EXISTS agenda_client_attachments (
+            id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+            professional_id uuid NOT NULL REFERENCES agenda_professional_profiles(id) ON DELETE CASCADE,
+            client_id uuid NOT NULL REFERENCES agenda_clients(id) ON DELETE CASCADE,
+            name varchar(255) NOT NULL,
+            url text NOT NULL,
+            mime_type varchar(120),
+            size_bytes integer,
+            kind varchar(20) NOT NULL DEFAULT 'document',
+            uploaded_at timestamp NOT NULL DEFAULT now()
+        )
+    `);
+    await db.execute(sql`CREATE INDEX IF NOT EXISTS agenda_client_attachments_client_idx ON agenda_client_attachments(client_id)`);
+    await db.execute(sql`CREATE INDEX IF NOT EXISTS agenda_client_attachments_professional_idx ON agenda_client_attachments(professional_id)`);
+
+    await db.execute(sql`
         CREATE TABLE IF NOT EXISTS agenda_appointments (
             id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
             professional_id uuid NOT NULL REFERENCES agenda_professional_profiles(id) ON DELETE CASCADE,
@@ -17973,8 +20041,11 @@ async function bootstrapMissingTables() {
                 ADD COLUMN IF NOT EXISTS policy_agreed boolean NOT NULL DEFAULT false,
                 ADD COLUMN IF NOT EXISTS policy_agreed_at timestamp,
                 ADD COLUMN IF NOT EXISTS google_event_id varchar(255),
-                ADD COLUMN IF NOT EXISTS payment_status varchar(20) NOT NULL DEFAULT 'not_required'
+                ADD COLUMN IF NOT EXISTS payment_status varchar(20) NOT NULL DEFAULT 'not_required',
+                ADD COLUMN IF NOT EXISTS series_id uuid,
+                ADD COLUMN IF NOT EXISTS recurrence_frequency varchar(20)
         `);
+        await db.execute(sql`CREATE INDEX IF NOT EXISTS agenda_appointments_series_idx ON agenda_appointments(series_id)`);
         console.log('[simple-api] bootstrap: agenda_appointments columns upgraded');
     } catch (e) {
         console.error('[simple-api] bootstrap: failed to upgrade agenda_appointments columns', e);
@@ -18062,6 +20133,13 @@ async function bootstrapMissingTables() {
             ALTER TABLE agenda_professional_profiles
                 ADD COLUMN IF NOT EXISTS plan varchar(20) NOT NULL DEFAULT 'free',
                 ADD COLUMN IF NOT EXISTS plan_expires_at timestamp
+        `);
+    } catch { /* ignore */ }
+
+    try {
+        await db.execute(sql`
+            ALTER TABLE agenda_professional_profiles
+                ADD COLUMN IF NOT EXISTS allows_recurrent_booking boolean NOT NULL DEFAULT true
         `);
     } catch { /* ignore */ }
 

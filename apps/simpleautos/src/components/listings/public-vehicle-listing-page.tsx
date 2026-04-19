@@ -2,7 +2,7 @@
 
 import { Suspense, useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
-import { IconArrowsSort, IconGridDots, IconList } from '@tabler/icons-react';
+import { IconArrowsSort, IconGridDots, IconList, IconChevronLeft, IconChevronRight, IconAdjustmentsHorizontal } from '@tabler/icons-react';
 import InlineResultAd from '@/components/ads/inline-result-ad';
 import { PublicBreadcrumbs } from '@/components/layout/public-breadcrumbs';
 import ModernSelect from '@/components/ui/modern-select';
@@ -75,7 +75,27 @@ function PublicVehicleListingPageContent(props: {
 }) {
     const searchParams = useSearchParams();
     const [loading, setLoading] = useState(true);
-    const [viewMode, setViewMode] = useState<ViewMode>('grid');
+    const [viewMode, setViewMode] = useState<ViewMode>(() => {
+        if (typeof window === 'undefined') return 'grid';
+        const saved = window.localStorage.getItem('simpleautos:publicListings:viewMode');
+        return saved === 'list' ? 'list' : 'grid';
+    });
+    useEffect(() => {
+        if (typeof window !== 'undefined') {
+            window.localStorage.setItem('simpleautos:publicListings:viewMode', viewMode);
+        }
+    }, [viewMode]);
+    const [filtersCollapsed, setFiltersCollapsed] = useState(false);
+    useEffect(() => {
+        if (typeof window === 'undefined') return;
+        const saved = window.localStorage.getItem('simpleautos:publicListings:filtersCollapsed');
+        if (saved === '1') setFiltersCollapsed(true);
+    }, []);
+    useEffect(() => {
+        if (typeof window !== 'undefined') {
+            window.localStorage.setItem('simpleautos:publicListings:filtersCollapsed', filtersCollapsed ? '1' : '0');
+        }
+    }, [filtersCollapsed]);
     const [sortOrder, setSortOrder] = useState('recent');
     const [items, setItems] = useState<PublicListing[]>([]);
 
@@ -163,14 +183,61 @@ function PublicVehicleListingPageContent(props: {
 
             <InlineResultAd section={props.section === 'auction' ? 'subastas' : props.section === 'rent' ? 'arriendos' : 'ventas'} className="mb-5" />
 
-            <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-                <div className="lg:col-span-1">
-                    <VehicleFilters currentVehicleType={currentVehicleType} />
+            <div className="flex flex-col lg:flex-row gap-4 items-start">
+                {/* Desktop sidebar - collapsible like panel sidebar */}
+                <aside className={`hidden lg:block shrink-0 transition-[width] duration-200 ${filtersCollapsed ? 'w-14' : 'w-72'}`}>
+                    <div
+                        className="sticky top-4 rounded-2xl border p-3 flex flex-col"
+                        style={{
+                            borderColor: 'var(--border)',
+                            background: 'color-mix(in srgb, var(--surface) 92%, transparent)',
+                            boxShadow: 'var(--shadow-md)',
+                        }}
+                    >
+                        <div className={`mb-3 flex ${filtersCollapsed ? 'justify-center' : 'justify-end'}`}>
+                            <button
+                                onClick={() => setFiltersCollapsed((prev) => !prev)}
+                                className="w-8 h-8 rounded-[10px] flex items-center justify-center border transition-colors hover:bg-[var(--bg-subtle)] hover:border-[var(--border-strong)] hover:text-[var(--fg)]"
+                                style={{ borderColor: 'var(--border)', color: 'var(--fg-muted)' }}
+                                aria-label={filtersCollapsed ? 'Expandir filtros' : 'Contraer filtros'}
+                            >
+                                {filtersCollapsed ? <IconChevronRight size={15} /> : <IconChevronLeft size={15} />}
+                            </button>
+                        </div>
+
+                        {filtersCollapsed ? (
+                            <button
+                                type="button"
+                                onClick={() => setFiltersCollapsed(false)}
+                                className="w-8 h-8 mx-auto rounded-[10px] flex items-center justify-center border transition-colors hover:bg-[var(--bg-subtle)] hover:border-[var(--border-strong)] hover:text-[var(--fg)]"
+                                style={{ borderColor: 'var(--border)', color: 'var(--fg-muted)' }}
+                                aria-label="Mostrar filtros"
+                                title="Filtros"
+                            >
+                                <IconAdjustmentsHorizontal size={15} />
+                            </button>
+                        ) : (
+                            <VehicleFilters currentVehicleType={currentVehicleType} />
+                        )}
+                    </div>
+                </aside>
+
+                {/* Mobile filters - stack on top */}
+                <div className="lg:hidden w-full mb-4">
+                    <div
+                        className="rounded-2xl border p-3"
+                        style={{
+                            borderColor: 'var(--border)',
+                            background: 'color-mix(in srgb, var(--surface) 92%, transparent)',
+                        }}
+                    >
+                        <VehicleFilters currentVehicleType={currentVehicleType} />
+                    </div>
                 </div>
 
-                <div className="lg:col-span-3">
+                <div className="flex-1 min-w-0">
                     {loading ? (
-                        <div className={viewMode === 'grid' ? 'grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4' : 'space-y-3'}>
+                        <div className={viewMode === 'grid' ? 'grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4' : 'space-y-3'}>
                             {Array.from({ length: 6 }).map((_, index) => (
                                 <div key={index} className="h-72 rounded-xl animate-pulse" style={{ background: 'var(--bg-muted)' }} />
                             ))}
@@ -182,7 +249,7 @@ function PublicVehicleListingPageContent(props: {
                             </PanelNotice>
                         </PanelCard>
                     ) : (
-                        <div className={viewMode === 'grid' ? 'grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4' : 'space-y-3'}>
+                        <div className={viewMode === 'grid' ? 'grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4' : 'space-y-3'}>
                             {cards.map((item) => (
                                 <VehicleListingCard key={item.id} data={item} mode={viewMode} />
                             ))}
@@ -203,7 +270,7 @@ export default function PublicVehicleListingPage(props: {
     return (
         <Suspense fallback={
             <div className="container-app py-6">
-                <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
                     {Array.from({ length: 6 }).map((_, index) => (
                         <div key={index} className="h-72 rounded-xl animate-pulse" style={{ background: 'var(--bg-muted)' }} />
                     ))}

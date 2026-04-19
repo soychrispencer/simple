@@ -4,6 +4,8 @@ import {
     IconUsers,
     IconSettings,
     IconCoin,
+    IconChartBar,
+    IconShare,
     type Icon,
 } from '@tabler/icons-react';
 
@@ -22,6 +24,8 @@ const BASE_ITEMS: PanelNavItem[] = [
     { href: '/panel/agenda', label: 'Mi Agenda', icon: IconCalendar },
     { href: '/panel/clientes', label: 'Pacientes', icon: IconUsers },
     { href: '/panel/pagos', label: 'Cobros', icon: IconCoin },
+    { href: '/panel/analytics', label: 'Estadísticas', icon: IconChartBar },
+    { href: '/panel/referidos', label: 'Referidos', icon: IconShare },
     { href: '/panel/configuracion', label: 'Configuración', icon: IconSettings },
 ];
 

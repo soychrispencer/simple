@@ -12,7 +12,9 @@ import {
     IconAlertCircle,
     IconMap,
     IconShare,
+    IconChevronRight,
 } from '@tabler/icons-react';
+import Link from 'next/link';
 import {
     PanelCard,
     PanelButton,
@@ -361,6 +363,21 @@ export default function DireccionesConfigPage() {
                     })}
                 </div>
             )}
+
+            <div className="mt-10 pt-6" style={{ borderTop: '1px solid var(--border)' }}>
+                <Link
+                    href="/panel/configuracion/link"
+                    className="flex items-center gap-3 p-4 rounded-2xl border transition-colors hover:border-[--accent-border]"
+                    style={{ borderColor: 'var(--border)', background: 'var(--surface)' }}
+                >
+                    <div className="flex-1 min-w-0">
+                        <p className="text-xs font-medium mb-0.5" style={{ color: 'var(--accent)' }}>Siguiente paso</p>
+                        <p className="text-sm font-semibold" style={{ color: 'var(--fg)' }}>Página de reservas</p>
+                        <p className="text-xs mt-0.5" style={{ color: 'var(--fg-muted)' }}>Activa tu link público y compártelo con tus pacientes.</p>
+                    </div>
+                    <IconChevronRight size={18} style={{ color: 'var(--accent)' }} />
+                </Link>
+            </div>
         </div>
     );
 }

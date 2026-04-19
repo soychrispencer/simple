@@ -53,6 +53,7 @@ export default function PerfilConfigPage() {
         publicPhone: '',
         publicWhatsapp: '',
         confirmationMode: 'auto' as 'auto' | 'manual',
+        allowsRecurrentBooking: true,
         bookingWindowDays: 30,
         cancellationHours: 24,
         currency: 'CLP',
@@ -78,6 +79,7 @@ export default function PerfilConfigPage() {
                     publicPhone: profile.publicPhone ?? '',
                     publicWhatsapp: profile.publicWhatsapp ?? '',
                     confirmationMode: (profile.confirmationMode as 'auto' | 'manual') ?? 'auto',
+                    allowsRecurrentBooking: profile.allowsRecurrentBooking ?? true,
                     bookingWindowDays: profile.bookingWindowDays ?? 30,
                     cancellationHours: profile.cancellationHours ?? 24,
                     currency: profile.currency ?? 'CLP',
@@ -528,6 +530,21 @@ export default function PerfilConfigPage() {
                                 className="form-input"
                             />
                         </PanelField>
+                    </div>
+
+                    <div className="mt-4 pt-4 flex items-start gap-3" style={{ borderTop: '1px solid var(--border)' }}>
+                        <div className="flex-1 min-w-0">
+                            <p className="text-sm font-medium" style={{ color: 'var(--fg)' }}>Permitir reservas recurrentes</p>
+                            <p className="text-xs mt-0.5" style={{ color: 'var(--fg-muted)' }}>
+                                Tus {vocab.clients} podrán agendar varias sesiones (semanal, quincenal o mensual) desde tu link público.
+                            </p>
+                        </div>
+                        <PanelSwitch
+                            checked={form.allowsRecurrentBooking}
+                            onChange={(v) => set('allowsRecurrentBooking', v)}
+                            size="sm"
+                            ariaLabel={form.allowsRecurrentBooking ? 'Desactivar reservas recurrentes' : 'Activar reservas recurrentes'}
+                        />
                     </div>
                 </PanelCard>
 

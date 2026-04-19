@@ -37,6 +37,7 @@ type PublicProfile = {
     twitterUrl: string | null;
     timezone: string;
     bookingWindowDays: number;
+    allowsRecurrentBooking: boolean;
     encuadre: string | null;
     requiresAdvancePayment: boolean;
     advancePaymentInstructions: string | null;
@@ -52,6 +53,7 @@ type PublicProfile = {
     services: Array<{
         id: string; name: string; durationMinutes: number;
         price: string | null; currency: string; isOnline: boolean; isPresential: boolean;
+        preconsultFields?: Array<{ id: string; label: string; type: 'text' | 'textarea' | 'select' | 'checkbox' | 'number'; required: boolean; placeholder?: string; options?: string[] }>;
     }>;
     locations: Array<{
         id: string;

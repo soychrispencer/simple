@@ -8,33 +8,27 @@ import {
     IconLoader2,
     IconX,
     IconCalendar,
-    IconBrandWhatsapp,
-    IconSend,
-    IconAlertCircle,
     IconLock,
     IconCash,
+    IconBell,
+    IconChevronRight,
 } from '@tabler/icons-react';
 import {
     PanelCard,
-    PanelField,
     PanelButton,
-    PanelSwitch,
     PanelNotice,
     PanelPageHeader,
 } from '@simple/ui';
 import Link from 'next/link';
 import {
     fetchAgendaProfile,
-    saveAgendaProfile,
     fetchGoogleCalendarStatus,
     getGoogleCalendarAuthUrl,
     disconnectGoogleCalendar,
-    sendWhatsAppTest,
     fetchMercadoPagoStatus,
     getMercadoPagoAuthUrl,
     disconnectMercadoPago,
     isPlanActive,
-    type AgendaProfile,
 } from '@/lib/agenda-api';
 
 function ProGate({ feature }: { feature: string }) {
@@ -72,15 +66,6 @@ function IntegracionesPageInner() {
     const [mpUserId, setMpUserId] = useState<string | null>(null);
     const [mpDisconnecting, setMpDisconnecting] = useState(false);
 
-    // WhatsApp prefs
-    const [waEnabled, setWaEnabled] = useState(true);
-    const [waNotifyProf, setWaNotifyProf] = useState(true);
-    const [waProfPhone, setWaProfPhone] = useState('');
-    const [waSaving, setWaSaving] = useState(false);
-    const [waSaved, setWaSaved] = useState(false);
-    const [waTesting, setWaTesting] = useState(false);
-    const [waTestResult, setWaTestResult] = useState<'ok' | 'error' | null>(null);
-
     const [flash, setFlash] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
 
     useEffect(() => {
@@ -101,9 +86,6 @@ function IntegracionesPageInner() {
             ]);
             if (prof) {
                 setIsPro(isPlanActive(prof));
-                setWaEnabled(prof.waNotificationsEnabled ?? true);
-                setWaNotifyProf(prof.waNotifyProfessional ?? true);
-                setWaProfPhone(prof.waProfessionalPhone ?? '');
             }
             setGcConnected(gcStatus.connected);
             setGcCalendarId(gcStatus.calendarId);
@@ -113,28 +95,6 @@ function IntegracionesPageInner() {
         };
         void load();
     }, [gcParam, mpParam]);
-
-    const handleSaveWa = async () => {
-        setWaSaving(true);
-        setWaSaved(false);
-        await saveAgendaProfile({
-            waNotificationsEnabled: waEnabled,
-            waNotifyProfessional: waNotifyProf,
-            waProfessionalPhone: waProfPhone || null,
-        } as Partial<AgendaProfile>);
-        setWaSaving(false);
-        setWaSaved(true);
-        setTimeout(() => setWaSaved(false), 2500);
-    };
-
-    const handleTest = async () => {
-        setWaTesting(true);
-        setWaTestResult(null);
-        const result = await sendWhatsAppTest();
-        setWaTesting(false);
-        setWaTestResult(result.ok ? 'ok' : 'error');
-        setTimeout(() => setWaTestResult(null), 4000);
-    };
 
     const handleDisconnectGc = async () => {
         setGcDisconnecting(true);
@@ -159,7 +119,7 @@ function IntegracionesPageInner() {
             <PanelPageHeader
                 backHref="/panel/configuracion"
                 title="Integraciones"
-                description="Conecta tus herramientas y configura las notificaciones."
+                description="Conecta tus herramientas externas para automatizar tu agenda."
             />
 
             {flash && (
@@ -249,7 +209,7 @@ function IntegracionesPageInner() {
                                 )}
                             </div>
                             <p className="text-xs mb-4" style={{ color: 'var(--fg-muted)' }}>
-                                Sincroniza tus citas automáticamente. Cada reserva o cancelación se refleja en tu calendario.
+                                Sincroniza tus citas y <strong style={{ color: 'var(--fg)' }}>genera enlaces de Google Meet automáticamente</strong> para cada sesión online. Cada reserva o cancelación se refleja en tu calendario.
                             </p>
                             {loading ? (
                                 <div className="flex items-center gap-2 text-sm" style={{ color: 'var(--fg-muted)' }}>
@@ -283,105 +243,23 @@ function IntegracionesPageInner() {
                     </div>
                 </PanelCard>
 
-                {/* WhatsApp */}
-                <PanelCard size="md">
-                    <div className="flex items-start gap-4">
-                        <div className="w-12 h-12 rounded-xl flex items-center justify-center shrink-0" style={{ background: 'rgba(37,211,102,0.1)', color: '#25D366' }}>
-                            <IconBrandWhatsapp size={22} />
-                        </div>
-                        <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-2 mb-0.5">
-                                <h2 className="text-sm font-semibold" style={{ color: 'var(--fg)' }}>WhatsApp</h2>
-                                {!loading && !isPro && (
-                                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium" style={{ background: 'rgba(234,179,8,0.1)', color: '#b45309' }}>
-                                        Pro
-                                    </span>
-                                )}
-                            </div>
-                            <p className="text-xs mb-4" style={{ color: 'var(--fg-muted)' }}>
-                                Confirmaciones, recordatorios y cancelaciones vía WhatsApp. Los mensajes salen desde <strong>SimpleAgenda</strong>.
-                            </p>
-
-                            {loading ? (
-                                <div className="flex items-center gap-2 text-sm" style={{ color: 'var(--fg-muted)' }}>
-                                    <IconLoader2 size={14} className="animate-spin" /> Cargando configuración...
-                                </div>
-                            ) : !isPro ? (
-                                <ProGate feature="WhatsApp" />
-                            ) : (
-                                <>
-                                    <div className="flex items-center justify-between mb-4">
-                                        <p className="text-xs font-semibold" style={{ color: 'var(--fg)' }}>Activar notificaciones WhatsApp</p>
-                                        <PanelSwitch checked={waEnabled} onChange={setWaEnabled} ariaLabel="Activar notificaciones de WhatsApp" />
-                                    </div>
-
-                                    <div className={`flex flex-col gap-5 transition-opacity ${!waEnabled ? 'opacity-40 pointer-events-none' : ''}`}>
-                                        <div>
-                                            <p className="text-xs font-semibold mb-2" style={{ color: 'var(--fg)' }}>Notificaciones a pacientes</p>
-                                            <div className="flex flex-col gap-1.5">
-                                                {[
-                                                    'Confirmación de cita',
-                                                    'Recordatorio 24 horas antes',
-                                                    'Recordatorio 30 minutos antes',
-                                                    'Aviso de cancelación',
-                                                ].map((label) => (
-                                                    <div key={label} className="flex items-center gap-2 text-xs" style={{ color: 'var(--fg-muted)' }}>
-                                                        <IconCheck size={12} style={{ color: 'var(--accent)' }} />
-                                                        {label}
-                                                    </div>
-                                                ))}
-                                            </div>
-                                        </div>
-
-                                        <div style={{ height: 1, background: 'var(--border)' }} />
-
-                                        <div>
-                                            <div className="flex items-center justify-between mb-3">
-                                                <p className="text-xs font-semibold" style={{ color: 'var(--fg)' }}>Alertas para ti</p>
-                                                <PanelSwitch checked={waNotifyProf} onChange={setWaNotifyProf} size="sm" ariaLabel="Recibir alertas por WhatsApp" />
-                                            </div>
-                                            <p className="text-xs mb-3" style={{ color: 'var(--fg-muted)' }}>
-                                                Recibe un WhatsApp cada vez que un paciente reserve una cita nueva.
-                                            </p>
-                                            {waNotifyProf && (
-                                                <PanelField label="Tu número de WhatsApp para alertas" hint="Si lo dejas vacío se usará el WhatsApp de tu perfil público.">
-                                                    <input
-                                                        type="tel"
-                                                        value={waProfPhone}
-                                                        onChange={(e) => setWaProfPhone(e.target.value)}
-                                                        placeholder="+56 9 1234 5678"
-                                                        className="form-input"
-                                                    />
-                                                </PanelField>
-                                            )}
-                                        </div>
-
-                                        <div className="flex items-center gap-3 pt-1 flex-wrap">
-                                            <PanelButton variant="accent" size="sm" onClick={() => void handleSaveWa()} disabled={waSaving}>
-                                                {waSaving ? <IconLoader2 size={13} className="animate-spin" /> : waSaved ? <IconCheck size={13} /> : null}
-                                                {waSaving ? 'Guardando...' : waSaved ? 'Guardado' : 'Guardar'}
-                                            </PanelButton>
-                                            <PanelButton variant="secondary" size="sm" onClick={() => void handleTest()} disabled={waTesting}>
-                                                {waTesting ? <IconLoader2 size={13} className="animate-spin" /> : <IconSend size={13} />}
-                                                Enviar prueba
-                                            </PanelButton>
-                                            {waTestResult === 'ok' && (
-                                                <span className="flex items-center gap-1 text-xs" style={{ color: 'var(--accent)' }}>
-                                                    <IconCheck size={13} /> Mensaje enviado
-                                                </span>
-                                            )}
-                                            {waTestResult === 'error' && (
-                                                <span className="flex items-center gap-1 text-xs" style={{ color: '#dc2626' }}>
-                                                    <IconAlertCircle size={13} /> Error al enviar
-                                                </span>
-                                            )}
-                                        </div>
-                                    </div>
-                                </>
-                            )}
-                        </div>
+                {/* Atajo a Notificaciones */}
+                <Link
+                    href="/panel/configuracion/notificaciones"
+                    className="flex items-center gap-4 p-4 rounded-2xl border transition-colors hover:border-[--accent-border]"
+                    style={{ borderColor: 'var(--border)', background: 'var(--surface)' }}
+                >
+                    <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0" style={{ background: 'var(--bg-muted)', color: 'var(--fg-muted)' }}>
+                        <IconBell size={16} />
                     </div>
-                </PanelCard>
+                    <div className="flex-1 min-w-0">
+                        <p className="text-sm font-semibold" style={{ color: 'var(--fg)' }}>¿Buscas WhatsApp y avisos?</p>
+                        <p className="text-xs mt-0.5" style={{ color: 'var(--fg-muted)' }}>
+                            Las notificaciones a pacientes ahora viven en <strong>Notificaciones</strong>.
+                        </p>
+                    </div>
+                    <IconChevronRight size={16} style={{ color: 'var(--fg-muted)' }} />
+                </Link>
 
             </div>
         </div>

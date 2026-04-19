@@ -129,15 +129,6 @@ export default function VehicleListingCard({ data, mode }: Props) {
             }}
             badges={badges}
             ctaLabel={data.ctaLabel}
-            engagement={
-                data.engagement
-                    ? {
-                        views: data.engagement.views24h,
-                        saves: data.engagement.saves,
-                        listedSinceLabel: data.listedSince,
-                    }
-                    : undefined
-            }
             isSaved={favorite}
             onSave={handleSave}
             onShare={handleShare}

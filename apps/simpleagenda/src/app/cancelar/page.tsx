@@ -1,16 +1,17 @@
 'use client';
 
-import { useEffect, useState, Suspense } from 'react';
-import { useSearchParams } from 'next/navigation';
+import { useState, Suspense } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { cancelPublicAppointment } from '@/lib/agenda-api';
-import { IconCalendarX, IconCheck, IconLoader2, IconAlertCircle } from '@tabler/icons-react';
+import { IconCalendarX, IconCheck, IconLoader2, IconAlertCircle, IconCalendarEvent } from '@tabler/icons-react';
 
 function CancelPage() {
     const params = useSearchParams();
+    const router = useRouter();
     const appointmentId = params.get('appt') ?? '';
     const slug = params.get('slug') ?? '';
 
-    const [state, setState] = useState<'idle' | 'loading' | 'done' | 'error'>('idle');
+    const [state, setState] = useState<'idle' | 'loading' | 'rescheduling' | 'done' | 'error'>('idle');
     const [reason, setReason] = useState('');
     const [errorMsg, setErrorMsg] = useState('');
 
@@ -22,6 +23,18 @@ function CancelPage() {
             setState('done');
         } else {
             setErrorMsg(res.error ?? 'No se pudo cancelar la cita.');
+            setState('error');
+        }
+    };
+
+    const handleReschedule = async () => {
+        if (!appointmentId || !slug) return;
+        setState('rescheduling');
+        const res = await cancelPublicAppointment(appointmentId, reason || 'Reprogramación solicitada');
+        if (res.ok) {
+            router.push(`/${slug}?reprogramar=1`);
+        } else {
+            setErrorMsg(res.error ?? 'No se pudo reprogramar la cita.');
             setState('error');
         }
     };
@@ -67,49 +80,63 @@ function CancelPage() {
                 <div className="w-14 h-14 rounded-2xl flex items-center justify-center mb-5 mx-auto" style={{ background: 'rgba(239,68,68,0.1)' }}>
                     <IconCalendarX size={28} className="text-red-500" />
                 </div>
-                <h1 className="text-xl font-bold text-center mb-1" style={{ color: 'var(--fg)' }}>Cancelar cita</h1>
+                <h1 className="text-xl font-bold text-center mb-1" style={{ color: 'var(--fg)' }}>Cancelar o reprogramar</h1>
                 <p className="text-sm text-center mb-6" style={{ color: 'var(--fg-muted)' }}>
-                    ¿Estás seguro que deseas cancelar esta cita? Esta acción no se puede deshacer.
+                    Elige si quieres cancelar tu cita o cambiar a otra fecha.
                 </p>
 
                 {state === 'error' && (
-                    <div className="mb-4 p-3 rounded-xl text-sm text-red-700 bg-red-50 border border-red-200">
+                    <div role="alert" className="mb-4 p-3 rounded-xl text-sm text-red-700 bg-red-50 border border-red-200">
                         {errorMsg}
                     </div>
                 )}
 
                 <div className="mb-4">
-                    <label className="block text-sm font-medium mb-1" style={{ color: 'var(--fg)' }}>
-                        Motivo de cancelación <span style={{ color: 'var(--fg-muted)' }}>(opcional)</span>
+                    <label htmlFor="cancel-reason" className="block text-sm font-medium mb-1" style={{ color: 'var(--fg)' }}>
+                        Motivo <span style={{ color: 'var(--fg-muted)' }}>(opcional)</span>
                     </label>
                     <textarea
+                        id="cancel-reason"
                         rows={3}
                         className="w-full rounded-xl border px-3 py-2 text-sm resize-none"
                         style={{ borderColor: 'var(--border)', background: 'var(--bg)', color: 'var(--fg)' }}
                         placeholder="Ej: Cambio de horario, enfermedad, etc."
                         value={reason}
                         onChange={(e) => setReason(e.target.value)}
-                        disabled={state === 'loading'}
+                        disabled={state === 'loading' || state === 'rescheduling'}
                     />
                 </div>
 
-                <button
-                    onClick={() => void handleCancel()}
-                    disabled={state === 'loading'}
-                    className="w-full py-3 rounded-xl font-medium text-sm flex items-center justify-center gap-2 transition-opacity hover:opacity-90 disabled:opacity-60"
-                    style={{ background: '#ef4444', color: '#fff' }}
-                >
-                    {state === 'loading' && <IconLoader2 size={16} className="animate-spin" />}
-                    Confirmar cancelación
-                </button>
+                <div className="flex flex-col gap-2">
+                    {slug && (
+                        <button
+                            onClick={() => void handleReschedule()}
+                            disabled={state === 'loading' || state === 'rescheduling'}
+                            className="w-full py-3 rounded-xl font-semibold text-sm flex items-center justify-center gap-2 transition-opacity hover:opacity-90 disabled:opacity-60"
+                            style={{ background: 'var(--accent)', color: '#fff' }}
+                        >
+                            {state === 'rescheduling' ? <IconLoader2 size={16} className="animate-spin" /> : <IconCalendarEvent size={16} />}
+                            {state === 'rescheduling' ? 'Liberando horario...' : 'Cambiar a otra fecha'}
+                        </button>
+                    )}
+                    <button
+                        onClick={() => void handleCancel()}
+                        disabled={state === 'loading' || state === 'rescheduling'}
+                        className="w-full py-3 rounded-xl font-medium text-sm flex items-center justify-center gap-2 transition-opacity hover:opacity-90 disabled:opacity-60 border"
+                        style={{ borderColor: 'rgba(239,68,68,0.3)', background: 'transparent', color: '#ef4444' }}
+                    >
+                        {state === 'loading' && <IconLoader2 size={16} className="animate-spin" />}
+                        {state === 'loading' ? 'Cancelando...' : 'Cancelar definitivamente'}
+                    </button>
+                </div>
 
                 {slug && (
                     <a
                         href={`/${slug}`}
-                        className="mt-3 block text-center text-sm transition-opacity hover:opacity-70"
+                        className="mt-4 block text-center text-sm transition-opacity hover:opacity-70"
                         style={{ color: 'var(--fg-muted)' }}
                     >
-                        Volver sin cancelar
+                        Volver sin hacer cambios
                     </a>
                 )}
             </div>

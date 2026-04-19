@@ -408,6 +408,7 @@ export const agendaProfessionalProfiles = pgTable('agenda_professional_profiles'
   bookingWindowDays: integer('booking_window_days').notNull().default(30), // how far in advance clients can book
   cancellationHours: integer('cancellation_hours').notNull().default(24),  // min hours notice to cancel
   confirmationMode: varchar('confirmation_mode', { length: 20 }).notNull().default('auto'), // 'auto' | 'manual'
+  allowsRecurrentBooking: boolean('allows_recurrent_booking').notNull().default(true), // patient can book a recurring series publicly
   // Encuadre & advance payment
   encuadre: text('encuadre'), // Policy text shown to client at booking (e.g. no-show = no refund)
   requiresAdvancePayment: boolean('requires_advance_payment').notNull().default(false),
@@ -476,6 +477,7 @@ export const agendaServices = pgTable('agenda_services', {
   color: varchar('color', { length: 20 }), // for calendar UI differentiation
   isActive: boolean('is_active').notNull().default(true),
   position: integer('position').notNull().default(0),
+  preconsultFields: jsonb('preconsult_fields').$type<Array<Record<string, unknown>>>().notNull().default(sql`'[]'::jsonb`),
   createdAt: timestamp('created_at').notNull().defaultNow(),
   updatedAt: timestamp('updated_at').notNull().defaultNow(),
 }, (table) => ({
@@ -547,6 +549,7 @@ export const agendaClients = pgTable('agenda_clients', {
   emergencyContactName: varchar('emergency_contact_name', { length: 160 }),
   emergencyContactPhone: varchar('emergency_contact_phone', { length: 30 }),
   referredBy: varchar('referred_by', { length: 160 }),
+  referredByClientId: uuid('referred_by_client_id'),
   internalNotes: text('internal_notes'),
   tags: jsonb('tags').$type<string[]>().default([]),
   status: varchar('status', { length: 20 }).notNull().default('active'), // 'active' | 'inactive' | 'archived'
@@ -554,6 +557,22 @@ export const agendaClients = pgTable('agenda_clients', {
   updatedAt: timestamp('updated_at').notNull().defaultNow(),
 }, (table) => ({
   professionalIdx: index('agenda_clients_professional_idx').on(table.professionalId),
+}));
+
+// Clinical attachments (documents, images, prescriptions) tied to a client
+export const agendaClientAttachments = pgTable('agenda_client_attachments', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  professionalId: uuid('professional_id').references(() => agendaProfessionalProfiles.id).notNull(),
+  clientId: uuid('client_id').references(() => agendaClients.id).notNull(),
+  name: varchar('name', { length: 255 }).notNull(),
+  url: text('url').notNull(),
+  mimeType: varchar('mime_type', { length: 120 }),
+  sizeBytes: integer('size_bytes'),
+  kind: varchar('kind', { length: 20 }).notNull().default('document'), // 'document' | 'image' | 'prescription' | 'other'
+  uploadedAt: timestamp('uploaded_at').notNull().defaultNow(),
+}, (table) => ({
+  clientIdx: index('agenda_client_attachments_client_idx').on(table.clientId),
+  professionalIdx: index('agenda_client_attachments_professional_idx').on(table.professionalId),
 }));
 
 // Appointments / bookings
@@ -589,12 +608,27 @@ export const agendaAppointments = pgTable('agenda_appointments', {
   googleEventId: varchar('google_event_id', { length: 255 }),
   // Payment tracking
   paymentStatus: varchar('payment_status', { length: 20 }).notNull().default('not_required'), // 'not_required' | 'pending' | 'paid' | 'refunded'
+  // Recurrence — groups occurrences of the same booked series
+  seriesId: uuid('series_id'),
+  recurrenceFrequency: varchar('recurrence_frequency', { length: 20 }), // 'weekly' | 'biweekly' | 'monthly' | null
+  // Pre-consulta snapshot: array of { label, value }
+  preconsultResponses: jsonb('preconsult_responses').$type<Array<{ label: string; value: string }>>(),
+  // Promotion / cupón aplicado
+  promotionId: uuid('promotion_id'),
+  promotionCode: varchar('promotion_code', { length: 40 }),
+  originalPrice: decimal('original_price', { precision: 10, scale: 2 }),
+  discountAmount: decimal('discount_amount', { precision: 10, scale: 2 }),
+  // Pack/bono consumido
+  clientPackId: uuid('client_pack_id'),
   createdAt: timestamp('created_at').notNull().defaultNow(),
   updatedAt: timestamp('updated_at').notNull().defaultNow(),
 }, (table) => ({
   professionalIdx: index('agenda_appointments_professional_idx').on(table.professionalId),
   startsAtIdx: index('agenda_appointments_starts_at_idx').on(table.startsAt),
   clientIdx: index('agenda_appointments_client_idx').on(table.clientId),
+  seriesIdx: index('agenda_appointments_series_idx').on(table.seriesId),
+  promotionIdx: index('agenda_appointments_promotion_idx').on(table.promotionId),
+  clientPackIdx: index('agenda_appointments_client_pack_idx').on(table.clientPackId),
 }));
 
 // Session notes (clinical notes per appointment)
@@ -726,4 +760,219 @@ export const paymentOrders = pgTable('payment_orders', {
   statusIdx: index('payment_orders_status_idx').on(table.status),
   kindIdx: index('payment_orders_kind_idx').on(table.kind),
   verticalIdx: index('payment_orders_vertical_idx').on(table.vertical),
+}));
+
+// SimpleAgenda — reusable tags for clients (per professional)
+export const agendaClientTags = pgTable('agenda_client_tags', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  professionalId: uuid('professional_id').notNull(),
+  name: varchar('name', { length: 60 }).notNull(),
+  color: varchar('color', { length: 20 }),
+  position: integer('position').notNull().default(0),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+  updatedAt: timestamp('updated_at').notNull().defaultNow(),
+}, (table) => ({
+  professionalIdx: index('agenda_client_tags_professional_idx').on(table.professionalId),
+  uniqueName: uniqueIndex('agenda_client_tags_unique_name_idx').on(table.professionalId, sql`lower(${table.name})`),
+}));
+
+// SimpleAgenda — tag ↔ client assignments (composite PK in the SQL migration)
+export const agendaClientTagAssignments = pgTable('agenda_client_tag_assignments', {
+  clientId: uuid('client_id').references(() => agendaClients.id).notNull(),
+  tagId: uuid('tag_id').references(() => agendaClientTags.id).notNull(),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+}, (table) => ({
+  tagIdx: index('agenda_client_tag_assignments_tag_idx').on(table.tagId),
+}));
+
+// SimpleAgenda — NPS post-cita (Net Promoter Score)
+export const agendaNpsResponses = pgTable('agenda_nps_responses', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  professionalId: uuid('professional_id').references(() => agendaProfessionalProfiles.id).notNull(),
+  appointmentId: uuid('appointment_id').references(() => agendaAppointments.id, { onDelete: 'cascade' }).notNull(),
+  clientId: uuid('client_id').references(() => agendaClients.id),
+  token: varchar('token', { length: 64 }).notNull().unique(),
+  score: integer('score'), // 0–10, null hasta que responda
+  comment: text('comment'),
+  sentAt: timestamp('sent_at').notNull().defaultNow(),
+  submittedAt: timestamp('submitted_at'),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+}, (table) => ({
+  appointmentIdx: uniqueIndex('agenda_nps_appointment_idx').on(table.appointmentId),
+  professionalIdx: index('agenda_nps_professional_idx').on(table.professionalId),
+  submittedIdx: index('agenda_nps_submitted_idx').on(table.submittedAt),
+}));
+
+// SimpleAgenda — referidos (cliente recomienda a un conocido)
+export const agendaReferrals = pgTable('agenda_referrals', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  professionalId: uuid('professional_id').references(() => agendaProfessionalProfiles.id, { onDelete: 'cascade' }).notNull(),
+  referrerClientId: uuid('referrer_client_id').references(() => agendaClients.id, { onDelete: 'cascade' }).notNull(),
+  refereeClientId: uuid('referee_client_id').references(() => agendaClients.id, { onDelete: 'set null' }),
+  refereeName: varchar('referee_name', { length: 200 }),
+  refereePhone: varchar('referee_phone', { length: 40 }),
+  status: varchar('status', { length: 20 }).notNull().default('pending'), // 'pending' | 'converted' | 'rewarded' | 'cancelled'
+  rewardNote: text('reward_note'),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+  convertedAt: timestamp('converted_at'),
+  rewardedAt: timestamp('rewarded_at'),
+}, (table) => ({
+  professionalIdx: index('agenda_referrals_professional_idx').on(table.professionalId),
+  referrerIdx: index('agenda_referrals_referrer_idx').on(table.referrerClientId),
+  statusIdx: index('agenda_referrals_status_idx').on(table.status),
+}));
+
+// SimpleAgenda — promociones / cupones (descuentos aplicables al booking)
+export const agendaPromotions = pgTable('agenda_promotions', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  professionalId: uuid('professional_id').references(() => agendaProfessionalProfiles.id, { onDelete: 'cascade' }).notNull(),
+  code: varchar('code', { length: 40 }), // opcional: si es null es promo sin cupón (no MVP aún)
+  label: varchar('label', { length: 120 }).notNull(),
+  description: text('description'),
+  discountType: varchar('discount_type', { length: 10 }).notNull().default('percent'), // 'percent' | 'fixed'
+  discountValue: decimal('discount_value', { precision: 10, scale: 2 }).notNull(),
+  appliesTo: varchar('applies_to', { length: 10 }).notNull().default('all'), // 'all' | 'services'
+  serviceIds: jsonb('service_ids').$type<string[]>().notNull().default(sql`'[]'::jsonb`),
+  minAmount: decimal('min_amount', { precision: 10, scale: 2 }),
+  maxUses: integer('max_uses'),
+  usesCount: integer('uses_count').notNull().default(0),
+  startsAt: timestamp('starts_at'),
+  endsAt: timestamp('ends_at'),
+  isActive: boolean('is_active').notNull().default(true),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+  updatedAt: timestamp('updated_at').notNull().defaultNow(),
+}, (table) => ({
+  professionalIdx: index('agenda_promotions_professional_idx').on(table.professionalId),
+  codeUniqueIdx: uniqueIndex('agenda_promotions_code_unique_idx').on(table.professionalId, sql`lower(${table.code})`),
+}));
+
+// SimpleAgenda — packs (definición vendible: ej. "5 sesiones a precio especial")
+export const agendaPacks = pgTable('agenda_packs', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  professionalId: uuid('professional_id').references(() => agendaProfessionalProfiles.id, { onDelete: 'cascade' }).notNull(),
+  name: varchar('name', { length: 160 }).notNull(),
+  description: text('description'),
+  sessionsCount: integer('sessions_count').notNull(),
+  price: decimal('price', { precision: 10, scale: 2 }).notNull(),
+  currency: varchar('currency', { length: 10 }).notNull().default('CLP'),
+  serviceIds: jsonb('service_ids').$type<string[]>().notNull().default(sql`'[]'::jsonb`),
+  appliesTo: varchar('applies_to', { length: 10 }).notNull().default('all'), // 'all' | 'services'
+  validityDays: integer('validity_days'),
+  isActive: boolean('is_active').notNull().default(true),
+  position: integer('position').notNull().default(0),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+  updatedAt: timestamp('updated_at').notNull().defaultNow(),
+}, (table) => ({
+  professionalIdx: index('agenda_packs_professional_idx').on(table.professionalId),
+}));
+
+// SimpleAgenda — pack comprado por un cliente con saldo de sesiones
+export const agendaClientPacks = pgTable('agenda_client_packs', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  professionalId: uuid('professional_id').references(() => agendaProfessionalProfiles.id, { onDelete: 'cascade' }).notNull(),
+  packId: uuid('pack_id'), // referencia suave (si borran el pack el saldo sigue)
+  clientId: uuid('client_id').references(() => agendaClients.id, { onDelete: 'cascade' }).notNull(),
+  name: varchar('name', { length: 160 }).notNull(), // snapshot del nombre del pack al momento de compra
+  sessionsTotal: integer('sessions_total').notNull(),
+  sessionsUsed: integer('sessions_used').notNull().default(0),
+  pricePaid: decimal('price_paid', { precision: 10, scale: 2 }),
+  currency: varchar('currency', { length: 10 }).notNull().default('CLP'),
+  serviceIds: jsonb('service_ids').$type<string[]>().notNull().default(sql`'[]'::jsonb`),
+  appliesTo: varchar('applies_to', { length: 10 }).notNull().default('all'),
+  purchasedAt: timestamp('purchased_at').notNull().defaultNow(),
+  expiresAt: timestamp('expires_at'),
+  status: varchar('status', { length: 20 }).notNull().default('active'), // 'active' | 'expired' | 'completed' | 'refunded'
+  notes: text('notes'),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+  updatedAt: timestamp('updated_at').notNull().defaultNow(),
+}, (table) => ({
+  professionalIdx: index('agenda_client_packs_professional_idx').on(table.professionalId),
+  clientIdx: index('agenda_client_packs_client_idx').on(table.clientId),
+  statusIdx: index('agenda_client_packs_status_idx').on(table.status),
+}));
+
+// SimpleAgenda — sesiones grupales (talleres, clases, grupos)
+export const agendaGroupSessions = pgTable('agenda_group_sessions', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  professionalId: uuid('professional_id').references(() => agendaProfessionalProfiles.id, { onDelete: 'cascade' }).notNull(),
+  serviceId: uuid('service_id'),
+  title: varchar('title', { length: 200 }).notNull(),
+  description: text('description'),
+  startsAt: timestamp('starts_at').notNull(),
+  endsAt: timestamp('ends_at').notNull(),
+  durationMinutes: integer('duration_minutes').notNull(),
+  capacity: integer('capacity').notNull(),
+  price: decimal('price', { precision: 10, scale: 2 }),
+  currency: varchar('currency', { length: 10 }).notNull().default('CLP'),
+  modality: varchar('modality', { length: 20 }).notNull().default('presential'),
+  location: text('location'),
+  meetingUrl: text('meeting_url'),
+  status: varchar('status', { length: 20 }).notNull().default('scheduled'),
+  isPublic: boolean('is_public').notNull().default(true),
+  notes: text('notes'),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+  updatedAt: timestamp('updated_at').notNull().defaultNow(),
+}, (table) => ({
+  professionalIdx: index('agenda_group_sessions_professional_idx').on(table.professionalId),
+  startsAtIdx: index('agenda_group_sessions_starts_at_idx').on(table.startsAt),
+  statusIdx: index('agenda_group_sessions_status_idx').on(table.status),
+}));
+
+// SimpleAgenda — asistentes a sesión grupal
+export const agendaGroupAttendees = pgTable('agenda_group_attendees', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  sessionId: uuid('session_id').references(() => agendaGroupSessions.id, { onDelete: 'cascade' }).notNull(),
+  professionalId: uuid('professional_id').references(() => agendaProfessionalProfiles.id, { onDelete: 'cascade' }).notNull(),
+  clientId: uuid('client_id'),
+  clientName: varchar('client_name', { length: 200 }).notNull(),
+  clientEmail: varchar('client_email', { length: 200 }),
+  clientPhone: varchar('client_phone', { length: 40 }),
+  status: varchar('status', { length: 20 }).notNull().default('registered'),
+  pricePaid: decimal('price_paid', { precision: 10, scale: 2 }),
+  paidAt: timestamp('paid_at'),
+  notes: text('notes'),
+  registeredAt: timestamp('registered_at').notNull().defaultNow(),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+  updatedAt: timestamp('updated_at').notNull().defaultNow(),
+}, (table) => ({
+  sessionIdx: index('agenda_group_attendees_session_idx').on(table.sessionId),
+  professionalIdx: index('agenda_group_attendees_professional_idx').on(table.professionalId),
+  clientIdx: index('agenda_group_attendees_client_idx').on(table.clientId),
+}));
+
+// SimpleAgenda — audit log of sensitive actions by professionals
+export const agendaAuditEvents = pgTable('agenda_audit_events', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  professionalId: uuid('professional_id'),
+  userId: uuid('user_id'),
+  entityType: varchar('entity_type', { length: 40 }).notNull(), // 'profile' | 'service' | 'availability' | 'appointment' | 'payment' | 'location' | 'client'
+  entityId: varchar('entity_id', { length: 100 }),
+  action: varchar('action', { length: 60 }).notNull(), // 'create' | 'update' | 'delete' | 'publish' | 'unpublish' | 'slug_change' | 'status_change'
+  metadata: jsonb('metadata').notNull().default({}),
+  ipAddress: varchar('ip_address', { length: 60 }),
+  userAgent: varchar('user_agent', { length: 500 }),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+}, (table) => ({
+  professionalIdx: index('agenda_audit_events_professional_idx').on(table.professionalId),
+  createdAtIdx: index('agenda_audit_events_created_at_idx').on(table.createdAt),
+  entityIdx: index('agenda_audit_events_entity_idx').on(table.entityType, table.entityId),
+}));
+
+// SimpleAgenda — log of notifications sent (email, whatsapp, push)
+export const agendaNotificationEvents = pgTable('agenda_notification_events', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  professionalId: uuid('professional_id'),
+  appointmentId: uuid('appointment_id'),
+  clientId: uuid('client_id'),
+  channel: varchar('channel', { length: 20 }).notNull(), // 'email' | 'whatsapp' | 'push' | 'sms'
+  eventType: varchar('event_type', { length: 50 }).notNull(), // 'confirmation' | 'reminder_24h' | 'reminder_30min' | 'cancellation' | 'test' | 'professional_new_booking'
+  recipient: varchar('recipient', { length: 255 }),
+  status: varchar('status', { length: 20 }).notNull().default('sent'), // 'sent' | 'failed' | 'skipped'
+  errorMessage: text('error_message'),
+  payload: jsonb('payload').notNull().default({}),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+}, (table) => ({
+  professionalIdx: index('agenda_notification_events_professional_idx').on(table.professionalId),
+  appointmentIdx: index('agenda_notification_events_appointment_idx').on(table.appointmentId),
+  createdAtIdx: index('agenda_notification_events_created_at_idx').on(table.createdAt),
 }));

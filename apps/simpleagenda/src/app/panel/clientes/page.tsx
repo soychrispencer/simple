@@ -1,10 +1,12 @@
 'use client';
 
 import { useEffect, useState, useRef } from 'react';
-import { IconPlus, IconSearch, IconLoader2, IconUsers, IconX, IconDownload, IconEdit, IconTrash, IconAlertCircle, IconCheck, IconPhone, IconMail, IconBrandWhatsapp, IconChevronDown } from '@tabler/icons-react';
+import { IconPlus, IconSearch, IconLoader2, IconUsers, IconX, IconDownload, IconEdit, IconTrash, IconAlertCircle, IconCheck, IconPhone, IconMail, IconBrandWhatsapp, IconChevronDown, IconTag } from '@tabler/icons-react';
 import Link from 'next/link';
-import { fetchAgendaClients, createAgendaClient, updateAgendaClient, deleteAgendaClient, type AgendaClient } from '@/lib/agenda-api';
+import { fetchAgendaClients, createAgendaClient, updateAgendaClient, deleteAgendaClient, fetchClientTags, type AgendaClient, type AgendaClientTag } from '@/lib/agenda-api';
 import { vocab } from '@/lib/vocabulary';
+import { SkeletonCard } from '@/components/panel/skeleton';
+import { useEscapeClose } from '@/lib/use-modal-a11y';
 
 type ClientForm = {
     firstName: string;
@@ -43,6 +45,8 @@ export default function ClientesPage() {
     const [filtered, setFiltered] = useState<AgendaClient[]>([]);
     const [loading, setLoading] = useState(true);
     const [query, setQuery] = useState('');
+    const [tags, setTags] = useState<AgendaClientTag[]>([]);
+    const [selectedTagId, setSelectedTagId] = useState<string | null>(null);
 
     // Create
     const [showForm, setShowForm] = useState(false);
@@ -61,25 +65,35 @@ export default function ClientesPage() {
     const [deleting, setDeleting] = useState(false);
     const [deleteError, setDeleteError] = useState('');
 
+    useEscapeClose(showForm, () => setShowForm(false));
+    useEscapeClose(editClient !== null, () => setEditClient(null));
+    useEscapeClose(deleteClient !== null, () => setDeleteClient(null));
+
     useEffect(() => {
         void load();
     }, []);
 
     useEffect(() => {
         const q = query.toLowerCase().trim();
-        if (!q) { setFiltered(clients); return; }
-        setFiltered(clients.filter((c) =>
-            `${c.firstName} ${c.lastName ?? ''}`.toLowerCase().includes(q) ||
-            (c.email ?? '').toLowerCase().includes(q) ||
-            (c.phone ?? '').includes(q)
-        ));
-    }, [query, clients]);
+        let result = clients;
+        if (selectedTagId) {
+            result = result.filter((c) => c.tagIds?.includes(selectedTagId));
+        }
+        if (q) {
+            result = result.filter((c) =>
+                `${c.firstName} ${c.lastName ?? ''}`.toLowerCase().includes(q) ||
+                (c.email ?? '').toLowerCase().includes(q) ||
+                (c.phone ?? '').includes(q)
+            );
+        }
+        setFiltered(result);
+    }, [query, clients, selectedTagId]);
 
     const load = async () => {
         setLoading(true);
-        const data = await fetchAgendaClients();
+        const [data, tagData] = await Promise.all([fetchAgendaClients(), fetchClientTags()]);
         setClients(data);
-        setFiltered(data);
+        setTags(tagData);
         setLoading(false);
     };
 
@@ -204,7 +218,7 @@ export default function ClientesPage() {
             </div>
 
             {/* Search */}
-            <div className="relative mb-5">
+            <div className="relative mb-3">
                 <IconSearch size={15} className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: 'var(--fg-muted)' }} />
                 <input
                     type="text"
@@ -215,14 +229,54 @@ export default function ClientesPage() {
                 />
             </div>
 
+            {/* Tag filter pills */}
+            {tags.length > 0 && (
+                <div className="flex items-center gap-1.5 mb-5 overflow-x-auto -mx-2 px-2 sm:mx-0 sm:px-0" role="group" aria-label="Filtrar por etiqueta">
+                    <button
+                        type="button"
+                        onClick={() => setSelectedTagId(null)}
+                        className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium whitespace-nowrap transition-colors"
+                        style={{
+                            background: selectedTagId === null ? 'var(--accent-soft)' : 'var(--bg-muted)',
+                            color: selectedTagId === null ? 'var(--accent)' : 'var(--fg-muted)',
+                            border: `1px solid ${selectedTagId === null ? 'var(--accent-border, var(--border))' : 'var(--border)'}`,
+                        }}
+                    >
+                        Todos
+                        <span className="text-[10px] opacity-70">{clients.length}</span>
+                    </button>
+                    {tags.map((t) => {
+                        const count = clients.filter((c) => c.tagIds?.includes(t.id)).length;
+                        const active = selectedTagId === t.id;
+                        return (
+                            <button
+                                key={t.id}
+                                type="button"
+                                onClick={() => setSelectedTagId(active ? null : t.id)}
+                                className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium whitespace-nowrap transition-colors"
+                                style={{
+                                    background: active ? (t.color ? `${t.color}22` : 'var(--accent-soft)') : 'var(--bg-muted)',
+                                    color: active ? (t.color ?? 'var(--accent)') : 'var(--fg-muted)',
+                                    border: `1px solid ${active ? (t.color ?? 'var(--accent-border, var(--border))') : 'var(--border)'}`,
+                                }}
+                            >
+                                <IconTag size={10} />
+                                {t.name}
+                                <span className="text-[10px] opacity-70">{count}</span>
+                            </button>
+                        );
+                    })}
+                </div>
+            )}
+
             {/* Create form modal */}
             {showForm && (
-                <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4">
-                    <button className="absolute inset-0 bg-black/40 backdrop-blur-[2px]" onClick={() => setShowForm(false)} />
+                <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4" role="dialog" aria-modal="true" aria-labelledby="clientes-create-title">
+                    <button type="button" aria-label="Cerrar" className="absolute inset-0 bg-black/40 backdrop-blur-[2px]" onClick={() => setShowForm(false)} />
                     <div className="relative w-full max-w-lg rounded-2xl border p-5 max-h-[90vh] overflow-y-auto" style={{ background: 'var(--surface)', borderColor: 'var(--border)', boxShadow: 'var(--shadow-md)' }}>
                         <div className="flex items-center justify-between mb-5">
-                            <h2 className="text-base font-semibold" style={{ color: 'var(--fg)' }}>{vocab.newClient}</h2>
-                            <button onClick={() => setShowForm(false)} className="w-7 h-7 rounded-lg flex items-center justify-center border transition-colors hover:bg-(--bg-subtle)" style={{ borderColor: 'var(--border)', color: 'var(--fg-muted)' }}>
+                            <h2 id="clientes-create-title" className="text-base font-semibold" style={{ color: 'var(--fg)' }}>{vocab.newClient}</h2>
+                            <button type="button" aria-label="Cerrar" onClick={() => setShowForm(false)} className="w-7 h-7 rounded-lg flex items-center justify-center border transition-colors hover:bg-(--bg-subtle)" style={{ borderColor: 'var(--border)', color: 'var(--fg-muted)' }}>
                                 <IconX size={14} />
                             </button>
                         </div>
@@ -311,8 +365,10 @@ export default function ClientesPage() {
 
             {/* List */}
             {loading ? (
-                <div className="flex items-center gap-2 text-sm" style={{ color: 'var(--fg-muted)' }}>
-                    <IconLoader2 size={15} className="animate-spin" /> Cargando pacientes...
+                <div className="flex flex-col gap-2">
+                    {Array.from({ length: 5 }).map((_, i) => (
+                        <SkeletonCard key={i} />
+                    ))}
                 </div>
             ) : filtered.length === 0 ? (
                 <div className="rounded-2xl border flex flex-col items-center justify-center py-20 text-center" style={{ borderColor: 'var(--border)', background: 'var(--surface)' }}>
@@ -343,6 +399,27 @@ export default function ClientesPage() {
                             <Link href={`/panel/clientes/${client.id}`} className="flex-1 min-w-0">
                                 <div className="flex items-center gap-2 flex-wrap">
                                     <p className="text-sm font-semibold" style={{ color: 'var(--fg)' }}>{fullName(client)}</p>
+                                    {(client.tagIds ?? []).slice(0, 2).map((tid) => {
+                                        const t = tags.find((x) => x.id === tid);
+                                        if (!t) return null;
+                                        return (
+                                            <span
+                                                key={tid}
+                                                className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[10px] font-medium"
+                                                style={{
+                                                    background: t.color ? `${t.color}22` : 'var(--accent-soft)',
+                                                    color: t.color ?? 'var(--accent)',
+                                                }}
+                                            >
+                                                {t.name}
+                                            </span>
+                                        );
+                                    })}
+                                    {(client.tagIds?.length ?? 0) > 2 && (
+                                        <span className="text-[10px]" style={{ color: 'var(--fg-muted)' }}>
+                                            +{(client.tagIds!.length) - 2}
+                                        </span>
+                                    )}
                                 </div>
                                 <p className="text-xs mt-0.5" style={{ color: 'var(--fg-muted)' }}>
                                     {[client.email, client.phone].filter(Boolean).join(' · ') || 'Sin contacto registrado'}
@@ -376,12 +453,12 @@ export default function ClientesPage() {
 
             {/* ── Edit modal ──────────────────────────────────────────── */}
             {editClient && (
-                <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4">
-                    <button className="absolute inset-0 bg-black/40 backdrop-blur-[2px]" onClick={() => setEditClient(null)} />
+                <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4" role="dialog" aria-modal="true" aria-labelledby="clientes-edit-title">
+                    <button type="button" aria-label="Cerrar" className="absolute inset-0 bg-black/40 backdrop-blur-[2px]" onClick={() => setEditClient(null)} />
                     <div className="relative w-full max-w-lg rounded-2xl border p-5 max-h-[90vh] overflow-y-auto" style={{ background: 'var(--surface)', borderColor: 'var(--border)', boxShadow: 'var(--shadow-md)' }}>
                         <div className="flex items-center justify-between mb-5">
-                            <h2 className="text-base font-semibold" style={{ color: 'var(--fg)' }}>Editar {vocab.client}</h2>
-                            <button onClick={() => setEditClient(null)} className="w-7 h-7 rounded-lg flex items-center justify-center border transition-colors hover:bg-(--bg-subtle)" style={{ borderColor: 'var(--border)', color: 'var(--fg-muted)' }}>
+                            <h2 id="clientes-edit-title" className="text-base font-semibold" style={{ color: 'var(--fg)' }}>Editar {vocab.client}</h2>
+                            <button type="button" aria-label="Cerrar" onClick={() => setEditClient(null)} className="w-7 h-7 rounded-lg flex items-center justify-center border transition-colors hover:bg-(--bg-subtle)" style={{ borderColor: 'var(--border)', color: 'var(--fg-muted)' }}>
                                 <IconX size={14} />
                             </button>
                         </div>
@@ -433,15 +510,15 @@ export default function ClientesPage() {
 
             {/* ── Delete confirmation ─────────────────────────────────── */}
             {deleteClient && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-                    <button className="absolute inset-0 bg-black/40 backdrop-blur-[2px]" onClick={() => setDeleteClient(null)} />
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4" role="alertdialog" aria-modal="true" aria-labelledby="clientes-delete-title">
+                    <button type="button" aria-label="Cerrar" className="absolute inset-0 bg-black/40 backdrop-blur-[2px]" onClick={() => setDeleteClient(null)} />
                     <div className="relative w-full max-w-sm rounded-2xl border p-6" style={{ background: 'var(--surface)', borderColor: 'var(--border)', boxShadow: 'var(--shadow-md)' }}>
                         <div className="flex items-start gap-3 mb-4">
                             <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0" style={{ background: 'rgba(220,38,38,0.1)', color: '#dc2626' }}>
                                 <IconAlertCircle size={18} />
                             </div>
                             <div>
-                                <p className="text-sm font-semibold mb-1" style={{ color: 'var(--fg)' }}>¿Eliminar {vocab.client}?</p>
+                                <p id="clientes-delete-title" className="text-sm font-semibold mb-1" style={{ color: 'var(--fg)' }}>¿Eliminar {vocab.client}?</p>
                                 <p className="text-xs" style={{ color: 'var(--fg-muted)' }}>Esta acción no se puede deshacer. Se eliminarán todos los datos de <strong>{fullName(deleteClient)}</strong>.</p>
                             </div>
                         </div>

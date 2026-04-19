@@ -16,8 +16,10 @@ export type ListingSellerRef = {
 
 export type ListingEngagement = {
     views?: number;
+    clicks?: number;
     saves?: number;
     messages?: number;
+    conversionRate?: number;
     listedSinceLabel?: string;
 };
 
@@ -50,7 +52,6 @@ export type PublicListingCardProps = {
     seller: ListingSellerRef;
     badges?: ListingBadge[];
     ctaLabel?: string;
-    engagement?: ListingEngagement;
     isSaved?: boolean;
     onSave?: (id: string) => Promise<{ saved: boolean }> | void;
     onShare?: (id: string) => void;
@@ -71,6 +72,7 @@ export type OwnerListingAction = {
     tone?: 'neutral' | 'danger' | 'primary';
     disabled?: boolean;
     onSelect: () => void;
+    icon?: React.ReactNode;
 };
 
 export type OwnerListingCardProps = {
@@ -96,4 +98,11 @@ export type OwnerListingCardProps = {
     secondaryActions?: OwnerListingAction[];
     onClick?: (id: string) => void;
     busyActionKey?: string | null;
+    onShare?: (id: string) => void;
+    onBoost?: (id: string) => void;
+    shareOptions?: {
+        onCopyLink?: () => void;
+        onShareWhatsapp?: () => void;
+        onShareInstagram?: () => void;
+    };
 };

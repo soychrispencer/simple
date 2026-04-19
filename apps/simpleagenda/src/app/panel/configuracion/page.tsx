@@ -13,6 +13,7 @@ import {
     IconMapPin,
     IconCheck,
     IconCoin,
+    IconBell,
 } from '@tabler/icons-react';
 import { fetchAgendaProfile, fetchAgendaStats, type AgendaProfile, type AgendaStats } from '@/lib/agenda-api';
 import { vocab } from '@/lib/vocabulary';
@@ -60,7 +61,7 @@ export default function ConfiguracionPage() {
             href: '/panel/configuracion/servicios',
             icon: IconBriefcase,
             title: 'Servicios y sesiones',
-            description: 'Tipos de consulta, duración y precio.',
+            description: 'Individuales, grupales, packs y promociones.',
             done: serviciosDone,
             required: true,
         },
@@ -91,8 +92,8 @@ export default function ConfiguracionPage() {
         {
             href: '/panel/configuracion/link',
             icon: IconLink,
-            title: 'Publicar tu agenda',
-            description: `Activa tu link público y compártelo con tus ${vocab.clients}`,
+            title: 'Página de reservas',
+            description: `Link público, QR, dominio y visibilidad para tus ${vocab.clients}.`,
             done: publicadoDone,
             required: true,
         },
@@ -100,16 +101,25 @@ export default function ConfiguracionPage() {
 
     const extras = [
         {
+            href: '/panel/configuracion/notificaciones',
+            icon: IconBell,
+            title: 'Notificaciones',
+            description: 'Email, WhatsApp y avisos para ti y tus pacientes.',
+            badge: null,
+        },
+        {
             href: '/panel/configuracion/integraciones',
             icon: IconPlug,
             title: 'Integraciones',
-            description: 'Google Calendar, WhatsApp y otras conexiones.',
+            description: 'Google Calendar, MercadoPago y otras conexiones.',
+            badge: null,
         },
         {
             href: '/panel/suscripciones',
             icon: IconCoin,
             title: 'Suscripción',
             description: 'Gestiona tu plan y método de pago mensual.',
+            badge: null,
         },
     ];
 
@@ -155,7 +165,7 @@ export default function ConfiguracionPage() {
             <div className="flex flex-col gap-2 mb-10">
                 {loading
                     ? Array.from({ length: 5 }).map((_, i) => (
-                        <div key={i} className="h-[72px] rounded-2xl animate-pulse" style={{ background: 'var(--border)' }} />
+                        <div key={i} className="h-18 rounded-2xl animate-pulse" style={{ background: 'var(--border)' }} />
                     ))
                     : sections.map((section) => {
                         const pendingRequired = section.required && !section.done;
@@ -225,7 +235,14 @@ export default function ConfiguracionPage() {
                                 <item.icon size={16} />
                             </div>
                             <div className="flex-1 min-w-0">
-                                <p className="text-sm font-semibold" style={{ color: 'var(--fg)' }}>{item.title}</p>
+                                <div className="flex items-center gap-2 flex-wrap">
+                                    <p className="text-sm font-semibold" style={{ color: 'var(--fg)' }}>{item.title}</p>
+                                    {item.badge && (
+                                        <span className="text-[10px] font-medium px-1.5 py-0.5 rounded" style={{ background: 'var(--bg-muted)', color: 'var(--fg-muted)' }}>
+                                            {item.badge}
+                                        </span>
+                                    )}
+                                </div>
                                 <p className="text-xs mt-0.5" style={{ color: 'var(--fg-muted)' }}>{item.description}</p>
                             </div>
                             <IconChevronRight size={16} style={{ color: 'var(--fg-muted)' }} />

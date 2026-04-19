@@ -109,7 +109,19 @@ export type WaAppointmentInfo = {
     clientPhone: string | null;
     startsAt: Date;
     endsAt: Date;
+    seriesCount?: number | null;
+    seriesFrequency?: 'weekly' | 'biweekly' | 'monthly' | null;
 };
+
+function seriesSuffix(info: { seriesCount?: number | null; seriesFrequency?: 'weekly' | 'biweekly' | 'monthly' | null }): string {
+    const count = info.seriesCount ?? 0;
+    if (count <= 1) return '';
+    const freq = info.seriesFrequency === 'weekly' ? 'semanales'
+        : info.seriesFrequency === 'biweekly' ? 'quincenales'
+        : info.seriesFrequency === 'monthly' ? 'mensuales'
+        : 'recurrentes';
+    return ` · ${count} sesiones ${freq}`;
+}
 
 export type WaProfessionalInfo = {
     displayName: string | null;
@@ -129,12 +141,13 @@ export async function notifyConfirmation(
     if (!appt.clientPhone) return;
     const appUrl = process.env.AGENDA_APP_URL ?? 'https://simpleagenda.app';
     const cancelUrl = appt.id ? `${appUrl}/cancelar?appt=${appt.id}&slug=${appt.slug ?? ''}` : '';
+    const nameWithSeries = (appt.clientName ?? 'Paciente') + seriesSuffix(appt);
     await sendTemplate(
         appt.clientPhone,
         'simpleagenda_confirmacion',
         'es',
         [
-            appt.clientName ?? 'Paciente',
+            nameWithSeries,
             prof.displayName ?? 'el profesional',
             fmtDateTz(appt.startsAt, prof.timezone),
             fmtTime(appt.startsAt, prof.timezone),
@@ -226,13 +239,14 @@ export async function notifyProfessionalNewBooking(
     prof: WaProfessionalInfo,
     appt: WaAppointmentInfo,
 ): Promise<void> {
+    const nameWithSeries = (appt.clientName ?? 'Paciente') + seriesSuffix(appt);
     await sendTemplate(
         professionalPhone,
         'simpleagenda_alerta_profesional',
         'es',
         [
             prof.displayName ?? 'Profesional',
-            appt.clientName ?? 'Paciente',
+            nameWithSeries,
             fmtDateTz(appt.startsAt, prof.timezone),
             fmtTime(appt.startsAt, prof.timezone),
         ],

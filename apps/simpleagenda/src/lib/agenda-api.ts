@@ -63,6 +63,7 @@ export type AgendaProfile = {
     bookingWindowDays: number;
     cancellationHours: number;
     confirmationMode: string;
+    allowsRecurrentBooking: boolean;
     encuadre: string | null;
     requiresAdvancePayment: boolean;
     advancePaymentInstructions: string | null;
@@ -117,6 +118,16 @@ export async function uploadAvatar(file: File): Promise<{ ok: boolean; url?: str
 
 // ── Services ─────────────────────────────────────────────────────────────────
 
+export type PreconsultFieldType = 'text' | 'textarea' | 'select' | 'checkbox' | 'number';
+export type PreconsultField = {
+    id: string;
+    label: string;
+    type: PreconsultFieldType;
+    required: boolean;
+    placeholder?: string;
+    options?: string[];
+};
+
 export type AgendaService = {
     id: string;
     professionalId: string;
@@ -130,7 +141,10 @@ export type AgendaService = {
     color: string | null;
     isActive: boolean;
     position: number;
+    preconsultFields?: PreconsultField[];
 };
+
+export type PreconsultResponse = { label: string; value: string };
 
 export async function fetchAgendaServices(): Promise<AgendaService[]> {
     const data = await apiFetch<{ ok: boolean; services: AgendaService[] }>('/api/agenda/services');
@@ -232,6 +246,12 @@ export async function deleteAgendaLocation(id: string): Promise<{ ok: boolean }>
 
 // ── Clients ───────────────────────────────────────────────────────────────────
 
+export type ClientTag = {
+    id: string;
+    name: string;
+    color: string | null;
+};
+
 export type AgendaClient = {
     id: string;
     professionalId: string;
@@ -253,6 +273,9 @@ export type AgendaClient = {
     status: string;
     createdAt: string;
     updatedAt: string;
+    // Populated by list endpoint (IDs only) and detail endpoint (full tag objects).
+    tagIds?: string[];
+    tags?: ClientTag[];
 };
 
 export async function fetchAgendaClients(): Promise<AgendaClient[]> {
@@ -270,12 +293,99 @@ export async function fetchAgendaClient(id: string): Promise<{ client: AgendaCli
     return { client: data.client, appointments: data.appointments ?? [] };
 }
 
+// ── Client tags ───────────────────────────────────────────────────────────────
+
+export type AgendaClientTag = {
+    id: string;
+    professionalId: string;
+    name: string;
+    color: string | null;
+    position: number;
+    createdAt: string;
+    updatedAt: string;
+};
+
+export async function fetchClientTags(): Promise<AgendaClientTag[]> {
+    try {
+        const res = await apiFetch<{ ok: boolean; tags: AgendaClientTag[] }>('/api/agenda/client-tags');
+        return res.ok ? (res.tags ?? []) : [];
+    } catch {
+        return [];
+    }
+}
+
+export async function createClientTag(body: { name: string; color?: string | null }): Promise<{ ok: boolean; tag?: AgendaClientTag; error?: string }> {
+    return apiFetch('/api/agenda/client-tags', { method: 'POST', body: JSON.stringify(body) });
+}
+
+export async function updateClientTag(id: string, body: { name?: string; color?: string | null; position?: number }): Promise<{ ok: boolean; tag?: AgendaClientTag; error?: string }> {
+    return apiFetch(`/api/agenda/client-tags/${id}`, { method: 'PUT', body: JSON.stringify(body) });
+}
+
+export async function deleteClientTag(id: string): Promise<{ ok: boolean; error?: string }> {
+    return apiFetch(`/api/agenda/client-tags/${id}`, { method: 'DELETE' });
+}
+
+export async function assignTagToClient(clientId: string, tagId: string): Promise<{ ok: boolean; error?: string }> {
+    return apiFetch(`/api/agenda/clients/${clientId}/tags`, { method: 'POST', body: JSON.stringify({ tagId }) });
+}
+
+export async function unassignTagFromClient(clientId: string, tagId: string): Promise<{ ok: boolean; error?: string }> {
+    return apiFetch(`/api/agenda/clients/${clientId}/tags/${tagId}`, { method: 'DELETE' });
+}
+
 export async function updateAgendaClient(id: string, body: Partial<AgendaClient>): Promise<{ ok: boolean; client?: AgendaClient; error?: string }> {
     return apiFetch(`/api/agenda/clients/${id}`, { method: 'PUT', body: JSON.stringify(body) });
 }
 
 export async function deleteAgendaClient(id: string): Promise<{ ok: boolean; error?: string }> {
     return apiFetch(`/api/agenda/clients/${id}`, { method: 'DELETE' });
+}
+
+// ── Client attachments ────────────────────────────────────────────────────────
+
+export type AttachmentKind = 'document' | 'image' | 'prescription' | 'other';
+
+export type ClientAttachment = {
+    id: string;
+    professionalId: string;
+    clientId: string;
+    name: string;
+    url: string;
+    mimeType: string | null;
+    sizeBytes: number | null;
+    kind: AttachmentKind;
+    uploadedAt: string;
+};
+
+export async function uploadClientFile(file: File, fileType: 'image' | 'document'): Promise<{ ok: boolean; url?: string; error?: string }> {
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('fileType', fileType);
+    const res = await fetch(`${API_BASE}/api/media/upload`, {
+        method: 'POST',
+        credentials: 'include',
+        body: formData,
+    });
+    const data = await res.json() as { ok: boolean; result?: { publicUrl: string }; error?: string };
+    if (!data.ok) return { ok: false, error: data.error ?? 'Error al subir el archivo' };
+    return { ok: true, url: data.result?.publicUrl };
+}
+
+export async function fetchClientAttachments(clientId: string): Promise<ClientAttachment[]> {
+    const data = await apiFetch<{ ok: boolean; attachments: ClientAttachment[] }>(`/api/agenda/clients/${clientId}/attachments`);
+    return data.attachments ?? [];
+}
+
+export async function createClientAttachment(
+    clientId: string,
+    body: { name: string; url: string; mimeType?: string | null; sizeBytes?: number | null; kind: AttachmentKind },
+): Promise<{ ok: boolean; attachment?: ClientAttachment; error?: string }> {
+    return apiFetch(`/api/agenda/clients/${clientId}/attachments`, { method: 'POST', body: JSON.stringify(body) });
+}
+
+export async function deleteClientAttachment(clientId: string, attachmentId: string): Promise<{ ok: boolean; error?: string }> {
+    return apiFetch(`/api/agenda/clients/${clientId}/attachments/${attachmentId}`, { method: 'DELETE' });
 }
 
 // ── Appointments ──────────────────────────────────────────────────────────────
@@ -302,11 +412,15 @@ export type AgendaAppointment = {
     cancelledAt: string | null;
     cancelledBy: string | null;
     cancellationReason: string | null;
+    seriesId: string | null;
+    recurrenceFrequency: string | null;
+    clientPackId: string | null;
     createdAt: string;
     updatedAt: string;
     sessionNote?: string | null;
     service?: AgendaService;
     client?: AgendaClient;
+    preconsultResponses?: PreconsultResponse[] | null;
 };
 
 export async function fetchAgendaAppointments(from?: string, to?: string): Promise<AgendaAppointment[]> {
@@ -318,7 +432,13 @@ export async function fetchAgendaAppointments(from?: string, to?: string): Promi
     return data.appointments ?? [];
 }
 
-export async function createAgendaAppointment(body: Partial<AgendaAppointment> & { repeatWeekly?: number }): Promise<{ ok: boolean; appointment?: AgendaAppointment; appointments?: AgendaAppointment[]; error?: string }> {
+export type RecurrenceFrequency = 'weekly' | 'biweekly' | 'monthly';
+
+export async function createAgendaAppointment(body: Partial<AgendaAppointment> & {
+    repeatWeekly?: number;
+    recurrenceFrequency?: RecurrenceFrequency;
+    recurrenceCount?: number;
+}): Promise<{ ok: boolean; appointment?: AgendaAppointment; appointments?: AgendaAppointment[]; error?: string }> {
     return apiFetch('/api/agenda/appointments', { method: 'POST', body: JSON.stringify(body) });
 }
 
@@ -326,6 +446,13 @@ export async function patchAppointmentStatus(id: string, status: string, cancell
     return apiFetch(`/api/agenda/appointments/${id}/status`, {
         method: 'PATCH',
         body: JSON.stringify({ status, cancellationReason }),
+    });
+}
+
+export async function cancelAppointmentSeries(id: string, scope: 'future' | 'all', cancellationReason?: string): Promise<{ ok: boolean; count?: number; error?: string }> {
+    return apiFetch(`/api/agenda/appointments/${id}/cancel-series`, {
+        method: 'POST',
+        body: JSON.stringify({ scope, cancellationReason }),
     });
 }
 
@@ -464,6 +591,27 @@ export async function sendWhatsAppTest(): Promise<{ ok: boolean; error?: string 
     return apiFetch('/api/agenda/whatsapp/test', { method: 'POST' });
 }
 
+export type NotificationEvent = {
+    id: string;
+    channel: 'email' | 'whatsapp' | 'push' | 'sms';
+    eventType: 'confirmation' | 'reminder_24h' | 'reminder_30min' | 'cancellation' | 'test' | 'professional_new_booking' | 'reschedule';
+    recipient: string | null;
+    status: 'sent' | 'failed' | 'skipped';
+    errorMessage: string | null;
+    createdAt: string;
+};
+
+export async function fetchNotificationHistory(limit = 20): Promise<NotificationEvent[]> {
+    try {
+        const res = await apiFetch<{ ok: boolean; events: NotificationEvent[] }>(
+            `/api/agenda/notifications/history?limit=${limit}`,
+        );
+        return res.ok ? (res.events ?? []) : [];
+    } catch {
+        return [];
+    }
+}
+
 // ── MercadoPago OAuth ─────────────────────────────────────────────────────────
 
 export type PaymentMethods = {
@@ -528,11 +676,537 @@ export async function bookAppointment(slug: string, body: {
     startsAt: string;
     modality?: string;
     policyAgreed?: boolean;
-}): Promise<{ ok: boolean; appointment?: { id: string; status: string; startsAt: string; paymentStatus: string }; checkoutUrl?: string | null; paymentMethods?: PaymentMethods; error?: string }> {
+    recurrenceFrequency?: RecurrenceFrequency;
+    recurrenceCount?: number;
+    preconsultResponses?: Record<string, string | boolean>;
+    promotionCode?: string;
+}): Promise<{ ok: boolean; appointment?: { id: string; status: string; startsAt: string; paymentStatus: string; modality?: string | null; meetingUrl?: string | null }; appointments?: Array<{ id: string; startsAt: string }>; seriesId?: string | null; checkoutUrl?: string | null; paymentMethods?: PaymentMethods; error?: string }> {
     const res = await fetch(`${API_BASE}/api/public/agenda/${slug}/book`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
     });
-    return res.json() as Promise<{ ok: boolean; appointment?: { id: string; status: string; startsAt: string; paymentStatus: string }; checkoutUrl?: string | null; paymentMethods?: PaymentMethods; error?: string }>;
+    return res.json() as Promise<{ ok: boolean; appointment?: { id: string; status: string; startsAt: string; paymentStatus: string; modality?: string | null; meetingUrl?: string | null }; appointments?: Array<{ id: string; startsAt: string }>; seriesId?: string | null; checkoutUrl?: string | null; paymentMethods?: PaymentMethods; error?: string }>;
+}
+
+// ── Analytics ────────────────────────────────────────────────────────────────
+
+export type AnalyticsData = {
+    monthly: Array<{ month: string; label: string; revenue: number }>;
+    byService: Array<{ serviceId: string | null; serviceName: string; count: number; revenue: number }>;
+    topClients: Array<{ clientId: string | null; clientName: string; count: number }>;
+    noShowRate: number;
+    totalCompleted: number;
+    totalCancelled: number;
+    totalNoShow: number;
+    nps: { avg: number | null; promoters: number; passives: number; detractors: number; count: number; score: number | null };
+};
+
+export async function fetchAgendaAnalytics(): Promise<AnalyticsData | null> {
+    try {
+        const data = await apiFetch<{ ok: boolean; analytics: AnalyticsData }>('/api/agenda/analytics');
+        return data.analytics ?? null;
+    } catch { return null; }
+}
+
+// ── NPS ──────────────────────────────────────────────────────────────────────
+
+export type NpsResponseRow = {
+    id: string;
+    score: number | null;
+    comment: string | null;
+    submittedAt: string | null;
+    sentAt: string;
+    appointmentId: string;
+    clientName: string | null;
+};
+
+export async function fetchNpsResponses(): Promise<NpsResponseRow[]> {
+    try {
+        const data = await apiFetch<{ ok: boolean; responses: NpsResponseRow[] }>('/api/agenda/nps');
+        return data.responses ?? [];
+    } catch { return []; }
+}
+
+export async function createNpsTokenForAppointment(appointmentId: string): Promise<string | null> {
+    try {
+        const data = await apiFetch<{ ok: boolean; token: string | null }>('/api/agenda/nps/for-appointment', {
+            method: 'POST', body: JSON.stringify({ appointmentId }),
+        });
+        return data.token ?? null;
+    } catch { return null; }
+}
+
+export type PublicNpsContext = {
+    alreadySubmitted: boolean;
+    professional: { displayName: string; slug: string; avatarUrl: string | null } | null;
+    appointment: { startsAt: string; clientName: string | null } | null;
+    response: { score: number | null; comment: string | null } | null;
+};
+
+export async function fetchPublicNpsContext(token: string): Promise<PublicNpsContext | null> {
+    try {
+        const res = await fetch(`${API_BASE}/api/public/nps/${token}`);
+        if (!res.ok) return null;
+        const data = await res.json() as { ok: boolean } & PublicNpsContext;
+        return data.ok ? data : null;
+    } catch { return null; }
+}
+
+export async function submitPublicNps(token: string, score: number, comment?: string): Promise<{ ok: boolean; error?: string }> {
+    const res = await fetch(`${API_BASE}/api/public/nps/${token}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ score, comment }),
+    });
+    return res.json() as Promise<{ ok: boolean; error?: string }>;
+}
+
+// ── Referidos ────────────────────────────────────────────────────────────────
+
+export type ReferralStatus = 'pending' | 'converted' | 'rewarded' | 'cancelled';
+
+export type AgendaReferral = {
+    id: string;
+    referrerClientId: string;
+    refereeClientId: string | null;
+    refereeName: string | null;
+    refereePhone: string | null;
+    status: ReferralStatus;
+    rewardNote: string | null;
+    createdAt: string;
+    convertedAt: string | null;
+    rewardedAt: string | null;
+    referrerFirstName: string | null;
+    referrerLastName: string | null;
+};
+
+export type ReferralStats = {
+    total: number;
+    pending: number;
+    converted: number;
+    rewarded: number;
+};
+
+export async function fetchAgendaReferrals(): Promise<{ referrals: AgendaReferral[]; stats: ReferralStats }> {
+    try {
+        const data = await apiFetch<{ ok: boolean; referrals: AgendaReferral[]; stats: ReferralStats }>('/api/agenda/referrals');
+        return { referrals: data.referrals ?? [], stats: data.stats ?? { total: 0, pending: 0, converted: 0, rewarded: 0 } };
+    } catch {
+        return { referrals: [], stats: { total: 0, pending: 0, converted: 0, rewarded: 0 } };
+    }
+}
+
+export async function createAgendaReferral(body: {
+    referrerClientId: string;
+    refereeName?: string;
+    refereePhone?: string;
+    refereeClientId?: string | null;
+    rewardNote?: string;
+}): Promise<{ ok: boolean; error?: string; referral?: AgendaReferral }> {
+    try {
+        return await apiFetch('/api/agenda/referrals', { method: 'POST', body: JSON.stringify(body) });
+    } catch (err) {
+        return { ok: false, error: err instanceof Error ? err.message : 'Error desconocido' };
+    }
+}
+
+export async function patchAgendaReferral(
+    id: string,
+    body: Partial<{ status: ReferralStatus; rewardNote: string; refereeClientId: string | null }>,
+): Promise<{ ok: boolean; error?: string; referral?: AgendaReferral }> {
+    try {
+        return await apiFetch(`/api/agenda/referrals/${id}`, { method: 'PATCH', body: JSON.stringify(body) });
+    } catch (err) {
+        return { ok: false, error: err instanceof Error ? err.message : 'Error desconocido' };
+    }
+}
+
+export async function deleteAgendaReferral(id: string): Promise<{ ok: boolean; error?: string }> {
+    try {
+        return await apiFetch(`/api/agenda/referrals/${id}`, { method: 'DELETE' });
+    } catch (err) {
+        return { ok: false, error: err instanceof Error ? err.message : 'Error desconocido' };
+    }
+}
+
+// ── Promociones / cupones ────────────────────────────────────────────────────
+
+export type PromotionDiscountType = 'percent' | 'fixed';
+export type PromotionAppliesTo = 'all' | 'services';
+
+export type AgendaPromotion = {
+    id: string;
+    code: string | null;
+    label: string;
+    description: string | null;
+    discountType: PromotionDiscountType;
+    discountValue: string; // decimal string
+    appliesTo: PromotionAppliesTo;
+    serviceIds: string[];
+    minAmount: string | null;
+    maxUses: number | null;
+    usesCount: number;
+    startsAt: string | null;
+    endsAt: string | null;
+    isActive: boolean;
+    createdAt: string;
+    updatedAt: string;
+};
+
+export type PromotionInput = {
+    code?: string | null;
+    label: string;
+    description?: string | null;
+    discountType: PromotionDiscountType;
+    discountValue: number;
+    appliesTo: PromotionAppliesTo;
+    serviceIds?: string[];
+    minAmount?: number | null;
+    maxUses?: number | null;
+    startsAt?: string | null;
+    endsAt?: string | null;
+    isActive?: boolean;
+};
+
+export async function fetchAgendaPromotions(): Promise<AgendaPromotion[]> {
+    try {
+        const data = await apiFetch<{ ok: boolean; promotions: AgendaPromotion[] }>('/api/agenda/promotions');
+        return data.promotions ?? [];
+    } catch {
+        return [];
+    }
+}
+
+export async function createAgendaPromotion(body: PromotionInput): Promise<{ ok: boolean; error?: string; promotion?: AgendaPromotion }> {
+    try {
+        return await apiFetch('/api/agenda/promotions', { method: 'POST', body: JSON.stringify(body) });
+    } catch (err) {
+        return { ok: false, error: err instanceof Error ? err.message : 'Error desconocido' };
+    }
+}
+
+export async function patchAgendaPromotion(id: string, body: Partial<PromotionInput>): Promise<{ ok: boolean; error?: string; promotion?: AgendaPromotion }> {
+    try {
+        return await apiFetch(`/api/agenda/promotions/${id}`, { method: 'PATCH', body: JSON.stringify(body) });
+    } catch (err) {
+        return { ok: false, error: err instanceof Error ? err.message : 'Error desconocido' };
+    }
+}
+
+export async function deleteAgendaPromotion(id: string): Promise<{ ok: boolean; error?: string }> {
+    try {
+        return await apiFetch(`/api/agenda/promotions/${id}`, { method: 'DELETE' });
+    } catch (err) {
+        return { ok: false, error: err instanceof Error ? err.message : 'Error desconocido' };
+    }
+}
+
+export type PromoValidationResult = {
+    ok: boolean;
+    error?: string;
+    promotion?: {
+        id: string;
+        code: string | null;
+        label: string;
+        discountType: PromotionDiscountType;
+        discountValue: string;
+    };
+    originalPrice?: number;
+    discountAmount?: number;
+    finalPrice?: number;
+};
+
+export async function validatePublicPromo(slug: string, params: {
+    code: string;
+    serviceId?: string | null;
+    basePrice?: number | null;
+}): Promise<PromoValidationResult> {
+    try {
+        const res = await fetch(`${API_BASE}/api/public/agenda/${slug}/validate-promo`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(params),
+        });
+        return await res.json() as PromoValidationResult;
+    } catch (err) {
+        return { ok: false, error: err instanceof Error ? err.message : 'Error desconocido' };
+    }
+}
+
+// ── Packs / bonos ────────────────────────────────────────────────────────────
+
+export type PackAppliesTo = 'all' | 'services';
+export type ClientPackStatus = 'active' | 'expired' | 'completed' | 'refunded';
+
+export type AgendaPack = {
+    id: string;
+    professionalId: string;
+    name: string;
+    description: string | null;
+    sessionsCount: number;
+    price: string;
+    currency: string;
+    serviceIds: string[];
+    appliesTo: PackAppliesTo;
+    validityDays: number | null;
+    isActive: boolean;
+    position: number;
+    createdAt: string;
+    updatedAt: string;
+};
+
+export type PackInput = {
+    name: string;
+    description?: string | null;
+    sessionsCount: number;
+    price: number;
+    currency?: string;
+    serviceIds?: string[];
+    appliesTo?: PackAppliesTo;
+    validityDays?: number | null;
+    isActive?: boolean;
+    position?: number;
+};
+
+export type AgendaClientPack = {
+    id: string;
+    professionalId: string;
+    packId: string | null;
+    clientId: string;
+    name: string;
+    sessionsTotal: number;
+    sessionsUsed: number;
+    pricePaid: string | null;
+    currency: string;
+    serviceIds: string[];
+    appliesTo: PackAppliesTo;
+    purchasedAt: string;
+    expiresAt: string | null;
+    status: ClientPackStatus;
+    notes: string | null;
+    createdAt: string;
+    updatedAt: string;
+};
+
+export type ClientPackInput = {
+    clientId: string;
+    packId?: string | null;
+    name?: string;
+    sessionsTotal?: number;
+    pricePaid?: number | null;
+    currency?: string;
+    serviceIds?: string[];
+    appliesTo?: PackAppliesTo;
+    expiresAt?: string | null;
+    notes?: string | null;
+};
+
+export async function fetchAgendaPacks(): Promise<AgendaPack[]> {
+    try {
+        const data = await apiFetch<{ ok: boolean; packs: AgendaPack[] }>('/api/agenda/packs');
+        return data.packs ?? [];
+    } catch {
+        return [];
+    }
+}
+
+export async function createAgendaPack(body: PackInput): Promise<{ ok: boolean; error?: string; pack?: AgendaPack }> {
+    try {
+        return await apiFetch('/api/agenda/packs', { method: 'POST', body: JSON.stringify(body) });
+    } catch (err) {
+        return { ok: false, error: err instanceof Error ? err.message : 'Error desconocido' };
+    }
+}
+
+export async function patchAgendaPack(id: string, body: Partial<PackInput>): Promise<{ ok: boolean; error?: string; pack?: AgendaPack }> {
+    try {
+        return await apiFetch(`/api/agenda/packs/${id}`, { method: 'PATCH', body: JSON.stringify(body) });
+    } catch (err) {
+        return { ok: false, error: err instanceof Error ? err.message : 'Error desconocido' };
+    }
+}
+
+export async function deleteAgendaPack(id: string): Promise<{ ok: boolean; error?: string }> {
+    try {
+        return await apiFetch(`/api/agenda/packs/${id}`, { method: 'DELETE' });
+    } catch (err) {
+        return { ok: false, error: err instanceof Error ? err.message : 'Error desconocido' };
+    }
+}
+
+export async function fetchClientPacks(params?: { clientId?: string; status?: ClientPackStatus }): Promise<AgendaClientPack[]> {
+    try {
+        const qs = new URLSearchParams();
+        if (params?.clientId) qs.set('clientId', params.clientId);
+        if (params?.status) qs.set('status', params.status);
+        const suffix = qs.toString() ? `?${qs.toString()}` : '';
+        const data = await apiFetch<{ ok: boolean; clientPacks: AgendaClientPack[] }>(`/api/agenda/client-packs${suffix}`);
+        return data.clientPacks ?? [];
+    } catch {
+        return [];
+    }
+}
+
+export async function createClientPack(body: ClientPackInput): Promise<{ ok: boolean; error?: string; clientPack?: AgendaClientPack }> {
+    try {
+        return await apiFetch('/api/agenda/client-packs', { method: 'POST', body: JSON.stringify(body) });
+    } catch (err) {
+        return { ok: false, error: err instanceof Error ? err.message : 'Error desconocido' };
+    }
+}
+
+export async function patchClientPack(id: string, body: Partial<ClientPackInput> & { status?: ClientPackStatus }): Promise<{ ok: boolean; error?: string; clientPack?: AgendaClientPack }> {
+    try {
+        return await apiFetch(`/api/agenda/client-packs/${id}`, { method: 'PATCH', body: JSON.stringify(body) });
+    } catch (err) {
+        return { ok: false, error: err instanceof Error ? err.message : 'Error desconocido' };
+    }
+}
+
+export async function deleteClientPack(id: string): Promise<{ ok: boolean; error?: string }> {
+    try {
+        return await apiFetch(`/api/agenda/client-packs/${id}`, { method: 'DELETE' });
+    } catch (err) {
+        return { ok: false, error: err instanceof Error ? err.message : 'Error desconocido' };
+    }
+}
+
+// ── Sesiones grupales ─────────────────────────────────────────────────────────
+
+export type GroupSessionModality = 'online' | 'presential';
+export type GroupSessionStatus = 'scheduled' | 'completed' | 'cancelled';
+export type GroupAttendeeStatus = 'registered' | 'attended' | 'no_show' | 'cancelled';
+
+export type AgendaGroupSession = {
+    id: string;
+    professionalId: string;
+    serviceId: string | null;
+    title: string;
+    description: string | null;
+    startsAt: string;
+    endsAt: string;
+    durationMinutes: number;
+    capacity: number;
+    price: string | null;
+    currency: string;
+    modality: GroupSessionModality;
+    location: string | null;
+    meetingUrl: string | null;
+    status: GroupSessionStatus;
+    isPublic: boolean;
+    notes: string | null;
+    createdAt: string;
+    updatedAt: string;
+    attendeeCount?: number;
+};
+
+export type AgendaGroupAttendee = {
+    id: string;
+    sessionId: string;
+    professionalId: string;
+    clientId: string | null;
+    clientName: string;
+    clientEmail: string | null;
+    clientPhone: string | null;
+    status: GroupAttendeeStatus;
+    pricePaid: string | null;
+    paidAt: string | null;
+    notes: string | null;
+    registeredAt: string;
+    createdAt: string;
+    updatedAt: string;
+};
+
+export type GroupSessionInput = {
+    title: string;
+    description?: string | null;
+    serviceId?: string | null;
+    startsAt: string;
+    durationMinutes: number;
+    capacity: number;
+    price?: number | null;
+    currency?: string;
+    modality?: GroupSessionModality;
+    location?: string | null;
+    meetingUrl?: string | null;
+    isPublic?: boolean;
+    notes?: string | null;
+    status?: GroupSessionStatus;
+};
+
+export type GroupAttendeeInput = {
+    clientId?: string | null;
+    clientName: string;
+    clientEmail?: string | null;
+    clientPhone?: string | null;
+    pricePaid?: number | null;
+    notes?: string | null;
+};
+
+export async function fetchGroupSessions(status?: GroupSessionStatus): Promise<AgendaGroupSession[]> {
+    try {
+        const qs = status ? `?status=${status}` : '';
+        const data = await apiFetch<{ ok: boolean; sessions: AgendaGroupSession[] }>(`/api/agenda/group-sessions${qs}`);
+        return data.sessions ?? [];
+    } catch {
+        return [];
+    }
+}
+
+export async function fetchGroupSession(id: string): Promise<{ session: AgendaGroupSession; attendees: AgendaGroupAttendee[] } | null> {
+    try {
+        const data = await apiFetch<{ ok: boolean; session: AgendaGroupSession; attendees: AgendaGroupAttendee[] }>(`/api/agenda/group-sessions/${id}`);
+        return { session: data.session, attendees: data.attendees ?? [] };
+    } catch {
+        return null;
+    }
+}
+
+export async function createGroupSession(body: GroupSessionInput): Promise<{ ok: boolean; error?: string; session?: AgendaGroupSession }> {
+    try {
+        return await apiFetch('/api/agenda/group-sessions', { method: 'POST', body: JSON.stringify(body) });
+    } catch (err) {
+        return { ok: false, error: err instanceof Error ? err.message : 'Error desconocido' };
+    }
+}
+
+export async function patchGroupSession(id: string, body: Partial<GroupSessionInput>): Promise<{ ok: boolean; error?: string; session?: AgendaGroupSession }> {
+    try {
+        return await apiFetch(`/api/agenda/group-sessions/${id}`, { method: 'PATCH', body: JSON.stringify(body) });
+    } catch (err) {
+        return { ok: false, error: err instanceof Error ? err.message : 'Error desconocido' };
+    }
+}
+
+export async function deleteGroupSession(id: string): Promise<{ ok: boolean; error?: string }> {
+    try {
+        return await apiFetch(`/api/agenda/group-sessions/${id}`, { method: 'DELETE' });
+    } catch (err) {
+        return { ok: false, error: err instanceof Error ? err.message : 'Error desconocido' };
+    }
+}
+
+export async function addGroupAttendee(sessionId: string, body: GroupAttendeeInput): Promise<{ ok: boolean; error?: string; attendee?: AgendaGroupAttendee }> {
+    try {
+        return await apiFetch(`/api/agenda/group-sessions/${sessionId}/attendees`, { method: 'POST', body: JSON.stringify(body) });
+    } catch (err) {
+        return { ok: false, error: err instanceof Error ? err.message : 'Error desconocido' };
+    }
+}
+
+export async function patchGroupAttendee(id: string, body: Partial<GroupAttendeeInput> & { status?: GroupAttendeeStatus }): Promise<{ ok: boolean; error?: string; attendee?: AgendaGroupAttendee }> {
+    try {
+        return await apiFetch(`/api/agenda/group-attendees/${id}`, { method: 'PATCH', body: JSON.stringify(body) });
+    } catch (err) {
+        return { ok: false, error: err instanceof Error ? err.message : 'Error desconocido' };
+    }
+}
+
+export async function deleteGroupAttendee(id: string): Promise<{ ok: boolean; error?: string }> {
+    try {
+        return await apiFetch(`/api/agenda/group-attendees/${id}`, { method: 'DELETE' });
+    } catch (err) {
+        return { ok: false, error: err instanceof Error ? err.message : 'Error desconocido' };
+    }
 }

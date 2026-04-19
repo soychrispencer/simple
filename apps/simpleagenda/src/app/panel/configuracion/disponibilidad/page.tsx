@@ -51,13 +51,28 @@ const DEFAULT_WEEK = [1, 2, 3, 4, 5].map((day) => ({
 
 const DAY_ORDER = [1, 2, 3, 4, 5, 6, 0];
 
-function formatDateRange(startsAt: string, endsAt: string) {
+function isFullDayBlock(start: Date, end: Date): boolean {
+    return (
+        start.getHours() === 0 && start.getMinutes() === 0 &&
+        end.getHours() === 23 && end.getMinutes() >= 59
+    );
+}
+
+function formatBlockRange(startsAt: string, endsAt: string): string {
     const start = new Date(startsAt);
     const end = new Date(endsAt);
     const sameDay = start.toDateString() === end.toDateString();
     const dateFmt = new Intl.DateTimeFormat('es-CL', { day: '2-digit', month: 'short', year: 'numeric' });
-    if (sameDay) return dateFmt.format(start);
-    return `${dateFmt.format(start)} — ${dateFmt.format(end)}`;
+    const timeFmt = new Intl.DateTimeFormat('es-CL', { hour: '2-digit', minute: '2-digit', hour12: false });
+
+    if (isFullDayBlock(start, end)) {
+        if (sameDay) return dateFmt.format(start);
+        return `${dateFmt.format(start)} — ${dateFmt.format(end)}`;
+    }
+    if (sameDay) {
+        return `${dateFmt.format(start)} · ${timeFmt.format(start)}–${timeFmt.format(end)}`;
+    }
+    return `${dateFmt.format(start)} ${timeFmt.format(start)} — ${dateFmt.format(end)} ${timeFmt.format(end)}`;
 }
 
 // Local draft state per rule
@@ -84,8 +99,11 @@ export default function DisponibilidadConfigPage() {
 
     // Blocked slot form
     const [showBlockedForm, setShowBlockedForm] = useState(false);
+    const [blockMode, setBlockMode] = useState<'fullDay' | 'hours'>('fullDay');
     const [blockStartDate, setBlockStartDate] = useState('');
     const [blockEndDate, setBlockEndDate] = useState('');
+    const [blockStartTime, setBlockStartTime] = useState('09:00');
+    const [blockEndTime, setBlockEndTime] = useState('10:00');
     const [blockReason, setBlockReason] = useState('');
     const [blockSaving, setBlockSaving] = useState(false);
     const [blockError, setBlockError] = useState('');
@@ -240,12 +258,23 @@ export default function DisponibilidadConfigPage() {
 
     const handleAddBlockedSlot = async () => {
         setBlockError('');
-        if (!blockStartDate || !blockEndDate) { setBlockError('Selecciona las fechas de inicio y fin.'); return; }
-        if (blockEndDate < blockStartDate) { setBlockError('La fecha de fin debe ser igual o posterior a la de inicio.'); return; }
+        let startsAtIso: string;
+        let endsAtIso: string;
+
+        if (blockMode === 'fullDay') {
+            if (!blockStartDate || !blockEndDate) { setBlockError('Selecciona las fechas de inicio y fin.'); return; }
+            if (blockEndDate < blockStartDate) { setBlockError('La fecha de fin debe ser igual o posterior a la de inicio.'); return; }
+            startsAtIso = new Date(`${blockStartDate}T00:00:00`).toISOString();
+            endsAtIso = new Date(`${blockEndDate}T23:59:59`).toISOString();
+        } else {
+            if (!blockStartDate) { setBlockError('Selecciona la fecha del bloqueo.'); return; }
+            if (blockEndTime <= blockStartTime) { setBlockError('La hora de fin debe ser posterior a la de inicio.'); return; }
+            startsAtIso = new Date(`${blockStartDate}T${blockStartTime}:00`).toISOString();
+            endsAtIso = new Date(`${blockStartDate}T${blockEndTime}:00`).toISOString();
+        }
+
         setBlockSaving(true);
-        const startsAt = new Date(`${blockStartDate}T00:00:00`).toISOString();
-        const endsAt = new Date(`${blockEndDate}T23:59:59`).toISOString();
-        const result = await createBlockedSlot({ startsAt, endsAt, reason: blockReason || undefined });
+        const result = await createBlockedSlot({ startsAt: startsAtIso, endsAt: endsAtIso, reason: blockReason || undefined });
         setBlockSaving(false);
         if (!result.ok) { setBlockError(result.error ?? 'Error al guardar el bloqueo.'); return; }
         if (result.slot) {
@@ -253,6 +282,8 @@ export default function DisponibilidadConfigPage() {
         }
         setBlockStartDate('');
         setBlockEndDate('');
+        setBlockStartTime('09:00');
+        setBlockEndTime('10:00');
         setBlockReason('');
         setShowBlockedForm(false);
     };
@@ -449,16 +480,54 @@ export default function DisponibilidadConfigPage() {
                 <div className="mb-4">
                     <PanelCard size="md" className="border-[--accent]">
                         <div className="flex flex-col gap-4">
-                            <div className="grid sm:grid-cols-2 gap-4">
-                                <PanelField label="Desde" required>
-                                    <input type="date" value={blockStartDate} onChange={(e) => setBlockStartDate(e.target.value)} className="form-input" />
-                                </PanelField>
-                                <PanelField label="Hasta" required>
-                                    <input type="date" value={blockEndDate} onChange={(e) => setBlockEndDate(e.target.value)} className="form-input" />
-                                </PanelField>
+                            {/* Mode toggle */}
+                            <div className="flex gap-2">
+                                {(['fullDay', 'hours'] as const).map((mode) => (
+                                    <button
+                                        key={mode}
+                                        type="button"
+                                        onClick={() => setBlockMode(mode)}
+                                        className="flex-1 py-2.5 rounded-xl border text-sm transition-colors"
+                                        style={{
+                                            borderColor: blockMode === mode ? 'var(--accent)' : 'var(--border)',
+                                            background: blockMode === mode ? 'var(--accent-soft)' : 'transparent',
+                                            color: blockMode === mode ? 'var(--accent)' : 'var(--fg-secondary)',
+                                            fontWeight: blockMode === mode ? 600 : 400,
+                                        }}
+                                    >
+                                        {mode === 'fullDay' ? 'Día(s) completo(s)' : 'Horario específico'}
+                                    </button>
+                                ))}
                             </div>
+
+                            {blockMode === 'fullDay' ? (
+                                <div className="grid sm:grid-cols-2 gap-4">
+                                    <PanelField label="Desde" required>
+                                        <input type="date" value={blockStartDate} onChange={(e) => setBlockStartDate(e.target.value)} className="form-input" />
+                                    </PanelField>
+                                    <PanelField label="Hasta" required>
+                                        <input type="date" value={blockEndDate} onChange={(e) => setBlockEndDate(e.target.value)} className="form-input" />
+                                    </PanelField>
+                                </div>
+                            ) : (
+                                <div className="grid sm:grid-cols-3 gap-4">
+                                    <PanelField label="Fecha" required>
+                                        <input type="date" value={blockStartDate} onChange={(e) => setBlockStartDate(e.target.value)} className="form-input" />
+                                    </PanelField>
+                                    <PanelField label="Desde" required>
+                                        <select value={blockStartTime} onChange={(e) => setBlockStartTime(e.target.value)} className="form-select">
+                                            {TIME_OPTIONS.map((t) => <option key={t} value={t}>{t}</option>)}
+                                        </select>
+                                    </PanelField>
+                                    <PanelField label="Hasta" required>
+                                        <select value={blockEndTime} onChange={(e) => setBlockEndTime(e.target.value)} className="form-select">
+                                            {TIME_OPTIONS.map((t) => <option key={t} value={t}>{t}</option>)}
+                                        </select>
+                                    </PanelField>
+                                </div>
+                            )}
                             <PanelField label="Motivo" hint="Opcional, solo para tu referencia.">
-                                <input type="text" value={blockReason} onChange={(e) => setBlockReason(e.target.value)} placeholder="Ej: Vacaciones, congreso, feriado" className="form-input" />
+                                <input type="text" value={blockReason} onChange={(e) => setBlockReason(e.target.value)} placeholder={blockMode === 'fullDay' ? 'Ej: Vacaciones, congreso, feriado' : 'Ej: Reunión, almuerzo, imprevisto'} className="form-input" />
                             </PanelField>
                             {blockError && <p className="text-xs" style={{ color: '#dc2626' }}>{blockError}</p>}
                             <div className="flex gap-3">
@@ -466,7 +535,7 @@ export default function DisponibilidadConfigPage() {
                                     {blockSaving ? <IconLoader2 size={14} className="animate-spin" /> : null}
                                     {blockSaving ? 'Guardando...' : 'Bloquear'}
                                 </PanelButton>
-                                <PanelButton variant="secondary" onClick={() => { setShowBlockedForm(false); setBlockStartDate(''); setBlockEndDate(''); setBlockReason(''); setBlockError(''); }}>
+                                <PanelButton variant="secondary" onClick={() => { setShowBlockedForm(false); setBlockStartDate(''); setBlockEndDate(''); setBlockStartTime('09:00'); setBlockEndTime('10:00'); setBlockReason(''); setBlockError(''); }}>
                                     Cancelar
                                 </PanelButton>
                             </div>
@@ -489,7 +558,7 @@ export default function DisponibilidadConfigPage() {
                                     </div>
                                     <div className="flex-1 min-w-0">
                                         <p className="text-sm font-semibold" style={{ color: 'var(--fg)' }}>
-                                            {formatDateRange(slot.startsAt, slot.endsAt)}
+                                            {formatBlockRange(slot.startsAt, slot.endsAt)}
                                         </p>
                                         {slot.reason && <p className="text-xs mt-0.5" style={{ color: 'var(--fg-muted)' }}>{slot.reason}</p>}
                                     </div>
@@ -509,6 +578,21 @@ export default function DisponibilidadConfigPage() {
                     })}
                 </div>
             )}
+
+            <div className="mt-10 pt-6" style={{ borderTop: '1px solid var(--border)' }}>
+                <Link
+                    href="/panel/configuracion/cobros"
+                    className="flex items-center gap-3 p-4 rounded-2xl border transition-colors hover:border-[--accent-border]"
+                    style={{ borderColor: 'var(--border)', background: 'var(--surface)' }}
+                >
+                    <div className="flex-1 min-w-0">
+                        <p className="text-xs font-medium mb-0.5" style={{ color: 'var(--accent)' }}>Siguiente paso</p>
+                        <p className="text-sm font-semibold" style={{ color: 'var(--fg)' }}>Métodos de cobro</p>
+                        <p className="text-xs mt-0.5" style={{ color: 'var(--fg-muted)' }}>Configura cómo recibes los pagos de tus pacientes.</p>
+                    </div>
+                    <IconChevronRight size={18} style={{ color: 'var(--accent)' }} />
+                </Link>
+            </div>
         </div>
     );
 }

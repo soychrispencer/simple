@@ -7,12 +7,16 @@ import {
     IconUsers,
     IconCreditCard,
     IconClockHour4,
-    IconLoader2,
     IconTrendingUp,
     IconTrendingDown,
     IconMinus,
     IconChevronRight,
-    IconSettings,
+    IconCheck,
+    IconUser,
+    IconBriefcase,
+    IconClock,
+    IconRocket,
+    IconX,
 } from '@tabler/icons-react';
 import Link from 'next/link';
 import { fetchAgendaStats, fetchAgendaProfile, isPlanActive, type AgendaStats, type AgendaWeekDay, type AgendaProfile } from '@/lib/agenda-api';
@@ -127,6 +131,165 @@ function RevenueTrend({ current, prev, loading }: { current: number; prev: numbe
     );
 }
 
+// ── Onboarding checklist ──────────────────────────────────────────────────────
+
+type ChecklistStep = {
+    key: string;
+    label: string;
+    description: string;
+    href: string;
+    icon: typeof IconUser;
+    done: boolean;
+};
+
+function SetupChecklist({
+    profile,
+    stats,
+    dismissed,
+    onDismiss,
+}: {
+    profile: AgendaProfile;
+    stats: AgendaStats;
+    dismissed: boolean;
+    onDismiss: () => void;
+}) {
+    const steps: ChecklistStep[] = [
+        {
+            key: 'profile',
+            label: 'Tus datos',
+            description: 'Nombre y profesión',
+            href: '/panel/configuracion/perfil',
+            icon: IconUser,
+            done: !!(profile.displayName && profile.profession),
+        },
+        {
+            key: 'services',
+            label: 'Servicios',
+            description: 'Qué ofreces y cuánto dura',
+            href: '/panel/configuracion/servicios',
+            icon: IconBriefcase,
+            done: stats.hasServices,
+        },
+        {
+            key: 'availability',
+            label: 'Disponibilidad',
+            description: 'Tus horarios de atención',
+            href: '/panel/configuracion/disponibilidad',
+            icon: IconClock,
+            done: stats.hasRules,
+        },
+        {
+            key: 'publish',
+            label: 'Publica tu página',
+            description: 'Activa tu link público de reservas',
+            href: '/panel/configuracion/link',
+            icon: IconRocket,
+            done: profile.isPublished,
+        },
+    ];
+
+    const completed = steps.filter((s) => s.done).length;
+    const total = steps.length;
+    const allDone = completed === total;
+    const pct = Math.round((completed / total) * 100);
+
+    if (allDone || dismissed) return null;
+
+    return (
+        <div
+            className="rounded-2xl border p-5 mb-3"
+            style={{ borderColor: 'var(--border)', background: 'var(--surface)' }}
+        >
+            {/* Header */}
+            <div className="flex items-start justify-between gap-3 mb-4">
+                <div className="min-w-0">
+                    <p className="text-sm font-semibold" style={{ color: 'var(--fg)' }}>
+                        Configura tu agenda
+                    </p>
+                    <p className="text-xs mt-0.5" style={{ color: 'var(--fg-muted)' }}>
+                        {completed} de {total} pasos · {pct === 0 ? 'comencemos' : `${pct}% listo`}
+                    </p>
+                </div>
+                <button
+                    type="button"
+                    onClick={onDismiss}
+                    aria-label="Ocultar checklist"
+                    className="shrink-0 rounded-lg p-1 transition-colors hover:bg-[--accent-soft]"
+                    style={{ color: 'var(--fg-muted)' }}
+                >
+                    <IconX size={14} />
+                </button>
+            </div>
+
+            {/* Progress bar */}
+            <div
+                className="h-1 rounded-full overflow-hidden mb-4"
+                style={{ background: 'var(--border)' }}
+                role="progressbar"
+                aria-valuenow={pct}
+                aria-valuemin={0}
+                aria-valuemax={100}
+            >
+                <div
+                    className="h-full transition-all duration-500"
+                    style={{ width: `${pct}%`, background: 'var(--accent)' }}
+                />
+            </div>
+
+            {/* Steps */}
+            <ul className="flex flex-col gap-1">
+                {steps.map((step) => {
+                    const Icon = step.done ? IconCheck : step.icon;
+                    return (
+                        <li key={step.key}>
+                            <Link
+                                href={step.href}
+                                aria-label={`${step.label}${step.done ? ' (completado)' : ' (pendiente)'}`}
+                                className="group flex items-center gap-3 rounded-xl px-2 py-2 -mx-2 transition-colors hover:bg-[--accent-soft]"
+                            >
+                                <div
+                                    className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0 transition-colors"
+                                    style={{
+                                        background: step.done ? 'var(--accent)' : 'var(--accent-soft)',
+                                        color: step.done ? '#fff' : 'var(--accent)',
+                                    }}
+                                >
+                                    <Icon size={15} stroke={step.done ? 3 : 2} />
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                    <p
+                                        className="text-sm font-medium truncate"
+                                        style={{
+                                            color: 'var(--fg)',
+                                            textDecoration: step.done ? 'line-through' : 'none',
+                                            opacity: step.done ? 0.5 : 1,
+                                        }}
+                                    >
+                                        {step.label}
+                                    </p>
+                                    <p
+                                        className="text-xs truncate"
+                                        style={{ color: 'var(--fg-muted)', opacity: step.done ? 0.5 : 1 }}
+                                    >
+                                        {step.description}
+                                    </p>
+                                </div>
+                                {!step.done && (
+                                    <IconChevronRight
+                                        size={14}
+                                        className="opacity-0 group-hover:opacity-100 transition-opacity shrink-0"
+                                        style={{ color: 'var(--accent)' }}
+                                    />
+                                )}
+                            </Link>
+                        </li>
+                    );
+                })}
+            </ul>
+        </div>
+    );
+}
+
 // ── Main page ─────────────────────────────────────────────────────────────────
 
 export default function PanelHomePage() {
@@ -134,6 +297,7 @@ export default function PanelHomePage() {
     const [stats, setStats] = useState<AgendaStats | null>(null);
     const [profile, setProfile] = useState<AgendaProfile | null>(null);
     const [loading, setLoading] = useState(true);
+    const [checklistDismissed, setChecklistDismissed] = useState(false);
 
     useEffect(() => {
         const load = async () => {
@@ -147,8 +311,18 @@ export default function PanelHomePage() {
             }
         };
         void load();
+        if (typeof window !== 'undefined') {
+            setChecklistDismissed(window.localStorage.getItem('simpleagenda:setup-dismissed') === '1');
+        }
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
+
+    const handleDismissChecklist = () => {
+        setChecklistDismissed(true);
+        if (typeof window !== 'undefined') {
+            window.localStorage.setItem('simpleagenda:setup-dismissed', '1');
+        }
+    };
 
     const isFreePlan = !loading && profile !== null && !isPlanActive(profile);
     const clientsUsed = stats?.activeClients ?? 0;
@@ -157,12 +331,6 @@ export default function PanelHomePage() {
     const appsNearLimit = isFreePlan && appsUsed >= 7;
     const showFreeBanner = isFreePlan && (clientsNearLimit || appsNearLimit);
 
-    const isSetupIncomplete = !loading && !(
-        profile?.displayName && profile?.profession &&
-        stats?.hasServices &&
-        stats?.hasRules &&
-        profile?.isPublished
-    );
     const greeting = profile?.displayName ? `Hola, ${profile.displayName.split(' ')[0]}` : 'Bienvenido';
 
     const statCards = [
@@ -309,6 +477,16 @@ export default function PanelHomePage() {
                 </div>
             </div>
 
+            {/* Onboarding checklist — auto-hides when complete or dismissed */}
+            {!loading && profile && stats && (
+                <SetupChecklist
+                    profile={profile}
+                    stats={stats}
+                    dismissed={checklistDismissed}
+                    onDismiss={handleDismissChecklist}
+                />
+            )}
+
             {/* Free plan limits banner */}
             {showFreeBanner && (
                 <Link
@@ -332,26 +510,6 @@ export default function PanelHomePage() {
                 </Link>
             )}
 
-            {/* Setup banner — shown while agenda is not fully configured */}
-            {isSetupIncomplete && (
-                <Link
-                    href="/panel/configuracion"
-                    className="flex items-center gap-4 rounded-2xl border p-4 transition-colors hover:border-[--accent-border]"
-                    style={{ borderColor: 'var(--border)', background: 'var(--surface)' }}
-                >
-                    <div
-                        className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0"
-                        style={{ background: 'var(--accent-soft)', color: 'var(--accent)' }}
-                    >
-                        <IconSettings size={17} />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                        <p className="text-sm font-semibold" style={{ color: 'var(--fg)' }}>Termina de configurar tu agenda</p>
-                        <p className="text-xs mt-0.5" style={{ color: 'var(--fg-muted)' }}>Completa los pasos para empezar a recibir reservas.</p>
-                    </div>
-                    <IconChevronRight size={16} style={{ color: 'var(--fg-muted)' }} />
-                </Link>
-            )}
         </div>
     );
 }

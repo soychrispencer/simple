@@ -6,7 +6,7 @@ import { IconChevronDown, IconAdjustmentsHorizontal } from '@tabler/icons-react'
 import ModernSelect from '@/components/ui/modern-select';
 import { LOCATION_REGIONS, getCommunesForRegion } from '@simple/utils';
 import { loadPublishWizardCatalog, type CatalogBrand, type CatalogModel } from '@/lib/publish-wizard-catalog';
-import { PanelCard, PanelButton } from '@simple/ui';
+import { PanelButton } from '@simple/ui';
 
 export type VehicleType = 'car' | 'motorcycle' | 'truck' | 'bus' | 'machinery' | 'nautical' | 'aerial';
 
@@ -304,7 +304,7 @@ export default function VehicleFilters({ currentVehicleType = '' }: VehicleFilte
     const modelOptions = catalog?.models.filter(m => m.brandId === brand && m.vehicleTypes.includes(selectedVehicleTypeForCatalog)).map(m => ({ value: m.id, label: m.name })) || [];
 
     return (
-        <PanelCard size="md">
+        <div className="w-full">
             <div className="space-y-4">
                 <div className="flex items-center justify-between">
                     <h3 className="font-semibold" style={{ color: 'var(--fg)' }}>Filtros</h3>
@@ -599,6 +599,6 @@ export default function VehicleFilters({ currentVehicleType = '' }: VehicleFilte
                 )}
                 </div>
             </div>
-        </PanelCard>
+        </div>
     );
 }

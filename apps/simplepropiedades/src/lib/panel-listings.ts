@@ -26,6 +26,7 @@ export type PanelListing = {
     price: string;
     status: ListingStatus;
     views: number;
+    clicks?: number;
     favs: number;
     leads: number;
     days: number;
@@ -244,4 +245,30 @@ export async function deletePanelListingDraft(
     if (status === 401) return { ok: false, unauthorized: true, error: 'Tu sesión expiró. Vuelve a iniciar sesión.' };
     if (!data?.ok) return { ok: false, error: data?.error ?? 'No pudimos limpiar el borrador.' };
     return { ok: true };
+}
+
+export async function duplicatePanelListing(
+    listingId: string
+): Promise<{ ok: boolean; item?: PanelListing; error?: string; unauthorized?: boolean }> {
+    // Step 1: Fetch the original listing details
+    const detailResult = await fetchPanelListingDetail(listingId);
+    if (!detailResult.ok || !detailResult.item) {
+        return { ok: false, error: detailResult.error ?? 'No se pudo obtener la publicación original.', unauthorized: detailResult.unauthorized };
+    }
+
+    const original = detailResult.item;
+
+    // Step 2: Create new listing with copied data (excluding id, views, favs, leads, days, href, integrations)
+    const newListingInput: CreatePanelListingInput = {
+        vertical: original.vertical,
+        listingType: original.section,
+        title: `${original.title} (Copia)`,
+        description: original.description,
+        priceLabel: original.price,
+        location: original.location,
+        locationData: original.locationData,
+        rawData: original.rawData,
+    };
+
+    return await createPanelListing(newListingInput);
 }

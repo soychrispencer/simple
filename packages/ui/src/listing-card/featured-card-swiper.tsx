@@ -26,8 +26,6 @@ export default function FeaturedCardSwiper({
 
     if (items.length === 0) return null;
 
-    const loopEnabled = items.length > 2;
-
     return (
         <div className="relative">
             <Swiper
@@ -35,9 +33,12 @@ export default function FeaturedCardSwiper({
                 onSwiper={(s) => (swiperRef.current = s)}
                 slidesPerView={1.15}
                 spaceBetween={12}
-                loop={loopEnabled}
+                rewind
                 grabCursor
                 keyboard={{ enabled: true }}
+                watchSlidesProgress
+                touchStartPreventDefault={false}
+                nested={false}
                 autoplay={
                     autoplay
                         ? { delay: autoplayDelay, disableOnInteraction: false, pauseOnMouseEnter: true }

@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
+import { useSearchParams } from 'next/navigation';
 import {
     IconCalendar,
     IconClock,
@@ -13,8 +14,13 @@ import {
     IconUser,
     IconMail,
     IconPhone,
+    IconCalendarEvent,
+    IconVideo,
 } from '@tabler/icons-react';
-import { fetchPublicSlots, bookAppointment, type TimeSlot, type PaymentMethods } from '@/lib/agenda-api';
+import { fetchPublicSlots, bookAppointment, validatePublicPromo, type TimeSlot, type PaymentMethods, type RecurrenceFrequency } from '@/lib/agenda-api';
+import { useEscapeClose } from '@/lib/use-modal-a11y';
+
+type PreconsultField = { id: string; label: string; type: 'text' | 'textarea' | 'select' | 'checkbox' | 'number'; required: boolean; placeholder?: string; options?: string[] };
 
 type Service = {
     id: string;
@@ -24,6 +30,7 @@ type Service = {
     currency: string;
     isOnline: boolean;
     isPresential: boolean;
+    preconsultFields?: PreconsultField[];
 };
 
 type PublicProfile = {
@@ -32,6 +39,7 @@ type PublicProfile = {
     profession: string | null;
     timezone: string;
     bookingWindowDays: number;
+    allowsRecurrentBooking: boolean;
     encuadre: string | null;
     requiresAdvancePayment: boolean;
     advancePaymentInstructions: string | null;
@@ -39,7 +47,7 @@ type PublicProfile = {
     services: Service[];
 };
 
-type Step = 'idle' | 'date' | 'time' | 'info' | 'encuadre' | 'payment' | 'confirmed';
+type Step = 'idle' | 'date' | 'time' | 'info' | 'preconsult' | 'encuadre' | 'payment' | 'confirmed';
 
 const MONTHS_ES = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
 const DAYS_ES = ['D', 'L', 'M', 'X', 'J', 'V', 'S'];
@@ -68,6 +76,8 @@ function formattedPrice(price: string | null, currency: string): string {
 }
 
 export default function BookingFlow({ profile }: { profile: PublicProfile }) {
+    const searchParams = useSearchParams();
+    const isReschedule = searchParams.get('reprogramar') === '1';
     const [step, setStep] = useState<Step>('idle');
     const [selectedService, setSelectedService] = useState<Service | null>(null);
 
@@ -89,16 +99,38 @@ export default function BookingFlow({ profile }: { profile: PublicProfile }) {
     const [clientPhone, setClientPhone] = useState('');
     const [clientNotes, setClientNotes] = useState('');
 
+    // Pre-consulta
+    const [preconsultValues, setPreconsultValues] = useState<Record<string, string | boolean>>({});
+    const [preconsultError, setPreconsultError] = useState('');
+
     // Encuadre
     const [policyAgreed, setPolicyAgreed] = useState(false);
+
+    // Recurrence
+    const [isRecurring, setIsRecurring] = useState(false);
+    const [recurrenceFrequency, setRecurrenceFrequency] = useState<RecurrenceFrequency>('biweekly');
+    const [recurrenceCount, setRecurrenceCount] = useState(4);
 
     // Info step validation
     const [infoError, setInfoError] = useState('');
 
+    // Promo / cupón
+    const [promoCode, setPromoCode] = useState('');
+    const [promoChecking, setPromoChecking] = useState(false);
+    const [promoError, setPromoError] = useState<string | null>(null);
+    const [appliedPromo, setAppliedPromo] = useState<{
+        code: string;
+        label: string;
+        discountAmount: number;
+        finalPrice: number;
+        originalPrice: number;
+    } | null>(null);
+
     // Submission
     const [submitting, setSubmitting] = useState(false);
     const [submitError, setSubmitError] = useState('');
-    const [confirmedAppt, setConfirmedAppt] = useState<{ id: string; status: string; paymentStatus: string } | null>(null);
+    const [confirmedAppt, setConfirmedAppt] = useState<{ id: string; status: string; paymentStatus: string; modality?: string | null; meetingUrl?: string | null } | null>(null);
+    const [confirmedSeries, setConfirmedSeries] = useState<Array<{ id: string; startsAt: string }> | null>(null);
     const [checkoutUrl, setCheckoutUrl] = useState<string | null>(null);
 
     const loadSlots = useCallback(async (date: string, service: Service) => {
@@ -126,11 +158,50 @@ export default function BookingFlow({ profile }: { profile: PublicProfile }) {
         setClientPhone('');
         setClientNotes('');
         setPolicyAgreed(false);
+        setIsRecurring(false);
+        setRecurrenceFrequency('biweekly');
+        setRecurrenceCount(4);
         setSubmitError('');
         setConfirmedAppt(null);
+        setPromoCode('');
+        setPromoError(null);
+        setAppliedPromo(null);
     };
 
     const close = () => setStep('idle');
+
+    const handleApplyPromo = async () => {
+        const code = promoCode.trim().toUpperCase();
+        if (!code || !selectedService) return;
+        setPromoChecking(true);
+        setPromoError(null);
+        const result = await validatePublicPromo(profile.slug, {
+            code,
+            serviceId: selectedService.id,
+            basePrice: selectedService.price ? Number(selectedService.price) : null,
+        });
+        setPromoChecking(false);
+        if (!result.ok || !result.promotion || result.discountAmount === undefined || result.finalPrice === undefined || result.originalPrice === undefined) {
+            setPromoError(result.error ?? 'Cupón no válido.');
+            setAppliedPromo(null);
+            return;
+        }
+        setAppliedPromo({
+            code: result.promotion.code ?? code,
+            label: result.promotion.label,
+            discountAmount: result.discountAmount,
+            finalPrice: result.finalPrice,
+            originalPrice: result.originalPrice,
+        });
+    };
+
+    const clearPromo = () => {
+        setAppliedPromo(null);
+        setPromoCode('');
+        setPromoError(null);
+    };
+
+    useEscapeClose(step !== 'idle', close);
 
     // Calendar grid helpers
     const maxDate = new Date(today);
@@ -186,6 +257,31 @@ export default function BookingFlow({ profile }: { profile: PublicProfile }) {
             setInfoError('Ingresa al menos un email o teléfono para enviarte la confirmación.');
             return;
         }
+        const hasPreconsult = (selectedService?.preconsultFields?.length ?? 0) > 0;
+        if (hasPreconsult) {
+            setStep('preconsult');
+        } else if (profile.encuadre) {
+            setStep('encuadre');
+        } else if (profile.requiresAdvancePayment) {
+            setStep('payment');
+        } else {
+            void handleSubmit();
+        }
+    };
+
+    const handlePreconsultNext = () => {
+        const fields = selectedService?.preconsultFields ?? [];
+        for (const f of fields) {
+            if (f.required) {
+                const v = preconsultValues[f.id];
+                const empty = f.type === 'checkbox' ? v !== true : !(typeof v === 'string' && v.trim());
+                if (empty) {
+                    setPreconsultError(`Falta responder: ${f.label}`);
+                    return;
+                }
+            }
+        }
+        setPreconsultError('');
         if (profile.encuadre) {
             setStep('encuadre');
         } else if (profile.requiresAdvancePayment) {
@@ -216,6 +312,10 @@ export default function BookingFlow({ profile }: { profile: PublicProfile }) {
             clientNotes: clientNotes || undefined,
             startsAt: selectedSlot.startsAt,
             policyAgreed: !!profile.encuadre && policyAgreed,
+            recurrenceFrequency: isRecurring ? recurrenceFrequency : undefined,
+            recurrenceCount: isRecurring ? recurrenceCount : undefined,
+            preconsultResponses: (selectedService?.preconsultFields?.length ?? 0) > 0 ? preconsultValues : undefined,
+            promotionCode: appliedPromo?.code,
         });
         setSubmitting(false);
         if (!result.ok) {
@@ -223,6 +323,7 @@ export default function BookingFlow({ profile }: { profile: PublicProfile }) {
             return;
         }
         setConfirmedAppt(result.appointment ?? null);
+        setConfirmedSeries(result.appointments && result.appointments.length > 1 ? result.appointments : null);
         if (result.checkoutUrl) setCheckoutUrl(result.checkoutUrl);
         setStep('confirmed');
     };
@@ -239,10 +340,15 @@ export default function BookingFlow({ profile }: { profile: PublicProfile }) {
             clientNotes: clientNotes || undefined,
             startsAt: selectedSlot.startsAt,
             policyAgreed: !!profile.encuadre && policyAgreed,
+            recurrenceFrequency: isRecurring ? recurrenceFrequency : undefined,
+            recurrenceCount: isRecurring ? recurrenceCount : undefined,
+            preconsultResponses: (selectedService?.preconsultFields?.length ?? 0) > 0 ? preconsultValues : undefined,
+            promotionCode: appliedPromo?.code,
         });
         setSubmitting(false);
         if (!result.ok) { setSubmitError(result.error ?? 'Error al reservar.'); return; }
         setConfirmedAppt(result.appointment ?? null);
+        setConfirmedSeries(result.appointments && result.appointments.length > 1 ? result.appointments : null);
         if (method === 'mp' && result.checkoutUrl) {
             window.location.href = result.checkoutUrl;
             return;
@@ -253,6 +359,21 @@ export default function BookingFlow({ profile }: { profile: PublicProfile }) {
     if (step === 'idle') {
         return (
             <div className="flex flex-col gap-3">
+                {isReschedule && (
+                    <div
+                        role="status"
+                        className="rounded-2xl border p-4 flex items-center gap-3"
+                        style={{ borderColor: 'var(--accent)', background: 'var(--accent-soft)', color: 'var(--accent)' }}
+                    >
+                        <IconCalendarEvent size={18} className="shrink-0" />
+                        <div className="flex-1 min-w-0">
+                            <p className="text-sm font-semibold">Estás reprogramando una cita</p>
+                            <p className="text-xs mt-0.5 opacity-90">
+                                Tu cita anterior fue liberada. Elige el servicio y nueva fecha disponibles.
+                            </p>
+                        </div>
+                    </div>
+                )}
                 {profile.services.map((service) => (
                     <div
                         key={service.id}
@@ -310,8 +431,8 @@ export default function BookingFlow({ profile }: { profile: PublicProfile }) {
             </div>
 
             {/* Booking modal */}
-            <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4">
-                <button className="absolute inset-0 bg-black/40 backdrop-blur-[2px]" onClick={close} />
+            <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4" role="dialog" aria-modal="true" aria-labelledby="booking-step-title">
+                <button type="button" aria-label="Cerrar" className="absolute inset-0 bg-black/40 backdrop-blur-[2px]" onClick={close} />
                 <div
                     className="relative w-full max-w-md rounded-2xl border overflow-hidden"
                     style={{ background: 'var(--surface)', borderColor: 'var(--border)', boxShadow: 'var(--shadow-md)', maxHeight: '90vh', overflowY: 'auto' }}
@@ -320,16 +441,19 @@ export default function BookingFlow({ profile }: { profile: PublicProfile }) {
                     <div className="flex items-center justify-between px-5 py-4 border-b" style={{ borderColor: 'var(--border)' }}>
                         <div>
                             <p className="text-xs" style={{ color: 'var(--fg-muted)' }}>{selectedService?.name}</p>
-                            <p className="text-sm font-semibold" style={{ color: 'var(--fg)' }}>
+                            <p id="booking-step-title" className="text-sm font-semibold" style={{ color: 'var(--fg)' }}>
                                 {step === 'date' && 'Elige una fecha'}
                                 {step === 'time' && 'Elige un horario'}
                                 {step === 'info' && 'Tus datos'}
+                                {step === 'preconsult' && 'Antes de tu cita'}
                                 {step === 'encuadre' && 'Condiciones de atención'}
                                 {step === 'payment' && 'Pago anticipado'}
                                 {step === 'confirmed' && '¡Cita reservada!'}
                             </p>
                         </div>
                         <button
+                            type="button"
+                            aria-label="Cerrar"
                             onClick={close}
                             className="w-8 h-8 rounded-lg flex items-center justify-center border transition-colors hover:bg-(--bg-subtle)"
                             style={{ borderColor: 'var(--border)', color: 'var(--fg-muted)' }}
@@ -343,13 +467,13 @@ export default function BookingFlow({ profile }: { profile: PublicProfile }) {
                         {step === 'date' && (
                             <div>
                                 <div className="flex items-center justify-between mb-4">
-                                    <button onClick={prevMonth} className="w-8 h-8 rounded-lg flex items-center justify-center border hover:bg-(--bg-subtle) transition-colors" style={{ borderColor: 'var(--border)', color: 'var(--fg-muted)' }}>
+                                    <button type="button" aria-label="Mes anterior" onClick={prevMonth} className="w-8 h-8 rounded-lg flex items-center justify-center border hover:bg-(--bg-subtle) transition-colors" style={{ borderColor: 'var(--border)', color: 'var(--fg-muted)' }}>
                                         <IconChevronLeft size={16} />
                                     </button>
                                     <p className="text-sm font-semibold" style={{ color: 'var(--fg)' }}>
                                         {MONTHS_ES[viewMonth]} {viewYear}
                                     </p>
-                                    <button onClick={nextMonth} className="w-8 h-8 rounded-lg flex items-center justify-center border hover:bg-(--bg-subtle) transition-colors" style={{ borderColor: 'var(--border)', color: 'var(--fg-muted)' }}>
+                                    <button type="button" aria-label="Mes siguiente" onClick={nextMonth} className="w-8 h-8 rounded-lg flex items-center justify-center border hover:bg-(--bg-subtle) transition-colors" style={{ borderColor: 'var(--border)', color: 'var(--fg-muted)' }}>
                                         <IconChevronRight size={16} />
                                     </button>
                                 </div>
@@ -485,6 +609,112 @@ export default function BookingFlow({ profile }: { profile: PublicProfile }) {
                                         <label className="text-xs font-medium block mb-1.5" style={{ color: 'var(--fg-muted)' }}>Mensaje (opcional)</label>
                                         <textarea value={clientNotes} onChange={(e) => setClientNotes(e.target.value)} placeholder="¿Hay algo que quieras comentarle al profesional?" rows={3} className="booking-input resize-none" />
                                     </div>
+
+                                    {/* Recurrencia */}
+                                    {profile.allowsRecurrentBooking && (
+                                    <div className="rounded-xl border p-3" style={{ borderColor: 'var(--border)', background: 'var(--bg-subtle)' }}>
+                                        <label className="flex items-start gap-3 cursor-pointer">
+                                            <button
+                                                type="button"
+                                                onClick={() => setIsRecurring((v) => !v)}
+                                                className="mt-0.5 w-4 h-4 rounded border-2 flex items-center justify-center shrink-0 transition-colors"
+                                                style={{
+                                                    borderColor: isRecurring ? 'var(--accent)' : 'var(--border)',
+                                                    background: isRecurring ? 'var(--accent)' : 'transparent',
+                                                }}
+                                                aria-label="Reservar varias sesiones"
+                                            >
+                                                {isRecurring && <IconCheck size={10} color="#fff" />}
+                                            </button>
+                                            <div className="flex-1 min-w-0">
+                                                <p className="text-sm font-medium" style={{ color: 'var(--fg)' }}>Quiero reservar varias sesiones</p>
+                                                <p className="text-xs mt-0.5" style={{ color: 'var(--fg-muted)' }}>Se reservarán todas en el mismo horario del día elegido.</p>
+                                            </div>
+                                        </label>
+
+                                        {isRecurring && (
+                                            <div className="mt-3 grid grid-cols-2 gap-2">
+                                                <div>
+                                                    <label className="text-xs font-medium block mb-1.5" style={{ color: 'var(--fg-muted)' }}>Frecuencia</label>
+                                                    <select
+                                                        value={recurrenceFrequency}
+                                                        onChange={(e) => setRecurrenceFrequency(e.target.value as RecurrenceFrequency)}
+                                                        className="booking-input"
+                                                    >
+                                                        <option value="weekly">Cada semana</option>
+                                                        <option value="biweekly">Cada dos semanas</option>
+                                                        <option value="monthly">Cada mes</option>
+                                                    </select>
+                                                </div>
+                                                <div>
+                                                    <label className="text-xs font-medium block mb-1.5" style={{ color: 'var(--fg-muted)' }}>Sesiones</label>
+                                                    <input
+                                                        type="number"
+                                                        min={2}
+                                                        max={26}
+                                                        value={recurrenceCount}
+                                                        onChange={(e) => setRecurrenceCount(Math.max(2, Math.min(26, Number(e.target.value) || 2)))}
+                                                        className="booking-input"
+                                                    />
+                                                </div>
+                                            </div>
+                                        )}
+                                    </div>
+                                    )}
+
+                                    {/* Cupón / código de descuento */}
+                                    {selectedService?.price && (
+                                        <div className="rounded-xl border p-3" style={{ borderColor: 'var(--border)', background: 'var(--bg-subtle)' }}>
+                                            <label className="text-xs font-medium block mb-1.5" style={{ color: 'var(--fg-muted)' }}>
+                                                ¿Tienes un cupón de descuento?
+                                            </label>
+                                            {appliedPromo ? (
+                                                <div className="flex items-center gap-2 p-2 rounded-lg" style={{ background: 'var(--accent-soft)', color: 'var(--accent)' }}>
+                                                    <IconCheck size={14} className="shrink-0" />
+                                                    <div className="flex-1 min-w-0">
+                                                        <p className="text-xs font-semibold truncate">{appliedPromo.label}</p>
+                                                        <p className="text-[11px] opacity-90">
+                                                            {formattedPrice(String(appliedPromo.originalPrice), selectedService.currency)} → <strong>{formattedPrice(String(appliedPromo.finalPrice), selectedService.currency)}</strong>
+                                                        </p>
+                                                    </div>
+                                                    <button
+                                                        type="button"
+                                                        onClick={clearPromo}
+                                                        className="p-1 rounded hover:opacity-70"
+                                                        aria-label="Quitar cupón"
+                                                    >
+                                                        <IconX size={13} />
+                                                    </button>
+                                                </div>
+                                            ) : (
+                                                <div className="flex gap-2">
+                                                    <input
+                                                        type="text"
+                                                        value={promoCode}
+                                                        onChange={(e) => { setPromoCode(e.target.value.toUpperCase()); setPromoError(null); }}
+                                                        placeholder="CÓDIGO"
+                                                        className="booking-input flex-1 font-mono uppercase"
+                                                        onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); void handleApplyPromo(); } }}
+                                                    />
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => void handleApplyPromo()}
+                                                        disabled={promoChecking || !promoCode.trim()}
+                                                        className="px-3 py-2 rounded-xl text-xs font-semibold transition-opacity hover:opacity-90 disabled:opacity-50 shrink-0"
+                                                        style={{ background: 'var(--accent)', color: '#fff' }}
+                                                    >
+                                                        {promoChecking ? <IconLoader2 size={13} className="animate-spin" /> : 'Aplicar'}
+                                                    </button>
+                                                </div>
+                                            )}
+                                            {promoError && (
+                                                <p className="flex items-center gap-1 text-[11px] mt-1.5" style={{ color: '#dc2626' }}>
+                                                    <IconAlertCircle size={11} /> {promoError}
+                                                </p>
+                                            )}
+                                        </div>
+                                    )}
+
                                     {infoError && (
                                         <p className="flex items-center gap-1.5 text-xs" style={{ color: '#dc2626' }}>
                                             <IconAlertCircle size={13} />{infoError}
@@ -494,6 +724,85 @@ export default function BookingFlow({ profile }: { profile: PublicProfile }) {
                                         onClick={handleInfoNext}
                                         disabled={!clientName.trim() || !clientLastName.trim()}
                                         className="w-full py-3 rounded-xl text-sm font-semibold transition-opacity hover:opacity-90 disabled:opacity-50"
+                                        style={{ background: 'var(--accent)', color: '#fff' }}
+                                    >
+                                        Continuar
+                                    </button>
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Step: Preconsult */}
+                        {step === 'preconsult' && selectedService && (selectedService.preconsultFields?.length ?? 0) > 0 && (
+                            <div className="flex flex-col gap-4">
+                                <p className="text-xs" style={{ color: 'var(--fg-muted)' }}>
+                                    El profesional quiere conocer algunos detalles antes de tu cita. Tus respuestas son privadas.
+                                </p>
+                                {(selectedService.preconsultFields ?? []).map((field) => {
+                                    const val = preconsultValues[field.id];
+                                    const setVal = (v: string | boolean) => setPreconsultValues((prev) => ({ ...prev, [field.id]: v }));
+                                    return (
+                                        <div key={field.id} className="flex flex-col gap-1.5">
+                                            <label className="text-xs font-medium" style={{ color: 'var(--fg)' }}>
+                                                {field.label}{field.required && <span style={{ color: 'var(--accent)' }}> *</span>}
+                                            </label>
+                                            {field.type === 'textarea' && (
+                                                <textarea
+                                                    value={typeof val === 'string' ? val : ''}
+                                                    onChange={(e) => setVal(e.target.value)}
+                                                    placeholder={field.placeholder ?? ''}
+                                                    rows={3}
+                                                    className="field-input resize-none"
+                                                />
+                                            )}
+                                            {(field.type === 'text' || field.type === 'number') && (
+                                                <input
+                                                    type={field.type === 'number' ? 'number' : 'text'}
+                                                    value={typeof val === 'string' ? val : ''}
+                                                    onChange={(e) => setVal(e.target.value)}
+                                                    placeholder={field.placeholder ?? ''}
+                                                    className="field-input"
+                                                />
+                                            )}
+                                            {field.type === 'select' && (
+                                                <select
+                                                    value={typeof val === 'string' ? val : ''}
+                                                    onChange={(e) => setVal(e.target.value)}
+                                                    className="field-input"
+                                                >
+                                                    <option value="">—</option>
+                                                    {(field.options ?? []).map((opt) => (
+                                                        <option key={opt} value={opt}>{opt}</option>
+                                                    ))}
+                                                </select>
+                                            )}
+                                            {field.type === 'checkbox' && (
+                                                <label className="flex items-center gap-2 cursor-pointer">
+                                                    <input
+                                                        type="checkbox"
+                                                        checked={val === true}
+                                                        onChange={(e) => setVal(e.target.checked)}
+                                                    />
+                                                    <span className="text-sm" style={{ color: 'var(--fg-muted)' }}>Sí</span>
+                                                </label>
+                                            )}
+                                        </div>
+                                    );
+                                })}
+                                {preconsultError && <p className="text-xs" style={{ color: '#dc2626' }}>{preconsultError}</p>}
+                                <div className="flex gap-2">
+                                    <button
+                                        type="button"
+                                        onClick={() => setStep('info')}
+                                        className="px-4 py-2.5 rounded-xl border text-sm transition-colors hover:bg-(--bg-subtle)"
+                                        style={{ borderColor: 'var(--border)', color: 'var(--fg-secondary)' }}
+                                    >
+                                        Atrás
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={handlePreconsultNext}
+                                        className="flex-1 py-2.5 rounded-xl text-sm font-semibold transition-opacity hover:opacity-90"
                                         style={{ background: 'var(--accent)', color: '#fff' }}
                                     >
                                         Continuar
@@ -666,6 +975,54 @@ export default function BookingFlow({ profile }: { profile: PublicProfile }) {
                                         {formatDate(selectedSlot.startsAt, profile.timezone)}<br />
                                         {formatTime(selectedSlot.startsAt, profile.timezone)} — {formatTime(selectedSlot.endsAt, profile.timezone)}
                                     </p>
+                                )}
+                                {confirmedSeries && confirmedSeries.length > 1 && (
+                                    <div className="rounded-xl border p-3 mb-4 text-left" style={{ borderColor: 'var(--accent-border)', background: 'var(--accent-soft)' }}>
+                                        <p className="text-xs font-semibold mb-2" style={{ color: 'var(--accent)' }}>
+                                            Reservaste {confirmedSeries.length} sesiones
+                                        </p>
+                                        <ul className="flex flex-col gap-1 text-xs" style={{ color: 'var(--fg)' }}>
+                                            {confirmedSeries.map((a, i) => (
+                                                <li key={a.id} className="flex items-center gap-2">
+                                                    <span className="w-4 text-right" style={{ color: 'var(--fg-muted)' }}>{i + 1}.</span>
+                                                    <span>{formatDate(a.startsAt, profile.timezone)} — {formatTime(a.startsAt, profile.timezone)}</span>
+                                                </li>
+                                            ))}
+                                        </ul>
+                                    </div>
+                                )}
+                                {confirmedAppt?.modality === 'online' && confirmedAppt?.meetingUrl && (
+                                    <div
+                                        className="rounded-xl border p-3 mb-3 text-left"
+                                        style={{ borderColor: 'var(--border)', background: 'color-mix(in srgb, var(--accent) 6%, transparent)' }}
+                                    >
+                                        <div className="flex items-center gap-2 mb-1.5">
+                                            <IconVideo size={14} style={{ color: 'var(--accent)' }} />
+                                            <span className="text-xs font-semibold uppercase tracking-wide" style={{ color: 'var(--accent)' }}>
+                                                Google Meet
+                                            </span>
+                                        </div>
+                                        <a
+                                            href={confirmedAppt.meetingUrl}
+                                            target="_blank"
+                                            rel="noreferrer"
+                                            className="block text-xs break-all font-mono"
+                                            style={{ color: 'var(--fg)' }}
+                                        >
+                                            {confirmedAppt.meetingUrl}
+                                        </a>
+                                        <p className="text-[11px] mt-1.5" style={{ color: 'var(--fg-muted)' }}>
+                                            Guarda este enlace. Te lo reenviaremos por correo y WhatsApp.
+                                        </p>
+                                    </div>
+                                )}
+                                {confirmedAppt?.modality === 'online' && !confirmedAppt?.meetingUrl && (
+                                    <div
+                                        className="rounded-xl border p-3 mb-3 text-left text-xs"
+                                        style={{ borderColor: 'var(--border)', background: 'var(--bg-subtle)', color: 'var(--fg-muted)' }}
+                                    >
+                                        El profesional te compartirá el enlace de la videollamada por correo o WhatsApp.
+                                    </div>
                                 )}
                                 {confirmedAppt?.paymentStatus === 'pending' && checkoutUrl && (
                                     <a

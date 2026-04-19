@@ -1,16 +1,20 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
-import { 
-    IconCreditCard, 
-    IconPlus, 
-    IconLoader2, 
-    IconCheck, 
-    IconX, 
-    IconCash, 
-    IconBuildingBank, 
-    IconEdit, 
-    IconTrash 
+import { useEffect, useMemo, useState, useCallback } from 'react';
+import {
+    IconCreditCard,
+    IconPlus,
+    IconLoader2,
+    IconCheck,
+    IconX,
+    IconCash,
+    IconBuildingBank,
+    IconEdit,
+    IconTrash,
+    IconBrandWhatsapp,
+    IconAlertTriangle,
+    IconDownload,
+    IconChartBar,
 } from '@tabler/icons-react';
 import {
     fetchAgendaPayments,
@@ -25,6 +29,8 @@ import {
 } from '@/lib/agenda-api';
 import { fmtCLP, fmtDateMedium as fmtDate } from '@/lib/format';
 import { vocab } from '@/lib/vocabulary';
+import { Skeleton, SkeletonStat } from '@/components/panel/skeleton';
+import { useEscapeClose } from '@/lib/use-modal-a11y';
 
 const METHOD_LABELS: Record<string, string> = {
     transfer: 'Transferencia',
@@ -47,6 +53,47 @@ const STATUS_COLORS: Record<string, string> = {
     waived: '#9CA3AF',
 };
 
+type Period = 'month' | '30d' | '90d' | 'all';
+
+const PERIOD_LABELS: Record<Period, string> = {
+    month: 'Este mes',
+    '30d': '30 días',
+    '90d': '90 días',
+    all: 'Todo',
+};
+
+const OVERDUE_DAYS = 7;
+
+const startOfPeriod = (period: Period): Date | null => {
+    const now = new Date();
+    if (period === 'month') return new Date(now.getFullYear(), now.getMonth(), 1);
+    if (period === '30d') {
+        const d = new Date(now);
+        d.setDate(d.getDate() - 30);
+        return d;
+    }
+    if (period === '90d') {
+        const d = new Date(now);
+        d.setDate(d.getDate() - 90);
+        return d;
+    }
+    return null;
+};
+
+const monthLabel = (d: Date) =>
+    d.toLocaleDateString('es-CL', { month: 'short' }).replace('.', '');
+
+const csvEscape = (val: string | number | null | undefined) => {
+    const s = val == null ? '' : String(val);
+    if (/[",\n]/.test(s)) return `"${s.replace(/"/g, '""')}"`;
+    return s;
+};
+
+const sanitizePhone = (phone: string | null | undefined) => {
+    if (!phone) return '';
+    return phone.replace(/[^\d+]/g, '').replace(/^\+/, '');
+};
+
 export default function PagosPage() {
     const [payments, setPayments] = useState<AgendaPayment[]>([]);
     const [clients, setClients] = useState<AgendaClient[]>([]);
@@ -61,6 +108,8 @@ export default function PagosPage() {
     const [editMethod, setEditMethod] = useState('transfer');
     const [editNotes, setEditNotes] = useState('');
     const [editSaving, setEditSaving] = useState(false);
+
+    const [period, setPeriod] = useState<Period>('month');
 
     const [form, setForm] = useState({
         clientId: '',
@@ -90,16 +139,81 @@ export default function PagosPage() {
 
     useEffect(() => { void load(); }, [load]);
 
-    const pending = payments.filter((p) => p.status === 'pending');
-    const paidThisMonth = payments.filter((p) => {
-        if (p.status !== 'paid' || !p.paidAt) return false;
-        const d = new Date(p.paidAt);
+    useEscapeClose(showCreate, () => setShowCreate(false));
+    useEscapeClose(editingPayment !== null, () => setEditingPayment(null));
+    useEscapeClose(confirmDeleteId !== null, () => setConfirmDeleteId(null));
+
+    const pending = useMemo(() => payments.filter((p) => p.status === 'pending'), [payments]);
+    const totalPendingAmount = useMemo(() => pending.reduce((s, p) => s + Number(p.amount), 0), [pending]);
+
+    const periodStart = useMemo(() => startOfPeriod(period), [period]);
+
+    const paidInPeriod = useMemo(
+        () =>
+            payments.filter((p) => {
+                if (p.status !== 'paid' || !p.paidAt) return false;
+                if (!periodStart) return true;
+                return new Date(p.paidAt).getTime() >= periodStart.getTime();
+            }),
+        [payments, periodStart],
+    );
+
+    const totalInPeriod = useMemo(
+        () => paidInPeriod.reduce((s, p) => s + Number(p.amount), 0),
+        [paidInPeriod],
+    );
+
+    const avgInPeriod = useMemo(
+        () => (paidInPeriod.length === 0 ? 0 : Math.round(totalInPeriod / paidInPeriod.length)),
+        [paidInPeriod, totalInPeriod],
+    );
+
+    // Mini gráfico: últimos 6 meses (incluye actual)
+    const monthlySeries = useMemo(() => {
         const now = new Date();
-        return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
-    });
-    const totalPendingAmount = pending.reduce((s, p) => s + Number(p.amount), 0);
-    const totalThisMonth = paidThisMonth.reduce((s, p) => s + Number(p.amount), 0);
-    const totalHistorico = payments.filter((p) => p.status === 'paid').reduce((s, p) => s + Number(p.amount), 0);
+        const buckets: { label: string; total: number }[] = [];
+        for (let i = 5; i >= 0; i -= 1) {
+            const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+            buckets.push({ label: monthLabel(d), total: 0 });
+        }
+        payments.forEach((p) => {
+            if (p.status !== 'paid' || !p.paidAt) return;
+            const d = new Date(p.paidAt);
+            const diff = (now.getFullYear() - d.getFullYear()) * 12 + (now.getMonth() - d.getMonth());
+            if (diff < 0 || diff > 5) return;
+            const idx = 5 - diff;
+            buckets[idx].total += Number(p.amount);
+        });
+        const max = Math.max(...buckets.map((b) => b.total), 1);
+        return { buckets, max };
+    }, [payments]);
+
+    // Breakdown por método dentro del período
+    const methodBreakdown = useMemo(() => {
+        const totals: Record<string, number> = {};
+        paidInPeriod.forEach((p) => {
+            const key = p.method ?? 'otro';
+            totals[key] = (totals[key] ?? 0) + Number(p.amount);
+        });
+        const sum = Object.values(totals).reduce((s, n) => s + n, 0);
+        return Object.entries(totals)
+            .map(([key, value]) => ({
+                key,
+                label: METHOD_LABELS[key] ?? key,
+                value,
+                pct: sum === 0 ? 0 : Math.round((value / sum) * 100),
+            }))
+            .sort((a, b) => b.value - a.value);
+    }, [paidInPeriod]);
+
+    const overdueIds = useMemo(() => {
+        const cutoff = Date.now() - OVERDUE_DAYS * 86400 * 1000;
+        return new Set(
+            pending
+                .filter((p) => new Date(p.createdAt).getTime() < cutoff)
+                .map((p) => p.id),
+        );
+    }, [pending]);
 
     const handleMarkPaid = async (payment: AgendaPayment) => {
         setMarkingPaid(payment.id);
@@ -182,51 +296,221 @@ export default function PagosPage() {
         return c ? `${c.firstName} ${c.lastName ?? ''}`.trim() : null;
     };
 
+    const buildReminderHref = (payment: AgendaPayment) => {
+        if (!payment.clientId) return null;
+        const client = clients.find((c) => c.id === payment.clientId);
+        if (!client) return null;
+        const phone = sanitizePhone(client.whatsapp ?? client.phone);
+        if (!phone) return null;
+        const greeting = `Hola ${client.firstName}`;
+        const body = `te recuerdo el cobro pendiente de ${fmtCLP(payment.amount)}. Si ya lo realizaste, avísame para registrarlo. ¡Gracias!`;
+        const text = encodeURIComponent(`${greeting}, ${body}`);
+        return `https://wa.me/${phone}?text=${text}`;
+    };
+
+    const handleExportCsv = () => {
+        const header = ['Fecha', 'Cliente', 'Monto', 'Moneda', 'Método', 'Estado', 'Notas'];
+        const rows = payments.map((p) => [
+            (p.paidAt ?? p.createdAt).slice(0, 10),
+            clientName(p.clientId) ?? '',
+            p.amount,
+            p.currency || 'CLP',
+            METHOD_LABELS[p.method ?? ''] ?? p.method ?? '',
+            STATUS_LABELS[p.status] ?? p.status,
+            p.notes ?? '',
+        ]);
+        const csv = [header, ...rows].map((r) => r.map(csvEscape).join(',')).join('\n');
+        const blob = new Blob([`\uFEFF${csv}`], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        const today = new Date().toISOString().slice(0, 10);
+        link.href = url;
+        link.download = `cobros-${today}.csv`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+    };
+
     return (
         <div className="container-app panel-page py-8">
-            <div className="flex items-center justify-between mb-6">
-                <div>
+            <div className="flex items-start justify-between gap-3 mb-6 flex-wrap">
+                <div className="min-w-0">
                     <h1 className="text-xl font-bold" style={{ color: 'var(--fg)' }}>Cobros</h1>
                     <p className="text-sm mt-0.5" style={{ color: 'var(--fg-muted)' }}>
                         Registra y controla los pagos de tus sesiones.
                     </p>
                 </div>
-                <button
-                    onClick={() => setShowCreate(true)}
-                    className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-opacity hover:opacity-90"
-                    style={{ background: 'var(--accent)', color: '#fff' }}
-                >
-                    <IconPlus size={15} />
-                    Registrar cobro
-                </button>
+                <div className="flex items-center gap-2 shrink-0">
+                    {payments.length > 0 && (
+                        <button
+                            onClick={handleExportCsv}
+                            className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm border transition-colors hover:bg-(--bg-subtle)"
+                            style={{ borderColor: 'var(--border)', color: 'var(--fg-secondary)' }}
+                            title="Descargar histórico en CSV"
+                        >
+                            <IconDownload size={14} />
+                            CSV
+                        </button>
+                    )}
+                    <button
+                        onClick={() => setShowCreate(true)}
+                        className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-opacity hover:opacity-90"
+                        style={{ background: 'var(--accent)', color: '#fff' }}
+                    >
+                        <IconPlus size={15} />
+                        Registrar cobro
+                    </button>
+                </div>
+            </div>
+
+            {/* Period filter */}
+            <div className="flex items-center gap-1.5 mb-4 overflow-x-auto -mx-2 px-2 sm:mx-0 sm:px-0" role="tablist" aria-label="Período del dashboard">
+                {(Object.keys(PERIOD_LABELS) as Period[]).map((p) => {
+                    const active = period === p;
+                    return (
+                        <button
+                            key={p}
+                            role="tab"
+                            aria-selected={active}
+                            onClick={() => setPeriod(p)}
+                            className="px-3 py-1.5 rounded-full text-xs font-medium border whitespace-nowrap transition-colors"
+                            style={{
+                                background: active ? 'var(--accent)' : 'var(--surface)',
+                                borderColor: active ? 'var(--accent)' : 'var(--border)',
+                                color: active ? '#fff' : 'var(--fg-secondary)',
+                            }}
+                        >
+                            {PERIOD_LABELS[p]}
+                        </button>
+                    );
+                })}
             </div>
 
             {/* Summary cards */}
-            <div className="grid grid-cols-3 gap-4 mb-8">
-                <div className="p-4 rounded-2xl border" style={{ borderColor: 'var(--border)', background: 'var(--surface)' }}>
-                    {loading ? <IconLoader2 size={18} className="animate-spin" style={{ color: 'var(--fg-muted)' }} /> : (
-                        <p className="text-2xl font-bold" style={{ color: '#d97706' }}>{fmtCLP(totalPendingAmount)}</p>
-                    )}
-                    <p className="text-xs mt-0.5" style={{ color: 'var(--fg-muted)' }}>Cobros pendientes</p>
-                </div>
-                <div className="p-4 rounded-2xl border" style={{ borderColor: 'var(--border)', background: 'var(--surface)' }}>
-                    {loading ? <IconLoader2 size={18} className="animate-spin" style={{ color: 'var(--fg-muted)' }} /> : (
-                        <p className="text-2xl font-bold" style={{ color: 'var(--accent)' }}>{fmtCLP(totalThisMonth)}</p>
-                    )}
-                    <p className="text-xs mt-0.5" style={{ color: 'var(--fg-muted)' }}>Cobrado este mes</p>
-                </div>
-                <div className="p-4 rounded-2xl border" style={{ borderColor: 'var(--border)', background: 'var(--surface)' }}>
-                    {loading ? <IconLoader2 size={18} className="animate-spin" style={{ color: 'var(--fg-muted)' }} /> : (
-                        <p className="text-2xl font-bold" style={{ color: 'var(--fg-muted)' }}>{fmtCLP(totalHistorico)}</p>
-                    )}
-                    <p className="text-xs mt-0.5" style={{ color: 'var(--fg-muted)' }}>Total histórico</p>
-                </div>
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
+                {loading ? (
+                    <>
+                        <SkeletonStat />
+                        <SkeletonStat />
+                        <SkeletonStat />
+                        <SkeletonStat />
+                    </>
+                ) : (
+                    <>
+                        <div className="p-4 rounded-2xl border" style={{ borderColor: 'var(--border)', background: 'var(--surface)' }}>
+                            <p className="text-xl sm:text-2xl font-bold tracking-tight" style={{ color: 'var(--accent)' }}>{fmtCLP(totalInPeriod)}</p>
+                            <p className="text-xs mt-0.5" style={{ color: 'var(--fg-muted)' }}>Cobrado · {PERIOD_LABELS[period].toLowerCase()}</p>
+                        </div>
+                        <div className="p-4 rounded-2xl border" style={{ borderColor: 'var(--border)', background: 'var(--surface)' }}>
+                            <p className="text-xl sm:text-2xl font-bold tracking-tight" style={{ color: '#d97706' }}>{fmtCLP(totalPendingAmount)}</p>
+                            <p className="text-xs mt-0.5" style={{ color: 'var(--fg-muted)' }}>
+                                Pendientes
+                                {overdueIds.size > 0 && (
+                                    <span className="ml-1.5 inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-medium" style={{ background: 'rgba(239,68,68,0.1)', color: '#dc2626' }}>
+                                        <IconAlertTriangle size={9} /> {overdueIds.size} atrasados
+                                    </span>
+                                )}
+                            </p>
+                        </div>
+                        <div className="p-4 rounded-2xl border" style={{ borderColor: 'var(--border)', background: 'var(--surface)' }}>
+                            <p className="text-xl sm:text-2xl font-bold tracking-tight" style={{ color: 'var(--fg)' }}>{paidInPeriod.length}</p>
+                            <p className="text-xs mt-0.5" style={{ color: 'var(--fg-muted)' }}>Cobros realizados</p>
+                        </div>
+                        <div className="p-4 rounded-2xl border" style={{ borderColor: 'var(--border)', background: 'var(--surface)' }}>
+                            <p className="text-xl sm:text-2xl font-bold tracking-tight" style={{ color: 'var(--fg)' }}>{fmtCLP(avgInPeriod)}</p>
+                            <p className="text-xs mt-0.5" style={{ color: 'var(--fg-muted)' }}>Promedio por cobro</p>
+                        </div>
+                    </>
+                )}
             </div>
+
+            {/* Mini chart + method breakdown */}
+            {!loading && payments.some((p) => p.status === 'paid') && (
+                <div className="grid lg:grid-cols-3 gap-3 mb-8">
+                    {/* 6-month bars */}
+                    <div className="lg:col-span-2 p-4 rounded-2xl border" style={{ borderColor: 'var(--border)', background: 'var(--surface)' }}>
+                        <div className="flex items-center gap-2 mb-3">
+                            <IconChartBar size={14} style={{ color: 'var(--fg-muted)' }} />
+                            <p className="text-xs font-semibold uppercase tracking-wider" style={{ color: 'var(--fg-muted)' }}>
+                                Últimos 6 meses
+                            </p>
+                        </div>
+                        <div className="flex items-end gap-2 h-28">
+                            {monthlySeries.buckets.map((b, i) => {
+                                const heightPct = (b.total / monthlySeries.max) * 100;
+                                const isCurrent = i === monthlySeries.buckets.length - 1;
+                                return (
+                                    <div key={i} className="flex-1 flex flex-col items-center gap-1.5 min-w-0" title={fmtCLP(b.total)}>
+                                        <div className="flex-1 w-full flex items-end">
+                                            <div
+                                                className="w-full rounded-md transition-all"
+                                                style={{
+                                                    height: `${Math.max(heightPct, b.total > 0 ? 6 : 2)}%`,
+                                                    background: isCurrent ? 'var(--accent)' : 'var(--accent-soft)',
+                                                    border: '1px solid var(--accent-border, var(--border))',
+                                                    opacity: b.total === 0 ? 0.4 : 1,
+                                                }}
+                                            />
+                                        </div>
+                                        <span className="text-[10px] capitalize truncate w-full text-center" style={{ color: 'var(--fg-muted)' }}>
+                                            {b.label}
+                                        </span>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    </div>
+
+                    {/* Method breakdown */}
+                    <div className="p-4 rounded-2xl border" style={{ borderColor: 'var(--border)', background: 'var(--surface)' }}>
+                        <p className="text-xs font-semibold uppercase tracking-wider mb-3" style={{ color: 'var(--fg-muted)' }}>
+                            Por método
+                        </p>
+                        {methodBreakdown.length === 0 ? (
+                            <p className="text-xs" style={{ color: 'var(--fg-muted)' }}>Sin cobros en este período.</p>
+                        ) : (
+                            <div className="flex flex-col gap-2.5">
+                                {methodBreakdown.map((m) => (
+                                    <div key={m.key}>
+                                        <div className="flex items-center justify-between mb-1">
+                                            <span className="text-xs" style={{ color: 'var(--fg)' }}>{m.label}</span>
+                                            <span className="text-xs font-semibold" style={{ color: 'var(--fg-muted)' }}>{m.pct}%</span>
+                                        </div>
+                                        <div className="h-1.5 rounded-full overflow-hidden" style={{ background: 'var(--border)' }}>
+                                            <div
+                                                className="h-full rounded-full transition-all"
+                                                style={{ width: `${m.pct}%`, background: 'var(--accent)' }}
+                                            />
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+                    </div>
+                </div>
+            )}
 
             {/* Payments list */}
             {loading ? (
-                <div className="flex items-center gap-2 text-sm py-8" style={{ color: 'var(--fg-muted)' }}>
-                    <IconLoader2 size={15} className="animate-spin" /> Cargando cobros...
+                <div className="rounded-2xl border overflow-hidden" style={{ borderColor: 'var(--border)' }}>
+                    {Array.from({ length: 4 }).map((_, i) => (
+                        <div
+                            key={i}
+                            className="flex items-center gap-4 p-4"
+                            style={{
+                                borderBottom: i < 3 ? '1px solid var(--border)' : 'none',
+                                background: 'var(--surface)',
+                            }}
+                        >
+                            <Skeleton width={36} height={36} rounded="lg" />
+                            <div className="flex-1 flex flex-col gap-2">
+                                <Skeleton width="40%" height="0.875rem" />
+                                <Skeleton width="55%" height="0.625rem" />
+                            </div>
+                            <Skeleton width={70} height="1.75rem" rounded="lg" />
+                        </div>
+                    ))}
                 </div>
             ) : payments.length === 0 ? (
                 <div
@@ -274,6 +558,12 @@ export default function PagosPage() {
                                     >
                                         {STATUS_LABELS[payment.status] ?? payment.status}
                                     </span>
+                                    {overdueIds.has(payment.id) && (
+                                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold" style={{ background: 'rgba(239,68,68,0.1)', color: '#dc2626' }}>
+                                            <IconAlertTriangle size={10} />
+                                            Atrasado
+                                        </span>
+                                    )}
                                     {payment.method && (
                                         <span className="text-xs" style={{ color: 'var(--fg-muted)' }}>
                                             {METHOD_LABELS[payment.method] ?? payment.method}
@@ -289,6 +579,22 @@ export default function PagosPage() {
                             </div>
 
                             <div className="flex items-center gap-2 shrink-0">
+                                {payment.status === 'pending' && (() => {
+                                    const reminderHref = buildReminderHref(payment);
+                                    return reminderHref ? (
+                                        <a
+                                            href={reminderHref}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-medium border transition-colors hover:bg-(--bg-subtle)"
+                                            style={{ borderColor: 'var(--border)', color: '#25D366' }}
+                                            title="Enviar recordatorio por WhatsApp"
+                                        >
+                                            <IconBrandWhatsapp size={13} />
+                                            <span className="hidden sm:inline">Recordar</span>
+                                        </a>
+                                    ) : null;
+                                })()}
                                 {payment.status === 'pending' && (
                                     <button
                                         onClick={() => void handleMarkPaid(payment)}
@@ -301,6 +607,8 @@ export default function PagosPage() {
                                     </button>
                                 )}
                                 <button
+                                    type="button"
+                                    aria-label="Editar cobro"
                                     onClick={() => handleOpenEdit(payment)}
                                     className="w-7 h-7 rounded-lg flex items-center justify-center border transition-colors hover:bg-(--bg-subtle)"
                                     style={{ borderColor: 'var(--border)', color: 'var(--fg-secondary)' }}
@@ -328,6 +636,8 @@ export default function PagosPage() {
                                     </div>
                                 ) : (
                                     <button
+                                        type="button"
+                                        aria-label="Eliminar cobro"
                                         onClick={() => setConfirmDeleteId(payment.id)}
                                         className="w-7 h-7 rounded-lg flex items-center justify-center border transition-colors hover:bg-red-500/10 hover:border-red-500/40"
                                         style={{ borderColor: 'var(--border)', color: 'var(--fg-muted)' }}
@@ -344,15 +654,17 @@ export default function PagosPage() {
 
             {/* Create modal */}
             {showCreate && (
-                <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4">
-                    <button className="absolute inset-0 bg-black/40 backdrop-blur-[2px]" onClick={() => setShowCreate(false)} />
+                <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4" role="dialog" aria-modal="true" aria-labelledby="pagos-create-title">
+                    <button type="button" aria-label="Cerrar" className="absolute inset-0 bg-black/40 backdrop-blur-[2px]" onClick={() => setShowCreate(false)} />
                     <div
                         className="relative w-full max-w-md rounded-2xl border p-5 max-h-[90vh] overflow-y-auto"
                         style={{ background: 'var(--surface)', borderColor: 'var(--border)', boxShadow: 'var(--shadow-md)' }}
                     >
                         <div className="flex items-center justify-between mb-5">
-                            <h2 className="text-base font-semibold" style={{ color: 'var(--fg)' }}>Registrar cobro</h2>
+                            <h2 id="pagos-create-title" className="text-base font-semibold" style={{ color: 'var(--fg)' }}>Registrar cobro</h2>
                             <button
+                                type="button"
+                                aria-label="Cerrar"
                                 onClick={() => setShowCreate(false)}
                                 className="w-7 h-7 rounded-lg flex items-center justify-center border transition-colors hover:bg-(--bg-subtle)"
                                 style={{ borderColor: 'var(--border)', color: 'var(--fg-muted)' }}
@@ -507,15 +819,17 @@ export default function PagosPage() {
 
             {/* Edit payment modal */}
             {editingPayment && (
-                <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4">
-                    <button className="absolute inset-0 bg-black/40 backdrop-blur-[2px]" onClick={() => setEditingPayment(null)} />
+                <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4" role="dialog" aria-modal="true" aria-labelledby="pagos-edit-title">
+                    <button type="button" aria-label="Cerrar" className="absolute inset-0 bg-black/40 backdrop-blur-[2px]" onClick={() => setEditingPayment(null)} />
                     <div
                         className="relative w-full max-w-sm rounded-2xl border p-5"
                         style={{ background: 'var(--surface)', borderColor: 'var(--border)', boxShadow: 'var(--shadow-md)' }}
                     >
                         <div className="flex items-center justify-between mb-5">
-                            <h2 className="text-base font-semibold" style={{ color: 'var(--fg)' }}>Editar cobro</h2>
+                            <h2 id="pagos-edit-title" className="text-base font-semibold" style={{ color: 'var(--fg)' }}>Editar cobro</h2>
                             <button
+                                type="button"
+                                aria-label="Cerrar"
                                 onClick={() => setEditingPayment(null)}
                                 className="w-7 h-7 rounded-lg flex items-center justify-center border transition-colors hover:bg-(--bg-subtle)"
                                 style={{ borderColor: 'var(--border)', color: 'var(--fg-muted)' }}

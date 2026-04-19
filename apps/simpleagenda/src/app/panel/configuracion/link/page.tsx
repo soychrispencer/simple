@@ -11,7 +11,13 @@ import {
     IconEyeOff,
     IconEdit,
     IconX,
+    IconShare3,
+    IconQrcode,
+    IconDownload,
+    IconWorld,
+    IconChevronRight,
 } from '@tabler/icons-react';
+import Link from 'next/link';
 import {
     PanelCard,
     PanelButton,
@@ -38,6 +44,8 @@ export default function LinkReservasPage() {
     const [checkingSlug, setCheckingSlug] = useState(false);
     const [savingSlug, setSavingSlug] = useState(false);
     const [slugError, setSlugError] = useState('');
+    const [showQr, setShowQr] = useState(false);
+    const [shared, setShared] = useState(false);
     const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
     useEffect(() => {
@@ -99,6 +107,29 @@ export default function LinkReservasPage() {
         setTimeout(() => setCopied(false), 2000);
     };
 
+    const handleShare = async () => {
+        if (!publicUrl) return;
+        const title = profile?.displayName ? `Reserva con ${profile.displayName}` : 'Reserva tu cita';
+        const text = 'Reserva tu cita en línea:';
+        if (typeof navigator !== 'undefined' && typeof navigator.share === 'function') {
+            try {
+                await navigator.share({ title, text, url: publicUrl });
+                setShared(true);
+                setTimeout(() => setShared(false), 2000);
+                return;
+            } catch {
+                // silenciar cancelación o fallo; caer al fallback
+            }
+        }
+        await navigator.clipboard.writeText(publicUrl);
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000);
+    };
+
+    const qrSrc = publicUrl
+        ? `https://api.qrserver.com/v1/create-qr-code/?size=240x240&margin=10&data=${encodeURIComponent(publicUrl)}`
+        : null;
+
     const handleTogglePublish = async (next: boolean) => {
         if (!profile) return;
         setTogglingPublish(true);
@@ -123,7 +154,7 @@ export default function LinkReservasPage() {
             <div className="container-app panel-page py-8 max-w-lg">
                 <PanelPageHeader
                     backHref="/panel/configuracion"
-                    title="Link de reservas"
+                    title="Página de reservas"
                 />
                 <PanelCard size="lg" className="flex flex-col items-center gap-3 text-center">
                     <IconAlertCircle size={32} style={{ color: 'var(--fg-muted)' }} />
@@ -149,8 +180,8 @@ export default function LinkReservasPage() {
         <div className="container-app panel-page py-8 max-w-lg">
             <PanelPageHeader
                 backHref="/panel/configuracion"
-                title="Link de reservas"
-                description="Comparte este link con tus pacientes para que reserven directamente."
+                title="Página de reservas"
+                description="Tu link público, QR y dominio para recibir reservas en línea."
             />
 
             <div className="flex flex-col gap-4">
@@ -195,15 +226,39 @@ export default function LinkReservasPage() {
                             </div>
 
                             {/* Actions */}
-                            <div className="flex gap-2">
+                            <div className="flex gap-2 flex-wrap">
                                 <PanelButton
                                     variant="accent"
                                     onClick={() => void handleCopy()}
-                                    className="flex-1 justify-center"
+                                    className="flex-1 justify-center min-w-35"
                                 >
                                     {copied ? <IconCheck size={15} /> : <IconCopy size={15} />}
                                     {copied ? 'Copiado' : 'Copiar link'}
                                 </PanelButton>
+                                <button
+                                    type="button"
+                                    onClick={() => void handleShare()}
+                                    className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl border text-sm transition-colors hover:opacity-80"
+                                    style={{ borderColor: 'var(--border)', color: 'var(--fg-secondary)' }}
+                                    title="Compartir"
+                                >
+                                    <IconShare3 size={15} />
+                                    {shared ? 'Compartido' : 'Compartir'}
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => setShowQr((v) => !v)}
+                                    className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl border text-sm transition-colors hover:opacity-80"
+                                    style={{
+                                        borderColor: showQr ? 'var(--accent)' : 'var(--border)',
+                                        color: showQr ? 'var(--accent)' : 'var(--fg-secondary)',
+                                    }}
+                                    aria-expanded={showQr}
+                                    title="Mostrar código QR"
+                                >
+                                    <IconQrcode size={15} />
+                                    QR
+                                </button>
                                 <a
                                     href={publicUrl!}
                                     target="_blank"
@@ -212,9 +267,45 @@ export default function LinkReservasPage() {
                                     style={{ borderColor: 'var(--border)', color: 'var(--fg-secondary)' }}
                                 >
                                     <IconExternalLink size={15} />
-                                    Ver página
+                                    Ver
                                 </a>
                             </div>
+
+                            {showQr && qrSrc && (
+                                <div
+                                    className="mt-4 p-4 rounded-xl flex flex-col sm:flex-row items-center gap-4"
+                                    style={{ background: 'var(--bg)', border: '1px solid var(--border)' }}
+                                >
+                                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                                    <img
+                                        src={qrSrc}
+                                        alt={`QR de ${publicUrl}`}
+                                        width={140}
+                                        height={140}
+                                        className="rounded-lg border bg-white shrink-0"
+                                        style={{ borderColor: 'var(--border)' }}
+                                    />
+                                    <div className="flex-1 min-w-0 text-center sm:text-left">
+                                        <p className="text-sm font-semibold mb-1" style={{ color: 'var(--fg)' }}>
+                                            Escanear para reservar
+                                        </p>
+                                        <p className="text-xs mb-3" style={{ color: 'var(--fg-muted)' }}>
+                                            Imprímelo para tu consulta o pégalo en redes sociales.
+                                        </p>
+                                        <a
+                                            href={`${qrSrc}&download=1`}
+                                            download={`reservas-${profile.slug}.png`}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors hover:bg-(--bg-subtle)"
+                                            style={{ borderColor: 'var(--border)', color: 'var(--fg-secondary)' }}
+                                        >
+                                            <IconDownload size={13} />
+                                            Descargar PNG
+                                        </a>
+                                    </div>
+                                </div>
+                            )}
                         </>
                     ) : (
                         <div className="mb-1">
@@ -312,6 +403,32 @@ export default function LinkReservasPage() {
                         ))}
                     </ul>
                 </PanelCard>
+
+                {/* Dominio personalizado */}
+                <Link
+                    href="/panel/configuracion/dominio"
+                    className="flex items-center gap-4 p-4 rounded-2xl border transition-colors hover:border-[--accent-border]"
+                    style={{ borderColor: 'var(--border)', background: 'var(--surface)' }}
+                >
+                    <div
+                        className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0"
+                        style={{ background: 'var(--bg-muted)', color: 'var(--fg-muted)' }}
+                    >
+                        <IconWorld size={16} />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                            <p className="text-sm font-semibold" style={{ color: 'var(--fg)' }}>Dominio personalizado</p>
+                            <span className="text-[10px] font-medium px-1.5 py-0.5 rounded" style={{ background: 'var(--bg-muted)', color: 'var(--fg-muted)' }}>
+                                Próximamente
+                            </span>
+                        </div>
+                        <p className="text-xs mt-0.5" style={{ color: 'var(--fg-muted)' }}>
+                            Usa tu propio dominio (ej. reservas.tu-consulta.cl).
+                        </p>
+                    </div>
+                    <IconChevronRight size={16} style={{ color: 'var(--fg-muted)' }} />
+                </Link>
 
             </div>
         </div>

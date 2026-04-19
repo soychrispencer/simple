@@ -74,7 +74,16 @@ export default function PublicPropertyListingPage(props: {
     description: string;
 }) {
     const [loading, setLoading] = useState(true);
-    const [viewMode, setViewMode] = useState<ViewMode>('grid');
+    const [viewMode, setViewMode] = useState<ViewMode>(() => {
+        if (typeof window === 'undefined') return 'grid';
+        const saved = window.localStorage.getItem('simplepropiedades:publicListings:viewMode');
+        return saved === 'list' ? 'list' : 'grid';
+    });
+    useEffect(() => {
+        if (typeof window !== 'undefined') {
+            window.localStorage.setItem('simplepropiedades:publicListings:viewMode', viewMode);
+        }
+    }, [viewMode]);
     const [sortOrder, setSortOrder] = useState('recent');
     const [items, setItems] = useState<PublicListing[]>([]);
 
@@ -141,7 +150,7 @@ export default function PublicPropertyListingPage(props: {
             <InlineResultAd section={props.section === 'project' ? 'proyectos' : props.section === 'rent' ? 'arriendos' : 'ventas'} className="mb-5" />
 
             {loading ? (
-                <div className={viewMode === 'grid' ? 'grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4' : 'space-y-3'}>
+                <div className={viewMode === 'grid' ? 'grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4' : 'space-y-3'}>
                     {Array.from({ length: 6 }).map((_, index) => (
                         <div key={index} className="h-72 rounded-xl animate-pulse" style={{ background: 'var(--bg-muted)' }} />
                     ))}
@@ -153,7 +162,7 @@ export default function PublicPropertyListingPage(props: {
                     </PanelNotice>
                 </PanelCard>
             ) : (
-                <div className={viewMode === 'grid' ? 'grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4' : 'space-y-3'}>
+                <div className={viewMode === 'grid' ? 'grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4' : 'space-y-3'}>
                     {cards.map((item) => (
                         <PropertyListingCard key={item.id} data={item} mode={viewMode} />
                     ))}

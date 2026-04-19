@@ -1642,31 +1642,32 @@ export function PanelStatusBadge(props: PanelStatusBadgeProps) {
         className,
     } = props;
 
+    // CSS variables for consistent theming across light/dark modes
     const softTone = tone === 'success'
-        ? { background: 'rgba(22,163,74,0.14)', color: '#166534' }
+        ? { background: 'var(--color-success-bg, rgba(22,163,74,0.14))', color: 'var(--color-success-text, #166534)' }
         : tone === 'warning'
-            ? { background: 'rgba(234,179,8,0.18)', color: '#92400e' }
+            ? { background: 'var(--color-warning-bg, rgba(234,179,8,0.18))', color: 'var(--color-warning-text, #92400e)' }
             : tone === 'danger'
-                ? { background: 'rgba(239,68,68,0.14)', color: '#991b1b' }
+                ? { background: 'var(--color-danger-bg, rgba(239,68,68,0.14))', color: 'var(--color-danger-text, #991b1b)' }
                 : tone === 'info'
-                    ? { background: 'rgba(59,130,246,0.14)', color: '#1d4ed8' }
+                    ? { background: 'var(--color-info-bg, rgba(59,130,246,0.14))', color: 'var(--color-info-text, #1d4ed8)' }
                     : { background: 'var(--bg-muted)', color: 'var(--fg-secondary)' };
 
     const solidTone = tone === 'success'
-        ? { background: '#16a34a', color: '#ffffff' }
+        ? { background: 'var(--color-success, #16a34a)', color: '#ffffff' }
         : tone === 'warning'
-            ? { background: '#eab308', color: '#1f2937' }
+            ? { background: 'var(--color-warning, #eab308)', color: 'var(--surface)' }
             : tone === 'danger'
-                ? { background: '#ef4444', color: '#ffffff' }
+                ? { background: 'var(--color-danger, #ef4444)', color: '#ffffff' }
                 : tone === 'info'
-                    ? { background: '#3b82f6', color: '#ffffff' }
-                    : { background: '#94a3b8', color: '#ffffff' };
+                    ? { background: 'var(--color-info, #3b82f6)', color: '#ffffff' }
+                    : { background: 'var(--accent)', color: '#ffffff' };
 
     return (
         <span
             className={joinClasses(
                 'inline-flex items-center rounded-full font-medium',
-                size === 'sm' ? 'px-2.5 py-1 text-xs' : 'px-2 py-0.5 text-xs',
+                size === 'sm' ? 'px-2.5 py-1 text-xs' : 'px-2 py-0.5 text-[10px]',
                 className,
             )}
             style={variant === 'solid' ? solidTone : softTone}
