@@ -25,6 +25,7 @@ import {
     IconHeart,
     IconCopy,
     IconBrandWhatsapp,
+    IconUsersGroup,
 } from '@tabler/icons-react';
 import {
     fetchAgendaAppointments,
@@ -351,6 +352,14 @@ export default function AgendaPage() {
         byDay[key].push(appt);
     }
 
+    const groupByDay: Record<string, AgendaGroupSession[]> = {};
+    for (const gs of groupSessions) {
+        if (gs.status === 'cancelled') continue;
+        const key = localKey(new Date(gs.startsAt));
+        if (!groupByDay[key]) groupByDay[key] = [];
+        groupByDay[key].push(gs);
+    }
+
     const weekDays = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
     const monthGridDays = getMonthGridDays(monthDate);
 
@@ -558,6 +567,7 @@ export default function AgendaPage() {
     // Day view computations
     const dayKey = localKey(dayDate);
     const dayAppts = (byDay[dayKey] ?? []).sort((a, b) => a.startsAt.localeCompare(b.startsAt));
+    const dayGroups = (groupByDay[dayKey] ?? []).sort((a, b) => a.startsAt.localeCompare(b.startsAt));
     const dayHours = Array.from({ length: DAY_VIEW_HOUR_END - DAY_VIEW_HOUR_START + 1 }, (_, i) => DAY_VIEW_HOUR_START + i);
     const isDayToday = dayKey === todayKey;
     const nowMinutes = isDayToday ? (new Date().getHours() * 60 + new Date().getMinutes()) : null;
@@ -792,6 +802,38 @@ export default function AgendaPage() {
                             </div>
                         )}
 
+                        {/* Group sessions */}
+                        {!loading && dayGroups.map((gs) => {
+                            const start = new Date(gs.startsAt);
+                            const startMin = start.getHours() * 60 + start.getMinutes();
+                            const top = ((startMin - DAY_VIEW_HOUR_START * 60) / 60) * DAY_VIEW_HOUR_HEIGHT;
+                            const height = Math.max((gs.durationMinutes / 60) * DAY_VIEW_HOUR_HEIGHT - 2, 24);
+                            if (top < -DAY_VIEW_HOUR_HEIGHT || top > dayHours.length * DAY_VIEW_HOUR_HEIGHT) return null;
+                            return (
+                                <button
+                                    key={gs.id}
+                                    onClick={(e) => { e.stopPropagation(); router.push(`/panel/configuracion/grupales/${gs.id}`); }}
+                                    className="absolute left-14 sm:left-16 right-2 rounded-lg px-2.5 py-1.5 text-left transition-opacity hover:opacity-90 z-20 overflow-hidden"
+                                    style={{
+                                        top,
+                                        height,
+                                        background: '#8b5cf6',
+                                        color: '#fff',
+                                        boxShadow: '0 1px 2px rgba(0,0,0,0.08)',
+                                    }}
+                                >
+                                    <p className="text-xs font-semibold truncate flex items-center gap-1">
+                                        <IconUsersGroup size={11} /> {formatTime(gs.startsAt)} · {gs.title}
+                                    </p>
+                                    {height > 36 && (
+                                        <p className="text-[10px] opacity-90 truncate">
+                                            {(gs.attendeeCount ?? 0)}/{gs.capacity} asistentes
+                                        </p>
+                                    )}
+                                </button>
+                            );
+                        })}
+
                         {/* Appointments */}
                         {!loading && dayAppts.map((appt) => {
                             const start = new Date(appt.startsAt);
@@ -860,6 +902,11 @@ export default function AgendaPage() {
                             const isToday = key === todayKey;
                             const isCurrentMonth = day.getMonth() === monthDate.getMonth();
                             const dayAppts = (byDay[key] ?? []).sort((a, b) => a.startsAt.localeCompare(b.startsAt));
+                            const dayGroups = (groupByDay[key] ?? []).sort((a, b) => a.startsAt.localeCompare(b.startsAt));
+                            const combined = [
+                                ...dayGroups.map((g) => ({ kind: 'group' as const, data: g, sortKey: g.startsAt })),
+                                ...dayAppts.map((a) => ({ kind: 'appt' as const, data: a, sortKey: a.startsAt })),
+                            ].sort((a, b) => a.sortKey.localeCompare(b.sortKey));
                             return (
                                 <div
                                     key={key}
@@ -877,7 +924,19 @@ export default function AgendaPage() {
                                     >
                                         {day.getDate()}
                                     </div>
-                                    {loading ? null : dayAppts.slice(0, 3).map((appt) => (
+                                    {loading ? null : combined.slice(0, 3).map((item) => item.kind === 'group' ? (
+                                        <button
+                                            key={`g-${item.data.id}`}
+                                            onClick={(e) => { e.stopPropagation(); router.push(`/panel/configuracion/grupales/${item.data.id}`); }}
+                                            className="w-full text-left px-1.5 py-0.5 rounded text-[10px] font-medium truncate mb-0.5 transition-opacity hover:opacity-80 flex items-center gap-1"
+                                            style={{ background: '#8b5cf6', color: '#fff' }}
+                                        >
+                                            <IconUsersGroup size={10} />
+                                            {profile ? formatTimeTz(item.data.startsAt, profile.timezone) : formatTime(item.data.startsAt)} {item.data.title}
+                                        </button>
+                                    ) : (() => {
+                                        const appt = item.data;
+                                        return (
                                         <button
                                             key={appt.id}
                                             onClick={(e) => { e.stopPropagation(); void handleSelectAppt(appt); }}

@@ -39,7 +39,7 @@ docker exec simple-postgres pg_dump -U postgres simple_db > backup_$(date +%Y%m%
 
 # 2. Ejecutar script de migración
 cd services/api
-npx tsx scripts/migrate-admin-accounts.ts
+npx tsx src/scripts/migrate-admin-accounts.ts
 ```
 
 ### Opción 2: SQL Manual (Alternativa)
@@ -49,7 +49,7 @@ npx tsx scripts/migrate-admin-accounts.ts
 docker exec simple-postgres pg_dump -U postgres simple_db > backup_pre_migracion.sql
 
 # 2. Ejecutar script SQL
-psql -h localhost -U postgres -d simple_db -f scripts/migrate-admin-accounts.sql
+psql -h localhost -U postgres -d simple_db -f src/scripts/migrate-admin-accounts.sql
 ```
 
 ## ✅ Verificación Post-Migración

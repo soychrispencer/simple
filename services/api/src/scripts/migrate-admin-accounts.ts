@@ -9,14 +9,14 @@
  * 4. Mantiene admin@simpleplataforma.app para uso administrativo
  */
 
-import { drizzle } from 'drizzle-orm/node-postgres';
+import { drizzle } from 'drizzle-orm/postgres-js';
 import { eq, and, sql } from 'drizzle-orm';
-import { Pool } from 'pg';
-import { users, listings, listingDrafts, publicProfiles } from '../src/db/schema';
-import * as dotenv from 'dotenv';
+import postgres from 'postgres';
+import { users, listings, listingDrafts, publicProfiles } from '../db/schema';
 import { randomUUID } from 'crypto';
 
-dotenv.config();
+// Variables de entorno deben estar configuradas antes de ejecutar
+// DATABASE_URL debe estar definida en el entorno
 
 const ADMIN_OLD_EMAIL = 'admin@simpleplataforma.app';
 const ADMIN_AUTOS_EMAIL = 'admin@simpleautos.app';
@@ -42,11 +42,12 @@ async function migrateAdminAccounts(): Promise<MigrationResult> {
   };
 
   // Conectar a la base de datos
-  const pool = new Pool({
-    connectionString: process.env.DATABASE_URL,
-  });
-
-  const db = drizzle(pool);
+  if (!process.env.DATABASE_URL) {
+    throw new Error('DATABASE_URL not found in environment variables');
+  }
+  
+  const client = postgres(process.env.DATABASE_URL);
+  const db = drizzle(client);
 
   console.log('🔍 Verificando usuario existente...');
 
@@ -238,7 +239,7 @@ async function migrateAdminAccounts(): Promise<MigrationResult> {
   }
 
   // Cerrar conexión
-  await pool.end();
+  await client.end();
 
   console.log('\n📊 Resumen de migración:');
   console.log(`   - Usuario viejo: ${result.oldUserId}`);
