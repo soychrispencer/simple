@@ -18,6 +18,7 @@
         "typecheck": "tsc --noEmit"
     },
     "dependencies": {
+        "@simple/config": "*",
         "@simple/types": "*",
         "zod": "^4.3.6"
     },
