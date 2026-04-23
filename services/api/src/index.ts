@@ -66,7 +66,14 @@ import {
     publishInstagramCarousel,
     publishInstagramImage,
     refreshInstagramAccessToken,
+    getInstagramInsights,
+    createABTestCampaign,
+    analyzeABTestResults,
+    scheduleInstagramPost,
+    getSchedulingInsights,
+    optimizeInstagramContent,
 } from './modules/instagram/service.js';
+import { InstagramSchedulerService } from './modules/instagram/scheduler.js';
 import { db } from './db/index.js';
 import { migrate } from 'drizzle-orm/postgres-js/migrator';
 import { eq, and, or, desc, asc, gt, lt, gte, lte, isNull, sql, inArray, type SQL } from 'drizzle-orm';
@@ -5173,6 +5180,15 @@ async function deleteListingDraftRecord(userId: string, vertical: VerticalType) 
 
 function asString(value: unknown): string {
     return typeof value === 'string' ? value.trim() : '';
+}
+
+function asNumber(value: unknown, fallback = 0): number {
+    if (typeof value === 'number') return value;
+    if (typeof value === 'string') {
+        const parsed = parseFloat(value);
+        return isNaN(parsed) ? fallback : parsed;
+    }
+    return fallback;
 }
 
 function parseNumberFromString(value: unknown): number | null {
@@ -11961,320 +11977,6 @@ function generateSlots(
     app.route('/api/agenda', createAgendaRouter(agendaDeps));
     app.route('/api/public/agenda', createPublicAgendaRouter(agendaDeps));
 }
-
-// ──────────────────────────────────────────────────────────────────────────────
-// Instagram Intelligence (experimental inline routes — not yet modularized)
-// ──────────────────────────────────────────────────────────────────────────────
-
-// Publicación con IA mejorada
-app.get('/api/integrations/instagram/insights', async (c) => {
-    try {
-        const { listingId, from, to } = c.req.query();
-        
-        // Obtener cuenta de Instagram
-        const instagramAccount = await db.query.instagramAccounts.findFirst({
-            where: eq(instagramAccounts.vertical, 'autos')
-        });
-
-        if (!instagramAccount) {
-            return c.json({ ok: false, error: 'Cuenta de Instagram no configurada' }, 400);
-        }
-
-        // Importar funciones de analytics
-        const { getInstagramInsights } = await import('./modules/instagram/service.js');
-
-        // Obtener insights
-        const insights = await getInstagramInsights(
-            instagramAccount.instagramUserId,
-            instagramAccount.accessToken,
-            listingId as string,
-            from && to ? {
-                from: new Date(from as string),
-                to: new Date(to as string)
-            } : undefined
-        );
-
-        return c.json({ ok: true, ...insights });
-
-    } catch (error) {
-        console.error('[instagram] Error obteniendo insights:', error);
-        return c.json({ 
-            ok: false, 
-            error: error instanceof Error ? error.message : 'Error desconocido' 
-        }, 500);
-    }
-});
-
-// Crear campaña de A/B testing
-app.post('/api/integrations/instagram/ab-test/create', async (c) => {
-    try {
-        const { vertical, listingId, baseContent, variations } = await c.req.json();
-        
-        if (!listingId || !baseContent) {
-            return c.json({ ok: false, error: 'listingId y baseContent son requeridos' }, 400);
-        }
-
-        // Obtener cuenta de Instagram
-        const instagramAccount = await db.query.instagramAccounts.findFirst({
-            where: eq(instagramAccounts.vertical, vertical)
-        });
-
-        if (!instagramAccount) {
-            return c.json({ ok: false, error: 'Cuenta de Instagram no configurada' }, 400);
-        }
-
-        // Importar funciones de A/B testing
-        const { createABTestCampaign } = await import('./modules/instagram/service.js');
-
-        // Obtener datos del listing
-        const listing = await db.query.listings.findFirst({
-            where: eq(listings.id, listingId)
-        });
-
-        if (!listing) {
-            return c.json({ ok: false, error: 'Listing no encontrado' }, 404);
-        }
-
-        // Convertir a ListingData
-        const listingData = {
-            id: listing.id,
-            vertical: vertical as 'autos' | 'propiedades' | 'agenda',
-            title: listing.title,
-            price: listing.rawData && (listing.rawData as any).price ? parseFloat((listing.rawData as any).price) : undefined,
-            brand: listing.rawData && (listing.rawData as any).brand,
-            model: listing.rawData && (listing.rawData as any).model,
-            year: listing.rawData && (listing.rawData as any).year,
-            category: listing.rawData && (listing.rawData as any).category,
-            condition: listing.rawData && (listing.rawData as any).condition,
-            features: listing.rawData && (listing.rawData as any).features || [],
-            images: listing.rawData && (listing.rawData as any).images || [],
-            location: (listing as any).location,
-            description: listing.description || ''
-        };
-
-        // Crear campaña de A/B testing
-        const campaign = await createABTestCampaign(listingData, baseContent, variations);
-
-        return c.json({ ok: true, campaign });
-
-    } catch (error) {
-        console.error('[instagram] Error creando A/B test:', error);
-        return c.json({ 
-            ok: false, 
-            error: error instanceof Error ? error.message : 'Error desconocido' 
-        }, 500);
-    }
-});
-
-// Analizar resultados de A/B test
-app.post('/api/integrations/instagram/ab-test/:campaignId/analyze', async (c) => {
-    try {
-        const campaignId = c.req.param('campaignId');
-        
-        // Importar funciones de A/B testing
-        const { analyzeABTestResults } = await import('./modules/instagram/service.js');
-
-        // Analizar resultados
-        const results = await analyzeABTestResults(campaignId);
-
-        return c.json({ ok: true, ...results });
-
-    } catch (error) {
-        console.error('[instagram] Error analizando A/B test:', error);
-        return c.json({ 
-            ok: false, 
-            error: error instanceof Error ? error.message : 'Error desconocido' 
-        }, 500);
-    }
-});
-
-// Programar publicación inteligente
-app.post('/api/integrations/instagram/schedule', async (c) => {
-    try {
-        const { vertical, listingId, content, options = {} } = await c.req.json();
-        
-        if (!listingId || !content) {
-            return c.json({ ok: false, error: 'listingId y content son requeridos' }, 400);
-        }
-
-        // Obtener cuenta de Instagram
-        const instagramAccount = await db.query.instagramAccounts.findFirst({
-            where: eq(instagramAccounts.vertical, vertical)
-        });
-
-        if (!instagramAccount) {
-            return c.json({ ok: false, error: 'Cuenta de Instagram no configurada' }, 400);
-        }
-
-        // Importar funciones de scheduler
-        const { scheduleInstagramPost } = await import('./modules/instagram/service.js');
-
-        // Obtener datos del listing
-        const listing = await db.query.listings.findFirst({
-            where: eq(listings.id, listingId)
-        });
-
-        if (!listing) {
-            return c.json({ ok: false, error: 'Listing no encontrado' }, 404);
-        }
-
-        // Convertir a ListingData
-        const listingData = {
-            id: listing.id,
-            vertical: vertical as 'autos' | 'propiedades' | 'agenda',
-            title: listing.title,
-            price: listing.rawData && (listing.rawData as any).price ? parseFloat((listing.rawData as any).price) : undefined,
-            brand: listing.rawData && (listing.rawData as any).brand,
-            model: listing.rawData && (listing.rawData as any).model,
-            year: listing.rawData && (listing.rawData as any).year,
-            category: listing.rawData && (listing.rawData as any).category,
-            condition: listing.rawData && (listing.rawData as any).condition,
-            features: listing.rawData && (listing.rawData as any).features || [],
-            images: listing.rawData && (listing.rawData as any).images || [],
-            location: (listing as any).location,
-            description: listing.description || ''
-        };
-
-        // Programar publicación
-        const scheduledPost = await scheduleInstagramPost(listingData, content, options);
-
-        return c.json({ ok: true, scheduledPost });
-
-    } catch (error) {
-        console.error('[instagram] Error programando publicación:', error);
-        return c.json({ 
-            ok: false, 
-            error: error instanceof Error ? error.message : 'Error desconocido' 
-        }, 500);
-    }
-});
-
-// Obtener insights de scheduling
-app.get('/api/integrations/instagram/scheduling-insights', async (c) => {
-    try {
-        // Obtener cuenta de Instagram
-        const instagramAccount = await db.query.instagramAccounts.findFirst({
-            where: eq(instagramAccounts.vertical, 'autos')
-        });
-
-        if (!instagramAccount) {
-            return c.json({ ok: false, error: 'Cuenta de Instagram no configurada' }, 400);
-        }
-
-        // Importar funciones de scheduler
-        const { getSchedulingInsights } = await import('./modules/instagram/service.js');
-
-        // Obtener insights (simulados por ahora)
-        const insights = getSchedulingInsights([], []);
-
-        return c.json({ ok: true, ...insights });
-
-    } catch (error) {
-        console.error('[instagram] Error obteniendo scheduling insights:', error);
-        return c.json({ 
-            ok: false, 
-            error: error instanceof Error ? error.message : 'Error desconocido' 
-        }, 500);
-    }
-});
-
-// Obtener publicaciones programadas
-app.get('/api/integrations/instagram/scheduled', async (c) => {
-    try {
-        const hoursAhead = parseInt(c.req.query('hoursAhead') as string) || 24;
-        
-        // Obtener cuenta de Instagram
-        const instagramAccount = await db.query.instagramAccounts.findFirst({
-            where: eq(instagramAccounts.vertical, 'autos')
-        });
-
-        if (!instagramAccount) {
-            return c.json({ ok: false, error: 'Cuenta de Instagram no configurada' }, 400);
-        }
-
-        // Importar funciones de scheduler
-        const { InstagramSchedulerService } = await import('./modules/instagram/scheduler.js');
-
-        // Obtener publicaciones programadas (simuladas por ahora)
-        const posts = InstagramSchedulerService.getUpcomingPosts([], hoursAhead);
-
-        return c.json({ ok: true, posts });
-
-    } catch (error) {
-        console.error('[instagram] Error obteniendo posts programados:', error);
-        return c.json({ 
-            ok: false, 
-            error: error instanceof Error ? error.message : 'Error desconocido' 
-        }, 500);
-    }
-});
-
-// Optimizar contenido existente
-app.post('/api/integrations/instagram/optimize', async (c) => {
-    try {
-        const { vertical, publicationId, currentContent, listingId } = await c.req.json();
-        
-        if (!publicationId || !currentContent || !listingId) {
-            return c.json({ ok: false, error: 'publicationId, currentContent y listingId son requeridos' }, 400);
-        }
-
-        // Obtener cuenta de Instagram
-        const instagramAccount = await db.query.instagramAccounts.findFirst({
-            where: eq(instagramAccounts.vertical, vertical)
-        });
-
-        if (!instagramAccount) {
-            return c.json({ ok: false, error: 'Cuenta de Instagram no configurada' }, 400);
-        }
-
-        // Importar funciones de IA
-        const { optimizeInstagramContent } = await import('./modules/instagram/service.js');
-
-        // Obtener datos del listing
-        const listing = await db.query.listings.findFirst({
-            where: eq(listings.id, listingId)
-        });
-
-        if (!listing) {
-            return c.json({ ok: false, error: 'Listing no encontrado' }, 404);
-        }
-
-        // Convertir a ListingData
-        const listingData = {
-            id: listing.id,
-            vertical: vertical as 'autos' | 'propiedades' | 'agenda',
-            title: listing.title,
-            price: listing.rawData && (listing.rawData as any).price ? parseFloat((listing.rawData as any).price) : undefined,
-            brand: listing.rawData && (listing.rawData as any).brand,
-            model: listing.rawData && (listing.rawData as any).model,
-            year: listing.rawData && (listing.rawData as any).year,
-            category: listing.rawData && (listing.rawData as any).category,
-            condition: listing.rawData && (listing.rawData as any).condition,
-            features: listing.rawData && (listing.rawData as any).features || [],
-            images: listing.rawData && (listing.rawData as any).images || [],
-            location: (listing as any).location,
-            description: listing.description || ''
-        };
-
-        // Optimizar contenido
-        const optimization = await optimizeInstagramContent(
-            instagramAccount.instagramUserId,
-            instagramAccount.accessToken,
-            publicationId,
-            currentContent,
-            listingData
-        );
-
-        return c.json({ ok: true, ...optimization });
-
-    } catch (error) {
-        console.error('[instagram] Error optimizando contenido:', error);
-        return c.json({ 
-            ok: false, 
-            error: error instanceof Error ? error.message : 'Error desconocido' 
-        }, 500);
-    }
-});
 
 // ─────────────────────────────────────────────────────────────────────────────
 // SimpleAgenda — WhatsApp reminder cron jobs

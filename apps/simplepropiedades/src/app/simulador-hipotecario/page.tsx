@@ -99,10 +99,13 @@ function evaluateScenario(
     if (pv <= 0) {
         return { ap: 'low', reason: `No califica para comprar una propiedad en escenario ${scenarioPct}%.` };
     }
-    if (dtiPost > scenarioPct + 5) {
+    // Margen de tolerancia del 0.5% para evitar problemas de redondeo decimal
+    const TOLERANCE = 0.5;
+    
+    if (dtiPost > scenarioPct + 5 + TOLERANCE) {
         return { ap: 'low', reason: `DTI post-hipoteca excede el ${scenarioPct + 5}% en escenario ${scenarioPct}%.` };
     }
-    if (dtiPost > scenarioPct) {
+    if (dtiPost > scenarioPct + TOLERANCE) {
         return { ap: 'medium', reason: `DTI post-hipoteca excede el ${scenarioPct}% en escenario ${scenarioPct}%.` };
     }
     if (employmentType === 'dependent' && employmentYears < 0.25) {
@@ -115,11 +118,13 @@ function evaluateScenario(
 }
 function getBankByDTI(dtiPost: number): { name: string; status: 'likely'|'review'|'unlikely' }[] {
     // Umbrales típicos de aprobación en bancos chilenos según DTI post-hipoteca
+    // Margen de 0.5% de tolerancia para evitar falsos negativos por redondeo
+    const TOLERANCE = 0.5;
     return [
-        { name: 'BancoEstado', status: dtiPost <= 25 ? 'likely' : dtiPost <= 30 ? 'review' : 'unlikely' },
-        { name: 'Bco. Chile', status: dtiPost <= 30 ? 'likely' : dtiPost <= 33 ? 'review' : 'unlikely' },
-        { name: 'Bci / Itaú', status: dtiPost <= 33 ? 'likely' : dtiPost <= 37 ? 'review' : 'unlikely' },
-        { name: 'Santander', status: dtiPost <= 32 ? 'likely' : dtiPost <= 37 ? 'review' : 'unlikely' },
+        { name: 'BancoEstado', status: dtiPost <= 25 + TOLERANCE ? 'likely' : dtiPost <= 30 + TOLERANCE ? 'review' : 'unlikely' },
+        { name: 'Bco. Chile', status: dtiPost <= 30 + TOLERANCE ? 'likely' : dtiPost <= 33 + TOLERANCE ? 'review' : 'unlikely' },
+        { name: 'Bci / Itaú', status: dtiPost <= 33 + TOLERANCE ? 'likely' : dtiPost <= 37 + TOLERANCE ? 'review' : 'unlikely' },
+        { name: 'Santander', status: dtiPost <= 32 + TOLERANCE ? 'likely' : dtiPost <= 37 + TOLERANCE ? 'review' : 'unlikely' },
     ];
 }
 function calculateOperationalFees(propertyValue: number, creditAmount: number, propertyType: 'new'|'used', ufValue: number = 39643) {

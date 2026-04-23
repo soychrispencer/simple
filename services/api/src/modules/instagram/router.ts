@@ -46,12 +46,12 @@ export interface InstagramRouterDeps {
     buildInstagramListingData: (listing: any) => any;
     generateSmartTemplates: (data: any) => any;
     // Analytics dependencies
-    getInstagramInsights: (instagramUserId: string, accessToken: string, listingId?: string, dateRange?: { from?: Date; to?: Date }) => Promise<any>;
+    getInstagramInsights: (instagramUserId: string, accessToken: string, listingId?: string, dateRange?: { from: Date; to: Date } | undefined) => Promise<any>;
     createABTestCampaign: (listing: any, baseContent: any, variations: any[]) => Promise<any>;
     analyzeABTestResults: (campaignId: string) => Promise<any>;
     scheduleInstagramPost: (listingData: any, content: any, options: any) => Promise<any>;
     getSchedulingInsights: (history: any[], posts: any[]) => any;
-    optimizeInstagramContent: (instagramUserId: string, accessToken: string, listingId: string, publicationId: string, currentContent: any) => Promise<any>;
+    optimizeInstagramContent: (instagramUserId: string, accessToken: string, publicationId: string, currentContent: any, listing: any) => Promise<any>;
     InstagramSchedulerService: { getUpcomingPosts: (posts: any[], hoursAhead: number) => any[] };
     tables: {
         instagramAccounts: any;
@@ -594,12 +594,13 @@ export function createInstagramRouter(deps: InstagramRouterDeps) {
                 return c.json({ ok: false, error: 'Listing no encontrado' }, 404);
             }
 
+            const listingData = deps.buildInstagramListingData(listing);
             const optimization = await deps.optimizeInstagramContent(
                 instagramAccount.instagramUserId,
                 instagramAccount.accessToken,
-                listingId,
                 publicationId,
-                currentContent
+                currentContent,
+                listingData
             );
 
             return c.json({ ok: true, optimization });
