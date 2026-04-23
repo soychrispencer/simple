@@ -2,20 +2,26 @@ FROM node:22-bookworm-slim AS builder
 
 WORKDIR /app
 
+# Install pnpm
+RUN npm install -g pnpm
+
 COPY package*.json ./
+COPY pnpm-lock.yaml ./
+COPY pnpm-workspace.yaml ./
+COPY .npmrc ./
 COPY services ./services
 COPY packages ./packages
 COPY *.mjs ./
 COPY *.cjs ./
 COPY *.json ./
 
-RUN npm install --include=dev
-RUN npm run build --workspace=@simple/types
-RUN npm run build --workspace=@simple/config
-RUN npm run build --workspace=@simple/utils
-RUN npm run build --workspace=@simple/ui
-RUN npm run build --workspace=@simple/auth
-RUN npm run build --workspace=@simple/api
+RUN pnpm install
+RUN pnpm --filter=@simple/types run build
+RUN pnpm --filter=@simple/config run build
+RUN pnpm --filter=@simple/utils run build
+RUN pnpm --filter=@simple/ui run build
+RUN pnpm --filter=@simple/auth run build
+RUN pnpm --filter=@simple/api run build
 
 FROM node:22-bookworm-slim
 
@@ -30,13 +36,18 @@ RUN apt-get update \
   && rm -rf /var/lib/apt/lists/*
 
 COPY --from=builder /app/package*.json ./
+COPY --from=builder /app/pnpm-lock.yaml ./
+COPY --from=builder /app/pnpm-workspace.yaml ./
+COPY --from=builder /app/.npmrc ./
 COPY --from=builder /app/packages ./packages
 COPY --from=builder /app/services/api/dist ./services/api/dist
 COPY --from=builder /app/services/api/package.json ./services/api/package.json
 COPY --from=builder /app/services/api/drizzle ./services/api/drizzle
 
-RUN npm install --workspace=@simple/api --omit=dev
+# Install pnpm in production stage
+RUN npm install -g pnpm
+RUN pnpm install --prod
 
 EXPOSE 4000
 
-CMD ["npm", "run", "start", "--workspace=@simple/api"]
+CMD ["pnpm", "--filter=@simple/api", "run", "start"]
