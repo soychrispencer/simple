@@ -11511,10 +11511,14 @@ app.route('/api/integrations/instagram', createInstagramRouter({
     parseVertical,
     asString,
     asObject,
+    asNumber,
     logDebug,
     listingsById,
     getListingById,
     getInstagramAccount,
+    getInstagramAccountByVertical: async (vertical: any) => {
+        return await db.query.instagramAccounts.findFirst({ where: eq(instagramAccounts.vertical, vertical) });
+    },
     resolveBrowserOrigin,
     isInstagramConfigured,
     userCanUseInstagram,
@@ -11548,6 +11552,17 @@ app.route('/api/integrations/instagram', createInstagramRouter({
     instagramEnhancedPublishSchema,
     buildInstagramListingData,
     generateSmartTemplates,
+    // Analytics
+    getInstagramInsights,
+    createABTestCampaign,
+    analyzeABTestResults,
+    scheduleInstagramPost,
+    getSchedulingInsights,
+    optimizeInstagramContent,
+    InstagramSchedulerService,
+    tables: { instagramAccounts, instagramPublications, listings },
+    db: { query: { listings: db.query.listings } },
+    dbHelpers: { eq },
 }));
 
 app.route('/api/public', createInstagramPublicImageRouter({

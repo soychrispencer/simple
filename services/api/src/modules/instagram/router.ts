@@ -6,10 +6,12 @@ export interface InstagramRouterDeps {
     parseVertical: (v: string | undefined) => any;
     asString: (v: any) => string;
     asObject: (v: any) => Record<string, unknown>;
+    asNumber: (v: any, fallback?: number) => number;
     logDebug: (msg: string) => void;
     listingsById: Map<string, any>;
     getListingById: (id: string) => Promise<any>;
     getInstagramAccount: (userId: string, vertical: any) => any;
+    getInstagramAccountByVertical: (vertical: any) => Promise<any>;
     resolveBrowserOrigin: (c: Context) => string | null;
     isInstagramConfigured: () => boolean;
     userCanUseInstagram: (user: any, vertical: any) => boolean;
@@ -43,6 +45,27 @@ export interface InstagramRouterDeps {
     instagramEnhancedPublishSchema: any;
     buildInstagramListingData: (listing: any) => any;
     generateSmartTemplates: (data: any) => any;
+    // Analytics dependencies
+    getInstagramInsights: (instagramUserId: string, accessToken: string, listingId?: string, dateRange?: { from?: Date; to?: Date }) => Promise<any>;
+    createABTestCampaign: (listing: any, baseContent: any, variations: any[]) => Promise<any>;
+    analyzeABTestResults: (campaignId: string) => Promise<any>;
+    scheduleInstagramPost: (listingData: any, content: any, options: any) => Promise<any>;
+    getSchedulingInsights: (history: any[], posts: any[]) => any;
+    optimizeInstagramContent: (instagramUserId: string, accessToken: string, listingId: string, publicationId: string, currentContent: any) => Promise<any>;
+    InstagramSchedulerService: { getUpcomingPosts: (posts: any[], hoursAhead: number) => any[] };
+    tables: {
+        instagramAccounts: any;
+        instagramPublications: any;
+        listings: any;
+    };
+    db: {
+        query: {
+            listings: { findFirst: (opts: any) => Promise<any> };
+        };
+    };
+    dbHelpers: {
+        eq: any;
+    };
 }
 
 export function createInstagramRouter(deps: InstagramRouterDeps) {
@@ -394,6 +417,197 @@ export function createInstagramRouter(deps: InstagramRouterDeps) {
             return c.json({
                 ok: false,
                 error: error instanceof Error ? error.message : 'Error desconocido',
+            }, 500);
+        }
+    });
+
+    // ── Analytics Routes ───────────────────────────────────────────────────────
+
+    app.get('/insights', async (c) => {
+        try {
+            const { listingId, from, to } = c.req.query();
+            const vertical = parseVertical(c.req.query('vertical'));
+
+            const instagramAccount = await deps.getInstagramAccountByVertical(vertical);
+            if (!instagramAccount) {
+                return c.json({ ok: false, error: 'Cuenta de Instagram no configurada' }, 400);
+            }
+
+            const insights = await deps.getInstagramInsights(
+                instagramAccount.instagramUserId,
+                instagramAccount.accessToken,
+                listingId as string,
+                from && to ? { from: new Date(from as string), to: new Date(to as string) } : undefined
+            );
+
+            return c.json({ ok: true, ...insights });
+        } catch (error) {
+            console.error('[instagram] Error obteniendo insights:', error);
+            return c.json({
+                ok: false,
+                error: error instanceof Error ? error.message : 'Error desconocido'
+            }, 500);
+        }
+    });
+
+    app.post('/ab-test/create', async (c) => {
+        try {
+            const { vertical, listingId, baseContent, variations } = await c.req.json();
+
+            if (!listingId || !baseContent) {
+                return c.json({ ok: false, error: 'listingId y baseContent son requeridos' }, 400);
+            }
+
+            const instagramAccount = await deps.getInstagramAccountByVertical(vertical);
+            if (!instagramAccount) {
+                return c.json({ ok: false, error: 'Cuenta de Instagram no configurada' }, 400);
+            }
+
+            const listing = await deps.db.query.listings.findFirst({
+                where: deps.dbHelpers.eq(deps.tables.listings.id, listingId)
+            });
+
+            if (!listing) {
+                return c.json({ ok: false, error: 'Listing no encontrado' }, 404);
+            }
+
+            const listingData = deps.buildInstagramListingData(listing);
+            const campaign = await deps.createABTestCampaign(listingData, baseContent, variations);
+
+            return c.json({ ok: true, campaign });
+        } catch (error) {
+            console.error('[instagram] Error creando A/B test:', error);
+            return c.json({
+                ok: false,
+                error: error instanceof Error ? error.message : 'Error desconocido'
+            }, 500);
+        }
+    });
+
+    app.post('/ab-test/:campaignId/analyze', async (c) => {
+        try {
+            const campaignId = c.req.param('campaignId');
+            const results = await deps.analyzeABTestResults(campaignId);
+            return c.json({ ok: true, ...results });
+        } catch (error) {
+            console.error('[instagram] Error analizando A/B test:', error);
+            return c.json({
+                ok: false,
+                error: error instanceof Error ? error.message : 'Error desconocido'
+            }, 500);
+        }
+    });
+
+    app.post('/schedule', async (c) => {
+        try {
+            const { vertical, listingId, content, options = {} } = await c.req.json();
+
+            if (!listingId || !content) {
+                return c.json({ ok: false, error: 'listingId y content son requeridos' }, 400);
+            }
+
+            const instagramAccount = await deps.getInstagramAccountByVertical(vertical);
+            if (!instagramAccount) {
+                return c.json({ ok: false, error: 'Cuenta de Instagram no configurada' }, 400);
+            }
+
+            const listing = await deps.db.query.listings.findFirst({
+                where: deps.dbHelpers.eq(deps.tables.listings.id, listingId)
+            });
+
+            if (!listing) {
+                return c.json({ ok: false, error: 'Listing no encontrado' }, 404);
+            }
+
+            const listingData = deps.buildInstagramListingData(listing);
+            const scheduledPost = await deps.scheduleInstagramPost(listingData, content, options);
+
+            return c.json({ ok: true, scheduledPost });
+        } catch (error) {
+            console.error('[instagram] Error programando publicación:', error);
+            return c.json({
+                ok: false,
+                error: error instanceof Error ? error.message : 'Error desconocido'
+            }, 500);
+        }
+    });
+
+    app.get('/scheduling-insights', async (c) => {
+        try {
+            const vertical = parseVertical(c.req.query('vertical'));
+            const instagramAccount = await deps.getInstagramAccountByVertical(vertical);
+
+            if (!instagramAccount) {
+                return c.json({ ok: false, error: 'Cuenta de Instagram no configurada' }, 400);
+            }
+
+            const insights = deps.getSchedulingInsights([], []);
+            return c.json({ ok: true, ...insights });
+        } catch (error) {
+            console.error('[instagram] Error obteniendo scheduling insights:', error);
+            return c.json({
+                ok: false,
+                error: error instanceof Error ? error.message : 'Error desconocido'
+            }, 500);
+        }
+    });
+
+    app.get('/scheduled', async (c) => {
+        try {
+            const hoursAhead = deps.asNumber(c.req.query('hoursAhead'), 24);
+            const vertical = parseVertical(c.req.query('vertical'));
+
+            const instagramAccount = await deps.getInstagramAccountByVertical(vertical);
+            if (!instagramAccount) {
+                return c.json({ ok: false, error: 'Cuenta de Instagram no configurada' }, 400);
+            }
+
+            const posts = deps.InstagramSchedulerService.getUpcomingPosts([], hoursAhead);
+            return c.json({ ok: true, posts });
+        } catch (error) {
+            console.error('[instagram] Error obteniendo posts programados:', error);
+            return c.json({
+                ok: false,
+                error: error instanceof Error ? error.message : 'Error desconocido'
+            }, 500);
+        }
+    });
+
+    app.post('/optimize', async (c) => {
+        try {
+            const { vertical, publicationId, currentContent, listingId } = await c.req.json();
+
+            if (!publicationId || !currentContent || !listingId) {
+                return c.json({ ok: false, error: 'publicationId, currentContent y listingId son requeridos' }, 400);
+            }
+
+            const instagramAccount = await deps.getInstagramAccountByVertical(vertical);
+            if (!instagramAccount) {
+                return c.json({ ok: false, error: 'Cuenta de Instagram no configurada' }, 400);
+            }
+
+            const listing = await deps.db.query.listings.findFirst({
+                where: deps.dbHelpers.eq(deps.tables.listings.id, listingId)
+            });
+
+            if (!listing) {
+                return c.json({ ok: false, error: 'Listing no encontrado' }, 404);
+            }
+
+            const optimization = await deps.optimizeInstagramContent(
+                instagramAccount.instagramUserId,
+                instagramAccount.accessToken,
+                listingId,
+                publicationId,
+                currentContent
+            );
+
+            return c.json({ ok: true, optimization });
+        } catch (error) {
+            console.error('[instagram] Error optimizando contenido:', error);
+            return c.json({
+                ok: false,
+                error: error instanceof Error ? error.message : 'Error desconocido'
             }, 500);
         }
     });

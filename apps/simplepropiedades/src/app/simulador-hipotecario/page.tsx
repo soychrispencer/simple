@@ -944,40 +944,19 @@ export default function SimuladorPage() {
                                     <p className="text-[10px] text-center -mt-1" style={{color:'var(--color-warning)'}}>⚠ Cliente ya tiene dividendo hipotecario activo. Evaluar como segunda vivienda.</p>
                                 )}
 
-                                {/* 3 minicards mejoradas */}
+                                {/* 3 minicards */}
                                 <div className="grid grid-cols-3 gap-3">
-                                    {/* Cuota Mensual */}
-                                    <div className="p-4 rounded-2xl border text-center bg-gradient-to-br from-[var(--accent)]/10 to-[var(--accent)]/5 border-[var(--accent)]/20 relative overflow-hidden group hover:scale-[1.02] transition-transform">
-                                        <div className="absolute top-2 right-2 opacity-10">
-                                            <IconBuildingBank className="w-10 h-10 text-[var(--accent)]" />
-                                        </div>
-                                        <div className="relative z-10">
-                                            <p className="text-[10px] uppercase tracking-wider font-semibold text-[var(--accent)] mb-1">Cuota Mensual</p>
-                                            <p className="text-lg font-bold text-[var(--fg)]">{formatCurrency(activeScenario.monthlyPayment)}</p>
-                                            <p className="text-[9px] text-[var(--fg-muted)] mt-0.5">mensual</p>
-                                        </div>
+                                    <div className="p-3 rounded-xl border text-center bg-[var(--bg)] border-[var(--border)] flex flex-col justify-center min-h-[80px]">
+                                        <p className="text-[10px] uppercase font-semibold text-[var(--fg-muted)] leading-tight">Cuota mensual</p>
+                                        <p className="text-sm font-semibold mt-1 text-[var(--fg)]">{formatCurrency(activeScenario.monthlyPayment)}</p>
                                     </div>
-                                    {/* Pie Total */}
-                                    <div className="p-4 rounded-2xl border text-center bg-gradient-to-br from-emerald-500/10 to-emerald-500/5 border-emerald-500/20 relative overflow-hidden group hover:scale-[1.02] transition-transform">
-                                        <div className="absolute top-2 right-2 opacity-10">
-                                            <IconTrendingUp className="w-10 h-10 text-emerald-500" />
-                                        </div>
-                                        <div className="relative z-10">
-                                            <p className="text-[10px] uppercase tracking-wider font-semibold text-emerald-600 mb-1">Pie Total</p>
-                                            <p className="text-lg font-bold text-[var(--fg)]">{formatCurrency(activeScenario.minPieNeeded)}</p>
-                                            <p className="text-[9px] text-[var(--fg-muted)] mt-0.5">requerido</p>
-                                        </div>
+                                    <div className="p-3 rounded-xl border text-center bg-[var(--bg)] border-[var(--border)] flex flex-col justify-center min-h-[80px]">
+                                        <p className="text-[10px] uppercase font-semibold text-[var(--fg-muted)] leading-tight">Pie total</p>
+                                        <p className="text-sm font-semibold mt-1 text-[var(--fg)]">{formatCurrency(activeScenario.minPieNeeded)}</p>
                                     </div>
-                                    {/* Plazo */}
-                                    <div className="p-4 rounded-2xl border text-center bg-gradient-to-br from-blue-500/10 to-blue-500/5 border-blue-500/20 relative overflow-hidden group hover:scale-[1.02] transition-transform">
-                                        <div className="absolute top-2 right-2 opacity-10">
-                                            <IconCalendar className="w-10 h-10 text-blue-500" />
-                                        </div>
-                                        <div className="relative z-10">
-                                            <p className="text-[10px] uppercase tracking-wider font-semibold text-blue-600 mb-1">Plazo</p>
-                                            <p className="text-lg font-bold text-[var(--fg)]">{result.loanTermYears} <span className="text-sm">años</span></p>
-                                            <p className="text-[9px] text-[var(--fg-muted)] mt-0.5">{result.loanTermYears * 12} meses</p>
-                                        </div>
+                                    <div className="p-3 rounded-xl border text-center bg-[var(--bg)] border-[var(--border)] flex flex-col justify-center min-h-[80px]">
+                                        <p className="text-[10px] uppercase font-semibold text-[var(--fg-muted)] leading-tight">Plazo</p>
+                                        <p className="text-sm font-semibold mt-1 text-[var(--fg)]">{result.loanTermYears} años</p>
                                     </div>
                                 </div>
 
