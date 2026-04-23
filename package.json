@@ -8,22 +8,30 @@
     "services/*"
   ],
   "scripts": {
-    "dev:autos": "npm run dev --workspace=@simple/autos",
-    "dev:propiedades": "npm run dev --workspace=@simple/propiedades",
-    "dev:simpleadmin": "npm run dev --workspace=@simple/simpleadmin",
-    "dev:simpleplataforma": "npm run dev --workspace=@simple/simpleplataforma",
-    "dev:agenda": "npm run dev --workspace=@simple/agenda",
-    "dev:api": "npm run dev --workspace=@simple/api",
-    "dev:all": "concurrently --kill-others-on-fail --names simpleadmin,simpleplataforma,simpleautos,simplepropiedades,simpleagenda,api --prefix-colors magenta,yellow,cyan,green,teal,blue \"npm run dev --workspace=@simple/simpleadmin\" \"npm run dev --workspace=@simple/simpleplataforma\" \"npm run dev --workspace=@simple/autos\" \"npm run dev --workspace=@simple/propiedades\" \"npm run dev --workspace=@simple/agenda\" \"npm run dev --workspace=@simple/api\"",
-    "build": "npm run build --workspaces",
-    "build:autos": "npm run build --workspace=@simple/autos",
-    "lint": "npm run lint --workspaces --if-present",
-    "db:generate": "npm run db:generate --workspace=@simple/api",
-    "db:migrate": "npm run db:migrate --workspace=@simple/api",
-    "db:seed": "npm run db:seed --workspace=@simple/api"
+    "//ports": "3000=simpleadmin, 3001=simpleplataforma, 3002=autos, 3003=propiedades, 3004=agenda, 3005=serenatas, 4000=api",
+    "test": "vitest",
+    "test:coverage": "vitest run --coverage",
+    "lint": "eslint . --ext .ts,.tsx",
+    "lint:fix": "eslint . --ext .ts,.tsx --fix",
+    "dev:simpleadmin": "pnpm --filter=@simple/simpleadmin run dev",
+    "dev:simpleplataforma": "pnpm --filter=@simple/simpleplataforma run dev",
+    "dev:autos": "pnpm --filter=@simple/autos run dev",
+    "dev:propiedades": "pnpm --filter=@simple/propiedades run dev",
+    "dev:agenda": "pnpm --filter=@simple/agenda run dev",
+    "dev:serenatas": "pnpm --filter=@simple/serenatas run dev",
+    "dev:api": "pnpm --filter=@simple/api run dev",
+    "dev:all": "concurrently --kill-others-on-fail --names simpleadmin,simpleplataforma,simpleautos,simplepropiedades,simpleagenda,simpleserenatas,api --prefix-colors magenta,yellow,cyan,green,teal,orange,blue \"pnpm --filter=@simple/simpleadmin run dev\" \"pnpm --filter=@simple/simpleplataforma run dev\" \"pnpm --filter=@simple/autos run dev\" \"pnpm --filter=@simple/propiedades run dev\" \"pnpm --filter=@simple/agenda run dev\" \"pnpm --filter=@simple/serenatas run dev\" \"pnpm --filter=@simple/api run dev\"",
+    "build": "pnpm -r run build",
+    "build:autos": "pnpm --filter=@simple/autos run build",
+    "build:serenatas": "pnpm --filter=@simple/serenatas run build",
+    "db:generate": "pnpm --filter=@simple/api run db:generate",
+    "db:migrate": "pnpm --filter=@simple/api run db:migrate",
+    "db:seed": "pnpm --filter=@simple/api run db:seed"
   },
   "devDependencies": {
-    "concurrently": "^9.2.1"
+    "@vitest/coverage-v8": "^3.2.4",
+    "concurrently": "^9.2.1",
+    "vitest": "^3.2.4"
   },
   "engines": {
     "node": ">=22.0.0"

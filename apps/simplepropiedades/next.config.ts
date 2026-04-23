@@ -8,6 +8,18 @@ const nextConfig: NextConfig = {
     images: {
         remotePatterns: [{ protocol: 'https', hostname: '**' }],
     },
+    async rewrites() {
+        return [
+            {
+                source: '/api/public/:path*',
+                destination: 'http://localhost:4000/api/public/:path*',
+            },
+            {
+                source: '/api/:path*',
+                destination: 'http://localhost:4000/api/:path*',
+            },
+        ];
+    },
 };
 
 export default nextConfig;

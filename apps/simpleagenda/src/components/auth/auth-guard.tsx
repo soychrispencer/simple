@@ -4,8 +4,7 @@ import { useState } from 'react';
 import { useAuth } from '@/context/auth-context';
 import { IconLock } from '@tabler/icons-react';
 import { PanelButton } from '@simple/ui';
-
-const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000';
+import { API_BASE } from '@simple/config';
 
 export function AuthGuard({ children }: { children: React.ReactNode }) {
     const { isLoggedIn, authLoading, openAuth, user, logout } = useAuth();

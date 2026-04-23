@@ -810,8 +810,21 @@ function resolveCatalogNames(catalog: PublishWizardCatalog | null, data: WizardD
 
 function mergeDraft(raw: unknown): { data: WizardData; valuationEstimate: VehicleValuationEstimate | null } | null {
     if (!raw || typeof raw !== 'object') return null;
+    // Handle QuickPublish draft format: { kind: 'autos-quick', wizardDraft: {...}, quickDraft: {...} }
+    const quickDraft = raw as { kind?: string; wizardDraft?: unknown; quickDraft?: unknown };
+    if (quickDraft.kind === 'autos-quick' && quickDraft.wizardDraft) {
+        const wizardDraft = quickDraft.wizardDraft as PersistedDraft;
+        if (!wizardDraft.data) return null;
+        // Pass the wizardDraft through the same merging logic
+        return mergeWizardDraft(wizardDraft, quickDraft.quickDraft as { valuationEstimate?: VehicleValuationEstimate | null } | undefined);
+    }
+    // Handle standard wizard format: { data: {...}, valuationEstimate: {...} }
     const parsed = raw as PersistedDraft;
     if (!parsed.data) return null;
+    return mergeWizardDraft(parsed, undefined);
+}
+
+function mergeWizardDraft(parsed: PersistedDraft, quickDraftData?: { valuationEstimate?: VehicleValuationEstimate | null } | null): { data: WizardData; valuationEstimate: VehicleValuationEstimate | null } | null {
     const defaults = createDefaultData();
     const parsedBasic = parsed.data.basic || {};
     const parsedSpecs = parsed.data.specs || {};
@@ -962,7 +975,7 @@ function mergeDraft(raw: unknown): { data: WizardData; valuationEstimate: Vehicl
             commercial: { ...defaults.commercial, ...(parsed.data.commercial || {}) },
             review: { ...defaults.review, ...(parsed.data.review || {}) },
         },
-        valuationEstimate: parsed.valuationEstimate ?? null,
+        valuationEstimate: quickDraftData?.valuationEstimate ?? parsed.valuationEstimate ?? null,
     };
 }
 
@@ -1755,6 +1768,8 @@ export default function PublishWizardPage() {
                             price: data.commercial.price,
                             offerPrice: data.commercial.offerPrice,
                             offerPriceMode: '$',
+                            rentMonthly: data.commercial.rentMonthly,
+                            auctionStartPrice: data.commercial.auctionStartPrice,
                             transmission: data.basic.transmission,
                             color: data.basic.color,
                             bodyType: data.basic.bodyType,
@@ -1764,6 +1779,7 @@ export default function PublishWizardPage() {
                             financingAvailable: data.commercial.financingAvailable,
                             traction: data.basic.traction || '',
                             ownerCount: data.basic.complementary.owners_count || '',
+                            location: data.location,
                         }}
                         onChange={(updated) => {
                             setData((cur) => {
@@ -1797,7 +1813,14 @@ export default function PublishWizardPage() {
                                             ...cur.basic.complementary,
                                             owners_count: updated.ownerCount || '',
                                         }
-                                    }
+                                    },
+                                    commercial: {
+                                        ...cur.commercial,
+                                        price: updated.price ?? cur.commercial.price,
+                                        rentMonthly: updated.rentMonthly ?? cur.commercial.rentMonthly,
+                                        auctionStartPrice: updated.auctionStartPrice ?? cur.commercial.auctionStartPrice,
+                                    },
+                                    location: updated.location ?? cur.location,
                                 };
                             });
                         }}

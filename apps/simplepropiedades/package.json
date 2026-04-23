@@ -9,25 +9,27 @@
         "lint": "next lint"
     },
     "dependencies": {
-        "next": "^16.1.6",
-        "react": "^19.2.4",
-        "react-dom": "^19.2.4",
-        "next-themes": "^0.4.6",
+        "@simple/auth": "*",
+        "@simple/config": "*",
+        "@simple/types": "*",
+        "@simple/ui": "*",
+        "@simple/utils": "*",
         "@tabler/icons-react": "^3.31.0",
         "clsx": "^2.1.1",
-        "@simple/types": "*",
-        "@simple/config": "*",
-        "@simple/utils": "*",
-        "@simple/ui": "*",
-        "@simple/auth": "*",
+        "jspdf": "^4.2.1",
+        "jspdf-autotable": "^5.0.7",
+        "next": "^16.1.6",
+        "next-themes": "^0.4.6",
+        "react": "^19.2.4",
+        "react-dom": "^19.2.4",
         "swiper": "^12.1.2"
     },
     "devDependencies": {
         "@tailwindcss/postcss": "^4.2.1",
-        "tailwindcss": "^4.2.1",
-        "typescript": "^5.9.3",
+        "@types/node": "^22.16.0",
         "@types/react": "^19.1.8",
         "@types/react-dom": "^19.1.6",
-        "@types/node": "^22.16.0"
+        "tailwindcss": "^4.2.1",
+        "typescript": "^5.9.3"
     }
 }

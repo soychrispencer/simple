@@ -166,6 +166,26 @@ function buildPriceLabel(basicData: QuickBasicData): string {
         return `$ ${Number(digits).toLocaleString('es-CL')}${suffix}`;
     };
 
+    // Calculate offer price if applicable (same logic as form preview)
+    const calculateOfferPrice = (): string | null => {
+        if (basicData.listingType !== 'sale') return null;
+        const mainPrice = parseInt(parseDigits(basicData.price) || '0', 10);
+        if (!mainPrice || !basicData.offerPrice) return null;
+        
+        if (basicData.offerPriceMode === '%') {
+            const pct = parseInt(basicData.offerPrice, 10);
+            if (pct > 0 && pct < 100) {
+                return String(Math.round(mainPrice * (1 - pct / 100)));
+            }
+        } else {
+            const op = parseInt(parseDigits(basicData.offerPrice) || '0', 10);
+            if (op > 0 && op < mainPrice) {
+                return String(op);
+            }
+        }
+        return null;
+    };
+
     if (basicData.listingType === 'rent') {
         return renderMoney(basicData.rentMonthly, ' / mes')
             || renderMoney(basicData.rentWeekly, ' / semana')
@@ -175,7 +195,10 @@ function buildPriceLabel(basicData: QuickBasicData): string {
     if (basicData.listingType === 'auction') {
         return renderMoney(basicData.auctionStartPrice) || '$0';
     }
-    return renderMoney(basicData.price) || '$0';
+    
+    // For sale: show offer price if available, otherwise base price
+    const offerPriceValue = calculateOfferPrice();
+    return renderMoney(offerPriceValue ?? basicData.price) || '$0';
 }
 
 function buildRawData(basicData: QuickBasicData, generatedText: GeneratedText, photos: QuickPhoto[], location: ListingLocation | null) {
@@ -605,6 +628,29 @@ export function useQuickPublish() {
             prev.basicData.vehicleType !== data.vehicleType ||
             prev.basicData.listingType !== data.listingType;
         const nextGeneratedText = coreChanged ? null : prev.generatedText;
+        locationRef.current = data.location ?? null;
+        pricingRef.current = {
+            ...pricingRef.current,
+            price: data.price ?? '',
+            offerPrice: data.offerPrice ?? '',
+            offerPriceMode: data.offerPriceMode ?? '$',
+            negotiable: data.negotiable ?? true,
+            financingAvailable: data.financingAvailable ?? false,
+            exchangeAvailable: data.exchangeAvailable ?? false,
+            currency: data.currency ?? 'CLP',
+            rentDaily: data.rentDaily ?? '',
+            rentWeekly: data.rentWeekly ?? '',
+            rentMonthly: data.rentMonthly ?? '',
+            rentMinDays: data.rentMinDays ?? '',
+            rentDeposit: data.rentDeposit ?? '',
+            rentAvailableFrom: data.rentAvailableFrom ?? '',
+            rentAvailableTo: data.rentAvailableTo ?? '',
+            auctionStartPrice: data.auctionStartPrice ?? '',
+            auctionReservePrice: data.auctionReservePrice ?? '',
+            auctionMinIncrement: data.auctionMinIncrement ?? '',
+            auctionStartAt: data.auctionStartAt ?? '',
+            auctionEndAt: data.auctionEndAt ?? '',
+        };
         setState((s) => ({ ...s, basicData: data, step: 3, generatedText: nextGeneratedText }));
         serverSave({ step: 3, basicData: data, generatedText: nextGeneratedText });
     // eslint-disable-next-line react-hooks/exhaustive-deps

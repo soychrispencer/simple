@@ -47,14 +47,14 @@ import {
     generateSmartTemplates,
     type InstagramTemplateView as InstagramRenderTemplate,
     type ListingData as InstagramListingData,
-} from './instagram-templates';
+} from './modules/instagram/templates.js';
 import {
     createCheckoutPreference,
     createPreapproval,
     getPaymentById,
     getPreapprovalById,
     isMercadoPagoConfigured,
-} from './mercadopago.js';
+} from './modules/mercadopago/service.js';
 import {
     buildInstagramAuthorizationUrl,
     exchangeInstagramCode,
@@ -66,12 +66,14 @@ import {
     publishInstagramCarousel,
     publishInstagramImage,
     refreshInstagramAccessToken,
-} from './instagram.js';
+} from './modules/instagram/service.js';
 import { db } from './db/index.js';
 import { migrate } from 'drizzle-orm/postgres-js/migrator';
 import { eq, and, or, desc, asc, gt, lt, gte, lte, isNull, sql, inArray, type SQL } from 'drizzle-orm';
 import {
     users,
+    accounts,
+    accountUsers,
     listings,
     savedListings,
     listingDrafts,
@@ -118,7 +120,26 @@ import {
     agendaClientPacks,
     agendaGroupSessions,
     agendaGroupAttendees,
+    serenataMusicians,
+    serenataRequests,
+    serenataGroups,
+    serenataGroupMembers,
+    serenataAssignments,
+    serenataRoutes,
+    serenataAvailabilitySlots,
+    serenataReviews,
+    serenataNotifications,
+    mortgageRates,
 } from './db/schema.js';
+import { createSerenatasRouter } from './modules/serenatas/index.js';
+import { createAccountsRouter } from './modules/accounts/router.js';
+import { createCrmRouter } from './modules/crm/router.js';
+import { createAdminRouter } from './modules/admin/router.js';
+import { createAuthRouter } from './modules/auth/router.js';
+import { createListingsRouter, createListingDraftRouter } from './modules/listings/router.js';
+import { createBoostRouter } from './modules/boost/router.js';
+import { createAddressBookRouter } from './modules/address-book/router.js';
+import { createPaymentsRouter } from './modules/payments/router.js';
 import bcrypt from 'bcryptjs';
 import webpush from 'web-push';
 import { googleAuth } from '@hono/oauth-providers/google';
@@ -132,14 +153,25 @@ import {
     notifyCancellation,
     notifyProfessionalNewBooking,
     sendTestMessage,
-} from './whatsapp.js';
+} from './modules/whatsapp/service.js';
 import { getStorageProvider } from './storage-providers/index.js';
-import { rateLimit } from './rate-limit.js';
-import { logAudit, logNotification } from './audit.js';
+import { rateLimit } from './lib/rate-limit.js';
+import { logAudit, logNotification } from './lib/audit.js';
+import { createAgendaRouter, createPublicAgendaRouter } from './modules/agenda/router.js';
+import { createAccountRouter } from './modules/public-profile/router.js';
+import { createAdvertisingRouter } from './modules/advertising/router.js';
+import { createLeadsRouter } from './modules/leads/router.js';
+import { createMessagesRouter, createPanelNotificationsRouter } from './modules/messages/router.js';
+import { createInstagramRouter, createInstagramPublicImageRouter } from './modules/instagram/router.js';
+import { createSocialRouter } from './modules/social/router.js';
+import { createPublicRouter } from './modules/public/router.js';
 
 type UserRole = 'user' | 'admin' | 'superadmin';
 type UserStatus = 'active' | 'verified' | 'suspended';
-type VerticalType = 'autos' | 'propiedades' | 'agenda';
+type VerticalType = 'autos' | 'propiedades' | 'agenda' | 'serenatas';
+type AccountType = 'general' | 'autos' | 'propiedades' | 'agenda' | 'crm_only';
+type AccountRole = 'owner' | 'admin' | 'agent';
+type CrmEntityType = 'listing' | 'service' | 'external';
 type AddressBookKind = 'personal' | 'shipping' | 'billing' | 'company' | 'branch' | 'warehouse' | 'pickup' | 'other';
 type ListingLocationSourceMode = 'saved_address' | 'custom' | 'area_only';
 
@@ -320,10 +352,12 @@ type AppUser = {
     phone?: string | null;
     role: UserRole;
     status: UserStatus;
+    primaryVertical?: VerticalType | null;
     avatar?: string;
     provider?: string; // 'local' | 'google' | etc.
     providerId?: string; // ID from OAuth provider
     lastLoginAt?: Date | null;
+    primaryAccountId?: string | null;
 };
 
 type PublicUser = {
@@ -333,9 +367,31 @@ type PublicUser = {
     phone?: string | null;
     role: UserRole;
     status: UserStatus;
+    primaryVertical?: VerticalType | null;
     avatar?: string;
     provider?: string;
     lastLoginAt?: Date | null;
+    primaryAccountId?: string | null;
+};
+
+type AccountRecord = {
+    id: string;
+    name: string;
+    type: AccountType;
+    ownerUserId: string;
+    isPersonal: boolean;
+    createdAt: number;
+    updatedAt: number;
+};
+
+type AccountUserRecord = {
+    id: string;
+    accountId: string;
+    userId: string;
+    role: AccountRole;
+    isDefault: boolean;
+    createdAt: number;
+    updatedAt: number;
 };
 
 type PublicProfileAccountKind = 'individual' | 'independent' | 'company';
@@ -450,6 +506,7 @@ type BoostPlanRecord = {
 
 type BoostOrder = {
     id: string;
+    accountId?: string | null;
     userId: string;
     vertical: VerticalType;
     listingId: string;
@@ -482,6 +539,7 @@ type ListingRow = typeof listings.$inferSelect;
 
 type ListingRecord = {
     id: string;
+    accountId?: string | null;
     vertical: VerticalType;
     section: BoostSection;
     listingType: BoostSection;
@@ -568,6 +626,7 @@ type PaidSubscriptionPlanRecord = SubscriptionPlanRecord & {
 
 type ActiveSubscription = {
     id: string;
+    accountId?: string | null;
     userId: string;
     vertical: VerticalType;
     planId: Exclude<SubscriptionPlanId, 'free'>;
@@ -605,6 +664,7 @@ type PaymentOrderMetadata =
 
 type PaymentOrderRecord = {
     id: string;
+    accountId?: string | null;
     userId: string;
     vertical: VerticalType;
     kind: CheckoutKind;
@@ -625,6 +685,7 @@ type PaymentOrderRecord = {
 
 type InstagramAccountRecord = {
     id: string;
+    accountId?: string | null;
     userId: string;
     vertical: VerticalType;
     instagramUserId: string;
@@ -647,6 +708,7 @@ type InstagramAccountRecord = {
 
 type InstagramPublicationRecord = {
     id: string;
+    accountId?: string | null;
     userId: string;
     instagramAccountId: string;
     vertical: VerticalType;
@@ -666,6 +728,7 @@ type InstagramPublicationRecord = {
 
 type PublicProfileRecord = {
     id: string;
+    accountId?: string | null;
     userId: string;
     vertical: VerticalType;
     slug: string;
@@ -711,6 +774,7 @@ type CrmAssigneeResponse = {
 
 type AdCampaignRecord = {
     id: string;
+    accountId?: string | null;
     userId: string;
     vertical: VerticalType;
     name: string;
@@ -739,6 +803,7 @@ type AdCampaignRecord = {
 
 type PipelineColumnRecord = {
     id: string;
+    accountId?: string | null;
     userId: string;
     vertical: VerticalType;
     scope: PipelineColumnScope;
@@ -751,7 +816,10 @@ type PipelineColumnRecord = {
 
 type ServiceLeadRecord = {
     id: string;
+    accountId?: string | null;
     userId: string | null;
+    entityType: CrmEntityType;
+    entityId: string;
     vertical: VerticalType;
     serviceType: ServiceLeadType;
     planId: ServiceLeadPlanId;
@@ -793,7 +861,10 @@ type ServiceLeadActivityRecord = {
 
 type ListingLeadRecord = {
     id: string;
+    accountId?: string | null;
     listingId: string;
+    entityType: CrmEntityType;
+    entityId: string;
     ownerUserId: string;
     buyerUserId: string | null;
     vertical: VerticalType;
@@ -832,6 +903,7 @@ type ListingLeadActivityRecord = {
 
 type MessageThreadRecord = {
     id: string;
+    accountId?: string | null;
     vertical: VerticalType;
     listingId: string;
     ownerUserId: string;
@@ -1425,6 +1497,9 @@ const messageThreadUpdateSchema = z.object({
 
 // Temporary Maps for migration
 const usersById = new Map<string, AppUser>();
+const accountsById = new Map<string, AccountRecord>();
+const accountUsersByUserId = new Map<string, AccountUserRecord[]>();
+const defaultAccountIdByUserId = new Map<string, string>();
 const savedByUser = new Map<string, SavedListingRecord[]>();
 const followsByUser = new Map<string, FollowRecord[]>();
 const boostOrdersByUser = new Map<string, BoostOrder[]>();
@@ -1447,10 +1522,25 @@ async function loadDataFromDB() {
 
     // Load users
     const userResults = await db.select().from(users);
+    usersById.clear();
     for (const user of userResults) {
         usersById.set(user.id, mapUserRowToAppUser(user));
     }
     console.log(`Loaded ${userResults.length} users`);
+
+    const accountResults = await db.select().from(accounts);
+    accountsById.clear();
+    for (const account of accountResults) {
+        accountsById.set(account.id, mapAccountRow(account));
+    }
+
+    const accountUserResults = await db.select().from(accountUsers);
+    accountUsersByUserId.clear();
+    defaultAccountIdByUserId.clear();
+    for (const membership of accountUserResults) {
+        upsertAccountUserCache(mapAccountUserRow(membership));
+    }
+    console.log(`Loaded ${accountResults.length} accounts and ${accountUserResults.length} account memberships`);
 
     const publicProfileResults = await db.select().from(publicProfiles);
     publicProfilesByUserVertical.clear();
@@ -2616,6 +2706,12 @@ const BOOST_PRICE_BY_VERTICAL_SECTION: Record<VerticalType, Record<BoostSection,
         auction: { boost_starter: 0, boost_pro: 0, boost_max: 0 },
         project: { boost_starter: 0, boost_pro: 0, boost_max: 0 },
     },
+    serenatas: {
+        sale: { boost_starter: 0, boost_pro: 0, boost_max: 0 },
+        rent: { boost_starter: 0, boost_pro: 0, boost_max: 0 },
+        auction: { boost_starter: 0, boost_pro: 0, boost_max: 0 },
+        project: { boost_starter: 0, boost_pro: 0, boost_max: 0 },
+    },
 };
 
 const AD_FORMAT_LABELS: Record<AdFormat, string> = {
@@ -2639,6 +2735,11 @@ const AD_PRICING_BY_VERTICAL: Record<VerticalType, Record<AdFormat, Record<AdDur
         inline: { 7: 4990, 15: 9990, 30: 14990 },
     },
     agenda: {
+        hero: { 7: 0, 15: 0, 30: 0 },
+        card: { 7: 0, 15: 0, 30: 0 },
+        inline: { 7: 0, 15: 0, 30: 0 },
+    },
+    serenatas: {
         hero: { 7: 0, 15: 0, 30: 0 },
         card: { 7: 0, 15: 0, 30: 0 },
         inline: { 7: 0, 15: 0, 30: 0 },
@@ -2807,6 +2908,25 @@ const SUBSCRIPTION_PLANS_BY_VERTICAL: Record<VerticalType, SubscriptionPlanRecor
             isComingSoon: true,
             maxFreeBoostsPerMonth: 0,
             features: ['Múltiples profesionales', 'Gestión de salas', 'Reportes avanzados', 'Integraciones con sistemas de salud', 'Branding completo'],
+        },
+    ],
+    serenatas: [
+        {
+            id: 'free',
+            name: 'Gratuito',
+            description: 'Plan base para músicos y grupos de serenata.',
+            priceMonthly: 0,
+            currency: 'CLP',
+            maxListings: 0,
+            maxFeaturedListings: 0,
+            maxImagesPerListing: 0,
+            analyticsEnabled: false,
+            crmEnabled: false,
+            prioritySupport: false,
+            customBranding: false,
+            apiAccess: false,
+            maxFreeBoostsPerMonth: 0,
+            features: ['Acceso básico a SimpleSerenatas'],
         },
     ],
 };
@@ -3364,6 +3484,7 @@ async function upsertInstagramAccountRecord(input: {
 }): Promise<InstagramAccountRecord> {
     const existing = getInstagramAccount(input.userId, input.vertical);
     const now = new Date();
+    const accountId = await getPrimaryAccountIdForUser(input.userId);
 
     if (existing) {
         const [row] = await db.update(instagramAccounts).set({
@@ -3390,6 +3511,7 @@ async function upsertInstagramAccountRecord(input: {
     }
 
     const [row] = await db.insert(instagramAccounts).values({
+        accountId,
         userId: input.userId,
         vertical: input.vertical,
         instagramUserId: input.instagramUserId,
@@ -3481,7 +3603,9 @@ async function createInstagramPublicationRecord(input: {
     sourceUpdatedAt: number | null;
     publishedAt: number | null;
 }): Promise<InstagramPublicationRecord> {
+    const accountId = await getPrimaryAccountIdForUser(input.userId);
     const [row] = await db.insert(instagramPublications).values({
+        accountId,
         userId: input.userId,
         instagramAccountId: input.instagramAccountId,
         vertical: input.vertical,
@@ -4857,6 +4981,7 @@ function mapListingRowToRecord(listing: ListingRow): ListingRecord {
     const leadCount = listingLeadCountsByListing.get(listing.id) ?? 0;
     return {
         id: listing.id,
+        accountId: listing.accountId ?? null,
         ownerId: listing.ownerId,
         vertical: listing.vertical as VerticalType,
         section: listing.section as any,
@@ -4880,6 +5005,7 @@ function mapListingRowToRecord(listing: ListingRow): ListingRecord {
 
 function listingToDbWrite(record: ListingRecord) {
     return {
+        accountId: record.accountId,
         ownerId: record.ownerId,
         vertical: record.vertical,
         section: record.section,
@@ -4910,9 +5036,13 @@ function isListingSlugConflictError(error: unknown): boolean {
 }
 
 async function insertListingRecord(record: ListingRecord): Promise<ListingRecord> {
+    const accountId = record.accountId ?? await getPrimaryAccountIdForUser(record.ownerId);
     const [row] = await db.insert(listings).values({
         id: record.id,
-        ...listingToDbWrite(record),
+        ...listingToDbWrite({
+            ...record,
+            accountId,
+        }),
     }).returning();
     return upsertListingCache(mapListingRowToRecord(row));
 }
@@ -5348,8 +5478,10 @@ async function upsertAddressBookEntry(
 ): Promise<AddressBookEntry[]> {
     const now = new Date();
     const nextId = existingId ?? randomUUID();
+    const accountId = await getPrimaryAccountIdForUser(userId);
 
     const data: any = {
+        accountId,
         kind: input.kind,
         label: input.label,
         countryCode: input.countryCode,
@@ -6244,6 +6376,7 @@ function listingToResponse(record: ListingRecord) {
     );
     return {
         id: record.id,
+        accountId: record.accountId,
         vertical: record.vertical,
         section: record.section,
         title: record.title,
@@ -6274,6 +6407,7 @@ function listingToDetailResponse(record: ListingRecord) {
 function paymentOrderToResponse(order: PaymentOrderRecord) {
     return {
         id: order.id,
+        accountId: order.accountId,
         vertical: order.vertical,
         kind: order.kind,
         title: order.title,
@@ -6294,6 +6428,7 @@ function activeSubscriptionToResponse(subscription: ActiveSubscription | null) {
     if (!subscription) return null;
     return {
         id: subscription.id,
+        accountId: subscription.accountId,
         vertical: subscription.vertical,
         planId: subscription.planId,
         planName: subscription.planName,
@@ -6352,9 +6487,11 @@ function sanitizeUser(user: AppUser): PublicUser {
         phone: runtimeUser.phone ?? null,
         role: runtimeUser.role,
         status: runtimeUser.status,
+        primaryVertical: runtimeUser.primaryVertical ?? null,
         avatar: runtimeUser.avatar,
         provider: runtimeUser.provider,
         lastLoginAt: runtimeUser.lastLoginAt ?? null,
+        primaryAccountId: runtimeUser.primaryAccountId ?? defaultAccountIdByUserId.get(runtimeUser.id) ?? null,
     };
 }
 
@@ -6371,6 +6508,115 @@ function applyRuntimeRole(user: AppUser): AppUser {
     };
 }
 
+function mapAccountRow(account: typeof accounts.$inferSelect): AccountRecord {
+    return {
+        id: account.id,
+        name: account.name,
+        type: account.type as AccountType,
+        ownerUserId: account.ownerUserId,
+        isPersonal: Boolean(account.isPersonal),
+        createdAt: account.createdAt.getTime(),
+        updatedAt: account.updatedAt.getTime(),
+    };
+}
+
+function mapAccountUserRow(membership: typeof accountUsers.$inferSelect): AccountUserRecord {
+    return {
+        id: membership.id,
+        accountId: membership.accountId,
+        userId: membership.userId,
+        role: membership.role as AccountRole,
+        isDefault: Boolean(membership.isDefault),
+        createdAt: membership.createdAt.getTime(),
+        updatedAt: membership.updatedAt.getTime(),
+    };
+}
+
+function upsertAccountCache(account: AccountRecord): AccountRecord {
+    accountsById.set(account.id, account);
+    return account;
+}
+
+function upsertAccountUserCache(membership: AccountUserRecord): AccountUserRecord {
+    const current = accountUsersByUserId.get(membership.userId) ?? [];
+    const next = [membership, ...current.filter((item) => item.id !== membership.id)];
+    accountUsersByUserId.set(membership.userId, next);
+    if (membership.isDefault) {
+        defaultAccountIdByUserId.set(membership.userId, membership.accountId);
+        const existingUser = usersById.get(membership.userId);
+        if (existingUser) {
+            usersById.set(membership.userId, {
+                ...existingUser,
+                primaryAccountId: membership.accountId,
+            });
+        }
+    }
+    return membership;
+}
+
+function getAccountMembershipsForUser(userId: string): AccountUserRecord[] {
+    return [...(accountUsersByUserId.get(userId) ?? [])];
+}
+
+function getPrimaryAccountIdForUserSync(userId: string): string | null {
+    return defaultAccountIdByUserId.get(userId) ?? null;
+}
+
+async function getPrimaryAccountIdForUser(userId: string): Promise<string | null> {
+    const cached = getPrimaryAccountIdForUserSync(userId);
+    if (cached) return cached;
+
+    const membershipRows = await db
+        .select()
+        .from(accountUsers)
+        .where(eq(accountUsers.userId, userId))
+        .orderBy(desc(accountUsers.isDefault), asc(accountUsers.createdAt))
+        .limit(1);
+
+    const membership = membershipRows[0] ? upsertAccountUserCache(mapAccountUserRow(membershipRows[0])) : null;
+    return membership?.accountId ?? null;
+}
+
+function buildPersonalAccountName(user: Pick<AppUser, 'name' | 'email'>): string {
+    return user.name.trim() || user.email.split('@')[0] || 'Cuenta personal';
+}
+
+async function ensurePrimaryAccountForUser(user: AppUser, accountType: AccountType = 'general'): Promise<AccountRecord> {
+    const existingId = await getPrimaryAccountIdForUser(user.id);
+    if (existingId) {
+        const existing = accountsById.get(existingId);
+        if (existing) return existing;
+
+        const rows = await db.select().from(accounts).where(eq(accounts.id, existingId)).limit(1);
+        if (rows[0]) {
+            return upsertAccountCache(mapAccountRow(rows[0]));
+        }
+    }
+
+    const now = new Date();
+    const [accountRow] = await db.insert(accounts).values({
+        name: buildPersonalAccountName(user),
+        type: accountType,
+        ownerUserId: user.id,
+        isPersonal: true,
+        createdAt: now,
+        updatedAt: now,
+    }).returning();
+    const account = upsertAccountCache(mapAccountRow(accountRow));
+
+    const [membershipRow] = await db.insert(accountUsers).values({
+        accountId: account.id,
+        userId: user.id,
+        role: 'owner',
+        isDefault: true,
+        createdAt: now,
+        updatedAt: now,
+    }).returning();
+    upsertAccountUserCache(mapAccountUserRow(membershipRow));
+
+    return account;
+}
+
 function mapUserRowToAppUser(user: typeof users.$inferSelect): AppUser {
     return {
         id: user.id,
@@ -6380,16 +6626,19 @@ function mapUserRowToAppUser(user: typeof users.$inferSelect): AppUser {
         phone: user.phone ?? null,
         role: user.role as UserRole,
         status: user.status as UserStatus,
+        primaryVertical: (user.primaryVertical as VerticalType | null | undefined) ?? null,
         avatar: user.avatarUrl ?? undefined,
         provider: user.provider ?? undefined,
         providerId: user.providerId ?? undefined,
         lastLoginAt: user.lastLoginAt ?? null,
+        primaryAccountId: defaultAccountIdByUserId.get(user.id) ?? null,
     };
 }
 
 function mapInstagramAccountRow(account: typeof instagramAccounts.$inferSelect): InstagramAccountRecord {
     return {
         id: account.id,
+        accountId: account.accountId ?? null,
         userId: account.userId,
         vertical: account.vertical as VerticalType,
         instagramUserId: account.instagramUserId,
@@ -6414,6 +6663,7 @@ function mapInstagramAccountRow(account: typeof instagramAccounts.$inferSelect):
 function mapInstagramPublicationRow(publication: typeof instagramPublications.$inferSelect): InstagramPublicationRecord {
     return {
         id: publication.id,
+        accountId: publication.accountId ?? null,
         userId: publication.userId,
         instagramAccountId: publication.instagramAccountId,
         vertical: publication.vertical as VerticalType,
@@ -6435,6 +6685,7 @@ function mapInstagramPublicationRow(publication: typeof instagramPublications.$i
 function mapPublicProfileRow(profile: typeof publicProfiles.$inferSelect): PublicProfileRecord {
     return {
         id: profile.id,
+        accountId: profile.accountId ?? null,
         userId: profile.userId,
         vertical: profile.vertical as VerticalType,
         slug: profile.slug,
@@ -6537,6 +6788,7 @@ function getPublishedPublicProfileBySlug(vertical: VerticalType, slug: string): 
 function mapAdCampaignRow(campaign: typeof adCampaigns.$inferSelect): AdCampaignRecord {
     return {
         id: campaign.id,
+        accountId: campaign.accountId ?? null,
         userId: campaign.userId,
         vertical: campaign.vertical as VerticalType,
         name: campaign.name,
@@ -6567,6 +6819,7 @@ function mapAdCampaignRow(campaign: typeof adCampaigns.$inferSelect): AdCampaign
 function mapPipelineColumnRow(column: typeof crmPipelineColumns.$inferSelect): PipelineColumnRecord {
     return {
         id: column.id,
+        accountId: column.accountId ?? null,
         userId: column.userId,
         vertical: column.vertical as VerticalType,
         scope: column.scope as PipelineColumnScope,
@@ -6581,7 +6834,10 @@ function mapPipelineColumnRow(column: typeof crmPipelineColumns.$inferSelect): P
 function mapServiceLeadRow(lead: typeof serviceLeads.$inferSelect): ServiceLeadRecord {
     return {
         id: lead.id,
+        accountId: lead.accountId ?? null,
         userId: lead.userId ?? null,
+        entityType: 'service',
+        entityId: lead.id,
         vertical: lead.vertical as VerticalType,
         serviceType: lead.serviceType as ServiceLeadType,
         planId: lead.planId as ServiceLeadPlanId,
@@ -6627,7 +6883,10 @@ function mapServiceLeadActivityRow(activity: typeof serviceLeadActivities.$infer
 function mapListingLeadRow(lead: typeof listingLeads.$inferSelect): ListingLeadRecord {
     return {
         id: lead.id,
+        accountId: lead.accountId ?? null,
         listingId: lead.listingId,
+        entityType: 'listing',
+        entityId: lead.listingId,
         ownerUserId: lead.ownerUserId,
         buyerUserId: lead.buyerUserId ?? null,
         vertical: lead.vertical as VerticalType,
@@ -6670,6 +6929,7 @@ function mapListingLeadActivityRow(activity: typeof listingLeadActivities.$infer
 function mapMessageThreadRow(thread: typeof messageThreads.$inferSelect): MessageThreadRecord {
     return {
         id: thread.id,
+        accountId: thread.accountId ?? null,
         vertical: thread.vertical as VerticalType,
         listingId: thread.listingId,
         ownerUserId: thread.ownerUserId,
@@ -7420,6 +7680,7 @@ function usernameFromName(name: string): string {
 function parseVertical(raw: string | undefined): VerticalType {
     if (raw === 'propiedades') return 'propiedades';
     if (raw === 'agenda') return 'agenda';
+    if (raw === 'serenatas') return 'serenatas';
     return 'autos';
 }
 
@@ -8024,6 +8285,18 @@ function isAdminRole(role: UserRole): boolean {
     return role === 'admin' || role === 'superadmin';
 }
 
+// Returns true if the user is authorized to administer the given vertical.
+// - superadmin: always true (platform-wide)
+// - admin with matching primaryVertical: true for that vertical only
+// - admin without primaryVertical (legacy): true for any vertical (backwards compat; migration sets it)
+// - everyone else: false
+function isAdminForVertical(user: AppUser, vertical: VerticalType): boolean {
+    if (user.role === 'superadmin') return true;
+    if (user.role !== 'admin') return false;
+    if (!user.primaryVertical) return true; // legacy admins without vertical scope
+    return user.primaryVertical === vertical;
+}
+
 function isAdminBootstrapEnabled(): boolean {
     return asString(process.env.ENABLE_ADMIN_BOOTSTRAP).toLowerCase() === 'true';
 }
@@ -8213,6 +8486,7 @@ async function permanentlyDeleteUser(userId: string): Promise<void> {
 function adCampaignToResponse(record: AdCampaignRecord) {
     return {
         id: record.id,
+        accountId: record.accountId,
         userId: record.userId,
         vertical: record.vertical,
         name: record.name,
@@ -8737,7 +9011,10 @@ function listingLeadToResponse(record: ListingLeadRecord, options?: { threadId?:
 
     return {
         id: record.id,
+        accountId: record.accountId,
         listingId: record.listingId,
+        entityType: record.entityType,
+        entityId: record.entityId,
         vertical: record.vertical,
         source: record.source,
         sourceLabel: listingLeadSourceLabel(record.source, record.vertical),
@@ -8994,7 +9271,11 @@ export async function authUser(c: Context): Promise<AppUser | null> {
     if (!userId) return null;
     const user = await getUserById(userId);
     if (!user || !canAuthenticateUser(user)) return null;
-    return applyRuntimeRole(user);
+    const account = await ensurePrimaryAccountForUser(user);
+    return applyRuntimeRole({
+        ...user,
+        primaryAccountId: account.id,
+    });
 }
 
 function isVerifiedUser(user: AppUser): boolean {
@@ -9217,6 +9498,7 @@ const DEFAULT_LISTING_PIPELINE_COLUMNS: Array<{ name: string; status: ListingLea
 function pipelineColumnToResponse(column: PipelineColumnRecord) {
     return {
         id: column.id,
+        accountId: column.accountId,
         userId: column.userId,
         vertical: column.vertical,
         scope: column.scope,
@@ -9246,8 +9528,10 @@ async function ensureListingPipelineColumns(userId: string, vertical: VerticalTy
     const existing = await listPipelineColumns(userId, vertical, 'listing');
     if (existing.length > 0) return existing;
 
+    const accountId = await getPrimaryAccountIdForUser(userId);
     const rows = await db.insert(crmPipelineColumns).values(
         DEFAULT_LISTING_PIPELINE_COLUMNS.map((column, index) => ({
+            accountId,
             userId,
             vertical,
             scope: 'listing',
@@ -10122,7 +10406,9 @@ async function createListingLeadRecord(input: {
 }): Promise<ListingLeadRecord> {
     const createdAt = new Date(input.createdAt ?? Date.now());
     const assignment = await resolveInitialListingLeadAssignment(input.ownerUserId, input.vertical);
+    const accountId = await getPrimaryAccountIdForUser(input.ownerUserId);
     const rows = await db.insert(listingLeads).values({
+        accountId,
         listingId: input.listingId,
         ownerUserId: input.ownerUserId,
         buyerUserId: input.buyerUserId ?? null,
@@ -10497,12 +10783,13 @@ async function createOrAppendListingConversation(input: {
     return { lead, thread, entry, createdLead: true };
 }
 
-async function listAdminUsersSnapshot(): Promise<Array<{
+async function listAdminUsersSnapshot(vertical?: VerticalType | null): Promise<Array<{
     id: string;
     name: string;
     email: string;
     role: UserRole;
     status: UserStatus;
+    primaryVertical: VerticalType | null;
     provider: string | null;
     createdAt: number;
     lastLoginAt: number | null;
@@ -10527,25 +10814,40 @@ async function listAdminUsersSnapshot(): Promise<Array<{
         listingCounters.set(listing.ownerId, current);
     }
 
-    return userRows.map((user) => {
-        const counters = listingCounters.get(user.id) ?? { total: 0, autos: 0, propiedades: 0 };
-        return {
-            id: user.id,
-            name: user.name,
-            email: user.email,
-            role: user.role as UserRole,
-            status: user.status as UserStatus,
-            provider: user.provider ?? null,
-            createdAt: user.createdAt.getTime(),
-            lastLoginAt: user.lastLoginAt?.getTime() ?? null,
-            totalListings: counters.total,
-            autosListings: counters.autos,
-            propiedadesListings: counters.propiedades,
-        };
-    });
+    // Vertical scoping: only include users whose primary_vertical matches,
+    // OR who own listings in that vertical (so vertical admins can view all relevant users).
+    const ownersWithVerticalListings = new Set(
+        vertical ? listingRows.filter((l) => l.vertical === vertical).map((l) => l.ownerId) : [],
+    );
+
+    return userRows
+        .filter((user) => {
+            if (!vertical) return true;
+            const userVertical = user.primaryVertical ?? null;
+            if (userVertical === vertical) return true;
+            if (ownersWithVerticalListings.has(user.id)) return true;
+            return false;
+        })
+        .map((user) => {
+            const counters = listingCounters.get(user.id) ?? { total: 0, autos: 0, propiedades: 0 };
+            return {
+                id: user.id,
+                name: user.name,
+                email: user.email,
+                role: user.role as UserRole,
+                status: user.status as UserStatus,
+                primaryVertical: (user.primaryVertical as VerticalType | null) ?? null,
+                provider: user.provider ?? null,
+                createdAt: user.createdAt.getTime(),
+                lastLoginAt: user.lastLoginAt?.getTime() ?? null,
+                totalListings: counters.total,
+                autosListings: counters.autos,
+                propiedadesListings: counters.propiedades,
+            };
+        });
 }
 
-async function listAdminListingsSnapshot(): Promise<Array<{
+async function listAdminListingsSnapshot(vertical?: VerticalType | null): Promise<Array<{
     id: string;
     title: string;
     vertical: VerticalType;
@@ -10569,7 +10871,9 @@ async function listAdminListingsSnapshot(): Promise<Array<{
     ]);
     const userMap = new Map(userRows.map((user) => [user.id, user]));
 
-    return listingRows.map((listing) => {
+    return listingRows
+        .filter((listing) => !vertical || listing.vertical === vertical)
+        .map((listing) => {
         const owner = userMap.get(listing.ownerId);
         return {
             id: listing.id,
@@ -10755,3049 +11059,554 @@ app.get('/api/media/proxy', async (c) => {
     }
 });
 
-app.post('/api/auth/login', async (c) => {
-    const payload = await c.req.json().catch(() => null);
-    const parsed = loginSchema.safeParse(payload);
-
-    if (!parsed.success) {
-        return c.json({ ok: false, error: 'Payload inválido' }, 400);
-    }
-
-    const normalizedEmail = parsed.data.email.trim().toLowerCase();
-    const clientId = getClientIdentifier(c);
-    const ipRateLimit = consumeRateLimit(`auth:login:ip:${clientId}`, 10, AUTH_RATE_LIMIT_WINDOW_MS);
-    if (!ipRateLimit.ok) {
-        c.header('Retry-After', String(ipRateLimit.retryAfterSeconds));
-        return c.json({ ok: false, error: 'Demasiados intentos. Intenta nuevamente en unos minutos.' }, 429);
-    }
-
-    const emailRateLimit = consumeRateLimit(`auth:login:email:${normalizedEmail}`, 10, AUTH_RATE_LIMIT_WINDOW_MS);
-    if (!emailRateLimit.ok) {
-        c.header('Retry-After', String(emailRateLimit.retryAfterSeconds));
-        return c.json({ ok: false, error: 'Demasiados intentos. Intenta nuevamente en unos minutos.' }, 429);
-    }
-
-    const user = await getUserByEmail(normalizedEmail);
-    if (!user) {
-        console.warn(`[AUTH LOGIN] Usuario no encontrado: ${normalizedEmail}`);
-        return c.json({ ok: false, error: 'Email o contraseña incorrectos. Si no tienes cuenta, crea una.' }, 401);
-    }
-
-    if (!canAuthenticateUser(user)) {
-        console.warn(`[AUTH LOGIN] Cuenta suspendida: ${normalizedEmail}`);
-        return c.json({ ok: false, error: 'Tu cuenta está suspendida. Contacta al soporte.' }, 403);
-    }
-
-    if (!user.passwordHash) {
-        console.warn(`[AUTH LOGIN] Sin passwordHash (Google auth): ${normalizedEmail}`);
-        return c.json({ ok: false, error: 'Esta cuenta requiere autenticación con Google. Usar "Continuar con Google".' }, 401);
-    }
-
-    const passwordMatch = await bcrypt.compare(parsed.data.password, user.passwordHash);
-    if (!passwordMatch) {
-        console.warn(`[AUTH LOGIN] Contraseña incorrecta: ${normalizedEmail}`);
-        return c.json({ ok: false, error: 'Email o contraseña incorrectos.' }, 401);
-    }
-
-    await touchUserLastLoginAt(user.id);
-    clearRateLimit(`auth:login:ip:${clientId}`);
-    clearRateLimit(`auth:login:email:${normalizedEmail}`);
-    setSession(c, user.id);
-    console.info(`[AUTH LOGIN] Login exitoso: ${normalizedEmail}`);
-    return c.json({
-        ok: true,
-        user: sanitizeUser({
-            ...user,
-            lastLoginAt: new Date(),
-        }),
-    });
-});
-
-app.post('/api/auth/register', async (c) => {
-    const payload = await c.req.json().catch(() => null);
-    const parsed = registerSchema.safeParse(payload);
-
-    if (!parsed.success) {
-        return c.json({ ok: false, error: 'Payload inválido' }, 400);
-    }
-
-    const clientId = getClientIdentifier(c);
-    const ipRateLimit = consumeRateLimit(`auth:register:ip:${clientId}`, 5, AUTH_RATE_LIMIT_WINDOW_MS);
-    if (!ipRateLimit.ok) {
-        c.header('Retry-After', String(ipRateLimit.retryAfterSeconds));
-        return c.json({ ok: false, error: 'Demasiados intentos de registro. Intenta nuevamente más tarde.' }, 429);
-    }
-
-    if (process.env.NODE_ENV === 'production' && !isAuthEmailConfigured()) {
-        return c.json({ ok: false, error: 'El registro no está disponible porque el correo de verificación no está configurado.' }, 503);
-    }
-
-    const origin = resolveBrowserOrigin(c);
-    if (!origin) {
-        return c.json({ ok: false, error: 'Origin no autorizado' }, 403);
-    }
-
-    const normalizedEmail = parsed.data.email.trim().toLowerCase();
-    const existing = await getUserByEmail(normalizedEmail);
-    if (existing) {
-        return c.json({ ok: false, error: 'Email ya registrado' }, 409);
-    }
-
-    const hashedPassword = await bcrypt.hash(parsed.data.password, 10);
-
-    const [insertedUser] = await db.insert(users).values({
-        email: normalizedEmail,
-        passwordHash: hashedPassword,
-        name: parsed.data.name.trim(),
-        role: 'user',
-        status: 'active',
-        provider: 'local',
-    }).returning({ id: users.id });
-
-    const newUser: AppUser = {
-        id: insertedUser.id,
-        email: normalizedEmail,
-        passwordHash: hashedPassword,
-        name: parsed.data.name.trim(),
-        role: 'user',
-        status: 'active',
-        provider: 'local',
-        lastLoginAt: new Date(),
-    };
-
-    try {
-        await issueEmailVerification(newUser.id, normalizedEmail, origin);
-    } catch (error) {
-        console.error('Email verification delivery error:', error);
-        await db.delete(emailVerificationTokens).where(eq(emailVerificationTokens.userId, newUser.id));
-        await db.delete(users).where(eq(users.id, newUser.id));
-        return c.json({ ok: false, error: 'No pudimos enviar el correo de verificación. Inténtalo nuevamente en unos minutos.' }, 502);
-    }
-
-    await touchUserLastLoginAt(newUser.id);
-    clearRateLimit(`auth:register:ip:${clientId}`);
-    setSession(c, newUser.id);
-
-    return c.json({ ok: true, user: sanitizeUser(newUser) }, 201);
-});
-
-// Endpoint especial: Bootstrap inicial de superadmin (solo si no existe ningún admin)
-app.post('/api/admin/bootstrap', async (c) => {
-    if (!isAdminBootstrapEnabled()) {
-        return c.json({ ok: false, error: 'No encontrado' }, 404);
-    }
-
-    // Verificar si ya hay admins en el sistema
-    const existingAdmins = await db
-        .select({ id: users.id })
-        .from(users)
-        .where(or(eq(users.role, 'admin'), eq(users.role, 'superadmin')))
-        .limit(1);
-
-    if (existingAdmins.length > 0) {
-        return c.json({ ok: false, error: 'Ya existe un administrador en el sistema' }, 403);
-    }
-
-    const payload = await c.req.json().catch(() => null);
-    const parsed = registerSchema.safeParse(payload);
-
-    if (!parsed.success) {
-        return c.json({ ok: false, error: 'Payload inválido' }, 400);
-    }
-
-    const normalizedEmail = parsed.data.email.trim().toLowerCase();
-    const existing = await getUserByEmail(normalizedEmail);
-    if (existing) {
-        return c.json({ ok: false, error: 'Email ya registrado' }, 409);
-    }
-
-    const hashedPassword = await bcrypt.hash(parsed.data.password, 10);
-
-    // Crear el superadmin ya verificado
-    const [insertedUser] = await db.insert(users).values({
-        email: normalizedEmail,
-        passwordHash: hashedPassword,
-        name: parsed.data.name.trim(),
-        role: 'superadmin',
-        status: 'verified',
-        provider: 'local',
-    }).returning({ id: users.id });
-
-    const newUser: AppUser = {
-        id: insertedUser.id,
-        email: normalizedEmail,
-        passwordHash: hashedPassword,
-        name: parsed.data.name.trim(),
-        role: 'superadmin',
-        status: 'verified',
-        provider: 'local',
-        lastLoginAt: new Date(),
-    };
-
-    await touchUserLastLoginAt(newUser.id);
-    setSession(c, newUser.id);
-
-    return c.json({ ok: true, user: sanitizeUser(newUser) }, 201);
-});
+app.route('/api/auth', createAuthRouter({
+    db,
+    eq,
+    and,
+    gt,
+    isNull,
+    sql,
+    tables: {
+        users,
+        passwordResetTokens,
+        emailVerificationTokens,
+    },
+    bcrypt,
+    getUserByEmail,
+    getUserById,
+    sanitizeUser,
+    mapUserRowToAppUser,
+    canAuthenticateUser,
+    ensurePrimaryAccountForUser,
+    touchUserLastLoginAt,
+    setSession,
+    clearSession,
+    authUser,
+    getClientIdentifier,
+    consumeRateLimit,
+    clearRateLimit,
+    resolveBrowserOrigin,
+    isAuthEmailConfigured,
+    issueEmailVerification,
+    sendPasswordResetEmail,
+    sendPasswordChangedEmail,
+    sendWelcomeEmail,
+    buildPasswordResetUrl,
+    hashOpaqueToken,
+    buildGoogleRedirectUri,
+    asString,
+    asObject,
+    safeEqualStrings,
+    SESSION_SECRET,
+    AUTH_RATE_LIMIT_WINDOW_MS,
+    PASSWORD_RESET_TOKEN_TTL_MS,
+    loginSchema,
+    registerSchema,
+    passwordResetRequestSchema,
+    passwordResetConfirmSchema,
+    emailVerificationRequestSchema,
+    emailVerificationConfirmSchema,
+}));
 
 app.use('/api/account/*', requireVerifiedSession);
+app.use('/api/accounts/*', requireVerifiedSession);
 app.use('/api/crm/*', requireVerifiedSession);
 app.use('/api/panel/*', requireVerifiedSession);
 app.use('/api/messages/*', requireVerifiedSession);
 app.use('/api/listing-draft', requireVerifiedSession);
 app.use('/api/listings', requireVerifiedSession);
 app.use('/api/listings/*', requireVerifiedSession);
+
+const listingsDeps = {
+    authUser,
+    parseVertical,
+    parseListingSection,
+    parseListingStatus,
+    normalizeListingLocation,
+    listingDefaultHref,
+    stripStoredListingMetadata,
+    makeListingId,
+    listingsById,
+    listingIdsByUser,
+    getListingById,
+    insertListingRecord,
+    saveListingRecord,
+    deleteListingRecord,
+    isListingSlugConflictError,
+    listingToResponse,
+    listingToDetailResponse,
+    upsertBoostListingFromListing,
+    maybeAutoPublishListing,
+    isPortalAvailableForVertical,
+    getPortalCoverage,
+    getPortalSyncView,
+    getListingDraftRecord,
+    upsertListingDraftRecord,
+    deleteListingDraftRecord,
+    schemas: {
+        createListingSchema,
+        updateListingSchema,
+        updateListingStatusSchema,
+        publishListingPortalSchema,
+        listingDraftWriteSchema,
+    },
+};
+app.route('/api/listings', createListingsRouter(listingsDeps));
+app.route('/api/listing-draft', createListingDraftRouter(listingsDeps));
+
+app.route('/api/boost', createBoostRouter({
+    authUser,
+    parseVertical,
+    parseBoostSection,
+    getSectionsForVertical,
+    isBoostSectionAllowed,
+    getBoostPlans,
+    getBoostListingById,
+    getBoostListingsByOwner,
+    getBoostOrdersForUser,
+    createBoostOrderRecord,
+    normalizeBoostOrder,
+    countReservedSlots,
+    getFreeBoostQuota,
+    sectionLabel,
+    listFeaturedBoosted,
+    boostListingsSeed,
+    boostOrdersByUser,
+    MAX_BOOST_SLOTS_PER_SECTION,
+    schemas: {
+        createBoostOrderSchema,
+        updateBoostOrderSchema,
+    },
+}));
+
 app.use('/api/address-book', requireVerifiedSession);
 app.use('/api/address-book/*', requireVerifiedSession);
 app.use('/api/boost/*', requireVerifiedSession);
+
+const addressBookDeps = {
+    authUser,
+    getAddressBookEntries,
+    upsertAddressBookEntry,
+    deleteAddressBookEntry,
+    schemas: { addressBookWriteSchema },
+};
+app.route('/api/address-book', createAddressBookRouter(addressBookDeps));
+app.route('/api/account/address-book', createAddressBookRouter(addressBookDeps));
+
+app.route('/api', createPaymentsRouter({
+    authUser,
+    parseVertical,
+    isAdminRole,
+    isMercadoPagoConfigured,
+    getSubscriptionPlans,
+    getPaidSubscriptionPlan,
+    getCurrentSubscription,
+    activeSubscriptionToResponse,
+    upsertActiveSubscription,
+    makeSubscriptionId,
+    activeSubscriptionsByUser,
+    getPaymentOrdersForUser,
+    upsertPaymentOrder,
+    updatePaymentOrder,
+    paymentOrderToResponse,
+    makePaymentOrderId,
+    paymentOrdersByUser,
+    createCheckoutPreference,
+    createPreapproval,
+    getPaymentById,
+    getPreapprovalById,
+    parseMercadoPagoPaymentStatus,
+    parseMercadoPagoPreapprovalStatus,
+    resolveMercadoPagoReturnUrl,
+    ensureMercadoPagoSubscriptionReturnUrl,
+    appendCheckoutParams,
+    getBoostListingById,
+    getBoostOrdersForUser,
+    getBoostPlans,
+    parseBoostSection,
+    isBoostSectionAllowed,
+    createBoostOrderRecord,
+    countReservedSlots,
+    sectionLabel,
+    MAX_BOOST_SLOTS_PER_SECTION,
+    getAdCampaignRecordForUser,
+    getAdvertisingPrice,
+    getAdPaymentStatusFromOrderStatus,
+    normalizeAdCampaigns,
+    mapAdCampaignRow,
+    adCampaignToResponse,
+    AD_FORMAT_LABELS,
+    db,
+    tables: { adCampaigns },
+    dbHelpers: { eq, and },
+    listAdminUsersSnapshot,
+    dbQuery: db.query,
+    dbSql: sql,
+    tables2: { agendaProfessionalProfiles },
+    schemas: {
+        createCheckoutSchema,
+        confirmCheckoutSchema,
+    },
+}));
 app.use('/api/advertising/campaigns', requireVerifiedSession);
 app.use('/api/advertising/campaigns/*', requireVerifiedSession);
 app.use('/api/integrations/instagram', requireVerifiedSession);
 app.use('/api/integrations/instagram/*', requireVerifiedSession);
 
-app.get('/api/auth/me', async (c) => {
-    const user = await authUser(c);
-    if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
-    return c.json({ ok: true, user: sanitizeUser(user) });
-});
-
-app.patch('/api/account/profile', async (c) => {
-    const user = await authUser(c);
-    if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
-
-    const payload = await c.req.json().catch(() => null);
-    const parsed = updateProfileSchema.safeParse(payload);
-    if (!parsed.success) {
-        return c.json({ ok: false, error: 'Payload inválido' }, 400);
-    }
-
-    const normalizedPhone = parsed.data.phone && parsed.data.phone.trim() ? parsed.data.phone.trim() : null;
-    const rows = await db
-        .update(users)
-        .set({
-            name: parsed.data.name.trim(),
-            phone: normalizedPhone,
-            updatedAt: new Date(),
-        })
-        .where(eq(users.id, user.id))
-        .returning();
-
-    if (rows.length === 0) {
-        return c.json({ ok: false, error: 'No encontramos tu cuenta.' }, 404);
-    }
-
-    const updatedUser = mapUserRowToAppUser(rows[0]);
-    usersById.set(updatedUser.id, updatedUser);
-    return c.json({ ok: true, user: sanitizeUser(updatedUser) });
-});
-
-app.get('/api/account/public-profile', async (c) => {
-    const user = await authUser(c);
-    if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
-
-    const vertical = parseVertical(c.req.query('vertical'));
-    return c.json(buildAccountPublicProfileResponse(user, vertical));
-});
-
-app.get('/api/account/public-profile/slug-check', async (c) => {
-    const user = await authUser(c);
-    if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
-
-    const vertical = parseVertical(c.req.query('vertical'));
-    const candidate = normalizePublicProfileSlug(asString(c.req.query('slug')));
-    if (!isValidPublicProfileSlug(candidate)) {
-        return c.json({ ok: false, error: 'Slug inválido' }, 400);
-    }
-
-    const existing = publicProfilesByVerticalSlug.get(publicProfileVerticalSlugKey(vertical, candidate));
-    return c.json({
-        ok: true,
-        slug: candidate,
-        available: !existing || existing.userId === user.id,
-    });
-});
-
-app.patch('/api/account/public-profile', async (c) => {
-    const user = await authUser(c);
-    if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
-
-    const vertical = parseVertical(c.req.query('vertical'));
-    if (!userCanUsePublicProfile(user, vertical)) {
-        return c.json({ ok: false, error: 'El perfil público está disponible solo para suscripciones de pago.' }, 403);
-    }
-
-    const payload = await c.req.json().catch(() => null);
-    const parsed = publicProfileWriteSchema.safeParse(payload);
-    if (!parsed.success) {
-        return c.json({ ok: false, error: 'Payload inválido' }, 400);
-    }
-
-    const current = getPublicProfileRecord(user.id, vertical);
-    const normalizedSlug = normalizePublicProfileSlug(parsed.data.slug || parsed.data.displayName);
-    if (!isValidPublicProfileSlug(normalizedSlug)) {
-        return c.json({ ok: false, error: 'Usa un slug válido de 3 a 80 caracteres.' }, 400);
-    }
-
-    const existingBySlug = publicProfilesByVerticalSlug.get(publicProfileVerticalSlugKey(vertical, normalizedSlug));
-    if (existingBySlug && existingBySlug.userId !== user.id) {
-        return c.json({ ok: false, error: 'Ese enlace público ya está en uso.' }, 409);
-    }
-
-    const nextBusinessHours = parsed.data.alwaysOpen
-        ? PUBLIC_PROFILE_DAYS.map((day) => ({ day, open: '00:00', close: '23:59', closed: false }))
-        : parsed.data.businessHours.map((item) => ({
-            day: item.day,
-            open: item.closed ? null : item.open,
-            close: item.closed ? null : item.close,
-            closed: item.closed,
-        }));
-
-    for (const item of nextBusinessHours) {
-        if (item.closed) continue;
-        if (!item.open || !item.close || item.open >= item.close) {
-            return c.json({ ok: false, error: 'Revisa el horario de atención antes de guardar.' }, 400);
-        }
-    }
-
-    const nextSocialLinks = normalizePublicProfileSocialLinks(parsed.data.socialLinks);
-    const now = new Date();
-    const rowPayload = {
-        slug: normalizedSlug,
-        isPublished: parsed.data.isPublished,
-        accountKind: parsed.data.accountKind,
-        leadRoutingMode: parsed.data.leadRoutingMode,
-        leadRoutingCursor: current?.leadRoutingCursor ?? 0,
-        displayName: parsed.data.displayName.trim(),
-        headline: toNullIfEmpty(parsed.data.headline),
-        bio: toNullIfEmpty(parsed.data.bio),
-        companyName: parsed.data.accountKind === 'company'
-            ? (toNullIfEmpty(parsed.data.companyName) ?? parsed.data.displayName.trim())
-            : toNullIfEmpty(parsed.data.companyName),
-        website: normalizeExternalUrlInput(parsed.data.website),
-        publicEmail: toNullIfEmpty(parsed.data.publicEmail)?.toLowerCase() ?? null,
-        publicPhone: toNullIfEmpty(parsed.data.publicPhone),
-        publicWhatsapp: toNullIfEmpty(parsed.data.publicWhatsapp),
-        addressLine: toNullIfEmpty(parsed.data.addressLine),
-        city: toNullIfEmpty(parsed.data.city),
-        region: toNullIfEmpty(parsed.data.region),
-        coverImageUrl: normalizeExternalUrlInput(parsed.data.coverImageUrl),
-        avatarImageUrl: normalizeExternalUrlInput(parsed.data.avatarImageUrl),
-        socialLinks: nextSocialLinks,
-        businessHours: nextBusinessHours,
-        specialties: parsed.data.specialties.map((item) => item.trim()).filter(Boolean),
-        scheduleNote: toNullIfEmpty(parsed.data.scheduleNote),
-        alwaysOpen: parsed.data.alwaysOpen,
-        updatedAt: now,
-    } as const;
-    const nextTeamRows = parsed.data.teamMembers.map((member, index) => ({
-        id: member.id ?? randomUUID(),
-        userId: user.id,
-        vertical,
-        name: member.name.trim(),
-        roleTitle: toNullIfEmpty(member.roleTitle),
-        bio: toNullIfEmpty(member.bio),
-        email: toNullIfEmpty(member.email)?.toLowerCase() ?? null,
-        phone: toNullIfEmpty(member.phone),
-        whatsapp: toNullIfEmpty(member.whatsapp),
-        avatarImageUrl: normalizeExternalUrlInput(member.avatarImageUrl),
-        socialLinks: normalizePublicProfileTeamSocialLinks(member.socialLinks),
-        specialties: member.specialties.map((item) => item.trim()).filter(Boolean),
-        isLeadContact: member.isLeadContact,
-        receivesLeads: member.receivesLeads,
-        isPublished: member.isPublished,
-        position: index,
-        createdAt: now,
-        updatedAt: now,
-    }));
-
-    let savedRow: typeof publicProfiles.$inferSelect | null = null;
-    if (current) {
-        const rows = await db
-            .update(publicProfiles)
-            .set(rowPayload)
-            .where(eq(publicProfiles.id, current.id))
-            .returning();
-        savedRow = rows[0] ?? null;
-        publicProfilesByVerticalSlug.delete(publicProfileVerticalSlugKey(current.vertical, current.slug));
-    } else {
-        const rows = await db
-            .insert(publicProfiles)
-            .values({
-                userId: user.id,
-                vertical,
-                createdAt: now,
-                ...rowPayload,
-            })
-            .returning();
-        savedRow = rows[0] ?? null;
-    }
-
-    if (!savedRow) {
-        return c.json({ ok: false, error: 'No pudimos guardar tu perfil público.' }, 500);
-    }
-
-    await db.delete(publicProfileTeamMembers).where(and(
-        eq(publicProfileTeamMembers.userId, user.id),
-        eq(publicProfileTeamMembers.vertical, vertical)
-    ));
-    if (nextTeamRows.length > 0) {
-        await db.insert(publicProfileTeamMembers).values(nextTeamRows);
-    }
-
-    upsertPublicProfileCache(mapPublicProfileRow(savedRow));
-    replacePublicProfileTeamMemberCache(
-        user.id,
-        vertical,
-        nextTeamRows.map((item) => ({
-            id: item.id,
-            userId: item.userId,
-            vertical: item.vertical,
-            name: item.name,
-            roleTitle: item.roleTitle,
-            bio: item.bio,
-            email: item.email,
-            phone: item.phone,
-            whatsapp: item.whatsapp,
-            avatarImageUrl: item.avatarImageUrl,
-            socialLinks: item.socialLinks,
-            specialties: item.specialties,
-            isLeadContact: item.isLeadContact,
-            receivesLeads: item.receivesLeads,
-            isPublished: item.isPublished,
-            position: item.position,
-            createdAt: item.createdAt.getTime(),
-            updatedAt: item.updatedAt.getTime(),
-        }))
-    );
-    return c.json(buildAccountPublicProfileResponse(user, vertical));
-});
-
-app.post('/api/auth/logout', (c) => {
-    clearSession(c);
-    return c.json({ ok: true });
-});
-
-app.post('/api/auth/password-reset/request', async (c) => {
-    const payload = await c.req.json().catch(() => null);
-    const parsed = passwordResetRequestSchema.safeParse(payload);
-
-    if (!parsed.success) {
-        return c.json({ ok: false, error: 'Payload inválido' }, 400);
-    }
-
-    const clientId = getClientIdentifier(c);
-    const ipRateLimit = consumeRateLimit(`auth:reset-request:ip:${clientId}`, 5, AUTH_RATE_LIMIT_WINDOW_MS);
-    if (!ipRateLimit.ok) {
-        c.header('Retry-After', String(ipRateLimit.retryAfterSeconds));
-        return c.json({ ok: false, error: 'Demasiados intentos. Intenta nuevamente más tarde.' }, 429);
-    }
-
-    if (process.env.NODE_ENV === 'production' && !isAuthEmailConfigured()) {
-        return c.json({ ok: false, error: 'La recuperación de contraseña no está configurada en este entorno.' }, 503);
-    }
-
-    const normalizedEmail = parsed.data.email.trim().toLowerCase();
-    const user = await getUserByEmail(normalizedEmail);
-
-    if (!user || !canAuthenticateUser(user)) {
-        return c.json({ ok: true });
-    }
-
-    const origin = resolveBrowserOrigin(c);
-    if (!origin) {
-        return c.json({ ok: false, error: 'Origin no autorizado' }, 403);
-    }
-
-    const rawToken = randomBytes(32).toString('hex');
-    const now = new Date();
-    const expiresAt = new Date(now.getTime() + PASSWORD_RESET_TOKEN_TTL_MS);
-
-    await db.insert(passwordResetTokens).values({
-        userId: user.id,
-        tokenHash: hashOpaqueToken(rawToken),
-        expiresAt,
-    });
-
-    try {
-        await sendPasswordResetEmail(normalizedEmail, buildPasswordResetUrl(origin, rawToken), origin);
-    } catch (error) {
-        console.error('Password reset email error:', error);
-        return c.json({ ok: false, error: 'No pudimos enviar el correo de recuperación. Inténtalo nuevamente.' }, 502);
-    }
-    return c.json({ ok: true });
-});
-
-app.post('/api/auth/email-verification/request', async (c) => {
-    const payload = await c.req.json().catch(() => null);
-    const parsed = emailVerificationRequestSchema.safeParse(payload);
-    if (!parsed.success) {
-        return c.json({ ok: false, error: 'Payload inválido' }, 400);
-    }
-
-    if (process.env.NODE_ENV === 'production' && !isAuthEmailConfigured()) {
-        return c.json({ ok: false, error: 'La confirmación de correo no está configurada en este entorno.' }, 503);
-    }
-
-    const origin = resolveBrowserOrigin(c);
-    if (!origin) {
-        return c.json({ ok: false, error: 'Origin no autorizado' }, 403);
-    }
-
-    const sessionUser = await authUser(c);
-    const normalizedEmail = parsed.data.email?.trim().toLowerCase() ?? sessionUser?.email ?? null;
-    if (!normalizedEmail) {
-        return c.json({ ok: false, error: 'Debes indicar un correo válido.' }, 400);
-    }
-
-    const user = await getUserByEmail(normalizedEmail);
-    if (!user || !canAuthenticateUser(user)) {
-        return c.json({ ok: true });
-    }
-    if (user.status === 'verified') {
-        return c.json({ ok: true, alreadyVerified: true });
-    }
-
-    try {
-        await issueEmailVerification(user.id, normalizedEmail, origin);
-    } catch (error) {
-        console.error('Email verification request error:', error);
-        return c.json({ ok: false, error: 'No pudimos enviar el correo de confirmación. Inténtalo nuevamente.' }, 502);
-    }
-
-    return c.json({ ok: true });
-});
-
-app.post('/api/auth/email-verification/confirm', async (c) => {
-    const payload = await c.req.json().catch(() => null);
-    const parsed = emailVerificationConfirmSchema.safeParse(payload);
-    if (!parsed.success) {
-        return c.json({ ok: false, error: 'Payload inválido' }, 400);
-    }
-
-    const now = new Date();
-    const tokenHash = hashOpaqueToken(parsed.data.token);
-    const result = await db.select().from(emailVerificationTokens).where(and(
-        eq(emailVerificationTokens.tokenHash, tokenHash),
-        isNull(emailVerificationTokens.usedAt),
-        gt(emailVerificationTokens.expiresAt, now),
-    )).limit(1);
-
-    if (result.length === 0) {
-        return c.json({ ok: false, error: 'El enlace de confirmación es inválido o expiró.' }, 400);
-    }
-
-    const verificationToken = result[0];
-    const user = await getUserById(verificationToken.userId);
-    if (!user || !canAuthenticateUser(user)) {
-        return c.json({ ok: false, error: 'No se pudo confirmar esta cuenta.' }, 400);
-    }
-
-    await db.update(users).set({
-        status: 'verified',
-        updatedAt: now,
-    }).where(eq(users.id, user.id));
-
-    await db.update(emailVerificationTokens).set({ usedAt: now }).where(and(
-        eq(emailVerificationTokens.userId, user.id),
-        isNull(emailVerificationTokens.usedAt),
-    ));
-
-    const origin = resolveBrowserOrigin(c);
-    if (origin) {
-        try {
-            await sendWelcomeEmail(user.email, user.name, origin);
-        } catch (error) {
-            console.error('Welcome email delivery error:', error);
-        }
-    }
-
-    setSession(c, user.id);
-    return c.json({
-        ok: true,
-        user: sanitizeUser({
-            ...user,
-            status: 'verified',
-        }),
-    });
-});
-
-app.post('/api/auth/password-reset/confirm', async (c) => {
-    const payload = await c.req.json().catch(() => null);
-    const parsed = passwordResetConfirmSchema.safeParse(payload);
-
-    if (!parsed.success) {
-        return c.json({ ok: false, error: 'Payload inválido' }, 400);
-    }
-
-    const clientId = getClientIdentifier(c);
-    const ipRateLimit = consumeRateLimit(`auth:reset-confirm:ip:${clientId}`, 10, AUTH_RATE_LIMIT_WINDOW_MS);
-    if (!ipRateLimit.ok) {
-        c.header('Retry-After', String(ipRateLimit.retryAfterSeconds));
-        return c.json({ ok: false, error: 'Demasiados intentos. Intenta nuevamente más tarde.' }, 429);
-    }
-
-    const now = new Date();
-    const tokenHash = hashOpaqueToken(parsed.data.token);
-    const result = await db.select().from(passwordResetTokens).where(and(
-        eq(passwordResetTokens.tokenHash, tokenHash),
-        isNull(passwordResetTokens.usedAt),
-        gt(passwordResetTokens.expiresAt, now),
-    )).limit(1);
-
-    if (result.length === 0) {
-        return c.json({ ok: false, error: 'El enlace de recuperación es inválido o expiró.' }, 400);
-    }
-
-    const resetToken = result[0];
-    const user = await getUserById(resetToken.userId);
-    if (!user || !canAuthenticateUser(user)) {
-        return c.json({ ok: false, error: 'No se pudo restablecer la contraseña para esta cuenta.' }, 400);
-    }
-
-    const nextPasswordHash = await bcrypt.hash(parsed.data.password, 10);
-    await db.update(users).set({
-        passwordHash: nextPasswordHash,
-        updatedAt: now,
-        lastLoginAt: now,
-    }).where(eq(users.id, user.id));
-    await db.update(passwordResetTokens).set({ usedAt: now }).where(and(
-        eq(passwordResetTokens.userId, user.id),
-        isNull(passwordResetTokens.usedAt),
-    ));
-
-    clearRateLimit(`auth:reset-confirm:ip:${clientId}`);
-
-    const origin = resolveBrowserOrigin(c);
-    if (origin) {
-        try {
-            await sendPasswordChangedEmail(user.email, origin);
-        } catch (error) {
-            console.error('Password changed email error:', error);
-        }
-    }
-
-    setSession(c, user.id);
-    return c.json({
-        ok: true,
-        user: sanitizeUser({
-            ...user,
-            passwordHash: nextPasswordHash,
-            lastLoginAt: now,
-        }),
-    });
-});
-
-// One-time OAuth callback tokens (TTL: 90s, cleared on use)
-const pendingOAuthSessions = new Map<string, { userId: string; expiresAt: number }>();
-setInterval(() => {
-    const now = Date.now();
-    for (const [k, v] of pendingOAuthSessions) {
-        if (v.expiresAt < now) pendingOAuthSessions.delete(k);
-    }
-}, 30_000);
-
-function buildOAuthState(nonce: string, origin: string): string {
-    const ts = Math.floor(Date.now() / 1000);
-    // Use ~ as separator — safe since nonce/ts are hex/digits and origin is a URL (no ~)
-    const payload = `${nonce}~${ts}~${origin}`;
-    const sig = createHash('sha256').update(`${SESSION_SECRET}:${payload}`).digest('hex').slice(0, 32);
-    return Buffer.from(`${payload}~${sig}`).toString('base64url');
-}
-
-function verifyOAuthState(state: string): { nonce: string; origin: string } | null {
-    try {
-        const decoded = Buffer.from(state, 'base64url').toString('utf8');
-        // Split on first 3 occurrences of ~ only (origin may theoretically be last)
-        const firstTilde = decoded.indexOf('~');
-        const secondTilde = decoded.indexOf('~', firstTilde + 1);
-        const lastTilde = decoded.lastIndexOf('~');
-        if (firstTilde === -1 || secondTilde === -1 || lastTilde === secondTilde) return null;
-        const nonce = decoded.slice(0, firstTilde);
-        const tsStr = decoded.slice(firstTilde + 1, secondTilde);
-        const origin = decoded.slice(secondTilde + 1, lastTilde);
-        const sig = decoded.slice(lastTilde + 1);
-        const ts = parseInt(tsStr, 10);
-        if (isNaN(ts) || Date.now() / 1000 - ts > 600) return null; // 10 min TTL
-        const payload = `${nonce}~${ts}~${origin}`;
-        const expected = createHash('sha256').update(`${SESSION_SECRET}:${payload}`).digest('hex').slice(0, 32);
-        if (!safeEqualStrings(sig, expected)) return null;
-        return { nonce, origin };
-    } catch {
-        return null;
-    }
-}
-
-app.get('/api/auth/google', async (c) => {
-    const clientId = asString(process.env.GOOGLE_CLIENT_ID);
-    const origin = resolveBrowserOrigin(c);
-    if (!origin) {
-        return c.json({ ok: false, error: 'Origin no autorizado' }, 403);
-    }
-    if (!clientId) {
-        return c.json({ ok: false, error: 'Google OAuth no configurado' }, 500);
-    }
-
-    const nonce = randomBytes(16).toString('hex');
-    const state = buildOAuthState(nonce, origin);
-
-    const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?` +
-        `client_id=${encodeURIComponent(clientId)}&` +
-        `redirect_uri=${encodeURIComponent(buildGoogleRedirectUri(origin))}&` +
-        `response_type=code&` +
-        `scope=${encodeURIComponent('openid email profile')}&` +
-        `state=${encodeURIComponent(state)}`;
-
-    return c.json({ ok: true, authUrl });
-});
-
-async function exchangeGoogleCode(code: string, state: string, c: Context): Promise<
-    | { ok: true; user: AppUser; origin: string; isNewUser: boolean }
-    | { ok: false; error: string; status: number }
-> {
-    if (!code || !state) {
-        return { ok: false, error: 'Código de autorización inválido', status: 400 };
-    }
-
-    const stateData = verifyOAuthState(state);
-    if (!stateData) {
-        return { ok: false, error: 'La sesión de autenticación con Google expiró. Intenta nuevamente.', status: 400 };
-    }
-
-    const origin = stateData.origin;
-    const googleClientId = asString(process.env.GOOGLE_CLIENT_ID);
-    const googleClientSecret = asString(process.env.GOOGLE_CLIENT_SECRET);
-    if (!googleClientId || !googleClientSecret) {
-        return { ok: false, error: 'Google OAuth no configurado', status: 500 };
-    }
-
-    const redirectUri = buildGoogleRedirectUri(origin);
-    const tokenResponse = await fetch('https://oauth2.googleapis.com/token', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-        body: new URLSearchParams({ client_id: googleClientId, client_secret: googleClientSecret, code, grant_type: 'authorization_code', redirect_uri: redirectUri }),
-    });
-    const tokens = await tokenResponse.json();
-    if (!tokenResponse.ok) {
-        console.error('Google token error:', tokens);
-        return { ok: false, error: 'Error obteniendo tokens de Google', status: 400 };
-    }
-
-    const userResponse = await fetch('https://www.googleapis.com/oauth2/v2/userinfo', {
-        headers: { 'Authorization': `Bearer ${tokens.access_token}` },
-    });
-    const googleUser = await userResponse.json();
-    if (!userResponse.ok) {
-        return { ok: false, error: 'Error obteniendo información del usuario', status: 400 };
-    }
-
-    const normalizedEmail = asString(googleUser.email).toLowerCase();
-    if (!normalizedEmail) {
-        return { ok: false, error: 'Google no devolvió un correo válido.', status: 400 };
-    }
-
-    let user = await getUserByEmail(normalizedEmail);
-    if (user && !canAuthenticateUser(user)) {
-        return { ok: false, error: 'Tu cuenta está suspendida. Contacta al soporte.', status: 403 };
-    }
-
-    let isNewUser = false;
-    if (!user) {
-        isNewUser = true;
+app.route('/api/admin', createAdminRouter({
+    authUser,
+    db,
+    eq,
+    and,
+    or,
+    desc,
+    asc,
+    sql,
+    usersById,
+    listingsById,
+    isAdminRole,
+    isAdminForVertical,
+    parseVertical,
+    getPrimaryAccountIdForUser,
+    ensurePrimaryAccountForUser,
+    getEditablePublicProfileTeamMembers,
+    formatAgo,
+    formatRelativeTimestamp,
+    publicSectionLabel,
+    getUserById,
+    sanitizeUser,
+    mapUserRowToAppUser,
+    permanentlyDeleteUser,
+    countActiveSuperadminUsers,
+    isActiveAdminStatus,
+    getEnvStatus,
+    listAdminUsersSnapshot,
+    listAdminListingsSnapshot,
+    getPaidSubscriptionPlan,
+    makeSubscriptionId,
+    upsertActiveSubscription,
+    activeSubscriptionsByUser,
+    isAdminBootstrapEnabled,
+    handleBootstrap: async (c: any) => {
+        if (!isAdminBootstrapEnabled()) return c.json({ ok: false, error: 'No encontrado' }, 404);
+        const existingAdmins = await db.select({ id: users.id }).from(users)
+            .where(or(eq(users.role, 'admin'), eq(users.role, 'superadmin'))).limit(1);
+        if (existingAdmins.length > 0) return c.json({ ok: false, error: 'Ya existe un administrador en el sistema' }, 403);
+        const payload = await c.req.json().catch(() => null);
+        const parsed = registerSchema.safeParse(payload);
+        if (!parsed.success) return c.json({ ok: false, error: 'Payload inválido' }, 400);
+        const normalizedEmail = parsed.data.email.trim().toLowerCase();
+        const existing = await getUserByEmail(normalizedEmail);
+        if (existing) return c.json({ ok: false, error: 'Email ya registrado' }, 409);
+        const hashedPassword = await bcrypt.hash(parsed.data.password, 10);
         const [insertedUser] = await db.insert(users).values({
             email: normalizedEmail,
-            name: asString(googleUser.name) || 'Usuario Simple',
-            avatarUrl: asString(googleUser.picture) || null,
-            provider: 'google',
-            providerId: asString(googleUser.id) || null,
-            role: 'user',
-            status: googleUser.verified_email ? 'verified' : 'active',
-            lastLoginAt: new Date(),
+            passwordHash: hashedPassword,
+            name: parsed.data.name.trim(),
+            role: 'superadmin',
+            status: 'verified',
+            provider: 'local',
         }).returning({ id: users.id });
-
-        user = {
+        const newUser: AppUser = {
             id: insertedUser.id,
             email: normalizedEmail,
-            name: asString(googleUser.name) || 'Usuario Simple',
-            role: 'user',
-            status: googleUser.verified_email ? 'verified' : 'active',
-            avatar: asString(googleUser.picture) || undefined,
-            provider: 'google',
-            providerId: asString(googleUser.id) || undefined,
+            passwordHash: hashedPassword,
+            name: parsed.data.name.trim(),
+            role: 'superadmin',
+            status: 'verified',
+            provider: 'local',
             lastLoginAt: new Date(),
         };
-        if (!googleUser.verified_email) {
-            try { await issueEmailVerification(user.id, normalizedEmail, origin); } catch (e) { console.error('Email verification delivery error:', e); }
-        }
-    } else {
-        const nextLoginAt = new Date();
-        await db.update(users).set({
-            name: asString(googleUser.name) || user.name,
-            avatarUrl: asString(googleUser.picture) || user.avatar || null,
-            provider: 'google',
-            providerId: asString(googleUser.id) || user.providerId || null,
-            status: googleUser.verified_email ? 'verified' : user.status,
-            updatedAt: nextLoginAt,
-            lastLoginAt: nextLoginAt,
-        }).where(eq(users.id, user.id));
-        user = { ...user, name: asString(googleUser.name) || user.name, avatar: asString(googleUser.picture) || user.avatar, provider: 'google', providerId: asString(googleUser.id) || user.providerId, status: googleUser.verified_email ? 'verified' : user.status, lastLoginAt: nextLoginAt };
-    }
-
-    if (!user.lastLoginAt) {
-        await touchUserLastLoginAt(user.id);
-        user = { ...user, lastLoginAt: new Date() };
-    }
-
-    return { ok: true, user, origin, isNewUser };
-}
-
-// GET /api/auth/google/finalize — navigation-based flow (avoids cross-origin fetch cookie restrictions)
-app.get('/api/auth/google/finalize', async (c) => {
-    const code = asString(c.req.query('code'));
-    const state = asString(c.req.query('state'));
-    const rawReturnTo = asString(c.req.query('returnTo'));
-
-    try {
-        const result = await exchangeGoogleCode(code, state, c);
-        const fallbackOrigin = verifyOAuthState(state)?.origin ?? '';
-
-        if (!result.ok) {
-            const dest = fallbackOrigin
-                ? `${fallbackOrigin}/?google_error=${encodeURIComponent(result.error)}`
-                : '/';
-            return c.html(`<!DOCTYPE html><html><head><meta charset="utf-8">
-<script>window.location.replace(${JSON.stringify(dest)});</script></head><body></body></html>`);
-        }
-
-        // Store userId in a one-time token — session cookie will be set via a subsequent
-        // fetch with credentials:include from the app (same pattern as email/password login).
-        const oauthToken = randomBytes(20).toString('hex');
-        pendingOAuthSessions.set(oauthToken, { userId: result.user.id, expiresAt: Date.now() + 90_000 });
-
-        // Always redirect to the callback page — it handles the token exchange
-        // and then navigates to the final destination stored in sessionStorage.
-        const dest = `${result.origin}/auth/google/callback?_oauth=${oauthToken}`;
-        return c.redirect(dest);
-    } catch (error) {
-        console.error('Google OAuth finalize error:', error);
-        return c.redirect('/');
-    }
-});
-
-// Called by the app with credentials:include — sets the session cookie in a fetch response
-app.get('/api/auth/google/exchange', async (c) => {
-    const token = asString(c.req.query('token'));
-    if (!token) return c.json({ ok: false, error: 'Token requerido' }, 400);
-
-    const entry = pendingOAuthSessions.get(token);
-    if (!entry || entry.expiresAt < Date.now()) {
-        return c.json({ ok: false, error: 'Token expirado o inválido' }, 401);
-    }
-    pendingOAuthSessions.delete(token);
-
-    const user = await getUserById(entry.userId);
-    if (!user || !canAuthenticateUser(user)) {
-        return c.json({ ok: false, error: 'Usuario no encontrado' }, 401);
-    }
-
-    setSession(c, user.id);
-    return c.json({ ok: true, user: sanitizeUser(user) });
-});
-
-// POST /api/auth/google/callback — kept for backwards compatibility (fetch-based flow)
-app.post('/api/auth/google/callback', async (c) => {
-    try {
-        const payload = asObject(await c.req.json().catch(() => null));
-        const code = asString(payload.code);
-        const state = asString(payload.state);
-
-        const result = await exchangeGoogleCode(code, state, c);
-        if (!result.ok) {
-            return c.json({ ok: false, error: result.error }, result.status as 400 | 403 | 500);
-        }
-        setSession(c, result.user.id);
-        return c.json({ ok: true, user: sanitizeUser(result.user), isNewUser: result.isNewUser });
-    } catch (error) {
-        console.error('Google OAuth error:', error);
-        return c.json({ ok: false, error: 'Error interno del servidor' }, 500);
-    }
-});
-
-app.get('/api/advertising/public', async (c) => {
-    const vertical = parseVertical(c.req.query('vertical'));
-    const items = await listAdCampaignRecords({ vertical, paymentStatus: 'paid', onlyPublicActive: true });
-    return c.json({ ok: true, items: items.map(adCampaignToResponse) });
-});
-
-app.get('/api/advertising/campaigns', async (c) => {
-    const user = await authUser(c);
-    if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
-    const vertical = parseVertical(c.req.query('vertical'));
-    const items = await listAdCampaignRecords({ userId: user.id, vertical });
-    return c.json({ ok: true, items: items.map(adCampaignToResponse) });
-});
-
-app.post('/api/advertising/campaigns', async (c) => {
-    const user = await authUser(c);
-    if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
-
-    const payload = await c.req.json().catch(() => null);
-    const parsed = adCampaignCreateSchema.safeParse(payload);
-    if (!parsed.success) {
-        return c.json({ ok: false, error: 'Payload inválido' }, 400);
-    }
-
-    const input = parsed.data;
-    const startAt = new Date(input.startAt);
-    if (Number.isNaN(startAt.getTime())) {
-        return c.json({ ok: false, error: 'La fecha de inicio no es válida.' }, 400);
-    }
-
-    try {
-        const existing = await listAdCampaignRecords({ userId: user.id, vertical: input.vertical });
-        if (existing.filter((item) => item.status !== 'ended').length >= MAX_CAMPAIGNS_TOTAL) {
-            return c.json({ ok: false, error: `Máximo ${MAX_CAMPAIGNS_TOTAL} campañas vigentes.` }, 409);
-        }
-
-        const sanitized = sanitizeAdCampaignWriteInput(input, {
-            vertical: input.vertical,
-            format: input.format,
-            placementSection: input.placementSection,
-        });
-        const now = new Date();
-        const endAt = new Date(startAt.getTime() + input.durationDays * 24 * 60 * 60 * 1000);
-        const baseStatus: AdStatus = startAt.getTime() <= Date.now() ? 'active' : 'scheduled';
-
-        const rows = await db.insert(adCampaigns).values({
-            userId: user.id,
-            vertical: input.vertical,
-            name: sanitized.name,
-            format: input.format,
-            status: baseStatus,
-            paymentStatus: 'pending',
-            destinationType: sanitized.destinationType,
-            destinationUrl: sanitized.destinationUrl,
-            listingHref: sanitized.listingHref,
-            profileSlug: sanitized.profileSlug,
-            desktopImageDataUrl: sanitized.desktopImageDataUrl,
-            mobileImageDataUrl: sanitized.mobileImageDataUrl,
-            overlayEnabled: sanitized.overlayEnabled,
-            overlayTitle: sanitized.overlayTitle,
-            overlaySubtitle: sanitized.overlaySubtitle,
-            overlayCta: sanitized.overlayCta,
-            overlayAlign: sanitized.overlayAlign,
-            placementSection: sanitized.placementSection,
-            startAt,
-            endAt,
-            durationDays: input.durationDays,
-            paidAt: null,
-            createdAt: now,
-            updatedAt: now,
-        }).returning();
-
-        const item = normalizeAdCampaigns([mapAdCampaignRow(rows[0])])[0];
-        return c.json({ ok: true, item: adCampaignToResponse(item) }, 201);
-    } catch (error) {
-        const message = error instanceof Error ? error.message : 'No pudimos crear la campaña.';
-        return c.json({ ok: false, error: message }, 400);
-    }
-});
-
-app.patch('/api/advertising/campaigns/:id', async (c) => {
-    const user = await authUser(c);
-    if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
-
-    const campaignId = c.req.param('id') ?? '';
-    const existing = await getAdCampaignRecordForUser(user.id, campaignId);
-    if (!existing) return c.json({ ok: false, error: 'Campaña no encontrada' }, 404);
-
-    const payload = await c.req.json().catch(() => null);
-    const parsed = adCampaignUpdateSchema.safeParse(payload);
-    if (!parsed.success) {
-        return c.json({ ok: false, error: 'Payload inválido' }, 400);
-    }
-
-    if (parsed.data.action === 'content') {
-        if (existing.status === 'ended') {
-            return c.json({ ok: false, error: 'La campaña finalizada no se puede editar.' }, 409);
-        }
-
-        try {
-            const sanitized = sanitizeAdCampaignWriteInput(parsed.data, {
-                vertical: existing.vertical,
-                format: existing.format,
-                placementSection: existing.placementSection,
-            });
-            const rows = await db.update(adCampaigns).set({
-                name: sanitized.name,
-                destinationType: sanitized.destinationType,
-                destinationUrl: sanitized.destinationUrl,
-                listingHref: sanitized.listingHref,
-                profileSlug: sanitized.profileSlug,
-                desktopImageDataUrl: sanitized.desktopImageDataUrl,
-                mobileImageDataUrl: sanitized.mobileImageDataUrl,
-                overlayEnabled: sanitized.overlayEnabled,
-                overlayTitle: sanitized.overlayTitle,
-                overlaySubtitle: sanitized.overlaySubtitle,
-                overlayCta: sanitized.overlayCta,
-                overlayAlign: sanitized.overlayAlign,
-                updatedAt: new Date(),
-            }).where(and(eq(adCampaigns.id, campaignId), eq(adCampaigns.userId, user.id))).returning();
-
-            const item = normalizeAdCampaigns([mapAdCampaignRow(rows[0])])[0];
-            return c.json({ ok: true, item: adCampaignToResponse(item) });
-        } catch (error) {
-            const message = error instanceof Error ? error.message : 'No pudimos guardar la campaña.';
-            return c.json({ ok: false, error: message }, 400);
-        }
-    }
-
-    if (existing.status === 'ended') {
-        return c.json({ ok: false, error: 'La campaña finalizada no se puede reactivar ni pausar.' }, 409);
-    }
-
-    const nextStatus: AdStatus =
-        parsed.data.status === 'paused'
-            ? 'paused'
-            : existing.startAt <= Date.now()
-                ? 'active'
-                : 'scheduled';
-
-    const rows = await db.update(adCampaigns).set({
-        status: nextStatus,
-        updatedAt: new Date(),
-    }).where(and(eq(adCampaigns.id, campaignId), eq(adCampaigns.userId, user.id))).returning();
-
-    const item = normalizeAdCampaigns([mapAdCampaignRow(rows[0])])[0];
-    return c.json({ ok: true, item: adCampaignToResponse(item) });
-});
-
-app.delete('/api/advertising/campaigns/:id', async (c) => {
-    const user = await authUser(c);
-    if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
-    const campaignId = c.req.param('id') ?? '';
-    const existing = await getAdCampaignRecordForUser(user.id, campaignId);
-    if (!existing) return c.json({ ok: false, error: 'Campaña no encontrada' }, 404);
-    await db.delete(adCampaigns).where(and(eq(adCampaigns.id, campaignId), eq(adCampaigns.userId, user.id)));
-    return c.json({ ok: true });
-});
-
-app.post('/api/service-leads', async (c) => {
-    const payload = await c.req.json().catch(() => null);
-    const parsed = serviceLeadCreateSchema.safeParse(payload);
-    if (!parsed.success) {
-        return c.json({ ok: false, error: 'Payload inválido' }, 400);
-    }
-
-    if (parsed.data.vertical === 'autos' && parsed.data.serviceType !== 'venta_asistida') {
-        return c.json({ ok: false, error: 'Tipo de servicio inválido para la vertical autos.' }, 400);
-    }
-    if (parsed.data.vertical === 'propiedades' && parsed.data.serviceType !== 'gestion_inmobiliaria') {
-        return c.json({ ok: false, error: 'Tipo de servicio inválido para la vertical propiedades.' }, 400);
-    }
-
-    const currentUser = await authUser(c);
-    const now = new Date();
-    const rows = await db.insert(serviceLeads).values({
-        userId: currentUser?.id ?? null,
-        vertical: parsed.data.vertical,
-        serviceType: parsed.data.serviceType,
-        planId: parsed.data.planId,
-        contactName: parsed.data.contactName.trim(),
-        contactEmail: parsed.data.contactEmail.trim().toLowerCase(),
-        contactPhone: parsed.data.contactPhone.trim(),
-        contactWhatsapp: parsed.data.contactWhatsapp?.trim() || null,
-        locationLabel: parsed.data.locationLabel?.trim() || null,
-        assetType: parsed.data.assetType?.trim() || null,
-        assetBrand: parsed.data.assetBrand?.trim() || null,
-        assetModel: parsed.data.assetModel?.trim() || null,
-        assetYear: parsed.data.assetYear?.trim() || null,
-        assetMileage: parsed.data.assetMileage?.trim() || null,
-        assetArea: parsed.data.assetArea?.trim() || null,
-        expectedPrice: parsed.data.expectedPrice?.trim() || null,
-        notes: parsed.data.notes?.trim() || null,
-        status: 'new',
-        sourcePage: parsed.data.sourcePage?.trim() || null,
-        createdAt: now,
-        updatedAt: now,
-    }).returning();
-
-    const lead = mapServiceLeadRow(rows[0]);
-    await createServiceLeadActivity({
-        leadId: lead.id,
-        actorUserId: currentUser?.id ?? null,
-        type: 'created',
-        body: `Lead creado desde ${lead.sourcePage || 'formulario web'}.`,
-        meta: {
-            vertical: lead.vertical,
-            serviceType: lead.serviceType,
-            planId: lead.planId,
-        },
-    });
-
-    return c.json({ ok: true, item: serviceLeadToResponse(lead) }, 201);
-});
-
-async function handleImportedListingLeadRequest(c: Context, forcedPortal?: PortalKey) {
-    if (!isLeadIngestConfigured()) {
-        return c.json({ ok: false, error: 'La ingesta externa de leads no está configurada.' }, 503);
-    }
-    if (!isLeadIngestAuthorized(c)) {
-        return c.json({ ok: false, error: 'No autorizado' }, 401);
-    }
-
-    const payload = await c.req.json().catch(() => null);
-    const rawPayload = payload && typeof payload === 'object' && !Array.isArray(payload)
-        ? {
-            ...(payload as Record<string, unknown>),
-            ...(forcedPortal ? {
-                portal: forcedPortal,
-                source: (payload as Record<string, unknown>).source ?? forcedPortal,
-            } : {}),
-        }
-        : payload;
-    const parsed = externalListingLeadImportSchema.safeParse(rawPayload);
-    if (!parsed.success) {
-        return c.json({
-            ok: false,
-            error: parsed.error.issues[0]?.message ?? 'Payload inválido',
-        }, 400);
-    }
-
-    const portal = inferPortalFromLeadImportSource(parsed.data.source, parsed.data.portal);
-    if (portal && !isPortalAvailableForVertical(parsed.data.vertical, portal)) {
-        return c.json({ ok: false, error: 'Ese portal no está disponible para esta vertical.' }, 400);
-    }
-
-    const listing = await resolveListingForImportedLead({
-        vertical: parsed.data.vertical,
-        portal,
-        listingId: parsed.data.listingId,
-        listingSlug: parsed.data.listingSlug,
-        listingHref: parsed.data.listingHref,
-        externalListingId: parsed.data.externalListingId,
-    });
-
-    if (!listing || listing.vertical !== parsed.data.vertical) {
-        return c.json({ ok: false, error: 'No se encontró la publicación asociada al lead.' }, 404);
-    }
-
-    const result = await upsertImportedListingLead({
-        listing,
-        source: parsed.data.source,
-        channel: inferListingLeadChannel(parsed.data.source, parsed.data.channel),
-        portal,
-        externalListingId: parsed.data.externalListingId,
-        externalSourceId: parsed.data.externalSourceId,
-        contactName: parsed.data.contactName,
-        contactEmail: parsed.data.contactEmail,
-        contactPhone: parsed.data.contactPhone,
-        contactWhatsapp: parsed.data.contactWhatsapp,
-        message: parsed.data.message,
-        sourcePage: parsed.data.sourcePage,
-        receivedAt: parsed.data.receivedAt,
-        meta: parsed.data.meta,
-    });
-
-    const thread = await getMessageThreadByLeadId(result.lead.id);
-    return c.json({
-        ok: true,
-        imported: true,
-        created: result.created,
-        item: listingLeadToResponse(result.lead, { threadId: thread?.id ?? null }),
-    }, result.created ? 201 : 200);
-}
-
-app.post('/api/integrations/leads/import', async (c) => {
-    return handleImportedListingLeadRequest(c);
-});
-
-app.post('/api/integrations/portals/:portal/leads', async (c) => {
-    const portal = portalKeySchema.safeParse(c.req.param('portal'));
-    if (!portal.success) {
-        return c.json({ ok: false, error: 'Portal inválido.' }, 400);
-    }
-
-    return handleImportedListingLeadRequest(c, portal.data);
-});
-
-app.post('/api/listing-leads', async (c) => {
-    const payload = await c.req.json().catch(() => null);
-    const parsed = listingLeadCreateSchema.safeParse(payload);
-    if (!parsed.success) {
-        return c.json({ ok: false, error: 'Payload inválido' }, 400);
-    }
-
-    const listing = listingsById.get(parsed.data.listingId) ?? await getListingById(parsed.data.listingId);
-    if (!listing || listing.vertical !== parsed.data.vertical || !isPublicListingVisible(listing)) {
-        return c.json({ ok: false, error: 'Publicación no encontrada o no disponible.' }, 404);
-    }
-
-    const currentUser = await authUser(c);
-    if (currentUser && currentUser.id === listing.ownerId) {
-        return c.json({ ok: false, error: 'No puedes consultar tu propia publicación.' }, 400);
-    }
-
-    if (currentUser && parsed.data.createThread) {
-        const conversation = await createOrAppendListingConversation({
-            listing,
-            buyer: currentUser,
-            contactName: parsed.data.contactName,
-            contactEmail: parsed.data.contactEmail,
-            contactPhone: parsed.data.contactPhone,
-            contactWhatsapp: parsed.data.contactWhatsapp,
-            message: parsed.data.message,
-            sourcePage: parsed.data.sourcePage,
-        });
-
-        return c.json({
-            ok: true,
-            item: listingLeadToResponse(conversation.lead, { threadId: conversation.thread.id }),
-            thread: messageThreadToResponse(conversation.thread, currentUser.id, [conversation.entry]),
-            entry: messageEntryToResponse(conversation.entry, currentUser.id),
-        }, conversation.createdLead ? 201 : 200);
-    }
-
-    const lead = await createListingLeadRecord({
-        listingId: listing.id,
-        ownerUserId: listing.ownerId,
-        buyerUserId: currentUser?.id ?? null,
-        vertical: listing.vertical,
-        source: 'internal_form',
-        channel: 'lead',
-        contactName: parsed.data.contactName,
-        contactEmail: parsed.data.contactEmail,
-        contactPhone: parsed.data.contactPhone,
-        contactWhatsapp: parsed.data.contactWhatsapp,
-        message: parsed.data.message,
-        sourcePage: parsed.data.sourcePage,
-    });
-    await createListingLeadActivity({
-        leadId: lead.id,
-        actorUserId: currentUser?.id ?? null,
-        type: 'created',
-        body: `Lead creado desde ${parsed.data.sourcePage || 'publicación pública'}.`,
-        meta: {
-            source: 'internal_form',
-            channel: 'lead',
-        },
-    });
-
-    return c.json({ ok: true, item: listingLeadToResponse(lead) }, 201);
-});
-
-app.post('/api/listing-leads/actions', async (c) => {
-    const payload = await c.req.json().catch(() => null);
-    const parsed = listingLeadActionCreateSchema.safeParse(payload);
-    if (!parsed.success) {
-        return c.json({ ok: false, error: 'Payload inválido' }, 400);
-    }
-
-    const listing = listingsById.get(parsed.data.listingId) ?? await getListingById(parsed.data.listingId);
-    if (!listing || listing.vertical !== parsed.data.vertical || !isPublicListingVisible(listing)) {
-        return c.json({ ok: false, error: 'Publicación no encontrada o no disponible.' }, 404);
-    }
-
-    const currentUser = await authUser(c);
-    if (currentUser && currentUser.id === listing.ownerId) {
-        return c.json({ ok: false, error: 'No puedes contactar tu propia publicación.' }, 400);
-    }
-
-    const result = await createOrRefreshListingLeadAction({
-        listing,
-        buyer: currentUser,
-        source: parsed.data.source,
-        contactName: parsed.data.contactName,
-        contactEmail: parsed.data.contactEmail,
-        contactPhone: parsed.data.contactPhone,
-        contactWhatsapp: parsed.data.contactWhatsapp,
-        message: parsed.data.message,
-        sourcePage: parsed.data.sourcePage,
-    });
-
-    const thread = await getMessageThreadByLeadId(result.lead.id);
-    return c.json({
-        ok: true,
-        created: result.created,
-        item: listingLeadToResponse(result.lead, { threadId: thread?.id ?? null }),
-    }, result.created ? 201 : 200);
-});
-
-app.get('/api/messages/threads', async (c) => {
-    const user = await authUser(c);
-    if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
-
-    const vertical = parseVertical(c.req.query('vertical'));
-    const folderParsed = messageFolderSchema.safeParse(c.req.query('folder'));
-    const folder = folderParsed.success ? folderParsed.data : 'inbox';
-    const threads = await listMessageThreadsForUser(user.id, vertical, folder);
-    const items = await Promise.all(threads.map(async (thread) => {
-        const entries = await listMessageEntries(thread.id);
-        return messageThreadToResponse(thread, user.id, entries);
-    }));
-
-    return c.json({ ok: true, items });
-});
-
-app.get('/api/messages/threads/:id', async (c) => {
-    const user = await authUser(c);
-    if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
-
-    const vertical = parseVertical(c.req.query('vertical'));
-    const thread = await getMessageThreadById(c.req.param('id'));
-    if (!thread || thread.vertical !== vertical) {
-        return c.json({ ok: false, error: 'Conversación no encontrada.' }, 404);
-    }
-    if (!isThreadParticipant(user.id, thread) && user.role !== 'superadmin') {
-        return c.json({ ok: false, error: 'No autorizado' }, 403);
-    }
-
-    const hydratedThread = await markMessageThreadRead(thread, user.id);
-    const [entries, lead] = await Promise.all([
-        listMessageEntries(hydratedThread.id),
-        getListingLeadById(hydratedThread.leadId),
-    ]);
-
-    return c.json({
-        ok: true,
-        item: messageThreadToResponse(hydratedThread, user.id, entries),
-        entries: entries.map((entry) => messageEntryToResponse(entry, user.id)),
-        lead: lead ? listingLeadToResponse(lead, { threadId: hydratedThread.id }) : null,
-    });
-});
-
-app.patch('/api/messages/threads/:id', async (c) => {
-    const user = await authUser(c);
-    if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
-
-    const vertical = parseVertical(c.req.query('vertical'));
-    const payload = await c.req.json().catch(() => null);
-    const parsed = messageThreadUpdateSchema.safeParse(payload);
-    if (!parsed.success) {
-        return c.json({ ok: false, error: 'Payload inválido' }, 400);
-    }
-
-    const thread = await getMessageThreadById(c.req.param('id'));
-    if (!thread || thread.vertical !== vertical) {
-        return c.json({ ok: false, error: 'Conversación no encontrada.' }, 404);
-    }
-    if (!isThreadParticipant(user.id, thread) && user.role !== 'superadmin') {
-        return c.json({ ok: false, error: 'No autorizado' }, 403);
-    }
-
-    const updatedThread = await updateMessageThreadViewerState(thread, user.id, parsed.data.action);
-    const entries = await listMessageEntries(updatedThread.id);
-
-    return c.json({
-        ok: true,
-        item: messageThreadToResponse(updatedThread, user.id, entries),
-    });
-});
-
-app.post('/api/messages/threads/:id/messages', async (c) => {
-    const user = await authUser(c);
-    if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
-
-    const vertical = parseVertical(c.req.query('vertical'));
-    const payload = await c.req.json().catch(() => null);
-    const parsed = messageEntryCreateSchema.safeParse(payload);
-    if (!parsed.success) {
-        return c.json({ ok: false, error: 'Payload inválido' }, 400);
-    }
-
-    const thread = await getMessageThreadById(c.req.param('id'));
-    if (!thread || thread.vertical !== vertical) {
-        return c.json({ ok: false, error: 'Conversación no encontrada.' }, 404);
-    }
-    if (!isThreadParticipant(user.id, thread) && user.role !== 'superadmin') {
-        return c.json({ ok: false, error: 'No autorizado' }, 403);
-    }
-
-    const senderRole: MessageSenderRole = user.id === thread.ownerUserId ? 'seller' : 'buyer';
-    const now = Date.now();
-    const entry = await createMessageEntry({
-        threadId: thread.id,
-        senderUserId: user.id,
-        senderRole,
-        body: parsed.data.body,
-        createdAt: now,
-    });
-    const updatedThread = await touchMessageThreadAfterIncomingMessage(thread, senderRole, now);
-
-    const lead = await getListingLeadById(thread.leadId);
-    let updatedLead: ListingLeadRecord | null = lead;
-    if (lead) {
-        const updatePayload: Record<string, unknown> = {
-            updatedAt: new Date(now),
-        };
-        if (senderRole === 'seller' && lead.status === 'new') {
-            updatePayload.status = 'contacted';
-        }
-        const rows = await db.update(listingLeads).set(updatePayload).where(eq(listingLeads.id, lead.id)).returning();
-        updatedLead = rows.length > 0 ? mapListingLeadRow(rows[0]) : lead;
-
-        if (senderRole === 'seller' && lead.status === 'new') {
-            await createListingLeadActivity({
-                leadId: lead.id,
-                actorUserId: user.id,
-                type: 'status',
-                body: `Estado cambiado de ${listingLeadStatusLabel(lead.status)} a ${listingLeadStatusLabel('contacted')}.`,
-                meta: { from: lead.status, to: 'contacted' },
-            });
-        }
-        await createListingLeadActivity({
-            leadId: lead.id,
-            actorUserId: user.id,
-            type: 'message',
-            body: senderRole === 'seller'
-                ? `Respuesta del vendedor: ${parsed.data.body.trim()}`
-                : `Nuevo mensaje del comprador: ${parsed.data.body.trim()}`,
-        });
-    }
-
-    const entries = await listMessageEntries(updatedThread.id);
-    return c.json({
-        ok: true,
-        item: messageThreadToResponse(updatedThread, user.id, entries),
-        entry: messageEntryToResponse(entry, user.id),
-        lead: updatedLead ? listingLeadToResponse(updatedLead, { threadId: updatedThread.id }) : null,
-    }, 201);
-});
-
-app.get('/api/crm/listing-leads', async (c) => {
-    const user = await authUser(c);
-    if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
-
-    const vertical = parseVertical(c.req.query('vertical'));
-    if (!userCanUseCrm(user, vertical)) {
-        return c.json({ ok: false, error: 'Tu plan actual no incluye CRM.' }, 403);
-    }
-    const statusRaw = c.req.query('status');
-    const status = listingLeadStatusSchema.safeParse(statusRaw).success
-        ? (statusRaw as ListingLeadStatus)
-        : undefined;
-
-    const items = await listListingLeadRecords({
-        vertical,
-        status,
-        ownerUserId: user.role === 'superadmin' ? undefined : user.id,
-    });
-    return c.json({ ok: true, items: items.map((item) => listingLeadToResponse(item)) });
-});
-
-app.get('/api/crm/listing-leads/:id', async (c) => {
-    const user = await authUser(c);
-    if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
-
-    const vertical = parseVertical(c.req.query('vertical'));
-    if (!userCanUseCrm(user, vertical)) return c.json({ ok: false, error: 'No autorizado' }, 403);
-    const lead = await getListingLeadById(c.req.param('id'));
-    if (!lead || lead.vertical !== vertical) {
-        return c.json({ ok: false, error: 'Lead no encontrado' }, 404);
-    }
-    if (!canUserAccessListingLead(user, lead)) {
-        return c.json({ ok: false, error: 'No autorizado' }, 403);
-    }
-
-    return c.json({ ok: true, ...(await buildListingLeadDetailPayload(lead, user.id)) });
-});
-
-app.patch('/api/crm/listing-leads/:id', async (c) => {
-    const user = await authUser(c);
-    if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
-
-    const vertical = parseVertical(c.req.query('vertical'));
-    if (!userCanUseCrm(user, vertical)) return c.json({ ok: false, error: 'No autorizado' }, 403);
-    const payload = await c.req.json().catch(() => null);
-    const parsed = listingLeadUpdateSchema.safeParse(payload);
-    if (!parsed.success) {
-        return c.json({ ok: false, error: 'Payload inválido' }, 400);
-    }
-
-    const lead = await getListingLeadById(c.req.param('id'));
-    if (!lead || lead.vertical !== vertical) {
-        return c.json({ ok: false, error: 'Lead no encontrado' }, 404);
-    }
-    if (!canUserAccessListingLead(user, lead)) {
-        return c.json({ ok: false, error: 'No autorizado' }, 403);
-    }
-
-    const result = await updateListingLeadRecord({
-        actor: user,
-        lead,
-        changes: parsed.data,
-    });
-    if (!result.ok) {
-        return c.json({ ok: false, error: result.error }, 400);
-    }
-
-    return c.json({ ok: true, item: listingLeadToResponse(result.item) });
-});
-
-app.post('/api/crm/listing-leads/:id/notes', async (c) => {
-    const user = await authUser(c);
-    if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
-
-    const vertical = parseVertical(c.req.query('vertical'));
-    if (!userCanUseCrm(user, vertical)) return c.json({ ok: false, error: 'No autorizado' }, 403);
-    const payload = await c.req.json().catch(() => null);
-    const parsed = listingLeadNoteSchema.safeParse(payload);
-    if (!parsed.success) {
-        return c.json({ ok: false, error: 'Payload inválido' }, 400);
-    }
-
-    const lead = await getListingLeadById(c.req.param('id'));
-    if (!lead || lead.vertical !== vertical) {
-        return c.json({ ok: false, error: 'Lead no encontrado' }, 404);
-    }
-    if (!canUserAccessListingLead(user, lead)) {
-        return c.json({ ok: false, error: 'No autorizado' }, 403);
-    }
-
-    const rows = await db.update(listingLeads).set({
-        updatedAt: new Date(),
-    }).where(eq(listingLeads.id, lead.id)).returning();
-    const updated = mapListingLeadRow(rows[0]);
-    const activity = await createListingLeadActivity({
-        leadId: updated.id,
-        actorUserId: user.id,
-        type: 'note',
-        body: parsed.data.body.trim(),
-    });
-
-    return c.json({ ok: true, item: listingLeadToResponse(updated), activity: listingLeadActivityToResponse(activity) }, 201);
-});
-
-app.post('/api/crm/listing-leads/:id/actions', async (c) => {
-    const user = await authUser(c);
-    if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
-
-    const vertical = parseVertical(c.req.query('vertical'));
-    if (!userCanUseCrm(user, vertical)) return c.json({ ok: false, error: 'No autorizado' }, 403);
-    const payload = await c.req.json().catch(() => null);
-    const parsed = leadQuickActionSchema.safeParse(payload);
-    if (!parsed.success) {
-        return c.json({ ok: false, error: 'Payload inválido' }, 400);
-    }
-
-    const lead = await getListingLeadById(c.req.param('id'));
-    if (!lead || lead.vertical !== vertical) {
-        return c.json({ ok: false, error: 'Lead no encontrado' }, 404);
-    }
-    if (!canUserAccessListingLead(user, lead)) {
-        return c.json({ ok: false, error: 'No autorizado' }, 403);
-    }
-
-    const result = await runListingLeadQuickAction({
-        actor: user,
-        lead,
-        action: parsed.data.action,
-    });
-    if (!result.ok) {
-        return c.json({ ok: false, error: result.error }, 400);
-    }
-
-    return c.json({
-        ok: true,
-        item: listingLeadToResponse(result.item),
-        activity: listingLeadActivityToResponse(result.activity),
-        actionLabel: getLeadQuickActionLabel(parsed.data.action),
-    }, 201);
-});
-
-app.get('/api/crm/pipeline-columns', async (c) => {
-    const user = await authUser(c);
-    if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
-
-    const vertical = parseVertical(c.req.query('vertical'));
-    if (!userCanUseCrm(user, vertical)) return c.json({ ok: false, error: 'No autorizado' }, 403);
-
-    const items = await ensureListingPipelineColumns(user.id, vertical);
-    return c.json({ ok: true, items: items.map(pipelineColumnToResponse) });
-});
-
-app.post('/api/crm/pipeline-columns', async (c) => {
-    const user = await authUser(c);
-    if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
-
-    const vertical = parseVertical(c.req.query('vertical'));
-    if (!userCanUseCrm(user, vertical)) return c.json({ ok: false, error: 'No autorizado' }, 403);
-
-    const payload = await c.req.json().catch(() => null);
-    const parsed = pipelineColumnCreateSchema.safeParse(payload);
-    if (!parsed.success) return c.json({ ok: false, error: 'Payload inválido' }, 400);
-
-    const columns = await ensureListingPipelineColumns(user.id, vertical);
-    const rows = await db.insert(crmPipelineColumns).values({
-        userId: user.id,
-        vertical,
-        scope: 'listing',
-        name: parsed.data.name.trim(),
-        status: parsed.data.status,
-        position: columns.length,
-    }).returning();
-
-    const created = mapPipelineColumnRow(rows[0]);
-    const items = await listPipelineColumns(user.id, vertical, 'listing');
-    return c.json({ ok: true, item: pipelineColumnToResponse(created), items: items.map(pipelineColumnToResponse) }, 201);
-});
-
-app.post('/api/crm/pipeline-columns/reorder', async (c) => {
-    const user = await authUser(c);
-    if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
-
-    const vertical = parseVertical(c.req.query('vertical'));
-    if (!userCanUseCrm(user, vertical)) return c.json({ ok: false, error: 'No autorizado' }, 403);
-
-    const payload = await c.req.json().catch(() => null);
-    const parsed = pipelineColumnReorderSchema.safeParse(payload);
-    if (!parsed.success) return c.json({ ok: false, error: 'Payload inválido' }, 400);
-
-    const result = await reorderPipelineColumns(user.id, vertical, parsed.data.columnIds);
-    if (!result.ok) return c.json({ ok: false, error: result.error }, 400);
-    return c.json({ ok: true, items: result.items.map(pipelineColumnToResponse) });
-});
-
-app.patch('/api/crm/pipeline-columns/:id', async (c) => {
-    const user = await authUser(c);
-    if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
-
-    const vertical = parseVertical(c.req.query('vertical'));
-    if (!userCanUseCrm(user, vertical)) return c.json({ ok: false, error: 'No autorizado' }, 403);
-
-    const payload = await c.req.json().catch(() => null);
-    const parsed = pipelineColumnUpdateSchema.safeParse(payload);
-    if (!parsed.success) return c.json({ ok: false, error: 'Payload inválido' }, 400);
-
-    const column = await getListingPipelineColumnById(c.req.param('id'));
-    if (!column || column.userId !== user.id || column.vertical !== vertical || column.scope !== 'listing') {
-        return c.json({ ok: false, error: 'Columna no encontrada' }, 404);
-    }
-
-    const columns = await ensureListingPipelineColumns(user.id, vertical);
-    const nextStatus = parsed.data.status ?? column.status;
-    if (nextStatus !== column.status && columns.filter((item) => item.status === column.status).length <= 1) {
-        return c.json({ ok: false, error: 'Debe quedar al menos una columna para esa etapa base.' }, 400);
-    }
-
-    const rows = await db.update(crmPipelineColumns).set({
-        name: parsed.data.name?.trim() ?? column.name,
-        status: nextStatus,
-        updatedAt: new Date(),
-    }).where(eq(crmPipelineColumns.id, column.id)).returning();
-    const updated = mapPipelineColumnRow(rows[0]);
-
-    if (nextStatus !== column.status) {
-        await db.update(listingLeads).set({
-            status: nextStatus,
-            updatedAt: new Date(),
-        }).where(eq(listingLeads.pipelineColumnId, column.id));
-    }
-
-    const items = await listPipelineColumns(user.id, vertical, 'listing');
-    return c.json({ ok: true, item: pipelineColumnToResponse(updated), items: items.map(pipelineColumnToResponse) });
-});
-
-app.delete('/api/crm/pipeline-columns/:id', async (c) => {
-    const user = await authUser(c);
-    if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
-
-    const vertical = parseVertical(c.req.query('vertical'));
-    if (!userCanUseCrm(user, vertical)) return c.json({ ok: false, error: 'No autorizado' }, 403);
-
-    const column = await getListingPipelineColumnById(c.req.param('id'));
-    if (!column || column.userId !== user.id || column.vertical !== vertical || column.scope !== 'listing') {
-        return c.json({ ok: false, error: 'Columna no encontrada' }, 404);
-    }
-
-    const columns = await ensureListingPipelineColumns(user.id, vertical);
-    const sameStatus = columns.filter((item) => item.status === column.status);
-    if (sameStatus.length <= 1) {
-        return c.json({ ok: false, error: 'Debe quedar al menos una columna para esa etapa base.' }, 400);
-    }
-
-    const fallback = sameStatus.find((item) => item.id !== column.id) ?? null;
-    if (!fallback) {
-        return c.json({ ok: false, error: 'No pudimos reasignar los leads de esta columna.' }, 400);
-    }
-
-    await db.update(listingLeads).set({
-        pipelineColumnId: fallback.id,
-        status: fallback.status,
-        updatedAt: new Date(),
-    }).where(eq(listingLeads.pipelineColumnId, column.id));
-
-    await db.delete(crmPipelineColumns).where(eq(crmPipelineColumns.id, column.id));
-
-    const remaining = (await listPipelineColumns(user.id, vertical, 'listing'))
-        .filter((item) => item.id !== column.id)
-        .sort((left, right) => left.position - right.position);
-    await reorderPipelineColumns(user.id, vertical, remaining.map((item) => item.id));
-    const items = await listPipelineColumns(user.id, vertical, 'listing');
-    return c.json({ ok: true, items: items.map(pipelineColumnToResponse) });
-});
-
-app.get('/api/crm/leads', async (c) => {
-    const user = await authUser(c);
-    if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
-    if (!isAdminRole(user.role)) return c.json({ ok: true, items: [] });
-
-    const vertical = parseVertical(c.req.query('vertical'));
-    const statusRaw = c.req.query('status');
-    const status = serviceLeadStatusSchema.safeParse(statusRaw).success
-        ? (statusRaw as ServiceLeadStatus)
-        : undefined;
-
-    const items = await listServiceLeadRecords({ vertical, status });
-    return c.json({ ok: true, items: items.map(serviceLeadToResponse) });
-});
-
-app.get('/api/crm/leads/:id', async (c) => {
-    const user = await authUser(c);
-    if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
-    if (!isAdminRole(user.role)) return c.json({ ok: false, error: 'No autorizado' }, 403);
-
-    const leadId = getUrlPathSegment(c.req.url, 1);
-    const vertical = parseVertical(c.req.query('vertical'));
-    const lead = await getServiceLeadById(leadId);
-    if (!lead) return c.json({ ok: false, error: 'Lead no encontrado' }, 404);
-    if (lead.vertical !== vertical) return c.json({ ok: false, error: 'Lead no disponible en esta vertical.' }, 404);
-
-    return c.json({ ok: true, ...(await buildServiceLeadDetailPayload(lead)) });
-});
-
-app.patch('/api/crm/leads/:id', async (c) => {
-    const user = await authUser(c);
-    if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
-    if (!isAdminRole(user.role)) return c.json({ ok: false, error: 'No autorizado' }, 403);
-
-    const leadId = getUrlPathSegment(c.req.url, 1);
-    const vertical = parseVertical(c.req.query('vertical'));
-    const payload = await c.req.json().catch(() => null);
-    const parsed = serviceLeadUpdateSchema.safeParse(payload);
-    if (!parsed.success) {
-        return c.json({ ok: false, error: 'Payload inválido' }, 400);
-    }
-
-    const lead = await getServiceLeadById(leadId);
-    if (!lead) return c.json({ ok: false, error: 'Lead no encontrado' }, 404);
-    if (lead.vertical !== vertical) return c.json({ ok: false, error: 'Lead no disponible en esta vertical.' }, 404);
-
-    const result = await updateServiceLeadRecord({
-        actor: user,
-        lead,
-        changes: parsed.data,
-    });
-    if (!result.ok) {
-        return c.json({ ok: false, error: result.error }, 400);
-    }
-
-    return c.json({ ok: true, item: serviceLeadToResponse(result.item) });
-});
-
-app.post('/api/crm/leads/:id/notes', async (c) => {
-    const user = await authUser(c);
-    if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
-    if (!isAdminRole(user.role)) return c.json({ ok: false, error: 'No autorizado' }, 403);
-
-    const leadId = getUrlPathSegment(c.req.url, 2);
-    const vertical = parseVertical(c.req.query('vertical'));
-    const payload = await c.req.json().catch(() => null);
-    const parsed = serviceLeadNoteSchema.safeParse(payload);
-    if (!parsed.success) {
-        return c.json({ ok: false, error: 'Payload inválido' }, 400);
-    }
-
-    const lead = await getServiceLeadById(leadId);
-    if (!lead) return c.json({ ok: false, error: 'Lead no encontrado' }, 404);
-    if (lead.vertical !== vertical) return c.json({ ok: false, error: 'Lead no disponible en esta vertical.' }, 404);
-
-    const now = new Date();
-    const rows = await db.update(serviceLeads).set({
-        updatedAt: now,
-    }).where(eq(serviceLeads.id, lead.id)).returning();
-    const updated = mapServiceLeadRow(rows[0]);
-    const activity = await createServiceLeadActivity({
-        leadId: updated.id,
-        actorUserId: user.id,
-        type: 'note',
-        body: parsed.data.body.trim(),
-    });
-
-    return c.json({ ok: true, item: serviceLeadToResponse(updated), activity: serviceLeadActivityToResponse(activity) }, 201);
-});
-
-app.post('/api/crm/leads/:id/actions', async (c) => {
-    const user = await authUser(c);
-    if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
-    if (!isAdminRole(user.role)) return c.json({ ok: false, error: 'No autorizado' }, 403);
-
-    const leadId = getUrlPathSegment(c.req.url, 2);
-    const vertical = parseVertical(c.req.query('vertical'));
-    const payload = await c.req.json().catch(() => null);
-    const parsed = leadQuickActionSchema.safeParse(payload);
-    if (!parsed.success) {
-        return c.json({ ok: false, error: 'Payload inválido' }, 400);
-    }
-
-    const lead = await getServiceLeadById(leadId);
-    if (!lead) return c.json({ ok: false, error: 'Lead no encontrado' }, 404);
-    if (lead.vertical !== vertical) return c.json({ ok: false, error: 'Lead no disponible en esta vertical.' }, 404);
-
-    const result = await runServiceLeadQuickAction({
-        actor: user,
-        lead,
-        action: parsed.data.action,
-    });
-    if (!result.ok) {
-        return c.json({ ok: false, error: result.error }, 400);
-    }
-
-    return c.json({
-        ok: true,
-        item: serviceLeadToResponse(result.item),
-        activity: serviceLeadActivityToResponse(result.activity),
-        actionLabel: getLeadQuickActionLabel(parsed.data.action),
-    }, 201);
-});
-
-app.get('/api/panel/notifications', async (c) => {
-    const user = await authUser(c);
-    if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
-
-    const vertical = parseVertical(c.req.query('vertical'));
-    const [threads, listingLeadItems, serviceLeadItems] = await Promise.all([
-        listMessageThreadsForUser(user.id, vertical, 'inbox'),
-        userCanUseCrm(user, vertical)
-            ? listListingLeadRecords({
-                vertical,
-                ownerUserId: user.role === 'superadmin' ? undefined : user.id,
-                limit: 8,
-            })
-            : Promise.resolve([] as ListingLeadRecord[]),
-        isAdminRole(user.role) ? listServiceLeadRecords({ vertical, limit: 8 }) : Promise.resolve([] as ServiceLeadRecord[]),
-    ]);
-
-    const messageNotifications = (await Promise.all(threads.slice(0, 8).map((thread) => buildMessageThreadNotification(thread, user.id))))
-        .filter((item): item is NonNullable<typeof item> => Boolean(item));
-    const items = [
-        ...messageNotifications,
-        ...listingLeadItems.map(buildListingLeadNotification),
-        ...serviceLeadItems.map(buildServiceLeadNotification),
-    ]
-        .sort((a, b) => b.createdAt - a.createdAt)
-        .slice(0, 8);
-
-    return c.json({ ok: true, items });
-});
-
-app.get('/api/admin/overview', async (c) => {
-    const adminUser = await authUser(c);
-    if (!adminUser) return c.json({ ok: false, error: 'No autenticado' }, 401);
-    if (!isAdminRole(adminUser.role)) return c.json({ ok: false, error: 'No autorizado' }, 403);
-
-    const [adminUsers, adminListings, recentLeads] = await Promise.all([
-        listAdminUsersSnapshot(),
-        listAdminListingsSnapshot(),
-        listServiceLeadRecords({ limit: 6 }),
-    ]);
-
-    const autosListings = adminListings.filter((item) => item.vertical === 'autos');
-    const propiedadesListings = adminListings.filter((item) => item.vertical === 'propiedades');
-    const newLeads = recentLeads.filter((lead) => lead.status === 'new').length;
-
-    return c.json({
-        ok: true,
-        stats: {
-            usersTotal: adminUsers.length,
-            autosListingsTotal: autosListings.length,
-            propiedadesListingsTotal: propiedadesListings.length,
-            newServiceLeads: newLeads,
-        },
-        recentUsers: adminUsers.slice(0, 6),
-        recentListings: adminListings.slice(0, 6),
-        recentLeads: recentLeads.map(serviceLeadToResponse),
-        systemStatus: getEnvStatus(),
-    });
-});
-
-app.get('/api/admin/users', async (c) => {
-    const adminUser = await authUser(c);
-    if (!adminUser) return c.json({ ok: false, error: 'No autenticado' }, 401);
-    if (!isAdminRole(adminUser.role)) return c.json({ ok: false, error: 'No autorizado' }, 403);
-    const items = await listAdminUsersSnapshot();
-    return c.json({ ok: true, items });
-});
-
-// Cambiar rol de un usuario
-app.patch('/api/admin/users/:id/role', async (c) => {
-    const adminUser = await authUser(c);
-    if (!adminUser) return c.json({ ok: false, error: 'No autenticado' }, 401);
-    if (!isAdminRole(adminUser.role)) return c.json({ ok: false, error: 'No autorizado' }, 403);
-
-    const payload = await c.req.json().catch(() => null);
-    const role = payload?.role;
-    
-    if (!role || !['user', 'admin', 'superadmin'].includes(role)) {
-        return c.json({ ok: false, error: 'Rol inválido' }, 400);
-    }
-
-    const userId = c.req.param('id') ?? '';
-    const targetUser = await getUserById(userId);
-    if (!targetUser) return c.json({ ok: false, error: 'Usuario no encontrado' }, 404);
-
-    const updated = await db.update(users).set({ role }).where(eq(users.id, userId)).returning();
-    if (updated.length === 0) return c.json({ ok: false, error: 'No se pudo actualizar el usuario' }, 500);
-
-    const appUser = mapUserRowToAppUser(updated[0]);
-    return c.json({ ok: true, item: sanitizeUser(appUser) }, 200);
-});
-
-// Cambiar status de un usuario
-app.patch('/api/admin/users/:id/status', async (c) => {
-    const adminUser = await authUser(c);
-    if (!adminUser) return c.json({ ok: false, error: 'No autenticado' }, 401);
-    if (!isAdminRole(adminUser.role)) return c.json({ ok: false, error: 'No autorizado' }, 403);
-
-    const payload = await c.req.json().catch(() => null);
-    const status = payload?.status;
-    
-    if (!status || !['active', 'verified', 'suspended'].includes(status)) {
-        return c.json({ ok: false, error: 'Status inválido' }, 400);
-    }
-
-    const userId = c.req.param('id') ?? '';
-    const targetUser = await getUserById(userId);
-    if (!targetUser) return c.json({ ok: false, error: 'Usuario no encontrado' }, 404);
-
-    const updated = await db.update(users).set({ status }).where(eq(users.id, userId)).returning();
-    if (updated.length === 0) return c.json({ ok: false, error: 'No se pudo actualizar el usuario' }, 500);
-
-    const appUser = mapUserRowToAppUser(updated[0]);
-    return c.json({ ok: true, item: sanitizeUser(appUser) }, 200);
-});
-
-// Eliminar un usuario
-app.delete('/api/admin/users/:id', async (c) => {
-    const adminUser = await authUser(c);
-    if (!adminUser) return c.json({ ok: false, error: 'No autenticado' }, 401);
-    if (!isAdminRole(adminUser.role)) return c.json({ ok: false, error: 'No autorizado' }, 403);
-
-    const userId = c.req.param('id') ?? '';
-    
-    // No permitir eliminar el usuario actual
-    if (adminUser.id === userId) {
-        return c.json({ ok: false, error: 'No puedes eliminar tu propia cuenta' }, 400);
-    }
-
-    const targetUser = await getUserById(userId);
-    if (!targetUser) return c.json({ ok: false, error: 'Usuario no encontrado' }, 404);
-
-    if (targetUser.role === 'superadmin' && isActiveAdminStatus(targetUser.status)) {
-        const remainingSuperadmins = await countActiveSuperadminUsers();
-        if (remainingSuperadmins <= 1) {
-            return c.json({ ok: false, error: 'No puedes eliminar al último superadmin activo' }, 400);
-        }
-    }
-
-    await permanentlyDeleteUser(userId);
-
-    return c.json({ ok: true, message: 'Usuario eliminado permanentemente' }, 200);
-});
-
-// Editar datos de un usuario
-app.put('/api/admin/users/:id', async (c) => {
-    const adminUser = await authUser(c);
-    if (!adminUser) return c.json({ ok: false, error: 'No autenticado' }, 401);
-    if (!isAdminRole(adminUser.role)) return c.json({ ok: false, error: 'No autorizado' }, 403);
-
-    const payload = await c.req.json().catch(() => null);
-    const userId = c.req.param('id') ?? '';
-    
-    const targetUser = await getUserById(userId);
-    if (!targetUser) return c.json({ ok: false, error: 'Usuario no encontrado' }, 404);
-
-    // Validar y preparar actualización
-    const updates: Record<string, any> = {};
-    
-    if (payload?.name && typeof payload.name === 'string' && payload.name.trim().length > 0) {
-        updates.name = payload.name.trim();
-    }
-    
-    if (payload?.phone && typeof payload.phone === 'string') {
-        updates.phone = payload.phone.trim() || null;
-    }
-
-    if (Object.keys(updates).length === 0) {
-        return c.json({ ok: false, error: 'No hay datos para actualizar' }, 400);
-    }
-
-    const updated = await db.update(users).set(updates).where(eq(users.id, userId)).returning();
-    if (updated.length === 0) return c.json({ ok: false, error: 'No se pudo actualizar el usuario' }, 500);
-
-    const appUser = mapUserRowToAppUser(updated[0]);
-    return c.json({ ok: true, item: sanitizeUser(appUser) }, 200);
-});
-
-// Actualizar suscripciones de un usuario (superadmin only)
-app.patch('/api/admin/users/:id/subscriptions', async (c) => {
-    try {
-        const adminUser = await authUser(c);
-        if (!adminUser) return c.json({ ok: false, error: 'No autenticado' }, 401);
-        if (adminUser.role !== 'superadmin') return c.json({ ok: false, error: 'Solo superadmin puede acceder' }, 403);
-
-        const payload = await c.req.json().catch(() => null);
-        const userId = c.req.param('id') ?? '';
-
-        console.log('[admin subscriptions] userId:', userId, 'payload:', JSON.stringify(payload));
-
-        const targetUser = await getUserById(userId);
-        if (!targetUser) return c.json({ ok: false, error: 'Usuario no encontrado' }, 404);
-
-        const subData = payload?.subscriptions || {};
-        const results: Record<string, any> = {};
-
-    // 1. Actualizar SimpleAgenda (agendaProfessionalProfiles)
-    if (subData.agenda) {
-        const profile = await db.select()
-            .from(agendaProfessionalProfiles)
-            .where(eq(agendaProfessionalProfiles.userId, userId))
-            .limit(1);
-
-        if (profile.length > 0) {
-            const plan = subData.agenda.plan;
-            const expiresAt = subData.agenda.expiresAt ? new Date(subData.agenda.expiresAt) : null;
-
-            await db.update(agendaProfessionalProfiles)
-                .set({
-                    plan,
-                    planExpiresAt: expiresAt,
-                    updatedAt: new Date(),
-                })
-                .where(eq(agendaProfessionalProfiles.id, profile[0].id));
-
-            results.agenda = { plan, expiresAt: expiresAt?.toISOString() || null };
-        } else {
-            // Crear perfil si no existe
-            const plan = subData.agenda.plan;
-            const slug = `${targetUser.name.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '')}-${Date.now().toString(36)}`;
-            const expiresAt = subData.agenda.expiresAt ? new Date(subData.agenda.expiresAt) : null;
-
-            const [created] = await db.insert(agendaProfessionalProfiles).values({
-                userId,
-                slug,
-                displayName: targetUser.name,
-                plan,
-                planExpiresAt: expiresAt,
-            }).returning();
-
-            results.agenda = { plan, expiresAt: expiresAt?.toISOString() || null, created: true };
-        }
-    }
-
-    // 2. Actualizar SimpleAutos (subscriptions table - raw SQL)
-    if (subData.autos) {
-        const planId = subData.autos.planId || null;
-        const status = subData.autos.status || 'active';
-        const expiresAt = subData.autos.expiresAt ? new Date(subData.autos.expiresAt) : null;
-
-        const existing = await db.execute(sql`
-            SELECT id FROM subscriptions WHERE user_id = ${userId} AND vertical = 'autos' LIMIT 1
-        `);
-
-        if (existing.length > 0) {
-            await db.execute(sql`
-                UPDATE subscriptions SET plan_id = ${planId}, status = ${status}, expires_at = ${expiresAt}, updated_at = now()
-                WHERE id = ${(existing[0] as any).id}
-            `);
-        } else {
-            await db.execute(sql`
-                INSERT INTO subscriptions (user_id, plan_id, vertical, status, provider, expires_at)
-                VALUES (${userId}, ${planId}, 'autos', ${status}, 'manual', ${expiresAt})
-            `);
-        }
-        results.autos = { planId, status, expiresAt: expiresAt?.toISOString() || null };
-    }
-
-    // 3. Actualizar SimplePropiedades (subscriptions table - raw SQL)
-    if (subData.propiedades) {
-        const planId = subData.propiedades.planId || null;
-        const status = subData.propiedades.status || 'active';
-        const expiresAt = subData.propiedades.expiresAt ? new Date(subData.propiedades.expiresAt) : null;
-
-        const existing = await db.execute(sql`
-            SELECT id FROM subscriptions WHERE user_id = ${userId} AND vertical = 'propiedades' LIMIT 1
-        `);
-
-        if (existing.length > 0) {
-            await db.execute(sql`
-                UPDATE subscriptions SET plan_id = ${planId}, status = ${status}, expires_at = ${expiresAt}, updated_at = now()
-                WHERE id = ${(existing[0] as any).id}
-            `);
-        } else {
-            await db.execute(sql`
-                INSERT INTO subscriptions (user_id, plan_id, vertical, status, provider, expires_at)
-                VALUES (${userId}, ${planId}, 'propiedades', ${status}, 'manual', ${expiresAt})
-            `);
-        }
-        results.propiedades = { planId, status, expiresAt: expiresAt?.toISOString() || null };
-    }
-
-    return c.json({ ok: true, results }, 200);
-    } catch (error) {
-        console.error('[admin subscriptions] error:', error);
-        return c.json({ ok: false, error: 'Error al actualizar suscripciones' }, 500);
-    }
-});
-
-app.get('/api/admin/listings', async (c) => {
-    const adminUser = await authUser(c);
-    if (!adminUser) return c.json({ ok: false, error: 'No autenticado' }, 401);
-    if (!isAdminRole(adminUser.role)) return c.json({ ok: false, error: 'No autorizado' }, 403);
-    const items = await listAdminListingsSnapshot();
-    return c.json({ ok: true, items });
-});
-
-app.get('/api/admin/service-leads', async (c) => {
-    const adminUser = await authUser(c);
-    if (!adminUser) return c.json({ ok: false, error: 'No autenticado' }, 401);
-    if (!isAdminRole(adminUser.role)) return c.json({ ok: false, error: 'No autorizado' }, 403);
-    const vertical = c.req.query('vertical');
-    const status = c.req.query('status');
-    const items = await listServiceLeadRecords({
-        vertical: vertical === 'autos' || vertical === 'propiedades' ? vertical : undefined,
-        status: status === 'new' || status === 'contacted' || status === 'qualified' || status === 'closed' ? status : undefined,
-    });
-    return c.json({ ok: true, items: items.map(serviceLeadToResponse) });
-});
-
-app.get('/api/admin/service-leads/:id', async (c) => {
-    const adminUser = await authUser(c);
-    if (!adminUser) return c.json({ ok: false, error: 'No autenticado' }, 401);
-    if (!isAdminRole(adminUser.role)) return c.json({ ok: false, error: 'No autorizado' }, 403);
-
-    const lead = await getServiceLeadById(getUrlPathSegment(c.req.url, 1));
-    if (!lead) return c.json({ ok: false, error: 'Lead no encontrado' }, 404);
-
-    return c.json({ ok: true, ...(await buildServiceLeadDetailPayload(lead)) });
-});
-
-app.patch('/api/admin/service-leads/:id', async (c) => {
-    const adminUser = await authUser(c);
-    if (!adminUser) return c.json({ ok: false, error: 'No autenticado' }, 401);
-    if (!isAdminRole(adminUser.role)) return c.json({ ok: false, error: 'No autorizado' }, 403);
-    const payload = await c.req.json().catch(() => null);
-    const parsed = serviceLeadUpdateSchema.safeParse(payload);
-    if (!parsed.success) {
-        return c.json({ ok: false, error: 'Payload inválido' }, 400);
-    }
-
-    const leadId = getUrlPathSegment(c.req.url, 1);
-    const existing = await getServiceLeadById(leadId);
-    if (!existing) return c.json({ ok: false, error: 'Lead no encontrado' }, 404);
-
-    const result = await updateServiceLeadRecord({
-        actor: adminUser,
-        lead: existing,
-        changes: parsed.data,
-    });
-    if (!result.ok) {
-        return c.json({ ok: false, error: result.error }, 400);
-    }
-
-    return c.json({ ok: true, item: serviceLeadToResponse(result.item) });
-});
-
-app.post('/api/admin/service-leads/:id/notes', async (c) => {
-    const adminUser = await authUser(c);
-    if (!adminUser) return c.json({ ok: false, error: 'No autenticado' }, 401);
-    if (!isAdminRole(adminUser.role)) return c.json({ ok: false, error: 'No autorizado' }, 403);
-
-    const payload = await c.req.json().catch(() => null);
-    const parsed = serviceLeadNoteSchema.safeParse(payload);
-    if (!parsed.success) {
-        return c.json({ ok: false, error: 'Payload inválido' }, 400);
-    }
-
-    const lead = await getServiceLeadById(getUrlPathSegment(c.req.url, 2));
-    if (!lead) return c.json({ ok: false, error: 'Lead no encontrado' }, 404);
-
-    const now = new Date();
-    const rows = await db.update(serviceLeads).set({
-        updatedAt: now,
-    }).where(eq(serviceLeads.id, lead.id)).returning();
-    const updated = mapServiceLeadRow(rows[0]);
-    const activity = await createServiceLeadActivity({
-        leadId: updated.id,
-        actorUserId: adminUser.id,
-        type: 'note',
-        body: parsed.data.body.trim(),
-    });
-
-    return c.json({ ok: true, item: serviceLeadToResponse(updated), activity: serviceLeadActivityToResponse(activity) }, 201);
-});
-
-app.post('/api/admin/service-leads/:id/actions', async (c) => {
-    const adminUser = await authUser(c);
-    if (!adminUser) return c.json({ ok: false, error: 'No autenticado' }, 401);
-    if (!isAdminRole(adminUser.role)) return c.json({ ok: false, error: 'No autorizado' }, 403);
-
-    const payload = await c.req.json().catch(() => null);
-    const parsed = leadQuickActionSchema.safeParse(payload);
-    if (!parsed.success) {
-        return c.json({ ok: false, error: 'Payload inválido' }, 400);
-    }
-
-    const lead = await getServiceLeadById(c.req.param('id'));
-    if (!lead) {
-        return c.json({ ok: false, error: 'Lead no encontrado' }, 404);
-    }
-
-    const result = await runServiceLeadQuickAction({
-        actor: adminUser,
-        lead,
-        action: parsed.data.action,
-    });
-    if (!result.ok) {
-        return c.json({ ok: false, error: result.error }, 400);
-    }
-
-    return c.json({
-        ok: true,
-        item: serviceLeadToResponse(result.item),
-        activity: serviceLeadActivityToResponse(result.activity),
-        actionLabel: getLeadQuickActionLabel(parsed.data.action),
-    }, 201);
-});
-
-app.get('/api/admin/listing-leads', async (c) => {
-    const adminUser = await authUser(c);
-    if (!adminUser) return c.json({ ok: false, error: 'No autenticado' }, 401);
-    if (!isAdminRole(adminUser.role)) return c.json({ ok: false, error: 'No autorizado' }, 403);
-    const vertical = c.req.query('vertical');
-    const status = c.req.query('status');
-    const items = await listListingLeadRecords({
-        vertical: vertical === 'autos' || vertical === 'propiedades' ? vertical : undefined,
-        status: status === 'new' || status === 'contacted' || status === 'qualified' || status === 'closed' ? status : undefined,
-    });
-    return c.json({ ok: true, items: items.map((item) => listingLeadToResponse(item)) });
-});
-
-app.get('/api/admin/listing-leads/:id', async (c) => {
-    const adminUser = await authUser(c);
-    if (!adminUser) return c.json({ ok: false, error: 'No autenticado' }, 401);
-    if (!isAdminRole(adminUser.role)) return c.json({ ok: false, error: 'No autorizado' }, 403);
-
-    const lead = await getListingLeadById(c.req.param('id'));
-    if (!lead) return c.json({ ok: false, error: 'Lead no encontrado' }, 404);
-
-    return c.json({ ok: true, ...(await buildListingLeadDetailPayload(lead, adminUser.id)) });
-});
-
-app.patch('/api/admin/listing-leads/:id', async (c) => {
-    const adminUser = await authUser(c);
-    if (!adminUser) return c.json({ ok: false, error: 'No autenticado' }, 401);
-    if (!isAdminRole(adminUser.role)) return c.json({ ok: false, error: 'No autorizado' }, 403);
-    const payload = await c.req.json().catch(() => null);
-    const parsed = listingLeadUpdateSchema.safeParse(payload);
-    if (!parsed.success) {
-        return c.json({ ok: false, error: 'Payload inválido' }, 400);
-    }
-
-    const lead = await getListingLeadById(c.req.param('id'));
-    if (!lead) return c.json({ ok: false, error: 'Lead no encontrado' }, 404);
-
-    const result = await updateListingLeadRecord({
-        actor: adminUser,
-        lead,
-        changes: parsed.data,
-    });
-    if (!result.ok) {
-        return c.json({ ok: false, error: result.error }, 400);
-    }
-
-    return c.json({ ok: true, item: listingLeadToResponse(result.item) });
-});
-
-app.post('/api/admin/listing-leads/:id/notes', async (c) => {
-    const adminUser = await authUser(c);
-    if (!adminUser) return c.json({ ok: false, error: 'No autenticado' }, 401);
-    if (!isAdminRole(adminUser.role)) return c.json({ ok: false, error: 'No autorizado' }, 403);
-
-    const payload = await c.req.json().catch(() => null);
-    const parsed = listingLeadNoteSchema.safeParse(payload);
-    if (!parsed.success) {
-        return c.json({ ok: false, error: 'Payload inválido' }, 400);
-    }
-
-    const lead = await getListingLeadById(c.req.param('id'));
-    if (!lead) return c.json({ ok: false, error: 'Lead no encontrado' }, 404);
-
-    const rows = await db.update(listingLeads).set({
-        updatedAt: new Date(),
-    }).where(eq(listingLeads.id, lead.id)).returning();
-    const updated = mapListingLeadRow(rows[0]);
-    const activity = await createListingLeadActivity({
-        leadId: updated.id,
-        actorUserId: adminUser.id,
-        type: 'note',
-        body: parsed.data.body.trim(),
-    });
-
-    return c.json({ ok: true, item: listingLeadToResponse(updated), activity: listingLeadActivityToResponse(activity) }, 201);
-});
-
-app.post('/api/admin/listing-leads/:id/actions', async (c) => {
-    const adminUser = await authUser(c);
-    if (!adminUser) return c.json({ ok: false, error: 'No autenticado' }, 401);
-    if (!isAdminRole(adminUser.role)) return c.json({ ok: false, error: 'No autorizado' }, 403);
-
-    const payload = await c.req.json().catch(() => null);
-    const parsed = leadQuickActionSchema.safeParse(payload);
-    if (!parsed.success) {
-        return c.json({ ok: false, error: 'Payload inválido' }, 400);
-    }
-
-    const lead = await getListingLeadById(c.req.param('id'));
-    if (!lead) {
-        return c.json({ ok: false, error: 'Lead no encontrado' }, 404);
-    }
-
-    const result = await runListingLeadQuickAction({
-        actor: adminUser,
-        lead,
-        action: parsed.data.action,
-    });
-    if (!result.ok) {
-        return c.json({ ok: false, error: result.error }, 400);
-    }
-
-    return c.json({
-        ok: true,
-        item: listingLeadToResponse(result.item),
-        activity: listingLeadActivityToResponse(result.activity),
-        actionLabel: getLeadQuickActionLabel(parsed.data.action),
-    }, 201);
-});
-
-app.get('/api/admin/system-status', async (c) => {
-    const adminUser = await authUser(c);
-    if (!adminUser) return c.json({ ok: false, error: 'No autenticado' }, 401);
-    if (!isAdminRole(adminUser.role)) return c.json({ ok: false, error: 'No autorizado' }, 403);
-    return c.json({ ok: true, status: getEnvStatus() });
-});
-
-app.get('/api/integrations/instagram', async (c) => {
-    const user = await authUser(c);
-    if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
-
-    const vertical = parseVertical(c.req.query('vertical'));
-    const account = getInstagramAccount(user.id, vertical);
-    const origin = resolveBrowserOrigin(c);
-    const fallbackReturn = origin ? `${origin}/panel/configuracion#integraciones` : null;
-
-    return c.json({
-        ok: true,
-        vertical,
-        configured: isInstagramConfigured(),
-        eligible: userCanUseInstagram(user, vertical),
-        currentPlanId: getEffectivePlanId(user, vertical),
-        requiredPlanIds: getInstagramRequiredPlanIds(),
-        connectUrl: fallbackReturn
-            ? `/api/integrations/instagram/connect?vertical=${encodeURIComponent(vertical)}&returnTo=${encodeURIComponent(fallbackReturn)}`
-            : null,
-        account: instagramAccountToResponse(account),
-        recentPublications: getInstagramPublicationsForUser(user.id, vertical)
-            .slice(0, 8)
-            .map((item) => instagramPublicationToResponse(item)),
-    });
-});
-
-app.get('/api/integrations/instagram/connect', async (c) => {
-    const user = await authUser(c);
-    if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
-
-    const vertical = parseVertical(c.req.query('vertical'));
-    if (!userCanUseInstagram(user, vertical)) {
-        return c.json({ ok: false, error: 'Instagram está disponible solo para planes Pro y Empresa.' }, 403);
-    }
-    if (!isInstagramConfigured()) {
-        return c.json({ ok: false, error: 'Instagram no está configurado en este entorno.' }, 503);
-    }
-
-    const origin = resolveBrowserOrigin(c);
-    if (!origin) {
-        return c.json({ ok: false, error: 'Origin no autorizado' }, 403);
-    }
-
-    const fallbackReturn = `${origin}/panel/configuracion#integraciones`;
-    const returnTo = sanitizeBrowserReturnUrl(asString(c.req.query('returnTo')) || fallbackReturn, fallbackReturn);
-    const nonce = randomBytes(24).toString('hex');
-    setInstagramState(c, makeInstagramStatePayload({
-        nonce,
-        userId: user.id,
-        vertical,
-        returnTo,
-    }));
-
-    return c.redirect(buildInstagramAuthorizationUrl({ state: nonce }));
-});
-
-app.get('/api/integrations/instagram/callback', async (c) => {
-    const rawStatePayload = consumeInstagramState(c);
-    const statePayload = parseInstagramStatePayload(rawStatePayload);
-    const fallbackOrigin = defaultOrigin;
-    const fallbackReturn = `${fallbackOrigin}/panel/configuracion#integraciones`;
-    const returnTo = statePayload?.returnTo || fallbackReturn;
-
-    const redirectWithStatus = (status: 'connected' | 'error', message?: string) => {
-        const target = new URL(sanitizeBrowserReturnUrl(returnTo, fallbackReturn));
-        target.searchParams.set('instagram', status);
-        if (message) {
-            target.searchParams.set('instagramMessage', message);
-        }
-        if (!target.hash) {
-            target.hash = '#integraciones';
-        }
-        return c.redirect(target.toString());
-    };
-
-    const code = asString(c.req.query('code'));
-    const state = asString(c.req.query('state'));
-    const errorReason = asString(c.req.query('error_reason')) || asString(c.req.query('error_description')) || asString(c.req.query('error'));
-
-    if (errorReason) {
-        return redirectWithStatus('error', errorReason);
-    }
-    if (!statePayload || !state || !safeEqualStrings(statePayload.nonce, state)) {
-        return redirectWithStatus('error', 'La sesión de conexión con Instagram expiró. Intenta nuevamente.');
-    }
-    if (!code) {
-        return redirectWithStatus('error', 'Instagram no devolvió un código de autorización válido.');
-    }
-
-    const user = await getUserById(statePayload.userId);
-    if (!user || !canAuthenticateUser(user)) {
-        return redirectWithStatus('error', 'No pudimos validar tu sesión para conectar Instagram.');
-    }
-    if (!userCanUseInstagram(user, statePayload.vertical)) {
-        return redirectWithStatus('error', 'Instagram está disponible solo para planes Pro y Empresa.');
-    }
-    if (!isInstagramConfigured()) {
-        return redirectWithStatus('error', 'Instagram no está configurado en este entorno.');
-    }
-
-    try {
-        const exchanged = await exchangeInstagramCode(code);
-        let accessToken = exchanged.accessToken;
-        let tokenExpiresAt = exchanged.expiresInSeconds ? Date.now() + exchanged.expiresInSeconds * 1000 : null;
-
-        // Convertir short-lived token (1h) → long-lived token (60 días)
-        const longLived = await exchangeToLongLivedToken(accessToken);
-        if (longLived?.accessToken) {
-            accessToken = longLived.accessToken;
-            tokenExpiresAt = longLived.expiresInSeconds ? Date.now() + longLived.expiresInSeconds * 1000 : tokenExpiresAt;
-        }
-
-        // Buscar cuentas de Instagram Business vinculadas a las páginas de Facebook
-        const accounts = await getInstagramBusinessAccounts(accessToken);
-        if (accounts.length === 0) {
-            return redirectWithStatus('error', 'No encontramos ninguna cuenta de Instagram Business vinculada a tus páginas de Facebook. Asegúrate de tener una cuenta Profesional (Business/Creator) vinculada a una Página.');
-        }
-
-        // Por ahora tomamos la primera cuenta. En el futuro podríamos dejar al usuario elegir.
-        const profile = accounts[0];
-        
-        await upsertInstagramAccountRecord({
-            userId: user.id,
-            vertical: statePayload.vertical,
-            instagramUserId: profile.instagramUserId,
-            username: profile.username,
-            displayName: profile.displayName,
-            accountType: profile.accountType,
-            profilePictureUrl: profile.profilePictureUrl,
-            accessToken,
-            tokenExpiresAt,
-            scopes: exchanged.scopes,
-            status: 'connected',
-            lastSyncedAt: Date.now(),
-            lastError: null,
-        });
-
-        return redirectWithStatus('connected', `Cuenta @${profile.username} conectada correctamente.`);
-    } catch (error) {
-        const message = error instanceof Error ? error.message : 'No se pudo conectar con Instagram.';
-        return redirectWithStatus('error', message);
-    }
-});
-
-app.post('/api/integrations/instagram/settings', async (c) => {
-    const user = await authUser(c);
-    if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
-
-    const payload = await c.req.json().catch(() => null);
-    const parsed = instagramSettingsSchema.safeParse(payload);
-    if (!parsed.success) return c.json({ ok: false, error: 'Payload inválido' }, 400);
-
-    const vertical = parsed.data.vertical;
-    if (!userCanUseInstagram(user, vertical)) {
-        return c.json({ ok: false, error: 'Instagram está disponible solo para planes Pro y Empresa.' }, 403);
-    }
-
-    const updated = await updateInstagramAccountSettings(user.id, vertical, {
-        autoPublishEnabled: parsed.data.autoPublishEnabled,
-        captionTemplate: parsed.data.captionTemplate === undefined ? undefined : (parsed.data.captionTemplate || null),
-        lastSyncedAt: Date.now(),
-    });
-
-    if (!updated) {
-        return c.json({ ok: false, error: 'Primero conecta una cuenta de Instagram.' }, 404);
-    }
-
-    return c.json({
-        ok: true,
-        account: instagramAccountToResponse(updated),
-    });
-});
-
-app.post('/api/integrations/instagram/disconnect', async (c) => {
-    const user = await authUser(c);
-    if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
-
-    const vertical = parseVertical(asString(asObject(await c.req.json().catch(() => null)).vertical) || c.req.query('vertical'));
-    await disconnectInstagramAccount(user.id, vertical);
-    return c.json({ ok: true });
-});
-
-app.post('/api/integrations/instagram/publish', async (c) => {
-    const user = await authUser(c);
-    if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
-
-    const payload = await c.req.json().catch(() => null);
-    logDebug(`[instagram] publish request: ${JSON.stringify(payload)}`);
-    
-    const parsed = instagramPublishSchema.safeParse(payload);
-    if (!parsed.success) {
-        logDebug(`[instagram] validation failed: ${JSON.stringify(parsed.error.format())}`);
-        return c.json({ ok: false, error: 'Payload inválido', details: parsed.error.format() }, 400);
-    }
-
-    const listing = listingsById.get(parsed.data.listingId) ?? await getListingById(parsed.data.listingId);
-    if (!listing) {
-        logDebug(`[instagram] listing not found: ${parsed.data.listingId}`);
-        return c.json({ ok: false, error: 'Publicación no encontrada' }, 404);
-    }
-    if (listing.vertical !== parsed.data.vertical) {
-        logDebug(`[instagram] vertical mismatch: ${listing.vertical} vs ${parsed.data.vertical}`);
-        return c.json({ ok: false, error: 'La publicación no corresponde a esta vertical.' }, 409);
-    }
-    if (listing.ownerId !== user.id && user.role !== 'superadmin') {
-        return c.json({ ok: false, error: 'No tienes permisos sobre esta publicación' }, 403);
-    }
-
-    try {
-        const publication = await publishListingToInstagram(user, listing, {
-            captionOverride: parsed.data.captionOverride ?? null,
-        });
-        return c.json({ ok: true, publication });
-    } catch (error) {
-        const message = error instanceof Error ? error.message : 'No se pudo publicar en Instagram.';
-        logDebug(`[instagram] publish error: ${message}`);
-        const status = message.includes('Pro y Empresa')
-            ? 403
-            : message.includes('conecta una cuenta')
-                ? 409
-                : message.includes('API público HTTPS')
-                    ? 503
-                    : 400;
-        return c.json({ ok: false, error: message }, status as any);
-    }
-});
-
-app.get('/api/public/instagram-image/:id', async (c) => {
-    // Sin query params — la URL debe ser simple para que Meta la parsee correctamente
-    const listingId = c.req.param('id') ?? '';
-    const listing = listingsById.get(listingId) ?? await getListingById(listingId);
-    if (!listing || listing.status !== 'active') {
-        return c.json({ ok: false, error: 'Imagen no disponible.' }, 404);
-    }
-
-    const [image] = extractListingMediaUrls(listing);
-    if (!image) {
-        return c.json({ ok: false, error: 'La publicación no tiene imágenes.' }, 404);
-    }
-
-    if (image.startsWith('data:')) {
-        const match = image.match(/^data:([^;,]+)(;base64)?,(.*)$/);
-        if (!match) {
-            return c.json({ ok: false, error: 'Formato de imagen inválido.' }, 400);
-        }
-        const contentType = match[1] || 'image/png';
-        const isBase64 = Boolean(match[2]);
-        const rawBody = match[3] || '';
-        const body = isBase64 ? Buffer.from(rawBody, 'base64') : Buffer.from(decodeURIComponent(rawBody));
-        return new Response(body, {
-            status: 200,
-            headers: {
-                'Content-Type': contentType,
-                'Cache-Control': 'public, max-age=3600, stale-while-revalidate=86400',
-            },
-        });
-    }
-
-    // Resolvemos la URL absoluta de la imagen
-    let resolvedUrl: string;
-    if (/^https?:\/\//i.test(image)) {
-        resolvedUrl = image;
-    } else {
-        try {
-            resolvedUrl = new URL(image, getInstagramBasePublicOrigin()).toString();
-        } catch {
-            return c.json({ ok: false, error: 'No pudimos resolver la imagen pública.' }, 404);
-        }
-    }
-
-    // Proxy de la imagen — Instagram no sigue redirects, necesita bytes directos.
-    // Instagram solo acepta JPEG y PNG — convertimos WebP y otros formatos a JPEG.
-    try {
-        const upstream = await fetch(resolvedUrl);
-        if (!upstream.ok) {
-            return c.json({ ok: false, error: 'No se pudo obtener la imagen.' }, 502);
-        }
-        const contentType = upstream.headers.get('content-type') || 'image/jpeg';
-        const rawArrayBuffer = await upstream.arrayBuffer();
-
-        const needsConversion = contentType.includes('webp') || contentType.includes('avif') || contentType.includes('gif');
-        if (needsConversion) {
-            // eslint-disable-next-line @typescript-eslint/no-var-requires
-            const sharp = require('sharp') as typeof import('sharp');
-            const jpegBuffer = await sharp(Buffer.from(rawArrayBuffer)).jpeg({ quality: 90 }).toBuffer();
-            return new Response(new Uint8Array(jpegBuffer), {
-                status: 200,
-                headers: {
-                    'Content-Type': 'image/jpeg',
-                    'Cache-Control': 'public, max-age=3600',
-                },
-            });
-        }
-
-        return new Response(rawArrayBuffer, {
-            status: 200,
-            headers: {
-                'Content-Type': contentType,
-                'Cache-Control': 'public, max-age=3600',
-            },
-        });
-    } catch {
-        return c.json({ ok: false, error: 'Error al descargar la imagen.' }, 502);
-    }
-});
-
-app.get('/api/saved', async (c) => {
-    const user = await authUser(c);
-    if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
-
-    const items = await getSavedListingsByUser(user.id);
-    savedByUser.set(user.id, items);
-    return c.json({ ok: true, items });
-});
-
-app.post('/api/saved/toggle', async (c) => {
-    const user = await authUser(c);
-    if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
-
-    const payload = await c.req.json().catch(() => null);
-    const parsed = savedRecordSchema.safeParse(payload);
-
-    if (!parsed.success) {
-        return c.json({ ok: false, error: 'Payload inválido' }, 400);
-    }
-
-    const listingId = parsed.data.id;
-    const targetListing = await getListingById(listingId);
-    if (!targetListing) {
-        return c.json({ ok: false, error: 'La publicación no existe.' }, 404);
-    }
-
-    const existing = await db
-        .select()
-        .from(savedListings)
-        .where(and(eq(savedListings.userId, user.id), eq(savedListings.listingId, listingId)))
-        .limit(1);
-
-    let saved = false;
-    if (existing.length > 0) {
-        await db
-            .delete(savedListings)
-            .where(and(eq(savedListings.userId, user.id), eq(savedListings.listingId, listingId)));
-    } else {
-        saved = true;
-        await db.insert(savedListings).values({
-            userId: user.id,
-            listingId,
-            savedAt: new Date(),
-        });
-    }
-
-    const items = await getSavedListingsByUser(user.id);
-    savedByUser.set(user.id, items);
-    return c.json({ ok: true, saved, items });
-});
-
-app.delete('/api/saved/:id', async (c) => {
-    const user = await authUser(c);
-    if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
-
-    const id = c.req.param('id') ?? '';
-    await db
-        .delete(savedListings)
-        .where(and(eq(savedListings.userId, user.id), eq(savedListings.listingId, id)));
-
-    const items = await getSavedListingsByUser(user.id);
-    savedByUser.set(user.id, items);
-
-    return c.json({ ok: true, items });
-});
-
-app.get('/api/address-book', async (c) => {
-    const user = await authUser(c);
-    if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
-    return c.json({ ok: true, items: await getAddressBookEntries(user.id) });
-});
-
-app.get('/api/account/address-book', async (c) => {
-    const user = await authUser(c);
-    if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
-    return c.json({ ok: true, items: await getAddressBookEntries(user.id) });
-});
-
-app.post('/api/address-book', async (c) => {
-    const user = await authUser(c);
-    if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
-
-    const payload = await c.req.json().catch(() => null);
-    const parsed = addressBookWriteSchema.safeParse(payload);
-    if (!parsed.success) return c.json({ ok: false, error: 'Payload inválido' }, 400);
-
-    if (!parsed.data.regionId || !parsed.data.communeId) {
-        return c.json({ ok: false, error: 'Región y comuna son obligatorias.' }, 400);
-    }
-
-    const items = await upsertAddressBookEntry(user.id, parsed.data);
-    return c.json({ ok: true, items }, 201);
-});
-
-app.post('/api/account/address-book', async (c) => {
-    const user = await authUser(c);
-    if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
-
-    const payload = await c.req.json().catch(() => null);
-    const parsed = addressBookWriteSchema.safeParse(payload);
-    if (!parsed.success) return c.json({ ok: false, error: 'Payload inválido' }, 400);
-
-    if (!parsed.data.regionId || !parsed.data.communeId) {
-        return c.json({ ok: false, error: 'Región y comuna son obligatorias.' }, 400);
-    }
-
-    const items = await upsertAddressBookEntry(user.id, parsed.data);
-    return c.json({ ok: true, items }, 201);
-});
-
-app.patch('/api/address-book/:id', async (c) => {
-    const user = await authUser(c);
-    if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
-
-    const addressId = c.req.param('id') ?? '';
-    const current = await getAddressBookEntries(user.id);
-    if (!current.some((item) => item.id === addressId)) {
-        return c.json({ ok: false, error: 'Dirección no encontrada' }, 404);
-    }
-
-    const payload = await c.req.json().catch(() => null);
-    const parsed = addressBookWriteSchema.safeParse(payload);
-    if (!parsed.success) return c.json({ ok: false, error: 'Payload inválido' }, 400);
-    if (!parsed.data.regionId || !parsed.data.communeId) {
-        return c.json({ ok: false, error: 'Región y comuna son obligatorias.' }, 400);
-    }
-
-    const items = await upsertAddressBookEntry(user.id, parsed.data, addressId);
-    return c.json({ ok: true, items });
-});
-
-app.patch('/api/account/address-book/:id', async (c) => {
-    const user = await authUser(c);
-    if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
-
-    const addressId = c.req.param('id') ?? '';
-    const current = await getAddressBookEntries(user.id);
-    if (!current.some((item) => item.id === addressId)) {
-        return c.json({ ok: false, error: 'Dirección no encontrada' }, 404);
-    }
-
-    const payload = await c.req.json().catch(() => null);
-    const parsed = addressBookWriteSchema.safeParse(payload);
-    if (!parsed.success) return c.json({ ok: false, error: 'Payload inválido' }, 400);
-    if (!parsed.data.regionId || !parsed.data.communeId) {
-        return c.json({ ok: false, error: 'Región y comuna son obligatorias.' }, 400);
-    }
-
-    const items = await upsertAddressBookEntry(user.id, parsed.data, addressId);
-    return c.json({ ok: true, items });
-});
-
-app.delete('/api/address-book/:id', async (c) => {
-    const user = await authUser(c);
-    if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
-
-    const addressId = c.req.param('id') ?? '';
-    const current = await getAddressBookEntries(user.id);
-    if (!current.some((item) => item.id === addressId)) {
-        return c.json({ ok: false, error: 'Dirección no encontrada' }, 404);
-    }
-
-    const items = await deleteAddressBookEntry(user.id, addressId);
-    return c.json({ ok: true, items });
-});
-
-app.delete('/api/account/address-book/:id', async (c) => {
-    const user = await authUser(c);
-    if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
-
-    const addressId = c.req.param('id') ?? '';
-    const current = await getAddressBookEntries(user.id);
-    if (!current.some((item) => item.id === addressId)) {
-        return c.json({ ok: false, error: 'Dirección no encontrada' }, 404);
-    }
-
-    const items = await deleteAddressBookEntry(user.id, addressId);
-    return c.json({ ok: true, items });
-});
-
-
-app.post('/api/locations/geocode', async (c) => {
-    const payload = await c.req.json().catch(() => null);
-    const parsed = geocodeLocationRequestSchema.safeParse(payload);
-    if (!parsed.success) return c.json({ ok: false, provider: 'none', error: 'Payload inválido' }, 400);
-
-    const normalized = normalizeListingLocation(parsed.data.location);
-    if (!normalized) return c.json({ ok: false, provider: 'none', error: 'No pudimos procesar la ubicación.' }, 400);
-    const location = await geocodeLocationRemotely(normalized);
-    if (!location) {
-        return c.json({
-            ok: true,
-            provider: normalized.geoPoint.provider ?? 'none',
-            location: normalized,
-            error: 'No pudimos confirmar automáticamente el punto exacto. Revisa la dirección en Google Maps antes de guardar.',
-        });
-    }
-
-    return c.json({
-        ok: true,
-        provider: location.geoPoint.provider ?? 'none',
-        location,
-    });
-});
-
-app.get('/api/valuations/properties/sources', (c) => {
-    const state = getValuationFeedState();
-    return c.json({ ok: true, sources: state.sources });
-});
-
-app.post('/api/valuations/properties/sources/refresh', async (c) => {
-    const state = await refreshValuationFeeds();
-    return c.json({ ok: true, sources: state.sources, totalRecords: state.records.length });
-});
-
-app.post('/api/valuations/properties/estimate', async (c) => {
-    const payload = await c.req.json().catch(() => null);
-    const parsed = propertyValuationRequestSchema.safeParse(payload);
-    if (!parsed.success) return c.json({ ok: false, error: 'Payload inválido' }, 400);
-
-    const estimate = estimatePropertyValuation(parsed.data);
-    return c.json({ ok: true, estimate });
-});
-
-app.get('/api/valuations/vehicles/sources', (c) => {
-    const state = getVehicleValuationFeedState();
-    return c.json({ ok: true, sources: state.sources });
-});
-
-app.post('/api/valuations/vehicles/sources/refresh', async (c) => {
-    const state = await refreshVehicleValuationFeeds();
-    return c.json({ ok: true, sources: state.sources, totalRecords: state.records.length });
-});
-
-app.post('/api/valuations/vehicles/estimate', async (c) => {
-    const payload = await c.req.json().catch(() => null);
-    const parsed = vehicleValuationRequestSchema.safeParse(payload);
-    if (!parsed.success) return c.json({ ok: false, error: 'Payload inválido' }, 400);
-
-    const estimate = estimateVehicleValuation(parsed.data);
-    return c.json({ ok: true, estimate });
-});
-
-app.get('/api/public/listings', (c) => {
-    const vertical = parseVertical(c.req.query('vertical'));
-    const section = c.req.query('section');
-    const limitRaw = Number(c.req.query('limit') ?? '60');
-    const limit = Number.isFinite(limitRaw) ? Math.min(120, Math.max(1, limitRaw)) : 60;
-
-    // Search filters
-    const q = c.req.query('q');
-    const region = c.req.query('region');
-    const commune = c.req.query('commune');
-    const priceFrom = c.req.query('price_from');
-    const priceTo = c.req.query('price_to');
-    const brand = c.req.query('brand');
-    const model = c.req.query('model');
-    const yearFrom = c.req.query('year_from');
-    const yearTo = c.req.query('year_to');
-    const fuel = c.req.query('fuel');
-
-    const items = Array.from(listingsById.values())
-        .filter((listing) => listing.vertical === vertical)
-        .filter((listing) => isPublicListingVisible(listing))
-        .filter((listing) => {
-            if (!section) return true;
-            const normalized = parseBoostSection(section, vertical);
-            return listing.section === normalized;
-        })
-        .filter((listing) => {
-            if (!q) return true;
-            const query = q.toLowerCase();
-            const title = listing.title?.toLowerCase() ?? '';
-            const description = listing.description?.toLowerCase() ?? '';
-            const rawData = asObject(listing.rawData);
-            const basic = asObject(rawData.basic);
-            const brandField = (asString(basic.brand) || asString(rawData.brand) || '').toLowerCase();
-            const modelField = (asString(basic.model) || asString(rawData.model) || '').toLowerCase();
-            return title.includes(query) || description.includes(query) || brandField.includes(query) || modelField.includes(query);
-        })
-        .filter((listing) => {
-            if (!region) return true;
-            const locationData = asObject(listing.locationData);
-            const rawData = asObject(listing.rawData);
-            const location = asObject(rawData.location);
-            const listingRegionId = (asString(locationData.regionId) || asString(location.regionId) || '').toLowerCase();
-            return listingRegionId === region.toLowerCase();
-        })
-        .filter((listing) => {
-            if (!commune) return true;
-            const locationData = asObject(listing.locationData);
-            const rawData = asObject(listing.rawData);
-            const location = asObject(rawData.location);
-            const listingCommuneId = (asString(locationData.communeId) || asString(location.communeId) || '').toLowerCase();
-            return listingCommuneId === commune.toLowerCase();
-        })
-        .filter((listing) => {
-            if (!brand) return true;
-            const rawData = asObject(listing.rawData);
-            const basic = asObject(rawData.basic);
-            const listingBrand = (asString(basic.brand) || asString(rawData.brand) || '').toLowerCase();
-            return listingBrand === brand.toLowerCase();
-        })
-        .filter((listing) => {
-            if (!model) return true;
-            const rawData = asObject(listing.rawData);
-            const basic = asObject(rawData.basic);
-            const listingModel = (asString(basic.model) || asString(rawData.model) || '').toLowerCase();
-            return listingModel === model.toLowerCase();
-        })
-        .filter((listing) => {
-            if (!fuel) return true;
-            const rawData = asObject(listing.rawData);
-            const basic = asObject(rawData.basic);
-            const listingFuel = (asString(basic.fuelType) || asString(rawData.fuelType) || '').toLowerCase();
-            return listingFuel === fuel.toLowerCase();
-        })
-        .filter((listing) => {
-            if (!yearFrom) return true;
-            const rawData = asObject(listing.rawData);
-            const basic = asObject(rawData.basic);
-            const listingYear = parseNumberFromString(basic.year) ?? parseNumberFromString(rawData.year) ?? 0;
-            return listingYear >= Number(yearFrom);
-        })
-        .filter((listing) => {
-            if (!yearTo) return true;
-            const rawData = asObject(listing.rawData);
-            const basic = asObject(rawData.basic);
-            const listingYear = parseNumberFromString(basic.year) ?? parseNumberFromString(rawData.year) ?? 0;
-            return listingYear <= Number(yearTo);
-        })
-        .filter((listing) => {
-            const listingPrice = parseNumberFromString(listing.price) ?? 0;
-            if (priceFrom && priceTo) {
-                return listingPrice >= Number(priceFrom) && listingPrice <= Number(priceTo);
-            }
-            if (priceFrom) return listingPrice >= Number(priceFrom);
-            if (priceTo) return listingPrice <= Number(priceTo);
-            return true;
-        })
-        .sort((a, b) => b.updatedAt - a.updatedAt)
-        .slice(0, limit)
-        .map((listing) => listingToPublicResponse(listing));
-
-    return c.json({ ok: true, items });
-});
-
-app.get('/api/public/listings/:slug', (c) => {
-    const vertical = parseVertical(c.req.query('vertical'));
-    const slug = c.req.param('slug') ?? '';
-    const listing = Array.from(listingsById.values())
-        .find((item) => item.vertical === vertical && isPublicListingVisible(item) && matchesListingSlug(item, slug));
-
-    if (!listing) return c.json({ ok: false, error: 'Publicación no encontrada' }, 404);
-    return c.json({ ok: true, item: listingToPublicResponse(listing) });
-});
-
-app.get('/api/public/profiles/:slug', (c) => {
-    const vertical = parseVertical(c.req.query('vertical'));
-    const slug = c.req.param('slug') ?? '';
-    const profile = getPublishedPublicProfileBySlug(vertical, slug);
-    if (!profile) return c.json({ ok: false, error: 'Perfil no encontrado' }, 404);
-
-    const user = usersById.get(profile.userId) ?? null;
-    if (!user || !userCanUsePublicProfile(user, vertical)) {
-        return c.json({ ok: false, error: 'Perfil no encontrado' }, 404);
-    }
-
-    const payload = buildPublicProfileResponse(user, vertical, profile);
-    return c.json({ ok: true, ...payload });
-});
-
-app.get('/api/listing-draft', async (c) => {
-    const user = await authUser(c);
-    if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
-
-    const vertical = parseVertical(c.req.query('vertical'));
-    const item = await getListingDraftRecord(user.id, vertical);
-    return c.json({ ok: true, item });
-});
-
-app.put('/api/listing-draft', async (c) => {
-    const user = await authUser(c);
-    if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
-
-    const vertical = parseVertical(c.req.query('vertical'));
-    const payload = await c.req.json().catch(() => null);
-    const parsed = listingDraftWriteSchema.safeParse(payload);
-    if (!parsed.success) return c.json({ ok: false, error: 'Payload inválido' }, 400);
-
-    const item = await upsertListingDraftRecord(user.id, vertical, parsed.data.draft);
-    return c.json({ ok: true, item });
-});
-
-app.delete('/api/listing-draft', async (c) => {
-    const user = await authUser(c);
-    if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
-
-    const vertical = parseVertical(c.req.query('vertical'));
-    await deleteListingDraftRecord(user.id, vertical);
-    return c.json({ ok: true });
-});
-
-// -----------------------------------------------------------------------------
-// File Upload Endpoint
-// -----------------------------------------------------------------------------
+        const personalAccount = await ensurePrimaryAccountForUser(newUser);
+        newUser.primaryAccountId = personalAccount.id;
+        await touchUserLastLoginAt(newUser.id);
+        setSession(c, newUser.id);
+        return c.json({ ok: true, user: sanitizeUser(newUser) }, 201);
+    },
+    tables: {
+        crmPipelineColumns,
+        serviceLeads,
+        serviceLeadActivities,
+        listingLeads,
+        listingLeadActivities,
+        users,
+        agendaProfessionalProfiles,
+    },
+}));
+
+app.route('/api/crm', createCrmRouter({
+    authUser,
+    db,
+    eq,
+    and,
+    or,
+    desc,
+    asc,
+    usersById,
+    listingsById,
+    isAdminRole,
+    isAdminForVertical,
+    userCanUseCrm,
+    parseVertical,
+    getPrimaryAccountIdForUser,
+    getEditablePublicProfileTeamMembers,
+    formatAgo,
+    formatRelativeTimestamp,
+    publicSectionLabel,
+    tables: {
+        crmPipelineColumns,
+        serviceLeads,
+        serviceLeadActivities,
+        listingLeads,
+        listingLeadActivities,
+        users,
+    },
+}));
+
+app.route('/api/accounts', createAccountsRouter({
+    accountsById,
+    authUser,
+    db,
+    ensurePrimaryAccountForUser,
+    eq,
+    getAccountMembershipsForUser,
+    mapAccountRow,
+    tables: {
+        accounts,
+    },
+    upsertAccountCache,
+}));
+
+app.route('/api/account', createAccountRouter({
+    authUser,
+    parseVertical,
+    updateProfileSchema,
+    publicProfileWriteSchema,
+    db,
+    tables: { users, publicProfiles, publicProfileTeamMembers },
+    dbHelpers: { eq, and },
+    mapUserRowToAppUser,
+    usersById,
+    sanitizeUser,
+    buildAccountPublicProfileResponse,
+    normalizePublicProfileSlug,
+    isValidPublicProfileSlug,
+    publicProfilesByVerticalSlug,
+    publicProfileVerticalSlugKey,
+    userCanUsePublicProfile,
+    getPublicProfileRecord,
+    PUBLIC_PROFILE_DAYS,
+    normalizePublicProfileSocialLinks,
+    normalizePublicProfileTeamSocialLinks,
+    normalizeExternalUrlInput,
+    toNullIfEmpty,
+    upsertPublicProfileCache,
+    replacePublicProfileTeamMemberCache,
+    mapPublicProfileRow,
+    getPrimaryAccountIdForUser,
+    randomUUID,
+}));
+
+
+app.route('/api/advertising', createAdvertisingRouter({
+    authUser,
+    parseVertical,
+    db,
+    tables: { adCampaigns },
+    dbHelpers: { eq, and },
+    listAdCampaignRecords,
+    adCampaignToResponse,
+    adCampaignCreateSchema,
+    adCampaignUpdateSchema,
+    getAdCampaignRecordForUser,
+    sanitizeAdCampaignWriteInput,
+    normalizeAdCampaigns,
+    mapAdCampaignRow,
+    getPrimaryAccountIdForUser,
+    MAX_CAMPAIGNS_TOTAL,
+    AdStatus: null as any,
+}));
+
+app.route('/', createLeadsRouter({
+    authUser,
+    parseVertical,
+    db,
+    tables: { serviceLeads },
+    serviceLeadCreateSchema,
+    listingLeadCreateSchema,
+    listingLeadActionCreateSchema,
+    externalListingLeadImportSchema,
+    portalKeySchema,
+    mapServiceLeadRow,
+    serviceLeadToResponse,
+    listingLeadToResponse,
+    messageThreadToResponse,
+    messageEntryToResponse,
+    createServiceLeadActivity,
+    isLeadIngestConfigured,
+    isLeadIngestAuthorized,
+    inferPortalFromLeadImportSource,
+    isPortalAvailableForVertical,
+    resolveListingForImportedLead,
+    upsertImportedListingLead,
+    inferListingLeadChannel,
+    getMessageThreadByLeadId,
+    listingsById,
+    getListingById,
+    isPublicListingVisible,
+    createOrAppendListingConversation,
+    createListingLeadRecord,
+    createListingLeadActivity,
+    createOrRefreshListingLeadAction,
+}));
+
+app.route('/api/messages', createMessagesRouter({
+    authUser,
+    parseVertical,
+    db,
+    tables: { listingLeads },
+    dbHelpers: { eq },
+    messageFolderSchema,
+    messageThreadUpdateSchema,
+    messageEntryCreateSchema,
+    listMessageThreadsForUser,
+    listMessageEntries,
+    messageThreadToResponse,
+    messageEntryToResponse,
+    getMessageThreadById,
+    isThreadParticipant,
+    markMessageThreadRead,
+    getListingLeadById,
+    listingLeadToResponse,
+    updateMessageThreadViewerState,
+    createMessageEntry,
+    touchMessageThreadAfterIncomingMessage,
+    mapListingLeadRow,
+    createListingLeadActivity,
+    listingLeadStatusLabel,
+    listListingLeadRecords,
+    listServiceLeadRecords,
+    userCanUseCrm,
+    isAdminRole,
+    buildMessageThreadNotification,
+    buildListingLeadNotification,
+    buildServiceLeadNotification,
+}));
+
+app.route('/api/panel', createPanelNotificationsRouter({
+    authUser,
+    parseVertical,
+    listMessageThreadsForUser,
+    listListingLeadRecords,
+    listServiceLeadRecords,
+    userCanUseCrm,
+    isAdminRole,
+    buildMessageThreadNotification,
+    buildListingLeadNotification,
+    buildServiceLeadNotification,
+}));
+
+app.route('/api/integrations/instagram', createInstagramRouter({
+    authUser,
+    parseVertical,
+    asString,
+    asObject,
+    logDebug,
+    listingsById,
+    getListingById,
+    getInstagramAccount,
+    resolveBrowserOrigin,
+    isInstagramConfigured,
+    userCanUseInstagram,
+    getEffectivePlanId,
+    getInstagramRequiredPlanIds,
+    instagramAccountToResponse,
+    getInstagramPublicationsForUser,
+    instagramPublicationToResponse,
+    sanitizeBrowserReturnUrl,
+    randomBytes,
+    setInstagramState,
+    makeInstagramStatePayload,
+    buildInstagramAuthorizationUrl,
+    consumeInstagramState,
+    parseInstagramStatePayload,
+    defaultOrigin,
+    safeEqualStrings,
+    getUserById,
+    canAuthenticateUser,
+    exchangeInstagramCode,
+    exchangeToLongLivedToken,
+    getInstagramBusinessAccounts,
+    upsertInstagramAccountRecord,
+    instagramSettingsSchema,
+    updateInstagramAccountSettings,
+    disconnectInstagramAccount,
+    instagramPublishSchema,
+    publishListingToInstagram,
+    extractListingMediaUrls,
+    getInstagramBasePublicOrigin,
+    instagramEnhancedPublishSchema,
+    buildInstagramListingData,
+    generateSmartTemplates,
+}));
+
+app.route('/api/public', createInstagramPublicImageRouter({
+    listingsById,
+    getListingById,
+    extractListingMediaUrls,
+    getInstagramBasePublicOrigin,
+}));
+
+app.route('/api', createSocialRouter({
+    authUser,
+    parseVertical,
+    db,
+    tables: { savedListings },
+    dbHelpers: { eq, and },
+    savedRecordSchema,
+    followToggleSchema,
+    getSavedListingsByUser,
+    savedByUser,
+    getListingById,
+    getFollowSetByVertical,
+    getFollowRecords,
+    followsByUser,
+    countFollowers,
+    usersById,
+    buildSocialFeedClips,
+    getPublishedSellerProfile,
+    usernameFromName,
+    formatAgo,
+}));
+
+app.route('/api/public', createPublicRouter({
+    parseVertical,
+    asString,
+    asObject,
+    parseNumberFromString,
+    parseBoostSection,
+    listingsById,
+    isPublicListingVisible,
+    matchesListingSlug,
+    listingToPublicResponse,
+    usersById,
+    getPublishedPublicProfileBySlug,
+    userCanUsePublicProfile,
+    buildPublicProfileResponse,
+    geocodeLocationRequestSchema,
+    normalizeListingLocation,
+    geocodeLocationRemotely,
+    propertyValuationRequestSchema,
+    vehicleValuationRequestSchema,
+    getValuationFeedState,
+    refreshValuationFeeds,
+    estimatePropertyValuation,
+    getVehicleValuationFeedState,
+    refreshVehicleValuationFeeds,
+    estimateVehicleValuation,
+    db,
+    tables: { mortgageRates },
+}));
 
 app.post('/api/media/upload', requireVerifiedSession, async (c) => {
     const user = await authUser(c);
@@ -13874,1198 +11683,124 @@ app.get('/api/storage/health', async (c) => {
     }
 });
 
-app.get('/api/listings', async (c) => {
-    const user = await authUser(c);
-    if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
+const RESERVED_SLUGS = new Set([
+    'panel', 'auth', 'api', 'admin', 'login', 'register', 'logout',
+    'settings', 'configuracion', 'perfil', 'profile', 'cuenta', 'account',
+    'help', 'soporte', 'support', 'terms', 'privacy', 'legal',
+    'blog', 'pricing', 'planes', 'home', 'about', 'nosotros',
+    'app', 'dashboard', 'agenda', 'citas', 'reservas', 'booking',
+    'www', 'mail', 'email', 'ftp', 'cdn', 'static', 'assets',
+]);
 
-    const vertical = parseVertical(c.req.query('vertical'));
-    const mine = c.req.query('mine') !== 'false';
-
-    const items = Array.from(listingsById.values())
-        .filter((listing) => listing.vertical === vertical)
-        .filter((listing) => {
-            if (!mine) return user.role === 'superadmin' ? true : listing.ownerId === user.id;
-            return listing.ownerId === user.id;
-        })
-        .sort((a, b) => b.updatedAt - a.updatedAt)
-        .map((listing) => listingToResponse(listing));
-
-    return c.json({ ok: true, items });
-});
-
-app.post('/api/listings', async (c) => {
-    const user = await authUser(c);
-    if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
-
-    const payload = await c.req.json().catch(() => null);
-    const parsed = createListingSchema.safeParse(payload);
-    if (!parsed.success) return c.json({ ok: false, error: 'Payload inválido' }, 400);
-
-    const vertical = parsed.data.vertical;
-    const section = parseListingSection(parsed.data.listingType, vertical);
-    const now = Date.now();
-    const listingId = makeListingId();
-    const locationData = normalizeListingLocation(parsed.data.locationData);
-    const locationLabel = locationData?.publicLabel || parsed.data.location?.trim() || undefined;
-
-    const record: ListingRecord = {
-        id: listingId,
-        ownerId: user.id,
-        vertical,
-        section,
-        listingType: section,
-        title: parsed.data.title.trim(),
-        description: parsed.data.description.trim(),
-        price: parsed.data.priceLabel.trim(),
-        location: locationLabel,
-        locationData,
-        href: parsed.data.href?.trim() || listingDefaultHref(vertical, listingId),
-        status: parseListingStatus(parsed.data.status),
-        views: 0,
-        favs: 0,
-        leads: 0,
-        createdAt: now,
-        updatedAt: now,
-        rawData: stripStoredListingMetadata(parsed.data.rawData),
-        integrations: {},
-    };
-
-    try {
-        const persisted = await insertListingRecord(record);
-        const current = listingIdsByUser.get(user.id) ?? [];
-        listingIdsByUser.set(user.id, [persisted.id, ...current]);
-        upsertBoostListingFromListing(persisted);
-        void maybeAutoPublishListing(user, persisted);
-
-        return c.json({ ok: true, item: listingToResponse(persisted) }, 201);
-    } catch (error) {
-        if (isListingSlugConflictError(error)) {
-            return c.json({ ok: false, error: 'Ya existe una publicación con ese enlace.' }, 409);
-        }
-        throw error;
+function isValidSlug(slug: string): { ok: true } | { ok: false; error: string } {
+    if (!slug || slug.length < 3) return { ok: false, error: 'El link debe tener al menos 3 caracteres.' };
+    if (slug.length > 60) return { ok: false, error: 'El link no puede tener más de 60 caracteres.' };
+    if (!/^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?$/.test(slug)) {
+        return { ok: false, error: 'Solo letras minúsculas, números y guiones. No puede empezar ni terminar con guion.' };
     }
-});
+    if (/--/.test(slug)) return { ok: false, error: 'No puede contener guiones consecutivos.' };
+    if (RESERVED_SLUGS.has(slug)) return { ok: false, error: 'Este link no está disponible.' };
+    return { ok: true };
+}
 
-app.get('/api/listings/:id', async (c) => {
-    const user = await authUser(c);
-    if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
-
-    const listingId = c.req.param('id') ?? '';
-    let listing = listingsById.get(listingId) ?? await getListingById(listingId);
-    if (!listing) return c.json({ ok: false, error: 'Publicación no encontrada' }, 404);
-    if (listing.ownerId !== user.id && user.role !== 'superadmin') {
-        return c.json({ ok: false, error: 'No tienes permisos sobre esta publicación' }, 403);
-    }
-
-    return c.json({ ok: true, item: listingToDetailResponse(listing) });
-});
-
-app.put('/api/listings/:id', async (c) => {
-    const user = await authUser(c);
-    if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
-
-    const listingId = c.req.param('id') ?? '';
-    let listing = listingsById.get(listingId) ?? await getListingById(listingId);
-    if (!listing) return c.json({ ok: false, error: 'Publicación no encontrada' }, 404);
-    if (listing.ownerId !== user.id && user.role !== 'superadmin') {
-        return c.json({ ok: false, error: 'No tienes permisos sobre esta publicación' }, 403);
-    }
-
-    const payload = await c.req.json().catch(() => null);
-    const parsed = updateListingSchema.safeParse(payload);
-    if (!parsed.success) return c.json({ ok: false, error: 'Payload inválido' }, 400);
-
-    const locationData = normalizeListingLocation(parsed.data.locationData);
-    const locationLabel = locationData?.publicLabel || parsed.data.location?.trim() || undefined;
-    const nextSection = parseListingSection(parsed.data.listingType, listing.vertical);
-    listing.section = nextSection;
-    listing.listingType = nextSection;
-    listing.title = parsed.data.title;
-    listing.description = parsed.data.description;
-    listing.price = parsed.data.priceLabel;
-    listing.location = locationLabel;
-    listing.locationData = locationData;
-    listing.href = parsed.data.href?.trim() || listingDefaultHref(listing.vertical, listing.id);
-    listing.rawData = stripStoredListingMetadata(parsed.data.rawData);
-    if (parsed.data.status) {
-        listing.status = parsed.data.status;
-    }
-    listing.updatedAt = Date.now();
-
-    try {
-        listing = await saveListingRecord(listing);
-        upsertBoostListingFromListing(listing);
-        void maybeAutoPublishListing(user, listing);
-
-        return c.json({ ok: true, item: listingToDetailResponse(listing) });
-    } catch (error) {
-        if (isListingSlugConflictError(error)) {
-            return c.json({ ok: false, error: 'Ya existe una publicación con ese enlace.' }, 409);
-        }
-        throw error;
-    }
-});
-
-app.post('/api/listings/:id/integrations/publish', async (c) => {
-    const user = await authUser(c);
-    if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
-
-    const listingId = c.req.param('id') ?? '';
-    let listing = listingsById.get(listingId) ?? await getListingById(listingId);
-    if (!listing) return c.json({ ok: false, error: 'Publicación no encontrada' }, 404);
-    if (listing.ownerId !== user.id && user.role !== 'superadmin') {
-        return c.json({ ok: false, error: 'No tienes permisos sobre esta publicación' }, 403);
-    }
-
-    const payload = await c.req.json().catch(() => null);
-    const parsed = publishListingPortalSchema.safeParse(payload);
-    if (!parsed.success) return c.json({ ok: false, error: 'Payload inválido' }, 400);
-
-    const portal = parsed.data.portal;
-    if (!isPortalAvailableForVertical(listing.vertical, portal)) {
-        return c.json({ ok: false, error: 'Este portal no está disponible para esta vertical.' }, 400);
-    }
-    const coverage = getPortalCoverage(listing, portal);
-    const now = Date.now();
-
-    if (coverage.missingRequired.length > 0) {
-        listing.integrations[portal] = {
-            portal,
-            status: 'failed',
-            lastAttemptAt: now,
-            publishedAt: null,
-            externalId: null,
-            lastError: 'Faltan campos requeridos para este portal.',
-        };
-        listing.updatedAt = now;
-        listing = await saveListingRecord(listing);
-        return c.json(
-            {
-                ok: false,
-                error: 'Faltan campos requeridos para este portal.',
-                portal,
-                missingRequired: coverage.missingRequired,
-                missingRecommended: coverage.missingRecommended,
-                integration: getPortalSyncView(listing, portal),
-            },
-            422
-        );
-    }
-
-    listing.integrations[portal] = {
-        portal,
-        status: 'published',
-        lastAttemptAt: now,
-        publishedAt: now,
-        externalId: `${portal}-${listing.id}-${now}`,
-        lastError: null,
-    };
-    listing.updatedAt = now;
-    listing = await saveListingRecord(listing);
-
-    return c.json({
-        ok: true,
-        portal,
-        integration: getPortalSyncView(listing, portal),
-    });
-});
-
-app.patch('/api/listings/:id/status', async (c) => {
-    const user = await authUser(c);
-    if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
-
-    const listingId = c.req.param('id') ?? '';
-    let listing = listingsById.get(listingId) ?? await getListingById(listingId);
-    if (!listing) return c.json({ ok: false, error: 'Publicación no encontrada' }, 404);
-    if (listing.ownerId !== user.id && user.role !== 'superadmin') {
-        return c.json({ ok: false, error: 'No tienes permisos sobre esta publicación' }, 403);
-    }
-
-    const payload = await c.req.json().catch(() => null);
-    const parsed = updateListingStatusSchema.safeParse(payload);
-    if (!parsed.success) return c.json({ ok: false, error: 'Payload inválido' }, 400);
-
-    const nextStatus = parsed.data.status;
-    const currentStatus = listing.status;
-    const invalid = currentStatus === 'archived' && nextStatus !== currentStatus;
-
-    if (invalid) {
-        return c.json({ ok: false, error: 'Este aviso ya está cerrado y no puede cambiar de estado desde el panel.' }, 409);
-    }
-
-    if (currentStatus === nextStatus) {
-        return c.json({ ok: true, item: listingToResponse(listing) });
-    }
-
-    listing.status = nextStatus;
-    listing.updatedAt = Date.now();
-    listing = await saveListingRecord(listing);
-    void maybeAutoPublishListing(user, listing);
-
-    return c.json({ ok: true, item: listingToResponse(listing) });
-});
-
-app.delete('/api/listings/:id', async (c) => {
-    const user = await authUser(c);
-    if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
-
-    const listingId = c.req.param('id') ?? '';
-    const listing = listingsById.get(listingId) ?? await getListingById(listingId);
-    if (!listing) return c.json({ ok: false, error: 'Publicación no encontrada' }, 404);
-    if (listing.ownerId !== user.id && user.role !== 'superadmin') {
-        return c.json({ ok: false, error: 'No tienes permisos sobre esta publicación' }, 403);
-    }
-
-    await deleteListingRecord(listingId);
-    return c.json({ ok: true });
-});
-
-app.post('/api/listings/:id/renew', async (c) => {
-    const user = await authUser(c);
-    if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
-
-    const listingId = c.req.param('id') ?? '';
-    let listing = listingsById.get(listingId) ?? await getListingById(listingId);
-    if (!listing) return c.json({ ok: false, error: 'Publicación no encontrada' }, 404);
-    if (listing.ownerId !== user.id && user.role !== 'superadmin') {
-        return c.json({ ok: false, error: 'No tienes permisos sobre esta publicación' }, 403);
-    }
-
-    if (listing.status === 'sold' || listing.status === 'archived') {
-        return c.json({ ok: false, error: 'Este aviso ya está cerrado y no puede renovarse.' }, 409);
-    }
-
-    listing.updatedAt = Date.now();
-    if (listing.status === 'draft') {
-        listing.status = 'active';
-    }
-    listing = await saveListingRecord(listing);
-    void maybeAutoPublishListing(user, listing);
-
-    return c.json({ ok: true, item: listingToResponse(listing) });
-});
-
-app.get('/api/boost/catalog', async (c) => {
-    const user = await authUser(c);
-    if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
-
-    const vertical = parseVertical(c.req.query('vertical'));
-    const sections = getSectionsForVertical(vertical);
-    const listings =
-        user.role === 'superadmin'
-            ? boostListingsSeed.filter((item) => item.vertical === vertical)
-            : getBoostListingsByOwner(vertical, user.id);
-    const plansBySection = Object.fromEntries(
-        sections.map((section) => [
-            section,
-            getBoostPlans(vertical, section),
-        ])
+function getGoogleOAuth2Client() {
+    return new google.auth.OAuth2(
+        process.env.GOOGLE_CLIENT_ID,
+        process.env.GOOGLE_CLIENT_SECRET,
+        `${process.env.API_BASE_URL ?? 'http://localhost:4000'}/api/agenda/google-calendar/callback`,
     );
+}
 
-    const reserved = Object.fromEntries(
-        sections.map((section) => [
-            section,
-            {
-                used: countReservedSlots(vertical, section),
-                max: MAX_BOOST_SLOTS_PER_SECTION,
-            },
-        ])
-    );
-
-    const freeBoostQuota = getFreeBoostQuota(user, vertical);
-
-    return c.json({
-        ok: true,
-        vertical,
-        sections,
-        listings,
-        plansBySection,
-        reserved,
-        freeBoostQuota,
-    });
-});
-
-app.get('/api/boost/orders', async (c) => {
-    const user = await authUser(c);
-    if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
-
-    const vertical = parseVertical(c.req.query('vertical'));
-    const orders = getBoostOrdersForUser(user.id, vertical).map((order) => {
-        const listing = getBoostListingById(order.vertical, order.listingId);
-        return {
-            ...order,
-            sectionLabel: sectionLabel(order.section),
-            listing,
-        };
-    });
-
-    return c.json({ ok: true, orders });
-});
-
-app.post('/api/boost/orders', async (c) => {
-    const user = await authUser(c);
-    if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
-
-    const payload = await c.req.json().catch(() => null);
-    const parsed = createBoostOrderSchema.safeParse(payload);
-    if (!parsed.success) return c.json({ ok: false, error: 'Payload inválido' }, 400);
-
-    const vertical = parsed.data.vertical;
-    const listing = getBoostListingById(vertical, parsed.data.listingId);
-    if (!listing) {
-        return c.json({ ok: false, error: 'Publicación no encontrada' }, 404);
-    }
-    if (listing.ownerId !== user.id && user.role !== 'superadmin') {
-        return c.json({ ok: false, error: 'No tienes permisos sobre esta publicación' }, 403);
-    }
-
-    const section = parsed.data.section
-        ? parseBoostSection(parsed.data.section, vertical)
-        : listing.section;
-
-    if (!isBoostSectionAllowed(vertical, section)) {
-        return c.json({ ok: false, error: 'Sección inválida para esta vertical' }, 400);
-    }
-
-    const plans = getBoostPlans(vertical, section);
-    const selectedPlan = plans.find((item) => item.id === parsed.data.planId);
-    if (!selectedPlan) {
-        return c.json({ ok: false, error: 'Plan no disponible' }, 400);
-    }
-
-    // Handle free boost activation
-    if (parsed.data.useFreeBoost) {
-        const quota = getFreeBoostQuota(user, vertical);
-        if (quota.remaining === 0) {
-            return c.json({ ok: false, error: 'Ya usaste todos tus boosts gratuitos de este mes.' }, 403);
-        }
-        const freePlan = { ...selectedPlan, price: 0 };
-        const created = createBoostOrderRecord({
-            userId: user.id,
-            vertical,
-            listing,
-            section,
-            plan: freePlan,
-            startAt: parsed.data.startAt,
-        });
-        if (!created.ok || !created.order) {
-            return c.json({ ok: false, error: created.error ?? 'No pudimos crear el boost.' }, 409);
-        }
-        return c.json({
-            ok: true,
-            freeBoost: true,
-            order: {
-                ...created.order,
-                sectionLabel: sectionLabel(created.order.section),
-                listing,
-            },
-        });
-    }
-
-    const created = createBoostOrderRecord({
-        userId: user.id,
-        vertical,
-        listing,
-        section,
-        plan: selectedPlan,
-        startAt: parsed.data.startAt,
-    });
-    if (!created.ok || !created.order) {
-        return c.json({ ok: false, error: created.error ?? 'No pudimos crear el boost.' }, 409);
-    }
-
-    return c.json({
-        ok: true,
-        order: {
-            ...created.order,
-            sectionLabel: sectionLabel(created.order.section),
-            listing,
-        },
-    });
-});
-
-app.patch('/api/boost/orders/:id', async (c) => {
-    const user = await authUser(c);
-    if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
-
-    const payload = await c.req.json().catch(() => null);
-    const parsed = updateBoostOrderSchema.safeParse(payload);
-    if (!parsed.success) return c.json({ ok: false, error: 'Payload inválido' }, 400);
-
-    const orderId = c.req.param('id') ?? '';
-    const current = boostOrdersByUser.get(user.id) ?? [];
-    const targetIndex = current.findIndex((order) => order.id === orderId);
-    if (targetIndex < 0) return c.json({ ok: false, error: 'Boost no encontrado' }, 404);
-
-    const target = normalizeBoostOrder(current[targetIndex]);
-    const nextStatus = parsed.data.status;
-
-    if (target.status === 'ended') {
-        return c.json({ ok: false, error: 'El boost ya está finalizado' }, 409);
-    }
-
-    let updated: BoostOrder;
-    if (nextStatus === 'ended') {
-        updated = {
-            ...target,
-            status: 'ended',
-            endAt: Date.now(),
-            updatedAt: Date.now(),
-        };
-    } else if (nextStatus === 'paused') {
-        updated = {
-            ...target,
-            status: 'paused',
-            updatedAt: Date.now(),
-        };
-    } else {
-        updated = normalizeBoostOrder({
-            ...target,
-            status: 'active',
-            updatedAt: Date.now(),
-        });
-    }
-
-    const nextOrders = [...current];
-    nextOrders[targetIndex] = updated;
-    boostOrdersByUser.set(user.id, nextOrders);
-
-    return c.json({ ok: true, order: updated });
-});
-
-app.get('/api/boost/featured', async (c) => {
-    const vertical = parseVertical(c.req.query('vertical'));
-    const section = parseBoostSection(c.req.query('section'), vertical);
-    const limitRaw = Number(c.req.query('limit') ?? '8');
-    const limit = Number.isFinite(limitRaw) ? Math.min(24, Math.max(1, limitRaw)) : 8;
-
-    const items = await listFeaturedBoosted(vertical, section, limit);
-    return c.json({
-        ok: true,
-        vertical,
-        section,
-        sectionLabel: sectionLabel(section),
-        items,
-    });
-});
-
-app.get('/api/subscriptions/catalog', async (c) => {
-    const user = await authUser(c);
-    if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
-
-    const vertical = parseVertical(c.req.query('vertical'));
-    const plans = getSubscriptionPlans(vertical);
-    const freePlan = plans.find((plan) => plan.id === 'free') ?? null;
-    const orders = getPaymentOrdersForUser(user.id, { vertical, kind: 'subscription' }).map((order) => paymentOrderToResponse(order));
-
-    let currentSubscription: ReturnType<typeof activeSubscriptionToResponse> = null;
-
-    if (vertical === 'agenda') {
-        try {
-            const profile = await db.query.agendaProfessionalProfiles.findFirst({
-                where: eq(agendaProfessionalProfiles.userId, user.id),
-            });
-            if (profile && profile.plan !== 'free') {
-                const isExpired = profile.plan === 'pro' && profile.planExpiresAt && profile.planExpiresAt < new Date();
-                if (!isExpired) {
-                    const matchedPlan = plans.find((p) => p.id === profile.plan);
-                    currentSubscription = {
-                        id: `agenda-${profile.id}`,
-                        vertical: 'agenda' as const,
-                        planId: profile.plan as Exclude<SubscriptionPlanId, 'free'>,
-                        planName: matchedPlan?.name ?? profile.plan,
-                        priceMonthly: matchedPlan?.priceMonthly ?? 0,
-                        currency: 'CLP',
-                        features: matchedPlan?.features ?? [],
-                        status: 'active' as const,
-                        providerStatus: 'manual',
-                        startedAt: profile.createdAt.getTime(),
-                        updatedAt: profile.updatedAt.getTime(),
-                    };
-                }
-            }
-        } catch (dbErr) {
-            console.error('[subscriptions/catalog] agenda DB error:', dbErr);
-            return c.json({ ok: false, error: 'Error al consultar el perfil de agenda. Verifica que las migraciones estén aplicadas.' }, 500);
-        }
-    } else {
-        // For autos and propiedades: query from subscriptions table in database
-        try {
-            const subRows = await db.execute(sql`
-                SELECT id, plan_id, vertical, status, provider_status, started_at, updated_at
-                FROM subscriptions
-                WHERE user_id = ${user.id} AND vertical = ${vertical}
-                ORDER BY created_at DESC
-                LIMIT 1
-            `);
-
-            if (subRows.length > 0) {
-                const sub = subRows[0] as any;
-                const matchedPlan = plans.find((p) => p.id === sub.plan_id);
-                const isExpired = sub.expires_at && new Date(sub.expires_at) < new Date();
-                const subStatus = isExpired ? 'expired' : (sub.status || 'active');
-
-                if (subStatus !== 'expired' && subStatus !== 'cancelled') {
-                    currentSubscription = {
-                        id: sub.id,
-                        vertical: sub.vertical as 'autos' | 'propiedades',
-                        planId: sub.plan_id as Exclude<SubscriptionPlanId, 'free'>,
-                        planName: matchedPlan?.name ?? sub.plan_id,
-                        priceMonthly: matchedPlan?.priceMonthly ?? 0,
-                        currency: 'CLP',
-                        features: matchedPlan?.features ?? [],
-                        status: subStatus === 'active' ? 'active' : 'paused',
-                        providerStatus: sub.provider_status ?? 'manual',
-                        startedAt: new Date(sub.started_at).getTime(),
-                        updatedAt: new Date(sub.updated_at).getTime(),
-                    };
-                }
-            }
-        } catch (dbErr) {
-            console.error('[subscriptions/catalog] DB error for', vertical, ':', dbErr);
-            // Fallback to in-memory if DB query fails
-            currentSubscription = activeSubscriptionToResponse(getCurrentSubscription(user.id, vertical));
-        }
-    }
-
-    return c.json({
-        ok: true,
-        vertical,
-        mercadoPagoEnabled: isMercadoPagoConfigured(),
-        plans,
-        freePlan,
-        currentSubscription,
-        orders,
-    });
-});
-
-app.get('/api/subscriptions/admin/all', async (c) => {
-    const user = await authUser(c);
-    if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
-    if (!isAdminRole(user.role)) return c.json({ ok: false, error: 'No autorizado' }, 403);
-
-    const verticalFilter = c.req.query('vertical') as VerticalType | undefined;
-    const statusFilter = c.req.query('status');
-
-    const allUsers = await listAdminUsersSnapshot();
-    const userMap = new Map(allUsers.map((u) => [u.id, u]));
-
-    const results: {
-        id: string;
-        userId: string;
-        userName: string;
-        userEmail: string;
-        vertical: string;
-        planId: string;
-        planName: string;
-        status: string;
-        providerStatus: string | null;
-        startedAt: string;
-        expiresAt: string | null;
-        cancelledAt: string | null;
-    }[] = [];
-
-    for (const [userId, subs] of activeSubscriptionsByUser.entries()) {
-        const u = userMap.get(userId);
-        for (const sub of subs) {
-            if (verticalFilter && sub.vertical !== verticalFilter) continue;
-            if (statusFilter && sub.status !== statusFilter) continue;
-            const plan = getSubscriptionPlans(sub.vertical).find((p) => p.id === sub.planId);
-            results.push({
-                id: sub.id,
-                userId,
-                userName: u?.name ?? 'Usuario',
-                userEmail: u?.email ?? '',
-                vertical: sub.vertical,
-                planId: sub.planId,
-                planName: plan?.name ?? sub.planId,
-                status: sub.status,
-                providerStatus: sub.providerStatus ?? null,
-                startedAt: new Date(sub.startedAt).toISOString(),
-                expiresAt: null,
-                cancelledAt: null,
-            });
-        }
-    }
-
-    results.sort((a, b) => new Date(b.startedAt).getTime() - new Date(a.startedAt).getTime());
-
-    return c.json({ ok: true, subscriptions: results, total: results.length });
-});
-
-app.post('/api/payments/checkout', async (c) => {
-    const user = await authUser(c);
-    if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
-    if (!isMercadoPagoConfigured()) {
-        return c.json({ ok: false, error: 'Mercado Pago no está configurado en el backend.' }, 503);
-    }
-
-    const payload = await c.req.json().catch(() => null);
-    const parsed = createCheckoutSchema.safeParse(payload);
-    if (!parsed.success) return c.json({ ok: false, error: 'Payload inválido' }, 400);
-    const checkoutData = parsed.data;
-
+async function syncToGoogleCalendar(
+    profile: { googleAccessToken: string | null; googleRefreshToken: string | null; googleTokenExpiry: Date | null; googleCalendarId: string | null; displayName: string | null },
+    appointment: { id: string; startsAt: Date; endsAt: Date; clientName: string | null; clientEmail: string | null; internalNotes: string | null; googleEventId: string | null; modality: string | null },
+    action: 'create' | 'update' | 'delete',
+): Promise<{ eventId: string | null; meetingUrl: string | null } | null> {
+    if (!profile.googleAccessToken || !profile.googleCalendarId) return null;
     try {
-        if (checkoutData.kind === 'boost') {
-            const vertical = checkoutData.vertical;
-            const boostInput = checkoutData.boost;
-            const returnUrl = resolveMercadoPagoReturnUrl(vertical, checkoutData.returnUrl);
-            const listing = getBoostListingById(vertical, boostInput.listingId);
-            if (!listing) {
-                return c.json({ ok: false, error: 'Publicación no encontrada' }, 404);
-            }
-            if (listing.ownerId !== user.id && user.role !== 'superadmin') {
-                return c.json({ ok: false, error: 'No tienes permisos sobre esta publicación' }, 403);
-            }
+        const oauth2Client = getGoogleOAuth2Client();
+        oauth2Client.setCredentials({
+            access_token: profile.googleAccessToken,
+            refresh_token: profile.googleRefreshToken ?? undefined,
+            expiry_date: profile.googleTokenExpiry?.getTime(),
+        });
+        const calApi = google.calendar({ version: 'v3', auth: oauth2Client });
 
-            const section = boostInput.section
-                ? parseBoostSection(boostInput.section, vertical)
-                : listing.section;
-            if (!isBoostSectionAllowed(vertical, section)) {
-                return c.json({ ok: false, error: 'Sección inválida para esta vertical' }, 400);
-            }
+        if (action === 'delete') {
+            if (!appointment.googleEventId) return null;
+            await calApi.events.delete({ calendarId: profile.googleCalendarId, eventId: appointment.googleEventId }).catch(() => null);
+            return { eventId: null, meetingUrl: null };
+        }
 
-            const plan = getBoostPlans(vertical, section).find((item) => item.id === boostInput.planId);
-            if (!plan) {
-                return c.json({ ok: false, error: 'Plan no disponible' }, 400);
-            }
+        const isOnline = appointment.modality === 'online';
+        const resource: any = {
+            summary: appointment.clientName ? `Sesión con ${appointment.clientName}` : 'Sesión',
+            description: appointment.internalNotes ?? undefined,
+            start: { dateTime: appointment.startsAt.toISOString() },
+            end: { dateTime: appointment.endsAt.toISOString() },
+            attendees: appointment.clientEmail ? [{ email: appointment.clientEmail }] : undefined,
+        };
 
-            const existingBoost = getBoostOrdersForUser(user.id).some((order) => {
-                if (order.vertical !== vertical || order.listingId !== listing.id) return false;
-                return order.status === 'active' || order.status === 'scheduled' || order.status === 'paused';
-            });
-            if (existingBoost && user.role !== 'superadmin') {
-                return c.json({ ok: false, error: 'Ya tienes un boost vigente para esta publicación' }, 409);
-            }
-
-            if (countReservedSlots(vertical, section) >= MAX_BOOST_SLOTS_PER_SECTION && user.role !== 'superadmin') {
-                return c.json({ ok: false, error: 'No quedan cupos en esta sección para el periodo seleccionado' }, 409);
-            }
-
-            const orderId = makePaymentOrderId('boost');
-            const backUrls = {
-                success: appendCheckoutParams(returnUrl, { checkout: 'success', purchaseId: orderId, kind: 'boost' }),
-                failure: appendCheckoutParams(returnUrl, { checkout: 'failure', purchaseId: orderId, kind: 'boost' }),
-                pending: appendCheckoutParams(returnUrl, { checkout: 'pending', purchaseId: orderId, kind: 'boost' }),
+        if (isOnline) {
+            resource.conferenceData = {
+                createRequest: {
+                    requestId: appointment.id,
+                    conferenceSolutionKey: { type: 'hangoutsMeet' },
+                },
             };
-            const preference = await createCheckoutPreference({
-                externalReference: orderId,
-                title: `Boost ${plan.name} · ${listing.title}`,
-                description: `${sectionLabel(section)} por ${plan.days} días`,
-                amount: plan.price,
-                currencyId: 'CLP',
-                payerEmail: user.email,
-                payerName: user.name,
-                backUrls,
-                metadata: {
-                    kind: 'boost',
-                    vertical,
-                    listingId: listing.id,
-                    section,
-                    planId: plan.id,
-                },
-            });
-
-            const order = upsertPaymentOrder({
-                id: orderId,
-                userId: user.id,
-                vertical,
-                kind: 'boost',
-                title: `Boost ${plan.name} · ${listing.title}`,
-                amount: plan.price,
-                currency: 'CLP',
-                status: 'pending',
-                providerStatus: 'created',
-                providerReferenceId: null,
-                preferenceId: preference.id,
-                checkoutUrl: preference.initPoint ?? preference.sandboxInitPoint,
-                createdAt: Date.now(),
-                updatedAt: Date.now(),
-                appliedAt: null,
-                appliedResourceId: null,
-                metadata: {
-                    kind: 'boost',
-                    listingId: listing.id,
-                    section,
-                    planId: plan.id,
-                    listingTitle: listing.title,
-                },
-            });
-
-            return c.json({
-                ok: true,
-                orderId: order.id,
-                checkoutUrl: order.checkoutUrl,
-                order: paymentOrderToResponse(order),
-            });
         }
 
-        if (checkoutData.kind === 'advertising') {
-            const vertical = checkoutData.vertical;
-            const advertisingInput = checkoutData.advertising;
-            const campaign = await getAdCampaignRecordForUser(user.id, advertisingInput.campaignId);
-            if (!campaign || campaign.vertical !== vertical) {
-                return c.json({ ok: false, error: 'La campaña no existe o no pertenece a tu cuenta.' }, 404);
-            }
-            if (campaign.paymentStatus === 'paid') {
-                return c.json({ ok: false, error: 'Esa campaña ya fue pagada.' }, 409);
-            }
-            const returnUrl = resolveMercadoPagoReturnUrl(vertical, checkoutData.returnUrl);
-            const amount = getAdvertisingPrice(
-                vertical,
-                campaign.format,
-                campaign.durationDays
+        let eventId: string | null = null;
+        let meetingUrl: string | null = null;
+
+        if (!appointment.googleEventId) {
+            const res = await calApi.events.insert({ calendarId: profile.googleCalendarId, requestBody: resource, conferenceDataVersion: 1, sendUpdates: 'none' });
+            eventId = res.data.id ?? null;
+            meetingUrl = res.data.conferenceData?.entryPoints?.[0]?.uri ?? null;
+        } else {
+            const res = await calApi.events.update({ calendarId: profile.googleCalendarId, eventId: appointment.googleEventId, requestBody: resource, conferenceDataVersion: 1, sendUpdates: 'none' });
+            eventId = appointment.googleEventId;
+            meetingUrl = res.data.conferenceData?.entryPoints?.[0]?.uri ?? null;
+        }
+
+        if (isOnline && meetingUrl) {
+            await db.update(agendaAppointments).set({ meetingUrl }).where(eq(agendaAppointments.id, appointment.id));
+        }
+
+        return { eventId, meetingUrl };
+    } catch {
+        return null;
+    }
+}
+
+async function sendPushToUser(userId: string, payload: { title: string; body: string; url?: string }): Promise<void> {
+    if (!VAPID_PUBLIC_KEY || !VAPID_PRIVATE_KEY) return;
+    const subs = await db.select().from(pushSubscriptions).where(eq(pushSubscriptions.userId, userId));
+    await Promise.allSettled(subs.map(async (sub) => {
+        try {
+            await webpush.sendNotification(
+                { endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth } },
+                JSON.stringify(payload),
             );
-            const orderId = makePaymentOrderId('advertising');
-            const backUrls = {
-                success: appendCheckoutParams(returnUrl, { checkout: 'success', purchaseId: orderId, kind: 'advertising' }),
-                failure: appendCheckoutParams(returnUrl, { checkout: 'failure', purchaseId: orderId, kind: 'advertising' }),
-                pending: appendCheckoutParams(returnUrl, { checkout: 'pending', purchaseId: orderId, kind: 'advertising' }),
-            };
-            const preference = await createCheckoutPreference({
-                externalReference: orderId,
-                title: `Publicidad ${AD_FORMAT_LABELS[campaign.format]} · ${campaign.name}`,
-                description: `${campaign.durationDays} días`,
-                amount,
-                currencyId: 'CLP',
-                payerEmail: user.email,
-                payerName: user.name,
-                backUrls,
-                metadata: {
-                    kind: 'advertising',
-                    vertical,
-                    campaignId: campaign.id,
-                    format: campaign.format,
-                    durationDays: campaign.durationDays,
-                },
-            });
-
-            await db.update(adCampaigns).set({
-                paymentStatus: 'pending',
-                updatedAt: new Date(),
-            }).where(eq(adCampaigns.id, campaign.id));
-
-            const order = upsertPaymentOrder({
-                id: orderId,
-                userId: user.id,
-                vertical,
-                kind: 'advertising',
-                title: `Publicidad ${AD_FORMAT_LABELS[campaign.format]} · ${campaign.name}`,
-                amount,
-                currency: 'CLP',
-                status: 'pending',
-                providerStatus: 'created',
-                providerReferenceId: null,
-                preferenceId: preference.id,
-                checkoutUrl: preference.initPoint ?? preference.sandboxInitPoint,
-                createdAt: Date.now(),
-                updatedAt: Date.now(),
-                appliedAt: null,
-                appliedResourceId: null,
-                metadata: {
-                    kind: 'advertising',
-                    campaignId: campaign.id,
-                    format: campaign.format,
-                    durationDays: campaign.durationDays,
-                    campaignName: campaign.name,
-                },
-            });
-
-            return c.json({
-                ok: true,
-                orderId: order.id,
-                checkoutUrl: order.checkoutUrl,
-                order: paymentOrderToResponse(order),
-            });
-        }
-
-        const vertical = checkoutData.vertical;
-        const resolvedPlanId = checkoutData.planId ?? checkoutData.subscription?.planId;
-        if (!resolvedPlanId) {
-            return c.json({ ok: false, error: 'planId es requerido' }, 400);
-        }
-        const returnUrl = ensureMercadoPagoSubscriptionReturnUrl(vertical, checkoutData.returnUrl);
-        const plan = getPaidSubscriptionPlan(vertical, resolvedPlanId);
-        if (!plan) {
-            return c.json({ ok: false, error: 'Plan no disponible' }, 400);
-        }
-        const currentSubscription = getCurrentSubscription(user.id, vertical);
-        if (currentSubscription?.planId === plan.id && currentSubscription.status === 'active') {
-            return c.json({ ok: false, error: 'Ese plan ya está activo en tu cuenta.' }, 409);
-        }
-
-        const orderId = makePaymentOrderId('subscription');
-        const preapproval = await createPreapproval({
-            externalReference: orderId,
-            reason: `Suscripción ${plan.name} · ${vertical === 'autos' ? 'SimpleAutos' : vertical === 'propiedades' ? 'SimplePropiedades' : 'SimpleAgenda'}`,
-            amount: plan.priceMonthly,
-            currencyId: plan.currency,
-            payerEmail: user.email,
-            backUrl: appendCheckoutParams(returnUrl, { checkout: 'return', purchaseId: orderId, kind: 'subscription' }),
-        });
-
-        const order = upsertPaymentOrder({
-            id: orderId,
-            userId: user.id,
-            vertical,
-            kind: 'subscription',
-            title: `Suscripción ${plan.name}`,
-            amount: plan.priceMonthly,
-            currency: plan.currency,
-            status: preapproval.status === 'authorized' ? 'authorized' : 'pending',
-            providerStatus: preapproval.status,
-            providerReferenceId: preapproval.id,
-            preferenceId: null,
-            checkoutUrl: preapproval.initPoint,
-            createdAt: Date.now(),
-            updatedAt: Date.now(),
-            appliedAt: null,
-            appliedResourceId: null,
-            metadata: {
-                kind: 'subscription',
-                planId: plan.id,
-                planName: plan.name,
-            },
-        });
-
-        return c.json({
-            ok: true,
-            orderId: order.id,
-            checkoutUrl: order.checkoutUrl,
-            order: paymentOrderToResponse(order),
-        });
-    } catch (error) {
-        const message = error instanceof Error ? error.message : 'No pudimos iniciar el checkout.';
-        const status = message.includes('requiere una URL publica HTTPS') ? 400 : 502;
-        return c.json({ ok: false, error: message }, status);
-    }
-});
-
-app.post('/api/payments/confirm', async (c) => {
-    const user = await authUser(c);
-    if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
-    if (!isMercadoPagoConfigured()) {
-        return c.json({ ok: false, error: 'Mercado Pago no está configurado en el backend.' }, 503);
-    }
-
-    const payload = await c.req.json().catch(() => null);
-    const parsed = confirmCheckoutSchema.safeParse(payload);
-    if (!parsed.success) return c.json({ ok: false, error: 'Payload inválido' }, 400);
-
-    const paymentId = parsed.data.paymentId != null ? String(parsed.data.paymentId) : '';
-    const order = getPaymentOrdersForUser(user.id).find((item) => item.id === parsed.data.orderId);
-    if (!order) {
-        return c.json({ ok: false, error: 'Orden no encontrada' }, 404);
-    }
-
-    try {
-        if (order.kind === 'subscription') {
-            const subscriptionMeta = order.metadata.kind === 'subscription' ? order.metadata : null;
-            if (!subscriptionMeta) {
-                return c.json({ ok: false, error: 'La orden no tiene metadata de suscripción válida.' }, 409);
-            }
-            if (!order.providerReferenceId) {
-                return c.json({ ok: false, error: 'La suscripción no tiene referencia en Mercado Pago.' }, 409);
-            }
-
-            const providerPayload = await getPreapprovalById(order.providerReferenceId);
-            const providerStatus = asString(asObject(providerPayload).status);
-            const externalReference = asString(asObject(providerPayload).external_reference);
-            if (externalReference && externalReference !== order.id) {
-                return c.json({ ok: false, error: 'La respuesta de Mercado Pago no coincide con esta orden.' }, 409);
-            }
-
-            let nextOrder = updatePaymentOrder(user.id, order.id, (current) => ({
-                ...current,
-                status: parseMercadoPagoPreapprovalStatus(providerStatus),
-                providerStatus,
-                updatedAt: Date.now(),
-            })) ?? order;
-
-            if (nextOrder.status === 'authorized' && !nextOrder.appliedAt) {
-                const plan = getPaidSubscriptionPlan(nextOrder.vertical, subscriptionMeta.planId);
-                if (!plan) {
-                    return c.json({ ok: false, error: 'No pudimos resolver el plan de suscripción.' }, 409);
-                }
-
-                const subscription = upsertActiveSubscription({
-                    id: makeSubscriptionId(nextOrder.vertical, subscriptionMeta.planId),
-                    userId: user.id,
-                    vertical: nextOrder.vertical,
-                    planId: subscriptionMeta.planId,
-                    planName: plan.name,
-                    priceMonthly: plan.priceMonthly,
-                    currency: plan.currency,
-                    features: plan.features,
-                    status: 'active',
-                    providerPreapprovalId: nextOrder.providerReferenceId ?? '',
-                    providerStatus,
-                    startedAt: Date.now(),
-                    updatedAt: Date.now(),
-                });
-
-                nextOrder = updatePaymentOrder(user.id, order.id, (current) => ({
-                    ...current,
-                    status: 'authorized',
-                    providerStatus,
-                    updatedAt: Date.now(),
-                    appliedAt: Date.now(),
-                    appliedResourceId: subscription.id,
-                })) ?? nextOrder;
-
-                return c.json({
-                    ok: true,
-                    status: nextOrder.status,
-                    order: paymentOrderToResponse(nextOrder),
-                    subscription: activeSubscriptionToResponse(subscription),
-                });
-            }
-
-            return c.json({
-                ok: true,
-                status: nextOrder.status,
-                order: paymentOrderToResponse(nextOrder),
-                subscription: activeSubscriptionToResponse(getCurrentSubscription(user.id, order.vertical)),
-            });
-        }
-
-        const paymentReferenceId = paymentId || order.providerReferenceId || '';
-        if (!paymentReferenceId) {
-            return c.json({ ok: false, error: 'Mercado Pago no devolvió un identificador de pago.' }, 400);
-        }
-
-        const providerPayload = await getPaymentById(paymentReferenceId);
-        const payloadObject = asObject(providerPayload);
-        const providerStatus = asString(payloadObject.status);
-        const externalReference = asString(payloadObject.external_reference);
-        if (externalReference && externalReference !== order.id) {
-            return c.json({ ok: false, error: 'La respuesta de Mercado Pago no coincide con esta orden.' }, 409);
-        }
-
-        let nextOrder = updatePaymentOrder(user.id, order.id, (current) => ({
-            ...current,
-            status: parseMercadoPagoPaymentStatus(providerStatus),
-            providerStatus,
-            providerReferenceId: paymentReferenceId,
-            updatedAt: Date.now(),
-        })) ?? order;
-
-        if ((nextOrder.status === 'approved' || nextOrder.status === 'authorized') && !nextOrder.appliedAt) {
-            if (nextOrder.kind === 'boost') {
-                const boostMeta = nextOrder.metadata.kind === 'boost' ? nextOrder.metadata : null;
-                if (!boostMeta) {
-                    return c.json({ ok: false, error: 'La orden no tiene metadata de boost válida.' }, 409);
-                }
-
-                const listing = getBoostListingById(nextOrder.vertical, boostMeta.listingId);
-                if (!listing) {
-                    return c.json({ ok: false, error: 'Pago aprobado, pero la publicación ya no existe.' }, 409);
-                }
-                const plan = getBoostPlans(nextOrder.vertical, boostMeta.section).find(
-                    (item) => item.id === boostMeta.planId
-                );
-                if (!plan) {
-                    return c.json({ ok: false, error: 'Pago aprobado, pero el plan ya no está disponible.' }, 409);
-                }
-
-                const created = createBoostOrderRecord({
-                    userId: user.id,
-                    vertical: nextOrder.vertical,
-                    listing,
-                    section: boostMeta.section,
-                    plan,
-                });
-                if (!created.ok || !created.order) {
-                    return c.json({ ok: false, error: created.error ?? 'Pago aprobado, pero no pudimos activar el boost.' }, 409);
-                }
-
-                nextOrder = updatePaymentOrder(user.id, order.id, (current) => ({
-                    ...current,
-                    status: 'approved',
-                    providerStatus,
-                    providerReferenceId: paymentReferenceId,
-                    updatedAt: Date.now(),
-                    appliedAt: Date.now(),
-                    appliedResourceId: created.order?.id ?? null,
-                })) ?? nextOrder;
-
-                return c.json({
-                    ok: true,
-                    status: nextOrder.status,
-                    order: paymentOrderToResponse(nextOrder),
-                    boostOrder: {
-                        ...created.order,
-                        sectionLabel: sectionLabel(created.order.section),
-                        listing,
-                    },
-                });
-            }
-
-            if (nextOrder.kind === 'advertising') {
-                const advertisingMeta = nextOrder.metadata.kind === 'advertising' ? nextOrder.metadata : null;
-                if (!advertisingMeta) {
-                    return c.json({ ok: false, error: 'La orden no tiene metadata de publicidad válida.' }, 409);
-                }
-
-                const campaign = await getAdCampaignRecordForUser(user.id, advertisingMeta.campaignId);
-                if (!campaign) {
-                    return c.json({ ok: false, error: 'Pago aprobado, pero la campaña ya no existe.' }, 409);
-                }
-
-                const rows = await db.update(adCampaigns).set({
-                    paymentStatus: 'paid',
-                    paidAt: new Date(),
-                    updatedAt: new Date(),
-                }).where(and(eq(adCampaigns.id, campaign.id), eq(adCampaigns.userId, user.id))).returning();
-
-                const normalizedCampaign = normalizeAdCampaigns([mapAdCampaignRow(rows[0])])[0];
-                nextOrder = updatePaymentOrder(user.id, order.id, (current) => ({
-                    ...current,
-                    status: 'approved',
-                    providerStatus,
-                    providerReferenceId: paymentReferenceId,
-                    updatedAt: Date.now(),
-                    appliedAt: Date.now(),
-                    appliedResourceId: normalizedCampaign.id,
-                })) ?? nextOrder;
-
-                return c.json({
-                    ok: true,
-                    status: nextOrder.status,
-                    order: paymentOrderToResponse(nextOrder),
-                    campaign: adCampaignToResponse(normalizedCampaign),
-                });
-            }
-
-            nextOrder = updatePaymentOrder(user.id, order.id, (current) => ({
-                ...current,
-                status: 'approved',
-                providerStatus,
-                providerReferenceId: paymentReferenceId,
-                updatedAt: Date.now(),
-                appliedAt: Date.now(),
-                appliedResourceId: current.id,
-            })) ?? nextOrder;
-        }
-
-        if (nextOrder.kind === 'advertising') {
-            const advertisingMeta = nextOrder.metadata.kind === 'advertising' ? nextOrder.metadata : null;
-            if (advertisingMeta) {
-                await db.update(adCampaigns).set({
-                    paymentStatus: getAdPaymentStatusFromOrderStatus(nextOrder.status),
-                    updatedAt: new Date(),
-                }).where(and(eq(adCampaigns.id, advertisingMeta.campaignId), eq(adCampaigns.userId, user.id)));
+        } catch (e: unknown) {
+            if (e && typeof e === 'object' && 'statusCode' in e && (e as { statusCode: number }).statusCode === 410) {
+                await db.delete(pushSubscriptions).where(eq(pushSubscriptions.id, sub.id));
             }
         }
+    }));
+}
 
-        return c.json({
-            ok: true,
-            status: nextOrder.status,
-            order: paymentOrderToResponse(nextOrder),
-        });
-    } catch (error) {
-        const message = error instanceof Error ? error.message : 'No pudimos validar el pago.';
-        return c.json({ ok: false, error: message }, 502);
-    }
-});
-
-app.get('/api/social/feed', async (c) => {
-    const vertical = parseVertical(c.req.query('vertical'));
-    const section = c.req.query('section');
-    const user = await authUser(c);
-    const followSet = user ? getFollowSetByVertical(user.id, vertical) : new Set<string>();
-
-    const items = buildSocialFeedClips(vertical, section)
-        .sort((a, b) => {
-            const aFollowed = followSet.has(a.authorId) ? 1 : 0;
-            const bFollowed = followSet.has(b.authorId) ? 1 : 0;
-            if (aFollowed !== bFollowed) return bFollowed - aFollowed;
-            if (Boolean(a.featured) !== Boolean(b.featured)) return Number(Boolean(b.featured)) - Number(Boolean(a.featured));
-            return b.publishedAt - a.publishedAt;
-        })
-        .map((clip) => {
-            const author = usersById.get(clip.authorId);
-            const authorProfile = author ? getPublishedSellerProfile(author.id, vertical) : null;
-            const authorName = authorProfile?.displayName ?? author?.name ?? 'Cuenta verificada';
-            const authorUsername = authorProfile?.slug ?? usernameFromName(authorName);
-            return {
-                id: clip.id,
-                vertical: clip.vertical,
-                section: clip.section,
-                href: clip.href,
-                title: clip.title,
-                price: clip.price,
-                location: clip.location,
-                mediaType: clip.mediaType,
-                mediaUrl: clip.mediaUrl,
-                posterUrl: clip.posterUrl,
-                views: clip.views,
-                saves: clip.saves,
-                publishedAgo: formatAgo(clip.publishedAt),
-                featured: Boolean(clip.featured),
-                author: {
-                    id: clip.authorId,
-                    name: authorName,
-                    username: authorUsername,
-                    profileHref: authorProfile ? `/perfil/${authorUsername}` : null,
-                    avatar: authorProfile?.avatarImageUrl ?? author?.avatar,
-                    followers: countFollowers(clip.authorId, vertical),
-                    isFollowing: followSet.has(clip.authorId),
-                    canFollow: user ? user.id !== clip.authorId : true,
-                },
-            };
-        });
-
-    return c.json({ ok: true, clips: items });
-});
-
-app.get('/api/social/follows', async (c) => {
-    const user = await authUser(c);
-    if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
-
-    const vertical = parseVertical(c.req.query('vertical'));
-    const followees = Array.from(getFollowSetByVertical(user.id, vertical));
-    return c.json({ ok: true, followees });
-});
-
-app.post('/api/social/follows/toggle', async (c) => {
-    const user = await authUser(c);
-    if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
-
-    const payload = await c.req.json().catch(() => null);
-    const parsed = followToggleSchema.safeParse(payload);
-    if (!parsed.success) return c.json({ ok: false, error: 'Payload inválido' }, 400);
-
-    const { followeeUserId, vertical } = parsed.data;
-    if (!usersById.has(followeeUserId)) {
-        return c.json({ ok: false, error: 'Cuenta no encontrada' }, 404);
-    }
-    if (followeeUserId === user.id) {
-        return c.json({ ok: false, error: 'No puedes seguirte a ti mismo' }, 400);
-    }
-
-    const existing = getFollowRecords(user.id);
-    const index = existing.findIndex((entry) => entry.followeeUserId === followeeUserId && entry.vertical === vertical);
-
-    let following = false;
-    let updated: FollowRecord[];
-
-    if (index >= 0) {
-        updated = existing.filter((_, idx) => idx !== index);
-    } else {
-        following = true;
-        updated = [{ followeeUserId, vertical, followedAt: Date.now() }, ...existing];
-    }
-
-    followsByUser.set(user.id, updated);
-
-    return c.json({
-        ok: true,
-        following,
-        followees: Array.from(getFollowSetByVertical(user.id, vertical)),
-        followers: countFollowers(followeeUserId, vertical),
+async function ensureNpsForAppointment(professionalId: string, appointmentId: string, clientId: string | null): Promise<{ token: string } | null> {
+    const existing = await db.query.agendaNpsResponses.findFirst({
+        where: eq(agendaNpsResponses.appointmentId, appointmentId),
     });
-});
+    if (existing) return { token: existing.token };
+    const token = randomBytes(24).toString('hex');
+    const [created] = await db.insert(agendaNpsResponses).values({
+        professionalId, appointmentId, clientId, token,
+    }).returning();
+    return created ? { token: created.token } : null;
+}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // SimpleAgenda helpers
@@ -15145,4172 +11880,78 @@ function generateSlots(
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// SimpleAgenda — Professional profile
+// SimpleAgenda — mount modular routers
 // ─────────────────────────────────────────────────────────────────────────────
 
-app.get('/api/agenda/profile', requireVerifiedSession, async (c) => {
-    const user = await authUser(c);
-    if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
-    let profile = await getAgendaProfile(user.id);
-    if (!profile) {
-        // Auto-create on first access
-        const slug = `${user.name.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '')}-${Date.now().toString(36)}`;
-        const [created] = await db.insert(agendaProfessionalProfiles).values({
-            userId: user.id,
-            slug,
-            displayName: user.name,
-            avatarUrl: user.avatar || null,
-        }).returning();
-        profile = created;
-    }
-    return c.json({ ok: true, profile });
-});
-
-const RESERVED_SLUGS = new Set([
-    'panel', 'auth', 'api', 'admin', 'login', 'register', 'logout',
-    'settings', 'configuracion', 'perfil', 'profile', 'cuenta', 'account',
-    'help', 'soporte', 'support', 'terms', 'privacy', 'legal',
-    'blog', 'pricing', 'planes', 'home', 'about', 'nosotros',
-    'app', 'dashboard', 'agenda', 'citas', 'reservas', 'booking',
-    'www', 'mail', 'email', 'ftp', 'cdn', 'static', 'assets',
-]);
-
-function isValidSlug(slug: string): { ok: true } | { ok: false; error: string } {
-    if (!slug || slug.length < 3) return { ok: false, error: 'El link debe tener al menos 3 caracteres.' };
-    if (slug.length > 60) return { ok: false, error: 'El link no puede tener más de 60 caracteres.' };
-    if (!/^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?$/.test(slug)) {
-        return { ok: false, error: 'Solo letras minúsculas, números y guiones. No puede empezar ni terminar con guion.' };
-    }
-    if (/--/.test(slug)) return { ok: false, error: 'No puede contener guiones consecutivos.' };
-    if (RESERVED_SLUGS.has(slug)) return { ok: false, error: 'Este link no está disponible.' };
-    return { ok: true };
-}
-
-app.use('/api/agenda/slug-available', rateLimit({ name: 'slug-available', limit: 20, windowMs: 60_000 }));
-app.get('/api/agenda/slug-available', requireVerifiedSession, async (c) => {
-    const user = await authUser(c);
-    if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
-    const slug = asString(c.req.query('slug')).toLowerCase().trim();
-    const validation = isValidSlug(slug);
-    if (!validation.ok) return c.json({ ok: false, available: false, error: validation.error });
-
-    const existing = await db.select({ id: agendaProfessionalProfiles.id })
-        .from(agendaProfessionalProfiles)
-        .where(eq(agendaProfessionalProfiles.slug, slug))
-        .limit(1);
-
-    const profile = await getAgendaProfile(user.id);
-    const isSelf = existing.length > 0 && profile && existing[0].id === profile.id;
-    const available = existing.length === 0 || isSelf;
-    return c.json({ ok: true, available, error: available ? undefined : 'Este link ya está en uso por otro profesional.' });
-});
-
-app.patch('/api/agenda/profile', requireVerifiedSession, async (c) => {
-    const user = await authUser(c);
-    if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
-    const profile = await getAgendaProfile(user.id);
-    if (!profile) return c.json({ ok: false, error: 'Perfil no encontrado' }, 404);
-
-    const body = await c.req.json().catch(() => ({})) as Record<string, unknown>;
-    const allowed = [
-        'slug', 'isPublished', 'profession', 'displayName', 'headline', 'bio', 'avatarUrl',
-        'publicEmail', 'publicPhone', 'publicWhatsapp', 'city', 'region', 'address',
-        'currency', 'timezone', 'bookingWindowDays', 'cancellationHours', 'confirmationMode',
-        'encuadre', 'requiresAdvancePayment', 'advancePaymentInstructions',
-        'acceptsTransfer', 'acceptsMp', 'acceptsPaymentLink',
-        'waNotificationsEnabled', 'waNotifyProfessional', 'waProfessionalPhone',
-        'paymentLinkUrl', 'bankTransferData',
-        'coverUrl',
-        'websiteUrl', 'instagramUrl', 'facebookUrl', 'linkedinUrl', 'tiktokUrl', 'youtubeUrl', 'twitterUrl',
-        'allowsRecurrentBooking',
-    ] as const;
-    const patch: Record<string, unknown> = { updatedAt: new Date() };
-    for (const key of allowed) {
-        if (key in body) patch[key] = body[key];
-    }
-
-    // Validate slug if being changed
-    if ('slug' in body && body.slug !== profile.slug) {
-        const newSlug = String(body.slug ?? '').toLowerCase().trim();
-        const validation = isValidSlug(newSlug);
-        if (!validation.ok) return c.json({ ok: false, error: validation.error }, 400);
-
-        const existing = await db.select({ id: agendaProfessionalProfiles.id })
-            .from(agendaProfessionalProfiles)
-            .where(eq(agendaProfessionalProfiles.slug, newSlug))
-            .limit(1);
-        if (existing.length > 0 && existing[0].id !== profile.id) {
-            return c.json({ ok: false, error: 'Este link ya está en uso por otro profesional.' }, 409);
-        }
-        patch.slug = newSlug;
-    }
-
-    const [updated] = await db.update(agendaProfessionalProfiles)
-        .set(patch)
-        .where(eq(agendaProfessionalProfiles.id, profile.id))
-        .returning();
-
-    // Audit: publish toggle + slug change are the most sensitive changes.
-    if ('isPublished' in body && body.isPublished !== profile.isPublished) {
-        await logAudit({
-            professionalId: profile.id,
-            userId: user.id,
-            entityType: 'profile',
-            entityId: profile.id,
-            action: body.isPublished ? 'publish' : 'unpublish',
-            ctx: c,
-        });
-    }
-    if ('slug' in body && patch.slug && patch.slug !== profile.slug) {
-        await logAudit({
-            professionalId: profile.id,
-            userId: user.id,
-            entityType: 'profile',
-            entityId: profile.id,
-            action: 'slug_change',
-            metadata: { from: profile.slug, to: patch.slug },
-            ctx: c,
-        });
-    }
-
-    return c.json({ ok: true, profile: updated });
-});
-
-// ─────────────────────────────────────────────────────────────────────────────
-// SimpleAgenda — Services
-// ─────────────────────────────────────────────────────────────────────────────
-
-type PreconsultFieldType = 'text' | 'textarea' | 'select' | 'checkbox' | 'number';
-type PreconsultField = { id: string; label: string; type: PreconsultFieldType; required: boolean; placeholder?: string; options?: string[] };
-
-function normalizePreconsultFields(raw: unknown): PreconsultField[] {
-    if (!Array.isArray(raw)) return [];
-    const allowed: PreconsultFieldType[] = ['text', 'textarea', 'select', 'checkbox', 'number'];
-    const out: PreconsultField[] = [];
-    for (const item of raw) {
-        if (!item || typeof item !== 'object') continue;
-        const rec = item as Record<string, unknown>;
-        const label = typeof rec.label === 'string' ? rec.label.trim().slice(0, 200) : '';
-        if (!label) continue;
-        const type = allowed.includes(rec.type as PreconsultFieldType) ? rec.type as PreconsultFieldType : 'text';
-        const id = typeof rec.id === 'string' && rec.id ? rec.id : randomUUID();
-        const field: PreconsultField = {
-            id,
-            label,
-            type,
-            required: rec.required === true,
-        };
-        if (typeof rec.placeholder === 'string') field.placeholder = rec.placeholder.slice(0, 200);
-        if ((type === 'select') && Array.isArray(rec.options)) {
-            field.options = rec.options.map((o) => String(o).slice(0, 100)).filter(Boolean).slice(0, 20);
-        }
-        out.push(field);
-        if (out.length >= 20) break;
-    }
-    return out;
-}
-
-type PreconsultResponse = { label: string; value: string };
-function normalizePreconsultResponses(raw: unknown, fields: PreconsultField[]): PreconsultResponse[] | null {
-    if (!fields.length) return null;
-    const byId = new Map<string, PreconsultField>(fields.map((f) => [f.id, f]));
-    const input = raw && typeof raw === 'object' && !Array.isArray(raw) ? raw as Record<string, unknown> : {};
-    const out: PreconsultResponse[] = [];
-    for (const field of fields) {
-        const v = input[field.id];
-        let value = '';
-        if (field.type === 'checkbox') value = v === true || v === 'true' ? 'Sí' : 'No';
-        else if (v !== undefined && v !== null) value = String(v).slice(0, 2000);
-        out.push({ label: field.label, value });
-    }
-    return out;
-}
-
-app.get('/api/agenda/services', requireVerifiedSession, async (c) => {
-    const user = await authUser(c);
-    if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
-    const profile = await getAgendaProfile(user.id);
-    if (!profile) return c.json({ ok: true, services: [] });
-    const services = await db.select().from(agendaServices)
-        .where(and(eq(agendaServices.professionalId, profile.id), eq(agendaServices.isActive, true)))
-        .orderBy(asc(agendaServices.position), asc(agendaServices.createdAt));
-    return c.json({ ok: true, services });
-});
-
-app.post('/api/agenda/services', requireVerifiedSession, async (c) => {
-    const user = await authUser(c);
-    if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
-    const profile = await getAgendaProfile(user.id);
-    if (!profile) return c.json({ ok: false, error: 'Perfil no encontrado' }, 404);
-    const body = await c.req.json().catch(() => ({})) as Record<string, unknown>;
-    if (!body.name) return c.json({ ok: false, error: 'El nombre es requerido' }, 400);
-    const [service] = await db.insert(agendaServices).values({
-        professionalId: profile.id,
-        name: String(body.name),
-        description: typeof body.description === 'string' ? body.description : null,
-        durationMinutes: typeof body.durationMinutes === 'number' ? body.durationMinutes : 60,
-        price: typeof body.price === 'string' && body.price ? body.price : null,
-        currency: typeof body.currency === 'string' ? body.currency : profile.currency,
-        isOnline: body.isOnline !== false,
-        isPresential: body.isPresential === true,
-        color: typeof body.color === 'string' ? body.color : null,
-        position: typeof body.position === 'number' ? body.position : 0,
-        preconsultFields: normalizePreconsultFields(body.preconsultFields),
-    }).returning();
-    await logAudit({
-        professionalId: profile.id,
-        userId: user.id,
-        entityType: 'service',
-        entityId: service.id,
-        action: 'create',
-        metadata: { name: service.name, durationMinutes: service.durationMinutes },
-        ctx: c,
-    });
-    return c.json({ ok: true, service });
-});
-
-app.put('/api/agenda/services/:id', requireVerifiedSession, async (c) => {
-    const user = await authUser(c);
-    if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
-    const profile = await getAgendaProfile(user.id);
-    if (!profile) return c.json({ ok: false, error: 'Perfil no encontrado' }, 404);
-    const id = c.req.param('id') ?? '';
-    const body = await c.req.json().catch(() => ({})) as Record<string, unknown>;
-    const patch: Record<string, unknown> = { updatedAt: new Date() };
-    for (const key of ['name', 'description', 'durationMinutes', 'price', 'currency', 'isOnline', 'isPresential', 'color', 'position', 'isActive'] as const) {
-        if (key in body) patch[key] = body[key] === '' ? null : body[key];
-    }
-    if ('preconsultFields' in body) patch.preconsultFields = normalizePreconsultFields(body.preconsultFields);
-    const [updated] = await db.update(agendaServices).set(patch)
-        .where(and(eq(agendaServices.id, id), eq(agendaServices.professionalId, profile.id)))
-        .returning();
-    if (!updated) return c.json({ ok: false, error: 'Servicio no encontrado' }, 404);
-    await logAudit({
-        professionalId: profile.id,
-        userId: user.id,
-        entityType: 'service',
-        entityId: updated.id,
-        action: 'update',
-        metadata: { fields: Object.keys(body) },
-        ctx: c,
-    });
-    return c.json({ ok: true, service: updated });
-});
-
-app.delete('/api/agenda/services/:id', requireVerifiedSession, async (c) => {
-    const user = await authUser(c);
-    if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
-    const profile = await getAgendaProfile(user.id);
-    if (!profile) return c.json({ ok: false, error: 'Perfil no encontrado' }, 404);
-    const id = c.req.param('id') ?? '';
-    await db.update(agendaServices).set({ isActive: false, updatedAt: new Date() })
-        .where(and(eq(agendaServices.id, id), eq(agendaServices.professionalId, profile.id)));
-    await logAudit({
-        professionalId: profile.id,
-        userId: user.id,
-        entityType: 'service',
-        entityId: id,
-        action: 'delete',
-        ctx: c,
-    });
-    return c.json({ ok: true });
-});
-
-// ─────────────────────────────────────────────────────────────────────────────
-// SimpleAgenda — Availability
-// ─────────────────────────────────────────────────────────────────────────────
-
-app.get('/api/agenda/availability', requireVerifiedSession, async (c) => {
-    const user = await authUser(c);
-    if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
-    const profile = await getAgendaProfile(user.id);
-    if (!profile) return c.json({ ok: true, rules: [], blockedSlots: [] });
-    const [rules, blockedSlots] = await Promise.all([
-        db.select().from(agendaAvailabilityRules)
-            .where(eq(agendaAvailabilityRules.professionalId, profile.id))
-            .orderBy(asc(agendaAvailabilityRules.dayOfWeek)),
-        db.select().from(agendaBlockedSlots)
-            .where(and(eq(agendaBlockedSlots.professionalId, profile.id), gte(agendaBlockedSlots.endsAt, new Date())))
-            .orderBy(asc(agendaBlockedSlots.startsAt)),
-    ]);
-    return c.json({ ok: true, rules, blockedSlots });
-});
-
-app.post('/api/agenda/availability/rules', requireVerifiedSession, async (c) => {
-    const user = await authUser(c);
-    if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
-    const profile = await getAgendaProfile(user.id);
-    if (!profile) return c.json({ ok: false, error: 'Perfil no encontrado' }, 404);
-    const body = await c.req.json().catch(() => ({})) as Record<string, unknown>;
-    const [rule] = await db.insert(agendaAvailabilityRules).values({
-        professionalId: profile.id,
-        dayOfWeek: Number(body.dayOfWeek),
-        startTime: String(body.startTime ?? '09:00'),
-        endTime: String(body.endTime ?? '18:00'),
-        breakStart: typeof body.breakStart === 'string' ? body.breakStart : null,
-        breakEnd: typeof body.breakEnd === 'string' ? body.breakEnd : null,
-        isActive: body.isActive !== false,
-    }).returning();
-    return c.json({ ok: true, rule });
-});
-
-app.put('/api/agenda/availability/rules/:id', requireVerifiedSession, async (c) => {
-    const user = await authUser(c);
-    if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
-    const profile = await getAgendaProfile(user.id);
-    if (!profile) return c.json({ ok: false, error: 'Perfil no encontrado' }, 404);
-    const id = c.req.param('id') ?? '';
-    const body = await c.req.json().catch(() => ({})) as Record<string, unknown>;
-    const patch: Record<string, unknown> = { updatedAt: new Date() };
-    for (const key of ['dayOfWeek', 'startTime', 'endTime', 'breakStart', 'breakEnd', 'isActive'] as const) {
-        if (key in body) patch[key] = body[key] === '' ? null : body[key];
-    }
-    const [updated] = await db.update(agendaAvailabilityRules).set(patch)
-        .where(and(eq(agendaAvailabilityRules.id, id), eq(agendaAvailabilityRules.professionalId, profile.id)))
-        .returning();
-    if (!updated) return c.json({ ok: false, error: 'Regla no encontrada' }, 404);
-    return c.json({ ok: true, rule: updated });
-});
-
-app.delete('/api/agenda/availability/rules/:id', requireVerifiedSession, async (c) => {
-    const user = await authUser(c);
-    if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
-    const profile = await getAgendaProfile(user.id);
-    if (!profile) return c.json({ ok: false, error: 'Perfil no encontrado' }, 404);
-    const id = c.req.param('id') ?? '';
-    await db.delete(agendaAvailabilityRules)
-        .where(and(eq(agendaAvailabilityRules.id, id), eq(agendaAvailabilityRules.professionalId, profile.id)));
-    return c.json({ ok: true });
-});
-
-app.post('/api/agenda/availability/blocked-slots', requireVerifiedSession, async (c) => {
-    const user = await authUser(c);
-    if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
-    const profile = await getAgendaProfile(user.id);
-    if (!profile) return c.json({ ok: false, error: 'Perfil no encontrado' }, 404);
-    const body = await c.req.json().catch(() => ({})) as Record<string, unknown>;
-    const [slot] = await db.insert(agendaBlockedSlots).values({
-        professionalId: profile.id,
-        startsAt: new Date(String(body.startsAt)),
-        endsAt: new Date(String(body.endsAt)),
-        reason: typeof body.reason === 'string' ? body.reason : null,
-    }).returning();
-    return c.json({ ok: true, slot });
-});
-
-app.delete('/api/agenda/availability/blocked-slots/:id', requireVerifiedSession, async (c) => {
-    const user = await authUser(c);
-    if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
-    const profile = await getAgendaProfile(user.id);
-    if (!profile) return c.json({ ok: false, error: 'Perfil no encontrado' }, 404);
-    const id = c.req.param('id') ?? '';
-    await db.delete(agendaBlockedSlots)
-        .where(and(eq(agendaBlockedSlots.id, id), eq(agendaBlockedSlots.professionalId, profile.id)));
-    return c.json({ ok: true });
-});
-
-// ─────────────────────────────────────────────────────────────────────────────
-// SimpleAgenda — Locations (consulting rooms / offices)
-// ─────────────────────────────────────────────────────────────────────────────
-
-app.get('/api/agenda/locations', requireVerifiedSession, async (c) => {
-    const user = await authUser(c);
-    if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
-    const profile = await getAgendaProfile(user.id);
-    if (!profile) return c.json({ ok: true, locations: [] });
-    const locations = await db.select().from(agendaLocations)
-        .where(eq(agendaLocations.professionalId, profile.id))
-        .orderBy(desc(agendaLocations.isDefault), asc(agendaLocations.position), asc(agendaLocations.createdAt));
-    return c.json({ ok: true, locations });
-});
-
-app.post('/api/agenda/locations', requireVerifiedSession, async (c) => {
-    const user = await authUser(c);
-    if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
-    const profile = await getAgendaProfile(user.id);
-    if (!profile) return c.json({ ok: false, error: 'Perfil no encontrado' }, 404);
-    const body = await c.req.json().catch(() => ({})) as Record<string, unknown>;
-    const name = typeof body.name === 'string' ? body.name.trim() : '';
-    const addressLine = typeof body.addressLine === 'string' ? body.addressLine.trim() : '';
-    if (!name) return c.json({ ok: false, error: 'El nombre de la consulta es requerido.' }, 400);
-    if (!addressLine) return c.json({ ok: false, error: 'La dirección es requerida.' }, 400);
-
-    const isDefault = body.isDefault === true;
-    if (isDefault) {
-        await db.update(agendaLocations)
-            .set({ isDefault: false, updatedAt: new Date() })
-            .where(eq(agendaLocations.professionalId, profile.id));
-    }
-
-    const [location] = await db.insert(agendaLocations).values({
-        professionalId: profile.id,
-        name,
-        addressLine,
-        city: typeof body.city === 'string' ? body.city : null,
-        region: typeof body.region === 'string' ? body.region : null,
-        notes: typeof body.notes === 'string' ? body.notes : null,
-        googleMapsUrl: typeof body.googleMapsUrl === 'string' ? body.googleMapsUrl : null,
-        isDefault,
-        isActive: body.isActive !== false,
-    }).returning();
-    return c.json({ ok: true, location });
-});
-
-app.put('/api/agenda/locations/:id', requireVerifiedSession, async (c) => {
-    const user = await authUser(c);
-    if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
-    const profile = await getAgendaProfile(user.id);
-    if (!profile) return c.json({ ok: false, error: 'Perfil no encontrado' }, 404);
-    const id = c.req.param('id') ?? '';
-    const body = await c.req.json().catch(() => ({})) as Record<string, unknown>;
-    const patch: Record<string, unknown> = { updatedAt: new Date() };
-
-    if (typeof body.name === 'string') {
-        const name = body.name.trim();
-        if (!name) return c.json({ ok: false, error: 'El nombre de la consulta es requerido.' }, 400);
-        patch.name = name;
-    }
-    if (typeof body.addressLine === 'string') {
-        const addressLine = body.addressLine.trim();
-        if (!addressLine) return c.json({ ok: false, error: 'La dirección es requerida.' }, 400);
-        patch.addressLine = addressLine;
-    }
-    for (const key of ['city', 'region', 'notes', 'googleMapsUrl'] as const) {
-        if (key in body) patch[key] = body[key] === '' ? null : body[key];
-    }
-    if ('isActive' in body) patch.isActive = body.isActive !== false;
-
-    if (body.isDefault === true) {
-        await db.update(agendaLocations)
-            .set({ isDefault: false, updatedAt: new Date() })
-            .where(and(eq(agendaLocations.professionalId, profile.id), sql`id <> ${id}`));
-        patch.isDefault = true;
-    } else if (body.isDefault === false) {
-        patch.isDefault = false;
-    }
-
-    const [updated] = await db.update(agendaLocations).set(patch)
-        .where(and(eq(agendaLocations.id, id), eq(agendaLocations.professionalId, profile.id)))
-        .returning();
-    if (!updated) return c.json({ ok: false, error: 'Consulta no encontrada.' }, 404);
-    return c.json({ ok: true, location: updated });
-});
-
-app.delete('/api/agenda/locations/:id', requireVerifiedSession, async (c) => {
-    const user = await authUser(c);
-    if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
-    const profile = await getAgendaProfile(user.id);
-    if (!profile) return c.json({ ok: false, error: 'Perfil no encontrado' }, 404);
-    const id = c.req.param('id') ?? '';
-    await db.delete(agendaLocations)
-        .where(and(eq(agendaLocations.id, id), eq(agendaLocations.professionalId, profile.id)));
-    return c.json({ ok: true });
-});
-
-// ─────────────────────────────────────────────────────────────────────────────
-// SimpleAgenda — Clients
-// ─────────────────────────────────────────────────────────────────────────────
-
-app.get('/api/agenda/clients', requireVerifiedSession, async (c) => {
-    const user = await authUser(c);
-    if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
-    const profile = await getAgendaProfile(user.id);
-    if (!profile) return c.json({ ok: true, clients: [] });
-    const clients = await db.select().from(agendaClients)
-        .where(eq(agendaClients.professionalId, profile.id))
-        .orderBy(asc(agendaClients.firstName), asc(agendaClients.lastName));
-
-    // Aggregate tag IDs per client in a single query (list view only needs IDs).
-    const clientIds = clients.map((c) => c.id);
-    const tagsByClient: Record<string, string[]> = {};
-    if (clientIds.length > 0) {
-        const rows = await db.select({
-            clientId: agendaClientTagAssignments.clientId,
-            tagId: agendaClientTagAssignments.tagId,
-        })
-            .from(agendaClientTagAssignments)
-            .where(inArray(agendaClientTagAssignments.clientId, clientIds));
-        for (const r of rows) {
-            (tagsByClient[r.clientId] ??= []).push(r.tagId);
-        }
-    }
-    const clientsWithTags = clients.map((cl) => ({ ...cl, tagIds: tagsByClient[cl.id] ?? [] }));
-    return c.json({ ok: true, clients: clientsWithTags });
-});
-
-app.post('/api/agenda/clients', requireVerifiedSession, async (c) => {
-    const user = await authUser(c);
-    if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
-    const profile = await getAgendaProfile(user.id);
-    if (!profile) return c.json({ ok: false, error: 'Perfil no encontrado' }, 404);
-    if (isFreePlan(profile, user.role)) {
-        const limitError = await checkClientLimit(profile.id);
-        if (limitError) return c.json({ ok: false, error: limitError }, 403);
-    }
-    const body = await c.req.json().catch(() => ({})) as Record<string, unknown>;
-    if (!body.firstName) return c.json({ ok: false, error: 'El nombre es requerido' }, 400);
-    const [client] = await db.insert(agendaClients).values({
-        professionalId: profile.id,
-        firstName: String(body.firstName),
-        lastName: typeof body.lastName === 'string' ? body.lastName || null : null,
-        email: typeof body.email === 'string' ? body.email || null : null,
-        phone: typeof body.phone === 'string' ? body.phone || null : null,
-        whatsapp: typeof body.whatsapp === 'string' ? body.whatsapp || null : null,
-        rut: typeof body.rut === 'string' ? body.rut || null : null,
-        dateOfBirth: typeof body.dateOfBirth === 'string' ? body.dateOfBirth || null : null,
-        gender: typeof body.gender === 'string' ? body.gender || null : null,
-        occupation: typeof body.occupation === 'string' ? body.occupation || null : null,
-        city: typeof body.city === 'string' ? body.city || null : null,
-        referredBy: typeof body.referredBy === 'string' ? body.referredBy || null : null,
-        internalNotes: typeof body.internalNotes === 'string' ? body.internalNotes || null : null,
-    }).returning();
-    return c.json({ ok: true, client });
-});
-
-app.get('/api/agenda/clients/:id', requireVerifiedSession, async (c) => {
-    const user = await authUser(c);
-    if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
-    const profile = await getAgendaProfile(user.id);
-    if (!profile) return c.json({ ok: false, error: 'Perfil no encontrado' }, 404);
-    const id = c.req.param('id') ?? '';
-    const client = await db.query.agendaClients.findFirst({
-        where: and(eq(agendaClients.id, id), eq(agendaClients.professionalId, profile.id)),
-    });
-    if (!client) return c.json({ ok: false, error: 'Cliente no encontrado' }, 404);
-    const appointments = await db.select().from(agendaAppointments)
-        .where(and(eq(agendaAppointments.clientId, id), eq(agendaAppointments.professionalId, profile.id)))
-        .orderBy(desc(agendaAppointments.startsAt));
-    const apptIds = appointments.map((a) => a.id);
-    const sessionNotes = apptIds.length > 0
-        ? await db.select().from(agendaSessionNotes).where(inArray(agendaSessionNotes.appointmentId, apptIds))
-        : [];
-    const notesByAppt: Record<string, string> = {};
-    for (const n of sessionNotes) notesByAppt[n.appointmentId] = n.content;
-    const appointmentsWithNotes = appointments.map((a) => ({
-        ...a,
-        sessionNote: notesByAppt[a.id] ?? null,
-    }));
-
-    const tagRows = await db.select({
-        id: agendaClientTags.id,
-        name: agendaClientTags.name,
-        color: agendaClientTags.color,
-    })
-        .from(agendaClientTagAssignments)
-        .innerJoin(agendaClientTags, eq(agendaClientTagAssignments.tagId, agendaClientTags.id))
-        .where(eq(agendaClientTagAssignments.clientId, id));
-
-    return c.json({ ok: true, client: { ...client, tags: tagRows }, appointments: appointmentsWithNotes });
-});
-
-app.put('/api/agenda/clients/:id', requireVerifiedSession, async (c) => {
-    const user = await authUser(c);
-    if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
-    const profile = await getAgendaProfile(user.id);
-    if (!profile) return c.json({ ok: false, error: 'Perfil no encontrado' }, 404);
-    const id = c.req.param('id') ?? '';
-    const body = await c.req.json().catch(() => ({})) as Record<string, unknown>;
-    const patch: Record<string, unknown> = { updatedAt: new Date() };
-    for (const key of ['firstName', 'lastName', 'email', 'phone', 'whatsapp', 'rut', 'dateOfBirth', 'gender', 'occupation', 'address', 'city', 'emergencyContactName', 'emergencyContactPhone', 'referredBy', 'internalNotes', 'status'] as const) {
-        if (key in body) patch[key] = body[key] === '' ? null : body[key];
-    }
-    const [updated] = await db.update(agendaClients).set(patch)
-        .where(and(eq(agendaClients.id, id), eq(agendaClients.professionalId, profile.id)))
-        .returning();
-    if (!updated) return c.json({ ok: false, error: 'Cliente no encontrado' }, 404);
-    return c.json({ ok: true, client: updated });
-});
-
-app.delete('/api/agenda/clients/:id', requireVerifiedSession, async (c) => {
-    const user = await authUser(c);
-    if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
-    const profile = await getAgendaProfile(user.id);
-    if (!profile) return c.json({ ok: false, error: 'Perfil no encontrado' }, 404);
-    const id = c.req.param('id') ?? '';
-    const [deleted] = await db.delete(agendaClients)
-        .where(and(eq(agendaClients.id, id), eq(agendaClients.professionalId, profile.id)))
-        .returning({ id: agendaClients.id });
-    if (!deleted) return c.json({ ok: false, error: 'Cliente no encontrado' }, 404);
-    return c.json({ ok: true });
-});
-
-// ─────────────────────────────────────────────────────────────────────────────
-// SimpleAgenda — Client Tags
-// ─────────────────────────────────────────────────────────────────────────────
-
-app.get('/api/agenda/client-tags', requireVerifiedSession, async (c) => {
-    const user = await authUser(c);
-    if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
-    const profile = await getAgendaProfile(user.id);
-    if (!profile) return c.json({ ok: true, tags: [] });
-    const tags = await db.select().from(agendaClientTags)
-        .where(eq(agendaClientTags.professionalId, profile.id))
-        .orderBy(asc(agendaClientTags.position), asc(agendaClientTags.name));
-    return c.json({ ok: true, tags });
-});
-
-app.post('/api/agenda/client-tags', requireVerifiedSession, async (c) => {
-    const user = await authUser(c);
-    if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
-    const profile = await getAgendaProfile(user.id);
-    if (!profile) return c.json({ ok: false, error: 'Perfil no encontrado' }, 404);
-    const body = await c.req.json().catch(() => ({})) as Record<string, unknown>;
-    const name = typeof body.name === 'string' ? body.name.trim() : '';
-    if (!name) return c.json({ ok: false, error: 'El nombre de la etiqueta es requerido' }, 400);
-    if (name.length > 60) return c.json({ ok: false, error: 'Máx. 60 caracteres' }, 400);
-    try {
-        const [tag] = await db.insert(agendaClientTags).values({
-            professionalId: profile.id,
-            name,
-            color: typeof body.color === 'string' ? body.color || null : null,
-            position: typeof body.position === 'number' ? body.position : 0,
-        }).returning();
-        return c.json({ ok: true, tag });
-    } catch (err) {
-        const msg = err instanceof Error ? err.message : String(err);
-        if (msg.includes('unique')) {
-            return c.json({ ok: false, error: 'Ya existe una etiqueta con ese nombre.' }, 409);
-        }
-        throw err;
-    }
-});
-
-app.put('/api/agenda/client-tags/:id', requireVerifiedSession, async (c) => {
-    const user = await authUser(c);
-    if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
-    const profile = await getAgendaProfile(user.id);
-    if (!profile) return c.json({ ok: false, error: 'Perfil no encontrado' }, 404);
-    const id = c.req.param('id') ?? '';
-    const body = await c.req.json().catch(() => ({})) as Record<string, unknown>;
-    const patch: Record<string, unknown> = { updatedAt: new Date() };
-    if (typeof body.name === 'string') {
-        const name = body.name.trim();
-        if (!name || name.length > 60) return c.json({ ok: false, error: 'Nombre inválido' }, 400);
-        patch.name = name;
-    }
-    if ('color' in body) patch.color = typeof body.color === 'string' ? body.color || null : null;
-    if (typeof body.position === 'number') patch.position = body.position;
-    const [updated] = await db.update(agendaClientTags).set(patch)
-        .where(and(eq(agendaClientTags.id, id), eq(agendaClientTags.professionalId, profile.id)))
-        .returning();
-    if (!updated) return c.json({ ok: false, error: 'Etiqueta no encontrada' }, 404);
-    return c.json({ ok: true, tag: updated });
-});
-
-app.delete('/api/agenda/client-tags/:id', requireVerifiedSession, async (c) => {
-    const user = await authUser(c);
-    if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
-    const profile = await getAgendaProfile(user.id);
-    if (!profile) return c.json({ ok: false, error: 'Perfil no encontrado' }, 404);
-    const id = c.req.param('id') ?? '';
-    // Verify ownership before deletion (avoid cross-professional tag wipe).
-    const tag = await db.query.agendaClientTags.findFirst({
-        where: and(eq(agendaClientTags.id, id), eq(agendaClientTags.professionalId, profile.id)),
-    });
-    if (!tag) return c.json({ ok: false, error: 'Etiqueta no encontrada' }, 404);
-    await db.delete(agendaClientTagAssignments).where(eq(agendaClientTagAssignments.tagId, id));
-    await db.delete(agendaClientTags).where(eq(agendaClientTags.id, id));
-    return c.json({ ok: true });
-});
-
-app.post('/api/agenda/clients/:id/tags', requireVerifiedSession, async (c) => {
-    const user = await authUser(c);
-    if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
-    const profile = await getAgendaProfile(user.id);
-    if (!profile) return c.json({ ok: false, error: 'Perfil no encontrado' }, 404);
-    const clientId = c.req.param('id') ?? '';
-    const body = await c.req.json().catch(() => ({})) as Record<string, unknown>;
-    const tagId = typeof body.tagId === 'string' ? body.tagId : '';
-    if (!tagId) return c.json({ ok: false, error: 'tagId requerido' }, 400);
-
-    // Verify both client and tag belong to this professional.
-    const [cl, tag] = await Promise.all([
-        db.query.agendaClients.findFirst({ where: and(eq(agendaClients.id, clientId), eq(agendaClients.professionalId, profile.id)) }),
-        db.query.agendaClientTags.findFirst({ where: and(eq(agendaClientTags.id, tagId), eq(agendaClientTags.professionalId, profile.id)) }),
-    ]);
-    if (!cl || !tag) return c.json({ ok: false, error: 'Cliente o etiqueta no encontrado' }, 404);
-
-    await db.insert(agendaClientTagAssignments)
-        .values({ clientId, tagId })
-        .onConflictDoNothing();
-    return c.json({ ok: true });
-});
-
-app.delete('/api/agenda/clients/:id/tags/:tagId', requireVerifiedSession, async (c) => {
-    const user = await authUser(c);
-    if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
-    const profile = await getAgendaProfile(user.id);
-    if (!profile) return c.json({ ok: false, error: 'Perfil no encontrado' }, 404);
-    const clientId = c.req.param('id') ?? '';
-    const tagId = c.req.param('tagId') ?? '';
-
-    const cl = await db.query.agendaClients.findFirst({
-        where: and(eq(agendaClients.id, clientId), eq(agendaClients.professionalId, profile.id)),
-    });
-    if (!cl) return c.json({ ok: false, error: 'Cliente no encontrado' }, 404);
-
-    await db.delete(agendaClientTagAssignments)
-        .where(and(eq(agendaClientTagAssignments.clientId, clientId), eq(agendaClientTagAssignments.tagId, tagId)));
-    return c.json({ ok: true });
-});
-
-// ─────────────────────────────────────────────────────────────────────────────
-// SimpleAgenda — Client Attachments (documents, images, prescriptions)
-// ─────────────────────────────────────────────────────────────────────────────
-
-const ATTACHMENT_KINDS = ['document', 'image', 'prescription', 'other'] as const;
-type AttachmentKind = typeof ATTACHMENT_KINDS[number];
-
-app.get('/api/agenda/clients/:id/attachments', requireVerifiedSession, async (c) => {
-    const user = await authUser(c);
-    if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
-    const profile = await getAgendaProfile(user.id);
-    if (!profile) return c.json({ ok: true, attachments: [] });
-    const clientId = c.req.param('id') ?? '';
-    const client = await db.query.agendaClients.findFirst({
-        where: and(eq(agendaClients.id, clientId), eq(agendaClients.professionalId, profile.id)),
-    });
-    if (!client) return c.json({ ok: false, error: 'Cliente no encontrado' }, 404);
-    const attachments = await db.select().from(agendaClientAttachments)
-        .where(eq(agendaClientAttachments.clientId, clientId))
-        .orderBy(desc(agendaClientAttachments.uploadedAt));
-    return c.json({ ok: true, attachments });
-});
-
-app.post('/api/agenda/clients/:id/attachments', requireVerifiedSession, async (c) => {
-    const user = await authUser(c);
-    if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
-    const profile = await getAgendaProfile(user.id);
-    if (!profile) return c.json({ ok: false, error: 'Perfil no encontrado' }, 404);
-    const clientId = c.req.param('id') ?? '';
-    const client = await db.query.agendaClients.findFirst({
-        where: and(eq(agendaClients.id, clientId), eq(agendaClients.professionalId, profile.id)),
-    });
-    if (!client) return c.json({ ok: false, error: 'Cliente no encontrado' }, 404);
-
-    const body = await c.req.json().catch(() => ({})) as Record<string, unknown>;
-    const name = typeof body.name === 'string' ? body.name.trim() : '';
-    const url = typeof body.url === 'string' ? body.url.trim() : '';
-    const mimeType = typeof body.mimeType === 'string' ? body.mimeType : null;
-    const sizeBytes = typeof body.sizeBytes === 'number' ? body.sizeBytes : null;
-    const rawKind = typeof body.kind === 'string' ? body.kind : 'document';
-    const kind: AttachmentKind = (ATTACHMENT_KINDS as readonly string[]).includes(rawKind) ? (rawKind as AttachmentKind) : 'document';
-
-    if (!name) return c.json({ ok: false, error: 'El nombre es requerido' }, 400);
-    if (!url) return c.json({ ok: false, error: 'El archivo es requerido' }, 400);
-
-    const [attachment] = await db.insert(agendaClientAttachments).values({
-        professionalId: profile.id,
-        clientId,
-        name,
-        url,
-        mimeType,
-        sizeBytes,
-        kind,
-    }).returning();
-    return c.json({ ok: true, attachment });
-});
-
-app.delete('/api/agenda/clients/:id/attachments/:aid', requireVerifiedSession, async (c) => {
-    const user = await authUser(c);
-    if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
-    const profile = await getAgendaProfile(user.id);
-    if (!profile) return c.json({ ok: false, error: 'Perfil no encontrado' }, 404);
-    const clientId = c.req.param('id') ?? '';
-    const attachmentId = c.req.param('aid') ?? '';
-    const [deleted] = await db.delete(agendaClientAttachments)
-        .where(and(
-            eq(agendaClientAttachments.id, attachmentId),
-            eq(agendaClientAttachments.clientId, clientId),
-            eq(agendaClientAttachments.professionalId, profile.id),
-        ))
-        .returning({ id: agendaClientAttachments.id });
-    if (!deleted) return c.json({ ok: false, error: 'Archivo no encontrado' }, 404);
-    return c.json({ ok: true });
-});
-
-// ─────────────────────────────────────────────────────────────────────────────
-// SimpleAgenda — Appointments
-// ─────────────────────────────────────────────────────────────────────────────
-
-app.get('/api/agenda/appointments', requireVerifiedSession, async (c) => {
-    const user = await authUser(c);
-    if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
-    const profile = await getAgendaProfile(user.id);
-    if (!profile) return c.json({ ok: true, appointments: [] });
-
-    const fromStr = c.req.query('from');
-    const toStr = c.req.query('to');
-    const conditions = [eq(agendaAppointments.professionalId, profile.id)];
-    if (fromStr) conditions.push(gte(agendaAppointments.startsAt, new Date(fromStr)));
-    if (toStr) conditions.push(lte(agendaAppointments.startsAt, new Date(toStr)));
-
-    const appointments = await db.select().from(agendaAppointments)
-        .where(and(...conditions))
-        .orderBy(asc(agendaAppointments.startsAt));
-    return c.json({ ok: true, appointments });
-});
-
-app.post('/api/agenda/appointments', requireVerifiedSession, async (c) => {
-    const user = await authUser(c);
-    if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
-    const profile = await getAgendaProfile(user.id);
-    if (!profile) return c.json({ ok: false, error: 'Perfil no encontrado' }, 404);
-    if (isFreePlan(profile, user.role)) {
-        const limitError = await checkAppointmentLimit(profile.id);
-        if (limitError) return c.json({ ok: false, error: limitError }, 403);
-    }
-    const body = await c.req.json().catch(() => ({})) as Record<string, unknown>;
-    if (!body.startsAt) return c.json({ ok: false, error: 'Fecha de inicio requerida' }, 400);
-    const durationMinutes = typeof body.durationMinutes === 'number' ? body.durationMinutes : 60;
-    const startsAt = new Date(String(body.startsAt));
-    const endsAt = new Date(startsAt.getTime() + durationMinutes * 60_000);
-    // Handle recurring appointments
-    const rawFreq = typeof body.recurrenceFrequency === 'string' ? body.recurrenceFrequency : null;
-    const frequency: 'weekly' | 'biweekly' | 'monthly' | null =
-        rawFreq === 'weekly' || rawFreq === 'biweekly' || rawFreq === 'monthly' ? rawFreq : null;
-    // Back-compat: legacy `repeatWeekly` (weeks to repeat after first) still honored as weekly
-    const legacyRepeat = typeof body.repeatWeekly === 'number' && body.repeatWeekly > 0 ? Math.min(body.repeatWeekly, 52) : 0;
-    const recurrenceCount = typeof body.recurrenceCount === 'number' && body.recurrenceCount > 1
-        ? Math.min(body.recurrenceCount, 52)
-        : (frequency ? 1 : 0);
-    const effectiveFrequency = frequency ?? (legacyRepeat > 0 ? 'weekly' as const : null);
-    const totalOccurrences = effectiveFrequency
-        ? (frequency ? recurrenceCount : legacyRepeat + 1)
-        : 1;
-    const seriesId = totalOccurrences > 1 ? randomUUID() : null;
-    const appointments: (typeof agendaAppointments.$inferSelect)[] = [];
-
-    // Validar y consumir bono (client pack) si aplica
-    const clientPackId = typeof body.clientPackId === 'string' && body.clientPackId ? body.clientPackId : null;
-    let clientPack: typeof agendaClientPacks.$inferSelect | null = null;
-    if (clientPackId) {
-        const bodyClientId = typeof body.clientId === 'string' ? body.clientId : null;
-        if (!bodyClientId) return c.json({ ok: false, error: 'Para usar un bono, selecciona primero un cliente.' }, 400);
-        clientPack = await db.query.agendaClientPacks.findFirst({
-            where: and(
-                eq(agendaClientPacks.id, clientPackId),
-                eq(agendaClientPacks.professionalId, profile.id),
-                eq(agendaClientPacks.clientId, bodyClientId),
-            ),
-        }) ?? null;
-        if (!clientPack) return c.json({ ok: false, error: 'Bono no encontrado para este cliente.' }, 404);
-        if (clientPack.status !== 'active') return c.json({ ok: false, error: 'Este bono ya no está activo.' }, 400);
-        if (clientPack.expiresAt && clientPack.expiresAt < new Date()) {
-            return c.json({ ok: false, error: 'Este bono ya expiró.' }, 400);
-        }
-        const remaining = clientPack.sessionsTotal - clientPack.sessionsUsed;
-        if (remaining < totalOccurrences) {
-            return c.json({ ok: false, error: `Al bono le quedan ${remaining} sesión(es), necesitas ${totalOccurrences}.` }, 400);
-        }
-        if (clientPack.appliesTo === 'services') {
-            const svcId = typeof body.serviceId === 'string' ? body.serviceId : null;
-            const list = Array.isArray(clientPack.serviceIds) ? clientPack.serviceIds : [];
-            if (!svcId || !list.includes(svcId)) {
-                return c.json({ ok: false, error: 'Este bono no aplica al servicio elegido.' }, 400);
-            }
-        }
-    }
-
-    const addOffset = (base: Date, index: number, freq: 'weekly' | 'biweekly' | 'monthly' | null): Date => {
-        if (!freq) return base;
-        const d = new Date(base.getTime());
-        if (freq === 'weekly') d.setDate(d.getDate() + index * 7);
-        else if (freq === 'biweekly') d.setDate(d.getDate() + index * 14);
-        else if (freq === 'monthly') d.setMonth(d.getMonth() + index);
-        return d;
+{
+    const agendaDeps = {
+        authUser,
+        requireVerifiedSession,
+        asString,
+        randomUUID,
+        randomBytes,
+        db,
+        sql,
+        tables: {
+            agendaProfessionalProfiles,
+            agendaServices,
+            agendaAvailabilityRules,
+            agendaBlockedSlots,
+            agendaLocations,
+            agendaClients,
+            agendaClientTags,
+            agendaClientTagAssignments,
+            agendaClientAttachments,
+            agendaAppointments,
+            agendaSessionNotes,
+            agendaPayments,
+            agendaPromotions,
+            agendaPacks,
+            agendaClientPacks,
+            agendaGroupSessions,
+            agendaGroupAttendees,
+            agendaNpsResponses,
+            agendaReferrals,
+            agendaNotificationEvents,
+            pushSubscriptions,
+            users,
+        },
+        dbHelpers: { eq, and, or, asc, desc, gte, lte, lt, inArray, isNull },
+        getAgendaProfile,
+        isFreePlan,
+        checkClientLimit,
+        checkAppointmentLimit,
+        generateSlots,
+        isValidSlug,
+        RESERVED_SLUGS,
+        logAudit,
+        logNotification,
+        syncToGoogleCalendar,
+        sendPushToUser,
+        sendBookingConfirmationEmail,
+        sendAppointmentReminderEmail,
+        notifyConfirmation,
+        notifyProfessionalNewBooking,
+        notifyCancellation,
+        notifyReminder24h,
+        sendTestMessage,
+        ensureNpsForAppointment,
+        createCheckoutPreference,
+        google,
+        VAPID_PUBLIC_KEY,
+        VAPID_PRIVATE_KEY,
+        webpush,
+        rateLimit,
     };
-
-    for (let i = 0; i < totalOccurrences; i++) {
-        const occStart = addOffset(startsAt, i, effectiveFrequency);
-        const occEnd = addOffset(endsAt, i, effectiveFrequency);
-        const [appt] = await db.insert(agendaAppointments).values({
-            professionalId: profile.id,
-            serviceId: typeof body.serviceId === 'string' ? body.serviceId || null : null,
-            clientId: typeof body.clientId === 'string' ? body.clientId || null : null,
-            clientName: typeof body.clientName === 'string' ? body.clientName || null : null,
-            clientEmail: typeof body.clientEmail === 'string' ? body.clientEmail || null : null,
-            clientPhone: typeof body.clientPhone === 'string' ? body.clientPhone || null : null,
-            startsAt: occStart,
-            endsAt: occEnd,
-            durationMinutes,
-            modality: typeof body.modality === 'string' ? body.modality : 'online',
-            location: typeof body.location === 'string' ? body.location || null : null,
-            status: 'confirmed',
-            price: clientPack ? null : (typeof body.price === 'string' && body.price ? body.price : null),
-            currency: profile.currency,
-            internalNotes: typeof body.internalNotes === 'string' ? body.internalNotes || null : null,
-            seriesId,
-            recurrenceFrequency: seriesId ? effectiveFrequency : null,
-            clientPackId: clientPack?.id ?? null,
-        }).returning();
-        appointments.push(appt);
-        // Sync first occurrence to Google Calendar
-        if (i === 0) {
-            const syncResult = await syncToGoogleCalendar(profile, { ...appt, googleEventId: null, modality: appt.modality }, 'create');
-            if (syncResult?.eventId) {
-                await db.update(agendaAppointments).set({ googleEventId: syncResult.eventId }).where(eq(agendaAppointments.id, appt.id));
-            }
-        }
-    }
-
-    // Consumir saldo del bono (una sesión por cita creada)
-    if (clientPack) {
-        const newUsed = clientPack.sessionsUsed + totalOccurrences;
-        const newStatus = newUsed >= clientPack.sessionsTotal ? 'completed' : clientPack.status;
-        await db.update(agendaClientPacks)
-            .set({ sessionsUsed: newUsed, status: newStatus, updatedAt: new Date() })
-            .where(eq(agendaClientPacks.id, clientPack.id));
-    }
-
-    // Push notification to professional
-    const firstAppt = appointments[0];
-    const tz = profile.timezone ?? 'America/Santiago';
-    const fmtT = (d: Date) => d.toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: tz });
-    const fmtD = (d: Date) => d.toLocaleDateString('es-CL', { weekday: 'short', day: 'numeric', month: 'short', timeZone: tz });
-    void sendPushToUser(user.id, {
-        title: '📅 Nueva cita agendada',
-        body: `${firstAppt.clientName ?? 'Paciente'} — ${fmtD(firstAppt.startsAt)} a las ${fmtT(firstAppt.startsAt)}`,
-        url: '/panel/agenda',
-    });
-
-    // Email confirmation to client (only first occurrence if recurring)
-    const clientEmail = firstAppt.clientEmail;
-    if (clientEmail) {
-        const agendaAppUrl = asString(process.env.AGENDA_APP_URL) || 'https://simpleagenda.app';
-        const cancelUrl = `${agendaAppUrl}/cancelar?appt=${firstAppt.id}&slug=${profile.slug}`;
-        let serviceName: string | null = null;
-        if (firstAppt.serviceId) {
-            const svc = await db.query.agendaServices.findFirst({ where: eq(agendaServices.id, firstAppt.serviceId) });
-            serviceName = svc?.name ?? null;
-        }
-        void sendBookingConfirmationEmail(clientEmail, {
-            appointmentId: firstAppt.id,
-            clientName: firstAppt.clientName ?? 'Paciente',
-            professionalName: profile.displayName ?? 'el profesional',
-            slug: profile.slug,
-            serviceName,
-            startsAt: firstAppt.startsAt,
-            endsAt: firstAppt.endsAt,
-            durationMinutes: firstAppt.durationMinutes,
-            modality: firstAppt.modality,
-            price: firstAppt.price,
-            currency: firstAppt.currency,
-            timezone: tz,
-            status: 'confirmed',
-            seriesDates: seriesId ? appointments.map((a) => a.startsAt) : null,
-            seriesFrequency: seriesId ? effectiveFrequency : null,
-            paymentMethods: null,
-            cancelUrl,
-            appUrl: agendaAppUrl,
-        }).catch((err) => {
-            console.error('[agenda] Failed to send booking confirmation email to', clientEmail, ':', err);
-        });
-    }
-
-    // WhatsApp notification to professional (Pro plan, if configured)
-    if (!isFreePlan(profile) && profile.waNotificationsEnabled && profile.waNotifyProfessional && profile.waProfessionalPhone) {
-        const proWaSeriesCount = seriesId ? appointments.length : null;
-        const proWaSeriesFreq = seriesId ? effectiveFrequency : null;
-        void notifyProfessionalNewBooking(
-            profile.waProfessionalPhone,
-            { displayName: profile.displayName, timezone: tz, cancellationHours: profile.cancellationHours ?? 24 },
-            { clientName: firstAppt.clientName, clientPhone: firstAppt.clientPhone, startsAt: firstAppt.startsAt, endsAt: firstAppt.endsAt, seriesCount: proWaSeriesCount, seriesFrequency: proWaSeriesFreq },
-        ).catch((err) => {
-            console.error('[agenda] Failed to send WhatsApp alert to professional', profile.waProfessionalPhone, ':', err);
-        });
-    }
-
-    return c.json({ ok: true, appointment: appointments[0], appointments });
-});
-
-app.put('/api/agenda/appointments/:id', requireVerifiedSession, async (c) => {
-    const user = await authUser(c);
-    if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
-    const profile = await getAgendaProfile(user.id);
-    if (!profile) return c.json({ ok: false, error: 'Perfil no encontrado' }, 404);
-    const id = c.req.param('id') ?? '';
-    const body = await c.req.json().catch(() => ({})) as Record<string, unknown>;
-    const patch: Record<string, unknown> = { updatedAt: new Date() };
-    if (body.startsAt) {
-        const startsAt = new Date(String(body.startsAt));
-        const durationMinutes = typeof body.durationMinutes === 'number' ? body.durationMinutes : 60;
-        patch.startsAt = startsAt;
-        patch.endsAt = new Date(startsAt.getTime() + durationMinutes * 60_000);
-        patch.durationMinutes = durationMinutes;
-    } else if (body.durationMinutes) {
-        patch.durationMinutes = body.durationMinutes;
-    }
-    for (const key of ['serviceId', 'clientId', 'clientName', 'clientEmail', 'clientPhone', 'modality', 'price', 'internalNotes'] as const) {
-        if (key in body) patch[key] = body[key] === '' ? null : body[key];
-    }
-    const [updated] = await db.update(agendaAppointments).set(patch)
-        .where(and(eq(agendaAppointments.id, id), eq(agendaAppointments.professionalId, profile.id)))
-        .returning();
-    if (!updated) return c.json({ ok: false, error: 'Cita no encontrada' }, 404);
-    // Sync update to Google Calendar in background
-    void syncToGoogleCalendar(profile, updated, 'update');
-    return c.json({ ok: true, appointment: updated });
-});
-
-app.patch('/api/agenda/appointments/:id/status', requireVerifiedSession, async (c) => {
-    const user = await authUser(c);
-    if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
-    const profile = await getAgendaProfile(user.id);
-    if (!profile) return c.json({ ok: false, error: 'Perfil no encontrado' }, 404);
-    const id = c.req.param('id') ?? '';
-    const body = await c.req.json().catch(() => ({})) as Record<string, unknown>;
-    const status = String(body.status ?? '');
-    const allowed = ['pending', 'confirmed', 'completed', 'cancelled', 'no_show'];
-    if (!allowed.includes(status)) return c.json({ ok: false, error: 'Estado inválido' }, 400);
-
-    const patch: Record<string, unknown> = { status, updatedAt: new Date() };
-    if (status === 'cancelled') {
-        patch.cancelledAt = new Date();
-        patch.cancelledBy = 'professional';
-        if (typeof body.cancellationReason === 'string') patch.cancellationReason = body.cancellationReason;
-    }
-
-    // Capturar estado anterior (para revertir consumo de bono si cancela)
-    const prev = await db.query.agendaAppointments.findFirst({
-        where: and(eq(agendaAppointments.id, id), eq(agendaAppointments.professionalId, profile.id)),
-    });
-
-    const [updated] = await db.update(agendaAppointments).set(patch)
-        .where(and(eq(agendaAppointments.id, id), eq(agendaAppointments.professionalId, profile.id)))
-        .returning();
-    if (!updated) return c.json({ ok: false, error: 'Cita no encontrada' }, 404);
-
-    // Si cancelamos una cita que consumía un bono, devolver la sesión
-    if (status === 'cancelled' && prev && prev.status !== 'cancelled' && prev.clientPackId) {
-        const pack = await db.query.agendaClientPacks.findFirst({
-            where: eq(agendaClientPacks.id, prev.clientPackId),
-        });
-        if (pack && pack.sessionsUsed > 0) {
-            const newUsed = Math.max(0, pack.sessionsUsed - 1);
-            const newStatus = pack.status === 'completed' && newUsed < pack.sessionsTotal ? 'active' : pack.status;
-            await db.update(agendaClientPacks)
-                .set({ sessionsUsed: newUsed, status: newStatus, updatedAt: new Date() })
-                .where(eq(agendaClientPacks.id, pack.id));
-        }
-    }
-
-    // Notify cancellation via WhatsApp + remove from Google Calendar
-    if (status === 'cancelled') {
-        const phone = updated.clientPhone;
-        if (phone && profile.waNotificationsEnabled) {
-            void notifyCancellation(
-                { clientName: updated.clientName, clientPhone: phone, startsAt: updated.startsAt, endsAt: updated.endsAt },
-                { displayName: profile.displayName, timezone: profile.timezone, cancellationHours: profile.cancellationHours },
-            ).catch((err) => {
-                console.error('[agenda] Failed to send WhatsApp cancellation to', phone, ':', err);
-            });
-        }
-        void syncToGoogleCalendar(profile, updated, 'delete');
-    } else {
-        void syncToGoogleCalendar(profile, updated, 'update');
-    }
-
-    // Generate NPS token when appointment transitions to 'completed' (idempotent)
-    if (status === 'completed') {
-        void ensureNpsForAppointment(profile.id, updated.id, updated.clientId).catch((err) => {
-            console.error('[agenda] Failed to create NPS token for', updated.id, ':', err);
-        });
-    }
-
-    return c.json({ ok: true, appointment: updated });
-});
-
-// Cancel recurring series — scope: 'future' cancels current + later, 'all' cancels all in series
-app.post('/api/agenda/appointments/:id/cancel-series', requireVerifiedSession, async (c) => {
-    const user = await authUser(c);
-    if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
-    const profile = await getAgendaProfile(user.id);
-    if (!profile) return c.json({ ok: false, error: 'Perfil no encontrado' }, 404);
-    const id = c.req.param('id') ?? '';
-    const body = await c.req.json().catch(() => ({})) as Record<string, unknown>;
-    const scope = body.scope === 'all' ? 'all' : 'future';
-
-    const anchor = await db.query.agendaAppointments.findFirst({
-        where: and(eq(agendaAppointments.id, id), eq(agendaAppointments.professionalId, profile.id)),
-    });
-    if (!anchor) return c.json({ ok: false, error: 'Cita no encontrada' }, 404);
-    if (!anchor.seriesId) return c.json({ ok: false, error: 'La cita no pertenece a una serie' }, 400);
-
-    const conditions = [
-        eq(agendaAppointments.professionalId, profile.id),
-        eq(agendaAppointments.seriesId, anchor.seriesId),
-        or(eq(agendaAppointments.status, 'confirmed'), eq(agendaAppointments.status, 'pending')),
-    ];
-    if (scope === 'future') {
-        conditions.push(gte(agendaAppointments.startsAt, anchor.startsAt));
-    }
-
-    const cancelled = await db.update(agendaAppointments).set({
-        status: 'cancelled',
-        cancelledAt: new Date(),
-        cancelledBy: 'professional',
-        cancellationReason: typeof body.cancellationReason === 'string' ? body.cancellationReason : null,
-        updatedAt: new Date(),
-    }).where(and(...conditions)).returning();
-
-    for (const appt of cancelled) {
-        void syncToGoogleCalendar(profile, appt, 'delete');
-    }
-
-    return c.json({ ok: true, count: cancelled.length, cancelled });
-});
-
-// ─────────────────────────────────────────────────────────────────────────────
-// SimpleAgenda — Dashboard stats
-// ─────────────────────────────────────────────────────────────────────────────
-
-app.get('/api/agenda/stats', requireVerifiedSession, async (c) => {
-    const user = await authUser(c);
-    if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
-    const profile = await getAgendaProfile(user.id);
-    if (!profile) return c.json({ ok: true, stats: { todayCount: 0, activeClients: 0, pendingPayments: 0, nextAppointment: null, weeklyData: [], thisMonthRevenue: 0, lastMonthRevenue: 0, thisMonthAppointments: 0 } });
-
-    const now = new Date();
-    const todayStart = new Date(now); todayStart.setHours(0, 0, 0, 0);
-    const todayEnd = new Date(now); todayEnd.setHours(23, 59, 59, 999);
-
-    // Week bounds (Mon–Sun of current week)
-    const dayOfWeek = now.getDay(); // 0=Sun
-    const diffToMon = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
-    const weekStart = new Date(now); weekStart.setDate(now.getDate() + diffToMon); weekStart.setHours(0, 0, 0, 0);
-    const weekEnd = new Date(weekStart); weekEnd.setDate(weekStart.getDate() + 6); weekEnd.setHours(23, 59, 59, 999);
-
-    // Month bounds
-    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
-    const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
-    const lastMonthStart = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-    const lastMonthEnd = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59, 999);
-
-    const [
-        todayAppts,
-        activeClientsResult,
-        pendingPaymentsResult,
-        nextAppt,
-        weeklyAppts,
-        thisMonthPaid,
-        lastMonthPaid,
-        thisMonthApptCount,
-        servicesCount,
-        rulesCount,
-        locationsCount,
-    ] = await Promise.all([
-        db.select({ count: sql<number>`count(*)` }).from(agendaAppointments)
-            .where(and(
-                eq(agendaAppointments.professionalId, profile.id),
-                gte(agendaAppointments.startsAt, todayStart),
-                lte(agendaAppointments.startsAt, todayEnd),
-                sql`${agendaAppointments.status} NOT IN ('cancelled', 'no_show')`,
-            )),
-        db.select({ count: sql<number>`count(*)` }).from(agendaClients)
-            .where(and(eq(agendaClients.professionalId, profile.id), eq(agendaClients.status, 'active'))),
-        db.select({ total: sql<string>`coalesce(sum(amount), 0)` }).from(agendaPayments)
-            .where(and(eq(agendaPayments.professionalId, profile.id), eq(agendaPayments.status, 'pending'))),
-        db.select().from(agendaAppointments)
-            .where(and(
-                eq(agendaAppointments.professionalId, profile.id),
-                gte(agendaAppointments.startsAt, now),
-                sql`${agendaAppointments.status} NOT IN ('cancelled', 'no_show')`,
-            ))
-            .orderBy(asc(agendaAppointments.startsAt))
-            .limit(1),
-        // Weekly appointments grouped by date
-        db.select({
-            day: sql<string>`DATE(${agendaAppointments.startsAt})`,
-            count: sql<number>`count(*)`,
-        }).from(agendaAppointments)
-            .where(and(
-                eq(agendaAppointments.professionalId, profile.id),
-                gte(agendaAppointments.startsAt, weekStart),
-                lte(agendaAppointments.startsAt, weekEnd),
-                sql`${agendaAppointments.status} NOT IN ('cancelled', 'no_show')`,
-            ))
-            .groupBy(sql`DATE(${agendaAppointments.startsAt})`),
-        // This month confirmed revenue
-        db.select({ total: sql<string>`coalesce(sum(amount), 0)` }).from(agendaPayments)
-            .where(and(
-                eq(agendaPayments.professionalId, profile.id),
-                eq(agendaPayments.status, 'paid'),
-                gte(agendaPayments.paidAt, monthStart),
-                lte(agendaPayments.paidAt, monthEnd),
-            )),
-        // Last month confirmed revenue
-        db.select({ total: sql<string>`coalesce(sum(amount), 0)` }).from(agendaPayments)
-            .where(and(
-                eq(agendaPayments.professionalId, profile.id),
-                eq(agendaPayments.status, 'paid'),
-                gte(agendaPayments.paidAt, lastMonthStart),
-                lte(agendaPayments.paidAt, lastMonthEnd),
-            )),
-        // This month total appointments
-        db.select({ count: sql<number>`count(*)` }).from(agendaAppointments)
-            .where(and(
-                eq(agendaAppointments.professionalId, profile.id),
-                gte(agendaAppointments.startsAt, monthStart),
-                lte(agendaAppointments.startsAt, monthEnd),
-                sql`${agendaAppointments.status} NOT IN ('cancelled', 'no_show')`,
-            )),
-        // Setup checklist: active services count
-        db.select({ count: sql<number>`count(*)` }).from(agendaServices)
-            .where(and(eq(agendaServices.professionalId, profile.id), eq(agendaServices.isActive, true))),
-        // Setup checklist: active availability rules count
-        db.select({ count: sql<number>`count(*)` }).from(agendaAvailabilityRules)
-            .where(and(eq(agendaAvailabilityRules.professionalId, profile.id), eq(agendaAvailabilityRules.isActive, true))),
-        // Setup checklist: active locations count
-        db.select({ count: sql<number>`count(*)` }).from(agendaLocations)
-            .where(and(eq(agendaLocations.professionalId, profile.id), eq(agendaLocations.isActive, true))),
-    ]);
-
-    // Build 7-day week array Mon–Sun
-    const DAY_LABELS = ['L', 'M', 'X', 'J', 'V', 'S', 'D'];
-    const weeklyMap = new Map(weeklyAppts.map((r) => [r.day, Number(r.count)]));
-    const todayStr = todayStart.toISOString().slice(0, 10);
-    const weeklyData = Array.from({ length: 7 }, (_, i) => {
-        const d = new Date(weekStart);
-        d.setDate(weekStart.getDate() + i);
-        const dateStr = d.toISOString().slice(0, 10);
-        return {
-            label: DAY_LABELS[i],
-            date: dateStr,
-            count: weeklyMap.get(dateStr) ?? 0,
-            isToday: dateStr === todayStr,
-        };
-    });
-
-    return c.json({
-        ok: true,
-        stats: {
-            todayCount: Number(todayAppts[0]?.count ?? 0),
-            activeClients: Number(activeClientsResult[0]?.count ?? 0),
-            pendingPayments: Number(pendingPaymentsResult[0]?.total ?? 0),
-            nextAppointment: nextAppt[0] ?? null,
-            weeklyData,
-            thisMonthRevenue: Number(thisMonthPaid[0]?.total ?? 0),
-            lastMonthRevenue: Number(lastMonthPaid[0]?.total ?? 0),
-            thisMonthAppointments: Number(thisMonthApptCount[0]?.count ?? 0),
-            hasServices: Number(servicesCount[0]?.count ?? 0) > 0,
-            hasRules: Number(rulesCount[0]?.count ?? 0) > 0,
-            hasLocations: Number(locationsCount[0]?.count ?? 0) > 0,
-        },
-    });
-});
-
-// ─────────────────────────────────────────────────────────────────────────────
-// SimpleAgenda — Analytics (extended metrics para el dashboard Analytics)
-// ─────────────────────────────────────────────────────────────────────────────
-
-app.get('/api/agenda/analytics', requireVerifiedSession, async (c) => {
-    const user = await authUser(c);
-    if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
-    const profile = await getAgendaProfile(user.id);
-    if (!profile) {
-        return c.json({ ok: true, analytics: {
-            monthly: [], byService: [], topClients: [], noShowRate: 0, totalCompleted: 0, totalCancelled: 0, totalNoShow: 0, nps: { avg: null, promoters: 0, passives: 0, detractors: 0, count: 0, score: null },
-        } });
-    }
-
-    const now = new Date();
-    const twelveMonthsAgo = new Date(now.getFullYear(), now.getMonth() - 11, 1);
-
-    const [monthlyRows, serviceRows, topClientsRows, statusCountsRows, npsRows] = await Promise.all([
-        // Ingresos y citas por mes (12 meses)
-        db.select({
-            month: sql<string>`to_char(${agendaPayments.paidAt}, 'YYYY-MM')`,
-            revenue: sql<string>`coalesce(sum(${agendaPayments.amount}), 0)`,
-        }).from(agendaPayments)
-            .where(and(
-                eq(agendaPayments.professionalId, profile.id),
-                eq(agendaPayments.status, 'paid'),
-                gte(agendaPayments.paidAt, twelveMonthsAgo),
-            ))
-            .groupBy(sql`to_char(${agendaPayments.paidAt}, 'YYYY-MM')`)
-            .orderBy(sql`to_char(${agendaPayments.paidAt}, 'YYYY-MM')`),
-        // Ingresos y citas por servicio (últimos 12 meses)
-        db.select({
-            serviceId: agendaServices.id,
-            serviceName: agendaServices.name,
-            count: sql<number>`count(${agendaAppointments.id})`,
-            revenue: sql<string>`coalesce(sum(${agendaAppointments.price}), 0)`,
-        }).from(agendaAppointments)
-            .leftJoin(agendaServices, eq(agendaAppointments.serviceId, agendaServices.id))
-            .where(and(
-                eq(agendaAppointments.professionalId, profile.id),
-                gte(agendaAppointments.startsAt, twelveMonthsAgo),
-                sql`${agendaAppointments.status} NOT IN ('cancelled', 'no_show')`,
-            ))
-            .groupBy(agendaServices.id, agendaServices.name)
-            .orderBy(sql`count(${agendaAppointments.id}) DESC`)
-            .limit(10),
-        // Top clientes por número de citas (últimos 12 meses)
-        db.select({
-            clientId: agendaAppointments.clientId,
-            clientName: agendaAppointments.clientName,
-            count: sql<number>`count(*)`,
-        }).from(agendaAppointments)
-            .where(and(
-                eq(agendaAppointments.professionalId, profile.id),
-                gte(agendaAppointments.startsAt, twelveMonthsAgo),
-                sql`${agendaAppointments.status} NOT IN ('cancelled', 'no_show')`,
-            ))
-            .groupBy(agendaAppointments.clientId, agendaAppointments.clientName)
-            .orderBy(sql`count(*) DESC`)
-            .limit(10),
-        // Conteos por status (global)
-        db.select({
-            status: agendaAppointments.status,
-            count: sql<number>`count(*)`,
-        }).from(agendaAppointments)
-            .where(eq(agendaAppointments.professionalId, profile.id))
-            .groupBy(agendaAppointments.status),
-        // NPS
-        db.select({
-            score: agendaNpsResponses.score,
-        }).from(agendaNpsResponses)
-            .where(and(
-                eq(agendaNpsResponses.professionalId, profile.id),
-                sql`${agendaNpsResponses.submittedAt} IS NOT NULL`,
-            )),
-    ]);
-
-    // Build 12-month array
-    const monthlyMap = new Map(monthlyRows.map((r) => [r.month, Number(r.revenue)]));
-    const monthly: Array<{ month: string; revenue: number; label: string }> = [];
-    const MONTH_LABELS = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
-    for (let i = 11; i >= 0; i--) {
-        const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
-        const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
-        monthly.push({ month: key, label: MONTH_LABELS[d.getMonth()], revenue: monthlyMap.get(key) ?? 0 });
-    }
-
-    const byService = serviceRows.map((r) => ({
-        serviceId: r.serviceId ?? null,
-        serviceName: r.serviceName ?? 'Sin servicio',
-        count: Number(r.count ?? 0),
-        revenue: Number(r.revenue ?? 0),
-    }));
-
-    const topClients = topClientsRows.map((r) => ({
-        clientId: r.clientId,
-        clientName: r.clientName ?? '—',
-        count: Number(r.count ?? 0),
-    }));
-
-    const statusMap = new Map(statusCountsRows.map((r) => [r.status, Number(r.count)]));
-    const totalCompleted = statusMap.get('completed') ?? 0;
-    const totalCancelled = statusMap.get('cancelled') ?? 0;
-    const totalNoShow = statusMap.get('no_show') ?? 0;
-    const finished = totalCompleted + totalNoShow;
-    const noShowRate = finished > 0 ? totalNoShow / finished : 0;
-
-    // NPS stats (score 9-10 = promoter, 7-8 = passive, 0-6 = detractor)
-    let promoters = 0, passives = 0, detractors = 0;
-    let sum = 0;
-    for (const r of npsRows) {
-        const s = r.score ?? -1;
-        if (s < 0) continue;
-        sum += s;
-        if (s >= 9) promoters++;
-        else if (s >= 7) passives++;
-        else detractors++;
-    }
-    const npsCount = promoters + passives + detractors;
-    const npsScore = npsCount > 0 ? Math.round(((promoters - detractors) / npsCount) * 100) : null;
-    const avg = npsCount > 0 ? sum / npsCount : null;
-
-    return c.json({
-        ok: true,
-        analytics: {
-            monthly,
-            byService,
-            topClients,
-            noShowRate,
-            totalCompleted,
-            totalCancelled,
-            totalNoShow,
-            nps: { avg, promoters, passives, detractors, count: npsCount, score: npsScore },
-        },
-    });
-});
-
-// ─────────────────────────────────────────────────────────────────────────────
-// SimpleAgenda — NPS (encuesta post-cita)
-// ─────────────────────────────────────────────────────────────────────────────
-
-async function ensureNpsForAppointment(professionalId: string, appointmentId: string, clientId: string | null): Promise<{ token: string } | null> {
-    const existing = await db.query.agendaNpsResponses.findFirst({
-        where: eq(agendaNpsResponses.appointmentId, appointmentId),
-    });
-    if (existing) return { token: existing.token };
-    const token = randomBytes(24).toString('hex');
-    const [created] = await db.insert(agendaNpsResponses).values({
-        professionalId, appointmentId, clientId, token,
-    }).returning();
-    return created ? { token: created.token } : null;
+    app.route('/api/agenda', createAgendaRouter(agendaDeps));
+    app.route('/api/public/agenda', createPublicAgendaRouter(agendaDeps));
 }
 
-// GET público por token (para renderizar el form)
-app.get('/api/public/nps/:token', async (c) => {
-    const token = c.req.param('token') ?? '';
-    if (!token) return c.json({ ok: false, error: 'Token inválido' }, 400);
-    const record = await db.query.agendaNpsResponses.findFirst({
-        where: eq(agendaNpsResponses.token, token),
-    });
-    if (!record) return c.json({ ok: false, error: 'Encuesta no encontrada' }, 404);
-    const appt = await db.query.agendaAppointments.findFirst({
-        where: eq(agendaAppointments.id, record.appointmentId),
-    });
-    const profile = await db.query.agendaProfessionalProfiles.findFirst({
-        where: eq(agendaProfessionalProfiles.id, record.professionalId),
-    });
-    return c.json({
-        ok: true,
-        alreadySubmitted: !!record.submittedAt,
-        professional: profile ? { displayName: profile.displayName, slug: profile.slug, avatarUrl: profile.avatarUrl } : null,
-        appointment: appt ? { startsAt: appt.startsAt, clientName: appt.clientName } : null,
-        response: record.submittedAt ? { score: record.score, comment: record.comment } : null,
-    });
-});
-
-// POST público por token (envío de respuesta)
-app.post('/api/public/nps/:token', async (c) => {
-    const token = c.req.param('token') ?? '';
-    const body = await c.req.json().catch(() => ({})) as Record<string, unknown>;
-    const score = typeof body.score === 'number' ? Math.max(0, Math.min(10, Math.round(body.score))) : null;
-    if (score === null) return c.json({ ok: false, error: 'Puntuación inválida (0–10)' }, 400);
-    const comment = typeof body.comment === 'string' ? body.comment.slice(0, 2000) : null;
-    const record = await db.query.agendaNpsResponses.findFirst({
-        where: eq(agendaNpsResponses.token, token),
-    });
-    if (!record) return c.json({ ok: false, error: 'Encuesta no encontrada' }, 404);
-    if (record.submittedAt) return c.json({ ok: false, error: 'Esta encuesta ya fue respondida' }, 409);
-    await db.update(agendaNpsResponses).set({
-        score,
-        comment,
-        submittedAt: new Date(),
-    }).where(eq(agendaNpsResponses.id, record.id));
-    return c.json({ ok: true });
-});
-
-// GET profesional — listado de respuestas NPS
-app.get('/api/agenda/nps', requireVerifiedSession, async (c) => {
-    const user = await authUser(c);
-    if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
-    const profile = await getAgendaProfile(user.id);
-    if (!profile) return c.json({ ok: true, responses: [] });
-    const rows = await db.select({
-        id: agendaNpsResponses.id,
-        score: agendaNpsResponses.score,
-        comment: agendaNpsResponses.comment,
-        submittedAt: agendaNpsResponses.submittedAt,
-        sentAt: agendaNpsResponses.sentAt,
-        appointmentId: agendaNpsResponses.appointmentId,
-        clientName: agendaAppointments.clientName,
-    }).from(agendaNpsResponses)
-        .leftJoin(agendaAppointments, eq(agendaNpsResponses.appointmentId, agendaAppointments.id))
-        .where(and(
-            eq(agendaNpsResponses.professionalId, profile.id),
-            sql`${agendaNpsResponses.submittedAt} IS NOT NULL`,
-        ))
-        .orderBy(desc(agendaNpsResponses.submittedAt))
-        .limit(100);
-    return c.json({ ok: true, responses: rows });
-});
-
-// POST profesional — generar/renovar token NPS para una cita (idempotente)
-app.post('/api/agenda/nps/for-appointment', requireVerifiedSession, async (c) => {
-    const user = await authUser(c);
-    if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
-    const profile = await getAgendaProfile(user.id);
-    if (!profile) return c.json({ ok: false, error: 'Perfil no encontrado' }, 404);
-    const body = await c.req.json().catch(() => ({})) as Record<string, unknown>;
-    const appointmentId = typeof body.appointmentId === 'string' ? body.appointmentId : '';
-    if (!appointmentId) return c.json({ ok: false, error: 'appointmentId requerido' }, 400);
-    const appt = await db.query.agendaAppointments.findFirst({
-        where: and(eq(agendaAppointments.id, appointmentId), eq(agendaAppointments.professionalId, profile.id)),
-    });
-    if (!appt) return c.json({ ok: false, error: 'Cita no encontrada' }, 404);
-    const out = await ensureNpsForAppointment(profile.id, appointmentId, appt.clientId);
-    return c.json({ ok: true, token: out?.token ?? null });
-});
-
-// ─────────────────────────────────────────────────────────────────────────────
-// SimpleAgenda — Referidos (cliente recomienda a un conocido)
-// ─────────────────────────────────────────────────────────────────────────────
-
-const REFERRAL_STATUSES = ['pending', 'converted', 'rewarded', 'cancelled'] as const;
-type ReferralStatus = typeof REFERRAL_STATUSES[number];
-
-app.get('/api/agenda/referrals', requireVerifiedSession, async (c) => {
-    const user = await authUser(c);
-    if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
-    const profile = await getAgendaProfile(user.id);
-    if (!profile) return c.json({ ok: true, referrals: [], stats: { total: 0, converted: 0, pending: 0, rewarded: 0 } });
-
-    const rows = await db.select({
-        id: agendaReferrals.id,
-        referrerClientId: agendaReferrals.referrerClientId,
-        refereeClientId: agendaReferrals.refereeClientId,
-        refereeName: agendaReferrals.refereeName,
-        refereePhone: agendaReferrals.refereePhone,
-        status: agendaReferrals.status,
-        rewardNote: agendaReferrals.rewardNote,
-        createdAt: agendaReferrals.createdAt,
-        convertedAt: agendaReferrals.convertedAt,
-        rewardedAt: agendaReferrals.rewardedAt,
-        referrerFirstName: agendaClients.firstName,
-        referrerLastName: agendaClients.lastName,
-    }).from(agendaReferrals)
-        .leftJoin(agendaClients, eq(agendaReferrals.referrerClientId, agendaClients.id))
-        .where(eq(agendaReferrals.professionalId, profile.id))
-        .orderBy(desc(agendaReferrals.createdAt))
-        .limit(200);
-
-    const stats = { total: rows.length, converted: 0, pending: 0, rewarded: 0 };
-    for (const r of rows) {
-        if (r.status === 'converted') stats.converted++;
-        else if (r.status === 'pending') stats.pending++;
-        else if (r.status === 'rewarded') stats.rewarded++;
-    }
-    return c.json({ ok: true, referrals: rows, stats });
-});
-
-app.post('/api/agenda/referrals', requireVerifiedSession, async (c) => {
-    const user = await authUser(c);
-    if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
-    const profile = await getAgendaProfile(user.id);
-    if (!profile) return c.json({ ok: false, error: 'Perfil no encontrado' }, 404);
-    const body = await c.req.json().catch(() => ({})) as Record<string, unknown>;
-
-    const referrerClientId = typeof body.referrerClientId === 'string' ? body.referrerClientId : '';
-    if (!referrerClientId) return c.json({ ok: false, error: 'Selecciona quién refirió' }, 400);
-
-    const referrer = await db.query.agendaClients.findFirst({
-        where: and(eq(agendaClients.id, referrerClientId), eq(agendaClients.professionalId, profile.id)),
-    });
-    if (!referrer) return c.json({ ok: false, error: 'Paciente no encontrado' }, 404);
-
-    const refereeName = typeof body.refereeName === 'string' ? body.refereeName.trim().slice(0, 200) : '';
-    const refereePhone = typeof body.refereePhone === 'string' ? body.refereePhone.trim().slice(0, 40) : '';
-    const refereeClientId = typeof body.refereeClientId === 'string' && body.refereeClientId ? body.refereeClientId : null;
-    if (!refereeName && !refereeClientId) return c.json({ ok: false, error: 'Indica el nombre del referido' }, 400);
-
-    const [created] = await db.insert(agendaReferrals).values({
-        professionalId: profile.id,
-        referrerClientId,
-        refereeClientId,
-        refereeName: refereeName || null,
-        refereePhone: refereePhone || null,
-        rewardNote: typeof body.rewardNote === 'string' ? body.rewardNote.slice(0, 500) : null,
-    }).returning();
-
-    return c.json({ ok: true, referral: created });
-});
-
-app.patch('/api/agenda/referrals/:id', requireVerifiedSession, async (c) => {
-    const user = await authUser(c);
-    if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
-    const profile = await getAgendaProfile(user.id);
-    if (!profile) return c.json({ ok: false, error: 'Perfil no encontrado' }, 404);
-    const id = c.req.param('id') ?? '';
-    const body = await c.req.json().catch(() => ({})) as Record<string, unknown>;
-
-    const patch: Record<string, unknown> = {};
-    if (typeof body.status === 'string' && (REFERRAL_STATUSES as readonly string[]).includes(body.status)) {
-        const nextStatus = body.status as ReferralStatus;
-        patch.status = nextStatus;
-        if (nextStatus === 'converted') patch.convertedAt = new Date();
-        else if (nextStatus === 'rewarded') patch.rewardedAt = new Date();
-    }
-    if (typeof body.rewardNote === 'string') patch.rewardNote = body.rewardNote.slice(0, 500);
-    if (typeof body.refereeClientId === 'string') patch.refereeClientId = body.refereeClientId || null;
-
-    if (Object.keys(patch).length === 0) return c.json({ ok: false, error: 'Sin cambios' }, 400);
-
-    const [updated] = await db.update(agendaReferrals).set(patch)
-        .where(and(eq(agendaReferrals.id, id), eq(agendaReferrals.professionalId, profile.id)))
-        .returning();
-    if (!updated) return c.json({ ok: false, error: 'Referido no encontrado' }, 404);
-    return c.json({ ok: true, referral: updated });
-});
-
-app.delete('/api/agenda/referrals/:id', requireVerifiedSession, async (c) => {
-    const user = await authUser(c);
-    if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
-    const profile = await getAgendaProfile(user.id);
-    if (!profile) return c.json({ ok: false, error: 'Perfil no encontrado' }, 404);
-    const id = c.req.param('id') ?? '';
-    const [deleted] = await db.delete(agendaReferrals)
-        .where(and(eq(agendaReferrals.id, id), eq(agendaReferrals.professionalId, profile.id)))
-        .returning();
-    if (!deleted) return c.json({ ok: false, error: 'Referido no encontrado' }, 404);
-    return c.json({ ok: true });
-});
-
-// ─────────────────────────────────────────────────────────────────────────────
-// SimpleAgenda — Promociones / cupones
-// ─────────────────────────────────────────────────────────────────────────────
-
-const PROMOTION_DISCOUNT_TYPES = new Set(['percent', 'fixed']);
-const PROMOTION_APPLIES_TO = new Set(['all', 'services']);
-
-function normalizePromoCode(raw: unknown): string | null {
-    if (typeof raw !== 'string') return null;
-    const trimmed = raw.trim().toUpperCase();
-    if (!trimmed) return null;
-    if (trimmed.length > 40) return trimmed.slice(0, 40);
-    return trimmed;
-}
-
-function parseOptionalNumber(raw: unknown): number | null {
-    if (raw === null || raw === undefined || raw === '') return null;
-    const n = Number(raw);
-    return Number.isFinite(n) ? n : null;
-}
-
-function parseOptionalDate(raw: unknown): Date | null {
-    if (typeof raw !== 'string' || !raw) return null;
-    const d = new Date(raw);
-    return Number.isNaN(d.getTime()) ? null : d;
-}
-
-type PromotionRow = typeof agendaPromotions.$inferSelect;
-
-type PromotionApplicationError =
-    | 'not_found'
-    | 'inactive'
-    | 'not_started'
-    | 'expired'
-    | 'max_uses_reached'
-    | 'service_not_eligible'
-    | 'min_amount_not_reached'
-    | 'no_price';
-
-type PromotionApplicationResult =
-    | { ok: true; promotion: PromotionRow; discountAmount: number; finalPrice: number; originalPrice: number }
-    | { ok: false; error: PromotionApplicationError; message: string };
-
-function applyPromotionToPrice(
-    promotion: PromotionRow,
-    basePrice: number,
-    serviceId: string | null,
-    now: Date = new Date(),
-): PromotionApplicationResult {
-    if (!promotion.isActive) return { ok: false, error: 'inactive', message: 'Este cupón está desactivado.' };
-    if (promotion.startsAt && now < promotion.startsAt) return { ok: false, error: 'not_started', message: 'Este cupón aún no está vigente.' };
-    if (promotion.endsAt && now > promotion.endsAt) return { ok: false, error: 'expired', message: 'Este cupón ya expiró.' };
-    if (promotion.maxUses !== null && promotion.maxUses !== undefined && promotion.usesCount >= promotion.maxUses) {
-        return { ok: false, error: 'max_uses_reached', message: 'Este cupón alcanzó su límite de usos.' };
-    }
-    if (promotion.appliesTo === 'services') {
-        const list = Array.isArray(promotion.serviceIds) ? promotion.serviceIds : [];
-        if (!serviceId || !list.includes(serviceId)) {
-            return { ok: false, error: 'service_not_eligible', message: 'Este cupón no aplica al servicio elegido.' };
-        }
-    }
-    if (!Number.isFinite(basePrice) || basePrice <= 0) {
-        return { ok: false, error: 'no_price', message: 'Este servicio no tiene precio, no se puede aplicar un cupón.' };
-    }
-    const minAmount = promotion.minAmount ? Number(promotion.minAmount) : null;
-    if (minAmount !== null && basePrice < minAmount) {
-        return { ok: false, error: 'min_amount_not_reached', message: `Monto mínimo para este cupón: ${minAmount.toLocaleString('es-CL')}.` };
-    }
-
-    const value = Number(promotion.discountValue);
-    let discountAmount = 0;
-    if (promotion.discountType === 'percent') {
-        discountAmount = Math.round((basePrice * value) / 100);
-    } else {
-        discountAmount = Math.round(value);
-    }
-    if (discountAmount < 0) discountAmount = 0;
-    if (discountAmount > basePrice) discountAmount = basePrice;
-    const finalPrice = Math.max(0, basePrice - discountAmount);
-    return { ok: true, promotion, discountAmount, finalPrice, originalPrice: basePrice };
-}
-
-app.get('/api/agenda/promotions', requireVerifiedSession, async (c) => {
-    const user = await authUser(c);
-    if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
-    const profile = await getAgendaProfile(user.id);
-    if (!profile) return c.json({ ok: false, error: 'Perfil no encontrado' }, 404);
-    const rows = await db.select().from(agendaPromotions)
-        .where(eq(agendaPromotions.professionalId, profile.id))
-        .orderBy(desc(agendaPromotions.createdAt));
-    return c.json({ ok: true, promotions: rows });
-});
-
-app.post('/api/agenda/promotions', requireVerifiedSession, async (c) => {
-    const user = await authUser(c);
-    if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
-    const profile = await getAgendaProfile(user.id);
-    if (!profile) return c.json({ ok: false, error: 'Perfil no encontrado' }, 404);
-    const body = await c.req.json().catch(() => ({})) as Record<string, unknown>;
-
-    const label = typeof body.label === 'string' ? body.label.trim() : '';
-    if (!label) return c.json({ ok: false, error: 'Falta el nombre de la promoción.' }, 400);
-
-    const discountType = typeof body.discountType === 'string' && PROMOTION_DISCOUNT_TYPES.has(body.discountType) ? body.discountType : 'percent';
-    const discountValue = parseOptionalNumber(body.discountValue);
-    if (discountValue === null || discountValue <= 0) {
-        return c.json({ ok: false, error: 'El descuento debe ser mayor a 0.' }, 400);
-    }
-    if (discountType === 'percent' && discountValue > 100) {
-        return c.json({ ok: false, error: 'El porcentaje no puede superar 100.' }, 400);
-    }
-
-    const appliesTo = typeof body.appliesTo === 'string' && PROMOTION_APPLIES_TO.has(body.appliesTo) ? body.appliesTo : 'all';
-    const serviceIds: string[] = Array.isArray(body.serviceIds) ? body.serviceIds.filter((x): x is string => typeof x === 'string') : [];
-    if (appliesTo === 'services' && serviceIds.length === 0) {
-        return c.json({ ok: false, error: 'Selecciona al menos un servicio.' }, 400);
-    }
-
-    const code = normalizePromoCode(body.code);
-    const minAmount = parseOptionalNumber(body.minAmount);
-    const maxUses = parseOptionalNumber(body.maxUses);
-    const startsAt = parseOptionalDate(body.startsAt);
-    const endsAt = parseOptionalDate(body.endsAt);
-    if (startsAt && endsAt && endsAt < startsAt) {
-        return c.json({ ok: false, error: 'La fecha de fin es anterior al inicio.' }, 400);
-    }
-
-    try {
-        const [created] = await db.insert(agendaPromotions).values({
-            professionalId: profile.id,
-            code,
-            label,
-            description: typeof body.description === 'string' ? body.description : null,
-            discountType,
-            discountValue: String(discountValue),
-            appliesTo,
-            serviceIds,
-            minAmount: minAmount !== null ? String(minAmount) : null,
-            maxUses: maxUses !== null ? Math.floor(maxUses) : null,
-            startsAt,
-            endsAt,
-            isActive: body.isActive === false ? false : true,
-        }).returning();
-        await logAudit({
-            professionalId: profile.id,
-            entityType: 'promotion',
-            entityId: created.id,
-            action: 'create',
-            metadata: { code, discountType, discountValue },
-            ctx: c,
-        });
-        return c.json({ ok: true, promotion: created });
-    } catch (err: unknown) {
-        if (err && typeof err === 'object' && 'code' in err && (err as { code?: string }).code === '23505') {
-            return c.json({ ok: false, error: 'Ya existe un cupón con ese código.' }, 409);
-        }
-        throw err;
-    }
-});
-
-app.patch('/api/agenda/promotions/:id', requireVerifiedSession, async (c) => {
-    const user = await authUser(c);
-    if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
-    const profile = await getAgendaProfile(user.id);
-    if (!profile) return c.json({ ok: false, error: 'Perfil no encontrado' }, 404);
-    const id = c.req.param('id') ?? '';
-    const existing = await db.query.agendaPromotions.findFirst({
-        where: and(eq(agendaPromotions.id, id), eq(agendaPromotions.professionalId, profile.id)),
-    });
-    if (!existing) return c.json({ ok: false, error: 'Promoción no encontrada' }, 404);
-
-    const body = await c.req.json().catch(() => ({})) as Record<string, unknown>;
-    const patch: Partial<typeof agendaPromotions.$inferInsert> & { updatedAt: Date } = { updatedAt: new Date() };
-
-    if (typeof body.label === 'string') {
-        const label = body.label.trim();
-        if (!label) return c.json({ ok: false, error: 'El nombre no puede estar vacío.' }, 400);
-        patch.label = label;
-    }
-    if ('description' in body) patch.description = typeof body.description === 'string' ? body.description : null;
-    if (typeof body.code !== 'undefined') patch.code = normalizePromoCode(body.code);
-    if (typeof body.discountType === 'string' && PROMOTION_DISCOUNT_TYPES.has(body.discountType)) patch.discountType = body.discountType;
-    if ('discountValue' in body) {
-        const v = parseOptionalNumber(body.discountValue);
-        if (v === null || v <= 0) return c.json({ ok: false, error: 'Descuento inválido.' }, 400);
-        if ((patch.discountType ?? existing.discountType) === 'percent' && v > 100) {
-            return c.json({ ok: false, error: 'El porcentaje no puede superar 100.' }, 400);
-        }
-        patch.discountValue = String(v);
-    }
-    if (typeof body.appliesTo === 'string' && PROMOTION_APPLIES_TO.has(body.appliesTo)) patch.appliesTo = body.appliesTo;
-    if (Array.isArray(body.serviceIds)) patch.serviceIds = body.serviceIds.filter((x): x is string => typeof x === 'string');
-    if ('minAmount' in body) {
-        const v = parseOptionalNumber(body.minAmount);
-        patch.minAmount = v !== null ? String(v) : null;
-    }
-    if ('maxUses' in body) {
-        const v = parseOptionalNumber(body.maxUses);
-        patch.maxUses = v !== null ? Math.floor(v) : null;
-    }
-    if ('startsAt' in body) patch.startsAt = parseOptionalDate(body.startsAt);
-    if ('endsAt' in body) patch.endsAt = parseOptionalDate(body.endsAt);
-    if (typeof body.isActive === 'boolean') patch.isActive = body.isActive;
-
-    try {
-        const [updated] = await db.update(agendaPromotions)
-            .set(patch)
-            .where(and(eq(agendaPromotions.id, id), eq(agendaPromotions.professionalId, profile.id)))
-            .returning();
-        await logAudit({
-            professionalId: profile.id,
-            entityType: 'promotion',
-            entityId: id,
-            action: 'update',
-            metadata: { fields: Object.keys(patch).filter((k) => k !== 'updatedAt') },
-            ctx: c,
-        });
-        return c.json({ ok: true, promotion: updated });
-    } catch (err: unknown) {
-        if (err && typeof err === 'object' && 'code' in err && (err as { code?: string }).code === '23505') {
-            return c.json({ ok: false, error: 'Ya existe un cupón con ese código.' }, 409);
-        }
-        throw err;
-    }
-});
-
-app.delete('/api/agenda/promotions/:id', requireVerifiedSession, async (c) => {
-    const user = await authUser(c);
-    if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
-    const profile = await getAgendaProfile(user.id);
-    if (!profile) return c.json({ ok: false, error: 'Perfil no encontrado' }, 404);
-    const id = c.req.param('id') ?? '';
-    const [deleted] = await db.delete(agendaPromotions)
-        .where(and(eq(agendaPromotions.id, id), eq(agendaPromotions.professionalId, profile.id)))
-        .returning();
-    if (!deleted) return c.json({ ok: false, error: 'Promoción no encontrada' }, 404);
-    await logAudit({
-        professionalId: profile.id,
-        entityType: 'promotion',
-        entityId: id,
-        action: 'delete',
-        metadata: { code: deleted.code, label: deleted.label },
-        ctx: c,
-    });
-    return c.json({ ok: true });
-});
-
-// Validación pública del cupón (antes de reservar)
-app.post('/api/public/agenda/:slug/validate-promo', async (c) => {
-    const slug = c.req.param('slug') ?? '';
-    const profile = await db.query.agendaProfessionalProfiles.findFirst({
-        where: and(eq(agendaProfessionalProfiles.slug, slug), eq(agendaProfessionalProfiles.isPublished, true)),
-    });
-    if (!profile) return c.json({ ok: false, error: 'Perfil no encontrado' }, 404);
-
-    const body = await c.req.json().catch(() => ({})) as Record<string, unknown>;
-    const code = normalizePromoCode(body.code);
-    if (!code) return c.json({ ok: false, error: 'Ingresa un código.' }, 400);
-
-    const serviceId = typeof body.serviceId === 'string' ? body.serviceId : null;
-    let basePrice = parseOptionalNumber(body.basePrice) ?? 0;
-    if (serviceId && (!basePrice || basePrice <= 0)) {
-        const svc = await db.query.agendaServices.findFirst({ where: eq(agendaServices.id, serviceId) });
-        if (svc?.price) basePrice = Number(svc.price);
-    }
-
-    const promo = await db.query.agendaPromotions.findFirst({
-        where: and(
-            eq(agendaPromotions.professionalId, profile.id),
-            sql`lower(${agendaPromotions.code}) = lower(${code})`,
-        ),
-    });
-    if (!promo) return c.json({ ok: false, error: 'Cupón no válido.' }, 404);
-
-    const result = applyPromotionToPrice(promo, basePrice, serviceId);
-    if (!result.ok) return c.json({ ok: false, error: result.message }, 400);
-    return c.json({
-        ok: true,
-        promotion: {
-            id: result.promotion.id,
-            code: result.promotion.code,
-            label: result.promotion.label,
-            discountType: result.promotion.discountType,
-            discountValue: result.promotion.discountValue,
-        },
-        originalPrice: result.originalPrice,
-        discountAmount: result.discountAmount,
-        finalPrice: result.finalPrice,
-    });
-});
-
-// ─────────────────────────────────────────────────────────────────────────────
-// SimpleAgenda — Packs / bonos de sesiones
-// ─────────────────────────────────────────────────────────────────────────────
-
-const PACK_APPLIES_TO = new Set(['all', 'services']);
-const CLIENT_PACK_STATUS = new Set(['active', 'expired', 'completed', 'refunded']);
-
-function addDays(date: Date, days: number): Date {
-    const d = new Date(date);
-    d.setDate(d.getDate() + days);
-    return d;
-}
-
-// ── Definiciones de packs (catálogo del profesional) ───────────────────────
-
-app.get('/api/agenda/packs', requireVerifiedSession, async (c) => {
-    const user = await authUser(c);
-    if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
-    const profile = await getAgendaProfile(user.id);
-    if (!profile) return c.json({ ok: false, error: 'Perfil no encontrado' }, 404);
-    const rows = await db.select().from(agendaPacks)
-        .where(eq(agendaPacks.professionalId, profile.id))
-        .orderBy(agendaPacks.position, desc(agendaPacks.createdAt));
-    return c.json({ ok: true, packs: rows });
-});
-
-app.post('/api/agenda/packs', requireVerifiedSession, async (c) => {
-    const user = await authUser(c);
-    if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
-    const profile = await getAgendaProfile(user.id);
-    if (!profile) return c.json({ ok: false, error: 'Perfil no encontrado' }, 404);
-    const body = await c.req.json().catch(() => ({})) as Record<string, unknown>;
-
-    const name = typeof body.name === 'string' ? body.name.trim() : '';
-    if (!name) return c.json({ ok: false, error: 'Falta el nombre del pack.' }, 400);
-
-    const sessionsCount = parseOptionalNumber(body.sessionsCount);
-    if (sessionsCount === null || sessionsCount <= 0) {
-        return c.json({ ok: false, error: 'Indica cuántas sesiones incluye el pack.' }, 400);
-    }
-
-    const price = parseOptionalNumber(body.price);
-    if (price === null || price < 0) {
-        return c.json({ ok: false, error: 'El precio del pack es inválido.' }, 400);
-    }
-
-    const appliesTo = typeof body.appliesTo === 'string' && PACK_APPLIES_TO.has(body.appliesTo) ? body.appliesTo : 'all';
-    const serviceIds: string[] = Array.isArray(body.serviceIds) ? body.serviceIds.filter((x): x is string => typeof x === 'string') : [];
-    if (appliesTo === 'services' && serviceIds.length === 0) {
-        return c.json({ ok: false, error: 'Selecciona al menos un servicio para este pack.' }, 400);
-    }
-
-    const validityDays = parseOptionalNumber(body.validityDays);
-    const position = parseOptionalNumber(body.position);
-
-    const [created] = await db.insert(agendaPacks).values({
-        professionalId: profile.id,
-        name,
-        description: typeof body.description === 'string' ? body.description : null,
-        sessionsCount: Math.floor(sessionsCount),
-        price: String(price),
-        currency: typeof body.currency === 'string' ? body.currency : 'CLP',
-        appliesTo,
-        serviceIds,
-        validityDays: validityDays !== null ? Math.floor(validityDays) : null,
-        isActive: body.isActive === false ? false : true,
-        position: position !== null ? Math.floor(position) : 0,
-    }).returning();
-    await logAudit({
-        professionalId: profile.id,
-        entityType: 'pack',
-        entityId: created.id,
-        action: 'create',
-        metadata: { name, sessionsCount: created.sessionsCount, price: created.price },
-        ctx: c,
-    });
-    return c.json({ ok: true, pack: created });
-});
-
-app.patch('/api/agenda/packs/:id', requireVerifiedSession, async (c) => {
-    const user = await authUser(c);
-    if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
-    const profile = await getAgendaProfile(user.id);
-    if (!profile) return c.json({ ok: false, error: 'Perfil no encontrado' }, 404);
-    const id = c.req.param('id') ?? '';
-    const existing = await db.query.agendaPacks.findFirst({
-        where: and(eq(agendaPacks.id, id), eq(agendaPacks.professionalId, profile.id)),
-    });
-    if (!existing) return c.json({ ok: false, error: 'Pack no encontrado' }, 404);
-
-    const body = await c.req.json().catch(() => ({})) as Record<string, unknown>;
-    const patch: Partial<typeof agendaPacks.$inferInsert> & { updatedAt: Date } = { updatedAt: new Date() };
-
-    if (typeof body.name === 'string') {
-        const name = body.name.trim();
-        if (!name) return c.json({ ok: false, error: 'El nombre no puede estar vacío.' }, 400);
-        patch.name = name;
-    }
-    if ('description' in body) patch.description = typeof body.description === 'string' ? body.description : null;
-    if ('sessionsCount' in body) {
-        const v = parseOptionalNumber(body.sessionsCount);
-        if (v === null || v <= 0) return c.json({ ok: false, error: 'Cantidad de sesiones inválida.' }, 400);
-        patch.sessionsCount = Math.floor(v);
-    }
-    if ('price' in body) {
-        const v = parseOptionalNumber(body.price);
-        if (v === null || v < 0) return c.json({ ok: false, error: 'Precio inválido.' }, 400);
-        patch.price = String(v);
-    }
-    if (typeof body.currency === 'string') patch.currency = body.currency;
-    if (typeof body.appliesTo === 'string' && PACK_APPLIES_TO.has(body.appliesTo)) patch.appliesTo = body.appliesTo;
-    if (Array.isArray(body.serviceIds)) patch.serviceIds = body.serviceIds.filter((x): x is string => typeof x === 'string');
-    if ('validityDays' in body) {
-        const v = parseOptionalNumber(body.validityDays);
-        patch.validityDays = v !== null ? Math.floor(v) : null;
-    }
-    if (typeof body.isActive === 'boolean') patch.isActive = body.isActive;
-    if ('position' in body) {
-        const v = parseOptionalNumber(body.position);
-        if (v !== null) patch.position = Math.floor(v);
-    }
-
-    const [updated] = await db.update(agendaPacks)
-        .set(patch)
-        .where(and(eq(agendaPacks.id, id), eq(agendaPacks.professionalId, profile.id)))
-        .returning();
-    await logAudit({
-        professionalId: profile.id,
-        entityType: 'pack',
-        entityId: id,
-        action: 'update',
-        metadata: { fields: Object.keys(patch).filter((k) => k !== 'updatedAt') },
-        ctx: c,
-    });
-    return c.json({ ok: true, pack: updated });
-});
-
-app.delete('/api/agenda/packs/:id', requireVerifiedSession, async (c) => {
-    const user = await authUser(c);
-    if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
-    const profile = await getAgendaProfile(user.id);
-    if (!profile) return c.json({ ok: false, error: 'Perfil no encontrado' }, 404);
-    const id = c.req.param('id') ?? '';
-    const [deleted] = await db.delete(agendaPacks)
-        .where(and(eq(agendaPacks.id, id), eq(agendaPacks.professionalId, profile.id)))
-        .returning();
-    if (!deleted) return c.json({ ok: false, error: 'Pack no encontrado' }, 404);
-    await logAudit({
-        professionalId: profile.id,
-        entityType: 'pack',
-        entityId: id,
-        action: 'delete',
-        metadata: { name: deleted.name },
-        ctx: c,
-    });
-    return c.json({ ok: true });
-});
-
-// ── Client packs (bonos comprados con saldo de sesiones) ───────────────────
-
-app.get('/api/agenda/client-packs', requireVerifiedSession, async (c) => {
-    const user = await authUser(c);
-    if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
-    const profile = await getAgendaProfile(user.id);
-    if (!profile) return c.json({ ok: false, error: 'Perfil no encontrado' }, 404);
-
-    const clientId = c.req.query('clientId');
-    const status = c.req.query('status');
-    const conditions: SQL[] = [eq(agendaClientPacks.professionalId, profile.id)];
-    if (clientId) conditions.push(eq(agendaClientPacks.clientId, clientId));
-    if (status && CLIENT_PACK_STATUS.has(status)) conditions.push(eq(agendaClientPacks.status, status));
-
-    const rows = await db.select().from(agendaClientPacks)
-        .where(and(...conditions))
-        .orderBy(desc(agendaClientPacks.purchasedAt));
-    return c.json({ ok: true, clientPacks: rows });
-});
-
-app.post('/api/agenda/client-packs', requireVerifiedSession, async (c) => {
-    const user = await authUser(c);
-    if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
-    const profile = await getAgendaProfile(user.id);
-    if (!profile) return c.json({ ok: false, error: 'Perfil no encontrado' }, 404);
-    const body = await c.req.json().catch(() => ({})) as Record<string, unknown>;
-
-    const clientId = typeof body.clientId === 'string' ? body.clientId : '';
-    if (!clientId) return c.json({ ok: false, error: 'Selecciona un cliente.' }, 400);
-    const client = await db.query.agendaClients.findFirst({
-        where: and(eq(agendaClients.id, clientId), eq(agendaClients.professionalId, profile.id)),
-    });
-    if (!client) return c.json({ ok: false, error: 'Cliente no encontrado.' }, 404);
-
-    const packId = typeof body.packId === 'string' ? body.packId : null;
-    let name = typeof body.name === 'string' ? body.name.trim() : '';
-    let sessionsTotal = parseOptionalNumber(body.sessionsTotal);
-    let pricePaid = parseOptionalNumber(body.pricePaid);
-    let currency = typeof body.currency === 'string' ? body.currency : 'CLP';
-    let appliesTo = typeof body.appliesTo === 'string' && PACK_APPLIES_TO.has(body.appliesTo) ? body.appliesTo : 'all';
-    let serviceIds: string[] = Array.isArray(body.serviceIds) ? body.serviceIds.filter((x): x is string => typeof x === 'string') : [];
-    let expiresAt = parseOptionalDate(body.expiresAt);
-
-    if (packId) {
-        const pack = await db.query.agendaPacks.findFirst({
-            where: and(eq(agendaPacks.id, packId), eq(agendaPacks.professionalId, profile.id)),
-        });
-        if (!pack) return c.json({ ok: false, error: 'Pack no encontrado.' }, 404);
-        if (!name) name = pack.name;
-        if (sessionsTotal === null) sessionsTotal = pack.sessionsCount;
-        if (pricePaid === null && pack.price) pricePaid = Number(pack.price);
-        currency = pack.currency;
-        appliesTo = pack.appliesTo;
-        if (serviceIds.length === 0) serviceIds = Array.isArray(pack.serviceIds) ? pack.serviceIds : [];
-        if (!expiresAt && pack.validityDays && pack.validityDays > 0) {
-            expiresAt = addDays(new Date(), pack.validityDays);
-        }
-    }
-
-    if (!name) return c.json({ ok: false, error: 'Falta el nombre del pack.' }, 400);
-    if (sessionsTotal === null || sessionsTotal <= 0) {
-        return c.json({ ok: false, error: 'Indica cuántas sesiones incluye el pack.' }, 400);
-    }
-
-    const [created] = await db.insert(agendaClientPacks).values({
-        professionalId: profile.id,
-        packId: packId ?? null,
-        clientId,
-        name,
-        sessionsTotal: Math.floor(sessionsTotal),
-        sessionsUsed: 0,
-        pricePaid: pricePaid !== null ? String(pricePaid) : null,
-        currency,
-        appliesTo,
-        serviceIds,
-        expiresAt,
-        status: 'active',
-        notes: typeof body.notes === 'string' ? body.notes : null,
-    }).returning();
-    await logAudit({
-        professionalId: profile.id,
-        entityType: 'client_pack',
-        entityId: created.id,
-        action: 'create',
-        metadata: { clientId, packId, name, sessionsTotal: created.sessionsTotal },
-        ctx: c,
-    });
-    return c.json({ ok: true, clientPack: created });
-});
-
-app.patch('/api/agenda/client-packs/:id', requireVerifiedSession, async (c) => {
-    const user = await authUser(c);
-    if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
-    const profile = await getAgendaProfile(user.id);
-    if (!profile) return c.json({ ok: false, error: 'Perfil no encontrado' }, 404);
-    const id = c.req.param('id') ?? '';
-    const existing = await db.query.agendaClientPacks.findFirst({
-        where: and(eq(agendaClientPacks.id, id), eq(agendaClientPacks.professionalId, profile.id)),
-    });
-    if (!existing) return c.json({ ok: false, error: 'Bono no encontrado' }, 404);
-
-    const body = await c.req.json().catch(() => ({})) as Record<string, unknown>;
-    const patch: Partial<typeof agendaClientPacks.$inferInsert> & { updatedAt: Date } = { updatedAt: new Date() };
-
-    if (typeof body.name === 'string') {
-        const name = body.name.trim();
-        if (!name) return c.json({ ok: false, error: 'El nombre no puede estar vacío.' }, 400);
-        patch.name = name;
-    }
-    if ('sessionsTotal' in body) {
-        const v = parseOptionalNumber(body.sessionsTotal);
-        if (v === null || v <= 0) return c.json({ ok: false, error: 'Total de sesiones inválido.' }, 400);
-        if (v < existing.sessionsUsed) {
-            return c.json({ ok: false, error: 'El total no puede ser menor a las sesiones ya usadas.' }, 400);
-        }
-        patch.sessionsTotal = Math.floor(v);
-    }
-    if ('pricePaid' in body) {
-        const v = parseOptionalNumber(body.pricePaid);
-        patch.pricePaid = v !== null ? String(v) : null;
-    }
-    if (typeof body.currency === 'string') patch.currency = body.currency;
-    if (typeof body.appliesTo === 'string' && PACK_APPLIES_TO.has(body.appliesTo)) patch.appliesTo = body.appliesTo;
-    if (Array.isArray(body.serviceIds)) patch.serviceIds = body.serviceIds.filter((x): x is string => typeof x === 'string');
-    if ('expiresAt' in body) patch.expiresAt = parseOptionalDate(body.expiresAt);
-    if (typeof body.status === 'string' && CLIENT_PACK_STATUS.has(body.status)) patch.status = body.status;
-    if ('notes' in body) patch.notes = typeof body.notes === 'string' ? body.notes : null;
-
-    const [updated] = await db.update(agendaClientPacks)
-        .set(patch)
-        .where(and(eq(agendaClientPacks.id, id), eq(agendaClientPacks.professionalId, profile.id)))
-        .returning();
-    await logAudit({
-        professionalId: profile.id,
-        entityType: 'client_pack',
-        entityId: id,
-        action: 'update',
-        metadata: { fields: Object.keys(patch).filter((k) => k !== 'updatedAt') },
-        ctx: c,
-    });
-    return c.json({ ok: true, clientPack: updated });
-});
-
-app.delete('/api/agenda/client-packs/:id', requireVerifiedSession, async (c) => {
-    const user = await authUser(c);
-    if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
-    const profile = await getAgendaProfile(user.id);
-    if (!profile) return c.json({ ok: false, error: 'Perfil no encontrado' }, 404);
-    const id = c.req.param('id') ?? '';
-
-    // Si hay citas vinculadas a este bono, desvincularlas antes de borrar
-    await db.update(agendaAppointments)
-        .set({ clientPackId: null })
-        .where(eq(agendaAppointments.clientPackId, id));
-
-    const [deleted] = await db.delete(agendaClientPacks)
-        .where(and(eq(agendaClientPacks.id, id), eq(agendaClientPacks.professionalId, profile.id)))
-        .returning();
-    if (!deleted) return c.json({ ok: false, error: 'Bono no encontrado' }, 404);
-    await logAudit({
-        professionalId: profile.id,
-        entityType: 'client_pack',
-        entityId: id,
-        action: 'delete',
-        metadata: { clientId: deleted.clientId, name: deleted.name },
-        ctx: c,
-    });
-    return c.json({ ok: true });
-});
-
-// ─────────────────────────────────────────────────────────────────────────────
-// SimpleAgenda — Sesiones grupales (talleres, clases, grupos)
-// ─────────────────────────────────────────────────────────────────────────────
-
-const GROUP_SESSION_MODALITIES = new Set(['online', 'presential']);
-const GROUP_SESSION_STATUS = new Set(['scheduled', 'completed', 'cancelled']);
-const GROUP_ATTENDEE_STATUS = new Set(['registered', 'attended', 'no_show', 'cancelled']);
-
-app.get('/api/agenda/group-sessions', requireVerifiedSession, async (c) => {
-    const user = await authUser(c);
-    if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
-    const profile = await getAgendaProfile(user.id);
-    if (!profile) return c.json({ ok: false, error: 'Perfil no encontrado' }, 404);
-
-    const status = c.req.query('status');
-    const conditions: SQL[] = [eq(agendaGroupSessions.professionalId, profile.id)];
-    if (status && GROUP_SESSION_STATUS.has(status)) {
-        conditions.push(eq(agendaGroupSessions.status, status));
-    }
-    const rows = await db.select().from(agendaGroupSessions)
-        .where(and(...conditions))
-        .orderBy(desc(agendaGroupSessions.startsAt));
-
-    const ids = rows.map((r) => r.id);
-    const attendeeCounts = new Map<string, number>();
-    if (ids.length > 0) {
-        const counts = await db
-            .select({ sessionId: agendaGroupAttendees.sessionId, count: sql<number>`count(*)::int` })
-            .from(agendaGroupAttendees)
-            .where(and(
-                inArray(agendaGroupAttendees.sessionId, ids),
-                sql`${agendaGroupAttendees.status} <> 'cancelled'`,
-            ))
-            .groupBy(agendaGroupAttendees.sessionId);
-        for (const c of counts) attendeeCounts.set(c.sessionId, Number(c.count));
-    }
-    const withCounts = rows.map((r) => ({ ...r, attendeeCount: attendeeCounts.get(r.id) ?? 0 }));
-    return c.json({ ok: true, sessions: withCounts });
-});
-
-app.get('/api/agenda/group-sessions/:id', requireVerifiedSession, async (c) => {
-    const user = await authUser(c);
-    if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
-    const profile = await getAgendaProfile(user.id);
-    if (!profile) return c.json({ ok: false, error: 'Perfil no encontrado' }, 404);
-    const id = c.req.param('id') ?? '';
-    const session = await db.query.agendaGroupSessions.findFirst({
-        where: and(eq(agendaGroupSessions.id, id), eq(agendaGroupSessions.professionalId, profile.id)),
-    });
-    if (!session) return c.json({ ok: false, error: 'Sesión no encontrada' }, 404);
-    const attendees = await db.select().from(agendaGroupAttendees)
-        .where(eq(agendaGroupAttendees.sessionId, id))
-        .orderBy(agendaGroupAttendees.registeredAt);
-    return c.json({ ok: true, session, attendees });
-});
-
-app.post('/api/agenda/group-sessions', requireVerifiedSession, async (c) => {
-    const user = await authUser(c);
-    if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
-    const profile = await getAgendaProfile(user.id);
-    if (!profile) return c.json({ ok: false, error: 'Perfil no encontrado' }, 404);
-    const body = await c.req.json().catch(() => ({})) as Record<string, unknown>;
-
-    const title = typeof body.title === 'string' ? body.title.trim() : '';
-    if (!title) return c.json({ ok: false, error: 'Falta el título.' }, 400);
-    if (!body.startsAt) return c.json({ ok: false, error: 'Falta la fecha de inicio.' }, 400);
-
-    const startsAt = new Date(String(body.startsAt));
-    if (Number.isNaN(startsAt.getTime())) return c.json({ ok: false, error: 'Fecha inválida.' }, 400);
-    const durationMinutes = parseOptionalNumber(body.durationMinutes);
-    if (durationMinutes === null || durationMinutes <= 0) {
-        return c.json({ ok: false, error: 'Duración inválida.' }, 400);
-    }
-    const endsAt = new Date(startsAt.getTime() + durationMinutes * 60_000);
-
-    const capacity = parseOptionalNumber(body.capacity);
-    if (capacity === null || capacity <= 0) return c.json({ ok: false, error: 'Cupo inválido.' }, 400);
-    const price = parseOptionalNumber(body.price);
-    const modality = typeof body.modality === 'string' && GROUP_SESSION_MODALITIES.has(body.modality) ? body.modality : 'presential';
-
-    const [created] = await db.insert(agendaGroupSessions).values({
-        professionalId: profile.id,
-        serviceId: typeof body.serviceId === 'string' && body.serviceId ? body.serviceId : null,
-        title,
-        description: typeof body.description === 'string' ? body.description : null,
-        startsAt,
-        endsAt,
-        durationMinutes: Math.floor(durationMinutes),
-        capacity: Math.floor(capacity),
-        price: price !== null ? String(price) : null,
-        currency: typeof body.currency === 'string' ? body.currency : profile.currency,
-        modality,
-        location: typeof body.location === 'string' ? body.location : null,
-        meetingUrl: typeof body.meetingUrl === 'string' ? body.meetingUrl : null,
-        isPublic: body.isPublic === false ? false : true,
-        notes: typeof body.notes === 'string' ? body.notes : null,
-    }).returning();
-    await logAudit({
-        professionalId: profile.id,
-        entityType: 'group_session',
-        entityId: created.id,
-        action: 'create',
-        metadata: { title, capacity: created.capacity, startsAt: created.startsAt.toISOString() },
-        ctx: c,
-    });
-    return c.json({ ok: true, session: created });
-});
-
-app.patch('/api/agenda/group-sessions/:id', requireVerifiedSession, async (c) => {
-    const user = await authUser(c);
-    if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
-    const profile = await getAgendaProfile(user.id);
-    if (!profile) return c.json({ ok: false, error: 'Perfil no encontrado' }, 404);
-    const id = c.req.param('id') ?? '';
-    const existing = await db.query.agendaGroupSessions.findFirst({
-        where: and(eq(agendaGroupSessions.id, id), eq(agendaGroupSessions.professionalId, profile.id)),
-    });
-    if (!existing) return c.json({ ok: false, error: 'Sesión no encontrada' }, 404);
-
-    const body = await c.req.json().catch(() => ({})) as Record<string, unknown>;
-    const patch: Partial<typeof agendaGroupSessions.$inferInsert> & { updatedAt: Date } = { updatedAt: new Date() };
-
-    if (typeof body.title === 'string') {
-        const title = body.title.trim();
-        if (!title) return c.json({ ok: false, error: 'El título no puede estar vacío.' }, 400);
-        patch.title = title;
-    }
-    if ('description' in body) patch.description = typeof body.description === 'string' ? body.description : null;
-
-    let nextStarts = existing.startsAt;
-    let nextDuration = existing.durationMinutes;
-    if (typeof body.startsAt === 'string') {
-        const d = new Date(body.startsAt);
-        if (Number.isNaN(d.getTime())) return c.json({ ok: false, error: 'Fecha inválida.' }, 400);
-        patch.startsAt = d;
-        nextStarts = d;
-    }
-    if ('durationMinutes' in body) {
-        const v = parseOptionalNumber(body.durationMinutes);
-        if (v === null || v <= 0) return c.json({ ok: false, error: 'Duración inválida.' }, 400);
-        patch.durationMinutes = Math.floor(v);
-        nextDuration = Math.floor(v);
-    }
-    if ('startsAt' in body || 'durationMinutes' in body) {
-        patch.endsAt = new Date(nextStarts.getTime() + nextDuration * 60_000);
-    }
-
-    if ('capacity' in body) {
-        const v = parseOptionalNumber(body.capacity);
-        if (v === null || v <= 0) return c.json({ ok: false, error: 'Cupo inválido.' }, 400);
-        patch.capacity = Math.floor(v);
-    }
-    if ('price' in body) {
-        const v = parseOptionalNumber(body.price);
-        patch.price = v !== null ? String(v) : null;
-    }
-    if (typeof body.currency === 'string') patch.currency = body.currency;
-    if (typeof body.modality === 'string' && GROUP_SESSION_MODALITIES.has(body.modality)) patch.modality = body.modality;
-    if ('location' in body) patch.location = typeof body.location === 'string' ? body.location : null;
-    if ('meetingUrl' in body) patch.meetingUrl = typeof body.meetingUrl === 'string' ? body.meetingUrl : null;
-    if (typeof body.isPublic === 'boolean') patch.isPublic = body.isPublic;
-    if ('notes' in body) patch.notes = typeof body.notes === 'string' ? body.notes : null;
-    if ('serviceId' in body) patch.serviceId = typeof body.serviceId === 'string' && body.serviceId ? body.serviceId : null;
-    if (typeof body.status === 'string' && GROUP_SESSION_STATUS.has(body.status)) patch.status = body.status;
-
-    const [updated] = await db.update(agendaGroupSessions)
-        .set(patch)
-        .where(and(eq(agendaGroupSessions.id, id), eq(agendaGroupSessions.professionalId, profile.id)))
-        .returning();
-    await logAudit({
-        professionalId: profile.id,
-        entityType: 'group_session',
-        entityId: id,
-        action: 'update',
-        metadata: { fields: Object.keys(patch).filter((k) => k !== 'updatedAt') },
-        ctx: c,
-    });
-    return c.json({ ok: true, session: updated });
-});
-
-app.delete('/api/agenda/group-sessions/:id', requireVerifiedSession, async (c) => {
-    const user = await authUser(c);
-    if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
-    const profile = await getAgendaProfile(user.id);
-    if (!profile) return c.json({ ok: false, error: 'Perfil no encontrado' }, 404);
-    const id = c.req.param('id') ?? '';
-    const [deleted] = await db.delete(agendaGroupSessions)
-        .where(and(eq(agendaGroupSessions.id, id), eq(agendaGroupSessions.professionalId, profile.id)))
-        .returning();
-    if (!deleted) return c.json({ ok: false, error: 'Sesión no encontrada' }, 404);
-    await logAudit({
-        professionalId: profile.id,
-        entityType: 'group_session',
-        entityId: id,
-        action: 'delete',
-        metadata: { title: deleted.title },
-        ctx: c,
-    });
-    return c.json({ ok: true });
-});
-
-// ── Asistentes ─────────────────────────────────────────────────────────────
-
-app.post('/api/agenda/group-sessions/:id/attendees', requireVerifiedSession, async (c) => {
-    const user = await authUser(c);
-    if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
-    const profile = await getAgendaProfile(user.id);
-    if (!profile) return c.json({ ok: false, error: 'Perfil no encontrado' }, 404);
-    const sessionId = c.req.param('id') ?? '';
-    const session = await db.query.agendaGroupSessions.findFirst({
-        where: and(eq(agendaGroupSessions.id, sessionId), eq(agendaGroupSessions.professionalId, profile.id)),
-    });
-    if (!session) return c.json({ ok: false, error: 'Sesión no encontrada' }, 404);
-    if (session.status === 'cancelled') return c.json({ ok: false, error: 'Esta sesión está cancelada.' }, 400);
-
-    const body = await c.req.json().catch(() => ({})) as Record<string, unknown>;
-    const clientId = typeof body.clientId === 'string' && body.clientId ? body.clientId : null;
-    let clientName = typeof body.clientName === 'string' ? body.clientName.trim() : '';
-    let clientEmail = typeof body.clientEmail === 'string' ? body.clientEmail.trim() : '';
-    let clientPhone = typeof body.clientPhone === 'string' ? body.clientPhone.trim() : '';
-
-    if (clientId) {
-        const client = await db.query.agendaClients.findFirst({
-            where: and(eq(agendaClients.id, clientId), eq(agendaClients.professionalId, profile.id)),
-        });
-        if (!client) return c.json({ ok: false, error: 'Cliente no encontrado.' }, 404);
-        if (!clientName) clientName = `${client.firstName} ${client.lastName ?? ''}`.trim();
-        if (!clientEmail) clientEmail = client.email ?? '';
-        if (!clientPhone) clientPhone = client.phone ?? '';
-    }
-    if (!clientName) return c.json({ ok: false, error: 'Falta el nombre del asistente.' }, 400);
-
-    const currentCount = await db
-        .select({ count: sql<number>`count(*)::int` })
-        .from(agendaGroupAttendees)
-        .where(and(
-            eq(agendaGroupAttendees.sessionId, sessionId),
-            sql`${agendaGroupAttendees.status} <> 'cancelled'`,
-        ));
-    const taken = Number(currentCount[0]?.count ?? 0);
-    if (taken >= session.capacity) {
-        return c.json({ ok: false, error: 'No hay cupos disponibles en esta sesión.' }, 409);
-    }
-
-    const pricePaid = parseOptionalNumber(body.pricePaid);
-    const [created] = await db.insert(agendaGroupAttendees).values({
-        sessionId,
-        professionalId: profile.id,
-        clientId,
-        clientName,
-        clientEmail: clientEmail || null,
-        clientPhone: clientPhone || null,
-        status: 'registered',
-        pricePaid: pricePaid !== null ? String(pricePaid) : null,
-        paidAt: pricePaid !== null ? new Date() : null,
-        notes: typeof body.notes === 'string' ? body.notes : null,
-    }).returning();
-    await logAudit({
-        professionalId: profile.id,
-        entityType: 'group_attendee',
-        entityId: created.id,
-        action: 'create',
-        metadata: { sessionId, clientName, clientId },
-        ctx: c,
-    });
-    return c.json({ ok: true, attendee: created });
-});
-
-app.patch('/api/agenda/group-attendees/:id', requireVerifiedSession, async (c) => {
-    const user = await authUser(c);
-    if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
-    const profile = await getAgendaProfile(user.id);
-    if (!profile) return c.json({ ok: false, error: 'Perfil no encontrado' }, 404);
-    const id = c.req.param('id') ?? '';
-    const existing = await db.query.agendaGroupAttendees.findFirst({
-        where: and(eq(agendaGroupAttendees.id, id), eq(agendaGroupAttendees.professionalId, profile.id)),
-    });
-    if (!existing) return c.json({ ok: false, error: 'Asistente no encontrado' }, 404);
-
-    const body = await c.req.json().catch(() => ({})) as Record<string, unknown>;
-    const patch: Partial<typeof agendaGroupAttendees.$inferInsert> & { updatedAt: Date } = { updatedAt: new Date() };
-
-    if (typeof body.status === 'string' && GROUP_ATTENDEE_STATUS.has(body.status)) patch.status = body.status;
-    if (typeof body.clientName === 'string') {
-        const v = body.clientName.trim();
-        if (!v) return c.json({ ok: false, error: 'El nombre no puede estar vacío.' }, 400);
-        patch.clientName = v;
-    }
-    if ('clientEmail' in body) patch.clientEmail = typeof body.clientEmail === 'string' ? body.clientEmail : null;
-    if ('clientPhone' in body) patch.clientPhone = typeof body.clientPhone === 'string' ? body.clientPhone : null;
-    if ('pricePaid' in body) {
-        const v = parseOptionalNumber(body.pricePaid);
-        patch.pricePaid = v !== null ? String(v) : null;
-        if (v !== null && !existing.paidAt) patch.paidAt = new Date();
-        if (v === null) patch.paidAt = null;
-    }
-    if ('notes' in body) patch.notes = typeof body.notes === 'string' ? body.notes : null;
-
-    const [updated] = await db.update(agendaGroupAttendees)
-        .set(patch)
-        .where(and(eq(agendaGroupAttendees.id, id), eq(agendaGroupAttendees.professionalId, profile.id)))
-        .returning();
-    return c.json({ ok: true, attendee: updated });
-});
-
-app.delete('/api/agenda/group-attendees/:id', requireVerifiedSession, async (c) => {
-    const user = await authUser(c);
-    if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
-    const profile = await getAgendaProfile(user.id);
-    if (!profile) return c.json({ ok: false, error: 'Perfil no encontrado' }, 404);
-    const id = c.req.param('id') ?? '';
-    const [deleted] = await db.delete(agendaGroupAttendees)
-        .where(and(eq(agendaGroupAttendees.id, id), eq(agendaGroupAttendees.professionalId, profile.id)))
-        .returning();
-    if (!deleted) return c.json({ ok: false, error: 'Asistente no encontrado' }, 404);
-    return c.json({ ok: true });
-});
-
-// ─────────────────────────────────────────────────────────────────────────────
-// SimpleAgenda — Session notes
-// ─────────────────────────────────────────────────────────────────────────────
-
-app.get('/api/agenda/notes/:appointmentId', requireVerifiedSession, async (c) => {
-    const user = await authUser(c);
-    if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
-    const profile = await getAgendaProfile(user.id);
-    if (!profile) return c.json({ ok: false, error: 'Perfil no encontrado' }, 404);
-    const appointmentId = c.req.param('appointmentId') ?? '';
-    const note = await db.query.agendaSessionNotes.findFirst({
-        where: and(eq(agendaSessionNotes.appointmentId, appointmentId), eq(agendaSessionNotes.professionalId, profile.id)),
-    });
-    return c.json({ ok: true, note: note ?? null });
-});
-
-app.post('/api/agenda/notes', requireVerifiedSession, async (c) => {
-    const user = await authUser(c);
-    if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
-    const profile = await getAgendaProfile(user.id);
-    if (!profile) return c.json({ ok: false, error: 'Perfil no encontrado' }, 404);
-    const body = await c.req.json().catch(() => ({})) as Record<string, unknown>;
-    if (!body.appointmentId || !body.content) return c.json({ ok: false, error: 'appointmentId y content requeridos' }, 400);
-
-    // Verify appointment belongs to this professional
-    const appt = await db.query.agendaAppointments.findFirst({
-        where: and(eq(agendaAppointments.id, String(body.appointmentId)), eq(agendaAppointments.professionalId, profile.id)),
-    });
-    if (!appt) return c.json({ ok: false, error: 'Cita no encontrada' }, 404);
-
-    // Upsert note
-    const existing = await db.query.agendaSessionNotes.findFirst({
-        where: and(eq(agendaSessionNotes.appointmentId, String(body.appointmentId)), eq(agendaSessionNotes.professionalId, profile.id)),
-    });
-
-    let note;
-    if (existing) {
-        const [updated] = await db.update(agendaSessionNotes)
-            .set({ content: String(body.content), updatedAt: new Date() })
-            .where(eq(agendaSessionNotes.id, existing.id))
-            .returning();
-        note = updated;
-    } else {
-        const [created] = await db.insert(agendaSessionNotes).values({
-            appointmentId: String(body.appointmentId),
-            professionalId: profile.id,
-            clientId: appt.clientId ?? null,
-            content: String(body.content),
-        }).returning();
-        note = created;
-    }
-    return c.json({ ok: true, note });
-});
-
-// ─────────────────────────────────────────────────────────────────────────────
-// SimpleAgenda — Payments
-// ─────────────────────────────────────────────────────────────────────────────
-
-app.get('/api/agenda/payments', requireVerifiedSession, async (c) => {
-    const user = await authUser(c);
-    if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
-    const profile = await getAgendaProfile(user.id);
-    if (!profile) return c.json({ ok: true, payments: [] });
-    const payments = await db.select().from(agendaPayments)
-        .where(eq(agendaPayments.professionalId, profile.id))
-        .orderBy(desc(agendaPayments.createdAt));
-    return c.json({ ok: true, payments });
-});
-
-app.post('/api/agenda/payments', requireVerifiedSession, async (c) => {
-    const user = await authUser(c);
-    if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
-    const profile = await getAgendaProfile(user.id);
-    if (!profile) return c.json({ ok: false, error: 'Perfil no encontrado' }, 404);
-    const body = await c.req.json().catch(() => ({})) as Record<string, unknown>;
-    if (!body.amount) return c.json({ ok: false, error: 'El monto es requerido' }, 400);
-    const [payment] = await db.insert(agendaPayments).values({
-        professionalId: profile.id,
-        appointmentId: typeof body.appointmentId === 'string' ? body.appointmentId || null : null,
-        clientId: typeof body.clientId === 'string' ? body.clientId || null : null,
-        amount: String(body.amount),
-        currency: typeof body.currency === 'string' ? body.currency : profile.currency,
-        method: typeof body.method === 'string' ? body.method || null : null,
-        status: typeof body.status === 'string' ? body.status : 'pending',
-        paidAt: body.status === 'paid' ? new Date() : null,
-        notes: typeof body.notes === 'string' ? body.notes || null : null,
-    }).returning();
-    return c.json({ ok: true, payment });
-});
-
-app.patch('/api/agenda/payments/:id', requireVerifiedSession, async (c) => {
-    const user = await authUser(c);
-    if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
-    const profile = await getAgendaProfile(user.id);
-    if (!profile) return c.json({ ok: false, error: 'Perfil no encontrado' }, 404);
-    const id = c.req.param('id') ?? '';
-    const body = await c.req.json().catch(() => ({})) as Record<string, unknown>;
-    const patch: Record<string, unknown> = { updatedAt: new Date() };
-    for (const key of ['amount', 'method', 'status', 'notes'] as const) {
-        if (key in body) patch[key] = body[key] === '' ? null : body[key];
-    }
-    if (body.status === 'paid' && !body.paidAt) patch.paidAt = new Date();
-    const [updated] = await db.update(agendaPayments).set(patch)
-        .where(and(eq(agendaPayments.id, id), eq(agendaPayments.professionalId, profile.id)))
-        .returning();
-    if (!updated) return c.json({ ok: false, error: 'Cobro no encontrado' }, 404);
-    return c.json({ ok: true, payment: updated });
-});
-
-app.delete('/api/agenda/payments/:id', requireVerifiedSession, async (c) => {
-    const user = await authUser(c);
-    if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
-    const profile = await getAgendaProfile(user.id);
-    if (!profile) return c.json({ ok: false, error: 'Perfil no encontrado' }, 404);
-    const id = c.req.param('id') ?? '';
-    const [deleted] = await db.delete(agendaPayments)
-        .where(and(eq(agendaPayments.id, id), eq(agendaPayments.professionalId, profile.id)))
-        .returning({ id: agendaPayments.id });
-    if (!deleted) return c.json({ ok: false, error: 'Cobro no encontrado' }, 404);
-    return c.json({ ok: true });
-});
-
-// ─────────────────────────────────────────────────────────────────────────────
-// SimpleAgenda — Google Calendar
-// ─────────────────────────────────────────────────────────────────────────────
-
-const GOOGLE_CALENDAR_SCOPES = ['https://www.googleapis.com/auth/calendar'];
-
-function getGoogleOAuth2Client() {
-    return new google.auth.OAuth2(
-        process.env.GOOGLE_CLIENT_ID,
-        process.env.GOOGLE_CLIENT_SECRET,
-        `${process.env.API_BASE_URL ?? 'http://localhost:4000'}/api/agenda/google-calendar/callback`,
-    );
-}
-
-// Helper: sync an appointment to Google Calendar (create/update/delete event)
-async function syncToGoogleCalendar(
-    profile: { googleAccessToken: string | null; googleRefreshToken: string | null; googleTokenExpiry: Date | null; googleCalendarId: string | null; displayName: string | null },
-    appointment: { id: string; startsAt: Date; endsAt: Date; clientName: string | null; clientEmail: string | null; internalNotes: string | null; googleEventId: string | null; modality: string | null },
-    action: 'create' | 'update' | 'delete',
-): Promise<{ eventId: string | null; meetingUrl: string | null } | null> {
-    if (!profile.googleAccessToken || !profile.googleCalendarId) return null;
-    try {
-        const oauth2Client = getGoogleOAuth2Client();
-        oauth2Client.setCredentials({
-            access_token: profile.googleAccessToken,
-            refresh_token: profile.googleRefreshToken ?? undefined,
-            expiry_date: profile.googleTokenExpiry?.getTime(),
-        });
-        const calApi = google.calendar({ version: 'v3', auth: oauth2Client });
-
-        if (action === 'delete') {
-            if (!appointment.googleEventId) return null;
-            await calApi.events.delete({ calendarId: profile.googleCalendarId, eventId: appointment.googleEventId }).catch(() => null);
-            return { eventId: null, meetingUrl: null };
-        }
-
-        const isOnline = appointment.modality === 'online';
-        const resource: any = {
-            summary: appointment.clientName ? `Sesión con ${appointment.clientName}` : 'Sesión',
-            description: appointment.internalNotes ?? undefined,
-            start: { dateTime: appointment.startsAt.toISOString() },
-            end: { dateTime: appointment.endsAt.toISOString() },
-            attendees: appointment.clientEmail ? [{ email: appointment.clientEmail }] : undefined,
-        };
-
-        // Add Google Meet conference for online appointments
-        if (isOnline) {
-            resource.conferenceData = {
-                createRequest: {
-                    requestId: appointment.id,
-                    conferenceSolutionKey: { type: 'hangoutsMeet' },
-                },
-            };
-        }
-
-        let eventId: string | null = null;
-        let meetingUrl: string | null = null;
-
-        if (!appointment.googleEventId) {
-            const res = await calApi.events.insert({ calendarId: profile.googleCalendarId, requestBody: resource, conferenceDataVersion: 1, sendUpdates: 'none' });
-            eventId = res.data.id ?? null;
-            meetingUrl = res.data.conferenceData?.entryPoints?.[0]?.uri ?? null;
-        } else {
-            const res = await calApi.events.update({ calendarId: profile.googleCalendarId, eventId: appointment.googleEventId, requestBody: resource, conferenceDataVersion: 1, sendUpdates: 'none' });
-            eventId = appointment.googleEventId;
-            meetingUrl = res.data.conferenceData?.entryPoints?.[0]?.uri ?? null;
-        }
-
-        // If online and meetingUrl was obtained, update the appointment
-        if (isOnline && meetingUrl) {
-            await db.update(agendaAppointments).set({ meetingUrl }).where(eq(agendaAppointments.id, appointment.id));
-        }
-
-        return { eventId, meetingUrl };
-    } catch (e) {
-        console.error('[agenda] Google Calendar sync error:', e);
-        return null;
-    }
-}
-
-app.get('/api/agenda/google-calendar/auth', requireVerifiedSession, async (c) => {
-    const user = await authUser(c);
-    if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
-    const profile = await getAgendaProfile(user.id);
-    if (profile && isFreePlan(profile, user.role)) return c.redirect(`${process.env.AGENDA_APP_URL ?? 'http://localhost:3002'}/panel/configuracion/integraciones?gc=upgrade`);
-    const oauth2Client = getGoogleOAuth2Client();
-    const url = oauth2Client.generateAuthUrl({
-        access_type: 'offline',
-        scope: GOOGLE_CALENDAR_SCOPES,
-        state: user.id,
-        prompt: 'consent',
-    });
-    return c.redirect(url);
-});
-
-app.get('/api/agenda/google-calendar/callback', async (c) => {
-    const code = c.req.query('code');
-    const state = c.req.query('state'); // userId
-    if (!code || !state) {
-        console.error('[agenda] Google Calendar callback: missing code or state');
-        return c.redirect(`${process.env.AGENDA_APP_URL ?? 'http://localhost:3002'}/panel/configuracion/integraciones?gc=error&message=${encodeURIComponent('Faltan parámetros de autenticación')}`);
-    }
-    try {
-        const oauth2Client = getGoogleOAuth2Client();
-        const { tokens } = await oauth2Client.getToken(code);
-        console.log('[agenda] Google Calendar tokens obtained:', { hasAccessToken: !!tokens.access_token, hasRefreshToken: !!tokens.refresh_token });
-        oauth2Client.setCredentials(tokens);
-        const calendarApi = google.calendar({ version: 'v3', auth: oauth2Client });
-        const calList = await calendarApi.calendarList.list({ minAccessRole: 'owner' });
-        const primaryCal = calList.data.items?.find((c) => c.primary) ?? calList.data.items?.[0];
-        console.log('[agenda] Google Calendar primary calendar:', primaryCal?.id, primaryCal?.summary);
-
-        const profile = await db.query.agendaProfessionalProfiles.findFirst({
-            where: eq(agendaProfessionalProfiles.userId, state),
-        });
-        if (!profile) {
-            console.error('[agenda] Google Calendar callback: profile not found for userId:', state);
-            return c.redirect(`${process.env.AGENDA_APP_URL ?? 'http://localhost:3002'}/panel/configuracion/integraciones?gc=error&message=${encodeURIComponent('Perfil no encontrado')}`);
-        }
-
-        await db.update(agendaProfessionalProfiles).set({
-            googleCalendarId: primaryCal?.id ?? null,
-            googleAccessToken: tokens.access_token ?? null,
-            googleRefreshToken: tokens.refresh_token ?? null,
-            googleTokenExpiry: tokens.expiry_date ? new Date(tokens.expiry_date) : null,
-            updatedAt: new Date(),
-        }).where(eq(agendaProfessionalProfiles.id, profile.id));
-
-        console.log('[agenda] Google Calendar connected successfully for profile:', profile.id);
-        return c.redirect(`${process.env.AGENDA_APP_URL ?? 'http://localhost:3002'}/panel/configuracion/integraciones?gc=connected`);
-    } catch (e) {
-        console.error('[agenda] Google Calendar callback error:', e);
-        const errorMessage = e instanceof Error ? e.message : 'Error desconocido';
-        return c.redirect(`${process.env.AGENDA_APP_URL ?? 'http://localhost:3002'}/panel/configuracion/integraciones?gc=error&message=${encodeURIComponent(errorMessage)}`);
-    }
-});
-
-app.delete('/api/agenda/google-calendar/disconnect', requireVerifiedSession, async (c) => {
-    const user = await authUser(c);
-    if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
-    const profile = await getAgendaProfile(user.id);
-    if (!profile) return c.json({ ok: false, error: 'Perfil no encontrado' }, 404);
-    await db.update(agendaProfessionalProfiles).set({
-        googleCalendarId: null,
-        googleAccessToken: null,
-        googleRefreshToken: null,
-        googleTokenExpiry: null,
-        updatedAt: new Date(),
-    }).where(eq(agendaProfessionalProfiles.id, profile.id));
-    return c.json({ ok: true });
-});
-
-app.get('/api/agenda/google-calendar/status', requireVerifiedSession, async (c) => {
-    const user = await authUser(c);
-    if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
-    const profile = await getAgendaProfile(user.id);
-    const connected = !!(profile?.googleAccessToken);
-    return c.json({ ok: true, connected, calendarId: profile?.googleCalendarId ?? null });
-});
-
-// ─────────────────────────────────────────────────────────────────────────────
-// SimpleAgenda — MercadoPago OAuth
-// ─────────────────────────────────────────────────────────────────────────────
-
-// GET /api/agenda/mercadopago/auth — redirect professional to MP OAuth
-app.get('/api/agenda/mercadopago/auth', requireVerifiedSession, async (c) => {
-    const user = await authUser(c);
-    if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
-    const mpProfile = await getAgendaProfile(user.id);
-    if (mpProfile && isFreePlan(mpProfile, user.role)) return c.redirect(`${process.env.AGENDA_APP_URL ?? 'http://localhost:3002'}/panel/configuracion/integraciones?mp=upgrade`);
-    const appId = process.env.MP_AGENDA_APP_ID;
-    if (!appId) return c.json({ ok: false, error: 'MP_AGENDA_APP_ID no configurado' }, 500);
-    const redirectUri = encodeURIComponent(`${process.env.API_BASE_URL ?? 'http://localhost:4000'}/api/agenda/mercadopago/callback`);
-    const state = encodeURIComponent(user.id);
-    const url = `https://auth.mercadopago.cl/authorization?client_id=${appId}&response_type=code&platform_id=mp&state=${state}&redirect_uri=${redirectUri}`;
-    return c.redirect(url);
-});
-
-// GET /api/agenda/mercadopago/callback
-app.get('/api/agenda/mercadopago/callback', async (c) => {
-    const code = c.req.query('code');
-    const state = c.req.query('state'); // userId
-    if (!code || !state) return c.redirect(`${process.env.AGENDA_APP_URL ?? 'http://localhost:3002'}/panel/configuracion/integraciones?mp=error`);
-    try {
-        const appId = process.env.MP_AGENDA_APP_ID;
-        const appSecret = process.env.MP_AGENDA_APP_SECRET;
-        if (!appId || !appSecret) return c.redirect(`${process.env.AGENDA_APP_URL ?? 'http://localhost:3002'}/panel/configuracion/integraciones?mp=error`);
-
-        const redirectUri = `${process.env.API_BASE_URL ?? 'http://localhost:4000'}/api/agenda/mercadopago/callback`;
-        const tokenRes = await fetch('https://api.mercadopago.com/oauth/token', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-            body: JSON.stringify({
-                client_id: appId,
-                client_secret: appSecret,
-                grant_type: 'authorization_code',
-                code,
-                redirect_uri: redirectUri,
-            }),
-        });
-        if (!tokenRes.ok) throw new Error('MP token exchange failed');
-        const tokens = await tokenRes.json() as { access_token: string; public_key: string; refresh_token?: string; user_id?: number };
-
-        const profile = await db.query.agendaProfessionalProfiles.findFirst({
-            where: eq(agendaProfessionalProfiles.userId, state),
-        });
-        if (!profile) return c.redirect(`${process.env.AGENDA_APP_URL ?? 'http://localhost:3002'}/panel/configuracion/integraciones?mp=error`);
-
-        await db.update(agendaProfessionalProfiles).set({
-            mpAccessToken: tokens.access_token,
-            mpPublicKey: tokens.public_key ?? null,
-            mpUserId: tokens.user_id ? String(tokens.user_id) : null,
-            mpRefreshToken: tokens.refresh_token ?? null,
-            updatedAt: new Date(),
-        }).where(eq(agendaProfessionalProfiles.id, profile.id));
-
-        return c.redirect(`${process.env.AGENDA_APP_URL ?? 'http://localhost:3002'}/panel/configuracion/integraciones?mp=connected`);
-    } catch (e) {
-        console.error('[agenda] MP OAuth callback error:', e);
-        return c.redirect(`${process.env.AGENDA_APP_URL ?? 'http://localhost:3002'}/panel/configuracion/integraciones?mp=error`);
-    }
-});
-
-// DELETE /api/agenda/mercadopago/disconnect
-app.delete('/api/agenda/mercadopago/disconnect', requireVerifiedSession, async (c) => {
-    const user = await authUser(c);
-    if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
-    const profile = await getAgendaProfile(user.id);
-    if (!profile) return c.json({ ok: false, error: 'Perfil no encontrado' }, 404);
-    await db.update(agendaProfessionalProfiles).set({
-        mpAccessToken: null, mpPublicKey: null, mpUserId: null, mpRefreshToken: null, updatedAt: new Date(),
-    }).where(eq(agendaProfessionalProfiles.id, profile.id));
-    return c.json({ ok: true });
-});
-
-// POST /api/agenda/mercadopago/webhook — receives IPN from MercadoPago
-app.post('/api/agenda/mercadopago/webhook', async (c) => {
-    try {
-        const body = await c.req.json().catch(() => ({})) as Record<string, unknown>;
-        const bodyData = (body.data ?? {}) as Record<string, unknown>;
-        const topic = c.req.query('topic') ?? String(body.type ?? '');
-        const resourceId = c.req.query('id') ?? String(bodyData.id ?? body.id ?? '');
-
-        if (topic !== 'payment' && topic !== 'merchant_order') return c.json({ ok: true });
-        if (!resourceId) return c.json({ ok: true });
-
-        // Fetch payment details from MP to get externalReference (our appointment id)
-        const mpToken = c.req.header('x-mp-access-token'); // not standard, we'll do a lookup below
-        // Find which professional has this payment by querying MP for each connected professional
-        // Simpler: MP sends us the externalReference in the webhook body
-        const externalRef = String(body.external_reference ?? bodyData.external_reference ?? '');
-        if (!externalRef) return c.json({ ok: true });
-
-        // Find the appointment
-        const appt = await db.query.agendaAppointments.findFirst({
-            where: eq(agendaAppointments.id, externalRef),
-        });
-        if (!appt) return c.json({ ok: true });
-
-        // Mark payment as paid
-        await db.update(agendaAppointments)
-            .set({ paymentStatus: 'paid', status: 'confirmed', updatedAt: new Date() })
-            .where(eq(agendaAppointments.id, appt.id));
-
-        // Create payment record if not exists
-        const existingPayment = await db.query.agendaPayments.findFirst({
-            where: and(eq(agendaPayments.appointmentId, appt.id), eq(agendaPayments.status, 'paid')),
-        });
-        if (!existingPayment && appt.price) {
-            await db.insert(agendaPayments).values({
-                professionalId: appt.professionalId,
-                appointmentId: appt.id,
-                clientId: appt.clientId ?? null,
-                amount: appt.price,
-                currency: appt.currency,
-                method: 'mercadopago',
-                status: 'paid',
-                paidAt: new Date(),
-                notes: `Pago automático MP ref: ${resourceId}`,
-            });
-        }
-
-        console.log('[agenda] MP webhook: payment confirmed for appointment', appt.id);
-        return c.json({ ok: true });
-    } catch (e) {
-        console.error('[agenda] MP webhook error:', e);
-        return c.json({ ok: true }); // always 200 to avoid MP retries
-    }
-});
-
-// GET /api/agenda/mercadopago/status
-app.get('/api/agenda/mercadopago/status', requireVerifiedSession, async (c) => {
-    const user = await authUser(c);
-    if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
-    const profile = await getAgendaProfile(user.id);
-    return c.json({ ok: true, connected: !!(profile?.mpAccessToken), userId: profile?.mpUserId ?? null });
-});
-
-// ─────────────────────────────────────────────────────────────────────────────
-// SimpleAgenda — WhatsApp test
-// ─────────────────────────────────────────────────────────────────────────────
-
-app.get('/api/agenda/notifications/history', requireVerifiedSession, async (c) => {
-    const user = await authUser(c);
-    if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
-    const profile = await getAgendaProfile(user.id);
-    if (!profile) return c.json({ ok: true, events: [] });
-    const limitRaw = Number(c.req.query('limit') ?? 50);
-    const limit = Math.min(Math.max(isFinite(limitRaw) ? limitRaw : 50, 1), 200);
-    const events = await db.select()
-        .from(agendaNotificationEvents)
-        .where(eq(agendaNotificationEvents.professionalId, profile.id))
-        .orderBy(desc(agendaNotificationEvents.createdAt))
-        .limit(limit);
-    return c.json({ ok: true, events });
-});
-
-app.post('/api/agenda/whatsapp/test', requireVerifiedSession, async (c) => {
-    const user = await authUser(c);
-    if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
-    const profile = await getAgendaProfile(user.id);
-    if (!profile) return c.json({ ok: false, error: 'Perfil no encontrado' }, 404);
-    if (isFreePlan(profile, user.role)) return c.json({ ok: false, error: 'Requiere plan Profesional.' }, 403);
-    const phone = profile.waProfessionalPhone ?? profile.publicWhatsapp ?? profile.publicPhone;
-    if (!phone) return c.json({ ok: false, error: 'No hay número de WhatsApp configurado' }, 400);
-    try {
-        await sendTestMessage(phone, profile.displayName ?? user.name);
-        await logNotification({
-            professionalId: profile.id,
-            channel: 'whatsapp',
-            eventType: 'test',
-            recipient: phone,
-            status: 'sent',
-        });
-        return c.json({ ok: true });
-    } catch (e) {
-        console.error('[agenda] WhatsApp test error:', e);
-        await logNotification({
-            professionalId: profile.id,
-            channel: 'whatsapp',
-            eventType: 'test',
-            recipient: phone,
-            status: 'failed',
-            errorMessage: e instanceof Error ? e.message : String(e),
-        });
-        return c.json({ ok: false, error: 'Error al enviar mensaje' }, 500);
-    }
-});
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Web Push helpers
-// ─────────────────────────────────────────────────────────────────────────────
-
-async function sendPushToUser(userId: string, payload: { title: string; body: string; url?: string }): Promise<void> {
-    if (!VAPID_PUBLIC_KEY || !VAPID_PRIVATE_KEY) return;
-    const subs = await db.select().from(pushSubscriptions).where(eq(pushSubscriptions.userId, userId));
-    await Promise.allSettled(subs.map(async (sub) => {
-        try {
-            await webpush.sendNotification(
-                { endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth } },
-                JSON.stringify(payload),
-            );
-        } catch (e: unknown) {
-            // 410 Gone = subscription expired, remove it
-            if (e && typeof e === 'object' && 'statusCode' in e && (e as { statusCode: number }).statusCode === 410) {
-                await db.delete(pushSubscriptions).where(eq(pushSubscriptions.id, sub.id));
-            }
-        }
-    }));
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// SimpleAgenda — Notifications
-// ─────────────────────────────────────────────────────────────────────────────
-
-app.get('/api/agenda/notifications', requireVerifiedSession, async (c) => {
-    const user = await authUser(c);
-    if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
-    const profile = await getAgendaProfile(user.id);
-    if (!profile) return c.json({ ok: true, items: [], lastSeenAt: null });
-
-    const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
-    const todayStart = new Date(); todayStart.setHours(0, 0, 0, 0);
-    const tomorrowStart = new Date(todayStart); tomorrowStart.setDate(todayStart.getDate() + 1);
-    const twoWeeksAhead = new Date(Date.now() + 14 * 24 * 60 * 60 * 1000);
-
-    const appts = await db.select().from(agendaAppointments)
-        .where(and(
-            eq(agendaAppointments.professionalId, profile.id),
-            or(
-                gte(agendaAppointments.createdAt, sevenDaysAgo),
-                and(
-                    gte(agendaAppointments.startsAt, todayStart),
-                    lte(agendaAppointments.startsAt, twoWeeksAhead),
-                ),
-            ),
-        ))
-        .orderBy(desc(agendaAppointments.createdAt))
-        .limit(50);
-
-    const tz = profile.timezone ?? 'America/Santiago';
-    const fmtDate = (d: Date) => d.toLocaleDateString('es-CL', { weekday: 'short', day: 'numeric', month: 'short', timeZone: tz });
-    const fmtTime = (d: Date) => d.toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: tz });
-
-    type NotifItem = { id: string; type: string; title: string; body: string; createdAt: number };
-    const seen = new Set<string>();
-    const items: NotifItem[] = [];
-
-    for (const appt of appts) {
-        const clientLabel = appt.clientName ?? 'Paciente';
-        const timeLabel = `${fmtDate(appt.startsAt)} a las ${fmtTime(appt.startsAt)}`;
-
-        // Client cancellation (recent)
-        if (appt.cancelledBy === 'client' && appt.cancelledAt && appt.cancelledAt >= sevenDaysAgo && !seen.has(appt.id)) {
-            seen.add(appt.id);
-            items.push({
-                id: `cancel:${appt.id}`,
-                type: 'cancellation',
-                title: `Cancelación: ${clientLabel}`,
-                body: `${clientLabel} canceló su cita del ${timeLabel}`,
-                createdAt: appt.cancelledAt.getTime(),
-            });
-        }
-
-        // Today's appointments
-        if (appt.startsAt >= todayStart && appt.startsAt < tomorrowStart && appt.status !== 'cancelled' && !seen.has(`today:${appt.id}`)) {
-            seen.add(`today:${appt.id}`);
-            items.push({
-                id: `today:${appt.id}`,
-                type: 'today',
-                title: `Hoy: ${clientLabel}`,
-                body: `Cita a las ${fmtTime(appt.startsAt)}`,
-                createdAt: appt.createdAt.getTime(),
-            });
-        }
-
-        // New booking (last 7 days, not cancelled by client)
-        if (appt.createdAt >= sevenDaysAgo && appt.cancelledBy !== 'client' && appt.status !== 'cancelled' && !seen.has(appt.id)) {
-            seen.add(appt.id);
-            items.push({
-                id: `booking:${appt.id}`,
-                type: 'new_booking',
-                title: `Nueva cita: ${clientLabel}`,
-                body: `Agendó para el ${timeLabel}`,
-                createdAt: appt.createdAt.getTime(),
-            });
-        }
-    }
-
-    items.sort((a, b) => b.createdAt - a.createdAt);
-    return c.json({
-        ok: true,
-        items: items.slice(0, 15),
-        lastSeenAt: profile.notificationsLastSeenAt ? profile.notificationsLastSeenAt.getTime() : null,
-    });
-});
-
-app.post('/api/agenda/notifications/seen', requireVerifiedSession, async (c) => {
-    const user = await authUser(c);
-    if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
-    const profile = await getAgendaProfile(user.id);
-    if (!profile) return c.json({ ok: false, error: 'Perfil no encontrado' }, 404);
-    await db.update(agendaProfessionalProfiles)
-        .set({ notificationsLastSeenAt: new Date() })
-        .where(eq(agendaProfessionalProfiles.id, profile.id));
-    return c.json({ ok: true });
-});
-
-// Push subscription management
-app.get('/api/agenda/push/vapid-public-key', requireVerifiedSession, async (c) => {
-    return c.json({ ok: true, key: VAPID_PUBLIC_KEY || null });
-});
-
-app.post('/api/agenda/push/subscribe', requireVerifiedSession, async (c) => {
-    const user = await authUser(c);
-    if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
-    const body = await c.req.json().catch(() => ({})) as Record<string, unknown>;
-    const endpoint = typeof body.endpoint === 'string' ? body.endpoint : null;
-    const keys = body.keys && typeof body.keys === 'object' ? body.keys as Record<string, string> : null;
-    if (!endpoint || !keys?.p256dh || !keys?.auth) return c.json({ ok: false, error: 'Suscripción inválida' }, 400);
-    const ua = c.req.header('user-agent')?.slice(0, 500) ?? null;
-    await db.insert(pushSubscriptions).values({
-        userId: user.id,
-        endpoint,
-        p256dh: keys.p256dh,
-        auth: keys.auth,
-        userAgent: ua,
-    }).onConflictDoNothing();
-    return c.json({ ok: true });
-});
-
-app.post('/api/agenda/push/unsubscribe', requireVerifiedSession, async (c) => {
-    const user = await authUser(c);
-    if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
-    const body = await c.req.json().catch(() => ({})) as Record<string, unknown>;
-    const endpoint = typeof body.endpoint === 'string' ? body.endpoint : null;
-    if (!endpoint) return c.json({ ok: false, error: 'endpoint requerido' }, 400);
-    await db.delete(pushSubscriptions).where(and(eq(pushSubscriptions.userId, user.id), eq(pushSubscriptions.endpoint, endpoint)));
-    return c.json({ ok: true });
-});
-
-// ─────────────────────────────────────────────────────────────────────────────
-// SimpleAgenda — Reminders cron  (POST /api/agenda/reminders/send)
-// Call this endpoint once per hour from a scheduler (Vercel Cron, cron-job.org, etc.)
-// Protected by CRON_SECRET header.
-// ─────────────────────────────────────────────────────────────────────────────
-
-app.post('/api/agenda/reminders/send', async (c) => {
-    const cronSecret = asString(process.env.CRON_SECRET);
-    if (cronSecret) {
-        const authHeader = c.req.header('authorization') ?? '';
-        if (authHeader !== `Bearer ${cronSecret}`) {
-            return c.json({ ok: false, error: 'No autorizado' }, 401);
-        }
-    }
-
-    const now = new Date();
-    // Window: appointments starting between 23h and 25h from now
-    const windowStart = new Date(now.getTime() + 23 * 60 * 60 * 1000);
-    const windowEnd   = new Date(now.getTime() + 25 * 60 * 60 * 1000);
-
-    const appts = await db.select().from(agendaAppointments)
-        .where(and(
-            gte(agendaAppointments.startsAt, windowStart),
-            lte(agendaAppointments.startsAt, windowEnd),
-            eq(agendaAppointments.status, 'confirmed'),
-            isNull(agendaAppointments.reminderSentAt),
-        ));
-
-    let sent = 0;
-    const agendaAppUrl = asString(process.env.AGENDA_APP_URL) || 'https://simpleagenda.app';
-
-    for (const appt of appts) {
-        const profile = await db.query.agendaProfessionalProfiles.findFirst({
-            where: eq(agendaProfessionalProfiles.id, appt.professionalId),
-        });
-        if (!profile) continue;
-
-        const tz = profile.timezone ?? 'America/Santiago';
-        const fmtT = (d: Date) => d.toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: tz });
-        const fmtD = (d: Date) => d.toLocaleDateString('es-CL', { weekday: 'long', day: 'numeric', month: 'long', timeZone: tz });
-        const dateLabel = `${fmtD(appt.startsAt)} a las ${fmtT(appt.startsAt)}`;
-        const cancelUrl = `${agendaAppUrl}/cancelar?appt=${appt.id}&slug=${profile.slug}`;
-
-        // Email reminder to client
-        if (appt.clientEmail) {
-            void sendAppointmentReminderEmail(appt.clientEmail, {
-                clientName: appt.clientName ?? 'Paciente',
-                professionalName: profile.displayName ?? 'el profesional',
-                dateLabel,
-                modality: appt.modality,
-                meetingUrl: appt.meetingUrl,
-                location: appt.location,
-                cancelUrl,
-            });
-        }
-
-        // WhatsApp reminder to client (Pro plan only)
-        if (!isFreePlan(profile) && profile.waNotificationsEnabled) {
-            void notifyReminder24h(
-                { clientName: appt.clientName, clientPhone: appt.clientPhone, startsAt: appt.startsAt, endsAt: appt.endsAt },
-                { displayName: profile.displayName, timezone: tz, cancellationHours: profile.cancellationHours ?? 24 },
-            ).catch((err) => {
-                console.error('[agenda] Failed to send WhatsApp 24h reminder to', appt.clientPhone, ':', err);
-            });
-        }
-
-        // Mark as sent
-        await db.update(agendaAppointments)
-            .set({ reminderSentAt: new Date() })
-            .where(eq(agendaAppointments.id, appt.id));
-
-        sent++;
-    }
-
-    return c.json({ ok: true, sent });
-});
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Marketplace — Admin subscription management (superadmin only)
-// ─────────────────────────────────────────────────────────────────────────────
-
-app.post('/api/admin/subscriptions/set-plan', async (c) => {
-    const admin = await authUser(c);
-    if (!admin) return c.json({ ok: false, error: 'No autenticado' }, 401);
-    if (admin.role !== 'superadmin') return c.json({ ok: false, error: 'Solo superadmin' }, 403);
-
-    const body = await c.req.json().catch(() => ({})) as Record<string, unknown>;
-    const { userId, vertical, planId, expiresAt } = body as { userId?: string; vertical?: string; planId?: string; expiresAt?: string | null };
-
-    if (!userId || !vertical || !planId) return c.json({ ok: false, error: 'userId, vertical y planId son requeridos' }, 400);
-    const v = parseVertical(vertical);
-    if (!['autos', 'propiedades'].includes(v)) return c.json({ ok: false, error: 'Vertical debe ser autos o propiedades' }, 400);
-
-    if (planId === 'free') {
-        // Cancel active subscription
-        const current = activeSubscriptionsByUser.get(userId) ?? [];
-        const updated = current.map((item) => {
-            if (item.vertical !== v || item.status !== 'active') return item;
-            return { ...item, status: 'cancelled' as const, updatedAt: Date.now() };
-        });
-        activeSubscriptionsByUser.set(userId, updated);
-        console.info(`[admin] Marketplace sub cancelled: userId=${userId} vertical=${v} by superadmin=${admin.id}`);
-        return c.json({ ok: true, planId: 'free' });
-    }
-
-    const plan = getPaidSubscriptionPlan(v, planId as Exclude<SubscriptionPlanId, 'free'>);
-    if (!plan) return c.json({ ok: false, error: 'Plan no encontrado' }, 400);
-
-    const expiry = expiresAt ? new Date(expiresAt).getTime() : Date.now() + 365 * 24 * 60 * 60 * 1000;
-    const sub: ActiveSubscription = {
-        id: makeSubscriptionId(v, planId as Exclude<SubscriptionPlanId, 'free'>),
-        userId,
-        vertical: v,
-        planId: planId as Exclude<SubscriptionPlanId, 'free'>,
-        planName: plan.name,
-        priceMonthly: plan.priceMonthly,
-        currency: 'CLP',
-        features: plan.features,
-        status: 'active',
-        providerPreapprovalId: `admin-manual-${admin.id}`,
-        providerStatus: 'manual',
-        startedAt: Date.now(),
-        updatedAt: Date.now(),
-    };
-    upsertActiveSubscription(sub);
-    console.info(`[admin] Marketplace sub set: userId=${userId} vertical=${v} planId=${planId} expiresAt=${new Date(expiry).toISOString()} by superadmin=${admin.id}`);
-    return c.json({ ok: true, planId, expiresAt: new Date(expiry).toISOString() });
-});
-
-app.delete('/api/admin/subscriptions/cancel-plan', async (c) => {
-    const admin = await authUser(c);
-    if (!admin) return c.json({ ok: false, error: 'No autenticado' }, 401);
-    if (admin.role !== 'superadmin') return c.json({ ok: false, error: 'Solo superadmin' }, 403);
-
-    const body = await c.req.json().catch(() => ({})) as { userId?: string; vertical?: string };
-    if (!body.userId || !body.vertical) return c.json({ ok: false, error: 'userId y vertical son requeridos' }, 400);
-    const v = parseVertical(body.vertical);
-
-    const current = activeSubscriptionsByUser.get(body.userId) ?? [];
-    const updated = current.map((item) => {
-        if (item.vertical !== v || item.status !== 'active') return item;
-        return { ...item, status: 'cancelled' as const, updatedAt: Date.now() };
-    });
-    activeSubscriptionsByUser.set(body.userId, updated);
-    return c.json({ ok: true });
-});
-
-// ─────────────────────────────────────────────────────────────────────────────
-// SimpleAgenda — Admin plan management (superadmin only)
-// ─────────────────────────────────────────────────────────────────────────────
-
-app.get('/api/admin/agenda/subscriptions', async (c) => {
-    const admin = await authUser(c);
-    if (!admin) return c.json({ ok: false, error: 'No autenticado' }, 401);
-    if (admin.role !== 'superadmin') return c.json({ ok: false, error: 'Solo superadmin puede acceder' }, 403);
-
-    const profiles = await db.select({
-        id: agendaProfessionalProfiles.id,
-        userId: agendaProfessionalProfiles.userId,
-        displayName: agendaProfessionalProfiles.displayName,
-        slug: agendaProfessionalProfiles.slug,
-        plan: agendaProfessionalProfiles.plan,
-        planExpiresAt: agendaProfessionalProfiles.planExpiresAt,
-        isPublished: agendaProfessionalProfiles.isPublished,
-        createdAt: agendaProfessionalProfiles.createdAt,
-    }).from(agendaProfessionalProfiles).orderBy(desc(agendaProfessionalProfiles.createdAt));
-
-    const allUsers = await listAdminUsersSnapshot();
-    const userMap = new Map(allUsers.map((u) => [u.id, u]));
-
-    const result = profiles.map((p) => {
-        const u = userMap.get(p.userId);
-        const expired = p.plan === 'pro' && p.planExpiresAt && p.planExpiresAt < new Date();
-        return {
-            profileId: p.id,
-            userId: p.userId,
-            userName: u?.name ?? 'Sin nombre',
-            userEmail: u?.email ?? '',
-            displayName: p.displayName ?? '',
-            slug: p.slug,
-            plan: p.plan,
-            planExpiresAt: p.planExpiresAt ? p.planExpiresAt.toISOString() : null,
-            isPublished: p.isPublished,
-            status: p.plan === 'pro' && !expired ? 'active' : expired ? 'expired' : 'free',
-            createdAt: p.createdAt.toISOString(),
-        };
-    });
-
-    return c.json({ ok: true, subscriptions: result });
-});
-
-app.post('/api/admin/agenda/set-plan', async (c) => {
-    const admin = await authUser(c);
-    if (!admin) return c.json({ ok: false, error: 'No autenticado' }, 401);
-    if (admin.role !== 'superadmin') return c.json({ ok: false, error: 'Solo superadmin puede acceder' }, 403);
-
-    const body = await c.req.json().catch(() => ({})) as Record<string, unknown>;
-    const { profileId, plan, expiresAt, notes } = body as { profileId?: string; plan?: string; expiresAt?: string | null; notes?: string };
-
-    if (!profileId || !plan) return c.json({ ok: false, error: 'Se requiere profileId y plan' }, 400);
-    if (!['free', 'pro'].includes(plan)) return c.json({ ok: false, error: 'Plan debe ser free o pro' }, 400);
-
-    const profile = await db.query.agendaProfessionalProfiles.findFirst({
-        where: eq(agendaProfessionalProfiles.id, profileId),
-    });
-    if (!profile) return c.json({ ok: false, error: 'Perfil no encontrado' }, 404);
-
-    const expiry = plan === 'pro' && expiresAt ? new Date(expiresAt) : plan === 'free' ? null : null;
-
-    await db.update(agendaProfessionalProfiles).set({
-        plan,
-        planExpiresAt: expiry,
-        updatedAt: new Date(),
-    }).where(eq(agendaProfessionalProfiles.id, profileId));
-
-    console.info(`[admin] Plan set: profileId=${profileId} plan=${plan} expiresAt=${expiry?.toISOString() ?? 'none'} by superadmin=${admin.id} notes=${notes ?? ''}`);
-
-    return c.json({ ok: true, plan, expiresAt: expiry?.toISOString() ?? null });
-});
-
-app.delete('/api/admin/agenda/cancel-plan', async (c) => {
-    const admin = await authUser(c);
-    if (!admin) return c.json({ ok: false, error: 'No autenticado' }, 401);
-    if (admin.role !== 'superadmin') return c.json({ ok: false, error: 'Solo superadmin puede acceder' }, 403);
-
-    const body = await c.req.json().catch(() => ({})) as { profileId?: string };
-    if (!body.profileId) return c.json({ ok: false, error: 'Se requiere profileId' }, 400);
-
-    await db.update(agendaProfessionalProfiles).set({
-        plan: 'free',
-        planExpiresAt: null,
-        updatedAt: new Date(),
-    }).where(eq(agendaProfessionalProfiles.id, body.profileId));
-
-    return c.json({ ok: true });
-});
-
-// ─────────────────────────────────────────────────────────────────────────────
-// SimpleAgenda — User self-cancel subscription
-// ─────────────────────────────────────────────────────────────────────────────
-
-app.post('/api/agenda/subscription/cancel', requireVerifiedSession, async (c) => {
-    const user = await authUser(c);
-    if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
-    const profile = await getAgendaProfile(user.id);
-    if (!profile) return c.json({ ok: false, error: 'Perfil no encontrado' }, 404);
-    if (profile.plan === 'free') return c.json({ ok: false, error: 'No tienes un plan activo que cancelar' }, 400);
-
-    await db.update(agendaProfessionalProfiles).set({
-        plan: 'free',
-        planExpiresAt: null,
-        updatedAt: new Date(),
-    }).where(eq(agendaProfessionalProfiles.id, profile.id));
-
-    console.info(`[agenda] User self-cancelled plan: userId=${user.id} profileId=${profile.id}`);
-    return c.json({ ok: true });
-});
-
-// ─────────────────────────────────────────────────────────────────────────────
-// SimpleAgenda — Public booking
-// ─────────────────────────────────────────────────────────────────────────────
-
-// Rate limits for public booking endpoints — by IP
-const publicAgendaReadLimit = rateLimit({ name: 'agenda-read', limit: 60, windowMs: 60_000 });
-const publicAgendaSlotsLimit = rateLimit({ name: 'agenda-slots', limit: 30, windowMs: 60_000 });
-const publicAgendaBookLimit = rateLimit({ name: 'agenda-book', limit: 5, windowMs: 60_000 });
-const publicAgendaCancelLimit = rateLimit({ name: 'agenda-cancel', limit: 10, windowMs: 60_000 });
-
-app.use('/api/public/agenda/:slug', publicAgendaReadLimit);
-app.use('/api/public/agenda/:slug/slots', publicAgendaSlotsLimit);
-app.use('/api/public/agenda/:slug/book', publicAgendaBookLimit);
-app.use('/api/public/agenda/appointments/:id/cancel', publicAgendaCancelLimit);
-
-app.get('/api/public/agenda/:slug', async (c) => {
-    const slug = c.req.param('slug') ?? '';
-    const profile = await db.query.agendaProfessionalProfiles.findFirst({
-        where: and(eq(agendaProfessionalProfiles.slug, slug), eq(agendaProfessionalProfiles.isPublished, true)),
-    });
-    if (!profile) return c.json({ ok: false, error: 'Perfil no encontrado' }, 404);
-    const services = await db.select().from(agendaServices)
-        .where(and(eq(agendaServices.professionalId, profile.id), eq(agendaServices.isActive, true)))
-        .orderBy(asc(agendaServices.position));
-    const locations = await db.select().from(agendaLocations)
-        .where(and(eq(agendaLocations.professionalId, profile.id), eq(agendaLocations.isActive, true)))
-        .orderBy(asc(agendaLocations.position));
-    return c.json({
-        ok: true,
-        profile: {
-            slug: profile.slug,
-            displayName: profile.displayName,
-            profession: profile.profession,
-            headline: profile.headline,
-            bio: profile.bio,
-            avatarUrl: profile.avatarUrl,
-            coverUrl: profile.coverUrl ?? null,
-            city: profile.city,
-            publicEmail: profile.publicEmail ?? null,
-            publicPhone: profile.publicPhone ?? null,
-            publicWhatsapp: profile.publicWhatsapp,
-            websiteUrl: profile.websiteUrl ?? null,
-            instagramUrl: profile.instagramUrl ?? null,
-            facebookUrl: profile.facebookUrl ?? null,
-            linkedinUrl: profile.linkedinUrl ?? null,
-            tiktokUrl: profile.tiktokUrl ?? null,
-            youtubeUrl: profile.youtubeUrl ?? null,
-            twitterUrl: profile.twitterUrl ?? null,
-            timezone: profile.timezone,
-            bookingWindowDays: profile.bookingWindowDays,
-            allowsRecurrentBooking: profile.allowsRecurrentBooking,
-            encuadre: profile.encuadre,
-            requiresAdvancePayment: profile.requiresAdvancePayment,
-            advancePaymentInstructions: profile.advancePaymentInstructions,
-            paymentMethods: {
-                requiresAdvancePayment: profile.requiresAdvancePayment,
-                mpConnected: !!(profile.acceptsMp && profile.mpAccessToken),
-                paymentLinkUrl: profile.acceptsPaymentLink ? (profile.paymentLinkUrl ?? null) : null,
-                bankTransferData: profile.acceptsTransfer ? (profile.bankTransferData ?? null) : null,
-            },
-            services,
-            locations: locations.map(loc => ({
-                id: loc.id,
-                name: loc.name,
-                addressLine: loc.addressLine,
-                city: loc.city,
-                region: loc.region,
-                notes: loc.notes,
-                googleMapsUrl: loc.googleMapsUrl,
-            })),
-        },
-    });
-});
-
-app.get('/api/public/agenda/:slug/slots', async (c) => {
-    const slug = c.req.param('slug') ?? '';
-    const dateStr = c.req.query('date'); // YYYY-MM-DD
-    const serviceId = c.req.query('serviceId');
-    if (!dateStr) return c.json({ ok: false, error: 'Fecha requerida' }, 400);
-
-    const profile = await db.query.agendaProfessionalProfiles.findFirst({
-        where: and(eq(agendaProfessionalProfiles.slug, slug), eq(agendaProfessionalProfiles.isPublished, true)),
-    });
-    if (!profile) return c.json({ ok: false, error: 'Perfil no encontrado' }, 404);
-
-    const tz = profile.timezone ?? 'America/Santiago';
-
-    // Derive dayOfWeek and day boundaries in the professional's local timezone
-    // dateStr is YYYY-MM-DD as selected by the user in the booking UI (already in prof tz)
-    const dayOfWeek = new Date(
-        new Date(`${dateStr}T12:00:00`).toLocaleString('en-US', { timeZone: tz })
-    ).getDay();
-
-    // Build day start/end as UTC timestamps corresponding to 00:00–23:59:59 in prof tz
-    // Parse dateStr as if it were in the professional's timezone, then convert to UTC
-    const localMidnight = new Date(`${dateStr}T00:00:00`);
-    const formatter = new Intl.DateTimeFormat('en-US', {
-        timeZone: tz,
-        year: 'numeric',
-        month: 'numeric',
-        day: 'numeric',
-        hour: 'numeric',
-        minute: 'numeric',
-        second: 'numeric',
-        hour12: false,
-    });
-    const parts = formatter.formatToParts(localMidnight);
-    const year = parseInt(parts.find(p => p.type === 'year')?.value || '0');
-    const month = parseInt(parts.find(p => p.type === 'month')?.value || '0') - 1;
-    const day = parseInt(parts.find(p => p.type === 'day')?.value || '0');
-    const hour = parseInt(parts.find(p => p.type === 'hour')?.value || '0');
-    const minute = parseInt(parts.find(p => p.type === 'minute')?.value || '0');
-    const second = parseInt(parts.find(p => p.type === 'second')?.value || '0');
-    const dayStart = new Date(Date.UTC(year, month, day, hour, minute, second));
-    const dayEnd   = new Date(dayStart.getTime() + 24 * 60 * 60 * 1000 - 1);
-
-    const rules = await db.select().from(agendaAvailabilityRules)
-        .where(and(
-            eq(agendaAvailabilityRules.professionalId, profile.id),
-            eq(agendaAvailabilityRules.dayOfWeek, dayOfWeek),
-            eq(agendaAvailabilityRules.isActive, true),
-        ));
-    if (rules.length === 0) return c.json({ ok: true, slots: [] });
-
-    // Service duration
-    let durationMinutes = 60;
-    if (serviceId) {
-        const svc = await db.query.agendaServices.findFirst({ where: eq(agendaServices.id, serviceId) });
-        if (svc) durationMinutes = svc.durationMinutes;
-    }
-
-    const [existingAppts, blockedSlots] = await Promise.all([
-        db.select().from(agendaAppointments)
-            .where(and(
-                eq(agendaAppointments.professionalId, profile.id),
-                gte(agendaAppointments.startsAt, dayStart),
-                lte(agendaAppointments.startsAt, dayEnd),
-                sql`${agendaAppointments.status} NOT IN ('cancelled', 'no_show')`,
-            )),
-        db.select().from(agendaBlockedSlots)
-            .where(and(
-                eq(agendaBlockedSlots.professionalId, profile.id),
-                lt(agendaBlockedSlots.startsAt, dayEnd),
-                gte(agendaBlockedSlots.endsAt, dayStart),
-            )),
-    ]);
-
-    const slots = generateSlots(rules, durationMinutes, dayStart, existingAppts, blockedSlots, tz);
-    return c.json({ ok: true, slots });
-});
-
-// POST /api/public/agenda/appointments/:id/cancel — client self-cancellation
-app.post('/api/public/agenda/appointments/:id/cancel', async (c) => {
-    const id = c.req.param('id') ?? '';
-    const body = await c.req.json().catch(() => ({})) as Record<string, unknown>;
-
-    const appt = await db.query.agendaAppointments.findFirst({
-        where: eq(agendaAppointments.id, id),
-    });
-    if (!appt || appt.status === 'cancelled') {
-        return c.json({ ok: false, error: 'Cita no encontrada o ya cancelada.' }, 404);
-    }
-    if (appt.status === 'completed') {
-        return c.json({ ok: false, error: 'No se puede cancelar una cita completada.' }, 400);
-    }
-
-    // Check cancellation window
-    const profile = await db.query.agendaProfessionalProfiles.findFirst({
-        where: eq(agendaProfessionalProfiles.id, appt.professionalId),
-    });
-    if (profile?.cancellationHours) {
-        const hoursUntil = (appt.startsAt.getTime() - Date.now()) / (1000 * 60 * 60);
-        if (hoursUntil < profile.cancellationHours) {
-            return c.json({ ok: false, error: `La cancelación debe hacerse con al menos ${profile.cancellationHours} horas de anticipación.` }, 400);
-        }
-    }
-
-    const [updated] = await db.update(agendaAppointments)
-        .set({
-            status: 'cancelled',
-            cancelledAt: new Date(),
-            cancelledBy: 'client',
-            cancellationReason: typeof body.reason === 'string' ? body.reason || null : null,
-            updatedAt: new Date(),
-        })
-        .where(eq(agendaAppointments.id, id))
-        .returning();
-
-    await logAudit({
-        professionalId: updated.professionalId,
-        entityType: 'appointment',
-        entityId: updated.id,
-        action: 'cancel',
-        metadata: {
-            source: 'client_self_cancel',
-            reason: typeof body.reason === 'string' ? body.reason.slice(0, 200) : null,
-        },
-        ctx: c,
-    });
-
-    // Notify professional via WhatsApp
-    if (profile?.waNotifyProfessional) {
-        const profPhone = profile.waProfessionalPhone ?? profile.publicWhatsapp ?? profile.publicPhone;
-        if (profPhone && updated.clientName) {
-            void notifyProfessionalNewBooking(
-                profPhone,
-                { displayName: profile.displayName, timezone: profile.timezone, cancellationHours: profile.cancellationHours },
-                { clientName: `❌ CANCELACIÓN por ${updated.clientName}`, clientPhone: updated.clientPhone, startsAt: updated.startsAt, endsAt: updated.endsAt },
-            ).catch((err) => {
-                console.error('[agenda] Failed to send WhatsApp cancellation alert to professional', profPhone, ':', err);
-            });
-        }
-    }
-
-    // Remove from Google Calendar
-    if (profile) void syncToGoogleCalendar(profile, updated, 'delete');
-
-    // Push notification to professional
-    if (profile) {
-        const tz2 = profile.timezone ?? 'America/Santiago';
-        const fmtT2 = (d: Date) => d.toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: tz2 });
-        const fmtD2 = (d: Date) => d.toLocaleDateString('es-CL', { weekday: 'short', day: 'numeric', month: 'short', timeZone: tz2 });
-        const profUser = await db.query.users.findFirst({ where: eq(users.id, profile.userId) });
-        if (profUser) {
-            void sendPushToUser(profUser.id, {
-                title: '❌ Cita cancelada',
-                body: `${updated.clientName ?? 'Paciente'} canceló para el ${fmtD2(updated.startsAt)} a las ${fmtT2(updated.startsAt)}`,
-                url: '/panel/agenda',
-            });
-        }
-    }
-
-    return c.json({ ok: true, message: 'Cita cancelada correctamente.' });
-});
-
-app.post('/api/public/agenda/:slug/book', async (c) => {
-    const slug = c.req.param('slug') ?? '';
-    const profile = await db.query.agendaProfessionalProfiles.findFirst({
-        where: and(eq(agendaProfessionalProfiles.slug, slug), eq(agendaProfessionalProfiles.isPublished, true)),
-    });
-    if (!profile) return c.json({ ok: false, error: 'Perfil no encontrado' }, 404);
-    if (isFreePlan(profile)) {
-        const limitError = await checkAppointmentLimit(profile.id);
-        if (limitError) return c.json({ ok: false, error: 'Este profesional ha alcanzado el límite de citas de su plan actual. Intenta más adelante.' }, 403);
-    }
-
-    const body = await c.req.json().catch(() => ({})) as Record<string, unknown>;
-    if (!body.startsAt || !body.clientName) return c.json({ ok: false, error: 'Datos requeridos: startsAt, clientName' }, 400);
-
-    let durationMinutes = 60;
-    let serviceId: string | null = null;
-    let price: string | null = null;
-    let serviceName: string | null = null;
-    let preconsultFieldsForService: PreconsultField[] = [];
-    if (typeof body.serviceId === 'string' && body.serviceId) {
-        const svc = await db.query.agendaServices.findFirst({ where: eq(agendaServices.id, body.serviceId) });
-        if (svc) {
-            durationMinutes = svc.durationMinutes;
-            serviceId = svc.id;
-            price = svc.price ?? null;
-            serviceName = svc.name;
-            preconsultFieldsForService = normalizePreconsultFields(svc.preconsultFields);
-        }
-    }
-
-    // Aplicar cupón si se envió uno válido
-    let appliedPromotion: PromotionRow | null = null;
-    let originalPriceForPromo: number | null = null;
-    let discountAmount: number | null = null;
-    const promoCode = normalizePromoCode(body.promotionCode);
-    if (promoCode) {
-        const basePrice = price ? Number(price) : 0;
-        const promo = await db.query.agendaPromotions.findFirst({
-            where: and(
-                eq(agendaPromotions.professionalId, profile.id),
-                sql`lower(${agendaPromotions.code}) = lower(${promoCode})`,
-            ),
-        });
-        if (!promo) return c.json({ ok: false, error: 'Cupón no válido.' }, 400);
-        const result = applyPromotionToPrice(promo, basePrice, serviceId);
-        if (!result.ok) return c.json({ ok: false, error: result.message }, 400);
-        appliedPromotion = result.promotion;
-        originalPriceForPromo = result.originalPrice;
-        discountAmount = result.discountAmount;
-        price = String(result.finalPrice);
-    }
-    const preconsultResponses = normalizePreconsultResponses(body.preconsultResponses, preconsultFieldsForService);
-    // Validate required fields
-    if (preconsultResponses) {
-        for (let i = 0; i < preconsultFieldsForService.length; i++) {
-            const field = preconsultFieldsForService[i];
-            if (field.required && !preconsultResponses[i].value.trim()) {
-                return c.json({ ok: false, error: `Falta responder: ${field.label}` }, 400);
-            }
-        }
-    }
-
-    // Parse startsAt - the slot is already in UTC from the slots API
-    const startsAt = new Date(String(body.startsAt));
-    const endsAt = new Date(startsAt.getTime() + durationMinutes * 60_000);
-    const status = profile.confirmationMode === 'auto' ? 'confirmed' : 'pending';
-
-    // Parse recurrence
-    const rawFreq = typeof body.recurrenceFrequency === 'string' ? body.recurrenceFrequency : null;
-    const requestedFrequency: 'weekly' | 'biweekly' | 'monthly' | null =
-        rawFreq === 'weekly' || rawFreq === 'biweekly' || rawFreq === 'monthly' ? rawFreq : null;
-    if (requestedFrequency && !profile.allowsRecurrentBooking) {
-        return c.json({ ok: false, error: 'Este profesional no permite reservar sesiones recurrentes.' }, 403);
-    }
-    const publicFrequency = requestedFrequency;
-    const recurrenceCountRaw = typeof body.recurrenceCount === 'number' ? body.recurrenceCount : 1;
-    const publicTotalOccurrences = publicFrequency
-        ? Math.max(2, Math.min(recurrenceCountRaw, 26))
-        : 1;
-    const publicSeriesId = publicTotalOccurrences > 1 ? randomUUID() : null;
-
-    const addOffsetPub = (base: Date, index: number, freq: 'weekly' | 'biweekly' | 'monthly' | null): Date => {
-        if (!freq || index === 0) return new Date(base.getTime());
-        const d = new Date(base.getTime());
-        if (freq === 'weekly') d.setDate(d.getDate() + index * 7);
-        else if (freq === 'biweekly') d.setDate(d.getDate() + index * 14);
-        else if (freq === 'monthly') d.setMonth(d.getMonth() + index);
-        return d;
-    };
-
-    // Build occurrences
-    const occurrences: Array<{ startsAt: Date; endsAt: Date }> = [];
-    for (let i = 0; i < publicTotalOccurrences; i++) {
-        occurrences.push({
-            startsAt: addOffsetPub(startsAt, i, publicFrequency),
-            endsAt: addOffsetPub(endsAt, i, publicFrequency),
-        });
-    }
-
-    // Check for overlapping appointments across ALL occurrences
-    const existingAppts = await db.select().from(agendaAppointments)
-        .where(and(
-            eq(agendaAppointments.professionalId, profile.id),
-            eq(agendaAppointments.status, 'confirmed'),
-        ));
-    for (let i = 0; i < occurrences.length; i++) {
-        const occ = occurrences[i];
-        const hasOverlap = existingAppts.some(
-            (appt) => occ.startsAt < appt.endsAt && occ.endsAt > appt.startsAt,
-        );
-        if (hasOverlap) {
-            const label = occ.startsAt.toLocaleString('es-CL', { day: '2-digit', month: 'long', hour: '2-digit', minute: '2-digit', timeZone: profile.timezone ?? 'America/Santiago' });
-            const msg = publicTotalOccurrences > 1
-                ? `El horario del ${label} ya está reservado. Reduce la cantidad de sesiones o elige otro día.`
-                : 'Este horario ya está reservado. Por favor selecciona otro.';
-            return c.json({ ok: false, error: msg }, 409);
-        }
-    }
-
-    // Insert all occurrences
-    const insertedAppointments: (typeof agendaAppointments.$inferSelect)[] = [];
-    for (const occ of occurrences) {
-        const [inserted] = await db.insert(agendaAppointments).values({
-            professionalId: profile.id,
-            serviceId,
-            clientName: String(body.clientName),
-            clientEmail: typeof body.clientEmail === 'string' ? body.clientEmail || null : null,
-            clientPhone: typeof body.clientPhone === 'string' ? body.clientPhone || null : null,
-            clientNotes: typeof body.clientNotes === 'string' ? body.clientNotes || null : null,
-            startsAt: occ.startsAt,
-            endsAt: occ.endsAt,
-            durationMinutes,
-            modality: typeof body.modality === 'string' ? body.modality : 'online',
-            status,
-            price,
-            currency: profile.currency,
-            policyAgreed: body.policyAgreed === true,
-            policyAgreedAt: body.policyAgreed === true ? new Date() : null,
-            paymentStatus: (profile.requiresAdvancePayment && (profile.acceptsTransfer || profile.acceptsMp || profile.acceptsPaymentLink)) ? 'pending' : 'not_required',
-            seriesId: publicSeriesId,
-            recurrenceFrequency: publicSeriesId ? publicFrequency : null,
-            preconsultResponses: preconsultResponses ?? null,
-            promotionId: appliedPromotion?.id ?? null,
-            promotionCode: appliedPromotion?.code ?? null,
-            originalPrice: originalPriceForPromo !== null ? String(originalPriceForPromo) : null,
-            discountAmount: discountAmount !== null ? String(discountAmount) : null,
-        }).returning();
-        insertedAppointments.push(inserted);
-    }
-    const appointment = insertedAppointments[0];
-
-    // Incrementar uso del cupón (1 por reserva, no por ocurrencia recurrente)
-    if (appliedPromotion) {
-        await db.update(agendaPromotions)
-            .set({ usesCount: sql`${agendaPromotions.usesCount} + 1`, updatedAt: new Date() })
-            .where(eq(agendaPromotions.id, appliedPromotion.id));
-    }
-
-    // Create or link client record so the patient appears in the professional's client list
-    const bookingEmail = typeof body.clientEmail === 'string' && body.clientEmail ? body.clientEmail : null;
-    const bookingPhone = typeof body.clientPhone === 'string' && body.clientPhone ? body.clientPhone : null;
-    const clientFullName = String(body.clientName).trim();
-    const nameParts = clientFullName.split(/\s+/);
-    const bookingFirstName = nameParts[0] ?? clientFullName;
-    const bookingLastName = nameParts.slice(1).join(' ') || null;
-
-    // Try to find existing client by email or phone
-    let existingClient = null;
-    if (bookingEmail) {
-        existingClient = await db.query.agendaClients.findFirst({
-            where: and(eq(agendaClients.professionalId, profile.id), eq(agendaClients.email, bookingEmail)),
-        });
-    }
-    if (!existingClient && bookingPhone) {
-        existingClient = await db.query.agendaClients.findFirst({
-            where: and(eq(agendaClients.professionalId, profile.id), eq(agendaClients.phone, bookingPhone)),
-        });
-    }
-    const seriesAppointmentIds = insertedAppointments.map((a) => a.id);
-    if (!existingClient) {
-        // Create new client
-        const [newClient] = await db.insert(agendaClients).values({
-            professionalId: profile.id,
-            firstName: bookingFirstName,
-            lastName: bookingLastName,
-            email: bookingEmail,
-            phone: bookingPhone,
-        }).returning({ id: agendaClients.id });
-        // Link all occurrences to the new client
-        if (newClient) {
-            await db.update(agendaAppointments).set({ clientId: newClient.id }).where(inArray(agendaAppointments.id, seriesAppointmentIds));
-        }
-    } else {
-        // Link all occurrences to existing client
-        await db.update(agendaAppointments).set({ clientId: existingClient.id }).where(inArray(agendaAppointments.id, seriesAppointmentIds));
-    }
-
-    // Google Calendar + Meet: await sync for online appointments so the Meet URL
-    // reaches the client's confirmation email/WhatsApp on the same request.
-    // For in-person bookings it stays fire-and-forget to keep the response snappy.
-    const isOnlineBooking = (typeof body.modality === 'string' ? body.modality : 'online') === 'online';
-    const gcConnected = !!(profile.googleAccessToken && profile.googleCalendarId);
-    if (isOnlineBooking && gcConnected) {
-        const syncResult = await syncToGoogleCalendar(
-            profile,
-            { ...appointment, googleEventId: null, modality: appointment.modality },
-            'create',
-        );
-        if (syncResult?.eventId) {
-            await db.update(agendaAppointments).set({ googleEventId: syncResult.eventId }).where(eq(agendaAppointments.id, appointment.id));
-        }
-        if (syncResult?.meetingUrl) {
-            appointment.meetingUrl = syncResult.meetingUrl;
-        }
-    }
-
-    // WhatsApp: confirm to client
-    const clientPhone = typeof body.clientPhone === 'string' ? body.clientPhone : null;
-    const waSeriesCount = publicSeriesId ? insertedAppointments.length : null;
-    const waSeriesFreq = publicSeriesId ? publicFrequency : null;
-    if (status === 'confirmed' && clientPhone && profile.waNotificationsEnabled) {
-        void notifyConfirmation(
-            { id: appointment.id, slug: profile.slug, clientName: String(body.clientName), clientPhone, startsAt, endsAt, meetingUrl: appointment.meetingUrl, seriesCount: waSeriesCount, seriesFrequency: waSeriesFreq },
-            { displayName: profile.displayName, timezone: profile.timezone, cancellationHours: profile.cancellationHours },
-        ).then(() => logNotification({
-            professionalId: profile.id,
-            appointmentId: appointment.id,
-            channel: 'whatsapp',
-            eventType: 'confirmation',
-            recipient: clientPhone,
-            status: 'sent',
-        })).catch((err) => {
-            console.error('[agenda] Failed to send WhatsApp confirmation to', clientPhone, ':', err);
-            void logNotification({
-                professionalId: profile.id,
-                appointmentId: appointment.id,
-                channel: 'whatsapp',
-                eventType: 'confirmation',
-                recipient: clientPhone,
-                status: 'failed',
-                errorMessage: err instanceof Error ? err.message : String(err),
-            });
-        });
-    }
-
-    // WhatsApp: alert professional
-    if (profile.waNotifyProfessional) {
-        const profPhone = profile.waProfessionalPhone ?? profile.publicWhatsapp ?? profile.publicPhone;
-        if (profPhone) {
-            void notifyProfessionalNewBooking(
-                profPhone,
-                { displayName: profile.displayName, timezone: profile.timezone, cancellationHours: profile.cancellationHours },
-                { clientName: String(body.clientName), clientPhone, startsAt, endsAt, seriesCount: waSeriesCount, seriesFrequency: waSeriesFreq },
-            ).catch((err) => {
-                console.error('[agenda] Failed to send WhatsApp alert to professional', profPhone, ':', err);
-            });
-        }
-    }
-
-    // Sync to Google Calendar (for presential bookings — online was awaited above so Meet URL
-    // makes it into the notifications). Skip if already synced.
-    if (!(isOnlineBooking && gcConnected)) {
-        void syncToGoogleCalendar(profile, { ...appointment, googleEventId: null, modality: appointment.modality }, 'create').then(async (result) => {
-            if (result?.eventId) {
-                await db.update(agendaAppointments).set({ googleEventId: result.eventId }).where(eq(agendaAppointments.id, appointment.id));
-            }
-        });
-    }
-
-    // Push notification to professional
-    const tz3 = profile.timezone ?? 'America/Santiago';
-    const fmtT3 = (d: Date) => d.toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: tz3 });
-    const fmtD3 = (d: Date) => d.toLocaleDateString('es-CL', { weekday: 'short', day: 'numeric', month: 'short', timeZone: tz3 });
-    void sendPushToUser(profile.userId, {
-        title: '📅 Nueva cita agendada',
-        body: `${String(body.clientName)} — ${fmtD3(startsAt)} a las ${fmtT3(startsAt)}`,
-        url: '/panel/agenda',
-    });
-
-    // If requiresAdvancePayment AND MP is enabled+connected → create checkout preference
-    let checkoutUrl: string | null = null;
-    if (profile.requiresAdvancePayment && profile.acceptsMp && profile.mpAccessToken && price) {
-        try {
-            const baseUrl = process.env.AGENDA_APP_URL ?? 'http://localhost:3002';
-            const pref = await createCheckoutPreference({
-                externalReference: appointment.id,
-                title: `Sesión con ${profile.displayName ?? 'el profesional'}`,
-                amount: parseFloat(price),
-                currencyId: profile.currency,
-                payerEmail: typeof body.clientEmail === 'string' && body.clientEmail ? body.clientEmail : 'paciente@simpleagenda.app',
-                payerName: String(body.clientName),
-                backUrls: {
-                    success: `${baseUrl}/${slug}?payment=success&appt=${appointment.id}`,
-                    failure: `${baseUrl}/${slug}?payment=failure&appt=${appointment.id}`,
-                    pending: `${baseUrl}/${slug}?payment=pending&appt=${appointment.id}`,
-                },
-                accessToken: profile.mpAccessToken,
-            });
-            checkoutUrl = pref.initPoint;
-        } catch (e) {
-            console.error('[agenda] MP checkout creation error:', e);
-        }
-    }
-
-    // Email confirmation to client
-    const clientEmail = typeof body.clientEmail === 'string' && body.clientEmail ? body.clientEmail : null;
-    if (clientEmail) {
-        const agendaAppUrl = asString(process.env.AGENDA_APP_URL) || 'https://simpleagenda.app';
-        const cancelUrl = `${agendaAppUrl}/cancelar?appt=${appointment.id}&slug=${profile.slug}`;
-
-        void sendBookingConfirmationEmail(clientEmail, {
-            appointmentId: appointment.id,
-            clientName: String(body.clientName),
-            professionalName: profile.displayName ?? 'el profesional',
-            slug: profile.slug,
-            serviceName,
-            startsAt,
-            endsAt,
-            durationMinutes,
-            modality: typeof body.modality === 'string' ? body.modality : 'online',
-            price,
-            currency: profile.currency,
-            meetingUrl: appointment.meetingUrl,
-            location: appointment.location,
-            timezone: profile.timezone ?? 'America/Santiago',
-            status,
-            seriesDates: publicSeriesId ? insertedAppointments.map((a) => a.startsAt) : null,
-            seriesFrequency: publicSeriesId ? publicFrequency : null,
-            paymentMethods: {
-                requiresAdvancePayment: profile.requiresAdvancePayment,
-                mpConnected: !!(profile.acceptsMp && profile.mpAccessToken),
-                paymentLinkUrl: profile.acceptsPaymentLink ? (profile.paymentLinkUrl ?? null) : null,
-                bankTransferData: profile.acceptsTransfer ? ((profile.bankTransferData ?? null) as Record<string, string> | null) : null,
-                checkoutUrl: checkoutUrl ?? null,
-            },
-            cancelUrl,
-            appUrl: agendaAppUrl,
-        }).catch((err) => {
-            console.error('[agenda] Failed to send booking confirmation email to', clientEmail, ':', err);
-        });
-    }
-
-    await logAudit({
-        professionalId: profile.id,
-        entityType: 'appointment',
-        entityId: appointment.id,
-        action: 'create',
-        metadata: {
-            source: 'public_booking',
-            seriesId: publicSeriesId,
-            occurrences: insertedAppointments.length,
-            serviceId,
-            serviceName,
-            clientName: typeof body.clientName === 'string' ? body.clientName.slice(0, 100) : null,
-        },
-        ctx: c,
-    });
-
-    return c.json({ ok: true, appointment, appointments: insertedAppointments, seriesId: publicSeriesId });
-});
-
-// ==========================================
-// NUEVOS ENDPOINTS DE INSTAGRAM INTELLIGENCE
-// ==========================================
+// ──────────────────────────────────────────────────────────────────────────────
+// Instagram Intelligence (experimental inline routes — not yet modularized)
+// ──────────────────────────────────────────────────────────────────────────────
 
 // Publicación con IA mejorada
-app.post('/api/integrations/instagram/publish-enhanced', async (c) => {
-    const user = await authUser(c);
-    if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
-
-    try {
-        const payload = await c.req.json().catch(() => null);
-        const parsed = instagramEnhancedPublishSchema.safeParse(payload);
-        if (!parsed.success) {
-            return c.json({ ok: false, error: 'Payload invalido', details: parsed.error.format() }, 400);
-        }
-
-        const listing = listingsById.get(parsed.data.listingId) ?? await getListingById(parsed.data.listingId);
-        if (!listing) {
-            return c.json({ ok: false, error: 'Publicacion no encontrada' }, 404);
-        }
-        if (listing.vertical !== parsed.data.vertical) {
-            return c.json({ ok: false, error: 'La publicacion no corresponde a esta vertical.' }, 409);
-        }
-        if (listing.ownerId !== user.id && user.role !== 'superadmin') {
-            return c.json({ ok: false, error: 'No tienes permisos sobre esta publicacion' }, 403);
-        }
-
-        const listingData = buildInstagramListingData(listing);
-        const templates = generateSmartTemplates(listingData);
-        const selectedTemplate = [
-            templates.recommendedTemplate,
-            ...templates.alternatives,
-        ].find((template) => template.id === parsed.data.templateId) ?? templates.recommendedTemplate;
-
-        console.log('[instagram] enhanced publish template resolved:', {
-            listingId: listing.id,
-            requestedTemplateId: parsed.data.templateId ?? null,
-            resolvedTemplateId: selectedTemplate?.id ?? null,
-            layoutVariant: selectedTemplate?.layoutVariant ?? null,
-        });
-
-        const publication = await publishListingToInstagram(user, listing, {
-            captionOverride: parsed.data.captionOverride ?? null,
-            template: selectedTemplate,
-        });
-
-        return c.json({
-            ok: true,
-            result: publication,
-            publication,
-            template: selectedTemplate,
-            aiContent: null,
-            adaptations: null,
-            score: selectedTemplate?.score ?? null,
-        });
-
-    } catch (error) {
-        console.error('[instagram] Error en publicación mejorada:', error);
-        return c.json({ 
-            ok: false, 
-            error: error instanceof Error ? error.message : 'Error desconocido'
-        }, 500);
-    }
-});
-
-// Endpoint de prueba para templates (sin autenticación)
-app.post('/api/test/templates', async (c) => {
-    try {
-        const { vertical } = await c.req.json();
-        
-        const testListingData: InstagramListingData = {
-            id: 'test-123',
-            vertical: vertical as 'autos' | 'propiedades' | 'agenda',
-            title: 'Toyota Corolla 2022',
-            price: 15000000,
-            brand: 'Toyota',
-            model: 'Corolla',
-            year: 2022,
-            category: 'Sedan',
-            condition: 'Excelente',
-            features: ['Aire acondicionado', 'GPS', 'Bluetooth'],
-            images: [],
-            location: 'Santiago, Chile',
-            description: 'Excelente vehículo, muy bien cuidado'
-        };
-        
-        // Generar templates
-        const templates = generateSmartTemplates(testListingData);
-        
-        return c.json({ ok: true, ...templates });
-        
-    } catch (error) {
-        console.error('[test] Error generando templates:', error);
-        return c.json({ 
-            ok: false, 
-            error: error instanceof Error ? error.message : 'Error desconocido' 
-        }, 500);
-    }
-});
-
-// Generar templates inteligentes
-app.post('/api/integrations/instagram/templates', async (c) => {
-    const user = await authUser(c);
-    if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
-
-    try {
-        const body = asObject(await c.req.json().catch(() => null));
-        const vertical = parseVertical(asString(body.vertical));
-        const listingId = asString(body.listingId);
-
-        if (!listingId) {
-            return c.json({ ok: false, error: 'listingId es requerido' }, 400);
-        }
-
-        const listing = listingsById.get(listingId) ?? await getListingById(listingId);
-        if (!listing) {
-            return c.json({ ok: false, error: 'Publicacion no encontrada' }, 404);
-        }
-        if (listing.vertical !== vertical) {
-            return c.json({ ok: false, error: 'La publicacion no corresponde a esta vertical.' }, 409);
-        }
-        if (listing.ownerId !== user.id && user.role !== 'superadmin') {
-            return c.json({ ok: false, error: 'No tienes permisos sobre esta publicacion' }, 403);
-        }
-
-        const listingData = buildInstagramListingData(listing);
-        const templates = generateSmartTemplates(listingData);
-
-        console.log('[API] /api/integrations/instagram/templates response:', {
-            recommendedTemplate: templates.recommendedTemplate.id,
-            recommendedOverlay: templates.recommendedTemplate.overlayVariant,
-            alternatives: templates.alternatives.map(t => ({ id: t.id, overlay: t.overlayVariant }))
-        });
-
-        return c.json({ ok: true, ...templates });
-
-    } catch (error) {
-        console.error('[instagram] Error generando templates:', error);
-        return c.json({ 
-            ok: false, 
-            error: error instanceof Error ? error.message : 'Error desconocido' 
-        }, 500);
-    }
-});
-
-// Obtener insights de Instagram
 app.get('/api/integrations/instagram/insights', async (c) => {
     try {
         const { listingId, from, to } = c.req.query();
@@ -19325,7 +11966,7 @@ app.get('/api/integrations/instagram/insights', async (c) => {
         }
 
         // Importar funciones de analytics
-        const { getInstagramInsights } = await import('./instagram.js');
+        const { getInstagramInsights } = await import('./modules/instagram/service.js');
 
         // Obtener insights
         const insights = await getInstagramInsights(
@@ -19368,7 +12009,7 @@ app.post('/api/integrations/instagram/ab-test/create', async (c) => {
         }
 
         // Importar funciones de A/B testing
-        const { createABTestCampaign } = await import('./instagram.js');
+        const { createABTestCampaign } = await import('./modules/instagram/service.js');
 
         // Obtener datos del listing
         const listing = await db.query.listings.findFirst({
@@ -19416,7 +12057,7 @@ app.post('/api/integrations/instagram/ab-test/:campaignId/analyze', async (c) =>
         const campaignId = c.req.param('campaignId');
         
         // Importar funciones de A/B testing
-        const { analyzeABTestResults } = await import('./instagram.js');
+        const { analyzeABTestResults } = await import('./modules/instagram/service.js');
 
         // Analizar resultados
         const results = await analyzeABTestResults(campaignId);
@@ -19451,7 +12092,7 @@ app.post('/api/integrations/instagram/schedule', async (c) => {
         }
 
         // Importar funciones de scheduler
-        const { scheduleInstagramPost } = await import('./instagram.js');
+        const { scheduleInstagramPost } = await import('./modules/instagram/service.js');
 
         // Obtener datos del listing
         const listing = await db.query.listings.findFirst({
@@ -19506,7 +12147,7 @@ app.get('/api/integrations/instagram/scheduling-insights', async (c) => {
         }
 
         // Importar funciones de scheduler
-        const { getSchedulingInsights } = await import('./instagram.js');
+        const { getSchedulingInsights } = await import('./modules/instagram/service.js');
 
         // Obtener insights (simulados por ahora)
         const insights = getSchedulingInsights([], []);
@@ -19537,7 +12178,7 @@ app.get('/api/integrations/instagram/scheduled', async (c) => {
         }
 
         // Importar funciones de scheduler
-        const { InstagramSchedulerService } = await import('./instagram-scheduler.js');
+        const { InstagramSchedulerService } = await import('./modules/instagram/scheduler.js');
 
         // Obtener publicaciones programadas (simuladas por ahora)
         const posts = InstagramSchedulerService.getUpcomingPosts([], hoursAhead);
@@ -19572,7 +12213,7 @@ app.post('/api/integrations/instagram/optimize', async (c) => {
         }
 
         // Importar funciones de IA
-        const { optimizeInstagramContent } = await import('./instagram.js');
+        const { optimizeInstagramContent } = await import('./modules/instagram/service.js');
 
         // Obtener datos del listing
         const listing = await db.query.listings.findFirst({
@@ -20238,6 +12879,24 @@ async function bootstrapMissingTables() {
         CREATE UNIQUE INDEX IF NOT EXISTS push_subscriptions_endpoint_idx ON push_subscriptions(endpoint)
     `);
 }
+
+// SimpleSerenatas routes
+// ─────────────────────────────────────────────────────────────────────────────
+const serenatasDeps = {
+    db,
+    authUser,
+    tables: {
+        serenataGroups,
+        serenataGroupMembers,
+        serenataMusicians,
+        serenataRequests,
+        serenataAssignments,
+        serenataRoutes,
+        serenataNotifications,
+        users,
+    },
+};
+app.route('/api/serenatas', createSerenatasRouter(serenatasDeps));
 
 // Run DB migrations, preload data, then start the HTTP server
 (async () => {

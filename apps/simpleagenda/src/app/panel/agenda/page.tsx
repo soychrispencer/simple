@@ -945,7 +945,8 @@ export default function AgendaPage() {
                                         >
                                             {profile ? formatTimeTz(appt.startsAt, profile.timezone) : formatTime(appt.startsAt)} {appt.clientName ?? appt.client?.firstName ?? '—'}
                                         </button>
-                                    ))}
+                                        );
+                                    })())}
                                     {!loading && dayAppts.length > 3 && (
                                         <p className="text-[10px] pl-1" style={{ color: 'var(--fg-muted)' }}>+{dayAppts.length - 3} más</p>
                                     )}

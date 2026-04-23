@@ -29,33 +29,36 @@ export async function fetchAddressBook(): Promise<{ ok: boolean; items: AddressB
     const result = await apiRequest<{ items: AddressBookEntry[] }>('/api/address-book', {
         method: 'GET',
     });
+    const data = result as { items?: AddressBookEntry[] };
     return {
         ok: result.ok,
-        items: (result as any).items || [],
+        items: data.items || [],
         error: result.error,
     };
 }
 
-export async function createAddressBookEntry(input: any): Promise<{ ok: boolean; items: AddressBookEntry[]; error?: string }> {
+export async function createAddressBookEntry(input: unknown): Promise<{ ok: boolean; items: AddressBookEntry[]; error?: string }> {
     const result = await apiRequest<{ items: AddressBookEntry[] }>('/api/address-book', {
         method: 'POST',
         body: JSON.stringify(input),
     });
+    const data = result as { items?: AddressBookEntry[] };
     return {
         ok: result.ok,
-        items: (result as any).items || [],
+        items: data.items || [],
         error: result.error,
     };
 }
 
-export async function updateAddressBookEntry(id: string, input: any): Promise<{ ok: boolean; items: AddressBookEntry[]; error?: string }> {
+export async function updateAddressBookEntry(id: string, input: unknown): Promise<{ ok: boolean; items: AddressBookEntry[]; error?: string }> {
     const result = await apiRequest<{ items: AddressBookEntry[] }>(`/api/address-book/${encodeURIComponent(id)}`, {
         method: 'PATCH',
         body: JSON.stringify(input),
     });
+    const data = result as { items?: AddressBookEntry[] };
     return {
         ok: result.ok,
-        items: (result as any).items || [],
+        items: data.items || [],
         error: result.error,
     };
 }
@@ -64,9 +67,10 @@ export async function deleteAddressBookEntry(id: string): Promise<{ ok: boolean;
     const result = await apiRequest<{ items: AddressBookEntry[] }>(`/api/address-book/${encodeURIComponent(id)}`, {
         method: 'DELETE',
     });
+    const data = result as { items?: AddressBookEntry[] };
     return {
         ok: result.ok,
-        items: (result as any).items || [],
+        items: data.items || [],
         error: result.error,
     };
 }

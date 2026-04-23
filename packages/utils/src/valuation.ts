@@ -39,39 +39,39 @@ async function apiRequest<T>(path: string, init?: RequestInit): Promise<T> {
 }
 
 export async function estimatePropertyValue(request: PropertyValuationRequest): Promise<ValuationResponse<PropertyValuationEstimate>> {
-    return apiRequest<ValuationResponse<PropertyValuationEstimate>>('/api/valuations/properties/estimate', {
+    return apiRequest<ValuationResponse<PropertyValuationEstimate>>('/api/public/valuations/properties/estimate', {
         method: 'POST',
         body: JSON.stringify(request),
     });
 }
 
 export async function fetchPropertyValuationSources(): Promise<ValuationSourcesResponse<PropertyValuationSourceStatus>> {
-    return apiRequest<ValuationSourcesResponse<PropertyValuationSourceStatus>>('/api/valuations/properties/sources', {
+    return apiRequest<ValuationSourcesResponse<PropertyValuationSourceStatus>>('/api/public/valuations/properties/sources', {
         method: 'GET',
     });
 }
 
 export async function refreshPropertyValuationSources(): Promise<ValuationSourcesResponse<PropertyValuationSourceStatus>> {
-    return apiRequest<ValuationSourcesResponse<PropertyValuationSourceStatus>>('/api/valuations/properties/sources/refresh', {
+    return apiRequest<ValuationSourcesResponse<PropertyValuationSourceStatus>>('/api/public/valuations/properties/sources/refresh', {
         method: 'POST',
     });
 }
 
 export async function estimateVehicleValue(request: VehicleValuationRequest): Promise<ValuationResponse<VehicleValuationEstimate>> {
-    return apiRequest<ValuationResponse<VehicleValuationEstimate>>('/api/valuations/vehicles/estimate', {
+    return apiRequest<ValuationResponse<VehicleValuationEstimate>>('/api/public/valuations/vehicles/estimate', {
         method: 'POST',
         body: JSON.stringify(request),
     });
 }
 
 export async function fetchVehicleValuationSources(): Promise<ValuationSourcesResponse<VehicleValuationSourceStatus>> {
-    return apiRequest<ValuationSourcesResponse<VehicleValuationSourceStatus>>('/api/valuations/vehicles/sources', {
+    return apiRequest<ValuationSourcesResponse<VehicleValuationSourceStatus>>('/api/public/valuations/vehicles/sources', {
         method: 'GET',
     });
 }
 
 export async function refreshVehicleValuationSources(): Promise<ValuationSourcesResponse<VehicleValuationSourceStatus>> {
-    return apiRequest<ValuationSourcesResponse<VehicleValuationSourceStatus>>('/api/valuations/vehicles/sources/refresh', {
+    return apiRequest<ValuationSourcesResponse<VehicleValuationSourceStatus>>('/api/public/valuations/vehicles/sources/refresh', {
         method: 'POST',
     });
 }

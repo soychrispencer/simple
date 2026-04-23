@@ -15,6 +15,8 @@ function getSessionSecret(): string {
     return asString(process.env.SESSION_SECRET);
 }
 
+export type VerticalType = 'autos' | 'propiedades' | 'agenda' | 'serenatas';
+
 export type AppUser = {
     id: string;
     email: string;
@@ -23,6 +25,7 @@ export type AppUser = {
     phone?: string | null;
     role: 'user' | 'admin' | 'superadmin';
     status: 'active' | 'verified' | 'suspended';
+    primaryVertical?: VerticalType | null;
     avatar?: string;
     provider?: string;
     providerId?: string;
@@ -38,6 +41,7 @@ function mapUserRowToAppUser(user: typeof users.$inferSelect): AppUser {
         phone: user.phone ?? null,
         role: user.role as AppUser['role'],
         status: user.status as AppUser['status'],
+        primaryVertical: (user.primaryVertical as VerticalType | null | undefined) ?? null,
         avatar: user.avatarUrl ?? undefined,
         provider: user.provider ?? undefined,
         providerId: user.providerId ?? undefined,

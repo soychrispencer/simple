@@ -20,12 +20,12 @@ Este documento describe la migración que divide `admin@simpleplataforma.app` en
 
 2. **admin@simpleautos.app**
    - Uso: Publicaciones de vehículos
-   - Perfil público: `https://simpleautos.cl/perfil/simpleautos`
+   - Perfil público: `https://simpleautos.app/perfil/simpleautos`
    - Contraseña: Misma que admin@simpleplataforma.app
 
 3. **admin@simplepropiedades.app**
    - Uso: Publicaciones de propiedades
-   - Perfil público: `https://simplepropiedades.cl/perfil/simplepropiedades`
+   - Perfil público: `https://simplepropiedades.app/perfil/simplepropiedades`
    - Contraseña: Misma que admin@simpleplataforma.app
 
 ## 🚀 Opciones de Ejecución
@@ -62,7 +62,7 @@ Después de ejecutar, verifica:
    - Verificar que las publicaciones aparecen en el panel
 
 2. **Perfil público:**
-   - Visitar: `https://simpleautos.cl/perfil/simpleautos`
+   - Visitar: `https://simpleautos.app/perfil/simpleautos`
    - Verificar que muestra el catálogo de publicaciones
 
 3. **Panel SimplePropiedades:**
@@ -115,3 +115,51 @@ Si encuentras problemas:
 2. Verificar que DATABASE_URL esté configurado correctamente
 3. Confirmar que el usuario `admin@simpleplataforma.app` existe
 4. Restaurar backup y reintentar
+
+---
+
+# Reorganización de Acceso Vertical-Scoped (2025)
+
+## Descripción
+
+Se implementó un sistema de administración vertical-scoped. Cada admin solo puede ver
+los usuarios, publicaciones y leads de su vertical asignada. El superadmin ve todo.
+
+## Cuentas definitivas
+
+| Email | Rol | primary_vertical | Nombre |
+|-------|-----|-----------------|--------|
+| `admin@simpleplataforma.app` | `superadmin` | NULL (todo) | Admin Plataforma |
+| `admin@simpleautos.app` | `admin` | `autos` | Admin SimpleAutos |
+| `admin@simplepropiedades.app` | `admin` | `propiedades` | Admin SimplePropiedades |
+| `admin@simpleagenda.app` | `admin` | `agenda` | Admin SimpleAgenda |
+| `admin@simpleserenatas.app` | `admin` | `serenatas` | Admin SimpleSerenatas |
+
+**Contraseña para todos:** `Pik@0819`
+
+## Ejecutar seed (local y producción)
+
+```bash
+# Local
+cd services/api
+DATABASE_URL=<url> pnpm seed:admins
+
+# o directamente
+DATABASE_URL=<url> npx tsx src/scripts/seed-admin-users.ts
+```
+
+El script es idempotente: actualiza si el usuario ya existe, crea si no existe.
+No toca publicaciones ni datos existentes.
+
+## Cambios de schema
+
+- Nueva columna `users.primary_vertical` (varchar 20, nullable).
+- Migración: `drizzle/0039_user_primary_vertical.sql`
+- `NULL` = superadmin (acceso global); valor = vertical asignada.
+
+## Lógica de autorización
+
+- `isAdminForVertical(user, vertical)` en `src/index.ts`.
+- Admin router (`modules/admin/router.ts`): overview, users, listings, leads filtrados por vertical del admin.
+- Mutaciones de usuarios (role/status/delete/edit): solo superadmin.
+- CRM router (`modules/crm/router.ts`): service leads filtrados por vertical del admin.

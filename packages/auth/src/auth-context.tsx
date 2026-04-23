@@ -1,6 +1,9 @@
 'use client';
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
+import { API_BASE } from '@simple/config';
+
+type VerticalType = 'autos' | 'propiedades' | 'agenda' | 'serenatas';
 
 type User = {
     id: string;
@@ -9,6 +12,7 @@ type User = {
     phone?: string | null;
     role: 'user' | 'admin' | 'superadmin';
     status: 'active' | 'verified' | 'suspended';
+    primaryVertical?: VerticalType | null;
     avatar?: string;
 } | null;
 
@@ -34,7 +38,6 @@ type AuthContextType = {
 };
 
 const AuthContext = createContext<AuthContextType | null>(null);
-const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000';
 
 type AuthApiResponse = {
     ok?: boolean;
@@ -45,7 +48,7 @@ type AuthApiResponse = {
 function sameUser(a: User, b: User): boolean {
     if (!a && !b) return true;
     if (!a || !b) return false;
-    return a.id === b.id && a.email === b.email && a.name === b.name && a.phone === b.phone && a.role === b.role && a.status === b.status && a.avatar === b.avatar;
+    return a.id === b.id && a.email === b.email && a.name === b.name && a.phone === b.phone && a.role === b.role && a.status === b.status && a.primaryVertical === b.primaryVertical && a.avatar === b.avatar;
 }
 
 async function authRequest(path: string, init?: RequestInit): Promise<{ status: number; data: AuthApiResponse | null }> {

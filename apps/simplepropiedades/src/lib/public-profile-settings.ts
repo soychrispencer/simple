@@ -1,4 +1,4 @@
-const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000';
+import { API_BASE } from '@simple/config';
 
 export type PublicProfileAccountKind = 'individual' | 'independent' | 'company';
 export type PublicProfileLeadRoutingMode = 'owner' | 'round_robin' | 'unassigned';

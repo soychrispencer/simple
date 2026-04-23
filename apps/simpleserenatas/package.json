@@ -1,0 +1,36 @@
+{
+    "name": "@simple/serenatas",
+    "version": "1.0.0",
+    "private": true,
+    "scripts": {
+        "dev": "next dev --turbopack --port 3005",
+        "build": "next build",
+        "start": "next start",
+        "lint": "next lint"
+    },
+    "dependencies": {
+        "@simple/auth": "*",
+        "@simple/config": "*",
+        "@simple/types": "*",
+        "@simple/ui": "*",
+        "@simple/utils": "*",
+        "@tabler/icons-react": "^3.31.0",
+        "clsx": "^2.1.1",
+        "leaflet": "^1.9.4",
+        "next": "^16.1.6",
+        "next-themes": "^0.4.6",
+        "react": "^19.2.4",
+        "react-dom": "^19.2.4",
+        "react-leaflet": "^5.0.0",
+        "zod": "^3.25.73"
+    },
+    "devDependencies": {
+        "@tailwindcss/postcss": "^4.2.1",
+        "@types/leaflet": "^1.9.21",
+        "@types/node": "^22.16.0",
+        "@types/react": "^19.1.8",
+        "@types/react-dom": "^19.1.6",
+        "tailwindcss": "^4.2.1",
+        "typescript": "^5.9.3"
+    }
+}

@@ -1,4 +1,6 @@
-const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000';
+import { API_BASE } from '@simple/config';
+
+type VerticalType = 'autos' | 'propiedades' | 'agenda' | 'serenatas';
 
 export type AdminSessionUser = {
     id: string;
@@ -6,6 +8,7 @@ export type AdminSessionUser = {
     name: string;
     role: 'admin' | 'superadmin';
     status?: 'active' | 'verified' | 'suspended';
+    primaryVertical?: VerticalType | null;
 };
 
 export type AdminLeadQuickAction = 'call' | 'whatsapp' | 'email' | 'follow_up';

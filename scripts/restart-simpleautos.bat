@@ -21,8 +21,8 @@ if exist .next (
 
 echo [3/4] Rebuild de @simple/ui...
 cd /d "%~dp0\.."
-npm run build --workspace=@simple/ui --silent
+pnpm run build --filter=@simple/ui --silent
 
 echo [4/4] Iniciando dev server de simpleautos...
 cd /d "%~dp0\..\apps\simpleautos"
-npm run dev
+pnpm run dev

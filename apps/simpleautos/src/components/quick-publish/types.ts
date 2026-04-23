@@ -1,4 +1,5 @@
 import type { VehicleCatalogType } from '@/lib/publish-wizard-catalog';
+import type { ListingLocation } from '@simple/types';
 
 export type QuickListingType = 'sale' | 'rent' | 'auction';
 
@@ -57,6 +58,7 @@ export interface QuickBasicData {
     doors?: string;
     passengers?: string;
     steeringWheel?: string;
+    location?: ListingLocation | null;
 }
 
 export interface GeneratedText {

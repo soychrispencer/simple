@@ -1,0 +1,38 @@
+name: Deploy to Production
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    name: Deploy
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v')
+    
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+          
+      - name: Install dependencies
+        run: npm ci
+        
+      - name: Build all
+        run: npm run build --workspaces --if-present
+        
+      # Add your deployment steps here
+      # Examples:
+      # - Deploy to Vercel: npx vercel --prod
+      # - Deploy to Coolify: curl -X POST $COOLIFY_WEBHOOK
+      # - Deploy to VPS: rsync + ssh
+      
+      - name: Deploy Notification
+        run: echo "Deployment completed - configure your deployment provider"

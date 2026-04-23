@@ -3847,7 +3847,7 @@ function createDraftFromEntry(entry?: AddressBookEntry | null): AddressBookManag
                 visibilityMode: 'exact',
                 publicMapEnabled: true,
                 label: entry?.label || null,
-                kind: (entry?.kind as any) || null,
+                kind: entry?.kind || null,
             }),
             {
                 regionId: entry?.regionId || null,
@@ -3858,7 +3858,7 @@ function createDraftFromEntry(entry?: AddressBookEntry | null): AddressBookManag
                 addressLine1: entry?.addressLine1 || null,
                 addressLine2: entry?.addressLine2 || null,
                 postalCode: entry?.postalCode || null,
-                arrivalInstructions: (entry as any)?.arrivalInstructions || null,
+                arrivalInstructions: entry?.arrivalInstructions || null,
                 geoPoint: entry?.geoPoint || undefined,
                 publicGeoPoint: entry?.geoPoint || undefined,
                 publicLabel: [entry?.addressLine1, entry?.communeName, entry?.regionName].filter(Boolean).join(', '),
@@ -3959,8 +3959,8 @@ export function AddressBookManager(props: AddressBookManagerProps) {
                                 {entry.isDefault ? <span className="rounded-full px-2 py-1 text-[11px] font-medium" style={{ background: 'var(--bg-muted)', color: 'var(--fg-secondary)' }}>Predeterminada</span> : null}
                             </div>
                             <p className="text-sm mt-3" style={{ color: 'var(--fg-secondary)' }}>{addressSummary(entry)}</p>
-                            {(entry as any).arrivalInstructions ? (
-                                <p className="text-xs mt-2 italic" style={{ color: 'var(--fg-muted)' }}>{(entry as any).arrivalInstructions}</p>
+                            {entry.arrivalInstructions ? (
+                                <p className="text-xs mt-2 italic" style={{ color: 'var(--fg-muted)' }}>{entry.arrivalInstructions}</p>
                             ) : null}
                             <div className="mt-4 flex flex-wrap gap-2">
                                 <button type="button" className="btn btn-outline h-9 px-3 text-xs" onClick={() => handleEdit(entry)}>Editar</button>

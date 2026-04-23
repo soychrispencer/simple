@@ -1,0 +1,16 @@
+{
+    "name": "@simple/listings-core",
+    "version": "1.0.0",
+    "description": "Shared types and utilities for autos and propiedades verticals",
+    "main": "./src/index.ts",
+    "types": "./src/index.ts",
+    "scripts": {
+        "lint": "tsc --noEmit"
+    },
+    "dependencies": {
+        "@simple/types": "workspace:*"
+    },
+    "devDependencies": {
+        "typescript": "^5.9.3"
+    }
+}

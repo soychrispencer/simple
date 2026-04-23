@@ -1,4 +1,2 @@
-// API Configuration
-// Centralized API base URL configuration for all API calls
-
-export const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000';
+// Re-export from @simple/config for backward compatibility
+export { API_BASE } from '@simple/config';

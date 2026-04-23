@@ -131,10 +131,7 @@ export default function QuickPublishFlow() {
                     isPublishing={qp.isPublishing}
                     publishError={qp.publishError}
                     detectedColor={qp.detectedColor}
-                    initialLocation={qp.savedLocation}
                     onUpdateText={qp.updateGeneratedText}
-                    onUpdatePricing={qp.updatePricing}
-                    onUpdateLocation={qp.updateLocation}
                     onGenerateText={() => void qp.generateText()}
                     onPublish={() => void qp.publish()}
                     onBack={handleBack}

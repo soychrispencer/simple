@@ -1,3 +1,5 @@
+import { API_BASE } from '@simple/config';
+
 export type BoostSection = 'sale' | 'rent' | 'project';
 export type BoostPlanId = 'boost_starter' | 'boost_pro' | 'boost_max';
 export type BoostOrderStatus = 'scheduled' | 'active' | 'paused' | 'ended';
@@ -99,7 +101,6 @@ type FeaturedResponse = {
     items: FeaturedBoostItem[];
 };
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000';
 
 export const BOOST_SECTION_META: Record<BoostSection, { label: string; href: string }> = {
     sale: { label: 'Venta', href: '/ventas' },

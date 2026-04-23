@@ -539,8 +539,8 @@ function mergeDraft(raw: unknown): { data: WizardData; valuationEstimate: Proper
                 ? parsed.data.media.photos.map((photo) => ({
                         id: photo.id,
                         name: photo.name,
-                        dataUrl: fixBrokenB2Url(typeof (photo as any).dataUrl === 'string' ? (photo as any).dataUrl : (typeof (photo as any).url === 'string' ? (photo as any).url : '')),
-                        previewUrl: fixBrokenB2Url(typeof (photo as any).previewUrl === 'string' ? (photo as any).previewUrl : (typeof (photo as any).url === 'string' ? (photo as any).url : '')),
+                        dataUrl: fixBrokenB2Url((typeof photo.dataUrl === 'string' ? photo.dataUrl : (typeof (photo as { url?: string }).url === 'string' ? (photo as { url?: string }).url : '')) || ''),
+                        previewUrl: fixBrokenB2Url((typeof photo.previewUrl === 'string' ? photo.previewUrl : (typeof (photo as { url?: string }).url === 'string' ? (photo as { url?: string }).url : '')) || ''),
                         isCover: !!photo.isCover,
                         width: typeof photo.width === 'number' ? photo.width : 0,
                         height: typeof photo.height === 'number' ? photo.height : 0,
@@ -552,8 +552,8 @@ function mergeDraft(raw: unknown): { data: WizardData; valuationEstimate: Proper
                     ? {
                         id: parsed.data.media.discoverVideo.id,
                         name: parsed.data.media.discoverVideo.name,
-                        dataUrl: fixBrokenB2Url(typeof (parsed.data.media.discoverVideo as any).dataUrl === 'string' ? (parsed.data.media.discoverVideo as any).dataUrl : (typeof (parsed.data.media.discoverVideo as any).url === 'string' ? (parsed.data.media.discoverVideo as any).url : '')),
-                        previewUrl: fixBrokenB2Url(typeof (parsed.data.media.discoverVideo as any).previewUrl === 'string' ? (parsed.data.media.discoverVideo as any).previewUrl : (typeof (parsed.data.media.discoverVideo as any).url === 'string' ? (parsed.data.media.discoverVideo as any).url : '')),
+                        dataUrl: fixBrokenB2Url((typeof parsed.data.media.discoverVideo.dataUrl === 'string' ? parsed.data.media.discoverVideo.dataUrl : (typeof (parsed.data.media.discoverVideo as { url?: string }).url === 'string' ? (parsed.data.media.discoverVideo as { url?: string }).url : '')) || ''),
+                        previewUrl: fixBrokenB2Url((typeof parsed.data.media.discoverVideo.previewUrl === 'string' ? parsed.data.media.discoverVideo.previewUrl : (typeof (parsed.data.media.discoverVideo as { url?: string }).url === 'string' ? (parsed.data.media.discoverVideo as { url?: string }).url : '')) || ''),
                         width: typeof parsed.data.media.discoverVideo.width === 'number' ? parsed.data.media.discoverVideo.width : 0,
                         height: typeof parsed.data.media.discoverVideo.height === 'number' ? parsed.data.media.discoverVideo.height : 0,
                         sizeBytes: typeof parsed.data.media.discoverVideo.sizeBytes === 'number' ? parsed.data.media.discoverVideo.sizeBytes : 0,

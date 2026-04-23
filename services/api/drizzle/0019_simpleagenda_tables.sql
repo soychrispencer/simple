@@ -1,6 +1,6 @@
 -- SimpleAgenda tables migration
 
-CREATE TABLE "agenda_professional_profiles" (
+CREATE TABLE IF NOT EXISTS "agenda_professional_profiles" (
 	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
 	"user_id" uuid NOT NULL,
 	"slug" varchar(255) NOT NULL,
@@ -27,7 +27,7 @@ CREATE TABLE "agenda_professional_profiles" (
 );
 --> statement-breakpoint
 
-CREATE TABLE "agenda_services" (
+CREATE TABLE IF NOT EXISTS "agenda_services" (
 	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
 	"professional_id" uuid NOT NULL,
 	"name" varchar(160) NOT NULL,
@@ -182,30 +182,30 @@ ALTER TABLE "agenda_payments" ADD CONSTRAINT "agenda_payments_client_id_fk" FORE
 --> statement-breakpoint
 
 -- Unique indexes
-CREATE UNIQUE INDEX "agenda_profiles_slug_idx" ON "agenda_professional_profiles" USING btree ("slug");
+CREATE UNIQUE INDEX IF NOT EXISTS "agenda_profiles_slug_idx" ON "agenda_professional_profiles" USING btree ("slug");
 --> statement-breakpoint
 CREATE UNIQUE INDEX "agenda_profiles_user_id_idx" ON "agenda_professional_profiles" USING btree ("user_id");
 --> statement-breakpoint
-CREATE UNIQUE INDEX "agenda_notes_appointment_idx" ON "agenda_session_notes" USING btree ("appointment_id");
+CREATE UNIQUE INDEX IF NOT EXISTS "agenda_notes_appointment_idx" ON "agenda_session_notes" USING btree ("appointment_id");
 --> statement-breakpoint
 
 -- Performance indexes
-CREATE INDEX "agenda_services_professional_idx" ON "agenda_services" USING btree ("professional_id");
+CREATE INDEX IF NOT EXISTS "agenda_services_professional_idx" ON "agenda_services" USING btree ("professional_id");
 --> statement-breakpoint
-CREATE INDEX "agenda_availability_professional_idx" ON "agenda_availability_rules" USING btree ("professional_id");
+CREATE INDEX IF NOT EXISTS "agenda_availability_professional_idx" ON "agenda_availability_rules" USING btree ("professional_id");
 --> statement-breakpoint
-CREATE INDEX "agenda_blocked_slots_professional_idx" ON "agenda_blocked_slots" USING btree ("professional_id");
+CREATE INDEX IF NOT EXISTS "agenda_blocked_slots_professional_idx" ON "agenda_blocked_slots" USING btree ("professional_id");
 --> statement-breakpoint
-CREATE INDEX "agenda_clients_professional_idx" ON "agenda_clients" USING btree ("professional_id");
+CREATE INDEX IF NOT EXISTS "agenda_clients_professional_idx" ON "agenda_clients" USING btree ("professional_id");
 --> statement-breakpoint
-CREATE INDEX "agenda_appointments_professional_idx" ON "agenda_appointments" USING btree ("professional_id");
+CREATE INDEX IF NOT EXISTS "agenda_appointments_professional_idx" ON "agenda_appointments" USING btree ("professional_id");
 --> statement-breakpoint
-CREATE INDEX "agenda_appointments_starts_at_idx" ON "agenda_appointments" USING btree ("starts_at");
+CREATE INDEX IF NOT EXISTS "agenda_appointments_starts_at_idx" ON "agenda_appointments" USING btree ("starts_at");
 --> statement-breakpoint
-CREATE INDEX "agenda_appointments_client_idx" ON "agenda_appointments" USING btree ("client_id");
+CREATE INDEX IF NOT EXISTS "agenda_appointments_client_idx" ON "agenda_appointments" USING btree ("client_id");
 --> statement-breakpoint
-CREATE INDEX "agenda_notes_professional_idx" ON "agenda_session_notes" USING btree ("professional_id");
+CREATE INDEX IF NOT EXISTS "agenda_notes_professional_idx" ON "agenda_session_notes" USING btree ("professional_id");
 --> statement-breakpoint
-CREATE INDEX "agenda_payments_professional_idx" ON "agenda_payments" USING btree ("professional_id");
+CREATE INDEX IF NOT EXISTS "agenda_payments_professional_idx" ON "agenda_payments" USING btree ("professional_id");
 --> statement-breakpoint
-CREATE INDEX "agenda_payments_appointment_idx" ON "agenda_payments" USING btree ("appointment_id");
+CREATE INDEX IF NOT EXISTS "agenda_payments_appointment_idx" ON "agenda_payments" USING btree ("appointment_id");

@@ -1,8 +1,8 @@
 'use server';
 
-import Anthropic from '@anthropic-ai/sdk';
+import { GoogleGenerativeAI } from '@google/generative-ai';
 
-const client = new Anthropic();
+const genAI = new GoogleGenerativeAI(process.env.GOOGLE_AI_API_KEY ?? '');
 
 const COLOR_LIST = [
     'Negro', 'Blanco', 'Blanco Perla', 'Plata', 'Gris', 'Gris Oscuro',
@@ -62,25 +62,26 @@ export async function detectVehicleColor(coverPhotoDataUrl: string): Promise<str
             ? (rawMediaType as SupportedType)
             : 'image/jpeg';
 
-        const message = await client.messages.create({
-            model: 'claude-haiku-4-5-20251001',
-            max_tokens: 15,
-            messages: [{
+        const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash-exp' });
+
+        const result = await model.generateContent({
+            contents: [{
                 role: 'user',
-                content: [
+                parts: [
                     {
-                        type: 'image',
-                        source: { type: 'base64', media_type: mediaType, data: base64 },
+                        inlineData: {
+                            mimeType: mediaType,
+                            data: base64,
+                        },
                     },
                     {
-                        type: 'text',
                         text: `¿De qué color es el exterior del vehículo? Responde con UNA sola palabra o par de palabras del color. Ejemplos válidos: Negro, Blanco, Blanco Perla, Plata, Gris, Gris Oscuro, Rojo, Burdeos, Azul, Azul Marino, Celeste, Verde, Amarillo, Naranjo, Café, Beige, Dorado, Morado. Si no se puede determinar con certeza, responde: null`,
                     },
                 ],
             }],
         });
 
-        const raw = message.content[0].type === 'text' ? message.content[0].text.trim() : '';
+        const raw = result.response.text().trim();
         if (!raw || raw.toLowerCase() === 'null') return null;
 
         return resolveColor(raw);

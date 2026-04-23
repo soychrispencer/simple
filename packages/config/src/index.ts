@@ -3,7 +3,8 @@ export type SimpleAppId =
     | 'simplepropiedades'
     | 'simpleadmin'
     | 'simpleplataforma'
-    | 'simpleagenda';
+    | 'simpleagenda'
+    | 'simpleserenatas';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Storage Provider (abstraction layer for file uploads)
@@ -174,6 +175,18 @@ const SIMPLE_APP_BRANDS: Record<SimpleAppId, SimpleAppBrand> = {
         keywords: ['SimpleAgenda', 'agenda', 'citas', 'psicología', 'salud', 'Chile', 'reservas', 'consultas'],
         accentLight: '#0D9488',
         accentDark: '#0D9488',
+    },
+    simpleserenatas: {
+        id: 'simpleserenatas',
+        name: 'SimpleSerenatas',
+        shortName: 'SimpleSerenatas',
+        title: 'SimpleSerenatas | Organiza y Optimiza Serenatas en Chile',
+        description: 'SimpleSerenatas organiza, agenda y optimiza serenatas para músicos y mariachis en Chile. Sistema operativo para servicios musicales on-demand.',
+        category: 'business',
+        siteUrl: 'http://localhost:3005',
+        keywords: ['SimpleSerenatas', 'serenatas', 'mariachis', 'músicos', 'Chile', 'eventos', 'organización', 'rutas'],
+        accentLight: '#E11D48',
+        accentDark: '#E11D48',
     },
 };
 

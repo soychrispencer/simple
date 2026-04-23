@@ -1,5 +1,6 @@
 import type { ListingLocation } from '@simple/types';
 import type { PublicationLifecycleView } from '@simple/config';
+import { API_BASE } from '@simple/config';
 
 export type ListingSection = 'sale' | 'rent' | 'auction' | 'project';
 export type ListingStatus = 'draft' | 'active' | 'paused' | 'sold' | 'archived';
@@ -99,7 +100,6 @@ type DraftResponse = {
     error?: string;
 };
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000';
 
 async function apiRequest<T>(path: string, init?: RequestInit): Promise<{ status: number; data: T | null }> {
     try {

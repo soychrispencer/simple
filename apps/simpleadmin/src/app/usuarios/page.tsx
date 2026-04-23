@@ -8,7 +8,7 @@ import { fetchAdminUsers, type AdminUserListItem } from '@/lib/api';
 import { PanelButton, PanelCard, PanelNotice, PanelStatCard } from '@simple/ui';
 import { adminScopeLabel, normalizeAdminScope } from '@/lib/admin-scope';
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000';
+import { API_BASE } from '@simple/config';
 
 export default function UsuariosPage() {
     return (
