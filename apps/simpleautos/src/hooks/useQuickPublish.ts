@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { QuickPhoto, QuickBasicData, GeneratedText, QuickPublishStep } from '@/components/quick-publish/types';
 import { createEmptyListingLocation, type ListingLocation } from '@simple/types';
+import { formatPriceInput } from '@simple/listings-core';
 import { generateListingText } from '@/actions/generate-listing-text';
 import { createPanelListing, fetchPanelListingDraft, savePanelListingDraft, deletePanelListingDraft } from '@/lib/panel-listings';
 import { uploadMediaFile } from '@simple/utils';
@@ -12,11 +13,7 @@ import { processQuickFile } from '@/lib/quick-image-utils';
 
 // ─── Price formatting ─────────────────────────────────────────────────────────
 
-export function formatPrice(raw: string): string {
-    const digits = raw.replace(/\D/g, '');
-    if (!digits) return '';
-    return '$ ' + Number(digits).toLocaleString('es-CL');
-}
+export { formatPriceInput as formatPrice };
 
 export function formatMileage(raw: string): string {
     const digits = raw.replace(/\D/g, '');

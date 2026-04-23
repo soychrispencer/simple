@@ -75,7 +75,7 @@ function formatCLP(v: string | number): string {
     return s.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
 }
 function parseCLP(v: string): number { return parseFloat(cleanNumber(v)) || 0; }
-function formatUF(a: number, uf=39643): string { return (a/uf).toLocaleString('es-CL',{minimumFractionDigits:2,maximumFractionDigits:2})+' UF'; }
+function formatUF(a: number, uf=39643): string { return (a/uf).toLocaleString('es-CL',{minimumFractionDigits:0,maximumFractionDigits:0})+' UF'; }
 function getApprovalColor(p: 'high'|'medium'|'low') { switch(p){case'high':return'bg-green-500';case'medium':return'bg-yellow-500';case'low':return'bg-red-500';} }
 function getApprovalLabel(p: 'high'|'medium'|'low') { switch(p){case'high':return'APROBADO';case'medium':return'REVISAR';case'low':return'NO APROBADO';} }
 function getApprovalMessage(p: 'high'|'medium'|'low', reason?: string) {

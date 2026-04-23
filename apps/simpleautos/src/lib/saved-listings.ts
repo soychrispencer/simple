@@ -1,17 +1,12 @@
 import { API_BASE } from './api-config';
+import type { SavedListingRecord as BaseSavedListingRecord } from '@simple/listings-core';
 
-export type SavedListingRecord = {
-    id: string;
-    href: string;
-    title: string;
-    price: string;
-    location?: string;
+export type SavedListingRecord = BaseSavedListingRecord & {
     subtitle?: string;
     meta?: string[];
     badge?: string;
     sellerName?: string;
     sellerMeta?: string;
-    savedAt: number;
 };
 
 type SavedResponse = {

@@ -18,6 +18,7 @@
         "@google/generative-ai": "^0.24.1",
         "@simple/auth": "*",
         "@simple/config": "*",
+        "@simple/listings-core": "*",
         "@simple/types": "*",
         "@simple/ui": "*",
         "@simple/utils": "*",
