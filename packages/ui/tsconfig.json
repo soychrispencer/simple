@@ -11,10 +11,14 @@
     "strict": true,
     "esModuleInterop": true,
     "skipLibCheck": true,
-    "forceConsistentCasingInFileNames": true
+    "forceConsistentCasingInFileNames": true,
+    "composite": true
   },
   "include": [
     "src/**/*.ts",
     "src/**/*.tsx"
+  ],
+  "references": [
+    { "path": "../types" }
   ]
 }

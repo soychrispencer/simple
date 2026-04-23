@@ -16,6 +16,7 @@ COPY *.cjs ./
 COPY *.json ./
 
 RUN pnpm install
+# Build packages in dependency order
 RUN pnpm --filter=@simple/types run build
 RUN pnpm --filter=@simple/config run build
 RUN pnpm --filter=@simple/utils run build
