@@ -9,12 +9,14 @@ import {
     IconBuildingBank, IconTrendingUp, IconStar,
     IconCalculator, IconDownload, IconCheck, IconAlertTriangle, IconX,
     IconChevronDown, IconChevronUp, IconInfoCircle, IconRotate,
+    IconExternalLink,
 } from '@tabler/icons-react';
 import { jsPDF } from 'jspdf';
 import ModernSelect from '@/components/ui/modern-select';
+import { CURRENT_RATES, getRateCitation, SUBSIDY_DS1_REDUCTION, EMPLOYMENT_FACTORS, MIN_EMPLOYMENT_YEARS } from './rates.config';
 
 // Nota: Ajuste por subsidio estatal. Valor referencial; validar con condiciones vigentes del banco/Subsidio DS1.
-const SUBSIDY_REDUCTION_DEFAULT = 0.87;
+const SUBSIDY_REDUCTION_DEFAULT = SUBSIDY_DS1_REDUCTION;
 const MAX_LOAN_YEARS = 30;
 const TOTAL_INSURANCE_RATE = 0.45 + 0.08 + 0.065 + 0.002 + 0.003;
 const MIN_MONTHLY_INCOME = 800000;
@@ -389,8 +391,19 @@ export default function SimuladorPage() {
     useEffect(()=>{
         fetch('/api/public/mortgage-rates')
             .then(r=>r.json())
-            .then((d:any)=>{ if(d.ok&&d.rates){ setMortgageRates(d.rates); setAnnualRate(d.rates.bestMarketRate.toString()); } })
-            .catch(()=>{});
+            .then((d:any)=>{ 
+                if(d.ok&&d.rates){ 
+                    setMortgageRates(d.rates); 
+                    setAnnualRate(d.rates.bestMarketRate.toString()); 
+                } else {
+                    // Fallback a tasas documentadas manualmente desde fuentes oficiales
+                    setAnnualRate(CURRENT_RATES.bestMarketRate.value.toString());
+                }
+            })
+            .catch(()=>{
+                // Fallback si API falla
+                setAnnualRate(CURRENT_RATES.bestMarketRate.value.toString());
+            });
     },[]);
 
     const handleReset=useCallback(()=>{
@@ -600,17 +613,22 @@ export default function SimuladorPage() {
                         </div>
                         <div>
                             <h1 className="font-semibold text-sm" style={{color:'var(--fg)'}}>Simulador Hipotecario</h1>
-                            <p className="text-[10px]" style={{color:'var(--fg-muted)'}}>Para asesores &middot; {ufValue.toLocaleString('es-CL')} UF </p>
+                            <p className="text-[10px]" style={{color:'var(--fg-muted)'}}>
+                                Para asesores &middot; 
+                                <span title={`UF desde ${CURRENT_RATES.uf.source} (actualizar en rates.config.ts)`}>
+                                    {ufValue.toLocaleString('es-CL')} UF
+                                </span>
+                            </p>
                         </div>
                     </div>
                     <div className="flex items-center gap-3 text-[11px]" style={{color:'var(--fg-muted)'}}>
-                        <div className="flex items-center gap-1.5">
+                        <div className="flex items-center gap-1.5" title={`Mejor tasa: ${getRateCitation(CURRENT_RATES.bestMarketRate)}`}>
                             <IconStar size={14} style={{color:'var(--color-success)'}} />
-                            <span>{mortgageRates?.bestMarketRate?.toFixed(2)??'3.39'}%</span>
+                            <span>{mortgageRates?.bestMarketRate?.toFixed(2)??CURRENT_RATES.bestMarketRate.value.toFixed(2)}%</span>
                         </div>
-                        <div className="flex items-center gap-1.5">
+                        <div className="flex items-center gap-1.5" title={`Tasa promedio: ${getRateCitation(CURRENT_RATES.averageMarketRate)}`}>
                             <IconTrendingUp size={14} style={{color:'var(--fg)'}} />
-                            <span>{mortgageRates?.standardRate?.toFixed(2)??'5.50'}%</span>
+                            <span>{mortgageRates?.standardRate?.toFixed(2)??CURRENT_RATES.averageMarketRate.value.toFixed(2)}%</span>
                         </div>
                         <div className="flex items-center gap-1.5">
                             <IconCalculator size={14} style={{color:'var(--accent)'}} />
@@ -757,7 +775,23 @@ export default function SimuladorPage() {
                                 <div>
                                     <label className="text-xs font-medium mb-1 block" style={{color:'var(--fg-muted)'}}>Tasa anual (%)</label>
                                     <input type="number" min={0} step="0.01" value={annualRate} onChange={e=>setAnnualRate(e.target.value)} className="w-full px-3 py-2 rounded-xl text-sm border outline-none bg-[var(--bg-subtle)] border-[var(--border)] text-[var(--fg)]" />
-                                    <p className="text-[10px] mt-1" style={{color:'var(--fg-muted)'}}>Mejor tasa disponible</p>
+                                    <div className="flex items-center gap-1 mt-1">
+                                        <p className="text-[10px]" style={{color:'var(--fg-muted)'}}>
+                                            Fuente: {CURRENT_RATES.bestMarketRate.source}
+                                        </p>
+                                        <a 
+                                            href={CURRENT_RATES.bestMarketRate.url} 
+                                            target="_blank" 
+                                            rel="noopener noreferrer"
+                                            className="text-[10px] hover:underline inline-flex items-center"
+                                            style={{color:'var(--accent)'}}
+                                        >
+                                            <IconExternalLink size={10} />
+                                        </a>
+                                    </div>
+                                    <p className="text-[9px] mt-0.5" style={{color:'var(--fg-muted)'}}>
+                                        Última actualización: {CURRENT_RATES.bestMarketRate.lastUpdated}
+                                    </p>
                                 </div>
                                 <div>
                                     <label className="text-xs font-medium mb-1 block" style={{color:'var(--fg-muted)'}}>Financiamiento (%)</label>
