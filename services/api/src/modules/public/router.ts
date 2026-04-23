@@ -279,9 +279,11 @@ export function createPublicRouter(deps: PublicRouterDeps) {
                 
                 return c.json({
                     ok: true,
-                    standardRate: parseFloat(rate.standardRate),
-                    subsidyRate: parseFloat(rate.subsidyRate),
-                    bestMarketRate: parseFloat(rate.bestMarketRate),
+                    rates: {
+                        standardRate: parseFloat(rate.standardRate),
+                        subsidyRate: parseFloat(rate.subsidyRate),
+                        bestMarketRate: parseFloat(rate.bestMarketRate),
+                    },
                     sourceName: rate.sourceName,
                     sourceUrl: rate.sourceUrl,
                     updatedAt: rate.updatedAt,
@@ -294,12 +296,14 @@ export function createPublicRouter(deps: PublicRouterDeps) {
                 });
             }
 
-            // Fallback to default rates
+            // Fallback to default rates when no data in DB
             return c.json({
                 ok: true,
-                standardRate: 5.5,
-                subsidyRate: 4.19,
-                bestMarketRate: 3.39,
+                rates: {
+                    standardRate: 5.5,
+                    subsidyRate: 4.19,
+                    bestMarketRate: 3.39,
+                },
                 sourceName: 'Valores por defecto',
                 sourceUrl: '',
                 updatedAt: new Date().toISOString(),
@@ -309,14 +313,20 @@ export function createPublicRouter(deps: PublicRouterDeps) {
             });
         } catch (error) {
             console.error('Error fetching mortgage rates:', error);
+            // Return 200 with ok:false so frontend can use fallback gracefully
+            // 500 would cause fetch to reject and break the UI
             return c.json({
                 ok: false,
-                error: 'Error al obtener tasas',
-                standardRate: 5.5,
-                subsidyRate: 4.19,
-                bestMarketRate: 3.39,
-                highestRate: 6.5 // Tasa más cara fallback
-            }, 500);
+                error: 'Error al obtener tasas de base de datos',
+                rates: {
+                    standardRate: 5.5,
+                    subsidyRate: 4.19,
+                    bestMarketRate: 3.39,
+                },
+                sourceName: 'Fallback (error DB)',
+                updatedAt: new Date().toISOString(),
+                confidence: 'low',
+            }, 200);
         }
     });
 
