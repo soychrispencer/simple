@@ -613,15 +613,14 @@ export default function SimuladorPage() {
                         </div>
                         <div>
                             <h1 className="font-semibold text-sm" style={{color:'var(--fg)'}}>Simulador Hipotecario</h1>
-                            <p className="text-[10px]" style={{color:'var(--fg-muted)'}}>
-                                Para asesores &middot; 
-                                <span title={`UF desde ${CURRENT_RATES.uf.source} (actualizar en rates.config.ts)`}>
-                                    {ufValue.toLocaleString('es-CL')} UF
-                                </span>
-                            </p>
+                            <p className="text-[10px]" style={{color:'var(--fg-muted)'}}>Para asesores</p>
                         </div>
                     </div>
                     <div className="flex items-center gap-3 text-[11px]" style={{color:'var(--fg-muted)'}}>
+                        <div className="flex items-center gap-1.5" title={`UF: ${getRateCitation(CURRENT_RATES.uf)}`}>
+                            <span style={{fontWeight: 600, fontSize: '10px'}}>UF</span>
+                            <span>{ufValue.toLocaleString('es-CL')}</span>
+                        </div>
                         <div className="flex items-center gap-1.5" title={`Mejor tasa: ${getRateCitation(CURRENT_RATES.bestMarketRate)}`}>
                             <IconStar size={14} style={{color:'var(--color-success)'}} />
                             <span>{mortgageRates?.bestMarketRate?.toFixed(2)??CURRENT_RATES.bestMarketRate.value.toFixed(2)}%</span>
