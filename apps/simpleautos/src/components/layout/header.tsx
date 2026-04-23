@@ -321,6 +321,33 @@ export function Header() {
                                 className="absolute right-0 top-[calc(100%+8px)] z-50 w-[260px] rounded-xl border p-2 animate-slide-down"
                                 style={{ background: 'var(--surface)', borderColor: 'var(--border)', boxShadow: 'var(--shadow-md)' }}
                             >
+                                {/* Action Button */}
+                                {isLoggedIn ? (
+                                    <PanelButton
+                                        onClick={() => {
+                                            setMenuOpen(false);
+                                            handlePublicar();
+                                        }}
+                                        variant="primary"
+                                        className="w-full h-10 text-sm mb-2"
+                                    >
+                                        <IconPlus size={14} /> Publicar
+                                    </PanelButton>
+                                ) : (
+                                    <PanelButton
+                                        onClick={() => {
+                                            setMenuOpen(false);
+                                            openAuth();
+                                        }}
+                                        variant="primary"
+                                        className="w-full h-10 text-sm mb-2"
+                                    >
+                                        Iniciar sesión
+                                    </PanelButton>
+                                )}
+
+                                <div className="my-2 border-t" style={{ borderColor: 'var(--border)' }} />
+                                
                                 {/* Public Navigation */}
                                 {links.map((l) => (
                                     <Link
