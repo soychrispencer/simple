@@ -621,6 +621,7 @@ export const mortgageRates = pgTable('mortgage_rates', {
   standardRate: decimal('standard_rate', { precision: 5, scale: 2 }).notNull().default('5.50'), // Standard market rate
   subsidyRate: decimal('subsidy_rate', { precision: 5, scale: 2 }).notNull().default('4.19'), // With subsidy (BancoEstado)
   bestMarketRate: decimal('best_market_rate', { precision: 5, scale: 2 }).notNull().default('3.39'), // Best available (Itau)
+  highestRate: decimal('highest_rate', { precision: 5, scale: 2 }).notNull().default('5.50'), // Highest market rate
   // Metadata
   sourceUrl: text('source_url'), // Source of the data
   sourceName: varchar('source_name', { length: 100 }).notNull().default('Neat Pagos'),
