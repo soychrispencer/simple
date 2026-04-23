@@ -90,6 +90,76 @@ export const MIN_EMPLOYMENT_YEARS = {
   pensioner: 0         // Sin antigüedad requerida
 } as const;
 
+// FACTORES DE DEUDA SEGÚN TIPO - Cómo los bancos chilenos realmente evalúan cada deuda
+// Basado en prácticas de BancoEstado, Bco. Chile, Santander, Bci, Itaú
+export const DEBT_TYPE_FACTORS = {
+  // Deudas con cuota fija: se consideran al 100%
+  dividendoHipotecario: 1.0,  // 100% de la cuota mensual real
+  creditoConsumo: 1.0,        // 100% de la cuota mensual
+  creditoAutomotriz: 1.0,     // 100% de la cuota mensual
+  
+  // Tarjetas y líneas de crédito: los bancos consideran un % del límite total
+  // NO lo que debes actualmente, sino la capacidad de endeudamiento que tienes disponible
+  // Esto es clave: una tarjeta con $5M de límite cuenta como ~$150.000-$500.000 mensual
+  // aunque no la uses. Por eso es recomendable reducir límites antes de solicitar hipotecario.
+  tarjetaCredito: 0.05,       // 5% del límite total (algunos bancos usan 3-10%)
+  lineaCredito: 0.03,         // 3% del límite aprobado (algunos bancos usan 3-5%)
+  
+  // Otras deudas: generalmente al 100%
+  otraDeuda: 1.0,             // 100% según tipo específico
+} as const;
+
+// Rangos típicos usados por bancos (para referencia):
+// - Tarjeta crédito: Entre 3% y 10% del límite (BancoEstado ~5%, Bci ~3-5%)
+// - Línea crédito: Entre 3% y 5% del límite aprobado
+// - Algunos bancos más conservadores usan hasta 10% para tarjetas
+
+export interface DebtTypeInfo {
+  name: string;
+  factor: number;
+  description: string;
+  bankTreatment: string;
+}
+
+export const DEBT_TYPES_INFO: Record<keyof typeof DEBT_TYPE_FACTORS, DebtTypeInfo> = {
+  dividendoHipotecario: {
+    name: 'Dividendo Hipotecario',
+    factor: DEBT_TYPE_FACTORS.dividendoHipotecario,
+    description: 'Cuota mensual actual de crédito hipotecario vigente',
+    bankTreatment: '100% de la cuota mensual real. Si es segunda vivienda, algunos bancos reducen el % de financiamiento.'
+  },
+  creditoConsumo: {
+    name: 'Crédito de Consumo',
+    factor: DEBT_TYPE_FACTORS.creditoConsumo,
+    description: 'Créditos de consumo vigentes (Cruz del Sur, CMR, etc.)',
+    bankTreatment: '100% de la cuota mensual. Incluye seguros asociados al crédito.'
+  },
+  creditoAutomotriz: {
+    name: 'Crédito Automotriz',
+    factor: DEBT_TYPE_FACTORS.creditoAutomotriz,
+    description: 'Créditos de vehículos (con o sin prendas)',
+    bankTreatment: '100% de la cuota mensual. Si está muy reciente (<6 meses), puede afectar más.'
+  },
+  tarjetaCredito: {
+    name: 'Tarjeta de Crédito',
+    factor: DEBT_TYPE_FACTORS.tarjetaCredito,
+    description: 'Límites totales de tarjetas de crédito (NO lo que debes, el límite)',
+    bankTreatment: '~5% del límite total (no el uso actual). Ej: Tarjeta con $5M de límite = ~$250.000 mensual de carga.'
+  },
+  lineaCredito: {
+    name: 'Línea de Crédito',
+    factor: DEBT_TYPE_FACTORS.lineaCredito,
+    description: 'Líneas de crédito aprobadas (bancarias, Caja Los Andes, etc.)',
+    bankTreatment: '~3% del límite aprobado. Ej: Línea de $10M = ~$300.000 mensual de carga.'
+  },
+  otraDeuda: {
+    name: 'Otras Deudas',
+    factor: DEBT_TYPE_FACTORS.otraDeuda,
+    description: 'Créditos informales, deudas con familiares, arriendo, etc.',
+    bankTreatment: 'Evaluación caso a caso. Algunos bancos no las consideran si no están en DICOM.'
+  }
+};
+
 // DTI máximo recomendado por bancos - AHORA DINÁMICO POR SEGMENTO
 export interface ClientSegment {
   name: string;

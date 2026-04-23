@@ -13,7 +13,7 @@ import {
 } from '@tabler/icons-react';
 import { jsPDF } from 'jspdf';
 import ModernSelect from '@/components/ui/modern-select';
-import { CURRENT_RATES, getRateCitation, SUBSIDY_DS1_REDUCTION, EMPLOYMENT_FACTORS, MIN_EMPLOYMENT_YEARS, getDTILimits, CLIENT_SEGMENTS, type ClientSegment } from './rates.config';
+import { CURRENT_RATES, getRateCitation, SUBSIDY_DS1_REDUCTION, EMPLOYMENT_FACTORS, MIN_EMPLOYMENT_YEARS, getDTILimits, CLIENT_SEGMENTS, type ClientSegment, DEBT_TYPE_FACTORS, DEBT_TYPES_INFO } from './rates.config';
 
 // Nota: Ajuste por subsidio estatal. Valor referencial; validar con condiciones vigentes del banco/Subsidio DS1.
 const SUBSIDY_REDUCTION_DEFAULT = SUBSIDY_DS1_REDUCTION;
@@ -372,7 +372,16 @@ export default function SimuladorPage() {
         creditoAutomotriz: '',
         otraDeuda: '',
     });
-    const totalDebts = Object.values(debts).reduce((sum, v) => sum + parseCLP(v), 0);
+    // Cálculo de deudas con factores por tipo (cómo realmente lo evalúan los bancos)
+    const calculatedDebts = {
+        dividendoHipotecario: parseCLP(debts.dividendoHipotecario) * DEBT_TYPE_FACTORS.dividendoHipotecario,
+        creditoConsumo: parseCLP(debts.creditoConsumo) * DEBT_TYPE_FACTORS.creditoConsumo,
+        tarjetaCredito: parseCLP(debts.tarjetaCredito) * DEBT_TYPE_FACTORS.tarjetaCredito,
+        lineaCredito: parseCLP(debts.lineaCredito) * DEBT_TYPE_FACTORS.lineaCredito,
+        creditoAutomotriz: parseCLP(debts.creditoAutomotriz) * DEBT_TYPE_FACTORS.creditoAutomotriz,
+        otraDeuda: parseCLP(debts.otraDeuda) * DEBT_TYPE_FACTORS.otraDeuda,
+    };
+    const totalDebts = Object.values(calculatedDebts).reduce((sum, v) => sum + v, 0);
     const [scenarioTab,setScenarioTab]=useState<'recommended'|'limit'>('recommended');
     const [mortgageRates,setMortgageRates]=useState<MortgageRates|null>(null);
 
@@ -729,35 +738,66 @@ export default function SimuladorPage() {
                             </h3>
                             <div className="grid gap-3 sm:grid-cols-3">
                                 <div>
-                                    <label className="text-[10px] font-medium mb-1 block" style={{color:'var(--fg-muted)'}}>Dividendo hipotecario</label>
-                                        <input type="text" inputMode="numeric" value={debts.dividendoHipotecario} onChange={e=>setDebts(p=>({...p,dividendoHipotecario:formatCLP(e.target.value)}))} className="w-full px-3 py-2 rounded-xl text-sm border outline-none bg-[var(--bg-subtle)] border-[var(--border)] text-[var(--fg)]" placeholder="Ej: 0" />
+                                    <label className="text-[10px] font-medium mb-1 block" style={{color:'var(--fg-muted)'}} title={DEBT_TYPES_INFO.dividendoHipotecario.bankTreatment}>
+                                        Dividendo hipotecario ℹ
+                                    </label>
+                                    <input type="text" inputMode="numeric" value={debts.dividendoHipotecario} onChange={e=>setDebts(p=>({...p,dividendoHipotecario:formatCLP(e.target.value)}))} className="w-full px-3 py-2 rounded-xl text-sm border outline-none bg-[var(--bg-subtle)] border-[var(--border)] text-[var(--fg)]" placeholder="Ej: 0" />
                                 </div>
                                 <div>
-                                    <label className="text-[10px] font-medium mb-1 block" style={{color:'var(--fg-muted)'}}>Crédito de consumo</label>
-                                        <input type="text" inputMode="numeric" value={debts.creditoConsumo} onChange={e=>setDebts(p=>({...p,creditoConsumo:formatCLP(e.target.value)}))} className="w-full px-3 py-2 rounded-xl text-sm border outline-none bg-[var(--bg-subtle)] border-[var(--border)] text-[var(--fg)]" placeholder="Ej: 0" />
+                                    <label className="text-[10px] font-medium mb-1 block" style={{color:'var(--fg-muted)'}} title={DEBT_TYPES_INFO.creditoConsumo.bankTreatment}>
+                                        Crédito de consumo ℹ
+                                    </label>
+                                    <input type="text" inputMode="numeric" value={debts.creditoConsumo} onChange={e=>setDebts(p=>({...p,creditoConsumo:formatCLP(e.target.value)}))} className="w-full px-3 py-2 rounded-xl text-sm border outline-none bg-[var(--bg-subtle)] border-[var(--border)] text-[var(--fg)]" placeholder="Ej: 0" />
                                 </div>
                                 <div>
-                                    <label className="text-[10px] font-medium mb-1 block" style={{color:'var(--fg-muted)'}}>Tarjeta de crédito</label>
-                                        <input type="text" inputMode="numeric" value={debts.tarjetaCredito} onChange={e=>setDebts(p=>({...p,tarjetaCredito:formatCLP(e.target.value)}))} className="w-full px-3 py-2 rounded-xl text-sm border outline-none bg-[var(--bg-subtle)] border-[var(--border)] text-[var(--fg)]" placeholder="Ej: 0" />
+                                    <label className="text-[10px] font-medium mb-1 block" style={{color:'var(--fg-muted)'}} title={DEBT_TYPES_INFO.tarjetaCredito.bankTreatment}>
+                                        Límite tarjeta crédito ℹ
+                                    </label>
+                                    <input type="text" inputMode="numeric" value={debts.tarjetaCredito} onChange={e=>setDebts(p=>({...p,tarjetaCredito:formatCLP(e.target.value)}))} className="w-full px-3 py-2 rounded-xl text-sm border outline-none bg-[var(--bg-subtle)] border-[var(--border)] text-[var(--fg)]" placeholder="Ej: 5.000.000" />
+                                    <p className="text-[9px] mt-0.5" style={{color:'var(--fg-muted)'}}>Se considera {(DEBT_TYPE_FACTORS.tarjetaCredito * 100).toFixed(0)}% del límite</p>
                                 </div>
                                 <div>
-                                    <label className="text-[10px] font-medium mb-1 block" style={{color:'var(--fg-muted)'}}>Línea de crédito</label>
-                                        <input type="text" inputMode="numeric" value={debts.lineaCredito} onChange={e=>setDebts(p=>({...p,lineaCredito:formatCLP(e.target.value)}))} className="w-full px-3 py-2 rounded-xl text-sm border outline-none bg-[var(--bg-subtle)] border-[var(--border)] text-[var(--fg)]" placeholder="Ej: 0" />
+                                    <label className="text-[10px] font-medium mb-1 block" style={{color:'var(--fg-muted)'}} title={DEBT_TYPES_INFO.lineaCredito.bankTreatment}>
+                                        Límite línea crédito ℹ
+                                    </label>
+                                    <input type="text" inputMode="numeric" value={debts.lineaCredito} onChange={e=>setDebts(p=>({...p,lineaCredito:formatCLP(e.target.value)}))} className="w-full px-3 py-2 rounded-xl text-sm border outline-none bg-[var(--bg-subtle)] border-[var(--border)] text-[var(--fg)]" placeholder="Ej: 10.000.000" />
+                                    <p className="text-[9px] mt-0.5" style={{color:'var(--fg-muted)'}}>Se considera {(DEBT_TYPE_FACTORS.lineaCredito * 100).toFixed(0)}% del límite</p>
                                 </div>
                                 <div>
-                                    <label className="text-[10px] font-medium mb-1 block" style={{color:'var(--fg-muted)'}}>Crédito automotriz</label>
-                                        <input type="text" inputMode="numeric" value={debts.creditoAutomotriz} onChange={e=>setDebts(p=>({...p,creditoAutomotriz:formatCLP(e.target.value)}))} className="w-full px-3 py-2 rounded-xl text-sm border outline-none bg-[var(--bg-subtle)] border-[var(--border)] text-[var(--fg)]" placeholder="Ej: 0" />
+                                    <label className="text-[10px] font-medium mb-1 block" style={{color:'var(--fg-muted)'}} title={DEBT_TYPES_INFO.creditoAutomotriz.bankTreatment}>
+                                        Crédito automotriz ℹ
+                                    </label>
+                                    <input type="text" inputMode="numeric" value={debts.creditoAutomotriz} onChange={e=>setDebts(p=>({...p,creditoAutomotriz:formatCLP(e.target.value)}))} className="w-full px-3 py-2 rounded-xl text-sm border outline-none bg-[var(--bg-subtle)] border-[var(--border)] text-[var(--fg)]" placeholder="Ej: 0" />
                                 </div>
                                 <div>
-                                    <label className="text-[10px] font-medium mb-1 block" style={{color:'var(--fg-muted)'}}>Otra deuda</label>
-                                        <input type="text" inputMode="numeric" value={debts.otraDeuda} onChange={e=>setDebts(p=>({...p,otraDeuda:formatCLP(e.target.value)}))} className="w-full px-3 py-2 rounded-xl text-sm border outline-none bg-[var(--bg-subtle)] border-[var(--border)] text-[var(--fg)]" placeholder="Ej: 0" />
+                                    <label className="text-[10px] font-medium mb-1 block" style={{color:'var(--fg-muted)'}} title={DEBT_TYPES_INFO.otraDeuda.bankTreatment}>
+                                        Otra deuda ℹ
+                                    </label>
+                                    <input type="text" inputMode="numeric" value={debts.otraDeuda} onChange={e=>setDebts(p=>({...p,otraDeuda:formatCLP(e.target.value)}))} className="w-full px-3 py-2 rounded-xl text-sm border outline-none bg-[var(--bg-subtle)] border-[var(--border)] text-[var(--fg)]" placeholder="Ej: 0" />
                                 </div>
                             </div>
-                            <div className="mt-2 p-2 rounded-lg border bg-[var(--bg-subtle)] border-[var(--border)]">
+                            <div className="mt-2 p-3 rounded-lg border bg-[var(--bg-subtle)] border-[var(--border)] space-y-1">
                                 <div className="flex justify-between text-xs">
-                                    <span style={{color:'var(--fg-muted)'}}>Total deudas mensuales</span>
+                                    <span style={{color:'var(--fg-muted)'}}>Total deudas mensuales (evaluación bancaria)</span>
                                     <span className="font-semibold" style={{color:'var(--fg)'}}>{formatCurrency(totalDebts)}</span>
                                 </div>
+                                {(parseCLP(debts.tarjetaCredito) > 0 || parseCLP(debts.lineaCredito) > 0) && (
+                                    <div className="text-[10px] pt-1 border-t" style={{color:'var(--fg-muted)', borderColor:'var(--border)'}}>
+                                        <p className="mb-0.5"><strong>Cálculo real según bancos:</strong></p>
+                                        {parseCLP(debts.dividendoHipotecario) > 0 && (
+                                            <p>• Dividendo: {formatCurrency(parseCLP(debts.dividendoHipotecario))} × {(DEBT_TYPE_FACTORS.dividendoHipotecario * 100).toFixed(0)}% = {formatCurrency(calculatedDebts.dividendoHipotecario)}</p>
+                                        )}
+                                        {parseCLP(debts.creditoConsumo) > 0 && (
+                                            <p>• Crédito consumo: {formatCurrency(parseCLP(debts.creditoConsumo))} × {(DEBT_TYPE_FACTORS.creditoConsumo * 100).toFixed(0)}% = {formatCurrency(calculatedDebts.creditoConsumo)}</p>
+                                        )}
+                                        {parseCLP(debts.tarjetaCredito) > 0 && (
+                                            <p>• Tarjeta ({formatCurrency(parseCLP(debts.tarjetaCredito))} límite): {(DEBT_TYPE_FACTORS.tarjetaCredito * 100).toFixed(0)}% = {formatCurrency(calculatedDebts.tarjetaCredito)}</p>
+                                        )}
+                                        {parseCLP(debts.lineaCredito) > 0 && (
+                                            <p>• Línea ({formatCurrency(parseCLP(debts.lineaCredito))} límite): {(DEBT_TYPE_FACTORS.lineaCredito * 100).toFixed(0)}% = {formatCurrency(calculatedDebts.lineaCredito)}</p>
+                                        )}
+                                    </div>
+                                )}
                             </div>
                         </div>
                         <div className="p-4 rounded-2xl border bg-[var(--bg)] border-[var(--border)]">
