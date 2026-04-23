@@ -24,6 +24,8 @@ interface FeeBreakdown {
 }
 interface CalculationResult {
     monthlyIncome: number; monthlyDebts: number;
+    adjustedMonthlyIncome?: number; // Ingreso reconocido por el banco (ajustado para independientes)
+    employmentIncomeFactor?: number; // Factor aplicado (1.0 para dependientes, ~0.6 para independientes)
     availableQuota25: number; availableQuota30: number; availableQuota33: number;
     maxCredit25: number; maxCredit30: number; maxCredit33: number;
     propertyValue25: number; propertyValue30: number; propertyValue33: number;
@@ -101,8 +103,8 @@ function evaluateScenario(
     if (employmentType === 'dependent' && employmentYears < 0.25) {
         return { ap: 'medium', reason: 'Antiguedad laboral insuficiente (minimo 3 meses recomendado para dependientes).' };
     }
-    if (employmentType === 'independent' && employmentYears < 1) {
-        return { ap: 'medium', reason: 'Antiguedad laboral insuficiente (minimo 1 ano recomendado para independientes).' };
+    if (employmentType === 'independent' && employmentYears < 2) {
+        return { ap: 'medium', reason: 'Antiguedad insuficiente: se requieren minimo 2 anos de inicio de actividades y 2 declaraciones de renta (Formulario 22) para independientes.' };
     }
     return { ap: 'high' };
 }
@@ -202,10 +204,15 @@ function calculateMortgage(
     const mr=effectiveRate/12/100;
     const af=mr===0?loanTermMonths:(1-Math.pow(1+mr,-loanTermMonths))/mr;
 
-    // Cuotas disponibles brutas
-    const aq25=monthlyIncome*0.25-monthlyDebts;
-    const aq30=monthlyIncome*0.30-monthlyDebts;
-    const aq33=monthlyIncome*0.33-monthlyDebts;
+    // Ajuste de renta por tipo de empleo: bancos reconocen 100% a dependientes,
+    // pero solo ~70-80% a independientes por variabilidad de ingresos (promedio 75%)
+    const EMPLOYMENT_INCOME_FACTOR = employmentType === 'independent' ? 0.75 : 1.0;
+    const adjustedMonthlyIncome = monthlyIncome * EMPLOYMENT_INCOME_FACTOR;
+
+    // Cuotas disponibles brutas (usando ingreso ajustado reconocido por el banco)
+    const aq25=adjustedMonthlyIncome*0.25-monthlyDebts;
+    const aq30=adjustedMonthlyIncome*0.30-monthlyDebts;
+    const aq33=adjustedMonthlyIncome*0.33-monthlyDebts;
 
     // Estimar seguro desgravamen ~0.15% mensual sobre saldo promedio (60% del inicial)
     // y recalcular crédito con cuota ajustada (iteración convergente)
@@ -274,14 +281,22 @@ function calculateMortgage(
     const totalInsurance30 = im30 * loanTermMonths;
     const totalInsurance33 = im33 * loanTermMonths;
 
-    // Approval probability por escenario
-    const eval25 = evaluateScenario(monthlyIncome, pv25, dtiPostRatio25, 25, propertyType, ufValue, employmentType, employmentYears);
-    const eval30 = evaluateScenario(monthlyIncome, pv30, dtiPostRatio30, 30, propertyType, ufValue, employmentType, employmentYears);
-    const eval33 = evaluateScenario(monthlyIncome, pv33, dtiPostRatio33, 33, propertyType, ufValue, employmentType, employmentYears);
+    // Approval probability por escenario (usando ingreso ajustado reconocido por banco)
+    const eval25 = evaluateScenario(adjustedMonthlyIncome, pv25, dtiPostRatio25, 25, propertyType, ufValue, employmentType, employmentYears);
+    const eval30 = evaluateScenario(adjustedMonthlyIncome, pv30, dtiPostRatio30, 30, propertyType, ufValue, employmentType, employmentYears);
+    const eval33 = evaluateScenario(adjustedMonthlyIncome, pv33, dtiPostRatio33, 33, propertyType, ufValue, employmentType, employmentYears);
 
     // Global approval = mejor escenario viable (priorizando mas conservador)
     const ap: 'high'|'medium'|'low' = eval25.ap==='high' ? 'high' : eval30.ap==='high' ? 'medium' : eval33.ap==='high' ? 'medium' : eval30.ap==='medium' || eval33.ap==='medium' ? 'medium' : 'low';
-    const reason = eval25.reason || eval30.reason || eval33.reason;
+    let reason = eval25.reason || eval30.reason || eval33.reason;
+    
+    // Agregar nota sobre ajuste de renta para independientes
+    if (employmentType === 'independent' && EMPLOYMENT_INCOME_FACTOR < 1.0) {
+        const recognizedIncome = formatCurrency(adjustedMonthlyIncome);
+        const actualIncome = formatCurrency(monthlyIncome);
+        const adjustmentNote = `Como independiente, los bancos reconocen ~${Math.round(EMPLOYMENT_INCOME_FACTOR*100)}% de tu ingreso (${recognizedIncome} de ${actualIncome}).`;
+        reason = reason ? `${reason} ${adjustmentNote}` : adjustmentNote;
+    }
 
     // Gastos operacionales y CAE por escenario
     const fees25 = calculateOperationalFees(pv25, mc25, propertyType, ufValue);
@@ -309,6 +324,8 @@ function calculateMortgage(
 
     return {
         monthlyIncome, monthlyDebts,
+        adjustedMonthlyIncome,
+        employmentIncomeFactor: EMPLOYMENT_INCOME_FACTOR,
         availableQuota25: Math.max(0, aq25), availableQuota30: Math.max(0, aq30), availableQuota33: Math.max(0, aq33),
         maxCredit25: mc25, maxCredit30: mc30, maxCredit33: mc33,
         propertyValue25: pv25, propertyValue30: pv30, propertyValue33: pv33,
