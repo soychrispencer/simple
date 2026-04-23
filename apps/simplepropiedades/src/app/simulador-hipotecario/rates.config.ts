@@ -90,12 +90,62 @@ export const MIN_EMPLOYMENT_YEARS = {
   pensioner: 0         // Sin antigüedad requerida
 } as const;
 
-// DTI máximo recomendado por bancos
-export const DTI_THRESHOLDS = {
-  conservative: 25,  // BancoEstado, más estrictos
-  moderate: 30,      // Bco. Chile, Santander
-  aggressive: 33     // Bci/Itaú, más flexibles
-} as const;
+// DTI máximo recomendado por bancos - AHORA DINÁMICO POR SEGMENTO
+export interface ClientSegment {
+  name: string;
+  minIncome: number;
+  maxIncome: number | null; // null = sin límite superior
+  recommendedDTI: number;
+  maxDTI: number;
+  description: string;
+  banks: string[];
+}
+
+export const CLIENT_SEGMENTS: ClientSegment[] = [
+  {
+    name: 'Estándar',
+    minIncome: 0,
+    maxIncome: 1_500_000,
+    recommendedDTI: 25,
+    maxDTI: 30,
+    description: 'Perfil convencional, todos los bancos',
+    banks: ['BancoEstado', 'Banco de Chile', 'Santander', 'Bci', 'Itaú']
+  },
+  {
+    name: 'Premium',
+    minIncome: 1_500_000,
+    maxIncome: 3_000_000,
+    recommendedDTI: 30,
+    maxDTI: 35,
+    description: 'Mayor capacidad de endeudamiento por renta alta',
+    banks: ['Santander Select', 'Banco de Chile', 'Bci Nova']
+  },
+  {
+    name: 'Private Banking',
+    minIncome: 3_000_000,
+    maxIncome: null,
+    recommendedDTI: 30,
+    maxDTI: 40,
+    description: 'Clientes de alto patrimonio, tasas preferenciales',
+    banks: ['Bci Nova', 'Itaú Private', 'Banco de Chile Empresas']
+  }
+];
+
+// Función para obtener límites DTI según ingreso mensual
+export function getDTILimits(monthlyIncome: number): ClientSegment & { 
+  recommendedLabel: string; 
+  maxLabel: string;
+} {
+  const segment = CLIENT_SEGMENTS.find(
+    s => monthlyIncome >= s.minIncome && (s.maxIncome === null || monthlyIncome < s.maxIncome)
+  ) || CLIENT_SEGMENTS[0];
+  
+  return {
+    ...segment,
+    recommendedLabel: `${segment.recommendedDTI}% (recomendado)`,
+    maxLabel: `${segment.maxDTI}% (límite ${segment.name.toLowerCase()})`
+  };
+}
 
 // Función helper para mostrar fuente en UI
 export function getRateCitation(rate: RateSource): string {

@@ -13,7 +13,7 @@ import {
 } from '@tabler/icons-react';
 import { jsPDF } from 'jspdf';
 import ModernSelect from '@/components/ui/modern-select';
-import { CURRENT_RATES, getRateCitation, SUBSIDY_DS1_REDUCTION, EMPLOYMENT_FACTORS, MIN_EMPLOYMENT_YEARS } from './rates.config';
+import { CURRENT_RATES, getRateCitation, SUBSIDY_DS1_REDUCTION, EMPLOYMENT_FACTORS, MIN_EMPLOYMENT_YEARS, getDTILimits, CLIENT_SEGMENTS, type ClientSegment } from './rates.config';
 
 // Nota: Ajuste por subsidio estatal. Valor referencial; validar con condiciones vigentes del banco/Subsidio DS1.
 const SUBSIDY_REDUCTION_DEFAULT = SUBSIDY_DS1_REDUCTION;
@@ -24,38 +24,41 @@ const MIN_MONTHLY_INCOME = 800000;
 interface FeeBreakdown {
     total: number; appraisal: number; notary: number; stamps: number; mortgageTax: number; bankFees: number; titleStudy: number;
 }
+interface ScenarioResult {
+    dti: number;
+    availableQuota: number;
+    maxCredit: number;
+    propertyValue: number;
+    monthlyPayment: number;
+    totalInsurance: number;
+    totalInterest: number;
+    totalCost: number;
+    pie: number;
+    approvalProbability: 'high' | 'medium' | 'low';
+    dtiPostRatio: number;
+    rejectionReason?: string;
+    cae: number;
+    totalFees: number;
+    feeDetails: FeeBreakdown;
+    minPieNeeded: number;
+    capacity: number;
+}
+
 interface CalculationResult {
     monthlyIncome: number; monthlyDebts: number;
     adjustedMonthlyIncome?: number; // Ingreso reconocido por el banco (ajustado para independientes)
     employmentIncomeFactor?: number; // Factor aplicado (1.0 para dependientes, ~0.6 para independientes)
-    availableQuota25: number; availableQuota30: number; availableQuota33: number;
-    maxCredit25: number; maxCredit30: number; maxCredit33: number;
-    propertyValue25: number; propertyValue30: number; propertyValue33: number;
-    monthlyPayment25: number; monthlyPayment30: number; monthlyPayment33: number;
+    clientSegment: ClientSegment; // Segmento del cliente según ingreso
+    recommended: ScenarioResult; // Escenario recomendado (DTI seguro)
+    limit: ScenarioResult; // Escenario límite (DTI máximo por segmento)
     loanTermYears: number;
     totalInsuranceMonthly: number;
-    totalInsurance25: number; totalInsurance30: number; totalInsurance33: number;
-    totalInterest25: number; totalInterest30: number; totalInterest33: number;
-    totalCost25: number; totalCost30: number; totalCost33: number;
-    pie25: number; pie30: number; pie33: number;
     approvalProbability: 'high' | 'medium' | 'low';
-    approvalProbability25: 'high' | 'medium' | 'low';
-    approvalProbability30: 'high' | 'medium' | 'low';
-    approvalProbability33: 'high' | 'medium' | 'low';
     dtiRatio: number;
-    dtiPostRatio25: number; dtiPostRatio30: number; dtiPostRatio33: number;
     rejectionReason?: string;
-    rejectionReason25?: string;
-    rejectionReason30?: string;
-    rejectionReason33?: string;
-    cae25: number; cae30: number; cae33: number;
-    totalFees25: number; totalFees30: number; totalFees33: number;
-    feeDetails25: FeeBreakdown; feeDetails30: FeeBreakdown; feeDetails33: FeeBreakdown;
     availableDownPayment: number;
-    minPieNeeded25: number; minPieNeeded30: number; minPieNeeded33: number;
-    capacity25: number;
-    capacity30: number;
-    capacity33: number;
+    recommendedDTI: number; // DTI usado para escenario recomendado
+    maxDTI: number; // DTI máximo para el segmento
 }
 
 interface MortgageRates {
@@ -140,29 +143,26 @@ function emptyMortgageResult(
     monthlyIncome: number, monthlyDebts: number, availableDownPayment: number,
     overrides: Partial<CalculationResult> = {}
 ): CalculationResult {
+    const emptyScenario: ScenarioResult = {
+        dti: 0, availableQuota: 0, maxCredit: 0, propertyValue: 0, monthlyPayment: 0,
+        totalInsurance: 0, totalInterest: 0, totalCost: 0, pie: 0,
+        approvalProbability: 'low', dtiPostRatio: 0, cae: 0, totalFees: 0,
+        feeDetails: { total: 0, appraisal: 0, notary: 0, stamps: 0, mortgageTax: 0, bankFees: 0, titleStudy: 0 },
+        minPieNeeded: 0, capacity: 0
+    };
     return {
         monthlyIncome, monthlyDebts,
-        availableQuota25: 0, availableQuota30: 0, availableQuota33: 0,
-        maxCredit25: 0, maxCredit30: 0, maxCredit33: 0,
-        propertyValue25: 0, propertyValue30: 0, propertyValue33: 0,
-        monthlyPayment25: 0, monthlyPayment30: 0, monthlyPayment33: 0,
+        clientSegment: CLIENT_SEGMENTS[0],
+        recommended: { ...emptyScenario },
+        limit: { ...emptyScenario },
         loanTermYears: 0,
-        totalInsuranceMonthly: 0, totalInsurance25: 0, totalInsurance30: 0, totalInsurance33: 0,
-        totalInterest25: 0, totalInterest30: 0, totalInterest33: 0,
-        totalCost25: 0, totalCost30: 0, totalCost33: 0,
-        pie25: 0, pie30: 0, pie33: 0,
-        approvalProbability: 'low', approvalProbability25: 'low', approvalProbability30: 'low', approvalProbability33: 'low',
+        totalInsuranceMonthly: 0,
+        approvalProbability: 'low',
         dtiRatio: 0,
-        dtiPostRatio25: 0, dtiPostRatio30: 0, dtiPostRatio33: 0,
-        cae25: 0, cae30: 0, cae33: 0,
-        totalFees25: 0, totalFees30: 0, totalFees33: 0,
-        feeDetails25: { total: 0, appraisal: 0, notary: 0, stamps: 0, mortgageTax: 0, bankFees: 0, titleStudy: 0 },
-        feeDetails30: { total: 0, appraisal: 0, notary: 0, stamps: 0, mortgageTax: 0, bankFees: 0, titleStudy: 0 },
-        feeDetails33: { total: 0, appraisal: 0, notary: 0, stamps: 0, mortgageTax: 0, bankFees: 0, titleStudy: 0 },
         availableDownPayment,
-        minPieNeeded25: 0, minPieNeeded30: 0, minPieNeeded33: 0,
-        capacity25: 0, capacity30: 0, capacity33: 0,
-        ...overrides,
+        recommendedDTI: CLIENT_SEGMENTS[0].recommendedDTI,
+        maxDTI: CLIENT_SEGMENTS[0].maxDTI,
+        ...overrides
     };
 }
 function calculateMortgage(
@@ -187,37 +187,42 @@ function calculateMortgage(
         availableDownPayment = 0,
         employmentType = 'dependent',
     } = options;
+    
+    // --- Obtener límites DTI según segmento del cliente ---
+    const dtiLimits = getDTILimits(monthlyIncome);
+    const { recommendedDTI, maxDTI } = dtiLimits;
+    
     // --- Validaciones tempranas ---
     if (age >= maxAge) {
         return emptyMortgageResult(monthlyIncome, monthlyDebts, availableDownPayment, {
             rejectionReason: 'Edad supera el limite permitido (75 anos).',
+            clientSegment: dtiLimits,
+            recommendedDTI,
+            maxDTI,
         });
     }
     if (annualRate <= 0) {
         return emptyMortgageResult(monthlyIncome, monthlyDebts, availableDownPayment, {
             rejectionReason: 'Tasa de interes invalida.',
+            clientSegment: dtiLimits,
+            recommendedDTI,
+            maxDTI,
         });
     }
 
-    const ageBasedTerm=Math.max(5,Math.min(maxAge-age,MAX_LOAN_YEARS));
-    const loanTermYears=customLoanYears?Math.min(customLoanYears,MAX_LOAN_YEARS):ageBasedTerm;
-    const loanTermMonths=loanTermYears*12;
-    const effectiveRate=hasSubsidy?Math.max(0,annualRate-SUBSIDY_REDUCTION_DEFAULT):annualRate;
-    const mr=effectiveRate/12/100;
-    const af=mr===0?loanTermMonths:(1-Math.pow(1+mr,-loanTermMonths))/mr;
+    const ageBasedTerm = Math.max(5, Math.min(maxAge - age, MAX_LOAN_YEARS));
+    const loanTermYears = customLoanYears ? Math.min(customLoanYears, MAX_LOAN_YEARS) : ageBasedTerm;
+    const loanTermMonths = loanTermYears * 12;
+    const effectiveRate = hasSubsidy ? Math.max(0, annualRate - SUBSIDY_REDUCTION_DEFAULT) : annualRate;
+    const mr = effectiveRate / 12 / 100;
+    const af = mr === 0 ? loanTermMonths : (1 - Math.pow(1 + mr, -loanTermMonths)) / mr;
 
     // Ajuste de renta por tipo de empleo: bancos reconocen 100% a dependientes,
     // pero solo ~70-80% a independientes por variabilidad de ingresos (promedio 75%)
     const EMPLOYMENT_INCOME_FACTOR = employmentType === 'independent' ? 0.75 : 1.0;
     const adjustedMonthlyIncome = monthlyIncome * EMPLOYMENT_INCOME_FACTOR;
 
-    // Cuotas disponibles brutas (usando ingreso ajustado reconocido por el banco)
-    const aq25=adjustedMonthlyIncome*0.25-monthlyDebts;
-    const aq30=adjustedMonthlyIncome*0.30-monthlyDebts;
-    const aq33=adjustedMonthlyIncome*0.33-monthlyDebts;
-
-    // Estimar seguro desgravamen ~0.15% mensual sobre saldo promedio (60% del inicial)
-    // y recalcular crédito con cuota ajustada (iteración convergente)
+    // --- Funciones auxiliares ---
     function estimateCredit(quota: number): number {
         if (quota <= 0 || mr <= 0) return 0;
         let credit = quota * af;
@@ -231,16 +236,10 @@ function calculateMortgage(
         return Math.max(0, credit);
     }
 
-    const mc25=estimateCredit(aq25);
-    const mc30=estimateCredit(aq30);
-    const mc33=estimateCredit(aq33);
-
-    const ebp=propertyType==='used'?Math.min(bankPercentage,90):bankPercentage;
-
-    // Valor de propiedad: si el pie disponible excede el necesario, aumenta el valor
     function computePropertyValue(maxCredit: number): number {
         if (maxCredit <= 0) return 0;
-        const baseValue = maxCredit / (ebp/100);
+        const ebp = propertyType === 'used' ? Math.min(bankPercentage, 90) : bankPercentage;
+        const baseValue = maxCredit / (ebp / 100);
         const requiredPie = baseValue - maxCredit;
         if (availableDownPayment > requiredPie) {
             return baseValue + (availableDownPayment - requiredPie);
@@ -248,109 +247,105 @@ function calculateMortgage(
         return baseValue;
     }
 
-    const pv25=computePropertyValue(mc25);
-    const pv30=computePropertyValue(mc30);
-    const pv33=computePropertyValue(mc33);
-
-    // Seguro mensual estimado: saldo promedio del crédito (60% del inicial) * tasa total de seguros (%) / 12 meses.
-    // TOTAL_INSURANCE_RATE ya está en puntos porcentuales mensuales (ej: 0.6%).
-    // Se aproxima como: credito * 0.6 * (tasa/1000) para obtener CLP mensual.
-    const im25 = mc25 > 0 ? mc25 * 0.6 * (TOTAL_INSURANCE_RATE / 1000) : 0;
-    const im30 = mc30 > 0 ? mc30 * 0.6 * (TOTAL_INSURANCE_RATE / 1000) : 0;
-    const im33 = mc33 > 0 ? mc33 * 0.6 * (TOTAL_INSURANCE_RATE / 1000) : 0;
-
-    // Cuota real mensual (capital+intereses+seguro estimado)
-    const realPayment25 = mc25>0?(mc25*mr)/(1-Math.pow(1+mr,-loanTermMonths))+im25:0;
-    const realPayment30 = mc30>0?(mc30*mr)/(1-Math.pow(1+mr,-loanTermMonths))+im30:0;
-    const realPayment33 = mc33>0?(mc33*mr)/(1-Math.pow(1+mr,-loanTermMonths))+im33:0;
-
-    // DTI post-hipoteca (real: deudas + cuota real del préstamo)
-    const dtiPostRatio25=monthlyIncome>0?((monthlyDebts+realPayment25)/monthlyIncome)*100:0;
-    const dtiPostRatio30=monthlyIncome>0?((monthlyDebts+realPayment30)/monthlyIncome)*100:0;
-    const dtiPostRatio33=monthlyIncome>0?((monthlyDebts+realPayment33)/monthlyIncome)*100:0;
+    function calculateScenario(dti: number): ScenarioResult {
+        const availableQuota = adjustedMonthlyIncome * (dti / 100) - monthlyDebts;
+        const maxCredit = estimateCredit(availableQuota);
+        const propertyValue = computePropertyValue(maxCredit);
+        
+        // Seguro mensual
+        const insuranceMonthly = maxCredit > 0 ? maxCredit * 0.6 * (TOTAL_INSURANCE_RATE / 1000) : 0;
+        
+        // Cuota real mensual
+        const monthlyPayment = maxCredit > 0 
+            ? (maxCredit * mr) / (1 - Math.pow(1 + mr, -loanTermMonths)) + insuranceMonthly 
+            : 0;
+        
+        // DTI post-hipoteca
+        const dtiPostRatio = monthlyIncome > 0 ? ((monthlyDebts + monthlyPayment) / monthlyIncome) * 100 : 0;
+        
+        // Total pagado
+        const totalPayment = availableQuota * loanTermMonths;
+        const totalInterest = Math.max(0, totalPayment - maxCredit);
+        const totalInsurance = insuranceMonthly * loanTermMonths;
+        
+        // Gastos operacionales
+        const fees = calculateOperationalFees(propertyValue, maxCredit, propertyType, ufValue);
+        const totalCost = totalPayment + totalInsurance + fees.total;
+        
+        // Pie necesario
+        const minPieNeeded = propertyValue - maxCredit + fees.total;
+        
+        // CAE
+        const cae = maxCredit > 0 
+            ? (Math.pow(1 + mr + (totalInsurance / loanTermMonths) / maxCredit + fees.total / loanTermMonths / maxCredit, 12) - 1) * 100 
+            : 0;
+        
+        // Evaluación de probabilidad
+        const evalResult = evaluateScenario(adjustedMonthlyIncome, propertyValue, dtiPostRatio, dti, propertyType, ufValue, employmentType, employmentYears);
+        
+        return {
+            dti,
+            availableQuota: Math.max(0, availableQuota),
+            maxCredit,
+            propertyValue,
+            monthlyPayment,
+            totalInsurance,
+            totalInterest,
+            totalCost,
+            pie: propertyValue - maxCredit,
+            approvalProbability: evalResult.ap,
+            dtiPostRatio,
+            rejectionReason: evalResult.reason,
+            cae,
+            totalFees: fees.total,
+            feeDetails: fees,
+            minPieNeeded,
+            capacity: monthlyIncome * (dti / 100),
+        };
+    }
 
     // DTI actual
-    const dtiRatio=monthlyIncome>0?(monthlyDebts/monthlyIncome)*100:0;
+    const dtiRatio = monthlyIncome > 0 ? (monthlyDebts / monthlyIncome) * 100 : 0;
 
-    const tp25=aq25*loanTermMonths;
-    const tp30=aq30*loanTermMonths;
-    const tp33=aq33*loanTermMonths;
-    const ti25=tp25-mc25;
-    const ti30=tp30-mc30;
-    const ti33=tp33-mc33;
+    // --- Calcular 2 escenarios ---
+    const recommendedScenario = calculateScenario(recommendedDTI);
+    const limitScenario = calculateScenario(maxDTI);
 
-    const totalInsurance25 = im25 * loanTermMonths;
-    const totalInsurance30 = im30 * loanTermMonths;
-    const totalInsurance33 = im33 * loanTermMonths;
-
-    // Approval probability por escenario (usando ingreso ajustado reconocido por banco)
-    const eval25 = evaluateScenario(adjustedMonthlyIncome, pv25, dtiPostRatio25, 25, propertyType, ufValue, employmentType, employmentYears);
-    const eval30 = evaluateScenario(adjustedMonthlyIncome, pv30, dtiPostRatio30, 30, propertyType, ufValue, employmentType, employmentYears);
-    const eval33 = evaluateScenario(adjustedMonthlyIncome, pv33, dtiPostRatio33, 33, propertyType, ufValue, employmentType, employmentYears);
-
-    // Global approval = mejor escenario viable (priorizando mas conservador)
-    const ap: 'high'|'medium'|'low' = eval25.ap==='high' ? 'high' : eval30.ap==='high' ? 'medium' : eval33.ap==='high' ? 'medium' : eval30.ap==='medium' || eval33.ap==='medium' ? 'medium' : 'low';
-    let reason = eval25.reason || eval30.reason || eval33.reason;
+    // Global approval = mejor escenario viable (priorizando el recomendado)
+    const ap: 'high' | 'medium' | 'low' = recommendedScenario.approvalProbability === 'high' 
+        ? 'high' 
+        : limitScenario.approvalProbability === 'high' 
+            ? 'medium' 
+            : recommendedScenario.approvalProbability === 'medium' || limitScenario.approvalProbability === 'medium' 
+                ? 'medium' 
+                : 'low';
+    
+    let reason = recommendedScenario.rejectionReason || limitScenario.rejectionReason;
     
     // Agregar nota sobre ajuste de renta para independientes
     if (employmentType === 'independent' && EMPLOYMENT_INCOME_FACTOR < 1.0) {
         const recognizedIncome = formatCurrency(adjustedMonthlyIncome);
         const actualIncome = formatCurrency(monthlyIncome);
-        const adjustmentNote = `Como independiente, los bancos reconocen ~${Math.round(EMPLOYMENT_INCOME_FACTOR*100)}% de tu ingreso (${recognizedIncome} de ${actualIncome}).`;
+        const adjustmentNote = `Como independiente, los bancos reconocen ~${Math.round(EMPLOYMENT_INCOME_FACTOR * 100)}% de tu ingreso (${recognizedIncome} de ${actualIncome}).`;
         reason = reason ? `${reason} ${adjustmentNote}` : adjustmentNote;
     }
 
-    // Gastos operacionales y CAE por escenario
-    const fees25 = calculateOperationalFees(pv25, mc25, propertyType, ufValue);
-    const fees30 = calculateOperationalFees(pv30, mc30, propertyType, ufValue);
-    const fees33 = calculateOperationalFees(pv33, mc33, propertyType, ufValue);
-
-    const totalCost25 = tp25 + totalInsurance25 + fees25.total;
-    const totalCost30 = tp30 + totalInsurance30 + fees30.total;
-    const totalCost33 = tp33 + totalInsurance33 + fees33.total;
-
-    const minPieNeeded25 = pv25 - mc25 + fees25.total;
-    const minPieNeeded30 = pv30 - mc30 + fees30.total;
-    const minPieNeeded33 = pv33 - mc33 + fees33.total;
-
-    const calcCae = (mc: number, totalIns: number, fees: number) => {
-        if (mc <= 0) return 0;
-        const monthlyInsuranceRate = (totalIns / loanTermMonths) / mc;
-        const monthlyFeeRate = (fees / loanTermMonths) / mc;
-        const effectiveMonthly = mr + monthlyInsuranceRate + monthlyFeeRate;
-        return (Math.pow(1 + effectiveMonthly, 12) - 1) * 100;
-    };
-    const cae25 = calcCae(mc25, im25, fees25.total);
-    const cae30 = calcCae(mc30, im30, fees30.total);
-    const cae33 = calcCae(mc33, im33, fees33.total);
-
     return {
-        monthlyIncome, monthlyDebts,
+        monthlyIncome,
+        monthlyDebts,
         adjustedMonthlyIncome,
         employmentIncomeFactor: EMPLOYMENT_INCOME_FACTOR,
-        availableQuota25: Math.max(0, aq25), availableQuota30: Math.max(0, aq30), availableQuota33: Math.max(0, aq33),
-        maxCredit25: mc25, maxCredit30: mc30, maxCredit33: mc33,
-        propertyValue25: pv25, propertyValue30: pv30, propertyValue33: pv33,
-        monthlyPayment25: realPayment25, monthlyPayment30: realPayment30, monthlyPayment33: realPayment33,
+        clientSegment: dtiLimits,
+        recommended: recommendedScenario,
+        limit: limitScenario,
         loanTermYears,
-        totalInsuranceMonthly: im30,
-        totalInsurance25: im25, totalInsurance30: im30, totalInsurance33: im33,
-        totalInterest25: Math.max(0, ti25), totalInterest30: Math.max(0, ti30), totalInterest33: Math.max(0, ti33),
-        totalCost25, totalCost30, totalCost33,
-        pie25: pv25 - mc25, pie30: pv30 - mc30, pie33: pv33 - mc33,
-        approvalProbability: ap, approvalProbability25: eval25.ap, approvalProbability30: eval30.ap, approvalProbability33: eval33.ap,
-        dtiRatio: dtiRatio,
-        dtiPostRatio25, dtiPostRatio30, dtiPostRatio33,
+        totalInsuranceMonthly: recommendedScenario.totalInsurance / loanTermMonths,
+        approvalProbability: ap,
+        dtiRatio,
         rejectionReason: reason,
-        rejectionReason25: eval25.reason, rejectionReason30: eval30.reason, rejectionReason33: eval33.reason,
-        cae25, cae30, cae33,
-        totalFees25: fees25.total, totalFees30: fees30.total, totalFees33: fees33.total,
-        feeDetails25: fees25, feeDetails30: fees30, feeDetails33: fees33,
         availableDownPayment,
-        minPieNeeded25, minPieNeeded30, minPieNeeded33,
-        capacity25: monthlyIncome * 0.25,
-        capacity30: monthlyIncome * 0.30,
-        capacity33: monthlyIncome * 0.33,
+        recommendedDTI,
+        maxDTI,
     };
 }
 
@@ -378,7 +373,7 @@ export default function SimuladorPage() {
         otraDeuda: '',
     });
     const totalDebts = Object.values(debts).reduce((sum, v) => sum + parseCLP(v), 0);
-    const [scenarioTab,setScenarioTab]=useState<'25'|'30'|'33'>('30');
+    const [scenarioTab,setScenarioTab]=useState<'recommended'|'limit'>('recommended');
     const [mortgageRates,setMortgageRates]=useState<MortgageRates|null>(null);
 
     useEffect(()=>{
@@ -410,7 +405,7 @@ export default function SimuladorPage() {
         skipCalculationRef.current = true; // Evitar cálculo automático después de reset
         setMonthlyIncome('800000');setClientName('');setAge('35');
         setEmploymentType('dependent');setEmploymentYears('');setAnnualRate('3.39');setBankPercentage('80');
-        setCustomLoanYears('');setPropertyType('new');setAvailableDownPayment('');setShowAdvanced(false);setScenarioTab('30');setResult(null);setHasSubsidy(false);
+        setCustomLoanYears('');setPropertyType('new');setAvailableDownPayment('');setShowAdvanced(false);setScenarioTab('recommended');setResult(null);setHasSubsidy(false);
         setDebts({ dividendoHipotecario: '', creditoConsumo: '', tarjetaCredito: '', lineaCredito: '', creditoAutomotriz: '', otraDeuda: '' });
     },[]);
 
@@ -494,7 +489,7 @@ export default function SimuladorPage() {
         horizLine();
 
         // ---- STATUS BOX ----
-        const sem=scenarioTab==='25' ? result.approvalProbability25 : scenarioTab==='30' ? result.approvalProbability30 : result.approvalProbability33;
+        const sem = scenarioTab === 'recommended' ? result.recommended.approvalProbability : result.limit.approvalProbability;
         const semLabel=getApprovalLabel(sem);
         const semColor=sem==='high'?C.green:sem==='medium'?C.amber:C.red;
         doc.setFillColor(...C.light as [number,number,number]);
@@ -550,22 +545,22 @@ export default function SimuladorPage() {
         gridHeader('Resultado de la simulacion');
         gridRow('Tasa anual aplicada',annualRate+'%');
         gridRow('Plazo del credito',result.loanTermYears+' anos');
-        gridRow('Valor max. propiedad (25% DTI)',formatCurrency(result.propertyValue25));
-        gridRow('Valor max. propiedad (30% DTI) - RECOMENDADO',formatCurrency(result.propertyValue30));
-        gridRow('Valor max. propiedad (33% DTI) - LIMITE',formatCurrency(result.propertyValue33));
-        const activeTab = scenarioTab;
-        const activePV = activeTab==='25' ? result.propertyValue25 : activeTab==='30' ? result.propertyValue30 : result.propertyValue33;
-        const activePie = activeTab==='25' ? result.pie25 : activeTab==='30' ? result.pie30 : result.pie33;
-        const activeMP = activeTab==='25' ? result.monthlyPayment25 : activeTab==='30' ? result.monthlyPayment30 : result.monthlyPayment33;
-        const activeCredit = activeTab==='25' ? result.maxCredit25 : activeTab==='30' ? result.maxCredit30 : result.maxCredit33;
-        const activeFees = activeTab==='25' ? result.totalFees25 : activeTab==='30' ? result.totalFees30 : result.totalFees33;
-        const activeMinPie = activeTab==='25' ? result.minPieNeeded25 : activeTab==='30' ? result.minPieNeeded30 : result.minPieNeeded33;
-        const activeInterest = activeTab==='25' ? result.totalInterest25 : activeTab==='30' ? result.totalInterest30 : result.totalInterest33;
-        const activeCAE = activeTab==='25' ? result.cae25 : activeTab==='30' ? result.cae30 : result.cae33;
-        const activeCost = activeTab==='25' ? result.totalCost25 : activeTab==='30' ? result.totalCost30 : result.totalCost33;
-        gridRow('Pie Estimado ('+activeTab+'% DTI)',formatCurrency(activePie));
-        gridRow('Cuota mensual estimada ('+activeTab+'% DTI)',formatCurrency(activeMP));
-        gridRow('Monto del credito ('+activeTab+'% DTI)',formatCurrency(activeCredit));
+        const activeScenario = scenarioTab === 'recommended' ? result.recommended : result.limit;
+        const activeLabel = scenarioTab === 'recommended' ? 'RECOMENDADO' : 'LIMITE';
+        gridRow(`Valor max. propiedad (${result.recommendedDTI}% DTI - RECOMENDADO)`,formatCurrency(result.recommended.propertyValue));
+        gridRow(`Valor max. propiedad (${result.maxDTI}% DTI - ${result.clientSegment.name.toUpperCase()})`,formatCurrency(result.limit.propertyValue));
+        const activePV = activeScenario.propertyValue;
+        const activePie = activeScenario.pie;
+        const activeMP = activeScenario.monthlyPayment;
+        const activeCredit = activeScenario.maxCredit;
+        const activeFees = activeScenario.totalFees;
+        const activeMinPie = activeScenario.minPieNeeded;
+        const activeInterest = activeScenario.totalInterest;
+        const activeCAE = activeScenario.cae;
+        const activeCost = activeScenario.totalCost;
+        gridRow(`Pie Estimado (${activeLabel})`,formatCurrency(activePie));
+        gridRow(`Cuota mensual estimada (${activeLabel})`,formatCurrency(activeMP));
+        gridRow(`Monto del credito (${activeLabel})`,formatCurrency(activeCredit));
         y+=4;
 
         // ---- SECTION: DETALLES ----
@@ -573,9 +568,9 @@ export default function SimuladorPage() {
         gridRow('Seguros mensuales estimados',formatCurrency(result.totalInsuranceMonthly));
         gridRow('Gastos operacionales estimados',formatCurrency(activeFees));
         gridRow('Pie total necesario (incl. gastos)',formatCurrency(activeMinPie));
-        gridRow('Intereses totales estimados ('+activeTab+'%)',formatCurrency(activeInterest));
+        gridRow(`Intereses totales estimados (${activeLabel})`,formatCurrency(activeInterest));
         gridRow('Costo Anual Equivalente (CAE)',activeCAE.toFixed(2)+'%');
-        gridRow('Costo total estimado ('+activeTab+'%)',formatCurrency(activeCost));
+        gridRow(`Costo total estimado (${activeLabel})`,formatCurrency(activeCost));
         y+=6;
         horizLine();
 
@@ -597,8 +592,8 @@ export default function SimuladorPage() {
         doc.save('Perfil_Crediticio_'+clientName.trim().replace(/\s+/g,'_')+'_'+Date.now()+'.pdf');
     },[result,clientName,annualRate,employmentType,propertyType,scenarioTab]);
 
-    const activeApproval = result ? (scenarioTab==='25' ? result.approvalProbability25 : scenarioTab==='30' ? result.approvalProbability30 : result.approvalProbability33) : null;
-    const activeReason = result ? (scenarioTab==='25' ? result.rejectionReason25 : scenarioTab==='30' ? result.rejectionReason30 : result.rejectionReason33) : null;
+    const activeApproval = result ? (scenarioTab === 'recommended' ? result.recommended.approvalProbability : result.limit.approvalProbability) : null;
+    const activeReason = result ? (scenarioTab === 'recommended' ? result.recommended.rejectionReason : result.limit.rejectionReason) : null;
     const apColor=activeApproval?getApprovalColor(activeApproval):'bg-gray-400';
     const apLabel=activeApproval?getApprovalLabel(activeApproval):'SIN DATOS';
     const apMsg=activeApproval?getApprovalMessage(activeApproval,activeReason??undefined):'Ingresa datos para evaluar.';
@@ -631,7 +626,7 @@ export default function SimuladorPage() {
                         </div>
                         <div className="flex items-center gap-1.5">
                             <IconCalculator size={14} style={{color:'var(--accent)'}} />
-                            <span>CAE {result ? (scenarioTab==='25' ? result.cae25 : scenarioTab==='30' ? result.cae30 : result.cae33).toFixed(2) : ((mortgageRates?.bestMarketRate??3.39)+0.21).toFixed(2)}%</span>
+                            <span>CAE {result ? (scenarioTab === 'recommended' ? result.recommended.cae : result.limit.cae).toFixed(2) : ((mortgageRates?.bestMarketRate??CURRENT_RATES.bestMarketRate.value)+0.21).toFixed(2)}%</span>
                         </div>
                     </div>
                 </div>
@@ -841,59 +836,62 @@ export default function SimuladorPage() {
                     <div className="lg:col-span-2 space-y-4">
                         {result?(
                             <>
-                                {/* Tabs escenario */}
-                                {/* Helper values según tab activo */}
+                                {/* Segmento del cliente badge */}
+                                <div className="flex items-center justify-between px-3 py-2 rounded-xl border bg-[var(--bg)] border-[var(--border)]">
+                                    <div className="flex items-center gap-2">
+                                        <div 
+                                            className="w-2 h-2 rounded-full" 
+                                            style={{ 
+                                                background: result.clientSegment.name === 'Estándar' ? '#6b7280' : 
+                                                           result.clientSegment.name === 'Premium' ? '#f59e0b' : '#7c3aed' 
+                                            }} 
+                                        />
+                                        <span className="text-xs font-medium" style={{ color: 'var(--fg)' }}>
+                                            Perfil: {result.clientSegment.name}
+                                        </span>
+                                    </div>
+                                    <span className="text-[10px]" style={{ color: 'var(--fg-muted)' }}>
+                                        DTI {result.recommendedDTI}% - {result.maxDTI}%
+                                    </span>
+                                </div>
+
+                                {/* Tabs escenario - 2 opciones */}
                                 {(()=>{
-                                    const activePV = scenarioTab==='25' ? result.propertyValue25 : scenarioTab==='30' ? result.propertyValue30 : result.propertyValue33;
-                                    const activeMP = scenarioTab==='25' ? result.monthlyPayment25 : scenarioTab==='30' ? result.monthlyPayment30 : result.monthlyPayment33;
-                                    const activePie = scenarioTab==='25' ? result.minPieNeeded25 : scenarioTab==='30' ? result.minPieNeeded30 : result.minPieNeeded33;
-                                    const activeDTI = scenarioTab==='25' ? result.dtiPostRatio25 : scenarioTab==='30' ? result.dtiPostRatio30 : result.dtiPostRatio33;
-                                    const activeCredit = scenarioTab==='25' ? result.maxCredit25 : scenarioTab==='30' ? result.maxCredit30 : result.maxCredit33;
-                                    const activeInterest = scenarioTab==='25' ? result.totalInterest25 : scenarioTab==='30' ? result.totalInterest30 : result.totalInterest33;
-                                    const activeInsurance = scenarioTab==='25' ? result.totalInsurance25 : scenarioTab==='30' ? result.totalInsurance30 : result.totalInsurance33;
-                                    const activeCost = scenarioTab==='25' ? result.totalCost25 : scenarioTab==='30' ? result.totalCost30 : result.totalCost33;
+                                    const activeScenario = scenarioTab === 'recommended' ? result.recommended : result.limit;
+                                    const activeLabel = scenarioTab === 'recommended' ? 'RECOMENDADO' : `LIMITE ${result.clientSegment.name.toUpperCase()}`;
+                                    const activeDTI = scenarioTab === 'recommended' ? result.recommendedDTI : result.maxDTI;
                                     return (
                                         <>
                                 <div className="flex rounded-xl border overflow-hidden bg-[var(--bg)] border-[var(--border)]">
                                     <button
-                                        onClick={()=>setScenarioTab('25')}
+                                        onClick={()=>setScenarioTab('recommended')}
                                         className="flex-1 py-2 text-xs font-medium text-center transition-colors"
                                         style={{
-                                            background: scenarioTab==='25' ? 'var(--accent)' : 'transparent',
-                                            color: scenarioTab==='25' ? '#fff' : 'var(--fg-muted)'
+                                            background: scenarioTab==='recommended' ? 'var(--accent)' : 'transparent',
+                                            color: scenarioTab==='recommended' ? '#fff' : 'var(--fg-muted)'
                                         }}
                                     >
-                                        Conservador (25%)
+                                        Recomendado ({result.recommendedDTI}%)
                                     </button>
                                     <button
-                                        onClick={()=>setScenarioTab('30')}
+                                        onClick={()=>setScenarioTab('limit')}
                                         className="flex-1 py-2 text-xs font-medium text-center transition-colors"
                                         style={{
-                                            background: scenarioTab==='30' ? 'var(--accent)' : 'transparent',
-                                            color: scenarioTab==='30' ? '#fff' : 'var(--fg-muted)'
+                                            background: scenarioTab==='limit' ? 'var(--accent)' : 'transparent',
+                                            color: scenarioTab==='limit' ? '#fff' : 'var(--fg-muted)'
                                         }}
                                     >
-                                        Recomendado (30%)
-                                    </button>
-                                    <button
-                                        onClick={()=>setScenarioTab('33')}
-                                        className="flex-1 py-2 text-xs font-medium text-center transition-colors"
-                                        style={{
-                                            background: scenarioTab==='33' ? 'var(--accent)' : 'transparent',
-                                            color: scenarioTab==='33' ? '#fff' : 'var(--fg-muted)'
-                                        }}
-                                    >
-                                        Favorable (33%)
+                                        Límite ({result.maxDTI}%)
                                     </button>
                                 </div>
 
                                 {/* Hero: propiedad máxima */}
                                 <div className="text-center p-2 rounded-xl" style={{background:'var(--bg-subtle)'}}>
-                                    <p className="text-[10px] uppercase tracking-wider mb-1" style={{color:'var(--fg-muted)'}}>Propiedad máxima que puede comprar</p>
-                                    {activePV > 0 ? (
+                                    <p className="text-[10px] uppercase tracking-wider mb-1" style={{color:'var(--fg-muted)'}}>Propiedad máxima que puede comprar ({activeLabel})</p>
+                                    {activeScenario.propertyValue > 0 ? (
                                         <>
-                                            <p className="text-3xl font-bold">{formatUF(activePV,ufValue)}</p>
-                                            <p className="text-xs" style={{color:'var(--fg-muted)'}}>{formatCurrency(activePV)}</p>
+                                            <p className="text-3xl font-bold">{formatUF(activeScenario.propertyValue,ufValue)}</p>
+                                            <p className="text-xs" style={{color:'var(--fg-muted)'}}>{formatCurrency(activeScenario.propertyValue)}</p>
                                         </>
                                     ) : (
                                         <>
@@ -909,12 +907,12 @@ export default function SimuladorPage() {
                                 {/* 3 minicards */}
                                 <div className="grid grid-cols-3 gap-3">
                                     <div className="p-3 rounded-xl border text-center bg-[var(--bg)] border-[var(--border)]">
-                                        <p className="text-[10px] uppercase font-semibold text-[var(--fg-muted)]">Cuota mensual ({scenarioTab}%)</p>
-                                        <p className="text-sm font-semibold mt-0.5 text-[var(--fg)]">{formatCurrency(activeMP)}</p>
+                                        <p className="text-[10px] uppercase font-semibold text-[var(--fg-muted)]">Cuota mensual</p>
+                                        <p className="text-sm font-semibold mt-0.5 text-[var(--fg)]">{formatCurrency(activeScenario.monthlyPayment)}</p>
                                     </div>
                                     <div className="p-3 rounded-xl border text-center bg-[var(--bg)] border-[var(--border)]">
-                                        <p className="text-[10px] uppercase font-semibold text-[var(--fg-muted)]">Pie total ({scenarioTab}%)</p>
-                                        <p className="text-sm font-semibold mt-0.5 text-[var(--fg)]">{formatCurrency(activePie)}</p>
+                                        <p className="text-[10px] uppercase font-semibold text-[var(--fg-muted)]">Pie total</p>
+                                        <p className="text-sm font-semibold mt-0.5 text-[var(--fg)]">{formatCurrency(activeScenario.minPieNeeded)}</p>
                                     </div>
                                     <div className="p-3 rounded-xl border text-center bg-[var(--bg)] border-[var(--border)]">
                                         <p className="text-[10px] uppercase font-semibold text-[var(--fg-muted)]">Plazo</p>
@@ -937,20 +935,20 @@ export default function SimuladorPage() {
                                     {/* DTI post-hipoteca */}
                                     <div>
                                         <div className="flex justify-between text-[10px] items-center mb-1" style={{color:'var(--fg-muted)'}}>
-                                            <span>DTI post-hipoteca ({scenarioTab}%)</span>
-                                            <span className="font-semibold" style={{color: activeDTI > 40 ? 'var(--color-error)' : activeDTI > 33 ? 'var(--color-warning)' : 'var(--color-success)'}}>{activeDTI.toFixed(1)}%</span>
+                                            <span>DTI post-hipoteca ({activeDTI}%)</span>
+                                            <span className="font-semibold" style={{color: activeScenario.dtiPostRatio > 40 ? 'var(--color-error)' : activeScenario.dtiPostRatio > 33 ? 'var(--color-warning)' : 'var(--color-success)'}}>{activeScenario.dtiPostRatio.toFixed(1)}%</span>
                                         </div>
                                         <div className="relative w-full rounded-full h-2 bg-[var(--bg-subtle)] overflow-hidden">
-                                            <div className="absolute top-0 left-0 h-full rounded-full transition-all" style={{width:`${Math.min((activeDTI/40)*100,100)}%`,background: activeDTI > 40 ? 'var(--color-error)' : activeDTI > 33 ? 'var(--color-warning)' : 'var(--color-success)'}} />
+                                            <div className="absolute top-0 left-0 h-full rounded-full transition-all" style={{width:`${Math.min((activeScenario.dtiPostRatio/40)*100,100)}%`,background: activeScenario.dtiPostRatio > 40 ? 'var(--color-error)' : activeScenario.dtiPostRatio > 33 ? 'var(--color-warning)' : 'var(--color-success)'}} />
                                         </div>
                                     </div>
                                 </div>
 
                                 {/* Recomendación de bancos según DTI */}
                                 <div className="p-3 rounded-xl border space-y-1.5 bg-[var(--bg)] border-[var(--border)]">
-                                    <p className="text-[10px] uppercase font-semibold" style={{color:'var(--fg-muted)'}}>Probabilidad por banco (DTI {scenarioTab}%)</p>
+                                    <p className="text-[10px] uppercase font-semibold" style={{color:'var(--fg-muted)'}}>Probabilidad por banco (DTI {activeDTI}%)</p>
                                     <div className="grid grid-cols-2 gap-2">
-                                        {getBankByDTI(activeDTI).map(b => (
+                                        {getBankByDTI(activeScenario.dtiPostRatio).map(b => (
                                             <div key={b.name} className="flex items-center justify-between text-[10px] px-2 py-1 rounded-lg" style={{
                                                 background: b.status==='likely' ? 'rgba(34,197,94,0.08)' : b.status==='review' ? 'rgba(234,179,8,0.08)' : 'rgba(239,68,68,0.08)',
                                                 border: `1px solid ${b.status==='likely' ? '#22c55e' : b.status==='review' ? '#eab308' : '#ef4444'}`,
@@ -972,15 +970,15 @@ export default function SimuladorPage() {
                                             <span style={{color:'var(--fg)'}}>{formatCurrency(parseCLP(availableDownPayment))}</span>
                                         </div>
                                         <div className="flex justify-between text-xs items-center">
-                                            <span style={{color:'var(--fg-muted)'}}>Pie estimado ({scenarioTab}% escenario)</span>
-                                            <span style={{color:'var(--fg)'}}>{formatCurrency(activePie)}</span>
+                                            <span style={{color:'var(--fg-muted)'}}>Pie estimado ({scenarioTab === 'recommended' ? result.recommendedDTI : result.maxDTI}% escenario)</span>
+                                            <span style={{color:'var(--fg)'}}>{formatCurrency(scenarioTab === 'recommended' ? result.recommended.minPieNeeded : result.limit.minPieNeeded)}</span>
                                         </div>
                                         <div className="flex justify-between text-xs items-center font-semibold pt-1 border-t mt-1" style={{borderColor:'var(--border)'}}>
-                                            <span style={{color: parseCLP(availableDownPayment) >= activePie ? 'var(--color-success)' : 'var(--color-warning)'}}>
-                                                {parseCLP(availableDownPayment) >= activePie ? 'Excedente' : 'Déficit'}
+                                            <span style={{color: parseCLP(availableDownPayment) >= (scenarioTab === 'recommended' ? result.recommended.minPieNeeded : result.limit.minPieNeeded) ? 'var(--color-success)' : 'var(--color-warning)'}}>
+                                                {parseCLP(availableDownPayment) >= (scenarioTab === 'recommended' ? result.recommended.minPieNeeded : result.limit.minPieNeeded) ? 'Excedente' : 'Déficit'}
                                             </span>
-                                            <span style={{color: parseCLP(availableDownPayment) >= activePie ? 'var(--color-success)' : 'var(--color-warning)'}}>
-                                                {formatCurrency(Math.abs(parseCLP(availableDownPayment) - activePie))}
+                                            <span style={{color: parseCLP(availableDownPayment) >= (scenarioTab === 'recommended' ? result.recommended.minPieNeeded : result.limit.minPieNeeded) ? 'var(--color-success)' : 'var(--color-warning)'}}>
+                                                {formatCurrency(Math.abs(parseCLP(availableDownPayment) - (scenarioTab === 'recommended' ? result.recommended.minPieNeeded : result.limit.minPieNeeded)))}
                                             </span>
                                         </div>
                                     </div>
@@ -1005,9 +1003,9 @@ export default function SimuladorPage() {
                                         <div>
                                             <p className="text-[10px] uppercase font-semibold mb-2" style={{color:'var(--fg-muted)'}}>Crédito hipotecario</p>
                                             <div className="space-y-1">
-                                                <div className="flex justify-between"><span style={{color:'var(--fg-muted)'}}>Monto préstamo</span><span style={{color:'var(--fg)'}}>{formatCurrency(scenarioTab==='25' ? result.maxCredit25 : scenarioTab==='30' ? result.maxCredit30 : result.maxCredit33)}</span></div>
+                                                <div className="flex justify-between"><span style={{color:'var(--fg-muted)'}}>Monto préstamo</span><span style={{color:'var(--fg)'}}>{formatCurrency(scenarioTab === 'recommended' ? result.recommended.maxCredit : result.limit.maxCredit)}</span></div>
                                                 <div className="flex justify-between"><span style={{color:'var(--fg-muted)'}}>Tasa anual</span><span style={{color:'var(--fg)'}}>{annualRate}%</span></div>
-                                                <div className="flex justify-between"><span style={{color:'var(--fg-muted)'}}>Intereses totales</span><span style={{color:'var(--fg)'}}>{formatCurrency(scenarioTab==='25' ? result.totalInterest25 : scenarioTab==='30' ? result.totalInterest30 : result.totalInterest33)}</span></div>
+                                                <div className="flex justify-between"><span style={{color:'var(--fg-muted)'}}>Intereses totales</span><span style={{color:'var(--fg)'}}>{formatCurrency(scenarioTab === 'recommended' ? result.recommended.totalInterest : result.limit.totalInterest)}</span></div>
                                             </div>
                                         </div>
                                         <div style={{borderColor:'var(--border)'}} className="border-t pt-2" />
@@ -1015,10 +1013,10 @@ export default function SimuladorPage() {
                                         <div>
                                             <p className="text-[10px] uppercase font-semibold mb-2" style={{color:'var(--fg-muted)'}}>Propiedad</p>
                                             <div className="space-y-1">
-                                                <div className="flex justify-between"><span style={{color:'var(--fg-muted)'}}>Valor propiedad</span><span style={{color:'var(--fg)'}}>{formatCurrency(scenarioTab==='25' ? result.propertyValue25 : scenarioTab==='30' ? result.propertyValue30 : result.propertyValue33)}</span></div>
-                                                <div className="flex justify-between"><span style={{color:'var(--fg-muted)'}}>Pie Estimado</span><span style={{color:'var(--fg)'}}>{formatCurrency(scenarioTab==='25' ? result.pie25 : scenarioTab==='30' ? result.pie30 : result.pie33)}</span></div>
-                                                <div className="flex justify-between"><span style={{color:'var(--fg-muted)'}}>Gastos operacionales</span><span style={{color:'var(--fg)'}}>{formatCurrency(scenarioTab==='25' ? result.totalFees25 : scenarioTab==='30' ? result.totalFees30 : result.totalFees33)}</span></div>
-                                                <div className="flex justify-between"><span style={{color:'var(--fg-muted)'}}>Pie total requerido</span><span style={{color:'var(--fg)'}}>{formatCurrency(scenarioTab==='25' ? result.minPieNeeded25 : scenarioTab==='30' ? result.minPieNeeded30 : result.minPieNeeded33)}</span></div>
+                                                <div className="flex justify-between"><span style={{color:'var(--fg-muted)'}}>Valor propiedad</span><span style={{color:'var(--fg)'}}>{formatCurrency(scenarioTab === 'recommended' ? result.recommended.propertyValue : result.limit.propertyValue)}</span></div>
+                                                <div className="flex justify-between"><span style={{color:'var(--fg-muted)'}}>Pie Estimado</span><span style={{color:'var(--fg)'}}>{formatCurrency(scenarioTab === 'recommended' ? result.recommended.pie : result.limit.pie)}</span></div>
+                                                <div className="flex justify-between"><span style={{color:'var(--fg-muted)'}}>Gastos operacionales</span><span style={{color:'var(--fg)'}}>{formatCurrency(scenarioTab === 'recommended' ? result.recommended.totalFees : result.limit.totalFees)}</span></div>
+                                                <div className="flex justify-between"><span style={{color:'var(--fg-muted)'}}>Pie total requerido</span><span style={{color:'var(--fg)'}}>{formatCurrency(scenarioTab === 'recommended' ? result.recommended.minPieNeeded : result.limit.minPieNeeded)}</span></div>
                                             </div>
                                         </div>
                                         <div style={{borderColor:'var(--border)'}} className="border-t pt-2" />
@@ -1026,9 +1024,9 @@ export default function SimuladorPage() {
                                         <div>
                                             <p className="text-[10px] uppercase font-semibold mb-2" style={{color:'var(--fg-muted)'}}>Mensualidad</p>
                                             <div className="space-y-1">
-                                                <div className="flex justify-between"><span style={{color:'var(--fg-muted)'}}>Cuota mensual</span><span style={{color:'var(--fg)'}}>{formatCurrency(scenarioTab==='25' ? result.monthlyPayment25 : scenarioTab==='30' ? result.monthlyPayment30 : result.monthlyPayment33)}</span></div>
-                                                <div className="flex justify-between"><span style={{color:'var(--fg-muted)'}} title="Seguros de desgravamen, sismo e incendio estimados sobre el saldo promedio del crédito.">Seguros mensuales (estimado) ℹ</span><span style={{color:'var(--fg)'}}>{formatCurrency(scenarioTab==='25' ? result.totalInsurance25 : scenarioTab==='30' ? result.totalInsurance30 : result.totalInsurance33)}</span></div>
-                                                <div className="flex justify-between"><span style={{color:'var(--fg-muted)'}} title="Costo Anual Equivalente: incluye la tasa de interés, seguros y gastos operacionales distribuidos.">CAE (Costo Anual Equivalente) ℹ</span><span style={{color:'var(--fg)'}}>{(scenarioTab==='25' ? result.cae25 : scenarioTab==='30' ? result.cae30 : result.cae33).toFixed(2)}%</span></div>
+                                                <div className="flex justify-between"><span style={{color:'var(--fg-muted)'}}>Cuota mensual</span><span style={{color:'var(--fg)'}}>{formatCurrency(scenarioTab === 'recommended' ? result.recommended.monthlyPayment : result.limit.monthlyPayment)}</span></div>
+                                                <div className="flex justify-between"><span style={{color:'var(--fg-muted)'}} title="Seguros de desgravamen, sismo e incendio estimados sobre el saldo promedio del crédito.">Seguros mensuales (estimado) ℹ</span><span style={{color:'var(--fg)'}}>{formatCurrency(scenarioTab === 'recommended' ? result.recommended.totalInsurance : result.limit.totalInsurance)}</span></div>
+                                                <div className="flex justify-between"><span style={{color:'var(--fg-muted)'}} title="Costo Anual Equivalente: incluye la tasa de interés, seguros y gastos operacionales distribuidos.">CAE (Costo Anual Equivalente) ℹ</span><span style={{color:'var(--fg)'}}>{(scenarioTab === 'recommended' ? result.recommended.cae : result.limit.cae).toFixed(2)}%</span></div>
                                             </div>
                                         </div>
                                         <div style={{borderColor:'var(--border)'}} className="border-t pt-2" />
@@ -1036,12 +1034,10 @@ export default function SimuladorPage() {
                                         <div>
                                             <p className="text-[10px] uppercase font-semibold mb-2" style={{color:'var(--fg-muted)'}}>Capacidad</p>
                                             <div className="space-y-1">
-                                                <div className="flex justify-between"><span style={{color:'var(--fg-muted)'}}>Capacidad máx. (25%)</span><span style={{color:'var(--fg)'}}>{formatCurrency(result.capacity25)}</span></div>
-                                                <div className="flex justify-between"><span style={{color:'var(--fg-muted)'}}>Capacidad máx. (30%)</span><span style={{color:'var(--fg)'}}>{formatCurrency(result.capacity30)}</span></div>
-                                                <div className="flex justify-between"><span style={{color:'var(--fg-muted)'}}>Capacidad máx. (33%)</span><span style={{color:'var(--fg)'}}>{formatCurrency(result.capacity33)}</span></div>
-                                                <div className="flex justify-between"><span style={{color:'var(--fg-muted)'}}>Cuota disponible (25%)</span><span style={{color:'var(--fg)'}}>{formatCurrency(result.availableQuota25)}</span></div>
-                                                <div className="flex justify-between"><span style={{color:'var(--fg-muted)'}}>Cuota disponible (30%)</span><span style={{color:'var(--fg)'}}>{formatCurrency(result.availableQuota30)}</span></div>
-                                                <div className="flex justify-between"><span style={{color:'var(--fg-muted)'}}>Cuota disponible (33%)</span><span style={{color:'var(--fg)'}}>{formatCurrency(result.availableQuota33)}</span></div>
+                                                <div className="flex justify-between"><span style={{color:'var(--fg-muted)'}}>Capacidad máx. recomendada ({result.recommendedDTI}%)</span><span style={{color:'var(--fg)'}}>{formatCurrency(result.recommended.capacity)}</span></div>
+                                                <div className="flex justify-between"><span style={{color:'var(--fg-muted)'}}>Capacidad máx. límite ({result.maxDTI}%)</span><span style={{color:'var(--fg)'}}>{formatCurrency(result.limit.capacity)}</span></div>
+                                                <div className="flex justify-between"><span style={{color:'var(--fg-muted)'}}>Cuota disponible recomendada</span><span style={{color:'var(--fg)'}}>{formatCurrency(result.recommended.availableQuota)}</span></div>
+                                                <div className="flex justify-between"><span style={{color:'var(--fg-muted)'}}>Cuota disponible límite</span><span style={{color:'var(--fg)'}}>{formatCurrency(result.limit.availableQuota)}</span></div>
                                             </div>
                                         </div>
                                         <div style={{borderColor:'var(--border)'}} className="border-t pt-2" />
@@ -1050,8 +1046,7 @@ export default function SimuladorPage() {
                                             <p className="text-[10px] uppercase font-semibold mb-2" style={{color:'var(--fg-muted)'}}>Desglose gastos operacionales</p>
                                             <div className="space-y-1">
                                                 {(() => {
-                                                    const fd = scenarioTab === '25' ? result.feeDetails25 : scenarioTab === '30' ? result.feeDetails30 : result.feeDetails33;
-                                                    const rpv = scenarioTab === '25' ? result.propertyValue25 : scenarioTab === '30' ? result.propertyValue30 : result.propertyValue33;
+                                                    const fd = scenarioTab === 'recommended' ? result.recommended.feeDetails : result.limit.feeDetails;
                                                     return (
                                                         <>
                                                             <div className="flex justify-between"><span style={{color:'var(--fg-muted)'}}>Avalúo / Tasación</span><span style={{color:'var(--fg)'}}>{formatCurrency(fd.appraisal)}</span></div>
