@@ -18,6 +18,7 @@
         "typecheck": "tsc --noEmit"
     },
     "dependencies": {
+        "@simple/config": "*",
         "@simple/types": "*",
         "@simple/ui": "*",
         "@tabler/icons-react": "^3.31.0"
