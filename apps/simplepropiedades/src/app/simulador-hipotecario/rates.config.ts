@@ -171,35 +171,46 @@ export interface ClientSegment {
   banks: string[];
 }
 
+// SEGMENTOS BASADOS EN DIARIO FINANCIERO Y PRÁCTICA BANCARIA CHILENA
+// Fuente: Diario Financiero - Renta líquida mensual para segmento Premium: $2.000.000+
+// https://www.df.cl/ (referencia mercado 2024-2025)
+
 export const CLIENT_SEGMENTS: ClientSegment[] = [
   {
     name: 'Estándar',
     minIncome: 0,
-    maxIncome: 1_500_000,
+    maxIncome: 2_000_000,  // Ajustado: Premium empieza en $2M según DF
     recommendedDTI: 25,
     maxDTI: 30,
-    description: 'Perfil convencional, todos los bancos',
-    banks: ['BancoEstado', 'Banco de Chile', 'Santander', 'Bci', 'Itaú']
+    description: 'Perfil convencional. Financiamiento hasta 80%, tasas de mercado. Renta mínima aceptada ~$800.000 en algunos bancos.',
+    banks: ['BancoEstado', 'Banco de Chile', 'Santander', 'Bci', 'Itaú', 'Scotiabank']
   },
   {
     name: 'Premium',
-    minIncome: 1_500_000,
-    maxIncome: 3_000_000,
+    minIncome: 2_000_000,  // Diario Financiero: $2M-$2.5M es el umbral Premium
+    maxIncome: 4_000_000,  // Private Banking empieza típicamente entre $3M-$4M
     recommendedDTI: 30,
     maxDTI: 35,
-    description: 'Mayor capacidad de endeudamiento por renta alta',
-    banks: ['Santander Select', 'Banco de Chile', 'Bci Nova']
+    description: 'Segmento Preferencial. Financiamiento hasta 90%, tasas preferenciales con plan de cuenta/PAC, ejecutivo asignado. Antigüedad mínima: 1 año (dependientes), 2 años (independientes).',
+    banks: ['Santander Select', 'Banco de Chile Premier', 'Bci Nova', 'Itaú Personal']
   },
   {
     name: 'Private Banking',
-    minIncome: 3_000_000,
+    minIncome: 4_000_000,  // Ajustado para consistencia con mercado
     maxIncome: null,
     recommendedDTI: 30,
     maxDTI: 40,
-    description: 'Clientes de alto patrimonio, tasas preferenciales',
-    banks: ['Bci Nova', 'Itaú Private', 'Banco de Chile Empresas']
+    description: 'Clientes de alto patrimonio. Financiamiento mayor al 90% según riesgo, tasas negociables, atención personalizada dedicada. Comportamiento financiero impecable requerido.',
+    banks: ['Bci Nova Private', 'Itaú Private', 'Banco de Chile Empresas', 'Santander Wealth']
   }
 ];
+
+// Notas sobre el mercado chileno según Diario Financiero:
+// - Renta de entrada Premium: $2.000.000-$2.500.000+
+// - Permite acceso a viviendas > 3.600 UF
+// - Para tarjetas VIP: algunos bancos exigen >$2.000.000
+// - Premium requiere contratar productos adicionales para mejores tasas
+// - La renta mínima para crédito estándar es ~$800.000, pero el trato Premium es para rentas altas
 
 // Función para obtener límites DTI según ingreso mensual
 export function getDTILimits(monthlyIncome: number): ClientSegment & { 
