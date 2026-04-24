@@ -625,26 +625,26 @@ export default function SimuladorPage() {
                             <IconBuildingBank size={20} className="text-white" />
                         </div>
                         <div>
-                            <h1 className="font-semibold text-sm" style={{color:'var(--fg)'}}>Simulador Hipotecario</h1>
-                            <p className="text-[10px]" style={{color:'var(--fg-muted)'}}>Para asesores</p>
+                            <h1 className="font-semibold text-sm text-[var(--fg)]">Simulador Hipotecario</h1>
+                            <p className="text-[10px] text-[var(--fg-muted)]">Para asesores</p>
                         </div>
                     </div>
                     {/* Indicadores - en móvil se apilan horizontalmente */}
-                    <div className="flex items-center gap-3 text-[11px] flex-wrap" style={{color:'var(--fg-muted)'}}>
+                    <div className="flex items-center gap-3 text-[11px] flex-wrap text-[var(--fg-muted)]">
                         <div className="flex items-center gap-1.5" title={`UF: ${getRateCitation(CURRENT_RATES.uf)}`}>
-                            <span style={{fontWeight: 600, fontSize: '10px'}}>UF</span>
+                            <span className="text-[10px] font-semibold">UF</span>
                             <span>{ufValue.toLocaleString('es-CL')}</span>
                         </div>
                         <div className="flex items-center gap-1.5" title={`Mejor tasa: ${getRateCitation(CURRENT_RATES.bestMarketRate)}`}>
-                            <IconStar size={14} style={{color:'var(--color-success)'}} />
+                            <IconStar size={14} className="text-[var(--color-success)]" />
                             <span>{mortgageRates?.bestMarketRate?.toFixed(2)??CURRENT_RATES.bestMarketRate.value.toFixed(2)}%</span>
                         </div>
                         <div className="flex items-center gap-1.5" title={`Tasa promedio: ${getRateCitation(CURRENT_RATES.averageMarketRate)}`}>
-                            <IconTrendingUp size={14} style={{color:'var(--fg)'}} />
+                            <IconTrendingUp size={14} className="text-[var(--fg)]" />
                             <span>{mortgageRates?.standardRate?.toFixed(2)??CURRENT_RATES.averageMarketRate.value.toFixed(2)}%</span>
                         </div>
                         <div className="flex items-center gap-1.5">
-                            <IconCalculator size={14} style={{color:'var(--accent)'}} />
+                            <IconCalculator size={14} className="text-[var(--accent)]" />
                             <span>CAE {result ? (scenarioTab === 'recommended' ? result.recommended.cae : result.limit.cae).toFixed(2) : ((mortgageRates?.bestMarketRate??CURRENT_RATES.bestMarketRate.value)+0.21).toFixed(2)}%</span>
                         </div>
                     </div>
@@ -659,9 +659,9 @@ export default function SimuladorPage() {
                             {activeApproval==='high'?<IconCheck size={32}/>:activeApproval==='low'?<IconX size={32}/>:<IconAlertTriangle size={32}/>}
                         </div>
                         <div className="flex-1">
-                            <p className="text-[11px] uppercase tracking-wide font-semibold mb-1" style={{color:'var(--fg-muted)'}}>Evaluación</p>
-                            <p className="text-xl font-bold" style={{color:'var(--fg)'}}>{apLabel}</p>
-                            <p className="text-sm mt-1" style={{color:'var(--fg-muted)'}}>{apMsg}</p>
+                            <p className="text-[11px] uppercase tracking-wide font-semibold mb-1 text-[var(--fg-muted)]">Evaluación</p>
+                            <p className="text-xl font-bold text-[var(--fg)]">{apLabel}</p>
+                            <p className="text-sm mt-1 text-[var(--fg-muted)]">{apMsg}</p>
                         </div>
                     </div>
                 )}
@@ -675,16 +675,16 @@ export default function SimuladorPage() {
                             </h3>
                             <div className="grid gap-3 sm:grid-cols-2">
                                 <div className="sm:col-span-2">
-                                    <label className="text-xs font-medium mb-1 block" style={{color:'var(--fg-muted)'}}>Nombre completo</label>
+                                    <label className="text-xs font-medium mb-1 block text-[var(--fg-muted)]">Nombre completo</label>
                                     <input type="text" value={clientName} onChange={e=>setClientName(e.target.value)} className="w-full px-3 py-2 rounded-xl text-sm border outline-none bg-[var(--bg-subtle)] border-[var(--border)] text-[var(--fg)]" placeholder="Ej: Juan Perez" />
                                 </div>
                                 <div className="sm:col-span-2">
-                                    <label className="text-xs font-medium mb-1 block" style={{color:'var(--fg-muted)'}}>Ingreso líquido mensual</label>
+                                    <label className="text-xs font-medium mb-1 block text-[var(--fg-muted)]">Ingreso líquido mensual</label>
                                     <div className="flex items-center justify-between px-3 py-2 rounded-xl text-sm border bg-[var(--bg-subtle)] border-[var(--border)] text-[var(--fg)]">
                                         <span className="font-semibold">{formatCurrency(parseCLP(monthlyIncome) || 800000)}</span>
                                     </div>
                                     <input type="range" min={800000} max={10000000} step={50000} value={parseCLP(monthlyIncome) || 800000} onChange={e=>setMonthlyIncome(e.target.value)} className="w-full mt-2" />
-                                    <div className="flex justify-between text-[10px] mt-1" style={{color:'var(--fg-muted)'}}>
+                                    <div className="flex justify-between text-[10px] mt-1 text-[var(--fg-muted)]">
                                         <span>$800.000</span>
                                         <span>$10.000.000</span>
                                     </div>
@@ -693,13 +693,13 @@ export default function SimuladorPage() {
                                     )}
                                 </div>
                                 <div>
-                                    <label className="text-xs font-medium mb-1 block" style={{color:'var(--fg-muted)'}}>Edad actual</label>
+                                    <label className="text-xs font-medium mb-1 block text-[var(--fg-muted)]">Edad actual</label>
                                     <input type="number" min={18} max={75} value={age} onChange={e=>setAge(e.target.value)} className={`w-full px-3 py-2 rounded-xl text-sm border outline-none bg-[var(--bg-subtle)] border-[var(--border)] text-[var(--fg)] ${age && (parseInt(age) < 18 || parseInt(age) > 75) ? 'ring-1 ring-red-400' : ''}`} />
                                     {age && parseInt(age) < 18 && <p className="text-[10px] mt-1 text-red-500">Edad mínima 18 años</p>}
                                     {age && parseInt(age) > 75 && <p className="text-[10px] mt-1 text-red-500">Edad máxima 75 años</p>}
                                 </div>
                                 <div>
-                                    <label className="text-xs font-medium mb-1 block" style={{color:'var(--fg-muted)'}}>Tipo empleo</label>
+                                    <label className="text-xs font-medium mb-1 block text-[var(--fg-muted)]">Tipo empleo</label>
                                     <ModernSelect
                                         value={employmentType}
                                         onChange={v=>setEmploymentType(v)}
@@ -711,7 +711,7 @@ export default function SimuladorPage() {
                                     />
                                 </div>
                                 <div>
-                                    <label className="text-xs font-medium mb-1 block" style={{color:'var(--fg-muted)'}}>Antigüedad laboral</label>
+                                    <label className="text-xs font-medium mb-1 block text-[var(--fg-muted)]">Antigüedad laboral</label>
                                     <ModernSelect
                                         value={employmentYears}
                                         onChange={v=>setEmploymentYears(v)}
@@ -730,7 +730,7 @@ export default function SimuladorPage() {
                                     />
                                 </div>
                                 <div>
-                                    <label className="text-xs font-medium mb-1 block" style={{color:'var(--fg-muted)'}}>Ahorros disponibles (opcional)</label>
+                                    <label className="text-xs font-medium mb-1 block text-[var(--fg-muted)]">Ahorros disponibles (opcional)</label>
                                     <input type="text" inputMode="numeric" value={availableDownPayment} onChange={e=>setAvailableDownPayment(formatCLP(e.target.value))} className="w-full px-3 py-2 rounded-xl text-sm border outline-none bg-[var(--bg-subtle)] border-[var(--border)] text-[var(--fg)]" placeholder="Ej: 5.000.000" />
                                 </div>
                             </div>
@@ -742,39 +742,39 @@ export default function SimuladorPage() {
                             </h3>
                             <div className="grid gap-3 sm:grid-cols-3">
                                 <div>
-                                    <label className="text-[10px] font-medium mb-1 block" style={{color:'var(--fg-muted)'}} title={DEBT_TYPES_INFO.dividendoHipotecario.bankTreatment}>
+                                    <label className="text-[10px] font-medium mb-1 block text-[var(--fg-muted)]" title={DEBT_TYPES_INFO.dividendoHipotecario.bankTreatment}>
                                         Dividendo hipotecario ℹ
                                     </label>
                                     <input type="text" inputMode="numeric" value={debts.dividendoHipotecario} onChange={e=>setDebts(p=>({...p,dividendoHipotecario:formatCLP(e.target.value)}))} className="w-full px-3 py-2 rounded-xl text-sm border outline-none bg-[var(--bg-subtle)] border-[var(--border)] text-[var(--fg)]" placeholder="Ej: 0" />
                                 </div>
                                 <div>
-                                    <label className="text-[10px] font-medium mb-1 block" style={{color:'var(--fg-muted)'}} title={DEBT_TYPES_INFO.creditoConsumo.bankTreatment}>
+                                    <label className="text-[10px] font-medium mb-1 block text-[var(--fg-muted)]" title={DEBT_TYPES_INFO.creditoConsumo.bankTreatment}>
                                         Crédito de consumo ℹ
                                     </label>
                                     <input type="text" inputMode="numeric" value={debts.creditoConsumo} onChange={e=>setDebts(p=>({...p,creditoConsumo:formatCLP(e.target.value)}))} className="w-full px-3 py-2 rounded-xl text-sm border outline-none bg-[var(--bg-subtle)] border-[var(--border)] text-[var(--fg)]" placeholder="Ej: 0" />
                                 </div>
                                 <div>
-                                    <label className="text-[10px] font-medium mb-1 block" style={{color:'var(--fg-muted)'}} title={DEBT_TYPES_INFO.tarjetaCredito.bankTreatment}>
+                                    <label className="text-[10px] font-medium mb-1 block text-[var(--fg-muted)]" title={DEBT_TYPES_INFO.tarjetaCredito.bankTreatment}>
                                         Límite tarjeta crédito ℹ
                                     </label>
                                     <input type="text" inputMode="numeric" value={debts.tarjetaCredito} onChange={e=>setDebts(p=>({...p,tarjetaCredito:formatCLP(e.target.value)}))} className="w-full px-3 py-2 rounded-xl text-sm border outline-none bg-[var(--bg-subtle)] border-[var(--border)] text-[var(--fg)]" placeholder="Ej: 5.000.000" />
-                                    <p className="text-[9px] mt-0.5" style={{color:'var(--fg-muted)'}}>Se considera {(DEBT_TYPE_FACTORS.tarjetaCredito * 100).toFixed(0)}% del límite</p>
+                                    <p className="text-[9px] mt-0.5 text-[var(--fg-muted)]">Se considera {(DEBT_TYPE_FACTORS.tarjetaCredito * 100).toFixed(0)}% del límite</p>
                                 </div>
                                 <div>
-                                    <label className="text-[10px] font-medium mb-1 block" style={{color:'var(--fg-muted)'}} title={DEBT_TYPES_INFO.lineaCredito.bankTreatment}>
+                                    <label className="text-[10px] font-medium mb-1 block text-[var(--fg-muted)]" title={DEBT_TYPES_INFO.lineaCredito.bankTreatment}>
                                         Límite línea crédito ℹ
                                     </label>
                                     <input type="text" inputMode="numeric" value={debts.lineaCredito} onChange={e=>setDebts(p=>({...p,lineaCredito:formatCLP(e.target.value)}))} className="w-full px-3 py-2 rounded-xl text-sm border outline-none bg-[var(--bg-subtle)] border-[var(--border)] text-[var(--fg)]" placeholder="Ej: 10.000.000" />
-                                    <p className="text-[9px] mt-0.5" style={{color:'var(--fg-muted)'}}>Se considera {(DEBT_TYPE_FACTORS.lineaCredito * 100).toFixed(0)}% del límite</p>
+                                    <p className="text-[9px] mt-0.5 text-[var(--fg-muted)]">Se considera {(DEBT_TYPE_FACTORS.lineaCredito * 100).toFixed(0)}% del límite</p>
                                 </div>
                                 <div>
-                                    <label className="text-[10px] font-medium mb-1 block" style={{color:'var(--fg-muted)'}} title={DEBT_TYPES_INFO.creditoAutomotriz.bankTreatment}>
+                                    <label className="text-[10px] font-medium mb-1 block text-[var(--fg-muted)]" title={DEBT_TYPES_INFO.creditoAutomotriz.bankTreatment}>
                                         Crédito automotriz ℹ
                                     </label>
                                     <input type="text" inputMode="numeric" value={debts.creditoAutomotriz} onChange={e=>setDebts(p=>({...p,creditoAutomotriz:formatCLP(e.target.value)}))} className="w-full px-3 py-2 rounded-xl text-sm border outline-none bg-[var(--bg-subtle)] border-[var(--border)] text-[var(--fg)]" placeholder="Ej: 0" />
                                 </div>
                                 <div>
-                                    <label className="text-[10px] font-medium mb-1 block" style={{color:'var(--fg-muted)'}} title={DEBT_TYPES_INFO.otraDeuda.bankTreatment}>
+                                    <label className="text-[10px] font-medium mb-1 block text-[var(--fg-muted)]" title={DEBT_TYPES_INFO.otraDeuda.bankTreatment}>
                                         Otra deuda ℹ
                                     </label>
                                     <input type="text" inputMode="numeric" value={debts.otraDeuda} onChange={e=>setDebts(p=>({...p,otraDeuda:formatCLP(e.target.value)}))} className="w-full px-3 py-2 rounded-xl text-sm border outline-none bg-[var(--bg-subtle)] border-[var(--border)] text-[var(--fg)]" placeholder="Ej: 0" />
@@ -782,11 +782,11 @@ export default function SimuladorPage() {
                             </div>
                             <div className="mt-2 p-3 rounded-lg border bg-[var(--bg-subtle)] border-[var(--border)] space-y-1">
                                 <div className="flex justify-between text-xs">
-                                    <span style={{color:'var(--fg-muted)'}}>Total deudas mensuales (evaluación bancaria)</span>
-                                    <span className="font-semibold" style={{color:'var(--fg)'}}>{formatCurrency(totalDebts)}</span>
+                                    <span className="text-[var(--fg-muted)]">Total deudas mensuales (evaluación bancaria)</span>
+                                    <span className="font-semibold text-[var(--fg)]">{formatCurrency(totalDebts)}</span>
                                 </div>
                                 {(parseCLP(debts.tarjetaCredito) > 0 || parseCLP(debts.lineaCredito) > 0) && (
-                                    <div className="text-[10px] pt-1 border-t" style={{color:'var(--fg-muted)', borderColor:'var(--border)'}}>
+                                    <div className="text-[10px] pt-1 border-t text-[var(--fg-muted)] border-[var(--border)]">
                                         <p className="mb-0.5"><strong>Cálculo real según bancos:</strong></p>
                                         {parseCLP(debts.dividendoHipotecario) > 0 && (
                                             <p>• Dividendo: {formatCurrency(parseCLP(debts.dividendoHipotecario))} × {(DEBT_TYPE_FACTORS.dividendoHipotecario * 100).toFixed(0)}% = {formatCurrency(calculatedDebts.dividendoHipotecario)}</p>
@@ -811,33 +811,32 @@ export default function SimuladorPage() {
                             </h3>
                             <div className="grid gap-3 sm:grid-cols-2">
                                 <div>
-                                    <label className="text-xs font-medium mb-1 block" style={{color:'var(--fg-muted)'}}>Tasa anual (%)</label>
+                                    <label className="text-xs font-medium mb-1 block text-[var(--fg-muted)]">Tasa anual (%)</label>
                                     <input type="number" min={0} step="0.01" value={annualRate} onChange={e=>setAnnualRate(e.target.value)} className="w-full px-3 py-2 rounded-xl text-sm border outline-none bg-[var(--bg-subtle)] border-[var(--border)] text-[var(--fg)]" />
                                     <div className="flex items-center gap-1 mt-1">
-                                        <p className="text-[10px]" style={{color:'var(--fg-muted)'}}>
+                                        <p className="text-[10px] text-[var(--fg-muted)]">
                                             Fuente: {CURRENT_RATES.bestMarketRate.source}
                                         </p>
                                         <a 
                                             href={CURRENT_RATES.bestMarketRate.url} 
                                             target="_blank" 
                                             rel="noopener noreferrer"
-                                            className="text-[10px] hover:underline inline-flex items-center"
-                                            style={{color:'var(--accent)'}}
+                                            className="text-[10px] hover:underline inline-flex items-center text-[var(--accent)]"
                                         >
                                             <IconExternalLink size={10} />
                                         </a>
                                     </div>
-                                    <p className="text-[9px] mt-0.5" style={{color:'var(--fg-muted)'}}>
+                                    <p className="text-[9px] mt-0.5 text-[var(--fg-muted)]">
                                         Última actualización: {CURRENT_RATES.bestMarketRate.lastUpdated}
                                     </p>
                                 </div>
                                 <div>
-                                    <label className="text-xs font-medium mb-1 block" style={{color:'var(--fg-muted)'}}>Financiamiento (%)</label>
+                                    <label className="text-xs font-medium mb-1 block text-[var(--fg-muted)]">Financiamiento (%)</label>
                                     <input type="number" min={0} max={90} value={bankPercentage} onChange={e=>setBankPercentage(e.target.value)} className={`w-full px-3 py-2 rounded-xl text-sm border outline-none bg-[var(--bg-subtle)] border-[var(--border)] text-[var(--fg)] ${(parseFloat(bankPercentage)||80) <= 0 || (parseFloat(bankPercentage)||80) > 90 ? 'ring-1 ring-red-400' : ''}`} />
                                     {((parseFloat(bankPercentage)||80) <= 0 || (parseFloat(bankPercentage)||80) > 90) && <p className="text-[10px] mt-1 text-red-500">Debe ser entre 1 y 90</p>}
                                 </div>
                                 <div>
-                                    <label className="text-xs font-medium mb-1 block" style={{color:'var(--fg-muted)'}}>Tipo propiedad</label>
+                                    <label className="text-xs font-medium mb-1 block text-[var(--fg-muted)]">Tipo propiedad</label>
                                     <ModernSelect
                                         value={propertyType}
                                         onChange={v=>setPropertyType(v as 'new'|'used')}
@@ -849,7 +848,7 @@ export default function SimuladorPage() {
                                     />
                                 </div>
                                 <div>
-                                    <label className="text-xs font-medium mb-1 block" style={{color:'var(--fg-muted)'}}>Plazo (años)</label>
+                                    <label className="text-xs font-medium mb-1 block text-[var(--fg-muted)]">Plazo (años)</label>
                                     <ModernSelect
                                         value={customLoanYears}
                                         onChange={v=>setCustomLoanYears(v)}
@@ -861,12 +860,12 @@ export default function SimuladorPage() {
                                         triggerClassName={parseInt(age||'35')+(customLoanYears?parseInt(customLoanYears):Math.max(5,Math.min(30,75-(parseInt(age)||35))))>75 ? 'ring-1 ring-red-400' : ''}
                                     />
                                     {parseInt(age||'35')+(customLoanYears?parseInt(customLoanYears):Math.max(5,Math.min(30,75-(parseInt(age)||35))))>75 && (
-                                        <p className="text-[10px] mt-1" style={{color:'var(--color-error)'}}>El plazo excede el límite de edad (75 años). Se ajustará automáticamente.</p>
+                                        <p className="text-[10px] mt-1 text-[var(--color-error)]">El plazo excede el límite de edad (75 años). Se ajustará automáticamente.</p>
                                     )}
                                 </div>
                                 <div className="sm:col-span-2 flex items-center gap-2 mt-1">
                                     <input type="checkbox" id="hasSubsidy" checked={hasSubsidy} onChange={e=>setHasSubsidy(e.target.checked)} className="w-4 h-4 rounded accent-[var(--accent)]" />
-                                    <label htmlFor="hasSubsidy" className="text-xs" style={{color:'var(--fg-muted)'}}>¿Cliente tiene subsidio estatal? (DS1 / DS49)</label>
+                                    <label htmlFor="hasSubsidy" className="text-xs text-[var(--fg-muted)]">¿Cliente tiene subsidio estatal? (DS1 / DS49)</label>
                                 </div>
                             </div>
                         </div>
@@ -953,7 +952,7 @@ export default function SimuladorPage() {
                                 </div>
                                 
                                 {parseCLP(debts.dividendoHipotecario) > 0 && (
-                                    <p className="text-[10px] text-center" style={{color:'var(--color-warning)'}}>⚠ Cliente ya tiene dividendo hipotecario activo. Evaluar como segunda vivienda.</p>
+                                    <p className="text-[10px] text-center text-[var(--color-warning)]">⚠ Cliente ya tiene dividendo hipotecario activo. Evaluar como segunda vivienda.</p>
                                 )}
 
                                 {/* Cuota mensual DESTACADA + Pie + Plazo */}
@@ -982,8 +981,8 @@ export default function SimuladorPage() {
                                 {/* DTI UNIFICADO: Barra única visual */}
                                 <div className="p-4 rounded-xl border bg-[var(--bg)] border-[var(--border)]">
                                     <div className="flex justify-between text-[11px] items-center mb-2">
-                                        <span className="font-medium" style={{color:'var(--fg)'}}>Indicador de endeudamiento (DTI)</span>
-                                        <span className="font-semibold" style={{color: activeScenario.dtiPostRatio > 40 ? 'var(--color-error)' : activeScenario.dtiPostRatio > 33 ? 'var(--color-warning)' : 'var(--color-success)'}}>
+                                        <span className="font-medium text-[var(--fg)]">Indicador de endeudamiento (DTI)</span>
+                                        <span className={`font-semibold ${activeScenario.dtiPostRatio > 40 ? 'text-[var(--color-error)]' : activeScenario.dtiPostRatio > 33 ? 'text-[var(--color-warning)]' : 'text-[var(--color-success)]'}`}>
                                             {result.dtiRatio.toFixed(1)}% → {activeScenario.dtiPostRatio.toFixed(1)}%
                                         </span>
                                     </div>
@@ -1001,11 +1000,8 @@ export default function SimuladorPage() {
                                         />
                                         {/* Barra DTI post-hipoteca */}
                                         <div 
-                                            className="absolute top-0 left-0 h-full rounded-full transition-all opacity-80"
-                                            style={{
-                                                width:`${Math.min((activeScenario.dtiPostRatio/40)*100,100)}%`,
-                                                background: activeScenario.dtiPostRatio > 40 ? 'var(--color-error)' : activeScenario.dtiPostRatio > 33 ? 'var(--color-warning)' : 'var(--color-success)'
-                                            }} 
+                                            className={`absolute top-0 left-0 h-full rounded-full transition-all opacity-80 ${activeScenario.dtiPostRatio > 40 ? 'bg-[var(--color-error)]' : activeScenario.dtiPostRatio > 33 ? 'bg-[var(--color-warning)]' : 'bg-[var(--color-success)]'}`}
+                                            style={{width:`${Math.min((activeScenario.dtiPostRatio/40)*100,100)}%`}}
                                         />
                                     </div>
                                     <div className="flex justify-between text-[9px] mt-1.5 text-[var(--fg-muted)]">
@@ -1018,7 +1014,7 @@ export default function SimuladorPage() {
 
                                 {/* Mejor opción bancaria simplificada */}
                                 <div className="p-4 rounded-xl border bg-[var(--bg)] border-[var(--border)]">
-                                    <p className="text-[10px] uppercase font-semibold mb-2" style={{color:'var(--fg-muted)'}}>Mejor opción para este perfil</p>
+                                    <p className="text-[10px] uppercase font-semibold mb-2 text-[var(--fg-muted)]">Mejor opción para este perfil</p>
                                     {bestBank.status === 'likely' ? (
                                         <div className="flex items-center gap-3 p-3 rounded-lg bg-emerald-500/10 border border-emerald-500/30">
                                             <div className="w-10 h-10 rounded-full bg-emerald-500 flex items-center justify-center text-white">
@@ -1047,11 +1043,7 @@ export default function SimuladorPage() {
                                             {banks.filter(b => b.name !== bestBank.name).map(b => (
                                                 <span 
                                                     key={b.name} 
-                                                    className="text-[9px] px-1.5 py-0.5 rounded"
-                                                    style={{
-                                                        background: b.status==='likely' ? 'rgba(34,197,94,0.1)' : b.status==='review' ? 'rgba(234,179,8,0.1)' : 'rgba(239,68,68,0.1)',
-                                                        color: b.status==='likely' ? '#16a34a' : b.status==='review' ? '#ca8a04' : '#dc2626'
-                                                    }}
+                                                    className={`text-[9px] px-1.5 py-0.5 rounded ${b.status==='likely' ? 'bg-emerald-500/10 text-emerald-600' : b.status==='review' ? 'bg-amber-500/10 text-amber-600' : 'bg-red-500/10 text-red-600'}`}
                                                 >
                                                     {b.name}: {b.status==='likely' ? 'Probable' : b.status==='review' ? 'Revisar' : 'Baja'}
                                                 </span>
@@ -1062,21 +1054,21 @@ export default function SimuladorPage() {
 
                                 {/* Pie disponible vs estimado */}
                                 {parseCLP(availableDownPayment) > 0 && (
-                                    <div className="p-3 rounded-xl border" style={{background:'var(--bg-subtle)',borderColor:'var(--border)'}}>
-                                        <p className="text-[10px] uppercase font-semibold mb-1" style={{color:'var(--fg-muted)'}}>Ahorros disponibles</p>
+                                    <div className="p-3 rounded-xl border bg-[var(--bg-subtle)] border-[var(--border)]">
+                                        <p className="text-[10px] uppercase font-semibold mb-1 text-[var(--fg-muted)]">Ahorros disponibles</p>
                                         <div className="flex justify-between text-xs items-center">
-                                            <span style={{color:'var(--fg-muted)'}}>Pie disponible</span>
-                                            <span style={{color:'var(--fg)'}}>{formatCurrency(parseCLP(availableDownPayment))}</span>
+                                            <span className="text-[var(--fg-muted)]">Pie disponible</span>
+                                            <span className="text-[var(--fg)]">{formatCurrency(parseCLP(availableDownPayment))}</span>
                                         </div>
                                         <div className="flex justify-between text-xs items-center">
-                                            <span style={{color:'var(--fg-muted)'}}>Pie estimado ({scenarioTab === 'recommended' ? result.recommendedDTI : result.maxDTI}% escenario)</span>
-                                            <span style={{color:'var(--fg)'}}>{formatCurrency(scenarioTab === 'recommended' ? result.recommended.minPieNeeded : result.limit.minPieNeeded)}</span>
+                                            <span className="text-[var(--fg-muted)]">Pie estimado ({scenarioTab === 'recommended' ? result.recommendedDTI : result.maxDTI}% escenario)</span>
+                                            <span className="text-[var(--fg)]">{formatCurrency(scenarioTab === 'recommended' ? result.recommended.minPieNeeded : result.limit.minPieNeeded)}</span>
                                         </div>
-                                        <div className="flex justify-between text-xs items-center font-semibold pt-1 border-t mt-1" style={{borderColor:'var(--border)'}}>
-                                            <span style={{color: parseCLP(availableDownPayment) >= (scenarioTab === 'recommended' ? result.recommended.minPieNeeded : result.limit.minPieNeeded) ? 'var(--color-success)' : 'var(--color-warning)'}}>
+                                        <div className="flex justify-between text-xs items-center font-semibold pt-1 border-t mt-1 border-[var(--border)]">
+                                            <span className={parseCLP(availableDownPayment) >= (scenarioTab === 'recommended' ? result.recommended.minPieNeeded : result.limit.minPieNeeded) ? 'text-[var(--color-success)]' : 'text-[var(--color-warning)]'}>
                                                 {parseCLP(availableDownPayment) >= (scenarioTab === 'recommended' ? result.recommended.minPieNeeded : result.limit.minPieNeeded) ? 'Excedente' : 'Déficit'}
                                             </span>
-                                            <span style={{color: parseCLP(availableDownPayment) >= (scenarioTab === 'recommended' ? result.recommended.minPieNeeded : result.limit.minPieNeeded) ? 'var(--color-success)' : 'var(--color-warning)'}}>
+                                            <span className={parseCLP(availableDownPayment) >= (scenarioTab === 'recommended' ? result.recommended.minPieNeeded : result.limit.minPieNeeded) ? 'text-[var(--color-success)]' : 'text-[var(--color-warning)]'}>
                                                 {formatCurrency(Math.abs(parseCLP(availableDownPayment) - (scenarioTab === 'recommended' ? result.recommended.minPieNeeded : result.limit.minPieNeeded)))}
                                             </span>
                                         </div>
@@ -1094,67 +1086,67 @@ export default function SimuladorPage() {
                                 {showAdvanced&&(
                                     <div className="p-4 rounded-2xl border space-y-3 text-xs bg-[var(--bg)] border-[var(--border)]">
                                         {activeReason && (
-                                            <div className="p-2 rounded-lg border text-[10px]" style={{background:'rgba(239,68,68,0.05)',borderColor:'#ef4444',color:'#ef4444'}}>
+                                            <div className="p-2 rounded-lg border text-[10px] bg-red-500/5 border-red-500 text-red-500">
                                                 <strong>Motivo:</strong> {activeReason}
                                             </div>
                                         )}
                                         {/* Crédito */}
                                         <div>
-                                            <p className="text-[10px] uppercase font-semibold mb-2" style={{color:'var(--fg-muted)'}}>Crédito hipotecario</p>
+                                            <p className="text-[10px] uppercase font-semibold mb-2 text-[var(--fg-muted)]">Crédito hipotecario</p>
                                             <div className="space-y-1">
-                                                <div className="flex justify-between"><span style={{color:'var(--fg-muted)'}}>Monto préstamo</span><span style={{color:'var(--fg)'}}>{formatCurrency(scenarioTab === 'recommended' ? result.recommended.maxCredit : result.limit.maxCredit)}</span></div>
-                                                <div className="flex justify-between"><span style={{color:'var(--fg-muted)'}}>Tasa anual</span><span style={{color:'var(--fg)'}}>{annualRate}%</span></div>
-                                                <div className="flex justify-between"><span style={{color:'var(--fg-muted)'}}>Intereses totales</span><span style={{color:'var(--fg)'}}>{formatCurrency(scenarioTab === 'recommended' ? result.recommended.totalInterest : result.limit.totalInterest)}</span></div>
+                                                <div className="flex justify-between"><span className="text-[var(--fg-muted)]">Monto préstamo</span><span className="text-[var(--fg)]">{formatCurrency(scenarioTab === 'recommended' ? result.recommended.maxCredit : result.limit.maxCredit)}</span></div>
+                                                <div className="flex justify-between"><span className="text-[var(--fg-muted)]">Tasa anual</span><span className="text-[var(--fg)]">{annualRate}%</span></div>
+                                                <div className="flex justify-between"><span className="text-[var(--fg-muted)]">Intereses totales</span><span className="text-[var(--fg)]">{formatCurrency(scenarioTab === 'recommended' ? result.recommended.totalInterest : result.limit.totalInterest)}</span></div>
                                             </div>
                                         </div>
-                                        <div style={{borderColor:'var(--border)'}} className="border-t pt-2" />
+                                        <div className="border-t border-[var(--border)] pt-2" />
                                         {/* Propiedad */}
                                         <div>
-                                            <p className="text-[10px] uppercase font-semibold mb-2" style={{color:'var(--fg-muted)'}}>Propiedad</p>
+                                            <p className="text-[10px] uppercase font-semibold mb-2 text-[var(--fg-muted)]">Propiedad</p>
                                             <div className="space-y-1">
-                                                <div className="flex justify-between"><span style={{color:'var(--fg-muted)'}}>Valor propiedad</span><span style={{color:'var(--fg)'}}>{formatCurrency(scenarioTab === 'recommended' ? result.recommended.propertyValue : result.limit.propertyValue)}</span></div>
-                                                <div className="flex justify-between"><span style={{color:'var(--fg-muted)'}}>Pie Estimado</span><span style={{color:'var(--fg)'}}>{formatCurrency(scenarioTab === 'recommended' ? result.recommended.pie : result.limit.pie)}</span></div>
-                                                <div className="flex justify-between"><span style={{color:'var(--fg-muted)'}}>Gastos operacionales</span><span style={{color:'var(--fg)'}}>{formatCurrency(scenarioTab === 'recommended' ? result.recommended.totalFees : result.limit.totalFees)}</span></div>
-                                                <div className="flex justify-between"><span style={{color:'var(--fg-muted)'}}>Pie total requerido</span><span style={{color:'var(--fg)'}}>{formatCurrency(scenarioTab === 'recommended' ? result.recommended.minPieNeeded : result.limit.minPieNeeded)}</span></div>
+                                                <div className="flex justify-between"><span className="text-[var(--fg-muted)]">Valor propiedad</span><span className="text-[var(--fg)]">{formatCurrency(scenarioTab === 'recommended' ? result.recommended.propertyValue : result.limit.propertyValue)}</span></div>
+                                                <div className="flex justify-between"><span className="text-[var(--fg-muted)]">Pie Estimado</span><span className="text-[var(--fg)]">{formatCurrency(scenarioTab === 'recommended' ? result.recommended.pie : result.limit.pie)}</span></div>
+                                                <div className="flex justify-between"><span className="text-[var(--fg-muted)]">Gastos operacionales</span><span className="text-[var(--fg)]">{formatCurrency(scenarioTab === 'recommended' ? result.recommended.totalFees : result.limit.totalFees)}</span></div>
+                                                <div className="flex justify-between"><span className="text-[var(--fg-muted)]">Pie total requerido</span><span className="text-[var(--fg)]">{formatCurrency(scenarioTab === 'recommended' ? result.recommended.minPieNeeded : result.limit.minPieNeeded)}</span></div>
                                             </div>
                                         </div>
-                                        <div style={{borderColor:'var(--border)'}} className="border-t pt-2" />
+                                        <div className="border-t border-[var(--border)] pt-2" />
                                         {/* Mensualidad */}
                                         <div>
-                                            <p className="text-[10px] uppercase font-semibold mb-2" style={{color:'var(--fg-muted)'}}>Mensualidad</p>
+                                            <p className="text-[10px] uppercase font-semibold mb-2 text-[var(--fg-muted)]">Mensualidad</p>
                                             <div className="space-y-1">
-                                                <div className="flex justify-between"><span style={{color:'var(--fg-muted)'}}>Cuota mensual</span><span style={{color:'var(--fg)'}}>{formatCurrency(scenarioTab === 'recommended' ? result.recommended.monthlyPayment : result.limit.monthlyPayment)}</span></div>
-                                                <div className="flex justify-between"><span style={{color:'var(--fg-muted)'}} title="Seguros de desgravamen, sismo e incendio estimados sobre el saldo promedio del crédito.">Seguros mensuales (estimado) ℹ</span><span style={{color:'var(--fg)'}}>{formatCurrency(scenarioTab === 'recommended' ? result.recommended.totalInsurance : result.limit.totalInsurance)}</span></div>
-                                                <div className="flex justify-between"><span style={{color:'var(--fg-muted)'}} title="Costo Anual Equivalente: incluye la tasa de interés, seguros y gastos operacionales distribuidos.">CAE (Costo Anual Equivalente) ℹ</span><span style={{color:'var(--fg)'}}>{(scenarioTab === 'recommended' ? result.recommended.cae : result.limit.cae).toFixed(2)}%</span></div>
+                                                <div className="flex justify-between"><span className="text-[var(--fg-muted)]">Cuota mensual</span><span className="text-[var(--fg)]">{formatCurrency(scenarioTab === 'recommended' ? result.recommended.monthlyPayment : result.limit.monthlyPayment)}</span></div>
+                                                <div className="flex justify-between"><span className="text-[var(--fg-muted)]" title="Seguros de desgravamen, sismo e incendio estimados sobre el saldo promedio del crédito.">Seguros mensuales (estimado) ℹ</span><span className="text-[var(--fg)]">{formatCurrency(scenarioTab === 'recommended' ? result.recommended.totalInsurance : result.limit.totalInsurance)}</span></div>
+                                                <div className="flex justify-between"><span className="text-[var(--fg-muted)]" title="Costo Anual Equivalente: incluye la tasa de interés, seguros y gastos operacionales distribuidos.">CAE (Costo Anual Equivalente) ℹ</span><span className="text-[var(--fg)]">{(scenarioTab === 'recommended' ? result.recommended.cae : result.limit.cae).toFixed(2)}%</span></div>
                                             </div>
                                         </div>
-                                        <div style={{borderColor:'var(--border)'}} className="border-t pt-2" />
+                                        <div className="border-t border-[var(--border)] pt-2" />
                                         {/* Capacidad */}
                                         <div>
-                                            <p className="text-[10px] uppercase font-semibold mb-2" style={{color:'var(--fg-muted)'}}>Capacidad</p>
+                                            <p className="text-[10px] uppercase font-semibold mb-2 text-[var(--fg-muted)]">Capacidad</p>
                                             <div className="space-y-1">
-                                                <div className="flex justify-between"><span style={{color:'var(--fg-muted)'}}>Capacidad máx. recomendada ({result.recommendedDTI}%)</span><span style={{color:'var(--fg)'}}>{formatCurrency(result.recommended.capacity)}</span></div>
-                                                <div className="flex justify-between"><span style={{color:'var(--fg-muted)'}}>Capacidad máx. límite ({result.maxDTI}%)</span><span style={{color:'var(--fg)'}}>{formatCurrency(result.limit.capacity)}</span></div>
-                                                <div className="flex justify-between"><span style={{color:'var(--fg-muted)'}}>Cuota disponible recomendada</span><span style={{color:'var(--fg)'}}>{formatCurrency(result.recommended.availableQuota)}</span></div>
-                                                <div className="flex justify-between"><span style={{color:'var(--fg-muted)'}}>Cuota disponible límite</span><span style={{color:'var(--fg)'}}>{formatCurrency(result.limit.availableQuota)}</span></div>
+                                                <div className="flex justify-between"><span className="text-[var(--fg-muted)]">Capacidad máx. recomendada ({result.recommendedDTI}%)</span><span className="text-[var(--fg)]">{formatCurrency(result.recommended.capacity)}</span></div>
+                                                <div className="flex justify-between"><span className="text-[var(--fg-muted)]">Capacidad máx. límite ({result.maxDTI}%)</span><span className="text-[var(--fg)]">{formatCurrency(result.limit.capacity)}</span></div>
+                                                <div className="flex justify-between"><span className="text-[var(--fg-muted)]">Cuota disponible recomendada</span><span className="text-[var(--fg)]">{formatCurrency(result.recommended.availableQuota)}</span></div>
+                                                <div className="flex justify-between"><span className="text-[var(--fg-muted)]">Cuota disponible límite</span><span className="text-[var(--fg)]">{formatCurrency(result.limit.availableQuota)}</span></div>
                                             </div>
                                         </div>
-                                        <div style={{borderColor:'var(--border)'}} className="border-t pt-2" />
+                                        <div className="border-t border-[var(--border)] pt-2" />
                                         {/* Desglose gastos */}
                                         <div>
-                                            <p className="text-[10px] uppercase font-semibold mb-2" style={{color:'var(--fg-muted)'}}>Desglose gastos operacionales</p>
+                                            <p className="text-[10px] uppercase font-semibold mb-2 text-[var(--fg-muted)]">Desglose gastos operacionales</p>
                                             <div className="space-y-1">
                                                 {(() => {
                                                     const fd = scenarioTab === 'recommended' ? result.recommended.feeDetails : result.limit.feeDetails;
                                                     return (
                                                         <>
-                                                            <div className="flex justify-between"><span style={{color:'var(--fg-muted)'}}>Avalúo / Tasación</span><span style={{color:'var(--fg)'}}>{formatCurrency(fd.appraisal)}</span></div>
-                                                            <div className="flex justify-between"><span style={{color:'var(--fg-muted)'}}>Notaría + Conservador (1.2%)</span><span style={{color:'var(--fg)'}}>{formatCurrency(fd.notary)}</span></div>
-                                                            {fd.stamps > 0 && <div className="flex justify-between"><span style={{color:'var(--fg-muted)'}}>Timbres y estampillas (1.5%)</span><span style={{color:'var(--fg)'}}>{formatCurrency(fd.stamps)}</span></div>}
-                                                            {fd.mortgageTax > 0 && <div className="flex justify-between"><span style={{color:'var(--fg-muted)'}}>Impuesto al mutuo (0.5%)</span><span style={{color:'var(--fg)'}}>{formatCurrency(fd.mortgageTax)}</span></div>}
-                                                            <div className="flex justify-between"><span style={{color:'var(--fg-muted)'}}>Gastos bancarios</span><span style={{color:'var(--fg)'}}>{formatCurrency(fd.bankFees)}</span></div>
-                                                            <div className="flex justify-between"><span style={{color:'var(--fg-muted)'}}>Estudio de títulos</span><span style={{color:'var(--fg)'}}>{formatCurrency(fd.titleStudy)}</span></div>
-                                                            <div className="flex justify-between font-semibold pt-1 border-t mt-1" style={{borderColor:'var(--border)',color:'var(--fg)'}}>
+                                                            <div className="flex justify-between"><span className="text-[var(--fg-muted)]">Avalúo / Tasación</span><span className="text-[var(--fg)]">{formatCurrency(fd.appraisal)}</span></div>
+                                                            <div className="flex justify-between"><span className="text-[var(--fg-muted)]">Notaría + Conservador (1.2%)</span><span className="text-[var(--fg)]">{formatCurrency(fd.notary)}</span></div>
+                                                            {fd.stamps > 0 && <div className="flex justify-between"><span className="text-[var(--fg-muted)]">Timbres y estampillas (1.5%)</span><span className="text-[var(--fg)]">{formatCurrency(fd.stamps)}</span></div>}
+                                                            {fd.mortgageTax > 0 && <div className="flex justify-between"><span className="text-[var(--fg-muted)]">Impuesto al mutuo (0.5%)</span><span className="text-[var(--fg)]">{formatCurrency(fd.mortgageTax)}</span></div>}
+                                                            <div className="flex justify-between"><span className="text-[var(--fg-muted)]">Gastos bancarios</span><span className="text-[var(--fg)]">{formatCurrency(fd.bankFees)}</span></div>
+                                                            <div className="flex justify-between"><span className="text-[var(--fg-muted)]">Estudio de títulos</span><span className="text-[var(--fg)]">{formatCurrency(fd.titleStudy)}</span></div>
+                                                            <div className="flex justify-between font-semibold pt-1 border-t mt-1 border-[var(--border)] text-[var(--fg)]">
                                                                 <span>Total gastos</span>
                                                                 <span>{formatCurrency(fd.total)}</span>
                                                             </div>
@@ -1162,7 +1154,7 @@ export default function SimuladorPage() {
                                                     );
                                                 })()}
                                             </div>
-                                            <p className="text-[10px] mt-2" style={{color:'var(--fg-muted)'}}>Gastos calculados sobre valor máx. alcanzable</p>
+                                            <p className="text-[10px] mt-2 text-[var(--fg-muted)]">Gastos calculados sobre valor máx. alcanzable</p>
                                         </div>
                                     </div>
                                 )}
@@ -1174,8 +1166,8 @@ export default function SimuladorPage() {
                             </>
                         ):(
                             <div className="p-6 rounded-2xl border text-center bg-[var(--bg)] border-[var(--border)]">
-                                <IconCalculator size={32} className="mx-auto mb-2" style={{color:'var(--fg-muted)'}} />
-                                <p className="text-sm font-medium" style={{color:'var(--fg-muted)'}}>Ingresa los datos y calcula</p>
+                                <IconCalculator size={32} className="mx-auto mb-2 text-[var(--fg-muted)]" />
+                                <p className="text-sm font-medium text-[var(--fg-muted)]">Ingresa los datos y calcula</p>
                             </div>
                         )}
                     </div>

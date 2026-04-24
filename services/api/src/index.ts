@@ -2,6 +2,7 @@ import { existsSync, appendFileSync } from 'node:fs';
 import fs from 'node:fs/promises';
 import { createHash, randomBytes, randomUUID, timingSafeEqual } from 'node:crypto';
 import path from 'node:path';
+import { createDebugLogger, asString, asNumber, asObject } from './modules/shared/index.js';
 
 // Load environment variables FIRST, before any other imports
 const API_ROOT_DIR = path.resolve(__dirname, '..');
@@ -175,24 +176,67 @@ import { createSystemRouter } from './modules/system/index.js';
 import { createSocialRouter } from './modules/social/index.js';
 import { createPublicRouter } from './modules/public/index.js';
 
-type UserRole = 'user' | 'admin' | 'superadmin';
-type UserStatus = 'active' | 'verified' | 'suspended';
-type VerticalType = 'autos' | 'propiedades' | 'agenda' | 'serenatas';
-type AccountType = 'general' | 'autos' | 'propiedades' | 'agenda' | 'crm_only';
-type AccountRole = 'owner' | 'admin' | 'agent';
-type CrmEntityType = 'listing' | 'service' | 'external';
-type AddressBookKind = 'personal' | 'shipping' | 'billing' | 'company' | 'branch' | 'warehouse' | 'pickup' | 'other';
-type ListingLocationSourceMode = 'saved_address' | 'custom' | 'area_only';
+import type {
+    UserRole,
+    UserStatus,
+    VerticalType,
+    AccountType,
+    AccountRole,
+    CrmEntityType,
+    AddressBookKind,
+    ListingLocationSourceMode,
+    ListingLocationVisibilityMode,
+    GeocodePrecision,
+    GeocodeProvider,
+    GeoPoint,
+    AddressBookEntry,
+    ListingLocation,
+    AppUser,
+    PublicUser,
+    AccountRecord,
+    AccountUserRecord,
+    PublicProfileSocialLinks,
+    PublicProfileTeamSocialLinks,
+    PublicProfileBusinessHour,
+    PublicProfileTeamMember,
+    SavedListingRecord,
+    FollowRecord,
+    FeedClip,
+    BoostSection,
+    BoostPlanId,
+    BoostOrderStatus,
+    BoostListingRecord,
+    BoostPlanRecord,
+    BoostOrder,
+    ListingStatus,
+    PortalKey,
+    PortalSyncStatus,
+    ListingPortalSyncRecord,
+    AdFormat,
+    AdDurationDays,
+    AdStatus,
+    AdPaymentStatus,
+    AdDestinationType,
+    AdOverlayAlign,
+    AdPlacementSection,
+    CheckoutKind,
+    ValuationHistoricalPoint,
+    ValuationSourceBreakdown,
+    ValuationConfidenceBreakdown,
+    ValuationFeedLicense,
+    ValuationFeedTransport,
+    ValuationFeedHealth,
+    ValuationFeedSourceStatus,
+    PublicProfileAccountKind,
+    PublicProfileLeadRoutingMode,
+    PublicProfileDayId,
+    ValuationFeedConnectorLoadResult,
+} from './modules/shared/index.js';
+
+import { createDebugLogger } from './lib/debug-logger.js';
 
 const DEBUG_LOG_FILE = path.resolve(process.cwd(), 'api_debug.log');
-function logDebug(message: string) {
-    const timestamp = new Date().toISOString();
-    try {
-        appendFileSync(DEBUG_LOG_FILE, `[${timestamp}] ${message}\n`);
-    } catch {
-        // ignore
-    }
-}
+const logDebug = createDebugLogger(DEBUG_LOG_FILE);
 
 logDebug('--- API RESTARTED ---');
 type ListingLocationVisibilityMode = 'exact' | 'approximate' | 'sector_only' | 'commune_only' | 'hidden';
