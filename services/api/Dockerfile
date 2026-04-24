@@ -45,11 +45,16 @@ COPY --from=builder /app/services/api/dist ./services/api/dist
 COPY --from=builder /app/services/api/package.json ./services/api/package.json
 COPY --from=builder /app/services/api/drizzle.config.ts ./services/api/drizzle.config.ts
 COPY --from=builder /app/services/api/drizzle ./services/api/drizzle
+COPY --from=builder /app/services/api/entrypoint.sh ./services/api/entrypoint.sh
 
-# Install pnpm in production stage
-RUN npm install -g pnpm
+# Install pnpm and drizzle-kit in production stage
+RUN npm install -g pnpm drizzle-kit
 RUN pnpm install --prod
+
+# Make entrypoint executable
+RUN chmod +x /app/services/api/entrypoint.sh
 
 EXPOSE 4000
 
-CMD ["pnpm", "--filter=@simple/api", "run", "start"]
+# Use entrypoint script that runs migrations before starting
+ENTRYPOINT ["/app/services/api/entrypoint.sh"]
