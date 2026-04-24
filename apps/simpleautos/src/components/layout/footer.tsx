@@ -38,12 +38,12 @@ export function Footer() {
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-10 mb-12">
                     <div className="col-span-2 sm:col-span-1">
                         <Link href="/" className="group mb-4 flex items-center gap-1.5">
-                            <div className="w-9 h-9 rounded-[10px] border flex items-center justify-center shrink-0 transition-all duration-200" style={{ borderColor: 'var(--accent)', background: 'transparent' }}>
-                                <IconSteeringWheel size={18} stroke={1.5} style={{ color: 'var(--accent)' }} />
+                            <div className="w-9 h-9 rounded-[10px] border flex items-center justify-center shrink-0 transition-all duration-200 group-hover:border-[var(--border-strong)] group-hover:text-[var(--fg)]" style={{ borderColor: 'var(--border)', color: 'var(--fg-secondary)', background: 'transparent' }}>
+                                <IconSteeringWheel size={18} stroke={1.5} />
                             </div>
                             <span className="inline-flex items-end gap-[0.06rem] text-[1rem] tracking-tight" style={{ color: 'var(--fg)' }}>
                                 <span className="font-semibold leading-none">Simple</span>
-                                <span className="translate-y-[0.02em] font-normal leading-none" style={{ color: 'var(--accent)' }}>Autos</span>
+                                <span className="translate-y-[0.02em] font-normal leading-none" style={{ color: 'var(--fg-muted)' }}>Autos</span>
                             </span>
                         </Link>
                         <p className="text-sm leading-relaxed max-w-50" style={{ color: 'var(--fg-muted)' }}>

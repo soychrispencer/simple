@@ -15,7 +15,7 @@ npm install -g drizzle-kit || {
 cd /app/services/api
 
 echo "[Entrypoint] Installing drizzle-kit locally in API directory..."
-npm install drizzle-kit --save-dev || {
+pnpm add -D drizzle-kit || {
     echo "[Entrypoint] ERROR: Failed to install drizzle-kit locally"
     exit 1
 }

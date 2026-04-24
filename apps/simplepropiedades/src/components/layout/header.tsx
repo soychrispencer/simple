@@ -106,12 +106,12 @@ export function Header() {
             <div className="container-app flex items-center justify-between h-16">
                 {/* Logo */}
                 <Link href="/" className="flex items-center gap-1.5 group shrink-0">
-                    <div className="w-9 h-9 rounded-[10px] border flex items-center justify-center transition-all duration-200" style={{ borderColor: 'var(--accent)', background: 'transparent' }}>
-                        <IconBuildingSkyscraper size={18} stroke={1.5} style={{ color: 'var(--accent)' }} />
+                    <div className="w-9 h-9 rounded-[10px] border flex items-center justify-center transition-all duration-200 group-hover:border-(--border-strong) group-hover:text-(--fg)" style={{ borderColor: 'var(--border)', color: 'var(--fg-secondary)', background: 'transparent' }}>
+                        <IconBuildingSkyscraper size={18} stroke={1.5} />
                     </div>
                     <span className="inline-flex items-end gap-[0.08rem] text-[1.05rem] tracking-tight" style={{ color: 'var(--fg)' }}>
                         <span className="font-semibold leading-none">Simple</span>
-                        <span className="translate-y-[0.02em] font-normal leading-none" style={{ color: 'var(--accent)' }}>Propiedades</span>
+                        <span className="translate-y-[0.02em] font-normal leading-none" style={{ color: 'var(--fg-muted)' }}>Propiedades</span>
                     </span>
                 </Link>
 
