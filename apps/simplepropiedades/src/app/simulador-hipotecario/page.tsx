@@ -742,45 +742,45 @@ export default function SimuladorPage() {
                             </h3>
                             <div className="grid gap-3 sm:grid-cols-3">
                                 <div>
-                                    <label className="text-[10px] font-medium mb-1 block text-[var(--fg-muted)]" title={DEBT_TYPES_INFO.dividendoHipotecario.bankTreatment}>
+                                    <label className="text-xs font-medium mb-1 block text-[var(--fg-muted)]" title={DEBT_TYPES_INFO.dividendoHipotecario.bankTreatment}>
                                         Dividendo hipotecario ℹ
                                     </label>
                                     <input type="text" inputMode="numeric" value={debts.dividendoHipotecario} onChange={e=>setDebts(p=>({...p,dividendoHipotecario:formatCLP(e.target.value)}))} className="w-full px-3 py-2 rounded-xl text-sm border outline-none bg-[var(--bg-subtle)] border-[var(--border)] text-[var(--fg)]" placeholder="Ej: 0" />
                                 </div>
                                 <div>
-                                    <label className="text-[10px] font-medium mb-1 block text-[var(--fg-muted)]" title={DEBT_TYPES_INFO.creditoConsumo.bankTreatment}>
+                                    <label className="text-xs font-medium mb-1 block text-[var(--fg-muted)]" title={DEBT_TYPES_INFO.creditoConsumo.bankTreatment}>
                                         Crédito de consumo ℹ
                                     </label>
                                     <input type="text" inputMode="numeric" value={debts.creditoConsumo} onChange={e=>setDebts(p=>({...p,creditoConsumo:formatCLP(e.target.value)}))} className="w-full px-3 py-2 rounded-xl text-sm border outline-none bg-[var(--bg-subtle)] border-[var(--border)] text-[var(--fg)]" placeholder="Ej: 0" />
                                 </div>
                                 <div>
-                                    <label className="text-[10px] font-medium mb-1 block text-[var(--fg-muted)]" title={DEBT_TYPES_INFO.tarjetaCredito.bankTreatment}>
+                                    <label className="text-xs font-medium mb-1 block text-[var(--fg-muted)]" title={DEBT_TYPES_INFO.tarjetaCredito.bankTreatment}>
                                         Límite tarjeta crédito ℹ
                                     </label>
                                     <input type="text" inputMode="numeric" value={debts.tarjetaCredito} onChange={e=>setDebts(p=>({...p,tarjetaCredito:formatCLP(e.target.value)}))} className="w-full px-3 py-2 rounded-xl text-sm border outline-none bg-[var(--bg-subtle)] border-[var(--border)] text-[var(--fg)]" placeholder="Ej: 5.000.000" />
-                                    <p className="text-[9px] mt-0.5 text-[var(--fg-muted)]">Se considera {(DEBT_TYPE_FACTORS.tarjetaCredito * 100).toFixed(0)}% del límite</p>
+                                    <p className="text-[10px] mt-0.5 text-[var(--fg-muted)]">Se considera {(DEBT_TYPE_FACTORS.tarjetaCredito * 100).toFixed(0)}% del límite</p>
                                 </div>
                                 <div>
-                                    <label className="text-[10px] font-medium mb-1 block text-[var(--fg-muted)]" title={DEBT_TYPES_INFO.lineaCredito.bankTreatment}>
+                                    <label className="text-xs font-medium mb-1 block text-[var(--fg-muted)]" title={DEBT_TYPES_INFO.lineaCredito.bankTreatment}>
                                         Límite línea crédito ℹ
                                     </label>
                                     <input type="text" inputMode="numeric" value={debts.lineaCredito} onChange={e=>setDebts(p=>({...p,lineaCredito:formatCLP(e.target.value)}))} className="w-full px-3 py-2 rounded-xl text-sm border outline-none bg-[var(--bg-subtle)] border-[var(--border)] text-[var(--fg)]" placeholder="Ej: 10.000.000" />
-                                    <p className="text-[9px] mt-0.5 text-[var(--fg-muted)]">Se considera {(DEBT_TYPE_FACTORS.lineaCredito * 100).toFixed(0)}% del límite</p>
+                                    <p className="text-[10px] mt-0.5 text-[var(--fg-muted)]">Se considera {(DEBT_TYPE_FACTORS.lineaCredito * 100).toFixed(0)}% del límite</p>
                                 </div>
                                 <div>
-                                    <label className="text-[10px] font-medium mb-1 block text-[var(--fg-muted)]" title={DEBT_TYPES_INFO.creditoAutomotriz.bankTreatment}>
+                                    <label className="text-xs font-medium mb-1 block text-[var(--fg-muted)]" title={DEBT_TYPES_INFO.creditoAutomotriz.bankTreatment}>
                                         Crédito automotriz ℹ
                                     </label>
                                     <input type="text" inputMode="numeric" value={debts.creditoAutomotriz} onChange={e=>setDebts(p=>({...p,creditoAutomotriz:formatCLP(e.target.value)}))} className="w-full px-3 py-2 rounded-xl text-sm border outline-none bg-[var(--bg-subtle)] border-[var(--border)] text-[var(--fg)]" placeholder="Ej: 0" />
                                 </div>
                                 <div>
-                                    <label className="text-[10px] font-medium mb-1 block text-[var(--fg-muted)]" title={DEBT_TYPES_INFO.otraDeuda.bankTreatment}>
+                                    <label className="text-xs font-medium mb-1 block text-[var(--fg-muted)]" title={DEBT_TYPES_INFO.otraDeuda.bankTreatment}>
                                         Otra deuda ℹ
                                     </label>
                                     <input type="text" inputMode="numeric" value={debts.otraDeuda} onChange={e=>setDebts(p=>({...p,otraDeuda:formatCLP(e.target.value)}))} className="w-full px-3 py-2 rounded-xl text-sm border outline-none bg-[var(--bg-subtle)] border-[var(--border)] text-[var(--fg)]" placeholder="Ej: 0" />
                                 </div>
                             </div>
-                            <div className="mt-2 p-3 rounded-lg border bg-[var(--bg-subtle)] border-[var(--border)] space-y-1">
+                            <div className="mt-3 p-3 rounded-lg border border-[var(--border)] space-y-1">
                                 <div className="flex justify-between text-xs">
                                     <span className="text-[var(--fg-muted)]">Total deudas mensuales (evaluación bancaria)</span>
                                     <span className="font-semibold text-[var(--fg)]">{formatCurrency(totalDebts)}</span>
@@ -826,7 +826,7 @@ export default function SimuladorPage() {
                                             <IconExternalLink size={10} />
                                         </a>
                                     </div>
-                                    <p className="text-[9px] mt-0.5 text-[var(--fg-muted)]">
+                                    <p className="text-[10px] mt-0.5 text-[var(--fg-muted)]">
                                         Última actualización: {CURRENT_RATES.bestMarketRate.lastUpdated}
                                     </p>
                                 </div>
