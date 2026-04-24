@@ -170,6 +170,7 @@ import { createAdvertisingRouter } from './modules/advertising/router.js';
 import { createLeadsRouter } from './modules/leads/router.js';
 import { createMessagesRouter, createPanelNotificationsRouter } from './modules/messages/router.js';
 import { createInstagramRouter, createInstagramPublicImageRouter } from './modules/instagram/router.js';
+import { createMediaRouter, createStorageRouter } from './modules/media/router.js';
 import { createSocialRouter } from './modules/social/router.js';
 import { createPublicRouter } from './modules/public/router.js';
 
@@ -11586,6 +11587,37 @@ app.route('/api/public', createInstagramPublicImageRouter({
     getListingById,
     extractListingMediaUrls,
     getInstagramBasePublicOrigin,
+}));
+
+app.route('/api/media', createMediaRouter({
+    authUser,
+    requireVerifiedSession,
+    asString,
+    logDebug,
+    getStorageProvider,
+    getMediaProxyS3Client,
+    isBackblazeUrl,
+    extractBackblazeObjectKey,
+    env: {
+        BACKBLAZE_BUCKET_NAME: process.env.BACKBLAZE_BUCKET_NAME,
+        STORAGE_PROVIDER: process.env.STORAGE_PROVIDER,
+        BACKBLAZE_APP_KEY_ID: process.env.BACKBLAZE_APP_KEY_ID,
+        BACKBLAZE_APP_KEY: process.env.BACKBLAZE_APP_KEY,
+        BACKBLAZE_BUCKET_ID: process.env.BACKBLAZE_BUCKET_ID,
+        BACKBLAZE_DOWNLOAD_URL: process.env.BACKBLAZE_DOWNLOAD_URL,
+    },
+}));
+
+app.route('/api/storage', createStorageRouter({
+    getStorageProvider,
+    env: {
+        STORAGE_PROVIDER: process.env.STORAGE_PROVIDER,
+        BACKBLAZE_APP_KEY_ID: process.env.BACKBLAZE_APP_KEY_ID,
+        BACKBLAZE_APP_KEY: process.env.BACKBLAZE_APP_KEY,
+        BACKBLAZE_BUCKET_ID: process.env.BACKBLAZE_BUCKET_ID,
+        BACKBLAZE_BUCKET_NAME: process.env.BACKBLAZE_BUCKET_NAME,
+        BACKBLAZE_DOWNLOAD_URL: process.env.BACKBLAZE_DOWNLOAD_URL,
+    },
 }));
 
 app.route('/api', createSocialRouter({

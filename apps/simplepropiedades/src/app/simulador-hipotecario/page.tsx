@@ -606,8 +606,10 @@ export default function SimuladorPage() {
         doc.save('Perfil_Crediticio_'+clientName.trim().replace(/\s+/g,'_')+'_'+Date.now()+'.pdf');
     },[result,clientName,annualRate,employmentType,propertyType,scenarioTab]);
 
-    const activeApproval = result ? (scenarioTab === 'recommended' ? result.recommended.approvalProbability : result.limit.approvalProbability) : null;
-    const activeReason = result ? (scenarioTab === 'recommended' ? result.recommended.rejectionReason : result.limit.rejectionReason) : null;
+    const activeScenario = result ? (scenarioTab === 'recommended' ? result.recommended : result.limit) : null;
+    const activeApproval = activeScenario?.approvalProbability ?? null;
+    const activeReason = activeScenario?.rejectionReason ?? null;
+    const activeDTIPost = activeScenario?.dtiPostRatio ?? 0;
     const apColor=activeApproval?getApprovalColor(activeApproval):'bg-gray-400';
     const apLabel=activeApproval?getApprovalLabel(activeApproval):'SIN DATOS';
     const apMsg=activeApproval?getApprovalMessage(activeApproval,activeReason??undefined):'Ingresa datos para evaluar.';
@@ -647,7 +649,7 @@ export default function SimuladorPage() {
                                 </div>
                                 <div>
                                     <p className="text-[10px] font-medium" style={{color: activeApproval==='high'?'var(--color-success)':activeApproval==='low'?'var(--color-error)':'var(--color-warning)'}}>{apLabel}</p>
-                                    <p className="text-[9px]" style={{color:'var(--fg-muted)'}}>DTI {result.dtiPost.toFixed(1)}%</p>
+                                    <p className="text-[9px]" style={{color:'var(--fg-muted)'}}>DTI {activeDTIPost.toFixed(1)}%</p>
                                 </div>
                             </div>
                         )}
