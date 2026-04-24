@@ -9,7 +9,7 @@ import {
     IconBuildingBank, IconTrendingUp, IconStar,
     IconCalculator, IconDownload, IconCheck, IconAlertTriangle, IconX,
     IconChevronDown, IconChevronUp, IconInfoCircle, IconRotate,
-    IconExternalLink, IconCalendar, IconHome,
+    IconExternalLink, IconCalendar,
 } from '@tabler/icons-react';
 import { jsPDF } from 'jspdf';
 import ModernSelect from '@/components/ui/modern-select';
@@ -891,11 +891,6 @@ export default function SimuladorPage() {
                                 <div className="rounded-xl border border-[var(--border)]">
                                     {/* Título principal - PRIMERO */}
                                     <div className="pt-5 pb-3 text-center">
-                                        <div className="flex items-center justify-center gap-2 mb-2">
-                                            <div className="w-10 h-10 rounded-full bg-[var(--accent)]/10 flex items-center justify-center">
-                                                <IconHome size={22} className="text-[var(--accent)]" />
-                                            </div>
-                                        </div>
                                         <h2 className="text-xs uppercase tracking-wider text-[var(--fg-muted)]">Propiedad máxima que puedes comprar</h2>
                                     </div>
                                     
