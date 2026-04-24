@@ -614,56 +614,54 @@ export default function SimuladorPage() {
 
     return (
         <div className="min-h-screen bg-[var(--bg-subtle)]">
+            {/* Header compacto con indicadores y evaluación integrada */}
             <div className="border-b bg-[var(--bg)] border-[var(--border)]">
-                <div className="max-w-7xl mx-auto px-4 py-3 flex items-center justify-between gap-4">
-                    <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-xl flex items-center justify-center bg-[var(--accent)]">
-                            <IconBuildingBank size={20} className="text-white" />
+                <div className="max-w-4xl mx-auto px-4 py-3">
+                    <div className="flex items-center justify-between gap-4">
+                        {/* Título + tasas */}
+                        <div className="flex items-center gap-3">
+                            <div className="w-9 h-9 rounded-lg flex items-center justify-center bg-[var(--accent)]">
+                                <IconBuildingBank size={18} className="text-white" />
+                            </div>
+                            <div>
+                                <h1 className="font-semibold text-sm" style={{color:'var(--fg)'}}>Simulador Hipotecario</h1>
+                                <div className="flex items-center gap-2 text-[10px]" style={{color:'var(--fg-muted)'}}>
+                                    <span>UF {ufValue.toLocaleString('es-CL')}</span>
+                                    <span className="text-[var(--border)]">|</span>
+                                    <span className="flex items-center gap-0.5">
+                                        <IconStar size={10} style={{color:'var(--color-success)'}} />
+                                        {mortgageRates?.bestMarketRate?.toFixed(2)??CURRENT_RATES.bestMarketRate.value.toFixed(2)}%
+                                    </span>
+                                    <span className="flex items-center gap-0.5">
+                                        <IconTrendingUp size={10} style={{color:'var(--fg)'}} />
+                                        {mortgageRates?.standardRate?.toFixed(2)??CURRENT_RATES.averageMarketRate.value.toFixed(2)}%
+                                    </span>
+                                </div>
+                            </div>
                         </div>
-                        <div>
-                            <h1 className="font-semibold text-sm" style={{color:'var(--fg)'}}>Simulador Hipotecario</h1>
-                            <p className="text-[10px]" style={{color:'var(--fg-muted)'}}>Para asesores</p>
-                        </div>
-                    </div>
-                    <div className="flex items-center gap-3 text-[11px]" style={{color:'var(--fg-muted)'}}>
-                        <div className="flex items-center gap-1.5" title={`UF: ${getRateCitation(CURRENT_RATES.uf)}`}>
-                            <span style={{fontWeight: 600, fontSize: '10px'}}>UF</span>
-                            <span>{ufValue.toLocaleString('es-CL')}</span>
-                        </div>
-                        <div className="flex items-center gap-1.5" title={`Mejor tasa: ${getRateCitation(CURRENT_RATES.bestMarketRate)}`}>
-                            <IconStar size={14} style={{color:'var(--color-success)'}} />
-                            <span>{mortgageRates?.bestMarketRate?.toFixed(2)??CURRENT_RATES.bestMarketRate.value.toFixed(2)}%</span>
-                        </div>
-                        <div className="flex items-center gap-1.5" title={`Tasa promedio: ${getRateCitation(CURRENT_RATES.averageMarketRate)}`}>
-                            <IconTrendingUp size={14} style={{color:'var(--fg)'}} />
-                            <span>{mortgageRates?.standardRate?.toFixed(2)??CURRENT_RATES.averageMarketRate.value.toFixed(2)}%</span>
-                        </div>
-                        <div className="flex items-center gap-1.5">
-                            <IconCalculator size={14} style={{color:'var(--accent)'}} />
-                            <span>CAE {result ? (scenarioTab === 'recommended' ? result.recommended.cae : result.limit.cae).toFixed(2) : ((mortgageRates?.bestMarketRate??CURRENT_RATES.bestMarketRate.value)+0.21).toFixed(2)}%</span>
-                        </div>
+                        {/* Evaluación compacta (solo cuando hay resultado) */}
+                        {result && (
+                            <div className="flex items-center gap-2">
+                                <div className={`w-8 h-8 rounded-full flex items-center justify-center text-white ${apColor}`}>
+                                    {activeApproval==='high'?<IconCheck size={16}/>:activeApproval==='low'?<IconX size={16}/>:<IconAlertTriangle size={16}/>}
+                                </div>
+                                <div>
+                                    <p className="text-[10px] font-medium" style={{color: activeApproval==='high'?'var(--color-success)':activeApproval==='low'?'var(--color-error)':'var(--color-warning)'}}>{apLabel}</p>
+                                    <p className="text-[9px]" style={{color:'var(--fg-muted)'}}>DTI {result.dtiPost.toFixed(1)}%</p>
+                                </div>
+                            </div>
+                        )}
                     </div>
                 </div>
             </div>
-            <div className="max-w-4xl mx-auto px-4 py-6">
-                <div className="mb-6 p-4 rounded-2xl border bg-[var(--bg)] border-[var(--border)]">
-                    <div className="flex items-center gap-2 mb-1">
-                        <IconInfoCircle size={16} style={{color:'var(--accent)'}} />
-                        <h2 className="font-semibold text-sm" style={{color:'var(--fg)'}}>Perfil rapido del cliente</h2>
-                    </div>
-                    <p className="text-xs" style={{color:'var(--fg-muted)'}}>Ingresa los datos basicos para evaluar capacidad de credito hipotecario en videollamada.</p>
-                </div>
+            <div className="max-w-4xl mx-auto px-4 py-4">
 
-                {result&&(
-                    <div className="mb-6 p-4 rounded-2xl border flex items-center gap-4 bg-[var(--bg)] border-[var(--border)]">
-                        <div className={`w-14 h-14 rounded-full flex items-center justify-center text-white font-bold text-xs ${apColor}`}>
-                            {activeApproval==='high'?<IconCheck size={24}/>:activeApproval==='low'?<IconX size={24}/>:<IconAlertTriangle size={24}/>}
-                        </div>
-                        <div>
-                            <p className="text-[10px] uppercase tracking-wide font-semibold" style={{color:'var(--fg-muted)'}}>Evaluacion</p>
-                            <p className="text-lg font-bold" style={{color:'var(--fg)'}}>{apLabel}</p>
-                            <p className="text-xs mt-0.5" style={{color:'var(--fg-muted)'}}>{apMsg}</p>
-                        </div>
+                {/* Evaluación detallada (solo cuando hay resultado y hay algo que explicar) */}
+                {result && activeApproval !== 'high' && (
+                    <div className="mb-4 p-3 rounded-xl border bg-[var(--bg)] border-[var(--border)]">
+                        <p className="text-xs" style={{color:'var(--fg-muted)'}}>
+                            <span className="font-medium" style={{color:'var(--fg)'}}>Nota:</span> {apMsg}
+                        </p>
                     </div>
                 )}
 
