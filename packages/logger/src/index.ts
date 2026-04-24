@@ -139,7 +139,11 @@ export const logger = {
 };
 
 class ContextLogger {
-    constructor(private readonly context: string) {}
+    private readonly context: string;
+
+    constructor(context: string) {
+        this.context = context;
+    }
 
     debug(message: string, meta?: LogMeta): void {
         logger.debug(`[${this.context}] ${message}`, meta);
