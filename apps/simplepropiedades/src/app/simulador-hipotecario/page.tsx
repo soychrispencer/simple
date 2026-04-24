@@ -13,10 +13,7 @@ import {
 } from '@tabler/icons-react';
 import { jsPDF } from 'jspdf';
 import ModernSelect from '@/components/ui/modern-select';
-import { CURRENT_RATES, getRateCitation, SUBSIDY_DS1_REDUCTION, EMPLOYMENT_FACTORS, MIN_EMPLOYMENT_YEARS, getDTILimits, CLIENT_SEGMENTS, type ClientSegment, DEBT_TYPE_FACTORS, DEBT_TYPES_INFO } from './rates.config';
-
-// Nota: Ajuste por subsidio estatal. Valor referencial; validar con condiciones vigentes del banco/Subsidio DS1.
-const SUBSIDY_REDUCTION_DEFAULT = SUBSIDY_DS1_REDUCTION;
+import { CURRENT_RATES, getRateCitation, EMPLOYMENT_FACTORS, MIN_EMPLOYMENT_YEARS, getDTILimits, CLIENT_SEGMENTS, type ClientSegment, DEBT_TYPE_FACTORS, DEBT_TYPES_INFO } from './rates.config';
 const MAX_LOAN_YEARS = 30;
 const TOTAL_INSURANCE_RATE = 0.45 + 0.08 + 0.065 + 0.002 + 0.003;
 const MIN_MONTHLY_INCOME = 800000;
@@ -175,7 +172,6 @@ function calculateMortgage(
     maxAge: number, monthlyDebts: number,
     options: {
         customLoanYears?: number;
-        hasSubsidy?: boolean;
         propertyType?: 'new'|'used';
         ufValue?: number;
         employmentYears?: number;
@@ -185,7 +181,6 @@ function calculateMortgage(
 ): CalculationResult {
     const {
         customLoanYears,
-        hasSubsidy = false,
         propertyType = 'new',
         ufValue = 39643,
         employmentYears = 0,
@@ -218,7 +213,7 @@ function calculateMortgage(
     const ageBasedTerm = Math.max(5, Math.min(maxAge - age, MAX_LOAN_YEARS));
     const loanTermYears = customLoanYears ? Math.min(customLoanYears, MAX_LOAN_YEARS) : ageBasedTerm;
     const loanTermMonths = loanTermYears * 12;
-    const effectiveRate = hasSubsidy ? Math.max(0, annualRate - SUBSIDY_REDUCTION_DEFAULT) : annualRate;
+    const effectiveRate = annualRate;
     const mr = effectiveRate / 12 / 100;
     const af = mr === 0 ? loanTermMonths : (1 - Math.pow(1 + mr, -loanTermMonths)) / mr;
 
@@ -368,7 +363,6 @@ export default function SimuladorPage() {
     const [showAdvanced,setShowAdvanced]=useState(false);
     const [result,setResult]=useState<CalculationResult|null>(null);
     const [availableDownPayment,setAvailableDownPayment]=useState('');
-    const [hasSubsidy, setHasSubsidy] = useState(false);
     const [debts, setDebts] = useState({
         dividendoHipotecario: '',
         creditoConsumo: '',
@@ -421,7 +415,7 @@ export default function SimuladorPage() {
         skipCalculationRef.current = true; // Evitar cálculo automático después de reset
         setMonthlyIncome('800000');setClientName('');setAge('');
         setEmploymentType('dependent');setEmploymentYears('');setAnnualRate('3.39');setBankPercentage('80');
-        setCustomLoanYears('');setPropertyType('new');setAvailableDownPayment('');setShowAdvanced(false);setScenarioTab('recommended');setResult(null);setHasSubsidy(false);
+        setCustomLoanYears('');setPropertyType('new');setAvailableDownPayment('');setShowAdvanced(false);setScenarioTab('recommended');setResult(null);
         setDebts({ dividendoHipotecario: '', creditoConsumo: '', tarjetaCredito: '', lineaCredito: '', creditoAutomotriz: '', otraDeuda: '' });
     },[]);
 
@@ -444,7 +438,6 @@ export default function SimuladorPage() {
             totalDebts,
             {
                 customLoanYears: customLoanYears ? parseInt(customLoanYears) : undefined,
-                hasSubsidy,
                 propertyType,
                 ufValue,
                 employmentYears: parseFloat(employmentYears)||0,
@@ -454,7 +447,7 @@ export default function SimuladorPage() {
         );
         setResult(res);
         setIsCalculating(false);
-    },[monthlyIncome,age,annualRate,bankPercentage,debts,hasSubsidy,customLoanYears,propertyType,ufValue,employmentYears,availableDownPayment,employmentType]);
+    },[monthlyIncome,age,annualRate,bankPercentage,debts,customLoanYears,propertyType,ufValue,employmentYears,availableDownPayment,employmentType]);
 
     useEffect(()=>{
         if (skipCalculationRef.current) {
@@ -870,10 +863,6 @@ export default function SimuladorPage() {
                                     {parseInt(age||'35')+(customLoanYears?parseInt(customLoanYears):Math.max(5,Math.min(30,75-(parseInt(age)||35))))>75 && (
                                         <p className="text-[10px] mt-1 text-[var(--color-error)]">El plazo excede el límite de edad (75 años). Se ajustará automáticamente.</p>
                                     )}
-                                </div>
-                                <div className="sm:col-span-2 flex items-center gap-2 mt-1">
-                                    <input type="checkbox" id="hasSubsidy" checked={hasSubsidy} onChange={e=>setHasSubsidy(e.target.checked)} className="w-4 h-4 rounded accent-[var(--accent)]" />
-                                    <label htmlFor="hasSubsidy" className="text-xs text-[var(--fg-muted)]">¿Cliente tiene subsidio estatal? (DS1 / DS49)</label>
                                 </div>
                             </div>
                         </div>
