@@ -913,16 +913,16 @@ export default function SimuladorPage() {
                                     {/* Tabs como segmented control */}
                                     <div className="px-4 pb-3">
                                         <p className="text-[10px] text-[var(--fg-muted)] text-center mb-2">Selecciona escenario:</p>
-                                        <div className="flex justify-center p-1 rounded-xl bg-[var(--bg-subtle)] border border-[var(--border)]">
+                                        <div className="flex justify-center p-1 rounded-lg bg-[var(--bg-subtle)] border border-[var(--border)]">
                                             <button
                                                 onClick={()=>setScenarioTab('recommended')}
-                                                className={`flex-1 px-4 py-2 rounded-lg text-[11px] font-semibold transition-all duration-200 ${scenarioTab==='recommended'? 'bg-[var(--accent)] text-white shadow-sm' : 'text-[var(--fg-muted)] hover:text-[var(--fg)] hover:bg-[var(--bg)]'}`}
+                                                className={`flex-1 px-4 py-2 rounded-md text-[11px] font-semibold transition-all duration-200 ${scenarioTab==='recommended'? 'bg-[var(--accent)] text-white shadow-sm' : 'text-[var(--fg-muted)] hover:text-[var(--fg)] hover:bg-[var(--bg)]'}`}
                                             >
                                                 Recomendado
                                             </button>
                                             <button
                                                 onClick={()=>setScenarioTab('limit')}
-                                                className={`flex-1 px-4 py-2 rounded-lg text-[11px] font-semibold transition-all duration-200 ${scenarioTab==='limit'? 'bg-[var(--fg)] text-white shadow-sm' : 'text-[var(--fg-muted)] hover:text-[var(--fg)] hover:bg-[var(--bg)]'}`}
+                                                className={`flex-1 px-4 py-2 rounded-md text-[11px] font-semibold transition-all duration-200 ${scenarioTab==='limit'? 'bg-[var(--fg)] text-white shadow-sm' : 'text-[var(--fg-muted)] hover:text-[var(--fg)] hover:bg-[var(--bg)]'}`}
                                             >
                                                 Límite {result.clientSegment.name}
                                             </button>
