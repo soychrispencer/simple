@@ -287,7 +287,7 @@ export interface ValuationFeedSourceStatus {
     label: string;
     license: ValuationFeedLicense;
     transport: ValuationFeedTransport;
-    health: ValuationFeedHealth;
+    status: ValuationFeedHealth;
     lastLoadedAt: number | null;
     recordCount: number;
     supportsHistory: boolean;

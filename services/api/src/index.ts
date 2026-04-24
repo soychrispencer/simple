@@ -1932,7 +1932,7 @@ function parseFeedRecord(sourceId: string, raw: unknown): ValuationFeedRecord | 
     };
 }
 
-async function loadPartnerFeed(sourceId: string, envUrlKey: string | undefined, fallbackRecords: ValuationFeedRecord[]): Promise<ValuationFeedConnectorLoadResult> {
+async function loadPartnerFeed(sourceId: string, envUrlKey: string | undefined, fallbackRecords: ValuationFeedRecord[]): Promise<ValuationFeedConnectorLoadResult<ValuationFeedRecord>> {
     const sourceUrl = envUrlKey ? asString(process.env[envUrlKey]) || null : null;
     if (!sourceUrl) {
         return { records: fallbackRecords, sourceUrl: null };
