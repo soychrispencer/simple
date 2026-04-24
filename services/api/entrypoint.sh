@@ -14,12 +14,6 @@ npm install -g drizzle-kit || {
 
 cd /app/services/api
 
-echo "[Entrypoint] Installing drizzle-kit locally in API directory..."
-pnpm add -D drizzle-kit || {
-    echo "[Entrypoint] ERROR: Failed to install drizzle-kit locally"
-    exit 1
-}
-
 echo "[Entrypoint] Checking drizzle.config.ts exists..."
 if [ ! -f "drizzle.config.ts" ]; then
     echo "[Entrypoint] ERROR: drizzle.config.ts not found!"
@@ -28,7 +22,7 @@ if [ ! -f "drizzle.config.ts" ]; then
 fi
 
 echo "[Entrypoint] Running database migrations..."
-npx drizzle-kit migrate --config=drizzle.config.ts || {
+drizzle-kit migrate --config=drizzle.config.ts || {
     echo "[Entrypoint] WARNING: Migration failed or no migrations to run. Continuing..."
 }
 
