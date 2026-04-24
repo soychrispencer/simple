@@ -419,7 +419,7 @@ export default function SimuladorPage() {
 
     const handleReset=useCallback(()=>{
         skipCalculationRef.current = true; // Evitar cálculo automático después de reset
-        setMonthlyIncome('800000');setClientName('');setAge('35');
+        setMonthlyIncome('800000');setClientName('');setAge('');
         setEmploymentType('dependent');setEmploymentYears('');setAnnualRate('3.39');setBankPercentage('80');
         setCustomLoanYears('');setPropertyType('new');setAvailableDownPayment('');setShowAdvanced(false);setScenarioTab('recommended');setResult(null);setHasSubsidy(false);
         setDebts({ dividendoHipotecario: '', creditoConsumo: '', tarjetaCredito: '', lineaCredito: '', creditoAutomotriz: '', otraDeuda: '' });
