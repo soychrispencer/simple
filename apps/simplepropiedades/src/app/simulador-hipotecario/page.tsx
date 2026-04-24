@@ -654,7 +654,7 @@ export default function SimuladorPage() {
 
                 {/* Evaluación principal - EL PROTAGONISTA */}
                 {result && (
-                    <div className="mb-6 p-5 rounded-2xl border flex items-center gap-5 bg-[var(--bg)] border-[var(--border)]">
+                    <div className="mb-6 p-5 rounded-2xl border flex items-center gap-5 border-[var(--border)]">
                         <div className={`w-16 h-16 rounded-full flex items-center justify-center text-white font-bold text-lg ${apColor}`}>
                             {activeApproval==='high'?<IconCheck size={32}/>:activeApproval==='low'?<IconX size={32}/>:<IconAlertTriangle size={32}/>}
                         </div>
@@ -668,7 +668,7 @@ export default function SimuladorPage() {
 
                 <div className="grid gap-6 lg:grid-cols-5">
                     <div className="lg:col-span-3 space-y-4">
-                        <div className="p-4">
+                        <div className="p-4 rounded-xl border border-[var(--border)]">
                             <h3 className="text-sm font-semibold flex items-center gap-2 mb-3 text-[var(--fg)]">
                                 <div className="w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold text-white bg-[var(--accent)]">1</div>
                                 Datos del cliente
@@ -735,7 +735,7 @@ export default function SimuladorPage() {
                                 </div>
                             </div>
                         </div>
-                        <div className="p-4">
+                        <div className="p-4 rounded-xl border border-[var(--border)]">
                             <h3 className="text-sm font-semibold flex items-center gap-2 mb-3 text-[var(--fg)]">
                                 <div className="w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold text-white bg-[var(--accent)]">2</div>
                                 Deudas actuales mensuales
@@ -804,7 +804,7 @@ export default function SimuladorPage() {
                                 )}
                             </div>
                         </div>
-                        <div className="p-4">
+                        <div className="p-4 rounded-xl border border-[var(--border)]">
                             <h3 className="text-sm font-semibold flex items-center gap-2 mb-3 text-[var(--fg)]">
                                 <div className="w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold text-white bg-[var(--accent)]">3</div>
                                 Condiciones del crédito
@@ -888,7 +888,7 @@ export default function SimuladorPage() {
                                     return (
                                         <>
                                 {/* HERO CARD: Propiedad máxima - Diseño sobrio y moderno */}
-                                <div className="rounded-xl border bg-[var(--bg)] border-[var(--border)] shadow-sm">
+                                <div className="rounded-xl border border-[var(--border)]">
                                     {/* Header minimalista con tabs */}
                                     <div className="flex px-4 pt-4 pb-2">
                                         <button
@@ -958,7 +958,7 @@ export default function SimuladorPage() {
                                 {/* Cuota mensual DESTACADA + Pie + Plazo */}
                                 <div className="space-y-3">
                                     {/* Cuota mensual - HERO */}
-                                    <div className="p-4 rounded-xl border-2 text-center bg-gradient-to-br from-emerald-500/5 to-emerald-500/10 border-emerald-500/20">
+                                    <div className="p-4 rounded-xl border-2 text-center border-emerald-500/20">
                                         <p className="text-[11px] uppercase font-semibold text-emerald-600 mb-1">Cuota mensual a pagar</p>
                                         <p className="text-2xl font-bold text-[var(--fg)]">{formatCurrency(activeScenario.monthlyPayment)}</p>
                                         <p className="text-[10px] text-[var(--fg-muted)] mt-0.5">incluye seguros aproximados</p>
@@ -966,11 +966,11 @@ export default function SimuladorPage() {
                                     
                                     {/* Grid Pie + Plazo */}
                                     <div className="grid grid-cols-2 gap-3">
-                                        <div className="p-3 rounded-xl border text-center bg-[var(--bg)] border-[var(--border)]">
+                                        <div className="p-3 rounded-xl border text-center border-[var(--border)]">
                                             <p className="text-[10px] uppercase font-semibold text-[var(--fg-muted)]">Pie total necesario</p>
                                             <p className="text-lg font-semibold mt-1 text-[var(--fg)]">{formatCurrency(activeScenario.minPieNeeded)}</p>
                                         </div>
-                                        <div className="p-3 rounded-xl border text-center bg-[var(--bg)] border-[var(--border)]">
+                                        <div className="p-3 rounded-xl border text-center border-[var(--border)]">
                                             <p className="text-[10px] uppercase font-semibold text-[var(--fg-muted)]">Plazo</p>
                                             <p className="text-lg font-semibold mt-1 text-[var(--fg)]">{result.loanTermYears} años</p>
                                             <p className="text-[9px] text-[var(--fg-muted)]">{result.loanTermYears * 12} meses</p>
@@ -979,7 +979,7 @@ export default function SimuladorPage() {
                                 </div>
 
                                 {/* DTI UNIFICADO: Barra única visual */}
-                                <div className="p-4 rounded-xl border bg-[var(--bg)] border-[var(--border)]">
+                                <div className="p-4 rounded-xl border border-[var(--border)]">
                                     <div className="flex justify-between text-[11px] items-center mb-2">
                                         <span className="font-medium text-[var(--fg)]">Indicador de endeudamiento (DTI)</span>
                                         <span className={`font-semibold ${activeScenario.dtiPostRatio > 40 ? 'text-[var(--color-error)]' : activeScenario.dtiPostRatio > 33 ? 'text-[var(--color-warning)]' : 'text-[var(--color-success)]'}`}>
@@ -1013,7 +1013,7 @@ export default function SimuladorPage() {
                                 </div>
 
                                 {/* Mejor opción bancaria simplificada */}
-                                <div className="p-4 rounded-xl border bg-[var(--bg)] border-[var(--border)]">
+                                <div className="p-4 rounded-xl border border-[var(--border)]">
                                     <p className="text-[10px] uppercase font-semibold mb-2 text-[var(--fg-muted)]">Mejor opción para este perfil</p>
                                     {bestBank.status === 'likely' ? (
                                         <div className="flex items-center gap-3 p-3 rounded-lg bg-emerald-500/10 border border-emerald-500/30">
@@ -1084,7 +1084,7 @@ export default function SimuladorPage() {
                                 </button>
 
                                 {showAdvanced&&(
-                                    <div className="p-4 rounded-2xl border space-y-3 text-xs bg-[var(--bg)] border-[var(--border)]">
+                                    <div className="p-4 rounded-2xl border space-y-3 text-xs border-[var(--border)]">
                                         {activeReason && (
                                             <div className="p-2 rounded-lg border text-[10px] bg-red-500/5 border-red-500 text-red-500">
                                                 <strong>Motivo:</strong> {activeReason}
@@ -1165,7 +1165,7 @@ export default function SimuladorPage() {
                                 </button>
                             </>
                         ):(
-                            <div className="p-6 rounded-2xl border text-center bg-[var(--bg)] border-[var(--border)]">
+                            <div className="p-6 rounded-2xl border text-center border-[var(--border)]">
                                 <IconCalculator size={32} className="mx-auto mb-2 text-[var(--fg-muted)]" />
                                 <p className="text-sm font-medium text-[var(--fg-muted)]">Ingresa los datos y calcula</p>
                             </div>

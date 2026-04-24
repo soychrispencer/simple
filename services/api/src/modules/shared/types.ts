@@ -267,3 +267,74 @@ export interface ValuationFeedConnectorLoadResult<T> {
     historyBySegment?: Record<string, ValuationHistoricalPoint[]>;
     sourceUrl: string | null;
 }
+
+// Feed connector types for property valuation
+export interface ValuationFeedConnector {
+    id: string;
+    label: string;
+    license: ValuationFeedLicense;
+    transport: ValuationFeedTransport;
+    supportsHistory: boolean;
+    envUrlKey?: string;
+    load: () => Promise<ValuationFeedConnectorLoadResult<ValuationFeedRecord>>;
+}
+
+export interface VehicleValuationFeedConnectorLoadResult {
+    records: VehicleValuationFeedRecord[];
+    historyBySegment?: Record<string, ValuationHistoricalPoint[]>;
+    sourceUrl: string | null;
+}
+
+export interface VehicleValuationFeedConnector extends Omit<ValuationFeedConnector, 'load'> {
+    load: () => Promise<VehicleValuationFeedConnectorLoadResult>;
+}
+
+// Valuation feed records
+export interface ValuationFeedRecord {
+    id: string;
+    source: string;
+    externalId: string | null;
+    title: string;
+    price: number;
+    currency: string;
+    operationType: 'sale' | 'rent';
+    propertyType: string;
+    regionId: string | null;
+    communeId: string | null;
+    addressLabel: string | null;
+    latitude: number | null;
+    longitude: number | null;
+    bedrooms: number | null;
+    bathrooms: number | null;
+    areaM2: number | null;
+    publishedAt: number | null;
+    url: string | null;
+    fetchedAt: number;
+}
+
+export interface VehicleValuationFeedRecord {
+    id: string;
+    source: string;
+    externalId: string | null;
+    title: string;
+    price: number;
+    currency: string;
+    operationType: 'sale' | 'rent';
+    vehicleType: string;
+    brand: string;
+    model: string;
+    version: string | null;
+    year: number | null;
+    mileageKm: number | null;
+    fuelType: string | null;
+    transmission: string | null;
+    bodyType: string | null;
+    regionId: string | null;
+    communeId: string | null;
+    addressLabel: string | null;
+    latitude: number | null;
+    longitude: number | null;
+    publishedAt: number | null;
+    url: string | null;
+    fetchedAt: number;
+}
