@@ -875,13 +875,6 @@ export default function SimuladorPage() {
                         >
                             Actualizar cálculo
                         </button>
-                        {result&&(
-                            <div className="mt-4">
-                                <button onClick={handleDownload} className="btn btn-outline w-full py-2.5 px-4 flex items-center justify-center">
-                                    <IconDownload size={18} className="mr-2"/>Descargar resumen (PDF)
-                                </button>
-                            </div>
-                        )}
                     </div>
                     <div className="lg:col-span-2 space-y-4">
                         {result?(
@@ -1163,10 +1156,15 @@ export default function SimuladorPage() {
                                     </div>
                                 )}
 
-                                <button onClick={handleReset} className="btn btn-outline w-full">
-                                    <IconRotate size={14}/>
+                                <button onClick={handleReset} className="btn btn-outline w-full py-2.5 px-4 flex items-center justify-center">
+                                    <IconRotate size={18} className="mr-2"/>
                                     Nueva simulación
                                 </button>
+                                <div className="mt-3">
+                                    <button onClick={handleDownload} className="btn btn-outline w-full py-2.5 px-4 flex items-center justify-center">
+                                        <IconDownload size={18} className="mr-2"/>Descargar resumen (PDF)
+                                    </button>
+                                </div>
                             </>
                         ):(
                             <div className="p-6 rounded-2xl border text-center border-[var(--border)]">
