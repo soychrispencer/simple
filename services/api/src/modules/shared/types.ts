@@ -301,6 +301,7 @@ export interface ValuationFeedRecord {
     propertyType: string;
     regionId: string | null;
     communeId: string | null;
+    neighborhood: string | null;
     addressLabel: string | null;
     latitude: number | null;
     longitude: number | null;
@@ -315,7 +316,7 @@ export interface ValuationFeedRecord {
 export interface VehicleValuationFeedRecord {
     id: string;
     source: string;
-    externalId: string | null;
+    externalId?: string | null;
     title: string;
     price: number;
     currency: string;
@@ -332,9 +333,9 @@ export interface VehicleValuationFeedRecord {
     regionId: string | null;
     communeId: string | null;
     addressLabel: string | null;
-    latitude: number | null;
-    longitude: number | null;
+    latitude?: number | null;
+    longitude?: number | null;
     publishedAt: number | null;
     url: string | null;
-    fetchedAt: number;
+    fetchedAt?: number;
 }

@@ -176,14 +176,29 @@ import { createSystemRouter } from './modules/system/index.js';
 import { createSocialRouter } from './modules/social/index.js';
 import { createPublicRouter } from './modules/public/index.js';
 
-import { createDebugLogger } from './modules/shared/index.js';
-
 const DEBUG_LOG_FILE = path.resolve(process.cwd(), 'api_debug.log');
 const logDebug = createDebugLogger(DEBUG_LOG_FILE);
 
 logDebug('--- API RESTARTED ---');
 
 // Core domain types (defined locally to match existing structure)
+
+// Type aliases for shared valuation types
+type ValuationFeedRecord = import('./modules/shared/index.js').ValuationFeedRecord;
+type VehicleValuationFeedRecord = import('./modules/shared/index.js').VehicleValuationFeedRecord;
+type ValuationHistoricalPoint = import('./modules/shared/index.js').ValuationHistoricalPoint;
+type ValuationSourceBreakdown = import('./modules/shared/index.js').ValuationSourceBreakdown;
+type ValuationConfidenceBreakdown = import('./modules/shared/index.js').ValuationConfidenceBreakdown;
+type ValuationFeedLicense = import('./modules/shared/index.js').ValuationFeedLicense;
+type ValuationFeedTransport = import('./modules/shared/index.js').ValuationFeedTransport;
+type ValuationFeedHealth = import('./modules/shared/index.js').ValuationFeedHealth;
+type ValuationFeedSourceStatus = import('./modules/shared/index.js').ValuationFeedSourceStatus;
+type ValuationFeedConnectorLoadResult<T> = import('./modules/shared/index.js').ValuationFeedConnectorLoadResult<T>;
+type ValuationFeedConnector = import('./modules/shared/index.js').ValuationFeedConnector;
+type VehicleValuationFeedConnector = import('./modules/shared/index.js').VehicleValuationFeedConnector;
+type ValuationComparable = import('./modules/shared/index.js').ValuationComparable;
+type VehicleValuationComparable = import('./modules/shared/index.js').VehicleValuationComparable;
+
 type UserRole = 'user' | 'admin' | 'superadmin';
 type UserStatus = 'active' | 'verified' | 'suspended';
 type VerticalType = 'autos' | 'propiedades' | 'agenda' | 'serenatas';
@@ -1779,26 +1794,9 @@ const COMMUNE_CENTERS: Record<string, { latitude: number; longitude: number }> =
     'coq-la-serena': { latitude: -29.9045, longitude: -71.2489 },
 };
 
-type ValuationFeedRecord = {
-    id: string;
-    source: string;
-    operationType: 'sale' | 'rent';
-    propertyType: string;
-    regionId: string;
-    communeId: string;
-    neighborhood: string | null;
-    title: string;
-    price: number;
-    currency: string;
-    areaM2: number;
-    bedrooms: number | null;
-    bathrooms: number | null;
-    publishedAt: number;
-    addressLabel: string | null;
-    url: string | null;
-};
+// ValuationFeedRecord imported from ./modules/shared/index.js
 
-const valuationFeedRecords: ValuationFeedRecord[] = [
+const valuationFeedRecords: import('./modules/shared/index.js').ValuationFeedRecord[] = [
     {
         id: 'pm-001',
         source: 'portalinmobiliario_feed',
@@ -2106,30 +2104,9 @@ function getValuationFeedState() {
     return valuationFeedState;
 }
 
-type VehicleValuationFeedRecord = {
-    id: string;
-    source: string;
-    operationType: 'sale' | 'rent';
-    vehicleType: string;
-    brand: string;
-    model: string;
-    version: string | null;
-    year: number | null;
-    mileageKm: number | null;
-    fuelType: string | null;
-    transmission: string | null;
-    bodyType: string | null;
-    regionId: string;
-    communeId: string;
-    title: string;
-    price: number;
-    currency: string;
-    publishedAt: number;
-    addressLabel: string | null;
-    url: string | null;
-};
+// VehicleValuationFeedRecord imported from ./modules/shared/index.js
 
-const vehicleValuationFeedRecords: VehicleValuationFeedRecord[] = [
+const vehicleValuationFeedRecords: import('./modules/shared/index.js').VehicleValuationFeedRecord[] = [
     {
         id: 'ca-001',
         source: 'chileautos_feed',
@@ -4807,9 +4784,7 @@ const PROPERTIES_PORTAL_REQUIREMENTS: Record<PortalKey, { required: string[]; re
     },
 };
 
-function asObject(value: unknown): Record<string, unknown> {
-    return value && typeof value === 'object' && !Array.isArray(value) ? (value as Record<string, unknown>) : {};
-}
+// asObject imported from ./modules/shared/index.js
 
 function normalizeListingPortalSyncRecord(
     portal: PortalKey,
@@ -5068,19 +5043,6 @@ async function deleteListingDraftRecord(userId: string, vertical: VerticalType) 
     await db
         .delete(listingDrafts)
         .where(and(eq(listingDrafts.userId, userId), eq(listingDrafts.vertical, vertical)));
-}
-
-function asString(value: unknown): string {
-    return typeof value === 'string' ? value.trim() : '';
-}
-
-function asNumber(value: unknown, fallback = 0): number {
-    if (typeof value === 'number') return value;
-    if (typeof value === 'string') {
-        const parsed = parseFloat(value);
-        return isNaN(parsed) ? fallback : parsed;
-    }
-    return fallback;
 }
 
 function parseNumberFromString(value: unknown): number | null {

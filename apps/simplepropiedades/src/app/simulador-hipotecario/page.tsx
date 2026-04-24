@@ -9,7 +9,7 @@ import {
     IconBuildingBank, IconTrendingUp, IconStar,
     IconCalculator, IconDownload, IconCheck, IconAlertTriangle, IconX,
     IconChevronDown, IconChevronUp, IconInfoCircle, IconRotate,
-    IconExternalLink, IconCalendar,
+    IconExternalLink, IconCalendar, IconLoader2,
 } from '@tabler/icons-react';
 import { jsPDF } from 'jspdf';
 import ModernSelect from '@/components/ui/modern-select';
@@ -389,6 +389,8 @@ export default function SimuladorPage() {
     const totalDebts = Object.values(calculatedDebts).reduce((sum, v) => sum + v, 0);
     const [scenarioTab,setScenarioTab]=useState<'recommended'|'limit'>('recommended');
     const [mortgageRates,setMortgageRates]=useState<MortgageRates|null>(null);
+    const [isCalculating,setIsCalculating]=useState(false);
+    const [dismissedReason,setDismissedReason]=useState<string|null>(null);
 
     useEffect(()=>{
         fetch('https://mindicador.cl/api/uf')
@@ -423,13 +425,19 @@ export default function SimuladorPage() {
         setDebts({ dividendoHipotecario: '', creditoConsumo: '', tarjetaCredito: '', lineaCredito: '', creditoAutomotriz: '', otraDeuda: '' });
     },[]);
 
-    const handleCalculate=useCallback(()=>{
+    const handleCalculate=useCallback(async()=>{
+        setIsCalculating(true);
+        setDismissedReason(null); // Reset dismissed reason on new calculation
+        
+        // Simulate brief delay for UX feedback
+        await new Promise(r => setTimeout(r, 300));
+        
         const income=parseCLP(monthlyIncome);
         const parsedAge=parseInt(age)||35;
         const parsedBankPct=parseFloat(bankPercentage)||80;
-        if(!income||income<=0) { setResult(null); return; }
-        if(parsedAge < 18) { setResult(null); return; }
-        if(parsedBankPct <= 0 || parsedBankPct > 90) { setResult(null); return; }
+        if(!income||income<=0) { setResult(null); setIsCalculating(false); return; }
+        if(parsedAge < 18) { setResult(null); setIsCalculating(false); return; }
+        if(parsedBankPct <= 0 || parsedBankPct > 90) { setResult(null); setIsCalculating(false); return; }
         const res=calculateMortgage(
             income, parsedAge, parseFloat(annualRate)||3.39,
             parsedBankPct, 75,
@@ -445,6 +453,7 @@ export default function SimuladorPage() {
             }
         );
         setResult(res);
+        setIsCalculating(false);
     },[monthlyIncome,age,annualRate,bankPercentage,debts,hasSubsidy,customLoanYears,propertyType,ufValue,employmentYears,availableDownPayment,employmentType]);
 
     useEffect(()=>{
@@ -667,7 +676,7 @@ export default function SimuladorPage() {
                 )}
 
                 <div className="grid gap-6 lg:grid-cols-5">
-                    <div className="lg:col-span-3 space-y-4">
+                    <div className="lg:col-span-3 space-y-6">
                         <div className="p-4 rounded-xl border border-[var(--border)]">
                             <h3 className="text-sm font-semibold flex items-center gap-2 mb-3 text-[var(--fg)]">
                                 <div className="w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold text-white bg-[var(--accent)]">1</div>
@@ -871,12 +880,20 @@ export default function SimuladorPage() {
                         </div>
                         <button
                             onClick={()=> handleCalculate()}
-                            className="btn btn-primary w-full py-2.5 px-4 flex items-center justify-center"
+                            disabled={isCalculating}
+                            className="btn btn-primary w-full py-2.5 px-4 flex items-center justify-center disabled:opacity-60 disabled:cursor-not-allowed transition-opacity"
                         >
-                            Actualizar cálculo
+                            {isCalculating ? (
+                                <>
+                                    <IconLoader2 size={18} className="mr-2 animate-spin"/>
+                                    Calculando...
+                                </>
+                            ) : (
+                                'Actualizar cálculo'
+                            )}
                         </button>
                     </div>
-                    <div className="lg:col-span-2 space-y-4">
+                    <div className="lg:col-span-2 space-y-6">
                         {result?(
                             <>
                                 {(()=>{
@@ -889,7 +906,6 @@ export default function SimuladorPage() {
                                         <>
                                 {/* HERO CARD: Propiedad máxima - Título arriba, tabs como botones */}
                                 <div className="rounded-xl border border-[var(--border)]">
-                                    {/* Título principal - PRIMERO */}
                                     <div className="pt-5 pb-3 text-center">
                                         <h2 className="text-xs uppercase tracking-wider text-[var(--fg-muted)]">Propiedad máxima que puedes comprar</h2>
                                     </div>
@@ -898,23 +914,15 @@ export default function SimuladorPage() {
                                     <div className="flex justify-center gap-2 px-4 pb-3">
                                         <button
                                             onClick={()=>setScenarioTab('recommended')}
-                                            className={`px-3 py-1.5 text-[11px] font-medium rounded-full transition-all ${
-                                                scenarioTab==='recommended' 
-                                                    ? 'bg-[var(--accent)] text-white' 
-                                                    : 'bg-[var(--bg-subtle)] text-[var(--fg-muted)] hover:bg-[var(--border)]'
-                                            }`}
+                                            className={`px-4 py-1.5 rounded-full text-[11px] font-semibold transition-all duration-200 ${scenarioTab==='recommended'? 'bg-[var(--accent)] text-white shadow-sm' : 'bg-[var(--bg-subtle)] text-[var(--fg-muted)] hover:bg-[var(--bg)]'}`}
                                         >
-                                            Recomendado ({result.recommendedDTI}%)
+                                            RECOMENDADO
                                         </button>
                                         <button
                                             onClick={()=>setScenarioTab('limit')}
-                                            className={`px-3 py-1.5 text-[11px] font-medium rounded-full transition-all ${
-                                                scenarioTab==='limit' 
-                                                    ? 'bg-[var(--accent)] text-white' 
-                                                    : 'bg-[var(--bg-subtle)] text-[var(--fg-muted)] hover:bg-[var(--border)]'
-                                            }`}
+                                            className={`px-4 py-1.5 rounded-full text-[11px] font-semibold transition-all duration-200 ${scenarioTab==='limit'? 'bg-[var(--fg)] text-white shadow-sm' : 'bg-[var(--bg-subtle)] text-[var(--fg-muted)] hover:bg-[var(--bg)]'}`}
                                         >
-                                            Límite ({result.maxDTI}%)
+                                            LIMITE {result.clientSegment.name.toUpperCase()}
                                         </button>
                                     </div>
                                     
@@ -978,7 +986,7 @@ export default function SimuladorPage() {
                                 {/* DTI UNIFICADO: Barra única visual */}
                                 <div className="p-4 rounded-xl border border-[var(--border)]">
                                     <div className="flex justify-between text-[11px] items-center mb-2">
-                                        <span className="font-medium text-[var(--fg)]">Indicador de endeudamiento (DTI)</span>
+                                        <span className="font-medium text-[var(--fg)]">Carga financiera</span>
                                         <span className={`font-semibold ${activeScenario.dtiPostRatio > 40 ? 'text-[var(--color-error)]' : activeScenario.dtiPostRatio > 33 ? 'text-[var(--color-warning)]' : 'text-[var(--color-success)]'}`}>
                                             {result.dtiRatio.toFixed(1)}% → {activeScenario.dtiPostRatio.toFixed(1)}%
                                         </span>
@@ -1082,9 +1090,16 @@ export default function SimuladorPage() {
 
                                 {showAdvanced&&(
                                     <div className="p-4 rounded-2xl border space-y-4 text-sm border-[var(--border)]">
-                                        {activeReason && (
-                                            <div className="p-2 rounded-lg border text-[10px] bg-red-500/5 border-red-500 text-red-500">
-                                                <strong>Motivo:</strong> {activeReason}
+                                        {activeReason && dismissedReason !== activeReason && (
+                                            <div className="p-2 rounded-lg border text-[10px] bg-red-500/5 border-red-500 text-red-500 flex justify-between items-start gap-2">
+                                                <span><strong>Motivo:</strong> {activeReason}</span>
+                                                <button 
+                                                    onClick={() => setDismissedReason(activeReason)}
+                                                    className="shrink-0 hover:opacity-70 transition-opacity"
+                                                    title="Cerrar"
+                                                >
+                                                    <IconX size={14}/>
+                                                </button>
                                             </div>
                                         )}
                                         
