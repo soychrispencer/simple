@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import Image from 'next/image';
+import { IconCar } from '@tabler/icons-react';
 
 export function Footer() {
     const sections = [
@@ -38,8 +38,8 @@ export function Footer() {
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-10 mb-12">
                     <div className="col-span-2 sm:col-span-1">
                         <Link href="/" className="group mb-4 flex items-center gap-1.5">
-                            <div className="h-9 w-9 shrink-0 transition-transform duration-200 group-hover:scale-105">
-                                <Image src="/logo.png" alt="SimpleAutos" width={36} height={36} className="h-full w-full object-contain" />
+                            <div className="w-8 h-8 rounded-xl flex items-center justify-center shrink-0 transition-transform duration-200 group-hover:scale-105" style={{ background: 'var(--accent)', color: '#fff' }}>
+                                <IconCar size={16} />
                             </div>
                             <span className="inline-flex items-end gap-[0.06rem] text-[1rem] tracking-tight" style={{ color: 'var(--fg)' }}>
                                 <span className="font-semibold leading-none">Simple</span>

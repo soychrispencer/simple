@@ -3,6 +3,7 @@ import fs from 'node:fs/promises';
 import { createHash, randomBytes, randomUUID, timingSafeEqual } from 'node:crypto';
 import path from 'node:path';
 import { createDebugLogger, asString, asNumber, asObject } from './modules/shared/index.js';
+import type { ValuationFeedRecord, VehicleValuationFeedRecord, ValuationHistoricalPoint, ValuationSourceBreakdown, ValuationConfidenceBreakdown, ValuationFeedLicense, ValuationFeedTransport, ValuationFeedHealth, ValuationFeedSourceStatus, ValuationFeedConnectorLoadResult, ValuationFeedConnector, VehicleValuationFeedConnector, ValuationComparable, VehicleValuationComparable } from './modules/shared/index.js';
 
 // Load environment variables FIRST, before any other imports
 const API_ROOT_DIR = path.resolve(__dirname, '..');
@@ -183,21 +184,7 @@ logDebug('--- API RESTARTED ---');
 
 // Core domain types (defined locally to match existing structure)
 
-// Type aliases for shared valuation types
-type ValuationFeedRecord = import('./modules/shared/index.js').ValuationFeedRecord;
-type VehicleValuationFeedRecord = import('./modules/shared/index.js').VehicleValuationFeedRecord;
-type ValuationHistoricalPoint = import('./modules/shared/index.js').ValuationHistoricalPoint;
-type ValuationSourceBreakdown = import('./modules/shared/index.js').ValuationSourceBreakdown;
-type ValuationConfidenceBreakdown = import('./modules/shared/index.js').ValuationConfidenceBreakdown;
-type ValuationFeedLicense = import('./modules/shared/index.js').ValuationFeedLicense;
-type ValuationFeedTransport = import('./modules/shared/index.js').ValuationFeedTransport;
-type ValuationFeedHealth = import('./modules/shared/index.js').ValuationFeedHealth;
-type ValuationFeedSourceStatus = import('./modules/shared/index.js').ValuationFeedSourceStatus;
-type ValuationFeedConnectorLoadResult<T> = import('./modules/shared/index.js').ValuationFeedConnectorLoadResult<T>;
-type ValuationFeedConnector = import('./modules/shared/index.js').ValuationFeedConnector;
-type VehicleValuationFeedConnector = import('./modules/shared/index.js').VehicleValuationFeedConnector;
-type ValuationComparable = import('./modules/shared/index.js').ValuationComparable;
-type VehicleValuationComparable = import('./modules/shared/index.js').VehicleValuationComparable;
+// Valuation types imported from shared module as needed inline
 
 type UserRole = 'user' | 'admin' | 'superadmin';
 type UserStatus = 'active' | 'verified' | 'suspended';
@@ -10789,6 +10776,7 @@ app.onError((error, c) => {
     );
 });
 
+// CORS middleware - must be applied BEFORE any routes to affect all routes
 app.use(
     '*',
     cors({

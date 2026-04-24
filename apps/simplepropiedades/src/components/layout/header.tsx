@@ -1,7 +1,6 @@
 'use client';
 
 import Link from 'next/link';
-import Image from 'next/image';
 import { usePathname, useRouter } from 'next/navigation';
 import { useTheme } from 'next-themes';
 import { useState, useEffect, useMemo, useRef } from 'react';
@@ -15,6 +14,7 @@ import {
     IconSparkles,
     IconMenu2,
     IconX,
+    IconHome,
 } from '@tabler/icons-react';
 import { useAuth } from '@/context/auth-context';
 import { getPanelNavItems, isPanelNavActive, type PanelRole } from '@/components/panel/panel-nav-config';
@@ -106,8 +106,8 @@ export function Header() {
             <div className="container-app flex items-center justify-between h-16">
                 {/* Logo */}
                 <Link href="/" className="flex items-center gap-1 group shrink-0">
-                    <div className="h-9 w-9 overflow-hidden transition-transform duration-200 group-hover:scale-105">
-                        <Image src="/logo.png" alt="SimplePropiedades" width={36} height={36} className="h-full w-full object-contain" />
+                    <div className="w-8 h-8 rounded-xl flex items-center justify-center" style={{ background: 'var(--accent)', color: '#fff' }}>
+                        <IconHome size={16} />
                     </div>
                     <span className="inline-flex items-end gap-[0.08rem] text-[1.05rem] tracking-tight" style={{ color: 'var(--fg)' }}>
                         <span className="font-semibold leading-none">Simple</span>

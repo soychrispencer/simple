@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import Image from 'next/image';
+import { IconHome } from '@tabler/icons-react';
 
 export function Footer() {
     const sections = [
@@ -38,12 +38,12 @@ export function Footer() {
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-10 mb-12">
                     <div className="col-span-2 sm:col-span-1">
                         <Link href="/" className="group mb-4 flex items-center gap-1.5">
-                            <div className="h-8 w-8 shrink-0 transition-transform duration-200 group-hover:scale-105">
-                                <Image src="/logo.png" alt="SimplePropiedades" width={32} height={32} className="h-full w-full object-contain" />
+                            <div className="w-8 h-8 rounded-xl flex items-center justify-center shrink-0 transition-transform duration-200 group-hover:scale-105" style={{ background: 'var(--accent)', color: '#fff' }}>
+                                <IconHome size={16} />
                             </div>
-                            <span className="inline-flex items-end gap-[0.06rem] text-[1rem] tracking-tight text-(--fg)">
+                            <span className="inline-flex items-end gap-[0.06rem] text-[1rem] tracking-tight" style={{ color: 'var(--fg)' }}>
                                 <span className="font-semibold leading-none">Simple</span>
-                                <span className="translate-y-[0.02em] font-normal leading-none text-(--fg-muted)">Propiedades</span>
+                                <span className="translate-y-[0.02em] font-normal leading-none" style={{ color: 'var(--fg-muted)' }}>Propiedades</span>
                             </span>
                         </Link>
                         <p className="text-sm leading-relaxed max-w-[220px] text-(--fg-muted)">

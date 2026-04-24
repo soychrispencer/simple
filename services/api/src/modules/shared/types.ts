@@ -252,34 +252,50 @@ export interface ValuationConfidenceBreakdown {
 }
 
 export interface ValuationComparable {
-    id: string;
+    id?: string;
     source: string;
+    externalId?: string;
     title: string;
     price: number;
     currency: string;
-    location: string;
+    location?: string;
+    regionId?: string | null;
+    communeId?: string | null;
+    addressLabel?: string | null;
     propertyType: string;
     areaM2: number | null;
     bedrooms: number | null;
     bathrooms: number | null;
-    publishedAt: number;
+    publishedAt: number | null;
     url: string | null;
+    distanceKm?: number | null;
+    operationType?: 'sale' | 'rent';
 }
 
 export interface VehicleValuationComparable {
-    id: string;
+    id?: string;
     source: string;
+    externalId?: string;
     title: string;
     price: number;
     currency: string;
-    location: string;
+    location?: string;
+    regionId?: string | null;
+    communeId?: string | null;
+    addressLabel?: string | null;
     vehicleType: string;
     brand: string;
     model: string;
+    version?: string | null;
     year: number | null;
     mileageKm: number | null;
-    publishedAt: number;
+    fuelType?: string | null;
+    transmission?: string | null;
+    bodyType?: string | null;
+    publishedAt: number | null;
     url: string | null;
+    distanceKm?: number | null;
+    operationType?: 'sale' | 'rent';
 }
 
 export interface ValuationFeedSourceStatus {
@@ -288,9 +304,14 @@ export interface ValuationFeedSourceStatus {
     license: ValuationFeedLicense;
     transport: ValuationFeedTransport;
     status: ValuationFeedHealth;
-    lastLoadedAt: number | null;
-    recordCount: number;
+    sourceUrl?: string | null;
+    lastLoadedAt?: number | null;
+    lastSyncAt?: number | null;
+    recordCount?: number;
+    itemCount?: number;
+    lastError?: string | null;
     supportsHistory: boolean;
+    historyBySegment?: Record<string, ValuationHistoricalPoint[]>;
 }
 
 export interface ValuationFeedConnectorLoadResult<T> {
@@ -332,7 +353,7 @@ export interface ValuationFeedRecord {
     propertyType: string;
     regionId: string | null;
     communeId: string | null;
-    neighborhood?: string | null;
+    neighborhood: string | null;
     addressLabel: string | null;
     latitude?: number | null;
     longitude?: number | null;
