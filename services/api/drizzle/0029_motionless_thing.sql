@@ -620,6 +620,45 @@ CREATE TABLE IF NOT EXISTS "subscriptions" (
 	"updated_at" timestamp DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
+-- ============================================================
+-- Patch: add columns that non-journal migrations (0029-0037)
+-- would have added to EXISTING tables via ALTER TABLE.
+-- CREATE TABLE IF NOT EXISTS above is a no-op for these tables.
+-- ============================================================
+
+-- agenda_professional_profiles: columns from 0029_payment_toggles + misc
+ALTER TABLE "agenda_professional_profiles" ADD COLUMN IF NOT EXISTS "allows_recurrent_booking" boolean NOT NULL DEFAULT true;
+ALTER TABLE "agenda_professional_profiles" ADD COLUMN IF NOT EXISTS "accepts_transfer" boolean NOT NULL DEFAULT false;
+ALTER TABLE "agenda_professional_profiles" ADD COLUMN IF NOT EXISTS "accepts_mp" boolean NOT NULL DEFAULT false;
+ALTER TABLE "agenda_professional_profiles" ADD COLUMN IF NOT EXISTS "accepts_payment_link" boolean NOT NULL DEFAULT false;
+ALTER TABLE "agenda_professional_profiles" ADD COLUMN IF NOT EXISTS "notifications_last_seen_at" timestamp;
+ALTER TABLE "agenda_professional_profiles" ADD COLUMN IF NOT EXISTS "plan" varchar(20) NOT NULL DEFAULT 'free';
+ALTER TABLE "agenda_professional_profiles" ADD COLUMN IF NOT EXISTS "plan_expires_at" timestamp;
+--> statement-breakpoint
+
+-- agenda_services: column from 0032_preconsult
+ALTER TABLE "agenda_services" ADD COLUMN IF NOT EXISTS "preconsult_fields" jsonb NOT NULL DEFAULT '[]'::jsonb;
+--> statement-breakpoint
+
+-- agenda_appointments: columns from 0032_preconsult, 0035_promotions, 0036_packs, + recurrence
+ALTER TABLE "agenda_appointments" ADD COLUMN IF NOT EXISTS "series_id" uuid;
+ALTER TABLE "agenda_appointments" ADD COLUMN IF NOT EXISTS "recurrence_frequency" varchar(20);
+ALTER TABLE "agenda_appointments" ADD COLUMN IF NOT EXISTS "preconsult_responses" jsonb;
+ALTER TABLE "agenda_appointments" ADD COLUMN IF NOT EXISTS "promotion_id" uuid;
+ALTER TABLE "agenda_appointments" ADD COLUMN IF NOT EXISTS "promotion_code" varchar(40);
+ALTER TABLE "agenda_appointments" ADD COLUMN IF NOT EXISTS "original_price" numeric(10, 2);
+ALTER TABLE "agenda_appointments" ADD COLUMN IF NOT EXISTS "discount_amount" numeric(10, 2);
+ALTER TABLE "agenda_appointments" ADD COLUMN IF NOT EXISTS "client_pack_id" uuid;
+--> statement-breakpoint
+
+-- agenda_clients: column from 0034_referrals
+ALTER TABLE "agenda_clients" ADD COLUMN IF NOT EXISTS "referred_by_client_id" uuid;
+--> statement-breakpoint
+
+-- ============================================================
+-- End patch
+-- ============================================================
+
 ALTER TABLE "instagram_accounts" ALTER COLUMN "profile_picture_url" SET DATA TYPE text;--> statement-breakpoint
 ALTER TABLE "instagram_publications" ALTER COLUMN "instagram_permalink" SET DATA TYPE text;--> statement-breakpoint
 DO $$ BEGIN ALTER TABLE "address_book" ADD CONSTRAINT "address_book_user_id_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."users"("id") ON DELETE no action ON UPDATE no action; EXCEPTION WHEN duplicate_object THEN NULL; END $$;--> statement-breakpoint
