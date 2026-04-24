@@ -887,56 +887,58 @@ export default function SimuladorPage() {
                                     const bestBank = banks.find(b => b.status === 'likely') || banks[0];
                                     return (
                                         <>
-                                {/* HERO CARD: Propiedad máxima - Diseño sobrio y moderno */}
+                                {/* HERO CARD: Propiedad máxima - Título arriba, tabs como botones */}
                                 <div className="rounded-xl border border-[var(--border)]">
-                                    {/* Header minimalista con tabs */}
-                                    <div className="flex px-4 pt-4 pb-2">
+                                    {/* Título principal - PRIMERO */}
+                                    <div className="pt-5 pb-3 text-center">
+                                        <div className="flex items-center justify-center gap-2 mb-2">
+                                            <div className="w-10 h-10 rounded-full bg-[var(--accent)]/10 flex items-center justify-center">
+                                                <IconHome size={22} className="text-[var(--accent)]" />
+                                            </div>
+                                        </div>
+                                        <h2 className="text-xs uppercase tracking-wider text-[var(--fg-muted)]">Propiedad máxima que puedes comprar</h2>
+                                    </div>
+                                    
+                                    {/* Tabs como botones/pills */}
+                                    <div className="flex justify-center gap-2 px-4 pb-3">
                                         <button
                                             onClick={()=>setScenarioTab('recommended')}
-                                            className="flex-1 pb-2 text-xs font-medium text-center transition-all border-b-2"
-                                            style={{
-                                                borderColor: scenarioTab==='recommended' ? 'var(--accent)' : 'transparent',
-                                                color: scenarioTab==='recommended' ? 'var(--accent)' : 'var(--fg-muted)'
-                                            }}
+                                            className={`px-3 py-1.5 text-[11px] font-medium rounded-full transition-all ${
+                                                scenarioTab==='recommended' 
+                                                    ? 'bg-[var(--accent)] text-white' 
+                                                    : 'bg-[var(--bg-subtle)] text-[var(--fg-muted)] hover:bg-[var(--border)]'
+                                            }`}
                                         >
                                             Recomendado ({result.recommendedDTI}%)
                                         </button>
                                         <button
                                             onClick={()=>setScenarioTab('limit')}
-                                            className="flex-1 pb-2 text-xs font-medium text-center transition-all border-b-2"
-                                            style={{
-                                                borderColor: scenarioTab==='limit' ? 'var(--accent)' : 'transparent',
-                                                color: scenarioTab==='limit' ? 'var(--accent)' : 'var(--fg-muted)'
-                                            }}
+                                            className={`px-3 py-1.5 text-[11px] font-medium rounded-full transition-all ${
+                                                scenarioTab==='limit' 
+                                                    ? 'bg-[var(--accent)] text-white' 
+                                                    : 'bg-[var(--bg-subtle)] text-[var(--fg-muted)] hover:bg-[var(--border)]'
+                                            }`}
                                         >
                                             Límite ({result.maxDTI}%)
                                         </button>
                                     </div>
                                     
-                                    {/* Contenido principal - más aire */}
-                                    <div className="px-6 pb-6 pt-2 text-center">
-                                        {/* Perfil tag - más sutil */}
-                                        <div className="flex items-center justify-center gap-2 mb-4">
-                                            <span className="text-[10px] text-[var(--fg-muted)]">Perfil</span>
-                                            <span 
-                                                className="text-[10px] font-medium px-2 py-0.5 rounded-full" 
-                                                style={{ 
-                                                    background: result.clientSegment.name === 'Estándar' ? 'rgba(107,114,128,0.1)' : result.clientSegment.name === 'Premium' ? 'rgba(245,158,11,0.1)' : 'rgba(124,58,237,0.1)',
-                                                    color: result.clientSegment.name === 'Estándar' ? '#6b7280' : result.clientSegment.name === 'Premium' ? '#f59e0b' : '#7c3aed'
-                                                }}
-                                            >
-                                                {result.clientSegment.name}
-                                            </span>
-                                            <span className="text-[10px] text-[var(--fg-muted)]">• {activeLabel}</span>
-                                        </div>
-                                        
-                                        {/* Título con icono sutil */}
-                                        <div className="flex items-center justify-center gap-1.5 mb-3">
-                                            <IconHome size={16} className="text-[var(--fg-muted)]" />
-                                            <span className="text-[11px] uppercase tracking-wide text-[var(--fg-muted)]">Propiedad máxima que puedes comprar</span>
-                                        </div>
-                                        
-                                        {/* Valor principal - NUMERO GIGANTE */}
+                                    {/* Perfil solo (sin RECOMENDADO/LIMITE) */}
+                                    <div className="flex items-center justify-center gap-2 pb-3">
+                                        <span className="text-[10px] text-[var(--fg-muted)]">Perfil</span>
+                                        <span 
+                                            className="text-[10px] font-medium px-2 py-0.5 rounded-full" 
+                                            style={{ 
+                                                background: result.clientSegment.name === 'Estándar' ? 'rgba(107,114,128,0.1)' : result.clientSegment.name === 'Premium' ? 'rgba(245,158,11,0.1)' : 'rgba(124,58,237,0.1)',
+                                                color: result.clientSegment.name === 'Estándar' ? '#6b7280' : result.clientSegment.name === 'Premium' ? '#f59e0b' : '#7c3aed'
+                                            }}
+                                        >
+                                            {result.clientSegment.name}
+                                        </span>
+                                    </div>
+                                    
+                                    {/* Valor principal */}
+                                    <div className="px-6 pb-6 text-center">
                                         {activeScenario.propertyValue > 0 ? (
                                             <>
                                                 <p className="text-5xl font-bold text-[var(--fg)] tracking-tight">{formatUF(activeScenario.propertyValue,ufValue)}</p>
