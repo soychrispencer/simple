@@ -251,6 +251,37 @@ export interface ValuationConfidenceBreakdown {
     recency: number;
 }
 
+export interface ValuationComparable {
+    id: string;
+    source: string;
+    title: string;
+    price: number;
+    currency: string;
+    location: string;
+    propertyType: string;
+    areaM2: number | null;
+    bedrooms: number | null;
+    bathrooms: number | null;
+    publishedAt: number;
+    url: string | null;
+}
+
+export interface VehicleValuationComparable {
+    id: string;
+    source: string;
+    title: string;
+    price: number;
+    currency: string;
+    location: string;
+    vehicleType: string;
+    brand: string;
+    model: string;
+    year: number | null;
+    mileageKm: number | null;
+    publishedAt: number;
+    url: string | null;
+}
+
 export interface ValuationFeedSourceStatus {
     id: string;
     label: string;
@@ -293,7 +324,7 @@ export interface VehicleValuationFeedConnector extends Omit<ValuationFeedConnect
 export interface ValuationFeedRecord {
     id: string;
     source: string;
-    externalId: string | null;
+    externalId?: string | null;
     title: string;
     price: number;
     currency: string;
@@ -301,16 +332,16 @@ export interface ValuationFeedRecord {
     propertyType: string;
     regionId: string | null;
     communeId: string | null;
-    neighborhood: string | null;
+    neighborhood?: string | null;
     addressLabel: string | null;
-    latitude: number | null;
-    longitude: number | null;
+    latitude?: number | null;
+    longitude?: number | null;
     bedrooms: number | null;
     bathrooms: number | null;
     areaM2: number | null;
     publishedAt: number | null;
     url: string | null;
-    fetchedAt: number;
+    fetchedAt?: number;
 }
 
 export interface VehicleValuationFeedRecord {
