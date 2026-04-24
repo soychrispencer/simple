@@ -910,20 +910,23 @@ export default function SimuladorPage() {
                                         <h2 className="text-xs uppercase tracking-wider text-[var(--fg-muted)]">Propiedad máxima que puedes comprar</h2>
                                     </div>
                                     
-                                    {/* Tabs como botones/pills */}
-                                    <div className="flex justify-center gap-2 px-4 pb-3">
-                                        <button
-                                            onClick={()=>setScenarioTab('recommended')}
-                                            className={`px-4 py-1.5 rounded-full text-[11px] font-semibold transition-all duration-200 ${scenarioTab==='recommended'? 'bg-[var(--accent)] text-white shadow-sm' : 'bg-[var(--bg-subtle)] text-[var(--fg-muted)] hover:bg-[var(--bg)]'}`}
-                                        >
-                                            RECOMENDADO
-                                        </button>
-                                        <button
-                                            onClick={()=>setScenarioTab('limit')}
-                                            className={`px-4 py-1.5 rounded-full text-[11px] font-semibold transition-all duration-200 ${scenarioTab==='limit'? 'bg-[var(--fg)] text-white shadow-sm' : 'bg-[var(--bg-subtle)] text-[var(--fg-muted)] hover:bg-[var(--bg)]'}`}
-                                        >
-                                            LIMITE {result.clientSegment.name.toUpperCase()}
-                                        </button>
+                                    {/* Tabs como segmented control */}
+                                    <div className="px-4 pb-3">
+                                        <p className="text-[10px] text-[var(--fg-muted)] text-center mb-2">Selecciona escenario:</p>
+                                        <div className="flex justify-center p-1 rounded-xl bg-[var(--bg-subtle)] border border-[var(--border)]">
+                                            <button
+                                                onClick={()=>setScenarioTab('recommended')}
+                                                className={`flex-1 px-4 py-2 rounded-lg text-[11px] font-semibold transition-all duration-200 ${scenarioTab==='recommended'? 'bg-[var(--accent)] text-white shadow-sm' : 'text-[var(--fg-muted)] hover:text-[var(--fg)] hover:bg-[var(--bg)]'}`}
+                                            >
+                                                Recomendado
+                                            </button>
+                                            <button
+                                                onClick={()=>setScenarioTab('limit')}
+                                                className={`flex-1 px-4 py-2 rounded-lg text-[11px] font-semibold transition-all duration-200 ${scenarioTab==='limit'? 'bg-[var(--fg)] text-white shadow-sm' : 'text-[var(--fg-muted)] hover:text-[var(--fg)] hover:bg-[var(--bg)]'}`}
+                                            >
+                                                Límite {result.clientSegment.name}
+                                            </button>
+                                        </div>
                                     </div>
                                     
                                     {/* Perfil solo (sin RECOMENDADO/LIMITE) */}
