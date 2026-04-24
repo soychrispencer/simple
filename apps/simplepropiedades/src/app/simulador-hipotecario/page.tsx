@@ -1077,82 +1077,68 @@ export default function SimuladorPage() {
 
                                 <button onClick={()=>setShowAdvanced(!showAdvanced)} className="btn btn-outline w-full">
                                     {showAdvanced?<IconChevronUp size={14}/>:<IconChevronDown size={14}/>}
-                                    {showAdvanced?'Ocultar desglose completo':'Ver desglose completo'}
+                                    {showAdvanced?'Ocultar resumen':'Ver resumen completo'}
                                 </button>
 
                                 {showAdvanced&&(
-                                    <div className="p-4 rounded-2xl border space-y-3 text-xs border-[var(--border)]">
+                                    <div className="p-4 rounded-2xl border space-y-4 text-sm border-[var(--border)]">
                                         {activeReason && (
                                             <div className="p-2 rounded-lg border text-[10px] bg-red-500/5 border-red-500 text-red-500">
                                                 <strong>Motivo:</strong> {activeReason}
                                             </div>
                                         )}
-                                        {/* Crédito */}
-                                        <div>
-                                            <p className="text-[10px] uppercase font-semibold mb-2 text-[var(--fg-muted)]">Crédito hipotecario</p>
-                                            <div className="space-y-1">
-                                                <div className="flex justify-between"><span className="text-[var(--fg-muted)]">Monto préstamo</span><span className="text-[var(--fg)]">{formatCurrency(scenarioTab === 'recommended' ? result.recommended.maxCredit : result.limit.maxCredit)}</span></div>
-                                                <div className="flex justify-between"><span className="text-[var(--fg-muted)]">Tasa anual</span><span className="text-[var(--fg)]">{annualRate}%</span></div>
-                                                <div className="flex justify-between"><span className="text-[var(--fg-muted)]">Intereses totales</span><span className="text-[var(--fg)]">{formatCurrency(scenarioTab === 'recommended' ? result.recommended.totalInterest : result.limit.totalInterest)}</span></div>
-                                            </div>
-                                        </div>
-                                        <div className="border-t border-[var(--border)] pt-2" />
-                                        {/* Propiedad */}
-                                        <div>
-                                            <p className="text-[10px] uppercase font-semibold mb-2 text-[var(--fg-muted)]">Propiedad</p>
-                                            <div className="space-y-1">
-                                                <div className="flex justify-between"><span className="text-[var(--fg-muted)]">Valor propiedad</span><span className="text-[var(--fg)]">{formatCurrency(scenarioTab === 'recommended' ? result.recommended.propertyValue : result.limit.propertyValue)}</span></div>
-                                                <div className="flex justify-between"><span className="text-[var(--fg-muted)]">Pie Estimado</span><span className="text-[var(--fg)]">{formatCurrency(scenarioTab === 'recommended' ? result.recommended.pie : result.limit.pie)}</span></div>
-                                                <div className="flex justify-between"><span className="text-[var(--fg-muted)]">Gastos operacionales</span><span className="text-[var(--fg)]">{formatCurrency(scenarioTab === 'recommended' ? result.recommended.totalFees : result.limit.totalFees)}</span></div>
-                                                <div className="flex justify-between"><span className="text-[var(--fg-muted)]">Pie total requerido</span><span className="text-[var(--fg)]">{formatCurrency(scenarioTab === 'recommended' ? result.recommended.minPieNeeded : result.limit.minPieNeeded)}</span></div>
-                                            </div>
-                                        </div>
-                                        <div className="border-t border-[var(--border)] pt-2" />
-                                        {/* Mensualidad */}
-                                        <div>
-                                            <p className="text-[10px] uppercase font-semibold mb-2 text-[var(--fg-muted)]">Mensualidad</p>
-                                            <div className="space-y-1">
-                                                <div className="flex justify-between"><span className="text-[var(--fg-muted)]">Cuota mensual</span><span className="text-[var(--fg)]">{formatCurrency(scenarioTab === 'recommended' ? result.recommended.monthlyPayment : result.limit.monthlyPayment)}</span></div>
-                                                <div className="flex justify-between"><span className="text-[var(--fg-muted)]" title="Seguros de desgravamen, sismo e incendio estimados sobre el saldo promedio del crédito.">Seguros mensuales (estimado) ℹ</span><span className="text-[var(--fg)]">{formatCurrency(scenarioTab === 'recommended' ? result.recommended.totalInsurance : result.limit.totalInsurance)}</span></div>
-                                                <div className="flex justify-between"><span className="text-[var(--fg-muted)]" title="Costo Anual Equivalente: incluye la tasa de interés, seguros y gastos operacionales distribuidos.">CAE (Costo Anual Equivalente) ℹ</span><span className="text-[var(--fg)]">{(scenarioTab === 'recommended' ? result.recommended.cae : result.limit.cae).toFixed(2)}%</span></div>
-                                            </div>
-                                        </div>
-                                        <div className="border-t border-[var(--border)] pt-2" />
-                                        {/* Capacidad */}
-                                        <div>
-                                            <p className="text-[10px] uppercase font-semibold mb-2 text-[var(--fg-muted)]">Capacidad</p>
-                                            <div className="space-y-1">
-                                                <div className="flex justify-between"><span className="text-[var(--fg-muted)]">Capacidad máx. recomendada ({result.recommendedDTI}%)</span><span className="text-[var(--fg)]">{formatCurrency(result.recommended.capacity)}</span></div>
-                                                <div className="flex justify-between"><span className="text-[var(--fg-muted)]">Capacidad máx. límite ({result.maxDTI}%)</span><span className="text-[var(--fg)]">{formatCurrency(result.limit.capacity)}</span></div>
-                                                <div className="flex justify-between"><span className="text-[var(--fg-muted)]">Cuota disponible recomendada</span><span className="text-[var(--fg)]">{formatCurrency(result.recommended.availableQuota)}</span></div>
-                                                <div className="flex justify-between"><span className="text-[var(--fg-muted)]">Cuota disponible límite</span><span className="text-[var(--fg)]">{formatCurrency(result.limit.availableQuota)}</span></div>
-                                            </div>
-                                        </div>
-                                        <div className="border-t border-[var(--border)] pt-2" />
-                                        {/* Desglose gastos */}
-                                        <div>
-                                            <p className="text-[10px] uppercase font-semibold mb-2 text-[var(--fg-muted)]">Desglose gastos operacionales</p>
-                                            <div className="space-y-1">
-                                                {(() => {
-                                                    const fd = scenarioTab === 'recommended' ? result.recommended.feeDetails : result.limit.feeDetails;
-                                                    return (
-                                                        <>
-                                                            <div className="flex justify-between"><span className="text-[var(--fg-muted)]">Avalúo / Tasación</span><span className="text-[var(--fg)]">{formatCurrency(fd.appraisal)}</span></div>
-                                                            <div className="flex justify-between"><span className="text-[var(--fg-muted)]">Notaría + Conservador (1.2%)</span><span className="text-[var(--fg)]">{formatCurrency(fd.notary)}</span></div>
-                                                            {fd.stamps > 0 && <div className="flex justify-between"><span className="text-[var(--fg-muted)]">Timbres y estampillas (1.5%)</span><span className="text-[var(--fg)]">{formatCurrency(fd.stamps)}</span></div>}
-                                                            {fd.mortgageTax > 0 && <div className="flex justify-between"><span className="text-[var(--fg-muted)]">Impuesto al mutuo (0.5%)</span><span className="text-[var(--fg)]">{formatCurrency(fd.mortgageTax)}</span></div>}
-                                                            <div className="flex justify-between"><span className="text-[var(--fg-muted)]">Gastos bancarios</span><span className="text-[var(--fg)]">{formatCurrency(fd.bankFees)}</span></div>
-                                                            <div className="flex justify-between"><span className="text-[var(--fg-muted)]">Estudio de títulos</span><span className="text-[var(--fg)]">{formatCurrency(fd.titleStudy)}</span></div>
-                                                            <div className="flex justify-between font-semibold pt-1 border-t mt-1 border-[var(--border)] text-[var(--fg)]">
-                                                                <span>Total gastos</span>
-                                                                <span>{formatCurrency(fd.total)}</span>
-                                                            </div>
-                                                        </>
-                                                    );
-                                                })()}
-                                            </div>
-                                            <p className="text-[10px] mt-2 text-[var(--fg-muted)]">Gastos calculados sobre valor máx. alcanzable</p>
-                                        </div>
+                                        
+                                        {(() => {
+                                            const activeScenario = scenarioTab === 'recommended' ? result.recommended : result.limit;
+                                            const fd = activeScenario.feeDetails;
+                                            return (
+                                                <>
+                                                    {/* Resumen simplificado */}
+                                                    <div className="space-y-2">
+                                                        <div className="flex justify-between">
+                                                            <span className="text-[var(--fg-muted)]">Valor de la propiedad</span>
+                                                            <span className="font-medium text-[var(--fg)]">{formatCurrency(activeScenario.propertyValue)}</span>
+                                                        </div>
+                                                        <div className="flex justify-between">
+                                                            <span className="text-[var(--fg-muted)]">Pie que necesitas</span>
+                                                            <span className="font-medium text-[var(--fg)]">{formatCurrency(activeScenario.minPieNeeded)}</span>
+                                                        </div>
+                                                        <div className="flex justify-between">
+                                                            <span className="text-[var(--fg-muted)]">Crédito a solicitar</span>
+                                                            <span className="font-medium text-[var(--fg)]">{formatCurrency(activeScenario.maxCredit)}</span>
+                                                        </div>
+                                                    </div>
+                                                    
+                                                    <div className="border-t border-[var(--border)]" />
+                                                    
+                                                    {/* Cuota */}
+                                                    <div className="flex justify-between items-center">
+                                                        <div>
+                                                            <span className="text-[var(--fg-muted)]">Cuota mensual</span>
+                                                            <p className="text-[10px] text-[var(--fg-muted)]">Incluye seguros aprox.</p>
+                                                        </div>
+                                                        <span className="text-lg font-semibold text-[var(--fg)]">{formatCurrency(activeScenario.monthlyPayment)}</span>
+                                                    </div>
+                                                    
+                                                    <div className="border-t border-[var(--border)]" />
+                                                    
+                                                    {/* Gastos operacionales simplificados */}
+                                                    <div className="flex justify-between items-center">
+                                                        <div>
+                                                            <span className="text-[var(--fg-muted)]">Gastos iniciales estimados</span>
+                                                            <p className="text-[10px] text-[var(--fg-muted)]">Avalúo, notaría, impuestos, banco</p>
+                                                        </div>
+                                                        <span className="font-medium text-[var(--fg)]">{formatCurrency(fd.total)}</span>
+                                                    </div>
+                                                    
+                                                    {/* Footer con CAE y plazo */}
+                                                    <div className="pt-2 text-[10px] text-[var(--fg-muted)] flex justify-between">
+                                                        <span>Plazo: {result.loanTermYears} años</span>
+                                                        <span>CAE: {activeScenario.cae.toFixed(2)}%</span>
+                                                    </div>
+                                                </>
+                                            );
+                                        })()}
                                     </div>
                                 )}
 
