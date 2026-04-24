@@ -176,69 +176,22 @@ import { createSystemRouter } from './modules/system/index.js';
 import { createSocialRouter } from './modules/social/index.js';
 import { createPublicRouter } from './modules/public/index.js';
 
-import type {
-    UserRole,
-    UserStatus,
-    VerticalType,
-    AccountType,
-    AccountRole,
-    CrmEntityType,
-    AddressBookKind,
-    ListingLocationSourceMode,
-    ListingLocationVisibilityMode,
-    GeocodePrecision,
-    GeocodeProvider,
-    GeoPoint,
-    AddressBookEntry,
-    ListingLocation,
-    AppUser,
-    PublicUser,
-    AccountRecord,
-    AccountUserRecord,
-    PublicProfileSocialLinks,
-    PublicProfileTeamSocialLinks,
-    PublicProfileBusinessHour,
-    PublicProfileTeamMember,
-    SavedListingRecord,
-    FollowRecord,
-    FeedClip,
-    BoostSection,
-    BoostPlanId,
-    BoostOrderStatus,
-    BoostListingRecord,
-    BoostPlanRecord,
-    BoostOrder,
-    ListingStatus,
-    PortalKey,
-    PortalSyncStatus,
-    ListingPortalSyncRecord,
-    AdFormat,
-    AdDurationDays,
-    AdStatus,
-    AdPaymentStatus,
-    AdDestinationType,
-    AdOverlayAlign,
-    AdPlacementSection,
-    CheckoutKind,
-    ValuationHistoricalPoint,
-    ValuationSourceBreakdown,
-    ValuationConfidenceBreakdown,
-    ValuationFeedLicense,
-    ValuationFeedTransport,
-    ValuationFeedHealth,
-    ValuationFeedSourceStatus,
-    PublicProfileAccountKind,
-    PublicProfileLeadRoutingMode,
-    PublicProfileDayId,
-    ValuationFeedConnectorLoadResult,
-} from './modules/shared/index.js';
-
-import { createDebugLogger } from './lib/debug-logger.js';
+import { createDebugLogger } from './modules/shared/index.js';
 
 const DEBUG_LOG_FILE = path.resolve(process.cwd(), 'api_debug.log');
 const logDebug = createDebugLogger(DEBUG_LOG_FILE);
 
 logDebug('--- API RESTARTED ---');
+
+// Core domain types (defined locally to match existing structure)
+type UserRole = 'user' | 'admin' | 'superadmin';
+type UserStatus = 'active' | 'verified' | 'suspended';
+type VerticalType = 'autos' | 'propiedades' | 'agenda' | 'serenatas';
+type AccountType = 'general' | 'autos' | 'propiedades' | 'agenda' | 'crm_only';
+type AccountRole = 'owner' | 'admin' | 'agent';
+type CrmEntityType = 'listing' | 'service' | 'external';
+type AddressBookKind = 'personal' | 'shipping' | 'billing' | 'company' | 'branch' | 'warehouse' | 'pickup' | 'other';
+type ListingLocationSourceMode = 'saved_address' | 'custom' | 'area_only';
 type ListingLocationVisibilityMode = 'exact' | 'approximate' | 'sector_only' | 'commune_only' | 'hidden';
 type GeocodePrecision = 'exact' | 'approximate' | 'commune' | 'none';
 type GeocodeProvider = 'none' | 'catalog_seed' | 'manual' | 'external';
@@ -288,113 +241,6 @@ type ListingLocation = {
     publicMapEnabled: boolean;
     publicGeoPoint: GeoPoint;
     publicLabel: string;
-};
-
-type ValuationComparable = {
-    source: string;
-    externalId: string | null;
-    title: string;
-    price: number;
-    currency: string;
-    operationType: 'sale' | 'rent';
-    propertyType: string;
-    regionId: string | null;
-    communeId: string | null;
-    addressLabel: string | null;
-    distanceKm: number | null;
-    bedrooms: number | null;
-    bathrooms: number | null;
-    areaM2: number | null;
-    publishedAt: number | null;
-    url: string | null;
-};
-
-type VehicleValuationComparable = {
-    source: string;
-    externalId: string | null;
-    title: string;
-    price: number;
-    currency: string;
-    operationType: 'sale' | 'rent';
-    vehicleType: string;
-    brand: string;
-    model: string;
-    version: string | null;
-    year: number | null;
-    mileageKm: number | null;
-    fuelType: string | null;
-    transmission: string | null;
-    bodyType: string | null;
-    regionId: string | null;
-    communeId: string | null;
-    addressLabel: string | null;
-    distanceKm: number | null;
-    publishedAt: number | null;
-    url: string | null;
-};
-
-type ValuationHistoricalPoint = {
-    ts: number;
-    medianPrice: number;
-    medianPricePerM2: number | null;
-    sampleSize: number;
-};
-
-type ValuationSourceBreakdown = {
-    source: string;
-    comparables: number;
-    weight: number;
-    freshnessDays: number | null;
-};
-
-type ValuationConfidenceBreakdown = {
-    dataCoverage: number;
-    locationAccuracy: number;
-    similarity: number;
-    recency: number;
-};
-
-type ValuationFeedLicense = 'internal' | 'partner_feed' | 'commercial_feed' | 'public_open_data';
-type ValuationFeedTransport = 'snapshot' | 'remote_json';
-type ValuationFeedHealth = 'ready' | 'degraded' | 'disabled';
-
-type ValuationFeedSourceStatus = {
-    id: string;
-    label: string;
-    license: ValuationFeedLicense;
-    transport: ValuationFeedTransport;
-    status: ValuationFeedHealth;
-    sourceUrl: string | null;
-    itemCount: number;
-    lastSyncAt: number | null;
-    lastError: string | null;
-    supportsHistory: boolean;
-};
-
-type ValuationFeedConnectorLoadResult = {
-    records: ValuationFeedRecord[];
-    historyBySegment?: Record<string, ValuationHistoricalPoint[]>;
-    sourceUrl: string | null;
-};
-
-type ValuationFeedConnector = {
-    id: string;
-    label: string;
-    license: ValuationFeedLicense;
-    transport: ValuationFeedTransport;
-    supportsHistory: boolean;
-    envUrlKey?: string;
-    load: () => Promise<ValuationFeedConnectorLoadResult>;
-};
-
-type VehicleValuationFeedConnectorLoadResult = {
-    records: VehicleValuationFeedRecord[];
-    historyBySegment?: Record<string, ValuationHistoricalPoint[]>;
-    sourceUrl: string | null;
-};
-
-type VehicleValuationFeedConnector = Omit<ValuationFeedConnector, 'load'> & {
-    load: () => Promise<VehicleValuationFeedConnectorLoadResult>;
 };
 
 type AppUser = {

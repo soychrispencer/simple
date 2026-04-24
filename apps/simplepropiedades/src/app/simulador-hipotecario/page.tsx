@@ -668,7 +668,7 @@ export default function SimuladorPage() {
 
                 <div className="grid gap-6 lg:grid-cols-5">
                     <div className="lg:col-span-3 space-y-4">
-                        <div className="p-4 rounded-2xl border bg-[var(--bg)] border-[var(--border)]">
+                        <div className="p-4">
                             <h3 className="text-sm font-semibold flex items-center gap-2 mb-3 text-[var(--fg)]">
                                 <div className="w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold text-white bg-[var(--accent)]">1</div>
                                 Datos del cliente
@@ -735,7 +735,7 @@ export default function SimuladorPage() {
                                 </div>
                             </div>
                         </div>
-                        <div className="p-4 rounded-2xl border bg-[var(--bg)] border-[var(--border)]">
+                        <div className="p-4">
                             <h3 className="text-sm font-semibold flex items-center gap-2 mb-3 text-[var(--fg)]">
                                 <div className="w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold text-white bg-[var(--accent)]">2</div>
                                 Deudas actuales mensuales
@@ -804,10 +804,10 @@ export default function SimuladorPage() {
                                 )}
                             </div>
                         </div>
-                        <div className="p-4 rounded-2xl border bg-[var(--bg)] border-[var(--border)]">
+                        <div className="p-4">
                             <h3 className="text-sm font-semibold flex items-center gap-2 mb-3 text-[var(--fg)]">
                                 <div className="w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold text-white bg-[var(--accent)]">3</div>
-                                Condiciones del credito
+                                Condiciones del crédito
                             </h3>
                             <div className="grid gap-3 sm:grid-cols-2">
                                 <div>
