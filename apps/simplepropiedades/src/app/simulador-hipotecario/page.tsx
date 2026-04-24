@@ -735,7 +735,6 @@ export default function SimuladorPage() {
                                             {value:'5',label:'+5 años'},
                                         ]}
                                         placeholder="Seleccionar..."
-                                        triggerClassName={activeReason?.includes('Antiguedad') ? 'ring-1 ring-red-400' : ''}
                                     />
                                 </div>
                                 <div>
