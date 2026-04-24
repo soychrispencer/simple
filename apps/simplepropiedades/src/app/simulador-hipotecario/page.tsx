@@ -871,7 +871,7 @@ export default function SimuladorPage() {
                         </div>
                         <button
                             onClick={()=> handleCalculate()}
-                            className="btn btn-primary w-full py-2.5"
+                            className="btn btn-primary w-full py-2.5 px-4 flex items-center justify-center"
                         >
                             Actualizar cálculo
                         </button>
@@ -1171,7 +1171,7 @@ export default function SimuladorPage() {
                 </div>
                 {result&&(
                     <div className="mt-6">
-                        <button onClick={handleDownload} className="btn btn-outline w-full py-2.5">
+                        <button onClick={handleDownload} className="btn btn-outline w-full py-2.5 px-4 flex items-center justify-center">
                             <IconDownload size={18} className="mr-2"/>Descargar resumen (PDF)
                         </button>
                     </div>
