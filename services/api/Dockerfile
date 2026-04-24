@@ -43,6 +43,7 @@ COPY --from=builder /app/.npmrc ./
 COPY --from=builder /app/packages ./packages
 COPY --from=builder /app/services/api/dist ./services/api/dist
 COPY --from=builder /app/services/api/package.json ./services/api/package.json
+COPY --from=builder /app/services/api/drizzle.config.ts ./services/api/drizzle.config.ts
 COPY --from=builder /app/services/api/drizzle ./services/api/drizzle
 
 # Install pnpm in production stage
