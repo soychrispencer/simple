@@ -1,6 +1,19 @@
 import { Hono } from 'hono';
+import type { Context } from 'hono';
 
-export function createAccountsRouter(deps: any) {
+export interface AccountsRouterDeps {
+    authUser: (c: Context) => Promise<any>;
+    ensurePrimaryAccountForUser: (user: any) => Promise<any>;
+    getAccountMembershipsForUser: (userId: string) => any[];
+    accountsById: Map<string, any>;
+    db: any;
+    tables: { accounts: any };
+    eq: any;
+    mapAccountRow: (row: any) => any;
+    upsertAccountCache: (account: any) => any;
+}
+
+export function createAccountsRouter(deps: AccountsRouterDeps) {
   const app = new Hono();
 
   app.get('/current', async (c) => {

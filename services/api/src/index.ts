@@ -139,11 +139,11 @@ import {
     mortgageRates,
 } from './db/schema.js';
 import { createSerenatasRouter } from './modules/serenatas/index.js';
-import { createAccountsRouter } from './modules/accounts/router.js';
+import { createAccountsRouter } from './modules/accounts/index.js';
 import { createCrmRouter } from './modules/crm/router.js';
-import { createAdminRouter } from './modules/admin/router.js';
-import { createAuthRouter } from './modules/auth/router.js';
-import { createListingsRouter, createListingDraftRouter } from './modules/listings/router.js';
+import { createAdminRouter } from './modules/admin/index.js';
+import { createAuthRouter } from './modules/auth/index.js';
+import { createListingsRouter, createListingDraftRouter } from './modules/listings/index.js';
 import { createBoostRouter } from './modules/boost/router.js';
 import { createAddressBookRouter } from './modules/address-book/router.js';
 import { createPaymentsRouter } from './modules/payments/router.js';
@@ -170,7 +170,8 @@ import { createAdvertisingRouter } from './modules/advertising/router.js';
 import { createLeadsRouter } from './modules/leads/router.js';
 import { createMessagesRouter, createPanelNotificationsRouter } from './modules/messages/router.js';
 import { createInstagramRouter, createInstagramPublicImageRouter } from './modules/instagram/router.js';
-import { createMediaRouter, createStorageRouter } from './modules/media/router.js';
+import { createMediaRouter, createStorageRouter } from './modules/media/index.js';
+import { createSystemRouter } from './modules/system/index.js';
 import { createSocialRouter } from './modules/social/router.js';
 import { createPublicRouter } from './modules/public/router.js';
 
@@ -10949,69 +10950,17 @@ app.use(
     })
 );
 
-app.get('/', (c) =>
-    c.json({
-        ok: true,
-        service: 'simple-v2-api',
-        status: 'running',
-    })
-);
-
-const handleHealthcheck = (c: Context) =>
-    c.json({
-        ok: true,
-        service: 'simple-v2-api',
-        timestamp: new Date().toISOString(),
-    });
-
-app.get('/api/debug/env', (c) => {
-    return c.json({
-        cwd: process.cwd(),
-        env: {
-            NODE_ENV: process.env.NODE_ENV,
-            STORAGE_PROVIDER: process.env.STORAGE_PROVIDER,
-            LOCAL_STORAGE_URL: process.env.LOCAL_STORAGE_URL,
-            BACKBLAZE_DOWNLOAD_URL: process.env.BACKBLAZE_DOWNLOAD_URL,
-            BACKBLAZE_BUCKET_NAME: process.env.BACKBLAZE_BUCKET_NAME,
-        },
-        api_root: API_ROOT_DIR,
-    });
-});
-
-app.get('/health', handleHealthcheck);
-app.get('/api/health', handleHealthcheck);
-
-// Development-only file server for local uploads (only when STORAGE_PROVIDER=local)
-app.get('/uploads/*', async (c) => {
-    if (process.env.STORAGE_PROVIDER !== 'local' && process.env.NODE_ENV !== 'development') {
-        return c.text('Not found', 404);
-    }
-
-    const pathname = new URL(c.req.url).pathname;
-    const relativePath = pathname.replace(/^\/uploads\//, '');
-    if (!relativePath) {
-        return c.text('Not found', 404);
-    }
-
-    const diskPath = path.join(process.cwd(), 'uploads', ...relativePath.split('/'));
-    try {
-        const stat = await fs.stat(diskPath);
-        if (!stat.isFile()) {
-            return c.text('Not found', 404);
-        }
-
-        const blob = await fs.readFile(diskPath);
-        let contentType = 'application/octet-stream';
-        if (diskPath.endsWith('.jpg') || diskPath.endsWith('.jpeg')) contentType = 'image/jpeg';
-        else if (diskPath.endsWith('.png')) contentType = 'image/png';
-        else if (diskPath.endsWith('.webp')) contentType = 'image/webp';
-        else if (diskPath.endsWith('.gif')) contentType = 'image/gif';
-
-        return c.body(blob, 200, { 'Content-Type': contentType });
-    } catch {
-        return c.text('Not found', 404);
-    }
-});
+app.route('/', createSystemRouter({
+    serviceName: 'simple-v2-api',
+    apiRootDir: API_ROOT_DIR,
+    env: {
+        NODE_ENV: process.env.NODE_ENV,
+        STORAGE_PROVIDER: process.env.STORAGE_PROVIDER,
+        LOCAL_STORAGE_URL: process.env.LOCAL_STORAGE_URL,
+        BACKBLAZE_DOWNLOAD_URL: process.env.BACKBLAZE_DOWNLOAD_URL,
+        BACKBLAZE_BUCKET_NAME: process.env.BACKBLAZE_BUCKET_NAME,
+    },
+}));
 
 let mediaProxyS3Client: S3Client | null = null;
 

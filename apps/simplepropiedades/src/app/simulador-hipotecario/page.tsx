@@ -9,7 +9,7 @@ import {
     IconBuildingBank, IconTrendingUp, IconStar,
     IconCalculator, IconDownload, IconCheck, IconAlertTriangle, IconX,
     IconChevronDown, IconChevronUp, IconInfoCircle, IconRotate,
-    IconExternalLink, IconCalendar,
+    IconExternalLink, IconCalendar, IconHome,
 } from '@tabler/icons-react';
 import { jsPDF } from 'jspdf';
 import ModernSelect from '@/components/ui/modern-select';
@@ -880,128 +880,180 @@ export default function SimuladorPage() {
                     <div className="lg:col-span-2 space-y-4">
                         {result?(
                             <>
-                                {/* Segmento del cliente badge */}
-                                <div className="flex items-center justify-between px-3 py-2 rounded-xl border bg-[var(--bg)] border-[var(--border)]">
-                                    <div className="flex items-center gap-2">
-                                        <div 
-                                            className="w-2 h-2 rounded-full" 
-                                            style={{ 
-                                                background: result.clientSegment.name === 'Estándar' ? '#6b7280' : 
-                                                           result.clientSegment.name === 'Premium' ? '#f59e0b' : '#7c3aed' 
-                                            }} 
-                                        />
-                                        <span className="text-xs font-medium" style={{ color: 'var(--fg)' }}>
-                                            Perfil: {result.clientSegment.name}
-                                        </span>
-                                    </div>
-                                    <span className="text-[10px]" style={{ color: 'var(--fg-muted)' }}>
-                                        DTI {result.recommendedDTI}% - {result.maxDTI}%
-                                    </span>
-                                </div>
-
-                                {/* Tabs escenario - 2 opciones */}
                                 {(()=>{
                                     const activeScenario = scenarioTab === 'recommended' ? result.recommended : result.limit;
                                     const activeLabel = scenarioTab === 'recommended' ? 'RECOMENDADO' : `LIMITE ${result.clientSegment.name.toUpperCase()}`;
                                     const activeDTI = scenarioTab === 'recommended' ? result.recommendedDTI : result.maxDTI;
+                                    const banks = getBankByDTI(activeScenario.dtiPostRatio);
+                                    const bestBank = banks.find(b => b.status === 'likely') || banks[0];
                                     return (
                                         <>
-                                <div className="flex rounded-xl border overflow-hidden bg-[var(--bg)] border-[var(--border)]">
-                                    <button
-                                        onClick={()=>setScenarioTab('recommended')}
-                                        className="flex-1 py-2 text-xs font-medium text-center transition-colors"
-                                        style={{
-                                            background: scenarioTab==='recommended' ? 'var(--accent)' : 'transparent',
-                                            color: scenarioTab==='recommended' ? '#fff' : 'var(--fg-muted)'
-                                        }}
-                                    >
-                                        Recomendado ({result.recommendedDTI}%)
-                                    </button>
-                                    <button
-                                        onClick={()=>setScenarioTab('limit')}
-                                        className="flex-1 py-2 text-xs font-medium text-center transition-colors"
-                                        style={{
-                                            background: scenarioTab==='limit' ? 'var(--accent)' : 'transparent',
-                                            color: scenarioTab==='limit' ? '#fff' : 'var(--fg-muted)'
-                                        }}
-                                    >
-                                        Límite ({result.maxDTI}%)
-                                    </button>
+                                {/* HERO CARD: Propiedad máxima - EL PROTAGONISTA */}
+                                <div className="rounded-2xl border-2 overflow-hidden bg-gradient-to-br from-[var(--accent)]/5 to-[var(--accent)]/10 border-[var(--accent)]/30">
+                                    {/* Header con tabs integrados */}
+                                    <div className="flex border-b border-[var(--accent)]/20">
+                                        <button
+                                            onClick={()=>setScenarioTab('recommended')}
+                                            className="flex-1 py-2.5 text-xs font-semibold text-center transition-colors"
+                                            style={{
+                                                background: scenarioTab==='recommended' ? 'var(--accent)' : 'transparent',
+                                                color: scenarioTab==='recommended' ? '#fff' : 'var(--fg-muted)'
+                                            }}
+                                        >
+                                            Recomendado ({result.recommendedDTI}%)
+                                        </button>
+                                        <button
+                                            onClick={()=>setScenarioTab('limit')}
+                                            className="flex-1 py-2.5 text-xs font-semibold text-center transition-colors"
+                                            style={{
+                                                background: scenarioTab==='limit' ? 'var(--accent)' : 'transparent',
+                                                color: scenarioTab==='limit' ? '#fff' : 'var(--fg-muted)'
+                                            }}
+                                        >
+                                            Límite ({result.maxDTI}%)
+                                        </button>
+                                    </div>
+                                    
+                                    {/* Contenido principal */}
+                                    <div className="p-5 text-center">
+                                        {/* Tag perfil */}
+                                        <div className="flex items-center justify-center gap-2 mb-3">
+                                            <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-medium bg-[var(--bg)] border border-[var(--border)]">
+                                                <div 
+                                                    className="w-1.5 h-1.5 rounded-full" 
+                                                    style={{ background: result.clientSegment.name === 'Estándar' ? '#6b7280' : result.clientSegment.name === 'Premium' ? '#f59e0b' : '#7c3aed' }} 
+                                                />
+                                                {result.clientSegment.name}
+                                            </div>
+                                            <span className="text-[10px] text-[var(--fg-muted)]">{activeLabel}</span>
+                                        </div>
+                                        
+                                        {/* Icono y título */}
+                                        <div className="flex items-center justify-center gap-2 mb-2">
+                                            <IconHome size={20} style={{color: 'var(--accent)'}} />
+                                            <span className="text-[11px] uppercase tracking-wider text-[var(--fg-muted)]">Propiedad máxima</span>
+                                        </div>
+                                        
+                                        {/* Valor principal */}
+                                        {activeScenario.propertyValue > 0 ? (
+                                            <>
+                                                <p className="text-4xl font-bold text-[var(--fg)]">{formatUF(activeScenario.propertyValue,ufValue)}</p>
+                                                <p className="text-sm font-medium mt-1" style={{color:'var(--fg-muted)'}}>{formatCurrency(activeScenario.propertyValue)}</p>
+                                            </>
+                                        ) : (
+                                            <>
+                                                <p className="text-4xl font-bold" style={{color:'var(--fg-muted)'}}>—</p>
+                                                <p className="text-sm mt-1" style={{color:'var(--fg-muted)'}}>Complete los datos para calcular</p>
+                                            </>
+                                        )}
+                                    </div>
                                 </div>
-
-                                {/* Hero: propiedad máxima */}
-                                <div className="text-center p-2 rounded-xl" style={{background:'var(--bg-subtle)'}}>
-                                    <p className="text-[10px] uppercase tracking-wider mb-1" style={{color:'var(--fg-muted)'}}>Propiedad máxima que puede comprar ({activeLabel})</p>
-                                    {activeScenario.propertyValue > 0 ? (
-                                        <>
-                                            <p className="text-3xl font-bold">{formatUF(activeScenario.propertyValue,ufValue)}</p>
-                                            <p className="text-xs" style={{color:'var(--fg-muted)'}}>{formatCurrency(activeScenario.propertyValue)}</p>
-                                        </>
-                                    ) : (
-                                        <>
-                                            <p className="text-3xl font-bold" style={{color:'var(--fg-muted)'}}>—</p>
-                                            <p className="text-xs" style={{color:'var(--fg-muted)'}}>Complete los datos para calcular</p>
-                                        </>
-                                    )}
-                                </div>
+                                
                                 {parseCLP(debts.dividendoHipotecario) > 0 && (
-                                    <p className="text-[10px] text-center -mt-1" style={{color:'var(--color-warning)'}}>⚠ Cliente ya tiene dividendo hipotecario activo. Evaluar como segunda vivienda.</p>
+                                    <p className="text-[10px] text-center" style={{color:'var(--color-warning)'}}>⚠ Cliente ya tiene dividendo hipotecario activo. Evaluar como segunda vivienda.</p>
                                 )}
 
-                                {/* 3 minicards */}
-                                <div className="grid grid-cols-3 gap-3">
-                                    <div className="p-3 rounded-xl border text-center bg-[var(--bg)] border-[var(--border)] flex flex-col justify-center min-h-[80px]">
-                                        <p className="text-[10px] uppercase font-semibold text-[var(--fg-muted)] leading-tight">Cuota mensual</p>
-                                        <p className="text-sm font-semibold mt-1 text-[var(--fg)]">{formatCurrency(activeScenario.monthlyPayment)}</p>
+                                {/* Cuota mensual DESTACADA + Pie + Plazo */}
+                                <div className="space-y-3">
+                                    {/* Cuota mensual - HERO */}
+                                    <div className="p-4 rounded-xl border-2 text-center bg-gradient-to-br from-emerald-500/5 to-emerald-500/10 border-emerald-500/20">
+                                        <p className="text-[11px] uppercase font-semibold text-emerald-600 mb-1">Cuota mensual a pagar</p>
+                                        <p className="text-2xl font-bold text-[var(--fg)]">{formatCurrency(activeScenario.monthlyPayment)}</p>
+                                        <p className="text-[10px] text-[var(--fg-muted)] mt-0.5">incluye seguros aproximados</p>
                                     </div>
-                                    <div className="p-3 rounded-xl border text-center bg-[var(--bg)] border-[var(--border)] flex flex-col justify-center min-h-[80px]">
-                                        <p className="text-[10px] uppercase font-semibold text-[var(--fg-muted)] leading-tight">Pie total</p>
-                                        <p className="text-sm font-semibold mt-1 text-[var(--fg)]">{formatCurrency(activeScenario.minPieNeeded)}</p>
-                                    </div>
-                                    <div className="p-3 rounded-xl border text-center bg-[var(--bg)] border-[var(--border)] flex flex-col justify-center min-h-[80px]">
-                                        <p className="text-[10px] uppercase font-semibold text-[var(--fg-muted)] leading-tight">Plazo</p>
-                                        <p className="text-sm font-semibold mt-1 text-[var(--fg)]">{result.loanTermYears} años</p>
-                                    </div>
-                                </div>
-
-                                {/* DTI bars: actual + post-hipoteca */}
-                                <div className="p-3 rounded-xl border space-y-3 bg-[var(--bg)] border-[var(--border)]">
-                                    {/* DTI actual */}
-                                    <div>
-                                        <div className="flex justify-between text-[10px] items-center mb-1" style={{color:'var(--fg-muted)'}}>
-                                            <span>Endeudamiento actual</span>
-                                            <span className="font-semibold" style={{color:'var(--fg)'}}>DTI {result.dtiRatio.toFixed(1)}%</span>
+                                    
+                                    {/* Grid Pie + Plazo */}
+                                    <div className="grid grid-cols-2 gap-3">
+                                        <div className="p-3 rounded-xl border text-center bg-[var(--bg)] border-[var(--border)]">
+                                            <p className="text-[10px] uppercase font-semibold text-[var(--fg-muted)]">Pie total necesario</p>
+                                            <p className="text-lg font-semibold mt-1 text-[var(--fg)]">{formatCurrency(activeScenario.minPieNeeded)}</p>
                                         </div>
-                                        <div className="relative w-full rounded-full h-2 bg-[var(--bg-subtle)] overflow-hidden">
-                                            <div className="absolute top-0 left-0 h-full rounded-full transition-all" style={{width:`${Math.min((result.dtiRatio/40)*100,100)}%`,background: result.dtiRatio > 33 ? 'var(--color-error)' : result.dtiRatio > 25 ? 'var(--color-warning)' : 'var(--color-success)'}} />
-                                        </div>
-                                    </div>
-                                    {/* DTI post-hipoteca */}
-                                    <div>
-                                        <div className="flex justify-between text-[10px] items-center mb-1" style={{color:'var(--fg-muted)'}}>
-                                            <span>DTI post-hipoteca ({activeDTI}%)</span>
-                                            <span className="font-semibold" style={{color: activeScenario.dtiPostRatio > 40 ? 'var(--color-error)' : activeScenario.dtiPostRatio > 33 ? 'var(--color-warning)' : 'var(--color-success)'}}>{activeScenario.dtiPostRatio.toFixed(1)}%</span>
-                                        </div>
-                                        <div className="relative w-full rounded-full h-2 bg-[var(--bg-subtle)] overflow-hidden">
-                                            <div className="absolute top-0 left-0 h-full rounded-full transition-all" style={{width:`${Math.min((activeScenario.dtiPostRatio/40)*100,100)}%`,background: activeScenario.dtiPostRatio > 40 ? 'var(--color-error)' : activeScenario.dtiPostRatio > 33 ? 'var(--color-warning)' : 'var(--color-success)'}} />
+                                        <div className="p-3 rounded-xl border text-center bg-[var(--bg)] border-[var(--border)]">
+                                            <p className="text-[10px] uppercase font-semibold text-[var(--fg-muted)]">Plazo</p>
+                                            <p className="text-lg font-semibold mt-1 text-[var(--fg)]">{result.loanTermYears} años</p>
+                                            <p className="text-[9px] text-[var(--fg-muted)]">{result.loanTermYears * 12} meses</p>
                                         </div>
                                     </div>
                                 </div>
 
-                                {/* Recomendación de bancos según DTI */}
-                                <div className="p-3 rounded-xl border space-y-1.5 bg-[var(--bg)] border-[var(--border)]">
-                                    <p className="text-[10px] uppercase font-semibold" style={{color:'var(--fg-muted)'}}>Probabilidad por banco (DTI {activeDTI}%)</p>
-                                    <div className="grid grid-cols-2 gap-2">
-                                        {getBankByDTI(activeScenario.dtiPostRatio).map(b => (
-                                            <div key={b.name} className="flex items-center justify-between text-[10px] px-2 py-1 rounded-lg" style={{
-                                                background: b.status==='likely' ? 'rgba(34,197,94,0.08)' : b.status==='review' ? 'rgba(234,179,8,0.08)' : 'rgba(239,68,68,0.08)',
-                                                border: `1px solid ${b.status==='likely' ? '#22c55e' : b.status==='review' ? '#eab308' : '#ef4444'}`,
-                                                color: b.status==='likely' ? '#22c55e' : b.status==='review' ? '#eab308' : '#ef4444'
-                                            }}>
-                                                <span className="font-medium">{b.name}</span>
-                                                <span>{b.status==='likely' ? 'Probable' : b.status==='review' ? 'Revisar' : 'Baja'}</span>
+                                {/* DTI UNIFICADO: Barra única visual */}
+                                <div className="p-4 rounded-xl border bg-[var(--bg)] border-[var(--border)]">
+                                    <div className="flex justify-between text-[11px] items-center mb-2">
+                                        <span className="font-medium" style={{color:'var(--fg)'}}>Indicador de endeudamiento (DTI)</span>
+                                        <span className="font-semibold" style={{color: activeScenario.dtiPostRatio > 40 ? 'var(--color-error)' : activeScenario.dtiPostRatio > 33 ? 'var(--color-warning)' : 'var(--color-success)'}}>
+                                            {result.dtiRatio.toFixed(1)}% → {activeScenario.dtiPostRatio.toFixed(1)}%
+                                        </span>
+                                    </div>
+                                    {/* Barra unificada con marcadores */}
+                                    <div className="relative w-full rounded-full h-3 bg-[var(--bg-subtle)] overflow-hidden">
+                                        {/* Zonas de color */}
+                                        <div className="absolute top-0 left-0 h-full w-[62.5%] bg-gradient-to-r from-emerald-400 to-emerald-300 opacity-30" /> {/* Hasta 25% */}
+                                        <div className="absolute top-0 left-[62.5%] h-full w-[20%] bg-gradient-to-r from-amber-300 to-amber-400 opacity-30" /> {/* 25-33% */}
+                                        <div className="absolute top-0 left-[82.5%] h-full w-[17.5%] bg-gradient-to-r from-red-300 to-red-400 opacity-30" /> {/* 33%+ */}
+                                        {/* Marcador DTI actual */}
+                                        <div 
+                                            className="absolute top-0 w-1 h-full bg-[var(--fg)] rounded-full z-10 transition-all"
+                                            style={{left:`${Math.min((result.dtiRatio/40)*100,98)}%`}}
+                                            title={`DTI actual: ${result.dtiRatio.toFixed(1)}%`}
+                                        />
+                                        {/* Barra DTI post-hipoteca */}
+                                        <div 
+                                            className="absolute top-0 left-0 h-full rounded-full transition-all opacity-80"
+                                            style={{
+                                                width:`${Math.min((activeScenario.dtiPostRatio/40)*100,100)}%`,
+                                                background: activeScenario.dtiPostRatio > 40 ? 'var(--color-error)' : activeScenario.dtiPostRatio > 33 ? 'var(--color-warning)' : 'var(--color-success)'
+                                            }} 
+                                        />
+                                    </div>
+                                    <div className="flex justify-between text-[9px] mt-1.5 text-[var(--fg-muted)]">
+                                        <span>0%</span>
+                                        <span className="text-emerald-600">25% ideal</span>
+                                        <span className="text-amber-600">33% límite</span>
+                                        <span>40%</span>
+                                    </div>
+                                </div>
+
+                                {/* Mejor opción bancaria simplificada */}
+                                <div className="p-4 rounded-xl border bg-[var(--bg)] border-[var(--border)]">
+                                    <p className="text-[10px] uppercase font-semibold mb-2" style={{color:'var(--fg-muted)'}}>Mejor opción para este perfil</p>
+                                    {bestBank.status === 'likely' ? (
+                                        <div className="flex items-center gap-3 p-3 rounded-lg bg-emerald-500/10 border border-emerald-500/30">
+                                            <div className="w-10 h-10 rounded-full bg-emerald-500 flex items-center justify-center text-white">
+                                                <IconCheck size={20} />
                                             </div>
-                                        ))}
+                                            <div>
+                                                <p className="font-semibold text-emerald-700">{bestBank.name}</p>
+                                                <p className="text-xs text-emerald-600">Probabilidad alta de aprobación</p>
+                                            </div>
+                                        </div>
+                                    ) : (
+                                        <div className="flex items-center gap-3 p-3 rounded-lg bg-amber-500/10 border border-amber-500/30">
+                                            <div className="w-10 h-10 rounded-full bg-amber-500 flex items-center justify-center text-white">
+                                                <IconAlertTriangle size={20} />
+                                            </div>
+                                            <div>
+                                                <p className="font-semibold text-amber-700">{bestBank.name}</p>
+                                                <p className="text-xs text-amber-600">Requiere revisión adicional</p>
+                                            </div>
+                                        </div>
+                                    )}
+                                    {/* Otros bancos en lista compacta */}
+                                    <div className="mt-2 pt-2 border-t border-[var(--border)]">
+                                        <p className="text-[9px] text-[var(--fg-muted)] mb-1">Otras opciones:</p>
+                                        <div className="flex flex-wrap gap-1.5">
+                                            {banks.filter(b => b.name !== bestBank.name).map(b => (
+                                                <span 
+                                                    key={b.name} 
+                                                    className="text-[9px] px-1.5 py-0.5 rounded"
+                                                    style={{
+                                                        background: b.status==='likely' ? 'rgba(34,197,94,0.1)' : b.status==='review' ? 'rgba(234,179,8,0.1)' : 'rgba(239,68,68,0.1)',
+                                                        color: b.status==='likely' ? '#16a34a' : b.status==='review' ? '#ca8a04' : '#dc2626'
+                                                    }}
+                                                >
+                                                    {b.name}: {b.status==='likely' ? 'Probable' : b.status==='review' ? 'Revisar' : 'Baja'}
+                                                </span>
+                                            ))}
+                                        </div>
                                     </div>
                                 </div>
 
