@@ -888,63 +888,68 @@ export default function SimuladorPage() {
                                     const bestBank = banks.find(b => b.status === 'likely') || banks[0];
                                     return (
                                         <>
-                                {/* HERO CARD: Propiedad máxima - Diseño sobrio */}
-                                <div className="text-center">
-                                    {/* Tabs minimalistas */}
-                                    <div className="flex justify-center gap-1 mb-3">
+                                {/* HERO CARD: Propiedad máxima - Diseño sobrio y moderno */}
+                                <div className="rounded-xl border bg-[var(--bg)] border-[var(--border)] shadow-sm">
+                                    {/* Header minimalista con tabs */}
+                                    <div className="flex px-4 pt-4 pb-2">
                                         <button
                                             onClick={()=>setScenarioTab('recommended')}
-                                            className="px-3 py-1.5 text-[11px] font-medium rounded-full transition-colors"
+                                            className="flex-1 pb-2 text-xs font-medium text-center transition-all border-b-2"
                                             style={{
-                                                background: scenarioTab==='recommended' ? 'var(--accent)' : 'var(--bg-subtle)',
-                                                color: scenarioTab==='recommended' ? '#fff' : 'var(--fg-muted)'
+                                                borderColor: scenarioTab==='recommended' ? 'var(--accent)' : 'transparent',
+                                                color: scenarioTab==='recommended' ? 'var(--accent)' : 'var(--fg-muted)'
                                             }}
                                         >
                                             Recomendado ({result.recommendedDTI}%)
                                         </button>
                                         <button
                                             onClick={()=>setScenarioTab('limit')}
-                                            className="px-3 py-1.5 text-[11px] font-medium rounded-full transition-colors"
+                                            className="flex-1 pb-2 text-xs font-medium text-center transition-all border-b-2"
                                             style={{
-                                                background: scenarioTab==='limit' ? 'var(--accent)' : 'var(--bg-subtle)',
-                                                color: scenarioTab==='limit' ? '#fff' : 'var(--fg-muted)'
+                                                borderColor: scenarioTab==='limit' ? 'var(--accent)' : 'transparent',
+                                                color: scenarioTab==='limit' ? 'var(--accent)' : 'var(--fg-muted)'
                                             }}
                                         >
                                             Límite ({result.maxDTI}%)
                                         </button>
                                     </div>
                                     
-                                    {/* Tag perfil + escenario */}
-                                    <div className="flex items-center justify-center gap-2 mb-2">
-                                        <span className="text-[10px] text-[var(--fg-muted)]">{activeLabel}</span>
-                                        <span className="text-[var(--border)]">|</span>
-                                        <div className="flex items-center gap-1 text-[10px] text-[var(--fg-muted)]">
-                                            <div 
-                                                className="w-1.5 h-1.5 rounded-full" 
-                                                style={{ background: result.clientSegment.name === 'Estándar' ? '#6b7280' : result.clientSegment.name === 'Premium' ? '#f59e0b' : '#7c3aed' }} 
-                                            />
-                                            {result.clientSegment.name}
+                                    {/* Contenido principal - más aire */}
+                                    <div className="px-6 pb-6 pt-2 text-center">
+                                        {/* Perfil tag - más sutil */}
+                                        <div className="flex items-center justify-center gap-2 mb-4">
+                                            <span className="text-[10px] text-[var(--fg-muted)]">Perfil</span>
+                                            <span 
+                                                className="text-[10px] font-medium px-2 py-0.5 rounded-full" 
+                                                style={{ 
+                                                    background: result.clientSegment.name === 'Estándar' ? 'rgba(107,114,128,0.1)' : result.clientSegment.name === 'Premium' ? 'rgba(245,158,11,0.1)' : 'rgba(124,58,237,0.1)',
+                                                    color: result.clientSegment.name === 'Estándar' ? '#6b7280' : result.clientSegment.name === 'Premium' ? '#f59e0b' : '#7c3aed'
+                                                }}
+                                            >
+                                                {result.clientSegment.name}
+                                            </span>
+                                            <span className="text-[10px] text-[var(--fg-muted)]">• {activeLabel}</span>
                                         </div>
+                                        
+                                        {/* Título con icono sutil */}
+                                        <div className="flex items-center justify-center gap-1.5 mb-3">
+                                            <IconHome size={16} className="text-[var(--fg-muted)]" />
+                                            <span className="text-[11px] uppercase tracking-wide text-[var(--fg-muted)]">Propiedad máxima que puedes comprar</span>
+                                        </div>
+                                        
+                                        {/* Valor principal - NUMERO GIGANTE */}
+                                        {activeScenario.propertyValue > 0 ? (
+                                            <>
+                                                <p className="text-5xl font-bold text-[var(--fg)] tracking-tight">{formatUF(activeScenario.propertyValue,ufValue)}</p>
+                                                <p className="text-sm text-[var(--fg-muted)] mt-2 font-medium">{formatCurrency(activeScenario.propertyValue)}</p>
+                                            </>
+                                        ) : (
+                                            <>
+                                                <p className="text-5xl font-bold text-[var(--fg-muted)]">—</p>
+                                                <p className="text-sm text-[var(--fg-muted)] mt-2">Complete los datos para calcular</p>
+                                            </>
+                                        )}
                                     </div>
-                                    
-                                    {/* Título con icono */}
-                                    <div className="flex items-center justify-center gap-2 mb-1">
-                                        <IconHome size={18} style={{color: 'var(--fg-muted)'}} />
-                                        <span className="text-[11px] uppercase tracking-wider text-[var(--fg-muted)]">Propiedad máxima</span>
-                                    </div>
-                                    
-                                    {/* Valor principal */}
-                                    {activeScenario.propertyValue > 0 ? (
-                                        <>
-                                            <p className="text-4xl font-bold text-[var(--fg)]">{formatUF(activeScenario.propertyValue,ufValue)}</p>
-                                            <p className="text-sm font-medium mt-1" style={{color:'var(--fg-muted)'}}>{formatCurrency(activeScenario.propertyValue)}</p>
-                                        </>
-                                    ) : (
-                                        <>
-                                            <p className="text-4xl font-bold" style={{color:'var(--fg-muted)'}}>—</p>
-                                            <p className="text-sm mt-1" style={{color:'var(--fg-muted)'}}>Complete los datos para calcular</p>
-                                        </>
-                                    )}
                                 </div>
                                 
                                 {parseCLP(debts.dividendoHipotecario) > 0 && (
