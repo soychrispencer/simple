@@ -17,6 +17,7 @@ import {
     IconCar,
     IconLogout,
     IconSettings,
+    IconShieldLock,
     IconSun,
     IconUser,
     IconUsers,
@@ -164,10 +165,10 @@ export function AdminShell({ children, user }: { children: React.ReactNode; user
                 <div className="container-app flex items-center justify-between h-16">
                     <Link href={withAdminScope('/', scope)} className="flex items-center gap-2 group shrink-0">
                         <span
-                            className="flex h-9 w-9 items-center justify-center rounded-[10px] transition-transform duration-200 group-hover:scale-105 overflow-hidden"
-                            style={{ background: '#0F172A', border: '1px solid rgba(148, 163, 184, 0.3)' }}
+                            className="flex h-9 w-9 items-center justify-center rounded-full transition-transform duration-200 group-hover:scale-105"
+                            style={{ background: 'var(--button-primary-bg)', color: 'var(--button-primary-color)' }}
                         >
-                            <img src="/logo-mark.svg" alt="SimpleAdmin" width={36} height={36} />
+                            <IconShieldLock size={18} stroke={1.9} />
                         </span>
                         <span className="inline-flex items-end gap-[0.08rem] text-[1.05rem] tracking-tight" style={{ color: 'var(--fg)' }}>
                             <span className="font-semibold leading-none">Simple</span>
