@@ -1,44 +1,71 @@
+@import "../../../../packages/ui/src/theme-base.css";
 @import "tailwindcss";
+@source "../../../../packages/ui/src";
+@import "leaflet/dist/leaflet.css";
 
-@theme {
-  --color-primary: #E11D48;
-  --color-primary-dark: #BE123C;
-  --color-primary-light: #FB7185;
-  --color-background: #FAFAFA;
-  --color-surface: #FFFFFF;
-  --color-text: #09090B;
-  --color-text-muted: #71717A;
-  --color-border: #E4E4E7;
-  --color-success: #22C55E;
-  --color-warning: #F59E0B;
-  --color-error: #EF4444;
+:root {
+    --accent: #E11D48;
+    --accent-subtle: rgba(225, 29, 72, 0.12);
+    --accent-soft: rgba(225, 29, 72, 0.06);
+    --accent-border: rgba(225, 29, 72, 0.22);
+    --accent-contrast: #ffffff;
 }
 
-/* Mobile-first design system */
+.dark,
+[data-theme="dark"] {
+    --accent: #E11D48;
+    --accent-subtle: rgba(225, 29, 72, 0.18);
+    --accent-soft: rgba(225, 29, 72, 0.10);
+    --accent-border: rgba(225, 29, 72, 0.34);
+    --accent-contrast: #ffffff;
+}
+
+/* SimpleSerenatas Design System - Mobile-first + Desktop */
+
 html {
   touch-action: manipulation;
 }
 
 body {
-  @apply bg-background text-text antialiased;
+  @apply antialiased;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  background: var(--bg);
+  color: var(--fg);
 }
 
-/* Bottom navigation safe area */
+/* Safe areas */
 .pb-safe {
   padding-bottom: env(safe-area-inset-bottom, 20px);
 }
 
-/* Hide scrollbar for Chrome, Safari and Opera */
+.pt-safe {
+  padding-top: env(safe-area-inset-top, 0px);
+}
+
+/* Scrollbar utilities */
 .no-scrollbar::-webkit-scrollbar {
   display: none;
 }
-
-/* Hide scrollbar for IE, Edge and Firefox */
 .no-scrollbar {
-  -ms-overflow-style: none;  /* IE and Edge */
-  scrollbar-width: none;  /* Firefox */
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+/* Custom scrollbar for desktop */
+.scrollbar-thin::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+.scrollbar-thin::-webkit-scrollbar-track {
+  background: transparent;
+}
+.scrollbar-thin::-webkit-scrollbar-thumb {
+  background: var(--border-strong);
+  border-radius: 3px;
+}
+.scrollbar-thin::-webkit-scrollbar-thumb:hover {
+  background: var(--fg-muted);
 }
 
 /* Map container */
@@ -46,37 +73,170 @@ body {
   @apply rounded-lg;
 }
 
-/* Mobile touch targets */
+/* Touch targets (mobile) */
 .touch-target {
   @apply min-h-[44px] min-w-[44px];
 }
 
-/* Card styles */
-.card-mobile {
-  @apply bg-surface rounded-xl shadow-sm border border-border p-4;
+/* Card styles - adaptive */
+.card {
+  @apply rounded-xl border p-4;
+  background: var(--surface);
+  border-color: var(--border);
+  box-shadow: var(--shadow-sm);
 }
 
-/* Status badges */
+.card-hover:hover {
+  border-color: var(--accent-border);
+  box-shadow: var(--shadow-md);
+}
+
+/* Legacy mobile card (for backward compat) */
+.card-mobile {
+  @apply rounded-xl p-4;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-sm);
+}
+
+/* Status badges - using CSS variables */
 .status-badge {
   @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium;
 }
 
 .status-pending {
-  @apply bg-yellow-100 text-yellow-800;
+  background: color-mix(in oklab, var(--warning, #F59E0B) 15%, transparent);
+  color: var(--warning, #B45309);
 }
 
 .status-confirmed {
-  @apply bg-green-100 text-green-800;
+  background: color-mix(in oklab, var(--success, #22C55E) 15%, transparent);
+  color: var(--success, #15803D);
 }
 
 .status-active {
-  @apply bg-blue-100 text-blue-800;
+  background: color-mix(in oklab, var(--info, #3B82F6) 15%, transparent);
+  color: var(--info, #1D4ED8);
 }
 
 .status-completed {
-  @apply bg-gray-100 text-gray-800;
+  background: var(--bg-muted);
+  color: var(--fg-secondary);
 }
 
 .status-cancelled {
-  @apply bg-red-100 text-red-800;
+  background: color-mix(in oklab, var(--error, #EF4444) 15%, transparent);
+  color: var(--error, #B91C1C);
+}
+
+/* App Layout utilities */
+.app-layout {
+  @apply min-h-screen;
+  background: var(--bg);
+}
+
+/* Sidebar styles */
+.sidebar {
+  @apply fixed left-0 top-0 bottom-0 w-64 z-40;
+  background: var(--surface);
+  border-right: 1px solid var(--border);
+}
+
+.sidebar-collapsed {
+  @apply w-16;
+}
+
+/* Header styles */
+.app-header {
+  @apply fixed top-0 right-0 left-0 z-30 h-16;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+}
+
+.app-header-with-sidebar {
+  @apply left-64;
+}
+
+/* Main content area */
+.main-content {
+  @apply pt-16;
+}
+
+.main-content-with-sidebar {
+  @apply ml-64;
+}
+
+/* Bottom nav (mobile) */
+.bottom-nav {
+  @apply fixed bottom-0 left-0 right-0 z-40 border-t md:hidden;
+  background: color-mix(in oklab, var(--surface) 86%, transparent);
+  backdrop-filter: blur(14px);
+  border-color: var(--border);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+/* Navigation items */
+.nav-item {
+  @apply flex items-center gap-3 px-3 py-2 rounded-xl text-sm font-medium transition-colors;
+  color: var(--fg-secondary);
+}
+
+.nav-item:hover {
+  background: var(--bg-subtle);
+  color: var(--fg);
+}
+
+.nav-item-active {
+  background: var(--accent-subtle);
+  color: var(--accent);
+}
+
+/* Desktop nav item (sidebar) */
+.nav-item-desktop {
+  @apply flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all;
+  color: var(--fg-secondary);
+}
+
+.nav-item-desktop:hover {
+  background: var(--bg-subtle);
+  color: var(--fg);
+}
+
+.nav-item-desktop-active {
+  background: var(--accent-subtle);
+  color: var(--accent);
+}
+
+/* Utility for accent text */
+.text-accent {
+  color: var(--accent);
+}
+
+.bg-accent {
+  background: var(--accent);
+}
+
+.bg-accent-subtle {
+  background: var(--accent-subtle);
+}
+
+/* Gradient backgrounds */
+.gradient-hero {
+  background: linear-gradient(135deg, var(--accent) 0%, color-mix(in oklab, var(--accent) 70%, #000) 100%);
+}
+
+/* Animation */
+@keyframes slide-in {
+  from {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-slide-in {
+  animation: slide-in 0.2s ease-out;
 }

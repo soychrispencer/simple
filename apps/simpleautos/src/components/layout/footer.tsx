@@ -38,8 +38,8 @@ export function Footer() {
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-10 mb-12">
                     <div className="col-span-2 sm:col-span-1">
                         <Link href="/" className="group mb-4 flex items-center gap-1.5">
-                            <div className="w-9 h-9 rounded-[10px] border flex items-center justify-center shrink-0 transition-all duration-200" style={{ borderColor: 'var(--border)', background: 'transparent' }}>
-                                <IconSteeringWheel size={18} stroke={1.5} style={{ color: 'var(--fg-secondary)' }} />
+                            <div className="w-9 h-9 rounded-[10px] border flex items-center justify-center shrink-0 transition-all duration-200" style={{ borderColor: 'var(--accent)', background: 'transparent' }}>
+                                <IconSteeringWheel size={18} stroke={1.5} style={{ color: 'var(--accent)' }} />
                             </div>
                             <span className="inline-flex items-end gap-[0.06rem] text-[1rem] tracking-tight" style={{ color: 'var(--fg)' }}>
                                 <span className="font-semibold leading-none">Simple</span>
