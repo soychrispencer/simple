@@ -10751,6 +10751,22 @@ async function listAdminListingsSnapshot(vertical?: VerticalType | null): Promis
 
 const app = new Hono();
 
+// CORS middleware - MUST be applied FIRST before any other middleware or routes
+app.use(
+    '*',
+    cors({
+        origin: (origin) => {
+            if (!origin) return defaultOrigin;
+            return allowedOrigins.has(origin) ? origin : defaultOrigin;
+        },
+        allowMethods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+        allowHeaders: ['Content-Type', 'Authorization', 'Accept', 'X-Requested-With'],
+        exposeHeaders: ['Content-Length', 'X-Kuma-Revision'],
+        maxAge: 86400,
+        credentials: true,
+    })
+);
+
 // Global request error logger for debugging 500s
 app.use('*', async (c, next) => {
     try {
@@ -10775,20 +10791,6 @@ app.onError((error, c) => {
         500
     );
 });
-
-// CORS middleware - must be applied BEFORE any routes to affect all routes
-app.use(
-    '*',
-    cors({
-        origin: (origin) => {
-            if (!origin) return defaultOrigin;
-            return allowedOrigins.has(origin) ? origin : defaultOrigin;
-        },
-        allowMethods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-        allowHeaders: ['Content-Type', 'Authorization'],
-        credentials: true,
-    })
-);
 
 app.route('/', createSystemRouter({
     serviceName: 'simple-v2-api',

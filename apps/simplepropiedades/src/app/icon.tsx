@@ -6,10 +6,13 @@ export const runtime = 'nodejs';
 
 const accentColor = '#3b82f6';
 
-const HomeIconSvg = `
+const BuildingIconSvg = `
 <svg xmlns="http://www.w3.org/2000/svg" width="280" height="280" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-  <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
-  <polyline points="9 22 9 12 15 12 15 22"/>
+  <path d="M3 21h18"/>
+  <path d="M5 21V7l8-4 8 4v14"/>
+  <path d="M9 21v-6h6v6"/>
+  <path d="M10 9h4"/>
+  <path d="M10 13h4"/>
 </svg>
 `;
 
@@ -28,7 +31,7 @@ export default function Icon() {
                 }}
             >
                 <div
-                    dangerouslySetInnerHTML={{ __html: HomeIconSvg }}
+                    dangerouslySetInnerHTML={{ __html: BuildingIconSvg }}
                     style={{
                         width: '280px',
                         height: '280px',
