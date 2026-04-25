@@ -105,11 +105,13 @@ export function Header() {
         <header className="relative z-40 transition-all duration-300" style={{ borderBottom: '1px solid var(--border)' }}>
             <div className="container-app flex items-center justify-between h-16">
                 {/* Logo */}
-                <Link href="/" className="flex items-center gap-1.5 group shrink-0">
-                    <IconBuildingSkyscraper size={20} style={{ color: '#3b82f6' }} />
-                    <span className="inline-flex items-baseline gap-[0.08rem] text-[1.05rem] tracking-tight" style={{ color: '#3b82f6' }}>
+                <Link href="/" className="flex items-center gap-2 group shrink-0">
+                    <span className="w-9 h-9 rounded-[10px] border flex items-center justify-center transition-colors group-hover:opacity-80" style={{ borderColor: '#3b82f6', color: '#3b82f6' }}>
+                        <IconBuildingSkyscraper size={18} />
+                    </span>
+                    <span className="inline-flex items-baseline gap-[0.08rem] text-[1.05rem] tracking-tight" style={{ color: 'var(--fg)' }}>
                         <span className="font-semibold leading-none">Simple</span>
-                        <span className="font-normal leading-none">Propiedades</span>
+                        <span className="font-normal leading-none" style={{ color: '#3b82f6' }}>Propiedades</span>
                     </span>
                 </Link>
 

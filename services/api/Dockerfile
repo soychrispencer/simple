@@ -33,8 +33,23 @@ ENV NODE_ENV=production
 WORKDIR /app
 
 RUN apt-get update \
-  && apt-get install -y --no-install-recommends curl ca-certificates \
+  && apt-get install -y --no-install-recommends \
+    curl ca-certificates \
+    fontconfig \
+    fonts-dejavu-core \
+    fonts-liberation \
+    fonts-noto-core \
+    fonts-noto-cjk \
   && rm -rf /var/lib/apt/lists/*
+
+# Crear configuración básica de fontconfig para sharp/libvips
+RUN mkdir -p /etc/fonts && \
+    echo '<?xml version="1.0"?><!DOCTYPE fontconfig SYSTEM "fonts.dtd">\
+    <fontconfig>\
+    <dir>/usr/share/fonts</dir>\
+    <cachedir>/var/cache/fontconfig</cachedir>\
+    </fontconfig>' > /etc/fonts/fonts.conf && \
+    fc-cache -f -v
 
 COPY --from=builder /app/package*.json ./
 COPY --from=builder /app/pnpm-lock.yaml ./

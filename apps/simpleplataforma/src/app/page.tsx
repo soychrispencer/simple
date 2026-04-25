@@ -103,30 +103,17 @@ function HeaderIconChip({
 
 function Logo({ brand }: { brand?: keyof typeof BRAND }) {
     const b = brand ? BRAND[brand] : null;
-    const Icon = b?.icon || (() => (
-        <span className="font-semibold text-sm" style={{ color: 'var(--fg)' }}>S</span>
-    ));
-
+    const Icon = b?.icon || IconBuilding;
+    const color = b ? b.color : '#475569';
+    const name = b ? b.name : 'Plataforma';
     return (
-        <Link href="/" className="flex items-center gap-1.5 group shrink-0">
-            <div
-                className="w-9 h-9 rounded-[10px] border flex items-center justify-center transition-all duration-200 group-hover:border-[var(--accent)]"
-                style={{
-                    borderColor: 'var(--border)',
-                    background: b
-                        ? `linear-gradient(135deg, ${b.color}20 0%, ${b.color}08 100%)`
-                        : 'var(--bg-subtle)',
-                }}
-            >
-                {b ? <Icon size={18} stroke={1.5} style={{ color: b.color }} /> : <Icon />}
-            </div>
-            <span className="inline-flex items-end gap-[0.08rem] text-[1.05rem] tracking-tight" style={{ color: 'var(--fg)' }}>
+        <Link href="/" className="flex items-center gap-2 group shrink-0">
+            <span className="w-9 h-9 rounded-[10px] border flex items-center justify-center transition-colors group-hover:opacity-80" style={{ borderColor: color, color }}>
+                <Icon size={18} />
+            </span>
+            <span className="hidden sm:inline-flex items-baseline gap-[0.08rem] text-[1.05rem] tracking-tight" style={{ color: 'var(--fg)' }}>
                 <span className="font-semibold leading-none">Simple</span>
-                {b && (
-                    <span className="translate-y-[0.02em] font-normal leading-none" style={{ color: 'var(--fg-muted)' }}>
-                        {b.name.replace('Simple', '')}
-                    </span>
-                )}
+                <span className="font-normal leading-none" style={{ color }}>{name}</span>
             </span>
         </Link>
     );

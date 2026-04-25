@@ -28,11 +28,13 @@ export function Footer() {
             <div className="container-app py-16">
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-10 mb-12">
                     <div className="col-span-2 sm:col-span-1">
-                        <Link href="/" className="group mb-4 flex items-center gap-1.5 shrink-0">
-                            <IconCalendar size={20} style={{ color: '#0d9488' }} />
-                            <span className="inline-flex items-baseline gap-[0.08rem] text-[1.05rem] tracking-tight" style={{ color: '#0d9488' }}>
+                        <Link href="/" className="group mb-4 flex items-center gap-2 shrink-0">
+                            <span className="w-9 h-9 rounded-[10px] border flex items-center justify-center transition-colors group-hover:opacity-80" style={{ borderColor: '#0d9488', color: '#0d9488' }}>
+                                <IconCalendar size={18} />
+                            </span>
+                            <span className="inline-flex items-baseline gap-[0.08rem] text-[1.05rem] tracking-tight" style={{ color: 'var(--fg)' }}>
                                 <span className="font-semibold leading-none">Simple</span>
-                                <span className="font-normal leading-none">Agenda</span>
+                                <span className="font-normal leading-none" style={{ color: '#0d9488' }}>Agenda</span>
                             </span>
                         </Link>
                         <p className="text-sm leading-relaxed max-w-[220px] text-(--fg-muted)">

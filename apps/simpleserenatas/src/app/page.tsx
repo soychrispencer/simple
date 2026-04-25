@@ -20,17 +20,15 @@ export default function LandingPage() {
     <div className="min-h-screen bg-white">
       {/* Navigation - Desktop */}
       <nav className="hidden lg:flex items-center justify-between px-8 py-4 border-b sticky top-0 z-50 bg-white/80 backdrop-blur-md" style={{ borderColor: 'var(--border)' }}>
-        <div className="flex items-center gap-3">
-          <div
-            className="w-10 h-10 rounded-xl flex items-center justify-center"
-            style={{ background: 'var(--accent)' }}
-          >
-            <IconConfettiFilled size={20} style={{ color: 'var(--accent-contrast)' }} />
-          </div>
-          <span className="text-xl font-bold" style={{ color: 'var(--fg)' }}>
-            Simple<span style={{ color: 'var(--accent)' }}>Serenatas</span>
+        <Link href="/" className="flex items-center gap-2 group shrink-0">
+          <span className="w-9 h-9 rounded-[10px] border flex items-center justify-center transition-colors group-hover:opacity-80" style={{ borderColor: '#E11D48', color: '#E11D48' }}>
+            <IconConfettiFilled size={18} />
           </span>
-        </div>
+          <span className="inline-flex items-baseline gap-[0.08rem] text-[1.05rem] tracking-tight" style={{ color: 'var(--fg)' }}>
+            <span className="font-semibold leading-none">Simple</span>
+            <span className="font-normal leading-none" style={{ color: '#E11D48' }}>Serenatas</span>
+          </span>
+        </Link>
         <div className="flex items-center gap-2">
           <Link
             href="/auth/login"

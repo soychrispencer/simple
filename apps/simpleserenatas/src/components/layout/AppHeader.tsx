@@ -93,11 +93,13 @@ export function AppHeader({ onMenuClick, sidebarCollapsed }: AppHeaderProps) {
                     )}
 
                     {/* Logo */}
-                    <Link href="/inicio" className="flex items-center gap-1.5 group shrink-0">
-                        <IconConfettiFilled size={20} style={{ color: '#E11D48' }} />
-                        <span className="hidden sm:inline-flex items-baseline gap-[0.08rem] text-lg tracking-tight" style={{ color: '#E11D48' }}>
+                    <Link href="/inicio" className="flex items-center gap-2 group shrink-0">
+                        <span className="w-9 h-9 rounded-[10px] border flex items-center justify-center transition-colors group-hover:opacity-80" style={{ borderColor: '#E11D48', color: '#E11D48' }}>
+                            <IconConfettiFilled size={18} />
+                        </span>
+                        <span className="hidden sm:inline-flex items-baseline gap-[0.08rem] text-lg tracking-tight" style={{ color: 'var(--fg)' }}>
                             <span className="font-semibold leading-none">Simple</span>
-                            <span className="font-normal leading-none">Serenatas</span>
+                            <span className="font-normal leading-none" style={{ color: '#E11D48' }}>Serenatas</span>
                         </span>
                     </Link>
 
