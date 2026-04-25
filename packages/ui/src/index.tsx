@@ -4248,3 +4248,6 @@ export type {
     OwnerListingStatus,
     PublicListingCardProps,
 } from './listing-card/types';
+
+// Logo component
+export { Logo, BRAND_CONFIG, type LogoProps } from './logo';

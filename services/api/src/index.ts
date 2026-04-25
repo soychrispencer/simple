@@ -3992,7 +3992,7 @@ async function buildInstagramTemplateOverlaySvg(
         const fullPrice = escapeSvgText(clampTemplateText(template.offerPriceLabel || template.priceLabel || 'Consultar', 20));
         const origPrice = template.offerPriceLabel ? escapeSvgText(clampTemplateText(template.priceLabel || '', 20)) : '';
         const sigTitle = template.title ? escapeSvgText(clampTemplateText(template.title.toUpperCase(), 48)) : '';
-        const locText = template.locationLabel ? escapeSvgText(clampTemplateText(template.locationLabel, 24)) : '';
+        const locText = template.locationLabel ? clampTemplateText(template.locationLabel, 24) : '';
 
         // Gradient rect covers bottom 55%
         const gradH = Math.round(height * 0.55);

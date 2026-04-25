@@ -11,6 +11,10 @@
         ".": {
             "types": "./dist/index.d.ts",
             "default": "./dist/index.js"
+        },
+        "./logo": {
+            "types": "./dist/logo/index.d.ts",
+            "default": "./dist/logo/index.js"
         }
     },
     "scripts": {
