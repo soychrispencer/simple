@@ -37,13 +37,11 @@ export function Footer() {
             <div className="container-app py-16">
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-10 mb-12">
                     <div className="col-span-2 sm:col-span-1">
-                        <Link href="/" className="group mb-4 flex items-center gap-1 shrink-0">
-                            <div className="w-8 h-8 rounded-xl flex items-center justify-center" style={{ background: '#3b82f6', color: '#fff' }}>
-                                <IconBuildingSkyscraper size={16} />
-                            </div>
-                            <span className="inline-flex items-end gap-[0.08rem] text-[1.05rem] tracking-tight" style={{ color: 'var(--fg)' }}>
+                        <Link href="/" className="group mb-4 flex items-center gap-1.5 shrink-0">
+                            <IconBuildingSkyscraper size={20} style={{ color: '#3b82f6' }} />
+                            <span className="inline-flex items-baseline gap-[0.08rem] text-[1.05rem] tracking-tight" style={{ color: '#3b82f6' }}>
                                 <span className="font-semibold leading-none">Simple</span>
-                                <span className="translate-y-[0.02em] font-normal leading-none" style={{ color: 'var(--fg-muted)' }}>Propiedades</span>
+                                <span className="font-normal leading-none">Propiedades</span>
                             </span>
                         </Link>
                         <p className="text-sm leading-relaxed max-w-[220px] text-(--fg-muted)">

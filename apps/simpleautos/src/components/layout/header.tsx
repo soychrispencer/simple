@@ -105,13 +105,11 @@ export function Header() {
         <header className="relative z-40 transition-all duration-300" style={{ borderBottom: '1px solid var(--border)' }}>
             <div className="container-app flex items-center justify-between h-16">
                 {/* Logo */}
-                <Link href="/" className="flex items-center gap-1 group shrink-0">
-                    <div className="w-8 h-8 rounded-xl flex items-center justify-center" style={{ background: '#ff3600', color: '#fff' }}>
-                        <IconSteeringWheel size={16} />
-                    </div>
-                    <span className="inline-flex items-end gap-[0.08rem] text-[1.05rem] tracking-tight" style={{ color: 'var(--fg)' }}>
+                <Link href="/" className="flex items-center gap-1.5 group shrink-0">
+                    <IconSteeringWheel size={20} style={{ color: '#ff3600' }} />
+                    <span className="inline-flex items-baseline gap-[0.08rem] text-[1.05rem] tracking-tight" style={{ color: '#ff3600' }}>
                         <span className="font-semibold leading-none">Simple</span>
-                        <span className="translate-y-[0.02em] font-normal leading-none" style={{ color: 'var(--fg-muted)' }}>Autos</span>
+                        <span className="font-normal leading-none">Autos</span>
                     </span>
                 </Link>
 

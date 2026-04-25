@@ -163,13 +163,11 @@ export function AdminShell({ children, user }: { children: React.ReactNode; user
         <div className="flex min-h-screen w-full flex-col" style={{ background: 'var(--bg)' }}>
             <header className="relative z-40 transition-all duration-300" style={{ borderBottom: '1px solid var(--border)' }}>
                 <div className="container-app flex items-center justify-between h-16">
-                    <Link href={withAdminScope('/', scope)} className="flex items-center gap-2 group shrink-0">
-                        <div className="w-8 h-8 rounded-xl flex items-center justify-center shrink-0" style={{ background: '#4f46e5', color: '#fff' }}>
-                            <IconShieldLock size={16} />
-                        </div>
-                        <span className="inline-flex items-end gap-[0.08rem] text-lg tracking-tight" style={{ color: 'var(--fg)' }}>
+                    <Link href={withAdminScope('/', scope)} className="flex items-center gap-1.5 group shrink-0">
+                        <IconShieldLock size={20} style={{ color: '#4f46e5' }} />
+                        <span className="inline-flex items-baseline gap-[0.08rem] text-lg tracking-tight" style={{ color: '#4f46e5' }}>
                             <span className="font-semibold leading-none">Simple</span>
-                            <span className="translate-y-[0.02em] font-normal leading-none" style={{ color: 'var(--fg-muted)' }}>Admin</span>
+                            <span className="font-normal leading-none">Admin</span>
                         </span>
                     </Link>
 
