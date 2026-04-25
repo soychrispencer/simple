@@ -25,10 +25,13 @@ import {
     IconX,
     IconTag,
     IconPackage,
+    IconEdit,
+    IconAlertTriangle,
 } from '@tabler/icons-react';
 import {
     fetchAgendaClient,
     updateAgendaClient,
+    deleteAgendaClient,
     fetchClientAttachments,
     createClientAttachment,
     deleteClientAttachment,
@@ -77,6 +80,9 @@ export default function ClienteFichaPage() {
     const [appointments, setAppointments] = useState<AgendaAppointment[]>([]);
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
+    const [confirmDelete, setConfirmDelete] = useState(false);
+    const [deleting, setDeleting] = useState(false);
+    const [deleteError, setDeleteError] = useState('');
     const [notes, setNotes] = useState('');
     const [notesSaved, setNotesSaved] = useState(false);
     const [expandedNotes, setExpandedNotes] = useState<Set<string>>(new Set());
@@ -259,9 +265,27 @@ export default function ClienteFichaPage() {
         }
     };
 
+    const handleDeleteClient = async () => {
+        if (!client) return;
+        setDeleting(true);
+        setDeleteError('');
+        const result = await deleteAgendaClient(client.id);
+        setDeleting(false);
+        if (result.ok) {
+            router.push('/panel/clientes');
+        } else {
+            setDeleteError(result.error ?? 'No se pudo eliminar el paciente.');
+        }
+    };
+
+    const handleEditClient = () => {
+        if (!client) return;
+        router.push(`/panel/clientes?edit=${client.id}`);
+    };
+
     if (loading) {
         return (
-            <div className="container-app panel-page py-8 flex items-center gap-2 text-sm" style={{ color: 'var(--fg-muted)' }}>
+            <div className="container-app panel-page py-4 lg:py-8 flex items-center gap-2 text-sm" style={{ color: 'var(--fg-muted)' }}>
                 <IconLoader2 size={16} className="animate-spin" /> Cargando ficha...
             </div>
         );
@@ -285,7 +309,7 @@ export default function ClienteFichaPage() {
     const totalPaid = completedAppts.reduce((sum, a) => sum + (a.price ? parseFloat(a.price) : 0), 0);
 
     return (
-        <div className="container-app panel-page py-8 max-w-3xl">
+        <div className="container-app panel-page py-4 lg:py-8 max-w-3xl">
             {/* Back */}
             <button
                 onClick={() => router.push('/panel/clientes')}
@@ -306,8 +330,34 @@ export default function ClienteFichaPage() {
                         {initials}
                     </div>
                     <div className="flex-1 min-w-0">
-                        <h1 className="text-xl font-bold" style={{ color: 'var(--fg)' }}>{fullName}</h1>
-                        {client.city && <p className="text-xs mt-0.5" style={{ color: 'var(--fg-muted)' }}>{client.city}</p>}
+                        <div className="flex items-start justify-between gap-2">
+                            <div className="min-w-0">
+                                <h1 className="text-xl font-bold" style={{ color: 'var(--fg)' }}>{fullName}</h1>
+                                {client.city && <p className="text-xs mt-0.5" style={{ color: 'var(--fg-muted)' }}>{client.city}</p>}
+                            </div>
+                            <div className="flex items-center gap-1.5 shrink-0">
+                                <button
+                                    type="button"
+                                    onClick={handleEditClient}
+                                    aria-label="Editar paciente"
+                                    title="Editar paciente"
+                                    className="w-9 h-9 rounded-lg flex items-center justify-center border transition-colors hover:bg-(--bg-subtle)"
+                                    style={{ borderColor: 'var(--border)', color: 'var(--fg-muted)' }}
+                                >
+                                    <IconEdit size={15} />
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => { setDeleteError(''); setConfirmDelete(true); }}
+                                    aria-label="Eliminar paciente"
+                                    title="Eliminar paciente"
+                                    className="w-9 h-9 rounded-lg flex items-center justify-center border transition-colors hover:bg-red-500/10 hover:border-red-500/40"
+                                    style={{ borderColor: 'var(--border)', color: '#dc2626' }}
+                                >
+                                    <IconTrash size={15} />
+                                </button>
+                            </div>
+                        </div>
 
                         <div className="flex flex-wrap items-center gap-1.5 mt-3">
                             {assignedTags.map((t) => (
@@ -821,6 +871,48 @@ export default function ClienteFichaPage() {
                 </div>
             )}
             </>
+            )}
+
+            {/* Delete confirmation modal */}
+            {confirmDelete && (
+                <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4" role="dialog" aria-modal="true" aria-labelledby="cliente-delete-title">
+                    <button type="button" aria-label="Cerrar" className="absolute inset-0 bg-black/40 backdrop-blur-[2px]" onClick={() => !deleting && setConfirmDelete(false)} />
+                    <div className="relative w-full max-w-sm rounded-2xl border p-5" style={{ background: 'var(--surface)', borderColor: 'var(--border)', boxShadow: 'var(--shadow-md)' }}>
+                        <div className="flex items-start gap-3 mb-4">
+                            <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0" style={{ background: 'rgba(220,38,38,0.1)', color: '#dc2626' }}>
+                                <IconAlertTriangle size={18} />
+                            </div>
+                            <div className="min-w-0">
+                                <h2 id="cliente-delete-title" className="text-base font-semibold" style={{ color: 'var(--fg)' }}>Eliminar paciente</h2>
+                                <p className="text-sm mt-1" style={{ color: 'var(--fg-muted)' }}>
+                                    Se eliminará a <span style={{ color: 'var(--fg)', fontWeight: 600 }}>{fullName}</span> y su historial. Esta acción no se puede deshacer.
+                                </p>
+                            </div>
+                        </div>
+                        {deleteError && (
+                            <p className="text-sm mb-3" style={{ color: '#dc2626' }}>{deleteError}</p>
+                        )}
+                        <div className="flex gap-3">
+                            <button
+                                onClick={() => void handleDeleteClient()}
+                                disabled={deleting}
+                                className="flex-1 inline-flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-semibold border transition-opacity hover:opacity-80 disabled:opacity-50"
+                                style={{ background: 'rgba(220,38,38,0.1)', color: '#dc2626', borderColor: 'rgba(220,38,38,0.3)' }}
+                            >
+                                {deleting ? <IconLoader2 size={14} className="animate-spin" /> : <IconTrash size={14} />}
+                                {deleting ? 'Eliminando...' : 'Eliminar'}
+                            </button>
+                            <button
+                                onClick={() => setConfirmDelete(false)}
+                                disabled={deleting}
+                                className="flex-1 py-2.5 rounded-xl text-sm border transition-colors hover:bg-(--bg-subtle)"
+                                style={{ borderColor: 'var(--border)', color: 'var(--fg-secondary)' }}
+                            >
+                                Cancelar
+                            </button>
+                        </div>
+                    </div>
+                </div>
             )}
 
         </div>

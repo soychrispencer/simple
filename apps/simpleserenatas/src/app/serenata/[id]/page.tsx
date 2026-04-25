@@ -7,7 +7,7 @@ import {
   IconClock, 
   IconUser,
   IconPhone,
-  IconMusic,
+  IconConfetti,
   IconCheck,
   IconArrowLeft,
   IconCurrencyDollar,
@@ -222,7 +222,7 @@ export default function SerenataDetailPage({ params }: { params: { id: string } 
           <h2 className="text-sm font-medium text-zinc-500 mb-3">DETALLES</h2>
           <div className="space-y-3">
             <div className="flex items-center gap-3">
-              <IconMusic size={20} className="text-zinc-400" />
+              <IconConfetti size={20} className="text-zinc-400" />
               <span className="text-zinc-900">{occasionLabels[serenata.occasion] || serenata.occasion}</span>
             </div>
             {serenata.message && (

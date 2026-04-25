@@ -75,8 +75,8 @@ function CancelPage() {
     }
 
     return (
-        <div className="min-h-screen flex items-center justify-center p-6" style={{ background: 'var(--bg)' }}>
-            <div className="w-full max-w-md rounded-2xl border p-8" style={{ borderColor: 'var(--border)', background: 'var(--surface)' }}>
+        <div className="min-h-screen flex items-center justify-center p-4 sm:p-6" style={{ background: 'var(--bg)' }}>
+            <div className="w-full max-w-md rounded-2xl border p-6 sm:p-8" style={{ borderColor: 'var(--border)', background: 'var(--surface)' }}>
                 <div className="w-14 h-14 rounded-2xl flex items-center justify-center mb-5 mx-auto" style={{ background: 'rgba(239,68,68,0.1)' }}>
                     <IconCalendarX size={28} className="text-red-500" />
                 </div>

@@ -89,8 +89,15 @@ export type AgendaProfile = {
 };
 
 export async function fetchAgendaProfile(): Promise<AgendaProfile | null> {
-    const data = await apiFetch<{ ok: boolean; profile: AgendaProfile | null }>('/api/agenda/profile');
-    return data.profile;
+    try {
+        const data = await apiFetch<{ ok: boolean; profile: AgendaProfile | null }>('/api/agenda/profile');
+        return data.profile;
+    } catch (err) {
+        if (err instanceof Error && /no encontrado|not found|404/i.test(err.message)) {
+            return null;
+        }
+        throw err;
+    }
 }
 
 export async function saveAgendaProfile(body: Partial<AgendaProfile>): Promise<{ ok: boolean; profile?: AgendaProfile; error?: string }> {

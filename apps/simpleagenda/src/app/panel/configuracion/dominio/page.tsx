@@ -66,7 +66,7 @@ export default function DominioPage() {
     };
 
     return (
-        <div className="container-app panel-page py-8 max-w-2xl">
+        <div className="container-app panel-page py-4 lg:py-8 max-w-2xl">
             <PanelPageHeader
                 backHref="/panel/configuracion/link"
                 title="Dominio personalizado"

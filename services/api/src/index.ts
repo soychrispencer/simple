@@ -129,22 +129,30 @@ import {
     agendaClientPacks,
     agendaGroupSessions,
     agendaGroupAttendees,
-    serenataMusicians,
-    serenataRequests,
     serenataGroups,
     serenataGroupMembers,
+    serenataMusicians,
+    serenataRequests,
     serenataAssignments,
     serenataRoutes,
-    serenataAvailabilitySlots,
-    serenataReviews,
     serenataNotifications,
+    serenataCaptainProfiles,
+    serenataMusicianProfiles,
+    serenatas,
+    serenataSubscriptions,
+    serenataSubscriptionPayments,
+    serenataPayments,
+    serenataReviews,
+    serenataAvailability,
+    serenataMessages,
     mortgageRates,
 } from './db/schema.js';
-import { createSerenatasRouter } from './modules/serenatas/index.js';
+import { createSerenatasRouter } from './modules/serenatas/router.js';
+import { SerenatasService } from './modules/serenatas/service.js';
 import { createAccountsRouter } from './modules/accounts/index.js';
 import { createCrmRouter } from './modules/crm/index.js';
 import { createAdminRouter } from './modules/admin/index.js';
-import { createAuthRouter } from './modules/auth/index.js';
+import { createAuthRouter } from './modules/auth/router.js';
 import { createListingsRouter, createListingDraftRouter } from './modules/listings/index.js';
 import { createBoostRouter } from './modules/boost/index.js';
 import { createAddressBookRouter } from './modules/address-book/index.js';
@@ -9164,10 +9172,14 @@ async function requireVerifiedSession(c: Context, next: () => Promise<void>) {
 function setSession(c: Context, userId: string): void {
     const sessionToken = jwt.sign({ sub: userId }, SESSION_SECRET, { expiresIn: '14d' });
 
+    // En desarrollo local, permitir cookies cross-origin
+    const origin = c.req.header('origin');
+    const isLocalDev = !origin || isLocalOrigin(origin);
+
     setCookie(c, SESSION_COOKIE, sessionToken, {
         httpOnly: true,
-        sameSite: authCookieSameSite,
-        secure: authCookieSecure,
+        sameSite: isLocalDev ? 'none' as const : authCookieSameSite,
+        secure: isLocalDev ? true : authCookieSecure,
         path: '/',
         maxAge: 60 * 60 * 24 * 14,
     });
@@ -12310,9 +12322,19 @@ async function bootstrapMissingTables() {
 
 // SimpleSerenatas routes
 // ─────────────────────────────────────────────────────────────────────────────
+const serenatasService = new SerenatasService(db);
 const serenatasDeps = {
     db,
     authUser,
+    service: serenatasService,
+    requireAuth: async (c: any, next: any) => {
+        const user = await authUser(c);
+        if (!user) {
+            return c.json({ ok: false, error: 'No autenticado' }, 401);
+        }
+        c.set('user', user);
+        await next();
+    },
     tables: {
         serenataGroups,
         serenataGroupMembers,
@@ -12321,6 +12343,15 @@ const serenatasDeps = {
         serenataAssignments,
         serenataRoutes,
         serenataNotifications,
+        serenataCaptainProfiles,
+        serenataMusicianProfiles,
+        serenatas,
+        serenataSubscriptions,
+        serenataSubscriptionPayments,
+        serenataPayments,
+        serenataReviews,
+        serenataAvailability,
+        serenataMessages,
         users,
     },
 };

@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react';
+import { useEffect, useMemo, useRef, useState, type ComponentType, type CSSProperties, type ReactNode } from 'react';
+import { IconDotsCircleHorizontal } from '@tabler/icons-react';
 import type { AddressBookEntry, AddressBookKind, ListingLocation, ListingLocationKind, ListingLocationVisibilityMode } from '@simple/types';
 import { applyAddressBookEntryToLocation, createEmptyListingLocation, patchListingLocation } from '@simple/types';
 
@@ -4028,6 +4029,203 @@ export function AddressBookManager(props: AddressBookManagerProps) {
                     </PanelCard>
                 ) : null}
             </div>
+        </div>
+    );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// PanelBottomNav — mobile-first bottom navigation for authenticated panels.
+// Consumers supply their framework LinkComponent (e.g. next/link) so this
+// component stays framework-agnostic while still supporting client routing.
+// ─────────────────────────────────────────────────────────────────────────────
+
+export type PanelBottomNavItem = {
+    href: string;
+    label: string;
+    icon: ComponentType<{ size?: number; stroke?: number; style?: CSSProperties }>;
+    active?: boolean;
+    highlight?: boolean;
+};
+
+type PanelBottomNavLinkProps = {
+    href: string;
+    className?: string;
+    'aria-current'?: 'page' | undefined;
+    children: ReactNode;
+};
+
+export type PanelBottomNavProps = {
+    items: PanelBottomNavItem[];
+    LinkComponent: ComponentType<PanelBottomNavLinkProps>;
+    moreLabel?: string;
+    moreActive?: boolean;
+    onMoreClick?: () => void;
+    ariaLabel?: string;
+    highlightStyle?: CSSProperties;
+};
+
+export function PanelBottomNav({
+    items,
+    LinkComponent,
+    moreLabel = 'Más',
+    moreActive = false,
+    onMoreClick,
+    ariaLabel = 'Navegación del panel',
+    highlightStyle,
+}: PanelBottomNavProps) {
+    return (
+        <nav
+            className="fixed bottom-0 left-0 right-0 z-40 border-t lg:hidden"
+            style={{
+                background: 'color-mix(in oklab, var(--surface) 86%, transparent)',
+                backdropFilter: 'blur(14px)',
+                WebkitBackdropFilter: 'blur(14px)',
+                borderColor: 'var(--border)',
+                paddingBottom: 'env(safe-area-inset-bottom, 0px)',
+            }}
+            aria-label={ariaLabel}
+        >
+            <div className="flex items-center justify-around h-16 px-2">
+                {items.map((item) => {
+                    const Icon = item.icon;
+                    const active = !!item.active;
+
+                    if (item.highlight) {
+                        return (
+                            <LinkComponent
+                                key={item.href}
+                                href={item.href}
+                                className="flex flex-col items-center justify-center flex-1 h-full"
+                                aria-current={active ? 'page' : undefined}
+                            >
+                                <span
+                                    className="w-11 h-11 rounded-full flex items-center justify-center -mt-1"
+                                    style={{
+                                        background: 'var(--accent)',
+                                        color: 'var(--accent-contrast, #fff)',
+                                        boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
+                                        ...highlightStyle,
+                                    }}
+                                >
+                                    <Icon size={22} stroke={2} />
+                                </span>
+                                <span
+                                    className="text-[10px] mt-0.5"
+                                    style={{
+                                        color: active ? 'var(--accent)' : 'var(--fg-muted)',
+                                        fontWeight: active ? 500 : 400,
+                                    }}
+                                >
+                                    {item.label}
+                                </span>
+                            </LinkComponent>
+                        );
+                    }
+
+                    return (
+                        <LinkComponent
+                            key={item.href}
+                            href={item.href}
+                            className="flex flex-col items-center justify-center flex-1 h-full"
+                            aria-current={active ? 'page' : undefined}
+                        >
+                            <Icon
+                                size={22}
+                                stroke={active ? 2 : 1.5}
+                                style={{ color: active ? 'var(--accent)' : 'var(--fg-muted)' }}
+                            />
+                            <span
+                                className="text-[11px] mt-0.5"
+                                style={{
+                                    color: active ? 'var(--accent)' : 'var(--fg-muted)',
+                                    fontWeight: active ? 500 : 400,
+                                }}
+                            >
+                                {item.label}
+                            </span>
+                        </LinkComponent>
+                    );
+                })}
+
+                {onMoreClick ? (
+                    <button
+                        type="button"
+                        onClick={onMoreClick}
+                        className="flex flex-col items-center justify-center flex-1 h-full"
+                        aria-label={moreLabel}
+                    >
+                        <IconDotsCircleHorizontal
+                            size={22}
+                            stroke={moreActive ? 2 : 1.5}
+                            style={{ color: moreActive ? 'var(--accent)' : 'var(--fg-muted)' }}
+                        />
+                        <span
+                            className="text-[11px] mt-0.5"
+                            style={{
+                                color: moreActive ? 'var(--accent)' : 'var(--fg-muted)',
+                                fontWeight: moreActive ? 500 : 400,
+                            }}
+                        >
+                            {moreLabel}
+                        </span>
+                    </button>
+                ) : null}
+            </div>
+        </nav>
+    );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// ErrorView — shared full-screen error/not-found view used by Next.js
+// error.tsx, global-error.tsx and not-found.tsx files across all apps.
+// Framework-agnostic: uses CSS variables for theming and accepts a caller-
+// provided primaryAction (which can be a Link, button, or anchor).
+// ─────────────────────────────────────────────────────────────────────────────
+
+export type ErrorViewProps = {
+    code?: string;
+    title: string;
+    description?: string;
+    primaryAction: ReactNode;
+    secondaryAction?: ReactNode;
+    errorDigest?: string;
+};
+
+export function ErrorView({
+    code,
+    title,
+    description,
+    primaryAction,
+    secondaryAction,
+    errorDigest,
+}: ErrorViewProps) {
+    return (
+        <div
+            className="min-h-screen flex flex-col items-center justify-center px-4 py-10 text-center"
+            style={{ background: 'var(--bg)' }}
+        >
+            {code ? (
+                <p className="text-5xl sm:text-6xl font-bold mb-3" style={{ color: 'var(--accent)' }}>
+                    {code}
+                </p>
+            ) : null}
+            <h1 className="text-xl sm:text-2xl font-semibold mb-2" style={{ color: 'var(--fg)' }}>
+                {title}
+            </h1>
+            {description ? (
+                <p className="text-sm mb-8 max-w-sm" style={{ color: 'var(--fg-muted)' }}>
+                    {description}
+                </p>
+            ) : <div className="mb-8" />}
+            <div className="flex flex-col sm:flex-row items-center gap-3">
+                {primaryAction}
+                {secondaryAction}
+            </div>
+            {errorDigest ? (
+                <p className="mt-6 text-[10px] font-mono" style={{ color: 'var(--fg-muted)' }}>
+                    ref: {errorDigest}
+                </p>
+            ) : null}
         </div>
     );
 }

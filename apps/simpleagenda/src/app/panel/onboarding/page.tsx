@@ -167,12 +167,12 @@ export default function OnboardingPage() {
     const progressPct = step < 3 ? Math.round((step / 3) * 100) : 100;
 
     return (
-        <div className="min-h-screen flex flex-col items-center justify-center px-4 py-10" style={{ background: 'var(--bg)' }}>
+        <div className="min-h-screen flex flex-col items-center justify-center px-4 py-6 sm:py-10" style={{ background: 'var(--bg)' }}>
             <div className="w-full max-w-lg">
 
                 {/* Header */}
                 {step < 3 && (
-                    <div className="mb-8 text-center">
+                    <div className="mb-6 sm:mb-8 text-center">
                         <p className="text-xs font-semibold uppercase tracking-widest mb-1" style={{ color: 'var(--accent)' }}>
                             Paso {step + 1} de 3
                         </p>
@@ -191,7 +191,7 @@ export default function OnboardingPage() {
 
                 {/* Step indicators */}
                 {step < 3 && (
-                    <div className="flex items-center justify-center gap-2 mb-8">
+                    <div className="flex items-center justify-center gap-2 mb-6 sm:mb-8">
                         {[0, 1, 2].map((i) => (
                             <div
                                 key={i}
@@ -207,7 +207,7 @@ export default function OnboardingPage() {
 
                 {/* ── STEP 0: Perfil ── */}
                 {step === 0 && (
-                    <div className="rounded-2xl border p-6 flex flex-col gap-5" style={{ background: 'var(--surface)', borderColor: 'var(--border)' }}>
+                    <div className="rounded-2xl border p-5 sm:p-6 flex flex-col gap-5" style={{ background: 'var(--surface)', borderColor: 'var(--border)' }}>
                         {/* Avatar */}
                         <div className="flex flex-col items-center gap-3">
                             <button
@@ -282,7 +282,7 @@ export default function OnboardingPage() {
 
                 {/* ── STEP 1: Servicio ── */}
                 {step === 1 && (
-                    <div className="rounded-2xl border p-6 flex flex-col gap-5" style={{ background: 'var(--surface)', borderColor: 'var(--border)' }}>
+                    <div className="rounded-2xl border p-5 sm:p-6 flex flex-col gap-5" style={{ background: 'var(--surface)', borderColor: 'var(--border)' }}>
                         {/* Nombre del servicio */}
                         <div>
                             <label className="block text-sm font-medium mb-1.5" style={{ color: 'var(--fg)' }}>
@@ -372,7 +372,7 @@ export default function OnboardingPage() {
 
                 {/* ── STEP 2: Horario ── */}
                 {step === 2 && (
-                    <div className="rounded-2xl border p-6 flex flex-col gap-5" style={{ background: 'var(--surface)', borderColor: 'var(--border)' }}>
+                    <div className="rounded-2xl border p-5 sm:p-6 flex flex-col gap-5" style={{ background: 'var(--surface)', borderColor: 'var(--border)' }}>
                         {/* Días */}
                         <div>
                             <label className="block text-sm font-medium mb-2" style={{ color: 'var(--fg)' }}>
@@ -434,7 +434,7 @@ export default function OnboardingPage() {
 
                 {/* ── STEP 3: Listo ── */}
                 {step === 3 && (
-                    <div className="rounded-2xl border p-8 text-center flex flex-col items-center gap-5" style={{ background: 'var(--surface)', borderColor: 'var(--border)' }}>
+                    <div className="rounded-2xl border p-6 sm:p-8 text-center flex flex-col items-center gap-5" style={{ background: 'var(--surface)', borderColor: 'var(--border)' }}>
                         <div
                             className="w-20 h-20 rounded-full flex items-center justify-center"
                             style={{ background: 'var(--accent)' }}

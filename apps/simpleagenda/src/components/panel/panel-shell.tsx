@@ -18,6 +18,7 @@ import {
     type PanelNavItem,
     type PanelRole,
 } from '@/components/panel/panel-nav-config';
+import { PanelBottomNav } from '@/components/panel/panel-bottom-nav';
 
 const STORAGE_COLLAPSED = 'simpleagenda:panel:collapsed';
 
@@ -104,6 +105,10 @@ export function PanelShell({ children }: { children: React.ReactNode }) {
 
     usePushNotifications(!!user);
 
+    // Hide shell chrome on fullscreen flows (onboarding is a gated wizard that shouldn't
+    // offer navigation away until the user completes their profile).
+    const isFullscreenFlow = pathname.startsWith('/panel/onboarding');
+
     const navItems = useMemo(() => getPanelNavItems(role), [role]);
 
     const userName = user?.name?.trim() || 'Usuario';
@@ -137,6 +142,7 @@ export function PanelShell({ children }: { children: React.ReactNode }) {
 
     return (
         <div className="flex min-h-[calc(100vh-64px)] w-full">
+            {!isFullscreenFlow && (
             <aside className={`hidden lg:block px-2 pt-3 pb-2 shrink-0 transition-[width] duration-200 ${collapsed ? 'w-29' : 'w-73'}`}>
                 <div
                     className="sticky top-4 rounded-2xl border p-3 flex flex-col"
@@ -202,6 +208,7 @@ export function PanelShell({ children }: { children: React.ReactNode }) {
                     </div>
                 </div>
             </aside>
+            )}
 
             {mobileOpen ? (
                 <div className="fixed inset-0 z-50 lg:hidden">
@@ -268,8 +275,10 @@ export function PanelShell({ children }: { children: React.ReactNode }) {
             ) : null}
 
             <section className="flex-1 min-w-0">
-                <div className="panel-content-frame">{children}</div>
+                <div className={`panel-content-frame ${isFullscreenFlow ? '' : 'pb-20 lg:pb-0'}`}>{children}</div>
             </section>
+
+            {!isFullscreenFlow && <PanelBottomNav />}
         </div>
     );
 }

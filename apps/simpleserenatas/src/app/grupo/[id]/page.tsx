@@ -9,7 +9,7 @@ import {
   IconArrowLeft,
   IconCurrencyDollar,
   IconMapPin,
-  IconMusic,
+  IconConfetti,
   IconClock,
   IconUser,
   IconPlus,
@@ -340,7 +340,7 @@ export default function GroupDetailPage({ params }: { params: { id: string } }) 
               <div key={member.id} className="flex items-center justify-between p-3 bg-zinc-50 rounded-lg">
                 <div className="flex items-center gap-3">
                   <div className="w-10 h-10 bg-zinc-200 rounded-full flex items-center justify-center">
-                    <IconMusic size={18} className="text-zinc-500" />
+                    <IconConfetti size={18} className="text-zinc-500" />
                   </div>
                   <div>
                     <p className="font-medium text-zinc-900">{member.name}</p>
@@ -398,7 +398,7 @@ export default function GroupDetailPage({ params }: { params: { id: string } }) 
                         className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-zinc-50 transition-colors text-left disabled:opacity-50"
                       >
                         <div className="w-10 h-10 bg-zinc-200 rounded-full flex items-center justify-center">
-                          <IconMusic className="w-5 h-5 text-zinc-500" />
+                          <IconConfetti className="w-5 h-5 text-zinc-500" />
                         </div>
                         <div className="flex-1">
                           <p className="font-medium text-zinc-900">{musician.name}</p>

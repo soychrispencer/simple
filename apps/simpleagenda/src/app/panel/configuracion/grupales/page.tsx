@@ -214,7 +214,7 @@ export default function GrupalesPage() {
     const visibleServices = useMemo(() => services.filter((s) => s.isActive), [services]);
 
     return (
-        <div className="container-app panel-page py-8 max-w-2xl">
+        <div className="container-app panel-page py-4 lg:py-8 max-w-2xl">
             <PanelPageHeader
                 backHref="/panel/configuracion/servicios"
                 title="Sesiones grupales"

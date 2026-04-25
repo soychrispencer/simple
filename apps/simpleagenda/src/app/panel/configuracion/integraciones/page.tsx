@@ -115,7 +115,7 @@ function IntegracionesPageInner() {
     };
 
     return (
-        <div className="container-app panel-page py-8 max-w-2xl">
+        <div className="container-app panel-page py-4 lg:py-8 max-w-2xl">
             <PanelPageHeader
                 backHref="/panel/configuracion"
                 title="Integraciones"
@@ -269,7 +269,7 @@ function IntegracionesPageInner() {
 export default function IntegracionesPage() {
     return (
         <Suspense fallback={
-            <div className="container-app panel-page py-8 flex items-center gap-2 text-sm" style={{ color: 'var(--fg-muted)' }}>
+            <div className="container-app panel-page py-4 lg:py-8 flex items-center gap-2 text-sm" style={{ color: 'var(--fg-muted)' }}>
                 <IconLoader2 size={16} className="animate-spin" /> Cargando...
             </div>
         }>

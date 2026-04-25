@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   IconUser,
-  IconMusic,
+  IconConfetti,
   IconStar,
   IconMapPin,
   IconClock,
@@ -34,7 +34,7 @@ interface Musician {
 function getInstrumentIcon(instrument: string) {
   const key = instrument.toLowerCase();
   if (key.includes('voice') || key.includes('voz')) return IconMicrophone;
-  return IconMusic;
+  return IconConfetti;
 }
 
 export default function MusicianProfilePage({ params }: { params: { id: string } }) {

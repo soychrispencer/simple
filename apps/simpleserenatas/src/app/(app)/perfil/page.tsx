@@ -9,7 +9,7 @@ import {
     IconChevronRight,
     IconLogout,
     IconEdit,
-    IconMusic,
+    IconConfetti,
     IconBriefcase,
     IconClock,
     IconBell,
@@ -31,7 +31,7 @@ interface ProfileStats {
 
 const menuItems = [
     { icon: IconUser, label: 'Editar Perfil', href: '/musician/edit' },
-    { icon: IconMusic, label: 'Mi Instrumento', href: '/musician/edit' },
+    { icon: IconConfetti, label: 'Mi Instrumento', href: '/musician/edit' },
     { icon: IconMapPin, label: 'Mi Ubicación', href: '/musician/edit' },
     { icon: IconClock, label: 'Disponibilidad', href: '/musician/edit' },
     { icon: IconBriefcase, label: 'Historial de Trabajo', href: '/agenda' },
@@ -241,7 +241,7 @@ export default function PerfilPage() {
                                     href="/musician/edit"
                                 />
                                 <QuickAction 
-                                    icon={IconMusic}
+                                    icon={IconConfetti}
                                     label="Instrumento"
                                     href="/musician/edit"
                                 />

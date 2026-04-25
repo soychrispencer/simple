@@ -12,7 +12,7 @@ import {
     IconUser,
     IconChevronLeft,
     IconChevronRight,
-    IconMusic,
+    IconConfettiFilled,
 } from '@tabler/icons-react';
 import { useAuth } from '@/context/AuthContext';
 
@@ -61,7 +61,7 @@ export function AppSidebar({ collapsed, onToggle }: AppSidebarProps) {
                         className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0"
                         style={{ background: 'var(--accent)' }}
                     >
-                        <IconMusic size={18} style={{ color: 'var(--accent-contrast)' }} />
+                        <IconConfettiFilled size={18} style={{ color: 'var(--accent-contrast)' }} />
                     </div>
                     <span 
                         className={`text-lg tracking-tight transition-all duration-300 whitespace-nowrap ${

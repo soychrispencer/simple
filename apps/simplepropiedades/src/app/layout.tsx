@@ -5,7 +5,11 @@ import { ThemeProvider } from '@/components/theme-provider';
 import { ClientProviders } from '@/components/client-providers';
 import { buildSimpleAppMetadata } from '@simple/config';
 
-const inter = Inter({ subsets: ['latin'], variable: '--font-sans', display: 'swap' });
+const inter = Inter({
+    subsets: ['latin'],
+    variable: '--font-sans',
+    display: 'swap',
+});
 
 export const metadata: Metadata = buildSimpleAppMetadata('simplepropiedades');
 

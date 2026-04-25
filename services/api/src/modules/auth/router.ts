@@ -51,7 +51,7 @@ export type AuthRouterDeps = {
 };
 
 export function createAuthRouter(deps: AuthRouterDeps) {
-    const app = new Hono();
+    const app = new Hono<{ Variables: { userId: string } }>();
 
     // ── One-time OAuth tokens ────────────────────────────────────────────────
     const pendingOAuthSessions = new Map<string, { userId: string; expiresAt: number }>();
@@ -107,7 +107,9 @@ export function createAuthRouter(deps: AuthRouterDeps) {
         const googleClientSecret = deps.asString(process.env.GOOGLE_CLIENT_SECRET);
         if (!googleClientId || !googleClientSecret) return { ok: false, error: 'Google OAuth no configurado', status: 500 };
 
-        const redirectUri = deps.buildGoogleRedirectUri(origin);
+        // Use GOOGLE_REDIRECT_URI env var if set, otherwise fallback to building from origin
+        const configuredRedirectUri = process.env.GOOGLE_REDIRECT_URI;
+        const redirectUri = configuredRedirectUri || deps.buildGoogleRedirectUri(origin);
         const tokenResponse = await fetch('https://oauth2.googleapis.com/token', {
             method: 'POST',
             headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
@@ -452,11 +454,16 @@ export function createAuthRouter(deps: AuthRouterDeps) {
         if (!origin) return c.json({ ok: false, error: 'Origin no autorizado' }, 403);
         if (!clientId) return c.json({ ok: false, error: 'Google OAuth no configurado' }, 500);
 
+        // Use GOOGLE_REDIRECT_URI env var if set, otherwise fallback to building from origin
+        const configuredRedirectUri = process.env.GOOGLE_REDIRECT_URI;
+        const redirectUri = configuredRedirectUri || deps.buildGoogleRedirectUri(origin);
+        console.log('[Google OAuth] Using redirect URI:', redirectUri, '| Configured:', configuredRedirectUri);
+
         const nonce = randomBytes(16).toString('hex');
         const state = buildOAuthState(nonce, origin);
         const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?` +
             `client_id=${encodeURIComponent(clientId)}&` +
-            `redirect_uri=${encodeURIComponent(deps.buildGoogleRedirectUri(origin))}&` +
+            `redirect_uri=${encodeURIComponent(redirectUri)}&` +
             `response_type=code&` +
             `scope=${encodeURIComponent('openid email profile')}&` +
             `state=${encodeURIComponent(state)}`;
@@ -464,29 +471,53 @@ export function createAuthRouter(deps: AuthRouterDeps) {
         return c.json({ ok: true, authUrl });
     });
 
-    app.get('/google/finalize', async (c) => {
+    app.get('/google/callback', async (c) => {
         const code = deps.asString(c.req.query('code'));
         const state = deps.asString(c.req.query('state'));
 
+        if (!code || !state) {
+            return c.json({ ok: false, error: 'Parámetros requeridos faltantes' }, 400);
+        }
+
         try {
             const result = await exchangeGoogleCode(code, state, c);
-            const fallbackOrigin = verifyOAuthState(state)?.origin ?? '';
-
             if (!result.ok) {
-                const dest = fallbackOrigin
-                    ? `${fallbackOrigin}/?google_error=${encodeURIComponent(result.error)}`
-                    : '/';
-                return c.html(`<!DOCTYPE html><html><head><meta charset="utf-8">
-<script>window.location.replace(${JSON.stringify(dest)});</script></head><body></body></html>`);
+                return c.json({ ok: false, error: result.error }, result.status as 400 | 403 | 500);
             }
 
-            const oauthToken = randomBytes(20).toString('hex');
-            pendingOAuthSessions.set(oauthToken, { userId: result.user.id, expiresAt: Date.now() + 90_000 });
-            const dest = `${result.origin}/auth/google/callback?_oauth=${oauthToken}`;
-            return c.redirect(dest);
+            deps.setSession(c, result.user.id);
+
+            const origin = result.origin || deps.resolveBrowserOrigin(c) || 'http://localhost:3005';
+            const redirectPath = result.isNewUser ? '/onboarding' : '/inicio';
+            const redirectUrl = `${origin}${redirectPath}`;
+
+            // Devolver HTML con redirección JavaScript para mantener la sesión cross-origin
+            return c.html(`
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Iniciando sesión...</title>
+    <style>
+        body { font-family: system-ui, sans-serif; display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; background: #f5f5f5; }
+        .container { text-align: center; }
+        .spinner { width: 40px; height: 40px; border: 3px solid #ddd; border-top-color: #22c55e; border-radius: 50%; animation: spin 1s linear infinite; margin: 0 auto 1rem; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        p { color: #666; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="spinner"></div>
+        <p>Iniciando sesión...</p>
+    </div>
+    <script>
+        window.location.href = '${redirectUrl}';
+    </script>
+</body>
+</html>`);
         } catch (error) {
-            console.error('Google OAuth finalize error:', error);
-            return c.redirect('/');
+            console.error('Error en google callback:', error);
+            return c.json({ ok: false, error: 'Error procesando autenticación' }, 500);
         }
     });
 
@@ -505,19 +536,19 @@ export function createAuthRouter(deps: AuthRouterDeps) {
         return c.json({ ok: true, user: deps.sanitizeUser(user) });
     });
 
-    app.post('/google/callback', async (c) => {
-        try {
-            const payload = deps.asObject(await c.req.json().catch(() => null));
-            const code = deps.asString(payload.code);
-            const state = deps.asString(payload.state);
-            const result = await exchangeGoogleCode(code, state, c);
-            if (!result.ok) return c.json({ ok: false, error: result.error }, result.status as 400 | 403 | 500);
-            deps.setSession(c, result.user.id);
-            return c.json({ ok: true, user: deps.sanitizeUser(result.user), isNewUser: result.isNewUser });
-        } catch (error) {
-            console.error('Google OAuth error:', error);
-            return c.json({ ok: false, error: 'Error interno del servidor' }, 500);
+    // Endpoint para obtener el usuario actual (verificar sesión)
+    app.get('/me', async (c) => {
+        const userId = c.get('userId') as string | undefined;
+        if (!userId) {
+            return c.json({ ok: false, error: 'No autenticado' }, 401);
         }
+
+        const user = await deps.getUserById(userId);
+        if (!user || !deps.canAuthenticateUser(user)) {
+            return c.json({ ok: false, error: 'Usuario no encontrado' }, 401);
+        }
+
+        return c.json({ ok: true, user: deps.sanitizeUser(user) });
     });
 
     return app;

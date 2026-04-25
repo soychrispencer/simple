@@ -156,7 +156,7 @@ export default function DireccionesConfigPage() {
     };
 
     return (
-        <div className="container-app panel-page py-8 max-w-2xl">
+        <div className="container-app panel-page py-4 lg:py-8 max-w-2xl">
             <PanelPageHeader
                 backHref="/panel/configuracion"
                 title="Direcciones"
@@ -331,7 +331,7 @@ export default function DireccionesConfigPage() {
                                                 type="button"
                                                 onClick={() => void handleSetDefault(loc)}
                                                 aria-label="Marcar como predeterminada"
-                                                className="w-7 h-7 rounded-lg flex items-center justify-center border transition-colors"
+                                                className="w-9 h-9 sm:w-7 sm:h-7 rounded-lg flex items-center justify-center border transition-colors"
                                                 style={{ borderColor: 'var(--border)', color: 'var(--fg-muted)' }}
                                             >
                                                 <IconStar size={13} />
@@ -341,7 +341,7 @@ export default function DireccionesConfigPage() {
                                             type="button"
                                             onClick={() => handleEdit(loc)}
                                             aria-label="Editar"
-                                            className="w-7 h-7 rounded-lg flex items-center justify-center border transition-colors"
+                                            className="w-9 h-9 sm:w-7 sm:h-7 rounded-lg flex items-center justify-center border transition-colors"
                                             style={{ borderColor: 'var(--border)', color: 'var(--fg-secondary)' }}
                                         >
                                             <IconEdit size={13} />
@@ -351,7 +351,7 @@ export default function DireccionesConfigPage() {
                                             onClick={() => void handleDelete(loc.id)}
                                             disabled={isDeleting}
                                             aria-label="Eliminar"
-                                            className="w-7 h-7 rounded-lg flex items-center justify-center border transition-colors hover:bg-red-500/10 hover:border-red-500/40 disabled:opacity-50"
+                                            className="w-9 h-9 sm:w-7 sm:h-7 rounded-lg flex items-center justify-center border transition-colors hover:bg-red-500/10 hover:border-red-500/40 disabled:opacity-50"
                                             style={{ borderColor: 'var(--border)', color: 'var(--fg-muted)' }}
                                         >
                                             {isDeleting ? <IconLoader2 size={13} className="animate-spin" /> : <IconTrash size={13} />}

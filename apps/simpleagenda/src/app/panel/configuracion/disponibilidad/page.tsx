@@ -300,7 +300,7 @@ export default function DisponibilidadConfigPage() {
 
     if (loading) {
         return (
-            <div className="container-app panel-page py-8 flex items-center gap-2 text-sm" style={{ color: 'var(--fg-muted)' }}>
+            <div className="container-app panel-page py-4 lg:py-8 flex items-center gap-2 text-sm" style={{ color: 'var(--fg-muted)' }}>
                 <IconLoader2 size={16} className="animate-spin" /> Cargando disponibilidad...
             </div>
         );
@@ -308,7 +308,7 @@ export default function DisponibilidadConfigPage() {
 
     if (loadError) {
         return (
-            <div className="container-app panel-page py-8 max-w-2xl">
+            <div className="container-app panel-page py-4 lg:py-8 max-w-2xl">
                 <PanelPageHeader backHref="/panel/configuracion" title="Disponibilidad" />
                 <div className="rounded-2xl border px-5 py-4 text-sm flex items-center gap-3" style={{ borderColor: 'rgba(185,28,28,0.20)', background: 'rgba(185,28,28,0.06)', color: '#b91c1c' }}>
                     <IconAlertCircle size={16} className="shrink-0" />
@@ -324,7 +324,7 @@ export default function DisponibilidadConfigPage() {
     }
 
     return (
-        <div className="container-app panel-page py-8 max-w-2xl">
+        <div className="container-app panel-page py-4 lg:py-8 max-w-2xl">
             <PanelPageHeader
                 backHref="/panel/configuracion"
                 title="Disponibilidad"

@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState, useRef } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { IconPlus, IconSearch, IconLoader2, IconUsers, IconX, IconDownload, IconEdit, IconTrash, IconAlertCircle, IconCheck, IconPhone, IconMail, IconBrandWhatsapp, IconChevronDown, IconTag } from '@tabler/icons-react';
 import Link from 'next/link';
 import { fetchAgendaClients, createAgendaClient, updateAgendaClient, deleteAgendaClient, fetchClientTags, type AgendaClient, type AgendaClientTag } from '@/lib/agenda-api';
@@ -41,6 +42,8 @@ const emptyForm = (): ClientForm => ({
 type EditForm = ClientForm & Record<string, string>;
 
 export default function ClientesPage() {
+    const router = useRouter();
+    const searchParams = useSearchParams();
     const [clients, setClients] = useState<AgendaClient[]>([]);
     const [filtered, setFiltered] = useState<AgendaClient[]>([]);
     const [loading, setLoading] = useState(true);
@@ -72,6 +75,26 @@ export default function ClientesPage() {
     useEffect(() => {
         void load();
     }, []);
+
+    // Open edit modal automatically if arriving with ?edit=<id> from the detail page.
+    useEffect(() => {
+        const editId = searchParams?.get('edit');
+        if (!editId || clients.length === 0) return;
+        const target = clients.find((c) => c.id === editId);
+        if (target) {
+            setEditForm({
+                firstName: target.firstName, lastName: target.lastName ?? '',
+                email: target.email ?? '', phone: target.phone ?? '', whatsapp: target.whatsapp ?? '',
+                rut: target.rut ?? '', dateOfBirth: target.dateOfBirth ?? '', gender: target.gender ?? '',
+                occupation: target.occupation ?? '', city: target.city ?? '',
+                referredBy: target.referredBy ?? '', internalNotes: target.internalNotes ?? '',
+            });
+            setEditClient(target);
+            setEditError('');
+            // Strip the query param so reload doesn't re-open
+            router.replace('/panel/clientes', { scroll: false });
+        }
+    }, [searchParams, clients, router]);
 
     useEffect(() => {
         const q = query.toLowerCase().trim();
@@ -187,32 +210,34 @@ export default function ClientesPage() {
     };
 
     return (
-        <div className="container-app panel-page py-8">
-            <div className="flex items-center justify-between mb-6">
-                <div>
+        <div className="container-app panel-page py-4 lg:py-8">
+            <div className="flex items-center justify-between gap-3 mb-5 lg:mb-6">
+                <div className="min-w-0">
                     <h1 className="text-xl font-bold" style={{ color: 'var(--fg)' }}>{vocab.Clients}</h1>
                     <p className="text-sm mt-0.5" style={{ color: 'var(--fg-muted)' }}>
                         {clients.length} {clients.length !== 1 ? vocab.clients : vocab.client}
                     </p>
                 </div>
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 shrink-0">
                     {clients.length > 0 && (
                         <button
                             onClick={exportCSV}
+                            aria-label="Exportar a CSV"
                             className="inline-flex items-center gap-2 px-3 py-2 rounded-xl text-sm border transition-colors hover:bg-(--bg-subtle)"
                             style={{ borderColor: 'var(--border)', color: 'var(--fg-secondary)' }}
                         >
                             <IconDownload size={14} />
-                            Exportar CSV
+                            <span className="hidden sm:inline">Exportar CSV</span>
                         </button>
                     )}
                     <button
                         onClick={() => { setShowForm(true); setForm(emptyForm()); setError(''); }}
-                        className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-opacity hover:opacity-90"
+                        aria-label={vocab.newClient}
+                        className="inline-flex items-center gap-2 px-3 sm:px-4 py-2 rounded-xl text-sm font-semibold transition-opacity hover:opacity-90"
                         style={{ background: 'var(--accent)', color: '#fff' }}
                     >
                         <IconPlus size={15} />
-                        {vocab.newClient}
+                        <span className="hidden sm:inline">{vocab.newClient}</span>
                     </button>
                 </div>
             </div>
@@ -291,7 +316,7 @@ export default function ClientesPage() {
                                 </Field>
                             </div>
 
-                            <div className="grid grid-cols-2 gap-3">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                                 <Field label="Email">
                                     <input type="email" value={form.email} onChange={(e) => set('email', e.target.value)} placeholder="maria@ejemplo.cl" className="field-input" />
                                 </Field>
@@ -300,7 +325,7 @@ export default function ClientesPage() {
                                 </Field>
                             </div>
 
-                            <div className="grid grid-cols-2 gap-3">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                                 <Field label="RUT">
                                     <input type="text" value={form.rut} onChange={(e) => set('rut', e.target.value)} placeholder="12.345.678-9" className="field-input" />
                                 </Field>
@@ -309,7 +334,7 @@ export default function ClientesPage() {
                                 </Field>
                             </div>
 
-                            <div className="grid grid-cols-2 gap-3">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                                 <Field label="Género">
                                     <select value={form.gender} onChange={(e) => set('gender', e.target.value)} className="field-input">
                                         <option value="">—</option>
@@ -426,13 +451,14 @@ export default function ClientesPage() {
                                 </p>
                             </Link>
 
-                            {/* Action buttons — always visible */}
+                            {/* Action buttons — contactMenu + edit always; delete only on desktop (accessible from detail in mobile) */}
                             <div className="flex items-center gap-1.5 shrink-0">
                                 <ContactMenu client={client} />
                                 <button
                                     onClick={(e) => openEdit(client, e)}
                                     title="Editar"
-                                    className="w-8 h-8 rounded-lg flex items-center justify-center border transition-colors hover:bg-(--bg-subtle)"
+                                    aria-label="Editar"
+                                    className="w-9 h-9 sm:w-8 sm:h-8 rounded-lg flex items-center justify-center border transition-colors hover:bg-(--bg-subtle)"
                                     style={{ borderColor: 'var(--border)', color: 'var(--fg-muted)' }}
                                 >
                                     <IconEdit size={14} />
@@ -440,7 +466,8 @@ export default function ClientesPage() {
                                 <button
                                     onClick={(e) => { e.preventDefault(); setDeleteError(''); setDeleteClient(client); }}
                                     title="Eliminar"
-                                    className="w-8 h-8 rounded-lg flex items-center justify-center border transition-colors hover:bg-red-500/10"
+                                    aria-label="Eliminar"
+                                    className="hidden sm:flex w-8 h-8 rounded-lg items-center justify-center border transition-colors hover:bg-red-500/10"
                                     style={{ borderColor: 'var(--border)', color: '#dc2626' }}
                                 >
                                     <IconTrash size={14} />
@@ -467,15 +494,15 @@ export default function ClientesPage() {
                                 <Field label="Nombre *"><input type="text" value={editForm.firstName} onChange={(e) => setEditForm((p) => ({ ...p, firstName: e.target.value }))} className="field-input" /></Field>
                                 <Field label="Apellido"><input type="text" value={editForm.lastName} onChange={(e) => setEditForm((p) => ({ ...p, lastName: e.target.value }))} className="field-input" /></Field>
                             </div>
-                            <div className="grid grid-cols-2 gap-3">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                                 <Field label="Email"><input type="email" value={editForm.email} onChange={(e) => setEditForm((p) => ({ ...p, email: e.target.value }))} className="field-input" /></Field>
                                 <Field label="Teléfono"><input type="tel" value={editForm.phone} onChange={(e) => setEditForm((p) => ({ ...p, phone: e.target.value }))} className="field-input" /></Field>
                             </div>
-                            <div className="grid grid-cols-2 gap-3">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                                 <Field label="WhatsApp"><input type="tel" value={editForm.whatsapp} onChange={(e) => setEditForm((p) => ({ ...p, whatsapp: e.target.value }))} className="field-input" /></Field>
                                 <Field label="RUT"><input type="text" value={editForm.rut} onChange={(e) => setEditForm((p) => ({ ...p, rut: e.target.value }))} className="field-input" /></Field>
                             </div>
-                            <div className="grid grid-cols-2 gap-3">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                                 <Field label="Fecha de nacimiento"><input type="date" value={editForm.dateOfBirth} onChange={(e) => setEditForm((p) => ({ ...p, dateOfBirth: e.target.value }))} className="field-input" /></Field>
                                 <Field label="Género">
                                     <select value={editForm.gender} onChange={(e) => setEditForm((p) => ({ ...p, gender: e.target.value }))} className="field-input">
@@ -487,7 +514,7 @@ export default function ClientesPage() {
                                     </select>
                                 </Field>
                             </div>
-                            <div className="grid grid-cols-2 gap-3">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                                 <Field label="Ocupación"><input type="text" value={editForm.occupation} onChange={(e) => setEditForm((p) => ({ ...p, occupation: e.target.value }))} className="field-input" /></Field>
                                 <Field label="Ciudad"><input type="text" value={editForm.city} onChange={(e) => setEditForm((p) => ({ ...p, city: e.target.value }))} className="field-input" /></Field>
                             </div>
@@ -567,10 +594,13 @@ function ContactMenu({ client }: { client: AgendaClient }) {
         <div ref={ref} className="relative">
             <button
                 onClick={(e) => { e.preventDefault(); setOpen((v) => !v); }}
-                className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-medium border transition-colors hover:bg-(--bg-subtle)"
+                aria-label="Contactar"
+                className="inline-flex items-center gap-1 w-9 h-9 sm:w-auto sm:h-auto sm:px-2.5 sm:py-1.5 justify-center rounded-lg text-xs font-medium border transition-colors hover:bg-(--bg-subtle)"
                 style={{ borderColor: 'var(--border)', color: 'var(--fg-muted)' }}
             >
-                Contactar <IconChevronDown size={11} className={`transition-transform ${open ? 'rotate-180' : ''}`} />
+                <IconPhone size={14} className="sm:hidden" />
+                <span className="hidden sm:inline">Contactar</span>
+                <IconChevronDown size={11} className={`hidden sm:inline transition-transform ${open ? 'rotate-180' : ''}`} />
             </button>
             {open && (
                 <div

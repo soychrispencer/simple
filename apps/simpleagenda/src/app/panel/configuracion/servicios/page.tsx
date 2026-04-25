@@ -191,7 +191,7 @@ export default function ServiciosConfigPage() {
     };
 
     return (
-        <div className="container-app panel-page py-8 max-w-2xl">
+        <div className="container-app panel-page py-4 lg:py-8 max-w-2xl">
             <PanelPageHeader
                 backHref="/panel/configuracion"
                 title="Servicios y sesiones"
@@ -488,22 +488,22 @@ export default function ServiciosConfigPage() {
                                             type="button"
                                             onClick={() => handleEdit(service)}
                                             aria-label="Editar"
-                                            className="w-7 h-7 rounded-lg flex items-center justify-center border transition-colors hover:bg-(--bg-subtle)"
+                                            className="w-9 h-9 sm:w-7 sm:h-7 rounded-lg flex items-center justify-center border transition-colors hover:bg-(--bg-subtle)"
                                             style={{ borderColor: 'var(--border)', color: 'var(--fg-secondary)' }}
                                         >
-                                            <IconEdit size={13} />
+                                            <IconEdit size={14} />
                                         </button>
                                         <button
                                             type="button"
                                             onClick={() => void handleDelete(service.id)}
                                             disabled={isDeleting}
                                             aria-label="Eliminar"
-                                            className="w-7 h-7 rounded-lg flex items-center justify-center border transition-colors hover:bg-red-500/10 hover:border-red-500/40 disabled:opacity-50"
+                                            className="w-9 h-9 sm:w-7 sm:h-7 rounded-lg flex items-center justify-center border transition-colors hover:bg-red-500/10 hover:border-red-500/40 disabled:opacity-50"
                                             style={{ borderColor: 'var(--border)', color: 'var(--fg-muted)' }}
                                         >
                                             {isDeleting
-                                                ? <IconLoader2 size={13} className="animate-spin" />
-                                                : <IconTrash size={13} />}
+                                                ? <IconLoader2 size={14} className="animate-spin" />
+                                                : <IconTrash size={14} />}
                                         </button>
                                     </div>
                                 </div>

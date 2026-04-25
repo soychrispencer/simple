@@ -275,13 +275,16 @@ export default function AgendaPage() {
 
     useEffect(() => { void load(); }, [load]);
 
-    // Restore view preference + mobile-first default
+    // Restore view preference + mobile-first default.
+    // On mobile, `week` is downgraded to `day` without overwriting the stored desktop preference
+    // because a 7-column grid on a 375px viewport is unusable.
     useEffect(() => {
         if (typeof window === 'undefined') return;
+        const isMobile = window.matchMedia('(max-width: 640px)').matches;
         const stored = window.localStorage.getItem('simpleagenda:agenda-view');
         if (stored === 'day' || stored === 'week' || stored === 'month') {
-            setView(stored);
-        } else if (window.matchMedia('(max-width: 640px)').matches) {
+            setView(isMobile && stored === 'week' ? 'day' : stored);
+        } else if (isMobile) {
             setView('day');
         }
     }, []);
@@ -575,28 +578,50 @@ export default function AgendaPage() {
     return (
         <div className="container-app panel-page py-4">
             {/* Header */}
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
-                <div>
-                    <h1 className="text-xl font-bold" style={{ color: 'var(--fg)' }}>Mi Agenda</h1>
-                    <p className="text-sm mt-0.5 capitalize" style={{ color: 'var(--fg-muted)' }}>
-                        {headerLabel}
-                    </p>
+            <div className="flex flex-col gap-3 mb-5 sm:flex-row sm:items-center sm:justify-between sm:gap-4 sm:mb-6">
+                <div className="min-w-0 flex items-center justify-between gap-3 sm:block">
+                    <div className="min-w-0">
+                        <h1 className="text-xl font-bold" style={{ color: 'var(--fg)' }}>Mi Agenda</h1>
+                        <p className="text-sm mt-0.5 capitalize truncate" style={{ color: 'var(--fg-muted)' }}>
+                            {headerLabel}
+                        </p>
+                    </div>
+                    {/* Mobile search (collapses to icon-only inline with title) */}
+                    <button
+                        type="button"
+                        onClick={() => setSearchOpen((v) => !v)}
+                        aria-pressed={searchOpen}
+                        aria-label="Buscar y filtrar"
+                        className="sm:hidden relative w-10 h-10 rounded-xl flex items-center justify-center border transition-colors active:bg-(--bg-subtle) shrink-0"
+                        style={{
+                            borderColor: searchOpen || filtersActive ? 'var(--accent)' : 'var(--border)',
+                            background: searchOpen ? 'var(--accent-soft)' : 'transparent',
+                            color: searchOpen || filtersActive ? 'var(--accent)' : 'var(--fg-muted)',
+                        }}
+                    >
+                        <IconSearch size={18} />
+                        {filtersActive && !searchOpen && (
+                            <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full" style={{ background: 'var(--accent)' }} />
+                        )}
+                    </button>
                 </div>
                 <div className="flex items-center gap-2 flex-wrap">
-                    {/* View toggle */}
+                    {/* View toggle — icons only in mobile, icon+label from sm */}
                     <div className="flex rounded-lg border overflow-hidden" style={{ borderColor: 'var(--border)' }}>
                         <button
                             onClick={() => changeView('day')}
                             aria-pressed={view === 'day'}
-                            className="px-3 py-1.5 text-xs flex items-center gap-1.5 transition-colors"
+                            aria-label="Vista día"
+                            className="px-3 py-2 sm:py-1.5 text-xs flex items-center gap-1.5 transition-colors"
                             style={{ background: view === 'day' ? 'var(--accent)' : 'transparent', color: view === 'day' ? '#fff' : 'var(--fg-muted)' }}
                         >
-                            <IconLayoutList size={13} /> Día
+                            <IconLayoutList size={14} /> <span className="hidden sm:inline">Día</span>
                         </button>
                         <button
                             onClick={() => changeView('week')}
                             aria-pressed={view === 'week'}
-                            className="px-3 py-1.5 text-xs flex items-center gap-1.5 transition-colors"
+                            aria-label="Vista semana"
+                            className="hidden sm:flex px-3 py-1.5 text-xs items-center gap-1.5 transition-colors"
                             style={{ background: view === 'week' ? 'var(--accent)' : 'transparent', color: view === 'week' ? '#fff' : 'var(--fg-muted)' }}
                         >
                             <IconLayoutColumns size={13} /> Semana
@@ -604,18 +629,20 @@ export default function AgendaPage() {
                         <button
                             onClick={() => changeView('month')}
                             aria-pressed={view === 'month'}
-                            className="px-3 py-1.5 text-xs flex items-center gap-1.5 transition-colors"
+                            aria-label="Vista mes"
+                            className="px-3 py-2 sm:py-1.5 text-xs flex items-center gap-1.5 transition-colors"
                             style={{ background: view === 'month' ? 'var(--accent)' : 'transparent', color: view === 'month' ? '#fff' : 'var(--fg-muted)' }}
                         >
-                            <IconLayoutGrid size={13} /> Mes
+                            <IconLayoutGrid size={14} /> <span className="hidden sm:inline">Mes</span>
                         </button>
                     </div>
+                    {/* Desktop search */}
                     <button
                         type="button"
                         onClick={() => setSearchOpen((v) => !v)}
                         aria-pressed={searchOpen}
                         aria-label="Buscar y filtrar"
-                        className="relative w-8 h-8 rounded-lg flex items-center justify-center border transition-colors hover:bg-(--bg-subtle)"
+                        className="hidden sm:flex relative w-8 h-8 rounded-lg items-center justify-center border transition-colors hover:bg-(--bg-subtle)"
                         style={{
                             borderColor: searchOpen || filtersActive ? 'var(--accent)' : 'var(--border)',
                             background: searchOpen ? 'var(--accent-soft)' : 'transparent',
@@ -624,10 +651,7 @@ export default function AgendaPage() {
                     >
                         <IconSearch size={14} />
                         {filtersActive && !searchOpen && (
-                            <span
-                                className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full"
-                                style={{ background: 'var(--accent)' }}
-                            />
+                            <span className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full" style={{ background: 'var(--accent)' }} />
                         )}
                     </button>
                     {seriesCount > 0 && (
@@ -636,7 +660,8 @@ export default function AgendaPage() {
                             onClick={() => setOnlySeries((v) => !v)}
                             aria-pressed={onlySeries}
                             title={onlySeries ? 'Mostrar todas' : 'Ver solo series recurrentes'}
-                            className="px-3 py-1.5 rounded-lg text-xs border flex items-center gap-1.5 transition-colors"
+                            aria-label={onlySeries ? 'Mostrar todas las citas' : 'Ver solo series recurrentes'}
+                            className="px-3 py-2 sm:py-1.5 rounded-lg text-xs border flex items-center gap-1.5 transition-colors"
                             style={{
                                 borderColor: onlySeries ? 'var(--accent)' : 'var(--border)',
                                 background: onlySeries ? 'var(--accent-soft)' : 'transparent',
@@ -644,17 +669,17 @@ export default function AgendaPage() {
                                 fontWeight: onlySeries ? 600 : 400,
                             }}
                         >
-                            <IconRepeat size={13} />
-                            {onlySeries ? 'Solo series' : 'Series'}
+                            <IconRepeat size={14} />
+                            <span className="hidden sm:inline">{onlySeries ? 'Solo series' : 'Series'}</span>
                         </button>
                     )}
-                    <button onClick={handleToday} className="px-3 py-1.5 rounded-lg text-xs border transition-colors hover:bg-(--bg-subtle)" style={{ borderColor: 'var(--border)', color: 'var(--fg-secondary)' }}>
+                    <button onClick={handleToday} className="px-3 py-2 sm:py-1.5 rounded-lg text-xs border transition-colors hover:bg-(--bg-subtle)" style={{ borderColor: 'var(--border)', color: 'var(--fg-secondary)' }}>
                         Hoy
                     </button>
                     <button
                         onClick={handlePrev}
                         aria-label="Anterior"
-                        className="w-8 h-8 rounded-lg flex items-center justify-center border transition-colors hover:bg-(--bg-subtle)"
+                        className="w-9 h-9 sm:w-8 sm:h-8 rounded-lg flex items-center justify-center border transition-colors hover:bg-(--bg-subtle)"
                         style={{ borderColor: 'var(--border)', color: 'var(--fg-muted)' }}
                     >
                         <IconChevronLeft size={16} />
@@ -662,14 +687,15 @@ export default function AgendaPage() {
                     <button
                         onClick={handleNext}
                         aria-label="Siguiente"
-                        className="w-8 h-8 rounded-lg flex items-center justify-center border transition-colors hover:bg-(--bg-subtle)"
+                        className="w-9 h-9 sm:w-8 sm:h-8 rounded-lg flex items-center justify-center border transition-colors hover:bg-(--bg-subtle)"
                         style={{ borderColor: 'var(--border)', color: 'var(--fg-muted)' }}
                     >
                         <IconChevronRight size={16} />
                     </button>
+                    {/* Nueva cita — el CTA (+) en el bottom nav cubre este flujo en mobile */}
                     <button
                         onClick={() => handleCreateOpen()}
-                        className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-opacity hover:opacity-90"
+                        className="hidden sm:inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-opacity hover:opacity-90"
                         style={{ background: 'var(--accent)', color: '#fff' }}
                     >
                         <IconPlus size={15} />
@@ -910,7 +936,7 @@ export default function AgendaPage() {
                             return (
                                 <div
                                     key={key}
-                                    className="border-r border-b last:border-r-0 p-1.5 min-h-[90px] cursor-pointer hover:bg-(--bg-subtle) transition-colors"
+                                    className="border-r border-b last:border-r-0 p-1 sm:p-1.5 min-h-[72px] sm:min-h-[90px] cursor-pointer hover:bg-(--bg-subtle) active:bg-(--bg-subtle) transition-colors"
                                     style={{ borderColor: 'var(--border)', background: isToday ? 'var(--accent-soft)' : 'transparent' }}
                                     onClick={() => handleCreateOpen(day)}
                                 >

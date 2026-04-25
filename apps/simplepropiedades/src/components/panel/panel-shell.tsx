@@ -17,6 +17,7 @@ import {
     type PanelNavItem,
     type PanelRole,
 } from '@/components/panel/panel-nav-config';
+import { PanelBottomNav } from '@/components/panel/panel-bottom-nav';
 
 const STORAGE_COLLAPSED = 'simplepropiedades:panel:collapsed';
 
@@ -294,8 +295,10 @@ export function PanelShell({ children }: { children: React.ReactNode }) {
                         </div>
                     </div>
                 )}
-                <div className="panel-content-frame">{children}</div>
+                <div className="panel-content-frame pb-20 lg:pb-0">{children}</div>
             </section>
+
+            <PanelBottomNav />
         </div>
     );
 }

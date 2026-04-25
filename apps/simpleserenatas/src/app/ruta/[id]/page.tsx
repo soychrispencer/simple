@@ -14,7 +14,7 @@ import {
   IconTrendingUp,
   IconLoader2,
   IconUsers,
-  IconMusic,
+  IconConfetti,
   IconMap,
 } from '@tabler/icons-react';
 import Link from 'next/link';

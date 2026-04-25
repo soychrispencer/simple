@@ -6,7 +6,7 @@ import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 const skipCalculationRef = { current: false };
 
 import {
-    IconBuildingBank, IconTrendingUp, IconStar,
+    IconTrendingUp, IconStar,
     IconCalculator, IconDownload, IconCheck, IconAlertTriangle, IconX,
     IconChevronDown, IconChevronUp, IconInfoCircle, IconRotate,
     IconExternalLink, IconCalendar, IconLoader2,
@@ -15,6 +15,23 @@ import { jsPDF } from 'jspdf';
 import ModernSelect from '@/components/ui/modern-select';
 import { CURRENT_RATES, getRateCitation, EMPLOYMENT_FACTORS, MIN_EMPLOYMENT_YEARS, getDTILimits, CLIENT_SEGMENTS, type ClientSegment, DEBT_TYPE_FACTORS, DEBT_TYPES_INFO } from './rates.config';
 const MAX_LOAN_YEARS = 30;
+const STANDARD_LOAN_YEARS = [10, 15, 20, 25, 30];
+
+function roundToStandardTerm(years: number): number {
+    if (years <= 10) return 10;
+    if (years >= 30) return 30;
+    // Find the closest standard term
+    let closest = STANDARD_LOAN_YEARS[0];
+    let minDiff = Math.abs(years - closest);
+    for (const term of STANDARD_LOAN_YEARS) {
+        const diff = Math.abs(years - term);
+        if (diff < minDiff) {
+            minDiff = diff;
+            closest = term;
+        }
+    }
+    return closest;
+}
 const TOTAL_INSURANCE_RATE = 0.45 + 0.08 + 0.065 + 0.002 + 0.003;
 const MIN_MONTHLY_INCOME = 800000;
 
@@ -211,7 +228,7 @@ function calculateMortgage(
     }
 
     const ageBasedTerm = Math.max(5, Math.min(maxAge - age, MAX_LOAN_YEARS));
-    const loanTermYears = customLoanYears ? Math.min(customLoanYears, MAX_LOAN_YEARS) : ageBasedTerm;
+    const loanTermYears = customLoanYears ? Math.min(customLoanYears, MAX_LOAN_YEARS) : roundToStandardTerm(ageBasedTerm);
     const loanTermMonths = loanTermYears * 12;
     const effectiveRate = annualRate;
     const mr = effectiveRate / 12 / 100;
@@ -353,7 +370,7 @@ export default function SimuladorPage() {
     const [ufValue,setUfValue]=useState(39643);
     const [clientName,setClientName]=useState('');
     const [monthlyIncome,setMonthlyIncome]=useState('800000');
-    const [age,setAge]=useState('35');
+    const [age,setAge]=useState('');
     const [employmentType,setEmploymentType]=useState('dependent');
     const [employmentYears,setEmploymentYears]=useState('');
     const [annualRate,setAnnualRate]=useState('3.39');
@@ -385,6 +402,9 @@ export default function SimuladorPage() {
     const [mortgageRates,setMortgageRates]=useState<MortgageRates|null>(null);
     const [isCalculating,setIsCalculating]=useState(false);
     const [dismissedReason,setDismissedReason]=useState<string|null>(null);
+    const [hasCalculated,setHasCalculated]=useState(false);
+    const [validationErrors,setValidationErrors]=useState<string[]>([]);
+    const [fieldErrors,setFieldErrors]=useState<Record<string,boolean>>({});
 
     useEffect(()=>{
         fetch('https://mindicador.cl/api/uf')
@@ -417,11 +437,38 @@ export default function SimuladorPage() {
         setEmploymentType('dependent');setEmploymentYears('');setAnnualRate('3.39');setBankPercentage('80');
         setCustomLoanYears('');setPropertyType('new');setAvailableDownPayment('');setShowAdvanced(false);setScenarioTab('recommended');setResult(null);
         setDebts({ dividendoHipotecario: '', creditoConsumo: '', tarjetaCredito: '', lineaCredito: '', creditoAutomotriz: '', otraDeuda: '' });
+        setHasCalculated(false);
+        setValidationErrors([]);
+        setFieldErrors({});
     },[]);
 
     const handleCalculate=useCallback(async()=>{
         setIsCalculating(true);
         setDismissedReason(null); // Reset dismissed reason on new calculation
+        
+        // Validate required fields on first calculation
+        if (!hasCalculated) {
+            const errors: string[] = [];
+            const fields: Record<string, boolean> = {};
+            if (!monthlyIncome || parseCLP(monthlyIncome) <= 0) {
+                errors.push('Ingreso mensual es requerido');
+                fields.monthlyIncome = true;
+            }
+            if (!age || parseInt(age) < 18) {
+                errors.push('Edad debe ser al menos 18 años');
+                fields.age = true;
+            }
+            if (!employmentYears) {
+                errors.push('Antigüedad laboral es requerida');
+                fields.employmentYears = true;
+            }
+            if (errors.length > 0) {
+                setValidationErrors(errors);
+                setFieldErrors(fields);
+                setIsCalculating(false);
+                return;
+            }
+        }
         
         // Simulate brief delay for UX feedback
         await new Promise(r => setTimeout(r, 300));
@@ -446,16 +493,22 @@ export default function SimuladorPage() {
             }
         );
         setResult(res);
+        setHasCalculated(true);
+        setValidationErrors([]);
+        setFieldErrors({});
         setIsCalculating(false);
-    },[monthlyIncome,age,annualRate,bankPercentage,debts,customLoanYears,propertyType,ufValue,employmentYears,availableDownPayment,employmentType]);
+    },[monthlyIncome,age,annualRate,bankPercentage,debts,customLoanYears,propertyType,ufValue,employmentYears,availableDownPayment,employmentType,hasCalculated]);
 
     useEffect(()=>{
         if (skipCalculationRef.current) {
             skipCalculationRef.current = false; // Resetear flag para próxima vez
             return;
         }
-        handleCalculate();
-    },[handleCalculate]);
+        // Only auto-calculate after first successful calculation
+        if (hasCalculated) {
+            handleCalculate();
+        }
+    },[handleCalculate,hasCalculated]);
 
     const handleDownload=useCallback(async()=>{
         if(!result)return;
@@ -621,18 +674,13 @@ export default function SimuladorPage() {
             {/* Header original con indicadores */}
             <div className="border-b bg-[var(--bg)] border-[var(--border)]">
                 <div className="max-w-4xl mx-auto px-4 py-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                    {/* Logo + título */}
-                    <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-xl flex items-center justify-center bg-[var(--accent)]">
-                            <IconBuildingBank size={20} className="text-white" />
-                        </div>
-                        <div>
-                            <h1 className="font-semibold text-sm text-[var(--fg)]">Simulador Hipotecario</h1>
-                            <p className="text-[10px] text-[var(--fg-muted)]">Para asesores</p>
-                        </div>
+                    {/* Título */}
+                    <div className="text-center sm:text-left">
+                        <h1 className="font-semibold text-sm text-[var(--fg)]">Simulador Hipotecario</h1>
+                        <p className="text-[10px] text-[var(--fg-muted)]">Para asesores</p>
                     </div>
-                    {/* Indicadores - en móvil se apilan horizontalmente */}
-                    <div className="flex items-center gap-3 text-[11px] flex-wrap text-[var(--fg-muted)]">
+                    {/* Indicadores - centrados en móvil */}
+                    <div className="flex items-center justify-center sm:justify-end gap-3 text-[11px] flex-wrap text-[var(--fg-muted)]">
                         <div className="flex items-center gap-1.5" title={`UF: ${getRateCitation(CURRENT_RATES.uf)}`}>
                             <span className="text-[10px] font-semibold">UF</span>
                             <span>{ufValue.toLocaleString('es-CL')}</span>
@@ -682,7 +730,7 @@ export default function SimuladorPage() {
                                 </div>
                                 <div className="sm:col-span-2">
                                     <label className="text-xs font-medium mb-1 block text-[var(--fg-muted)]">Ingreso líquido mensual</label>
-                                    <div className="flex items-center justify-between px-3 py-2 rounded-xl text-sm border bg-[var(--bg-subtle)] border-[var(--border)] text-[var(--fg)]">
+                                    <div className={`flex items-center justify-between px-3 py-2 rounded-xl text-sm border bg-[var(--bg-subtle)] border-[var(--border)] text-[var(--fg)] ${fieldErrors.monthlyIncome ? 'ring-1 ring-red-400 border-red-400' : ''}`}>
                                         <span className="font-semibold">{formatCurrency(parseCLP(monthlyIncome) || 800000)}</span>
                                     </div>
                                     <input type="range" min={800000} max={10000000} step={50000} value={parseCLP(monthlyIncome) || 800000} onChange={e=>setMonthlyIncome(e.target.value)} className="w-full mt-2" />
@@ -696,7 +744,7 @@ export default function SimuladorPage() {
                                 </div>
                                 <div>
                                     <label className="text-xs font-medium mb-1 block text-[var(--fg-muted)]">Edad actual</label>
-                                    <input type="number" min={18} max={75} value={age} onChange={e=>setAge(e.target.value)} className={`w-full px-3 py-2 rounded-xl text-sm border outline-none bg-[var(--bg-subtle)] border-[var(--border)] text-[var(--fg)] ${age && (parseInt(age) < 18 || parseInt(age) > 75) ? 'ring-1 ring-red-400' : ''}`} />
+                                    <input type="number" min={18} max={75} value={age} onChange={e=>setAge(e.target.value)} className={`w-full px-3 py-2 rounded-xl text-sm border outline-none bg-[var(--bg-subtle)] border-[var(--border)] text-[var(--fg)] ${fieldErrors.age ? 'ring-1 ring-red-400 border-red-400' : ''} ${age && (parseInt(age) < 18 || parseInt(age) > 75) ? 'ring-1 ring-red-400' : ''}`} />
                                     {age && parseInt(age) < 18 && <p className="text-[10px] mt-1 text-red-500">Edad mínima 18 años</p>}
                                     {age && parseInt(age) > 75 && <p className="text-[10px] mt-1 text-red-500">Edad máxima 75 años</p>}
                                 </div>
@@ -728,6 +776,7 @@ export default function SimuladorPage() {
                                             {value:'5',label:'+5 años'},
                                         ]}
                                         placeholder="Seleccionar..."
+                                        triggerClassName={fieldErrors.employmentYears ? 'ring-1 ring-red-400 border-red-400' : ''}
                                     />
                                 </div>
                                 <div>
@@ -854,18 +903,34 @@ export default function SimuladorPage() {
                                         value={customLoanYears}
                                         onChange={v=>setCustomLoanYears(v)}
                                         options={[
-                                            {value:'',label:`Auto (${Math.max(5,Math.min(30,75-(parseInt(age)||35)))} años)`},
+                                            {value:'',label:`Auto (${roundToStandardTerm(Math.max(5,Math.min(30,75-(parseInt(age)||35))))} años)`},
                                             ...[10,15,20,25,30].filter(y=>y<=Math.min(30,75-(parseInt(age)||35))).map(y=>({value:String(y),label:`${y} años`}))
                                         ]}
                                         placeholder="Auto"
-                                        triggerClassName={parseInt(age||'35')+(customLoanYears?parseInt(customLoanYears):Math.max(5,Math.min(30,75-(parseInt(age)||35))))>75 ? 'ring-1 ring-red-400' : ''}
+                                        triggerClassName={parseInt(age||'35')+(customLoanYears?parseInt(customLoanYears):roundToStandardTerm(Math.max(5,Math.min(30,75-(parseInt(age)||35)))))>75 ? 'ring-1 ring-red-400' : ''}
                                     />
-                                    {parseInt(age||'35')+(customLoanYears?parseInt(customLoanYears):Math.max(5,Math.min(30,75-(parseInt(age)||35))))>75 && (
+                                    {parseInt(age||'35')+(customLoanYears?parseInt(customLoanYears):roundToStandardTerm(Math.max(5,Math.min(30,75-(parseInt(age)||35)))))>75 && (
                                         <p className="text-[10px] mt-1 text-[var(--color-error)]">El plazo excede el límite de edad (75 años). Se ajustará automáticamente.</p>
                                     )}
                                 </div>
                             </div>
                         </div>
+                        {/* Validation errors */}
+                        {validationErrors.length > 0 && (
+                            <div className="p-3 rounded-xl border border-[var(--color-error)] bg-[var(--error-bg)]">
+                                <div className="flex items-start gap-2">
+                                    <IconAlertTriangle size={16} className="text-[var(--color-error)] mt-0.5 flex-shrink-0"/>
+                                    <div className="text-xs">
+                                        <p className="font-semibold text-[var(--color-error)] mb-1">Faltan datos requeridos:</p>
+                                        <ul className="space-y-0.5 text-[var(--fg-muted)]">
+                                            {validationErrors.map((error, i) => (
+                                                <li key={i}>• {error}</li>
+                                            ))}
+                                        </ul>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
                         <button
                             onClick={()=> handleCalculate()}
                             disabled={isCalculating}
@@ -877,7 +942,7 @@ export default function SimuladorPage() {
                                     Calculando...
                                 </>
                             ) : (
-                                'Actualizar cálculo'
+                                hasCalculated ? 'Actualizar cálculo' : 'Calcular'
                             )}
                         </button>
                     </div>
@@ -969,7 +1034,6 @@ export default function SimuladorPage() {
                                         <div className="p-3 rounded-xl border text-center border-[var(--border)]">
                                             <p className="text-[10px] uppercase font-semibold text-[var(--fg-muted)]">Plazo</p>
                                             <p className="text-lg font-semibold mt-1 text-[var(--fg)]">{result.loanTermYears} años</p>
-                                            <p className="text-[9px] text-[var(--fg-muted)]">{result.loanTermYears * 12} meses</p>
                                         </div>
                                     </div>
                                 </div>

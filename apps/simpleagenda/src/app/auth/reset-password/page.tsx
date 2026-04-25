@@ -67,7 +67,7 @@ export default function ResetPasswordPage() {
 
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(4px)' }}>
-            <div className="w-full max-w-md mx-4 rounded-xl p-8 animate-scale-in" style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}>
+            <div className="w-full max-w-md mx-4 rounded-xl p-6 sm:p-8 animate-scale-in" style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}>
                 <h1 className="text-xl font-semibold mb-2" style={{ color: 'var(--fg)' }}>
                     Restablecer contraseña
                 </h1>

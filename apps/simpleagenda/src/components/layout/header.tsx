@@ -82,7 +82,7 @@ export function Header() {
             <div className="container-app flex items-center justify-between h-16">
                 {/* Logo */}
                 <Link href="/" className="flex items-center gap-1 group shrink-0">
-                    <div className="w-8 h-8 rounded-xl flex items-center justify-center" style={{ background: 'var(--accent)', color: '#fff' }}>
+                    <div className="w-8 h-8 rounded-xl flex items-center justify-center" style={{ background: '#0d9488', color: '#fff' }}>
                         <IconCalendar size={16} />
                     </div>
                     <span className="inline-flex items-end gap-[0.08rem] text-[1.05rem] tracking-tight" style={{ color: 'var(--fg)' }}>

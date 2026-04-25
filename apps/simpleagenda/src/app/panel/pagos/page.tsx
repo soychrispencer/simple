@@ -333,8 +333,8 @@ export default function PagosPage() {
     };
 
     return (
-        <div className="container-app panel-page py-8">
-            <div className="flex items-start justify-between gap-3 mb-6 flex-wrap">
+        <div className="container-app panel-page py-4 lg:py-8">
+            <div className="flex items-start justify-between gap-3 mb-5 lg:mb-6 flex-wrap">
                 <div className="min-w-0">
                     <h1 className="text-xl font-bold" style={{ color: 'var(--fg)' }}>Cobros</h1>
                     <p className="text-sm mt-0.5" style={{ color: 'var(--fg-muted)' }}>
@@ -345,21 +345,23 @@ export default function PagosPage() {
                     {payments.length > 0 && (
                         <button
                             onClick={handleExportCsv}
+                            aria-label="Descargar histórico en CSV"
                             className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm border transition-colors hover:bg-(--bg-subtle)"
                             style={{ borderColor: 'var(--border)', color: 'var(--fg-secondary)' }}
                             title="Descargar histórico en CSV"
                         >
                             <IconDownload size={14} />
-                            CSV
+                            <span className="hidden sm:inline">CSV</span>
                         </button>
                     )}
                     <button
                         onClick={() => setShowCreate(true)}
-                        className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-opacity hover:opacity-90"
+                        aria-label="Registrar cobro"
+                        className="inline-flex items-center gap-2 px-3 sm:px-4 py-2 rounded-xl text-sm font-semibold transition-opacity hover:opacity-90"
                         style={{ background: 'var(--accent)', color: '#fff' }}
                     >
                         <IconPlus size={15} />
-                        Registrar cobro
+                        <span className="hidden sm:inline">Registrar cobro</span>
                     </button>
                 </div>
             </div>
@@ -578,7 +580,7 @@ export default function PagosPage() {
                                 </p>
                             </div>
 
-                            <div className="flex items-center gap-2 shrink-0">
+                            <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
                                 {payment.status === 'pending' && (() => {
                                     const reminderHref = buildReminderHref(payment);
                                     return reminderHref ? (
@@ -586,11 +588,12 @@ export default function PagosPage() {
                                             href={reminderHref}
                                             target="_blank"
                                             rel="noopener noreferrer"
-                                            className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-medium border transition-colors hover:bg-(--bg-subtle)"
+                                            aria-label="Enviar recordatorio por WhatsApp"
+                                            className="inline-flex items-center justify-center gap-1 w-9 h-9 sm:w-auto sm:h-auto sm:px-2.5 sm:py-1.5 rounded-lg text-xs font-medium border transition-colors hover:bg-(--bg-subtle)"
                                             style={{ borderColor: 'var(--border)', color: '#25D366' }}
                                             title="Enviar recordatorio por WhatsApp"
                                         >
-                                            <IconBrandWhatsapp size={13} />
+                                            <IconBrandWhatsapp size={15} />
                                             <span className="hidden sm:inline">Recordar</span>
                                         </a>
                                     ) : null;
@@ -599,22 +602,23 @@ export default function PagosPage() {
                                     <button
                                         onClick={() => void handleMarkPaid(payment)}
                                         disabled={markingPaid === payment.id}
-                                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-opacity hover:opacity-90 disabled:opacity-60"
+                                        aria-label="Marcar como pagado"
+                                        className="inline-flex items-center justify-center gap-1.5 w-9 h-9 sm:w-auto sm:h-auto sm:px-3 sm:py-1.5 rounded-lg text-xs font-semibold transition-opacity hover:opacity-90 disabled:opacity-60"
                                         style={{ background: 'var(--accent)', color: '#fff' }}
                                     >
-                                        {markingPaid === payment.id ? <IconLoader2 size={12} className="animate-spin" /> : <IconCheck size={12} />}
-                                        Pagado
+                                        {markingPaid === payment.id ? <IconLoader2 size={14} className="animate-spin" /> : <IconCheck size={14} />}
+                                        <span className="hidden sm:inline">Pagado</span>
                                     </button>
                                 )}
                                 <button
                                     type="button"
                                     aria-label="Editar cobro"
                                     onClick={() => handleOpenEdit(payment)}
-                                    className="w-7 h-7 rounded-lg flex items-center justify-center border transition-colors hover:bg-(--bg-subtle)"
+                                    className="w-9 h-9 sm:w-7 sm:h-7 rounded-lg flex items-center justify-center border transition-colors hover:bg-(--bg-subtle)"
                                     style={{ borderColor: 'var(--border)', color: 'var(--fg-secondary)' }}
                                     title="Editar cobro"
                                 >
-                                    <IconEdit size={13} />
+                                    <IconEdit size={14} />
                                 </button>
                                 {confirmDeleteId === payment.id ? (
                                     <div className="flex items-center gap-1">
@@ -639,7 +643,7 @@ export default function PagosPage() {
                                         type="button"
                                         aria-label="Eliminar cobro"
                                         onClick={() => setConfirmDeleteId(payment.id)}
-                                        className="w-7 h-7 rounded-lg flex items-center justify-center border transition-colors hover:bg-red-500/10 hover:border-red-500/40"
+                                        className="hidden sm:flex w-7 h-7 rounded-lg items-center justify-center border transition-colors hover:bg-red-500/10 hover:border-red-500/40"
                                         style={{ borderColor: 'var(--border)', color: 'var(--fg-muted)' }}
                                         title="Eliminar cobro"
                                     >

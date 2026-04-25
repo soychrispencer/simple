@@ -8,7 +8,7 @@ import {
     IconCalendar,
     IconCheck,
     IconClock,
-    IconMusic,
+    IconConfetti,
     IconSearch,
     IconFilter,
     IconTrendingUp
@@ -181,7 +181,7 @@ export default function GruposPage() {
                                             <span>{group.members} músicos</span>
                                         </div>
                                         <div className="flex items-center gap-1" style={{ color: 'var(--fg-muted)' }}>
-                                            <IconMusic size={16} />
+                                            <IconConfetti size={16} />
                                             <span>{group.serenatas} serenatas</span>
                                         </div>
                                     </div>
@@ -270,7 +270,7 @@ export default function GruposPage() {
                                                 className="w-10 h-10 rounded-full flex items-center justify-center"
                                                 style={{ background: 'var(--accent-subtle)' }}
                                             >
-                                                <IconMusic size={18} style={{ color: 'var(--accent)' }} />
+                                                <IconConfetti size={18} style={{ color: 'var(--accent)' }} />
                                             </div>
                                             <div>
                                                 <p className="font-medium text-sm" style={{ color: 'var(--fg)' }}>{musician.name}</p>

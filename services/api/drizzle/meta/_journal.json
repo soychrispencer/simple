@@ -232,6 +232,13 @@
       "when": 1779350400000,
       "tag": "0040_mortgage_rates",
       "breakpoints": true
+    },
+    {
+      "idx": 33,
+      "version": "7",
+      "when": 1779354000000,
+      "tag": "0041_serenatas_captains",
+      "breakpoints": true
     }
   ]
 }

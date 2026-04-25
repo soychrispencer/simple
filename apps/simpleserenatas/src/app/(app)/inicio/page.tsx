@@ -4,364 +4,200 @@ import { useState, useEffect } from 'react';
 import { 
     IconMapPin, 
     IconClock, 
-    IconMusic, 
+    IconConfetti, 
     IconTrendingUp,
     IconPlus,
-    IconRadio,
     IconCalendar,
     IconUsers,
     IconArrowRight,
+    IconStar,
+    IconWallet,
+    IconUser,
+    IconLoader,
+    IconHeart,
 } from '@tabler/icons-react';
 import Link from 'next/link';
 import { useAuth } from '@/context/AuthContext';
-import { useAvailability } from '@/hooks/useAvailability';
 import { API_BASE } from '@simple/config';
 
 interface Serenata {
     id: string;
+    date: string;
+    time: string;
+    location: string;
+    status: 'pending' | 'confirmed' | 'completed' | 'cancelled';
     clientName: string;
-    address: string;
-    dateTime: string;
-    status: string;
-    price: string;
+    price: number;
 }
 
-export default function HomePage() {
-    const { musicianProfile } = useAuth();
-    const { isAvailable, availableNow, toggleAvailableNow, isLoading: isToggling } = useAvailability();
+export default function InicioPage() {
+    const { user, captainProfile, musicianProfile, isLoading: authLoading } = useAuth();
     const [serenatas, setSerenatas] = useState<Serenata[]>([]);
+    const [stats, setStats] = useState({
+        total: 0,
+        completed: 0,
+        earnings: 0,
+        rating: 5,
+    });
     const [isLoading, setIsLoading] = useState(true);
-    const [todayEarnings, setTodayEarnings] = useState(0);
 
-    // Load serenatas from API
+    // Determine user type
+    const isCaptain = user?.role === 'captain' || !!captainProfile;
+    const isMusician = user?.role === 'musician' || !!musicianProfile;
+    const isClient = user?.role === 'client' || (!isCaptain && !isMusician);
+
     useEffect(() => {
-        const loadSerenatas = async () => {
-            try {
-                const res = await fetch(`${API_BASE}/api/serenatas/requests/my/assigned`, {
-                    credentials: 'include',
-                });
-                const data = await res.json();
-                
-                if (data.ok && data.serenatas) {
-                    setSerenatas(data.serenatas);
-                    const today = new Date().toDateString();
-                    const todayTotal = data.serenatas
-                        .filter((s: Serenata) => new Date(s.dateTime).toDateString() === today)
-                        .reduce((sum: number, s: Serenata) => sum + parseInt(s.price || '0'), 0);
-                    setTodayEarnings(todayTotal);
-                }
-            } catch (error) {
-                console.error('Failed to load serenatas:', error);
-            } finally {
-                setIsLoading(false);
+        if (isCaptain) {
+            fetchCaptainData();
+        } else {
+            setIsLoading(false);
+        }
+    }, [isCaptain]);
+
+    const fetchCaptainData = async () => {
+        try {
+            const [serenatasRes, statsRes] = await Promise.all([
+                fetch(`${API_BASE}/api/serenatas/requests/my/assigned`, { credentials: 'include' }),
+                fetch(`${API_BASE}/api/serenatas/captains/me/stats`, { credentials: 'include' }),
+            ]);
+
+            if (serenatasRes.ok) {
+                const data = await serenatasRes.json();
+                if (data.ok) setSerenatas(data.serenatas || []);
             }
-        };
-
-        loadSerenatas();
-    }, []);
-
-    const formatCurrency = (amount: number) => {
-        return new Intl.NumberFormat('es-CL', {
-            style: 'currency',
-            currency: 'CLP',
-            minimumFractionDigits: 0,
-        }).format(amount);
+            if (statsRes.ok) {
+                const data = await statsRes.json();
+                if (data.ok) setStats(data.stats);
+            }
+        } catch (error) {
+            console.error('Error fetching data:', error);
+        } finally {
+            setIsLoading(false);
+        }
     };
 
-    const formatDateTime = (dateStr: string) => {
-        const date = new Date(dateStr);
-        return {
-            date: date.toLocaleDateString('es-CL', { day: 'numeric', month: 'short' }),
-            time: date.toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit' }),
-        };
-    };
-
-    if (isLoading) {
+    if (authLoading || (isLoading && isCaptain)) {
         return (
-            <div className="flex items-center justify-center h-64">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2" style={{ borderColor: 'var(--accent)' }} />
+            <div className="min-h-screen bg-zinc-50 flex items-center justify-center">
+                <IconLoader className="animate-spin text-rose-500" size={32} />
             </div>
         );
     }
 
-    return (
-        <div className="p-4 md:p-6 space-y-6">
-            {/* Welcome Header - Desktop */}
-            <div className="hidden md:block">
-                <h1 className="text-2xl font-semibold" style={{ color: 'var(--fg)' }}>
-                    ¡Hola, {musicianProfile?.instrument || 'Músico'}!
-                </h1>
-                <p style={{ color: 'var(--fg-muted)' }}>
-                    Aquí está el resumen de tu día
-                </p>
-            </div>
-
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                {/* Left Column - Main Content */}
-                <div className="lg:col-span-2 space-y-6">
-                    {/* Availability Toggle - Adaptativo */}
-                    <div 
-                        className={`rounded-2xl p-5 md:p-6 text-white shadow-lg transition-all ${
-                            availableNow 
-                                ? 'gradient-hero' 
-                                : ''
-                        }`}
-                        style={!availableNow ? { background: 'var(--bg-muted)' } : {}}
-                    >
-                        <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-4">
-                                <div 
-                                    className={`p-3 rounded-full ${availableNow ? 'bg-white/20' : 'bg-[var(--surface)]'}`}
-                                >
-                                    <IconRadio size={24} style={{ color: availableNow ? 'white' : 'var(--fg-muted)' }} />
-                                </div>
-                                <div>
-                                    <p className="font-semibold text-lg" style={{ color: availableNow ? 'white' : 'var(--fg)' }}>
-                                        {availableNow ? 'Disponible Ahora' : 'No Disponible'}
-                                    </p>
-                                    <p style={{ color: availableNow ? 'rgba(255,255,255,0.8)' : 'var(--fg-muted)' }}>
-                                        {availableNow 
-                                            ? 'Recibiendo solicitudes urgentes' 
-                                            : 'Activa para recibir trabajo'}
-                                    </p>
-                                </div>
-                            </div>
-                            <button
-                                onClick={toggleAvailableNow}
-                                disabled={isToggling}
-                                className={`relative w-14 h-8 rounded-full transition-colors duration-300 ${
-                                    availableNow ? 'bg-white' : 'bg-[var(--border-strong)]'
-                                }`}
-                            >
-                                <span
-                                    className={`absolute top-1 left-1 w-6 h-6 rounded-full transition-transform duration-300 ${
-                                        availableNow ? 'translate-x-6' : 'translate-x-0'
-                                    }`}
-                                    style={{ background: availableNow ? 'var(--accent)' : 'var(--surface)' }}
-                                />
-                            </button>
-                        </div>
-                    </div>
-
-                    {/* Quick Stats - Grid adaptativo */}
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                        <div className="card card-hover">
-                            <div className="flex items-center gap-2 mb-2" style={{ color: 'var(--fg-muted)' }}>
-                                <IconTrendingUp size={16} />
-                                <span className="text-xs font-medium">Hoy</span>
-                            </div>
-                            <p className="text-xl md:text-2xl font-bold" style={{ color: 'var(--fg)' }}>
-                                {formatCurrency(todayEarnings)}
+    // Captain Dashboard
+    if (isCaptain) {
+        return (
+            <div className="min-h-screen bg-zinc-50 pb-20">
+                <div className="bg-rose-500 text-white px-6 py-8">
+                    <div className="flex items-center justify-between">
+                        <div>
+                            <h1 className="text-2xl font-bold">Hola, {user?.name?.split(' ')[0]}</h1>
+                            <p className="text-rose-100 mt-1">
+                                Plan {(captainProfile?.subscriptionPlan || 'free').toUpperCase()}
                             </p>
                         </div>
-                        <div className="card card-hover">
-                            <div className="flex items-center gap-2 mb-2" style={{ color: 'var(--fg-muted)' }}>
-                                <IconMusic size={16} />
-                                <span className="text-xs font-medium">Próximas</span>
-                            </div>
-                            <p className="text-xl md:text-2xl font-bold" style={{ color: 'var(--fg)' }}>
-                                {serenatas.length}
-                            </p>
-                            <p className="text-xs" style={{ color: 'var(--fg-muted)' }}>serenatas</p>
+                        <div className="w-12 h-12 bg-white/20 rounded-full flex items-center justify-center">
+                            <IconUser size={24} />
                         </div>
-                        <div className="card card-hover hidden md:block">
-                            <div className="flex items-center gap-2 mb-2" style={{ color: 'var(--fg-muted)' }}>
-                                <IconCalendar size={16} />
-                                <span className="text-xs font-medium">Esta semana</span>
-                            </div>
-                            <p className="text-xl md:text-2xl font-bold" style={{ color: 'var(--fg)' }}>
-                                {serenatas.filter(s => {
-                                    const d = new Date(s.dateTime);
-                                    const now = new Date();
-                                    const diff = Math.ceil((d.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
-                                    return diff >= 0 && diff <= 7;
-                                }).length}
-                            </p>
-                            <p className="text-xs" style={{ color: 'var(--fg-muted)' }}>programadas</p>
-                        </div>
-                        <div className="card card-hover hidden md:block">
-                            <div className="flex items-center gap-2 mb-2" style={{ color: 'var(--fg-muted)' }}>
-                                <IconUsers size={16} />
-                                <span className="text-xs font-medium">Grupos</span>
-                            </div>
-                            <p className="text-xl md:text-2xl font-bold" style={{ color: 'var(--fg)' }}>
-                                Activo
-                            </p>
-                            <p className="text-xs" style={{ color: 'var(--fg-muted)' }}>{musicianProfile?.instrument}</p>
-                        </div>
-                    </div>
-
-                    {/* Upcoming Serenatas - Lista adaptativa */}
-                    <div>
-                        <div className="flex items-center justify-between mb-4">
-                            <h2 className="text-lg font-semibold" style={{ color: 'var(--fg)' }}>
-                                Próximas Serenatas
-                            </h2>
-                            <Link 
-                                href="/agenda" 
-                                className="flex items-center gap-1 text-sm font-medium transition-colors hover:opacity-80"
-                                style={{ color: 'var(--accent)' }}
-                            >
-                                Ver todas
-                                <IconArrowRight size={16} />
-                            </Link>
-                        </div>
-
-                        {serenatas.length === 0 ? (
-                            <div 
-                                className="rounded-2xl p-8 text-center"
-                                style={{ background: 'var(--bg-subtle)' }}
-                            >
-                                <IconMusic size={48} className="mx-auto mb-3" style={{ color: 'var(--border-strong)' }} />
-                                <p style={{ color: 'var(--fg-muted)' }}>No tienes serenatas programadas</p>
-                                <p className="text-sm mt-1" style={{ color: 'var(--fg-muted)' }}>
-                                    Activa "Disponible Ahora" para recibir solicitudes
-                                </p>
-                            </div>
-                        ) : (
-                            <div className="space-y-3">
-                                {serenatas.slice(0, 5).map((serenata) => {
-                                    const { date, time } = formatDateTime(serenata.dateTime);
-                                    return (
-                                        <Link
-                                            key={serenata.id}
-                                            href={`/serenata/${serenata.id}`}
-                                            className="card card-hover block"
-                                        >
-                                            <div className="flex items-start justify-between gap-4">
-                                                <div className="flex-1 min-w-0">
-                                                    <div className="flex items-center gap-2 mb-2">
-                                                        <span 
-                                                            className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium"
-                                                            style={{ 
-                                                                background: 'color-mix(in oklab, var(--success) 15%, transparent)',
-                                                                color: 'var(--success)'
-                                                            }}
-                                                        >
-                                                            Confirmada
-                                                        </span>
-                                                        <span className="text-sm font-semibold" style={{ color: 'var(--fg)' }}>
-                                                            {formatCurrency(parseInt(serenata.price || '0'))}
-                                                        </span>
-                                                    </div>
-                                                    <h3 className="font-semibold truncate" style={{ color: 'var(--fg)' }}>
-                                                        {serenata.clientName}
-                                                    </h3>
-                                                    <div className="flex items-center gap-1 text-sm mt-1" style={{ color: 'var(--fg-muted)' }}>
-                                                        <IconMapPin size={14} />
-                                                        <span className="truncate">{serenata.address}</span>
-                                                    </div>
-                                                </div>
-                                                <div className="text-right flex-shrink-0">
-                                                    <p className="text-lg font-bold" style={{ color: 'var(--fg)' }}>{time}</p>
-                                                    <p className="text-xs" style={{ color: 'var(--fg-muted)' }}>{date}</p>
-                                                </div>
-                                            </div>
-                                        </Link>
-                                    );
-                                })}
-                            </div>
-                        )}
                     </div>
                 </div>
 
-                {/* Right Column - Sidebar Desktop */}
-                <div className="hidden lg:block space-y-6">
-                    {/* Quick Actions */}
-                    <div className="card">
-                        <h3 className="font-semibold mb-4" style={{ color: 'var(--fg)' }}>Acciones Rápidas</h3>
+                <div className="px-6 -mt-4">
+                    <div className="grid grid-cols-2 gap-3">
+                        <div className="bg-white rounded-xl p-4 shadow-sm">
+                            <p className="text-zinc-500 text-sm">Ganancias mes</p>
+                            <p className="text-2xl font-bold text-zinc-900">${stats.earnings.toLocaleString()}</p>
+                        </div>
+                        <div className="bg-white rounded-xl p-4 shadow-sm">
+                            <p className="text-zinc-500 text-sm">Completadas</p>
+                            <p className="text-2xl font-bold text-zinc-900">{stats.completed}</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div className="px-6 mt-6">
+                    <div className="grid grid-cols-2 gap-3">
+                        <Link href="/cuadrilla" className="bg-white rounded-xl p-4 shadow-sm hover:shadow-md transition-shadow">
+                            <IconUsers className="text-rose-500 mb-2" size={24} />
+                            <p className="font-medium text-zinc-900">Mi Cuadrilla</p>
+                            <p className="text-sm text-zinc-500">Gestionar musicos</p>
+                        </Link>
+                        <Link href="/disponibilidad" className="bg-white rounded-xl p-4 shadow-sm hover:shadow-md transition-shadow">
+                            <IconCalendar className="text-rose-500 mb-2" size={24} />
+                            <p className="font-medium text-zinc-900">Disponibilidad</p>
+                            <p className="text-sm text-zinc-500">Configurar horarios</p>
+                        </Link>
+                    </div>
+                </div>
+
+                <div className="px-6 mt-6">
+                    <div className="flex items-center justify-between mb-3">
+                        <h2 className="text-lg font-semibold text-zinc-900">Proximas serenatas</h2>
+                        <Link href="/agenda" className="text-rose-500 text-sm font-medium">Ver todo</Link>
+                    </div>
+                    
+                    {serenatas.length === 0 ? (
+                        <div className="bg-white rounded-xl p-6 text-center">
+                            <IconConfetti size={48} className="mx-auto text-zinc-300 mb-3" />
+                            <p className="text-zinc-500">No tienes serenatas programadas</p>
+                        </div>
+                    ) : (
                         <div className="space-y-3">
-                            <Link
-                                href="/grupos"
-                                className="flex items-center gap-3 p-3 rounded-xl transition-colors hover:bg-[var(--bg-subtle)]"
-                                style={{ border: '1px solid var(--border)' }}
-                            >
-                                <div 
-                                    className="w-10 h-10 rounded-xl flex items-center justify-center"
-                                    style={{ background: 'var(--accent-subtle)' }}
-                                >
-                                    <IconPlus size={20} style={{ color: 'var(--accent)' }} />
+                            {serenatas.slice(0, 3).map((serenata) => (
+                                <div key={serenata.id} className="bg-white rounded-xl p-4 shadow-sm">
+                                    <div className="flex items-start justify-between">
+                                        <div>
+                                            <span className={`inline-block w-2 h-2 rounded-full mr-2 ${
+                                                serenata.status === 'confirmed' ? 'bg-green-500' : 'bg-yellow-500'
+                                            }`} />
+                                            <span className="font-medium text-zinc-900">{serenata.clientName}</span>
+                                        </div>
+                                        <span className="font-semibold text-rose-600">${serenata.price}</span>
+                                    </div>
+                                    <div className="flex items-center gap-4 mt-2 text-sm text-zinc-500">
+                                        <span>{new Date(serenata.date).toLocaleDateString('es-CL')}</span>
+                                        <span>{serenata.time}</span>
+                                        <span>{serenata.location}</span>
+                                    </div>
                                 </div>
-                                <div>
-                                    <p className="font-medium text-sm" style={{ color: 'var(--fg)' }}>Crear Grupo</p>
-                                    <p className="text-xs" style={{ color: 'var(--fg-muted)' }}>Forma un nuevo equipo</p>
-                                </div>
-                            </Link>
-                            <Link
-                                href="/mapa"
-                                className="flex items-center gap-3 p-3 rounded-xl transition-colors hover:bg-[var(--bg-subtle)]"
-                                style={{ border: '1px solid var(--border)' }}
-                            >
-                                <div 
-                                    className="w-10 h-10 rounded-xl flex items-center justify-center"
-                                    style={{ background: 'var(--accent-subtle)' }}
-                                >
-                                    <IconMapPin size={20} style={{ color: 'var(--accent)' }} />
-                                </div>
-                                <div>
-                                    <p className="font-medium text-sm" style={{ color: 'var(--fg)' }}>Ver Mapa</p>
-                                    <p className="text-xs" style={{ color: 'var(--fg-muted)' }}>Encuentra serenatas cerca</p>
-                                </div>
-                            </Link>
+                            ))}
                         </div>
-                    </div>
-
-                    {/* Today's Schedule Mini */}
-                    <div className="card">
-                        <div className="flex items-center gap-2 mb-4">
-                            <IconClock size={18} style={{ color: 'var(--accent)' }} />
-                            <h3 className="font-semibold" style={{ color: 'var(--fg)' }}>Horario de Hoy</h3>
-                        </div>
-                        {serenatas.filter(s => new Date(s.dateTime).toDateString() === new Date().toDateString()).length === 0 ? (
-                            <p className="text-sm text-center py-4" style={{ color: 'var(--fg-muted)' }}>
-                                Sin serenatas hoy
-                            </p>
-                        ) : (
-                            <div className="space-y-2">
-                                {serenatas
-                                    .filter(s => new Date(s.dateTime).toDateString() === new Date().toDateString())
-                                    .slice(0, 3)
-                                    .map(s => {
-                                        const { time } = formatDateTime(s.dateTime);
-                                        return (
-                                            <div 
-                                                key={s.id} 
-                                                className="flex items-center gap-3 p-2 rounded-lg"
-                                                style={{ background: 'var(--bg-subtle)' }}
-                                            >
-                                                <span className="text-sm font-medium" style={{ color: 'var(--accent)' }}>
-                                                    {time}
-                                                </span>
-                                                <span className="text-sm truncate" style={{ color: 'var(--fg)' }}>
-                                                    {s.clientName}
-                                                </span>
-                                            </div>
-                                        );
-                                    })}
-                            </div>
-                        )}
-                    </div>
+                    )}
                 </div>
             </div>
+        );
+    }
 
-            {/* Mobile Quick Actions - Solo visible en móvil */}
-            <div className="grid grid-cols-2 gap-3 md:hidden">
-                <Link
-                    href="/grupos"
-                    className="flex items-center justify-center gap-2 rounded-xl p-4 font-medium transition-colors"
-                    style={{ background: 'var(--bg-muted)', color: 'var(--fg)' }}
-                >
-                    <IconPlus size={20} />
-                    <span>Crear Grupo</span>
-                </Link>
-                <Link
-                    href="/mapa"
-                    className="flex items-center justify-center gap-2 rounded-xl p-4 font-medium transition-colors"
-                    style={{ background: 'var(--accent)', color: 'var(--accent-contrast)' }}
-                >
-                    <IconMapPin size={20} />
-                    <span>Ver Mapa</span>
-                </Link>
+    // Client Dashboard
+    if (isClient) {
+        return (
+            <div className="min-h-screen bg-zinc-50 pb-20">
+                <div className="bg-rose-500 text-white px-6 py-8">
+                    <h1 className="text-2xl font-bold">Bienvenido, {user?.name?.split(' ')[0]}</h1>
+                    <p className="text-rose-100 mt-1">Encuentra el mejor mariachi para tu serenata</p>
+                </div>
+
+                <div className="px-6 mt-6">
+                    <Link 
+                        href="/explorar" 
+                        className="block bg-rose-500 text-white text-center py-4 rounded-xl font-medium hover:bg-rose-600 transition-colors"
+                    >
+                        <IconPlus className="inline mr-2" size={20} />
+                        Solicitar serenata
+                    </Link>
+                </div>
+            </div>
+        );
+    }
+
+    // Musician Dashboard (fallback)
+    return (
+        <div className="min-h-screen bg-zinc-50 pb-20">
+            <div className="bg-zinc-900 text-white px-6 py-8">
+                <h1 className="text-2xl font-bold">Hola, {user?.name?.split(' ')[0]}</h1>
+            </div>
+            <div className="px-6 mt-6">
+                <p className="text-zinc-600">Dashboard de musico</p>
             </div>
         </div>
     );

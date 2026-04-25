@@ -143,7 +143,7 @@ export default function LinkReservasPage() {
 
     if (loading) {
         return (
-            <div className="container-app panel-page py-8 flex items-center gap-2 text-sm" style={{ color: 'var(--fg-muted)' }}>
+            <div className="container-app panel-page py-4 lg:py-8 flex items-center gap-2 text-sm" style={{ color: 'var(--fg-muted)' }}>
                 <IconLoader2 size={16} className="animate-spin" /> Cargando...
             </div>
         );
@@ -151,7 +151,7 @@ export default function LinkReservasPage() {
 
     if (!profile?.slug) {
         return (
-            <div className="container-app panel-page py-8 max-w-lg">
+            <div className="container-app panel-page py-4 lg:py-8 max-w-lg">
                 <PanelPageHeader
                     backHref="/panel/configuracion"
                     title="Página de reservas"
@@ -177,7 +177,7 @@ export default function LinkReservasPage() {
     }
 
     return (
-        <div className="container-app panel-page py-8 max-w-lg">
+        <div className="container-app panel-page py-4 lg:py-8 max-w-lg">
             <PanelPageHeader
                 backHref="/panel/configuracion"
                 title="Página de reservas"

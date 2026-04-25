@@ -53,7 +53,7 @@ export default function RootLayout({
                     dangerouslySetInnerHTML={{ __html: JSON.stringify(siteSchema) }}
                 />
             </head>
-            <body className={`${inter.variable} font-sans antialiased`}>
+            <body className={`${(inter as any).variable} font-sans antialiased`}>
                 <ThemeProvider
                     attribute="class"
                     defaultTheme="dark"

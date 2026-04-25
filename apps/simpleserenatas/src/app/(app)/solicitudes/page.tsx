@@ -11,7 +11,7 @@ import {
     IconFilter,
     IconSearch,
     IconArrowRight,
-    IconMusic,
+    IconConfetti,
 } from '@tabler/icons-react';
 import Link from 'next/link';
 import { useToast } from '@/hooks';
@@ -309,7 +309,7 @@ export default function SolicitudesPage() {
                         />
                     ) : (
                         <div className="card h-full flex flex-col items-center justify-center">
-                            <IconMusic size={64} style={{ color: 'var(--border-strong)' }} className="mb-4" />
+                            <IconConfetti size={64} style={{ color: 'var(--border-strong)' }} className="mb-4" />
                             <p style={{ color: 'var(--fg-muted)' }}>Selecciona una solicitud para ver los detalles</p>
                         </div>
                     )}

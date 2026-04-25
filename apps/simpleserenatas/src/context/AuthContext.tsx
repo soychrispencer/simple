@@ -3,12 +3,30 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { API_BASE } from '@simple/config';
 
+type UserRole = 'client' | 'captain' | 'musician' | 'admin';
+
 interface User {
   id: string;
   name: string;
   email: string;
   avatarUrl?: string;
   phone?: string;
+  role?: UserRole;
+}
+
+interface CaptainProfile {
+  id: string;
+  bio?: string;
+  phone?: string;
+  experience?: number;
+  city?: string;
+  region?: string;
+  subscriptionPlan: 'free' | 'pro' | 'premium';
+  subscriptionStatus: 'active' | 'cancelled' | 'paused';
+  isVerified: boolean;
+  totalSerenatas: number;
+  rating: number;
+  reviewsCount: number;
 }
 
 interface MusicianProfile {
@@ -23,6 +41,7 @@ interface MusicianProfile {
 
 interface AuthContextType {
   user: User | null;
+  captainProfile: CaptainProfile | null;
   musicianProfile: MusicianProfile | null;
   isLoading: boolean;
   isAuthenticated: boolean;
@@ -31,12 +50,15 @@ interface AuthContextType {
   logout: () => Promise<void>;
   refreshProfile: () => Promise<void>;
   setAvailability: (available: boolean, availableNow?: boolean) => Promise<void>;
+  createCaptainProfile: (data: Partial<CaptainProfile>) => Promise<void>;
+  updateCaptainProfile: (data: Partial<CaptainProfile>) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
+  const [captainProfile, setCaptainProfile] = useState<CaptainProfile | null>(null);
   const [musicianProfile, setMusicianProfile] = useState<MusicianProfile | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -66,13 +88,88 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       
       if (data.ok) {
         setUser(data.user);
-        // Fetch musician profile
-        await fetchMusicianProfile();
+        // Fetch profiles based on role
+        if (data.user.role === 'captain') {
+          await fetchCaptainProfile();
+        } else if (data.user.role === 'musician') {
+          await fetchMusicianProfile();
+        }
       }
     } catch (error) {
       // Silently handle network errors
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const fetchCaptainProfile = async () => {
+    try {
+      const res = await fetch(`${API_BASE}/api/serenatas/captains/me`, {
+        credentials: 'include',
+      });
+      
+      if (res.status === 404) {
+        setCaptainProfile(null);
+        return;
+      }
+      
+      if (!res.ok) {
+        setCaptainProfile(null);
+        return;
+      }
+      
+      const data = await res.json();
+      
+      if (data.ok && data.profile) {
+        setCaptainProfile(data.profile);
+      } else {
+        setCaptainProfile(null);
+      }
+    } catch (error) {
+      setCaptainProfile(null);
+    }
+  };
+
+  const createCaptainProfile = async (profileData: Partial<CaptainProfile>) => {
+    try {
+      const res = await fetch(`${API_BASE}/api/serenatas/captains`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify(profileData),
+      });
+      
+      if (!res.ok) throw new Error('Failed to create profile');
+      
+      const data = await res.json();
+      if (data.ok && data.profile) {
+        setCaptainProfile(data.profile);
+        setUser(prev => prev ? { ...prev, role: 'captain' } : null);
+      }
+    } catch (error) {
+      console.error('Error creating captain profile:', error);
+      throw error;
+    }
+  };
+
+  const updateCaptainProfile = async (profileData: Partial<CaptainProfile>) => {
+    try {
+      const res = await fetch(`${API_BASE}/api/serenatas/captains/me`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify(profileData),
+      });
+      
+      if (!res.ok) throw new Error('Failed to update profile');
+      
+      const data = await res.json();
+      if (data.ok && data.profile) {
+        setCaptainProfile(data.profile);
+      }
+    } catch (error) {
+      console.error('Error updating captain profile:', error);
+      throw error;
     }
   };
 
@@ -168,11 +265,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       credentials: 'include',
     });
     setUser(null);
+    setCaptainProfile(null);
     setMusicianProfile(null);
   };
 
   const refreshProfile = async () => {
-    await fetchMusicianProfile();
+    if (user?.role === 'captain') {
+      await fetchCaptainProfile();
+    } else if (user?.role === 'musician') {
+      await fetchMusicianProfile();
+    }
   };
 
   const setAvailability = async (isAvailable: boolean, availableNow?: boolean) => {
@@ -199,12 +301,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   return (
     <AuthContext.Provider value={{
       user,
+      captainProfile,
       musicianProfile,
       isLoading,
       isAuthenticated: !!user,
       login,
       register,
       logout,
+      createCaptainProfile,
+      updateCaptainProfile,
       refreshProfile,
       setAvailability,
     }}>

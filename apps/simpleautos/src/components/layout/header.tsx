@@ -105,9 +105,9 @@ export function Header() {
         <header className="relative z-40 transition-all duration-300" style={{ borderBottom: '1px solid var(--border)' }}>
             <div className="container-app flex items-center justify-between h-16">
                 {/* Logo */}
-                <Link href="/" className="flex items-center gap-1.5 group shrink-0">
-                    <div className="w-9 h-9 rounded-[10px] border flex items-center justify-center transition-all duration-200 group-hover:border-[var(--border-strong)] group-hover:text-[var(--fg)]" style={{ borderColor: 'var(--border)', color: 'var(--fg-secondary)', background: 'transparent' }}>
-                        <IconSteeringWheel size={18} stroke={1.5} />
+                <Link href="/" className="flex items-center gap-1 group shrink-0">
+                    <div className="w-8 h-8 rounded-xl flex items-center justify-center" style={{ background: '#ff3600', color: '#fff' }}>
+                        <IconSteeringWheel size={16} />
                     </div>
                     <span className="inline-flex items-end gap-[0.08rem] text-[1.05rem] tracking-tight" style={{ color: 'var(--fg)' }}>
                         <span className="font-semibold leading-none">Simple</span>

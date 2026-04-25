@@ -268,7 +268,7 @@ export default function GroupSessionDetailPage({ params }: { params: Promise<{ i
 
     if (loading) {
         return (
-            <div className="container-app panel-page py-8 max-w-2xl">
+            <div className="container-app panel-page py-4 lg:py-8 max-w-2xl">
                 <div className="flex items-center gap-2 text-sm" style={{ color: 'var(--fg-muted)' }}>
                     <IconLoader2 size={14} className="animate-spin" /> Cargando...
                 </div>
@@ -278,7 +278,7 @@ export default function GroupSessionDetailPage({ params }: { params: Promise<{ i
 
     if (notFound || !session) {
         return (
-            <div className="container-app panel-page py-8 max-w-2xl">
+            <div className="container-app panel-page py-4 lg:py-8 max-w-2xl">
                 <PanelPageHeader backHref="/panel/configuracion/grupales" title="Sesión no encontrada" />
                 <PanelEmptyState
                     title="No encontramos esta sesión"
@@ -291,7 +291,7 @@ export default function GroupSessionDetailPage({ params }: { params: Promise<{ i
     const statusTone_ = sessionStatusTone[session.status];
 
     return (
-        <div className="container-app panel-page py-8 max-w-2xl">
+        <div className="container-app panel-page py-4 lg:py-8 max-w-2xl">
             <PanelPageHeader
                 backHref="/panel/configuracion/grupales"
                 title={session.title}
@@ -549,7 +549,7 @@ export default function GroupSessionDetailPage({ params }: { params: Promise<{ i
                                 />
                             </PanelField>
 
-                            <div className="grid grid-cols-2 gap-3">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                                 <PanelField label="Email">
                                     <input
                                         type="email"

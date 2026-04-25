@@ -2,24 +2,34 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { Inter } from 'next/font/google'
 import { AppHeader, AppSidebar, MobileNav } from '@/components/layout';
 import { useAuth } from '@/context/AuthContext';
+
+const inter = Inter({ subsets: ['latin'] })
 
 export default function AppLayout({
     children,
 }: {
     children: React.ReactNode;
 }) {
-    const { musicianProfile, isLoading, isAuthenticated } = useAuth();
+    const { user, captainProfile, musicianProfile, isLoading, isAuthenticated } = useAuth();
     const router = useRouter();
     const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
-    // Redirect to onboarding if no musician profile
+    // Determine user type
+    const isCaptain = user?.role === 'captain' || !!captainProfile;
+    const isMusician = user?.role === 'musician' || !!musicianProfile;
+    const isClient = user?.role === 'client' || (!isCaptain && !isMusician);
+
+    // Redirect to onboarding if no profile
     useEffect(() => {
-        if (!isLoading && isAuthenticated && !musicianProfile) {
-            router.push('/onboarding');
+        if (!isLoading && isAuthenticated) {
+            if (!captainProfile && !musicianProfile && !isClient) {
+                router.push('/onboarding');
+            }
         }
-    }, [musicianProfile, isLoading, isAuthenticated, router]);
+    }, [captainProfile, musicianProfile, isLoading, isAuthenticated, isClient, router]);
 
     // Redirect to login if not authenticated
     useEffect(() => {
@@ -31,17 +41,14 @@ export default function AppLayout({
     // Show loading while checking auth
     if (isLoading) {
         return (
-            <div 
-                className="min-h-screen flex items-center justify-center"
-                style={{ background: 'var(--bg)' }}
-            >
-                <div className="animate-spin rounded-full h-10 w-10 border-b-2" style={{ borderColor: 'var(--accent)' }} />
+            <div className="min-h-screen flex items-center justify-center bg-zinc-50">
+                <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-rose-500" />
             </div>
         );
     }
 
     // Don't render if not ready
-    if (!isAuthenticated || !musicianProfile) {
+    if (!isAuthenticated || (!captainProfile && !musicianProfile && !isClient)) {
         return null;
     }
 

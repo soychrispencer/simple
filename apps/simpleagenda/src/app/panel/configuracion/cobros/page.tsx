@@ -107,7 +107,7 @@ function CobrosConfigPageInner() {
 
     if (loading) {
         return (
-            <div className="container-app panel-page py-8 max-w-2xl">
+            <div className="container-app panel-page py-4 lg:py-8 max-w-2xl">
                 <PanelPageHeader backHref="/panel/configuracion" title="Métodos de cobro" description="Configura cómo quieres recibir los pagos de tus pacientes." />
                 <div className="flex items-center gap-2 mt-6 text-sm" style={{ color: 'var(--fg-muted)' }}>
                     <IconLoader2 size={16} className="animate-spin" /> Cargando...
@@ -117,7 +117,7 @@ function CobrosConfigPageInner() {
     }
 
     return (
-        <div className="container-app panel-page py-8 max-w-2xl">
+        <div className="container-app panel-page py-4 lg:py-8 max-w-2xl">
             <PanelPageHeader
                 backHref="/panel/configuracion"
                 title="Métodos de cobro"
@@ -360,7 +360,7 @@ function CobrosConfigPageInner() {
 export default function CobrosConfigPage() {
     return (
         <Suspense fallback={
-            <div className="container-app panel-page py-8 flex items-center gap-2 text-sm" style={{ color: 'var(--fg-muted)' }}>
+            <div className="container-app panel-page py-4 lg:py-8 flex items-center gap-2 text-sm" style={{ color: 'var(--fg-muted)' }}>
                 <IconLoader2 size={16} className="animate-spin" /> Cargando...
             </div>
         }>

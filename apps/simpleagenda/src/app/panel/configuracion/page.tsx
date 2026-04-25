@@ -128,8 +128,8 @@ export default function ConfiguracionPage() {
     const allReady = completedRequired === requiredSections.length;
 
     return (
-        <div className="container-app panel-page py-8 max-w-2xl">
-            <div className="mb-8">
+        <div className="container-app panel-page py-4 lg:py-8 max-w-2xl">
+            <div className="mb-5 lg:mb-8">
                 <h1 className="text-2xl font-bold mb-1" style={{ color: 'var(--fg)' }}>Configuración</h1>
                 <p className="text-sm" style={{ color: 'var(--fg-muted)' }}>
                     {allReady
@@ -162,7 +162,7 @@ export default function ConfiguracionPage() {
             )}
 
             {/* Secciones */}
-            <div className="flex flex-col gap-2 mb-10">
+            <div className="flex flex-col gap-2 mb-6 lg:mb-10">
                 {loading
                     ? Array.from({ length: 5 }).map((_, i) => (
                         <div key={i} className="h-18 rounded-2xl animate-pulse" style={{ background: 'var(--border)' }} />

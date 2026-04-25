@@ -305,8 +305,8 @@ export default function PanelHomePage() {
             setStats(s);
             setProfile(p);
             setLoading(false);
-            // Redirigir al onboarding si el perfil está vacío (usuario nuevo)
-            if (p && !p.displayName && !p.profession) {
+            // Redirigir al onboarding si el perfil no existe o está vacío (usuario nuevo)
+            if (!p || (!p.displayName && !p.profession)) {
                 router.replace('/panel/onboarding');
             }
         };
@@ -369,9 +369,9 @@ export default function PanelHomePage() {
     ];
 
     return (
-        <div className="container-app panel-page py-8">
+        <div className="container-app panel-page py-4 lg:py-8">
             {/* Header */}
-            <div className="mb-8">
+            <div className="mb-5 lg:mb-8">
                 <h1 className="text-2xl font-bold mb-0.5" style={{ color: 'var(--fg)' }}>{greeting}</h1>
                 <p className="text-sm" style={{ color: 'var(--fg-muted)' }}>
                     {new Date().toLocaleDateString('es-CL', { weekday: 'long', day: 'numeric', month: 'long' })}
@@ -384,23 +384,23 @@ export default function PanelHomePage() {
                     <Link
                         key={stat.label}
                         href={stat.href}
-                        className="group p-4 rounded-2xl border transition-all hover:border-[--accent-border] hover:shadow-sm"
+                        className="group p-4 rounded-2xl border transition-all active:scale-[0.98] hover:border-[--accent-border] hover:shadow-sm"
                         style={{ borderColor: 'var(--border)', background: 'var(--surface)' }}
                     >
                         <div
-                            className="w-8 h-8 rounded-lg flex items-center justify-center mb-3"
+                            className="w-9 h-9 rounded-xl flex items-center justify-center mb-3"
                             style={{ background: 'var(--accent-soft)', color: 'var(--accent)' }}
                         >
-                            <stat.icon size={16} />
+                            <stat.icon size={18} />
                         </div>
                         {stat.value === null ? (
                             <div className="h-7 w-16 rounded-lg animate-pulse mb-1" style={{ background: 'var(--border)' }} />
                         ) : (
-                            <p className="text-xl font-bold truncate leading-tight" style={{ color: 'var(--fg)' }}>{stat.value}</p>
+                            <p className="text-lg sm:text-xl font-bold truncate leading-tight" style={{ color: 'var(--fg)' }}>{stat.value}</p>
                         )}
-                        <p className="text-xs mt-0.5 flex items-center justify-between" style={{ color: 'var(--fg-muted)' }}>
-                            {stat.label}
-                            <IconChevronRight size={12} className="opacity-0 group-hover:opacity-100 transition-opacity" style={{ color: 'var(--accent)' }} />
+                        <p className="text-xs mt-1 flex items-center justify-between gap-1" style={{ color: 'var(--fg-muted)' }}>
+                            <span className="truncate">{stat.label}</span>
+                            <IconChevronRight size={14} className="shrink-0 lg:opacity-0 lg:group-hover:opacity-100 transition-opacity" style={{ color: 'var(--accent)' }} />
                         </p>
                     </Link>
                 ))}
@@ -411,20 +411,20 @@ export default function PanelHomePage() {
 
                 {/* Weekly bar chart — 3 cols */}
                 <div
-                    className="lg:col-span-3 rounded-2xl border p-5"
+                    className="lg:col-span-3 rounded-2xl border p-4 sm:p-5"
                     style={{ borderColor: 'var(--border)', background: 'var(--surface)' }}
                 >
-                    <div className="flex items-center justify-between mb-5">
-                        <div>
+                    <div className="flex items-center justify-between mb-5 gap-2">
+                        <div className="min-w-0">
                             <p className="text-sm font-semibold" style={{ color: 'var(--fg)' }}>Citas esta semana</p>
                             <p className="text-xs mt-0.5" style={{ color: 'var(--fg-muted)' }}>Lunes a domingo</p>
                         </div>
                         <Link
                             href="/panel/agenda"
-                            className="text-xs font-medium flex items-center gap-1 transition-opacity hover:opacity-70"
+                            className="shrink-0 text-xs font-medium inline-flex items-center gap-1 px-2 py-1.5 -my-1.5 rounded-lg transition-colors active:bg-(--bg-subtle) lg:hover:opacity-70"
                             style={{ color: 'var(--accent)' }}
                         >
-                            Ver agenda <IconChevronRight size={12} />
+                            Ver agenda <IconChevronRight size={14} />
                         </Link>
                     </div>
                     <WeekBarChart data={stats?.weeklyData ?? []} loading={loading} />
@@ -432,7 +432,7 @@ export default function PanelHomePage() {
 
                 {/* Revenue summary — 2 cols */}
                 <div
-                    className="lg:col-span-2 rounded-2xl border p-5 flex flex-col justify-between"
+                    className="lg:col-span-2 rounded-2xl border p-4 sm:p-5 flex flex-col justify-between"
                     style={{ borderColor: 'var(--border)', background: 'var(--surface)' }}
                 >
                     <div>
@@ -468,10 +468,10 @@ export default function PanelHomePage() {
                         </div>
                         <Link
                             href="/panel/pagos"
-                            className="text-xs font-medium flex items-center gap-1 transition-opacity hover:opacity-70"
+                            className="shrink-0 text-xs font-medium inline-flex items-center gap-1 px-2 py-1.5 -my-1.5 rounded-lg transition-colors active:bg-(--bg-subtle) lg:hover:opacity-70"
                             style={{ color: 'var(--accent)' }}
                         >
-                            Ver cobros <IconChevronRight size={12} />
+                            Ver cobros <IconChevronRight size={14} />
                         </Link>
                     </div>
                 </div>

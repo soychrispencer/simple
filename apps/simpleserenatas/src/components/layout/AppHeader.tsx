@@ -11,7 +11,7 @@ import {
     IconUser,
     IconMenu2,
     IconX,
-    IconMusic,
+    IconConfettiFilled,
     IconLogout,
 } from '@tabler/icons-react';
 import { useAuth } from '@/context/AuthContext';
@@ -36,7 +36,7 @@ export function AppHeader({ onMenuClick, sidebarCollapsed }: AppHeaderProps) {
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
     const [userMenuOpen, setUserMenuOpen] = useState(false);
     const userMenuRef = useRef<HTMLDivElement>(null);
-    const { user, isLoggedIn, logout, musicianProfile } = useAuth();
+    const { user, isAuthenticated, logout, musicianProfile } = useAuth();
 
     useEffect(() => {
         setMounted(true);
@@ -52,15 +52,15 @@ export function AppHeader({ onMenuClick, sidebarCollapsed }: AppHeaderProps) {
         return () => document.removeEventListener('pointerdown', handleClickOutside);
     }, []);
 
-    const userName = musicianProfile?.name || user?.name || 'Usuario';
+    const userName = user?.name || 'Usuario';
     const isActive = (href: string) => pathname === href || pathname.startsWith(`${href}/`);
 
     return (
-        <header 
-            className={`fixed top-0 right-0 z-30 h-16 app-header transition-all duration-300 ${
+        <header
+            className={`fixed top-0 right-0 left-0 z-30 h-16 app-header transition-all duration-300 ${
                 sidebarCollapsed !== undefined ? 'md:left-16 lg:left-64' : ''
             }`}
-            style={{ 
+            style={{
                 background: 'var(--surface)',
                 borderBottom: '1px solid var(--border)'
             }}
@@ -88,21 +88,18 @@ export function AppHeader({ onMenuClick, sidebarCollapsed }: AppHeaderProps) {
                             className="hidden md:flex p-2 -ml-2 rounded-xl transition-colors hover:bg-[var(--bg-subtle)]"
                             aria-label="Colapsar menú"
                         >
-                            <IconMenu2 size={20} style={{ color: 'var(--fg-secondary)' }} />
+                            <IconMenu2 size={20} style={{ color: '#E11D48' }} />
                         </button>
                     )}
 
                     {/* Logo */}
-                    <Link href="/inicio" className="flex items-center gap-2 group">
-                        <div 
-                            className="w-8 h-8 rounded-xl flex items-center justify-center"
-                            style={{ background: 'var(--accent)' }}
-                        >
-                            <IconMusic size={16} style={{ color: 'var(--accent-contrast)' }} />
+                    <Link href="/inicio" className="flex items-center gap-1 group shrink-0">
+                        <div className="w-8 h-8 rounded-xl flex items-center justify-center" style={{ background: '#E11D48', color: '#fff' }}>
+                            <IconConfettiFilled size={16} />
                         </div>
                         <span className="hidden sm:inline-flex items-end gap-[0.08rem] text-lg tracking-tight" style={{ color: 'var(--fg)' }}>
-                            <span className="font-semibold">Simple</span>
-                            <span style={{ color: 'var(--accent)' }}>Serenatas</span>
+                            <span className="font-semibold leading-none">Simple</span>
+                            <span className="translate-y-[0.02em] font-normal leading-none" style={{ color: 'var(--fg-muted)' }}>Serenatas</span>
                         </span>
                     </Link>
 
@@ -140,7 +137,7 @@ export function AppHeader({ onMenuClick, sidebarCollapsed }: AppHeaderProps) {
                     )}
 
                     {/* Notifications */}
-                    {isLoggedIn && (
+                    {isAuthenticated && (
                         <Link
                             href="/solicitudes"
                             className="relative p-2 rounded-xl transition-colors hover:bg-[var(--bg-subtle)]"
@@ -155,7 +152,7 @@ export function AppHeader({ onMenuClick, sidebarCollapsed }: AppHeaderProps) {
                     )}
 
                     {/* User Menu */}
-                    {isLoggedIn ? (
+                    {isAuthenticated ? (
                         <div className="relative" ref={userMenuRef}>
                             <button
                                 onClick={() => setUserMenuOpen(!userMenuOpen)}

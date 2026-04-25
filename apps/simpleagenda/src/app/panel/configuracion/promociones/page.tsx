@@ -229,7 +229,7 @@ export default function PromocionesPage() {
     const visibleServices = useMemo(() => services.filter((s) => s.isActive), [services]);
 
     return (
-        <div className="container-app panel-page py-8 max-w-2xl">
+        <div className="container-app panel-page py-4 lg:py-8 max-w-2xl">
             <PanelPageHeader
                 backHref="/panel/configuracion/servicios"
                 title="Promociones"
@@ -482,7 +482,7 @@ export default function PromocionesPage() {
                                 </PanelField>
                             </div>
 
-                            <div className="grid grid-cols-2 gap-3">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                                 <PanelField label="Válida desde">
                                     <input
                                         type="datetime-local"
