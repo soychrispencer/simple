@@ -4062,8 +4062,8 @@ async function buildInstagramTemplateOverlaySvg(
         detailsBand = '';
     }
 
-    const svg = `
-        <svg width="${width}" height="${height}" viewBox="0 0 ${width} ${height}" xmlns="http://www.w3.org/2000/svg" font-family="'Inter', 'Arial', sans-serif">
+    const svg = `<?xml version="1.0" encoding="UTF-8"?>
+<svg width="${width}" height="${height}" viewBox="0 0 ${width} ${height}" xmlns="http://www.w3.org/2000/svg" font-family="Inter, Arial, sans-serif">
             <defs>
                 <linearGradient id="titleFade" x1="0" y1="0" x2="0" y2="1">
                     <stop offset="0%" stop-color="#000000" stop-opacity="0" />
@@ -4087,7 +4087,7 @@ async function buildInstagramTemplateOverlaySvg(
         </svg>
     `;
 
-    return Buffer.from(svg);
+    return Buffer.from(svg, 'utf-8');
 }
 
 function getInstagramBasePublicOrigin(): string {
