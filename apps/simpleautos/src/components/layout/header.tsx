@@ -14,9 +14,9 @@ import {
     IconSparkles,
     IconMenu2,
     IconX,
-    IconSteeringWheel,
 } from '@tabler/icons-react';
 import { useAuth } from '@/context/auth-context';
+import { Logo } from '@simple/ui';
 import { getPanelNavItems, isPanelNavActive, type PanelRole } from '@/components/panel/panel-nav-config';
 import { fetchPanelNotifications, type PanelNotification } from '@/lib/panel-notifications';
 import { clearSavedListingsCache, syncSavedListingsFromApi } from '@/lib/saved-listings';
@@ -105,15 +105,7 @@ export function Header() {
         <header className="relative z-40 transition-all duration-300" style={{ borderBottom: '1px solid var(--border)' }}>
             <div className="container-app flex items-center justify-between h-16">
                 {/* Logo */}
-                <Link href="/" className="flex items-center gap-2 group shrink-0">
-                    <span className="w-9 h-9 rounded-[10px] border flex items-center justify-center transition-colors group-hover:opacity-80" style={{ borderColor: '#ff3600', color: '#ff3600' }}>
-                        <IconSteeringWheel size={18} />
-                    </span>
-                    <span className="inline-flex items-baseline gap-[0.08rem] text-[1.05rem] tracking-tight" style={{ color: 'var(--fg)' }}>
-                        <span className="font-semibold leading-none">Simple</span>
-                        <span className="font-normal leading-none" style={{ color: '#ff3600' }}>Autos</span>
-                    </span>
-                </Link>
+                <Logo brand="autos" href="/" />
 
                 {/* Desktop Navigation */}
                 <nav className="hidden md:flex items-center gap-1">
