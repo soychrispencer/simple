@@ -44,7 +44,7 @@ import { cors } from 'hono/cors';
 import { deleteCookie, getCookie, setCookie } from 'hono/cookie';
 import jwt from 'jsonwebtoken';
 import { z } from 'zod';
-import TextToSVG from 'text-to-svg';
+import * as TextToSVG from 'text-to-svg';
 import { evaluatePublicationLifecycle, getPublicationLifecyclePolicy } from '@simple/config';
 import {
     generateSmartTemplates,
