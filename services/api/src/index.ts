@@ -4157,6 +4157,7 @@ async function prepareInstagramImageUrl(
 
     const sharp = require('sharp') as typeof import('sharp');
     let pipeline = sharp(rawBuffer)
+        .rotate() // Aplicar orientación EXIF automáticamente
         .resize({ width: 1080, height: targetHeight, fit: 'cover' });
 
     if (options.template) {
