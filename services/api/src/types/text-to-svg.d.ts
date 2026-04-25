@@ -1,5 +1,5 @@
 declare module 'text-to-svg' {
-    interface TextToSVGOptions {
+    export interface TextToSVGOptions {
         fontSize?: number;
         x?: number;
         y?: number;
@@ -11,7 +11,7 @@ declare module 'text-to-svg' {
         features?: Record<string, boolean>;
     }
 
-    interface Metrics {
+    export interface Metrics {
         width: number;
         height: number;
         ascender: number;
@@ -23,7 +23,7 @@ declare module 'text-to-svg' {
         yMin: number;
     }
 
-    class TextToSVG {
+    class TextToSVGClass {
         constructor(fontPath: string | Buffer);
         static loadSync(fontPath?: string): string;
         static load(fontPath?: string): Promise<string>;
@@ -33,5 +33,5 @@ declare module 'text-to-svg' {
         getSVG(text: string, options?: TextToSVGOptions): string;
     }
 
-    export = TextToSVG;
+    export default TextToSVGClass;
 }
