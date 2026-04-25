@@ -14,7 +14,7 @@ import {
   IconDeviceMobile,
   IconDeviceDesktop,
 } from '@tabler/icons-react';
-import { Logo } from '@simple/ui/logo';
+import { Logo } from '@simple/ui';
 
 export default function LandingPage() {
   return (

@@ -14,7 +14,7 @@ import {
     IconLogout,
 } from '@tabler/icons-react';
 import { useAuth } from '@/context/AuthContext';
-import { Logo } from '@simple/ui/logo';
+import { Logo } from '@simple/ui';
 
 interface AppHeaderProps {
     onMenuClick?: () => void;
