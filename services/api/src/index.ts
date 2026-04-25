@@ -44,6 +44,7 @@ import { cors } from 'hono/cors';
 import { deleteCookie, getCookie, setCookie } from 'hono/cookie';
 import jwt from 'jsonwebtoken';
 import { z } from 'zod';
+import TextToSVG from 'text-to-svg';
 import { evaluatePublicationLifecycle, getPublicationLifecyclePolicy } from '@simple/config';
 import {
     generateSmartTemplates,
@@ -3697,6 +3698,62 @@ function getHighlightIconKey(text: string): string {
     return 'servicio'; // fallback
 }
 
+// Cache para la fuente de texto SVG
+let textToSVGInstance: TextToSVG | null = null;
+
+async function getTextToSVG(): Promise<TextToSVG | null> {
+    if (textToSVGInstance) return textToSVGInstance;
+    try {
+        // Usar fuente del sistema - Inter si está disponible, sino Arial
+        const fontPath = await TextToSVG.loadSync();
+        textToSVGInstance = new TextToSVG(fontPath);
+        return textToSVGInstance;
+    } catch {
+        return null;
+    }
+}
+
+// Convierte texto a path SVG para evitar dependencia de fontconfig
+async function textToPath(
+    text: string,
+    options: {
+        x: number;
+        y: number;
+        fontSize: number;
+        fontWeight?: number;
+        fill?: string;
+        anchor?: 'start' | 'middle' | 'end';
+    }
+): Promise<string> {
+    const tts = await getTextToSVG();
+    if (!tts) {
+        // Fallback: retornar elemento text normal si no se puede cargar la fuente
+        const anchor = options.anchor || 'start';
+        const weight = options.fontWeight || 400;
+        return `<text x="${options.x}" y="${options.y}" fill="${options.fill || '#000000'}" font-size="${options.fontSize}" font-weight="${weight}" text-anchor="${anchor}">${escapeSvgText(text)}</text>`;
+    }
+
+    const metrics = tts.getMetrics(text, { fontSize: options.fontSize });
+    let x = options.x;
+
+    // Ajustar posición X según el anchor
+    if (options.anchor === 'middle') {
+        x = options.x - metrics.width / 2;
+    } else if (options.anchor === 'end') {
+        x = options.x - metrics.width;
+    }
+
+    // Calcular Y basado en la altura de la fuente
+    const y = options.y - metrics.height / 2 + metrics.ascender;
+
+    const pathData = tts.getPath(text, { fontSize: options.fontSize, x, y });
+
+    // Extraer solo el d del path y crear nuestro propio elemento path con el fill correcto
+    const d = pathData.match(/d="([^"]+)"/)?.[1] || '';
+
+    return `<path d="${d}" fill="${options.fill || '#000000'}" />`;
+}
+
 function svgIcon(key: string, x: number, y: number, size: number, fill: string, strokeW = 1.5): string {
     const p = SVG_ICON_PATHS[key] || SVG_ICON_PATHS['servicio'];
     const scale = size / 24;
@@ -3868,18 +3925,18 @@ async function buildInstagramTemplateOverlaySvg(
         const margin = 40;
         const cardW = width - margin * 2;
         const cardR = 48;
-        const fullPrice = escapeSvgText(clampTemplateText(template.offerPriceLabel || template.priceLabel || 'Consultar', 20));
-        const origPrice = template.offerPriceLabel ? escapeSvgText(clampTemplateText(template.priceLabel || '', 20)) : '';
-        const proTitle = template.title ? escapeSvgText(clampTemplateText(template.title.toUpperCase(), 48)) : '';
-        const locText = template.locationLabel ? escapeSvgText(clampTemplateText(template.locationLabel, 24)) : '';
+        const fullPriceText = clampTemplateText(template.offerPriceLabel || template.priceLabel || 'Consultar', 20);
+        const origPriceText = template.offerPriceLabel ? clampTemplateText(template.priceLabel || '', 20) : '';
+        const proTitleText = template.title ? clampTemplateText(template.title.toUpperCase(), 48) : '';
+        const locTextRaw = template.locationLabel ? clampTemplateText(template.locationLabel, 24) : '';
 
         // Dynamic card height
         let ch = 72; // top padding (logo overlap space)
         ch += 80; // price
-        if (origPrice) ch += 28;
-        if (proTitle) ch += 46;
+        if (origPriceText) ch += 28;
+        if (proTitleText) ch += 46;
         if (highlights.length > 0) ch += 46;
-        if (locText) ch += 56;
+        if (locTextRaw) ch += 56;
         ch += 28; // bottom padding
         const cardH = Math.max(ch, 260);
         const cardY = height - margin - cardH;
@@ -3889,14 +3946,15 @@ async function buildInstagramTemplateOverlaySvg(
         const priceBaseline = y + 62;
         y += 78;
         let strikeSvg = '';
-        if (origPrice) {
-            strikeSvg = `<text x="${cx}" y="${y + 14}" fill="rgba(255,255,255,0.5)" font-size="22" font-weight="500" text-anchor="middle" text-decoration="line-through">${origPrice}</text>`;
+        if (origPriceText) {
+            const origPricePath = await textToPath(origPriceText, { x: cx, y: y + 14, fontSize: 22, fill: 'rgba(255,255,255,0.5)', anchor: 'middle' });
+            strikeSvg = origPricePath.replace('/>', ' text-decoration="line-through"/>');
             y += 28;
         }
         let titleSvg = '';
-        if (proTitle) {
+        if (proTitleText) {
             y += 6;
-            titleSvg = `<text x="${cx}" y="${y + 30}" fill="#FFFFFF" font-size="38" font-weight="900" text-anchor="middle">${proTitle}</text>`;
+            titleSvg = await textToPath(proTitleText, { x: cx, y: y + 30, fontSize: 38, fontWeight: 900, fill: '#FFFFFF', anchor: 'middle' });
             y += 40;
         }
         // Highlights with icons — horizontal row, font 30 semibold
@@ -3911,21 +3969,23 @@ async function buildInstagramTemplateOverlaySvg(
                 const iconKey = getHighlightIconKey(h);
                 hlSvg += svgIcon(iconKey, hx, hlY, 24, 'rgba(255,255,255,0.8)');
                 hx += 28;
-                hlSvg += `<text x="${hx}" y="${hlY + 20}" fill="rgba(255,255,255,0.8)" font-size="24" font-weight="600">${escapeSvgText(h.toUpperCase())}</text>`;
+                const hlPath = await textToPath(h.toUpperCase(), { x: hx, y: hlY + 20, fontSize: 24, fontWeight: 600, fill: 'rgba(255,255,255,0.8)', anchor: 'start' });
+                hlSvg += hlPath;
                 hx += h.length * 16 + 10 + 16;
             }
             y += 36;
         }
         // Location pill with icon — bigger
         let locSvg = '';
-        if (locText) {
+        if (locTextRaw) {
             y += 14;
-            const pillW = Math.min(locText.length * 16 + 80, cardW - 60);
+            const pillW = Math.min(locTextRaw.length * 16 + 80, cardW - 60);
             const pillX = cx - pillW / 2;
+            const locPath = await textToPath(locTextRaw, { x: cx + 12, y: y + 33, fontSize: 24, fontWeight: 700, fill: brandAccent, anchor: 'middle' });
             locSvg = `
                 <rect x="${pillX}" y="${y}" rx="24" ry="24" width="${pillW}" height="48" fill="#FFFFFF" />
                 ${svgIcon('ubicacion', pillX + 14, y + 12, 24, brandAccent, 2)}
-                <text x="${cx + 12}" y="${y + 33}" fill="${brandAccent}" font-size="24" font-weight="700" text-anchor="middle">${locText}</text>
+                ${locPath}
             `;
         }
 
@@ -3958,7 +4018,7 @@ async function buildInstagramTemplateOverlaySvg(
         detailsBand = `
             ${badgesSvg}
             <rect x="${margin}" y="${cardY}" rx="${cardR}" ry="${cardR}" width="${cardW}" height="${cardH}" fill="${brandAccent}" />
-            <text x="${cx}" y="${priceBaseline}" fill="#FFFFFF" font-size="80" font-weight="900" text-anchor="middle" letter-spacing="-2">${fullPrice}</text>
+            ${await textToPath(fullPriceText, { x: cx, y: priceBaseline, fontSize: 80, fontWeight: 900, fill: '#FFFFFF', anchor: 'middle' })}
             ${strikeSvg}
             ${titleSvg}
             ${hlSvg}
@@ -4027,24 +4087,26 @@ async function buildInstagramTemplateOverlaySvg(
         let badgesSvg = '';
         let bY = 28;
         if (template.discountLabel) {
-            const dt = escapeSvgText(template.discountLabel);
-            const dtw = Math.min(dt.length * 18 + 72, 240);
+            const dtText = clampTemplateText(template.discountLabel, 18);
+            const dtw = Math.min(dtText.length * 18 + 72, 240);
             const dtx = width - dtw - 30;
+            const dtPath = await textToPath(dtText, { x: dtx + dtw/2 + 14, y: bY + 40, fontSize: 28, fontWeight: 700, fill: '#FFFFFF', anchor: 'middle' });
             badgesSvg += `
                 <rect x="${dtx}" y="${bY}" rx="22" ry="22" width="${dtw}" height="58" fill="${brandAccent}" />
                 ${svgIcon('descuento', dtx + 16, bY + 15, 28, '#FFFFFF', 2)}
-                <text x="${dtx + dtw/2 + 14}" y="${bY + 40}" fill="#FFFFFF" font-size="28" font-weight="700" text-anchor="middle">${dt}</text>
+                ${dtPath}
             `;
             bY += 68;
         }
         for (const badge of (template.badges ?? []).slice(0, 3)) {
-            const bt = escapeSvgText(badge);
-            const btw = Math.min(bt.length * 16 + 64, 260);
+            const btText = clampTemplateText(badge, 16);
+            const btw = Math.min(btText.length * 16 + 64, 260);
             const btx = width - btw - 30;
+            const btPath = await textToPath(btText, { x: btx + btw/2 + 12, y: bY + 33, fontSize: 22, fontWeight: 600, fill: '#111111', anchor: 'middle' });
             badgesSvg += `
                 <rect x="${btx}" y="${bY}" rx="18" ry="18" width="${btw}" height="48" fill="#FFFFFF" />
                 ${svgIcon('servicio', btx + 14, bY + 10, 24, '#111111')}
-                <text x="${btx + btw/2 + 12}" y="${bY + 33}" fill="#111111" font-size="22" font-weight="600" text-anchor="middle">${bt}</text>
+                ${btPath}
             `;
             bY += 56;
         }
@@ -4052,7 +4114,7 @@ async function buildInstagramTemplateOverlaySvg(
         detailsBand = `
             <rect x="0" y="${gradY}" width="${width}" height="${gradH}" fill="url(#premiumGrad)" />
             ${badgesSvg}
-            <text x="${cx}" y="${priceBaseline}" fill="#FFFFFF" font-size="80" font-weight="900" text-anchor="middle" letter-spacing="-2">${fullPrice}</text>
+            ${await textToPath(fullPrice, { x: cx, y: priceBaseline, fontSize: 80, fontWeight: 900, fill: '#FFFFFF', anchor: 'middle' })}
             ${strikeSvg}
             ${titleSvg}
             ${hlSvg}
