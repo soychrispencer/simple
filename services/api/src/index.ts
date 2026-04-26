@@ -4335,13 +4335,12 @@ async function prepareInstagramImageUrlCloudflare(
         const r2PublicUrl = process.env.CLOUDFLARE_R2_PUBLIC_URL || 'https://pub-4809688bad1a41768578b221b0df942c.r2.dev';
         directImageUrl = `${r2PublicUrl}/${sourceKey}`;
     } else if (sourceUrl.includes('backblazeb2.com')) {
-        // Es URL de Backblaze B2 - usar el proxy para que el Worker pueda accederla
+        // Es URL de Backblaze B2 - usar la URL pública directa
         const urlObj = new URL(sourceUrl);
         const pathParts = urlObj.pathname.split('/');
         sourceKey = pathParts.slice(pathParts.indexOf('file') > -1 ? 3 : 1).join('/');
-        // Para Backblaze, usamos el proxy de la API con la URL completa como parámetro
-        const apiBaseUrl = process.env.API_BASE_URL || 'https://api.simpleplataforma.app';
-        directImageUrl = `${apiBaseUrl}/api/media/proxy?src=${encodeURIComponent(sourceUrl)}`;
+        // Usar la URL pública directa de Backblaze (el Worker debe poder descargarla)
+        directImageUrl = sourceUrl;
     } else {
         // URL externa, usar directamente
         directImageUrl = sourceUrl;
