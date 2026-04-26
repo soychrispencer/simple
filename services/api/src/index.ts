@@ -4446,7 +4446,8 @@ async function publishListingToInstagram(user: AppUser, listing: ListingRecord, 
 
     try {
         const coverTemplate = options.template ?? null;
-        const coverUrl = await prepareInstagramImageUrlCloudflare(listing, 0, {
+        // TODO: Volver a Cloudflare Worker cuando terminemos migración a R2
+        const coverUrl = await prepareInstagramImageUrl(listing, 0, {
             layoutVariant: coverTemplate?.layoutVariant ?? null,
             template: coverTemplate,
             publishKey,
@@ -4490,7 +4491,7 @@ async function publishListingToInstagram(user: AppUser, listing: ListingRecord, 
 
     for (let i = 1; i < mediaUrls.length; i++) {
         try {
-            const url = await prepareInstagramImageUrlCloudflare(listing, i, {
+            const url = await prepareInstagramImageUrl(listing, i, {
                 layoutVariant: options.template?.layoutVariant ?? null,
                 template: watermarkTemplate,
                 publishKey,
