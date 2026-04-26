@@ -1,0 +1,1 @@
+{"error":"Wasm has not been initialized. Call `initWasm()` function."}

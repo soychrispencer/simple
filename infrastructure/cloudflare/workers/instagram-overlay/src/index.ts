@@ -1,4 +1,15 @@
-import { Resvg } from '@resvg/resvg-wasm';
+import { Resvg, initWasm } from '@resvg/resvg-wasm';
+// @ts-ignore - WASM module import
+import wasmCode from '@resvg/resvg-wasm/index_bg.wasm';
+
+// Inicializar WASM una sola vez
+let wasmInitialized = false;
+async function ensureWasm(): Promise<void> {
+  if (!wasmInitialized) {
+    await initWasm(wasmCode);
+    wasmInitialized = true;
+  }
+}
 
 // Interfaces para los templates
 type OverlayVariant = 
@@ -61,6 +72,9 @@ export default {
     }
 
     try {
+      // Inicializar WASM
+      await ensureWasm();
+
       // Parsear parámetros desde GET o POST
       let imageUrl: string;
       let variant: OverlayVariant;

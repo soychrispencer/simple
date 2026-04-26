@@ -75,8 +75,8 @@ export default function LandingPage() {
       >
         {/* Background Pattern */}
         <div className="absolute inset-0 opacity-10">
-          <div className="absolute top-20 left-10 w-64 h-64 rounded-full bg-white blur-3xl" />
-          <div className="absolute bottom-20 right-10 w-96 h-96 rounded-full bg-white blur-3xl" />
+          <div className="absolute top-20 left-10 w-64 h-64 rounded-full bg-[var(--fg)] blur-3xl" />
+          <div className="absolute bottom-20 right-10 w-96 h-96 rounded-full bg-[var(--fg)] blur-3xl" />
         </div>
 
         <div className="relative max-w-7xl mx-auto px-6 lg:px-8 py-16 lg:py-24">
@@ -137,7 +137,7 @@ export default function LandingPage() {
                 style={{ background: 'rgba(255,255,255,0.1)', backdropFilter: 'blur(20px)', border: '1px solid rgba(255,255,255,0.2)' }}
               >
                 {/* Mock App Interface */}
-                <div className="bg-white rounded-2xl p-6 shadow-xl">
+                <div className="rounded-2xl p-6 shadow-xl" style={{ background: 'var(--surface)' }}>
                   <div className="flex items-center gap-3 mb-6">
                     <div
                       className="w-10 h-10 rounded-xl flex items-center justify-center"
@@ -192,7 +192,7 @@ export default function LandingPage() {
       </section>
 
       {/* Features Section */}
-      <section className="py-20 lg:py-32 px-6 lg:px-8">
+      <section className="py-20 lg:py-32 px-6 lg:px-8" style={{ background: 'var(--bg)' }}>
         <div className="max-w-7xl mx-auto">
           <div className="text-center mb-16">
             <h2 className="text-3xl lg:text-4xl font-bold mb-4" style={{ color: 'var(--fg)' }}>
@@ -265,11 +265,11 @@ export default function LandingPage() {
       </section>
 
       {/* Stats Section */}
-      <section className="py-20 px-6 lg:px-8">
+      <section className="py-20 px-6 lg:px-8" style={{ background: 'var(--surface)' }}>
         <div className="max-w-5xl mx-auto">
           <div
             className="rounded-3xl p-8 lg:p-12 text-center"
-            style={{ background: 'var(--fg)', color: 'white' }}
+            style={{ background: 'var(--accent)', color: 'white' }}
           >
             <h2 className="text-2xl lg:text-3xl font-bold mb-12">
               Únete a la comunidad de músicos más grande de Chile
@@ -278,7 +278,7 @@ export default function LandingPage() {
               <StatItem number="500+" label="Músicos activos" />
               <StatItem number="2,000+" label="Serenatas mensuales" />
               <StatItem number="15%" label="Más ingresos promedio" />
-              <StatItem number="4.9" label="Rating de app" icon={<IconStar size={20} className="inline text-yellow-400" />} />
+              <StatItem number="4.9" label="Rating de app" icon={<IconStar size={20} className="inline text-yellow-300" />} />
             </div>
           </div>
         </div>
@@ -368,7 +368,7 @@ export default function LandingPage() {
       </section>
 
       {/* Final CTA */}
-      <section className="py-20 px-6 lg:px-8">
+      <section className="py-20 px-6 lg:px-8" style={{ background: 'var(--bg)' }}>
         <div className="max-w-4xl mx-auto text-center">
           <h2 className="text-3xl lg:text-5xl font-bold mb-6" style={{ color: 'var(--fg)' }}>
             ¿Listo para potenciar tu carrera musical?
