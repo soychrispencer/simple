@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { IconConfetti, IconEye, IconEyeOff, IconArrowLeft, IconCheck } from '@tabler/icons-react';
+import { IconConfettiFilled, IconEye, IconEyeOff, IconArrowLeft, IconCheck } from '@tabler/icons-react';
 import { useAuth } from '@/context/AuthContext';
 
 const instruments = [
@@ -82,9 +82,9 @@ export default function RegisterPage() {
           <div className="flex items-center gap-2">
             <div
               className="w-8 h-8 rounded-lg flex items-center justify-center"
-              style={{ background: 'var(--accent)' }}
+              style={{ backgroundColor: 'var(--accent-subtle)' }}
             >
-              <IconConfetti size={16} style={{ color: 'var(--accent-contrast)' }} />
+              <IconConfettiFilled size={16} style={{ color: '#E11D48' }} />
             </div>
             <span className="font-bold" style={{ color: 'var(--fg)' }}>SimpleSerenatas</span>
           </div>
@@ -330,9 +330,9 @@ export default function RegisterPage() {
           <div className="mb-12">
             <div
               className="w-20 h-20 rounded-2xl flex items-center justify-center mb-6"
-              style={{ background: 'rgba(255,255,255,0.2)', backdropFilter: 'blur(10px)' }}
+              style={{ backgroundColor: 'var(--accent-subtle)' }}
             >
-              <IconConfetti size={40} className="text-white" />
+              <IconConfettiFilled size={40} style={{ color: '#E11D48' }} />
             </div>
             <h2 className="text-4xl font-bold text-white mb-4">
               Únete a la comunidad de músicos

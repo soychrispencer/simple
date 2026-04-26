@@ -20,9 +20,14 @@ export interface MediaRouterDeps {
     };
     getMediaProxyS3Client: () => any;
     isBackblazeUrl: (url: string) => boolean;
+    isCloudflareR2Url: (url: string) => boolean;
+    isStorageUrl: (url: string) => boolean;
     extractBackblazeObjectKey: (url: string) => string | null;
+    extractR2ObjectKey: (url: string) => string | null;
+    extractStorageObjectKey: (url: string) => string | null;
     env: {
         BACKBLAZE_BUCKET_NAME?: string;
+        CLOUDFLARE_R2_BUCKET_NAME?: string;
         STORAGE_PROVIDER?: string;
         BACKBLAZE_APP_KEY_ID?: string;
         BACKBLAZE_APP_KEY?: string;
@@ -40,25 +45,33 @@ export function createMediaRouter(deps: MediaRouterDeps) {
         getStorageProvider,
         getMediaProxyS3Client,
         isBackblazeUrl,
+        isCloudflareR2Url,
+        isStorageUrl,
         extractBackblazeObjectKey,
+        extractR2ObjectKey,
+        extractStorageObjectKey,
         env,
     } = deps;
 
     const app = new Hono();
 
-    // Proxy para imágenes desde Backblaze
+    // Proxy para imágenes desde Backblaze B2 o Cloudflare R2
     app.get('/proxy', async (c) => {
         const src = asString(c.req.query('src'));
         if (!src) {
             return c.json({ ok: false, error: 'Falta src.' }, 400);
         }
 
-        if (!isBackblazeUrl(src)) {
-            return c.json({ ok: false, error: 'Origen no soportado.' }, 400);
+        if (!isStorageUrl(src)) {
+            return c.json({ ok: false, error: 'Origen no soportado. Solo Backblaze B2 y Cloudflare R2.' }, 400);
         }
 
-        const bucketName = env.BACKBLAZE_BUCKET_NAME || 'simple-media';
-        const key = extractBackblazeObjectKey(src);
+        // Determine bucket name based on storage type
+        const bucketName = isCloudflareR2Url(src) 
+            ? (env.CLOUDFLARE_R2_BUCKET_NAME || 'simple-media')
+            : (env.BACKBLAZE_BUCKET_NAME || 'simple-media');
+        
+        const key = extractStorageObjectKey(src);
         if (!key) {
             return c.json({ ok: false, error: 'No pudimos resolver el archivo.' }, 404);
         }

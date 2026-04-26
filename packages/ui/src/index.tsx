@@ -4248,3 +4248,6 @@ export type {
     OwnerListingStatus,
     PublicListingCardProps,
 } from './listing-card/types';
+
+// Sidebar
+export { AppSidebar, type NavItem, type UserInfo, type AppSidebarProps } from './sidebar/app-sidebar';

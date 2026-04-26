@@ -7968,6 +7968,19 @@ function isBackblazeUrl(url: string): boolean {
     }
 }
 
+function isCloudflareR2Url(url: string): boolean {
+    try {
+        const hostname = new URL(url).hostname;
+        return hostname.endsWith('.r2.cloudflarestorage.com') || hostname.endsWith('.r2.dev');
+    } catch {
+        return false;
+    }
+}
+
+function isStorageUrl(url: string): boolean {
+    return isBackblazeUrl(url) || isCloudflareR2Url(url);
+}
+
 function extractBackblazeObjectKey(url: string): string {
     if (!isBackblazeUrl(url)) return '';
     const bucketName = process.env.BACKBLAZE_BUCKET_NAME || 'simple-media';
@@ -7980,6 +7993,41 @@ function extractBackblazeObjectKey(url: string): string {
         }
     } catch {
         return '';
+    }
+    return '';
+}
+
+function extractR2ObjectKey(url: string): string {
+    if (!isCloudflareR2Url(url)) return '';
+    try {
+        const parsed = new URL(url);
+        // R2 public URL format: https://pub-xxx.r2.dev/key
+        // R2 S3 URL format: https://accountId.r2.cloudflarestorage.com/bucket/key
+        const bucketName = process.env.CLOUDFLARE_R2_BUCKET_NAME || 'simple-media';
+        
+        // Try public URL format first (pub-xxx.r2.dev/key)
+        if (parsed.hostname.endsWith('.r2.dev')) {
+            // Path is just /key
+            return decodeURIComponent(parsed.pathname.slice(1));
+        }
+        
+        // Try S3 endpoint format (accountId.r2.cloudflarestorage.com/bucket/key)
+        const prefix = `/${bucketName}/`;
+        if (parsed.pathname.startsWith(prefix)) {
+            return decodeURIComponent(parsed.pathname.slice(prefix.length));
+        }
+    } catch {
+        return '';
+    }
+    return '';
+}
+
+function extractStorageObjectKey(url: string): string {
+    if (isBackblazeUrl(url)) {
+        return extractBackblazeObjectKey(url);
+    }
+    if (isCloudflareR2Url(url)) {
+        return extractR2ObjectKey(url);
     }
     return '';
 }
@@ -10970,27 +11018,56 @@ app.route('/', createSystemRouter({
 let mediaProxyS3Client: S3Client | null = null;
 
 function getMediaProxyS3Client(): S3Client | null {
-    if (process.env.STORAGE_PROVIDER !== 'backblaze-s3') return null;
     if (mediaProxyS3Client) return mediaProxyS3Client;
 
-    const endpoint = process.env.BACKBLAZE_S3_ENDPOINT;
-    const region = process.env.BACKBLAZE_S3_REGION;
-    const accessKeyId = process.env.BACKBLAZE_S3_ACCESS_KEY;
-    const secretAccessKey = process.env.BACKBLAZE_S3_SECRET_KEY;
+    const storageProvider = process.env.STORAGE_PROVIDER || 'cloudflare-r2';
 
-    if (!endpoint || !region || !accessKeyId || !secretAccessKey) return null;
+    // Support Cloudflare R2 (S3-compatible)
+    if (storageProvider === 'cloudflare-r2' || storageProvider === 'r2') {
+        const accountId = process.env.CLOUDFLARE_R2_ACCOUNT_ID;
+        const accessKeyId = process.env.CLOUDFLARE_R2_ACCESS_KEY_ID;
+        const secretAccessKey = process.env.CLOUDFLARE_R2_SECRET_ACCESS_KEY;
 
-    mediaProxyS3Client = new S3Client({
-        endpoint,
-        region,
-        credentials: {
-            accessKeyId,
-            secretAccessKey,
-        },
-        forcePathStyle: false,
-    });
+        if (!accountId || !accessKeyId || !secretAccessKey) return null;
 
-    return mediaProxyS3Client;
+        const endpoint = `https://${accountId}.r2.cloudflarestorage.com`;
+
+        mediaProxyS3Client = new S3Client({
+            region: 'auto',
+            endpoint,
+            credentials: {
+                accessKeyId,
+                secretAccessKey,
+            },
+            forcePathStyle: false,
+        });
+
+        return mediaProxyS3Client;
+    }
+
+    // Support Backblaze S3
+    if (storageProvider === 'backblaze-s3' || storageProvider === 's3') {
+        const endpoint = process.env.BACKBLAZE_S3_ENDPOINT;
+        const region = process.env.BACKBLAZE_S3_REGION;
+        const accessKeyId = process.env.BACKBLAZE_S3_ACCESS_KEY;
+        const secretAccessKey = process.env.BACKBLAZE_S3_SECRET_KEY;
+
+        if (!endpoint || !region || !accessKeyId || !secretAccessKey) return null;
+
+        mediaProxyS3Client = new S3Client({
+            endpoint,
+            region,
+            credentials: {
+                accessKeyId,
+                secretAccessKey,
+            },
+            forcePathStyle: false,
+        });
+
+        return mediaProxyS3Client;
+    }
+
+    return null;
 }
 
 app.route('/api/auth', createAuthRouter({
@@ -11514,9 +11591,14 @@ app.route('/api/media', createMediaRouter({
     getStorageProvider,
     getMediaProxyS3Client,
     isBackblazeUrl,
+    isCloudflareR2Url,
+    isStorageUrl,
     extractBackblazeObjectKey,
+    extractR2ObjectKey,
+    extractStorageObjectKey,
     env: {
         BACKBLAZE_BUCKET_NAME: process.env.BACKBLAZE_BUCKET_NAME,
+        CLOUDFLARE_R2_BUCKET_NAME: process.env.CLOUDFLARE_R2_BUCKET_NAME,
         STORAGE_PROVIDER: process.env.STORAGE_PROVIDER,
         BACKBLAZE_APP_KEY_ID: process.env.BACKBLAZE_APP_KEY_ID,
         BACKBLAZE_APP_KEY: process.env.BACKBLAZE_APP_KEY,

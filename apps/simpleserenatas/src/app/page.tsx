@@ -21,7 +21,7 @@ export default function LandingPage() {
       {/* Navigation - Desktop */}
       <nav className="hidden lg:flex items-center justify-between px-8 py-4 border-b sticky top-0 z-50 bg-white/80 backdrop-blur-md" style={{ borderColor: 'var(--border)' }}>
         <Link href="/" className="flex items-center gap-2 group shrink-0">
-          <span className="w-9 h-9 rounded-[10px] border flex items-center justify-center transition-colors group-hover:opacity-80" style={{ borderColor: '#E11D48', color: '#E11D48' }}>
+          <span className="w-9 h-9 rounded-[10px] flex items-center justify-center transition-opacity group-hover:opacity-80" style={{ backgroundColor: 'var(--accent-subtle)', color: '#E11D48' }}>
             <IconConfettiFilled size={18} />
           </span>
           <span className="inline-flex items-baseline gap-[0.08rem] text-[1.05rem] tracking-tight" style={{ color: 'var(--fg)' }}>
@@ -64,8 +64,8 @@ export default function LandingPage() {
             <div className="text-center lg:text-left">
               {/* Mobile Logo */}
               <div className="flex items-center justify-center lg:justify-start gap-3 mb-8 lg:hidden">
-                <div className="w-12 h-12 bg-white rounded-xl flex items-center justify-center">
-                  <IconConfettiFilled size={24} style={{ color: 'var(--accent)' }} />
+                <div className="w-12 h-12 rounded-xl flex items-center justify-center" style={{ backgroundColor: 'var(--accent-subtle)' }}>
+                  <IconConfettiFilled size={24} style={{ color: '#E11D48' }} />
                 </div>
                 <span className="text-white text-xl font-bold">SimpleSerenatas</span>
               </div>
