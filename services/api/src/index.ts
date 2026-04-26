@@ -4414,7 +4414,7 @@ async function publishListingToInstagram(user: AppUser, listing: ListingRecord, 
 
     try {
         const coverTemplate = options.template ?? null;
-        const coverUrl = await prepareInstagramImageUrl(listing, 0, {
+        const coverUrl = await prepareInstagramImageUrlCloudflare(listing, 0, {
             layoutVariant: coverTemplate?.layoutVariant ?? null,
             template: coverTemplate,
             publishKey,
@@ -4458,7 +4458,7 @@ async function publishListingToInstagram(user: AppUser, listing: ListingRecord, 
 
     for (let i = 1; i < mediaUrls.length; i++) {
         try {
-            const url = await prepareInstagramImageUrl(listing, i, {
+            const url = await prepareInstagramImageUrlCloudflare(listing, i, {
                 layoutVariant: options.template?.layoutVariant ?? null,
                 template: watermarkTemplate,
                 publishKey,
