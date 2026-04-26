@@ -4309,17 +4309,43 @@ async function prepareInstagramImageUrlCloudflare(
     const targetHeight = effectiveLayoutVariant === 'portrait' ? 1350 : 1080;
     const workerUrl = process.env.CLOUDFLARE_WORKER_URL.replace(/\/$/, '');
 
-    // Extraer la key de la imagen original
+    // Si la URL es del proxy de la API, extraer la URL original
+    let sourceUrl = rawUrl;
+    if (rawUrl.includes('/api/media/proxy')) {
+        try {
+            const urlObj = new URL(rawUrl);
+            const srcParam = urlObj.searchParams.get('src');
+            if (srcParam) {
+                sourceUrl = decodeURIComponent(srcParam);
+            }
+        } catch {
+            // Si falla, usar la URL original
+        }
+    }
+
+    // Extraer la key de la imagen original y construir URL directa
     let sourceKey: string;
-    if (rawUrl.includes('r2.cloudflarestorage.com') || rawUrl.includes('backblazeb2.com')) {
-        // Es URL de storage, extraer key
-        const urlObj = new URL(rawUrl);
+    let directImageUrl: string;
+    
+    if (sourceUrl.includes('r2.cloudflarestorage.com') || sourceUrl.includes('.r2.dev')) {
+        // Es URL de Cloudflare R2
+        const urlObj = new URL(sourceUrl);
+        const pathParts = urlObj.pathname.split('/').filter(Boolean);
+        sourceKey = pathParts.join('/');
+        const r2PublicUrl = process.env.CLOUDFLARE_R2_PUBLIC_URL || 'https://pub-4809688bad1a41768578b221b0df942c.r2.dev';
+        directImageUrl = `${r2PublicUrl}/${sourceKey}`;
+    } else if (sourceUrl.includes('backblazeb2.com')) {
+        // Es URL de Backblaze B2 - usar el proxy para que el Worker pueda accederla
+        const urlObj = new URL(sourceUrl);
         const pathParts = urlObj.pathname.split('/');
-        // Removemos el primer segmento vacío y el nombre del bucket si existe
         sourceKey = pathParts.slice(pathParts.indexOf('file') > -1 ? 3 : 1).join('/');
+        // Para Backblaze, usamos el proxy de la API con la URL completa como parámetro
+        const apiBaseUrl = process.env.API_BASE_URL || 'https://api.simpleplataforma.app';
+        directImageUrl = `${apiBaseUrl}/api/media/proxy?src=${encodeURIComponent(sourceUrl)}`;
     } else {
-        // URL externa, necesitamos descargar y subir a R2 primero
-        throw new Error('URL de imagen no compatible con Cloudflare R2: ' + rawUrl);
+        // URL externa, usar directamente
+        directImageUrl = sourceUrl;
+        sourceKey = '';
     }
 
     // Construir datos para el overlay
@@ -4346,7 +4372,7 @@ async function prepareInstagramImageUrlCloudflare(
 
     // Generar URL del Worker con parámetros
     const params = new URLSearchParams({
-        image: sourceKey,
+        image: directImageUrl,
         variant,
         data: JSON.stringify(overlayData),
         width: '1080',
