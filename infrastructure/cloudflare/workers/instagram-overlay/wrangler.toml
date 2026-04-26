@@ -3,6 +3,10 @@ main = "src/index.ts"
 compatibility_date = "2024-01-01"
 compatibility_flags = ["nodejs_compat"]
 
+# Configurar el subdominio workers.dev
+# Si aún no lo tienes, regístralo primero en: https://dash.cloudflare.com/workers/subdomain
+workers_dev = true
+
 [vars]
 R2_BUCKET_NAME = "simple-media"
 
