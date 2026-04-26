@@ -19,6 +19,7 @@ export interface MediaRouterDeps {
         health: () => Promise<boolean>;
     };
     getMediaProxyS3Client: () => any;
+    getS3ClientForUrl: (url: string) => { client: any; bucketName: string };
     isBackblazeUrl: (url: string) => boolean;
     isCloudflareR2Url: (url: string) => boolean;
     isStorageUrl: (url: string) => boolean;
@@ -44,6 +45,7 @@ export function createMediaRouter(deps: MediaRouterDeps) {
         logDebug,
         getStorageProvider,
         getMediaProxyS3Client,
+        getS3ClientForUrl,
         isBackblazeUrl,
         isCloudflareR2Url,
         isStorageUrl,
@@ -66,19 +68,19 @@ export function createMediaRouter(deps: MediaRouterDeps) {
             return c.json({ ok: false, error: 'Origen no soportado. Solo Backblaze B2 y Cloudflare R2.' }, 400);
         }
 
-        // Determine bucket name based on storage type
-        const bucketName = isCloudflareR2Url(src) 
-            ? (env.CLOUDFLARE_R2_BUCKET_NAME || 'simple-media')
-            : (env.BACKBLAZE_BUCKET_NAME || 'simple-media');
+        // Get the appropriate S3 client and bucket for this URL
+        const { client, bucketName } = getS3ClientForUrl(src);
         
+        if (!client) {
+            return c.json({ 
+                ok: false, 
+                error: 'El proxy de medios no está configurado para este tipo de almacenamiento.' 
+            }, 503);
+        }
+
         const key = extractStorageObjectKey(src);
         if (!key) {
             return c.json({ ok: false, error: 'No pudimos resolver el archivo.' }, 404);
-        }
-
-        const client = getMediaProxyS3Client();
-        if (!client) {
-            return c.json({ ok: false, error: 'El proxy de medios no está configurado.' }, 503);
         }
 
         try {

@@ -11015,59 +11015,82 @@ app.route('/', createSystemRouter({
     },
 }));
 
-let mediaProxyS3Client: S3Client | null = null;
+let backblazeS3Client: S3Client | null = null;
+let r2S3Client: S3Client | null = null;
 
+function getBackblazeS3Client(): S3Client | null {
+    if (backblazeS3Client) return backblazeS3Client;
+
+    const endpoint = process.env.BACKBLAZE_S3_ENDPOINT;
+    const region = process.env.BACKBLAZE_S3_REGION;
+    const accessKeyId = process.env.BACKBLAZE_S3_ACCESS_KEY;
+    const secretAccessKey = process.env.BACKBLAZE_S3_SECRET_KEY;
+
+    if (!endpoint || !region || !accessKeyId || !secretAccessKey) {
+        console.warn('[MediaProxy] Backblaze S3 credentials not configured');
+        return null;
+    }
+
+    backblazeS3Client = new S3Client({
+        endpoint,
+        region,
+        credentials: {
+            accessKeyId,
+            secretAccessKey,
+        },
+        forcePathStyle: false,
+    });
+
+    return backblazeS3Client;
+}
+
+function getR2S3Client(): S3Client | null {
+    if (r2S3Client) return r2S3Client;
+
+    const accountId = process.env.CLOUDFLARE_R2_ACCOUNT_ID;
+    const accessKeyId = process.env.CLOUDFLARE_R2_ACCESS_KEY_ID;
+    const secretAccessKey = process.env.CLOUDFLARE_R2_SECRET_ACCESS_KEY;
+
+    if (!accountId || !accessKeyId || !secretAccessKey) {
+        console.warn('[MediaProxy] R2 credentials not configured');
+        return null;
+    }
+
+    const endpoint = `https://${accountId}.r2.cloudflarestorage.com`;
+
+    r2S3Client = new S3Client({
+        region: 'auto',
+        endpoint,
+        credentials: {
+            accessKeyId,
+            secretAccessKey,
+        },
+        forcePathStyle: false,
+    });
+
+    return r2S3Client;
+}
+
+function getS3ClientForUrl(url: string): { client: S3Client | null; bucketName: string } {
+    if (isCloudflareR2Url(url)) {
+        return {
+            client: getR2S3Client(),
+            bucketName: process.env.CLOUDFLARE_R2_BUCKET_NAME || 'simple-media',
+        };
+    }
+    if (isBackblazeUrl(url)) {
+        return {
+            client: getBackblazeS3Client(),
+            bucketName: process.env.BACKBLAZE_BUCKET_NAME || 'simple-media',
+        };
+    }
+    return { client: null, bucketName: '' };
+}
+
+// Legacy function for backward compatibility
 function getMediaProxyS3Client(): S3Client | null {
-    if (mediaProxyS3Client) return mediaProxyS3Client;
-
-    const storageProvider = process.env.STORAGE_PROVIDER || 'cloudflare-r2';
-
-    // Support Cloudflare R2 (S3-compatible)
-    if (storageProvider === 'cloudflare-r2' || storageProvider === 'r2') {
-        const accountId = process.env.CLOUDFLARE_R2_ACCOUNT_ID;
-        const accessKeyId = process.env.CLOUDFLARE_R2_ACCESS_KEY_ID;
-        const secretAccessKey = process.env.CLOUDFLARE_R2_SECRET_ACCESS_KEY;
-
-        if (!accountId || !accessKeyId || !secretAccessKey) return null;
-
-        const endpoint = `https://${accountId}.r2.cloudflarestorage.com`;
-
-        mediaProxyS3Client = new S3Client({
-            region: 'auto',
-            endpoint,
-            credentials: {
-                accessKeyId,
-                secretAccessKey,
-            },
-            forcePathStyle: false,
-        });
-
-        return mediaProxyS3Client;
-    }
-
-    // Support Backblaze S3
-    if (storageProvider === 'backblaze-s3' || storageProvider === 's3') {
-        const endpoint = process.env.BACKBLAZE_S3_ENDPOINT;
-        const region = process.env.BACKBLAZE_S3_REGION;
-        const accessKeyId = process.env.BACKBLAZE_S3_ACCESS_KEY;
-        const secretAccessKey = process.env.BACKBLAZE_S3_SECRET_KEY;
-
-        if (!endpoint || !region || !accessKeyId || !secretAccessKey) return null;
-
-        mediaProxyS3Client = new S3Client({
-            endpoint,
-            region,
-            credentials: {
-                accessKeyId,
-                secretAccessKey,
-            },
-            forcePathStyle: false,
-        });
-
-        return mediaProxyS3Client;
-    }
-
-    return null;
+    // Try to return any available client
+    return getR2S3Client() || getBackblazeS3Client();
 }
 
 app.route('/api/auth', createAuthRouter({
@@ -11590,6 +11613,7 @@ app.route('/api/media', createMediaRouter({
     logDebug,
     getStorageProvider,
     getMediaProxyS3Client,
+    getS3ClientForUrl,
     isBackblazeUrl,
     isCloudflareR2Url,
     isStorageUrl,
