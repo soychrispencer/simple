@@ -30,6 +30,7 @@ export interface ListingData {
     description?: string;
     section?: string;
     summary?: string[];
+    locationLabel?: string;
 }
 
 export type InstagramTemplateCategory = 'auto' | 'propiedad' | 'agenda';

@@ -4248,6 +4248,3 @@ export type {
     OwnerListingStatus,
     PublicListingCardProps,
 } from './listing-card/types';
-
-// Header component (incluye Logo)
-export { Header, BRAND_CONFIG, type HeaderProps, type Brand, type NavItem } from './header';

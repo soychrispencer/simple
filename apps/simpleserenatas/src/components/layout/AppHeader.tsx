@@ -11,10 +11,10 @@ import {
     IconUser,
     IconMenu2,
     IconX,
+    IconConfettiFilled,
     IconLogout,
 } from '@tabler/icons-react';
 import { useAuth } from '@/context/AuthContext';
-import { Logo } from '@simple/ui';
 
 interface AppHeaderProps {
     onMenuClick?: () => void;
@@ -93,13 +93,15 @@ export function AppHeader({ onMenuClick, sidebarCollapsed }: AppHeaderProps) {
                     )}
 
                     {/* Logo */}
-                    <div className="hidden sm:block">
-                        <Logo brand="serenatas" href="/inicio" />
-                    </div>
-                    {/* Mobile Logo */}
-                    <div className="sm:hidden">
-                        <Logo brand="serenatas" href="/inicio" size="sm" />
-                    </div>
+                    <Link href="/inicio" className="flex items-center gap-2 group shrink-0">
+                        <span className="w-9 h-9 rounded-[10px] border flex items-center justify-center transition-colors group-hover:opacity-80" style={{ borderColor: '#E11D48', color: '#E11D48' }}>
+                            <IconConfettiFilled size={18} />
+                        </span>
+                        <span className="hidden sm:inline-flex items-baseline gap-[0.08rem] text-lg tracking-tight" style={{ color: 'var(--fg)' }}>
+                            <span className="font-semibold leading-none">Simple</span>
+                            <span className="font-normal leading-none" style={{ color: '#E11D48' }}>Serenatas</span>
+                        </span>
+                    </Link>
 
                     {/* Desktop Navigation */}
                     <nav className="hidden lg:flex items-center gap-1 ml-6">

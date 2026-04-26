@@ -4325,8 +4325,8 @@ async function prepareInstagramImageUrlCloudflare(
     // Construir datos para el overlay
     const overlayData = {
         title: options.template?.title || listing.title,
-        price: options.template?.priceLabel || listing.priceLabel,
-        location: options.template?.locationLabel || (listing as any).locationLabel || 'Chile',
+        price: options.template?.priceLabel || listing.price || 'Consultar',
+        location: options.template?.locationLabel || listing.location || 'Chile',
         highlights: options.template?.highlights || [],
         badges: options.template?.badges || [],
         brand: options.template?.branding?.appId || (listing.vertical === 'propiedades' ? 'simplepropiedades' : 'simpleautos'),
@@ -4778,13 +4778,16 @@ async function listFeaturedBoosted(vertical: VerticalType, section: BoostSection
             const sourceListing = listingsById.get(listing.id);
             const listingImageUrls = sourceListing ? extractListingMediaUrls(sourceListing) : [];
             const imageUrl = listingImageUrls.length > 0 ? listingImageUrls[0] : listing.imageUrl;
+            const location = sourceListing
+                ? buildLocationPublicLabel(sourceListing.locationData) || humanizePublicLocationFallback(sourceListing.location) || humanizePublicLocationFallback(listing.location) || 'Chile'
+                : humanizePublicLocationFallback(listing.location) || 'Chile';
             return {
                 id: listing.id,
                 href: listing.href,
                 title: listing.title,
                 subtitle: listing.subtitle,
                 price: listing.price,
-                location: listing.location || 'Chile',
+                location,
                 imageUrl,
                 imageUrls: listingImageUrls,
                 section: listing.section,
@@ -4814,13 +4817,16 @@ async function listFeaturedBoosted(vertical: VerticalType, section: BoostSection
             const sourceListing = listingsById.get(listing.id);
             const listingImageUrls = sourceListing ? extractListingMediaUrls(sourceListing) : (listing.imageUrls || []);
             const imageUrl = listingImageUrls.length > 0 ? listingImageUrls[0] : listing.imageUrl;
+            const location = sourceListing
+                ? buildLocationPublicLabel(sourceListing.locationData) || humanizePublicLocationFallback(sourceListing.location) || humanizePublicLocationFallback(listing.location) || 'Chile'
+                : humanizePublicLocationFallback(listing.location) || 'Chile';
             return {
                 id: listing.id,
                 href: listing.href,
                 title: listing.title,
                 subtitle: listing.subtitle,
                 price: listing.price,
-                location: listing.location || 'Chile',
+                location,
                 imageUrl,
                 imageUrls: listingImageUrls,
                 section: listing.section,
@@ -5384,17 +5390,30 @@ function daysSince(timestamp: number | null | undefined): number | null {
 
 function buildLocationPublicLabel(location: Partial<ListingLocation> | null | undefined): string {
     if (!location) return '';
+    const explicitPublicLabel = asString(location.publicLabel);
+    if (explicitPublicLabel) return humanizePublicLocationFallback(explicitPublicLabel);
 
     const visibilityMode = location.visibilityMode ?? 'commune_only';
     const address = asString(location.addressLine1);
     const neighborhood = asString(location.neighborhood);
-    const commune = asString(location.communeName);
-    const region = asString(location.regionName);
+    const commune = humanizePublicLocationFallback(asString(location.communeName) || asString(location.communeId));
+    const region = humanizePublicLocationFallback(asString(location.regionName) || asString(location.regionId));
 
     if (visibilityMode === 'hidden') return '';
     if (visibilityMode === 'exact') return [address, neighborhood, commune, region].filter(Boolean).join(', ');
     if (visibilityMode === 'approximate' || visibilityMode === 'sector_only') return [neighborhood, commune, region].filter(Boolean).join(', ');
     return [commune, region].filter(Boolean).join(', ');
+}
+
+function humanizePublicLocationFallback(value: string | null | undefined): string {
+    const normalized = asString(value);
+    if (!normalized) return '';
+    if (normalized.includes(',')) return normalized;
+    const compact = normalized.toLowerCase().trim();
+    const withoutRegionPrefix = compact.replace(/^(rm|arica|tarapaca|antofagasta|atacama|coquimbo|valparaiso|ohiggins|maule|nuble|bio|araucania|rios|lagos|aysen|magallanes)-/, '');
+    const label = withoutRegionPrefix.replace(/-/g, ' ').trim();
+    if (!label) return normalized;
+    return label.replace(/\b\w/g, (char) => char.toUpperCase());
 }
 
 function normalizeListingLocation(value: unknown): ListingLocation | undefined {
@@ -5733,6 +5752,27 @@ function parseMoneyAmount(value: unknown): number | null {
     const normalized = cleaned.replace(/\./g, '').replace(',', '.');
     const parsed = Number(normalized);
     return Number.isFinite(parsed) ? parsed : null;
+}
+
+function formatPublicMoneyLabel(value: unknown, currency: 'CLP' | 'USD' | 'UF' = 'CLP'): string {
+    const amount = parseMoneyAmount(value);
+    const fallback = asString(value).trim();
+    if (amount == null || amount <= 0) return fallback;
+    if (currency === 'UF') {
+        return `UF ${amount.toLocaleString('es-CL', { minimumFractionDigits: 0, maximumFractionDigits: 2 })}`;
+    }
+    if (currency === 'USD') {
+        return new Intl.NumberFormat('en-US', {
+            style: 'currency',
+            currency: 'USD',
+            maximumFractionDigits: 0,
+        }).format(amount);
+    }
+    return new Intl.NumberFormat('es-CL', {
+        style: 'currency',
+        currency: 'CLP',
+        maximumFractionDigits: 0,
+    }).format(amount);
 }
 
 function detectPriceCurrency(value: unknown): 'UF' | 'CLP' {
@@ -8024,10 +8064,12 @@ function extractListingMediaUrls(record: ListingRecord): string[] {
     const payload = asObject(record.rawData);
     const media = asObject(payload.media);
     const photos = Array.isArray(media.photos) ? media.photos : [];
-    return photos
+    const urls = photos
         .map((photo) => toPublicMediaUrl(photo))
         .filter((url) => url.length > 0)
         .slice(0, 8);
+    const remoteUrls = urls.filter((url) => !url.startsWith('data:'));
+    return remoteUrls.length > 0 ? remoteUrls : urls;
 }
 
 function appendUniqueSummary(summary: string[], value: string) {
@@ -8138,7 +8180,7 @@ function listingToPublicResponse(record: ListingRecord) {
         description: record.description,
         price: record.price,
         href: record.href,
-        location: record.location ?? '',
+        location: buildLocationPublicLabel(record.locationData) || humanizePublicLocationFallback(record.location) || '',
         views: record.views,
         favs: record.favs,
         leads: record.leads,

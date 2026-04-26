@@ -1,14 +1,28 @@
 'use client';
 
-import { useRouter } from 'next/navigation';
-import { Header, type NavItem } from '@simple/ui';
+import Link from 'next/link';
+import { usePathname, useRouter } from 'next/navigation';
+import { useTheme } from 'next-themes';
+import { useState, useEffect, useMemo, useRef } from 'react';
+import {
+    IconBell,
+    IconSun,
+    IconMoon,
+    IconUser,
+    IconPlus,
+    IconLogout,
+    IconSparkles,
+    IconMenu2,
+    IconX,
+    IconSteeringWheel,
+} from '@tabler/icons-react';
 import { useAuth } from '@/context/auth-context';
 import { getPanelNavItems, isPanelNavActive, type PanelRole } from '@/components/panel/panel-nav-config';
 import { fetchPanelNotifications, type PanelNotification } from '@/lib/panel-notifications';
 import { clearSavedListingsCache, syncSavedListingsFromApi } from '@/lib/saved-listings';
 import { PanelButton } from '@simple/ui';
 
-const navItems: NavItem[] = [
+const links = [
     { href: '/ventas', label: 'Comprar' },
     { href: '/arriendos', label: 'Arrendar' },
     { href: '/subastas', label: 'Subastas' },
@@ -16,31 +30,109 @@ const navItems: NavItem[] = [
     { href: '/descubre', label: 'Descubre', isNew: true },
 ];
 
-export default function AutosHeader() {
+export function Header() {
+    const pathname = usePathname() ?? '';
     const router = useRouter();
-    const { user, isLoading, logout } = useAuth();
+    const { theme, setTheme } = useTheme();
+    const [mounted, setMounted] = useState(false);
+    const [menuOpen, setMenuOpen] = useState(false);
+    const [accountOpen, setAccountOpen] = useState(false);
+    const [notificationsOpen, setNotificationsOpen] = useState(false);
+    const [notifications, setNotifications] = useState<PanelNotification[]>([]);
+    const menuRef = useRef<HTMLDivElement | null>(null);
+    const accountRef = useRef<HTMLDivElement | null>(null);
+    const notificationsRef = useRef<HTMLDivElement | null>(null);
+    const { user, isLoggedIn, requireAuth, logout, openAuth } = useAuth();
 
-    const handlePublish = () => {
-        if (!user) {
-            router.push('/login?redirect=/publicar');
+    useEffect(() => {
+        setMounted(true);
+    }, []);
+
+    useEffect(() => {
+        setMenuOpen(false);
+        setAccountOpen(false);
+        setNotificationsOpen(false);
+    }, [pathname, isLoggedIn]);
+
+    useEffect(() => {
+        if (!isLoggedIn) {
+            clearSavedListingsCache();
             return;
         }
-        router.push('/publicar');
+        void syncSavedListingsFromApi();
+    }, [isLoggedIn]);
+
+    useEffect(() => {
+        let active = true;
+        if (!isLoggedIn) {
+            setNotifications([]);
+            return;
+        }
+        const run = async () => {
+            const items = await fetchPanelNotifications();
+            if (!active) return;
+            setNotifications(items);
+        };
+        void run();
+        return () => {
+            active = false;
+        };
+    }, [isLoggedIn, pathname]);
+
+    useEffect(() => {
+        const handleOutside = (event: MouseEvent) => {
+            const target = event.target as Node;
+            if (!menuRef.current?.contains(target)) setMenuOpen(false);
+            if (!accountRef.current?.contains(target)) setAccountOpen(false);
+            if (!notificationsRef.current?.contains(target)) setNotificationsOpen(false);
+        };
+        document.addEventListener('pointerdown', handleOutside);
+        return () => document.removeEventListener('pointerdown', handleOutside);
+    }, []);
+
+    const handlePublicar = () => {
+        if (requireAuth(() => router.push('/panel/publicar'))) {
+            router.push('/panel/publicar');
+        }
     };
 
+    const role: PanelRole = user?.role ?? 'user';
+    const panelItems = useMemo(() => getPanelNavItems(role), [role]);
+    const userName = user?.name?.trim() || 'Usuario';
+    const unreadNotifications = notifications.length;
+
     return (
-        <Header
-            brand="autos"
-            navItems={navItems}
-            homeHref="/"
-            user={user}
-            onLogin={() => router.push('/login')}
-            onLogout={logout}
-            onPublish={handlePublish}
-            showPublishButton={true}
-        />
-    );
-}
+        <header className="relative z-40 transition-all duration-300" style={{ borderBottom: '1px solid var(--border)' }}>
+            <div className="container-app flex items-center justify-between h-16">
+                {/* Logo */}
+                <Link href="/" className="flex items-center gap-2 group shrink-0">
+                    <span className="w-9 h-9 rounded-[10px] border flex items-center justify-center transition-colors group-hover:opacity-80" style={{ borderColor: '#ff3600', color: '#ff3600' }}>
+                        <IconSteeringWheel size={18} />
+                    </span>
+                    <span className="inline-flex items-baseline gap-[0.08rem] text-[1.05rem] tracking-tight" style={{ color: 'var(--fg)' }}>
+                        <span className="font-semibold leading-none">Simple</span>
+                        <span className="font-normal leading-none" style={{ color: '#ff3600' }}>Autos</span>
+                    </span>
+                </Link>
+
+                {/* Desktop Navigation */}
+                <nav className="hidden md:flex items-center gap-1">
+                    {links.map((l) => (
+                        <Link
+                            key={l.href}
+                            href={l.href}
+                            className="header-nav-link px-3.5 py-2 text-sm font-medium rounded-lg transition-colors duration-200"
+                            data-active={pathname === l.href || pathname.startsWith(`${l.href}/`) ? 'true' : 'false'}
+                        >
+                            <span className="inline-flex items-center gap-1.5">
+                                <span>{l.label}</span>
+                                {l.isNew ? (
+                                    <span className="header-nav-link-badge inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] font-medium">
+                                        <IconSparkles size={10} />
+                                        Nuevo
+                                    </span>
+                                ) : null}
+                            </span>
                         </Link>
                     ))}
                 </nav>

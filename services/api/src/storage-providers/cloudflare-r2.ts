@@ -37,27 +37,36 @@ export class CloudflareR2Provider implements StorageProvider {
     }
 
     async upload(input: StorageUploadInput): Promise<StorageUploadResult> {
-        const { key, buffer, contentType, metadata } = input;
+        const { file, fileName, mimeType, userId, listingId } = input;
+        
+        // Generate storage key
+        const key = listingId 
+            ? `listings/${listingId}/${Date.now()}_${fileName}`
+            : `uploads/${userId}/${Date.now()}_${fileName}`;
         
         try {
             const command = new PutObjectCommand({
                 Bucket: this.bucketName,
                 Key: key,
-                Body: buffer,
-                ContentType: contentType,
-                Metadata: metadata,
+                Body: file,
+                ContentType: mimeType,
+                Metadata: {
+                    userId,
+                    ...(listingId && { listingId }),
+                },
             });
 
             await this.client.send(command);
 
-            const now = new Date().toISOString();
+            const now = Date.now();
             
             return {
-                key,
+                fileId: key,
                 url: `${this.publicUrl}/${key}`,
                 publicUrl: `${this.publicUrl}/${key}`,
-                contentType,
-                size: buffer.length,
+                fileName,
+                mimeType,
+                sizeBytes: file.length || file.byteLength || 0,
                 uploadedAt: now,
             };
         } catch (error) {
@@ -66,11 +75,11 @@ export class CloudflareR2Provider implements StorageProvider {
         }
     }
 
-    async delete(key: string): Promise<void> {
+    async delete(fileId: string): Promise<void> {
         try {
             const command = new DeleteObjectCommand({
                 Bucket: this.bucketName,
-                Key: key,
+                Key: fileId,
             });
 
             await this.client.send(command);

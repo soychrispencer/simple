@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { Logo } from '@simple/ui';
+import { IconSteeringWheel } from '@tabler/icons-react';
 
 export function Footer() {
     const sections = [
@@ -37,7 +37,15 @@ export function Footer() {
             <div className="container-app py-16">
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-10 mb-12">
                     <div className="col-span-2 sm:col-span-1">
-                        <Logo brand="autos" href="/" className="mb-4" />
+                        <Link href="/" className="group mb-4 flex items-center gap-2 shrink-0">
+                            <span className="w-9 h-9 rounded-[10px] border flex items-center justify-center transition-colors group-hover:opacity-80" style={{ borderColor: '#ff3600', color: '#ff3600' }}>
+                                <IconSteeringWheel size={18} />
+                            </span>
+                            <span className="inline-flex items-baseline gap-[0.08rem] text-[1.05rem] tracking-tight" style={{ color: 'var(--fg)' }}>
+                                <span className="font-semibold leading-none">Simple</span>
+                                <span className="font-normal leading-none" style={{ color: '#ff3600' }}>Autos</span>
+                            </span>
+                        </Link>
                         <p className="text-sm leading-relaxed max-w-50" style={{ color: 'var(--fg-muted)' }}>
                             SimpleAutos simplifica la compra y venta de vehículos en Chile.
                         </p>

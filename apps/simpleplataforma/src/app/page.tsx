@@ -296,7 +296,7 @@ function VerticalCard({
             style={{
                 borderColor: isActive ? brand.color : 'var(--border)',
                 background: isActive ? `${brand.color}08` : 'var(--surface)',
-                ['--tw-ring-color' as string]: isActive ? brand.color : undefined,
+                ringColor: isActive ? brand.color : undefined,
             }}
         >
             <div className="flex items-start gap-4">
