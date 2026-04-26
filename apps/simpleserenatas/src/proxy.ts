@@ -17,7 +17,7 @@ const publicPaths = [
 ];
 
 // File extensions that should always be public
-const publicExtensions = ['.js', '.css', '.png', '.jpg', '.jpeg', '.gif', '.svg', '.woff', '.woff2', '.ttf', '.ico', '.json'];
+const publicExtensions = ['.js', '.css', '.png', '.jpg', '.jpeg', '.gif', '.svg', '.woff', '.woff2', '.ttf', '.ico', '.json', '.webmanifest'];
 
 export function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
@@ -52,6 +52,6 @@ export function proxy(request: NextRequest) {
 
 export const proxyConfig = {
     matcher: [
-        '/((?!_next/static|_next/image|favicon.ico|icon|apple-icon|manifest|robots\\.txt|sitemap|.*\\.js|.*\\.css|.*\\.png|.*\\.jpg|.*\\.jpeg|.*\\.gif|.*\\.svg|.*\\.woff|.*\\.woff2|.*\\.ttf|.*\\.ico|.*\\.json).*)',
+        '/((?!_next/static|_next/image|favicon.ico|icon|apple-icon|manifest|manifest\.webmanifest|robots\.txt|sitemap|.*\.js|.*\.css|.*\.png|.*\.jpg|.*\.jpeg|.*\.gif|.*\.svg|.*\.woff|.*\.woff2|.*\.ttf|.*\.ico|.*\.json|.*\.webmanifest).*)',
     ],
 };

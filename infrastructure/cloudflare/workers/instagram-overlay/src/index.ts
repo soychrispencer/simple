@@ -8,19 +8,13 @@ type OverlayVariant =
   | 'property-conversion' 
   | 'property-project';
 
-interface OverlayRequest {
-  imageKey: string; // Key en R2 (ej: "listings/abc123/photo1.jpg")
-  variant: OverlayVariant;
-  data: {
-    title?: string;
-    price?: string;
-    location?: string;
-    highlights?: string[];
-    badges?: string[];
-    brand?: string; // 'simpleautos' | 'simplepropiedades'
-  };
-  width?: number;
-  height?: number;
+interface OverlayData {
+  title?: string;
+  price?: string;
+  location?: string;
+  highlights?: string[];
+  badges?: string[];
+  brand?: string; // 'simpleautos' | 'simplepropiedades'
 }
 
 // Paletas de colores (matching templates.ts)
@@ -54,11 +48,11 @@ const BRAND_COLORS = {
 };
 
 export default {
-  async fetch(request: Request, env: { R2: R2Bucket }): Promise<Response> {
+  async fetch(request: Request, env: Record<string, unknown>): Promise<Response> {
     // CORS headers
     const corsHeaders = {
       'Access-Control-Allow-Origin': '*',
-      'Access-Control-Allow-Methods': 'POST, OPTIONS',
+      'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
       'Access-Control-Allow-Headers': 'Content-Type',
     };
 
@@ -66,21 +60,46 @@ export default {
       return new Response(null, { headers: corsHeaders });
     }
 
-    if (request.method !== 'POST') {
-      return new Response('Method not allowed', { status: 405, headers: corsHeaders });
-    }
-
     try {
-      const body: OverlayRequest = await request.json();
-      const { imageKey, variant, data, width = 1080, height = 1080 } = body;
+      // Parsear parámetros desde GET o POST
+      let imageUrl: string;
+      let variant: OverlayVariant;
+      let data: OverlayData;
+      let width = 1080;
+      let height = 1080;
 
-      // 1. Fetch imagen base desde R2
-      const imageObject = await env.R2.get(imageKey);
-      if (!imageObject) {
-        return new Response('Image not found', { status: 404, headers: corsHeaders });
+      if (request.method === 'GET') {
+        // GET: leer parámetros de la URL
+        const url = new URL(request.url);
+        imageUrl = url.searchParams.get('image') || '';
+        variant = (url.searchParams.get('variant') || 'essential-watermark') as OverlayVariant;
+        const dataParam = url.searchParams.get('data') || '{}';
+        data = JSON.parse(dataParam);
+        width = parseInt(url.searchParams.get('width') || '1080', 10);
+        height = parseInt(url.searchParams.get('height') || '1080', 10);
+      } else if (request.method === 'POST') {
+        // POST: leer desde JSON body
+        const body = await request.json();
+        imageUrl = body.imageUrl || body.image || '';
+        variant = body.variant || 'essential-watermark';
+        data = body.data || {};
+        width = body.width || 1080;
+        height = body.height || 1080;
+      } else {
+        return new Response('Method not allowed', { status: 405, headers: corsHeaders });
       }
 
-      const imageBuffer = await imageObject.arrayBuffer();
+      if (!imageUrl) {
+        return new Response('Missing image URL', { status: 400, headers: corsHeaders });
+      }
+
+      // 1. Fetch imagen base desde URL
+      const imageResponse = await fetch(imageUrl);
+      if (!imageResponse.ok) {
+        return new Response(`Failed to fetch image: ${imageResponse.status}`, { status: 502, headers: corsHeaders });
+      }
+
+      const imageBuffer = await imageResponse.arrayBuffer();
 
       // 2. Generar SVG overlay según el variant
       const svgOverlay = generateOverlaySvg(variant, data, width, height);
@@ -95,15 +114,11 @@ export default {
       });
       const overlayPng = resvg.render();
 
-      // 4. Componer imagen base + overlay
-      // Nota: Para composición real necesitaríamos una librería de composición
-      // Como alternativa, devolvemos el overlay como PNG separado
-      // y el cliente hace la composición, o usamos Cloudflare Images con overlays
-
-      // Por ahora, devolvemos el overlay como PNG
-      // La composición final se hará en el cliente o mediante Cloudflare Images
+      // 4. Por ahora, devolvemos solo el overlay como PNG
+      // TODO: Implementar composición real de imagen base + overlay
+      // Esto requiere una librería de composición de imágenes en WASM
       
-      return new Response(overlayPng.asPng(), {
+      return new Response(new Uint8Array(overlayPng.asPng()), {
         headers: {
           ...corsHeaders,
           'Content-Type': 'image/png',
@@ -123,7 +138,7 @@ export default {
 
 function generateOverlaySvg(
   variant: OverlayVariant, 
-  data: OverlayRequest['data'], 
+  data: OverlayData, 
   width: number, 
   height: number
 ): string {
@@ -182,7 +197,7 @@ function generateOverlaySvg(
 }
 
 function generateProfessionalOverlay(
-  data: OverlayRequest['data'], 
+  data: OverlayData, 
   palette: typeof COLOR_PALETTES.professional,
   width: number, 
   height: number
@@ -212,7 +227,7 @@ function generateProfessionalOverlay(
 }
 
 function generateSignatureOverlay(
-  data: OverlayRequest['data'],
+  data: OverlayData,
   palette: typeof COLOR_PALETTES.signature,
   width: number,
   height: number,
@@ -244,7 +259,7 @@ function generateSignatureOverlay(
           fill="${palette.textPrimary}">${escapeXml(data.highlights?.slice(0, 4).join(' · ') || '')}</text>
     
     <!-- Badges -->
-    ${data.badges?.map((badge, i) => `
+    ${data.badges?.map((badge: string, i: number) => `
       <rect x="${50 + i * 140}" y="${bottomY + 185}" width="130" height="36" rx="18" 
             fill="none" stroke="${palette.textPrimary}" stroke-width="1.5" opacity="0.7"/>
       <text x="${115 + i * 140}" y="${bottomY + 210}" font-family="Arial, sans-serif" font-size="14" 
@@ -254,7 +269,7 @@ function generateSignatureOverlay(
 }
 
 function generatePropertyOverlay(
-  data: OverlayRequest['data'],
+  data: OverlayData,
   palette: typeof COLOR_PALETTES.professional,
   width: number,
   height: number,

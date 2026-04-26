@@ -1,6 +1,8 @@
 'use client';
 
 import Link from 'next/link';
+import { useTheme } from 'next-themes';
+import { useState, useEffect } from 'react';
 import {
   IconConfettiFilled,
   IconMapPin,
@@ -13,13 +15,22 @@ import {
   IconTrophy,
   IconDeviceMobile,
   IconDeviceDesktop,
+  IconSun,
+  IconMoon,
 } from '@tabler/icons-react';
 
 export default function LandingPage() {
+  const { theme, setTheme } = useTheme();
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
   return (
-    <div className="min-h-screen bg-white">
+    <div className="min-h-screen bg-[var(--bg)]">
       {/* Navigation - Desktop */}
-      <nav className="hidden lg:flex items-center justify-between px-8 py-4 border-b sticky top-0 z-50 bg-white/80 backdrop-blur-md" style={{ borderColor: 'var(--border)' }}>
+      <nav className="hidden lg:flex items-center justify-between px-8 py-4 border-b sticky top-0 z-50 bg-[var(--surface)]/80 backdrop-blur-md" style={{ borderColor: 'var(--border)' }}>
         <Link href="/" className="flex items-center gap-2 group shrink-0">
           <span className="w-9 h-9 rounded-[10px] flex items-center justify-center transition-opacity group-hover:opacity-80" style={{ backgroundColor: 'var(--accent-subtle)', color: '#E11D48' }}>
             <IconConfettiFilled size={18} />
@@ -30,6 +41,16 @@ export default function LandingPage() {
           </span>
         </Link>
         <div className="flex items-center gap-2">
+          {mounted && (
+            <button
+              onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
+              className="p-2 rounded-xl transition-colors hover:bg-[var(--bg-subtle)]"
+              aria-label="Cambiar tema"
+              style={{ color: 'var(--fg-secondary)' }}
+            >
+              {theme === 'dark' ? <IconSun size={18} /> : <IconMoon size={18} />}
+            </button>
+          )}
           <Link
             href="/auth/login"
             className="px-5 py-2.5 rounded-xl font-medium transition-colors"
