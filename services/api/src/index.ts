@@ -4305,6 +4305,13 @@ async function prepareInstagramImageUrlCloudflare(
         return prepareInstagramImageUrl(listing, index, options);
     }
 
+    // Si la imagen está en Backblaze (URLs antiguas), usar método tradicional con Sharp
+    // porque el Worker no puede componer imagen + overlay todavía
+    if (rawUrl.includes('backblazeb2.com') || rawUrl.includes('f005.backblazeb2.com')) {
+        console.log('[instagram] imagen en Backblaze detectada, usando método tradicional con Sharp');
+        return prepareInstagramImageUrl(listing, index, options);
+    }
+
     const effectiveLayoutVariant = options.layoutVariant ?? options.template?.layoutVariant ?? 'square';
     const targetHeight = effectiveLayoutVariant === 'portrait' ? 1350 : 1080;
     const workerUrl = process.env.CLOUDFLARE_WORKER_URL.replace(/\/$/, '');

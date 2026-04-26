@@ -29,10 +29,10 @@ export default function LandingPage() {
 
   return (
     <div className="min-h-screen bg-[var(--bg)]">
-      {/* Navigation - Desktop */}
-      <nav className="hidden lg:flex items-center justify-between px-8 py-4 border-b sticky top-0 z-50 bg-[var(--surface)]/80 backdrop-blur-md" style={{ borderColor: 'var(--border)' }}>
+      {/* Navigation - Mobile */}
+      <nav className="flex lg:hidden items-center justify-between px-4 py-3 border-b bg-[var(--surface)]" style={{ borderColor: 'var(--border)' }}>
         <Link href="/" className="flex items-center gap-2 group shrink-0">
-          <span className="w-9 h-9 rounded-[10px] flex items-center justify-center transition-opacity group-hover:opacity-80" style={{ backgroundColor: 'var(--accent-subtle)', color: '#E11D48' }}>
+          <span className="w-8 h-8 rounded-xl flex items-center justify-center transition-opacity group-hover:opacity-80" style={{ backgroundColor: 'var(--accent-subtle)', color: '#E11D48' }}>
             <IconConfettiFilled size={18} />
           </span>
           <span className="inline-flex items-baseline gap-[0.08rem] text-[1.05rem] tracking-tight" style={{ color: 'var(--fg)' }}>
@@ -53,6 +53,28 @@ export default function LandingPage() {
           )}
           <Link
             href="/auth/login"
+            className="px-4 py-2 rounded-xl font-medium text-white text-sm transition-colors hover:opacity-90"
+            style={{ background: 'var(--accent)' }}
+          >
+            Entrar
+          </Link>
+        </div>
+      </nav>
+
+      {/* Navigation - Desktop */}
+      <nav className="hidden lg:flex items-center justify-between px-8 py-4 border-b bg-[var(--surface)]" style={{ borderColor: 'var(--border)' }}>
+        <Link href="/" className="flex items-center gap-2 group shrink-0">
+          <span className="w-8 h-8 rounded-xl flex items-center justify-center transition-opacity group-hover:opacity-80" style={{ backgroundColor: 'var(--accent-subtle)', color: '#E11D48' }}>
+            <IconConfettiFilled size={18} />
+          </span>
+          <span className="inline-flex items-baseline gap-[0.08rem] text-[1.05rem] tracking-tight" style={{ color: 'var(--fg)' }}>
+            <span className="font-semibold leading-none">Simple</span>
+            <span className="font-normal leading-none" style={{ color: '#E11D48' }}>Serenatas</span>
+          </span>
+        </Link>
+        <div className="flex items-center gap-2">
+          <Link
+            href="/auth/login"
             className="px-5 py-2.5 rounded-xl font-medium transition-colors"
             style={{ color: 'var(--fg-secondary)' }}
           >
@@ -65,6 +87,16 @@ export default function LandingPage() {
           >
             Crear Cuenta
           </Link>
+          {mounted && (
+            <button
+              onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
+              className="p-2 rounded-xl transition-colors hover:bg-[var(--bg-subtle)]"
+              aria-label="Cambiar tema"
+              style={{ color: 'var(--fg-secondary)' }}
+            >
+              {theme === 'dark' ? <IconSun size={18} /> : <IconMoon size={18} />}
+            </button>
+          )}
         </div>
       </nav>
 
@@ -85,7 +117,7 @@ export default function LandingPage() {
             <div className="text-center lg:text-left">
               {/* Mobile Logo */}
               <div className="flex items-center justify-center lg:justify-start gap-3 mb-8 lg:hidden">
-                <div className="w-12 h-12 rounded-xl flex items-center justify-center" style={{ backgroundColor: 'var(--accent-subtle)' }}>
+                <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ backgroundColor: 'var(--accent-subtle)' }}>
                   <IconConfettiFilled size={24} style={{ color: '#E11D48' }} />
                 </div>
                 <span className="text-white text-xl font-bold">SimpleSerenatas</span>

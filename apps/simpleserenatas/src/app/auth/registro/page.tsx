@@ -81,7 +81,7 @@ export default function RegisterPage() {
           </Link>
           <div className="flex items-center gap-2">
             <div
-              className="w-8 h-8 rounded-lg flex items-center justify-center"
+              className="w-8 h-8 rounded-xl flex items-center justify-center"
               style={{ backgroundColor: 'var(--accent-subtle)' }}
             >
               <IconConfettiFilled size={16} style={{ color: '#E11D48' }} />
@@ -329,7 +329,7 @@ export default function RegisterPage() {
           {/* Logo Large */}
           <div className="mb-12">
             <div
-              className="w-20 h-20 rounded-2xl flex items-center justify-center mb-6"
+              className="w-20 h-20 rounded-xl flex items-center justify-center mb-6"
               style={{ backgroundColor: 'var(--accent-subtle)' }}
             >
               <IconConfettiFilled size={40} style={{ color: '#E11D48' }} />
