@@ -4249,5 +4249,5 @@ export type {
     PublicListingCardProps,
 } from './listing-card/types';
 
-// Logo component
-export { Logo, BRAND_CONFIG, type LogoProps } from './logo';
+// Header component (incluye Logo)
+export { Header, BRAND_CONFIG, type HeaderProps, type Brand, type NavItem } from './header';

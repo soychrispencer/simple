@@ -1,28 +1,14 @@
 'use client';
 
-import Link from 'next/link';
-import { usePathname, useRouter } from 'next/navigation';
-import { useTheme } from 'next-themes';
-import { useState, useEffect, useMemo, useRef } from 'react';
-import {
-    IconBell,
-    IconSun,
-    IconMoon,
-    IconUser,
-    IconPlus,
-    IconLogout,
-    IconSparkles,
-    IconMenu2,
-    IconX,
-} from '@tabler/icons-react';
+import { useRouter } from 'next/navigation';
+import { Header, type NavItem } from '@simple/ui';
 import { useAuth } from '@/context/auth-context';
-import { Logo } from '@simple/ui';
 import { getPanelNavItems, isPanelNavActive, type PanelRole } from '@/components/panel/panel-nav-config';
 import { fetchPanelNotifications, type PanelNotification } from '@/lib/panel-notifications';
 import { clearSavedListingsCache, syncSavedListingsFromApi } from '@/lib/saved-listings';
 import { PanelButton } from '@simple/ui';
 
-const links = [
+const navItems: NavItem[] = [
     { href: '/ventas', label: 'Comprar' },
     { href: '/arriendos', label: 'Arrendar' },
     { href: '/subastas', label: 'Subastas' },
@@ -30,101 +16,31 @@ const links = [
     { href: '/descubre', label: 'Descubre', isNew: true },
 ];
 
-export function Header() {
-    const pathname = usePathname() ?? '';
+export default function AutosHeader() {
     const router = useRouter();
-    const { theme, setTheme } = useTheme();
-    const [mounted, setMounted] = useState(false);
-    const [menuOpen, setMenuOpen] = useState(false);
-    const [accountOpen, setAccountOpen] = useState(false);
-    const [notificationsOpen, setNotificationsOpen] = useState(false);
-    const [notifications, setNotifications] = useState<PanelNotification[]>([]);
-    const menuRef = useRef<HTMLDivElement | null>(null);
-    const accountRef = useRef<HTMLDivElement | null>(null);
-    const notificationsRef = useRef<HTMLDivElement | null>(null);
-    const { user, isLoggedIn, requireAuth, logout, openAuth } = useAuth();
+    const { user, isLoading, logout } = useAuth();
 
-    useEffect(() => {
-        setMounted(true);
-    }, []);
-
-    useEffect(() => {
-        setMenuOpen(false);
-        setAccountOpen(false);
-        setNotificationsOpen(false);
-    }, [pathname, isLoggedIn]);
-
-    useEffect(() => {
-        if (!isLoggedIn) {
-            clearSavedListingsCache();
+    const handlePublish = () => {
+        if (!user) {
+            router.push('/login?redirect=/publicar');
             return;
         }
-        void syncSavedListingsFromApi();
-    }, [isLoggedIn]);
-
-    useEffect(() => {
-        let active = true;
-        if (!isLoggedIn) {
-            setNotifications([]);
-            return;
-        }
-        const run = async () => {
-            const items = await fetchPanelNotifications();
-            if (!active) return;
-            setNotifications(items);
-        };
-        void run();
-        return () => {
-            active = false;
-        };
-    }, [isLoggedIn, pathname]);
-
-    useEffect(() => {
-        const handleOutside = (event: MouseEvent) => {
-            const target = event.target as Node;
-            if (!menuRef.current?.contains(target)) setMenuOpen(false);
-            if (!accountRef.current?.contains(target)) setAccountOpen(false);
-            if (!notificationsRef.current?.contains(target)) setNotificationsOpen(false);
-        };
-        document.addEventListener('pointerdown', handleOutside);
-        return () => document.removeEventListener('pointerdown', handleOutside);
-    }, []);
-
-    const handlePublicar = () => {
-        if (requireAuth(() => router.push('/panel/publicar'))) {
-            router.push('/panel/publicar');
-        }
+        router.push('/publicar');
     };
 
-    const role: PanelRole = user?.role ?? 'user';
-    const panelItems = useMemo(() => getPanelNavItems(role), [role]);
-    const userName = user?.name?.trim() || 'Usuario';
-    const unreadNotifications = notifications.length;
-
     return (
-        <header className="relative z-40 transition-all duration-300" style={{ borderBottom: '1px solid var(--border)' }}>
-            <div className="container-app flex items-center justify-between h-16">
-                {/* Logo */}
-                <Logo brand="autos" href="/" />
-
-                {/* Desktop Navigation */}
-                <nav className="hidden md:flex items-center gap-1">
-                    {links.map((l) => (
-                        <Link
-                            key={l.href}
-                            href={l.href}
-                            className="header-nav-link px-3.5 py-2 text-sm font-medium rounded-lg transition-colors duration-200"
-                            data-active={pathname === l.href || pathname.startsWith(`${l.href}/`) ? 'true' : 'false'}
-                        >
-                            <span className="inline-flex items-center gap-1.5">
-                                <span>{l.label}</span>
-                                {l.isNew ? (
-                                    <span className="header-nav-link-badge inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] font-medium">
-                                        <IconSparkles size={10} />
-                                        Nuevo
-                                    </span>
-                                ) : null}
-                            </span>
+        <Header
+            brand="autos"
+            navItems={navItems}
+            homeHref="/"
+            user={user}
+            onLogin={() => router.push('/login')}
+            onLogout={logout}
+            onPublish={handlePublish}
+            showPublishButton={true}
+        />
+    );
+}
                         </Link>
                     ))}
                 </nav>

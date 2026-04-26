@@ -4280,6 +4280,90 @@ async function prepareInstagramImageUrl(
     return directUrl;
 }
 
+// Nueva función: Usa Cloudflare Worker para generar imágenes de Instagram
+// Elimina la necesidad de Sharp + fontconfig en el servidor
+async function prepareInstagramImageUrlCloudflare(
+    listing: ListingRecord,
+    index = 0,
+    options: {
+        layoutVariant?: 'square' | 'portrait' | null;
+        template?: InstagramRenderTemplate | null;
+        publishKey?: string | null;
+        isCover?: boolean;
+    } = {}
+): Promise<string> {
+    const images = extractListingMediaUrls(listing);
+    const rawUrl = images[index];
+    if (!rawUrl) throw new Error('La publicación no tiene imágenes en el índice solicitado.');
+
+    // Detectar si estamos usando Cloudflare R2
+    const storageProvider = getStorageProvider();
+    const isCloudflare = storageProvider.constructor.name === 'CloudflareR2Provider';
+    
+    if (!isCloudflare || !process.env.CLOUDFLARE_WORKER_URL) {
+        // Fallback a método tradicional con Sharp
+        return prepareInstagramImageUrl(listing, index, options);
+    }
+
+    const effectiveLayoutVariant = options.layoutVariant ?? options.template?.layoutVariant ?? 'square';
+    const targetHeight = effectiveLayoutVariant === 'portrait' ? 1350 : 1080;
+    const workerUrl = process.env.CLOUDFLARE_WORKER_URL.replace(/\/$/, '');
+
+    // Extraer la key de la imagen original
+    let sourceKey: string;
+    if (rawUrl.includes('r2.cloudflarestorage.com') || rawUrl.includes('backblazeb2.com')) {
+        // Es URL de storage, extraer key
+        const urlObj = new URL(rawUrl);
+        const pathParts = urlObj.pathname.split('/');
+        // Removemos el primer segmento vacío y el nombre del bucket si existe
+        sourceKey = pathParts.slice(pathParts.indexOf('file') > -1 ? 3 : 1).join('/');
+    } else {
+        // URL externa, necesitamos descargar y subir a R2 primero
+        throw new Error('URL de imagen no compatible con Cloudflare R2: ' + rawUrl);
+    }
+
+    // Construir datos para el overlay
+    const overlayData = {
+        title: options.template?.title || listing.title,
+        price: options.template?.priceLabel || listing.priceLabel,
+        location: options.template?.locationLabel || (listing as any).locationLabel || 'Chile',
+        highlights: options.template?.highlights || [],
+        badges: options.template?.badges || [],
+        brand: options.template?.branding?.appId || (listing.vertical === 'propiedades' ? 'simplepropiedades' : 'simpleautos'),
+    };
+
+    // Determinar el variant
+    let variant: 'essential-watermark' | 'professional-centered' | 'signature-complete' | 'property-conversion';
+    if (!options.template) {
+        variant = 'essential-watermark';
+    } else {
+        const overlayVariant = options.template.overlayVariant;
+        if (overlayVariant === 'professional-centered') variant = 'professional-centered';
+        else if (overlayVariant === 'signature-complete') variant = 'signature-complete';
+        else if (overlayVariant.startsWith('property')) variant = 'property-conversion';
+        else variant = 'essential-watermark';
+    }
+
+    // Generar URL del Worker con parámetros
+    const params = new URLSearchParams({
+        image: sourceKey,
+        variant,
+        data: JSON.stringify(overlayData),
+        width: '1080',
+        height: targetHeight.toString(),
+    });
+
+    const overlayUrl = `${workerUrl}/overlay?${params.toString()}`;
+
+    console.log('[instagram] usando Cloudflare Worker:', {
+        listingId: listing.id,
+        imageIndex: index,
+        workerUrl: overlayUrl.substring(0, 100) + '...',
+    });
+
+    return overlayUrl;
+}
+
 async function refreshInstagramAccountIfNeeded(account: InstagramAccountRecord): Promise<InstagramAccountRecord> {
     const needsRefresh = !account.tokenExpiresAt || account.tokenExpiresAt - Date.now() <= 1000 * 60 * 60 * 24 * 7;
     if (!needsRefresh) return account;
