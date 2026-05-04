@@ -1,7 +1,8 @@
 'use client';
 
 import { useState, useCallback } from 'react';
-import { requestsApi, groupsApi, routesApi } from '@/lib/api';
+import { API_BASE } from '@simple/config';
+import { requestsApi, groupsApi } from '@/lib/api';
 
 interface Serenata {
   id: string;
@@ -64,7 +65,35 @@ export function useSerenatas() {
     setIsLoading(true);
     setError(null);
     try {
-      // TODO: Implement accept endpoint
+      const res = await fetch(`${API_BASE}/api/serenatas/requests/${id}/accept`, {
+        method: 'POST',
+        credentials: 'include',
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data?.ok) {
+        throw new Error(data?.error || 'No pudimos aceptar la solicitud');
+      }
+      return true;
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Unknown error');
+      return false;
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
+  const declineRequest = useCallback(async (id: string) => {
+    setIsLoading(true);
+    setError(null);
+    try {
+      const res = await fetch(`${API_BASE}/api/serenatas/requests/${id}/decline`, {
+        method: 'POST',
+        credentials: 'include',
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data?.ok) {
+        throw new Error(data?.error || 'No pudimos rechazar la solicitud');
+      }
       return true;
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Unknown error');
@@ -115,6 +144,7 @@ export function useSerenatas() {
     getAvailableRequests,
     getUrgentRequests,
     acceptRequest,
+    declineRequest,
     getMyGroups,
     createGroup,
   };

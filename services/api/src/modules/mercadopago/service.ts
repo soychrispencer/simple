@@ -1,3 +1,5 @@
+import crypto from 'node:crypto';
+
 const MERCADO_PAGO_API_BASE = 'https://api.mercadopago.com';
 
 type MercadoPagoRequestOptions = {
@@ -93,6 +95,8 @@ export async function createCheckoutPreference(input: {
     };
     metadata?: Record<string, unknown>;
     accessToken?: string; // professional's own MP token
+    /** URL que Mercado Pago notifica cuando cambia el estado del pago (IPN). Debe ser HTTPS en producción. */
+    notificationUrl?: string;
 }): Promise<{ id: string; initPoint: string | null; sandboxInitPoint: string | null }> {
     const idempotencyKey = input.externalReference;
     const headers: HeadersInit = input.accessToken
@@ -120,6 +124,7 @@ export async function createCheckoutPreference(input: {
             auto_return: 'approved',
             external_reference: input.externalReference,
             metadata: input.metadata ?? {},
+            ...(input.notificationUrl ? { notification_url: input.notificationUrl } : {}),
         }),
     });
 
@@ -179,4 +184,80 @@ export async function getPreapprovalById(preapprovalId: string): Promise<Mercado
     return requestMercadoPago<MercadoPagoSubscriptionResponse>(`/preapproval/${encodeURIComponent(preapprovalId)}`, {
         method: 'GET',
     });
+}
+
+/**
+ * Reembolsa un pago de Mercado Pago.
+ * - Sin `amount` → reembolso total.
+ * - Con `amount` → reembolso parcial (en la misma moneda del pago).
+ * Idempotente: MP soporta `X-Idempotency-Key`.
+ */
+export async function refundPayment(input: {
+    paymentId: string;
+    amount?: number;
+    idempotencyKey?: string;
+}): Promise<Record<string, unknown>> {
+    const body: Record<string, unknown> | undefined =
+        typeof input.amount === 'number' ? { amount: input.amount } : undefined;
+    return requestMercadoPago<Record<string, unknown>>(
+        `/v1/payments/${encodeURIComponent(input.paymentId)}/refunds`,
+        {
+            method: 'POST',
+            idempotencyKey: input.idempotencyKey ?? `refund:${input.paymentId}`,
+            body: body as unknown,
+        }
+    );
+}
+
+/**
+ * Verifica la firma del webhook de Mercado Pago.
+ *
+ * Documentación: https://www.mercadopago.cl/developers/es/docs/your-integrations/notifications/webhooks
+ *
+ * El header `x-signature` viene como `ts=1700000000,v1=<sha256hex>`. La firma se calcula como:
+ *
+ *   manifest = `id:${dataId};request-id:${requestId};ts:${ts};`
+ *   v1 = HMAC_SHA256(secret, manifest)
+ *
+ * - `secret` = `MERCADO_PAGO_WEBHOOK_SECRET`
+ * - `dataId` = id del recurso recibido (query `data.id` o body.data.id)
+ * - `requestId` = header `x-request-id`
+ *
+ * Si el secret no está configurado, devuelve `'unsigned'` (no aborta — la verificación
+ * con `getPaymentById` ya cubre el caso). Si está configurado y la firma no coincide,
+ * devuelve `false`.
+ */
+export function verifyMercadoPagoWebhookSignature(input: {
+    xSignature: string | null | undefined;
+    xRequestId: string | null | undefined;
+    dataId: string | null | undefined;
+}): true | false | 'unsigned' {
+    const secret = asString(process.env.MERCADO_PAGO_WEBHOOK_SECRET);
+    if (!secret) return 'unsigned';
+
+    const sig = asString(input.xSignature);
+    const reqId = asString(input.xRequestId);
+    const dataId = asString(input.dataId);
+    if (!sig || !reqId || !dataId) return false;
+
+    const parts = sig.split(',').map((p) => p.trim());
+    const partsMap = new Map<string, string>();
+    for (const p of parts) {
+        const i = p.indexOf('=');
+        if (i <= 0) continue;
+        partsMap.set(p.slice(0, i), p.slice(i + 1));
+    }
+    const ts = partsMap.get('ts');
+    const v1 = partsMap.get('v1');
+    if (!ts || !v1) return false;
+
+    const manifest = `id:${dataId};request-id:${reqId};ts:${ts};`;
+    const expected = crypto.createHmac('sha256', secret).update(manifest).digest('hex');
+
+    if (expected.length !== v1.length) return false;
+    try {
+        return crypto.timingSafeEqual(Buffer.from(expected, 'hex'), Buffer.from(v1, 'hex'));
+    } catch {
+        return false;
+    }
 }

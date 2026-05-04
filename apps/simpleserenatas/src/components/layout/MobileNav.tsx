@@ -2,26 +2,13 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import {
-    IconHome,
-    IconCalendar,
-    IconBell,
-    IconUsers,
-    IconUser,
-} from '@tabler/icons-react';
-
-const navItems = [
-    { href: '/inicio', label: 'Inicio', icon: IconHome },
-    { href: '/agenda', label: 'Agenda', icon: IconCalendar },
-    { href: '/solicitudes', label: 'Solicitudes', icon: IconBell, badge: true },
-    { href: '/grupos', label: 'Grupos', icon: IconUsers },
-    { href: '/perfil', label: 'Perfil', icon: IconUser },
-];
+import { useAuth } from '@/context/AuthContext';
+import { getSerenatasMobileNavItems, isSerenatasNavActive } from '@/components/layout/panel-nav-config';
 
 export function MobileNav() {
     const pathname = usePathname() ?? '';
-
-    const isActive = (href: string) => pathname === href || pathname.startsWith(`${href}/`);
+    const { effectiveRole } = useAuth();
+    const navItems = getSerenatasMobileNavItems(effectiveRole);
 
     return (
         <nav 
@@ -36,7 +23,7 @@ export function MobileNav() {
             <div className="flex items-center justify-around h-16 px-2">
                 {navItems.map((item) => {
                     const Icon = item.icon;
-                    const active = isActive(item.href);
+                    const active = isSerenatasNavActive(pathname, item.href);
 
                     return (
                         <Link

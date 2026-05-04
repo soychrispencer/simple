@@ -1,10 +1,11 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { IconMapPin, IconNavigation, IconClock, IconCurrencyDollar, IconLoader2 } from '@tabler/icons-react';
+import { IconMapPin, IconNavigation, IconClock, IconLoader2 } from '@tabler/icons-react';
 import dynamic from 'next/dynamic';
 import { API_BASE } from '@simple/config';
 import { useToast } from '@/hooks';
+import { SerenatasPageHeader, SerenatasPageShell } from '@/components/shell';
 
 const RouteMap = dynamic(() => import('@/components/RouteMap'), {
     ssr: false,
@@ -105,12 +106,13 @@ export default function MapaPage() {
             });
             
             const data = await res.json();
-            if (data.ok && data.optimizedOrder) {
-                setOptimizedRoute(data.optimizedOrder);
-                showToast('Ruta optimizada exitosamente', 'success');
+            if (data.ok && Array.isArray(data.optimized)) {
+                setOptimizedRoute(
+                    data.optimized.map((w: { serenataId?: string; id?: string }) => w.serenataId || w.id || '').filter(Boolean)
+                );
+                showToast('Ruta optimizada', 'success');
             } else {
-                const optimized = [...serenatas].sort(() => Math.random() - 0.5).map(s => s.id);
-                setOptimizedRoute(optimized);
+                showToast(data.error || 'No pudimos optimizar la ruta', 'error');
             }
         } catch {
             showToast('Error al optimizar ruta', 'error');
@@ -130,8 +132,21 @@ export default function MapaPage() {
     const totalEarnings = serenatas.reduce((sum: number, s: Serenata) => sum + parseInt(s.price || '0'), 0);
 
     return (
-        <div className="p-4 md:p-6 h-[calc(100vh-4rem)] md:h-auto">
-            <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 h-full">
+        <SerenatasPageShell
+            width="wide"
+            flush
+            className="flex flex-col min-h-0 h-[calc(100vh-4rem)] md:h-auto"
+        >
+            <SerenatasPageHeader
+                title="Mapa"
+                description={
+                    serenatas.length > 0
+                        ? `${serenatas.length} serenata${serenatas.length === 1 ? '' : 's'} hoy`
+                        : 'Serenatas del día en el mapa'
+                }
+            />
+
+            <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 h-full min-h-0 flex-1">
                 {/* Left Panel - Stats & List */}
                 <div className="lg:col-span-1 space-y-4 overflow-y-auto scrollbar-thin">
                     {/* Route Stats */}
@@ -185,14 +200,15 @@ export default function MapaPage() {
                                     >
                                         <div className="flex items-start gap-3">
                                             <div 
-                                                className="w-8 h-8 rounded-full flex items-center justify-center text-white font-bold text-sm flex-shrink-0"
+                                                className="w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm flex-shrink-0"
                                                 style={{
+                                                    color: 'var(--accent-contrast)',
                                                     background: optimizedRoute.length > 0
                                                         ? orderIndex === 0
                                                             ? 'var(--success)'
                                                             : orderIndex === serenatas.length - 1
                                                                 ? 'var(--accent)'
-                                                                : 'var(--info, #3B82F6)'
+                                                                : 'var(--info)'
                                                         : 'var(--fg-muted)'
                                                 }}
                                             >
@@ -255,7 +271,7 @@ export default function MapaPage() {
                     )}
                 </div>
             </div>
-        </div>
+        </SerenatasPageShell>
     );
 }
 

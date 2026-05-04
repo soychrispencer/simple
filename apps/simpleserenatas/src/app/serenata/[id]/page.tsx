@@ -10,12 +10,12 @@ import {
   IconConfetti,
   IconCheck,
   IconArrowLeft,
-  IconCurrencyDollar,
   IconCalendar
 } from '@tabler/icons-react';
 import Link from 'next/link';
 import { useToast } from '@/hooks';
 import { API_BASE } from '@simple/config';
+import { SerenatasPageHeader, SerenatasPageShell } from '@/components/shell';
 
 interface Serenata {
   id: string;
@@ -40,12 +40,32 @@ const occasionLabels: Record<string, string> = {
   other: 'Otro',
 };
 
-const statusLabels: Record<string, { label: string; color: string }> = {
-  pending: { label: 'Pendiente', color: 'bg-yellow-100 text-yellow-800' },
-  assigned: { label: 'Asignada', color: 'bg-blue-100 text-blue-800' },
-  confirmed: { label: 'Confirmada', color: 'bg-green-100 text-green-800' },
-  completed: { label: 'Completada', color: 'bg-zinc-100 text-zinc-800' },
-  cancelled: { label: 'Cancelada', color: 'bg-red-100 text-red-800' },
+const statusLabels: Record<string, { label: string; bg: string; fg: string }> = {
+  pending: {
+    label: 'Pendiente',
+    bg: 'color-mix(in oklab, var(--surface) 75%, var(--warning) 25%)',
+    fg: 'var(--warning)',
+  },
+  assigned: {
+    label: 'Asignada',
+    bg: 'color-mix(in oklab, var(--surface) 75%, var(--info) 25%)',
+    fg: 'var(--info)',
+  },
+  confirmed: {
+    label: 'Confirmada',
+    bg: 'color-mix(in oklab, var(--surface) 75%, var(--success) 25%)',
+    fg: 'var(--success)',
+  },
+  completed: {
+    label: 'Completada',
+    bg: 'var(--bg-subtle)',
+    fg: 'var(--fg-secondary)',
+  },
+  cancelled: {
+    label: 'Cancelada',
+    bg: 'color-mix(in oklab, var(--surface) 75%, var(--error) 25%)',
+    fg: 'var(--error)',
+  },
 };
 
 export default function SerenataDetailPage({ params }: { params: { id: string } }) {
@@ -123,18 +143,18 @@ export default function SerenataDetailPage({ params }: { params: { id: string } 
 
   if (isLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-rose-500"></div>
+      <div className="flex min-h-[50vh] items-center justify-center">
+        <div className="h-8 w-8 animate-spin rounded-full border-b-2" style={{ borderColor: 'var(--accent)' }} />
       </div>
     );
   }
 
   if (!serenata) {
     return (
-      <div className="min-h-screen bg-zinc-50 flex items-center justify-center">
+      <div className="flex min-h-[50vh] flex-col items-center justify-center px-6">
         <div className="text-center">
-          <p className="text-zinc-500 mb-4">Serenata no encontrada</p>
-          <Link href="/agenda" className="text-rose-600 font-medium">
+          <p className="mb-4" style={{ color: 'var(--fg-secondary)' }}>Serenata no encontrada</p>
+          <Link href="/agenda" className="font-medium" style={{ color: 'var(--accent)' }}>
             Volver a la agenda
           </Link>
         </div>
@@ -143,27 +163,26 @@ export default function SerenataDetailPage({ params }: { params: { id: string } 
   }
 
   const { date, time } = formatDateTime(serenata.dateTime);
-  const status = statusLabels[serenata.status] || { label: serenata.status, color: 'bg-zinc-100' };
+  const status = statusLabels[serenata.status] || { label: serenata.status, bg: 'var(--bg-subtle)', fg: 'var(--fg-secondary)' };
 
   return (
-    <div className="min-h-screen bg-zinc-50 pb-20">
-      {/* Header */}
-      <div className="bg-white sticky top-0 z-10 border-b border-zinc-200">
-        <div className="px-4 py-4 flex items-center gap-3">
-          <Link 
-            href="/agenda" 
-            className="p-2 hover:bg-zinc-100 rounded-full transition-colors"
+    <div className="pb-20">
+      <div className="sticky top-0 z-10 border-b" style={{ background: 'var(--surface)', borderColor: 'var(--border)' }}>
+        <div className="mx-auto flex max-w-4xl items-center gap-3 px-4 py-4 sm:px-6">
+          <Link
+            href="/agenda"
+            className="serenatas-interactive shrink-0 rounded-full p-2 transition-colors"
+            style={{ color: 'var(--fg-secondary)' }}
           >
-            <IconArrowLeft size={24} className="text-zinc-700" />
+            <IconArrowLeft size={24} />
           </Link>
-          <h1 className="text-lg font-semibold text-zinc-900">Detalle de Serenata</h1>
+          <SerenatasPageHeader title="Detalle de serenata" className="min-w-0 !mb-0 flex-1" />
         </div>
       </div>
 
-      {/* Content */}
-      <div className="p-4 space-y-4">
+      <SerenatasPageShell width="default" className="space-y-4">
         {/* Status Banner */}
-        <div className={`rounded-xl p-4 ${status.color}`}>
+        <div className="rounded-xl p-4" style={{ background: status.bg, color: status.fg }}>
           <div className="flex items-center justify-between">
             <span className="font-semibold">{status.label}</span>
             <span className="text-lg font-bold">
@@ -173,74 +192,76 @@ export default function SerenataDetailPage({ params }: { params: { id: string } 
         </div>
 
         {/* Client Info */}
-        <div className="bg-white rounded-xl p-4 shadow-sm">
-          <h2 className="text-sm font-medium text-zinc-500 mb-3">INFORMACIÓN DEL CLIENTE</h2>
+        <div className="rounded-xl p-4 border" style={{ background: 'var(--surface)', borderColor: 'var(--border)' }}>
+          <h2 className="text-sm font-medium mb-3" style={{ color: 'var(--fg-secondary)' }}>INFORMACIÓN DEL CLIENTE</h2>
           <div className="space-y-3">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-rose-100 rounded-full flex items-center justify-center">
-                <IconUser size={20} className="text-rose-500" />
+              <div className="w-10 h-10 rounded-full flex items-center justify-center" style={{ background: 'var(--accent-subtle)' }}>
+                <IconUser size={20} style={{ color: 'var(--accent)' }} />
               </div>
               <div>
-                <p className="font-semibold text-zinc-900">{serenata.clientName}</p>
-                <p className="text-sm text-zinc-500">Cliente</p>
+                <p className="font-semibold" style={{ color: 'var(--fg)' }}>{serenata.clientName}</p>
+                <p className="text-sm" style={{ color: 'var(--fg-secondary)' }}>Cliente</p>
               </div>
             </div>
             <a 
               href={`tel:${serenata.clientPhone}`}
-              className="flex items-center gap-3 p-3 bg-zinc-50 rounded-lg hover:bg-zinc-100 transition-colors"
+              className="flex items-center gap-3 p-3 rounded-lg transition-colors"
+              style={{ background: 'var(--bg-subtle)' }}
             >
-              <IconPhone size={20} className="text-zinc-500" />
-              <span className="text-zinc-900">{serenata.clientPhone}</span>
+              <IconPhone size={20} style={{ color: 'var(--fg-secondary)' }} />
+              <span style={{ color: 'var(--fg)' }}>{serenata.clientPhone}</span>
             </a>
           </div>
         </div>
 
         {/* Location & Time */}
-        <div className="bg-white rounded-xl p-4 shadow-sm">
-          <h2 className="text-sm font-medium text-zinc-500 mb-3">UBICACIÓN Y HORARIO</h2>
+        <div className="rounded-xl p-4 border" style={{ background: 'var(--surface)', borderColor: 'var(--border)' }}>
+          <h2 className="text-sm font-medium mb-3" style={{ color: 'var(--fg-secondary)' }}>UBICACIÓN Y HORARIO</h2>
           <div className="space-y-3">
             <div className="flex items-start gap-3">
-              <IconMapPin size={20} className="text-zinc-400 mt-0.5" />
+              <IconMapPin size={20} className="mt-0.5" style={{ color: 'var(--fg-muted)' }} />
               <div>
-                <p className="text-zinc-900">{serenata.address}</p>
-                <p className="text-sm text-zinc-500">{serenata.comuna}</p>
+                <p style={{ color: 'var(--fg)' }}>{serenata.address}</p>
+                <p className="text-sm" style={{ color: 'var(--fg-secondary)' }}>{serenata.comuna}</p>
               </div>
             </div>
             <div className="flex items-center gap-3">
-              <IconCalendar size={20} className="text-zinc-400" />
-              <span className="text-zinc-900 capitalize">{date}</span>
+              <IconCalendar size={20} style={{ color: 'var(--fg-muted)' }} />
+              <span className="capitalize" style={{ color: 'var(--fg)' }}>{date}</span>
             </div>
             <div className="flex items-center gap-3">
-              <IconClock size={20} className="text-zinc-400" />
-              <span className="text-zinc-900">{time} ({serenata.duration} minutos)</span>
+              <IconClock size={20} style={{ color: 'var(--fg-muted)' }} />
+              <span style={{ color: 'var(--fg)' }}>{time} ({serenata.duration} minutos)</span>
             </div>
           </div>
         </div>
 
         {/* Occasion & Message */}
-        <div className="bg-white rounded-xl p-4 shadow-sm">
-          <h2 className="text-sm font-medium text-zinc-500 mb-3">DETALLES</h2>
+        <div className="rounded-xl p-4 border" style={{ background: 'var(--surface)', borderColor: 'var(--border)' }}>
+          <h2 className="text-sm font-medium mb-3" style={{ color: 'var(--fg-secondary)' }}>DETALLES</h2>
           <div className="space-y-3">
             <div className="flex items-center gap-3">
-              <IconConfetti size={20} className="text-zinc-400" />
-              <span className="text-zinc-900">{occasionLabels[serenata.occasion] || serenata.occasion}</span>
+              <IconConfetti size={20} style={{ color: 'var(--fg-muted)' }} />
+              <span style={{ color: 'var(--fg)' }}>{occasionLabels[serenata.occasion] || serenata.occasion}</span>
             </div>
             {serenata.message && (
-              <div className="p-3 bg-rose-50 rounded-lg">
-                <p className="text-sm text-rose-800">{serenata.message}</p>
+              <div className="p-3 rounded-lg" style={{ background: 'var(--accent-subtle)' }}>
+                <p className="text-sm" style={{ color: 'var(--fg-secondary)' }}>{serenata.message}</p>
               </div>
             )}
           </div>
         </div>
 
         {/* Required Instruments */}
-        <div className="bg-white rounded-xl p-4 shadow-sm">
-          <h2 className="text-sm font-medium text-zinc-500 mb-3">INSTRUMENTOS REQUERIDOS</h2>
+        <div className="rounded-xl p-4 border" style={{ background: 'var(--surface)', borderColor: 'var(--border)' }}>
+          <h2 className="text-sm font-medium mb-3" style={{ color: 'var(--fg-secondary)' }}>INSTRUMENTOS REQUERIDOS</h2>
           <div className="flex flex-wrap gap-2">
             {serenata.requiredInstruments.map((inst) => (
               <span 
                 key={inst}
-                className="px-3 py-1 bg-zinc-100 rounded-full text-sm text-zinc-700"
+                className="px-3 py-1 rounded-full text-sm"
+                style={{ background: 'var(--bg-subtle)', color: 'var(--fg-secondary)' }}
               >
                 {inst}
               </span>
@@ -251,13 +272,15 @@ export default function SerenataDetailPage({ params }: { params: { id: string } 
         {/* Action Button */}
         {serenata.status === 'confirmed' && (
           <button
+            type="button"
             onClick={handleComplete}
             disabled={isCompleting}
-            className="w-full bg-green-500 text-white rounded-xl py-4 font-semibold hover:bg-green-600 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+            className="serenatas-interactive w-full rounded-xl py-4 font-semibold transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+            style={{ background: 'var(--success)', color: 'var(--accent-contrast)' }}
           >
             {isCompleting ? (
               <>
-                <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
+                <div className="animate-spin rounded-full h-5 w-5 border-b-2" style={{ borderColor: 'white' }}></div>
                 Procesando...
               </>
             ) : (
@@ -268,7 +291,7 @@ export default function SerenataDetailPage({ params }: { params: { id: string } 
             )}
           </button>
         )}
-      </div>
+      </SerenatasPageShell>
     </div>
   );
 }

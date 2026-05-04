@@ -6,21 +6,17 @@ import {
   IconArrowLeft,
   IconMapPin,
   IconRoute,
-  IconClock,
-  IconCalendar,
   IconCheck,
   IconPlayerPlay,
   IconFlag,
   IconTrendingUp,
   IconLoader2,
-  IconUsers,
-  IconConfetti,
-  IconMap,
 } from '@tabler/icons-react';
 import Link from 'next/link';
 import { API_BASE } from '@simple/config';
 import { useToast } from '@/hooks';
 import RouteMap from '@/components/RouteMap';
+import { SerenatasPageHeader, SerenatasPageShell } from '@/components/shell';
 
 interface RouteStop {
   id: string;
@@ -166,20 +162,20 @@ export default function RouteDetailPage({ params }: { params: { id: string } }) 
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
-        <IconLoader2 className="w-8 h-8 animate-spin text-blue-600" />
+      <div className="flex min-h-[50vh] items-center justify-center">
+        <IconLoader2 className="w-8 h-8 animate-spin" style={{ color: 'var(--accent)' }} />
       </div>
     );
   }
 
   if (!route) {
     return (
-      <div className="min-h-screen bg-zinc-50 flex items-center justify-center">
+      <div className="flex min-h-[50vh] flex-col items-center justify-center px-6">
         <div className="text-center">
-          <IconRoute className="w-16 h-16 text-zinc-300 mx-auto mb-4" />
-          <h1 className="text-xl font-semibold text-zinc-900 mb-2">Ruta no encontrada</h1>
-          <p className="text-zinc-500 mb-4">La ruta que buscas no existe o no está disponible</p>
-          <Link href="/agenda" className="text-blue-600 hover:text-blue-700 font-medium">
+          <IconRoute className="w-16 h-16 mx-auto mb-4" style={{ color: 'var(--fg-muted)' }} />
+          <h1 className="text-xl font-semibold mb-2" style={{ color: 'var(--fg)' }}>Ruta no encontrada</h1>
+          <p className="mb-4" style={{ color: 'var(--fg-secondary)' }}>La ruta que buscas no existe o no está disponible</p>
+          <Link href="/agenda" className="font-medium" style={{ color: 'var(--accent)' }}>
             Volver a la agenda
           </Link>
         </div>
@@ -187,16 +183,16 @@ export default function RouteDetailPage({ params }: { params: { id: string } }) 
     );
   }
 
-  const getStatusColor = (status: string) => {
+  const getStatusStyle = (status: string) => {
     switch (status) {
       case 'planned':
-        return 'bg-blue-100 text-blue-700';
+        return { background: 'color-mix(in oklab, var(--surface) 75%, var(--info) 25%)', color: 'var(--info)' };
       case 'in_progress':
-        return 'bg-amber-100 text-amber-700';
+        return { background: 'color-mix(in oklab, var(--surface) 75%, var(--warning) 25%)', color: 'var(--warning)' };
       case 'completed':
-        return 'bg-green-100 text-green-700';
+        return { background: 'color-mix(in oklab, var(--surface) 75%, var(--success) 25%)', color: 'var(--success)' };
       default:
-        return 'bg-zinc-100 text-zinc-700';
+        return { background: 'var(--bg-subtle)', color: 'var(--fg-secondary)' };
     }
   };
 
@@ -213,47 +209,44 @@ export default function RouteDetailPage({ params }: { params: { id: string } }) 
     }
   };
 
-  return (
-    <div className="min-h-screen bg-zinc-50 pb-20">
-      {/* Header */}
-      <div className="bg-white shadow-sm sticky top-0 z-10">
-        <div className="max-w-2xl mx-auto px-4 py-4">
-          <div className="flex items-center gap-3 mb-4">
-            <button
-              onClick={() => router.back()}
-              className="p-2 -ml-2 hover:bg-zinc-100 rounded-full transition-colors"
-            >
-              <IconArrowLeft className="w-5 h-5 text-zinc-700" />
-            </button>
-            <div>
-              <h1 className="font-semibold text-zinc-900">{route.groupName}</h1>
-              <p className="text-sm text-zinc-500">
-                {new Date(route.date).toLocaleDateString('es-ES', {
-                  weekday: 'long',
-                  day: 'numeric',
-                  month: 'long',
-                })}
-              </p>
-            </div>
-          </div>
+  const routeDateLabel = new Date(route.date).toLocaleDateString('es-CL', {
+    weekday: 'long',
+    day: 'numeric',
+    month: 'long',
+  });
 
-          {/* Status Badge & Actions */}
-          <div className="flex items-center justify-between">
-            <span className={`px-3 py-1 rounded-full text-sm font-medium ${getStatusColor(route.status)}`}>
+  return (
+    <div className="pb-20">
+      <div className="sticky top-0 z-10 border-b" style={{ background: 'var(--surface)', borderColor: 'var(--border)' }}>
+        <div className="mx-auto max-w-2xl px-4 py-4 sm:px-6">
+          <button
+            type="button"
+            onClick={() => router.back()}
+            className="serenatas-interactive -ml-2 mb-4 flex items-center gap-2 rounded-lg p-2"
+            style={{ color: 'var(--fg-secondary)' }}
+          >
+            <IconArrowLeft className="h-5 w-5" />
+          </button>
+          <SerenatasPageHeader title={route.groupName} description={routeDateLabel} className="!mb-4" />
+
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <span className="rounded-full px-3 py-1 text-sm font-medium" style={getStatusStyle(route.status)}>
               {getStatusText(route.status)}
             </span>
 
-            <div className="flex gap-2">
+            <div className="flex flex-wrap justify-end gap-2">
               {route.status === 'planned' && (
                 <button
+                  type="button"
                   onClick={handleStart}
                   disabled={isActionLoading}
-                  className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-blue-700 disabled:opacity-50"
+                  className="flex items-center gap-2 rounded-lg px-4 py-2 font-medium disabled:opacity-50"
+                  style={{ background: 'var(--info)', color: 'var(--accent-contrast)' }}
                 >
                   {isActionLoading ? (
-                    <IconLoader2 className="w-4 h-4 animate-spin" />
+                    <IconLoader2 className="h-4 w-4 animate-spin" />
                   ) : (
-                    <IconPlayerPlay className="w-4 h-4" />
+                    <IconPlayerPlay className="h-4 w-4" />
                   )}
                   Iniciar
                 </button>
@@ -261,14 +254,16 @@ export default function RouteDetailPage({ params }: { params: { id: string } }) 
 
               {route.status === 'in_progress' && (
                 <button
+                  type="button"
                   onClick={handleComplete}
                   disabled={isActionLoading}
-                  className="flex items-center gap-2 bg-green-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-green-700 disabled:opacity-50"
+                  className="flex items-center gap-2 rounded-lg px-4 py-2 font-medium disabled:opacity-50"
+                  style={{ background: 'var(--success)', color: 'var(--accent-contrast)' }}
                 >
                   {isActionLoading ? (
-                    <IconLoader2 className="w-4 h-4 animate-spin" />
+                    <IconLoader2 className="h-4 w-4 animate-spin" />
                   ) : (
-                    <IconFlag className="w-4 h-4" />
+                    <IconFlag className="h-4 w-4" />
                   )}
                   Completar
                 </button>
@@ -276,11 +271,13 @@ export default function RouteDetailPage({ params }: { params: { id: string } }) 
 
               {route.status === 'planned' && (
                 <button
+                  type="button"
                   onClick={handleOptimize}
                   disabled={isActionLoading}
-                  className="flex items-center gap-2 bg-white border border-zinc-200 text-zinc-700 px-4 py-2 rounded-lg font-medium hover:bg-zinc-50 disabled:opacity-50"
+                  className="flex items-center gap-2 rounded-lg border px-4 py-2 font-medium disabled:opacity-50"
+                  style={{ background: 'var(--surface)', borderColor: 'var(--border)', color: 'var(--fg-secondary)' }}
                 >
-                  <IconTrendingUp className="w-4 h-4" />
+                  <IconTrendingUp className="h-4 w-4" />
                   Optimizar
                 </button>
               )}
@@ -289,8 +286,7 @@ export default function RouteDetailPage({ params }: { params: { id: string } }) 
         </div>
       </div>
 
-      {/* Map */}
-      <div className="h-64 bg-zinc-100">
+      <div className="h-64" style={{ background: 'var(--bg-subtle)' }}>
         <RouteMap
           serenatas={route.stops.map((stop, index) => ({
             id: stop.serenataId,
@@ -306,54 +302,53 @@ export default function RouteDetailPage({ params }: { params: { id: string } }) 
         />
       </div>
 
-      {/* Content */}
-      <div className="max-w-2xl mx-auto px-4 py-6 space-y-4">
+      <SerenatasPageShell width="default" className="max-w-2xl space-y-4">
         {/* Stats */}
         {stats && (
-          <div className="bg-white rounded-xl shadow-sm p-4">
-            <h3 className="font-medium text-zinc-900 mb-4 flex items-center gap-2">
-              <IconTrendingUp className="w-5 h-5 text-blue-500" />
+          <div className="rounded-xl border p-4" style={{ background: 'var(--surface)', borderColor: 'var(--border)' }}>
+            <h3 className="font-medium mb-4 flex items-center gap-2" style={{ color: 'var(--fg)' }}>
+              <IconTrendingUp className="w-5 h-5" style={{ color: 'var(--info)' }} />
               Estadísticas
             </h3>
             <div className="grid grid-cols-3 gap-4">
-              <div className="text-center p-3 bg-zinc-50 rounded-lg">
-                <p className="text-2xl font-bold text-zinc-900">{stats.completedStops}</p>
-                <p className="text-xs text-zinc-500">Completadas</p>
+              <div className="text-center p-3 rounded-lg" style={{ background: 'var(--bg-subtle)' }}>
+                <p className="text-2xl font-bold" style={{ color: 'var(--fg)' }}>{stats.completedStops}</p>
+                <p className="text-xs" style={{ color: 'var(--fg-secondary)' }}>Completadas</p>
               </div>
-              <div className="text-center p-3 bg-zinc-50 rounded-lg">
-                <p className="text-2xl font-bold text-zinc-900">{stats.totalDistance.toFixed(1)}</p>
-                <p className="text-xs text-zinc-500">Km recorridos</p>
+              <div className="text-center p-3 rounded-lg" style={{ background: 'var(--bg-subtle)' }}>
+                <p className="text-2xl font-bold" style={{ color: 'var(--fg)' }}>{stats.totalDistance.toFixed(1)}</p>
+                <p className="text-xs" style={{ color: 'var(--fg-secondary)' }}>Km recorridos</p>
               </div>
-              <div className="text-center p-3 bg-zinc-50 rounded-lg">
-                <p className="text-2xl font-bold text-zinc-900">{stats.averageTimePerStop}</p>
-                <p className="text-xs text-zinc-500">Min por parada</p>
+              <div className="text-center p-3 rounded-lg" style={{ background: 'var(--bg-subtle)' }}>
+                <p className="text-2xl font-bold" style={{ color: 'var(--fg)' }}>{stats.averageTimePerStop}</p>
+                <p className="text-xs" style={{ color: 'var(--fg-secondary)' }}>Min por parada</p>
               </div>
             </div>
           </div>
         )}
 
         {/* Route Info */}
-        <div className="bg-white rounded-xl shadow-sm p-4">
-          <h3 className="font-medium text-zinc-900 mb-4 flex items-center gap-2">
-            <IconRoute className="w-5 h-5 text-blue-500" />
+        <div className="rounded-xl border p-4" style={{ background: 'var(--surface)', borderColor: 'var(--border)' }}>
+          <h3 className="font-medium mb-4 flex items-center gap-2" style={{ color: 'var(--fg)' }}>
+            <IconRoute className="w-5 h-5" style={{ color: 'var(--info)' }} />
             Información de la ruta
           </h3>
           <div className="space-y-3">
-            <div className="flex justify-between py-2 border-b border-zinc-100">
-              <span className="text-zinc-500">Distancia total</span>
+            <div className="flex justify-between py-2 border-b" style={{ borderColor: 'var(--border)' }}>
+              <span style={{ color: 'var(--fg-secondary)' }}>Distancia total</span>
               <span className="font-medium">{route.totalDistance.toFixed(1)} km</span>
             </div>
-            <div className="flex justify-between py-2 border-b border-zinc-100">
-              <span className="text-zinc-500">Duración estimada</span>
+            <div className="flex justify-between py-2 border-b" style={{ borderColor: 'var(--border)' }}>
+              <span style={{ color: 'var(--fg-secondary)' }}>Duración estimada</span>
               <span className="font-medium">{Math.round(route.estimatedDuration)} min</span>
             </div>
-            <div className="flex justify-between py-2 border-b border-zinc-100">
-              <span className="text-zinc-500">Total de paradas</span>
+            <div className="flex justify-between py-2 border-b" style={{ borderColor: 'var(--border)' }}>
+              <span style={{ color: 'var(--fg-secondary)' }}>Total de paradas</span>
               <span className="font-medium">{route.stops.length}</span>
             </div>
             {route.startTime && (
-              <div className="flex justify-between py-2 border-b border-zinc-100">
-                <span className="text-zinc-500">Hora de inicio</span>
+              <div className="flex justify-between py-2 border-b" style={{ borderColor: 'var(--border)' }}>
+                <span style={{ color: 'var(--fg-secondary)' }}>Hora de inicio</span>
                 <span className="font-medium">
                   {new Date(route.startTime).toLocaleTimeString('es-ES', {
                     hour: '2-digit',
@@ -364,7 +359,7 @@ export default function RouteDetailPage({ params }: { params: { id: string } }) 
             )}
             {route.endTime && (
               <div className="flex justify-between py-2">
-                <span className="text-zinc-500">Hora de fin</span>
+                <span style={{ color: 'var(--fg-secondary)' }}>Hora de fin</span>
                 <span className="font-medium">
                   {new Date(route.endTime).toLocaleTimeString('es-ES', {
                     hour: '2-digit',
@@ -377,9 +372,9 @@ export default function RouteDetailPage({ params }: { params: { id: string } }) 
         </div>
 
         {/* Stops List */}
-        <div className="bg-white rounded-xl shadow-sm p-4">
-          <h3 className="font-medium text-zinc-900 mb-4 flex items-center gap-2">
-            <IconMapPin className="w-5 h-5 text-blue-500" />
+        <div className="rounded-xl border p-4" style={{ background: 'var(--surface)', borderColor: 'var(--border)' }}>
+          <h3 className="font-medium mb-4 flex items-center gap-2" style={{ color: 'var(--fg)' }}>
+            <IconMapPin className="w-5 h-5" style={{ color: 'var(--info)' }} />
             Paradas ({route.stops.length})
           </h3>
           <div className="space-y-3">
@@ -387,16 +382,18 @@ export default function RouteDetailPage({ params }: { params: { id: string } }) 
               <Link
                 key={stop.id}
                 href={`/serenata/${stop.serenataId}`}
-                className="flex items-start gap-3 p-3 rounded-lg hover:bg-zinc-50 transition-colors"
+                className="flex items-start gap-3 p-3 rounded-lg transition-colors"
+                style={{ background: 'var(--bg-subtle)' }}
               >
                 <div
-                  className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${
+                  className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0"
+                  style={
                     stop.status === 'completed'
-                      ? 'bg-green-100 text-green-600'
+                      ? { background: 'color-mix(in oklab, var(--surface) 75%, var(--success) 25%)', color: 'var(--success)' }
                       : stop.status === 'skipped'
-                      ? 'bg-zinc-100 text-zinc-400'
-                      : 'bg-blue-100 text-blue-600'
-                  }`}
+                      ? { background: 'var(--bg-subtle)', color: 'var(--fg-muted)' }
+                      : { background: 'color-mix(in oklab, var(--surface) 75%, var(--info) 25%)', color: 'var(--info)' }
+                  }
                 >
                   {stop.status === 'completed' ? (
                     <IconCheck className="w-4 h-4" />
@@ -405,9 +402,9 @@ export default function RouteDetailPage({ params }: { params: { id: string } }) 
                   )}
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="font-medium text-zinc-900 truncate">{stop.address}</p>
+                  <p className="font-medium truncate" style={{ color: 'var(--fg)' }}>{stop.address}</p>
                   {stop.estimatedTime && (
-                    <p className="text-sm text-zinc-500">
+                    <p className="text-sm" style={{ color: 'var(--fg-secondary)' }}>
                       Estimado: {stop.estimatedTime}
                     </p>
                   )}
@@ -416,7 +413,7 @@ export default function RouteDetailPage({ params }: { params: { id: string } }) 
             ))}
           </div>
         </div>
-      </div>
+      </SerenatasPageShell>
     </div>
   );
 }

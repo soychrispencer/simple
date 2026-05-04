@@ -1,4 +1,4 @@
-import { sql } from 'drizzle-orm';
+import { relations, sql } from 'drizzle-orm';
 import { pgTable, uuid, varchar, text, timestamp, jsonb, decimal, integer, boolean, uniqueIndex, index, date, time } from 'drizzle-orm/pg-core';
 
 // Users table
@@ -1064,10 +1064,11 @@ export const serenataMusicians = pgTable('serenata_musicians', {
   id: uuid('id').primaryKey().defaultRandom(),
   userId: uuid('user_id').references(() => users.id).notNull(),
   // Profile info
-  instrument: varchar('instrument', { length: 30 }).notNull(), // instrumentEnum
+  instrument: varchar('instrument', { length: 30 }).notNull(), // instrumentEnum (principal, compatibilidad)
   experience: integer('experience'), // years of experience
   bio: text('bio'),
   avatarUrl: varchar('avatar_url', { length: 500 }),
+  phone: varchar('phone', { length: 50 }), // teléfono de contacto en serenatas
   // Location
   comuna: varchar('comuna', { length: 100 }),
   region: varchar('region', { length: 100 }),
@@ -1151,7 +1152,7 @@ export const serenataGroups = pgTable('serenata_groups', {
   date: timestamp('date').notNull(), // date of the serenatas
   // Leader
   createdBy: uuid('created_by').references(() => serenataMusicians.id).notNull(),
-  captainId: uuid('captain_id').references(() => serenataMusicians.id),
+  groupLeadMusicianId: uuid('group_lead_musician_id').references(() => serenataMusicians.id),
   // Serenatas assigned
   serenataIds: jsonb('serenata_ids').notNull().default('[]'),
   // Route optimization
@@ -1171,7 +1172,7 @@ export const serenataGroups = pgTable('serenata_groups', {
   completedAt: timestamp('completed_at'),
 }, (table) => ({
   dateIdx: index('serenata_groups_date_idx').on(table.date),
-  captainIdx: index('serenata_groups_captain_idx').on(table.captainId),
+  groupLeadMusicianIdx: index('serenata_groups_lead_musician_idx').on(table.groupLeadMusicianId),
   statusIdx: index('serenata_groups_status_idx').on(table.status),
 }));
 
@@ -1180,7 +1181,7 @@ export const serenataGroupMembers = pgTable('serenata_group_members', {
   id: uuid('id').primaryKey().defaultRandom(),
   groupId: uuid('group_id').references(() => serenataGroups.id).notNull(),
   musicianId: uuid('musician_id').references(() => serenataMusicians.id).notNull(),
-  role: varchar('role', { length: 30 }).notNull(), // instrument or 'captain'
+  role: varchar('role', { length: 30 }).notNull(), // instrument or 'coordinator'
   // Financials
   earnings: decimal('earnings', { precision: 10, scale: 2 }).default('0'),
   status: varchar('status', { length: 20 }).notNull().default('invited'), // 'invited' | 'accepted' | 'confirmed' | 'completed' | 'declined'
@@ -1196,7 +1197,7 @@ export const serenataGroupMembers = pgTable('serenata_group_members', {
 // Assignments — linking serenatas to groups
 export const serenataAssignments = pgTable('serenata_assignments', {
   id: uuid('id').primaryKey().defaultRandom(),
-  serenataId: uuid('serenata_id').references(() => serenataRequests.id).notNull(),
+  serenataId: uuid('serenata_id').references(() => serenatas.id).notNull(),
   groupId: uuid('group_id').references(() => serenataGroups.id).notNull(),
   status: varchar('status', { length: 20 }).notNull().default('pending'), // assignmentStatusEnum
   position: integer('position').notNull().default(0), // order in route
@@ -1302,8 +1303,7 @@ export const serenataNotifications = pgTable('serenata_notifications', {
 // SimpleSerenatas - Sistema de Serenatas
 // ==========================================
 
-// Perfiles de Capitanes
-export const serenataCaptainProfiles = pgTable('serenata_captain_profiles', {
+export const serenataCoordinatorProfiles = pgTable('serenata_coordinator_profiles', {
   id: uuid('id').primaryKey().defaultRandom(),
   userId: uuid('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
   // Información básica
@@ -1335,31 +1335,37 @@ export const serenataCaptainProfiles = pgTable('serenata_captain_profiles', {
   createdAt: timestamp('created_at').notNull().defaultNow(),
   updatedAt: timestamp('updated_at').notNull().defaultNow(),
 }, (table) => ({
-  userIdx: index('captain_profiles_user_idx').on(table.userId),
-  planIdx: index('captain_profiles_plan_idx').on(table.subscriptionPlan),
-  locationIdx: index('captain_profiles_location_idx').on(table.city, table.region),
-  verifiedIdx: index('captain_profiles_verified_idx').on(table.isVerified),
-  ratingIdx: index('captain_profiles_rating_idx').on(table.rating),
+  userIdx: index('coordinator_profiles_user_idx').on(table.userId),
+  planIdx: index('coordinator_profiles_plan_idx').on(table.subscriptionPlan),
+  locationIdx: index('coordinator_profiles_location_idx').on(table.city, table.region),
+  verifiedIdx: index('coordinator_profiles_verified_idx').on(table.isVerified),
+  ratingIdx: index('coordinator_profiles_rating_idx').on(table.rating),
 }));
 
-// Perfiles de Músicos (miembros de cuadrilla)
-export const serenataMusicianProfiles = pgTable('serenata_musician_profiles', {
+// Membresía músico ↔ cuadrilla de un coordinador (una fila por par)
+export const serenataCoordinatorCrewMemberships = pgTable('serenata_coordinator_crew_memberships', {
   id: uuid('id').primaryKey().defaultRandom(),
-  userId: uuid('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
-  captainId: uuid('captain_id').notNull().references(() => serenataCaptainProfiles.id, { onDelete: 'cascade' }),
-  // Información
-  instruments: varchar('instruments', { length: 255 }).array(), // ['guitarra', 'voz', 'trompeta']
-  bio: text('bio'),
-  phone: varchar('phone', { length: 50 }),
-  // Disponibilidad
-  isActive: boolean('is_active').notNull().default(true),
-  // Timestamps
+  musicianId: uuid('musician_id')
+    .notNull()
+    .references(() => serenataMusicians.id, { onDelete: 'cascade' }),
+  coordinatorProfileId: uuid('coordinator_profile_id')
+    .notNull()
+    .references(() => serenataCoordinatorProfiles.id, { onDelete: 'cascade' }),
+  membershipStatus: varchar('membership_status', { length: 20 }).notNull().default('active'),
+  membershipInitiator: varchar('membership_initiator', { length: 20 }),
+  membershipInvitedAt: timestamp('membership_invited_at'),
+  membershipRespondedAt: timestamp('membership_responded_at'),
+  membershipMessage: text('membership_message'),
   createdAt: timestamp('created_at').notNull().defaultNow(),
   updatedAt: timestamp('updated_at').notNull().defaultNow(),
 }, (table) => ({
-  userIdx: index('musician_profiles_user_idx').on(table.userId),
-  captainIdx: index('musician_profiles_captain_idx').on(table.captainId),
-  activeIdx: index('musician_profiles_active_idx').on(table.isActive),
+  uniqMusicianCoord: uniqueIndex('serenata_crew_musician_coord_unique_idx').on(
+    table.musicianId,
+    table.coordinatorProfileId
+  ),
+  coordinatorIdx: index('serenata_crew_coord_idx').on(table.coordinatorProfileId),
+  musicianIdx: index('serenata_crew_musician_idx').on(table.musicianId),
+  statusIdx: index('serenata_crew_membership_status_idx').on(table.membershipStatus),
 }));
 
 // Serenatas (solicitudes de servicio)
@@ -1370,8 +1376,8 @@ export const serenatas = pgTable('serenatas', {
   clientName: varchar('client_name', { length: 255 }).notNull(),
   clientPhone: varchar('client_phone', { length: 50 }),
   clientEmail: varchar('client_email', { length: 255 }),
-  // Capitán asignado
-  captainId: uuid('captain_id').references(() => serenataCaptainProfiles.id),
+  // Coordinador asignado
+  coordinatorProfileId: uuid('coordinator_profile_id').references(() => serenataCoordinatorProfiles.id),
   // Detalles del evento
   eventType: varchar('event_type', { length: 50 }).notNull().default('serenata'), // serenata, cumpleaños, aniversario
   eventDate: date('event_date').notNull(),
@@ -1391,10 +1397,10 @@ export const serenatas = pgTable('serenatas', {
   // Precio y pago
   price: integer('price'), // Precio acordado
   commission: integer('commission').default(0), // Comisión de la plataforma
-  captainEarnings: integer('captain_earnings'), // Lo que gana el capitán
+  coordinatorEarnings: integer('coordinator_earnings'),
   // Estado
   status: varchar('status', { length: 30 }).notNull().default('pending'), // pending, quoted, accepted, confirmed, in_progress, completed, cancelled
-  source: varchar('source', { length: 30 }).notNull().default('platform'), // self_captured, platform_lead, platform_assigned
+  source: varchar('source', { length: 30 }).notNull().default('self_captured'), // self_captured (sin comisión), platform_lead | platform_assigned (8 %+IVA)
   // Fechas importantes
   quotedAt: timestamp('quoted_at'),
   acceptedAt: timestamp('accepted_at'),
@@ -1402,40 +1408,56 @@ export const serenatas = pgTable('serenatas', {
   completedAt: timestamp('completed_at'),
   cancelledAt: timestamp('cancelled_at'),
   // Tracking
-  captainArrivedAt: timestamp('captain_arrived_at'),
-  captainDepartedAt: timestamp('captain_departed_at'),
+  coordinatorArrivedAt: timestamp('coordinator_arrived_at'),
+  coordinatorDepartedAt: timestamp('coordinator_departed_at'),
   // Timestamps
   createdAt: timestamp('created_at').notNull().defaultNow(),
   updatedAt: timestamp('updated_at').notNull().defaultNow(),
 }, (table) => ({
   clientIdx: index('serenatas_client_idx').on(table.clientId),
-  captainIdx: index('serenatas_captain_idx').on(table.captainId),
+  coordinatorProfileIdx: index('serenatas_coordinator_profile_idx').on(table.coordinatorProfileId),
   statusIdx: index('serenatas_status_idx').on(table.status),
   dateIdx: index('serenatas_date_idx').on(table.eventDate),
   locationIdx: index('serenatas_location_idx').on(table.city, table.region),
   sourceIdx: index('serenatas_source_idx').on(table.source),
 }));
 
-// Músicos asignados a una serenata (capitanes model)
-export const serenataCapitanMusicians = pgTable('serenata_capitan_musicians', {
+// Músicos asignados a una serenata (coordinadores model)
+export const serenataMusicianLineup = pgTable('serenata_musician_lineup', {
   id: uuid('id').primaryKey().defaultRandom(),
   serenataId: uuid('serenata_id').notNull().references(() => serenatas.id, { onDelete: 'cascade' }),
-  musicianId: uuid('musician_id').notNull().references(() => serenataMusicianProfiles.id, { onDelete: 'cascade' }),
+  musicianId: uuid('musician_id').notNull().references(() => serenataMusicians.id, { onDelete: 'cascade' }),
+  // Estado de la membresía dentro del lineup:
+  // 'invited'   → el coordinador lo invitó, esperando respuesta del músico
+  // 'requested' → el músico pidió sumarse, esperando aprobación del coordinador
+  // 'accepted'  → confirmado por ambas partes (puede actuar)
+  // 'declined'  → rechazado por la otra parte
+  // 'removed'   → removido del lineup
+  status: varchar('status', { length: 20 }).notNull().default('invited'),
+  // Quién inició: 'coordinator' (invitación) | 'musician' (solicitud / self-pickup)
+  initiator: varchar('initiator', { length: 20 }),
+  invitedBy: uuid('invited_by').references(() => serenataCoordinatorProfiles.id, { onDelete: 'set null' }),
+  invitedAt: timestamp('invited_at').notNull().defaultNow(),
+  respondedAt: timestamp('responded_at'),
+  declineReason: varchar('decline_reason', { length: 255 }),
   // Confirmación
   confirmedAt: timestamp('confirmed_at'),
   // Asistencia
   attended: boolean('attended'),
   // Timestamps
   createdAt: timestamp('created_at').notNull().defaultNow(),
+  updatedAt: timestamp('updated_at').notNull().defaultNow(),
 }, (table) => ({
-  serenataIdx: index('capitan_musicians_serenata_idx').on(table.serenataId),
-  musicianIdx: index('capitan_musicians_musician_idx').on(table.musicianId),
+  serenataIdx: index('musician_lineup_serenata_idx').on(table.serenataId),
+  musicianIdx: index('musician_lineup_musician_idx').on(table.musicianId),
+  statusIdx: index('musician_lineup_status_idx').on(table.status),
+  uniqueSerenataMusician: uniqueIndex('musician_lineup_serenata_musician_unique_idx').on(table.serenataId, table.musicianId),
 }));
 
-// Suscripciones de capitanes
+// Suscripciones de coordinadores
 export const serenataSubscriptions = pgTable('serenata_subscriptions', {
   id: uuid('id').primaryKey().defaultRandom(),
-  captainId: uuid('captain_id').notNull().references(() => serenataCaptainProfiles.id, { onDelete: 'cascade' }),
+  coordinatorProfileId: uuid('coordinator_profile_id').notNull().references(() => serenataCoordinatorProfiles.id, { onDelete: 'cascade' }),
   // Plan
   plan: varchar('plan', { length: 20 }).notNull(), // free, pro, premium
   // Precio (para registro histórico)
@@ -1454,7 +1476,7 @@ export const serenataSubscriptions = pgTable('serenata_subscriptions', {
   createdAt: timestamp('created_at').notNull().defaultNow(),
   updatedAt: timestamp('updated_at').notNull().defaultNow(),
 }, (table) => ({
-  captainIdx: index('subscriptions_captain_idx').on(table.captainId),
+  coordinatorProfileIdx: index('subscriptions_coordinator_profile_idx').on(table.coordinatorProfileId),
   statusIdx: index('subscriptions_status_idx').on(table.status),
   externalIdx: index('subscriptions_external_idx').on(table.externalSubscriptionId),
 }));
@@ -1463,7 +1485,7 @@ export const serenataSubscriptions = pgTable('serenata_subscriptions', {
 export const serenataSubscriptionPayments = pgTable('serenata_subscription_payments', {
   id: uuid('id').primaryKey().defaultRandom(),
   subscriptionId: uuid('subscription_id').notNull().references(() => serenataSubscriptions.id, { onDelete: 'cascade' }),
-  captainId: uuid('captain_id').notNull().references(() => serenataCaptainProfiles.id, { onDelete: 'cascade' }),
+  coordinatorProfileId: uuid('coordinator_profile_id').notNull().references(() => serenataCoordinatorProfiles.id, { onDelete: 'cascade' }),
   // Monto
   amount: integer('amount').notNull(),
   currency: varchar('currency', { length: 3 }).default('CLP'),
@@ -1483,7 +1505,7 @@ export const serenataSubscriptionPayments = pgTable('serenata_subscription_payme
   createdAt: timestamp('created_at').notNull().defaultNow(),
 }, (table) => ({
   subscriptionIdx: index('sub_payments_subscription_idx').on(table.subscriptionId),
-  captainIdx: index('sub_payments_captain_idx').on(table.captainId),
+  coordinatorProfileIdx: index('sub_payments_coordinator_profile_idx').on(table.coordinatorProfileId),
   statusIdx: index('sub_payments_status_idx').on(table.status),
 }));
 
@@ -1492,20 +1514,23 @@ export const serenataPayments = pgTable('serenata_payments', {
   id: uuid('id').primaryKey().defaultRandom(),
   serenataId: uuid('serenata_id').notNull().references(() => serenatas.id, { onDelete: 'cascade' }),
   clientId: uuid('client_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
-  captainId: uuid('captain_id').notNull().references(() => serenataCaptainProfiles.id),
+  coordinatorProfileId: uuid('coordinator_profile_id').notNull().references(() => serenataCoordinatorProfiles.id),
   // Montos
   totalAmount: integer('total_amount').notNull(), // Lo que paga el cliente
+  /** Parte neto comisión plataforma (ej. 8 %) — antes de IVA */
   platformCommission: integer('platform_commission').notNull().default(0),
-  captainEarnings: integer('captain_earnings').notNull(),
+  /** IVA aplicado sobre la parte comisión (referencia Chile; sumado aparte del %) */
+  commissionVat: integer('commission_vat').notNull().default(0),
+  coordinatorEarnings: integer('coordinator_earnings').notNull(),
   currency: varchar('currency', { length: 3 }).default('CLP'),
   // Estado
   status: varchar('status', { length: 20 }).notNull().default('pending'), // pending, holding, released, refunded, disputed
   // IDs externos
   externalPaymentId: varchar('external_payment_id', { length: 255 }),
-  externalTransferId: varchar('external_transfer_id', { length: 255 }), // Transferencia al capitán
+  externalTransferId: varchar('external_transfer_id', { length: 255 }), // Transferencia al coordinador
   // Fechas
   clientPaidAt: timestamp('client_paid_at'),
-  releasedToCaptainAt: timestamp('released_to_captain_at'),
+  releasedToCoordinatorAt: timestamp('released_to_coordinator_at'),
   refundedAt: timestamp('refunded_at'),
   // Timestamps
   createdAt: timestamp('created_at').notNull().defaultNow(),
@@ -1513,20 +1538,20 @@ export const serenataPayments = pgTable('serenata_payments', {
 }, (table) => ({
   serenataIdx: index('serenata_payments_serenata_idx').on(table.serenataId),
   clientIdx: index('serenata_payments_client_idx').on(table.clientId),
-  captainIdx: index('serenata_payments_captain_idx').on(table.captainId),
+  coordinatorProfileIdx: index('serenata_payments_coordinator_profile_idx').on(table.coordinatorProfileId),
   statusIdx: index('serenata_payments_status_idx').on(table.status),
 }));
 
-// Reseñas y calificaciones (capitanes model)
-export const serenataCapitanReviews = pgTable('serenata_capitan_reviews', {
+// Reseñas y calificaciones (coordinadores model)
+export const serenataCoordinatorReviews = pgTable('serenata_coordinator_reviews', {
   id: uuid('id').primaryKey().defaultRandom(),
   serenataId: uuid('serenata_id').notNull().references(() => serenatas.id, { onDelete: 'cascade' }),
   // Quién evalúa
   reviewerId: uuid('reviewer_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
-  reviewerType: varchar('reviewer_type', { length: 20 }).notNull(), // client, captain
+  reviewerType: varchar('reviewer_type', { length: 20 }).notNull(), // client, coordinator
   // Quién es evaluado
   revieweeId: uuid('reviewee_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
-  revieweeType: varchar('reviewee_type', { length: 20 }).notNull(), // client, captain
+  revieweeType: varchar('reviewee_type', { length: 20 }).notNull(), // client, coordinator
   // Calificación
   rating: integer('rating').notNull(), // 1-5
   // Reseña
@@ -1544,16 +1569,16 @@ export const serenataCapitanReviews = pgTable('serenata_capitan_reviews', {
   // Timestamps
   createdAt: timestamp('created_at').notNull().defaultNow(),
 }, (table) => ({
-  serenataIdx: index('capitan_reviews_serenata_idx').on(table.serenataId),
-  reviewerIdx: index('capitan_reviews_reviewer_idx').on(table.reviewerId),
-  revieweeIdx: index('capitan_reviews_reviewee_idx').on(table.revieweeId),
-  ratingIdx: index('capitan_reviews_rating_idx').on(table.rating),
+  serenataIdx: index('coordinator_reviews_serenata_idx').on(table.serenataId),
+  reviewerIdx: index('coordinator_reviews_reviewer_idx').on(table.reviewerId),
+  revieweeIdx: index('coordinator_reviews_reviewee_idx').on(table.revieweeId),
+  ratingIdx: index('coordinator_reviews_rating_idx').on(table.rating),
 }));
 
-// Configuración de disponibilidad de capitanes
+// Configuración de disponibilidad de coordinadores
 export const serenataAvailability = pgTable('serenata_availability', {
   id: uuid('id').primaryKey().defaultRandom(),
-  captainId: uuid('captain_id').notNull().references(() => serenataCaptainProfiles.id, { onDelete: 'cascade' }),
+  coordinatorProfileId: uuid('coordinator_profile_id').notNull().references(() => serenataCoordinatorProfiles.id, { onDelete: 'cascade' }),
   // Día de la semana (0=domingo, 6=sábado)
   dayOfWeek: integer('day_of_week').notNull(),
   // Horario
@@ -1565,11 +1590,11 @@ export const serenataAvailability = pgTable('serenata_availability', {
   createdAt: timestamp('created_at').notNull().defaultNow(),
   updatedAt: timestamp('updated_at').notNull().defaultNow(),
 }, (table) => ({
-  captainIdx: index('availability_captain_idx').on(table.captainId),
+  coordinatorProfileIdx: index('availability_coordinator_profile_idx').on(table.coordinatorProfileId),
   dayIdx: index('availability_day_idx').on(table.dayOfWeek),
 }));
 
-// Chat/mensajes entre cliente y capitán
+// Chat/mensajes entre cliente y coordinador
 export const serenataMessages = pgTable('serenata_messages', {
   id: uuid('id').primaryKey().defaultRandom(),
   serenataId: uuid('serenata_id').notNull().references(() => serenatas.id, { onDelete: 'cascade' }),
@@ -1587,4 +1612,119 @@ export const serenataMessages = pgTable('serenata_messages', {
   serenataIdx: index('messages_serenata_idx').on(table.serenataId),
   senderIdx: index('messages_sender_idx').on(table.senderId),
   createdAtIdx: index('messages_created_at_idx').on(table.createdAt),
+}));
+
+// ─── Drizzle relational queries (`db.query.*` + `with`) ─────────────────────
+export const serenataMusiciansRelations = relations(serenataMusicians, ({ one, many }) => ({
+  user: one(users, {
+    fields: [serenataMusicians.userId],
+    references: [users.id],
+  }),
+  groupsAsLeadMusician: many(serenataGroups, { relationName: 'groupLeadMusician' }),
+  groupsAsCreator: many(serenataGroups, { relationName: 'groupCreator' }),
+  groupMemberships: many(serenataGroupMembers),
+}));
+
+export const serenataGroupsRelations = relations(serenataGroups, ({ one, many }) => ({
+  leadMusician: one(serenataMusicians, {
+    fields: [serenataGroups.groupLeadMusicianId],
+    references: [serenataMusicians.id],
+    relationName: 'groupLeadMusician',
+  }),
+  creator: one(serenataMusicians, {
+    fields: [serenataGroups.createdBy],
+    references: [serenataMusicians.id],
+    relationName: 'groupCreator',
+  }),
+  members: many(serenataGroupMembers),
+  assignments: many(serenataAssignments),
+  routes: many(serenataRoutes),
+}));
+
+export const serenataGroupMembersRelations = relations(serenataGroupMembers, ({ one }) => ({
+  group: one(serenataGroups, {
+    fields: [serenataGroupMembers.groupId],
+    references: [serenataGroups.id],
+  }),
+  musician: one(serenataMusicians, {
+    fields: [serenataGroupMembers.musicianId],
+    references: [serenataMusicians.id],
+  }),
+}));
+
+export const serenataAssignmentsRelations = relations(serenataAssignments, ({ one }) => ({
+  group: one(serenataGroups, {
+    fields: [serenataAssignments.groupId],
+    references: [serenataGroups.id],
+  }),
+  serenata: one(serenatas, {
+    fields: [serenataAssignments.serenataId],
+    references: [serenatas.id],
+  }),
+}));
+
+export const serenataRoutesRelations = relations(serenataRoutes, ({ one }) => ({
+  group: one(serenataGroups, {
+    fields: [serenataRoutes.groupId],
+    references: [serenataGroups.id],
+  }),
+}));
+
+/**
+ * Auditoría de webhooks Mercado Pago para serenatas (pago serenata + suscripción coordinador).
+ * Permite reintento manual y trazabilidad ante disputas.
+ */
+export const serenataMpWebhookEvents = pgTable('serenata_mp_webhook_events', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  /** `payment` | `merchant_order` | `subscription_authorized_payment` | `preapproval` | otros */
+  topic: varchar('topic', { length: 60 }),
+  /** id del recurso recibido (data.id) */
+  resourceId: varchar('resource_id', { length: 120 }),
+  /** valor `external_reference` del pago/preapproval consultado (si lo logramos resolver) */
+  externalReference: varchar('external_reference', { length: 255 }),
+  /** `received` | `processed` | `ignored` | `invalid_signature` | `error` */
+  status: varchar('status', { length: 30 }).notNull().default('received'),
+  /** Headers relevantes (`x-signature`, `x-request-id`). */
+  headers: jsonb('headers'),
+  /** Cuerpo JSON tal cual vino. */
+  payload: jsonb('payload'),
+  /** Mensaje de error o nota interna. */
+  note: text('note'),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+  processedAt: timestamp('processed_at'),
+}, (table) => ({
+  resourceIdx: index('serenata_mp_webhook_resource_idx').on(table.resourceId),
+  statusIdx: index('serenata_mp_webhook_status_idx').on(table.status),
+  createdIdx: index('serenata_mp_webhook_created_idx').on(table.createdAt),
+}));
+
+/**
+ * Preapprovals (suscripciones recurrentes Mercado Pago) del coordinador.
+ * Representa la autorización persistente de cobros mensuales.
+ *
+ * Relación con `serenataSubscriptions`: una preapproval puede generar varios
+ * `serenataSubscriptionPayments` (uno por mes cobrado), que se siguen
+ * insertando con su `subscriptionId` correspondiente.
+ */
+export const serenataCoordinatorPreapprovals = pgTable('serenata_coordinator_preapprovals', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  coordinatorProfileId: uuid('coordinator_profile_id')
+    .notNull()
+    .references(() => serenataCoordinatorProfiles.id, { onDelete: 'cascade' }),
+  /** id devuelto por Mercado Pago (`/preapproval`). */
+  externalId: varchar('external_id', { length: 120 }).notNull(),
+  plan: varchar('plan', { length: 20 }).notNull(), // pro | premium
+  amount: integer('amount').notNull(),
+  currency: varchar('currency', { length: 3 }).notNull().default('CLP'),
+  /** `pending` | `authorized` | `paused` | `cancelled` (espejo de MP). */
+  status: varchar('status', { length: 20 }).notNull().default('pending'),
+  payerEmail: varchar('payer_email', { length: 255 }),
+  startedAt: timestamp('started_at'),
+  cancelledAt: timestamp('cancelled_at'),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+  updatedAt: timestamp('updated_at').notNull().defaultNow(),
+}, (table) => ({
+  externalIdx: uniqueIndex('coord_preapproval_external_idx').on(table.externalId),
+  coordIdx: index('coord_preapproval_coord_idx').on(table.coordinatorProfileId),
+  statusIdx: index('coord_preapproval_status_idx').on(table.status),
 }));

@@ -18,6 +18,7 @@ import {
   IconSun,
   IconMoon,
 } from '@tabler/icons-react';
+import { BrandLogo } from '@simple/ui';
 
 export default function LandingPage() {
   const { theme, setTheme } = useTheme();
@@ -28,17 +29,11 @@ export default function LandingPage() {
   }, []);
 
   return (
-    <div className="min-h-screen bg-[var(--bg)]">
+    <div className="min-h-screen" style={{ background: 'linear-gradient(180deg, var(--surface) 0%, var(--bg) 420px)' }}>
       {/* Navigation - Mobile */}
-      <nav className="flex lg:hidden items-center justify-between px-4 py-3 border-b bg-[var(--surface)]" style={{ borderColor: 'var(--border)' }}>
-        <Link href="/" className="flex items-center gap-2 group shrink-0">
-          <span className="w-8 h-8 rounded-xl flex items-center justify-center transition-opacity group-hover:opacity-80" style={{ backgroundColor: 'var(--accent-subtle)', color: '#E11D48' }}>
-            <IconConfettiFilled size={18} />
-          </span>
-          <span className="inline-flex items-baseline gap-[0.08rem] text-[1.05rem] tracking-tight" style={{ color: 'var(--fg)' }}>
-            <span className="font-semibold leading-none">Simple</span>
-            <span className="font-normal leading-none" style={{ color: '#E11D48' }}>Serenatas</span>
-          </span>
+      <nav className="flex lg:hidden items-center justify-between px-4 py-3 border-b bg-[var(--surface)]/90 backdrop-blur-sm" style={{ borderColor: 'var(--border)' }}>
+        <Link href="/" className="group shrink-0">
+          <BrandLogo appId="simpleserenatas" />
         </Link>
         <div className="flex items-center gap-2">
           {mounted && (
@@ -53,8 +48,8 @@ export default function LandingPage() {
           )}
           <Link
             href="/auth/login"
-            className="px-4 py-2 rounded-xl font-medium text-white text-sm transition-colors hover:opacity-90"
-            style={{ background: 'var(--accent)' }}
+            className="serenatas-interactive px-4 py-2 rounded-xl font-medium text-sm transition-colors hover:opacity-90"
+            style={{ background: 'var(--accent)', color: 'var(--accent-contrast)' }}
           >
             Entrar
           </Link>
@@ -62,30 +57,24 @@ export default function LandingPage() {
       </nav>
 
       {/* Navigation - Desktop */}
-      <nav className="hidden lg:flex items-center justify-between px-8 py-4 border-b bg-[var(--surface)]" style={{ borderColor: 'var(--border)' }}>
-        <Link href="/" className="flex items-center gap-2 group shrink-0">
-          <span className="w-8 h-8 rounded-xl flex items-center justify-center transition-opacity group-hover:opacity-80" style={{ backgroundColor: 'var(--accent-subtle)', color: '#E11D48' }}>
-            <IconConfettiFilled size={18} />
-          </span>
-          <span className="inline-flex items-baseline gap-[0.08rem] text-[1.05rem] tracking-tight" style={{ color: 'var(--fg)' }}>
-            <span className="font-semibold leading-none">Simple</span>
-            <span className="font-normal leading-none" style={{ color: '#E11D48' }}>Serenatas</span>
-          </span>
+      <nav className="hidden lg:flex items-center justify-between px-8 py-4 border-b bg-[var(--surface)]/90 backdrop-blur-sm" style={{ borderColor: 'var(--border)' }}>
+        <Link href="/" className="group shrink-0">
+          <BrandLogo appId="simpleserenatas" />
         </Link>
         <div className="flex items-center gap-2">
           <Link
             href="/auth/login"
-            className="px-5 py-2.5 rounded-xl font-medium transition-colors"
+            className="serenatas-interactive px-5 py-2.5 rounded-xl font-medium transition-colors"
             style={{ color: 'var(--fg-secondary)' }}
           >
-            Iniciar Sesión
+            Iniciar sesión
           </Link>
           <Link
             href="/auth/registro"
-            className="px-5 py-2.5 rounded-xl font-medium text-white transition-colors hover:opacity-90"
-            style={{ background: 'var(--accent)' }}
+            className="serenatas-interactive px-5 py-2.5 rounded-xl font-medium transition-colors hover:opacity-90"
+            style={{ background: 'var(--accent)', color: 'var(--accent-contrast)' }}
           >
-            Crear Cuenta
+            Crear cuenta
           </Link>
           {mounted && (
             <button
@@ -102,47 +91,51 @@ export default function LandingPage() {
 
       {/* Hero Section */}
       <section
-        className="relative overflow-hidden"
-        style={{ background: 'linear-gradient(135deg, var(--accent) 0%, #be123c 100%)' }}
+        className="relative overflow-hidden border-b"
+        style={{ borderColor: 'var(--border)', background: 'linear-gradient(145deg, var(--surface) 0%, var(--bg-subtle) 100%)' }}
       >
-        {/* Background Pattern */}
-        <div className="absolute inset-0 opacity-10">
-          <div className="absolute top-20 left-10 w-64 h-64 rounded-full bg-[var(--fg)] blur-3xl" />
-          <div className="absolute bottom-20 right-10 w-96 h-96 rounded-full bg-[var(--fg)] blur-3xl" />
+        <div className="absolute inset-0 opacity-80">
+          <div className="absolute top-16 left-8 w-72 h-72 rounded-full blur-3xl" style={{ background: 'var(--surface)' }} />
+          <div className="absolute bottom-10 right-8 w-96 h-96 rounded-full blur-3xl" style={{ background: 'var(--surface)' }} />
         </div>
 
         <div className="relative max-w-7xl mx-auto px-6 lg:px-8 py-16 lg:py-24">
           <div className="lg:grid lg:grid-cols-2 lg:gap-12 items-center">
             {/* Left: Content */}
             <div className="text-center lg:text-left mb-12 lg:mb-0">
-              <h1 className="text-4xl lg:text-6xl font-bold text-white leading-tight mb-6">
-                Organiza tus serenatas como un{' '}
-                <span className="text-white/90">profesional</span>
+              <span className="inline-flex items-center rounded-full px-3 py-1 text-xs font-medium mb-5" style={{ background: 'var(--accent-subtle)', color: 'var(--accent)' }}>
+                Registro y operación en una sola app
+              </span>
+              <h1 className="text-4xl lg:text-6xl font-bold leading-[1.05] mb-6" style={{ color: 'var(--fg)' }}>
+                Organiza tus serenatas
+                <br />
+                sin fricción
               </h1>
-              <p className="text-lg lg:text-xl text-white/90 mb-8 max-w-xl mx-auto lg:mx-0">
-                El sistema operativo para músicos de mariachis. Gestiona grupos, optimiza rutas y multiplica tus ganancias.
+              <p className="text-lg lg:text-xl mb-8 max-w-xl mx-auto lg:mx-0" style={{ color: 'var(--fg-secondary)' }}>
+                Gestiona grupos, rutas, solicitudes y pagos con una experiencia simple, rápida y moderna.
               </p>
 
               {/* CTA Buttons */}
               <div className="flex flex-col sm:flex-row gap-4 justify-center lg:justify-start">
                 <Link
                   href="/auth/registro"
-                  className="inline-flex items-center justify-center gap-2 bg-white px-8 py-4 rounded-xl font-semibold transition-all hover:bg-white/90 hover:shadow-lg"
-                  style={{ color: 'var(--accent)' }}
+                  className="serenatas-interactive inline-flex items-center justify-center gap-2 px-8 py-4 rounded-2xl font-semibold transition-all hover:opacity-90"
+                  style={{ background: 'var(--accent)', color: 'var(--accent-contrast)' }}
                 >
                   Comenzar Gratis
                   <IconArrowRight size={20} />
                 </Link>
                 <Link
                   href="/auth/login"
-                  className="inline-flex items-center justify-center gap-2 px-8 py-4 rounded-xl font-semibold text-white border-2 border-white/30 transition-all hover:bg-white/10"
+                  className="serenatas-interactive inline-flex items-center justify-center gap-2 px-8 py-4 rounded-2xl font-semibold border transition-all"
+                  style={{ color: 'var(--fg)', borderColor: 'var(--border)', background: 'var(--surface)' }}
                 >
-                  Iniciar Sesión
+                  Iniciar sesión
                 </Link>
               </div>
 
               {/* Trust Indicators */}
-              <div className="flex items-center justify-center lg:justify-start gap-6 mt-8 text-white/80 text-sm">
+              <div className="flex items-center justify-center lg:justify-start gap-6 mt-8 text-sm" style={{ color: 'var(--fg-secondary)' }}>
                 <div className="flex items-center gap-2">
                   <IconCheck size={16} />
                   <span>Gratis para siempre</span>
@@ -157,11 +150,11 @@ export default function LandingPage() {
             {/* Right: Visual/App Preview */}
             <div className="hidden lg:block relative">
               <div
-                className="relative rounded-3xl p-6 shadow-2xl"
-                style={{ background: 'rgba(255,255,255,0.1)', backdropFilter: 'blur(20px)', border: '1px solid rgba(255,255,255,0.2)' }}
+                className="relative rounded-[2rem] p-5 shadow-sm"
+                style={{ background: 'color-mix(in srgb, var(--surface) 78%, transparent)', backdropFilter: 'blur(8px)', border: '1px solid var(--border)' }}
               >
                 {/* Mock App Interface */}
-                <div className="rounded-2xl p-6 shadow-xl" style={{ background: 'var(--surface)' }}>
+                <div className="rounded-2xl p-6" style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}>
                   <div className="flex items-center gap-3 mb-6">
                     <div
                       className="w-10 h-10 rounded-xl flex items-center justify-center"
@@ -192,8 +185,8 @@ export default function LandingPage() {
 
               {/* Floating Elements */}
               <div
-                className="absolute -top-4 -right-4 w-24 h-24 rounded-2xl flex items-center justify-center shadow-xl"
-                style={{ background: 'var(--accent)', color: 'var(--accent-contrast)' }}
+                className="absolute -top-4 -right-4 w-24 h-24 rounded-2xl flex items-center justify-center"
+                style={{ background: 'var(--accent)', color: 'var(--accent-contrast)', boxShadow: '0 16px 28px color-mix(in oklab, var(--fg) 18%, transparent)' }}
               >
                 <div className="text-center">
                   <IconTrophy size={24} className="mx-auto mb-1" />
@@ -204,25 +197,17 @@ export default function LandingPage() {
           </div>
         </div>
 
-        {/* Wave Divider */}
-        <div className="absolute bottom-0 left-0 right-0 leading-[0]" style={{ color: 'var(--bg)' }}>
-          <svg className="w-full h-auto block" viewBox="0 0 1440 120" fill="currentColor" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="none">
-            <path
-              d="M0 120L60 110C120 100 240 80 360 70C480 60 600 60 720 65C840 70 960 80 1080 85C1200 90 1320 90 1380 90L1440 90V120H1380C1320 120 1200 120 1080 120C960 120 840 120 720 120C600 120 480 120 360 120C240 120 120 120 60 120H0Z"
-            />
-          </svg>
-        </div>
       </section>
 
       {/* Features Section */}
-      <section className="py-20 lg:py-32 px-6 lg:px-8" style={{ background: 'var(--bg)' }}>
+      <section className="py-20 lg:py-28 px-6 lg:px-8" style={{ background: 'var(--bg)' }}>
         <div className="max-w-7xl mx-auto">
           <div className="text-center mb-16">
-            <h2 className="text-3xl lg:text-4xl font-bold mb-4" style={{ color: 'var(--fg)' }}>
+            <h2 className="text-3xl lg:text-4xl font-bold mb-4 leading-tight" style={{ color: 'var(--fg)' }}>
               Todo lo que necesitas para triunfar
             </h2>
             <p className="text-lg max-w-2xl mx-auto" style={{ color: 'var(--fg-secondary)' }}>
-              Herramientas profesionales diseñadas específicamente para músicos de mariachis
+              Herramientas claras para operar mejor cada serenata.
             </p>
           </div>
 
@@ -237,19 +222,19 @@ export default function LandingPage() {
               icon={IconMapPin}
               title="Rutas Optimizadas"
               description="Minimiza tiempos de traslado con nuestra app de navegación"
-              color="#22c55e"
+              color="var(--success)"
             />
             <FeatureCardLarge
               icon={IconCalendar}
               title="Agenda Centralizada"
               description="Gestiona todas tus serenatas en un solo lugar"
-              color="#3b82f6"
+              color="var(--info)"
             />
             <FeatureCardLarge
               icon={IconRadio}
               title="Modo Urgencia"
               description="Recibe notificaciones instantáneas de serenatas de último minuto"
-              color="#f59e0b"
+              color="var(--warning)"
             />
           </div>
         </div>
@@ -402,22 +387,22 @@ export default function LandingPage() {
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <Link
               href="/auth/registro"
-              className="inline-flex items-center justify-center gap-2 px-8 py-4 rounded-xl font-semibold text-white text-lg transition-all hover:opacity-90"
-              style={{ background: 'var(--accent)' }}
+              className="serenatas-interactive inline-flex items-center justify-center gap-2 px-8 py-4 rounded-xl font-semibold text-lg transition-all hover:opacity-90"
+              style={{ background: 'var(--accent)', color: 'var(--accent-contrast)' }}
             >
               Crear cuenta gratis
               <IconArrowRight size={20} />
             </Link>
             <Link
               href="/auth/login"
-              className="inline-flex items-center justify-center gap-2 px-8 py-4 rounded-xl font-semibold text-lg transition-all border-2"
+              className="serenatas-interactive inline-flex items-center justify-center gap-2 px-8 py-4 rounded-xl font-semibold text-lg transition-all border-2"
               style={{ color: 'var(--fg)', borderColor: 'var(--border)' }}
             >
               Ya tengo cuenta
             </Link>
           </div>
           <p className="mt-6 text-sm" style={{ color: 'var(--fg-muted)' }}>
-            Sin costos de registro • Sin comisiones • Cancela cuando quieras
+            Sin costo de registro • Sin comisiones • Cancela cuando quieras
           </p>
         </div>
       </section>
@@ -426,17 +411,7 @@ export default function LandingPage() {
       <footer className="py-12 px-6 lg:px-8 border-t" style={{ background: 'var(--bg)', borderColor: 'var(--border)' }}>
         <div className="max-w-7xl mx-auto">
           <div className="flex flex-col lg:flex-row items-center justify-between gap-6">
-            <div className="flex items-center gap-3">
-              <div
-                className="w-10 h-10 rounded-xl flex items-center justify-center"
-                style={{ background: 'var(--accent)' }}
-              >
-                <IconConfettiFilled size={20} style={{ color: 'var(--accent-contrast)' }} />
-              </div>
-              <span className="text-lg font-bold" style={{ color: 'var(--fg)' }}>
-                Simple<span style={{ color: 'var(--accent)' }}>Serenatas</span>
-              </span>
-            </div>
+            <BrandLogo appId="simpleserenatas" />
             <p className="text-sm text-center lg:text-right" style={{ color: 'var(--fg-muted)' }}>
               © 2026 SimpleSerenatas. Sistema operativo para músicos de mariachis.
             </p>
@@ -502,7 +477,7 @@ function StatItem({ number, label, icon }: { number: string; label: string; icon
       <p className="text-3xl lg:text-4xl font-bold mb-1">
         {number} {icon}
       </p>
-      <p className="text-sm text-white/70">{label}</p>
+      <p className="text-sm" style={{ color: 'color-mix(in oklab, var(--accent-contrast) 70%, transparent)' }}>{label}</p>
     </div>
   );
 }

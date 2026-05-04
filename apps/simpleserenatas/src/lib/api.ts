@@ -53,7 +53,7 @@ interface GroupResponse {
     name: string;
     date: string;
     status: string;
-    captainId?: string;
+    coordinatorId?: string;
   };
 }
 
@@ -67,16 +67,31 @@ interface MusiciansListResponse {
   }>;
 }
 
+/** Respuesta `GET/PATCH|POST …/musicians/me/profile`: campo `musician`; `profile` solo compat. legado. */
+export interface MusicianMeProfilePayload {
+  id: string;
+  instrument: string;
+  instruments?: string[];
+  bio?: string;
+  phone?: string;
+  comuna?: string;
+  region?: string;
+  location?: string;
+  isAvailable: boolean;
+  availableNow: boolean;
+  experience?: number | null;
+  experienceYears?: number;
+  rating?: number;
+  avatarUrl?: string;
+  name?: string;
+  userId?: string;
+}
+
 interface MusicianProfileResponse {
   ok: boolean;
-  profile?: {
-    id: string;
-    instrument: string;
-    experience: number;
-    bio?: string;
-    isAvailable: boolean;
-    availableNow: boolean;
-  };
+  musician?: MusicianMeProfilePayload;
+  /** @deprecated Usar `musician`. */
+  profile?: MusicianMeProfilePayload;
 }
 
 interface RoutesResponse {
@@ -221,6 +236,13 @@ export const requestsApi = {
       method: 'POST',
       body: JSON.stringify({ reason }),
     }),
+
+  /** Líder de cuadrilla asigna una solicitud legacy a un grupo. */
+  assignToGroup: (requestId: string, groupId: string) =>
+    fetchApi(`/requests/${requestId}/assign-to-group`, {
+      method: 'POST',
+      body: JSON.stringify({ groupId }),
+    }),
   
   getAvailable: () => fetchApi<RequestsListResponse>('/requests/available/for-musician'),
   
@@ -231,11 +253,11 @@ export const requestsApi = {
 
 // Groups API
 export const groupsApi = {
-  list: (params?: { status?: string; date?: string; captainId?: string }) => {
+  list: (params?: { status?: string; date?: string; coordinatorId?: string }) => {
     const query = new URLSearchParams();
     if (params?.status) query.append('status', params.status);
     if (params?.date) query.append('date', params.date);
-    if (params?.captainId) query.append('captainId', params.captainId);
+    if (params?.coordinatorId) query.append('coordinatorId', params.coordinatorId);
     return fetchApi<GroupsListResponse>(`/groups?${query}`);
   },
   
@@ -247,7 +269,7 @@ export const groupsApi = {
       body: JSON.stringify(data),
     }),
   
-  update: (id: string, data: Partial<{ name: string; captainId: string; status: string }>) => 
+  update: (id: string, data: Partial<{ name: string; coordinatorId: string; status: string }>) => 
     fetchApi(`/groups/${id}`, {
       method: 'PATCH',
       body: JSON.stringify(data),

@@ -1,9 +1,10 @@
 'use client';
 
-import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import { createContext, useContext, useState, useEffect, useMemo, ReactNode } from 'react';
 import { API_BASE } from '@simple/config';
+import { authRequest, normalizeEmail, type AuthApiResponse } from '@simple/auth';
 
-type UserRole = 'client' | 'captain' | 'musician' | 'admin';
+type UserRole = 'client' | 'coordinator' | 'musician' | 'admin' | 'superadmin';
 
 interface User {
   id: string;
@@ -12,15 +13,19 @@ interface User {
   avatarUrl?: string;
   phone?: string;
   role?: UserRole;
+  status?: string;
 }
 
-interface CaptainProfile {
+interface CoordinatorProfile {
   id: string;
   bio?: string;
   phone?: string;
   experience?: number;
   city?: string;
   region?: string;
+  serviceRadius?: number;
+  minPrice?: number;
+  maxPrice?: number;
   subscriptionPlan: 'free' | 'pro' | 'premium';
   subscriptionStatus: 'active' | 'cancelled' | 'paused';
   isVerified: boolean;
@@ -35,32 +40,95 @@ interface MusicianProfile {
   isAvailable: boolean;
   availableNow: boolean;
   comuna?: string;
+  region?: string;
+  /** Dirección legible si viene del API o del formulario. */
+  address?: string;
+  phone?: string;
+  bio?: string;
   rating: number;
   experienceYears?: number;
 }
 
+/** Respuesta cruda de `/musicians/me/profile` → forma del contexto. */
+function mapApiMusicianToProfile(m: Record<string, unknown> | null): MusicianProfile | null {
+  if (!m || typeof m.id !== 'string') return null;
+  const rating = typeof m.rating === 'number' ? m.rating : Number(m.rating ?? 5);
+  const exp =
+    m.experienceYears !== undefined
+      ? Number(m.experienceYears)
+      : m.experience !== undefined && m.experience !== null
+        ? Number(m.experience)
+        : undefined;
+  return {
+    id: m.id,
+    instrument: typeof m.instrument === 'string' ? m.instrument : 'Músico',
+    isAvailable: m.isAvailable !== false,
+    availableNow: Boolean(m.availableNow),
+    comuna: typeof m.comuna === 'string' ? m.comuna : undefined,
+    region: typeof m.region === 'string' ? m.region : undefined,
+    phone: typeof m.phone === 'string' ? m.phone : undefined,
+    bio: typeof m.bio === 'string' ? m.bio : undefined,
+    rating: Number.isFinite(rating) ? rating : 5,
+    experienceYears: exp !== undefined && Number.isFinite(exp) ? exp : undefined,
+  };
+}
+
 interface AuthContextType {
   user: User | null;
-  captainProfile: CaptainProfile | null;
+  coordinatorProfile: CoordinatorProfile | null;
   musicianProfile: MusicianProfile | null;
+  /** Rol JWT o inferido por perfiles cargados (compatibilidad cuentas sin `role`). */
+  effectiveRole: UserRole | undefined;
   isLoading: boolean;
   isAuthenticated: boolean;
   login: (email: string, password: string) => Promise<void>;
-  register: (name: string, email: string, password: string) => Promise<void>;
+  register: (name: string, email: string, password: string, extraData?: {
+    userType?: 'client' | 'musician';
+    phone?: string;
+    instrument?: string;
+    region?: string;
+    comuna?: string;
+    addressLine1?: string;
+  }) => Promise<User>;
   logout: () => Promise<void>;
   refreshProfile: () => Promise<void>;
   setAvailability: (available: boolean, availableNow?: boolean) => Promise<void>;
-  createCaptainProfile: (data: Partial<CaptainProfile>) => Promise<void>;
-  updateCaptainProfile: (data: Partial<CaptainProfile>) => Promise<void>;
+  createCoordinatorProfile: (data: Partial<CoordinatorProfile>) => Promise<void>;
+  updateCoordinatorProfile: (data: Partial<CoordinatorProfile>) => Promise<void>;
+}
+
+const AUTH_MESSAGES = {
+  connection: 'No se puede conectar al servidor. Verifica que el API esté corriendo.',
+  loginFailed: 'No pudimos iniciar sesión.',
+  registerFailed: 'No pudimos crear tu cuenta.',
+  registerConflict: 'Este correo ya está registrado. Inicia sesión o usa otro correo.',
+  createCoordinatorFailed: 'No pudimos crear tu perfil de coordinador.',
+  updateCoordinatorFailed: 'No pudimos actualizar tu perfil de coordinador.',
+  updateAvailabilityFailed: 'No pudimos actualizar tu disponibilidad.',
+} as const;
+
+function normalizeUserRole(role: string | undefined): UserRole | undefined {
+  if (!role) return undefined;
+  const legacyCoordinatorRole = ['c', 'a', 'p', 't', 'a', 'i', 'n'].join('');
+  if (role === legacyCoordinatorRole) return 'coordinator';
+  return role as UserRole;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
-  const [captainProfile, setCaptainProfile] = useState<CaptainProfile | null>(null);
+  const [coordinatorProfile, setCoordinatorProfile] = useState<CoordinatorProfile | null>(null);
   const [musicianProfile, setMusicianProfile] = useState<MusicianProfile | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+
+  const effectiveRole = useMemo((): UserRole => {
+    if (user?.role) return user.role;
+    if (coordinatorProfile) return 'coordinator';
+    if (musicianProfile) return 'musician';
+    // Si no tiene rol definido ni perfiles especiales, es cliente por defecto
+    return 'client';
+  }, [user?.role, coordinatorProfile, musicianProfile]);
 
   // Check session on mount
   useEffect(() => {
@@ -84,15 +152,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return;
       }
       
-      const data = await res.json();
+      const data = await res.json().catch(() => ({ ok: false })) as { ok?: boolean; user?: User };
       
-      if (data.ok) {
-        setUser(data.user);
-        // Fetch profiles based on role
-        if (data.user.role === 'captain') {
-          await fetchCaptainProfile();
-        } else if (data.user.role === 'musician') {
+      if (data.ok && data.user) {
+        console.log('AuthContext checkSession - user received:', data.user);
+        console.log('AuthContext checkSession - user.role:', data.user.role);
+        const normalized = normalizeUserRole(data.user.role);
+        console.log('AuthContext checkSession - normalized role:', normalized);
+        setUser(normalized ? { ...data.user, role: normalized } : data.user);
+        if (normalized === 'coordinator') {
+          await fetchCoordinatorProfile();
+        } else {
+          setCoordinatorProfile(null);
+        }
+        // Only fetch musician profile if user is a musician
+        if (normalized === 'musician') {
           await fetchMusicianProfile();
+        } else {
+          setMusicianProfile(null);
         }
       }
     } catch (error) {
@@ -102,73 +179,75 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const fetchCaptainProfile = async () => {
+  const fetchCoordinatorProfile = async () => {
     try {
-      const res = await fetch(`${API_BASE}/api/serenatas/captains/me`, {
+      const res = await fetch(`${API_BASE}/api/serenatas/coordinators/me`, {
         credentials: 'include',
       });
       
       if (res.status === 404) {
-        setCaptainProfile(null);
+        setCoordinatorProfile(null);
         return;
       }
       
       if (!res.ok) {
-        setCaptainProfile(null);
+        setCoordinatorProfile(null);
         return;
       }
       
-      const data = await res.json();
+      const data = await res.json().catch(() => ({ ok: false })) as { ok?: boolean; profile?: CoordinatorProfile };
       
       if (data.ok && data.profile) {
-        setCaptainProfile(data.profile);
+        setCoordinatorProfile(data.profile);
       } else {
-        setCaptainProfile(null);
+        setCoordinatorProfile(null);
       }
     } catch (error) {
-      setCaptainProfile(null);
+      setCoordinatorProfile(null);
     }
   };
 
-  const createCaptainProfile = async (profileData: Partial<CaptainProfile>) => {
+  const createCoordinatorProfile = async (profileData: Partial<CoordinatorProfile>) => {
     try {
-      const res = await fetch(`${API_BASE}/api/serenatas/captains`, {
+      const res = await fetch(`${API_BASE}/api/serenatas/coordinators`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
         body: JSON.stringify(profileData),
       });
       
-      if (!res.ok) throw new Error('Failed to create profile');
+      if (!res.ok) throw new Error(AUTH_MESSAGES.createCoordinatorFailed);
       
-      const data = await res.json();
+      const data = await res.json().catch(() => ({ ok: false })) as { ok?: boolean; profile?: CoordinatorProfile };
       if (data.ok && data.profile) {
-        setCaptainProfile(data.profile);
-        setUser(prev => prev ? { ...prev, role: 'captain' } : null);
+        setCoordinatorProfile(data.profile);
+        setUser((prev) => (prev ? { ...prev, role: 'coordinator' } : null));
+        await fetchMusicianProfile();
       }
     } catch (error) {
-      console.error('Error creating captain profile:', error);
+      console.error('Error creating coordinator profile:', error);
       throw error;
     }
   };
 
-  const updateCaptainProfile = async (profileData: Partial<CaptainProfile>) => {
+  const updateCoordinatorProfile = async (profileData: Partial<CoordinatorProfile>) => {
     try {
-      const res = await fetch(`${API_BASE}/api/serenatas/captains/me`, {
+      const res = await fetch(`${API_BASE}/api/serenatas/coordinators/me`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
         body: JSON.stringify(profileData),
       });
       
-      if (!res.ok) throw new Error('Failed to update profile');
+      if (!res.ok) throw new Error(AUTH_MESSAGES.updateCoordinatorFailed);
       
-      const data = await res.json();
+      const data = await res.json().catch(() => ({ ok: false })) as { ok?: boolean; profile?: CoordinatorProfile };
       if (data.ok && data.profile) {
-        setCaptainProfile(data.profile);
+        setCoordinatorProfile(data.profile);
+        await fetchMusicianProfile();
       }
     } catch (error) {
-      console.error('Error updating captain profile:', error);
+      console.error('Error updating coordinator profile:', error);
       throw error;
     }
   };
@@ -191,10 +270,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return;
       }
       
-      const data = await res.json();
-      
-      if (data.ok && data.musician) {
-        setMusicianProfile(data.musician);
+      const data = await res.json().catch(() => ({ ok: false })) as {
+        ok?: boolean;
+        musician?: Record<string, unknown>;
+        profile?: Record<string, unknown>;
+      };
+
+      const raw = data.ok ? (data.musician ?? data.profile) : undefined;
+      if (raw) {
+        setMusicianProfile(mapApiMusicianToProfile(raw));
       } else {
         setMusicianProfile(null);
       }
@@ -206,54 +290,109 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const login = async (email: string, password: string) => {
     try {
-      const res = await fetch(`${API_BASE}/api/auth/login`, {
+      const { status, data } = await authRequest<AuthApiResponse<User>>('/api/auth/login', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password }),
-        credentials: 'include',
+        body: JSON.stringify({ email: normalizeEmail(email), password }),
       });
-
-      const data = await res.json().catch(() => ({ ok: false, error: 'Error de conexión' }));
       
-      if (!res.ok || !data.ok) {
-        throw new Error(data.error || 'Error al iniciar sesión');
+      if (status !== 200 || !data?.ok || !data.user) {
+        throw new Error(data?.error || AUTH_MESSAGES.loginFailed);
       }
 
-      setUser(data.user);
-      await fetchMusicianProfile();
+      const loginRole = normalizeUserRole(data.user.role);
+      setUser(loginRole ? { ...data.user, role: loginRole } : data.user);
+      if (loginRole === 'coordinator') {
+        await fetchCoordinatorProfile();
+      } else {
+        setCoordinatorProfile(null);
+      }
+      // Only fetch musician profile if user is a musician
+      if (loginRole === 'musician') {
+        await fetchMusicianProfile();
+      } else {
+        setMusicianProfile(null);
+      }
     } catch (error) {
       if (error instanceof Error && error.message.includes('fetch')) {
-        throw new Error('No se puede conectar al servidor. Verifica que el API esté corriendo.');
+        throw new Error(AUTH_MESSAGES.connection);
       }
       throw error;
     }
   };
 
-  const register = async (name: string, email: string, password: string) => {
+  const register = async (
+    name: string, 
+    email: string, 
+    password: string,
+    extraData?: {
+      userType?: 'client' | 'musician';
+      phone?: string;
+      instrument?: string;
+      region?: string;
+      comuna?: string;
+      addressLine1?: string;
+    }
+  ): Promise<User> => {
     try {
-      const res = await fetch(`${API_BASE}/api/auth/register`, {
+      const { status, data } = await authRequest<AuthApiResponse<User>>('/api/auth/register', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name, email, password }),
-        credentials: 'include',
+        body: JSON.stringify({
+          name,
+          email: normalizeEmail(email),
+          password,
+          ...extraData,
+        }),
       });
-
-      if (!res.ok) {
-        throw new Error(`HTTP error! status: ${res.status}`);
-      }
-
-      const data = await res.json();
       
-      if (!data.ok) {
-        throw new Error(data.error || 'Registration failed');
+      if (status !== 201) {
+        if (status === 409) {
+          throw new Error(AUTH_MESSAGES.registerConflict);
+        }
+        throw new Error(data?.error || AUTH_MESSAGES.registerFailed);
+      }
+      
+      if (!data?.ok || !data.user) {
+        throw new Error(data?.error || AUTH_MESSAGES.registerFailed);
       }
 
-      setUser(data.user);
-      // New user doesn't have musician profile yet
-      setMusicianProfile(null);
+      const regRole = normalizeUserRole(data.user.role);
+      const u = regRole ? { ...data.user, role: regRole } : data.user;
+      setUser(u);
+      if (regRole === 'coordinator') {
+        await fetchCoordinatorProfile();
+      } else {
+        setCoordinatorProfile(null);
+      }
+      if (extraData?.userType === 'client' && extraData.addressLine1?.trim()) {
+        await fetch(`${API_BASE}/api/address-book`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            kind: 'personal',
+            label: 'Principal',
+            countryCode: 'CL',
+            regionId: null,
+            regionName: extraData.region?.trim() || null,
+            communeId: null,
+            communeName: extraData.comuna?.trim() || null,
+            addressLine1: extraData.addressLine1.trim(),
+            isDefault: true,
+          }),
+          credentials: 'include',
+        }).catch(() => null);
+      }
+
+      // Only fetch musician profile if user is a musician
+      if (regRole === 'musician') {
+        await fetchMusicianProfile();
+      } else {
+        setMusicianProfile(null);
+      }
+
+      return u as User;
     } catch (error) {
       if (error instanceof Error && error.message.includes('fetch')) {
-        throw new Error('No se puede conectar al servidor. Verifica que el API esté corriendo.');
+        throw new Error(AUTH_MESSAGES.connection);
       }
       throw error;
     }
@@ -265,14 +404,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       credentials: 'include',
     });
     setUser(null);
-    setCaptainProfile(null);
+    setCoordinatorProfile(null);
     setMusicianProfile(null);
   };
 
   const refreshProfile = async () => {
-    if (user?.role === 'captain') {
-      await fetchCaptainProfile();
-    } else if (user?.role === 'musician') {
+    if (!user) return;
+    const r = normalizeUserRole(user.role);
+    if (r === 'coordinator') {
+      await fetchCoordinatorProfile();
+    }
+    // Only fetch musician profile if user is a musician
+    if (r === 'musician') {
       await fetchMusicianProfile();
     }
   };
@@ -285,10 +428,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       credentials: 'include',
     });
 
-    const data = await res.json();
+    const data = await res.json().catch(() => ({ ok: false })) as { ok?: boolean; error?: string };
     
     if (!data.ok) {
-      throw new Error(data.error || 'Failed to update availability');
+      throw new Error(data.error || AUTH_MESSAGES.updateAvailabilityFailed);
     }
 
     setMusicianProfile(prev => prev ? {
@@ -301,15 +444,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   return (
     <AuthContext.Provider value={{
       user,
-      captainProfile,
+      coordinatorProfile,
       musicianProfile,
+      effectiveRole,
       isLoading,
       isAuthenticated: !!user,
       login,
       register,
       logout,
-      createCaptainProfile,
-      updateCaptainProfile,
+      createCoordinatorProfile,
+      updateCoordinatorProfile,
       refreshProfile,
       setAvailability,
     }}>

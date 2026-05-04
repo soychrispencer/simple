@@ -60,7 +60,7 @@ function canAuthenticateUser(user: AppUser): boolean {
 }
 
 function localDevForcesSuperadmin(): boolean {
-    return process.env.NODE_ENV !== 'production' && process.env.LOCAL_DEV_FORCE_SUPERADMIN !== 'false';
+    return process.env.NODE_ENV !== 'production' && process.env.LOCAL_DEV_FORCE_SUPERADMIN === 'true';
 }
 
 function applyRuntimeRole(user: AppUser): AppUser {

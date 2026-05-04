@@ -16,6 +16,12 @@ export type SocialClip = {
     saves: number;
     publishedAgo: string;
     featured: boolean;
+    specs?: Array<{ label: string; value: string; icon?: string }>;
+    // Badges
+    discountPercent?: number;
+    financing?: boolean;
+    exchange?: boolean;
+    negotiable?: boolean;
     author: {
         id: string;
         name: string;

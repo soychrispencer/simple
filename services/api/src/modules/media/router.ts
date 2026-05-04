@@ -122,6 +122,32 @@ export function createMediaRouter(deps: MediaRouterDeps) {
                 return c.json({ ok: false, error: 'Invalid file type' }, 400);
             }
 
+            // Validar tamaño máximo según tipo
+            const MAX_VIDEO_SIZE_MB = 50; // 50MB máximo para videos de 30 seg
+            const MAX_IMAGE_SIZE_MB = 10; // 10MB para imágenes
+            const MAX_DOCUMENT_SIZE_MB = 20; // 20MB para documentos
+            
+            const fileSizeMB = (file.size || 0) / (1024 * 1024);
+            
+            if (fileType === 'video' && fileSizeMB > MAX_VIDEO_SIZE_MB) {
+                return c.json({ 
+                    ok: false, 
+                    error: `Video demasiado grande (${fileSizeMB.toFixed(1)}MB). Máximo permitido: ${MAX_VIDEO_SIZE_MB}MB para videos de máximo 30 segundos.` 
+                }, 400);
+            }
+            if (fileType === 'image' && fileSizeMB > MAX_IMAGE_SIZE_MB) {
+                return c.json({ 
+                    ok: false, 
+                    error: `Imagen demasiado grande (${fileSizeMB.toFixed(1)}MB). Máximo permitido: ${MAX_IMAGE_SIZE_MB}MB.` 
+                }, 400);
+            }
+            if (fileType === 'document' && fileSizeMB > MAX_DOCUMENT_SIZE_MB) {
+                return c.json({ 
+                    ok: false, 
+                    error: `Documento demasiado grande (${fileSizeMB.toFixed(1)}MB). Máximo permitido: ${MAX_DOCUMENT_SIZE_MB}MB.` 
+                }, 400);
+            }
+
             logDebug(`[UPLOAD STORAGE START] Provider initialization...`);
             const storage = getStorageProvider();
 

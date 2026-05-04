@@ -2,11 +2,12 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
+import Link from 'next/link';
 import { IconAlertCircle, IconCheck, IconCreditCard, IconSearch, IconShield, IconTrash } from '@tabler/icons-react';
 import { AdminProtectedPage } from '@/components/admin-protected-page';
 import { fetchAdminUsers, type AdminUserListItem } from '@/lib/api';
 import { PanelButton, PanelCard, PanelNotice, PanelStatCard } from '@simple/ui';
-import { adminScopeLabel, normalizeAdminScope } from '@/lib/admin-scope';
+import { adminScopeLabel, normalizeAdminScope, withAdminScope } from '@/lib/admin-scope';
 
 import { API_BASE } from '@simple/config';
 
@@ -50,6 +51,7 @@ function UsuariosContent() {
         if (scope === 'agenda') return items.filter((item) => item.agendaListings > 0);
         if (scope === 'autos') return items.filter((item) => item.autosListings > 0);
         if (scope === 'propiedades') return items.filter((item) => item.propiedadesListings > 0);
+        if (scope === 'serenatas') return items.filter((item) => Boolean(item.subscriptions?.serenatas));
         return items;
     }, [items, scope]);
 
@@ -71,6 +73,8 @@ function UsuariosContent() {
                     ? 'Publicaciones autos'
                     : scope === 'propiedades'
                         ? 'Publicaciones propiedades'
+                        : scope === 'serenatas'
+                            ? 'Usuarios serenatas'
                         : 'Administradores';
         const listingValue =
             scope === 'agenda'
@@ -79,6 +83,8 @@ function UsuariosContent() {
                     ? scopedItems.reduce((sum, item) => sum + item.autosListings, 0)
                     : scope === 'propiedades'
                         ? scopedItems.reduce((sum, item) => sum + item.propiedadesListings, 0)
+                        : scope === 'serenatas'
+                            ? scopedItems.length
                         : admins;
 
         return [
@@ -257,6 +263,12 @@ function UsuariosContent() {
                                     </div>
 
                                     <div className="flex items-center gap-1 shrink-0">
+                                        <Link
+                                            href={withAdminScope(`/usuarios/${user.id}`, scope)}
+                                            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-colors hover:bg-[var(--bg-muted)] text-[var(--fg-muted)] hover:text-[var(--fg)]"
+                                        >
+                                            Ver detalle
+                                        </Link>
                                         <ActionButton
                                             onClick={() => handleOpenAction('role', user)}
                                             icon={<IconShield size={16} />}
@@ -291,6 +303,7 @@ function UsuariosContent() {
                                             {user.subscriptions?.agenda && <SubscriptionBadge vertical="Agenda" subscription={user.subscriptions.agenda} />}
                                             {user.subscriptions?.autos && <SubscriptionBadge vertical="Autos" subscription={user.subscriptions.autos} />}
                                             {user.subscriptions?.propiedades && <SubscriptionBadge vertical="Propiedades" subscription={user.subscriptions.propiedades} />}
+                                            {user.subscriptions?.serenatas && <SubscriptionBadge vertical="Serenatas" subscription={user.subscriptions.serenatas} />}
                                         </div>
                                     </div>
                                 )}
@@ -481,7 +494,7 @@ function StatItem({ label, value, color }: { label: string; value: string; color
 }
 
 function hasSubscriptions(user: AdminUserListItem): boolean {
-    return !!(user.subscriptions?.agenda || user.subscriptions?.autos || user.subscriptions?.propiedades);
+    return !!(user.subscriptions?.agenda || user.subscriptions?.autos || user.subscriptions?.propiedades || user.subscriptions?.serenatas);
 }
 
 function hasAnyListing(user: AdminUserListItem): boolean {

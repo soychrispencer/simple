@@ -1,5 +1,15 @@
+import clsx from 'clsx';
 import { useEffect, useMemo, useRef, useState, type ComponentType, type CSSProperties, type ReactNode } from 'react';
-import { IconDotsCircleHorizontal } from '@tabler/icons-react';
+import {
+    IconBuildingSkyscraper,
+    IconCalendar,
+    IconCheck,
+    IconChevronDown,
+    IconConfettiFilled,
+    IconDotsCircleHorizontal,
+    IconSteeringWheel,
+} from '@tabler/icons-react';
+import { getSimpleAppBrand, type SimpleAppId } from '@simple/config';
 import type { AddressBookEntry, AddressBookKind, ListingLocation, ListingLocationKind, ListingLocationVisibilityMode } from '@simple/types';
 import { applyAddressBookEntryToLocation, createEmptyListingLocation, patchListingLocation } from '@simple/types';
 
@@ -8,6 +18,106 @@ type SelectOption = {
     label: string;
     disabled?: boolean;
 };
+
+export type BrandLogoVariant = 'default' | 'ghost' | 'onAccent';
+
+type BrandLogoProps = {
+    appId: SimpleAppId;
+    className?: string;
+    showWordmark?: boolean;
+    size?: 'sm' | 'md' | 'lg';
+    /** default: caja con tokens de acento; ghost: más liviano; onAccent: sobre fondos con --accent (p. ej. marketing/auth). */
+    variant?: BrandLogoVariant;
+};
+
+const BRAND_ICON_BY_APP: Record<SimpleAppId, ComponentType<{ size?: number; style?: CSSProperties }>> = {
+    simpleautos: IconSteeringWheel,
+    simplepropiedades: IconBuildingSkyscraper,
+    simpleadmin: IconBuildingSkyscraper,
+    simpleplataforma: IconBuildingSkyscraper,
+    simpleagenda: IconCalendar,
+    simpleserenatas: IconConfettiFilled,
+};
+
+function brandLogoIconWrapStyle(variant: BrandLogoVariant): CSSProperties {
+    switch (variant) {
+        case 'ghost':
+            return {
+                background: 'transparent',
+                borderColor: 'var(--accent-border)',
+                color: 'var(--accent)',
+            };
+        case 'onAccent':
+            return {
+                background: 'var(--accent-contrast)',
+                borderColor: 'color-mix(in oklab, var(--accent-contrast) 78%, var(--accent))',
+                color: 'var(--accent)',
+                boxShadow: 'var(--shadow-sm)',
+            };
+        default:
+            return {
+                background: 'var(--accent)',
+                borderColor: 'var(--accent)',
+                color: 'var(--accent-contrast)',
+                boxShadow: 'var(--shadow-sm)',
+            };
+    }
+}
+
+export function BrandLogo({
+    appId,
+    className,
+    showWordmark = true,
+    size = 'md',
+    variant = 'default',
+}: BrandLogoProps) {
+    const brand = getSimpleAppBrand(appId);
+    const Icon = BRAND_ICON_BY_APP[appId];
+    const secondary = brand.shortName.replace(/^Simple/, '') || brand.shortName;
+    const iconSize = size === 'sm' ? 16 : size === 'lg' ? 26 : 18;
+    const wordmarkClass = size === 'sm' ? 'text-sm' : size === 'lg' ? 'text-lg' : 'text-base';
+
+    const wordmarkPrimary = variant === 'onAccent' ? 'var(--accent-contrast)' : 'var(--fg)';
+    const wordmarkSecondary =
+        variant === 'onAccent'
+            ? 'color-mix(in oklab, var(--accent-contrast) 88%, transparent)'
+            : 'var(--accent)';
+
+    const iconBox = clsx(
+        'flex items-center justify-center border transition-[box-shadow,border-color,background-color,transform,filter] duration-[var(--serenatas-motion-duration,180ms)] ease-[var(--serenatas-motion-ease,cubic-bezier(0.16,1,0.3,1))]',
+        size === 'sm' && 'w-8 h-8 rounded-[var(--radius)]',
+        size === 'md' && 'w-9 h-9 rounded-[var(--radius)]',
+        size === 'lg' && 'w-14 h-14 rounded-[var(--radius-lg)]',
+        variant === 'default' &&
+            'group-hover:[box-shadow:var(--shadow-md)] group-hover:brightness-[1.04] group-hover:-translate-y-px',
+        variant === 'ghost' &&
+            'group-hover:border-[color:var(--accent)] group-hover:bg-[var(--accent-subtle)] group-hover:shadow-sm group-hover:-translate-y-px',
+        variant === 'onAccent' &&
+            'group-hover:[box-shadow:var(--shadow-md)] group-hover:brightness-[1.03] group-hover:-translate-y-px'
+    );
+
+    return (
+        <span className={clsx('flex items-center gap-2 group shrink-0', className)}>
+            <span className={iconBox} style={brandLogoIconWrapStyle(variant)}>
+                <Icon size={iconSize} />
+            </span>
+            {showWordmark ? (
+                <span
+                    className={clsx(
+                        'inline-flex items-baseline gap-[0.08rem] tracking-tight leading-none',
+                        wordmarkClass
+                    )}
+                    style={{ color: wordmarkPrimary }}
+                >
+                    <span className="font-semibold leading-none">Simple</span>
+                    <span className="font-normal leading-none" style={{ color: wordmarkSecondary }}>
+                        {secondary}
+                    </span>
+                </span>
+            ) : null}
+        </span>
+    );
+}
 
 type FieldErrorMap = Partial<Record<'regionId' | 'communeId' | 'sourceAddressId' | 'addressLine1', string>>;
 
@@ -4200,31 +4310,230 @@ export function ErrorView({
     errorDigest,
 }: ErrorViewProps) {
     return (
-        <div
-            className="min-h-screen flex flex-col items-center justify-center px-4 py-10 text-center"
-            style={{ background: 'var(--bg)' }}
-        >
-            {code ? (
-                <p className="text-5xl sm:text-6xl font-bold mb-3" style={{ color: 'var(--accent)' }}>
+        <div className="min-h-[60vh] flex flex-col items-center justify-center px-6 py-12 text-center">
+            {code && (
+                <span
+                    className="inline-block mb-4 text-7xl font-bold tracking-tighter"
+                    style={{ color: 'var(--fg-muted)' }}
+                >
                     {code}
-                </p>
-            ) : null}
-            <h1 className="text-xl sm:text-2xl font-semibold mb-2" style={{ color: 'var(--fg)' }}>
+                </span>
+            )}
+            <h1 className="text-2xl font-semibold mb-2" style={{ color: 'var(--fg)' }}>
                 {title}
             </h1>
-            {description ? (
-                <p className="text-sm mb-8 max-w-sm" style={{ color: 'var(--fg-muted)' }}>
+            {description && (
+                <p className="max-w-md mb-6" style={{ color: 'var(--fg-secondary)' }}>
                     {description}
                 </p>
-            ) : <div className="mb-8" />}
-            <div className="flex flex-col sm:flex-row items-center gap-3">
+            )}
+            {errorDigest && (
+                <p className="text-xs mb-6" style={{ color: 'var(--fg-muted)' }}>
+                    Error: {errorDigest}
+                </p>
+            )}
+            <div className="flex items-center gap-3">
                 {primaryAction}
                 {secondaryAction}
             </div>
-            {errorDigest ? (
-                <p className="mt-6 text-[10px] font-mono" style={{ color: 'var(--fg-muted)' }}>
-                    ref: {errorDigest}
-                </p>
+        </div>
+    );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// ModernSelect — Dropdown global con estilos consistentes
+// ─────────────────────────────────────────────────────────────────────────────
+
+export type ModernSelectOption = {
+    value: string;
+    label: string;
+    disabled?: boolean;
+    swatchColor?: string;
+};
+
+type ModernSelectProps = {
+    value: string;
+    onChange: (value: string) => void;
+    options: ModernSelectOption[];
+    placeholder?: string;
+    disabled?: boolean;
+    ariaLabel?: string;
+    triggerClassName?: string;
+    dropdownClassName?: string;
+    leadingIcon?: React.ReactNode;
+};
+
+export function ModernSelect({
+    value,
+    onChange,
+    options,
+    placeholder = 'Seleccionar',
+    disabled = false,
+    ariaLabel,
+    triggerClassName,
+    dropdownClassName,
+    leadingIcon,
+}: ModernSelectProps) {
+    const [open, setOpen] = useState(false);
+    const [focusedIndex, setFocusedIndex] = useState(-1);
+    const rootRef = useRef<HTMLDivElement | null>(null);
+    const triggerRef = useRef<HTMLButtonElement | null>(null);
+
+    useEffect(() => {
+        const onPointerDown = (event: PointerEvent) => {
+            if (!rootRef.current?.contains(event.target as Node)) {
+                setOpen(false);
+            }
+        };
+        window.addEventListener('pointerdown', onPointerDown);
+        return () => window.removeEventListener('pointerdown', onPointerDown);
+    }, []);
+
+    useEffect(() => {
+        if (!open) return;
+        const enabledOptions = options.filter((o) => !o.disabled);
+        const onKeyDown = (event: KeyboardEvent) => {
+            if (event.key === 'Escape') {
+                setOpen(false);
+                triggerRef.current?.focus();
+                return;
+            }
+            if (event.key === 'ArrowDown') {
+                event.preventDefault();
+                setFocusedIndex((prev) => {
+                    const next = prev + 1;
+                    return next < enabledOptions.length ? next : prev;
+                });
+                return;
+            }
+            if (event.key === 'ArrowUp') {
+                event.preventDefault();
+                setFocusedIndex((prev) => (prev > 0 ? prev - 1 : 0));
+                return;
+            }
+            if (event.key === 'Home') {
+                event.preventDefault();
+                setFocusedIndex(0);
+                return;
+            }
+            if (event.key === 'End') {
+                event.preventDefault();
+                setFocusedIndex(enabledOptions.length - 1);
+                return;
+            }
+            if (event.key === 'Enter' && focusedIndex >= 0) {
+                event.preventDefault();
+                const option = enabledOptions[focusedIndex];
+                if (option) { onChange(option.value); setOpen(false); }
+                return;
+            }
+        };
+        window.addEventListener('keydown', onKeyDown);
+        return () => window.removeEventListener('keydown', onKeyDown);
+    }, [open, focusedIndex, options, onChange]);
+
+    const selectedOption = useMemo(
+        () => options.find((option) => option.value === value),
+        [options, value]
+    );
+    const triggerLabel = selectedOption?.label ?? placeholder;
+
+    const enabledOptions = useMemo(() => options.filter((o) => !o.disabled), [options]);
+
+    return (
+        <div className="relative w-full" ref={rootRef}>
+            <button
+                ref={triggerRef}
+                type="button"
+                aria-label={ariaLabel}
+                aria-haspopup="listbox"
+                aria-expanded={open}
+                disabled={disabled}
+                onClick={() => {
+                    if (disabled) return;
+                    const next = !open;
+                    setOpen(next);
+                    if (next) {
+                        const idx = enabledOptions.findIndex((o) => o.value === value);
+                        setFocusedIndex(idx >= 0 ? idx : 0);
+                    }
+                }}
+                className={`form-input flex items-center text-left ${leadingIcon ? 'pl-9' : ''} ${triggerClassName ?? ''}`}
+                style={{
+                    color: selectedOption ? 'var(--fg)' : 'var(--fg-muted)',
+                    paddingLeft: leadingIcon ? '2.2rem' : undefined,
+                    paddingRight: '2.4rem',
+                }}
+            >
+                {leadingIcon ? (
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" style={{ color: 'var(--fg-muted)' }}>
+                        {leadingIcon}
+                    </span>
+                ) : null}
+                <span className="truncate pr-1 flex items-center gap-2 min-w-0">
+                    {selectedOption?.swatchColor ? (
+                        <span
+                            className="h-3 w-3 rounded-full border shrink-0"
+                            style={{ background: selectedOption.swatchColor, borderColor: 'var(--border)' }}
+                        />
+                    ) : null}
+                    <span className="truncate">{triggerLabel}</span>
+                </span>
+                <span
+                    className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none transition-transform"
+                    style={{ color: 'var(--fg-muted)', transform: `translateY(-50%) rotate(${open ? '180deg' : '0deg'})` }}
+                >
+                    <IconChevronDown size={14} />
+                </span>
+            </button>
+
+            {open ? (
+                <div
+                    role="listbox"
+                    className={`absolute left-0 right-0 top-[calc(100%+0.35rem)] z-40 max-h-64 overflow-auto rounded-xl border p-1.5 ${dropdownClassName ?? ''}`}
+                    style={{
+                        borderColor: 'var(--border)',
+                        background: 'var(--surface)',
+                        boxShadow: '0 18px 44px rgba(0,0,0,0.16)',
+                    }}
+                >
+                    {options.map((option) => {
+                        const isSelected = option.value === value;
+                        const enabledIdx = enabledOptions.indexOf(option);
+                        const isFocused = enabledIdx >= 0 && enabledIdx === focusedIndex;
+                        return (
+                            <button
+                                key={`${option.value}-${option.label}`}
+                                type="button"
+                                disabled={option.disabled}
+                                onClick={() => {
+                                    if (option.disabled) return;
+                                    onChange(option.value);
+                                    setOpen(false);
+                                }}
+                                onMouseEnter={() => { if (enabledIdx >= 0) setFocusedIndex(enabledIdx); }}
+                                className="w-full h-9 px-2.5 rounded-lg text-sm flex items-center justify-between transition-colors"
+                                style={{
+                                    background: isFocused ? 'var(--bg-muted)' : isSelected ? 'var(--bg-subtle)' : 'transparent',
+                                    color: option.disabled ? 'var(--fg-faint)' : 'var(--fg)',
+                                    outline: isFocused ? '2px solid var(--accent-border)' : 'none',
+                                    outlineOffset: '-2px',
+                                }}
+                            >
+                                <span className="truncate flex items-center gap-2 min-w-0">
+                                    {option.swatchColor ? (
+                                        <span
+                                            className="h-3 w-3 rounded-full border shrink-0"
+                                            style={{ background: option.swatchColor, borderColor: 'var(--border)' }}
+                                        />
+                                    ) : null}
+                                    <span className="truncate">{option.label}</span>
+                                </span>
+                                {isSelected ? <IconCheck size={14} style={{ color: 'var(--fg-secondary)' }} /> : null}
+                            </button>
+                        );
+                    })}
+                </div>
             ) : null}
         </div>
     );

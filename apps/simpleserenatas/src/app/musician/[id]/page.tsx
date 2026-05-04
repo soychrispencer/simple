@@ -17,6 +17,7 @@ import {
 import Link from 'next/link';
 import { API_BASE } from '@simple/config';
 import { useToast } from '@/hooks';
+import { SerenatasPageHeader, SerenatasPageShell } from '@/components/shell';
 
 interface Musician {
   id: string;
@@ -68,21 +69,22 @@ export default function MusicianProfilePage({ params }: { params: { id: string }
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+      <div className="flex min-h-[50vh] items-center justify-center">
+        <div className="h-12 w-12 animate-spin rounded-full border-b-2" style={{ borderColor: 'var(--accent)' }} />
       </div>
     );
   }
 
   if (!musician) {
     return (
-      <div className="min-h-screen bg-zinc-50 flex flex-col items-center justify-center p-4">
-        <IconUser className="w-16 h-16 text-zinc-300 mb-4" />
-        <h1 className="text-xl font-semibold text-zinc-900 mb-2">Músico no encontrado</h1>
-        <p className="text-zinc-500 mb-4">El perfil que buscas no existe o no está disponible</p>
+      <div className="flex min-h-[50vh] flex-col items-center justify-center p-4">
+        <IconUser className="w-16 h-16 mb-4" style={{ color: 'var(--fg-muted)' }} />
+        <h1 className="text-xl font-semibold mb-2" style={{ color: 'var(--fg)' }}>Músico no encontrado</h1>
+        <p className="mb-4" style={{ color: 'var(--fg-secondary)' }}>El perfil que buscas no existe o no está disponible</p>
         <Link
           href="/"
-          className="flex items-center gap-2 text-blue-600 hover:text-blue-700 font-medium"
+          className="flex items-center gap-2 font-medium"
+          style={{ color: 'var(--accent)' }}
         >
           <IconArrowLeft className="w-4 h-4" />
           Volver al inicio
@@ -94,28 +96,28 @@ export default function MusicianProfilePage({ params }: { params: { id: string }
   const InstrumentIcon = getInstrumentIcon(musician.instrument);
 
   return (
-    <div className="min-h-screen bg-zinc-50 pb-20">
-      {/* Header */}
-      <div className="bg-white shadow-sm sticky top-0 z-10">
-        <div className="max-w-2xl mx-auto px-4 py-4 flex items-center gap-3">
+    <div className="pb-20">
+      <div className="sticky top-0 z-10 border-b" style={{ background: 'var(--surface)', borderColor: 'var(--border)' }}>
+        <div className="mx-auto flex max-w-2xl items-center gap-3 px-4 py-4 sm:px-6">
           <button
+            type="button"
             onClick={() => router.back()}
-            className="p-2 -ml-2 hover:bg-zinc-100 rounded-full transition-colors"
+            className="serenatas-interactive -ml-2 rounded-full p-2 transition-colors"
+            style={{ color: 'var(--fg-secondary)' }}
           >
-            <IconArrowLeft className="w-5 h-5 text-zinc-700" />
+            <IconArrowLeft className="w-5 h-5" />
           </button>
-          <h1 className="font-semibold text-zinc-900">Perfil de Músico</h1>
+          <SerenatasPageHeader title="Perfil de músico" className="min-w-0 !mb-0 flex-1" />
         </div>
       </div>
 
-      {/* Profile Card */}
-      <div className="max-w-2xl mx-auto px-4 py-6">
-        <div className="bg-white rounded-2xl shadow-sm overflow-hidden">
+      <SerenatasPageShell width="default" className="max-w-2xl">
+        <div className="rounded-2xl border overflow-hidden" style={{ background: 'var(--surface)', borderColor: 'var(--border)' }}>
           {/* Cover & Avatar */}
-          <div className="h-32 bg-gradient-to-br from-blue-500 to-purple-600"></div>
+          <div className="h-32" style={{ background: 'linear-gradient(135deg, var(--info), var(--accent))' }}></div>
           <div className="px-6 pb-6">
             <div className="relative -mt-16 mb-4">
-              <div className="w-32 h-32 bg-white rounded-2xl shadow-lg flex items-center justify-center">
+              <div className="w-32 h-32 rounded-2xl shadow-lg flex items-center justify-center" style={{ background: 'var(--surface)' }}>
                 {musician.avatar ? (
                   <img
                     src={musician.avatar}
@@ -123,13 +125,13 @@ export default function MusicianProfilePage({ params }: { params: { id: string }
                     className="w-full h-full object-cover rounded-2xl"
                   />
                 ) : (
-                  <div className="w-full h-full bg-zinc-100 rounded-2xl flex items-center justify-center">
-                    <InstrumentIcon className="w-12 h-12 text-zinc-400" />
+                  <div className="w-full h-full rounded-2xl flex items-center justify-center" style={{ background: 'var(--bg-subtle)' }}>
+                    <InstrumentIcon className="w-12 h-12" style={{ color: 'var(--fg-muted)' }} />
                   </div>
                 )}
               </div>
               {musician.isAvailable && (
-                <div className="absolute -bottom-2 -right-2 bg-green-500 text-white text-xs font-medium px-3 py-1 rounded-full shadow-sm flex items-center gap-1">
+                <div className="absolute -bottom-2 -right-2 text-xs font-medium px-3 py-1 rounded-full shadow-sm flex items-center gap-1" style={{ background: 'var(--success)', color: 'var(--accent-contrast)' }}>
                   <IconCheck className="w-3 h-3" />
                   Disponible
                 </div>
@@ -138,13 +140,13 @@ export default function MusicianProfilePage({ params }: { params: { id: string }
 
             {/* Info */}
             <div className="space-y-2">
-              <h2 className="text-2xl font-bold text-zinc-900">{musician.name}</h2>
-              <div className="flex items-center gap-2 text-zinc-600">
+              <h2 className="text-2xl font-bold" style={{ color: 'var(--fg)' }}>{musician.name}</h2>
+              <div className="flex items-center gap-2" style={{ color: 'var(--fg-secondary)' }}>
                 <InstrumentIcon className="w-4 h-4" />
                 <span className="capitalize">{musician.instrument}</span>
               </div>
               {musician.location && (
-                <div className="flex items-center gap-2 text-zinc-500 text-sm">
+                <div className="flex items-center gap-2 text-sm" style={{ color: 'var(--fg-muted)' }}>
                   <IconMapPin className="w-4 h-4" />
                   <span>{musician.location}</span>
                 </div>
@@ -152,62 +154,59 @@ export default function MusicianProfilePage({ params }: { params: { id: string }
             </div>
 
             {/* Stats */}
-            <div className="grid grid-cols-3 gap-4 mt-6 py-4 border-t border-zinc-100">
+            <div className="grid grid-cols-3 gap-4 mt-6 py-4 border-t" style={{ borderColor: 'var(--border)' }}>
               <div className="text-center">
-                <div className="flex items-center justify-center gap-1 text-amber-500 mb-1">
+                <div className="flex items-center justify-center gap-1 mb-1" style={{ color: 'var(--warning)' }}>
                   <IconStar className="w-5 h-5 fill-current" />
-                  <span className="font-bold text-lg text-zinc-900">{musician.rating.toFixed(1)}</span>
+                  <span className="font-bold text-lg" style={{ color: 'var(--fg)' }}>{musician.rating.toFixed(1)}</span>
                 </div>
-                <span className="text-xs text-zinc-500">Calificación</span>
+                <span className="text-xs" style={{ color: 'var(--fg-secondary)' }}>Calificación</span>
               </div>
               <div className="text-center">
-                <div className="flex items-center justify-center gap-1 text-blue-500 mb-1">
+                <div className="flex items-center justify-center gap-1 mb-1" style={{ color: 'var(--info)' }}>
                   <IconTrophy className="w-5 h-5" />
-                  <span className="font-bold text-lg text-zinc-900">{musician.completedSerenatas}</span>
+                  <span className="font-bold text-lg" style={{ color: 'var(--fg)' }}>{musician.completedSerenatas}</span>
                 </div>
-                <span className="text-xs text-zinc-500">Serenatas</span>
+                <span className="text-xs" style={{ color: 'var(--fg-secondary)' }}>Serenatas</span>
               </div>
               <div className="text-center">
-                <div className="flex items-center justify-center gap-1 text-green-500 mb-1">
+                <div className="flex items-center justify-center gap-1 mb-1" style={{ color: 'var(--success)' }}>
                   <IconCalendar className="w-5 h-5" />
-                  <span className="font-bold text-lg text-zinc-900">
+                  <span className="font-bold text-lg" style={{ color: 'var(--fg)' }}>
                     {new Date(musician.joinedAt).getFullYear()}
                   </span>
                 </div>
-                <span className="text-xs text-zinc-500">Miembro desde</span>
+                <span className="text-xs" style={{ color: 'var(--fg-secondary)' }}>Miembro desde</span>
               </div>
             </div>
 
             {/* Bio */}
             {musician.bio && (
-              <div className="mt-4 pt-4 border-t border-zinc-100">
-                <h3 className="font-medium text-zinc-900 mb-2">Sobre mí</h3>
-                <p className="text-zinc-600 leading-relaxed">{musician.bio}</p>
+              <div className="mt-4 pt-4 border-t" style={{ borderColor: 'var(--border)' }}>
+                <h3 className="font-medium mb-2" style={{ color: 'var(--fg)' }}>Sobre mí</h3>
+                <p className="leading-relaxed" style={{ color: 'var(--fg-secondary)' }}>{musician.bio}</p>
               </div>
             )}
           </div>
         </div>
 
         {/* Availability Card */}
-        <div className="mt-4 bg-white rounded-2xl shadow-sm p-6">
-          <h3 className="font-medium text-zinc-900 mb-4 flex items-center gap-2">
-            <IconClock className="w-5 h-5 text-blue-500" />
+        <div className="mt-4 rounded-2xl border p-6" style={{ background: 'var(--surface)', borderColor: 'var(--border)' }}>
+          <h3 className="font-medium mb-4 flex items-center gap-2" style={{ color: 'var(--fg)' }}>
+            <IconClock className="w-5 h-5" style={{ color: 'var(--info)' }} />
             Disponibilidad
           </h3>
           <div
-            className={`flex items-center gap-3 p-4 rounded-xl ${
-              musician.isAvailable ? 'bg-green-50' : 'bg-zinc-50'
-            }`}
+            className="flex items-center gap-3 p-4 rounded-xl"
+            style={{ background: musician.isAvailable ? 'color-mix(in oklab, var(--success) 15%, transparent)' : 'var(--bg-subtle)' }}
           >
             <div
-              className={`w-3 h-3 rounded-full ${
-                musician.isAvailable ? 'bg-green-500 animate-pulse' : 'bg-zinc-400'
-              }`}
+              className="w-3 h-3 rounded-full"
+              style={{ background: musician.isAvailable ? 'var(--success)' : 'var(--fg-muted)' }}
             ></div>
             <span
-              className={`font-medium ${
-                musician.isAvailable ? 'text-green-700' : 'text-zinc-600'
-              }`}
+              className="font-medium"
+              style={{ color: musician.isAvailable ? 'var(--success)' : 'var(--fg-secondary)' }}
             >
               {musician.isAvailable
                 ? 'Disponible para nuevas serenatas'
@@ -215,7 +214,7 @@ export default function MusicianProfilePage({ params }: { params: { id: string }
             </span>
           </div>
         </div>
-      </div>
+      </SerenatasPageShell>
     </div>
   );
 }

@@ -63,17 +63,22 @@ SimpleSerenatas es una plataforma mobile-first diseñada para organizar músicos
 apps/simpleserenatas/
 ├── src/
 │   ├── app/
-│   │   ├── (tabs)/           # Navegación principal con bottom nav
-│   │   │   ├── inicio/       # Dashboard del músico
-│   │   │   ├── agenda/       # Calendario de serenatas
-│   │   │   ├── solicitudes/  # Solicitudes disponibles
-│   │   │   ├── grupos/       # Gestión de grupos
-│   │   │   └── perfil/       # Perfil del músico
-│   │   ├── auth/login/       # Login
-│   │   ├── onboarding/       # Flujo de primer uso
-│   │   └── page.tsx          # Landing page
-│   ├── components/           # Componentes reutilizables
-│   └── lib/api.ts            # Cliente API
+│   │   ├── (app)/            # Panel autenticado (layout + sidebar / móvil)
+│   │   │   ├── inicio/       # Dashboard
+│   │   │   ├── agenda/
+│   │   │   ├── solicitudes/
+│   │   │   ├── grupos/
+│   │   │   ├── cuadrilla/    # Coordinador: miembros de cuadrilla
+│   │   │   ├── invitaciones/ # Músico/coord: lineup + cuadrilla
+│   │   │   ├── perfil/
+│   │   │   └── ...
+│   │   ├── auth/             # login, registro, recuperar…
+│   │   ├── onboarding/
+│   │   ├── musician/         # Perfil público / editar
+│   │   └── page.tsx          # Landing
+│   ├── components/
+│   ├── context/AuthContext.tsx
+│   └── lib/api.ts
 ```
 
 ## 🎨 Diseño
@@ -83,29 +88,33 @@ apps/simpleserenatas/
 - **UX optimizada**: Mínima fricción, tipo app operativa
 - **Color principal**: `#E11D48` (Rosa elegante/emocional)
 
-## 🚀 Comandos
+## 🚀 Comandos (desde la raíz del monorepo)
 
 ```bash
-# Desarrollo
-npm run dev:serenatas
-
-# Construcción
-npm run build:serenatas
-
-# Todos los servicios
-npm run dev:all
+pnpm --filter=@simple/serenatas dev
+pnpm --filter=@simple/serenatas run build
+pnpm dev:serenatas   # script en package.json raíz
+pnpm dev:all         # admin, plataforma, autos, propiedades, agenda, serenatas, api
 ```
 
-## 🔌 API Endpoints
+## 🔌 API Endpoints (prefijo `/api/serenatas`)
 
-### Músicos
-- `GET /api/serenatas/musicians` - Listar músicos
-- `GET /api/serenatas/musicians/:id` - Perfil de músico
-- `GET /api/serenatas/musicians/me/profile` - Mi perfil
-- `POST /api/serenatas/musicians` - Crear perfil
-- `PATCH /api/serenatas/musicians/:id` - Actualizar perfil
-- `PATCH /api/serenatas/musicians/:id/availability` - Actualizar disponibilidad
-- `GET /api/serenatas/musicians/me/stats` - Estadísticas del músico
+### Músicos (perfil único por usuario → `serenata_musicians`)
+- `GET /musicians/:id` — Perfil público de un músico
+- `GET /musicians/me/profile` — Perfil propio (autenticado)
+- `GET /musicians/my` — *deprecated*; mismo contrato que `…/me/profile`
+- `POST /musicians/me/profile` — Crear perfil si aún no existe
+- `PATCH /musicians/me/profile` — Actualizar perfil (incl. `name` en usuario)
+- `PATCH /musicians/me/availability` — `isAvailable`, `availableNow`
+- `GET /musicians/me/stats` — Estadísticas agregadas
+- `GET /musicians/me/invitations` — Bandeja lineup + cuadrilla
+- `GET /musicians/me/coordinators` — Coordinadores enlazados vía membresías de cuadrilla
+- `POST /musicians/me/memberships/:crewMembershipId/respond` — Aceptar/rechazar invitación a cuadrilla
+
+### Cuadrilla y lineup (coordinador asignado)
+- `GET /coordinators/me/crew`, `POST …/invite`, `POST …/:id/decision`, `DELETE …/:id`
+- `GET /musicians/me/coordinators` / inbox y pendientes bajo rutas `/coordinators/me/pending`
+- Lineup por serenata: `GET|POST …/:serenataId/lineup`, invitaciones, solicitudes, `respond`, `decision`
 
 ### Solicitudes (Serenatas)
 - `GET /api/serenatas/requests` - Listar solicitudes
@@ -147,7 +156,10 @@ npm run dev:all
 ## 📊 Modelos de Datos
 
 ### Tablas principales
-- `serenata_musicians` - Perfiles de músicos
+- `serenata_musicians` — **Un registro por usuario**: instrumento(s), ubicación, disponibilidad, métricas
+- `serenata_coordinator_crew_memberships` — Relación cuadrilla: músico canónico ↔ coordinador (`membership_status`, etc.)
+- `serenatas` — Solicitudes/órdenes de serenata (cliente/coordinador)
+- `serenata_musician_lineup` — Músicos en el lineup por serenata; `musician_id` → `serenata_musicians.id`
 - `serenata_requests` - Solicitudes de serenatas
 - `serenata_groups` - Grupos dinámicos
 - `serenata_group_members` - Miembros de grupos
@@ -157,17 +169,17 @@ npm run dev:all
 - `serenata_reviews` - Calificaciones y reseñas
 - `serenata_availability_slots` - Slots de disponibilidad semanal
 
-## � Cómo Empezar
+## 🚀 Cómo empezar
 
 ### 1. Iniciar servicios
 ```bash
-# Terminal 1: Backend
+# Terminal 1: API
 cd services/api
-npm run dev
+pnpm dev
 
-# Terminal 2: Frontend
+# Terminal 2: SimpleSerenatas
 cd apps/simpleserenatas
-npm run dev
+pnpm dev
 ```
 
 ### 2. Flujo de prueba
@@ -187,7 +199,7 @@ cd apps/simpleserenatas
 bash scripts/test-integration.sh
 ```
 
-## �📝 Notas
+## 📝 Notas
 
 - Puerto de desarrollo: `3005`
 - URL local: `http://localhost:3005`

@@ -12,14 +12,15 @@ import {
 } from '@tabler/icons-react';
 import { useAuth } from '@/context/AuthContext';
 import { API_BASE } from '@simple/config';
+import { SerenatasPageHeader, SerenatasPageShell } from '@/components/shell';
 
 interface Serenata {
     id: string;
     status: string;
     recipientName: string;
     date: string;
-    captainName?: string;
-    captainId?: string;
+    coordinatorName?: string;
+    coordinatorId?: string;
     hasReview?: boolean;
 }
 
@@ -49,7 +50,11 @@ export default function ReviewPage() {
             if (res.ok) {
                 const data = await res.json();
                 if (data.ok) {
-                    setSerenata(data.serenata);
+                    setSerenata({
+                        ...data.serenata,
+                        coordinatorName: data.serenata.coordinatorName,
+                        coordinatorId: data.serenata.coordinatorId,
+                    });
                     // Check if already reviewed
                     const reviewsRes = await fetch(`${API_BASE}/api/serenatas/${serenataId}/reviews`, {
                         credentials: 'include',
@@ -87,7 +92,7 @@ export default function ReviewPage() {
                 body: JSON.stringify({
                     rating,
                     comment,
-                    role: user?.role === 'captain' ? 'captain' : 'client',
+                    role: user?.role === 'coordinator' ? 'coordinator' : 'client',
                 }),
             });
 
@@ -106,32 +111,36 @@ export default function ReviewPage() {
 
     if (isLoading) {
         return (
-            <div className="min-h-screen bg-zinc-50 flex items-center justify-center">
-                <IconLoader className="animate-spin text-rose-500" size={32} />
+            <div className="flex min-h-[50vh] items-center justify-center">
+                <IconLoader className="animate-spin" size={32} style={{ color: 'var(--accent)' }} />
             </div>
         );
     }
 
     if (!serenata) {
         return (
-            <div className="min-h-screen bg-zinc-50 flex items-center justify-center">
-                <p className="text-zinc-500">Serenata no encontrada</p>
+            <div className="flex min-h-[50vh] items-center justify-center px-6">
+                <p style={{ color: 'var(--fg-secondary)' }}>Serenata no encontrada</p>
             </div>
         );
     }
 
     if (submitted) {
         return (
-            <div className="min-h-screen bg-zinc-50 flex items-center justify-center p-6">
+            <div className="flex min-h-[50vh] flex-col items-center justify-center p-6">
                 <div className="text-center">
-                    <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                        <IconCheck className="text-green-600" size={32} />
+                    <div
+                        className="w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4"
+                        style={{ background: 'color-mix(in oklab, var(--success) 15%, transparent)' }}
+                    >
+                        <IconCheck size={32} style={{ color: 'var(--success)' }} />
                     </div>
-                    <h2 className="text-xl font-bold text-zinc-900 mb-2">¡Gracias!</h2>
-                    <p className="text-zinc-500 mb-6">Tu review ha sido enviado exitosamente.</p>
+                    <h2 className="text-xl font-bold mb-2" style={{ color: 'var(--fg)' }}>¡Gracias!</h2>
+                    <p className="mb-6" style={{ color: 'var(--fg-secondary)' }}>Tu review ha sido enviado exitosamente.</p>
                     <button
                         onClick={() => router.push('/inicio')}
-                        className="bg-rose-500 text-white px-6 py-3 rounded-xl font-medium"
+                        className="px-6 py-3 rounded-xl font-medium"
+                        style={{ background: 'var(--accent)', color: 'var(--accent-contrast)' }}
                     >
                         Volver al inicio
                     </button>
@@ -140,35 +149,36 @@ export default function ReviewPage() {
         );
     }
 
-    const isClient = user?.role !== 'captain';
-    const reviewTarget = isClient ? serenata.captainName : 'el cliente';
+    const isClient = user?.role !== 'coordinator';
 
     return (
-        <div className="min-h-screen bg-zinc-50">
-            {/* Header */}
-            <div className="bg-white px-6 py-4 border-b border-zinc-100">
+        <div className="pb-10">
+            <div className="px-6 py-4 border-b" style={{ background: 'var(--surface)', borderColor: 'var(--border)' }}>
                 <button 
+                    type="button"
                     onClick={() => router.push('/inicio')}
-                    className="flex items-center gap-2 text-zinc-600 mb-4"
+                    className="serenatas-interactive mb-4 flex items-center gap-2 rounded-lg"
+                    style={{ color: 'var(--fg-secondary)' }}
                 >
                     <IconArrowLeft size={20} />
                     <span>Volver</span>
                 </button>
-                <h1 className="text-xl font-bold text-zinc-900">Calificar serenata</h1>
-                <p className="text-sm text-zinc-500">
-                    {isClient 
-                        ? `¿Cómo fue el servicio de ${serenata.captainName || 'tu capitán'}?`
-                        : '¿Cómo fue tu experiencia con este cliente?'
+                <SerenatasPageHeader
+                    title="Calificar serenata"
+                    description={
+                        isClient
+                            ? `¿Cómo fue el servicio de ${serenata.coordinatorName || 'tu coordinador'}?`
+                            : '¿Cómo fue tu experiencia con este cliente?'
                     }
-                </p>
+                    className="!mb-0"
+                />
             </div>
 
-            {/* Review Form */}
-            <div className="px-6 py-6">
-                <div className="bg-white rounded-xl p-6 shadow-sm">
+            <SerenatasPageShell width="narrow">
+                <div className="rounded-xl p-6 border" style={{ background: 'var(--surface)', borderColor: 'var(--border)' }}>
                     {/* Stars */}
                     <div className="text-center mb-6">
-                        <p className="text-sm text-zinc-500 mb-3">Selecciona una calificación</p>
+                        <p className="text-sm mb-3" style={{ color: 'var(--fg-secondary)' }}>Selecciona una calificación</p>
                         <div className="flex items-center justify-center gap-2">
                             {[1, 2, 3, 4, 5].map((star) => (
                                 <button
@@ -181,12 +191,12 @@ export default function ReviewPage() {
                                     {star <= (hoverRating || rating) ? (
                                         <IconStarFilled className="text-amber-400" size={40} />
                                     ) : (
-                                        <IconStar className="text-zinc-300" size={40} />
+                                        <IconStar size={40} style={{ color: 'var(--border-strong)' }} />
                                     )}
                                 </button>
                             ))}
                         </div>
-                        <p className="text-lg font-medium text-zinc-900 mt-2">
+                        <p className="text-lg font-medium mt-2" style={{ color: 'var(--fg)' }}>
                             {rating === 1 && 'Mala'}
                             {rating === 2 && 'Regular'}
                             {rating === 3 && 'Buena'}
@@ -197,7 +207,7 @@ export default function ReviewPage() {
 
                     {/* Comment */}
                     <div className="mb-6">
-                        <label className="block text-sm font-medium text-zinc-700 mb-2">
+                        <label className="block text-sm font-medium mb-2" style={{ color: 'var(--fg-secondary)' }}>
                             Comentario (opcional)
                         </label>
                         <textarea
@@ -207,10 +217,11 @@ export default function ReviewPage() {
                                 ? '¿Qué te gustó? ¿Qué podría mejorar?'
                                 : '¿Cómo fue trabajar con este cliente?'
                             }
-                            className="w-full px-4 py-3 bg-zinc-50 rounded-xl border border-zinc-200 focus:outline-none focus:ring-2 focus:ring-rose-500 min-h-[120px] resize-none"
+                            className="w-full px-4 py-3 rounded-xl border focus:outline-none focus:ring-2 min-h-[120px] resize-none"
+                            style={{ background: 'var(--bg-subtle)', borderColor: 'var(--border)', color: 'var(--fg)' }}
                             maxLength={500}
                         />
-                        <p className="text-xs text-zinc-400 mt-1 text-right">
+                        <p className="text-xs mt-1 text-right" style={{ color: 'var(--fg-muted)' }}>
                             {comment.length}/500
                         </p>
                     </div>
@@ -219,7 +230,8 @@ export default function ReviewPage() {
                     <button
                         onClick={handleSubmit}
                         disabled={rating === 0 || isSubmitting}
-                        className="w-full bg-rose-500 text-white py-4 rounded-xl font-semibold hover:bg-rose-600 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+                        className="w-full py-4 rounded-xl font-semibold transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+                        style={{ background: 'var(--accent)', color: 'var(--accent-contrast)' }}
                     >
                         {isSubmitting ? (
                             <IconLoader className="animate-spin" size={20} />
@@ -231,10 +243,10 @@ export default function ReviewPage() {
                 </div>
 
                 {/* Info */}
-                <p className="text-xs text-zinc-400 text-center mt-4">
+                <p className="text-xs text-center mt-4" style={{ color: 'var(--fg-muted)' }}>
                     Tu review ayuda a mejorar la comunidad de SimpleSerenatas
                 </p>
-            </div>
+            </SerenatasPageShell>
         </div>
     );
 }

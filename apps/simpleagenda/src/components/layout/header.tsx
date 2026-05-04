@@ -19,7 +19,7 @@ import {
     IconX,
 } from '@tabler/icons-react';
 import { useAuth } from '@/context/auth-context';
-import { PanelButton } from '@simple/ui';
+import { BrandLogo, PanelButton } from '@simple/ui';
 import { NotificationBell } from '@/components/panel/notification-bell';
 import { isPanelNavActive } from '@/components/panel/panel-nav-config';
 
@@ -82,13 +82,7 @@ export function Header() {
             <div className="container-app flex items-center justify-between h-16">
                 {/* Logo */}
                 <Link href="/" className="flex items-center gap-2 group shrink-0">
-                    <span className="w-9 h-9 rounded-[10px] border flex items-center justify-center transition-colors group-hover:opacity-80" style={{ borderColor: '#0d9488', color: '#0d9488' }}>
-                        <IconCalendar size={18} />
-                    </span>
-                    <span className="inline-flex items-baseline gap-[0.08rem] text-[1.05rem] tracking-tight" style={{ color: 'var(--fg)' }}>
-                        <span className="font-semibold leading-none">Simple</span>
-                        <span className="font-normal leading-none" style={{ color: '#0d9488' }}>Agenda</span>
-                    </span>
+                    <BrandLogo appId="simpleagenda" />
                 </Link>
 
                 {/* Desktop Navigation */}

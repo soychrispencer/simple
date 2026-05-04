@@ -11,32 +11,46 @@ import {
     IconUser,
     IconMenu2,
     IconX,
-    IconConfettiFilled,
     IconLogout,
+    IconCalendar,
+    IconUsers,
+    IconPlus,
+    IconHome,
 } from '@tabler/icons-react';
 import { useAuth } from '@/context/AuthContext';
+import { getSerenatasOverflowNavItems, isSerenatasNavActive } from '@/components/layout/panel-nav-config';
+import { BrandLogo } from '@simple/ui';
 
-interface AppHeaderProps {
-    onMenuClick?: () => void;
-    sidebarCollapsed?: boolean;
+type UserRole = 'client' | 'coordinator' | 'musician' | 'admin' | 'superadmin';
+
+function serenatasHeaderCta(role: UserRole | undefined): {
+    href: string;
+    label: string;
+    Icon: typeof IconCalendar;
+} {
+    switch (role) {
+        case 'coordinator':
+            return { href: '/agenda', label: 'Agendar', Icon: IconCalendar };
+        case 'musician':
+            return { href: '/invitaciones', label: 'Invitaciones', Icon: IconUsers };
+        case 'client':
+            return { href: '/solicitar', label: 'Solicitar', Icon: IconPlus };
+        case 'admin':
+        case 'superadmin':
+            return { href: '/agenda', label: 'Agendar', Icon: IconCalendar };
+        default:
+            return { href: '/inicio', label: 'Inicio', Icon: IconHome };
+    }
 }
 
-const navLinks = [
-    { href: '/inicio', label: 'Inicio' },
-    { href: '/agenda', label: 'Agenda' },
-    { href: '/solicitudes', label: 'Solicitudes' },
-    { href: '/grupos', label: 'Grupos' },
-    { href: '/mapa', label: 'Mapa' },
-];
-
-export function AppHeader({ onMenuClick, sidebarCollapsed }: AppHeaderProps) {
+export function AppHeader() {
     const pathname = usePathname() ?? '';
     const { theme, setTheme } = useTheme();
     const [mounted, setMounted] = useState(false);
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
     const [userMenuOpen, setUserMenuOpen] = useState(false);
     const userMenuRef = useRef<HTMLDivElement>(null);
-    const { user, isAuthenticated, logout, musicianProfile } = useAuth();
+    const { user, isAuthenticated, logout, effectiveRole } = useAuth();
 
     useEffect(() => {
         setMounted(true);
@@ -53,13 +67,15 @@ export function AppHeader({ onMenuClick, sidebarCollapsed }: AppHeaderProps) {
     }, []);
 
     const userName = user?.name || 'Usuario';
-    const isActive = (href: string) => pathname === href || pathname.startsWith(`${href}/`);
+    /** En escritorio la navegación principal es el sidebar; el menú móvil solo muestra rutas que no están en la barra inferior. */
+    const overflowNavLinks = getSerenatasOverflowNavItems(effectiveRole);
+    const headerCta = serenatasHeaderCta(effectiveRole as UserRole | undefined);
+    const CtaIcon = headerCta.Icon;
+    const notificationsHref = effectiveRole === 'musician' ? '/invitaciones' : '/notificaciones';
 
     return (
         <header
-            className={`fixed top-0 right-0 left-0 z-30 h-16 app-header transition-all duration-300 ${
-                sidebarCollapsed !== undefined ? 'md:left-16 lg:left-64' : ''
-            }`}
+            className="fixed top-0 right-0 left-0 z-30 h-16 app-header transition-all duration-300"
             style={{
                 background: 'var(--surface)',
                 borderBottom: '1px solid var(--border)'
@@ -68,104 +84,67 @@ export function AppHeader({ onMenuClick, sidebarCollapsed }: AppHeaderProps) {
             <div className="flex items-center justify-between h-full px-4">
                 {/* Left: Logo / Menu */}
                 <div className="flex items-center gap-3">
-                    {/* Mobile hamburger */}
-                    <button
-                        onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-                        className="md:hidden p-2 -ml-2 rounded-xl transition-colors hover:bg-[var(--bg-subtle)]"
-                        aria-label="Menú"
-                    >
-                        {mobileMenuOpen ? (
-                            <IconX size={22} style={{ color: 'var(--fg)' }} />
-                        ) : (
-                            <IconMenu2 size={22} style={{ color: 'var(--fg)' }} />
-                        )}
-                    </button>
-
-                    {/* Desktop sidebar toggle */}
-                    {onMenuClick && (
+                    {/* Solo móvil: el chip usa display en CSS y puede anular md:hidden si va en el mismo nodo */}
+                    <div className="md:hidden -ml-2">
                         <button
-                            onClick={onMenuClick}
-                            className="hidden md:flex p-2 -ml-2 rounded-xl transition-colors hover:bg-[var(--bg-subtle)]"
-                            aria-label="Colapsar menú"
+                            type="button"
+                            onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+                            className="header-icon-chip"
+                            aria-label="Menú"
                         >
-                            <IconMenu2 size={20} style={{ color: '#E11D48' }} />
+                            {mobileMenuOpen ? (
+                                <IconX size={18} style={{ color: 'var(--fg-muted)' }} />
+                            ) : (
+                                <IconMenu2 size={18} style={{ color: 'var(--fg-muted)' }} />
+                            )}
                         </button>
-                    )}
+                    </div>
 
                     {/* Logo */}
                     <Link href="/inicio" className="flex items-center gap-2 group shrink-0">
-                        <span className="w-9 h-9 rounded-[10px] flex items-center justify-center transition-opacity group-hover:opacity-80" style={{ backgroundColor: 'var(--accent-subtle)', color: '#E11D48' }}>
-                            <IconConfettiFilled size={18} />
-                        </span>
-                        <span className="hidden sm:inline-flex items-baseline gap-[0.08rem] text-lg tracking-tight" style={{ color: 'var(--fg)' }}>
-                            <span className="font-semibold leading-none">Simple</span>
-                            <span className="font-normal leading-none" style={{ color: '#E11D48' }}>Serenatas</span>
-                        </span>
+                        <BrandLogo appId="simpleserenatas" className="hidden sm:flex" />
+                        <BrandLogo appId="simpleserenatas" showWordmark={false} variant="ghost" className="sm:hidden" />
                     </Link>
-
-                    {/* Desktop Navigation */}
-                    <nav className="hidden lg:flex items-center gap-1 ml-6">
-                        {navLinks.map((link) => (
-                            <Link
-                                key={link.href}
-                                href={link.href}
-                                className={`px-3 py-2 rounded-xl text-sm font-medium transition-colors ${
-                                    isActive(link.href)
-                                        ? 'nav-item-active'
-                                        : 'hover:bg-[var(--bg-subtle)]'
-                                }`}
-                                style={{ color: isActive(link.href) ? 'var(--accent)' : 'var(--fg-secondary)' }}
-                            >
-                                {link.label}
-                            </Link>
-                        ))}
-                    </nav>
                 </div>
 
-                {/* Right: Actions */}
+                {/* Right: orden unificado — notificaciones → tema → avatar → CTA */}
                 <div className="flex items-center gap-2">
-                    {/* Theme Toggle */}
-                    {mounted && (
-                        <button
-                            onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
-                            className="p-2 rounded-xl transition-colors hover:bg-[var(--bg-subtle)]"
-                            aria-label="Cambiar tema"
-                            style={{ color: 'var(--fg-secondary)' }}
-                        >
-                            {theme === 'dark' ? <IconSun size={18} /> : <IconMoon size={18} />}
-                        </button>
-                    )}
-
-                    {/* Notifications */}
                     {isAuthenticated && (
                         <Link
-                            href="/solicitudes"
-                            className="relative p-2 rounded-xl transition-colors hover:bg-[var(--bg-subtle)]"
-                            style={{ color: 'var(--fg-secondary)' }}
+                            href={notificationsHref}
+                            className="header-icon-chip relative shrink-0"
+                            aria-label="Notificaciones"
                         >
-                            <IconBell size={18} />
-                            <span 
+                            <IconBell size={16} stroke={1.9} />
+                            <span
                                 className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full"
                                 style={{ background: 'var(--accent)' }}
+                                aria-hidden
                             />
                         </Link>
                     )}
 
-                    {/* User Menu */}
+                    {mounted && (
+                        <button
+                            type="button"
+                            onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
+                            className="header-icon-chip shrink-0"
+                            aria-label="Cambiar tema"
+                        >
+                            {theme === 'dark' ? <IconSun size={16} /> : <IconMoon size={16} />}
+                        </button>
+                    )}
+
                     {isAuthenticated ? (
                         <div className="relative" ref={userMenuRef}>
                             <button
+                                type="button"
                                 onClick={() => setUserMenuOpen(!userMenuOpen)}
-                                className="flex items-center gap-2 p-1.5 pl-3 rounded-xl transition-colors hover:bg-[var(--bg-subtle)]"
-                                style={{ color: 'var(--fg-secondary)' }}
+                                className="header-icon-chip"
+                                aria-label="Cuenta"
+                                aria-expanded={userMenuOpen}
                             >
-                                <span className="hidden sm:inline text-sm font-medium">{userName}</span>
-                                <div 
-                                    className="w-8 h-8 rounded-full flex items-center justify-center"
-                                    style={{ background: 'var(--accent-subtle)' }}
-                                >
-                                    <IconUser size={16} style={{ color: 'var(--accent)' }} />
-                                </div>
+                                <IconUser size={16} />
                             </button>
 
                             {userMenuOpen && (
@@ -205,13 +184,27 @@ export function AppHeader({ onMenuClick, sidebarCollapsed }: AppHeaderProps) {
                                 </div>
                             )}
                         </div>
+                    ) : null}
+
+                    {isAuthenticated ? (
+                        <Link
+                            href={headerCta.href}
+                            className="hidden sm:inline-flex shrink-0 items-center justify-center gap-1.5 h-9 px-3 sm:px-4 rounded-xl text-sm font-medium transition-opacity hover:opacity-90"
+                            style={{
+                                background: 'var(--accent)',
+                                color: 'var(--accent-contrast)',
+                            }}
+                        >
+                            <CtaIcon size={15} stroke={2} />
+                            {headerCta.label}
+                        </Link>
                     ) : (
                         <Link
                             href="/auth/login"
-                            className="px-4 py-2 rounded-xl text-sm font-medium transition-colors"
-                            style={{ 
-                                background: 'var(--accent)', 
-                                color: 'var(--accent-contrast)'
+                            className="inline-flex shrink-0 items-center justify-center h-9 px-4 rounded-xl text-sm font-medium transition-opacity hover:opacity-90"
+                            style={{
+                                background: 'var(--accent)',
+                                color: 'var(--accent-contrast)',
                             }}
                         >
                             Iniciar sesión
@@ -230,20 +223,50 @@ export function AppHeader({ onMenuClick, sidebarCollapsed }: AppHeaderProps) {
                         boxShadow: 'var(--shadow-lg)'
                     }}
                 >
-                    <nav className="p-2 space-y-1">
-                        {navLinks.map((link) => (
+                    {isAuthenticated ? (
+                        <div className="p-2 pb-0">
                             <Link
-                                key={link.href}
-                                href={link.href}
+                                href={headerCta.href}
                                 onClick={() => setMobileMenuOpen(false)}
-                                className={`flex items-center gap-3 px-3 py-3 rounded-xl text-sm font-medium transition-colors ${
-                                    isActive(link.href) ? 'nav-item-active' : ''
-                                }`}
-                                style={{ color: isActive(link.href) ? 'var(--accent)' : 'var(--fg-secondary)' }}
+                                className="flex w-full items-center justify-center gap-2 h-11 rounded-xl text-sm font-medium"
+                                style={{
+                                    background: 'var(--accent)',
+                                    color: 'var(--accent-contrast)',
+                                }}
                             >
-                                {link.label}
+                                <CtaIcon size={16} stroke={2} />
+                                {headerCta.label}
                             </Link>
-                        ))}
+                        </div>
+                    ) : null}
+                    <nav className="p-2 space-y-1" aria-label="Más rutas">
+                        {overflowNavLinks.length === 0 ? (
+                            <p className="px-3 py-2 text-xs" style={{ color: 'var(--fg-muted)' }}>
+                                Usa la barra inferior para Inicio, Agenda y el resto.
+                            </p>
+                        ) : (
+                            overflowNavLinks.map((link) => {
+                                const NavIcon = link.icon;
+                                return (
+                                    <Link
+                                        key={link.href}
+                                        href={link.href}
+                                        onClick={() => setMobileMenuOpen(false)}
+                                        className={`flex items-center gap-3 px-3 py-3 rounded-xl text-sm font-medium transition-colors ${
+                                            isSerenatasNavActive(pathname, link.href) ? 'nav-item-active' : ''
+                                        }`}
+                                        style={{
+                                            color: isSerenatasNavActive(pathname, link.href)
+                                                ? 'var(--accent)'
+                                                : 'var(--fg-secondary)',
+                                        }}
+                                    >
+                                        <NavIcon size={18} stroke={1.9} />
+                                        {link.label}
+                                    </Link>
+                                );
+                            })
+                        )}
                     </nav>
                 </div>
             )}

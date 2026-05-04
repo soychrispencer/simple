@@ -3,9 +3,12 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { IconConfettiFilled, IconEye, IconEyeOff, IconArrowLeft, IconCheck } from '@tabler/icons-react';
+import { IconEye, IconEyeOff, IconCheck } from '@tabler/icons-react';
 import { useAuth } from '@/context/AuthContext';
-import { GoogleLoginButton } from '@simple/auth';
+import { GoogleLoginButton, normalizeEmail, resolveSafeInternalPath } from '@simple/auth';
+import { BrandLogo } from '@simple/ui';
+import { AuthBrandHeader, AuthSplitLayout } from '@/components/auth/auth-split-layout';
+import { AuthFeedback } from '@/components/auth/auth-feedback';
 
 export default function LoginPage() {
   const router = useRouter();
@@ -22,60 +25,33 @@ export default function LoginPage() {
     setError('');
     
     try {
-      await login(email, password);
-      router.push('/inicio');
+      await login(normalizeEmail(email), password);
+      const returnTo = typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('returnTo') : null;
+      const nextPath = resolveSafeInternalPath(returnTo, '/inicio');
+      router.push(nextPath);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Error al iniciar sesión');
+      setError(err instanceof Error ? err.message : 'No pudimos iniciar sesión.');
     } finally {
       setIsLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen flex">
-      {/* Left Side - Form (Mobile & Desktop) */}
-      <div className="w-full lg:w-1/2 xl:w-5/12 flex flex-col bg-white">
-        {/* Header */}
-        <div className="px-6 py-4 flex items-center justify-between">
-          <Link
-            href="/"
-            className="flex items-center gap-2 p-2 -ml-2 rounded-xl transition-colors hover:bg-zinc-100"
-            style={{ color: 'var(--fg)' }}
-          >
-            <IconArrowLeft size={20} />
-            <span className="text-sm font-medium hidden sm:inline">Volver</span>
-          </Link>
-          <div className="flex items-center gap-2">
-            <div
-              className="w-8 h-8 rounded-xl flex items-center justify-center"
-              style={{ backgroundColor: 'var(--accent-subtle)' }}
-            >
-              <IconConfettiFilled size={16} style={{ color: '#E11D48' }} />
-            </div>
-            <span className="font-bold" style={{ color: 'var(--fg)' }}>SimpleSerenatas</span>
-          </div>
-          <div className="w-20" />
-        </div>
+    <AuthSplitLayout
+      left={
+        <>
+        <AuthBrandHeader />
 
         {/* Content */}
         <div className="flex-1 px-6 sm:px-12 lg:px-16 py-8 flex flex-col justify-center max-w-md mx-auto w-full">
           <div className="mb-8">
-            <h1 className="text-2xl sm:text-3xl font-bold mb-2" style={{ color: 'var(--fg)' }}>
+            <h1 className="type-page-title" style={{ color: 'var(--fg)' }}>
               Bienvenido de vuelta
             </h1>
-            <p style={{ color: 'var(--fg-secondary)' }}>
-              Inicia sesión para continuar
-            </p>
+            <p className="type-page-subtitle mt-2">Inicia sesión para continuar</p>
           </div>
 
-          {error && (
-            <div
-              className="mb-6 rounded-xl p-4 text-sm"
-              style={{ background: 'var(--error)', color: 'white' }}
-            >
-              {error}
-            </div>
-          )}
+          {error && <AuthFeedback message={error} className="mb-6" />}
 
           <form onSubmit={handleSubmit} className="space-y-5">
             <div>
@@ -126,15 +102,7 @@ export default function LoginPage() {
               </div>
             </div>
 
-            <div className="flex items-center justify-between">
-              <label className="flex items-center gap-2 cursor-pointer">
-                <input
-                  type="checkbox"
-                  className="w-4 h-4 rounded border outline-none"
-                  style={{ borderColor: 'var(--border)', accentColor: 'var(--accent)' }}
-                />
-                <span className="text-sm" style={{ color: 'var(--fg-secondary)' }}>Recordarme</span>
-              </label>
+            <div className="flex items-center justify-end">
               <Link
                 href="/auth/recuperar"
                 className="text-sm font-medium hover:opacity-80 transition-opacity"
@@ -150,7 +118,7 @@ export default function LoginPage() {
               className="w-full rounded-xl py-3.5 font-semibold transition-all disabled:opacity-50 disabled:cursor-not-allowed hover:opacity-90"
               style={{ background: 'var(--accent)', color: 'var(--accent-contrast)' }}
             >
-              {isLoading ? 'Iniciando sesión...' : 'Iniciar Sesión'}
+              {isLoading ? 'Iniciando sesión...' : 'Iniciar sesión'}
             </button>
           </form>
 
@@ -161,7 +129,7 @@ export default function LoginPage() {
                 <div className="w-full" style={{ borderTop: '1px solid var(--border)' }} />
               </div>
               <div className="relative flex justify-center text-sm">
-                <span className="px-2 bg-white" style={{ color: 'var(--fg-muted)' }}>O continúa con</span>
+                <span className="px-2 bg-[var(--surface)]" style={{ color: 'var(--fg-muted)' }}>O continúa con</span>
               </div>
             </div>
 
@@ -198,42 +166,33 @@ export default function LoginPage() {
 
           {/* Register Link */}
           <p className="mt-8 text-center text-sm" style={{ color: 'var(--fg-secondary)' }}>
-            ¿No tienes una cuenta?{' '}
+            ¿No tienes cuenta?{' '}
             <Link
               href="/auth/registro"
-              className="font-semibold hover:opacity-80 transition-opacity"
+              className="serenatas-interactive font-semibold transition-opacity hover:opacity-80"
               style={{ color: 'var(--accent)' }}
             >
-              Regístrate
+              Crear cuenta
             </Link>
           </p>
         </div>
-      </div>
-
-      {/* Right Side - Visual (Desktop Only) */}
-      <div
-        className="hidden lg:flex lg:w-1/2 xl:w-7/12 items-center justify-center relative overflow-hidden"
-        style={{ background: 'linear-gradient(135deg, var(--accent) 0%, #be123c 100%)' }}
-      >
-        {/* Background Pattern */}
-        <div className="absolute inset-0 opacity-10">
-          <div className="absolute top-20 left-20 w-96 h-96 rounded-full bg-white blur-3xl" />
-          <div className="absolute bottom-20 right-20 w-80 h-80 rounded-full bg-white blur-3xl" />
-        </div>
-
-        <div className="relative z-10 max-w-lg px-12">
+        </>
+      }
+      right={
+        <>
           {/* Logo Large */}
           <div className="mb-12">
-            <div
-              className="w-20 h-20 rounded-xl flex items-center justify-center mb-6"
-              style={{ backgroundColor: 'var(--accent-subtle)' }}
-            >
-              <IconConfettiFilled size={40} style={{ color: '#E11D48' }} />
-            </div>
-            <h2 className="text-4xl font-bold text-white mb-4">
+            <BrandLogo
+              appId="simpleserenatas"
+              showWordmark={false}
+              size="lg"
+              variant="onAccent"
+              className="mb-6"
+            />
+            <h2 className="text-4xl font-bold mb-4" style={{ color: 'var(--accent-contrast)' }}>
               Sistema operativo para músicos de mariachi
             </h2>
-            <p className="text-white/80 text-lg">
+            <p className="text-lg" style={{ color: 'color-mix(in oklab, var(--accent-contrast) 80%, transparent)' }}>
               Gestiona grupos, optimiza rutas y multiplica tus ganancias con la plataforma más completa del mercado.
             </p>
           </div>
@@ -247,38 +206,38 @@ export default function LoginPage() {
           </div>
 
           {/* Stats */}
-          <div className="mt-12 pt-8 border-t border-white/20">
+          <div className="mt-12 pt-8 border-t" style={{ borderColor: 'color-mix(in oklab, var(--accent-contrast) 20%, transparent)' }}>
             <div className="grid grid-cols-3 gap-8">
               <div>
-                <p className="text-3xl font-bold text-white">500+</p>
-                <p className="text-white/70 text-sm">Músicos activos</p>
+                <p className="text-3xl font-bold" style={{ color: 'var(--accent-contrast)' }}>500+</p>
+                <p className="text-sm" style={{ color: 'color-mix(in oklab, var(--accent-contrast) 70%, transparent)' }}>Músicos activos</p>
               </div>
               <div>
-                <p className="text-3xl font-bold text-white">2,000+</p>
-                <p className="text-white/70 text-sm">Serenatas mensuales</p>
+                <p className="text-3xl font-bold" style={{ color: 'var(--accent-contrast)' }}>2,000+</p>
+                <p className="text-sm" style={{ color: 'color-mix(in oklab, var(--accent-contrast) 70%, transparent)' }}>Serenatas mensuales</p>
               </div>
               <div>
-                <p className="text-3xl font-bold text-white">4.9</p>
-                <p className="text-white/70 text-sm">Rating de app</p>
+                <p className="text-3xl font-bold" style={{ color: 'var(--accent-contrast)' }}>4.9</p>
+                <p className="text-sm" style={{ color: 'color-mix(in oklab, var(--accent-contrast) 70%, transparent)' }}>Rating de app</p>
               </div>
             </div>
           </div>
-        </div>
-      </div>
-    </div>
+        </>
+      }
+    />
   );
 }
 
 function FeatureItem({ text }: { text: string }) {
   return (
-    <div className="flex items-center gap-3 text-white">
+    <div className="flex items-center gap-3" style={{ color: 'var(--accent-contrast)' }}>
       <div
         className="w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0"
-        style={{ background: 'rgba(255,255,255,0.2)' }}
+        style={{ background: 'color-mix(in oklab, var(--accent-contrast) 20%, transparent)' }}
       >
-        <IconCheck size={14} className="text-white" />
+        <IconCheck size={14} />
       </div>
-      <span className="text-white/90">{text}</span>
+      <span style={{ color: 'color-mix(in oklab, var(--accent-contrast) 90%, transparent)' }}>{text}</span>
     </div>
   );
 }

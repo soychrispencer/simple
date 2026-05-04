@@ -3,27 +3,26 @@
 import { useState, useEffect } from 'react';
 import { 
     IconBell,
-    IconCheck,
     IconConfetti,
-    IconUser,
     IconCreditCard,
     IconMessageCircle,
 } from '@tabler/icons-react';
 import { useAuth } from '@/context/AuthContext';
 import { API_BASE } from '@simple/config';
+import { SerenatasPageHeader, SerenatasPageShell } from '@/components/shell';
 
 interface Notification {
     id: string;
     type: 'serenata' | 'payment' | 'message' | 'system';
     title: string;
-    body: string;
+    message: string;
     isRead: boolean;
     createdAt: string;
     data?: any;
 }
 
 export default function NotificacionesPage() {
-    const { user } = useAuth();
+    useAuth();
     const [notifications, setNotifications] = useState<Notification[]>([]);
     const [isLoading, setIsLoading] = useState(true);
 
@@ -79,10 +78,10 @@ export default function NotificacionesPage() {
 
     const getIcon = (type: string) => {
         switch (type) {
-            case 'serenata': return <IconConfetti size={20} className="text-rose-500" />;
-            case 'payment': return <IconCreditCard size={20} className="text-green-500" />;
-            case 'message': return <IconMessageCircle size={20} className="text-blue-500" />;
-            default: return <IconBell size={20} className="text-zinc-400" />;
+            case 'serenata': return <IconConfetti size={20} style={{ color: 'var(--accent)' }} />;
+            case 'payment': return <IconCreditCard size={20} style={{ color: 'var(--success)' }} />;
+            case 'message': return <IconMessageCircle size={20} style={{ color: 'var(--info)' }} />;
+            default: return <IconBell size={20} style={{ color: 'var(--fg-muted)' }} />;
         }
     };
 
@@ -90,60 +89,59 @@ export default function NotificacionesPage() {
 
     if (isLoading) {
         return (
-            <div className="min-h-screen bg-zinc-50 flex items-center justify-center">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-rose-500" />
+            <div className="flex min-h-[50vh] items-center justify-center">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2" style={{ borderColor: 'var(--accent)' }} />
             </div>
         );
     }
 
     return (
-        <div className="min-h-screen bg-zinc-50 pb-20">
-            {/* Header */}
-            <div className="bg-white px-6 py-4 border-b border-zinc-100">
-                <div className="flex items-center justify-between">
-                    <div>
-                        <h1 className="text-xl font-bold text-zinc-900">Notificaciones</h1>
-                        <p className="text-sm text-zinc-500">{unreadCount} sin leer</p>
-                    </div>
-                    {unreadCount > 0 && (
-                        <button
-                            onClick={markAllAsRead}
-                            className="text-sm text-rose-500 font-medium"
-                        >
-                            Marcar todas
-                        </button>
-                    )}
-                </div>
-            </div>
+        <div className="pb-6">
+            <SerenatasPageShell width="default">
+                <SerenatasPageHeader
+                    title="Notificaciones"
+                    description={unreadCount > 0 ? `${unreadCount} sin leer` : 'Al día'}
+                    trailing={
+                        unreadCount > 0 ? (
+                            <button
+                                type="button"
+                                onClick={markAllAsRead}
+                                className="text-sm font-medium"
+                                style={{ color: 'var(--accent)' }}
+                            >
+                                Marcar todas
+                            </button>
+                        ) : undefined
+                    }
+                />
+            </SerenatasPageShell>
 
-            {/* Notifications List */}
-            <div className="divide-y divide-zinc-100">
+            <div className="divide-y border-t" style={{ borderColor: 'var(--border)' }}>
                 {notifications.length === 0 ? (
                     <div className="text-center py-12">
-                        <IconBell size={48} className="mx-auto text-zinc-300 mb-4" />
-                        <p className="text-zinc-500">No tienes notificaciones</p>
+                        <IconBell size={48} className="mx-auto mb-4" style={{ color: 'var(--fg-muted)' }} />
+                        <p style={{ color: 'var(--fg-secondary)' }}>No tienes notificaciones</p>
                     </div>
                 ) : (
                     notifications.map((notification) => (
                         <div
                             key={notification.id}
                             onClick={() => !notification.isRead && markAsRead(notification.id)}
-                            className={`p-4 flex items-start gap-3 cursor-pointer transition-colors ${
-                                notification.isRead ? 'bg-white' : 'bg-rose-50'
-                            }`}
+                            className="p-4 flex items-start gap-3 cursor-pointer transition-colors"
+                            style={{ background: notification.isRead ? 'var(--surface)' : 'var(--accent-subtle)' }}
                         >
-                            <div className="w-10 h-10 rounded-full bg-white flex items-center justify-center shadow-sm shrink-0">
+                            <div className="w-10 h-10 rounded-full flex items-center justify-center shrink-0" style={{ background: 'var(--surface)' }}>
                                 {getIcon(notification.type)}
                             </div>
                             <div className="flex-1 min-w-0">
-                                <p className="font-medium text-zinc-900">{notification.title}</p>
-                                <p className="text-sm text-zinc-500 mt-0.5">{notification.body}</p>
-                                <p className="text-xs text-zinc-400 mt-2">
+                                <p className="font-medium" style={{ color: 'var(--fg)' }}>{notification.title}</p>
+                                <p className="text-sm mt-0.5" style={{ color: 'var(--fg-secondary)' }}>{notification.message}</p>
+                                <p className="text-xs mt-2" style={{ color: 'var(--fg-muted)' }}>
                                     {new Date(notification.createdAt).toLocaleString('es-CL')}
                                 </p>
                             </div>
                             {!notification.isRead && (
-                                <div className="w-2 h-2 rounded-full bg-rose-500 shrink-0 mt-2" />
+                                <div className="w-2 h-2 rounded-full shrink-0 mt-2" style={{ background: 'var(--accent)' }} />
                             )}
                         </div>
                     ))

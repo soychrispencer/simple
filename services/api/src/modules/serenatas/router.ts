@@ -2,6 +2,42 @@ import { Hono, type Context } from 'hono';
 import { eq, and, or, desc, asc, gte, lte, sql, inArray } from 'drizzle-orm';
 import { z } from 'zod';
 import { SerenatasService } from './service';
+import {
+  computeSerenataPlatformFees,
+  COORDINATOR_TRIAL_MONTHS,
+  isCoordinatorSubscriptionActive,
+} from './constants';
+import { createCoordinatorProfileSchema as createCoordinatorProfileSchemaImported } from './types';
+import {
+  createCheckoutPreference,
+  createPreapproval,
+  getPaymentById,
+  getPreapprovalById,
+  isMercadoPagoConfigured,
+  refundPayment,
+  verifyMercadoPagoWebhookSignature,
+} from '../mercadopago/service.js';
+import { sendTransactionalEmail } from '../shared/mailer.js';
+
+function serenatasDevErrorPayload(fallback: string, error: unknown): { error: string } {
+  const isDev = process.env.NODE_ENV !== 'production';
+  if (isDev && error instanceof Error && error.message) {
+    return { error: `${fallback} (${error.message})` };
+  }
+  return { error: fallback };
+}
+
+/** Distancia en km entre dos puntos WGS84 (Haversine). */
+function haversineKm(lat1: number, lng1: number, lat2: number, lng2: number): number {
+  const R = 6371;
+  const toRad = (d: number) => (d * Math.PI) / 180;
+  const dLat = toRad(lat2 - lat1);
+  const dLng = toRad(lng2 - lng1);
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLng / 2) ** 2;
+  return R * (2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a)));
+}
 
 // Types for dependency injection
 export type SerenatasRouterDeps = {
@@ -10,14 +46,17 @@ export type SerenatasRouterDeps = {
   requireAuth: (c: Context, next: () => Promise<void>) => Promise<void>;
   service: any;
   tables: {
-    serenataCaptainProfiles: any;
-    serenataMusicianProfiles: any;
+    serenataCoordinatorProfiles: any;
+    /** Membresías cuadrilla músico ↔ coordinador (reemplaza profiles duplicados). */
+    serenataCoordinatorCrewMemberships: any;
     serenatas: any;
+    serenataMusicianLineup: any;
     serenataMusicians: any;
     serenataSubscriptions: any;
     serenataSubscriptionPayments: any;
     serenataPayments: any;
     serenataReviews: any;
+    serenataCoordinatorReviews: any;
     serenataAvailability: any;
     serenataMessages: any;
     serenataGroups: any;
@@ -26,23 +65,113 @@ export type SerenatasRouterDeps = {
     serenataAssignments: any;
     serenataRoutes: any;
     serenataNotifications: any;
+    /** Auditoría webhooks Mercado Pago. */
+    serenataMpWebhookEvents: any;
+    /** Preapprovals (suscripciones recurrentes) MP. */
+    serenataCoordinatorPreapprovals: any;
     users: any;
   };
 };
 
-// Validation schemas
-const createCaptainProfileSchema = z.object({
-  bio: z.string().max(1000).optional(),
-  phone: z.string().max(50).optional(),
-  experience: z.number().min(0).max(50).optional(),
-  city: z.string().max(100).optional(),
-  region: z.string().max(100).optional(),
-  latitude: z.number().min(-90).max(90).optional(),
-  longitude: z.number().min(-180).max(180).optional(),
-  serviceRadius: z.number().min(1).max(200).default(50),
-  minPrice: z.number().min(0).default(100),
-  maxPrice: z.number().min(0).default(500),
-});
+// Validation schemas (perfil coordinador — compartido con types.ts)
+const createCoordinatorProfileSchema = createCoordinatorProfileSchemaImported;
+
+/**
+ * Inserta una notificación en `serenataNotifications`. Errores se loggean
+ * pero no rompen el flujo principal (notificaciones nunca son críticas).
+ */
+async function notifySafe(
+  db: any,
+  tables: SerenatasRouterDeps['tables'],
+  payload: {
+    userId: string;
+    type: 'serenata' | 'payment' | 'message' | 'system';
+    title: string;
+    message: string;
+    data?: Record<string, unknown>;
+  }
+) {
+  try {
+    await db.insert(tables.serenataNotifications).values(payload);
+  } catch (err) {
+    console.warn('[serenatas] notify failed:', err);
+  }
+}
+
+/** Envía email transaccional sin romper el flujo si SMTP no está configurado o falla. */
+async function sendMailSafe(
+  db: any,
+  tables: SerenatasRouterDeps['tables'],
+  userId: string | null | undefined,
+  subject: string,
+  text: string,
+  html?: string
+) {
+  try {
+    if (!userId) return;
+    const [user] = await db
+      .select({ email: tables.users.email, name: tables.users.name })
+      .from(tables.users)
+      .where(eq(tables.users.id, userId))
+      .limit(1);
+    if (!user?.email || typeof user.email !== 'string' || !user.email.includes('@')) return;
+    await sendTransactionalEmail({
+      to: user.email,
+      subject,
+      text,
+      html,
+      fromName: 'SimpleSerenatas',
+    });
+  } catch (err) {
+    console.warn('[serenatas] mail failed:', err);
+  }
+}
+
+const APP_URL_FOR_EMAIL = () =>
+  process.env.MERCADO_PAGO_PUBLIC_ORIGIN_SERENATAS?.trim()?.replace(/\/$/, '') ||
+  process.env.SERENATAS_APP_URL?.trim()?.replace(/\/$/, '') ||
+  '';
+
+const SERENATA_MP_REF_PREFIX = 'serenata:';
+const SERENATA_SUB_MP_REF_PREFIX = 'serenata_sub:';
+const COORDINATOR_PLAN_PRICES: Record<'free' | 'pro' | 'premium', number> = {
+  free: 0,
+  pro: 3900,
+  premium: 7900,
+};
+
+function getSerenatasPublicOrigin(): string {
+  const raw =
+    (typeof process !== 'undefined' && process.env.MERCADO_PAGO_PUBLIC_ORIGIN_SERENATAS?.trim()) ||
+    process.env.MERCADO_PAGO_PUBLIC_ORIGIN?.trim() ||
+    process.env.SERENATAS_APP_URL?.trim() ||
+    '';
+  return raw.replace(/\/$/, '');
+}
+
+function getSerenataMpNotificationUrl(): string | undefined {
+  const base = process.env.API_BASE_URL?.trim()?.replace(/\/$/, '');
+  if (!base) return undefined;
+  return `${base}/api/serenatas/webhooks/mercadopago`;
+}
+
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+function parseSerenataIdFromMpExternalRef(ref: unknown): string | null {
+  const s = typeof ref === 'string' ? ref.trim() : '';
+  if (!s.startsWith(SERENATA_MP_REF_PREFIX)) return null;
+  const id = s.slice(SERENATA_MP_REF_PREFIX.length);
+  if (!UUID_RE.test(id)) return null;
+  return id;
+}
+
+function parseCoordinatorSubscriptionPaymentIdFromMpExternalRef(ref: unknown): string | null {
+  const s = typeof ref === 'string' ? ref.trim() : '';
+  if (!s.startsWith(SERENATA_SUB_MP_REF_PREFIX)) return null;
+  const id = s.slice(SERENATA_SUB_MP_REF_PREFIX.length);
+  if (!UUID_RE.test(id)) return null;
+  return id;
+}
 
 const createSerenataSchema = z.object({
   clientName: z.string().min(1).max(255),
@@ -62,15 +191,16 @@ const createSerenataSchema = z.object({
   message: z.string().max(2000).optional(),
   songRequests: z.array(z.string().max(255)).optional(),
   price: z.number().min(0).optional(),
-  source: z.enum(['self_captured', 'platform_lead', 'platform_assigned']).default('self_captured'),
+  source: z.enum(['self_captured', 'platform_lead', 'platform_assigned']).default('platform_lead'),
+  coordinatorId: z.string().uuid().optional(),
 });
 
 const updateSerenataStatusSchema = z.object({
-  status: z.enum(['pending', 'quoted', 'accepted', 'confirmed', 'in_progress', 'completed', 'cancelled']),
+  status: z.enum(['pending', 'quoted', 'accepted', 'payment_pending', 'confirmed', 'in_progress', 'completed', 'cancelled', 'rejected']),
   price: z.number().min(0).optional(),
 });
 
-const updateCaptainProfileSchema = z.object({
+const updateCoordinatorProfileSchema = z.object({
   experience: z.number().min(0).optional(),
   bio: z.string().max(500).optional(),
   comuna: z.string().max(100).optional(),
@@ -155,6 +285,18 @@ function calculateRouteDistance(waypoints: Array<{ lat: number; lng: number }>):
   return totalDistance;
 }
 
+/** Respuesta HTTP: grupo sin clave interna Drizzle del líder; expone `coordinator` + `coordinatorName`. */
+function mapGroupForApi(group: Record<string, unknown>) {
+  const leader = group.leadMusician as Record<string, unknown> | undefined | null;
+  const { leadMusician: _drop, ...rest } = group;
+  const user = leader?.user as { name?: string } | undefined;
+  return {
+    ...rest,
+    coordinator: leader ?? null,
+    coordinatorName: user?.name,
+  };
+}
+
 function optimizeNearestNeighbor(
   startPoint: { lat: number; lng: number },
   points: Array<{ lat: number; lng: number; serenataId: string; address: string; estimatedTime: string }>
@@ -187,8 +329,355 @@ export function createSerenatasRouter(deps: SerenatasRouterDeps) {
   const app = new Hono();
   const { db, authUser, service, requireAuth, tables } = deps;
 
+  /** Fila única `serenata_musicians` por usuario; crea mínimo si aún no existe. */
+  async function getOrCreateSerenataMusicianForUser(userId: string) {
+    let row = await db.query.serenataMusicians.findFirst({
+      where: eq(tables.serenataMusicians.userId, userId),
+    });
+    if (!row) {
+      const [inserted] = await db
+        .insert(tables.serenataMusicians)
+        .values({
+          userId,
+          instrument: 'Voz',
+          isAvailable: true,
+        })
+        .returning();
+      row = inserted;
+    }
+    return row!;
+  }
+
   async function getAuthUser(c: Context) {
     return authUser(c);
+  }
+
+  function serenataDatePart(value: unknown): string {
+    if (value instanceof Date) return value.toISOString().slice(0, 10);
+    return String(value ?? '').slice(0, 10);
+  }
+
+  function serenataTimePart(value: unknown): string {
+    return String(value ?? '00:00').slice(0, 5);
+  }
+
+  function mapSerenataForApi(row: any) {
+    const eventDate = serenataDatePart(row.eventDate);
+    const eventTime = serenataTimePart(row.eventTime);
+    const dateTime = `${eventDate}T${eventTime}:00`;
+    return {
+      ...row,
+      eventDate,
+      eventTime,
+      date: eventDate,
+      time: eventTime,
+      dateTime,
+      location: row.address,
+      comuna: row.city ?? '',
+      lat: row.latitude != null ? Number(row.latitude) : undefined,
+      lng: row.longitude != null ? Number(row.longitude) : undefined,
+      coordinatorId: row.coordinatorProfileId ?? undefined,
+      source: row.source ?? 'platform_lead',
+      _origin: 'serenatas',
+    };
+  }
+
+  async function getActorCoordinatorProfile(user: { id: string; role?: string }) {
+    const [coord] = await db
+      .select()
+      .from(tables.serenataCoordinatorProfiles)
+      .where(eq(tables.serenataCoordinatorProfiles.userId, user.id))
+      .limit(1);
+    return coord ?? null;
+  }
+
+  /** Registra en BD el pago aprobado por Mercado Pago (escrow + confirmación de serenata). Idempotente por `paymentId` MP. */
+  async function finalizeSerenataMercadoPagoPayment(
+    serenataId: string,
+    mpPaymentId: string,
+    mpPayment: Record<string, unknown>
+  ) {
+    const refParsed = parseSerenataIdFromMpExternalRef(mpPayment.external_reference);
+    if (refParsed !== serenataId) {
+      return { ok: false as const, error: 'Referencia externa inválida', httpStatus: 400 };
+    }
+
+    const [byMp] = await db
+      .select()
+      .from(tables.serenataPayments)
+      .where(eq(tables.serenataPayments.externalPaymentId, String(mpPaymentId)))
+      .limit(1);
+    if (byMp) {
+      if (byMp.serenataId !== serenataId) {
+        return {
+          ok: false as const,
+          error: 'Ese pago ya está asociado a otra serenata',
+          httpStatus: 409,
+        };
+      }
+      const [serenataRow] = await db
+        .select()
+        .from(tables.serenatas)
+        .where(eq(tables.serenatas.id, serenataId))
+        .limit(1);
+      const fees0 = computeSerenataPlatformFees(
+        serenataRow?.price ?? (byMp as { totalAmount?: number }).totalAmount ?? 0,
+        serenataRow?.source ?? 'self_captured'
+      );
+      return {
+        ok: true as const,
+        alreadyPaid: true,
+        payment: byMp,
+        breakdown: {
+          totalAmount: serenataRow?.price ?? (byMp as { totalAmount: number }).totalAmount,
+          platformCommission: fees0.platformCommission,
+          commissionVat: fees0.commissionVat,
+          coordinatorEarnings: fees0.coordinatorEarnings,
+          source: serenataRow?.source ?? 'self_captured',
+        },
+      };
+    }
+
+    const [serenata] = await db
+      .select()
+      .from(tables.serenatas)
+      .where(eq(tables.serenatas.id, serenataId))
+      .limit(1);
+    if (!serenata) {
+      return { ok: false as const, error: 'Serenata no encontrada', httpStatus: 404 };
+    }
+
+    const coordinatorProfileId = serenata.coordinatorProfileId;
+    if (!coordinatorProfileId) {
+      return { ok: false as const, error: 'La serenata aún no tiene coordinador', httpStatus: 400 };
+    }
+    if (!serenata.price || serenata.price <= 0) {
+      return { ok: false as const, error: 'La serenata no tiene precio acordado', httpStatus: 400 };
+    }
+    if (!['accepted', 'payment_pending', 'quoted', 'confirmed'].includes(serenata.status)) {
+      return {
+        ok: false as const,
+        error: `No se puede registrar pago en estado ${serenata.status}`,
+        httpStatus: 409,
+      };
+    }
+
+    const txAmount = Number(mpPayment.transaction_amount);
+    if (!Number.isFinite(txAmount) || Math.abs(Math.round(txAmount) - serenata.price) > 2) {
+      return {
+        ok: false as const,
+        error: 'El monto del pago no coincide con el precio acordado',
+        httpStatus: 400,
+      };
+    }
+
+    const [existing] = await db
+      .select()
+      .from(tables.serenataPayments)
+      .where(
+        and(
+          eq(tables.serenataPayments.serenataId, serenataId),
+          inArray(tables.serenataPayments.status, ['pending', 'holding', 'released'])
+        )
+      )
+      .limit(1);
+    if (existing) {
+      return {
+        ok: false as const,
+        error: 'La serenata ya tiene un pago registrado',
+        httpStatus: 409,
+      };
+    }
+
+    const totalAmount = serenata.price;
+    const fees = computeSerenataPlatformFees(totalAmount, serenata.source);
+
+    const [payment] = await db
+      .insert(tables.serenataPayments)
+      .values({
+        serenataId,
+        clientId: serenata.clientId,
+        coordinatorProfileId,
+        totalAmount,
+        platformCommission: fees.platformCommission,
+        commissionVat: fees.commissionVat,
+        coordinatorEarnings: fees.coordinatorEarnings,
+        currency: 'CLP',
+        status: 'holding',
+        clientPaidAt: new Date(),
+        externalPaymentId: String(mpPaymentId),
+        updatedAt: new Date(),
+      })
+      .returning();
+
+    if (serenata.status !== 'confirmed') {
+      await db
+        .update(tables.serenatas)
+        .set({ status: 'confirmed', confirmedAt: new Date(), updatedAt: new Date() })
+        .where(eq(tables.serenatas.id, serenataId));
+    }
+
+    const appUrl = APP_URL_FOR_EMAIL();
+    const trackingUrl = appUrl ? `${appUrl}/tracking/${serenataId}` : '';
+
+    try {
+      const [coord] = await db
+        .select({ userId: tables.serenataCoordinatorProfiles.userId })
+        .from(tables.serenataCoordinatorProfiles)
+        .where(eq(tables.serenataCoordinatorProfiles.id, coordinatorProfileId))
+        .limit(1);
+      if (coord?.userId) {
+        await notifySafe(db, tables, {
+          userId: coord.userId,
+          type: 'payment',
+          title: 'Pago confirmado',
+          message: 'El cliente pagó la serenata. Ya puedes coordinar el evento.',
+          data: { serenataId },
+        });
+        await sendMailSafe(
+          db,
+          tables,
+          coord.userId,
+          'Pago de serenata confirmado',
+          `El cliente pagó la serenata #${serenataId.slice(0, 8)}. Ya puedes coordinar el evento.${trackingUrl ? `\n\nDetalles: ${trackingUrl}` : ''}`
+        );
+      }
+    } catch (notifError) {
+      console.warn('[serenatas/payments] Notification failed:', notifError);
+    }
+
+    await sendMailSafe(
+      db,
+      tables,
+      serenata.clientId,
+      'Pago recibido — tu serenata está confirmada',
+      `Recibimos tu pago de $${totalAmount.toLocaleString('es-CL')} CLP por la serenata #${serenataId.slice(0, 8)}.\nTu pago queda en custodia hasta que la serenata se realice.${trackingUrl ? `\n\nSeguimiento: ${trackingUrl}` : ''}`
+    );
+
+    return {
+      ok: true as const,
+      payment,
+      breakdown: {
+        totalAmount,
+        platformCommission: fees.platformCommission,
+        commissionVat: fees.commissionVat,
+        coordinatorEarnings: fees.coordinatorEarnings,
+        source: serenata.source,
+      },
+    };
+  }
+
+  /**
+   * Activa el pago de suscripción coordinador tras aprobación MP.
+   * Idempotente por `subscriptionPaymentId` y por `mpPaymentId` (almacenado en `externalPaymentId`).
+   */
+  async function finalizeCoordinatorSubscriptionPayment(
+    subscriptionPaymentId: string,
+    mpPaymentId: string,
+    mpPayment: Record<string, unknown>
+  ) {
+    const refParsed = parseCoordinatorSubscriptionPaymentIdFromMpExternalRef(
+      mpPayment.external_reference
+    );
+    if (refParsed !== subscriptionPaymentId) {
+      return { ok: false as const, error: 'Referencia externa inválida', httpStatus: 400 };
+    }
+
+    const [pendingPayment] = await db
+      .select()
+      .from(tables.serenataSubscriptionPayments)
+      .where(eq(tables.serenataSubscriptionPayments.id, subscriptionPaymentId))
+      .limit(1);
+    if (!pendingPayment) {
+      return { ok: false as const, error: 'Pago de suscripción no encontrado', httpStatus: 404 };
+    }
+
+    if (pendingPayment.status === 'succeeded') {
+      return { ok: true as const, alreadyPaid: true, payment: pendingPayment };
+    }
+
+    const txAmount = Number(mpPayment.transaction_amount);
+    if (!Number.isFinite(txAmount) || Math.abs(Math.round(txAmount) - pendingPayment.amount) > 2) {
+      return {
+        ok: false as const,
+        error: 'El monto del pago no coincide con la suscripción',
+        httpStatus: 400,
+      };
+    }
+
+    const [updatedPayment] = await db
+      .update(tables.serenataSubscriptionPayments)
+      .set({
+        status: 'succeeded',
+        externalPaymentId: String(mpPaymentId),
+        paidAt: new Date(),
+      })
+      .where(eq(tables.serenataSubscriptionPayments.id, subscriptionPaymentId))
+      .returning();
+
+    const [subscription] = await db
+      .select()
+      .from(tables.serenataSubscriptions)
+      .where(eq(tables.serenataSubscriptions.id, pendingPayment.subscriptionId))
+      .limit(1);
+
+    if (subscription) {
+      await db
+        .update(tables.serenataSubscriptions)
+        .set({
+          status: 'active',
+          startedAt: subscription.startedAt ?? new Date(),
+          endsAt: pendingPayment.periodEnd,
+          updatedAt: new Date(),
+        })
+        .where(eq(tables.serenataSubscriptions.id, subscription.id));
+
+      await db
+        .update(tables.serenataCoordinatorProfiles)
+        .set({
+          subscriptionPlan: subscription.plan,
+          subscriptionStatus: 'active',
+          subscriptionStartedAt: subscription.startedAt ?? new Date(),
+          subscriptionEndsAt: pendingPayment.periodEnd,
+          updatedAt: new Date(),
+        })
+        .where(
+          eq(tables.serenataCoordinatorProfiles.id, subscription.coordinatorProfileId)
+        );
+
+      try {
+        const [coord] = await db
+          .select({ userId: tables.serenataCoordinatorProfiles.userId })
+          .from(tables.serenataCoordinatorProfiles)
+          .where(eq(tables.serenataCoordinatorProfiles.id, subscription.coordinatorProfileId))
+          .limit(1);
+        if (coord?.userId) {
+          const periodLabel = pendingPayment.periodEnd.toLocaleDateString('es-CL');
+          await notifySafe(db, tables, {
+            userId: coord.userId,
+            type: 'payment',
+            title: 'Suscripción activa',
+            message: `Tu plan ${subscription.plan} se renovó hasta el ${periodLabel}.`,
+            data: { plan: subscription.plan, subscriptionId: subscription.id },
+          });
+          await sendMailSafe(
+            db,
+            tables,
+            coord.userId,
+            'Suscripción coordinador activa',
+            `Tu plan ${subscription.plan} de SimpleSerenatas está activo hasta el ${periodLabel}.\nMonto: $${pendingPayment.amount.toLocaleString('es-CL')} ${pendingPayment.currency}.`
+          );
+        }
+      } catch (notifError) {
+        console.warn('[serenatas/subscription] Notification failed:', notifError);
+      }
+    }
+
+    return {
+      ok: true as const,
+      payment: updatedPayment ?? pendingPayment,
+      subscription: subscription ?? null,
+    };
   }
 
   // ═══════════════════════════════════════════════════════════════
@@ -196,11 +685,11 @@ export function createSerenatasRouter(deps: SerenatasRouterDeps) {
   // ═══════════════════════════════════════════════════════════════
 
   // List groups with filters
-  app.get('/groups', async (c) => {
+  app.get('/groups', requireAuth, async (c) => {
     try {
       const status = c.req.query('status');
       const date = c.req.query('date');
-      const captainId = c.req.query('captainId');
+      const coordinatorProfileIdFilter = c.req.query('coordinatorId');
       const limit = Math.min(parseInt(c.req.query('limit') || '20'), 50);
       const offset = parseInt(c.req.query('offset') || '0');
 
@@ -214,8 +703,8 @@ export function createSerenatasRouter(deps: SerenatasRouterDeps) {
         conditions.push(eq(tables.serenataGroups.date, new Date(date)));
       }
 
-      if (captainId) {
-        conditions.push(eq(tables.serenataGroups.captainId, captainId));
+      if (coordinatorProfileIdFilter) {
+        conditions.push(eq(tables.serenataGroups.groupLeadMusicianId, coordinatorProfileIdFilter));
       }
 
       const groups = await db.query.serenataGroups.findMany({
@@ -223,7 +712,7 @@ export function createSerenatasRouter(deps: SerenatasRouterDeps) {
         limit,
         offset,
         with: {
-          captain: {
+          leadMusician: {
             with: {
               user: {
                 columns: { id: true, name: true, avatarUrl: true },
@@ -245,91 +734,136 @@ export function createSerenatasRouter(deps: SerenatasRouterDeps) {
         orderBy: [desc(tables.serenataGroups.createdAt)],
       });
 
-      return c.json({ ok: true, groups });
+      return c.json({
+        ok: true,
+        groups: groups.map((g: Record<string, unknown>) => mapGroupForApi(g)),
+      });
     } catch (error) {
       console.error('[serenatas/groups] Error listing groups:', error);
       return c.json({ ok: false, error: 'Error al listar grupos' }, 500);
     }
   });
 
-  // Get group by ID
-  app.get('/groups/:id', async (c) => {
+  // GET /coordinators/me - Obtener perfil del coordinador autenticado
+  app.get('/coordinators/me', requireAuth, async (c) => {
     try {
       const user = await authUser(c);
       if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
 
-      const profile = await service.getCaptainProfileByUserId(user.id);
+      const profile = await service.getCoordinatorProfileByUserId(user.id);
       if (!profile) {
-        return c.json({ ok: false, error: 'No tienes perfil de capitán' }, 404);
+        return c.json({ ok: false, error: 'No tienes perfil de coordinador' }, 404);
       }
 
-      return c.json({ ok: true, profile });
+      return c.json({
+        ok: true,
+        profile,
+        coordinatorAccess: isCoordinatorSubscriptionActive(profile),
+      });
     } catch (error) {
-      console.error('[serenatas/captains] Error:', error);
+      console.error('[serenatas/coordinators] Error:', error);
       return c.json({ ok: false, error: 'Error al obtener perfil' }, 500);
     }
   });
 
-  // POST /captains - Crear perfil de capitán
-  app.post('/captains', requireAuth, async (c) => {
+  // Grupo por id
+  app.get('/groups/:id', requireAuth, async (c) => {
+    try {
+      const id = c.req.param('id');
+      const group = await db.query.serenataGroups.findFirst({
+        where: eq(tables.serenataGroups.id, id),
+        with: {
+          leadMusician: { with: { user: true } },
+          members: { with: { musician: { with: { user: true } } } },
+          assignments: { with: { serenata: true } },
+        },
+      });
+
+      if (!group) return c.json({ ok: false, error: 'Grupo no encontrado' }, 404);
+      return c.json({ ok: true, group: mapGroupForApi(group as Record<string, unknown>) });
+    } catch (error) {
+      console.error('[serenatas/groups] Error:', error);
+      return c.json({ ok: false, error: 'Error al obtener grupo' }, 500);
+    }
+  });
+
+  // POST /coordinators - Crear perfil de coordinador
+  app.post('/coordinators', requireAuth, async (c) => {
     try {
       const user = await authUser(c);
       if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
 
       const body = await c.req.json();
-      const data = createCaptainProfileSchema.parse(body);
-
-      const existing = await service.getCaptainProfileByUserId(user.id);
-      if (existing) {
-        return c.json({ ok: false, error: 'Ya tienes perfil de capitán' }, 400);
+      const parsed = createCoordinatorProfileSchema.safeParse(body);
+      if (!parsed.success) {
+        return c.json(
+          { ok: false, error: 'Datos inválidos', details: parsed.error.flatten() },
+          400
+        );
       }
 
-      const profile = await service.createCaptainProfile(user.id, data);
+      const existing = await service.getCoordinatorProfileByUserId(user.id);
+      if (existing) {
+        return c.json({ ok: false, error: 'Ya tienes perfil de coordinador' }, 400);
+      }
+
+      const profile = await service.createCoordinatorProfile(user.id, parsed.data);
+
+      // Sincroniza el rol del usuario para que los guards funcionen.
+      try {
+        await db
+          .update(tables.users)
+          .set({ role: 'coordinator' })
+          .where(eq(tables.users.id, user.id));
+      } catch (roleError) {
+        console.warn('[serenatas/coordinators] No se pudo actualizar role del user:', roleError);
+      }
+
       return c.json({ ok: true, profile }, 201);
     } catch (error) {
-      console.error('[serenatas/captains] Error creating:', error);
+      console.error('[serenatas/coordinators] Error creating:', error);
       return c.json({ ok: false, error: 'Error al crear perfil' }, 500);
     }
   });
 
-  // PATCH /captains/me - Actualizar perfil
-  app.patch('/captains/me', requireAuth, async (c) => {
+  // PATCH /coordinators/me - Actualizar perfil
+  app.patch('/coordinators/me', requireAuth, async (c) => {
     try {
       const user = await authUser(c);
       if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
 
       const body = await c.req.json();
-      const profile = await service.updateCaptainProfile(user.id, body);
+      const profile = await service.updateCoordinatorProfile(user.id, body);
       return c.json({ ok: true, profile });
     } catch (error) {
-      console.error('[serenatas/captains] Error updating:', error);
+      console.error('[serenatas/coordinators] Error updating:', error);
       return c.json({ ok: false, error: 'Error al actualizar perfil' }, 500);
     }
   });
 
-  // GET /captains/me/stats - Estadísticas del capitán
-  app.get('/captains/me/stats', requireAuth, async (c) => {
+  // GET /coordinators/me/stats - Estadísticas del coordinador
+  app.get('/coordinators/me/stats', requireAuth, async (c) => {
     try {
       const user = await authUser(c);
       if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
 
-      // Get captain profile
-      const profile = await service.getCaptainProfileByUserId(user.id);
+      // Perfil coordinador del usuario autenticado
+      const profile = await service.getCoordinatorProfileByUserId(user.id);
       if (!profile) {
         return c.json({ ok: false, error: 'Perfil no encontrado' }, 404);
       }
 
-      // Get stats from serenatas
-      const stats = await service.getCaptainStats(profile.id);
+      // Agregados desde serenatas asignadas
+      const stats = await service.getCoordinatorStats(profile.id);
       return c.json({ ok: true, stats });
     } catch (error) {
-      console.error('[serenatas/captains/stats] Error:', error);
+      console.error('[serenatas/coordinators/stats] Error:', error);
       return c.json({ ok: false, error: 'Error al obtener estadísticas' }, 500);
     }
   });
 
-  // POST /captains/match - Encontrar capitanes disponibles
-  app.post('/captains/match', requireAuth, async (c) => {
+  // POST /coordinators/match - Encontrar coordinadores disponibles
+  app.post('/coordinators/match', requireAuth, async (c) => {
     try {
       const user = await authUser(c);
       if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
@@ -341,17 +875,17 @@ export function createSerenatasRouter(deps: SerenatasRouterDeps) {
         return c.json({ ok: false, error: 'Faltan datos requeridos' }, 400);
       }
 
-      const captains = await service.findMatchingCaptains({
+      const coordinators = await service.findMatchingCoordinators({
         comuna,
         date,
         time,
         budget: budget || 150,
       });
 
-      return c.json({ ok: true, captains });
+      return c.json({ ok: true, coordinators });
     } catch (error) {
-      console.error('[serenatas/captains/match] Error:', error);
-      return c.json({ ok: false, error: 'Error al buscar capitanes' }, 500);
+      console.error('[serenatas/coordinators/match] Error:', error);
+      return c.json({ ok: false, error: 'Error al buscar coordinadores' }, 500);
     }
   });
 
@@ -363,7 +897,7 @@ export function createSerenatasRouter(deps: SerenatasRouterDeps) {
       const user = await authUser(c);
       if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
 
-      const serenatas = await service.getSerenatasByClient(user.id);
+      const serenatas = (await service.getSerenatasByClient(user.id)).map(mapSerenataForApi);
       return c.json({ ok: true, serenatas });
     } catch (error) {
       console.error('[serenatas/requests] Error:', error);
@@ -371,39 +905,134 @@ export function createSerenatasRouter(deps: SerenatasRouterDeps) {
     }
   });
 
-  // POST /requests - Crear solicitud
+  // POST /requests - Crear solicitud (cliente). Persiste en tabla `serenatas`.
   app.post('/requests', requireAuth, async (c) => {
     try {
       const user = await authUser(c);
       if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
 
       const body = await c.req.json();
-      const data = createSerenataSchema.parse(body);
+      const parsed = createSerenataSchema.safeParse(body);
+      if (!parsed.success) {
+        return c.json(
+          {
+            ok: false,
+            error: 'Datos inválidos. Revisa fecha, hora, dirección y tipo de evento.',
+            details: parsed.error.flatten(),
+          },
+          400
+        );
+      }
 
-      const serenata = await service.createSerenata(user.id, data);
-      return c.json({ ok: true, serenata }, 201);
+      const serenata = await service.createSerenata(user.id, parsed.data);
+
+      if (serenata.coordinatorProfileId) {
+        const [coord] = await db
+          .select({ userId: tables.serenataCoordinatorProfiles.userId })
+          .from(tables.serenataCoordinatorProfiles)
+          .where(eq(tables.serenataCoordinatorProfiles.id, serenata.coordinatorProfileId))
+          .limit(1);
+        if (coord?.userId) {
+          await notifySafe(db, tables, {
+            userId: coord.userId,
+            type: 'serenata',
+            title: 'Nueva solicitud de serenata',
+            message: 'Un cliente solicitó una serenata contigo. Revisa la solicitud.',
+            data: { serenataId: serenata.id },
+          });
+        }
+      }
+
+      return c.json({ ok: true, serenata: mapSerenataForApi(serenata) }, 201);
     } catch (error) {
       console.error('[serenatas/requests] Error creating:', error);
       return c.json({ ok: false, error: 'Error al crear solicitud' }, 500);
     }
   });
 
-  // GET /requests/my/assigned - Mis serenatas asignadas como capitán
+  // GET /requests/my/assigned
+  // - Coordinador: serenatas (tabla nueva) asignadas a su perfil.
+  // - Músico: serenatas (tabla nueva) en las que está en el lineup.
+  // Devuelve solo las que están en estados activos (no completed/cancelled).
   app.get('/requests/my/assigned', requireAuth, async (c) => {
     try {
       const user = await authUser(c);
       if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
 
-      const serenatas = await service.getAssignedSerenatasForCaptain(user.id);
-      const requestId = c.req.param('id');
+      const ACTIVE_SERENATA_STATUSES = [
+        'pending',
+        'quoted',
+        'accepted',
+        'payment_pending',
+        'confirmed',
+        'in_progress',
+      ];
+
+      const coordProfile = await db.query.serenataCoordinatorProfiles.findFirst({
+        where: eq(tables.serenataCoordinatorProfiles.userId, user.id),
+      });
+
+      if (coordProfile) {
+        const all = await service.getAssignedSerenatasForCoordinator(user.id);
+        const serenatas = (all || []).filter((s: any) =>
+          ACTIVE_SERENATA_STATUSES.includes(s.status)
+        ).map(mapSerenataForApi);
+        return c.json({ ok: true, serenatas });
+      }
+
+      const lineupResults: any[] = [];
+
+      const musician = await db.query.serenataMusicians.findFirst({
+        where: eq(tables.serenataMusicians.userId, user.id),
+      });
+
+      if (musician && tables.serenataMusicianLineup) {
+        try {
+          const lineup = await db.query.serenataMusicianLineup.findMany({
+            where: eq(tables.serenataMusicianLineup.musicianId, musician.id),
+            with: { serenata: true },
+          });
+          lineupResults.push(
+            ...lineup
+              .filter(
+                (row: any) => row.serenata && ACTIVE_SERENATA_STATUSES.includes(row.serenata.status)
+              )
+              .map((row: any) => ({
+                ...mapSerenataForApi(row.serenata),
+                lineupId: row.id,
+                _origin: 'serenatas',
+              }))
+          );
+        } catch (err) {
+          console.warn('[serenatas/requests] lineup lookup failed', err);
+        }
+      }
+
+      if (!musician) {
+        return c.json({ ok: false, error: 'Perfil de músico no encontrado' }, 404);
+      }
+
+      return c.json({ ok: true, serenatas: lineupResults });
+    } catch (error) {
+      console.error('[serenatas/requests] Error getting assigned serenatas:', error);
+      return c.json({ ok: false, error: 'Error al obtener serenatas asignadas' }, 500);
+    }
+  });
+
+  // POST /requests/:requestId/assign-to-group — líder de cuadrilla asigna solicitud legacy a un grupo
+  app.post('/requests/:requestId/assign-to-group', requireAuth, async (c) => {
+    try {
+      const user = await authUser(c);
+      if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
+
+      const requestId = c.req.param('requestId');
       const body = await c.req.json().catch(() => null);
-      const groupId = body?.groupId;
+      const groupId = body?.groupId as string | undefined;
 
       if (!groupId) {
         return c.json({ ok: false, error: 'Se requiere groupId' }, 400);
       }
 
-      // Check if user is captain of the group
       const musician = await db.query.serenataMusicians.findFirst({
         where: eq(tables.serenataMusicians.userId, user.id),
       });
@@ -416,12 +1045,12 @@ export function createSerenatasRouter(deps: SerenatasRouterDeps) {
         return c.json({ ok: false, error: 'Grupo no encontrado' }, 404);
       }
 
-      if (!musician || group.captainId !== musician.id) {
-        return c.json({ ok: false, error: 'Solo el capitán puede asignar serenatas' }, 403);
+      if (!musician || group.groupLeadMusicianId !== musician.id) {
+        return c.json({ ok: false, error: 'Solo el líder del grupo puede asignar solicitudes' }, 403);
       }
 
-      const request = await db.query.serenataRequests.findFirst({
-        where: eq(tables.serenataRequests.id, requestId),
+      const request = await db.query.serenatas.findFirst({
+        where: eq(tables.serenatas.id, requestId),
       });
 
       if (!request) {
@@ -432,17 +1061,15 @@ export function createSerenatasRouter(deps: SerenatasRouterDeps) {
         return c.json({ ok: false, error: 'La solicitud ya ha sido asignada' }, 409);
       }
 
-      // Create assignment
       const [assignment] = await db.insert(tables.serenataAssignments).values({
-        requestId,
+        serenataId: requestId,
         groupId,
         status: 'confirmed',
       }).returning();
 
-      // Update request status
-      await db.update(tables.serenataRequests)
+      await db.update(tables.serenatas)
         .set({ status: 'assigned', updatedAt: new Date() })
-        .where(eq(tables.serenataRequests.id, requestId));
+        .where(eq(tables.serenatas.id, requestId));
 
       return c.json({ ok: true, assignment }, 201);
     } catch (error) {
@@ -451,77 +1078,88 @@ export function createSerenatasRouter(deps: SerenatasRouterDeps) {
     }
   });
 
-  // Get my assigned serenatas (for musicians)
-  app.get('/requests/my/assigned', async (c) => {
+  /**
+   * Serenatas pendientes sin coordinador asignado, listas para que un coordinador
+   * las "tome". Devuelve datos normalizados al mismo shape que `Solicitud` del
+   * frontend para que `/solicitudes` pueda fusionar resultados.
+   * Solo usuarios con perfil de coordinador.
+   */
+  app.get('/available/for-pickup', requireAuth, async (c) => {
     try {
-      const user = await getAuthUser(c);
+      const user = await authUser(c);
       if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
 
-      // Find musician profile
-      const musician = await db.query.serenataMusicians.findFirst({
-        where: eq(tables.serenataMusicians.userId, user.id),
+      const isAdmin = user.role === 'admin';
+      const coordProfile = await db.query.serenataCoordinatorProfiles.findFirst({
+        where: eq(tables.serenataCoordinatorProfiles.userId, user.id),
       });
-
-      if (!musician) {
-        return c.json({ ok: false, error: 'Perfil de músico no encontrado' }, 404);
+      if (!coordProfile && !isAdmin) {
+        return c.json({ ok: false, error: 'No autorizado' }, 403);
       }
 
-      // Find groups where musician is a member
-      const memberships = await db.query.serenataGroupMembers.findMany({
-        where: eq(tables.serenataGroupMembers.musicianId, musician.id),
-        with: {
-          group: {
-            with: {
-              assignments: {
-                with: {
-                  serenata: true,
-                },
-              },
-            },
-          },
-        },
+      const limit = Math.min(parseInt(c.req.query('limit') || '20'), 50);
+      const now = new Date();
+      const today = now.toISOString().slice(0, 10);
+
+      const rows = await db.query.serenatas.findMany({
+        where: and(
+          eq(tables.serenatas.status, 'pending'),
+          sql`${tables.serenatas.coordinatorProfileId} IS NULL`,
+          gte(tables.serenatas.eventDate, today)
+        ),
+        limit,
+        orderBy: [asc(tables.serenatas.eventDate), asc(tables.serenatas.eventTime)],
       });
 
-      // Extract all serenatas from assigned groups
-      const serenatas = memberships.flatMap((m: any) => 
-        m.group.assignments.map((a: any) => ({
-          ...a.serenata,
-          assignmentId: a.id,
-          groupId: m.group.id,
-          groupName: m.group.name,
-        }))
-      ).filter((s: any) => ['assigned', 'confirmed', 'in_progress'].includes(s.status));
+      const requests = rows.map((r: any) => {
+        const mapped = mapSerenataForApi(r);
+        const dateTime = mapped.dateTime;
+        const hoursUntil = (new Date(dateTime).getTime() - now.getTime()) / (1000 * 60 * 60);
+        return {
+          ...mapped,
+          dateTime,
+          urgency: hoursUntil <= 24 ? 'urgent' : 'normal',
+          price: r.price ? String(r.price) : '0',
+          requiredInstruments: [] as string[],
+          message: r.message || '',
+          distance: 0,
+          source: 'serenatas' as const,
+        };
+      });
 
-      return c.json({ ok: true, serenatas });
+      return c.json({ ok: true, requests });
     } catch (error) {
-      console.error('[serenatas/requests] Error getting assigned serenatas:', error);
-      return c.json({ ok: false, error: 'Error al obtener serenatas asignadas' }, 500);
+      console.error('[serenatas/available/for-pickup] Error:', error);
+      return c.json({ ok: false, error: 'Error al obtener serenatas disponibles' }, 500);
     }
   });
 
-  // Get urgent requests list
-  app.get('/requests/urgent/list', async (c) => {
+  // Solicitudes urgentes
+  app.get('/requests/urgent/list', requireAuth, async (c) => {
     try {
+      const user = await authUser(c);
+      if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
+
       const limit = Math.min(parseInt(c.req.query('limit') || '10'), 50);
       const now = new Date();
-      const urgentWindow = new Date(now.getTime() + 24 * 60 * 60 * 1000); // 24 hours
+      const today = now.toISOString().slice(0, 10);
+      const tomorrow = new Date(now.getTime() + 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
 
-      const requests = await db.query.serenataRequests.findMany({
+      const requests = await db.query.serenatas.findMany({
         where: and(
-          eq(tables.serenataRequests.status, 'pending'),
-          eq(tables.serenataRequests.urgency, 'urgent'),
-          gte(tables.serenataRequests.dateTime, now),
-          lte(tables.serenataRequests.dateTime, urgentWindow)
+          eq(tables.serenatas.status, 'confirmed'),
+          gte(tables.serenatas.eventDate, today),
+          lte(tables.serenatas.eventDate, tomorrow)
         ),
         limit,
-        orderBy: [asc(tables.serenataRequests.dateTime)],
+        orderBy: [asc(tables.serenatas.eventDate), asc(tables.serenatas.eventTime)],
       });
 
-      // Add distance calculation (mock for now, would use actual coords)
       const requestsWithDistance = requests.map((r: any) => ({
-        ...r,
-        distance: Math.round(Math.random() * 15 + 1), // Mock distance 1-16km
-        requiredInstruments: r.requiredInstruments || ['voz', 'guitarra'],
+        ...mapSerenataForApi(r),
+        urgency: 'urgent',
+        distance: 0,
+        requiredInstruments: [],
       }));
 
       return c.json({ ok: true, requests: requestsWithDistance });
@@ -531,10 +1169,10 @@ export function createSerenatasRouter(deps: SerenatasRouterDeps) {
     }
   });
 
-  // Get available requests for musician
-  app.get('/requests/available/for-musician', async (c) => {
+  // Solicitudes disponibles para el músico
+  app.get('/requests/available/for-musician', requireAuth, async (c) => {
     try {
-      const user = await getAuthUser(c);
+      const user = await authUser(c);
       if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
 
       // Find musician profile
@@ -546,36 +1184,25 @@ export function createSerenatasRouter(deps: SerenatasRouterDeps) {
         return c.json({ ok: false, error: 'Perfil de músico no encontrado' }, 404);
       }
 
-      const now = new Date();
-      const threeDaysFromNow = new Date(now.getTime() + 3 * 24 * 60 * 60 * 1000);
-
-      // Get pending requests matching musician's availability
-      let conditions = [
-        eq(tables.serenataRequests.status, 'pending'),
-        gte(tables.serenataRequests.dateTime, now),
-        lte(tables.serenataRequests.dateTime, threeDaysFromNow),
-      ];
-
-      // Filter by instrument if specified
-      if (musician.instrument) {
-        conditions.push(
-          sql`${tables.serenataRequests.requiredInstruments} IS NULL OR 
-              ${tables.serenataRequests.requiredInstruments} @> ${JSON.stringify([musician.instrument])}`
-        );
-      }
-
-      const requests = await db.query.serenataRequests.findMany({
-        where: and(...conditions),
+      const lineupRows = await db.query.serenataMusicianLineup.findMany({
+        where: and(
+          eq(tables.serenataMusicianLineup.musicianId, musician.id),
+          eq(tables.serenataMusicianLineup.status, 'invited')
+        ),
+        with: { serenata: true },
         limit: 20,
-        orderBy: [asc(tables.serenataRequests.dateTime)],
+        orderBy: [desc(tables.serenataMusicianLineup.invitedAt)],
       });
 
-      // Add distance and instruments
-      const requestsWithDetails = requests.map((r: any) => ({
-        ...r,
-        distance: Math.round(Math.random() * 20 + 1),
-        requiredInstruments: r.requiredInstruments || ['voz', 'guitarra'],
-      }));
+      const requestsWithDetails = lineupRows
+        .filter((row: any) => row.serenata && !['completed', 'cancelled', 'rejected'].includes(row.serenata.status))
+        .map((row: any) => ({
+          ...mapSerenataForApi(row.serenata),
+          lineupId: row.id,
+          urgency: 'normal',
+          distance: 0,
+          requiredInstruments: [],
+        }));
 
       return c.json({ ok: true, requests: requestsWithDetails });
     } catch (error) {
@@ -584,13 +1211,77 @@ export function createSerenatasRouter(deps: SerenatasRouterDeps) {
     }
   });
 
-  // Accept request
-  app.post('/requests/:id/accept', async (c) => {
+  // Aceptar solicitud. Flujo activo: `serenatas`; fallback legacy: `serenata_requests`.
+  app.post('/requests/:id/accept', requireAuth, async (c) => {
     try {
-      const user = await getAuthUser(c);
+      const user = await authUser(c);
       if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
 
       const requestId = c.req.param('id');
+      const body = (await c.req.json().catch(() => ({}))) as {
+        price?: number;
+        requiresUpfrontPayment?: boolean;
+      };
+
+      const [serenata] = await db
+        .select()
+        .from(tables.serenatas)
+        .where(eq(tables.serenatas.id, requestId))
+        .limit(1);
+
+      if (serenata) {
+        const isAdmin = user.role === 'admin';
+        const actorCoord = await getActorCoordinatorProfile(user);
+        const isAssignedCoordinator =
+          actorCoord && serenata.coordinatorProfileId === actorCoord.id;
+        const canCoordinate = isAdmin || actorCoord;
+
+        if (!canCoordinate) {
+          return c.json({ ok: false, error: 'Solo un coordinador puede aceptar solicitudes de clientes' }, 403);
+        }
+
+        if (
+          serenata.coordinatorProfileId &&
+          actorCoord &&
+          serenata.coordinatorProfileId !== actorCoord.id &&
+          !isAdmin
+        ) {
+          return c.json({ ok: false, error: 'La serenata ya tiene otro coordinador asignado' }, 409);
+        }
+
+        if (!['pending', 'quoted', 'accepted', 'payment_pending'].includes(serenata.status)) {
+          return c.json({ ok: false, error: `No se puede aceptar en estado ${serenata.status}` }, 409);
+        }
+
+        const acceptedPrice =
+          typeof body.price === 'number' && body.price > 0 ? Math.round(body.price) : serenata.price;
+        const requiresPayment = body.requiresUpfrontPayment === true;
+        const nextStatus = requiresPayment && acceptedPrice ? 'payment_pending' : 'accepted';
+
+        const [updated] = await db
+          .update(tables.serenatas)
+          .set({
+            coordinatorProfileId: serenata.coordinatorProfileId ?? actorCoord?.id ?? null,
+            price: acceptedPrice ?? null,
+            status: nextStatus,
+            acceptedAt: serenata.acceptedAt ?? new Date(),
+            updatedAt: new Date(),
+          })
+          .where(eq(tables.serenatas.id, requestId))
+          .returning();
+
+        await notifySafe(db, tables, {
+          userId: serenata.clientId,
+          type: 'serenata',
+          title: requiresPayment ? 'Serenata aceptada: pago pendiente' : 'Serenata aceptada',
+          message: requiresPayment
+            ? 'Tu solicitud fue aceptada. Realiza el pago para dejarla confirmada.'
+            : 'Tu solicitud fue aceptada. El coordinador continuará con la organización.',
+          data: { serenataId: requestId },
+        });
+
+        return c.json({ ok: true, serenata: mapSerenataForApi(updated) });
+      }
 
       // Find musician profile
       const musician = await db.query.serenataMusicians.findFirst({
@@ -601,8 +1292,8 @@ export function createSerenatasRouter(deps: SerenatasRouterDeps) {
         return c.json({ ok: false, error: 'Perfil de músico no encontrado' }, 404);
       }
 
-      const request = await db.query.serenataRequests.findFirst({
-        where: eq(tables.serenataRequests.id, requestId),
+      const request = await db.query.serenatas.findFirst({
+        where: eq(tables.serenatas.id, requestId),
       });
 
       if (!request) {
@@ -613,28 +1304,34 @@ export function createSerenatasRouter(deps: SerenatasRouterDeps) {
         return c.json({ ok: false, error: 'La solicitud ya no está disponible' }, 409);
       }
 
-      // Check if musician already has a group for this date
-      const existingMembership = await db.query.serenataGroupMembers.findFirst({
-        where: and(
-          eq(tables.serenataGroupMembers.musicianId, musician.id),
-          sql`${tables.serenataGroupMembers.joinedAt}::date = ${request.dateTime.toDateString()}`
-        ),
-        with: {
-          group: true,
-        },
-      });
+      // Check if musician already has a group on the same calendar day (join → group.date)
+      const eventDateTime = new Date(`${request.eventDate}T${request.eventTime}`);
+      const existingRows = await db
+        .select({ groupId: tables.serenataGroupMembers.groupId })
+        .from(tables.serenataGroupMembers)
+        .innerJoin(
+          tables.serenataGroups,
+          eq(tables.serenataGroupMembers.groupId, tables.serenataGroups.id)
+        )
+        .where(
+          and(
+            eq(tables.serenataGroupMembers.musicianId, musician.id),
+            sql`${tables.serenataGroups.date}::date = ${eventDateTime}::timestamp::date`
+          )
+        )
+        .limit(1);
 
       let groupId: string;
 
-      if (existingMembership) {
-        // Use existing group
-        groupId = existingMembership.groupId;
+      if (existingRows.length > 0) {
+        groupId = existingRows[0].groupId;
       } else {
-        // Create new group with this musician as captain
+        // Nuevo grupo con este músico como líder (groupLeadMusicianId)
         const [group] = await db.insert(tables.serenataGroups).values({
-          name: `Grupo ${new Date(request.dateTime).toLocaleDateString('es-CL')}`,
-          date: new Date(request.dateTime),
-          captainId: musician.id,
+          name: `Grupo ${eventDateTime.toLocaleDateString('es-CL')}`,
+          date: eventDateTime,
+          createdBy: musician.id,
+          groupLeadMusicianId: musician.id,
           status: 'forming',
         }).returning();
         groupId = group.id;
@@ -643,21 +1340,21 @@ export function createSerenatasRouter(deps: SerenatasRouterDeps) {
         await db.insert(tables.serenataGroupMembers).values({
           groupId,
           musicianId: musician.id,
-          role: 'captain',
+          role: 'coordinator',
         });
       }
 
-      // Create assignment
+      // Nueva asignación grupo ↔ solicitud
       await db.insert(tables.serenataAssignments).values({
-        requestId,
+        serenataId: requestId,
         groupId,
         status: 'confirmed',
       });
 
       // Update request status
-      await db.update(tables.serenataRequests)
+      await db.update(tables.serenatas)
         .set({ status: 'assigned', updatedAt: new Date() })
-        .where(eq(tables.serenataRequests.id, requestId));
+        .where(eq(tables.serenatas.id, requestId));
 
       return c.json({ ok: true, message: 'Solicitud aceptada' });
     } catch (error) {
@@ -666,14 +1363,59 @@ export function createSerenatasRouter(deps: SerenatasRouterDeps) {
     }
   });
 
-  // Decline request
-  app.post('/requests/:id/decline', async (c) => {
+  // Rechazar solicitud. Flujo activo: `serenatas`; fallback legacy: registrar descarte.
+  app.post('/requests/:id/decline', requireAuth, async (c) => {
     try {
-      const user = await getAuthUser(c);
+      const user = await authUser(c);
       if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
 
       const requestId = c.req.param('id');
       const body = await c.req.json().catch(() => ({ reason: '' }));
+
+      const [serenata] = await db
+        .select()
+        .from(tables.serenatas)
+        .where(eq(tables.serenatas.id, requestId))
+        .limit(1);
+
+      if (serenata) {
+        const isAdmin = user.role === 'admin';
+        const actorCoord = await getActorCoordinatorProfile(user);
+        const isAssignedCoordinator =
+          actorCoord && serenata.coordinatorProfileId === actorCoord.id;
+        const canReject = isAdmin || isAssignedCoordinator || (!serenata.coordinatorProfileId && actorCoord);
+
+        if (!canReject) {
+          return c.json({ ok: false, error: 'No autorizado para rechazar esta solicitud' }, 403);
+        }
+
+        if (!['pending', 'quoted', 'accepted', 'payment_pending'].includes(serenata.status)) {
+          return c.json({ ok: false, error: `No se puede rechazar en estado ${serenata.status}` }, 409);
+        }
+
+        const [updated] = await db
+          .update(tables.serenatas)
+          .set({
+            coordinatorProfileId: serenata.coordinatorProfileId ?? actorCoord?.id ?? null,
+            status: 'rejected',
+            cancelledAt: new Date(),
+            updatedAt: new Date(),
+          })
+          .where(eq(tables.serenatas.id, requestId))
+          .returning();
+
+        await notifySafe(db, tables, {
+          userId: serenata.clientId,
+          type: 'serenata',
+          title: 'Serenata rechazada',
+          message: body?.reason
+            ? `Tu solicitud fue rechazada. Motivo: ${body.reason}`
+            : 'Tu solicitud fue rechazada por el coordinador.',
+          data: { serenataId: requestId },
+        });
+
+        return c.json({ ok: true, serenata: mapSerenataForApi(updated) });
+      }
 
       // Log the decline (could be stored in a separate table for analytics)
       console.log(`[serenatas/requests] Musician ${user.id} declined request ${requestId}. Reason: ${body.reason || 'No reason provided'}`);
@@ -686,24 +1428,63 @@ export function createSerenatasRouter(deps: SerenatasRouterDeps) {
     }
   });
 
-  // Get matching musicians for a request (for group captains)
-  app.get('/requests/:id/matches', async (c) => {
+  // Músicos compatibles con una solicitud (para líderes de grupo)
+  app.get('/requests/:id/matches', requireAuth, async (c) => {
     try {
       const user = await getAuthUser(c);
       if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
 
       const requestId = c.req.param('id');
 
-      // Get the request
-      const request = await db.query.serenataRequests.findFirst({
-        where: eq(tables.serenataRequests.id, requestId),
+      const [newSerenata] = await db
+        .select()
+        .from(tables.serenatas)
+        .where(eq(tables.serenatas.id, requestId))
+        .limit(1);
+
+      if (newSerenata) {
+        const musicians = await db.query.serenataMusicians.findMany({
+          where: and(
+            eq(tables.serenataMusicians.status, 'active'),
+            eq(tables.serenataMusicians.isAvailable, true)
+          ),
+          with: {
+            user: {
+              columns: { id: true, name: true, avatarUrl: true, phone: true },
+            },
+          },
+          limit: 20,
+        });
+
+        const matches = musicians
+          .map((m: any) => ({
+            ...m,
+            distance:
+              newSerenata.latitude && newSerenata.longitude && m.lat && m.lng
+                ? calculateDistance(
+                    parseFloat(newSerenata.latitude as string),
+                    parseFloat(newSerenata.longitude as string),
+                    parseFloat(m.lat as string),
+                    parseFloat(m.lng as string)
+                  )
+                : 0,
+            score: Number(m.rating ?? 5) * 20 + (m.completedSerenatas || 0),
+          }))
+          .sort((a: any, b: any) => (a.distance || 999) - (b.distance || 999));
+
+        return c.json({ ok: true, matches, requiredInstruments: [] });
+      }
+
+      // Solicitud en tabla serenatas
+      const request = await db.query.serenatas.findFirst({
+        where: eq(tables.serenatas.id, requestId),
       });
 
       if (!request) {
         return c.json({ ok: false, error: 'Solicitud no encontrada' }, 404);
       }
 
-      // Get required instruments
+      // Instrumentos requeridos vs perfil del músico
       const requiredInstruments = request.requiredInstruments || ['voz', 'guitarra'];
 
       // Find available musicians matching requirements
@@ -725,10 +1506,10 @@ export function createSerenatasRouter(deps: SerenatasRouterDeps) {
       // Calculate distance and score for each musician
       const matches = musicians.map((m: any) => ({
         ...m,
-        distance: request.lat && request.lng && m.lat && m.lng
+        distance: request.latitude && request.longitude && m.lat && m.lng
           ? calculateDistance(
-              parseFloat(request.lat as string),
-              parseFloat(request.lng as string),
+              parseFloat(request.latitude as string),
+              parseFloat(request.longitude as string),
               parseFloat(m.lat as string),
               parseFloat(m.lng as string)
             )
@@ -747,71 +1528,1125 @@ export function createSerenatasRouter(deps: SerenatasRouterDeps) {
   // ========== PAYMENTS & FINANCIAL ==========
   // ═══════════════════════════════════════════════════════════════
 
-  // POST /payments/subscription - Crear pago de suscripción
+  /**
+   * POST /payments/subscription — activar / desactivar modo coordinador.
+   *
+   * - `free`: pausa el coordinador localmente (sin MP).
+   * - `pro` / `premium`: si MP **no** está configurado, sigue siendo simulado
+   *   (mantiene compatibilidad con desarrollo local sin token).
+   *   Si MP **sí** está configurado, este endpoint queda deshabilitado y se
+   *   debe usar `POST /payments/subscription/checkout` + confirm.
+   *
+   * Trial promocional: si el coordinador no tenía suscripción previa y MP no
+   * está configurado, se concede el trial estándar.
+   */
   app.post('/payments/subscription', requireAuth, async (c) => {
     try {
       const user = await authUser(c);
       if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
 
-      const body = await c.req.json();
-      const { plan, paymentMethod } = body;
+      const body = await c.req.json().catch(() => ({}));
+      const plan = body.plan as 'free' | 'pro' | 'premium' | undefined;
 
-      // Calculate price based on plan
-      const prices = { free: 0, pro: 3900, premium: 7900 };
-      const amount = prices[plan as keyof typeof prices] || 0;
+      const amount = plan ? COORDINATOR_PLAN_PRICES[plan] ?? 0 : 0;
 
-      if (amount === 0) {
-        // Free plan - just update
-        await db.update(tables.serenataCaptainProfiles)
-          .set({ subscriptionPlan: plan, subscriptionStatus: 'active' })
-          .where(eq(tables.serenataCaptainProfiles.userId, user.id));
-        return c.json({ ok: true, plan, amount: 0 });
+      const trialMs = COORDINATOR_TRIAL_MONTHS * 30 * 24 * 60 * 60 * 1000;
+      const trialEnd = new Date(Date.now() + trialMs);
+
+      const [existing] = await db
+        .select()
+        .from(tables.serenataCoordinatorProfiles)
+        .where(eq(tables.serenataCoordinatorProfiles.userId, user.id))
+        .limit(1);
+
+      if (plan === 'free') {
+        if (existing) {
+          await db
+            .update(tables.serenataCoordinatorProfiles)
+            .set({
+              subscriptionPlan: 'free',
+              subscriptionStatus: 'paused',
+              subscriptionEndsAt: new Date(),
+              updatedAt: new Date(),
+            })
+            .where(eq(tables.serenataCoordinatorProfiles.userId, user.id));
+        }
+        return c.json({
+          ok: true,
+          plan: 'free',
+          amount: 0,
+          coordinatorActive: false,
+          message: 'Modo coordinador desactivado; tu cuenta sigue como músico.',
+        });
       }
 
-      // Create payment record
-      const [payment] = await db.insert(tables.serenataPayments)
-        .values({
-          payerId: user.id,
-          amount,
-          currency: 'CLP',
-          status: 'pending',
-          type: 'subscription',
-          metadata: { plan, paymentMethod },
-        })
-        .returning();
+      const targetPlan = plan ?? 'pro';
 
-      // TODO: Integrate with MercadoPago/Stripe
-      // For now, simulate successful payment
-      await db.update(tables.serenataPayments)
-        .set({ status: 'completed', processedAt: new Date() })
-        .where(eq(tables.serenataPayments.id, payment.id));
+      if (isMercadoPagoConfigured() && amount > 0) {
+        return c.json(
+          {
+            ok: false,
+            error:
+              'El pago de la suscripción se realiza con Mercado Pago: usa POST /payments/subscription/checkout y POST /payments/subscription/mercadopago/confirm.',
+            code: 'USE_MERCADOPAGO_CHECKOUT',
+          },
+          400
+        );
+      }
 
-      // Update captain profile
-      await db.update(tables.serenataCaptainProfiles)
-        .set({ 
-          subscriptionPlan: plan, 
-          subscriptionStatus: 'active',
-          subscriptionExpiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 days
-        })
-        .where(eq(tables.serenataCaptainProfiles.userId, user.id));
+      const coordinatorPatch = {
+        subscriptionPlan: targetPlan,
+        subscriptionStatus: 'active' as const,
+        subscriptionStartedAt: existing?.subscriptionStartedAt ?? new Date(),
+        subscriptionEndsAt: trialEnd,
+        updatedAt: new Date(),
+      };
 
-      return c.json({ ok: true, paymentId: payment.id, plan, amount });
+      if (!existing) {
+        await db.insert(tables.serenataCoordinatorProfiles).values({
+          userId: user.id,
+          ...coordinatorPatch,
+        });
+      } else {
+        await db
+          .update(tables.serenataCoordinatorProfiles)
+          .set(coordinatorPatch)
+          .where(eq(tables.serenataCoordinatorProfiles.userId, user.id));
+      }
+
+      return c.json({
+        ok: true,
+        plan: targetPlan,
+        amount,
+        trialEndsAt: trialEnd.toISOString(),
+        coordinatorActive: true,
+        message:
+          amount === 0
+            ? `Trial coordinador: ${COORDINATOR_TRIAL_MONTHS} meses en plan ${targetPlan}.`
+            : 'Suscripción registrada (simulada).',
+      });
     } catch (error) {
       console.error('[serenatas/payments/subscription] Error:', error);
       return c.json({ ok: false, error: 'Error al procesar pago' }, 500);
     }
   });
 
-  // POST /payments/serenata/:id - Pagar una serenata
+  /**
+   * Crea preferencia Checkout Pro para una suscripción mensual coordinador.
+   * Pre-crea `serenataSubscriptions` (status pending) + `serenataSubscriptionPayments`
+   * (status pending) y devuelve `redirectUrl`.
+   */
+  app.post('/payments/subscription/checkout', requireAuth, async (c) => {
+    try {
+      const user = await authUser(c);
+      if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
+
+      if (!isMercadoPagoConfigured()) {
+        return c.json(
+          {
+            ok: false,
+            error: 'Mercado Pago no está configurado en el servidor',
+            code: 'MERCADOPAGO_NOT_CONFIGURED',
+          },
+          503
+        );
+      }
+
+      const origin = getSerenatasPublicOrigin();
+      if (!origin) {
+        return c.json(
+          {
+            ok: false,
+            error:
+              'Falta MERCADO_PAGO_PUBLIC_ORIGIN_SERENATAS (o SERENATAS_APP_URL) para las URLs de retorno.',
+            code: 'MISSING_SERENATAS_PUBLIC_ORIGIN',
+          },
+          503
+        );
+      }
+
+      const body = (await c.req.json().catch(() => ({}))) as {
+        plan?: 'pro' | 'premium';
+      };
+      const plan = body.plan;
+      if (plan !== 'pro' && plan !== 'premium') {
+        return c.json({ ok: false, error: 'Plan inválido (pro|premium)' }, 400);
+      }
+      const amount = COORDINATOR_PLAN_PRICES[plan];
+      if (!amount || amount <= 0) {
+        return c.json({ ok: false, error: 'Plan sin precio configurado' }, 400);
+      }
+
+      const [existingProfile] = await db
+        .select()
+        .from(tables.serenataCoordinatorProfiles)
+        .where(eq(tables.serenataCoordinatorProfiles.userId, user.id))
+        .limit(1);
+
+      let coordinatorProfile = existingProfile;
+      if (!coordinatorProfile) {
+        const [created] = await db
+          .insert(tables.serenataCoordinatorProfiles)
+          .values({
+            userId: user.id,
+            subscriptionPlan: plan,
+            subscriptionStatus: 'paused',
+            subscriptionStartedAt: new Date(),
+          })
+          .returning();
+        coordinatorProfile = created;
+      }
+      if (!coordinatorProfile) {
+        return c.json({ ok: false, error: 'No se pudo crear el perfil coordinador' }, 500);
+      }
+
+      const now = new Date();
+      const periodEnd = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
+
+      const [subscription] = await db
+        .insert(tables.serenataSubscriptions)
+        .values({
+          coordinatorProfileId: coordinatorProfile.id,
+          plan,
+          priceMonthly: amount,
+          currency: 'CLP',
+          status: 'active',
+          startedAt: now,
+          endsAt: periodEnd,
+        })
+        .returning();
+      if (!subscription) {
+        return c.json({ ok: false, error: 'No se pudo crear la suscripción' }, 500);
+      }
+
+      const [pendingPayment] = await db
+        .insert(tables.serenataSubscriptionPayments)
+        .values({
+          subscriptionId: subscription.id,
+          coordinatorProfileId: coordinatorProfile.id,
+          amount,
+          currency: 'CLP',
+          status: 'pending',
+          periodStart: now,
+          periodEnd,
+        })
+        .returning();
+      if (!pendingPayment) {
+        return c.json({ ok: false, error: 'No se pudo registrar el pago' }, 500);
+      }
+
+      const [payer] = await db
+        .select({ email: tables.users.email, name: tables.users.name })
+        .from(tables.users)
+        .where(eq(tables.users.id, user.id))
+        .limit(1);
+      const payerEmail =
+        typeof payer?.email === 'string' && payer.email.includes('@')
+          ? payer.email
+          : `coordinador+${user.id.slice(0, 8)}@simple.invalid`;
+
+      const externalReference = `${SERENATA_SUB_MP_REF_PREFIX}${pendingPayment.id}`;
+      const subscriptionBase = `${origin}/suscripcion`;
+      const notificationUrl = getSerenataMpNotificationUrl();
+
+      const pref = await createCheckoutPreference({
+        externalReference,
+        title: `Suscripción coordinador ${plan}`,
+        description: 'Plan mensual coordinador SimpleSerenatas',
+        amount,
+        currencyId: 'CLP',
+        payerEmail,
+        payerName: typeof payer?.name === 'string' ? payer.name : undefined,
+        backUrls: {
+          success: `${subscriptionBase}?mp_return=success`,
+          failure: `${subscriptionBase}?mp_return=failure`,
+          pending: `${subscriptionBase}?mp_return=pending`,
+        },
+        metadata: {
+          plan,
+          subscriptionId: subscription.id,
+          subscriptionPaymentId: pendingPayment.id,
+          vertical: 'serenatas',
+          kind: 'coordinator_subscription',
+        },
+        ...(notificationUrl ? { notificationUrl } : {}),
+      });
+
+      const redirectUrl = pref.initPoint ?? pref.sandboxInitPoint;
+      if (!redirectUrl) {
+        return c.json({ ok: false, error: 'Mercado Pago no devolvió URL de pago' }, 502);
+      }
+
+      return c.json({
+        ok: true,
+        preferenceId: pref.id,
+        redirectUrl,
+        subscriptionId: subscription.id,
+        subscriptionPaymentId: pendingPayment.id,
+        plan,
+        amount,
+        sandboxInitPoint: pref.sandboxInitPoint,
+        initPoint: pref.initPoint,
+      });
+    } catch (error) {
+      console.error('[serenatas/payments/subscription/checkout] Error:', error);
+      const message = error instanceof Error ? error.message : 'Error al crear checkout';
+      return c.json({ ok: false, error: message }, 500);
+    }
+  });
+
+  /** Tras volver de Checkout Pro: confirma el pago de la suscripción. */
+  app.post('/payments/subscription/mercadopago/confirm', requireAuth, async (c) => {
+    try {
+      const user = await authUser(c);
+      if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
+
+      if (!isMercadoPagoConfigured()) {
+        return c.json({ ok: false, error: 'Mercado Pago no está configurado' }, 503);
+      }
+
+      const body = (await c.req.json().catch(() => ({}))) as {
+        paymentId?: string;
+        subscriptionPaymentId?: string;
+      };
+      const paymentId = body.paymentId?.trim();
+      const subscriptionPaymentId = body.subscriptionPaymentId?.trim();
+      if (!paymentId || !subscriptionPaymentId) {
+        return c.json(
+          { ok: false, error: 'Faltan paymentId / subscriptionPaymentId' },
+          400
+        );
+      }
+
+      const [pendingPayment] = await db
+        .select()
+        .from(tables.serenataSubscriptionPayments)
+        .where(eq(tables.serenataSubscriptionPayments.id, subscriptionPaymentId))
+        .limit(1);
+      if (!pendingPayment) {
+        return c.json({ ok: false, error: 'Pago de suscripción no encontrado' }, 404);
+      }
+
+      const [coordinator] = await db
+        .select()
+        .from(tables.serenataCoordinatorProfiles)
+        .where(
+          eq(tables.serenataCoordinatorProfiles.id, pendingPayment.coordinatorProfileId)
+        )
+        .limit(1);
+      const isAdmin = user.role === 'admin';
+      if (!isAdmin && coordinator?.userId !== user.id) {
+        return c.json({ ok: false, error: 'No autorizado' }, 403);
+      }
+
+      let mpPayment: Record<string, unknown>;
+      try {
+        mpPayment = await getPaymentById(paymentId);
+      } catch (e) {
+        console.error('[serenatas/subscription mp confirm] getPayment:', e);
+        return c.json({ ok: false, error: 'No se pudo verificar el pago en Mercado Pago' }, 502);
+      }
+
+      const status = String(mpPayment.status ?? '');
+      if (status === 'pending' || status === 'in_process' || status === 'in_mediation') {
+        return c.json({ ok: true, pending: true, message: 'Pago en proceso' });
+      }
+      if (status !== 'approved') {
+        return c.json(
+          { ok: false, error: `Pago no aprobado (${status})`, mercadoPagoStatus: status },
+          400
+        );
+      }
+
+      const fin = await finalizeCoordinatorSubscriptionPayment(
+        subscriptionPaymentId,
+        paymentId,
+        mpPayment
+      );
+      if (!fin.ok) {
+        return c.json({ ok: false, error: fin.error }, fin.httpStatus as 400 | 404 | 409);
+      }
+
+      return c.json({
+        ok: true,
+        alreadyPaid: fin.alreadyPaid === true,
+        payment: fin.payment,
+        subscription: fin.subscription,
+      });
+    } catch (error) {
+      console.error('[serenatas/payments/subscription/mercadopago/confirm] Error:', error);
+      return c.json({ ok: false, error: 'Error al confirmar pago' }, 500);
+    }
+  });
+
+  /**
+   * Crea un `preapproval` (suscripción recurrente Mercado Pago) para el plan
+   * coordinador y devuelve `init_point` para autorización del usuario.
+   *
+   * Una vez autorizada, MP cobrará automáticamente cada mes y notificará
+   * los cobros vía webhook (`topic=subscription_authorized_payment`).
+   */
+  app.post('/payments/subscription/preapproval', requireAuth, async (c) => {
+    try {
+      const user = await authUser(c);
+      if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
+
+      if (!isMercadoPagoConfigured()) {
+        return c.json(
+          { ok: false, error: 'Mercado Pago no está configurado', code: 'MERCADOPAGO_NOT_CONFIGURED' },
+          503
+        );
+      }
+
+      const origin = getSerenatasPublicOrigin();
+      if (!origin) {
+        return c.json(
+          {
+            ok: false,
+            error: 'Falta MERCADO_PAGO_PUBLIC_ORIGIN_SERENATAS para back_url',
+            code: 'MISSING_SERENATAS_PUBLIC_ORIGIN',
+          },
+          503
+        );
+      }
+
+      const body = (await c.req.json().catch(() => ({}))) as { plan?: 'pro' | 'premium' };
+      const plan = body.plan;
+      if (plan !== 'pro' && plan !== 'premium') {
+        return c.json({ ok: false, error: 'Plan inválido (pro|premium)' }, 400);
+      }
+      const amount = COORDINATOR_PLAN_PRICES[plan];
+      if (!amount || amount <= 0) {
+        return c.json({ ok: false, error: 'Plan sin precio configurado' }, 400);
+      }
+
+      const [existingProfile] = await db
+        .select()
+        .from(tables.serenataCoordinatorProfiles)
+        .where(eq(tables.serenataCoordinatorProfiles.userId, user.id))
+        .limit(1);
+
+      let coordinatorProfile = existingProfile;
+      if (!coordinatorProfile) {
+        const [created] = await db
+          .insert(tables.serenataCoordinatorProfiles)
+          .values({
+            userId: user.id,
+            subscriptionPlan: plan,
+            subscriptionStatus: 'paused',
+            subscriptionStartedAt: new Date(),
+          })
+          .returning();
+        coordinatorProfile = created;
+      }
+      if (!coordinatorProfile) {
+        return c.json({ ok: false, error: 'No se pudo crear el perfil coordinador' }, 500);
+      }
+
+      const [payer] = await db
+        .select({ email: tables.users.email })
+        .from(tables.users)
+        .where(eq(tables.users.id, user.id))
+        .limit(1);
+      if (!payer?.email || !payer.email.includes('@')) {
+        return c.json(
+          { ok: false, error: 'Necesitas un email válido para suscribirte' },
+          400
+        );
+      }
+
+      const externalReference = `serenata_preapproval:${coordinatorProfile.id}:${plan}`;
+
+      const pre = await createPreapproval({
+        externalReference,
+        reason: `SimpleSerenatas — plan ${plan}`,
+        amount,
+        currencyId: 'CLP',
+        payerEmail: payer.email,
+        backUrl: `${origin}/suscripcion?mp_preapproval=return`,
+      });
+
+      const [preRow] = await db
+        .insert(tables.serenataCoordinatorPreapprovals)
+        .values({
+          coordinatorProfileId: coordinatorProfile.id,
+          externalId: pre.id,
+          plan,
+          amount,
+          currency: 'CLP',
+          status: pre.status === 'authorized' ? 'authorized' : 'pending',
+          payerEmail: payer.email,
+        })
+        .returning();
+
+      return c.json({
+        ok: true,
+        preapprovalId: pre.id,
+        redirectUrl: pre.initPoint,
+        plan,
+        amount,
+        record: preRow ?? null,
+      });
+    } catch (error) {
+      console.error('[serenatas/payments/subscription/preapproval] Error:', error);
+      const message = error instanceof Error ? error.message : 'Error al crear preapproval';
+      return c.json({ ok: false, error: message }, 500);
+    }
+  });
+
+  /**
+   * Sincroniza el estado de un preapproval contra Mercado Pago.
+   * Llamado por el frontend al volver de `back_url` y opcionalmente desde el webhook.
+   */
+  app.post('/payments/subscription/preapproval/sync', requireAuth, async (c) => {
+    try {
+      const user = await authUser(c);
+      if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
+
+      if (!isMercadoPagoConfigured()) {
+        return c.json({ ok: false, error: 'Mercado Pago no está configurado' }, 503);
+      }
+
+      const body = (await c.req.json().catch(() => ({}))) as { preapprovalId?: string };
+      const preapprovalId = body.preapprovalId?.trim();
+      if (!preapprovalId) {
+        return c.json({ ok: false, error: 'Falta preapprovalId' }, 400);
+      }
+
+      const [row] = await db
+        .select()
+        .from(tables.serenataCoordinatorPreapprovals)
+        .where(eq(tables.serenataCoordinatorPreapprovals.externalId, preapprovalId))
+        .limit(1);
+      if (!row) {
+        return c.json({ ok: false, error: 'Preapproval no encontrado' }, 404);
+      }
+
+      const [coord] = await db
+        .select()
+        .from(tables.serenataCoordinatorProfiles)
+        .where(eq(tables.serenataCoordinatorProfiles.id, row.coordinatorProfileId))
+        .limit(1);
+      const isAdmin = user.role === 'admin';
+      if (!isAdmin && coord?.userId !== user.id) {
+        return c.json({ ok: false, error: 'No autorizado' }, 403);
+      }
+
+      let mpPre: Record<string, unknown>;
+      try {
+        mpPre = await getPreapprovalById(preapprovalId);
+      } catch (e) {
+        console.error('[serenatas/preapproval/sync] getPreapproval:', e);
+        return c.json({ ok: false, error: 'No se pudo verificar en Mercado Pago' }, 502);
+      }
+
+      const mpStatus = String(mpPre.status ?? '');
+      const newStatus =
+        mpStatus === 'authorized'
+          ? 'authorized'
+          : mpStatus === 'paused'
+            ? 'paused'
+            : mpStatus === 'cancelled'
+              ? 'cancelled'
+              : 'pending';
+
+      const updates: Record<string, unknown> = {
+        status: newStatus,
+        updatedAt: new Date(),
+      };
+      if (newStatus === 'authorized' && !row.startedAt) updates.startedAt = new Date();
+      if (newStatus === 'cancelled' && !row.cancelledAt) updates.cancelledAt = new Date();
+
+      await db
+        .update(tables.serenataCoordinatorPreapprovals)
+        .set(updates)
+        .where(eq(tables.serenataCoordinatorPreapprovals.id, row.id));
+
+      if (newStatus === 'authorized' && coord) {
+        await db
+          .update(tables.serenataCoordinatorProfiles)
+          .set({
+            subscriptionPlan: row.plan,
+            subscriptionStatus: 'active',
+            subscriptionStartedAt: coord.subscriptionStartedAt ?? new Date(),
+            updatedAt: new Date(),
+          })
+          .where(eq(tables.serenataCoordinatorProfiles.id, coord.id));
+      } else if (newStatus === 'cancelled' && coord) {
+        await db
+          .update(tables.serenataCoordinatorProfiles)
+          .set({
+            subscriptionStatus: 'cancelled',
+            updatedAt: new Date(),
+          })
+          .where(eq(tables.serenataCoordinatorProfiles.id, coord.id));
+      }
+
+      return c.json({
+        ok: true,
+        status: newStatus,
+        mercadoPagoStatus: mpStatus,
+      });
+    } catch (error) {
+      console.error('[serenatas/payments/subscription/preapproval/sync] Error:', error);
+      return c.json({ ok: false, error: 'Error al sincronizar preapproval' }, 500);
+    }
+  });
+
+  /**
+   * IPN Mercado Pago: confirma pago cuando el estado pasa a `approved`.
+   *
+   * Pasos:
+   *   1. Persistir el evento crudo en `serenata_mp_webhook_events`.
+   *   2. Validar la firma `x-signature` si `MERCADO_PAGO_WEBHOOK_SECRET` está configurado.
+   *   3. Obtener el recurso real con `getPaymentById(resourceId)`.
+   *   4. Despachar según prefijo de `external_reference`.
+   *
+   * Devuelve siempre `200` para que MP no reintente indefinidamente; los errores
+   * quedan registrados en la tabla de auditoría con su `note`.
+   */
+  app.post('/webhooks/mercadopago', async (c) => {
+    const xSignature = c.req.header('x-signature') ?? c.req.header('X-Signature') ?? null;
+    const xRequestId = c.req.header('x-request-id') ?? c.req.header('X-Request-Id') ?? null;
+
+    let body: Record<string, unknown> = {};
+    try {
+      body = (await c.req.json().catch(() => ({}))) as Record<string, unknown>;
+    } catch {
+      body = {};
+    }
+    const bodyData = (body.data ?? {}) as Record<string, unknown>;
+    const topic =
+      c.req.query('topic') ?? c.req.query('type') ?? String(body.type ?? body.topic ?? '');
+    const resourceId =
+      c.req.query('id') ?? c.req.query('data.id') ?? String(bodyData.id ?? body.id ?? '');
+
+    let auditId: string | null = null;
+    try {
+      const [audit] = await db
+        .insert(tables.serenataMpWebhookEvents)
+        .values({
+          topic: topic || null,
+          resourceId: resourceId || null,
+          status: 'received',
+          headers: { 'x-signature': xSignature, 'x-request-id': xRequestId },
+          payload: body,
+        })
+        .returning({ id: tables.serenataMpWebhookEvents.id });
+      auditId = audit?.id ?? null;
+    } catch (auditError) {
+      console.warn('[serenatas/mp webhook] No se pudo registrar evento:', auditError);
+    }
+
+    const markAudit = async (
+      status: 'processed' | 'ignored' | 'invalid_signature' | 'error',
+      note?: string,
+      externalReference?: string
+    ) => {
+      if (!auditId) return;
+      try {
+        await db
+          .update(tables.serenataMpWebhookEvents)
+          .set({
+            status,
+            note: note ?? null,
+            externalReference: externalReference ?? null,
+            processedAt: new Date(),
+          })
+          .where(eq(tables.serenataMpWebhookEvents.id, auditId));
+      } catch (e) {
+        console.warn('[serenatas/mp webhook] update audit failed:', e);
+      }
+    };
+
+    try {
+      if (!isMercadoPagoConfigured()) {
+        await markAudit('ignored', 'mercadopago_not_configured');
+        return c.json({ ok: true });
+      }
+
+      const sigCheck = verifyMercadoPagoWebhookSignature({
+        xSignature,
+        xRequestId,
+        dataId: resourceId,
+      });
+      if (sigCheck === false) {
+        await markAudit('invalid_signature', 'x-signature mismatch');
+        return c.json({ ok: false, error: 'Invalid signature' }, 401);
+      }
+
+      if (!resourceId) {
+        await markAudit('ignored', 'no_resource_id');
+        return c.json({ ok: true });
+      }
+
+      // Topic `preapproval`: actualiza el estado de la suscripción recurrente.
+      if (topic === 'preapproval') {
+        try {
+          const mpPre = await getPreapprovalById(String(resourceId));
+          const mpStatus = String(mpPre.status ?? '');
+          const newStatus =
+            mpStatus === 'authorized'
+              ? 'authorized'
+              : mpStatus === 'paused'
+                ? 'paused'
+                : mpStatus === 'cancelled'
+                  ? 'cancelled'
+                  : 'pending';
+          const [row] = await db
+            .select()
+            .from(tables.serenataCoordinatorPreapprovals)
+            .where(eq(tables.serenataCoordinatorPreapprovals.externalId, String(resourceId)))
+            .limit(1);
+          if (row) {
+            const updates: Record<string, unknown> = { status: newStatus, updatedAt: new Date() };
+            if (newStatus === 'authorized' && !row.startedAt) updates.startedAt = new Date();
+            if (newStatus === 'cancelled' && !row.cancelledAt) updates.cancelledAt = new Date();
+            await db
+              .update(tables.serenataCoordinatorPreapprovals)
+              .set(updates)
+              .where(eq(tables.serenataCoordinatorPreapprovals.id, row.id));
+            const [coord] = await db
+              .select()
+              .from(tables.serenataCoordinatorProfiles)
+              .where(eq(tables.serenataCoordinatorProfiles.id, row.coordinatorProfileId))
+              .limit(1);
+            if (coord) {
+              await db
+                .update(tables.serenataCoordinatorProfiles)
+                .set({
+                  ...(newStatus === 'authorized'
+                    ? { subscriptionStatus: 'active', subscriptionPlan: row.plan }
+                    : newStatus === 'cancelled'
+                      ? { subscriptionStatus: 'cancelled' }
+                      : newStatus === 'paused'
+                        ? { subscriptionStatus: 'paused' }
+                        : {}),
+                  updatedAt: new Date(),
+                })
+                .where(eq(tables.serenataCoordinatorProfiles.id, coord.id));
+            }
+            await markAudit('processed', `preapproval_status=${mpStatus}`);
+          } else {
+            await markAudit('ignored', 'preapproval_not_found_local');
+          }
+        } catch (e) {
+          await markAudit(
+            'error',
+            `preapproval_lookup_failed: ${e instanceof Error ? e.message : String(e)}`
+          );
+        }
+        return c.json({ ok: true });
+      }
+
+      // Topic `subscription_authorized_payment`: cobro recurrente. MP envía un id de
+      // authorized_payment; lo registramos en `serenata_subscription_payments` para
+      // historial y extendemos `subscription.endsAt` un mes.
+      if (topic === 'subscription_authorized_payment' || topic === 'authorized_payment') {
+        try {
+          const externalRefRaw = String(body.external_reference ?? bodyData.external_reference ?? '');
+          // Buscamos preapproval por external_reference primero, luego por id.
+          const [preRow] = externalRefRaw
+            ? await db
+                .select()
+                .from(tables.serenataCoordinatorPreapprovals)
+                .where(
+                  eq(
+                    tables.serenataCoordinatorPreapprovals.externalId,
+                    String(bodyData.preapproval_id ?? body.preapproval_id ?? '')
+                  )
+                )
+                .limit(1)
+            : [];
+          if (!preRow) {
+            await markAudit('ignored', 'recurring_payment_no_preapproval');
+            return c.json({ ok: true });
+          }
+          const [activeSub] = await db
+            .select()
+            .from(tables.serenataSubscriptions)
+            .where(
+              and(
+                eq(tables.serenataSubscriptions.coordinatorProfileId, preRow.coordinatorProfileId),
+                eq(tables.serenataSubscriptions.status, 'active')
+              )
+            )
+            .orderBy(desc(tables.serenataSubscriptions.startedAt))
+            .limit(1);
+          let subscriptionId = activeSub?.id;
+          if (!subscriptionId) {
+            const [created] = await db
+              .insert(tables.serenataSubscriptions)
+              .values({
+                coordinatorProfileId: preRow.coordinatorProfileId,
+                plan: preRow.plan,
+                priceMonthly: preRow.amount,
+                currency: preRow.currency,
+                status: 'active',
+                startedAt: new Date(),
+                endsAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+                externalSubscriptionId: preRow.externalId,
+              })
+              .returning({ id: tables.serenataSubscriptions.id });
+            subscriptionId = created?.id;
+          } else {
+            await db
+              .update(tables.serenataSubscriptions)
+              .set({
+                endsAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+                updatedAt: new Date(),
+              })
+              .where(eq(tables.serenataSubscriptions.id, subscriptionId));
+          }
+          if (subscriptionId) {
+            const now = new Date();
+            await db.insert(tables.serenataSubscriptionPayments).values({
+              subscriptionId,
+              coordinatorProfileId: preRow.coordinatorProfileId,
+              amount: preRow.amount,
+              currency: preRow.currency,
+              status: 'succeeded',
+              periodStart: now,
+              periodEnd: new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000),
+              externalPaymentId: String(resourceId),
+              paidAt: now,
+            });
+            await db
+              .update(tables.serenataCoordinatorProfiles)
+              .set({
+                subscriptionStatus: 'active',
+                subscriptionPlan: preRow.plan,
+                subscriptionEndsAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+                updatedAt: new Date(),
+              })
+              .where(
+                eq(tables.serenataCoordinatorProfiles.id, preRow.coordinatorProfileId)
+              );
+            await markAudit('processed', 'recurring_payment_recorded', preRow.externalId);
+          } else {
+            await markAudit('error', 'subscription_create_failed');
+          }
+        } catch (e) {
+          await markAudit(
+            'error',
+            `recurring_payment_failed: ${e instanceof Error ? e.message : String(e)}`
+          );
+        }
+        return c.json({ ok: true });
+      }
+
+      if (topic !== 'payment') {
+        await markAudit('ignored', `topic=${topic || 'none'}`);
+        return c.json({ ok: true });
+      }
+
+      let mpPayment: Record<string, unknown>;
+      try {
+        mpPayment = await getPaymentById(String(resourceId));
+      } catch (e) {
+        await markAudit(
+          'error',
+          `getPayment failed: ${e instanceof Error ? e.message : String(e)}`
+        );
+        return c.json({ ok: true });
+      }
+
+      const status = String(mpPayment.status ?? '');
+      if (status !== 'approved') {
+        await markAudit('ignored', `payment_status=${status || 'unknown'}`);
+        return c.json({ ok: true });
+      }
+
+      const externalRef = mpPayment.external_reference;
+      const externalRefStr = typeof externalRef === 'string' ? externalRef : undefined;
+
+      const serenataId = parseSerenataIdFromMpExternalRef(externalRef);
+      if (serenataId) {
+        const fin = await finalizeSerenataMercadoPagoPayment(
+          serenataId,
+          String(resourceId),
+          mpPayment
+        );
+        if (!fin.ok) {
+          await markAudit('error', `finalize_serenata: ${fin.error}`, externalRefStr);
+        } else {
+          await markAudit(
+            'processed',
+            fin.alreadyPaid ? 'serenata_already_paid' : 'serenata_paid',
+            externalRefStr
+          );
+        }
+        return c.json({ ok: true });
+      }
+
+      const subscriptionPaymentId =
+        parseCoordinatorSubscriptionPaymentIdFromMpExternalRef(externalRef);
+      if (subscriptionPaymentId) {
+        const fin = await finalizeCoordinatorSubscriptionPayment(
+          subscriptionPaymentId,
+          String(resourceId),
+          mpPayment
+        );
+        if (!fin.ok) {
+          await markAudit('error', `finalize_subscription: ${fin.error}`, externalRefStr);
+        } else {
+          await markAudit(
+            'processed',
+            fin.alreadyPaid ? 'subscription_already_paid' : 'subscription_paid',
+            externalRefStr
+          );
+        }
+        return c.json({ ok: true });
+      }
+
+      await markAudit(
+        'ignored',
+        `unknown_external_reference=${externalRefStr ?? 'none'}`,
+        externalRefStr
+      );
+      return c.json({ ok: true });
+    } catch (e) {
+      console.error('[serenatas/mp webhook] Error:', e);
+      await markAudit('error', e instanceof Error ? e.message : String(e));
+      return c.json({ ok: true });
+    }
+  });
+
+  /**
+   * Crea preferencia Checkout Pro y devuelve URL de redirección (`init_point`).
+   * Requiere `MERCADO_PAGO_PUBLIC_ORIGIN_SERENATAS` (o `SERENATAS_APP_URL`) para `back_urls`.
+   */
+  app.post('/payments/serenata/:id/checkout', requireAuth, async (c) => {
+    try {
+      const user = await authUser(c);
+      if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
+
+      if (!isMercadoPagoConfigured()) {
+        return c.json(
+          {
+            ok: false,
+            error: 'Mercado Pago no está configurado en el servidor',
+            code: 'MERCADOPAGO_NOT_CONFIGURED',
+          },
+          503
+        );
+      }
+
+      const serenataId = c.req.param('id');
+      const body = (await c.req.json().catch(() => ({}))) as {
+        price?: number;
+        requiresUpfrontPayment?: boolean;
+      };
+      if (!serenataId) return c.json({ ok: false, error: 'Falta id de serenata' }, 400);
+
+      const origin = getSerenatasPublicOrigin();
+      if (!origin) {
+        return c.json(
+          {
+            ok: false,
+            error:
+              'Falta MERCADO_PAGO_PUBLIC_ORIGIN_SERENATAS (o SERENATAS_APP_URL) en la API para las URLs de retorno.',
+            code: 'MISSING_SERENATAS_PUBLIC_ORIGIN',
+          },
+          503
+        );
+      }
+
+      const [serenata] = await db
+        .select()
+        .from(tables.serenatas)
+        .where(eq(tables.serenatas.id, serenataId))
+        .limit(1);
+      if (!serenata) return c.json({ ok: false, error: 'Serenata no encontrada' }, 404);
+
+      const isAdmin = user.role === 'admin';
+      const isOwner = serenata.clientId === user.id;
+      if (!isAdmin && !isOwner) return c.json({ ok: false, error: 'No autorizado' }, 403);
+
+      if (!serenata.coordinatorProfileId) {
+        return c.json({ ok: false, error: 'La serenata aún no tiene coordinador' }, 400);
+      }
+      if (!serenata.price || serenata.price <= 0) {
+        return c.json({ ok: false, error: 'La serenata no tiene precio acordado' }, 400);
+      }
+      if (!['accepted', 'payment_pending', 'quoted', 'confirmed'].includes(serenata.status)) {
+        return c.json(
+          { ok: false, error: `No se puede pagar en estado ${serenata.status}` },
+          409
+        );
+      }
+
+      const [existing] = await db
+        .select()
+        .from(tables.serenataPayments)
+        .where(
+          and(
+            eq(tables.serenataPayments.serenataId, serenataId),
+            inArray(tables.serenataPayments.status, ['pending', 'holding', 'released'])
+          )
+        )
+        .limit(1);
+      if (existing) {
+        return c.json({
+          ok: true,
+          alreadyPaid: true,
+          payment: existing,
+        });
+      }
+
+      const [payer] = await db
+        .select({ email: tables.users.email, name: tables.users.name })
+        .from(tables.users)
+        .where(eq(tables.users.id, serenata.clientId))
+        .limit(1);
+      const payerEmail =
+        typeof payer?.email === 'string' && payer.email.includes('@')
+          ? payer.email
+          : `cliente+${serenata.clientId.slice(0, 8)}@simple.invalid`;
+
+      const externalReference = `${SERENATA_MP_REF_PREFIX}${serenataId}`;
+      const trackingBase = `${origin}/tracking/${serenataId}`;
+      const notificationUrl = getSerenataMpNotificationUrl();
+
+      const pref = await createCheckoutPreference({
+        externalReference,
+        title: `Serenata ${serenataId.slice(0, 8)}`,
+        description: 'Pago serenata Simple',
+        amount: serenata.price,
+        currencyId: 'CLP',
+        payerEmail,
+        payerName: typeof payer?.name === 'string' ? payer.name : undefined,
+        backUrls: {
+          success: `${trackingBase}?mp_return=success`,
+          failure: `${trackingBase}?mp_return=failure`,
+          pending: `${trackingBase}?mp_return=pending`,
+        },
+        metadata: { serenataId, vertical: 'serenatas' },
+        ...(notificationUrl ? { notificationUrl } : {}),
+      });
+
+      const redirectUrl = pref.initPoint ?? pref.sandboxInitPoint;
+      if (!redirectUrl) {
+        return c.json({ ok: false, error: 'Mercado Pago no devolvió URL de pago' }, 502);
+      }
+
+      return c.json({
+        ok: true,
+        preferenceId: pref.id,
+        redirectUrl,
+        sandboxInitPoint: pref.sandboxInitPoint,
+        initPoint: pref.initPoint,
+      });
+    } catch (error) {
+      console.error('[serenatas/payments/checkout] Error:', error);
+      const message = error instanceof Error ? error.message : 'Error al crear checkout';
+      return c.json({ ok: false, error: message }, 500);
+    }
+  });
+
+  /** Tras volver de Checkout Pro: valida el pago en la API de Mercado Pago y registra escrow. */
+  app.post('/payments/serenata/:id/mercadopago/confirm', requireAuth, async (c) => {
+    try {
+      const user = await authUser(c);
+      if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
+
+      if (!isMercadoPagoConfigured()) {
+        return c.json({ ok: false, error: 'Mercado Pago no está configurado' }, 503);
+      }
+
+      const serenataId = c.req.param('id');
+      if (!serenataId) return c.json({ ok: false, error: 'Falta id de serenata' }, 400);
+
+      const body = (await c.req.json().catch(() => ({}))) as { paymentId?: string };
+      const paymentId = body.paymentId?.trim();
+      if (!paymentId) {
+        return c.json({ ok: false, error: 'Falta paymentId' }, 400);
+      }
+
+      const [serenata] = await db
+        .select()
+        .from(tables.serenatas)
+        .where(eq(tables.serenatas.id, serenataId))
+        .limit(1);
+      if (!serenata) return c.json({ ok: false, error: 'Serenata no encontrada' }, 404);
+
+      const isAdmin = user.role === 'admin';
+      const isOwner = serenata.clientId === user.id;
+      if (!isAdmin && !isOwner) return c.json({ ok: false, error: 'No autorizado' }, 403);
+
+      let mpPayment: Record<string, unknown>;
+      try {
+        mpPayment = await getPaymentById(paymentId);
+      } catch (e) {
+        console.error('[serenatas/mp confirm] getPayment:', e);
+        return c.json({ ok: false, error: 'No se pudo verificar el pago en Mercado Pago' }, 502);
+      }
+
+      const status = String(mpPayment.status ?? '');
+      if (status === 'pending' || status === 'in_process' || status === 'in_mediation') {
+        return c.json({ ok: true, pending: true, message: 'Pago en proceso' });
+      }
+      if (status !== 'approved') {
+        return c.json(
+          { ok: false, error: `Pago no aprobado (${status})`, mercadoPagoStatus: status },
+          400
+        );
+      }
+
+      const fin = await finalizeSerenataMercadoPagoPayment(serenataId, paymentId, mpPayment);
+      if (!fin.ok) {
+        return c.json({ ok: false, error: fin.error }, fin.httpStatus as 400 | 404 | 409);
+      }
+
+      return c.json({
+        ok: true,
+        alreadyPaid: fin.alreadyPaid === true,
+        payment: fin.payment,
+        breakdown: fin.breakdown,
+      });
+    } catch (error) {
+      console.error('[serenatas/payments/mercadopago/confirm] Error:', error);
+      return c.json({ ok: false, error: 'Error al confirmar pago' }, 500);
+    }
+  });
+
+  /**
+   * Cliente paga la serenata. Crea un `serenata_payments` en estado `holding`
+   * (escrow) y mueve la serenata a `confirmed`. La comisión se calcula
+   * automáticamente según `source` (8 % + IVA solo para `platform_*`).
+   *
+   * Idempotente: si ya hay un pago no rechazado/devuelto para la serenata,
+   * devuelve ese pago sin crear otro.
+   *
+   * Si Mercado Pago está configurado (`MERCADO_PAGO_ACCESS_TOKEN`), este
+   * endpoint queda deshabilitado: usa `POST .../checkout` y `.../mercadopago/confirm`.
+   */
   app.post('/payments/serenata/:id', requireAuth, async (c) => {
     try {
       const user = await authUser(c);
       if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
 
+      if (isMercadoPagoConfigured()) {
+        return c.json(
+          {
+            ok: false,
+            error:
+              'El pago se realiza con Mercado Pago: crea una preferencia con POST .../payments/serenata/:id/checkout y confirma con POST .../payments/serenata/:id/mercadopago/confirm.',
+            code: 'USE_MERCADOPAGO_CHECKOUT',
+          },
+          400
+        );
+      }
+
       const serenataId = c.req.param('id');
-      
-      // Get serenata details
-      const [serenata] = await db.select().from(tables.serenatas)
+      const body = (await c.req.json().catch(() => ({}))) as {
+        paymentMethod?: string;
+        externalPaymentId?: string;
+      };
+
+      const [serenata] = await db
+        .select()
+        .from(tables.serenatas)
         .where(eq(tables.serenatas.id, serenataId))
         .limit(1);
 
@@ -819,52 +2654,107 @@ export function createSerenatasRouter(deps: SerenatasRouterDeps) {
         return c.json({ ok: false, error: 'Serenata no encontrada' }, 404);
       }
 
-      // Get captain commission rate based on plan
-      const captain = await db.select().from(tables.serenataCaptainProfiles)
-        .where(eq(tables.serenataCaptainProfiles.id, serenata.assignedCaptainId!))
+      const isAdmin = user.role === 'admin';
+      const isOwner = serenata.clientId === user.id;
+      if (!isAdmin && !isOwner) {
+        return c.json({ ok: false, error: 'No autorizado' }, 403);
+      }
+
+      const coordinatorProfileId = serenata.coordinatorProfileId;
+      if (!coordinatorProfileId) {
+        return c.json({ ok: false, error: 'La serenata aún no tiene coordinador' }, 400);
+      }
+
+      if (!serenata.price || serenata.price <= 0) {
+        return c.json({ ok: false, error: 'La serenata no tiene precio acordado' }, 400);
+      }
+
+      if (!['accepted', 'payment_pending', 'quoted', 'confirmed'].includes(serenata.status)) {
+        return c.json(
+          { ok: false, error: `No se puede pagar en estado ${serenata.status}` },
+          409
+        );
+      }
+
+      // Idempotencia: existe pago vivo (no refunded) → devolver ese.
+      const [existing] = await db
+        .select()
+        .from(tables.serenataPayments)
+        .where(
+          and(
+            eq(tables.serenataPayments.serenataId, serenataId),
+            inArray(tables.serenataPayments.status, ['pending', 'holding', 'released'])
+          )
+        )
         .limit(1);
 
-      const commissionRates = { free: 0.20, pro: 0.10, premium: 0 };
-      const captainPlan = captain[0]?.subscriptionPlan || 'free';
-      const commissionRate = commissionRates[captainPlan as keyof typeof commissionRates];
+      if (existing) {
+        return c.json({
+          ok: true,
+          alreadyPaid: true,
+          payment: existing,
+        });
+      }
 
-      const totalAmount = serenata.price || 150;
-      const platformFee = Math.round(totalAmount * commissionRate);
-      const captainEarnings = totalAmount - platformFee;
+      const totalAmount = serenata.price;
+      const fees = computeSerenataPlatformFees(totalAmount, serenata.source);
 
-      // Create payment record
-      const [payment] = await db.insert(tables.serenataPayments)
+      const [payment] = await db
+        .insert(tables.serenataPayments)
         .values({
-          payerId: user.id,
-          payeeId: serenata.assignedCaptainId,
           serenataId,
-          amount: totalAmount,
-          platformFee,
-          captainEarnings,
+          clientId: serenata.clientId,
+          coordinatorProfileId,
+          totalAmount,
+          platformCommission: fees.platformCommission,
+          commissionVat: fees.commissionVat,
+          coordinatorEarnings: fees.coordinatorEarnings,
           currency: 'CLP',
-          status: 'pending',
-          type: 'serenata',
+          status: 'holding',
+          clientPaidAt: new Date(),
+          externalPaymentId: body?.externalPaymentId,
+          updatedAt: new Date(),
         })
         .returning();
 
-      // TODO: Integrate with MercadoPago/Stripe
-      // Simulate payment completion
-      await db.update(tables.serenataPayments)
-        .set({ status: 'completed', processedAt: new Date() })
-        .where(eq(tables.serenataPayments.id, payment.id));
+      // Pasar serenata a confirmed si todavía no lo está.
+      if (serenata.status !== 'confirmed') {
+        await db
+          .update(tables.serenatas)
+          .set({ status: 'confirmed', confirmedAt: new Date(), updatedAt: new Date() })
+          .where(eq(tables.serenatas.id, serenataId));
+      }
 
-      // Update serenata status
-      await db.update(tables.serenatas)
-        .set({ paymentStatus: 'paid', status: 'confirmed' })
-        .where(eq(tables.serenatas.id, serenataId));
+      // Notificar al coordinador
+      try {
+        const [coord] = await db
+          .select({ userId: tables.serenataCoordinatorProfiles.userId })
+          .from(tables.serenataCoordinatorProfiles)
+          .where(eq(tables.serenataCoordinatorProfiles.id, coordinatorProfileId))
+          .limit(1);
+        if (coord?.userId) {
+          await notifySafe(db, tables, {
+            userId: coord.userId,
+            type: 'payment',
+            title: 'Pago confirmado',
+            message: 'El cliente pagó la serenata. Ya puedes coordinar el evento.',
+            data: { serenataId },
+          });
+        }
+      } catch (notifError) {
+        console.warn('[serenatas/payments] Notification failed:', notifError);
+      }
 
-      return c.json({ 
-        ok: true, 
-        paymentId: payment.id, 
-        totalAmount, 
-        platformFee, 
-        captainEarnings,
-        commissionRate: `${commissionRate * 100}%`,
+      return c.json({
+        ok: true,
+        payment,
+        breakdown: {
+          totalAmount,
+          platformCommission: fees.platformCommission,
+          commissionVat: fees.commissionVat,
+          coordinatorEarnings: fees.coordinatorEarnings,
+          source: serenata.source,
+        },
       });
     } catch (error) {
       console.error('[serenatas/payments/serenata] Error:', error);
@@ -872,98 +2762,389 @@ export function createSerenatasRouter(deps: SerenatasRouterDeps) {
     }
   });
 
-  // GET /captains/me/finances - Dashboard financiero
-  app.get('/captains/me/finances', requireAuth, async (c) => {
+  /**
+   * Libera el pago en escrow al coordinador. Sólo después de `completed`.
+   * - Coordinador asignado, admin, o auto-llamado al hacer checkout.
+   * - Idempotente: si ya está `released`, devuelve ese estado.
+   */
+  app.post('/payments/serenata/:id/release', requireAuth, async (c) => {
     try {
       const user = await authUser(c);
       if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
 
-      // Get captain profile
-      const [captain] = await db.select().from(tables.serenataCaptainProfiles)
-        .where(eq(tables.serenataCaptainProfiles.userId, user.id))
+      const serenataId = c.req.param('id');
+      const body = (await c.req.json().catch(() => ({}))) as {
+        price?: number;
+        requiresUpfrontPayment?: boolean;
+      };
+
+      const [serenata] = await db
+        .select()
+        .from(tables.serenatas)
+        .where(eq(tables.serenatas.id, serenataId))
+        .limit(1);
+      if (!serenata) return c.json({ ok: false, error: 'Serenata no encontrada' }, 404);
+
+      const isAdmin = user.role === 'admin';
+      const [actorCoord] = await db
+        .select()
+        .from(tables.serenataCoordinatorProfiles)
+        .where(eq(tables.serenataCoordinatorProfiles.userId, user.id))
         .limit(1);
 
-      if (!captain) {
+      const isAssignedCoord =
+        actorCoord && serenata.coordinatorProfileId === actorCoord.id;
+
+      if (!isAdmin && !isAssignedCoord) {
+        return c.json({ ok: false, error: 'No autorizado' }, 403);
+      }
+
+      if (serenata.status !== 'completed') {
+        return c.json(
+          { ok: false, error: 'La serenata debe estar completada antes de liberar el pago' },
+          409
+        );
+      }
+
+      const [payment] = await db
+        .select()
+        .from(tables.serenataPayments)
+        .where(eq(tables.serenataPayments.serenataId, serenataId))
+        .orderBy(desc(tables.serenataPayments.createdAt))
+        .limit(1);
+
+      if (!payment) {
+        return c.json({ ok: false, error: 'No hay pago registrado para la serenata' }, 404);
+      }
+
+      if (payment.status === 'released') {
+        return c.json({ ok: true, payment, alreadyReleased: true });
+      }
+
+      if (payment.status !== 'holding') {
+        return c.json(
+          { ok: false, error: `El pago está en estado ${payment.status}; no se puede liberar` },
+          409
+        );
+      }
+
+      const [updated] = await db
+        .update(tables.serenataPayments)
+        .set({
+          status: 'released',
+          releasedToCoordinatorAt: new Date(),
+          updatedAt: new Date(),
+        })
+        .where(eq(tables.serenataPayments.id, payment.id))
+        .returning();
+
+      return c.json({ ok: true, payment: updated });
+    } catch (error) {
+      console.error('[serenatas/payments/release] Error:', error);
+      return c.json({ ok: false, error: 'Error al liberar pago' }, 500);
+    }
+  });
+
+  /**
+   * Reembolsa el pago. Solo admin (o el cliente si la serenata fue cancelada antes del check-in).
+   * Cambia status a `refunded` y deja la serenata en `cancelled` si seguía activa.
+   */
+  app.post('/payments/serenata/:id/refund', requireAuth, async (c) => {
+    try {
+      const user = await authUser(c);
+      if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
+
+      const serenataId = c.req.param('id');
+      const body = (await c.req.json().catch(() => ({}))) as {
+        price?: number;
+        requiresUpfrontPayment?: boolean;
+      };
+
+      const [serenata] = await db
+        .select()
+        .from(tables.serenatas)
+        .where(eq(tables.serenatas.id, serenataId))
+        .limit(1);
+      if (!serenata) return c.json({ ok: false, error: 'Serenata no encontrada' }, 404);
+
+      const isAdmin = user.role === 'admin';
+      const isOwner = serenata.clientId === user.id;
+      if (!isAdmin && !(isOwner && serenata.status === 'cancelled')) {
+        return c.json({ ok: false, error: 'No autorizado' }, 403);
+      }
+
+      const [payment] = await db
+        .select()
+        .from(tables.serenataPayments)
+        .where(eq(tables.serenataPayments.serenataId, serenataId))
+        .orderBy(desc(tables.serenataPayments.createdAt))
+        .limit(1);
+      if (!payment) {
+        return c.json({ ok: false, error: 'No hay pago registrado' }, 404);
+      }
+
+      if (payment.status === 'refunded') {
+        return c.json({ ok: true, payment, alreadyRefunded: true });
+      }
+
+      if (payment.status === 'released') {
+        return c.json(
+          { ok: false, error: 'El pago ya fue liberado al coordinador' },
+          409
+        );
+      }
+
+      let mpRefundId: string | null = null;
+      let mpRefundError: string | null = null;
+      const externalPaymentId =
+        typeof payment.externalPaymentId === 'string' && payment.externalPaymentId.trim().length > 0
+          ? payment.externalPaymentId
+          : null;
+
+      if (externalPaymentId && isMercadoPagoConfigured()) {
+        try {
+          const refund = await refundPayment({
+            paymentId: externalPaymentId,
+            idempotencyKey: `serenata-refund:${payment.id}`,
+          });
+          mpRefundId =
+            typeof refund?.id === 'string' || typeof refund?.id === 'number'
+              ? String(refund.id)
+              : null;
+        } catch (refundError) {
+          mpRefundError =
+            refundError instanceof Error ? refundError.message : String(refundError);
+          console.error('[serenatas/payments/refund] MP refund failed:', refundError);
+          return c.json(
+            {
+              ok: false,
+              error: `No se pudo reembolsar en Mercado Pago: ${mpRefundError}`,
+              code: 'MP_REFUND_FAILED',
+            },
+            502
+          );
+        }
+      }
+
+      const [updated] = await db
+        .update(tables.serenataPayments)
+        .set({
+          status: 'refunded',
+          refundedAt: new Date(),
+          updatedAt: new Date(),
+          ...(mpRefundId ? { externalTransferId: mpRefundId } : {}),
+        })
+        .where(eq(tables.serenataPayments.id, payment.id))
+        .returning();
+
+      try {
+        const refundMessage = externalPaymentId
+          ? 'Tu reembolso fue procesado en Mercado Pago. Puede tardar 24–48 horas en reflejarse.'
+          : 'Tu pago fue marcado como reembolsado.';
+        await notifySafe(db, tables, {
+          userId: payment.clientId,
+          type: 'payment',
+          title: 'Reembolso procesado',
+          message: refundMessage,
+          data: { serenataId, paymentId: payment.id, mpRefundId },
+        });
+        await sendMailSafe(
+          db,
+          tables,
+          payment.clientId,
+          'Reembolso de serenata',
+          `${refundMessage}\nMonto: $${payment.totalAmount.toLocaleString('es-CL')} ${payment.currency}.\nReferencia: ${payment.id}`
+        );
+      } catch (notifError) {
+        console.warn('[serenatas/refund] notify failed:', notifError);
+      }
+
+      return c.json({
+        ok: true,
+        payment: updated,
+        mercadoPago: externalPaymentId
+          ? { refundId: mpRefundId, originalPaymentId: externalPaymentId }
+          : null,
+      });
+    } catch (error) {
+      console.error('[serenatas/payments/refund] Error:', error);
+      return c.json({ ok: false, error: 'Error al reembolsar pago' }, 500);
+    }
+  });
+
+  /**
+   * Resumen del pago de una serenata (cliente, coordinador o admin).
+   * Devuelve `null` si no hay pago todavía y el `breakdown` proyectado
+   * según el precio acordado.
+   */
+  app.get('/payments/serenata/:id', requireAuth, async (c) => {
+    try {
+      const user = await authUser(c);
+      if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
+
+      const serenataId = c.req.param('id');
+
+      const [serenata] = await db
+        .select()
+        .from(tables.serenatas)
+        .where(eq(tables.serenatas.id, serenataId))
+        .limit(1);
+      if (!serenata) return c.json({ ok: false, error: 'Serenata no encontrada' }, 404);
+
+      const isAdmin = user.role === 'admin';
+      const isOwner = serenata.clientId === user.id;
+      const [actorCoord] = await db
+        .select()
+        .from(tables.serenataCoordinatorProfiles)
+        .where(eq(tables.serenataCoordinatorProfiles.userId, user.id))
+        .limit(1);
+      const isAssignedCoord =
+        actorCoord && serenata.coordinatorProfileId === actorCoord.id;
+
+      if (!isAdmin && !isOwner && !isAssignedCoord) {
+        return c.json({ ok: false, error: 'No autorizado' }, 403);
+      }
+
+      const [payment] = await db
+        .select()
+        .from(tables.serenataPayments)
+        .where(eq(tables.serenataPayments.serenataId, serenataId))
+        .orderBy(desc(tables.serenataPayments.createdAt))
+        .limit(1);
+
+      const projected = computeSerenataPlatformFees(
+        serenata.price ?? 0,
+        serenata.source
+      );
+
+      return c.json({
+        ok: true,
+        mercadoPagoConfigured: isMercadoPagoConfigured(),
+        payment: payment ?? null,
+        projected: {
+          totalAmount: serenata.price ?? 0,
+          ...projected,
+          source: serenata.source,
+        },
+      });
+    } catch (error) {
+      console.error('[serenatas/payments/summary] Error:', error);
+      return c.json({ ok: false, error: 'Error al obtener resumen de pago' }, 500);
+    }
+  });
+
+  // GET /coordinators/me/finances - Dashboard financiero
+  app.get('/coordinators/me/finances', requireAuth, async (c) => {
+    try {
+      const user = await authUser(c);
+      if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
+
+      // Perfil coordinador del usuario autenticado
+      const [coordProfile] = await db.select().from(tables.serenataCoordinatorProfiles)
+        .where(eq(tables.serenataCoordinatorProfiles.userId, user.id))
+        .limit(1);
+
+      if (!coordProfile) {
         return c.json({ ok: false, error: 'Perfil no encontrado' }, 404);
       }
 
-      // Get payment stats
-      const payments = await db.select().from(tables.serenataPayments)
-        .where(and(
-          eq(tables.serenataPayments.payeeId, captain.id),
-          eq(tables.serenataPayments.status, 'completed')
-        ));
+      // Pagos del coordinador (todos los activos: holding + released)
+      const payments = await db
+        .select()
+        .from(tables.serenataPayments)
+        .where(
+          and(
+            eq(tables.serenataPayments.coordinatorProfileId, coordProfile.id),
+            inArray(tables.serenataPayments.status, ['holding', 'released'])
+          )
+        );
 
       const now = new Date();
       const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
 
-      const thisMonthPayments = payments.filter((p: { processedAt: string | null }) => new Date(p.processedAt!) >= startOfMonth);
+      const releasedPayments = payments.filter(
+        (p: { status: string }) => p.status === 'released'
+      );
+      const holdingPayments = payments.filter(
+        (p: { status: string }) => p.status === 'holding'
+      );
+      const thisMonthReleased = releasedPayments.filter(
+        (p: { updatedAt: Date }) => new Date(p.updatedAt) >= startOfMonth
+      );
+
+      const sumEarnings = (rows: Array<{ coordinatorEarnings: number | null }>) =>
+        rows.reduce((sum, p) => sum + (p.coordinatorEarnings || 0), 0);
 
       const finances = {
-        totalEarnings: payments.reduce((sum: number, p: { captainEarnings: number | null }) => sum + (p.captainEarnings || 0), 0),
-        thisMonthEarnings: thisMonthPayments.reduce((sum: number, p: { captainEarnings: number | null }) => sum + (p.captainEarnings || 0), 0),
-        totalPlatformFees: payments.reduce((sum: number, p: { platformFee: number | null }) => sum + (p.platformFee || 0), 0),
-        pendingEarnings: payments
-          .filter((p: { status: string }) => p.status === 'pending')
-          .reduce((sum: number, p: { captainEarnings: number | null }) => sum + (p.captainEarnings || 0), 0),
-        completedSerenatas: payments.filter((p: { status: string }) => p.status === 'completed').length,
-        averagePerSerenata: payments.length > 0 
-          ? payments.reduce((sum: number, p: { captainEarnings: number | null }) => sum + (p.captainEarnings || 0), 0) / payments.length 
-          : 0,
+        /** Liberados al coordinador (cobrables / cobrados). */
+        totalEarnings: sumEarnings(releasedPayments),
+        thisMonthEarnings: sumEarnings(thisMonthReleased),
+        totalPlatformFees: payments.reduce(
+          (sum: number, p: { platformCommission: number | null; commissionVat: number | null }) =>
+            sum + (p.platformCommission || 0) + (p.commissionVat || 0),
+          0
+        ),
+        /** En custodia (cliente pagó pero serenata aún no se liberó). */
+        pendingEarnings: sumEarnings(holdingPayments),
+        completedSerenatas: releasedPayments.length,
+        averagePerSerenata:
+          releasedPayments.length > 0
+            ? sumEarnings(releasedPayments) / releasedPayments.length
+            : 0,
         subscription: {
-          plan: captain.subscriptionPlan,
-          commissionRate: captain.subscriptionPlan === 'premium' ? '0%' : 
-                         captain.subscriptionPlan === 'pro' ? '10%' : '20%',
-          expiresAt: captain.subscriptionExpiresAt,
-        }
+          plan: coordProfile.subscriptionPlan,
+          /** Comisión sobre leads de plataforma: 8 % + IVA aparte (no aplica a serenatas self_captured) */
+          platformLeadCommission: '8% + IVA',
+          expiresAt: coordProfile.subscriptionEndsAt,
+        },
       };
 
       return c.json({ ok: true, finances });
     } catch (error) {
-      console.error('[serenatas/captains/finances] Error:', error);
+      console.error('[serenatas/coordinators/finances] Error:', error);
       return c.json({ ok: false, error: 'Error al obtener finanzas' }, 500);
     }
   });
 
-  // GET /captains/me/transactions - Historial de transacciones
-  app.get('/captains/me/transactions', requireAuth, async (c) => {
+  // GET /coordinators/me/transactions - Historial de transacciones
+  app.get('/coordinators/me/transactions', requireAuth, async (c) => {
     try {
       const user = await authUser(c);
       if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
 
-      const [captain] = await db.select().from(tables.serenataCaptainProfiles)
-        .where(eq(tables.serenataCaptainProfiles.userId, user.id))
+      const [coordProfile] = await db.select().from(tables.serenataCoordinatorProfiles)
+        .where(eq(tables.serenataCoordinatorProfiles.userId, user.id))
         .limit(1);
 
-      if (!captain) return c.json({ ok: false, error: 'Perfil no encontrado' }, 404);
+      if (!coordProfile) return c.json({ ok: false, error: 'Perfil no encontrado' }, 404);
 
       const transactions = await db.select({
         id: tables.serenataPayments.id,
-        amount: tables.serenataPayments.amount,
-        captainEarnings: tables.serenataPayments.captainEarnings,
-        platformFee: tables.serenataPayments.platformFee,
+        totalAmount: tables.serenataPayments.totalAmount,
+        coordinatorEarnings: tables.serenataPayments.coordinatorEarnings,
+        platformCommission: tables.serenataPayments.platformCommission,
+        commissionVat: tables.serenataPayments.commissionVat,
         status: tables.serenataPayments.status,
-        type: tables.serenataPayments.type,
         createdAt: tables.serenataPayments.createdAt,
         serenataId: tables.serenataPayments.serenataId,
       })
       .from(tables.serenataPayments)
       .where(or(
-        eq(tables.serenataPayments.payeeId, captain.id),
-        eq(tables.serenataPayments.payerId, user.id)
+        eq(tables.serenataPayments.coordinatorProfileId, coordProfile.id),
+        eq(tables.serenataPayments.clientId, user.id),
       ))
       .orderBy(desc(tables.serenataPayments.createdAt))
       .limit(50);
 
       return c.json({ ok: true, transactions });
     } catch (error) {
-      console.error('[serenatas/captains/transactions] Error:', error);
+      console.error('[serenatas/coordinators/transactions] Error:', error);
       return c.json({ ok: false, error: 'Error al obtener transacciones' }, 500);
     }
   });
 
-  // Get route by ID
-  app.get('/routes/:id', async (c) => {
+  // Ruta por id
+  app.get('/routes/:id', requireAuth, async (c) => {
     try {
       const id = c.req.param('id');
 
@@ -972,7 +3153,7 @@ export function createSerenatasRouter(deps: SerenatasRouterDeps) {
         with: {
           group: {
             with: {
-              captain: {
+              leadMusician: {
                 with: {
                   user: {
                     columns: { id: true, name: true, avatarUrl: true },
@@ -995,8 +3176,8 @@ export function createSerenatasRouter(deps: SerenatasRouterDeps) {
     }
   });
 
-  // Get route for group
-  app.get('/routes/group/:groupId', async (c) => {
+  // Ruta por grupo
+  app.get('/routes/group/:groupId', requireAuth, async (c) => {
     try {
       const groupId = c.req.param('groupId');
 
@@ -1016,10 +3197,479 @@ export function createSerenatasRouter(deps: SerenatasRouterDeps) {
   });
 
   // ═══════════════════════════════════════════════════════════════
+  // ========== SERENATA BY ID — detalle + autorización por rol
+  // ═══════════════════════════════════════════════════════════════
+
+  /**
+   * Lectura del detalle de una serenata. Sólo pueden verla:
+   * - el cliente dueño,
+   * - el coordinador asignado,
+   * - cualquier músico que ya esté en el lineup de la serenata,
+   * - administradores.
+   * Devuelve el modelo crudo + enriquecido con datos del coordinador.
+   */
+  app.get('/:id', requireAuth, async (c) => {
+    try {
+      const user = await authUser(c);
+      if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
+
+      const serenataId = c.req.param('id');
+
+      const [row] = await db
+        .select()
+        .from(tables.serenatas)
+        .where(eq(tables.serenatas.id, serenataId))
+        .limit(1);
+
+      if (!row) {
+        return c.json({ ok: false, error: 'Serenata no encontrada' }, 404);
+      }
+
+      const isOwner = row.clientId === user.id;
+      const isAdmin = user.role === 'admin';
+
+      let coordProfile: any = null;
+      if (row.coordinatorProfileId) {
+        [coordProfile] = await db
+          .select()
+          .from(tables.serenataCoordinatorProfiles)
+          .where(eq(tables.serenataCoordinatorProfiles.id, row.coordinatorProfileId))
+          .limit(1);
+      }
+
+      const isAssignedCoordinator = coordProfile?.userId === user.id;
+
+      let isMusicianInLineup = false;
+      if (!isOwner && !isAdmin && !isAssignedCoordinator && tables.serenataMusicianLineup) {
+        const musicianRow = await db.query.serenataMusicians.findFirst({
+          where: eq(tables.serenataMusicians.userId, user.id),
+        });
+        if (musicianRow) {
+          const [lineupRow] = await db
+            .select({ id: tables.serenataMusicianLineup.id })
+            .from(tables.serenataMusicianLineup)
+            .where(
+              and(
+                eq(tables.serenataMusicianLineup.serenataId, serenataId),
+                eq(tables.serenataMusicianLineup.musicianId, musicianRow.id)
+              )
+            )
+            .limit(1);
+          isMusicianInLineup = !!lineupRow;
+        }
+      }
+
+      if (!isOwner && !isAdmin && !isAssignedCoordinator && !isMusicianInLineup) {
+        return c.json({ ok: false, error: 'No autorizado' }, 403);
+      }
+
+      let coordinatorName: string | undefined;
+      let coordinatorPhone: string | undefined;
+      if (coordProfile?.userId) {
+        const [u] = await db
+          .select({ name: tables.users.name, phone: tables.users.phone })
+          .from(tables.users)
+          .where(eq(tables.users.id, coordProfile.userId))
+          .limit(1);
+        coordinatorName = u?.name ?? undefined;
+        coordinatorPhone = u?.phone ?? undefined;
+      }
+
+      const serenata = {
+        ...mapSerenataForApi(row),
+        coordinatorId: row.coordinatorProfileId,
+        coordinatorLat: row.latitude,
+        coordinatorLng: row.longitude,
+        coordinatorLocationUpdatedAt: row.updatedAt,
+        coordinatorName,
+        coordinatorPhone,
+      };
+
+      delete (serenata as Record<string, unknown>).coordinatorProfileId;
+
+      return c.json({ ok: true, serenata });
+    } catch (error) {
+      console.error('[serenatas/detail] Error:', error);
+      return c.json({ ok: false, error: 'Error al obtener serenata' }, 500);
+    }
+  });
+
+  // ═══════════════════════════════════════════════════════════════
+  // ========== SERENATAS — flujo de asignación / aceptación
+  // ═══════════════════════════════════════════════════════════════
+
+  /**
+   * Asigna un coordinador a una serenata.
+   * - Admin: puede asignar a cualquier coordinador (`body.coordinatorId`).
+   * - Coordinador: se auto-asigna (toma la serenata para sí). No puede pisar otra asignación.
+   * Estados: `pending → accepted` o `payment_pending` si se exige pago anticipado.
+   */
+  app.post('/:id/assign', requireAuth, async (c) => {
+    try {
+      const user = await authUser(c);
+      if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
+
+      const serenataId = c.req.param('id');
+      const body = (await c.req.json().catch(() => null)) as
+        | { coordinatorId?: string; price?: number; requiresUpfrontPayment?: boolean }
+        | null;
+
+      const [serenata] = await db
+        .select()
+        .from(tables.serenatas)
+        .where(eq(tables.serenatas.id, serenataId))
+        .limit(1);
+
+      if (!serenata) {
+        return c.json({ ok: false, error: 'Serenata no encontrada' }, 404);
+      }
+
+      const isAdmin = user.role === 'admin';
+      const [actorCoord] = await db
+        .select()
+        .from(tables.serenataCoordinatorProfiles)
+        .where(eq(tables.serenataCoordinatorProfiles.userId, user.id))
+        .limit(1);
+
+      let targetCoordinatorId: string | undefined;
+      if (isAdmin) {
+        targetCoordinatorId = body?.coordinatorId || actorCoord?.id;
+        if (!targetCoordinatorId) {
+          return c.json({ ok: false, error: 'Falta coordinatorId' }, 400);
+        }
+      } else if (actorCoord) {
+        targetCoordinatorId = actorCoord.id;
+      } else {
+        return c.json({ ok: false, error: 'No autorizado' }, 403);
+      }
+
+      if (
+        serenata.coordinatorProfileId &&
+        serenata.coordinatorProfileId !== targetCoordinatorId &&
+        !isAdmin
+      ) {
+        return c.json({ ok: false, error: 'La serenata ya tiene coordinador asignado' }, 409);
+      }
+
+      if (!['pending', 'quoted', 'accepted'].includes(serenata.status)) {
+        return c.json(
+          { ok: false, error: `No se puede reasignar una serenata en estado ${serenata.status}` },
+          409
+        );
+      }
+
+      const updates: any = {
+        coordinatorProfileId: targetCoordinatorId,
+        status: body?.requiresUpfrontPayment === true && body?.price ? 'payment_pending' : 'accepted',
+        acceptedAt: serenata.acceptedAt ?? new Date(),
+        updatedAt: new Date(),
+      };
+      if (typeof body?.price === 'number' && body.price > 0) {
+        updates.price = body.price;
+        updates.quotedAt = new Date();
+      }
+
+      const [updated] = await db
+        .update(tables.serenatas)
+        .set(updates)
+        .where(eq(tables.serenatas.id, serenataId))
+        .returning();
+
+      await notifySafe(db, tables, {
+        userId: serenata.clientId,
+        type: 'serenata',
+        title: updates.status === 'payment_pending' ? 'Serenata aceptada: pago pendiente' : 'Serenata aceptada',
+        message:
+          updates.status === 'payment_pending'
+            ? 'Un coordinador aceptó tu solicitud. Realiza el pago para dejarla confirmada.'
+            : 'Un coordinador aceptó tu solicitud y continuará con la organización.',
+        data: { serenataId },
+      });
+
+      return c.json({ ok: true, serenata: mapSerenataForApi(updated) });
+    } catch (error) {
+      console.error('[serenatas/assign] Error:', error);
+      return c.json({ ok: false, error: 'Error al asignar serenata' }, 500);
+    }
+  });
+
+  /**
+   * Aceptación de la serenata.
+   * - Coordinador asignado: marca `status=accepted` (desde pending|quoted).
+   * - Músico: se inscribe en `serenata_musician_lineup` (debe haber coordinador asignado).
+   * - Admin: equivalente al coordinador.
+   */
+  app.post('/:id/accept', requireAuth, async (c) => {
+    try {
+      const user = await authUser(c);
+      if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
+
+      const serenataId = c.req.param('id');
+      const body = (await c.req.json().catch(() => ({}))) as {
+        price?: number;
+        requiresUpfrontPayment?: boolean;
+      };
+
+      const [serenata] = await db
+        .select()
+        .from(tables.serenatas)
+        .where(eq(tables.serenatas.id, serenataId))
+        .limit(1);
+      if (!serenata) return c.json({ ok: false, error: 'Serenata no encontrada' }, 404);
+
+      const isAdmin = user.role === 'admin';
+
+      // Coordinador asignado o admin → aceptación a nivel serenata
+      const [coordProfile] = serenata.coordinatorProfileId
+        ? await db
+            .select()
+            .from(tables.serenataCoordinatorProfiles)
+            .where(eq(tables.serenataCoordinatorProfiles.id, serenata.coordinatorProfileId))
+            .limit(1)
+        : [null];
+
+      const isAssignedCoordinator = coordProfile?.userId === user.id;
+
+      if (isAssignedCoordinator || isAdmin) {
+        if (!['pending', 'quoted'].includes(serenata.status)) {
+          return c.json(
+            { ok: false, error: `No se puede aceptar en estado ${serenata.status}` },
+            409
+          );
+        }
+        const acceptedPrice =
+          typeof body.price === 'number' && body.price > 0 ? Math.round(body.price) : serenata.price;
+        const nextStatus = body.requiresUpfrontPayment === true && acceptedPrice ? 'payment_pending' : 'accepted';
+
+        const [updated] = await db
+          .update(tables.serenatas)
+          .set({
+            status: nextStatus,
+            price: acceptedPrice ?? null,
+            acceptedAt: new Date(),
+            updatedAt: new Date(),
+          })
+          .where(eq(tables.serenatas.id, serenataId))
+          .returning();
+
+        await notifySafe(db, tables, {
+          userId: serenata.clientId,
+          type: 'serenata',
+          title: nextStatus === 'payment_pending' ? 'Serenata aceptada: pago pendiente' : 'Coordinador aceptó tu serenata',
+          message:
+            nextStatus === 'payment_pending'
+              ? 'Tu solicitud fue aceptada. Ya puedes pagar para confirmar el evento.'
+              : 'Tu solicitud fue aceptada. El coordinador continuará con la organización.',
+          data: { serenataId },
+        });
+
+        return c.json({ ok: true, serenata: mapSerenataForApi(updated) });
+      }
+
+      // Caso músico → se suma al lineup (fila canónica serenata_musicians)
+      const musicianRow = await getOrCreateSerenataMusicianForUser(user.id);
+
+      if (!serenata.coordinatorProfileId) {
+        return c.json(
+          { ok: false, error: 'La serenata aún no tiene coordinador asignado' },
+          409
+        );
+      }
+
+      if (!['pending', 'quoted', 'accepted', 'payment_pending', 'confirmed'].includes(serenata.status)) {
+        return c.json(
+          { ok: false, error: `No se puede sumar al lineup en estado ${serenata.status}` },
+          409
+        );
+      }
+
+      // Idempotente: si ya está, devolvemos OK.
+      const [existing] = await db
+        .select({ id: tables.serenataMusicianLineup.id })
+        .from(tables.serenataMusicianLineup)
+        .where(
+          and(
+            eq(tables.serenataMusicianLineup.serenataId, serenataId),
+            eq(tables.serenataMusicianLineup.musicianId, musicianRow.id)
+          )
+        )
+        .limit(1);
+
+      if (existing) {
+        return c.json({ ok: true, lineupId: existing.id, alreadyJoined: true });
+      }
+
+      const nowAccept = new Date();
+      const [lineup] = await db
+        .insert(tables.serenataMusicianLineup)
+        .values({
+          serenataId,
+          musicianId: musicianRow.id,
+          status: 'accepted',
+          initiator: 'musician',
+          invitedAt: nowAccept,
+          confirmedAt: nowAccept,
+          updatedAt: nowAccept,
+        })
+        .returning();
+
+      // Notifica al coordinador que un músico se sumó.
+      if (coordProfile?.userId) {
+        await notifySafe(db, tables, {
+          userId: coordProfile.userId,
+          type: 'serenata',
+          title: 'Nuevo músico en el lineup',
+          message: 'Un músico se sumó al lineup de tu serenata.',
+          data: { serenataId, musicianId: musicianRow.id },
+        });
+      }
+
+      return c.json({ ok: true, lineupId: lineup.id });
+    } catch (error) {
+      console.error('[serenatas/accept] Error:', error);
+      return c.json({ ok: false, error: 'Error al aceptar serenata' }, 500);
+    }
+  });
+
+  /**
+   * Confirma la serenata. Solo coordinador asignado o admin.
+   * Estados válidos de origen: `accepted` o `quoted` con coordinador.
+   */
+  app.post('/:id/confirm', requireAuth, async (c) => {
+    try {
+      const user = await authUser(c);
+      if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
+
+      const serenataId = c.req.param('id');
+
+      const [serenata] = await db
+        .select()
+        .from(tables.serenatas)
+        .where(eq(tables.serenatas.id, serenataId))
+        .limit(1);
+      if (!serenata) return c.json({ ok: false, error: 'Serenata no encontrada' }, 404);
+
+      const isAdmin = user.role === 'admin';
+      const [coordProfile] = serenata.coordinatorProfileId
+        ? await db
+            .select()
+            .from(tables.serenataCoordinatorProfiles)
+            .where(eq(tables.serenataCoordinatorProfiles.id, serenata.coordinatorProfileId))
+            .limit(1)
+        : [null];
+
+      if (!isAdmin && coordProfile?.userId !== user.id) {
+        return c.json({ ok: false, error: 'No autorizado' }, 403);
+      }
+
+      if (!['accepted', 'quoted'].includes(serenata.status)) {
+        return c.json(
+          { ok: false, error: `No se puede confirmar en estado ${serenata.status}` },
+          409
+        );
+      }
+
+      const [updated] = await db
+        .update(tables.serenatas)
+        .set({ status: 'confirmed', confirmedAt: new Date(), updatedAt: new Date() })
+        .where(eq(tables.serenatas.id, serenataId))
+        .returning();
+
+      await notifySafe(db, tables, {
+        userId: serenata.clientId,
+        type: 'serenata',
+        title: 'Serenata confirmada',
+        message: 'Fecha y precio acordados. ¡Solo queda esperar el día del evento!',
+        data: { serenataId },
+      });
+
+      return c.json({ ok: true, serenata: mapSerenataForApi(updated) });
+    } catch (error) {
+      console.error('[serenatas/confirm] Error:', error);
+      return c.json({ ok: false, error: 'Error al confirmar serenata' }, 500);
+    }
+  });
+
+  /**
+   * Cancela la serenata. Cliente dueño o admin.
+   * Mantiene historial; no borra la fila.
+   */
+  app.post('/:id/cancel', requireAuth, async (c) => {
+    try {
+      const user = await authUser(c);
+      if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
+
+      const serenataId = c.req.param('id');
+
+      const [serenata] = await db
+        .select()
+        .from(tables.serenatas)
+        .where(eq(tables.serenatas.id, serenataId))
+        .limit(1);
+      if (!serenata) return c.json({ ok: false, error: 'Serenata no encontrada' }, 404);
+
+      const isAdmin = user.role === 'admin';
+      const isOwner = serenata.clientId === user.id;
+      if (!isAdmin && !isOwner) {
+        return c.json({ ok: false, error: 'No autorizado' }, 403);
+      }
+
+      if (['completed', 'cancelled'].includes(serenata.status)) {
+        return c.json(
+          { ok: false, error: `No se puede cancelar en estado ${serenata.status}` },
+          409
+        );
+      }
+
+      const [updated] = await db
+        .update(tables.serenatas)
+        .set({ status: 'cancelled', cancelledAt: new Date(), updatedAt: new Date() })
+        .where(eq(tables.serenatas.id, serenataId))
+        .returning();
+
+      // Notificar al otro lado: si lo cancela el cliente, avisamos al coordinador y viceversa.
+      const cancelledBy = serenata.clientId === user.id ? 'client' : 'admin';
+      if (cancelledBy === 'client' && serenata.coordinatorProfileId) {
+        try {
+          const [coord] = await db
+            .select({ userId: tables.serenataCoordinatorProfiles.userId })
+            .from(tables.serenataCoordinatorProfiles)
+            .where(eq(tables.serenataCoordinatorProfiles.id, serenata.coordinatorProfileId))
+            .limit(1);
+          if (coord?.userId) {
+            await notifySafe(db, tables, {
+              userId: coord.userId,
+              type: 'serenata',
+              title: 'Serenata cancelada',
+              message: 'El cliente canceló la serenata.',
+              data: { serenataId },
+            });
+          }
+        } catch (notifyErr) {
+          console.warn('[serenatas/cancel] notify coord failed:', notifyErr);
+        }
+      } else {
+        await notifySafe(db, tables, {
+          userId: serenata.clientId,
+          type: 'serenata',
+          title: 'Serenata cancelada',
+          message: 'Tu serenata fue cancelada por el equipo.',
+          data: { serenataId },
+        });
+      }
+
+      return c.json({ ok: true, serenata: mapSerenataForApi(updated) });
+    } catch (error) {
+      console.error('[serenatas/cancel] Error:', error);
+      return c.json({ ok: false, error: 'Error al cancelar serenata' }, 500);
+    }
+  });
+
+  // ═══════════════════════════════════════════════════════════════
   // ========== GPS TRACKING ==========
   // ═══════════════════════════════════════════════════════════════
 
-  // POST /serenatas/:id/location - Capitan actualiza ubicacion
+  // POST /serenatas/:id/location - Coordinador actualiza ubicacion
   app.post('/:id/location', requireAuth, async (c) => {
     try {
       const user = await authUser(c);
@@ -1033,7 +3683,7 @@ export function createSerenatasRouter(deps: SerenatasRouterDeps) {
         return c.json({ ok: false, error: 'Ubicacion requerida' }, 400);
       }
 
-      // Verify captain is assigned to this serenata
+      // Solo el coordinador asignado puede actualizar ubicación
       const [serenata] = await db.select().from(tables.serenatas)
         .where(eq(tables.serenatas.id, serenataId))
         .limit(1);
@@ -1042,20 +3692,19 @@ export function createSerenatasRouter(deps: SerenatasRouterDeps) {
         return c.json({ ok: false, error: 'Serenata no encontrada' }, 404);
       }
 
-      const [captain] = await db.select().from(tables.serenataCaptainProfiles)
-        .where(eq(tables.serenataCaptainProfiles.userId, user.id))
+      const [coordProfile] = await db.select().from(tables.serenataCoordinatorProfiles)
+        .where(eq(tables.serenataCoordinatorProfiles.userId, user.id))
         .limit(1);
 
-      if (!captain || serenata.captainId !== captain.id) {
+      if (!coordProfile || serenata.coordinatorProfileId !== coordProfile.id) {
         return c.json({ ok: false, error: 'No autorizado' }, 403);
       }
 
-      // Update location in serenata
       await db.update(tables.serenatas)
         .set({
-          captainLat: lat,
-          captainLng: lng,
-          captainLocationUpdatedAt: new Date(),
+          latitude: String(lat),
+          longitude: String(lng),
+          updatedAt: new Date(),
         })
         .where(eq(tables.serenatas.id, serenataId));
 
@@ -1066,7 +3715,7 @@ export function createSerenatasRouter(deps: SerenatasRouterDeps) {
     }
   });
 
-  // GET /serenatas/:id/location - Cliente ve ubicacion del capitán
+  // GET /serenatas/:id/location - Cliente ve ubicacion del coordinador
   app.get('/:id/location', requireAuth, async (c) => {
     try {
       const user = await authUser(c);
@@ -1082,17 +3731,26 @@ export function createSerenatasRouter(deps: SerenatasRouterDeps) {
         return c.json({ ok: false, error: 'Serenata no encontrada' }, 404);
       }
 
-      // Only client or captain can see location
-      if (serenata.clientId !== user.id && serenata.captainId !== user.id) {
+      const [coordProf] = await db
+        .select({ id: tables.serenataCoordinatorProfiles.id })
+        .from(tables.serenataCoordinatorProfiles)
+        .where(eq(tables.serenataCoordinatorProfiles.userId, user.id))
+        .limit(1);
+
+      const isClient = serenata.clientId === user.id;
+      const isCoordinator =
+        coordProf != null && serenata.coordinatorProfileId === coordProf.id;
+
+      if (!isClient && !isCoordinator) {
         return c.json({ ok: false, error: 'No autorizado' }, 403);
       }
 
       return c.json({
         ok: true,
         location: {
-          lat: serenata.captainLat,
-          lng: serenata.captainLng,
-          updatedAt: serenata.captainLocationUpdatedAt,
+          lat: serenata.latitude,
+          lng: serenata.longitude,
+          updatedAt: serenata.updatedAt,
         },
       });
     } catch (error) {
@@ -1101,17 +3759,15 @@ export function createSerenatasRouter(deps: SerenatasRouterDeps) {
     }
   });
 
-  // POST /serenatas/:id/checkin - Capitan confirma llegada
+  // POST /serenatas/:id/checkin - Coordinador confirma llegada
   app.post('/:id/checkin', requireAuth, async (c) => {
     try {
       const user = await authUser(c);
       if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
 
       const serenataId = c.req.param('id');
-      const body = await c.req.json();
-      const { code } = body;
 
-      // Get serenata
+      // Serenata
       const [serenata] = await db.select().from(tables.serenatas)
         .where(eq(tables.serenatas.id, serenataId))
         .limit(1);
@@ -1120,36 +3776,28 @@ export function createSerenatasRouter(deps: SerenatasRouterDeps) {
         return c.json({ ok: false, error: 'Serenata no encontrada' }, 404);
       }
 
-      // Verify captain
-      const [captain] = await db.select().from(tables.serenataCaptainProfiles)
-        .where(eq(tables.serenataCaptainProfiles.userId, user.id))
+      // Solo el coordinador asignado
+      const [coordProfile] = await db.select().from(tables.serenataCoordinatorProfiles)
+        .where(eq(tables.serenataCoordinatorProfiles.userId, user.id))
         .limit(1);
 
-      if (!captain || serenata.captainId !== captain.id) {
+      if (!coordProfile || serenata.coordinatorProfileId !== coordProfile.id) {
         return c.json({ ok: false, error: 'No autorizado' }, 403);
       }
 
-      // Verify check-in code (simple 4-digit code)
-      const expectedCode = serenata.checkInCode;
-      if (code && code !== expectedCode) {
-        return c.json({ ok: false, error: 'Codigo incorrecto' }, 400);
-      }
-
-      // Update status
       await db.update(tables.serenatas)
         .set({
           status: 'in_progress',
-          actualStartTime: new Date(),
+          coordinatorArrivedAt: new Date(),
+          updatedAt: new Date(),
         })
         .where(eq(tables.serenatas.id, serenataId));
 
-      // Notify client
       await db.insert(tables.serenataNotifications).values({
         userId: serenata.clientId,
         type: 'serenata',
         title: 'Serenata iniciada',
-        body: 'El capitán ha llegado y comenzado la serenata',
-        metadata: { serenataId, action: 'checkin' },
+        message: 'El coordinador ha llegado y comenzado la serenata',
       });
 
       return c.json({ ok: true, message: 'Check-in exitoso' });
@@ -1159,15 +3807,16 @@ export function createSerenatasRouter(deps: SerenatasRouterDeps) {
     }
   });
 
-  // POST /serenatas/:id/checkout - Capitan confirma finalizacion
+  // POST /serenatas/:id/checkout - Coordinador confirma finalizacion
   app.post('/:id/checkout', requireAuth, async (c) => {
     try {
       const user = await authUser(c);
       if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
 
       const serenataId = c.req.param('id');
+      if (!serenataId) return c.json({ ok: false, error: 'Falta id de serenata' }, 400);
 
-      // Get serenata
+      // Serenata
       const [serenata] = await db.select().from(tables.serenatas)
         .where(eq(tables.serenatas.id, serenataId))
         .limit(1);
@@ -1176,33 +3825,72 @@ export function createSerenatasRouter(deps: SerenatasRouterDeps) {
         return c.json({ ok: false, error: 'Serenata no encontrada' }, 404);
       }
 
-      // Verify captain
-      const [captain] = await db.select().from(tables.serenataCaptainProfiles)
-        .where(eq(tables.serenataCaptainProfiles.userId, user.id))
+      // Solo el coordinador asignado
+      const [coordProfile] = await db.select().from(tables.serenataCoordinatorProfiles)
+        .where(eq(tables.serenataCoordinatorProfiles.userId, user.id))
         .limit(1);
 
-      if (!captain || serenata.captainId !== captain.id) {
+      if (!coordProfile || serenata.coordinatorProfileId !== coordProfile.id) {
         return c.json({ ok: false, error: 'No autorizado' }, 403);
       }
 
-      // Update status
       await db.update(tables.serenatas)
         .set({
           status: 'completed',
-          actualEndTime: new Date(),
+          completedAt: new Date(),
+          coordinatorDepartedAt: new Date(),
+          updatedAt: new Date(),
         })
         .where(eq(tables.serenatas.id, serenataId));
 
-      // Notify client
-      await db.insert(tables.serenataNotifications).values({
+      // Liberar automáticamente el pago en escrow al coordinador.
+      let releasedPaymentId: string | null = null;
+      try {
+        const [holdingPayment] = await db
+          .select({ id: tables.serenataPayments.id, status: tables.serenataPayments.status })
+          .from(tables.serenataPayments)
+          .where(
+            and(
+              eq(tables.serenataPayments.serenataId, serenataId),
+              eq(tables.serenataPayments.status, 'holding')
+            )
+          )
+          .limit(1);
+
+        if (holdingPayment) {
+          await db
+            .update(tables.serenataPayments)
+            .set({
+              status: 'released',
+              releasedToCoordinatorAt: new Date(),
+              updatedAt: new Date(),
+            })
+            .where(eq(tables.serenataPayments.id, holdingPayment.id));
+          releasedPaymentId = holdingPayment.id;
+        }
+      } catch (releaseError) {
+        console.warn('[serenatas/checkout] No se pudo liberar pago automáticamente:', releaseError);
+      }
+
+      await notifySafe(db, tables, {
         userId: serenata.clientId,
         type: 'serenata',
         title: 'Serenata completada',
-        body: 'El capitán ha finalizado la serenata. Deja tu review!',
-        metadata: { serenataId, action: 'checkout' },
+        message: 'El coordinador ha finalizado la serenata. ¡Deja tu review!',
+        data: { serenataId },
       });
 
-      return c.json({ ok: true, message: 'Check-out exitoso' });
+      const appUrl = APP_URL_FOR_EMAIL();
+      const reviewUrl = appUrl ? `${appUrl}/review/${serenataId}` : '';
+      await sendMailSafe(
+        db,
+        tables,
+        serenata.clientId,
+        '¡Tu serenata está completa!',
+        `El coordinador finalizó la serenata #${serenataId.slice(0, 8)}.\nNos encantaría escuchar cómo estuvo. Deja tu review${reviewUrl ? ` aquí: ${reviewUrl}` : ' desde la app'}.`
+      );
+
+      return c.json({ ok: true, message: 'Check-out exitoso', releasedPaymentId });
     } catch (error) {
       console.error('[serenatas/checkout] Error:', error);
       return c.json({ ok: false, error: 'Error en check-out' }, 500);
@@ -1227,7 +3915,6 @@ export function createSerenatasRouter(deps: SerenatasRouterDeps) {
         return c.json({ ok: false, error: 'Rating debe ser entre 1 y 5' }, 400);
       }
 
-      // Get serenata
       const [serenata] = await db.select().from(tables.serenatas)
         .where(eq(tables.serenatas.id, serenataId))
         .limit(1);
@@ -1236,33 +3923,25 @@ export function createSerenatasRouter(deps: SerenatasRouterDeps) {
         return c.json({ ok: false, error: 'Serenata no encontrada' }, 404);
       }
 
-      // Determine who is reviewing who
-      let reviewedId: string;
-      let reviewerRole: 'client' | 'captain';
-
+      let reviewerType: 'client' | 'coordinator';
       if (role === 'client' && serenata.clientId === user.id) {
-        // Client reviewing captain
-        reviewedId = serenata.captainId!;
-        reviewerRole = 'client';
-      } else if (role === 'captain') {
-        // Captain reviewing client
-        const [captain] = await db.select().from(tables.serenataCaptainProfiles)
-          .where(eq(tables.serenataCaptainProfiles.userId, user.id))
+        reviewerType = 'client';
+      } else if (role === 'coordinator') {
+        const [coordProfile] = await db.select().from(tables.serenataCoordinatorProfiles)
+          .where(eq(tables.serenataCoordinatorProfiles.userId, user.id))
           .limit(1);
-        if (!captain || serenata.captainId !== captain.id) {
+        if (!coordProfile || serenata.coordinatorProfileId !== coordProfile.id) {
           return c.json({ ok: false, error: 'No autorizado' }, 403);
         }
-        reviewedId = serenata.clientId;
-        reviewerRole = 'captain';
+        reviewerType = 'coordinator';
       } else {
         return c.json({ ok: false, error: 'Rol invalido' }, 400);
       }
 
-      // Check if review already exists
-      const [existingReview] = await db.select().from(tables.serenataReviews)
+      const [existingReview] = await db.select().from(tables.serenataCoordinatorReviews)
         .where(and(
-          eq(tables.serenataReviews.serenataId, serenataId),
-          eq(tables.serenataReviews.reviewerId, user.id)
+          eq(tables.serenataCoordinatorReviews.serenataId, serenataId),
+          eq(tables.serenataCoordinatorReviews.reviewerId, user.id),
         ))
         .limit(1);
 
@@ -1270,28 +3949,17 @@ export function createSerenatasRouter(deps: SerenatasRouterDeps) {
         return c.json({ ok: false, error: 'Ya dejaste un review para esta serenata' }, 400);
       }
 
-      // Create review
-      const [review] = await db.insert(tables.serenataReviews)
-        .values({
-          serenataId,
-          groupId: serenata.captainId, // Using captainId as groupId for simplicity
-          reviewerId: reviewedId, // The person being reviewed
-          reviewerType: reviewerRole === 'client' ? 'client' : 'captain',
-          overallRating: rating,
-          comment: comment || null,
-        })
-        .returning();
+      const review = await service.createReview(
+        { serenataId, rating, comment },
+        user.id,
+        reviewerType,
+      );
 
-      // Update average rating for the reviewed user/captain
-      await service.updateAverageRating(reviewedId, reviewerRole === 'client' ? 'captain' : 'client');
-
-      // Notify the reviewed user
       await db.insert(tables.serenataNotifications).values({
-        userId: reviewedId,
+        userId: review.revieweeId,
         type: 'review',
         title: 'Nuevo review recibido',
-        body: `${reviewerRole === 'client' ? 'Un cliente' : 'Un capitán'} te ha calificado con ${rating} estrellas`,
-        metadata: { reviewId: review.id, serenataId },
+        message: `${reviewerType === 'client' ? 'Un cliente' : 'Un coordinador'} te ha calificado con ${rating} estrellas`,
       });
 
       return c.json({ ok: true, review });
@@ -1307,21 +3975,21 @@ export function createSerenatasRouter(deps: SerenatasRouterDeps) {
       const serenataId = c.req.param('id');
 
       const reviews = await db.select({
-        id: tables.serenataReviews.id,
-        rating: tables.serenataReviews.overallRating,
-        comment: tables.serenataReviews.comment,
-        reviewerRole: tables.serenataReviews.reviewerType,
-        createdAt: tables.serenataReviews.createdAt,
+        id: tables.serenataCoordinatorReviews.id,
+        rating: tables.serenataCoordinatorReviews.rating,
+        comment: tables.serenataCoordinatorReviews.comment,
+        reviewerRole: tables.serenataCoordinatorReviews.reviewerType,
+        createdAt: tables.serenataCoordinatorReviews.createdAt,
         reviewer: {
           id: tables.users.id,
           name: tables.users.name,
           avatarUrl: tables.users.avatarUrl,
         },
       })
-      .from(tables.serenataReviews)
-      .leftJoin(tables.users, eq(tables.serenataReviews.reviewerId, tables.users.id))
-      .where(eq(tables.serenataReviews.serenataId, serenataId))
-      .orderBy(desc(tables.serenataReviews.createdAt));
+      .from(tables.serenataCoordinatorReviews)
+      .leftJoin(tables.users, eq(tables.serenataCoordinatorReviews.reviewerId, tables.users.id))
+      .where(eq(tables.serenataCoordinatorReviews.serenataId, serenataId))
+      .orderBy(desc(tables.serenataCoordinatorReviews.createdAt));
 
       return c.json({ ok: true, reviews });
     } catch (error) {
@@ -1330,60 +3998,76 @@ export function createSerenatasRouter(deps: SerenatasRouterDeps) {
     }
   });
 
-  // GET /captains/:id/reviews - Obtener reviews de un capitán
-  app.get('/captains/:id/reviews', async (c) => {
-    try {
-      const captainId = c.req.param('id');
+  async function coordinatorReviewsPayload(coordinatorProfileId: string) {
+    const [prof] = await db
+      .select({ userId: tables.serenataCoordinatorProfiles.userId })
+      .from(tables.serenataCoordinatorProfiles)
+      .where(eq(tables.serenataCoordinatorProfiles.id, coordinatorProfileId))
+      .limit(1);
 
-      const reviews = await db.select({
-        id: tables.serenataReviews.id,
-        rating: tables.serenataReviews.overallRating,
-        comment: tables.serenataReviews.comment,
-        createdAt: tables.serenataReviews.createdAt,
-        reviewer: {
-          id: tables.users.id,
-          name: tables.users.name,
-          avatarUrl: tables.users.avatarUrl,
-        },
-        serenata: {
-          id: tables.serenatas.id,
-          recipientName: tables.serenatas.recipientName,
-          date: tables.serenatas.date,
-        },
-      })
-      .from(tables.serenataReviews)
-      .leftJoin(tables.users, eq(tables.serenataReviews.reviewerId, tables.users.id))
-      .leftJoin(tables.serenatas, eq(tables.serenataReviews.serenataId, tables.serenatas.id))
+    if (!prof) return null;
+
+    const reviews = await db.select({
+      id: tables.serenataCoordinatorReviews.id,
+      rating: tables.serenataCoordinatorReviews.rating,
+      comment: tables.serenataCoordinatorReviews.comment,
+      createdAt: tables.serenataCoordinatorReviews.createdAt,
+      reviewer: {
+        id: tables.users.id,
+        name: tables.users.name,
+        avatarUrl: tables.users.avatarUrl,
+      },
+      serenata: {
+        id: tables.serenatas.id,
+        recipientName: tables.serenatas.recipientName,
+        eventDate: tables.serenatas.eventDate,
+      },
+    })
+      .from(tables.serenataCoordinatorReviews)
+      .leftJoin(tables.users, eq(tables.serenataCoordinatorReviews.reviewerId, tables.users.id))
+      .leftJoin(tables.serenatas, eq(tables.serenataCoordinatorReviews.serenataId, tables.serenatas.id))
       .where(and(
-        eq(tables.serenataReviews.reviewerId, captainId),
-        eq(tables.serenataReviews.reviewerType, 'client')
+        eq(tables.serenataCoordinatorReviews.revieweeId, prof.userId),
+        eq(tables.serenataCoordinatorReviews.revieweeType, 'coordinator'),
       ))
-      .orderBy(desc(tables.serenataReviews.createdAt));
+      .orderBy(desc(tables.serenataCoordinatorReviews.createdAt));
 
-      // Calculate stats
-      const stats = {
-        average: reviews.length > 0 
-          ? (reviews.reduce((sum: number, r: { rating: number }) => sum + r.rating, 0) / reviews.length).toFixed(1)
-          : 0,
-        total: reviews.length,
-        distribution: {
-          5: reviews.filter((r: { rating: number }) => r.rating === 5).length,
-          4: reviews.filter((r: { rating: number }) => r.rating === 4).length,
-          3: reviews.filter((r: { rating: number }) => r.rating === 3).length,
-          2: reviews.filter((r: { rating: number }) => r.rating === 2).length,
-          1: reviews.filter((r: { rating: number }) => r.rating === 1).length,
-        },
-      };
+    const stats = {
+      average: reviews.length > 0
+        ? (reviews.reduce((sum: number, r: { rating: number }) => sum + r.rating, 0) / reviews.length).toFixed(1)
+        : 0,
+      total: reviews.length,
+      distribution: {
+        5: reviews.filter((r: { rating: number }) => r.rating === 5).length,
+        4: reviews.filter((r: { rating: number }) => r.rating === 4).length,
+        3: reviews.filter((r: { rating: number }) => r.rating === 3).length,
+        2: reviews.filter((r: { rating: number }) => r.rating === 2).length,
+        1: reviews.filter((r: { rating: number }) => r.rating === 1).length,
+      },
+    };
 
-      return c.json({ ok: true, reviews, stats });
+    return { reviews, stats };
+  }
+
+  // GET /coordinators/:id/reviews - Obtener reviews de un coordinador (`id` = perfil coordinador)
+  app.get('/coordinators/:id/reviews', async (c) => {
+    try {
+      const coordinatorProfileId = c.req.param('id');
+
+      const payload = await coordinatorReviewsPayload(coordinatorProfileId);
+      if (!payload) {
+        return c.json({ ok: false, error: 'Coordinador no encontrado' }, 404);
+      }
+
+      return c.json({ ok: true, reviews: payload.reviews, stats: payload.stats });
     } catch (error) {
-      console.error('[serenatas/captains/reviews] Error:', error);
+      console.error('[serenatas/coordinators/reviews] Error:', error);
       return c.json({ ok: false, error: 'Error al obtener reviews' }, 500);
     }
   });
 
-  // Create or update route for group
-  app.post('/routes', async (c) => {
+  // Crear o actualizar ruta de grupo
+  app.post('/routes', requireAuth, async (c) => {
     try {
       const user = await getAuthUser(c);
       if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
@@ -1394,7 +4078,7 @@ export function createSerenatasRouter(deps: SerenatasRouterDeps) {
         return c.json({ ok: false, error: 'Datos inválidos', details: parsed.error.flatten() }, 400);
       }
 
-      // Check if group exists and user is captain
+      // Grupo existe y el usuario es el líder de la cuadrilla
       const group = await db.query.serenataGroups.findFirst({
         where: eq(tables.serenataGroups.id, parsed.data.groupId),
       });
@@ -1439,8 +4123,8 @@ export function createSerenatasRouter(deps: SerenatasRouterDeps) {
     }
   });
 
-  // Optimize route for a group
-  app.post('/routes/optimize', async (c) => {
+  // Optimizar orden de visitas
+  app.post('/routes/optimize', requireAuth, async (c) => {
     try {
       const user = await getAuthUser(c);
       if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
@@ -1451,11 +4135,10 @@ export function createSerenatasRouter(deps: SerenatasRouterDeps) {
         return c.json({ ok: false, error: 'Datos inválidos', details: parsed.error.flatten() }, 400);
       }
 
-      // Get serenata details
-      const serenatas = await db.query.serenataRequests.findMany({
+      const serenatas = await db.query.serenatas.findMany({
         where: and(
-          inArray(tables.serenataRequests.id, parsed.data.serenataIds),
-          eq(tables.serenataRequests.status, 'assigned')
+          inArray(tables.serenatas.id, parsed.data.serenataIds),
+          inArray(tables.serenatas.status, ['accepted', 'payment_pending', 'confirmed', 'in_progress'])
         ),
       });
 
@@ -1463,15 +4146,15 @@ export function createSerenatasRouter(deps: SerenatasRouterDeps) {
         return c.json({ ok: false, error: 'No se encontraron serenatas válidas' }, 400);
       }
 
-      // Create waypoints from serenatas
+      // Waypoints desde coordenadas de cada solicitud
       const waypoints = serenatas
-        .filter((s: any) => s.lat && s.lng)
+        .filter((s: any) => s.latitude && s.longitude)
         .map((s: any) => ({
-          lat: parseFloat(s.lat!.toString()),
-          lng: parseFloat(s.lng!.toString()),
+          lat: parseFloat(s.latitude!.toString()),
+          lng: parseFloat(s.longitude!.toString()),
           serenataId: s.id,
           address: s.address,
-          estimatedTime: s.dateTime.toISOString(),
+          estimatedTime: mapSerenataForApi(s).dateTime,
         }));
 
       if (waypoints.length === 0) {
@@ -1504,8 +4187,8 @@ export function createSerenatasRouter(deps: SerenatasRouterDeps) {
     }
   });
 
-  // Start route
-  app.post('/routes/:id/start', async (c) => {
+  // Iniciar ruta
+  app.post('/routes/:id/start', requireAuth, async (c) => {
     try {
       const user = await getAuthUser(c);
       if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
@@ -1521,14 +4204,14 @@ export function createSerenatasRouter(deps: SerenatasRouterDeps) {
         return c.json({ ok: false, error: 'Ruta no encontrada' }, 404);
       }
 
-      // Check if user is captain
+      // Usuario es el líder del grupo asociado a la ruta
       const musician = await db.query.serenataMusicians.findFirst({
         where: eq(tables.serenataMusicians.userId, user.id),
       });
 
       const group = route.group as any;
-      if (!musician || group?.captainId !== musician.id) {
-        return c.json({ ok: false, error: 'Solo el capitán puede iniciar la ruta' }, 403);
+      if (!musician || group?.groupLeadMusicianId !== musician.id) {
+        return c.json({ ok: false, error: 'Solo el coordinador puede iniciar la ruta' }, 403);
       }
 
       const [updated] = await db.update(tables.serenataRoutes)
@@ -1547,8 +4230,8 @@ export function createSerenatasRouter(deps: SerenatasRouterDeps) {
     }
   });
 
-  // Complete route
-  app.post('/routes/:id/complete', async (c) => {
+  // Completar ruta
+  app.post('/routes/:id/complete', requireAuth, async (c) => {
     try {
       const user = await getAuthUser(c);
       if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
@@ -1580,8 +4263,8 @@ export function createSerenatasRouter(deps: SerenatasRouterDeps) {
     }
   });
 
-  // Get route statistics
-  app.get('/routes/:id/stats', async (c) => {
+  // Estadísticas de una ruta
+  app.get('/routes/:id/stats', requireAuth, async (c) => {
     try {
       const id = c.req.param('id');
 
@@ -1615,11 +4298,11 @@ export function createSerenatasRouter(deps: SerenatasRouterDeps) {
   });
 
   // ═══════════════════════════════════════════════════════════════
-  // NOTIFICATIONS ROUTES
+  // NOTIFICACIONES
   // ═══════════════════════════════════════════════════════════════
 
-  // Get my notifications
-  app.get('/notifications', async (c) => {
+  // Listado de notificaciones del usuario
+  app.get('/notifications', requireAuth, async (c) => {
     try {
       const user = await getAuthUser(c);
       if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
@@ -1652,8 +4335,8 @@ export function createSerenatasRouter(deps: SerenatasRouterDeps) {
     }
   });
 
-  // Mark notification as read
-  app.patch('/notifications/:id/read', async (c) => {
+  // Marcar notificación como leída
+  app.patch('/notifications/:id/read', requireAuth, async (c) => {
     try {
       const user = await getAuthUser(c);
       if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
@@ -1679,8 +4362,8 @@ export function createSerenatasRouter(deps: SerenatasRouterDeps) {
     }
   });
 
-  // Mark all notifications as read
-  app.post('/notifications/read-all', async (c) => {
+  // Marcar todas como leídas
+  app.post('/notifications/read-all', requireAuth, async (c) => {
     try {
       const user = await getAuthUser(c);
       if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
@@ -1699,8 +4382,8 @@ export function createSerenatasRouter(deps: SerenatasRouterDeps) {
     }
   });
 
-  // Delete notification
-  app.delete('/notifications/:id', async (c) => {
+  // Eliminar notificación
+  app.delete('/notifications/:id', requireAuth, async (c) => {
     try {
       const user = await getAuthUser(c);
       if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
@@ -1720,8 +4403,8 @@ export function createSerenatasRouter(deps: SerenatasRouterDeps) {
     }
   });
 
-  // Get unread count (for badge)
-  app.get('/notifications/unread-count', async (c) => {
+  // Conteo sin leer (badge)
+  app.get('/notifications/unread-count', requireAuth, async (c) => {
     try {
       const user = await getAuthUser(c);
       if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
@@ -1740,8 +4423,464 @@ export function createSerenatasRouter(deps: SerenatasRouterDeps) {
     }
   });
 
-  // Get musician stats
-  app.get('/musicians/me/stats', async (c) => {
+  /** Payload músico para panel (AuthContext, editar perfil). */
+  async function buildMusicianMeProfile(userId: string): Promise<Record<string, unknown> | null> {
+    try {
+      const m = await db.query.serenataMusicians.findFirst({
+        where: eq(tables.serenataMusicians.userId, userId),
+      });
+      if (!m) return null;
+      const [u] = await db
+        .select({ name: tables.users.name })
+        .from(tables.users)
+        .where(eq(tables.users.id, userId))
+        .limit(1);
+      const rating = m.rating != null ? Number(m.rating) : 5;
+      const exp = m.experience ?? undefined;
+      const comuna = typeof m.comuna === 'string' ? m.comuna : '';
+      return {
+        id: m.id,
+        userId: m.userId,
+        instrument: m.instrument,
+        bio: m.bio ?? '',
+        phone: m.phone ?? undefined,
+        comuna,
+        region: typeof m.region === 'string' ? m.region : '',
+        location: comuna,
+        isAvailable: Boolean(m.isAvailable ?? true),
+        availableNow: Boolean(m.availableNow ?? false),
+        experience: exp ?? null,
+        experienceYears: exp ?? undefined,
+        rating,
+        avatarUrl: m.avatarUrl ?? undefined,
+        name: typeof u?.name === 'string' ? u.name : '',
+      };
+    } catch (error) {
+      // Si hay error de base de datos (tabla no existe, etc.), retornar null
+      console.error('[buildMusicianMeProfile] Database error:', error);
+      return null;
+    }
+  }
+
+  const serveAuthenticatedMusicianProfile = async (c: Context) => {
+    try {
+      const user = await authUser(c);
+      if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
+
+      const musician = await buildMusicianMeProfile(user.id);
+      if (!musician) {
+        return c.json({ ok: false, error: 'Perfil de músico no encontrado' }, 404);
+      }
+      return c.json({ ok: true, musician });
+    } catch (error) {
+      console.error('[serenatas/musicians] GET me/profile error:', error);
+      return c.json({ ok: false, ...serenatasDevErrorPayload('Error al cargar perfil', error) }, 500);
+    }
+  };
+
+  app.get('/musicians/me/profile', requireAuth, serveAuthenticatedMusicianProfile);
+  /** @deprecated Usar `/musicians/me/profile`; se mantiene para clientes antiguos. */
+  app.get('/musicians/my', requireAuth, serveAuthenticatedMusicianProfile);
+
+  app.post('/musicians/me/profile', requireAuth, async (c) => {
+    try {
+      const user = await authUser(c);
+      if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
+
+      const existing = await db.query.serenataMusicians.findFirst({
+        where: eq(tables.serenataMusicians.userId, user.id),
+      });
+      if (existing) {
+        return c.json({ ok: false, error: 'Ya tienes un perfil de músico' }, 409);
+      }
+
+      const body = (await c.req.json().catch(() => ({}))) as {
+        name?: string;
+        instrument?: string;
+        experience?: number;
+        bio?: string | null;
+        comuna?: string | null;
+        region?: string | null;
+        location?: string | null;
+        lat?: number | string;
+        lng?: number | string;
+        phone?: string | null;
+        isAvailable?: boolean;
+        availableNow?: boolean;
+      };
+
+      const instrument =
+        typeof body.instrument === 'string' && body.instrument.trim()
+          ? body.instrument.trim().slice(0, 30)
+          : 'Voz';
+
+      if (typeof body.name === 'string' && body.name.trim()) {
+        await db
+          .update(tables.users)
+          .set({ name: body.name.trim().slice(0, 255), updatedAt: new Date() })
+          .where(eq(tables.users.id, user.id));
+      }
+
+      const lat =
+        body.lat !== undefined && body.lat !== '' ? String(body.lat) : undefined;
+      const lng =
+        body.lng !== undefined && body.lng !== '' ? String(body.lng) : undefined;
+
+      await db.insert(tables.serenataMusicians).values({
+        userId: user.id,
+        instrument,
+        experience: typeof body.experience === 'number' ? body.experience : undefined,
+        bio: body.bio != null ? String(body.bio).slice(0, 4000) : undefined,
+        phone:
+          typeof body.phone === 'string' ? body.phone.trim().slice(0, 50) || undefined : undefined,
+        comuna:
+          (body.comuna ?? body.location) != null
+            ? String(body.comuna ?? body.location).trim().slice(0, 100) || undefined
+            : undefined,
+        region: typeof body.region === 'string' ? body.region.trim().slice(0, 100) || undefined : undefined,
+        lat,
+        lng,
+        isAvailable: body.isAvailable ?? true,
+        availableNow: body.availableNow ?? false,
+      });
+
+      const musician = await buildMusicianMeProfile(user.id);
+      return c.json({ ok: true, musician }, 201);
+    } catch (error) {
+      console.error('[serenatas/musicians] POST me/profile error:', error);
+      return c.json({ ok: false, error: 'Error al crear perfil' }, 500);
+    }
+  });
+
+  app.patch('/musicians/me/profile', requireAuth, async (c) => {
+    try {
+      const user = await authUser(c);
+      if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
+
+      const row = await db.query.serenataMusicians.findFirst({
+        where: eq(tables.serenataMusicians.userId, user.id),
+      });
+      if (!row) {
+        return c.json({ ok: false, error: 'Perfil de músico no encontrado' }, 404);
+      }
+
+      const body = (await c.req.json().catch(() => ({}))) as {
+        name?: string;
+        instrument?: string;
+        experience?: number | null;
+        bio?: string | null;
+        comuna?: string | null;
+        region?: string | null;
+        location?: string | null;
+        lat?: number | string | null;
+        lng?: number | string | null;
+        phone?: string | null;
+        isAvailable?: boolean;
+        availableNow?: boolean;
+      };
+
+      if (typeof body.name === 'string' && body.name.trim()) {
+        await db
+          .update(tables.users)
+          .set({ name: body.name.trim().slice(0, 255), updatedAt: new Date() })
+          .where(eq(tables.users.id, user.id));
+      }
+
+      const patch: Record<string, unknown> = { updatedAt: new Date() };
+      if (typeof body.instrument === 'string' && body.instrument.trim()) {
+        patch.instrument = body.instrument.trim().slice(0, 30);
+      }
+      if (body.experience !== undefined) {
+        patch.experience = body.experience === null ? null : Number(body.experience);
+      }
+      if (body.bio !== undefined) {
+        patch.bio = body.bio === null ? null : String(body.bio).slice(0, 4000);
+      }
+      if (body.phone !== undefined) {
+        patch.phone =
+          body.phone === null || body.phone === ''
+            ? null
+            : String(body.phone).trim().slice(0, 50);
+      }
+      const loc = body.comuna ?? body.location;
+      if (loc !== undefined) {
+        patch.comuna = loc === null || loc === '' ? null : String(loc).trim().slice(0, 100);
+      }
+      if (body.region !== undefined) {
+        patch.region =
+          body.region === null || body.region === ''
+            ? null
+            : String(body.region).trim().slice(0, 100);
+      }
+      if (body.lat !== undefined) {
+        patch.lat = body.lat === null || body.lat === '' ? null : String(body.lat);
+      }
+      if (body.lng !== undefined) {
+        patch.lng = body.lng === null || body.lng === '' ? null : String(body.lng);
+      }
+      if (typeof body.isAvailable === 'boolean') patch.isAvailable = body.isAvailable;
+      if (typeof body.availableNow === 'boolean') patch.availableNow = body.availableNow;
+
+      await db
+        .update(tables.serenataMusicians)
+        .set(patch)
+        .where(eq(tables.serenataMusicians.id, row.id));
+
+      const musician = await buildMusicianMeProfile(user.id);
+      return c.json({ ok: true, musician });
+    } catch (error) {
+      console.error('[serenatas/musicians] PATCH me/profile error:', error);
+      return c.json({ ok: false, error: 'Error al actualizar perfil' }, 500);
+    }
+  });
+
+  app.patch('/musicians/me/availability', requireAuth, async (c) => {
+    try {
+      const user = await authUser(c);
+      if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
+
+      const body = (await c.req.json().catch(() => ({}))) as {
+        isAvailable?: boolean;
+        availableNow?: boolean;
+      };
+      const hasAvail = typeof body.isAvailable === 'boolean';
+      const hasNow = typeof body.availableNow === 'boolean';
+      if (!hasAvail && !hasNow) {
+        return c.json({ ok: false, error: 'isAvailable o availableNow requerido' }, 400);
+      }
+
+      const row = await db.query.serenataMusicians.findFirst({
+        where: eq(tables.serenataMusicians.userId, user.id),
+      });
+      if (!row) {
+        return c.json({ ok: false, error: 'Perfil de músico no encontrado' }, 404);
+      }
+
+      const patch: Record<string, unknown> = { updatedAt: new Date() };
+      if (hasAvail) patch.isAvailable = body.isAvailable;
+      if (hasNow) patch.availableNow = body.availableNow;
+
+      await db
+        .update(tables.serenataMusicians)
+        .set(patch)
+        .where(eq(tables.serenataMusicians.id, row.id));
+
+      return c.json({ ok: true });
+    } catch (error) {
+      console.error('[serenatas/musicians] PATCH availability error:', error);
+      return c.json({ ok: false, error: 'Error al actualizar disponibilidad' }, 500);
+    }
+  });
+
+  /**
+   * Músicos disponibles cerca del usuario (coordinador/músico) para armar grupos.
+   * Origen: query `lat`/`lng`, o perfil de coordinador, o perfil de músico.
+   * Sin coordenadas: lista ordenada por rating / disponibles ahora (distancia 0).
+   */
+  app.get('/musicians/available', requireAuth, async (c) => {
+    try {
+      const user = await authUser(c);
+      if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
+
+      const role = user.role ?? '';
+      const canUse =
+        role === 'admin' ||
+        role === 'superadmin' ||
+        role === 'coordinator' ||
+        role === 'musician';
+      if (!canUse) {
+        return c.json({ ok: false, error: 'No autorizado' }, 403);
+      }
+
+      const radiusKm = Math.min(Math.max(Number(c.req.query('radius') ?? 10) || 10, 1), 200);
+      const limit = Math.min(Number(c.req.query('limit') ?? 40) || 40, 80);
+
+      let originLat: number | null = null;
+      let originLng: number | null = null;
+
+      const qLat = c.req.query('lat');
+      const qLng = c.req.query('lng');
+      if (qLat != null && qLng != null && qLat !== '' && qLng !== '') {
+        const lat = Number(qLat);
+        const lng = Number(qLng);
+        if (Number.isFinite(lat) && Number.isFinite(lng)) {
+          originLat = lat;
+          originLng = lng;
+        }
+      }
+
+      if (originLat == null) {
+        const coordProfile = await db.query.serenataCoordinatorProfiles.findFirst({
+          where: eq(tables.serenataCoordinatorProfiles.userId, user.id),
+        });
+        if (coordProfile?.latitude != null && coordProfile?.longitude != null) {
+          const lat = Number(coordProfile.latitude);
+          const lng = Number(coordProfile.longitude);
+          if (Number.isFinite(lat) && Number.isFinite(lng)) {
+            originLat = lat;
+            originLng = lng;
+          }
+        }
+      }
+
+      if (originLat == null) {
+        const musicianMe = await db.query.serenataMusicians.findFirst({
+          where: eq(tables.serenataMusicians.userId, user.id),
+        });
+        if (musicianMe?.lat != null && musicianMe?.lng != null) {
+          const lat = Number(musicianMe.lat);
+          const lng = Number(musicianMe.lng);
+          if (Number.isFinite(lat) && Number.isFinite(lng)) {
+            originLat = lat;
+            originLng = lng;
+          }
+        }
+      }
+
+      const selfRow = await db.query.serenataMusicians.findFirst({
+        where: eq(tables.serenataMusicians.userId, user.id),
+      });
+      const selfMusicianId = selfRow?.id;
+
+      type AvailableMusicianRow = {
+        id: string;
+        instrument: string;
+        lat: unknown;
+        lng: unknown;
+        rating: unknown;
+        availableNow: boolean;
+        userId: string;
+        name: unknown;
+      };
+
+      const rows = (await db
+        .select({
+          id: tables.serenataMusicians.id,
+          instrument: tables.serenataMusicians.instrument,
+          lat: tables.serenataMusicians.lat,
+          lng: tables.serenataMusicians.lng,
+          rating: tables.serenataMusicians.rating,
+          availableNow: tables.serenataMusicians.availableNow,
+          userId: tables.serenataMusicians.userId,
+          name: tables.users.name,
+        })
+        .from(tables.serenataMusicians)
+        .innerJoin(tables.users, eq(tables.serenataMusicians.userId, tables.users.id))
+        .where(
+          and(eq(tables.serenataMusicians.status, 'active'), eq(tables.serenataMusicians.isAvailable, true))
+        )
+        .limit(400)) as AvailableMusicianRow[];
+
+      const hasOrigin = originLat != null && originLng != null;
+
+      type Draft = {
+        id: string;
+        name: string;
+        instrument: string;
+        distance: number;
+        availableNow: boolean;
+        rating: number;
+      };
+
+      const drafted: Draft[] = rows
+        .filter((r) => r.id !== selfMusicianId)
+        .map((r) => {
+          const mLat = r.lat != null ? Number(r.lat) : NaN;
+          const mLng = r.lng != null ? Number(r.lng) : NaN;
+          let distance = 0;
+          if (hasOrigin && Number.isFinite(mLat) && Number.isFinite(mLng) && originLat != null && originLng != null) {
+            distance = Math.round(haversineKm(originLat, originLng, mLat, mLng) * 10) / 10;
+          } else if (hasOrigin) {
+            distance = 9999;
+          }
+          const ratingN = r.rating != null ? Number(r.rating) : 5;
+          return {
+            id: r.id,
+            name: typeof r.name === 'string' && r.name ? r.name : 'Músico',
+            instrument: r.instrument,
+            distance,
+            availableNow: Boolean(r.availableNow),
+            rating: Number.isFinite(ratingN) ? ratingN : 5,
+          };
+        })
+        .filter((m) => {
+          if (!hasOrigin) return true;
+          return m.distance <= radiusKm;
+        })
+        .sort((a, b) => {
+          if (hasOrigin) return a.distance - b.distance;
+          if (a.availableNow !== b.availableNow) return a.availableNow ? -1 : 1;
+          return b.rating - a.rating;
+        })
+        .slice(0, limit);
+
+      const musicians = drafted.map((m) => ({
+        id: m.id,
+        name: m.name,
+        instrument: m.instrument,
+        distance: hasOrigin ? m.distance : null,
+      }));
+
+      return c.json({
+        ok: true,
+        musicians,
+        meta: {
+          hasOrigin,
+          radiusKm,
+        },
+      });
+    } catch (error) {
+      console.error('[serenatas/musicians/available] Error:', error);
+      return c.json({ ok: false, error: 'Error al listar músicos' }, 500);
+    }
+  });
+
+  /** Perfil público de músico por id canónico. */
+  app.get('/musicians/:id', async (c) => {
+    try {
+      const id = c.req.param('id');
+      if (!id || id === 'me') {
+        return c.json({ ok: false, error: 'id inválido' }, 400);
+      }
+
+      const m = await db.query.serenataMusicians.findFirst({
+        where: eq(tables.serenataMusicians.id, id),
+      });
+      if (!m) {
+        return c.json({ ok: false, error: 'Músico no encontrado' }, 404);
+      }
+
+      const [u] = await db
+        .select({ name: tables.users.name })
+        .from(tables.users)
+        .where(eq(tables.users.id, m.userId))
+        .limit(1);
+
+      const createdAt = m.createdAt instanceof Date ? m.createdAt.toISOString() : String(m.createdAt ?? '');
+
+      return c.json({
+        ok: true,
+        musician: {
+          id: m.id,
+          name: typeof u?.name === 'string' && u.name ? u.name : 'Músico',
+          instrument: m.instrument,
+          bio: m.bio ?? undefined,
+          location: (typeof m.comuna === 'string' && m.comuna) || (typeof m.region === 'string' && m.region) || '',
+          rating: m.rating != null ? Number(m.rating) : 5,
+          completedSerenatas: m.completedSerenatas ?? 0,
+          joinedAt: createdAt,
+          isAvailable: Boolean(m.isAvailable ?? true),
+          avatar: m.avatarUrl ?? undefined,
+        },
+      });
+    } catch (error) {
+      console.error('[serenatas/musicians] GET :id error:', error);
+      return c.json({ ok: false, error: 'Error al cargar músico' }, 500);
+    }
+  });
+
+  // Estadísticas del músico autenticado
+  app.get('/musicians/me/stats', requireAuth, async (c) => {
     try {
       const user = await getAuthUser(c);
       if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
@@ -1754,7 +4893,7 @@ export function createSerenatasRouter(deps: SerenatasRouterDeps) {
         return c.json({ ok: false, error: 'Perfil de músico no encontrado' }, 404);
       }
 
-      // Get completed serenatas count
+      // Completadas vía asignaciones en grupos del músico
       const memberships = await db.query.serenataGroupMembers.findMany({
         where: eq(tables.serenataGroupMembers.musicianId, musician.id),
         with: {
@@ -1801,6 +4940,1467 @@ export function createSerenatasRouter(deps: SerenatasRouterDeps) {
     } catch (error) {
       console.error('[serenatas/musicians] Error getting stats:', error);
       return c.json({ ok: false, error: 'Error al obtener estadísticas' }, 500);
+    }
+  });
+
+  // ============================================================
+  // LINEUP DE SERENATA — invitaciones, solicitudes y aceptación
+  // ============================================================
+  // Modelo: `serenataMusicianLineup` con `status` ∈ {invited, requested, accepted, declined, removed}.
+  // Coordinador asignado puede invitar y aprobar/rechazar; músico puede solicitar y aceptar/rechazar.
+
+  /**
+   * Listar lineup de una serenata, con perfiles de los músicos.
+   * Visible para: cliente dueño, coordinador asignado, admin, o cualquier músico del lineup.
+   */
+  app.get('/:id/lineup', requireAuth, async (c) => {
+    try {
+      const user = await authUser(c);
+      if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
+      const serenataId = c.req.param('id');
+      if (!serenataId) return c.json({ ok: false, error: 'serenataId requerido' }, 400);
+
+      const [serenata] = await db
+        .select()
+        .from(tables.serenatas)
+        .where(eq(tables.serenatas.id, serenataId))
+        .limit(1);
+      if (!serenata) return c.json({ ok: false, error: 'Serenata no encontrada' }, 404);
+
+      const isAdmin = user.role === 'admin';
+      const isOwner = serenata.clientId === user.id;
+      let isAssignedCoordinator = false;
+      if (serenata.coordinatorProfileId) {
+        const [coord] = await db
+          .select({ userId: tables.serenataCoordinatorProfiles.userId })
+          .from(tables.serenataCoordinatorProfiles)
+          .where(eq(tables.serenataCoordinatorProfiles.id, serenata.coordinatorProfileId))
+          .limit(1);
+        isAssignedCoordinator = coord?.userId === user.id;
+      }
+
+      // ¿el usuario está en el lineup?
+      const myMusician = await db.query.serenataMusicians.findFirst({
+        where: eq(tables.serenataMusicians.userId, user.id),
+      });
+      let isInLineup = false;
+      if (myMusician) {
+        const [row] = await db
+          .select({ id: tables.serenataMusicianLineup.id })
+          .from(tables.serenataMusicianLineup)
+          .where(
+            and(
+              eq(tables.serenataMusicianLineup.serenataId, serenataId),
+              eq(tables.serenataMusicianLineup.musicianId, myMusician.id)
+            )
+          )
+          .limit(1);
+        isInLineup = !!row;
+      }
+
+      if (!isAdmin && !isOwner && !isAssignedCoordinator && !isInLineup) {
+        return c.json({ ok: false, error: 'No autorizado' }, 403);
+      }
+
+      const lineup = await db
+        .select({
+          id: tables.serenataMusicianLineup.id,
+          /** ID canónico del músico (`serenata_musicians.id`); alias legacy para el cliente. */
+          musicianProfileId: tables.serenataMusicianLineup.musicianId,
+          status: tables.serenataMusicianLineup.status,
+          initiator: tables.serenataMusicianLineup.initiator,
+          invitedAt: tables.serenataMusicianLineup.invitedAt,
+          respondedAt: tables.serenataMusicianLineup.respondedAt,
+          confirmedAt: tables.serenataMusicianLineup.confirmedAt,
+          declineReason: tables.serenataMusicianLineup.declineReason,
+          attended: tables.serenataMusicianLineup.attended,
+          userId: tables.serenataMusicians.userId,
+          instrument: tables.serenataMusicians.instrument,
+          name: tables.users.name,
+          email: tables.users.email,
+        })
+        .from(tables.serenataMusicianLineup)
+        .leftJoin(
+          tables.serenataMusicians,
+          eq(tables.serenataMusicianLineup.musicianId, tables.serenataMusicians.id)
+        )
+        .leftJoin(tables.users, eq(tables.serenataMusicians.userId, tables.users.id))
+        .where(eq(tables.serenataMusicianLineup.serenataId, serenataId))
+        .orderBy(asc(tables.serenataMusicianLineup.invitedAt));
+
+      return c.json({ ok: true, lineup });
+    } catch (error) {
+      console.error('[serenatas/lineup] list error:', error);
+      return c.json({ ok: false, error: 'Error al cargar lineup' }, 500);
+    }
+  });
+
+  /**
+   * Coordinador asignado invita uno o varios músicos.
+   * Body: `{ musicianIds?: string[] }` y/o `{ musicianProfileIds?: string[] }` (alias legacy — mismos UUIDs que `musicianIds`).
+   * Crea filas con status='invited', initiator='coordinator'. Idempotente: si ya existe
+   * con status='declined' o 'removed', re-invita; si está 'accepted' o 'invited' → no-op.
+   */
+  app.post('/:id/lineup/invite', requireAuth, async (c) => {
+    try {
+      const user = await authUser(c);
+      if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
+      const serenataId = c.req.param('id');
+      if (!serenataId) return c.json({ ok: false, error: 'serenataId requerido' }, 400);
+
+      const body = (await c.req.json().catch(() => ({}))) as {
+        musicianProfileIds?: string[];
+        musicianIds?: string[];
+      };
+      const rawIds = [...(body.musicianIds ?? []), ...(body.musicianProfileIds ?? [])].filter(
+        (id): id is string => typeof id === 'string' && id.length > 0
+      );
+      const musicianIdsUnique = [...new Set(rawIds)];
+      if (musicianIdsUnique.length === 0) {
+        return c.json({ ok: false, error: 'musicianIds o musicianProfileIds requerido' }, 400);
+      }
+
+      const [serenata] = await db
+        .select()
+        .from(tables.serenatas)
+        .where(eq(tables.serenatas.id, serenataId))
+        .limit(1);
+      if (!serenata) return c.json({ ok: false, error: 'Serenata no encontrada' }, 404);
+
+      const [coordProfile] = serenata.coordinatorProfileId
+        ? await db
+            .select()
+            .from(tables.serenataCoordinatorProfiles)
+            .where(eq(tables.serenataCoordinatorProfiles.id, serenata.coordinatorProfileId))
+            .limit(1)
+        : [null];
+
+      const isAdmin = user.role === 'admin';
+      const isAssignedCoordinator = coordProfile?.userId === user.id;
+      if (!isAdmin && !isAssignedCoordinator) {
+        return c.json({ ok: false, error: 'Solo el coordinador asignado puede invitar' }, 403);
+      }
+      if (!coordProfile) {
+        return c.json({ ok: false, error: 'La serenata aún no tiene coordinador asignado' }, 409);
+      }
+
+      // Validar que los músicos existen y obtener userIds para notificar
+      const musicians = await db
+        .select({
+          id: tables.serenataMusicians.id,
+          userId: tables.serenataMusicians.userId,
+        })
+        .from(tables.serenataMusicians)
+        .where(inArray(tables.serenataMusicians.id, musicianIdsUnique));
+
+      const validIds = new Set(musicians.map((m: any) => m.id));
+      const userIdByMusicianId = new Map<string, string>(
+        musicians.map((m: any) => [m.id, m.userId])
+      );
+
+      const created: any[] = [];
+      const skipped: string[] = [];
+      const now = new Date();
+      for (const musicianId of musicianIdsUnique) {
+        if (!validIds.has(musicianId)) {
+          skipped.push(musicianId);
+          continue;
+        }
+        const [existing] = await db
+          .select()
+          .from(tables.serenataMusicianLineup)
+          .where(
+            and(
+              eq(tables.serenataMusicianLineup.serenataId, serenataId),
+              eq(tables.serenataMusicianLineup.musicianId, musicianId)
+            )
+          )
+          .limit(1);
+
+        if (existing) {
+          if (['accepted', 'invited'].includes(existing.status)) {
+            skipped.push(musicianId);
+            continue;
+          }
+          // Re-invitar: declined / removed / requested → invited
+          const [updated] = await db
+            .update(tables.serenataMusicianLineup)
+            .set({
+              status: 'invited',
+              initiator: 'coordinator',
+              invitedBy: coordProfile.id,
+              invitedAt: now,
+              respondedAt: null,
+              declineReason: null,
+              updatedAt: now,
+            })
+            .where(eq(tables.serenataMusicianLineup.id, existing.id))
+            .returning();
+          created.push(updated);
+        } else {
+          const [row] = await db
+            .insert(tables.serenataMusicianLineup)
+            .values({
+              serenataId,
+              musicianId,
+              status: 'invited',
+              initiator: 'coordinator',
+              invitedBy: coordProfile.id,
+              invitedAt: now,
+              updatedAt: now,
+            })
+            .returning();
+          created.push(row);
+        }
+
+        const targetUserId = userIdByMusicianId.get(musicianId);
+        if (targetUserId) {
+          await notifySafe(db, tables, {
+            userId: targetUserId,
+            type: 'serenata',
+            title: 'Te invitaron a una serenata',
+            message: 'Un coordinador te invitó al lineup de una serenata. Revisa tus invitaciones.',
+            data: { serenataId, lineupAction: 'invited' },
+          });
+          await sendMailSafe(
+            db,
+            tables,
+            targetUserId,
+            'Te invitaron a una serenata',
+            `Un coordinador te invitó al lineup de una serenata.\n\nIngresa a tu panel: ${APP_URL_FOR_EMAIL()}/invitaciones`
+          );
+        }
+      }
+
+      return c.json({ ok: true, invited: created.length, skipped, lineup: created });
+    } catch (error) {
+      console.error('[serenatas/lineup] invite error:', error);
+      return c.json({ ok: false, error: 'Error al invitar músicos' }, 500);
+    }
+  });
+
+  /**
+   * Músico solicita unirse al lineup.
+   * Crea fila con status='requested', initiator='musician'. El coord debe aprobarla.
+   */
+  app.post('/:id/lineup/request', requireAuth, async (c) => {
+    try {
+      const user = await authUser(c);
+      if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
+      const serenataId = c.req.param('id');
+      if (!serenataId) return c.json({ ok: false, error: 'serenataId requerido' }, 400);
+
+      const musician = await getOrCreateSerenataMusicianForUser(user.id);
+
+      const [serenata] = await db
+        .select()
+        .from(tables.serenatas)
+        .where(eq(tables.serenatas.id, serenataId))
+        .limit(1);
+      if (!serenata) return c.json({ ok: false, error: 'Serenata no encontrada' }, 404);
+      if (!serenata.coordinatorProfileId) {
+        return c.json({ ok: false, error: 'La serenata aún no tiene coordinador asignado' }, 409);
+      }
+      if (!['pending', 'quoted', 'accepted', 'confirmed'].includes(serenata.status)) {
+        return c.json(
+          { ok: false, error: `No se puede solicitar unirse en estado ${serenata.status}` },
+          409
+        );
+      }
+
+      const [existing] = await db
+        .select()
+        .from(tables.serenataMusicianLineup)
+        .where(
+          and(
+            eq(tables.serenataMusicianLineup.serenataId, serenataId),
+            eq(tables.serenataMusicianLineup.musicianId, musician.id)
+          )
+        )
+        .limit(1);
+
+      const now = new Date();
+      let lineupRow: any;
+      if (existing) {
+        if (['accepted', 'requested', 'invited'].includes(existing.status)) {
+          return c.json({ ok: true, lineupId: existing.id, alreadyExists: true, status: existing.status });
+        }
+        const [updated] = await db
+          .update(tables.serenataMusicianLineup)
+          .set({
+            status: 'requested',
+            initiator: 'musician',
+            invitedBy: serenata.coordinatorProfileId,
+            invitedAt: now,
+            respondedAt: null,
+            declineReason: null,
+            updatedAt: now,
+          })
+          .where(eq(tables.serenataMusicianLineup.id, existing.id))
+          .returning();
+        lineupRow = updated;
+      } else {
+        const [row] = await db
+          .insert(tables.serenataMusicianLineup)
+          .values({
+            serenataId,
+            musicianId: musician.id,
+            status: 'requested',
+            initiator: 'musician',
+            invitedBy: serenata.coordinatorProfileId,
+            invitedAt: now,
+            updatedAt: now,
+          })
+          .returning();
+        lineupRow = row;
+      }
+
+      // Notificar al coordinador asignado
+      const [coord] = await db
+        .select({ userId: tables.serenataCoordinatorProfiles.userId })
+        .from(tables.serenataCoordinatorProfiles)
+        .where(eq(tables.serenataCoordinatorProfiles.id, serenata.coordinatorProfileId))
+        .limit(1);
+      if (coord?.userId) {
+        await notifySafe(db, tables, {
+          userId: coord.userId,
+          type: 'serenata',
+          title: 'Un músico solicita unirse al lineup',
+          message: 'Un músico solicitó unirse al lineup de tu serenata. Revisa solicitudes pendientes.',
+          data: { serenataId, lineupAction: 'requested', lineupId: lineupRow.id },
+        });
+        await sendMailSafe(
+          db,
+          tables,
+          coord.userId,
+          'Solicitud para unirse a tu serenata',
+          `Un músico solicitó unirse al lineup. Revisa: ${APP_URL_FOR_EMAIL()}/coordinator/tracking/${serenataId}`
+        );
+      }
+
+      return c.json({ ok: true, lineupId: lineupRow.id, status: lineupRow.status });
+    } catch (error) {
+      console.error('[serenatas/lineup] request error:', error);
+      return c.json({ ok: false, error: 'Error al solicitar unirse' }, 500);
+    }
+  });
+
+  /**
+   * Músico responde a su invitación (status='invited' → 'accepted' | 'declined').
+   * Body: `{ accept: boolean, reason?: string }`.
+   */
+  app.post('/:id/lineup/respond', requireAuth, async (c) => {
+    try {
+      const user = await authUser(c);
+      if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
+      const serenataId = c.req.param('id');
+      if (!serenataId) return c.json({ ok: false, error: 'serenataId requerido' }, 400);
+
+      const body = (await c.req.json().catch(() => ({}))) as {
+        accept?: boolean;
+        reason?: string;
+      };
+      if (typeof body.accept !== 'boolean') {
+        return c.json({ ok: false, error: 'accept (boolean) requerido' }, 400);
+      }
+
+      const musician = await getOrCreateSerenataMusicianForUser(user.id);
+
+      const [row] = await db
+        .select()
+        .from(tables.serenataMusicianLineup)
+        .where(
+          and(
+            eq(tables.serenataMusicianLineup.serenataId, serenataId),
+            eq(tables.serenataMusicianLineup.musicianId, musician.id)
+          )
+        )
+        .limit(1);
+      if (!row) return c.json({ ok: false, error: 'Invitación no encontrada' }, 404);
+      if (row.status !== 'invited') {
+        return c.json(
+          { ok: false, error: `No se puede responder en estado ${row.status}` },
+          409
+        );
+      }
+
+      const now = new Date();
+      const [updated] = await db
+        .update(tables.serenataMusicianLineup)
+        .set({
+          status: body.accept ? 'accepted' : 'declined',
+          respondedAt: now,
+          confirmedAt: body.accept ? now : null,
+          declineReason: body.accept ? null : (body.reason ?? null),
+          updatedAt: now,
+        })
+        .where(eq(tables.serenataMusicianLineup.id, row.id))
+        .returning();
+
+      // Notificar al coordinador
+      const [serenata] = await db
+        .select({ coordinatorProfileId: tables.serenatas.coordinatorProfileId })
+        .from(tables.serenatas)
+        .where(eq(tables.serenatas.id, serenataId))
+        .limit(1);
+      if (serenata?.coordinatorProfileId) {
+        const [coord] = await db
+          .select({ userId: tables.serenataCoordinatorProfiles.userId })
+          .from(tables.serenataCoordinatorProfiles)
+          .where(eq(tables.serenataCoordinatorProfiles.id, serenata.coordinatorProfileId))
+          .limit(1);
+        if (coord?.userId) {
+          await notifySafe(db, tables, {
+            userId: coord.userId,
+            type: 'serenata',
+            title: body.accept ? 'Músico aceptó tu invitación' : 'Músico rechazó tu invitación',
+            message: body.accept
+              ? 'Un músico aceptó la invitación al lineup de tu serenata.'
+              : `Un músico rechazó la invitación.${body.reason ? ' Motivo: ' + body.reason : ''}`,
+            data: { serenataId, lineupAction: body.accept ? 'accepted' : 'declined' },
+          });
+        }
+      }
+
+      return c.json({ ok: true, lineup: updated });
+    } catch (error) {
+      console.error('[serenatas/lineup] respond error:', error);
+      return c.json({ ok: false, error: 'Error al responder invitación' }, 500);
+    }
+  });
+
+  /**
+   * Coordinador aprueba (`approve`) o rechaza (`reject`) una solicitud de un músico
+   * (status='requested' → 'accepted' | 'declined').
+   */
+  app.post('/:id/lineup/:lineupId/decision', requireAuth, async (c) => {
+    try {
+      const user = await authUser(c);
+      if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
+      const serenataId = c.req.param('id');
+      const lineupId = c.req.param('lineupId');
+      if (!serenataId || !lineupId) return c.json({ ok: false, error: 'parámetros requeridos' }, 400);
+
+      const body = (await c.req.json().catch(() => ({}))) as {
+        approve?: boolean;
+        reason?: string;
+      };
+      if (typeof body.approve !== 'boolean') {
+        return c.json({ ok: false, error: 'approve (boolean) requerido' }, 400);
+      }
+
+      const [serenata] = await db
+        .select()
+        .from(tables.serenatas)
+        .where(eq(tables.serenatas.id, serenataId))
+        .limit(1);
+      if (!serenata) return c.json({ ok: false, error: 'Serenata no encontrada' }, 404);
+
+      const [coordProfile] = serenata.coordinatorProfileId
+        ? await db
+            .select()
+            .from(tables.serenataCoordinatorProfiles)
+            .where(eq(tables.serenataCoordinatorProfiles.id, serenata.coordinatorProfileId))
+            .limit(1)
+        : [null];
+      const isAdmin = user.role === 'admin';
+      const isAssignedCoordinator = coordProfile?.userId === user.id;
+      if (!isAdmin && !isAssignedCoordinator) {
+        return c.json({ ok: false, error: 'No autorizado' }, 403);
+      }
+
+      const [row] = await db
+        .select()
+        .from(tables.serenataMusicianLineup)
+        .where(
+          and(
+            eq(tables.serenataMusicianLineup.id, lineupId),
+            eq(tables.serenataMusicianLineup.serenataId, serenataId)
+          )
+        )
+        .limit(1);
+      if (!row) return c.json({ ok: false, error: 'Solicitud no encontrada' }, 404);
+      if (row.status !== 'requested') {
+        return c.json(
+          { ok: false, error: `Solo se puede aprobar/rechazar solicitudes pendientes (estado: ${row.status})` },
+          409
+        );
+      }
+
+      const now = new Date();
+      const [updated] = await db
+        .update(tables.serenataMusicianLineup)
+        .set({
+          status: body.approve ? 'accepted' : 'declined',
+          respondedAt: now,
+          confirmedAt: body.approve ? now : null,
+          declineReason: body.approve ? null : (body.reason ?? null),
+          updatedAt: now,
+        })
+        .where(eq(tables.serenataMusicianLineup.id, lineupId))
+        .returning();
+
+      // Notificar al músico
+      const [musician] = await db
+        .select({ userId: tables.serenataMusicians.userId })
+        .from(tables.serenataMusicians)
+        .where(eq(tables.serenataMusicians.id, row.musicianId))
+        .limit(1);
+      if (musician?.userId) {
+        await notifySafe(db, tables, {
+          userId: musician.userId,
+          type: 'serenata',
+          title: body.approve ? 'Aceptaron tu solicitud' : 'Rechazaron tu solicitud',
+          message: body.approve
+            ? 'El coordinador aprobó tu solicitud al lineup.'
+            : `El coordinador rechazó tu solicitud.${body.reason ? ' Motivo: ' + body.reason : ''}`,
+          data: { serenataId, lineupAction: body.approve ? 'approved' : 'rejected' },
+        });
+      }
+
+      return c.json({ ok: true, lineup: updated });
+    } catch (error) {
+      console.error('[serenatas/lineup] decision error:', error);
+      return c.json({ ok: false, error: 'Error al procesar decisión' }, 500);
+    }
+  });
+
+  /**
+   * Remover músico del lineup (status='removed'). Solo coord asignado o admin.
+   */
+  app.delete('/:id/lineup/:lineupId', requireAuth, async (c) => {
+    try {
+      const user = await authUser(c);
+      if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
+      const serenataId = c.req.param('id');
+      const lineupId = c.req.param('lineupId');
+      if (!serenataId || !lineupId) return c.json({ ok: false, error: 'parámetros requeridos' }, 400);
+
+      const [serenata] = await db
+        .select()
+        .from(tables.serenatas)
+        .where(eq(tables.serenatas.id, serenataId))
+        .limit(1);
+      if (!serenata) return c.json({ ok: false, error: 'Serenata no encontrada' }, 404);
+
+      const [coordProfile] = serenata.coordinatorProfileId
+        ? await db
+            .select()
+            .from(tables.serenataCoordinatorProfiles)
+            .where(eq(tables.serenataCoordinatorProfiles.id, serenata.coordinatorProfileId))
+            .limit(1)
+        : [null];
+      const isAdmin = user.role === 'admin';
+      const isAssignedCoordinator = coordProfile?.userId === user.id;
+      if (!isAdmin && !isAssignedCoordinator) {
+        return c.json({ ok: false, error: 'No autorizado' }, 403);
+      }
+
+      const [row] = await db
+        .select()
+        .from(tables.serenataMusicianLineup)
+        .where(
+          and(
+            eq(tables.serenataMusicianLineup.id, lineupId),
+            eq(tables.serenataMusicianLineup.serenataId, serenataId)
+          )
+        )
+        .limit(1);
+      if (!row) return c.json({ ok: false, error: 'Lineup no encontrado' }, 404);
+
+      const now = new Date();
+      await db
+        .update(tables.serenataMusicianLineup)
+        .set({
+          status: 'removed',
+          respondedAt: now,
+          updatedAt: now,
+        })
+        .where(eq(tables.serenataMusicianLineup.id, lineupId));
+
+      const [musician] = await db
+        .select({ userId: tables.serenataMusicians.userId })
+        .from(tables.serenataMusicians)
+        .where(eq(tables.serenataMusicians.id, row.musicianId))
+        .limit(1);
+      if (musician?.userId) {
+        await notifySafe(db, tables, {
+          userId: musician.userId,
+          type: 'serenata',
+          title: 'Te removieron del lineup',
+          message: 'El coordinador te removió del lineup de la serenata.',
+          data: { serenataId, lineupAction: 'removed' },
+        });
+      }
+
+      return c.json({ ok: true });
+    } catch (error) {
+      console.error('[serenatas/lineup] remove error:', error);
+      return c.json({ ok: false, error: 'Error al remover del lineup' }, 500);
+    }
+  });
+
+  // ============================================================
+  // CUADRILLA (CREW) — `serenata_coordinator_crew_memberships` + `serenata_musicians`
+  // ============================================================
+  // membershipStatus ∈ {active, invited, requested, declined, removed}.
+
+  /** Actualiza datos de perfil en la fila canónica del músico (opcional). */
+  async function patchSerenataMusicianProfileFields(
+    musicianId: string,
+    body: { instrument?: string; bio?: string | null; phone?: string | null }
+  ) {
+    const patch: Record<string, unknown> = { updatedAt: new Date() };
+    if (body.instrument) {
+      patch.instrument = body.instrument;
+    }
+    if (body.bio !== undefined) patch.bio = body.bio;
+    if (body.phone !== undefined) patch.phone = body.phone;
+    if (Object.keys(patch).length > 1) {
+      await db
+        .update(tables.serenataMusicians)
+        .set(patch)
+        .where(eq(tables.serenataMusicians.id, musicianId));
+    }
+  }
+
+  /**
+   * Listar miembros de la cuadrilla del coordinador autenticado.
+   * Filtros opcionales: `?status=active|invited|requested|declined|removed`.
+   * `id` = ID de membresía en cuadrilla; `musicianId` = `serenata_musicians.id`.
+   */
+  app.get('/coordinators/me/crew', requireAuth, async (c) => {
+    try {
+      const user = await authUser(c);
+      if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
+      const statusFilter = c.req.query('status');
+
+      const [coord] = await db
+        .select()
+        .from(tables.serenataCoordinatorProfiles)
+        .where(eq(tables.serenataCoordinatorProfiles.userId, user.id))
+        .limit(1);
+      if (!coord) return c.json({ ok: false, error: 'No tienes perfil de coordinador' }, 404);
+
+      const cm = tables.serenataCoordinatorCrewMemberships;
+      const where = statusFilter
+        ? and(eq(cm.coordinatorProfileId, coord.id), eq(cm.membershipStatus, statusFilter))
+        : eq(cm.coordinatorProfileId, coord.id);
+
+      const members = await db
+        .select({
+          id: cm.id,
+          crewMembershipId: cm.id,
+          musicianId: tables.serenataMusicians.id,
+          userId: tables.serenataMusicians.userId,
+          bio: tables.serenataMusicians.bio,
+          phone: tables.serenataMusicians.phone,
+          isActive: tables.serenataMusicians.isAvailable,
+          membershipStatus: cm.membershipStatus,
+          membershipInitiator: cm.membershipInitiator,
+          membershipInvitedAt: cm.membershipInvitedAt,
+          membershipRespondedAt: cm.membershipRespondedAt,
+          membershipMessage: cm.membershipMessage,
+          createdAt: cm.createdAt,
+          name: tables.users.name,
+          email: tables.users.email,
+        })
+        .from(cm)
+        .innerJoin(tables.serenataMusicians, eq(cm.musicianId, tables.serenataMusicians.id))
+        .leftJoin(tables.users, eq(tables.serenataMusicians.userId, tables.users.id))
+        .where(where)
+        .orderBy(desc(cm.createdAt));
+
+      return c.json({ ok: true, members });
+    } catch (error) {
+      console.error('[serenatas/crew] list error:', error);
+      return c.json({ ok: false, error: 'Error al listar cuadrilla' }, 500);
+    }
+  });
+
+  /**
+   * Coordinador invita a un músico a su cuadrilla.
+   * Body: `{ email?: string, userId?: string, instruments?, bio?, phone?, message? }`.
+   * Crea/use `serenata_musicians` y una fila en crew con estado `invited`.
+   */
+  app.post('/coordinators/me/crew/invite', requireAuth, async (c) => {
+    try {
+      const user = await authUser(c);
+      if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
+
+      const body = (await c.req.json().catch(() => ({}))) as {
+        email?: string;
+        userId?: string;
+        instruments?: string[];
+        bio?: string;
+        phone?: string;
+        message?: string;
+      };
+      const email = typeof body.email === 'string' ? body.email.trim().toLowerCase() : '';
+      const userIdInput = typeof body.userId === 'string' ? body.userId : '';
+      if (!email && !userIdInput) {
+        return c.json({ ok: false, error: 'email o userId requerido' }, 400);
+      }
+
+      const [coord] = await db
+        .select()
+        .from(tables.serenataCoordinatorProfiles)
+        .where(eq(tables.serenataCoordinatorProfiles.userId, user.id))
+        .limit(1);
+      if (!coord) return c.json({ ok: false, error: 'No tienes perfil de coordinador' }, 404);
+
+      const [targetUser] = await db
+        .select({ id: tables.users.id, email: tables.users.email, name: tables.users.name })
+        .from(tables.users)
+        .where(userIdInput ? eq(tables.users.id, userIdInput) : eq(tables.users.email, email))
+        .limit(1);
+      if (!targetUser) {
+        return c.json(
+          { ok: false, error: 'Usuario no encontrado. Pídele que se registre primero.' },
+          404
+        );
+      }
+      if (targetUser.id === user.id) {
+        return c.json({ ok: false, error: 'No puedes invitarte a ti mismo' }, 400);
+      }
+
+      const musician = await getOrCreateSerenataMusicianForUser(targetUser.id);
+      await patchSerenataMusicianProfileFields(musician.id, {
+        bio: body.bio ?? undefined,
+        phone: body.phone ?? undefined,
+      });
+
+      const cm = tables.serenataCoordinatorCrewMemberships;
+      const [existing] = await db
+        .select()
+        .from(cm)
+        .where(and(eq(cm.musicianId, musician.id), eq(cm.coordinatorProfileId, coord.id)))
+        .limit(1);
+
+      const now = new Date();
+      let membership: any;
+      if (existing) {
+        if (['active', 'invited'].includes(existing.membershipStatus)) {
+          return c.json(
+            { ok: false, error: `Ya tiene estado: ${existing.membershipStatus}` },
+            409
+          );
+        }
+        const [updated] = await db
+          .update(cm)
+          .set({
+            membershipStatus: 'invited',
+            membershipInitiator: 'coordinator',
+            membershipInvitedAt: now,
+            membershipRespondedAt: null,
+            membershipMessage: body.message ?? null,
+            updatedAt: now,
+          })
+          .where(eq(cm.id, existing.id))
+          .returning();
+        membership = updated;
+      } else {
+        const [row] = await db
+          .insert(cm)
+          .values({
+            musicianId: musician.id,
+            coordinatorProfileId: coord.id,
+            membershipStatus: 'invited',
+            membershipInitiator: 'coordinator',
+            membershipInvitedAt: now,
+            membershipMessage: body.message ?? null,
+          })
+          .returning();
+        membership = row;
+      }
+
+      await notifySafe(db, tables, {
+        userId: targetUser.id,
+        type: 'system',
+        title: 'Te invitaron a una cuadrilla',
+        message: 'Un coordinador te invitó a unirte a su cuadrilla. Revisa tus invitaciones.',
+        data: { coordinatorProfileId: coord.id, crewAction: 'invited', crewMembershipId: membership.id },
+      });
+      await sendMailSafe(
+        db,
+        tables,
+        targetUser.id,
+        'Te invitaron a una cuadrilla',
+        `Un coordinador te invitó a su cuadrilla en SimpleSerenatas.\n\nIngresa: ${APP_URL_FOR_EMAIL()}/invitaciones`
+      );
+
+      const profile = { ...membership, musicianId: musician.id, userId: targetUser.id };
+      return c.json({ ok: true, profile });
+    } catch (error) {
+      console.error('[serenatas/crew] invite error:', error);
+      return c.json({ ok: false, error: 'Error al invitar a la cuadrilla' }, 500);
+    }
+  });
+
+  /**
+   * Músico solicita unirse a la cuadrilla de un coordinador.
+   * Body opcional: `{ instruments?, bio?, phone?, message? }`.
+   */
+  app.post('/coordinators/:coordinatorId/crew/request', requireAuth, async (c) => {
+    try {
+      const user = await authUser(c);
+      if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
+      const coordinatorId = c.req.param('coordinatorId');
+      if (!coordinatorId) return c.json({ ok: false, error: 'coordinatorId requerido' }, 400);
+
+      const [coord] = await db
+        .select()
+        .from(tables.serenataCoordinatorProfiles)
+        .where(eq(tables.serenataCoordinatorProfiles.id, coordinatorId))
+        .limit(1);
+      if (!coord) return c.json({ ok: false, error: 'Coordinador no encontrado' }, 404);
+      if (coord.userId === user.id) {
+        return c.json({ ok: false, error: 'No puedes solicitar unirte a tu propia cuadrilla' }, 400);
+      }
+
+      const body = (await c.req.json().catch(() => ({}))) as {
+        bio?: string;
+        phone?: string;
+        message?: string;
+      };
+
+      const musician = await getOrCreateSerenataMusicianForUser(user.id);
+      await patchSerenataMusicianProfileFields(musician.id, {
+        bio: body.bio ?? undefined,
+        phone: body.phone ?? undefined,
+      });
+
+      const cm = tables.serenataCoordinatorCrewMemberships;
+      const [existing] = await db
+        .select()
+        .from(cm)
+        .where(and(eq(cm.musicianId, musician.id), eq(cm.coordinatorProfileId, coordinatorId)))
+        .limit(1);
+
+      const now = new Date();
+      let membership: any;
+      if (existing) {
+        if (['active', 'invited', 'requested'].includes(existing.membershipStatus)) {
+          return c.json(
+            { ok: false, error: `Ya tienes estado: ${existing.membershipStatus}` },
+            409
+          );
+        }
+        const [updated] = await db
+          .update(cm)
+          .set({
+            membershipStatus: 'requested',
+            membershipInitiator: 'musician',
+            membershipInvitedAt: now,
+            membershipRespondedAt: null,
+            membershipMessage: body.message ?? null,
+            updatedAt: now,
+          })
+          .where(eq(cm.id, existing.id))
+          .returning();
+        membership = updated;
+      } else {
+        const [row] = await db
+          .insert(cm)
+          .values({
+            musicianId: musician.id,
+            coordinatorProfileId: coordinatorId,
+            membershipStatus: 'requested',
+            membershipInitiator: 'musician',
+            membershipInvitedAt: now,
+            membershipMessage: body.message ?? null,
+          })
+          .returning();
+        membership = row;
+      }
+
+      await notifySafe(db, tables, {
+        userId: coord.userId,
+        type: 'system',
+        title: 'Solicitud para unirse a tu cuadrilla',
+        message: 'Un músico solicitó unirse a tu cuadrilla.',
+        data: {
+          musicianProfileId: membership.id,
+          crewMembershipId: membership.id,
+          crewAction: 'requested',
+        },
+      });
+      await sendMailSafe(
+        db,
+        tables,
+        coord.userId,
+        'Solicitud para unirse a tu cuadrilla',
+        `Un músico solicitó unirse a tu cuadrilla.\n\nRevisa: ${APP_URL_FOR_EMAIL()}/cuadrilla`
+      );
+
+      const profile = { ...membership, musicianId: musician.id, userId: user.id };
+      return c.json({ ok: true, profile });
+    } catch (error) {
+      console.error('[serenatas/crew] request error:', error);
+      return c.json({ ok: false, error: 'Error al solicitar unirse' }, 500);
+    }
+  });
+
+  /**
+   * Músico responde a invitación a la cuadrilla.
+   * `:profileId` = id de fila en `serenata_coordinator_crew_memberships`.
+   */
+  app.post('/musicians/me/memberships/:profileId/respond', requireAuth, async (c) => {
+    try {
+      const user = await authUser(c);
+      if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
+      const profileId = c.req.param('profileId');
+      if (!profileId) return c.json({ ok: false, error: 'profileId requerido' }, 400);
+
+      const body = (await c.req.json().catch(() => ({}))) as { accept?: boolean };
+      if (typeof body.accept !== 'boolean') {
+        return c.json({ ok: false, error: 'accept (boolean) requerido' }, 400);
+      }
+
+      const cm = tables.serenataCoordinatorCrewMemberships;
+      const [row] = await db
+        .select({
+          membership: cm,
+          musicianUserId: tables.serenataMusicians.userId,
+        })
+        .from(cm)
+        .innerJoin(tables.serenataMusicians, eq(cm.musicianId, tables.serenataMusicians.id))
+        .where(eq(cm.id, profileId))
+        .limit(1);
+
+      if (!row) return c.json({ ok: false, error: 'Membresía no encontrada' }, 404);
+      if (row.musicianUserId !== user.id) {
+        return c.json({ ok: false, error: 'No autorizado' }, 403);
+      }
+      if (row.membership.membershipStatus !== 'invited') {
+        return c.json(
+          { ok: false, error: `No se puede responder en estado ${row.membership.membershipStatus}` },
+          409
+        );
+      }
+
+      const now = new Date();
+      const [updated] = await db
+        .update(cm)
+        .set({
+          membershipStatus: body.accept ? 'active' : 'declined',
+          membershipRespondedAt: now,
+          updatedAt: now,
+        })
+        .where(eq(cm.id, profileId))
+        .returning();
+
+      const [coord] = await db
+        .select({ userId: tables.serenataCoordinatorProfiles.userId })
+        .from(tables.serenataCoordinatorProfiles)
+        .where(eq(tables.serenataCoordinatorProfiles.id, row.membership.coordinatorProfileId))
+        .limit(1);
+      if (coord?.userId) {
+        await notifySafe(db, tables, {
+          userId: coord.userId,
+          type: 'system',
+          title: body.accept ? 'Músico aceptó tu invitación' : 'Músico rechazó tu invitación',
+          message: body.accept
+            ? 'Un músico aceptó la invitación a tu cuadrilla.'
+            : 'Un músico rechazó la invitación a tu cuadrilla.',
+          data: { musicianProfileId: profileId, crewAction: body.accept ? 'accepted' : 'declined' },
+        });
+      }
+
+      return c.json({ ok: true, profile: updated });
+    } catch (error) {
+      console.error('[serenatas/crew] respond error:', error);
+      return c.json({ ok: false, error: 'Error al responder invitación' }, 500);
+    }
+  });
+
+  /**
+   * Coordinador aprueba (`approve=true`) o rechaza (`approve=false`) una solicitud de un músico.
+   * `:profileId` = id de membresía en cuadrilla.
+   */
+  app.post('/coordinators/me/crew/:profileId/decision', requireAuth, async (c) => {
+    try {
+      const user = await authUser(c);
+      if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
+      const profileId = c.req.param('profileId');
+      if (!profileId) return c.json({ ok: false, error: 'profileId requerido' }, 400);
+
+      const body = (await c.req.json().catch(() => ({}))) as { approve?: boolean };
+      if (typeof body.approve !== 'boolean') {
+        return c.json({ ok: false, error: 'approve (boolean) requerido' }, 400);
+      }
+
+      const [coord] = await db
+        .select()
+        .from(tables.serenataCoordinatorProfiles)
+        .where(eq(tables.serenataCoordinatorProfiles.userId, user.id))
+        .limit(1);
+      if (!coord) return c.json({ ok: false, error: 'No tienes perfil de coordinador' }, 404);
+
+      const cm = tables.serenataCoordinatorCrewMemberships;
+      const [row] = await db
+        .select({
+          membership: cm,
+          musicianUserId: tables.serenataMusicians.userId,
+        })
+        .from(cm)
+        .innerJoin(tables.serenataMusicians, eq(cm.musicianId, tables.serenataMusicians.id))
+        .where(and(eq(cm.id, profileId), eq(cm.coordinatorProfileId, coord.id)))
+        .limit(1);
+
+      if (!row) return c.json({ ok: false, error: 'Solicitud no encontrada' }, 404);
+      if (row.membership.membershipStatus !== 'requested') {
+        return c.json(
+          {
+            ok: false,
+            error: `Solo se puede decidir solicitudes pendientes (estado: ${row.membership.membershipStatus})`,
+          },
+          409
+        );
+      }
+
+      const now = new Date();
+      const [updated] = await db
+        .update(cm)
+        .set({
+          membershipStatus: body.approve ? 'active' : 'declined',
+          membershipRespondedAt: now,
+          updatedAt: now,
+        })
+        .where(eq(cm.id, profileId))
+        .returning();
+
+      await notifySafe(db, tables, {
+        userId: row.musicianUserId,
+        type: 'system',
+        title: body.approve ? 'Aceptaron tu solicitud' : 'Rechazaron tu solicitud',
+        message: body.approve
+          ? 'El coordinador aceptó tu solicitud para unirte a su cuadrilla.'
+          : 'El coordinador rechazó tu solicitud.',
+        data: { coordinatorProfileId: coord.id, crewAction: body.approve ? 'approved' : 'rejected' },
+      });
+
+      return c.json({ ok: true, profile: updated });
+    } catch (error) {
+      console.error('[serenatas/crew] decision error:', error);
+      return c.json({ ok: false, error: 'Error al procesar decisión' }, 500);
+    }
+  });
+
+  /**
+   * Remover músico de la cuadrilla (membershipStatus='removed').
+   * `:profileId` = id de membresía. Coordinador o el propio músico (auto-baja).
+   */
+  app.delete('/coordinators/me/crew/:profileId', requireAuth, async (c) => {
+    try {
+      const user = await authUser(c);
+      if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
+      const profileId = c.req.param('profileId');
+      if (!profileId) return c.json({ ok: false, error: 'profileId requerido' }, 400);
+
+      const cm = tables.serenataCoordinatorCrewMemberships;
+      const [row] = await db
+        .select({
+          membership: cm,
+          musicianUserId: tables.serenataMusicians.userId,
+        })
+        .from(cm)
+        .innerJoin(tables.serenataMusicians, eq(cm.musicianId, tables.serenataMusicians.id))
+        .where(eq(cm.id, profileId))
+        .limit(1);
+      if (!row) return c.json({ ok: false, error: 'Membresía no encontrada' }, 404);
+
+      const [coord] = await db
+        .select({
+          userId: tables.serenataCoordinatorProfiles.userId,
+          id: tables.serenataCoordinatorProfiles.id,
+        })
+        .from(tables.serenataCoordinatorProfiles)
+        .where(eq(tables.serenataCoordinatorProfiles.id, row.membership.coordinatorProfileId))
+        .limit(1);
+      const isAdmin = user.role === 'admin';
+      const isCoordOwner = coord?.userId === user.id;
+      const isSelf = row.musicianUserId === user.id;
+      if (!isAdmin && !isCoordOwner && !isSelf) {
+        return c.json({ ok: false, error: 'No autorizado' }, 403);
+      }
+
+      const now = new Date();
+      await db
+        .update(cm)
+        .set({
+          membershipStatus: 'removed',
+          membershipRespondedAt: now,
+          updatedAt: now,
+        })
+        .where(eq(cm.id, profileId));
+
+      const otherUserId = isCoordOwner || isAdmin ? row.musicianUserId : coord?.userId;
+      if (otherUserId) {
+        await notifySafe(db, tables, {
+          userId: otherUserId,
+          type: 'system',
+          title: isSelf && !isCoordOwner ? 'Un músico salió de la cuadrilla' : 'Te removieron de la cuadrilla',
+          message:
+            isSelf && !isCoordOwner
+              ? 'Un músico decidió dejar tu cuadrilla.'
+              : 'El coordinador te removió de su cuadrilla.',
+          data: { musicianProfileId: profileId, crewAction: 'removed' },
+        });
+      }
+
+      return c.json({ ok: true });
+    } catch (error) {
+      console.error('[serenatas/crew] remove error:', error);
+      return c.json({ ok: false, error: 'Error al remover de la cuadrilla' }, 500);
+    }
+  });
+
+  /**
+   * Búsqueda pública de coordinadores activos por nombre / email / ciudad.
+   * Útil para que un músico encuentre una cuadrilla a la cual solicitar unirse.
+   * Query: `?q=<texto>&limit=<n>`.
+   */
+  app.get('/coordinators/search', async (c) => {
+    try {
+      const q = (c.req.query('q') ?? '').trim();
+      const limit = Math.min(Number(c.req.query('limit') ?? 10) || 10, 30);
+      if (q.length < 2) {
+        return c.json({ ok: true, coordinators: [] });
+      }
+
+      const pattern = `%${q.toLowerCase()}%`;
+      const rows = await db
+        .select({
+          id: tables.serenataCoordinatorProfiles.id,
+          userId: tables.serenataCoordinatorProfiles.userId,
+          city: tables.serenataCoordinatorProfiles.city,
+          region: tables.serenataCoordinatorProfiles.region,
+          rating: tables.serenataCoordinatorProfiles.rating,
+          totalSerenatas: tables.serenataCoordinatorProfiles.totalSerenatas,
+          isVerified: tables.serenataCoordinatorProfiles.isVerified,
+          name: tables.users.name,
+          email: tables.users.email,
+        })
+        .from(tables.serenataCoordinatorProfiles)
+        .leftJoin(tables.users, eq(tables.serenataCoordinatorProfiles.userId, tables.users.id))
+        .where(
+          or(
+            sql`LOWER(${tables.users.name}) LIKE ${pattern}`,
+            sql`LOWER(${tables.users.email}) LIKE ${pattern}`,
+            sql`LOWER(${tables.serenataCoordinatorProfiles.city}) LIKE ${pattern}`
+          )
+        )
+        .limit(limit);
+
+      return c.json({ ok: true, coordinators: rows });
+    } catch (error) {
+      console.error('[serenatas/coordinators] search error:', error);
+      return c.json({ ok: false, error: 'Error en la búsqueda' }, 500);
+    }
+  });
+
+  /**
+   * Lista coordinadores asociados al músico autenticado, con su estado de membresía.
+   */
+  app.get('/musicians/me/coordinators', requireAuth, async (c) => {
+    try {
+      const user = await authUser(c);
+      if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
+
+      const cm = tables.serenataCoordinatorCrewMemberships;
+      const memberships = await db
+        .select({
+          profileId: cm.id,
+          crewMembershipId: cm.id,
+          membershipStatus: cm.membershipStatus,
+          membershipInitiator: cm.membershipInitiator,
+          membershipInvitedAt: cm.membershipInvitedAt,
+          membershipRespondedAt: cm.membershipRespondedAt,
+          membershipMessage: cm.membershipMessage,
+          musicianId: cm.musicianId,
+          coordinatorProfileId: tables.serenataCoordinatorProfiles.id,
+          coordinatorUserId: tables.serenataCoordinatorProfiles.userId,
+          city: tables.serenataCoordinatorProfiles.city,
+          rating: tables.serenataCoordinatorProfiles.rating,
+          coordinatorName: tables.users.name,
+          coordinatorEmail: tables.users.email,
+        })
+        .from(cm)
+        .innerJoin(tables.serenataMusicians, eq(cm.musicianId, tables.serenataMusicians.id))
+        .leftJoin(
+          tables.serenataCoordinatorProfiles,
+          eq(cm.coordinatorProfileId, tables.serenataCoordinatorProfiles.id)
+        )
+        .leftJoin(tables.users, eq(tables.serenataCoordinatorProfiles.userId, tables.users.id))
+        .where(eq(tables.serenataMusicians.userId, user.id))
+        .orderBy(desc(cm.createdAt));
+
+      return c.json({ ok: true, memberships });
+    } catch (error) {
+      console.error('[serenatas/crew] my coordinators error:', error);
+      return c.json({ ok: false, error: 'Error al cargar coordinadores' }, 500);
+    }
+  });
+
+  // ============================================================
+  // BANDEJA UNIFICADA — invitaciones / pendientes
+  // ============================================================
+
+  /**
+   * Inbox del músico autenticado: invitaciones a serenatas (lineup) y a cuadrillas (crew),
+   * más solicitudes propias pendientes (con estado).
+   */
+  app.get('/musicians/me/invitations', requireAuth, async (c) => {
+    try {
+      const user = await authUser(c);
+      if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
+
+      // Intentar obtener el perfil del músico
+      let musicianRow: any = null;
+      try {
+        musicianRow = await db.query.serenataMusicians.findFirst({
+          where: eq(tables.serenataMusicians.userId, user.id),
+        });
+      } catch (dbError) {
+        // Si hay error de base de datos (tabla no existe, etc.), continuar sin perfil
+        console.error('[serenatas/invitations] Database error finding musician:', dbError);
+      }
+
+      // Si no hay perfil de músico, retornar respuesta vacía
+      if (!musicianRow) {
+        return c.json({
+          ok: true,
+          lineup: [],
+          crew: [],
+          counts: { lineupInvited: 0, lineupRequested: 0, crewInvited: 0, crewRequested: 0 },
+          totalPending: 0,
+        });
+      }
+
+      // Lineup: invited (recibidas) + requested (enviadas pendientes) + accepted (informativo)
+      let lineup: any[] = [];
+      try {
+        lineup = await db
+          .select({
+            id: tables.serenataMusicianLineup.id,
+            serenataId: tables.serenataMusicianLineup.serenataId,
+            status: tables.serenataMusicianLineup.status,
+            initiator: tables.serenataMusicianLineup.initiator,
+            invitedAt: tables.serenataMusicianLineup.invitedAt,
+            respondedAt: tables.serenataMusicianLineup.respondedAt,
+            recipientName: tables.serenatas.recipientName,
+            address: tables.serenatas.address,
+            city: tables.serenatas.city,
+            eventDate: tables.serenatas.eventDate,
+            eventTime: tables.serenatas.eventTime,
+            duration: tables.serenatas.duration,
+            price: tables.serenatas.price,
+            message: tables.serenatas.message,
+            serenataStatus: tables.serenatas.status,
+            coordinatorProfileId: tables.serenatas.coordinatorProfileId,
+          })
+          .from(tables.serenataMusicianLineup)
+          .leftJoin(
+            tables.serenatas,
+            eq(tables.serenataMusicianLineup.serenataId, tables.serenatas.id)
+          )
+          .where(
+            and(
+              eq(tables.serenataMusicianLineup.musicianId, musicianRow.id),
+              inArray(tables.serenataMusicianLineup.status, ['invited', 'requested', 'accepted'])
+            )
+          )
+          .orderBy(desc(tables.serenataMusicianLineup.invitedAt));
+      } catch (dbError) {
+        console.error('[serenatas/invitations] Database error fetching lineup:', dbError);
+        lineup = [];
+      }
+
+      // Crew (membresías): invited (recibidas) y requested (enviadas)
+      let crew: any[] = [];
+      try {
+        const cm = tables.serenataCoordinatorCrewMemberships;
+        crew = await db
+          .select({
+            profileId: cm.id,
+            crewMembershipId: cm.id,
+            membershipStatus: cm.membershipStatus,
+            membershipInitiator: cm.membershipInitiator,
+            membershipInvitedAt: cm.membershipInvitedAt,
+            membershipMessage: cm.membershipMessage,
+            coordinatorProfileId: tables.serenataCoordinatorProfiles.id,
+            city: tables.serenataCoordinatorProfiles.city,
+            rating: tables.serenataCoordinatorProfiles.rating,
+            coordinatorName: tables.users.name,
+          })
+          .from(cm)
+          .leftJoin(
+            tables.serenataCoordinatorProfiles,
+            eq(cm.coordinatorProfileId, tables.serenataCoordinatorProfiles.id)
+          )
+          .leftJoin(tables.users, eq(tables.serenataCoordinatorProfiles.userId, tables.users.id))
+          .where(
+            and(
+              eq(cm.musicianId, musicianRow.id),
+              inArray(cm.membershipStatus, ['invited', 'requested'])
+            )
+          )
+          .orderBy(desc(cm.membershipInvitedAt));
+      } catch (dbError) {
+        console.error('[serenatas/invitations] Database error fetching crew:', dbError);
+        crew = [];
+      }
+
+      const counts = {
+        lineupInvited: lineup.filter((l: any) => l.status === 'invited').length,
+        lineupRequested: lineup.filter((l: any) => l.status === 'requested').length,
+        crewInvited: crew.filter((m: any) => m.membershipStatus === 'invited').length,
+        crewRequested: crew.filter((m: any) => m.membershipStatus === 'requested').length,
+      };
+      const totalPending = counts.lineupInvited + counts.crewInvited;
+
+      return c.json({ ok: true, lineup, crew, counts, totalPending });
+    } catch (error) {
+      console.error('[serenatas/inbox] musician inbox error:', error);
+      return c.json(
+        { ok: false, ...serenatasDevErrorPayload('Error al cargar invitaciones', error) },
+        500
+      );
+    }
+  });
+
+  /**
+   * Inbox del coordinador autenticado: solicitudes pendientes (lineup `requested` y crew `requested`).
+   */
+  app.get('/coordinators/me/pending', requireAuth, async (c) => {
+    try {
+      const user = await authUser(c);
+      if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
+
+      const [coord] = await db
+        .select()
+        .from(tables.serenataCoordinatorProfiles)
+        .where(eq(tables.serenataCoordinatorProfiles.userId, user.id))
+        .limit(1);
+      if (!coord) return c.json({ ok: false, error: 'No tienes perfil de coordinador' }, 404);
+
+      // Serenatas asignadas al coord
+      const mySerenatas = await db
+        .select({ id: tables.serenatas.id })
+        .from(tables.serenatas)
+        .where(eq(tables.serenatas.coordinatorProfileId, coord.id));
+      const serenataIds = mySerenatas.map((s: any) => s.id);
+
+      let lineupRequests: any[] = [];
+      if (serenataIds.length > 0) {
+        lineupRequests = await db
+          .select({
+            id: tables.serenataMusicianLineup.id,
+            serenataId: tables.serenataMusicianLineup.serenataId,
+            status: tables.serenataMusicianLineup.status,
+            invitedAt: tables.serenataMusicianLineup.invitedAt,
+            musicianProfileId: tables.serenataMusicianLineup.musicianId,
+            instrument: tables.serenataMusicians.instrument,
+            musicianName: tables.users.name,
+            musicianEmail: tables.users.email,
+            recipientName: tables.serenatas.recipientName,
+            eventDate: tables.serenatas.eventDate,
+            eventTime: tables.serenatas.eventTime,
+          })
+          .from(tables.serenataMusicianLineup)
+          .leftJoin(
+            tables.serenataMusicians,
+            eq(tables.serenataMusicianLineup.musicianId, tables.serenataMusicians.id)
+          )
+          .leftJoin(tables.users, eq(tables.serenataMusicians.userId, tables.users.id))
+          .leftJoin(tables.serenatas, eq(tables.serenataMusicianLineup.serenataId, tables.serenatas.id))
+          .where(
+            and(
+              inArray(tables.serenataMusicianLineup.serenataId, serenataIds),
+              eq(tables.serenataMusicianLineup.status, 'requested')
+            )
+          )
+          .orderBy(desc(tables.serenataMusicianLineup.invitedAt));
+      }
+
+      const cmPending = tables.serenataCoordinatorCrewMemberships;
+      const crewRequests = await db
+        .select({
+          profileId: cmPending.id,
+          crewMembershipId: cmPending.id,
+          membershipStatus: cmPending.membershipStatus,
+          membershipInvitedAt: cmPending.membershipInvitedAt,
+          membershipMessage: cmPending.membershipMessage,
+          instrument: tables.serenataMusicians.instrument,
+          musicianUserId: tables.serenataMusicians.userId,
+          musicianName: tables.users.name,
+          musicianEmail: tables.users.email,
+        })
+        .from(cmPending)
+        .innerJoin(tables.serenataMusicians, eq(cmPending.musicianId, tables.serenataMusicians.id))
+        .leftJoin(tables.users, eq(tables.serenataMusicians.userId, tables.users.id))
+        .where(
+          and(eq(cmPending.coordinatorProfileId, coord.id), eq(cmPending.membershipStatus, 'requested'))
+        )
+        .orderBy(desc(cmPending.membershipInvitedAt));
+
+      return c.json({
+        ok: true,
+        lineupRequests,
+        crewRequests,
+        totalPending: lineupRequests.length + crewRequests.length,
+      });
+    } catch (error) {
+      console.error('[serenatas/inbox] coord pending error:', error);
+      return c.json({ ok: false, error: 'Error al cargar pendientes' }, 500);
+    }
+  });
+
+  /**
+   * Alias `/groups/my` para compatibilidad con el frontend actual.
+   * Devuelve los grupos legacy (`serenata_groups`) en los que el usuario es miembro.
+   */
+  app.get('/groups/my', requireAuth, async (c) => {
+    try {
+      const user = await authUser(c);
+      if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
+
+      const musician = await db.query.serenataMusicians.findFirst({
+        where: eq(tables.serenataMusicians.userId, user.id),
+      });
+      if (!musician) return c.json({ ok: true, groups: [] });
+
+      const memberships = await db
+        .select({
+          groupId: tables.serenataGroupMembers.groupId,
+          status: tables.serenataGroupMembers.status,
+          name: tables.serenataGroups.name,
+          date: tables.serenataGroups.date,
+          groupStatus: tables.serenataGroups.status,
+          totalEarnings: tables.serenataGroups.totalEarnings,
+        })
+        .from(tables.serenataGroupMembers)
+        .leftJoin(tables.serenataGroups, eq(tables.serenataGroupMembers.groupId, tables.serenataGroups.id))
+        .where(eq(tables.serenataGroupMembers.musicianId, musician.id))
+        .orderBy(desc(tables.serenataGroups.date));
+
+      return c.json({
+        ok: true,
+        groups: memberships.map((m: any) => ({
+          id: m.groupId,
+          name: m.name,
+          date: m.date,
+          status: m.groupStatus,
+          memberStatus: m.status,
+          totalEarnings: Number(m.totalEarnings ?? 0),
+          members: 0,
+          serenatas: 0,
+        })),
+      });
+    } catch (error) {
+      console.error('[serenatas/groups] my groups error:', error);
+      return c.json({ ok: false, error: 'Error al cargar grupos' }, 500);
     }
   });
 

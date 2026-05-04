@@ -5,14 +5,17 @@ import path from 'node:path';
 import { createDebugLogger, asString, asNumber, asObject } from './modules/shared/index.js';
 import type { ValuationFeedRecord, VehicleValuationFeedRecord, ValuationHistoricalPoint, ValuationSourceBreakdown, ValuationConfidenceBreakdown, ValuationFeedLicense, ValuationFeedTransport, ValuationFeedHealth, ValuationFeedSourceStatus, ValuationFeedConnectorLoadResult, ValuationFeedConnector, VehicleValuationFeedConnector, ValuationComparable, VehicleValuationComparable } from './modules/shared/index.js';
 
-// Load environment variables FIRST, before any other imports
+// Load environment variables FIRST, before any other imports.
+// IMPORTANT: igual que `drizzle.config.ts` — cargar `.env` antes y `.env.local` después para que los
+// valores locales sobrescriban; si el orden está invertido, `pnpm dev` usa otra DATABASE_URL que
+// `pnpm db:migrate` y aparecen errores tipo «no existe la columna instruments».
 const API_ROOT_DIR = path.resolve(__dirname, '..');
 
 for (const candidate of [
-    path.join(API_ROOT_DIR, '.env.local'),
     path.join(API_ROOT_DIR, '.env'),
+    path.join(API_ROOT_DIR, '.env.local'),
+    path.resolve(process.cwd(), '.env'),
     path.resolve(process.cwd(), '.env.local'),
-    path.resolve(process.cwd(), '.env')
 ]) {
     try {
         if (existsSync(candidate)) {
@@ -136,15 +139,19 @@ import {
     serenataAssignments,
     serenataRoutes,
     serenataNotifications,
-    serenataCaptainProfiles,
-    serenataMusicianProfiles,
+    serenataCoordinatorProfiles,
+    serenataCoordinatorCrewMemberships,
     serenatas,
+    serenataMusicianLineup,
     serenataSubscriptions,
     serenataSubscriptionPayments,
     serenataPayments,
     serenataReviews,
+    serenataCoordinatorReviews,
     serenataAvailability,
     serenataMessages,
+    serenataMpWebhookEvents,
+    serenataCoordinatorPreapprovals,
     mortgageRates,
 } from './db/schema.js';
 import { createSerenatasRouter } from './modules/serenatas/router.js';
@@ -385,6 +392,12 @@ type FeedClip = {
     saves: number;
     publishedAt: number;
     featured?: boolean;
+    specs?: Array<{ label: string; value: string; icon?: string }>;
+    /** Badges visuales (verticales autos / propiedades). */
+    discountPercent?: number;
+    financing?: boolean;
+    exchange?: boolean;
+    negotiable?: boolean;
 };
 
 type BoostSection = 'sale' | 'rent' | 'auction' | 'project';
@@ -843,7 +856,7 @@ const OAUTH_STATE_COOKIE = 'simple_oauth_state';
 const INSTAGRAM_STATE_COOKIE = 'simple_instagram_state';
 const SESSION_SECRET = asString(process.env.SESSION_SECRET);
 
-// ── Web Push (VAPID) ──────────────────────────────────────────────────────────
+// â”€â”€ Web Push (VAPID) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 const VAPID_PUBLIC_KEY = process.env.VAPID_PUBLIC_KEY ?? '';
 const VAPID_PRIVATE_KEY = process.env.VAPID_PRIVATE_KEY ?? '';
 const VAPID_SUBJECT = process.env.VAPID_SUBJECT ?? 'mailto:hola@simpleplataforma.app';
@@ -874,7 +887,16 @@ const loginSchema = z.object({
 const registerSchema = z.object({
     name: z.string().min(2).max(80),
     email: z.string().email(),
-    password: z.string().min(6).max(120),
+    password: z.string().min(8).max(120),
+});
+
+// Schema extendido para SimpleSerenatas con datos adicionales
+const extendedRegisterSchema = registerSchema.extend({
+    userType: z.enum(['client', 'musician']).optional().default('musician'),
+    phone: z.string().optional(),
+    instrument: z.string().optional(),
+    region: z.string().optional(),
+    comuna: z.string().optional(),
 });
 
 const updateProfileSchema = z.object({
@@ -1935,7 +1957,7 @@ async function loadPartnerFeed(sourceId: string, envUrlKey: string | undefined, 
 
     const response = await fetch(sourceUrl);
     if (!response.ok) {
-        throw new Error(`Feed ${sourceId} respondió ${response.status}`);
+        throw new Error(`Feed ${sourceId} respondiÃ³ ${response.status}`);
     }
 
     const payload = await response.json().catch(() => null);
@@ -2112,8 +2134,8 @@ const vehicleValuationFeedRecords: import('./modules/shared/index.js').VehicleVa
         version: '2.5 hybrid cvt',
         year: 2022,
         mileageKm: 36500,
-        fuelType: 'Híbrido',
-        transmission: 'Automática',
+        fuelType: 'HÃ­brido',
+        transmission: 'AutomÃ¡tica',
         bodyType: 'SUV',
         regionId: 'rm',
         communeId: 'las-condes',
@@ -2134,8 +2156,8 @@ const vehicleValuationFeedRecords: import('./modules/shared/index.js').VehicleVa
         version: '2.5 hybrid cvt',
         year: 2022,
         mileageKm: 42100,
-        fuelType: 'Híbrido',
-        transmission: 'Automática',
+        fuelType: 'HÃ­brido',
+        transmission: 'AutomÃ¡tica',
         bodyType: 'SUV',
         regionId: 'rm',
         communeId: 'la-florida',
@@ -2179,7 +2201,7 @@ const vehicleValuationFeedRecords: import('./modules/shared/index.js').VehicleVa
         year: 2021,
         mileageKm: 51400,
         fuelType: 'Bencina',
-        transmission: 'Automática',
+        transmission: 'AutomÃ¡tica',
         bodyType: 'SUV',
         regionId: 'rm',
         communeId: 'pudahuel',
@@ -2209,7 +2231,7 @@ const vehicleValuationFeedRecords: import('./modules/shared/index.js').VehicleVa
         price: 7890000,
         currency: 'CLP',
         publishedAt: Date.now() - 1000 * 60 * 60 * 24 * 4,
-        addressLabel: 'Ñuñoa',
+        addressLabel: 'Ã‘uÃ±oa',
         url: null,
     },
     {
@@ -2222,8 +2244,8 @@ const vehicleValuationFeedRecords: import('./modules/shared/index.js').VehicleVa
         version: '460 6x2',
         year: 2021,
         mileageKm: 210000,
-        fuelType: 'Diésel',
-        transmission: 'Automática',
+        fuelType: 'DiÃ©sel',
+        transmission: 'AutomÃ¡tica',
         bodyType: 'Tracto',
         regionId: 'bio',
         communeId: 'concepcion',
@@ -2231,7 +2253,7 @@ const vehicleValuationFeedRecords: import('./modules/shared/index.js').VehicleVa
         price: 86900000,
         currency: 'CLP',
         publishedAt: Date.now() - 1000 * 60 * 60 * 24 * 10,
-        addressLabel: 'Concepción',
+        addressLabel: 'ConcepciÃ³n',
         url: null,
     },
 ];
@@ -2330,7 +2352,7 @@ async function loadVehiclePartnerFeed(sourceId: string, envUrlKey: string | unde
 
     const response = await fetch(sourceUrl);
     if (!response.ok) {
-        throw new Error(`Feed ${sourceId} respondió ${response.status}`);
+        throw new Error(`Feed ${sourceId} respondiÃ³ ${response.status}`);
     }
 
     const payload = await response.json().catch(() => null);
@@ -2368,7 +2390,7 @@ const vehicleValuationFeedConnectors: VehicleValuationFeedConnector[] = [
     },
     {
         id: 'mercadolibre_vehicles_partner',
-        label: 'Mercado Libre Vehículos',
+        label: 'Mercado Libre VehÃ­culos',
         license: 'commercial_feed',
         transport: 'remote_json',
         supportsHistory: true,
@@ -2443,7 +2465,7 @@ function primeVehicleValuationFeedState() {
             sourceUrl: null,
             itemCount: 0,
             lastSyncAt: null,
-            lastError: 'Requiere integración autorizada. No usamos scraping como fuente operativa.',
+            lastError: 'Requiere integraciÃ³n autorizada. No usamos scraping como fuente operativa.',
             supportsHistory: false,
         },
     ];
@@ -2516,7 +2538,7 @@ async function refreshVehicleValuationFeeds() {
         sourceUrl: null,
         itemCount: 0,
         lastSyncAt: null,
-        lastError: 'Requiere integración autorizada. No usamos scraping como fuente operativa.',
+        lastError: 'Requiere integraciÃ³n autorizada. No usamos scraping como fuente operativa.',
         supportsHistory: false,
     });
 
@@ -2622,7 +2644,7 @@ const SUBSCRIPTION_PLANS_BY_VERTICAL: Record<VerticalType, SubscriptionPlanRecor
         {
             id: 'free',
             name: 'Gratuito',
-            description: 'Plan base para comenzar a publicar vehículos.',
+            description: 'Plan base para comenzar a publicar vehÃ­culos.',
             priceMonthly: 0,
             currency: 'CLP',
             maxListings: 3,
@@ -2634,12 +2656,12 @@ const SUBSCRIPTION_PLANS_BY_VERTICAL: Record<VerticalType, SubscriptionPlanRecor
             customBranding: false,
             apiAccess: false,
             maxFreeBoostsPerMonth: 0,
-            features: ['3 publicaciones activas', '5 fotos por aviso', 'Soporte básico'],
+            features: ['3 publicaciones activas', '5 fotos por aviso', 'Soporte bÃ¡sico'],
         },
         {
             id: 'pro',
             name: 'Profesional',
-            description: 'Para equipos comerciales con operación diaria.',
+            description: 'Para equipos comerciales con operaciÃ³n diaria.',
             priceMonthly: 39990,
             currency: 'CLP',
             maxListings: 50,
@@ -2652,12 +2674,12 @@ const SUBSCRIPTION_PLANS_BY_VERTICAL: Record<VerticalType, SubscriptionPlanRecor
             apiAccess: false,
             recommended: true,
             maxFreeBoostsPerMonth: 1,
-            features: ['50 publicaciones activas', '5 avisos destacados', 'CRM completo', 'Estadísticas avanzadas', '20 fotos por aviso', '1 boost gratuito al mes'],
+            features: ['50 publicaciones activas', '5 avisos destacados', 'CRM completo', 'EstadÃ­sticas avanzadas', '20 fotos por aviso', '1 boost gratuito al mes'],
         },
         {
             id: 'enterprise',
             name: 'Empresarial',
-            description: 'Para empresas con operación multicanal y equipos grandes.',
+            description: 'Para empresas con operaciÃ³n multicanal y equipos grandes.',
             priceMonthly: 99990,
             currency: 'CLP',
             maxListings: -1,
@@ -2688,12 +2710,12 @@ const SUBSCRIPTION_PLANS_BY_VERTICAL: Record<VerticalType, SubscriptionPlanRecor
             customBranding: false,
             apiAccess: false,
             maxFreeBoostsPerMonth: 0,
-            features: ['3 propiedades activas', '12 fotos por aviso', 'Soporte básico'],
+            features: ['3 propiedades activas', '12 fotos por aviso', 'Soporte bÃ¡sico'],
         },
         {
             id: 'pro',
             name: 'Profesional',
-            description: 'Para corredoras con operación comercial constante.',
+            description: 'Para corredoras con operaciÃ³n comercial constante.',
             priceMonthly: 39990,
             currency: 'CLP',
             maxListings: 50,
@@ -2706,7 +2728,7 @@ const SUBSCRIPTION_PLANS_BY_VERTICAL: Record<VerticalType, SubscriptionPlanRecor
             apiAccess: false,
             recommended: true,
             maxFreeBoostsPerMonth: 1,
-            features: ['50 propiedades activas', '5 destacadas', 'CRM con pipeline', 'Estadísticas avanzadas', '30 fotos por aviso', '1 boost gratuito al mes'],
+            features: ['50 propiedades activas', '5 destacadas', 'CRM con pipeline', 'EstadÃ­sticas avanzadas', '30 fotos por aviso', '1 boost gratuito al mes'],
         },
         {
             id: 'enterprise',
@@ -2742,12 +2764,12 @@ const SUBSCRIPTION_PLANS_BY_VERTICAL: Record<VerticalType, SubscriptionPlanRecor
             customBranding: false,
             apiAccess: false,
             maxFreeBoostsPerMonth: 0,
-            features: ['Hasta 10 citas al mes', 'Hasta 5 pacientes', 'Página de reserva pública', 'Confirmación por email al paciente', 'Recordatorio automático 24h antes'],
+            features: ['Hasta 10 citas al mes', 'Hasta 5 pacientes', 'PÃ¡gina de reserva pÃºblica', 'ConfirmaciÃ³n por email al paciente', 'Recordatorio automÃ¡tico 24h antes'],
         },
         {
             id: 'pro',
             name: 'Profesional',
-            description: 'Para profesionales con práctica activa.',
+            description: 'Para profesionales con prÃ¡ctica activa.',
             priceMonthly: 14990,
             currency: 'CLP',
             maxListings: 1,
@@ -2760,12 +2782,12 @@ const SUBSCRIPTION_PLANS_BY_VERTICAL: Record<VerticalType, SubscriptionPlanRecor
             apiAccess: false,
             recommended: true,
             maxFreeBoostsPerMonth: 0,
-            features: ['Citas y pacientes ilimitados', 'Notas clínicas por sesión', 'Control de pagos y cobros', 'Recordatorios por email y WhatsApp', 'Recordatorio 30 min antes por WhatsApp', 'Estadísticas de consulta', 'Sincronización con Google Calendar'],
+            features: ['Citas y pacientes ilimitados', 'Notas clÃ­nicas por sesiÃ³n', 'Control de pagos y cobros', 'Recordatorios por email y WhatsApp', 'Recordatorio 30 min antes por WhatsApp', 'EstadÃ­sticas de consulta', 'SincronizaciÃ³n con Google Calendar'],
         },
         {
             id: 'enterprise',
             name: 'Empresarial',
-            description: 'Próximamente. Plan para clínicas y centros médicos.',
+            description: 'PrÃ³ximamente. Plan para clÃ­nicas y centros mÃ©dicos.',
             priceMonthly: 0,
             currency: 'CLP',
             maxListings: 1,
@@ -2778,14 +2800,14 @@ const SUBSCRIPTION_PLANS_BY_VERTICAL: Record<VerticalType, SubscriptionPlanRecor
             apiAccess: true,
             isComingSoon: true,
             maxFreeBoostsPerMonth: 0,
-            features: ['Múltiples profesionales', 'Gestión de salas', 'Reportes avanzados', 'Integraciones con sistemas de salud', 'Branding completo'],
+            features: ['MÃºltiples profesionales', 'GestiÃ³n de salas', 'Reportes avanzados', 'Integraciones con sistemas de salud', 'Branding completo'],
         },
     ],
     serenatas: [
         {
             id: 'free',
             name: 'Gratuito',
-            description: 'Plan base para músicos y grupos de serenata.',
+            description: 'Plan base para mÃºsicos y grupos de serenata.',
             priceMonthly: 0,
             currency: 'CLP',
             maxListings: 0,
@@ -2797,7 +2819,7 @@ const SUBSCRIPTION_PLANS_BY_VERTICAL: Record<VerticalType, SubscriptionPlanRecor
             customBranding: false,
             apiAccess: false,
             maxFreeBoostsPerMonth: 0,
-            features: ['Acceso básico a SimpleSerenatas'],
+            features: ['Acceso bÃ¡sico a SimpleSerenatas'],
         },
     ],
 };
@@ -2919,12 +2941,12 @@ function createBoostOrderRecord(input: {
     });
 
     if (hasRunningForListing) {
-        return { ok: false, error: 'Ya tienes un boost vigente para esta publicación' };
+        return { ok: false, error: 'Ya tienes un boost vigente para esta publicaciÃ³n' };
     }
 
     const reserved = countReservedSlots(input.vertical, input.section);
     if (reserved >= MAX_BOOST_SLOTS_PER_SECTION) {
-        return { ok: false, error: 'No quedan cupos en esta sección para el periodo seleccionado' };
+        return { ok: false, error: 'No quedan cupos en esta secciÃ³n para el periodo seleccionado' };
     }
 
     const startAt = input.startAt && Number.isFinite(input.startAt) ? input.startAt : Date.now();
@@ -3455,7 +3477,7 @@ async function disconnectInstagramAccount(userId: string, vertical: VerticalType
     await db.delete(instagramPublications).where(eq(instagramPublications.instagramAccountId, existing.id));
     await db.delete(instagramAccounts).where(eq(instagramAccounts.id, existing.id));
     instagramAccountByUserVertical.delete(instagramAccountKey(userId, vertical));
-    // Limpiar también las publicaciones del cache en memoria
+    // Limpiar tambiÃ©n las publicaciones del cache en memoria
     instagramPublicationsByUser.delete(userId);
 }
 
@@ -3504,10 +3526,10 @@ function getLatestInstagramPublicationForListing(userId: string, vertical: Verti
 
 function defaultInstagramCaptionTemplate(vertical: VerticalType): string {
     if (vertical === 'autos') {
-        return '🚗 {{title}}\n💰 {{price}}\n📍 {{location}}\n\n{{description}}\n\n🔗 Ver más: {{url}}\n\n#SimpleAutos #AutosChile #Autos #VentaAutos';
+        return 'ðŸš— {{title}}\nðŸ’° {{price}}\nðŸ“ {{location}}\n\n{{description}}\n\nðŸ”— Ver mÃ¡s: {{url}}\n\n#SimpleAutos #AutosChile #Autos #VentaAutos';
     }
     if (vertical === 'propiedades') {
-        return '🏠 {{title}}\n💰 {{price}}\n📍 {{location}}\n\n{{description}}\n\n🔗 Ver más: {{url}}\n\n#SimplePropiedades #PropiedadesChile #Inmobiliaria';
+        return 'ðŸ  {{title}}\nðŸ’° {{price}}\nðŸ“ {{location}}\n\n{{description}}\n\nðŸ”— Ver mÃ¡s: {{url}}\n\n#SimplePropiedades #PropiedadesChile #Inmobiliaria';
     }
     return '{{title}}\n{{price}}\n{{location}}\n\n{{description}}\n\n{{url}}';
 }
@@ -3515,7 +3537,7 @@ function defaultInstagramCaptionTemplate(vertical: VerticalType): string {
 function buildInstagramCaption(listing: ListingRecord, publicUrl: string, template: string | null, override: string | null): string {
     if (override) return override.trim();
 
-    const summary = extractListingSummary(listing).join(' · ');
+    const summary = extractListingSummary(listing).join(' Â· ');
     const locationLabel = getInstagramCommuneLabel(listing, asObject(listing.rawData)) || listing.location || 'Chile';
     const source = (template && template.trim()) || defaultInstagramCaptionTemplate(listing.vertical);
     return source
@@ -3598,7 +3620,7 @@ function buildInstagramListingData(listing: ListingRecord): InstagramListingData
         bathrooms: parseNumberFromString(basic.bathrooms) ?? undefined,
         surfaceLabel: (() => {
             const surface = parseNumberFromString(basic.totalArea) ?? parseNumberFromString(basic.surface);
-            return surface != null ? `${surface.toLocaleString('es-CL')} m²` : undefined;
+            return surface != null ? `${surface.toLocaleString('es-CL')} mÂ²` : undefined;
         })(),
         features: extractListingSummary(listing),
         images: extractListingMediaUrls(listing).map((url) => ({ url })),
@@ -3647,7 +3669,7 @@ function escapeSvgText(value: string): string {
 function clampTemplateText(value: string, maxLength: number): string {
     const normalized = value.replace(/\s+/g, ' ').trim();
     if (normalized.length <= maxLength) return normalized;
-    return `${normalized.slice(0, Math.max(0, maxLength - 1)).trimEnd()}…`;
+    return `${normalized.slice(0, Math.max(0, maxLength - 1)).trimEnd()}â€¦`;
 }
 
 // SVG icon paths (24x24 viewBox) for highlights / badges / location / discount
@@ -3664,7 +3686,7 @@ const SVG_ICON_PATHS: Record<string, string> = {
     km: 'M12 22c5.52 0 10-4.48 10-10S17.52 2 12 2 2 6.48 2 12s4.48 10 10 10zM12 6v6l4.5 2.5', // speedometer
     // Highlights: propiedades
     dorm: 'M3 7v11M21 7v11M3 13h18M7 13v5M17 13v5M7 8a2 2 0 012-2h2a2 2 0 012 2M13 8a2 2 0 012-2h2a2 2 0 012 2', // bed
-    baño: 'M4 12h16a1 1 0 011 1v3a4 4 0 01-4 4H7a4 4 0 01-4-4v-3a1 1 0 011-1zM6 12V5a2 2 0 012-2h3v2.25', // bath
+    bano: 'M4 12h16a1 1 0 011 1v3a4 4 0 01-4 4H7a4 4 0 01-4-4v-3a1 1 0 011-1zM6 12V5a2 2 0 012-2h3v2.25', // bath
     superficie: 'M21 3H3v18h18V3zM3 9h18M3 15h18M9 3v18M15 3v18', // grid/area
     casa: 'M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2V9z', // house
     depto: 'M3 21h18V3H3v18zm3-12h3v3H6V9zm0 5h3v3H6v-3zm5-5h3v3h-3V9zm0 5h3v3h-3v-3zm5-5h3v3h-3V9zm0 5h3v3h-3v-3z', // building
@@ -3687,17 +3709,17 @@ function getHighlightIconKey(text: string): string {
     if (t === 'nuevo') return 'nuevo';
     if (t.includes('km')) return 'km';
     if (t.includes('bencina') || t.includes('gasolina')) return 'bencina';
-    if (t.includes('diesel') || t.includes('diésel') || t.includes('petróleo')) return 'diesel';
+    if (t.includes('diesel') || t.includes('diÃ©sel') || t.includes('petrÃ³leo')) return 'diesel';
     if (t.includes('dorm')) return 'dorm';
-    if (t.includes('baño')) return 'baño';
-    if (t.includes('m²') || t.includes('m2') || t.includes('mt')) return 'superficie';
+    if (t.includes('bano')) return 'bano';
+    if (t.includes('mÂ²') || t.includes('m2') || t.includes('mt')) return 'superficie';
     if (t.includes('casa')) return 'casa';
     if (t.includes('depto') || t.includes('departamento')) return 'depto';
     if (t.includes('terreno') || t.includes('sitio') || t.includes('parcela')) return 'terreno';
     return 'servicio'; // fallback
 }
 
-// Función simple para crear texto SVG usando <text> (evita fontconfig)
+// FunciÃ³n simple para crear texto SVG usando <text> (evita fontconfig)
 // Nota: text-to-svg fue removido porque requiere fuentes del sistema no disponibles en Docker
 function svgTextElement(
     text: string,
@@ -3815,7 +3837,7 @@ async function buildInstagramTemplateOverlaySvg(
     const pricePrefix = escapeSvgText(priceLockup.prefix);
     const priceAmount = escapeSvgText(priceLockup.amount);
     const highlights = (template.highlights ?? []).slice(0, 4).map((item: string) => clampTemplateText(item, 18));
-    const summaryLine = clampTemplateText(highlights.join('   ·   '), 64);
+    const summaryLine = clampTemplateText(highlights.join('   Â·   '), 64);
     const badgeText = escapeSvgText(clampTemplateText(template.branding.badgeText, 18));
     const ctaLabel = escapeSvgText(clampTemplateText(template.ctaLabel, 26));
     const topBandHeight = template.layoutVariant === 'portrait' ? 128 : 104;
@@ -3879,10 +3901,10 @@ async function buildInstagramTemplateOverlaySvg(
             <text x="${width - 76}" y="${height - bottomBandHeight + 152}" fill="${template.colors.textInverse}" font-size="18" font-weight="700" text-anchor="end">${ctaLabel}</text>
         `;
     } else if (template.overlayVariant === 'essential-watermark') {
-        // BÁSICO: Sin overlay SVG — solo logo (agregado por sharp composite)
+        // BÃSICO: Sin overlay SVG â€” solo logo (agregado por sharp composite)
         detailsBand = '';
     } else if (template.overlayVariant === 'professional-centered') {
-        // PROFESIONAL: Card brandAccent en la parte inferior con precio, título (1 línea), highlights con iconos, ubicación, badges
+        // PROFESIONAL: Card brandAccent en la parte inferior con precio, tÃ­tulo (1 lÃ­nea), highlights con iconos, ubicaciÃ³n, badges
         const cx = Math.round(width / 2);
         const margin = 40;
         const cardW = width - margin * 2;
@@ -3919,7 +3941,7 @@ async function buildInstagramTemplateOverlaySvg(
             titleSvg = svgTextElement(proTitleText, { x: cx, y: y + 30, fontSize: 38, fontWeight: 900, fill: '#FFFFFF', anchor: 'middle' });
             y += 40;
         }
-        // Highlights with icons — horizontal row, font 30 semibold
+        // Highlights with icons â€” horizontal row, font 30 semibold
         let hlSvg = '';
         if (highlights.length > 0) {
             y += 8;
@@ -3937,7 +3959,7 @@ async function buildInstagramTemplateOverlaySvg(
             }
             y += 36;
         }
-        // Location pill with icon — bigger
+        // Location pill with icon â€” bigger
         let locSvg = '';
         if (locTextRaw) {
             y += 14;
@@ -3951,7 +3973,7 @@ async function buildInstagramTemplateOverlaySvg(
             `;
         }
 
-        // Badges top-right — auto-width based on text length
+        // Badges top-right â€” auto-width based on text length
         let badgesSvg = '';
         let bY = 28;
         if (template.discountLabel) {
@@ -3987,7 +4009,7 @@ async function buildInstagramTemplateOverlaySvg(
             ${locSvg}
         `;
     } else if (template.overlayVariant === 'signature-complete') {
-        // PREMIUM: Gradiente oscuro elegante, título 1 línea, highlights con iconos, badges/loc más grandes
+        // PREMIUM: Gradiente oscuro elegante, tÃ­tulo 1 lÃ­nea, highlights con iconos, badges/loc mÃ¡s grandes
         const cx = Math.round(width / 2);
         const fullPrice = escapeSvgText(clampTemplateText(template.offerPriceLabel || template.priceLabel || 'Consultar', 20));
         const origPrice = template.offerPriceLabel ? escapeSvgText(clampTemplateText(template.priceLabel || '', 20)) : '';
@@ -4013,7 +4035,7 @@ async function buildInstagramTemplateOverlaySvg(
             `;
             y -= 10;
         }
-        // Highlights with icons — horizontal row
+        // Highlights with icons â€” horizontal row
         let hlSvg = '';
         if (highlights.length > 0) {
             y -= 36;
@@ -4030,7 +4052,7 @@ async function buildInstagramTemplateOverlaySvg(
             }
             y -= 14;
         }
-        // Title — single line, font 38
+        // Title â€” single line, font 38
         let titleSvg = '';
         if (sigTitle) {
             y -= 44;
@@ -4045,7 +4067,7 @@ async function buildInstagramTemplateOverlaySvg(
         }
         const priceBaseline = y;
 
-        // Badges top-right — auto-width based on text length
+        // Badges top-right â€” auto-width based on text length
         let badgesSvg = '';
         let bY = 28;
         if (template.discountLabel) {
@@ -4117,12 +4139,12 @@ async function buildInstagramTemplateOverlaySvg(
 function getInstagramBasePublicOrigin(): string {
     const origin = getInstagramPublicApiOrigin();
     if (!origin) {
-        throw new Error('INSTAGRAM_REDIRECT_URI debe apuntar a una URL pública del API.');
+        throw new Error('INSTAGRAM_REDIRECT_URI debe apuntar a una URL pÃºblica del API.');
     }
 
     const url = new URL(origin);
     if (url.protocol !== 'https:' || isLocalHostname(url.hostname)) {
-        throw new Error('Instagram requiere un API público HTTPS para servir imágenes.');
+        throw new Error('Instagram requiere un API pÃºblico HTTPS para servir imÃ¡genes.');
     }
     return url.origin;
 }
@@ -4132,7 +4154,7 @@ function buildListingPublicUrlForInstagram(listing: ListingRecord): string {
     if (/^https?:\/\//i.test(listing.href)) {
         const target = new URL(listing.href);
         if (target.protocol !== 'https:' || isLocalHostname(target.hostname)) {
-            throw new Error('La URL pública del aviso debe ser HTTPS y accesible desde Internet.');
+            throw new Error('La URL pÃºblica del aviso debe ser HTTPS y accesible desde Internet.');
         }
         return target.toString();
     }
@@ -4140,7 +4162,7 @@ function buildListingPublicUrlForInstagram(listing: ListingRecord): string {
     return new URL(listing.href || listingDefaultHref(listing.vertical, listing.id), baseOrigin).toString();
 }
 
-// Prepara una imagen JPEG en Backblaze para Instagram.
+// Prepara una imagen JPEG en Cloudflare R2 para Instagram.
 async function prepareInstagramImageUrl(
     listing: ListingRecord,
     index = 0,
@@ -4153,9 +4175,9 @@ async function prepareInstagramImageUrl(
 ): Promise<string> {
     const images = extractListingMediaUrls(listing);
     const rawUrl = images[index];
-    if (!rawUrl) throw new Error('La publicación no tiene imágenes en el índice solicitado.');
+    if (!rawUrl) throw new Error('La publicaciÃ³n no tiene imÃ¡genes en el Ã­ndice solicitado.');
 
-    const bucketName = process.env.BACKBLAZE_BUCKET_NAME || 'simple-media';
+    const bucketName = process.env.CLOUDFLARE_R2_BUCKET_NAME || 'simple-media';
     const effectiveLayoutVariant = options.layoutVariant ?? options.template?.layoutVariant ?? 'square';
     const targetHeight = effectiveLayoutVariant === 'portrait' ? 1350 : 1080;
 
@@ -4163,25 +4185,30 @@ async function prepareInstagramImageUrl(
     const publishKey = options.publishKey?.trim() || randomUUID();
     const assetLabel = options.isCover ? 'cover' : `gallery-${index}`;
     const destKey = `instagram-ready/${listing.id}/${publishKey}-${assetLabel}${templateSuffix}-${targetHeight}.jpg`;
-    const downloadOrigin = process.env.BACKBLAZE_DOWNLOAD_URL || 'https://f005.backblazeb2.com';
-    const directUrl = `${downloadOrigin}/file/${bucketName}/${destKey}`;
+    const r2PublicUrl = process.env.CLOUDFLARE_R2_PUBLIC_URL || 'https://pub-4809688bad1a41768578b221b0df942c.r2.dev';
+    const directUrl = `${r2PublicUrl}/${destKey}`;
 
-    const client = getMediaProxyS3Client();
-    if (!client) throw new Error('Storage no configurado.');
+    // Usar cliente S3 de Cloudflare R2
+    const client = getR2S3Client();
+    if (!client) throw new Error('Cloudflare R2 no configurado.');
 
-    const sourceKey = extractBackblazeObjectKey(rawUrl) || rawUrl.replace(/^https?:\/\/[^/]+\/file\/[^/]+\//, '');
+    // Extraer key de la imagen fuente desde cualquier URL (Backblaze, R2, o proxy)
+    const sourceKey = extractStorageObjectKey(rawUrl) || rawUrl.replace(/^https?:\/\/[^/]+\/file\/[^/]+\//, '');
     let rawBuffer: Buffer;
     try {
+        // Intentar obtener desde R2 primero
         const obj = await client.send(new GetObjectCommand({ Bucket: bucketName, Key: sourceKey }));
         rawBuffer = obj.Body ? Buffer.from(await obj.Body.transformToByteArray()) : Buffer.alloc(0);
     } catch {
+        // Fallback: descargar desde la URL original
         const resp = await fetch(rawUrl);
+        if (!resp.ok) throw new Error(`No se pudo descargar la imagen: ${rawUrl}`);
         rawBuffer = Buffer.from(await resp.arrayBuffer());
     }
 
     const sharp = require('sharp') as typeof import('sharp');
     let pipeline = sharp(rawBuffer)
-        .rotate() // Aplicar orientación EXIF automáticamente
+        .rotate() // Aplicar orientaciÃ³n EXIF automÃ¡ticamente
         .resize({ width: 1080, height: targetHeight, fit: 'cover' });
 
     if (options.template) {
@@ -4196,13 +4223,13 @@ async function prepareInstagramImageUrl(
 
         const variant = options.template.overlayVariant;
         const appId = options.template.branding.appId;
-        // Auto templates (Básico, Profesional, Premium) use logo-light; property templates use logo
+        // Auto templates (BÃ¡sico, Profesional, Premium) use logo-light; property templates use logo
         const useLight = ['essential-watermark', 'professional-centered', 'signature-complete'].includes(variant);
         const logoBuffer = !appId ? null : useLight ? await getInstagramBrandLogoLightBuffer(appId) : await getInstagramBrandLogoBuffer(appId);
         if (logoBuffer) {
             let logoPlacement: { width: number; height: number; top: number; left: number; opacity?: number };
             if (variant === 'essential-watermark') {
-                // Básico: top-left corner watermark
+                // BÃ¡sico: top-left corner watermark
                 logoPlacement = { width: 96, height: 96, top: 36, left: 36, opacity: 0.5 };
             } else if (variant === 'professional-centered') {
                 // Profesional: centered above brandAccent card - calculate card height dynamically
@@ -4269,7 +4296,7 @@ async function prepareInstagramImageUrl(
         CacheControl: 'public, max-age=86400',
     }));
 
-    console.log('[instagram] uploaded to B2:', {
+    console.log('[instagram] uploaded to R2:', {
         listingId: listing.id,
         imageIndex: index,
         isCover: options.isCover === true,
@@ -4280,7 +4307,7 @@ async function prepareInstagramImageUrl(
     return directUrl;
 }
 
-// Nueva función: Usa Cloudflare Worker para generar imágenes de Instagram
+// Nueva funciÃ³n: Usa Cloudflare Worker para generar imÃ¡genes de Instagram
 // Elimina la necesidad de Sharp + fontconfig en el servidor
 async function prepareInstagramImageUrlCloudflare(
     listing: ListingRecord,
@@ -4294,21 +4321,21 @@ async function prepareInstagramImageUrlCloudflare(
 ): Promise<string> {
     const images = extractListingMediaUrls(listing);
     const rawUrl = images[index];
-    if (!rawUrl) throw new Error('La publicación no tiene imágenes en el índice solicitado.');
+    if (!rawUrl) throw new Error('La publicaciÃ³n no tiene imÃ¡genes en el Ã­ndice solicitado.');
 
     // Detectar si estamos usando Cloudflare R2
     const storageProvider = getStorageProvider();
     const isCloudflare = storageProvider.constructor.name === 'CloudflareR2Provider';
     
     if (!isCloudflare || !process.env.CLOUDFLARE_WORKER_URL) {
-        // Fallback a método tradicional con Sharp
+        // Fallback a mÃ©todo tradicional con Sharp
         return prepareInstagramImageUrl(listing, index, options);
     }
 
-    // Si la imagen está en Backblaze (URLs antiguas), usar método tradicional con Sharp
-    // porque el Worker no puede componer imagen + overlay todavía
+    // Si la imagen estÃ¡ en Backblaze (URLs antiguas), usar mÃ©todo tradicional con Sharp
+    // porque el Worker no puede componer imagen + overlay todavÃ­a
     if (rawUrl.includes('backblazeb2.com') || rawUrl.includes('f005.backblazeb2.com')) {
-        console.log('[instagram] imagen en Backblaze detectada, usando método tradicional con Sharp');
+        console.log('[instagram] imagen en Backblaze detectada, usando mÃ©todo tradicional con Sharp');
         return prepareInstagramImageUrl(listing, index, options);
     }
 
@@ -4342,11 +4369,11 @@ async function prepareInstagramImageUrlCloudflare(
         const r2PublicUrl = process.env.CLOUDFLARE_R2_PUBLIC_URL || 'https://pub-4809688bad1a41768578b221b0df942c.r2.dev';
         directImageUrl = `${r2PublicUrl}/${sourceKey}`;
     } else if (sourceUrl.includes('backblazeb2.com')) {
-        // Es URL de Backblaze B2 - usar la URL pública directa
+        // Es URL de Backblaze B2 - usar la URL pÃºblica directa
         const urlObj = new URL(sourceUrl);
         const pathParts = urlObj.pathname.split('/');
         sourceKey = pathParts.slice(pathParts.indexOf('file') > -1 ? 3 : 1).join('/');
-        // Usar la URL pública directa de Backblaze (el Worker debe poder descargarla)
+        // Usar la URL pÃºblica directa de Backblaze (el Worker debe poder descargarla)
         directImageUrl = sourceUrl;
     } else {
         // URL externa, usar directamente
@@ -4376,7 +4403,7 @@ async function prepareInstagramImageUrlCloudflare(
         else variant = 'essential-watermark';
     }
 
-    // Generar URL del Worker con parámetros
+    // Generar URL del Worker con parÃ¡metros
     const params = new URLSearchParams({
         image: directImageUrl,
         variant,
@@ -4421,7 +4448,7 @@ async function publishListingToInstagram(user: AppUser, listing: ListingRecord, 
     if (!account || account.status === 'disconnected') throw new Error('Primero conecta una cuenta de Instagram.');
     
     if (!userCanUseInstagram(user, listing.vertical)) {
-        throw new Error('Instagram está disponible solo para planes Pro y Empresa.');
+        throw new Error('Instagram estÃ¡ disponible solo para planes Pro y Empresa.');
     }
     if (listing.status !== 'active') {
         throw new Error('Solo puedes publicar en Instagram avisos activos.');
@@ -4437,7 +4464,7 @@ async function publishListingToInstagram(user: AppUser, listing: ListingRecord, 
     const mediaUrls = extractListingMediaUrls(listing).slice(0, 10);
     if (mediaUrls.length === 0) {
         logDebug(`[instagram] no media for listing ${listing.id}`);
-        throw new Error('El aviso no tiene imágenes.');
+        throw new Error('El aviso no tiene imÃ¡genes.');
     }
 
     logDebug(`[instagram] preparing ${mediaUrls.length} images for ${listing.id}`);
@@ -4446,7 +4473,7 @@ async function publishListingToInstagram(user: AppUser, listing: ListingRecord, 
 
     try {
         const coverTemplate = options.template ?? null;
-        // TODO: Volver a Cloudflare Worker cuando terminemos migración a R2
+        // Usar prepareInstagramImageUrl que ahora sube a R2
         const coverUrl = await prepareInstagramImageUrl(listing, 0, {
             layoutVariant: coverTemplate?.layoutVariant ?? null,
             template: coverTemplate,
@@ -4470,7 +4497,7 @@ async function publishListingToInstagram(user: AppUser, listing: ListingRecord, 
         logDebug(`[instagram] failed to prepare cover image: ${e instanceof Error ? e.message : String(e)}`);
     }
 
-    // Template minimal para marca de agua en imágenes del carrusel (solo logo, sin overlay de texto)
+    // Template minimal para marca de agua en imÃ¡genes del carrusel (solo logo, sin overlay de texto)
     const watermarkTemplate: InstagramRenderTemplate | null = options.template
         ? {
             ...options.template,
@@ -4517,7 +4544,7 @@ async function publishListingToInstagram(user: AppUser, listing: ListingRecord, 
     }
 
     if (preparedImages.length === 0) {
-        throw new Error('No se pudo preparar ninguna imagen válida para Instagram. Verifica que el aviso tenga fotos públicas y accesibles.');
+        throw new Error('No se pudo preparar ninguna imagen vÃ¡lida para Instagram. Verifica que el aviso tenga fotos pÃºblicas y accesibles.');
     }
 
     const caption = buildInstagramCaption(listing, publicUrl, refreshedAccount.captionTemplate, options.captionOverride ?? null);
@@ -4864,7 +4891,7 @@ async function listFeaturedBoosted(vertical: VerticalType, section: BoostSection
                 imageUrls: listingImageUrls,
                 section: listing.section,
                 boosted: false,
-                planName: 'Orgánico',
+                planName: 'OrgÃ¡nico',
                 boostEndsAt: null,
                 owner: owner ? sanitizeUser(owner) : null,
             };
@@ -5079,7 +5106,7 @@ async function saveListingRecord(record: ListingRecord): Promise<ListingRecord> 
     }).where(eq(listings.id, record.id)).returning();
 
     if (!row) {
-        throw new Error('Publicación no encontrada');
+        throw new Error('PublicaciÃ³n no encontrada');
     }
 
     return upsertListingCache(mapListingRowToRecord(row));
@@ -5126,7 +5153,7 @@ async function deleteListingRecord(listingId: string): Promise<void> {
                         .map((key) => storage.delete(key))
                 );
             } catch {
-                // Media cleanup is best-effort — don't fail the delete
+                // Media cleanup is best-effort â€” don't fail the delete
             }
         }
     }
@@ -5621,43 +5648,43 @@ function listingDefaultHref(vertical: VerticalType, listingId: string): string {
 function listingFieldLabel(key: string): string {
     switch (key) {
         case 'title':
-            return 'Título';
+            return 'TÃ­tulo';
         case 'description':
-            return 'Descripción';
+            return 'DescripciÃ³n';
         case 'brand':
             return 'Marca';
         case 'model':
             return 'Modelo';
         case 'year':
-            return 'Año';
+            return 'AÃ±o';
         case 'mileage':
             return 'Kilometraje';
         case 'fuel':
             return 'Combustible';
         case 'transmission':
-            return 'Transmisión';
+            return 'TransmisiÃ³n';
         case 'bodyType':
-            return 'Carrocería / tipo';
+            return 'CarrocerÃ­a / tipo';
         case 'condition':
-            return 'Condición del vehículo';
+            return 'CondiciÃ³n del vehÃ­culo';
         case 'location':
-            return 'Región + comuna';
+            return 'RegiÃ³n + comuna';
         case 'price':
             return 'Precio';
         case 'photos':
-            return 'Fotos (mínimo 3)';
+            return 'Fotos (mÃ­nimo 3)';
         case 'specificRequired':
-            return 'Campos especiales por categoría';
+            return 'Campos especiales por categorÃ­a';
         case 'rentMinDays':
-            return 'Arriendo: días mínimos';
+            return 'Arriendo: dÃ­as mÃ­nimos';
         case 'rentAvailability':
             return 'Arriendo: rango de disponibilidad';
         case 'auctionIncrement':
-            return 'Subasta: incremento mínimo';
+            return 'Subasta: incremento mÃ­nimo';
         case 'rooms':
             return 'Dormitorios';
         case 'bathrooms':
-            return 'Baños';
+            return 'banos';
         case 'surface':
             return 'Superficie';
         default:
@@ -6163,11 +6190,11 @@ function estimatePropertyValuation(input: z.infer<typeof propertyValuationReques
     const notes = [
         comparables.length > 0
             ? `Se consideraron ${comparables.length} comparables combinando publicaciones internas y feeds externos de la misma comuna.`
-            : 'No hubo comparables suficientes; se aplicó una base tipológica ajustada.',
+            : 'No hubo comparables suficientes; se aplicÃ³ una base tipolÃ³gica ajustada.',
         operationType === 'sale'
-            ? 'La estimación de venta se expresa en UF para mantener consistencia con publicaciones residenciales.'
-            : 'La estimación de arriendo se expresa en CLP mensuales.',
-        'La confianza mejora con geocodificación exacta, más fuentes integradas y comparables cerrados por sector.',
+            ? 'La estimaciÃ³n de venta se expresa en UF para mantener consistencia con publicaciones residenciales.'
+            : 'La estimaciÃ³n de arriendo se expresa en CLP mensuales.',
+        'La confianza mejora con geocodificaciÃ³n exacta, mÃ¡s fuentes integradas y comparables cerrados por sector.',
     ];
 
     return {
@@ -6365,9 +6392,9 @@ function estimateVehicleValuation(input: z.infer<typeof vehicleValuationRequestS
     const notes = [
         comparables.length > 0
             ? `Se consideraron ${comparables.length} comparables combinando avisos del marketplace y fuentes externas del segmento.`
-            : 'No hubo comparables suficientes; se aplicó una referencia base ajustada por año, kilometraje y condición.',
-        'La confianza mejora cuando coinciden versión, transmisión, combustible y ubicación del vehículo.',
-        'Esta referencia orienta el precio de mercado, pero no reemplaza una tasación comercial ni garantiza el cierre.',
+            : 'No hubo comparables suficientes; se aplicÃ³ una referencia base ajustada por aÃ±o, kilometraje y condiciÃ³n.',
+        'La confianza mejora cuando coinciden versiÃ³n, transmisiÃ³n, combustible y ubicaciÃ³n del vehÃ­culo.',
+        'Esta referencia orienta el precio de mercado, pero no reemplaza una tasaciÃ³n comercial ni garantiza el cierre.',
     ];
 
     return {
@@ -6491,7 +6518,7 @@ function activeSubscriptionToResponse(subscription: ActiveSubscription | null) {
 
 function upsertBoostListingFromListing(listing: ListingRecord): void {
     const summary = extractListingSummary(listing);
-    const subtitle = summary.join(' • ');
+    const subtitle = summary.join(' â€¢ ');
     const imageUrls = extractListingMediaUrls(listing);
     const existing = boostListingsSeed.find((item) => item.id === listing.id && item.vertical === listing.vertical);
     if (existing) {
@@ -6543,7 +6570,8 @@ function sanitizeUser(user: AppUser): PublicUser {
 }
 
 function localDevForcesSuperadmin(): boolean {
-    return process.env.NODE_ENV !== 'production' && process.env.LOCAL_DEV_FORCE_SUPERADMIN !== 'false';
+    /** Opt-in explícito: el valor anterior rompía apps verticales (p. ej. SimpleSerenatas) mostrando `superadmin` y omitiendo cargar `musicians/me/profile`. */
+    return process.env.NODE_ENV !== 'production' && process.env.LOCAL_DEV_FORCE_SUPERADMIN === 'true';
 }
 
 function applyRuntimeRole(user: AppUser): AppUser {
@@ -7107,11 +7135,11 @@ function buildGoogleRedirectUri(origin: string): string {
 }
 
 function buildPasswordResetUrl(origin: string, token: string): string {
-    return `${origin}/auth/reset-password?token=${encodeURIComponent(token)}`;
+    return `${origin}/auth/restablecer?token=${encodeURIComponent(token)}`;
 }
 
 function buildEmailVerificationUrl(origin: string, token: string): string {
-    return `${origin}/auth/verify-email?token=${encodeURIComponent(token)}`;
+    return `${origin}/auth/confirmar-correo?token=${encodeURIComponent(token)}`;
 }
 
 type AuthBrandProfile = {
@@ -7157,10 +7185,22 @@ function getAuthBrandProfile(origin: string): AuthBrandProfile {
             productName: 'Simple',
             accent: '#0d9488',
             accentSoft: '#f0fdfa',
-            surface: '#0f1a19',
+            surface: '#0d9488',
             title: 'SimpleAgenda',
-            supportLabel: 'equipo SimpleAgenda',
-            supportEmail: 'soporte@simpleagenda.app',
+            supportLabel: 'SimpleAgenda',
+            supportEmail: 'hola@simpleplataforma.app',
+        };
+    }
+    if (host.includes('simpleserenatas')) {
+        return {
+            appName: 'SimpleSerenatas',
+            productName: 'Simple',
+            accent: '#E11D48',
+            accentSoft: '#fff1f2',
+            surface: '#E11D48',
+            title: 'SimpleSerenatas',
+            supportLabel: 'SimpleSerenatas',
+            supportEmail: 'hola@simpleserenatas.app',
         };
     }
     if (host.includes('admin.simpleplataforma.app')) {
@@ -7240,7 +7280,7 @@ function buildAuthEmailHtml(input: {
                 <a href="${input.actionUrl}" style="display:inline-block;padding:14px 20px;border-radius:14px;background:${input.brand.accent};color:#ffffff;text-decoration:none;font-weight:700;font-size:14px;">${input.buttonLabel}</a>
               </div>
               <p style="margin:0 0 12px 0;font-size:13px;line-height:1.6;color:#64748b;">${input.footnote}</p>
-              <p style="margin:0;font-size:12px;line-height:1.6;color:#94a3b8;">Si el botón no funciona, copia y pega este enlace en tu navegador:<br /><a href="${input.actionUrl}" style="color:${input.brand.accent};word-break:break-all;">${input.actionUrl}</a></p>
+              <p style="margin:0;font-size:12px;line-height:1.6;color:#94a3b8;">Si el botÃ³n no funciona, copia y pega este enlace en tu navegador:<br /><a href="${input.actionUrl}" style="color:${input.brand.accent};word-break:break-all;">${input.actionUrl}</a></p>
             </div>
           </td>
         </tr>
@@ -7280,16 +7320,16 @@ async function sendPasswordResetEmail(email: string, resetUrl: string, origin: s
         return;
     }
     const heading = `Restablece el acceso a tu cuenta de ${brand.appName}.`;
-    const body = 'Recibimos una solicitud para cambiar tu contraseña. Si fuiste tú, usa el botón de abajo para definir una nueva contraseña segura.';
-    const footnote = 'Si no solicitaste este cambio, puedes ignorar este correo. Tu cuenta seguirá protegida.';
+    const body = 'Recibimos una solicitud para cambiar tu contraseÃ±a. Si fuiste tÃº, usa el botÃ³n de abajo para definir una nueva contraseÃ±a segura.';
+    const footnote = 'Si no solicitaste este cambio, puedes ignorar este correo. Tu cuenta seguirÃ¡ protegida.';
     await transporter.sendMail({
         from: formatAuthFromAddress(brand),
         to: email,
-        subject: `${brand.appName}: restablece tu contraseña`,
+        subject: `${brand.appName}: restablece tu contraseÃ±a`,
         text: buildAuthEmailText({
             heading,
             body,
-            buttonLabel: 'Restablecer contraseña',
+            buttonLabel: 'Restablecer contraseÃ±a',
             actionUrl: resetUrl,
             footnote,
             supportEmail: brand.supportEmail,
@@ -7299,7 +7339,7 @@ async function sendPasswordResetEmail(email: string, resetUrl: string, origin: s
             eyebrow: 'Seguridad de cuenta',
             heading,
             body,
-            buttonLabel: 'Restablecer contraseña',
+            buttonLabel: 'Restablecer contraseÃ±a',
             actionUrl: resetUrl,
             footnote,
         }),
@@ -7317,8 +7357,8 @@ async function sendEmailVerificationEmail(email: string, verificationUrl: string
         return;
     }
     const heading = `Confirma tu correo para activar tu cuenta de ${brand.appName}.`;
-    const body = 'Queremos asegurarnos de que este correo te pertenece y mantener la comunicación de tu cuenta con el branding correcto de la vertical.';
-    const footnote = 'Si no creaste esta cuenta, puedes ignorar este mensaje. No activaremos ninguna acción adicional.';
+    const body = 'Queremos asegurarnos de que este correo te pertenece y mantener la comunicaciÃ³n de tu cuenta con el branding correcto de la vertical.';
+    const footnote = 'Si no creaste esta cuenta, puedes ignorar este mensaje. No activaremos ninguna acciÃ³n adicional.';
     await transporter.sendMail({
         from: formatAuthFromAddress(brand),
         to: email,
@@ -7333,7 +7373,7 @@ async function sendEmailVerificationEmail(email: string, verificationUrl: string
         }),
         html: buildAuthEmailHtml({
             brand,
-            eyebrow: 'Confirmación de cuenta',
+            eyebrow: 'ConfirmaciÃ³n de cuenta',
             heading,
             body,
             buttonLabel: 'Confirmar correo',
@@ -7417,7 +7457,7 @@ async function sendWelcomeEmail(email: string, name: string, origin: string): Pr
     });
 }
 
-// ── Booking confirmation emails ───────────────────────────────────────────────
+// â”€â”€ Booking confirmation emails â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 type BookingEmailData = {
     appointmentId: string;
@@ -7495,7 +7535,7 @@ function buildBookingEmailHtml(data: BookingEmailData & { cancelUrl: string; app
                 <p style="margin:0;font-size:12px;color:#16a34a;line-height:1.7;">
                     Banco: ${bt.bank}<br/>
                     Tipo: ${bt.accountType}<br/>
-                    N° cuenta: ${bt.accountNumber}<br/>
+                    NÂ° cuenta: ${bt.accountNumber}<br/>
                     Titular: ${bt.holderName}<br/>
                     RUT: ${bt.holderRut}<br/>
                     ${bt.alias ? `Alias: ${bt.alias}` : ''}
@@ -7512,8 +7552,8 @@ function buildBookingEmailHtml(data: BookingEmailData & { cancelUrl: string; app
     }
 
     const statusLabel = isPending
-        ? `<div style="display:inline-block;padding:6px 14px;border-radius:999px;background:#fef3c7;color:#92400e;font-size:12px;font-weight:700;letter-spacing:.04em;">⏳ Pendiente de confirmación</div>`
-        : `<div style="display:inline-block;padding:6px 14px;border-radius:999px;background:#d1fae5;color:#065f46;font-size:12px;font-weight:700;letter-spacing:.04em;">✅ Confirmada</div>`;
+        ? `<div style="display:inline-block;padding:6px 14px;border-radius:999px;background:#fef3c7;color:#92400e;font-size:12px;font-weight:700;letter-spacing:.04em;">â³ Pendiente de confirmaciÃ³n</div>`
+        : `<div style="display:inline-block;padding:6px 14px;border-radius:999px;background:#d1fae5;color:#065f46;font-size:12px;font-weight:700;letter-spacing:.04em;">âœ… Confirmada</div>`;
 
     // Series section (if patient reserved multiple sessions)
     let seriesSection = '';
@@ -7529,7 +7569,7 @@ function buildBookingEmailHtml(data: BookingEmailData & { cancelUrl: string; app
         }).join('');
         seriesSection = `
         <div style="margin-top:20px;padding:16px;background:#faf5ff;border:1px solid #e9d5ff;border-radius:12px;">
-            <p style="margin:0 0 6px 0;font-size:13px;font-weight:700;color:#6b21a8;">🔁 Reserva ${freqLabel} — ${seriesDates.length} sesiones</p>
+            <p style="margin:0 0 6px 0;font-size:13px;font-weight:700;color:#6b21a8;">ðŸ” Reserva ${freqLabel} â€” ${seriesDates.length} sesiones</p>
             <p style="margin:0 0 10px 0;font-size:12px;color:#7c3aed;">Estas son todas las fechas reservadas:</p>
             <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#ffffff;border-radius:10px;overflow:hidden;border:1px solid #ede9fe;">
                 ${rows}
@@ -7548,8 +7588,8 @@ function buildBookingEmailHtml(data: BookingEmailData & { cancelUrl: string; app
         <tr>
           <td style="background:#ffffff;border-radius:24px;overflow:hidden;border:1px solid #e5e7eb;">
             <div style="padding:28px 32px;background:${surface};color:#ffffff;">
-              <div style="font-size:22px;font-weight:700;letter-spacing:-0.01em;">📅 Tu cita con ${data.professionalName}</div>
-              <div style="margin-top:8px;font-size:14px;color:rgba(255,255,255,.75);">${isPending ? 'Tu solicitud fue recibida y está en espera de confirmación.' : 'Tu cita está confirmada. Te esperamos.'}</div>
+              <div style="font-size:22px;font-weight:700;letter-spacing:-0.01em;">ðŸ“… Tu cita con ${data.professionalName}</div>
+              <div style="margin-top:8px;font-size:14px;color:rgba(255,255,255,.75);">${isPending ? 'Tu solicitud fue recibida y estÃ¡ en espera de confirmaciÃ³n.' : 'Tu cita estÃ¡ confirmada. Te esperamos.'}</div>
             </div>
             <div style="padding:28px 32px;">
               <div style="margin-bottom:20px;">${statusLabel}</div>
@@ -7565,19 +7605,19 @@ function buildBookingEmailHtml(data: BookingEmailData & { cancelUrl: string; app
                 <tr>
                   <td style="padding:14px 18px;border-bottom:1px solid #e5e7eb;">
                     <p style="margin:0;font-size:11px;font-weight:600;color:#94a3b8;text-transform:uppercase;letter-spacing:.06em;">Servicio</p>
-                    <p style="margin:4px 0 0;font-size:15px;color:#0f172a;">${data.serviceName} · ${durationStr}</p>
+                    <p style="margin:4px 0 0;font-size:15px;color:#0f172a;">${data.serviceName} Â· ${durationStr}</p>
                   </td>
                 </tr>` : `
                 <tr>
                   <td style="padding:14px 18px;border-bottom:1px solid #e5e7eb;">
-                    <p style="margin:0;font-size:11px;font-weight:600;color:#94a3b8;text-transform:uppercase;letter-spacing:.06em;">Duración</p>
+                    <p style="margin:0;font-size:11px;font-weight:600;color:#94a3b8;text-transform:uppercase;letter-spacing:.06em;">DuraciÃ³n</p>
                     <p style="margin:4px 0 0;font-size:15px;color:#0f172a;">${durationStr}</p>
                   </td>
                 </tr>`}
                 <tr>
                   <td style="padding:14px 18px;${priceStr ? 'border-bottom:1px solid #e5e7eb;' : ''}">
                     <p style="margin:0;font-size:11px;font-weight:600;color:#94a3b8;text-transform:uppercase;letter-spacing:.06em;">Modalidad</p>
-                    <p style="margin:4px 0 0;font-size:15px;color:#0f172a;">${modalityStr}${data.location ? ` · ${data.location}` : ''}</p>
+                    <p style="margin:4px 0 0;font-size:15px;color:#0f172a;">${modalityStr}${data.location ? ` Â· ${data.location}` : ''}</p>
                   </td>
                 </tr>
                 ${priceStr ? `
@@ -7591,7 +7631,7 @@ function buildBookingEmailHtml(data: BookingEmailData & { cancelUrl: string; app
 
               ${data.modality !== 'presencial' && data.meetingUrl ? `
               <div style="margin-top:20px;padding:14px 18px;background:#eff6ff;border:1px solid #bfdbfe;border-radius:12px;">
-                <p style="margin:0 0 6px 0;font-size:13px;font-weight:600;color:#1e40af;">🎥 Enlace de videollamada</p>
+                <p style="margin:0 0 6px 0;font-size:13px;font-weight:600;color:#1e40af;">ðŸŽ¥ Enlace de videollamada</p>
                 <a href="${data.meetingUrl}" style="font-size:13px;color:#2563eb;word-break:break-all;">${data.meetingUrl}</a>
               </div>` : ''}
 
@@ -7600,11 +7640,11 @@ function buildBookingEmailHtml(data: BookingEmailData & { cancelUrl: string; app
               ${paymentSection}
 
               <div style="margin-top:24px;border-top:1px solid #e5e7eb;padding-top:20px;">
-                <p style="margin:0 0 14px 0;font-size:14px;color:#334155;">¿Necesitas cancelar? Puedes hacerlo desde el siguiente enlace:</p>
+                <p style="margin:0 0 14px 0;font-size:14px;color:#334155;">Â¿Necesitas cancelar? Puedes hacerlo desde el siguiente enlace:</p>
                 <a href="${data.cancelUrl}" style="display:inline-block;padding:10px 18px;border-radius:10px;background:#f1f5f9;color:#475569;text-decoration:none;font-size:13px;font-weight:600;border:1px solid #e2e8f0;">Cancelar cita</a>
               </div>
 
-              <p style="margin:24px 0 0;font-size:12px;color:#94a3b8;">Si tienes dudas, contacta directamente a ${data.professionalName}. Este correo fue generado automáticamente por SimpleAgenda.</p>
+              <p style="margin:24px 0 0;font-size:12px;color:#94a3b8;">Si tienes dudas, contacta directamente a ${data.professionalName}. Este correo fue generado automÃ¡ticamente por SimpleAgenda.</p>
             </div>
           </td>
         </tr>
@@ -7631,10 +7671,10 @@ async function sendBookingConfirmationEmail(clientEmail: string, data: BookingEm
     const subject = seriesCount > 0
         ? (isPending
             ? `Tu solicitud de ${seriesCount} sesiones con ${data.professionalName} fue recibida`
-            : `Tus ${seriesCount} sesiones con ${data.professionalName} están confirmadas`)
+            : `Tus ${seriesCount} sesiones con ${data.professionalName} estÃ¡n confirmadas`)
         : (isPending
             ? `Tu solicitud de cita con ${data.professionalName} fue recibida`
-            : `Tu cita con ${data.professionalName} está confirmada`);
+            : `Tu cita con ${data.professionalName} estÃ¡ confirmada`);
 
     const dateStr = fmtBookingDateTime(data.startsAt, data.timezone);
     const seriesLines = seriesCount > 0 && data.seriesDates
@@ -7677,7 +7717,7 @@ async function sendAppointmentReminderEmail(clientEmail: string, data: {
         console.info(`[agenda] Reminder for ${clientEmail}: ${data.dateLabel}`);
         return;
     }
-    const subject = `Recordatorio: tu cita con ${data.professionalName} es mañana`;
+    const subject = `Recordatorio: tu cita con ${data.professionalName} es maÃ±ana`;
     const locationLine = data.modality === 'online'
         ? (data.meetingUrl ? `Enlace: ${data.meetingUrl}` : 'Modalidad: Online')
         : (data.location ? `Lugar: ${data.location}` : 'Modalidad: Presencial');
@@ -7685,7 +7725,7 @@ async function sendAppointmentReminderEmail(clientEmail: string, data: {
         subject,
         '',
         `Hola ${data.clientName},`,
-        `Te recordamos que tienes una cita mañana: ${data.dateLabel}.`,
+        `Te recordamos que tienes una cita maÃ±ana: ${data.dateLabel}.`,
         locationLine,
         '',
         `Para cancelar: ${data.cancelUrl}`,
@@ -7783,8 +7823,8 @@ function getPublicProfileDefaultValues(user: AppUser, vertical: VerticalType): O
         leadRoutingCursor: 0,
         displayName: user.name,
         headline: vertical === 'autos'
-            ? 'Atención directa y publicaciones activas verificadas.'
-            : 'Atención inmobiliaria con publicaciones activas verificadas.',
+            ? 'AtenciÃ³n directa y publicaciones activas verificadas.'
+            : 'AtenciÃ³n inmobiliaria con publicaciones activas verificadas.',
         bio: null,
         companyName: null,
         website: null,
@@ -7939,6 +7979,35 @@ function buildSocialFeedClips(vertical: VerticalType, section: string | null | u
             if (section && section !== 'todos' && socialSection !== section) return [];
 
             const media = extractListingFeedMedia(record);
+            const rawData = record.rawData as Record<string, any> | null;
+            
+            // Extraer specs según el vertical
+            const specs: Array<{ label: string; value: string; icon?: string }> = [];
+            if (record.vertical === 'autos') {
+                const basic = rawData?.basic || {};
+                if (basic.vehicleType) specs.push({ label: 'Tipo', value: basic.vehicleType, icon: 'car' });
+                if (basic.year) specs.push({ label: 'Año', value: String(basic.year), icon: 'calendar' });
+                if (basic.mileage) specs.push({ label: 'Kilometraje', value: String(basic.mileage), icon: 'gauge' });
+                if (basic.fuelType) specs.push({ label: 'Combustible', value: basic.fuelType, icon: 'gas' });
+                if (basic.transmission) specs.push({ label: 'Transmisión', value: basic.transmission, icon: 'gear' });
+            } else if (record.vertical === 'propiedades') {
+                const basic = rawData?.basic || {};
+                if (basic.propertyType) specs.push({ label: 'Tipo', value: basic.propertyType, icon: 'building' });
+                if (basic.bedrooms) specs.push({ label: 'Dorm.', value: String(basic.bedrooms), icon: 'bed' });
+                if (basic.bathrooms) specs.push({ label: 'Baños', value: String(basic.bathrooms), icon: 'bath' });
+                if (basic.surface || basic.totalSurface) {
+                    const surface = basic.totalSurface || basic.surface;
+                    specs.push({ label: 'Superficie', value: String(surface), icon: 'ruler' });
+                }
+            }
+            
+            // Extraer badges del rawData
+            const rawDataBadges = rawData || {};
+            const discountPercent = rawDataBadges.discountPercent || rawDataBadges.discount || 0;
+            const financing = rawDataBadges.financing || false;
+            const exchange = rawDataBadges.exchange || rawDataBadges.permuta || false;
+            const negotiable = rawDataBadges.negotiable || rawDataBadges.conversable || false;
+
             return [{
                 id: record.id,
                 vertical: record.vertical,
@@ -7955,6 +8024,11 @@ function buildSocialFeedClips(vertical: VerticalType, section: string | null | u
                 saves: record.favs,
                 publishedAt: record.updatedAt,
                 featured: featuredListingIds.has(record.id),
+                specs: specs.slice(0, 4), // Máximo 4 specs
+                discountPercent: discountPercent > 0 ? discountPercent : undefined,
+                financing,
+                exchange,
+                negotiable,
             } satisfies FeedClip];
         });
 }
@@ -8076,12 +8150,12 @@ function toDeliveredMediaUrl(url: string): string {
     const isProd = process.env.NODE_ENV === 'production';
     
     if (isBackblazeUrl(normalized)) {
-        // En producción, si la URL base es localhost, usamos directo para evitar el popup PNA
+        // En producciÃ³n, si la URL base es localhost, usamos directo para evitar el popup PNA
         if (isProd && (!apiBaseUrl || apiBaseUrl.includes('localhost'))) {
             return normalized;
         }
         
-        // En desarrollo local o producción bien configurada, el proxy es la mejor opción
+        // En desarrollo local o producciÃ³n bien configurada, el proxy es la mejor opciÃ³n
         // ya que evita problemas de CORS y centraliza la entrega.
         return buildMediaProxyUrl(normalized);
     }
@@ -8194,9 +8268,9 @@ function extractPropertiesSummary(record: ListingRecord): string[] {
         const usableAreaFrom = parseNumberFromString(project.usableAreaFrom);
         const usableAreaTo = parseNumberFromString(project.usableAreaTo);
         if (usableAreaFrom != null && usableAreaTo != null && usableAreaTo > usableAreaFrom) {
-            appendUniqueSummary(summary, `${usableAreaFrom.toLocaleString('es-CL')}-${usableAreaTo.toLocaleString('es-CL')} m²`);
+            appendUniqueSummary(summary, `${usableAreaFrom.toLocaleString('es-CL')}-${usableAreaTo.toLocaleString('es-CL')} mÂ²`);
         } else if (usableAreaFrom != null) {
-            appendUniqueSummary(summary, `Desde ${usableAreaFrom.toLocaleString('es-CL')} m²`);
+            appendUniqueSummary(summary, `Desde ${usableAreaFrom.toLocaleString('es-CL')} mÂ²`);
         }
 
         appendUniqueSummary(summary, asString(project.deliveryStatus));
@@ -8211,7 +8285,7 @@ function extractPropertiesSummary(record: ListingRecord): string[] {
     if (bathrooms != null) appendUniqueSummary(summary, `${bathrooms.toLocaleString('es-CL')}B`);
 
     const totalArea = parseNumberFromString(basic.totalArea ?? basic.surface);
-    if (totalArea != null) appendUniqueSummary(summary, `${totalArea.toLocaleString('es-CL')} m²`);
+    if (totalArea != null) appendUniqueSummary(summary, `${totalArea.toLocaleString('es-CL')} mÂ²`);
 
     const parkingSpaces = parseNumberFromString(basic.parkingSpaces);
     if (parkingSpaces != null) appendUniqueSummary(summary, `${parkingSpaces.toLocaleString('es-CL')} est.`);
@@ -8434,6 +8508,14 @@ async function permanentlyDeleteUser(userId: string): Promise<void> {
     let listingMediaUrlsToDelete: string[] = [];
 
     await db.transaction(async (tx) => {
+        // Get agenda professional profile if exists
+        const agendaProfile = await tx
+            .select({ id: agendaProfessionalProfiles.id })
+            .from(agendaProfessionalProfiles)
+            .where(eq(agendaProfessionalProfiles.userId, userId))
+            .limit(1);
+        const professionalId = agendaProfile.length > 0 ? agendaProfile[0].id : null;
+
         const ownedListings = await tx
             .select({ id: listings.id, rawData: listings.rawData })
             .from(listings)
@@ -8529,6 +8611,119 @@ async function permanentlyDeleteUser(userId: string): Promise<void> {
         await tx.delete(passwordResetTokens).where(eq(passwordResetTokens.userId, userId));
         await tx.delete(emailVerificationTokens).where(eq(emailVerificationTokens.userId, userId));
 
+        // Delete accounts data
+        // Get account IDs where user is owner
+        const accountRows = await tx
+            .select({ id: accounts.id })
+            .from(accounts)
+            .where(eq(accounts.ownerUserId, userId));
+        const accountIds = accountRows.map(r => r.id);
+
+        if (accountIds.length > 0) {
+            // Delete from accountUsers first (for these accounts)
+            await tx.delete(accountUsers).where(inArray(accountUsers.accountId, accountIds));
+            // Delete the accounts
+            await tx.delete(accounts).where(inArray(accounts.id, accountIds));
+        }
+        // Also delete user's account memberships
+        await tx.delete(accountUsers).where(eq(accountUsers.userId, userId));
+
+        // Delete agenda data if professional profile exists
+        if (professionalId) {
+            // Get client IDs first
+            const clientRows = await tx
+                .select({ id: agendaClients.id })
+                .from(agendaClients)
+                .where(eq(agendaClients.professionalId, professionalId));
+            const clientIds = clientRows.map(r => r.id);
+
+            // Get pack IDs
+            const packRows = await tx
+                .select({ id: agendaPacks.id })
+                .from(agendaPacks)
+                .where(eq(agendaPacks.professionalId, professionalId));
+            const packIds = packRows.map(r => r.id);
+
+            // Get group session IDs
+            const groupSessionRows = await tx
+                .select({ id: agendaGroupSessions.id })
+                .from(agendaGroupSessions)
+                .where(eq(agendaGroupSessions.professionalId, professionalId));
+            const groupSessionIds = groupSessionRows.map(r => r.id);
+
+            // Delete dependent tables first
+            if (clientIds.length > 0) {
+                await tx.delete(agendaClientTagAssignments).where(sql`${agendaClientTagAssignments.clientId} = ANY(${clientIds})`);
+                await tx.delete(agendaClientAttachments).where(sql`${agendaClientAttachments.clientId} = ANY(${clientIds})`);
+                await tx.delete(agendaClientPacks).where(sql`${agendaClientPacks.clientId} = ANY(${clientIds})`);
+            }
+            if (packIds.length > 0) {
+                await tx.delete(agendaClientPacks).where(sql`${agendaClientPacks.packId} = ANY(${packIds})`);
+            }
+            if (groupSessionIds.length > 0) {
+                await tx.delete(agendaGroupAttendees).where(sql`${agendaGroupAttendees.sessionId} = ANY(${groupSessionIds})`);
+            }
+
+            // Delete agenda tables
+            await tx.delete(agendaGroupSessions).where(eq(agendaGroupSessions.professionalId, professionalId));
+            await tx.delete(agendaNpsResponses).where(eq(agendaNpsResponses.professionalId, professionalId));
+            await tx.delete(agendaSessionNotes).where(eq(agendaSessionNotes.professionalId, professionalId));
+            await tx.delete(agendaPayments).where(eq(agendaPayments.professionalId, professionalId));
+            await tx.delete(agendaAppointments).where(eq(agendaAppointments.professionalId, professionalId));
+            await tx.delete(agendaReferrals).where(eq(agendaReferrals.professionalId, professionalId));
+            await tx.delete(agendaPromotions).where(eq(agendaPromotions.professionalId, professionalId));
+            await tx.delete(agendaPacks).where(eq(agendaPacks.professionalId, professionalId));
+            await tx.delete(agendaClientTags).where(eq(agendaClientTags.professionalId, professionalId));
+            if (clientIds.length > 0) {
+                await tx.delete(agendaClients).where(sql`${agendaClients.id} = ANY(${clientIds})`);
+            }
+            await tx.delete(agendaBlockedSlots).where(eq(agendaBlockedSlots.professionalId, professionalId));
+            await tx.delete(agendaAvailabilityRules).where(eq(agendaAvailabilityRules.professionalId, professionalId));
+            await tx.delete(agendaLocations).where(eq(agendaLocations.professionalId, professionalId));
+            await tx.delete(agendaServices).where(eq(agendaServices.professionalId, professionalId));
+            await tx.delete(agendaAuditEvents).where(eq(agendaAuditEvents.professionalId, professionalId));
+            await tx.delete(agendaNotificationEvents).where(eq(agendaNotificationEvents.professionalId, professionalId));
+            await tx.delete(pushSubscriptions).where(eq(pushSubscriptions.userId, userId));
+            await tx.delete(agendaProfessionalProfiles).where(eq(agendaProfessionalProfiles.id, professionalId));
+        }
+
+        // Delete serenatas data if exists
+        const coordinatorProfile = await tx
+            .select({ id: serenataCoordinatorProfiles.id })
+            .from(serenataCoordinatorProfiles)
+            .where(eq(serenataCoordinatorProfiles.userId, userId))
+            .limit(1);
+        const coordinatorId = coordinatorProfile.length > 0 ? coordinatorProfile[0].id : null;
+
+        if (coordinatorId) {
+            // Get subscription IDs first
+            const subscriptionRows = await tx
+                .select({ id: serenataSubscriptions.id })
+                .from(serenataSubscriptions)
+                .where(eq(serenataSubscriptions.coordinatorProfileId, coordinatorId));
+            const subscriptionIds = subscriptionRows.map(r => r.id);
+
+            // Delete dependent tables first
+            if (subscriptionIds.length > 0) {
+                await tx.delete(serenataSubscriptionPayments).where(sql`${serenataSubscriptionPayments.subscriptionId} = ANY(${subscriptionIds})`);
+            }
+
+            // Delete serenatas tables
+            await tx.delete(serenataCoordinatorCrewMemberships).where(
+                eq(serenataCoordinatorCrewMemberships.coordinatorProfileId, coordinatorId)
+            );
+            await tx.delete(serenataSubscriptionPayments).where(eq(serenataSubscriptionPayments.coordinatorProfileId, coordinatorId));
+            await tx.delete(serenataSubscriptions).where(eq(serenataSubscriptions.coordinatorProfileId, coordinatorId));
+            await tx.delete(serenataAvailability).where(eq(serenataAvailability.coordinatorProfileId, coordinatorId));
+            await tx.delete(serenataPayments).where(eq(serenataPayments.coordinatorProfileId, coordinatorId));
+            await tx.delete(serenataCoordinatorProfiles).where(eq(serenataCoordinatorProfiles.id, coordinatorId));
+        }
+
+        // Delete user-level serenatas data
+        await tx.delete(serenataMusicians).where(eq(serenataMusicians.userId, userId));
+        await tx.delete(serenataNotifications).where(eq(serenataNotifications.userId, userId));
+        await tx.delete(serenataPayments).where(eq(serenataPayments.clientId, userId));
+
         if (ownedListingIds.length > 0) {
             await tx.delete(listings).where(sql`${listings.id} = ANY(${ownedListingIds})`);
         }
@@ -8575,7 +8770,7 @@ async function permanentlyDeleteUser(userId: string): Promise<void> {
                     .map((key) => storage.delete(key))
             );
         } catch {
-            // Media cleanup is best-effort — don't fail the user delete
+            // Media cleanup is best-effort â€” don't fail the user delete
         }
     }
 }
@@ -8683,11 +8878,11 @@ function sanitizeAdCampaignWriteInput(
 
     if (destinationType === 'custom_url') {
         if (!destinationUrl || !isValidHttpDestinationUrl(destinationUrl)) {
-            throw new Error('La URL de destino no es válida.');
+            throw new Error('La URL de destino no es vÃ¡lida.');
         }
     }
     if (destinationType === 'listing' && !listingHref) {
-        throw new Error('Debes elegir una publicación como destino.');
+        throw new Error('Debes elegir una publicaciÃ³n como destino.');
     }
     if (destinationType === 'profile' && !profileSlug) {
         throw new Error('Debes ingresar el slug del perfil.');
@@ -8695,7 +8890,7 @@ function sanitizeAdCampaignWriteInput(
 
     if (options.format === 'inline') {
         if (!placementSection || !isAdPlacementSectionAllowed(options.vertical, placementSection)) {
-            throw new Error('La sección objetivo de la campaña inline no es válida.');
+            throw new Error('La secciÃ³n objetivo de la campaÃ±a inline no es vÃ¡lida.');
         }
     }
 
@@ -8809,7 +9004,7 @@ function buildLeadSlaSignals(input: {
     if (signals.length === 0 && idleHours >= 24) {
         signals.push({
             key: 'idle_follow_up',
-            label: `Sin gestión ${formatAgo(input.lastActivityAt)}`,
+            label: `Sin gestiÃ³n ${formatAgo(input.lastActivityAt)}`,
             tone: idleHours >= 72 ? 'urgent' : 'attention',
         });
     }
@@ -9282,7 +9477,7 @@ function buildListingLeadNotification(record: ListingLeadRecord) {
     return {
         id: `listing-lead:${record.id}`,
         type: 'listing_lead' as const,
-        title: `${record.contactName} consulto por ${listing?.title ?? 'tu publicación'}.`,
+        title: `${record.contactName} consulto por ${listing?.title ?? 'tu publicaciÃ³n'}.`,
         time: formatAgo(record.createdAt),
         href: '/panel/crm',
         createdAt: record.createdAt,
@@ -9302,8 +9497,8 @@ async function buildMessageThreadNotification(thread: MessageThreadRecord, viewe
         id: `message-thread:${thread.id}`,
         type: 'message_thread' as const,
         title: lastEntry
-            ? `${counterpart?.name ?? 'Contacto'} escribió por ${listing?.title ?? 'tu publicación'}.`
-            : `Conversación activa por ${listing?.title ?? 'tu publicación'}.`,
+            ? `${counterpart?.name ?? 'Contacto'} escribiÃ³ por ${listing?.title ?? 'tu publicaciÃ³n'}.`
+            : `ConversaciÃ³n activa por ${listing?.title ?? 'tu publicaciÃ³n'}.`,
         time: formatAgo(thread.lastMessageAt),
         href: `/panel/mensajes?thread=${encodeURIComponent(thread.id)}`,
         createdAt: thread.lastMessageAt,
@@ -9454,34 +9649,31 @@ function consumeInstagramState(c: Context): string {
 }
 
 function getAllowedOrigins(): Set<string> {
+    const defaults = [
+        'http://localhost:3000',
+        'http://localhost:3001',
+        'http://localhost:3002',
+        'http://localhost:3003',
+        'http://localhost:3004',
+        'http://localhost:3005',
+        'https://simpleautos.app',
+        'https://simplepropiedades.app',
+        'https://simpleagenda.app',
+        'https://simpleadmin.app',
+        'https://simpleplataforma.app',
+        'https://admin.simpleplataforma.app',
+        'https://www.simpleautos.app',
+        'https://www.simplepropiedades.app',
+        'https://www.simpleagenda.app',
+        'https://www.simpleadmin.app',
+        'https://www.simpleplataforma.app',
+    ];
     const raw = process.env.CORS_ORIGINS;
-    if (!raw) {
-        return new Set([
-            'http://localhost:3000',
-            'http://localhost:3001',
-            'http://localhost:3002',
-            'http://localhost:3003',
-            'http://localhost:3004',
-            'http://localhost:3005',
-            'https://simpleautos.app',
-            'https://simplepropiedades.app',
-            'https://simpleagenda.app',
-            'https://simpleadmin.app',
-            'https://simpleplataforma.app',
-            'https://www.simpleautos.app',
-            'https://www.simplepropiedades.app',
-            'https://www.simpleagenda.app',
-            'https://www.simpleadmin.app',
-            'https://www.simpleplataforma.app',
-        ]);
-    }
-
-    return new Set(
-        raw
-            .split(',')
-            .map((item) => item.trim())
-            .filter(Boolean)
-    );
+    const extraOrigins = (raw ?? '')
+        .split(',')
+        .map((item) => item.trim())
+        .filter(Boolean);
+    return new Set([...defaults, ...extraOrigins]);
 }
 
 const allowedOrigins = getAllowedOrigins();
@@ -9661,12 +9853,12 @@ async function getListingPipelineColumnById(id: string): Promise<PipelineColumnR
 async function reorderPipelineColumns(userId: string, vertical: VerticalType, columnIds: string[]) {
     const columns = await ensureListingPipelineColumns(userId, vertical);
     if (columns.length !== columnIds.length) {
-        return { ok: false as const, error: 'El orden de columnas es inválido.' };
+        return { ok: false as const, error: 'El orden de columnas es invÃ¡lido.' };
     }
 
     const knownIds = new Set(columns.map((column) => column.id));
     if (columnIds.some((id) => !knownIds.has(id))) {
-        return { ok: false as const, error: 'El orden de columnas es inválido.' };
+        return { ok: false as const, error: 'El orden de columnas es invÃ¡lido.' };
     }
 
     for (let index = 0; index < columnIds.length; index += 1) {
@@ -9752,7 +9944,7 @@ async function updateServiceLeadRecord(input: {
         if (nextAssignedId) {
             const nextAssignedUser = usersById.get(nextAssignedId);
             if (!nextAssignedUser || !isAdminRole(nextAssignedUser.role)) {
-                return { ok: false as const, error: 'El usuario asignado no es válido.' };
+                return { ok: false as const, error: 'El usuario asignado no es vÃ¡lido.' };
             }
         }
 
@@ -9764,7 +9956,7 @@ async function updateServiceLeadRecord(input: {
                 ? previous
                     ? `Lead reasignado de ${previous.name} a ${next.name}.`
                     : `Lead asignado a ${next.name}.`
-                : 'Asignación eliminada.';
+                : 'AsignaciÃ³n eliminada.';
             activities.push({
                 type: 'assignment',
                 body,
@@ -9789,7 +9981,7 @@ async function updateServiceLeadRecord(input: {
             : input.lead.nextTaskAt;
 
         if (Object.prototype.hasOwnProperty.call(input.changes, 'nextTaskAt') && input.changes.nextTaskAt && nextTaskAt == null) {
-            return { ok: false as const, error: 'La fecha de la próxima tarea no es válida.' };
+            return { ok: false as const, error: 'La fecha de la prÃ³xima tarea no es vÃ¡lida.' };
         }
 
         const changed = nextTaskTitle !== input.lead.nextTaskTitle || nextTaskAt !== input.lead.nextTaskAt;
@@ -9799,8 +9991,8 @@ async function updateServiceLeadRecord(input: {
             activities.push({
                 type: 'task',
                 body: nextTaskTitle || nextTaskAt
-                    ? `Próxima tarea actualizada${nextTaskTitle ? `: ${nextTaskTitle}` : ''}${nextTaskAt ? ` · ${formatServiceLeadTimestamp(nextTaskAt)}` : ''}.`
-                    : 'Próxima tarea eliminada.',
+                    ? `PrÃ³xima tarea actualizada${nextTaskTitle ? `: ${nextTaskTitle}` : ''}${nextTaskAt ? ` Â· ${formatServiceLeadTimestamp(nextTaskAt)}` : ''}.`
+                    : 'PrÃ³xima tarea eliminada.',
                 meta: {
                     title: nextTaskTitle,
                     at: nextTaskAt,
@@ -9845,7 +10037,7 @@ async function runServiceLeadQuickAction(input: {
 
     if (input.action === 'call') {
         if (!input.lead.contactPhone?.trim()) {
-            return { ok: false as const, error: 'Este lead no tiene teléfono disponible.' };
+            return { ok: false as const, error: 'Este lead no tiene telÃ©fono disponible.' };
         }
         activityBody = 'Llamada iniciada desde el CRM.';
         meta.target = input.lead.contactPhone.trim();
@@ -9868,7 +10060,7 @@ async function runServiceLeadQuickAction(input: {
         const nextTaskTitle = input.lead.nextTaskTitle?.trim() || 'Seguimiento comercial';
         updates.nextTaskTitle = nextTaskTitle;
         updates.nextTaskAt = new Date(nextTaskAt);
-        activityBody = `Seguimiento rápido programado: ${nextTaskTitle} · ${formatServiceLeadTimestamp(nextTaskAt)}.`;
+        activityBody = `Seguimiento rÃ¡pido programado: ${nextTaskTitle} Â· ${formatServiceLeadTimestamp(nextTaskAt)}.`;
         meta.title = nextTaskTitle;
         meta.at = nextTaskAt;
     }
@@ -10235,7 +10427,7 @@ async function updateListingLeadRecord(input: {
         if (nextPipelineColumnId) {
             nextPipelineColumn = pipelineColumns.find((column) => column.id === nextPipelineColumnId) ?? null;
             if (!nextPipelineColumn) {
-                return { ok: false as const, error: 'La columna del pipeline no es válida.' };
+                return { ok: false as const, error: 'La columna del pipeline no es vÃ¡lida.' };
             }
         } else {
             nextPipelineColumn = pipelineColumns.find((column) => column.status === input.lead.status) ?? pipelineColumns[0] ?? null;
@@ -10322,7 +10514,7 @@ async function updateListingLeadRecord(input: {
             const expectedValue = crmAssigneeValue({ kind: 'user', id: nextAssignedUserId });
             const matched = validAssignees.find((item) => item.value === expectedValue) ?? null;
             if (!matched || matched.kind !== 'user') {
-                return { ok: false as const, error: 'La cuenta asignada no es válida para este lead.' };
+                return { ok: false as const, error: 'La cuenta asignada no es vÃ¡lida para este lead.' };
             }
         }
 
@@ -10330,7 +10522,7 @@ async function updateListingLeadRecord(input: {
             const expectedValue = crmAssigneeValue({ kind: 'team_member', id: nextAssignedTeamMemberId });
             const matched = validAssignees.find((item) => item.value === expectedValue) ?? null;
             if (!matched || matched.kind !== 'team_member') {
-                return { ok: false as const, error: 'El asesor asignado no es válido para este lead.' };
+                return { ok: false as const, error: 'El asesor asignado no es vÃ¡lido para este lead.' };
             }
         }
 
@@ -10352,7 +10544,7 @@ async function updateListingLeadRecord(input: {
                 ? previous
                     ? `Lead reasignado de ${previous.name} a ${next.name}.`
                     : `Lead asignado a ${next.name}.`
-                : 'Asignación eliminada.';
+                : 'AsignaciÃ³n eliminada.';
 
             activities.push({
                 type: 'assignment',
@@ -10380,7 +10572,7 @@ async function updateListingLeadRecord(input: {
             : input.lead.nextTaskAt;
 
         if (Object.prototype.hasOwnProperty.call(input.changes, 'nextTaskAt') && input.changes.nextTaskAt && nextTaskAt == null) {
-            return { ok: false as const, error: 'La fecha de la próxima tarea no es válida.' };
+            return { ok: false as const, error: 'La fecha de la prÃ³xima tarea no es vÃ¡lida.' };
         }
 
         const changed = nextTaskTitle !== input.lead.nextTaskTitle || nextTaskAt !== input.lead.nextTaskAt;
@@ -10390,8 +10582,8 @@ async function updateListingLeadRecord(input: {
             activities.push({
                 type: 'task',
                 body: nextTaskTitle || nextTaskAt
-                    ? `Próxima tarea actualizada${nextTaskTitle ? `: ${nextTaskTitle}` : ''}${nextTaskAt ? ` · ${formatServiceLeadTimestamp(nextTaskAt)}` : ''}.`
-                    : 'Próxima tarea eliminada.',
+                    ? `PrÃ³xima tarea actualizada${nextTaskTitle ? `: ${nextTaskTitle}` : ''}${nextTaskAt ? ` Â· ${formatServiceLeadTimestamp(nextTaskAt)}` : ''}.`
+                    : 'PrÃ³xima tarea eliminada.',
                 meta: { title: nextTaskTitle, at: nextTaskAt },
             });
         }
@@ -10434,7 +10626,7 @@ async function runListingLeadQuickAction(input: {
 
     if (input.action === 'call') {
         if (!input.lead.contactPhone?.trim()) {
-            return { ok: false as const, error: 'Este lead no tiene teléfono disponible.' };
+            return { ok: false as const, error: 'Este lead no tiene telÃ©fono disponible.' };
         }
         activityBody = 'Llamada iniciada desde el CRM.';
         meta.target = input.lead.contactPhone.trim();
@@ -10457,7 +10649,7 @@ async function runListingLeadQuickAction(input: {
         const nextTaskTitle = input.lead.nextTaskTitle?.trim() || 'Seguimiento comercial';
         updates.nextTaskTitle = nextTaskTitle;
         updates.nextTaskAt = new Date(nextTaskAt);
-        activityBody = `Seguimiento rápido programado: ${nextTaskTitle} · ${formatServiceLeadTimestamp(nextTaskAt)}.`;
+        activityBody = `Seguimiento rÃ¡pido programado: ${nextTaskTitle} Â· ${formatServiceLeadTimestamp(nextTaskAt)}.`;
         meta.title = nextTaskTitle;
         meta.at = nextTaskAt;
     }
@@ -10796,7 +10988,7 @@ async function createOrAppendListingConversation(input: {
     if (existingThread) {
         const lead = await getListingLeadById(existingThread.leadId);
         if (!lead) {
-            throw new Error('El hilo no tiene un lead asociado válido.');
+            throw new Error('El hilo no tiene un lead asociado vÃ¡lido.');
         }
 
         const now = Date.now();
@@ -10850,7 +11042,7 @@ async function createOrAppendListingConversation(input: {
         leadId: lead.id,
         actorUserId: input.buyer.id,
         type: 'created',
-        body: `Lead creado desde conversación en ${input.sourcePage || 'publicación pública'}.`,
+        body: `Lead creado desde conversaciÃ³n en ${input.sourcePage || 'publicaciÃ³n pÃºblica'}.`,
         meta: {
             source: 'direct_message',
             channel: 'message',
@@ -10895,16 +11087,43 @@ async function listAdminUsersSnapshot(vertical?: VerticalType | null): Promise<A
     createdAt: number;
     lastLoginAt: number | null;
     totalListings: number;
+    agendaListings: number;
     autosListings: number;
     propiedadesListings: number;
+    subscriptions?: {
+        autos?: { planId: string | null; planName: string | null; status: string; expiresAt: string | null };
+        propiedades?: { planId: string | null; planName: string | null; status: string; expiresAt: string | null };
+        serenatas?: {
+            planId: string | null;
+            planName: string | null;
+            status: string;
+            expiresAt: string | null;
+            roleLabel?: string;
+            activityCount?: number;
+        };
+    };
 }>> {
-    const [userRows, listingRows] = await Promise.all([
+    const [userRows, listingRows, agendaProfiles, coordinatorProfiles, musiciansRows] = await Promise.all([
         db.select().from(users).orderBy(desc(users.createdAt)),
         db.select({
             ownerId: listings.ownerId,
             vertical: listings.vertical,
         }).from(listings),
+        db.select({ userId: agendaProfessionalProfiles.userId }).from(agendaProfessionalProfiles),
+        db.select({ userId: serenataCoordinatorProfiles.userId }).from(serenataCoordinatorProfiles),
+        db.select({ userId: serenataMusicians.userId }).from(serenataMusicians),
     ]);
+
+    const userIds = userRows.map((user) => user.id);
+    const subscriptionRows = userIds.length > 0
+        ? await db.select({
+            userId: subscriptions.userId,
+            vertical: subscriptions.vertical,
+            planId: subscriptions.planId,
+            status: subscriptions.status,
+            expiresAt: subscriptions.expiresAt,
+        }).from(subscriptions).where(inArray(subscriptions.userId, userIds))
+        : [];
 
     const listingCounters = new Map<string, { total: number; autos: number; propiedades: number }>();
     for (const listing of listingRows) {
@@ -10920,6 +11139,26 @@ async function listAdminUsersSnapshot(vertical?: VerticalType | null): Promise<A
     const ownersWithVerticalListings = new Set(
         vertical ? listingRows.filter((l) => l.vertical === vertical).map((l) => l.ownerId) : [],
     );
+    const agendaUsers = new Set(agendaProfiles.map((row) => row.userId));
+    const coordinatorUsers = new Set(coordinatorProfiles.map((row) => row.userId));
+    const musicianUsers = new Set(musiciansRows.map((row) => row.userId));
+    const subscriptionsByUser = new Map<string, Record<string, {
+        planId: string | null;
+        status: string;
+        expiresAt: Date | null;
+    }>>();
+    for (const row of subscriptionRows) {
+        const bucket = subscriptionsByUser.get(row.userId) ?? {};
+        bucket[row.vertical] = {
+            planId: row.planId,
+            status: row.status,
+            expiresAt: row.expiresAt ?? null,
+        };
+        subscriptionsByUser.set(row.userId, bucket);
+    }
+    const serenatasSubscriptionUsers = new Set(
+        subscriptionRows.filter((row) => row.vertical === 'serenatas').map((row) => row.userId)
+    );
 
     return userRows
         .filter((user) => {
@@ -10927,6 +11166,7 @@ async function listAdminUsersSnapshot(vertical?: VerticalType | null): Promise<A
             const userVertical = user.primaryVertical ?? null;
             if (userVertical === vertical) return true;
             if (ownersWithVerticalListings.has(user.id)) return true;
+            if (vertical === 'serenatas' && (serenatasSubscriptionUsers.has(user.id) || coordinatorUsers.has(user.id) || musicianUsers.has(user.id))) return true;
             return false;
         })
         .map((user) => {
@@ -10942,8 +11182,35 @@ async function listAdminUsersSnapshot(vertical?: VerticalType | null): Promise<A
                 createdAt: user.createdAt.getTime(),
                 lastLoginAt: user.lastLoginAt?.getTime() ?? null,
                 totalListings: counters.total,
+                agendaListings: agendaUsers.has(user.id) ? 1 : 0,
                 autosListings: counters.autos,
                 propiedadesListings: counters.propiedades,
+                subscriptions: (() => {
+                    const sub = subscriptionsByUser.get(user.id);
+                    if (!sub) return undefined;
+                    return {
+                        autos: sub.autos ? {
+                            planId: sub.autos.planId,
+                            planName: sub.autos.planId,
+                            status: sub.autos.status,
+                            expiresAt: sub.autos.expiresAt?.toISOString() ?? null,
+                        } : undefined,
+                        propiedades: sub.propiedades ? {
+                            planId: sub.propiedades.planId,
+                            planName: sub.propiedades.planId,
+                            status: sub.propiedades.status,
+                            expiresAt: sub.propiedades.expiresAt?.toISOString() ?? null,
+                        } : undefined,
+                        serenatas: sub.serenatas ? {
+                            planId: sub.serenatas.planId,
+                            planName: sub.serenatas.planId,
+                            status: sub.serenatas.status,
+                            expiresAt: sub.serenatas.expiresAt?.toISOString() ?? null,
+                            roleLabel: coordinatorUsers.has(user.id) ? 'Coordinador' : musicianUsers.has(user.id) ? 'Músico' : 'Cliente',
+                            activityCount: 0,
+                        } : undefined,
+                    };
+                })(),
             };
         });
 }
@@ -11001,7 +11268,7 @@ app.use(
     cors({
         origin: (origin) => {
             if (!origin) return defaultOrigin;
-            return allowedOrigins.has(origin) ? origin : defaultOrigin;
+            return allowedOrigins.has(origin) ? origin : '';
         },
         allowMethods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
         allowHeaders: ['Content-Type', 'Authorization', 'Accept', 'X-Requested-With'],
@@ -11137,7 +11404,9 @@ app.route('/api/auth', createAuthRouter({
         users,
         passwordResetTokens,
         emailVerificationTokens,
+        serenataMusicians,
     },
+    extendedRegisterSchema,
     bcrypt,
     getUserByEmail,
     getUserById,
@@ -11361,7 +11630,7 @@ app.route('/api/admin', createAdminRouter({
         if (existingAdmins.length > 0) return c.json({ ok: false, error: 'Ya existe un administrador en el sistema' }, 403);
         const payload = await c.req.json().catch(() => null);
         const parsed = registerSchema.safeParse(payload);
-        if (!parsed.success) return c.json({ ok: false, error: 'Payload inválido' }, 400);
+        if (!parsed.success) return c.json({ ok: false, error: 'Payload invÃ¡lido' }, 400);
         const normalizedEmail = parsed.data.email.trim().toLowerCase();
         const existing = await getUserByEmail(normalizedEmail);
         if (existing) return c.json({ ok: false, error: 'Email ya registrado' }, 409);
@@ -11398,6 +11667,11 @@ app.route('/api/admin', createAdminRouter({
         listingLeadActivities,
         users,
         agendaProfessionalProfiles,
+        subscriptions,
+        serenataCoordinatorProfiles,
+        serenataMusicians,
+        serenataPayments,
+        serenatas,
     },
 }));
 
@@ -11738,12 +12012,12 @@ const RESERVED_SLUGS = new Set([
 
 function isValidSlug(slug: string): { ok: true } | { ok: false; error: string } {
     if (!slug || slug.length < 3) return { ok: false, error: 'El link debe tener al menos 3 caracteres.' };
-    if (slug.length > 60) return { ok: false, error: 'El link no puede tener más de 60 caracteres.' };
+    if (slug.length > 60) return { ok: false, error: 'El link no puede tener mÃ¡s de 60 caracteres.' };
     if (!/^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?$/.test(slug)) {
-        return { ok: false, error: 'Solo letras minúsculas, números y guiones. No puede empezar ni terminar con guion.' };
+        return { ok: false, error: 'Solo letras minÃºsculas, nÃºmeros y guiones. No puede empezar ni terminar con guion.' };
     }
     if (/--/.test(slug)) return { ok: false, error: 'No puede contener guiones consecutivos.' };
-    if (RESERVED_SLUGS.has(slug)) return { ok: false, error: 'Este link no está disponible.' };
+    if (RESERVED_SLUGS.has(slug)) return { ok: false, error: 'Este link no estÃ¡ disponible.' };
     return { ok: true };
 }
 
@@ -11778,7 +12052,7 @@ async function syncToGoogleCalendar(
 
         const isOnline = appointment.modality === 'online';
         const resource: any = {
-            summary: appointment.clientName ? `Sesión con ${appointment.clientName}` : 'Sesión',
+            summary: appointment.clientName ? `SesiÃ³n con ${appointment.clientName}` : 'SesiÃ³n',
             description: appointment.internalNotes ?? undefined,
             start: { dateTime: appointment.startsAt.toISOString() },
             end: { dateTime: appointment.endsAt.toISOString() },
@@ -11846,9 +12120,9 @@ async function ensureNpsForAppointment(professionalId: string, appointmentId: st
     return created ? { token: created.token } : null;
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 // SimpleAgenda helpers
-// ─────────────────────────────────────────────────────────────────────────────
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 async function getAgendaProfile(userId: string) {
     return db.query.agendaProfessionalProfiles.findFirst({
@@ -11867,7 +12141,7 @@ function isFreePlan(profile: { plan: string; planExpiresAt: Date | null }, userR
 
 async function checkClientLimit(profileId: string): Promise<string | null> {
     const [row] = await db.select({ total: sql<number>`count(*)::int` }).from(agendaClients).where(eq(agendaClients.professionalId, profileId));
-    if ((row?.total ?? 0) >= FREE_TIER_LIMITS.maxClientsTotal) return `Has alcanzado el límite de ${FREE_TIER_LIMITS.maxClientsTotal} pacientes del plan gratuito. Actualiza a Pro para pacientes ilimitados.`;
+    if ((row?.total ?? 0) >= FREE_TIER_LIMITS.maxClientsTotal) return `Has alcanzado el lÃ­mite de ${FREE_TIER_LIMITS.maxClientsTotal} pacientes del plan gratuito. Actualiza a Pro para pacientes ilimitados.`;
     return null;
 }
 
@@ -11875,7 +12149,7 @@ async function checkAppointmentLimit(profileId: string): Promise<string | null> 
     const now = new Date();
     const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
     const [row] = await db.select({ total: sql<number>`count(*)::int` }).from(agendaAppointments).where(and(eq(agendaAppointments.professionalId, profileId), gte(agendaAppointments.startsAt, monthStart)));
-    if ((row?.total ?? 0) >= FREE_TIER_LIMITS.maxAppointmentsPerMonth) return `Has alcanzado el límite de ${FREE_TIER_LIMITS.maxAppointmentsPerMonth} citas mensuales del plan gratuito. Actualiza a Pro para citas ilimitadas.`;
+    if ((row?.total ?? 0) >= FREE_TIER_LIMITS.maxAppointmentsPerMonth) return `Has alcanzado el lÃ­mite de ${FREE_TIER_LIMITS.maxAppointmentsPerMonth} citas mensuales del plan gratuito. Actualiza a Pro para citas ilimitadas.`;
     return null;
 }
 
@@ -11923,9 +12197,9 @@ function generateSlots(
     return slots;
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// SimpleAgenda — mount modular routers
-// ─────────────────────────────────────────────────────────────────────────────
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// SimpleAgenda â€” mount modular routers
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 {
     const agendaDeps = {
@@ -11991,17 +12265,17 @@ function generateSlots(
     app.route('/api/public/agenda', createPublicAgendaRouter(agendaDeps));
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// SimpleAgenda — WhatsApp reminder cron jobs
-// ─────────────────────────────────────────────────────────────────────────────
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// SimpleAgenda â€” WhatsApp reminder cron jobs
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 function registerAgendaCronJobs() {
-    // Solo activar cron jobs de SimpleAgenda en producción o cuando esté configurado
+    // Solo activar cron jobs de SimpleAgenda en producciÃ³n o cuando estÃ© configurado
     const isProduction = process.env.NODE_ENV === 'production';
     const agendaEnabled = process.env.AGENDA_CRON_ENABLED === 'true';
     
     if (!isProduction && !agendaEnabled) {
-        console.log('[agenda] cron jobs desactivados (no es producción y AGENDA_CRON_ENABLED != true)');
+        console.log('[agenda] cron jobs desactivados (no es producciÃ³n y AGENDA_CRON_ENABLED != true)');
         return;
     }
     
@@ -12162,7 +12436,7 @@ async function bootstrapMissingTables() {
         CREATE UNIQUE INDEX IF NOT EXISTS instagram_accounts_user_vertical_idx
         ON instagram_accounts(user_id, vertical)
     `);
-    // profile_picture_url era varchar(500) pero URLs de CDN de Instagram superan ese límite
+    // profile_picture_url era varchar(500) pero URLs de CDN de Instagram superan ese lÃ­mite
     try {
         await db.execute(sql`
             ALTER TABLE instagram_accounts
@@ -12608,10 +12882,29 @@ async function bootstrapMissingTables() {
     await db.execute(sql`
         CREATE UNIQUE INDEX IF NOT EXISTS push_subscriptions_endpoint_idx ON push_subscriptions(endpoint)
     `);
+
+    // admin audit logs
+    await db.execute(sql`
+        CREATE TABLE IF NOT EXISTS admin_audit_logs (
+            id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+            actor_user_id uuid NOT NULL REFERENCES users(id),
+            action varchar(80) NOT NULL,
+            entity_type varchar(80) NOT NULL,
+            entity_id varchar(120) NOT NULL,
+            payload jsonb NOT NULL DEFAULT '{}'::jsonb,
+            created_at timestamp NOT NULL DEFAULT now()
+        )
+    `);
+    await db.execute(sql`
+        CREATE INDEX IF NOT EXISTS admin_audit_logs_created_idx ON admin_audit_logs(created_at)
+    `);
+    await db.execute(sql`
+        CREATE INDEX IF NOT EXISTS admin_audit_logs_entity_idx ON admin_audit_logs(entity_type, entity_id)
+    `);
 }
 
 // SimpleSerenatas routes
-// ─────────────────────────────────────────────────────────────────────────────
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 const serenatasService = new SerenatasService(db);
 const serenatasDeps = {
     db,
@@ -12633,19 +12926,73 @@ const serenatasDeps = {
         serenataAssignments,
         serenataRoutes,
         serenataNotifications,
-        serenataCaptainProfiles,
-        serenataMusicianProfiles,
+        serenataCoordinatorProfiles,
+        serenataCoordinatorCrewMemberships,
         serenatas,
+        serenataMusicianLineup,
         serenataSubscriptions,
         serenataSubscriptionPayments,
-        serenataPayments,
-        serenataReviews,
-        serenataAvailability,
+    serenataPayments,
+    serenataReviews,
+    serenataCoordinatorReviews,
+    serenataAvailability,
         serenataMessages,
+        serenataMpWebhookEvents,
+        serenataCoordinatorPreapprovals,
         users,
     },
 };
 app.route('/api/serenatas', createSerenatasRouter(serenatasDeps));
+
+/**
+ * Cron jobs SimpleSerenatas:
+ *  - cada hora marca como `expired` suscripciones cuyo `endsAt` pasó hace ≥ 1h
+ *    y mueve el coordinador a `paused` (excepto si el preapproval sigue
+ *    `authorized`, donde el cobro recurrente lo vuelve a activar).
+ */
+function registerSerenatasCronJobs() {
+    const isProduction = process.env.NODE_ENV === 'production';
+    const serenatasEnabled = process.env.SERENATAS_CRON_ENABLED === 'true';
+    if (!isProduction && !serenatasEnabled) {
+        console.log('[serenatas] cron jobs desactivados (no es producción y SERENATAS_CRON_ENABLED != true)');
+        return;
+    }
+    console.log('[serenatas] registering cron jobs...');
+    cron.schedule('15 * * * *', async () => {
+        try {
+            const expirationCutoff = new Date(Date.now() - 60 * 60 * 1000);
+            const expiringSubs = await db
+                .select()
+                .from(serenataSubscriptions)
+                .where(
+                    sql`${serenataSubscriptions.status} = 'active' AND ${serenataSubscriptions.endsAt} IS NOT NULL AND ${serenataSubscriptions.endsAt} < ${expirationCutoff}`
+                );
+            for (const sub of expiringSubs) {
+                const [activePreapproval] = await db
+                    .select()
+                    .from(serenataCoordinatorPreapprovals)
+                    .where(
+                        sql`${serenataCoordinatorPreapprovals.coordinatorProfileId} = ${sub.coordinatorProfileId} AND ${serenataCoordinatorPreapprovals.status} = 'authorized'`
+                    )
+                    .limit(1);
+                if (activePreapproval) continue;
+                await db
+                    .update(serenataSubscriptions)
+                    .set({ status: 'expired', updatedAt: new Date() })
+                    .where(eq(serenataSubscriptions.id, sub.id));
+                await db
+                    .update(serenataCoordinatorProfiles)
+                    .set({ subscriptionStatus: 'paused', updatedAt: new Date() })
+                    .where(eq(serenataCoordinatorProfiles.id, sub.coordinatorProfileId));
+            }
+            if (expiringSubs.length > 0) {
+                console.log(`[serenatas/cron] revisé ${expiringSubs.length} suscripciones vencidas`);
+            }
+        } catch (e) {
+            console.error('[serenatas/cron] error expirando suscripciones:', e);
+        }
+    });
+}
 
 // Run DB migrations, preload data, then start the HTTP server
 (async () => {
@@ -12655,6 +13002,7 @@ app.route('/api/serenatas', createSerenatasRouter(serenatasDeps));
 
         // Register cron jobs after bootstrap is done
         registerAgendaCronJobs();
+        registerSerenatasCronJobs();
     } catch (error) {
         console.error('[simple-api] bootstrap tables failed', error);
     }
@@ -12664,6 +13012,11 @@ app.route('/api/serenatas', createSerenatasRouter(serenatasDeps));
         console.log('[simple-api] DB migrations applied');
     } catch (error) {
         console.error('[simple-api] DB migration failed', error);
+        if (process.env.NODE_ENV !== 'production') {
+            console.warn(
+                '[simple-api] En local: ejecuta `pnpm run db:migrate` en services/api y revisa que .env.local y esta app usen la MISMA DATABASE_URL (orden .env→.env.local).'
+            );
+        }
     }
     try {
         await loadDataFromDB();

@@ -84,7 +84,8 @@ import {
     deletePanelListingDraft,
     type CreatePanelListingInput,
 } from '@/lib/panel-listings';
-import { PanelButton, PanelCard, PanelNotice } from '@simple/ui';
+import { PanelButton, PanelCard, PanelNotice, PanelVideoUploader } from '@simple/ui';
+import type { PanelVideoAsset } from '@simple/ui';
 import ModernSelect from '@/components/ui/modern-select';
 import { ColorPicker } from '@/components/ui/color-picker';
 import { fetchAddressBook, uploadMediaFile } from '@simple/utils';
@@ -132,6 +133,8 @@ interface FormData {
     warranty: boolean;
     // Dueños
     ownerCount: '1' | '2' | '3+' | '';
+    // Video
+    discoverVideo: PanelVideoAsset | null;
     
     // Paso 3: Ubicación y contacto
     regionId: string;
@@ -146,6 +149,7 @@ interface FormData {
 
 const EMPTY_FORM: FormData = {
     photos: [],
+    discoverVideo: null,
     listingType: 'sale',
     vehicleType: 'car',
     brandId: '',
@@ -248,6 +252,7 @@ export default function PublicarPage() {
     const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({
         details: false,
         history: false,
+        video: false,
         equipment: false,
     });
     
@@ -343,6 +348,27 @@ export default function PublicarPage() {
                     }
                 } catch (err) {
                     console.error('Error uploading photo:', err);
+                }
+            }
+            
+            // PASO 1B: Subir video si existe
+            let discoverVideoUrl: string | null = null;
+            if (form.discoverVideo) {
+                try {
+                    // Si es dataUrl (base64), convertir a Blob y subir
+                    if (form.discoverVideo.dataUrl.startsWith('data:')) {
+                        const blob = await fetch(form.discoverVideo.dataUrl).then((r) => r.blob());
+                        const file = new File([blob], form.discoverVideo.name, { type: form.discoverVideo.mimeType });
+                        const videoResult = await uploadMediaFile(file, { fileType: 'video' });
+                        if (videoResult.ok && videoResult.result) {
+                            discoverVideoUrl = videoResult.result.publicUrl || videoResult.result.url;
+                        }
+                    } else {
+                        // Ya es una URL, no necesita subida
+                        discoverVideoUrl = form.discoverVideo.dataUrl;
+                    }
+                } catch (err) {
+                    console.error('Error uploading video:', err);
                 }
             }
             
@@ -461,8 +487,18 @@ export default function PublicarPage() {
                         sizeBytes: p.sizeBytes,
                         mimeType: p.mimeType,
                     })),
-                    videoUrl: '',
-                    discoverVideo: null,
+                    videoUrl: discoverVideoUrl || '',
+                    discoverVideo: discoverVideoUrl ? {
+                        id: form.discoverVideo?.id || '',
+                        name: form.discoverVideo?.name || '',
+                        dataUrl: discoverVideoUrl,
+                        previewUrl: discoverVideoUrl,
+                        durationSeconds: form.discoverVideo?.durationSeconds || 0,
+                        width: form.discoverVideo?.width || 0,
+                        height: form.discoverVideo?.height || 0,
+                        sizeBytes: form.discoverVideo?.sizeBytes || 0,
+                        mimeType: form.discoverVideo?.mimeType || '',
+                    } : null,
                     documents: [],
                 },
                 location: createEmptyListingLocation({
@@ -1396,6 +1432,25 @@ function Step2Condition({
                 </div>
             </ExpandibleSection>
             
+            {/* Video del vehículo */}
+            <ExpandibleSection
+                title="Video del vehículo"
+                subtitle="Mostrar el vehículo en movimiento genera más confianza"
+                expanded={expandedSections.video}
+                onToggle={() => toggleSection('video')}
+            >
+                <div className="pt-2">
+                    <PanelVideoUploader
+                        asset={form.discoverVideo}
+                        onChange={(video) => updateForm('discoverVideo', video)}
+                        title="Clip vertical del vehículo"
+                        description="Graba un video corto mostrando el exterior e interior."
+                        helperText="MP4, WEBM o MOV · hasta 10 MB · 9:16 (vertical) · max 30 seg."
+                        maxBytes={10 * 1024 * 1024}
+                    />
+                </div>
+            </ExpandibleSection>
+
             {/* Mensaje de calidad */}
             <PanelCard className="bg-[var(--accent-subtle)] border-[var(--accent-border)]">
                 <div className="flex items-start gap-3">

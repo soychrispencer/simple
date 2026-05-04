@@ -2,7 +2,6 @@
 
 import { useState, useCallback, useEffect } from 'react';
 import { useAuth } from '@/context/AuthContext';
-import { musiciansApi } from '@/lib/api';
 import { API_BASE } from '@simple/config';
 
 export function useAvailability() {

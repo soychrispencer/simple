@@ -3,12 +3,23 @@
 @source "../../../../packages/ui/src";
 @import "leaflet/dist/leaflet.css";
 
+/* ── SimpleSerenatas — contrato visual (mobile-first, referencia estilo Link)
+    Tipografía base: ver `packages/ui/src/theme-base.css` (.type-page-title, etc.)
+    Accent marca: rosa; resto hereda tokens globales (--bg, --surface, sombras). */
+
 :root {
     --accent: #E11D48;
     --accent-subtle: rgba(225, 29, 72, 0.12);
     --accent-soft: rgba(225, 29, 72, 0.06);
     --accent-border: rgba(225, 29, 72, 0.22);
     --accent-contrast: #ffffff;
+    /* Anchos máximos de columna (panel / vistas densas) */
+    --serenatas-content-narrow: 32rem;
+    --serenatas-content-default: 56rem;
+    --serenatas-content-wide: 72rem;
+    /* Motion corto, consistente con UI “quiet” */
+    --serenatas-motion-duration: 180ms;
+    --serenatas-motion-ease: cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .dark,
@@ -157,9 +168,9 @@ body {
   @apply left-64;
 }
 
-/* Main content area */
+/* Main content area — el offset del header fijo va en el wrapper del layout (pt-16), no duplicar aquí */
 .main-content {
-  @apply pt-16;
+  @apply min-w-0;
 }
 
 .main-content-with-sidebar {
@@ -239,4 +250,23 @@ body {
 
 .animate-slide-in {
   animation: slide-in 0.2s ease-out;
+}
+
+/* Marco de página panel: el espaciado vertical lo aplica SerenatasPageShell */
+.serenatas-page {
+  min-width: 0;
+}
+
+/* Tarjetas / filas clicables: hover sin saltos bruscos */
+.serenatas-interactive {
+  transition:
+    box-shadow var(--serenatas-motion-duration) var(--serenatas-motion-ease),
+    border-color var(--serenatas-motion-duration) var(--serenatas-motion-ease),
+    transform var(--serenatas-motion-duration) var(--serenatas-motion-ease);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .serenatas-interactive:hover {
+    box-shadow: var(--shadow-sm);
+  }
 }

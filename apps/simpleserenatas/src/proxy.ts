@@ -6,6 +6,10 @@ const publicPaths = [
     '/',
     '/auth/login',
     '/auth/registro',
+    '/auth/recuperar',
+    '/auth/restablecer',
+    '/auth/verificar-correo',
+    '/auth/confirmar-correo',
     '/api',
     '/_next',        // Next.js static files (JS, CSS, chunks)
     '/manifest',     // PWA manifest

@@ -131,6 +131,8 @@ export function createListingsRouter(deps: ListingsRouterDeps) {
             updatedAt: now,
             rawData: deps.stripStoredListingMetadata(parsed.data.rawData),
             integrations: {},
+            videoUrl: parsed.data.videoUrl || null,
+            videoThumbnailUrl: parsed.data.videoThumbnailUrl || null,
         };
 
         try {
@@ -190,6 +192,8 @@ export function createListingsRouter(deps: ListingsRouterDeps) {
         listing.locationData = locationData;
         listing.href = parsed.data.href?.trim() || deps.listingDefaultHref(listing.vertical, listing.id);
         listing.rawData = deps.stripStoredListingMetadata(parsed.data.rawData);
+        listing.videoUrl = parsed.data.videoUrl ?? listing.videoUrl;
+        listing.videoThumbnailUrl = parsed.data.videoThumbnailUrl ?? listing.videoThumbnailUrl;
         if (parsed.data.status) {
             listing.status = parsed.data.status;
         }

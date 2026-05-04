@@ -4,15 +4,16 @@ import { useState, useEffect } from 'react';
 import { 
     IconMapPin, 
     IconClock, 
-    IconCheck,
-    IconX,
-    IconCurrencyDollar,
     IconCalendar,
-    IconFilter,
-    IconSearch
+    IconSearch,
+    IconLoader,
+    IconChevronRight,
+    IconMusic,
 } from '@tabler/icons-react';
 import Link from 'next/link';
+import { useAuth } from '@/context/AuthContext';
 import { API_BASE } from '@simple/config';
+import { SerenatasPageHeader, SerenatasPageShell } from '@/components/shell';
 
 interface Serenata {
     id: string;
@@ -24,17 +25,37 @@ interface Serenata {
 }
 
 const filters = [
-    { key: 'Todas', label: 'Todas', color: 'var(--fg)' },
-    { key: 'Pendientes', label: 'Pendientes', color: 'var(--warning)' },
-    { key: 'Confirmadas', label: 'Confirmadas', color: 'var(--success)' },
-    { key: 'Completadas', label: 'Completadas', color: 'var(--fg-muted)' },
+    { key: 'Todas', label: 'Todas' },
+    { key: 'Pendientes', label: 'Pendientes' },
+    { key: 'Confirmadas', label: 'Confirmadas' },
+    { key: 'Completadas', label: 'Completadas' },
 ];
+
+function StatusBadge({ status }: { status: string }) {
+    const styles: Record<string, { bg: string; color: string; label: string }> = {
+        pending: { bg: 'var(--warning-subtle)', color: 'var(--warning)', label: 'Pendiente' },
+        confirmed: { bg: 'var(--success-subtle)', color: 'var(--success)', label: 'Confirmada' },
+        completed: { bg: 'var(--bg-muted)', color: 'var(--fg-muted)', label: 'Completada' },
+        cancelled: { bg: 'var(--error-subtle)', color: 'var(--error)', label: 'Cancelada' },
+    };
+    const style = styles[status] || styles.pending;
+    
+    return (
+        <span 
+            className="text-xs px-2 py-1 rounded-full font-medium"
+            style={{ background: style.bg, color: style.color }}
+        >
+            {style.label}
+        </span>
+    );
+}
 
 export default function AgendaPage() {
     const [activeFilter, setActiveFilter] = useState('Todas');
     const [agendaItems, setAgendaItems] = useState<Serenata[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [searchQuery, setSearchQuery] = useState('');
+    const { user } = useAuth();
 
     useEffect(() => {
         const loadSerenatas = async () => {
@@ -67,17 +88,26 @@ export default function AgendaPage() {
 
     const formatDateTime = (dateStr: string) => {
         const date = new Date(dateStr);
+        const now = new Date();
+        const tomorrow = new Date(now);
+        tomorrow.setDate(tomorrow.getDate() + 1);
+        
+        let dayLabel;
+        if (date.toDateString() === now.toDateString()) {
+            dayLabel = 'Hoy';
+        } else if (date.toDateString() === tomorrow.toDateString()) {
+            dayLabel = 'Mañana';
+        } else {
+            dayLabel = date.toLocaleDateString('es-CL', { weekday: 'long', day: 'numeric', month: 'long' });
+        }
+        
         return {
             day: date.toLocaleDateString('es-CL', { day: 'numeric' }),
             month: date.toLocaleDateString('es-CL', { month: 'short' }),
             time: date.toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit' }),
-            fullDate: date.toLocaleDateString('es-CL', { 
-                weekday: 'long', 
-                day: 'numeric', 
-                month: 'long' 
-            }),
-            isToday: date.toDateString() === new Date().toDateString(),
-            isPast: date < new Date(),
+            dayLabel,
+            isToday: date.toDateString() === now.toDateString(),
+            isPast: date < now && date.toDateString() !== now.toDateString(),
         };
     };
 
@@ -103,7 +133,7 @@ export default function AgendaPage() {
         if (!acc[date]) acc[date] = [];
         acc[date].push(item);
         return acc;
-    }, {} as Record<string, typeof agendaItems>);
+    }, {} as Record<string, Serenata[]>);
 
     const sortedDates = Object.keys(groupedByDate).sort((a, b) => 
         new Date(a).getTime() - new Date(b).getTime()
@@ -115,287 +145,188 @@ export default function AgendaPage() {
         confirmed: agendaItems.filter(i => i.status === 'confirmed').length,
         pending: agendaItems.filter(i => i.status === 'pending').length,
         completed: agendaItems.filter(i => i.status === 'completed').length,
-        earnings: agendaItems.reduce((sum, i) => sum + parseInt(i.price || '0'), 0),
     };
 
     if (isLoading) {
         return (
-            <div className="flex items-center justify-center h-64">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2" style={{ borderColor: 'var(--accent)' }} />
-            </div>
+            <SerenatasPageShell fullWidth>
+                <div className="flex items-center justify-center h-64">
+                    <IconLoader className="animate-spin" size={32} style={{ color: 'var(--accent)' }} />
+                </div>
+            </SerenatasPageShell>
         );
     }
 
     return (
-        <div className="p-4 md:p-6">
-            {/* Header */}
-            <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6">
-                <div>
-                    <h1 className="text-2xl font-semibold" style={{ color: 'var(--fg)' }}>Mi Agenda</h1>
-                    <p style={{ color: 'var(--fg-muted)' }}>{stats.total} serenatas programadas</p>
+        <SerenatasPageShell fullWidth>
+            <SerenatasPageHeader
+                title="Mi agenda"
+                description={`${stats.total} serenatas programadas`}
+            />
+
+            {/* Stats Cards */}
+            <div className="grid grid-cols-4 gap-3 mb-6">
+                <div className="p-3 rounded-xl" style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border)' }}>
+                    <p className="text-xl font-bold" style={{ color: 'var(--fg)' }}>{stats.total}</p>
+                    <p className="text-xs" style={{ color: 'var(--fg-muted)' }}>Total</p>
                 </div>
-                
-                {/* Search - Desktop */}
-                <div className="hidden md:flex items-center gap-3">
-                    <div 
-                        className="flex items-center gap-2 px-4 py-2 rounded-xl border"
-                        style={{ borderColor: 'var(--border)', background: 'var(--surface)' }}
+                <div className="p-3 rounded-xl" style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border)' }}>
+                    <p className="text-xl font-bold" style={{ color: 'var(--accent)' }}>{stats.pending}</p>
+                    <p className="text-xs" style={{ color: 'var(--fg-muted)' }}>Pendientes</p>
+                </div>
+                <div className="p-3 rounded-xl" style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border)' }}>
+                    <p className="text-xl font-bold" style={{ color: 'var(--success)' }}>{stats.confirmed}</p>
+                    <p className="text-xs" style={{ color: 'var(--fg-muted)' }}>Confirmadas</p>
+                </div>
+                <div className="p-3 rounded-xl" style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border)' }}>
+                    <p className="text-xl font-bold" style={{ color: 'var(--fg-muted)' }}>{stats.completed}</p>
+                    <p className="text-xs" style={{ color: 'var(--fg-muted)' }}>Completadas</p>
+                </div>
+            </div>
+
+            {/* Search */}
+            <div className="mb-4">
+                <div 
+                    className="flex items-center gap-2 px-4 py-3 rounded-xl border"
+                    style={{ borderColor: 'var(--border)', background: 'var(--bg-elevated)' }}
+                >
+                    <IconSearch size={18} style={{ color: 'var(--fg-muted)' }} />
+                    <input
+                        type="text"
+                        placeholder="Buscar serenata..."
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                        className="bg-transparent outline-none text-sm flex-1"
+                        style={{ color: 'var(--fg)' }}
+                    />
+                </div>
+            </div>
+
+            {/* Filters */}
+            <div className="flex gap-2 overflow-x-auto pb-2 mb-4 no-scrollbar">
+                {filters.map((filter) => (
+                    <button
+                        key={filter.key}
+                        onClick={() => setActiveFilter(filter.key)}
+                        className="px-4 py-2 rounded-xl text-sm font-medium whitespace-nowrap transition-all"
+                        style={{
+                            background: activeFilter === filter.key ? 'var(--accent)' : 'var(--bg-subtle)',
+                            color: activeFilter === filter.key ? 'white' : 'var(--fg)',
+                        }}
                     >
-                        <IconSearch size={18} style={{ color: 'var(--fg-muted)' }} />
-                        <input
-                            type="text"
-                            placeholder="Buscar serenata..."
-                            value={searchQuery}
-                            onChange={(e) => setSearchQuery(e.target.value)}
-                            className="bg-transparent outline-none text-sm w-48"
-                            style={{ color: 'var(--fg)' }}
-                        />
-                    </div>
-                </div>
+                        {filter.label}
+                        <span 
+                            className="ml-2 text-xs px-1.5 py-0.5 rounded-full"
+                            style={{ 
+                                background: activeFilter === filter.key 
+                                    ? 'rgba(255,255,255,0.3)' 
+                                    : 'var(--border)',
+                                color: activeFilter === filter.key ? 'white' : 'var(--fg-muted)',
+                            }}
+                        >
+                            {filter.key === 'Todas' ? stats.total :
+                             filter.key === 'Pendientes' ? stats.pending :
+                             filter.key === 'Confirmadas' ? stats.confirmed :
+                             stats.completed}
+                        </span>
+                    </button>
+                ))}
             </div>
 
-            <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-                {/* Main Content */}
-                <div className="lg:col-span-3 space-y-6">
-                    {/* Filters */}
-                    <div className="flex gap-2 overflow-x-auto pb-2 no-scrollbar">
-                        {filters.map((filter) => (
-                            <button
-                                key={filter.key}
-                                onClick={() => setActiveFilter(filter.key)}
-                                className={`px-4 py-2 rounded-xl text-sm font-medium whitespace-nowrap transition-all ${
-                                    activeFilter === filter.key
-                                        ? ''
-                                        : 'hover:bg-[var(--bg-subtle)]'
-                                }`}
-                                style={{
-                                    background: activeFilter === filter.key ? 'var(--accent)' : 'var(--bg-subtle)',
-                                    color: activeFilter === filter.key ? 'var(--accent-contrast)' : 'var(--fg)',
-                                }}
-                            >
-                                {filter.label}
-                                <span 
-                                    className="ml-2 text-xs px-1.5 py-0.5 rounded-full"
-                                    style={{ 
-                                        background: activeFilter === filter.key 
-                                            ? 'rgba(255,255,255,0.3)' 
-                                            : 'var(--border)'
-                                    }}
-                                >
-                                    {filter.key === 'Todas' ? stats.total :
-                                     filter.key === 'Pendientes' ? stats.pending :
-                                     filter.key === 'Confirmadas' ? stats.confirmed :
-                                     stats.completed}
-                                </span>
-                            </button>
-                        ))}
-                    </div>
-
-                    {/* Mobile Search */}
-                    <div className="md:hidden">
-                        <div 
-                            className="flex items-center gap-2 px-4 py-3 rounded-xl border"
-                            style={{ borderColor: 'var(--border)', background: 'var(--surface)' }}
-                        >
-                            <IconSearch size={18} style={{ color: 'var(--fg-muted)' }} />
-                            <input
-                                type="text"
-                                placeholder="Buscar serenata..."
-                                value={searchQuery}
-                                onChange={(e) => setSearchQuery(e.target.value)}
-                                className="bg-transparent outline-none text-sm flex-1"
-                                style={{ color: 'var(--fg)' }}
-                            />
-                        </div>
-                    </div>
-
-                    {/* Agenda List */}
-                    {sortedDates.length === 0 ? (
-                        <div 
-                            className="rounded-2xl p-8 text-center"
-                            style={{ background: 'var(--bg-subtle)' }}
-                        >
-                            <IconCalendar size={48} className="mx-auto mb-3" style={{ color: 'var(--border-strong)' }} />
-                            <p style={{ color: 'var(--fg-muted)' }}>No hay serenatas en tu agenda</p>
-                        </div>
-                    ) : (
-                        <div className="space-y-6">
-                            {sortedDates.map((date) => {
-                                const items = groupedByDate[date];
-                                const { fullDate, isToday } = formatDateTime(items[0].dateTime);
-                                return (
-                                    <div key={date}>
-                                        <h2 
-                                            className="text-sm font-semibold uppercase tracking-wider mb-3 flex items-center gap-2"
-                                            style={{ color: 'var(--fg-muted)' }}
-                                        >
-                                            <IconCalendar size={14} />
-                                            {fullDate}
-                                            {isToday && (
-                                                <span 
-                                                    className="text-xs px-2 py-0.5 rounded-full"
-                                                    style={{ background: 'var(--accent-subtle)', color: 'var(--accent)' }}
-                                                >
-                                                    Hoy
-                                                </span>
-                                            )}
-                                        </h2>
-                                        <div className="space-y-3">
-                                            {items.map((item) => {
-                                                const { time } = formatDateTime(item.dateTime);
-                                                return (
-                                                    <Link
-                                                        key={item.id}
-                                                        href={`/serenata/${item.id}`}
-                                                        className="card card-hover block"
-                                                    >
-                                                        <div className="flex items-start gap-4">
-                                                            {/* Time */}
-                                                            <div className="flex-shrink-0 text-center w-16">
-                                                                <p className="text-lg font-bold" style={{ color: 'var(--fg)' }}>{time}</p>
-                                                            </div>
-
-                                                            {/* Content */}
-                                                            <div className="flex-1 min-w-0">
-                                                                <div className="flex items-center gap-2 mb-1 flex-wrap">
-                                                                    <h3 className="font-semibold truncate" style={{ color: 'var(--fg)' }}>
-                                                                        {item.clientName}
-                                                                    </h3>
-                                                                    <StatusBadge status={item.status} />
-                                                                </div>
-                                                                
-                                                                <div className="flex items-center gap-1 text-sm mb-2" style={{ color: 'var(--fg-muted)' }}>
-                                                                    <IconMapPin size={14} />
-                                                                    <span className="truncate">{item.address}</span>
-                                                                </div>
-
-                                                                <div className="flex items-center gap-3">
-                                                                    <span className="text-sm font-semibold" style={{ color: 'var(--accent)' }}>
-                                                                        {formatCurrency(parseInt(item.price || '0'))}
-                                                                    </span>
-                                                                </div>
-                                                            </div>
-                                                        </div>
-                                                    </Link>
-                                                );
-                                            })}
-                                        </div>
-                                    </div>
-                                );
-                            })}
-                        </div>
-                    )}
+            {/* Agenda List */}
+            {sortedDates.length === 0 ? (
+                <div 
+                    className="rounded-2xl p-8 text-center"
+                    style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border)' }}
+                >
+                    <IconCalendar size={48} className="mx-auto mb-3" style={{ color: 'var(--border-strong)' }} />
+                    <p className="font-medium mb-1" style={{ color: 'var(--fg)' }}>No hay serenatas en tu agenda</p>
+                    <p className="text-sm" style={{ color: 'var(--fg-muted)' }}>
+                        Las serenatas asignadas aparecerán aquí
+                    </p>
                 </div>
-
-                {/* Sidebar Stats - Desktop */}
-                <div className="hidden lg:block space-y-4">
-                    <div className="card">
-                        <h3 className="font-semibold mb-4" style={{ color: 'var(--fg)' }}>Resumen</h3>
+            ) : (
+                <div className="space-y-6">
+                    {sortedDates.map((date) => {
+                        const items = groupedByDate[date];
+                        const { dayLabel, isToday } = formatDateTime(items[0].dateTime);
                         
-                        <div className="space-y-4">
-                            <div className="flex items-center justify-between p-3 rounded-xl" style={{ background: 'var(--bg-subtle)' }}>
-                                <div className="flex items-center gap-3">
-                                    <div 
-                                        className="w-10 h-10 rounded-xl flex items-center justify-center"
-                                        style={{ background: 'var(--accent-subtle)' }}
-                                    >
-                                        <IconCalendar size={20} style={{ color: 'var(--accent)' }} />
-                                    </div>
-                                    <div>
-                                        <p className="text-sm" style={{ color: 'var(--fg-muted)' }}>Total</p>
-                                        <p className="font-semibold" style={{ color: 'var(--fg)' }}>{stats.total} serenatas</p>
-                                    </div>
-                                </div>
-                            </div>
+                        return (
+                            <div key={date}>
+                                <h2 
+                                    className="text-sm font-semibold mb-3 flex items-center gap-2"
+                                    style={{ color: 'var(--fg-muted)' }}
+                                >
+                                    <IconCalendar size={14} />
+                                    {dayLabel}
+                                    {isToday && (
+                                        <span 
+                                            className="text-xs px-2 py-0.5 rounded-full"
+                                            style={{ background: 'var(--accent-subtle)', color: 'var(--accent)' }}
+                                        >
+                                            Hoy
+                                        </span>
+                                    )}
+                                </h2>
+                                <div className="space-y-3">
+                                    {items.map((item) => {
+                                        const { day, month, time } = formatDateTime(item.dateTime);
+                                        return (
+                                            <Link
+                                                key={item.id}
+                                                href={`/serenata/${item.id}`}
+                                                className="block p-4 rounded-2xl transition-all hover:opacity-90"
+                                                style={{ 
+                                                    background: 'var(--bg-elevated)', 
+                                                    border: '1px solid var(--border)' 
+                                                }}
+                                            >
+                                                <div className="flex items-start gap-4">
+                                                    {/* Date Box */}
+                                                    <div 
+                                                        className="flex-shrink-0 text-center w-14 py-2 rounded-xl"
+                                                        style={{ background: 'var(--bg-subtle)' }}
+                                                    >
+                                                        <p className="text-lg font-bold" style={{ color: 'var(--fg)' }}>{day}</p>
+                                                        <p className="text-xs uppercase" style={{ color: 'var(--fg-muted)' }}>{month}</p>
+                                                    </div>
 
-                            <div className="flex items-center justify-between p-3 rounded-xl" style={{ background: 'var(--bg-subtle)' }}>
-                                <div className="flex items-center gap-3">
-                                    <div 
-                                        className="w-10 h-10 rounded-xl flex items-center justify-center"
-                                        style={{ background: 'color-mix(in oklab, var(--success) 15%, transparent)' }}
-                                    >
-                                        <IconCheck size={20} style={{ color: 'var(--success)' }} />
-                                    </div>
-                                    <div>
-                                        <p className="text-sm" style={{ color: 'var(--fg-muted)' }}>Confirmadas</p>
-                                        <p className="font-semibold" style={{ color: 'var(--fg)' }}>{stats.confirmed}</p>
-                                    </div>
-                                </div>
-                            </div>
+                                                    {/* Content */}
+                                                    <div className="flex-1 min-w-0">
+                                                        <div className="flex items-center gap-2 mb-1 flex-wrap">
+                                                            <h3 className="font-semibold" style={{ color: 'var(--fg)' }}>
+                                                                {item.clientName}
+                                                            </h3>
+                                                            <StatusBadge status={item.status} />
+                                                        </div>
+                                                        
+                                                        <div className="flex items-center gap-1 text-sm mb-2" style={{ color: 'var(--fg-muted)' }}>
+                                                            <IconClock size={14} />
+                                                            <span>{time}</span>
+                                                        </div>
+                                                        
+                                                        <div className="flex items-center gap-1 text-sm mb-2" style={{ color: 'var(--fg-muted)' }}>
+                                                            <IconMapPin size={14} />
+                                                            <span className="truncate">{item.address}</span>
+                                                        </div>
 
-                            <div className="flex items-center justify-between p-3 rounded-xl" style={{ background: 'var(--bg-subtle)' }}>
-                                <div className="flex items-center gap-3">
-                                    <div 
-                                        className="w-10 h-10 rounded-xl flex items-center justify-center"
-                                        style={{ background: 'color-mix(in oklab, var(--warning) 15%, transparent)' }}
-                                    >
-                                        <IconClock size={20} style={{ color: 'var(--warning)' }} />
-                                    </div>
-                                    <div>
-                                        <p className="text-sm" style={{ color: 'var(--fg-muted)' }}>Pendientes</p>
-                                        <p className="font-semibold" style={{ color: 'var(--fg)' }}>{stats.pending}</p>
-                                    </div>
+                                                        <div className="flex items-center justify-between">
+                                                            <span className="text-sm font-semibold" style={{ color: 'var(--accent)' }}>
+                                                                {formatCurrency(parseInt(item.price || '0'))}
+                                                            </span>
+                                                            <IconChevronRight size={16} style={{ color: 'var(--fg-faint)' }} />
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </Link>
+                                        );
+                                    })}
                                 </div>
                             </div>
-
-                            <div 
-                                className="p-4 rounded-xl mt-4"
-                                style={{ background: 'var(--accent-subtle)' }}
-                            >
-                                <div className="flex items-center gap-2 mb-1">
-                                    <IconCurrencyDollar size={18} style={{ color: 'var(--accent)' }} />
-                                    <span className="text-sm font-medium" style={{ color: 'var(--accent)' }}>Ganancias esperadas</span>
-                                </div>
-                                <p className="text-2xl font-bold" style={{ color: 'var(--accent)' }}>
-                                    {formatCurrency(stats.earnings)}
-                                </p>
-                            </div>
-                        </div>
-                    </div>
+                        );
+                    })}
                 </div>
-            </div>
-        </div>
-    );
-}
-
-function StatusBadge({ status }: { status: string }) {
-    const config = {
-        confirmed: {
-            bg: 'color-mix(in oklab, var(--success) 15%, transparent)',
-            color: 'var(--success)',
-            icon: IconCheck,
-            label: 'Confirmada',
-        },
-        completed: {
-            bg: 'var(--bg-muted)',
-            color: 'var(--fg-muted)',
-            icon: IconCheck,
-            label: 'Completada',
-        },
-        pending: {
-            bg: 'color-mix(in oklab, var(--warning) 15%, transparent)',
-            color: 'var(--warning)',
-            icon: IconClock,
-            label: 'Pendiente',
-        },
-        cancelled: {
-            bg: 'color-mix(in oklab, var(--error) 15%, transparent)',
-            color: 'var(--error)',
-            icon: IconX,
-            label: 'Cancelada',
-        },
-    };
-
-    const c = config[status as keyof typeof config] || config.pending;
-    const Icon = c.icon;
-
-    return (
-        <span 
-            className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium"
-            style={{ background: c.bg, color: c.color }}
-        >
-            <Icon size={12} />
-            {c.label}
-        </span>
+            )}
+        </SerenatasPageShell>
     );
 }

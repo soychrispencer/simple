@@ -476,7 +476,7 @@ CREATE TABLE IF NOT EXISTS "serenata_groups" (
 	"name" varchar(255) NOT NULL,
 	"date" timestamp NOT NULL,
 	"created_by" uuid NOT NULL,
-	"captain_id" uuid,
+	"group_lead_musician_id" uuid,
 	"serenata_ids" jsonb DEFAULT '[]' NOT NULL,
 	"optimized_order" jsonb,
 	"route_distance" numeric(10, 2),
@@ -703,7 +703,7 @@ DO $$ BEGIN ALTER TABLE "serenata_availability_slots" ADD CONSTRAINT "serenata_a
 DO $$ BEGIN ALTER TABLE "serenata_group_members" ADD CONSTRAINT "serenata_group_members_group_id_serenata_groups_id_fk" FOREIGN KEY ("group_id") REFERENCES "public"."serenata_groups"("id") ON DELETE no action ON UPDATE no action; EXCEPTION WHEN duplicate_object THEN NULL; END $$;--> statement-breakpoint
 DO $$ BEGIN ALTER TABLE "serenata_group_members" ADD CONSTRAINT "serenata_group_members_musician_id_serenata_musicians_id_fk" FOREIGN KEY ("musician_id") REFERENCES "public"."serenata_musicians"("id") ON DELETE no action ON UPDATE no action; EXCEPTION WHEN duplicate_object THEN NULL; END $$;--> statement-breakpoint
 DO $$ BEGIN ALTER TABLE "serenata_groups" ADD CONSTRAINT "serenata_groups_created_by_serenata_musicians_id_fk" FOREIGN KEY ("created_by") REFERENCES "public"."serenata_musicians"("id") ON DELETE no action ON UPDATE no action; EXCEPTION WHEN duplicate_object THEN NULL; END $$;--> statement-breakpoint
-DO $$ BEGIN ALTER TABLE "serenata_groups" ADD CONSTRAINT "serenata_groups_captain_id_serenata_musicians_id_fk" FOREIGN KEY ("captain_id") REFERENCES "public"."serenata_musicians"("id") ON DELETE no action ON UPDATE no action; EXCEPTION WHEN duplicate_object THEN NULL; END $$;--> statement-breakpoint
+DO $$ BEGIN ALTER TABLE "serenata_groups" ADD CONSTRAINT "serenata_groups_group_lead_musician_id_serenata_musicians_id_fk" FOREIGN KEY ("group_lead_musician_id") REFERENCES "public"."serenata_musicians"("id") ON DELETE no action ON UPDATE no action; EXCEPTION WHEN duplicate_object THEN NULL; END $$;--> statement-breakpoint
 DO $$ BEGIN ALTER TABLE "serenata_musicians" ADD CONSTRAINT "serenata_musicians_user_id_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."users"("id") ON DELETE no action ON UPDATE no action; EXCEPTION WHEN duplicate_object THEN NULL; END $$;--> statement-breakpoint
 DO $$ BEGIN ALTER TABLE "serenata_reviews" ADD CONSTRAINT "serenata_reviews_serenata_id_serenata_requests_id_fk" FOREIGN KEY ("serenata_id") REFERENCES "public"."serenata_requests"("id") ON DELETE no action ON UPDATE no action; EXCEPTION WHEN duplicate_object THEN NULL; END $$;--> statement-breakpoint
 DO $$ BEGIN ALTER TABLE "serenata_reviews" ADD CONSTRAINT "serenata_reviews_group_id_serenata_groups_id_fk" FOREIGN KEY ("group_id") REFERENCES "public"."serenata_groups"("id") ON DELETE no action ON UPDATE no action; EXCEPTION WHEN duplicate_object THEN NULL; END $$;--> statement-breakpoint
@@ -773,7 +773,7 @@ CREATE UNIQUE INDEX IF NOT EXISTS "serenata_group_members_unique_idx" ON "serena
 CREATE INDEX IF NOT EXISTS "serenata_group_members_group_idx" ON "serenata_group_members" USING btree ("group_id");--> statement-breakpoint
 CREATE INDEX IF NOT EXISTS "serenata_group_members_musician_idx" ON "serenata_group_members" USING btree ("musician_id");--> statement-breakpoint
 CREATE INDEX IF NOT EXISTS "serenata_groups_date_idx" ON "serenata_groups" USING btree ("date");--> statement-breakpoint
-CREATE INDEX IF NOT EXISTS "serenata_groups_captain_idx" ON "serenata_groups" USING btree ("captain_id");--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS "serenata_groups_lead_musician_idx" ON "serenata_groups" USING btree ("group_lead_musician_id");--> statement-breakpoint
 CREATE INDEX IF NOT EXISTS "serenata_groups_status_idx" ON "serenata_groups" USING btree ("status");--> statement-breakpoint
 CREATE UNIQUE INDEX IF NOT EXISTS "serenata_musicians_user_idx" ON "serenata_musicians" USING btree ("user_id");--> statement-breakpoint
 CREATE INDEX IF NOT EXISTS "serenata_musicians_location_idx" ON "serenata_musicians" USING btree ("lat","lng");--> statement-breakpoint

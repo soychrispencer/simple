@@ -1,83 +1,65 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
-import { Inter } from 'next/font/google'
+import { usePathname, useRouter } from 'next/navigation';
 import { AppHeader, AppSidebar, MobileNav } from '@/components/layout';
 import { useAuth } from '@/context/AuthContext';
-
-const inter = Inter({ subsets: ['latin'] })
+import { isRouteAllowedForRole } from '@/components/layout/panel-nav-config';
 
 export default function AppLayout({
     children,
 }: {
     children: React.ReactNode;
 }) {
-    const { user, captainProfile, musicianProfile, isLoading, isAuthenticated } = useAuth();
+    const { isLoading, isAuthenticated, effectiveRole } = useAuth();
     const router = useRouter();
+    const pathname = usePathname() ?? '';
     const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
-    // Determine user type
-    const isCaptain = user?.role === 'captain' || !!captainProfile;
-    const isMusician = user?.role === 'musician' || !!musicianProfile;
-    const isClient = user?.role === 'client' || (!isCaptain && !isMusician);
-
-    // Redirect to onboarding if no profile
-    useEffect(() => {
-        if (!isLoading && isAuthenticated) {
-            if (!captainProfile && !musicianProfile && !isClient) {
-                router.push('/onboarding');
-            }
-        }
-    }, [captainProfile, musicianProfile, isLoading, isAuthenticated, isClient, router]);
-
-    // Redirect to login if not authenticated
     useEffect(() => {
         if (!isLoading && !isAuthenticated) {
             router.push('/auth/login');
         }
     }, [isLoading, isAuthenticated, router]);
 
-    // Show loading while checking auth
+    useEffect(() => {
+        if (isLoading || !isAuthenticated) return;
+        if (!isRouteAllowedForRole(pathname, effectiveRole)) {
+            router.replace('/inicio');
+        }
+    }, [isLoading, isAuthenticated, pathname, effectiveRole, router]);
+
     if (isLoading) {
         return (
-            <div className="min-h-screen flex items-center justify-center bg-zinc-50">
-                <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-rose-500" />
+            <div className="min-h-screen flex items-center justify-center" style={{ background: 'var(--bg)' }}>
+                <div className="animate-spin rounded-full h-10 w-10 border-b-2" style={{ borderColor: 'var(--accent)' }} />
             </div>
         );
     }
 
-    // Don't render if not ready
-    if (!isAuthenticated || (!captainProfile && !musicianProfile && !isClient)) {
-        return null;
-    }
+    if (!isAuthenticated) return null;
+    if (!isRouteAllowedForRole(pathname, effectiveRole)) return null;
 
     const toggleSidebar = () => setSidebarCollapsed(!sidebarCollapsed);
 
     return (
         <div className="app-layout">
-            {/* Desktop Sidebar */}
-            <AppSidebar 
-                collapsed={sidebarCollapsed} 
-                onToggle={toggleSidebar} 
-            />
-
             {/* Header - adapts to sidebar state on desktop */}
-            <AppHeader 
-                onMenuClick={toggleSidebar}
-                sidebarCollapsed={sidebarCollapsed}
-            />
+            <AppHeader />
 
-            {/* Main Content Area */}
-            <main 
-                className={`main-content transition-all duration-300 ${
-                    sidebarCollapsed ? 'md:ml-16' : 'md:ml-64'
-                }`}
-            >
-                <div className="pb-20 md:pb-6">
-                    {children}
-                </div>
-            </main>
+            <div className="pt-16 min-h-screen flex">
+                <AppSidebar
+                    collapsed={sidebarCollapsed}
+                    onToggle={toggleSidebar}
+                />
+
+                {/* Main Content Area */}
+                <main className="main-content flex-1 min-w-0">
+                    <div className="pb-20 md:pb-6">
+                        {children}
+                    </div>
+                </main>
+            </div>
 
             {/* Mobile Navigation */}
             <MobileNav />

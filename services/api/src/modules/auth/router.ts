@@ -12,6 +12,7 @@ export type AuthRouterDeps = {
         users: any;
         passwordResetTokens: any;
         emailVerificationTokens: any;
+        serenataMusicians?: any;
     };
     bcrypt: { hash: (pw: string, rounds: number) => Promise<string>; compare: (pw: string, hash: string) => Promise<boolean> };
     getUserByEmail: (email: string) => Promise<any | null>;
@@ -44,6 +45,7 @@ export type AuthRouterDeps = {
     PASSWORD_RESET_TOKEN_TTL_MS: number;
     loginSchema: any;
     registerSchema: any;
+    extendedRegisterSchema?: any;
     passwordResetRequestSchema: any;
     passwordResetConfirmSchema: any;
     emailVerificationRequestSchema: any;
@@ -53,7 +55,7 @@ export type AuthRouterDeps = {
 export function createAuthRouter(deps: AuthRouterDeps) {
     const app = new Hono<{ Variables: { userId: string } }>();
 
-    // ── One-time OAuth tokens ────────────────────────────────────────────────
+    // â”€â”€ One-time OAuth tokens â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     const pendingOAuthSessions = new Map<string, { userId: string; expiresAt: number }>();
     const cleanupInterval = setInterval(() => {
         const now = Date.now();
@@ -100,7 +102,7 @@ export function createAuthRouter(deps: AuthRouterDeps) {
     > {
         if (!code || !state) return { ok: false, error: 'Código de autorización inválido', status: 400 };
         const stateData = verifyOAuthState(state);
-        if (!stateData) return { ok: false, error: 'La sesión de autenticación con Google expiró. Intenta nuevamente.', status: 400 };
+        if (!stateData) return { ok: false, error: 'Tu sesión de autenticación con Google expiró. Intenta nuevamente.', status: 400 };
 
         const origin = stateData.origin;
         const googleClientId = deps.asString(process.env.GOOGLE_CLIENT_ID);
@@ -125,7 +127,7 @@ export function createAuthRouter(deps: AuthRouterDeps) {
             headers: { 'Authorization': `Bearer ${tokens.access_token}` },
         });
         const googleUser = await userResponse.json();
-        if (!userResponse.ok) return { ok: false, error: 'Error obteniendo información del usuario', status: 400 };
+        if (!userResponse.ok) return { ok: false, error: 'No pudimos obtener la información de tu cuenta de Google.', status: 400 };
 
         const normalizedEmail = deps.asString(googleUser.email).toLowerCase();
         if (!normalizedEmail) return { ok: false, error: 'Google no devolvió un correo válido.', status: 400 };
@@ -186,12 +188,12 @@ export function createAuthRouter(deps: AuthRouterDeps) {
         return { ok: true, user, origin, isNewUser };
     }
 
-    // ── Routes ───────────────────────────────────────────────────────────────
+    // â”€â”€ Routes â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     app.post('/login', async (c) => {
         const payload = await c.req.json().catch(() => null);
         const parsed = deps.loginSchema.safeParse(payload);
-        if (!parsed.success) return c.json({ ok: false, error: 'Payload inválido' }, 400);
+        if (!parsed.success) return c.json({ ok: false, error: 'Solicitud inválida.' }, 400);
 
         const normalizedEmail = parsed.data.email.trim().toLowerCase();
         const clientId = deps.getClientIdentifier(c);
@@ -207,12 +209,12 @@ export function createAuthRouter(deps: AuthRouterDeps) {
         }
 
         const user = await deps.getUserByEmail(normalizedEmail);
-        if (!user) return c.json({ ok: false, error: 'Email o contraseña incorrectos. Si no tienes cuenta, crea una.' }, 401);
-        if (!deps.canAuthenticateUser(user)) return c.json({ ok: false, error: 'Tu cuenta está suspendida. Contacta al soporte.' }, 403);
-        if (!user.passwordHash) return c.json({ ok: false, error: 'Esta cuenta requiere autenticación con Google. Usar "Continuar con Google".' }, 401);
+        if (!user) return c.json({ ok: false, error: 'Tu correo o contraseña no coinciden. Si no tienes cuenta, regístrate.' }, 401);
+        if (!deps.canAuthenticateUser(user)) return c.json({ ok: false, error: 'Tu cuenta está suspendida. Contacta al soporte.', }, 403);
+        if (!user.passwordHash) return c.json({ ok: false, error: 'Esta cuenta usa acceso con Google. Usa "Continuar con Google".' }, 401);
 
         const passwordMatch = await deps.bcrypt.compare(parsed.data.password, user.passwordHash);
-        if (!passwordMatch) return c.json({ ok: false, error: 'Email o contraseña incorrectos.' }, 401);
+        if (!passwordMatch) return c.json({ ok: false, error: 'Tu correo o contraseña no coinciden.' }, 401);
 
         await deps.touchUserLastLoginAt(user.id);
         const personalAccount = await deps.ensurePrimaryAccountForUser(user);
@@ -224,14 +226,17 @@ export function createAuthRouter(deps: AuthRouterDeps) {
 
     app.post('/register', async (c) => {
         const payload = await c.req.json().catch(() => null);
-        const parsed = deps.registerSchema.safeParse(payload);
-        if (!parsed.success) return c.json({ ok: false, error: 'Payload inválido' }, 400);
+
+        // Intentar usar extendedRegisterSchema primero (para datos adicionales de serenatas)
+        const schemaToUse = deps.extendedRegisterSchema || deps.registerSchema;
+        const parsed = schemaToUse.safeParse(payload);
+        if (!parsed.success) return c.json({ ok: false, error: 'Solicitud inválida.' }, 400);
 
         const clientId = deps.getClientIdentifier(c);
         const ipRateLimit = deps.consumeRateLimit(`auth:register:ip:${clientId}`, 5, deps.AUTH_RATE_LIMIT_WINDOW_MS);
         if (!ipRateLimit.ok) {
             c.header('Retry-After', String(ipRateLimit.retryAfterSeconds));
-            return c.json({ ok: false, error: 'Demasiados intentos de registro. Intenta nuevamente más tarde.' }, 429);
+            return c.json({ ok: false, error: 'Hiciste demasiados intentos de registro. Intenta nuevamente más tarde.' }, 429);
         }
 
         if (process.env.NODE_ENV === 'production' && !deps.isAuthEmailConfigured()) {
@@ -246,13 +251,27 @@ export function createAuthRouter(deps: AuthRouterDeps) {
         if (existing) return c.json({ ok: false, error: 'Email ya registrado' }, 409);
 
         const hashedPassword = await deps.bcrypt.hash(parsed.data.password, 10);
+
+        // Detectar si es registro de serenatas
+        const isSerenatas = origin.includes('simpleserenatas');
+        const phone = parsed.data.phone?.trim() || null;
+        const serenatasUserType = parsed.data.userType === 'client' ? 'client' : 'musician';
+
+        /**
+         * Rol funcional para los guards. Para serenatas mapeamos `userType` directo.
+         * Para otros sitios, dejamos `'user'` (compatibilidad).
+         */
+        const initialRole = isSerenatas ? serenatasUserType : 'user';
+
         const [insertedUser] = await deps.db.insert(deps.tables.users).values({
             email: normalizedEmail,
             passwordHash: hashedPassword,
             name: parsed.data.name.trim(),
-            role: 'user',
+            role: initialRole,
             status: 'active',
             provider: 'local',
+            // Guardar telÃ©fono si viene
+            ...(phone && { phone }),
         }).returning({ id: deps.tables.users.id });
 
         let newUser: any = {
@@ -260,13 +279,36 @@ export function createAuthRouter(deps: AuthRouterDeps) {
             email: normalizedEmail,
             passwordHash: hashedPassword,
             name: parsed.data.name.trim(),
-            role: 'user',
+            role: initialRole,
             status: 'active',
             provider: 'local',
             lastLoginAt: new Date(),
+            ...(phone && { phone }),
         };
+
         const personalAccount = await deps.ensurePrimaryAccountForUser(newUser);
         newUser.primaryAccountId = personalAccount.id;
+
+        // Si es serenatas y tiene datos de mÃºsico, crear perfil de serenata_musicians
+        const hasMusicianData = serenatasUserType === 'musician';
+        if (isSerenatas && deps.tables.serenataMusicians && hasMusicianData) {
+            try {
+                const instrument = parsed.data.instrument?.trim() || 'Voz';
+                await deps.db.insert(deps.tables.serenataMusicians).values({
+                    userId: insertedUser.id,
+                    instrument,
+                    comuna: parsed.data.comuna?.trim() || null,
+                    region: parsed.data.region?.trim() || null,
+                    phone: phone,
+                    status: 'active',
+                });
+            } catch (error) {
+                console.error('Error creating serenata musician profile:', error);
+                // Eliminar el usuario creado para mantener consistencia
+                await deps.db.delete(deps.tables.users).where(deps.eq(deps.tables.users.id, insertedUser.id));
+                return c.json({ ok: false, error: 'No pudimos crear el perfil de músico. Inténtalo nuevamente.' }, 500);
+            }
+        }
 
         if (process.env.NODE_ENV === 'production') {
             try {
@@ -294,6 +336,50 @@ export function createAuthRouter(deps: AuthRouterDeps) {
         return c.json({ ok: true, user: deps.sanitizeUser(user) });
     });
 
+    // Actualizar perfil del usuario autenticado
+    app.patch('/me', async (c) => {
+        const user = await deps.authUser(c);
+        if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
+
+        const payload = await c.req.json().catch(() => null);
+        if (!payload || typeof payload !== 'object') {
+            return c.json({ ok: false, error: 'Datos inválidos' }, 400);
+        }
+
+        // Campos permitidos para actualizar
+        const allowedFields = ['name', 'phone', 'avatarUrl'];
+        const updates: Record<string, unknown> = {};
+
+        for (const key of allowedFields) {
+            if (key in payload) {
+                const value = payload[key as keyof typeof payload];
+                if (value !== undefined && value !== null) {
+                    updates[key] = value;
+                }
+            }
+        }
+
+        if (Object.keys(updates).length === 0) {
+            return c.json({ ok: false, error: 'No hay campos para actualizar' }, 400);
+        }
+
+        try {
+            await deps.db
+                .update(deps.tables.users)
+                .set({
+                    ...updates,
+                    updatedAt: new Date(),
+                })
+                .where(deps.eq(deps.tables.users.id, user.id));
+
+            const updatedUser = await deps.getUserById(user.id);
+            return c.json({ ok: true, user: deps.sanitizeUser(updatedUser) });
+        } catch (error) {
+            console.error('Error updating profile:', error);
+            return c.json({ ok: false, error: 'Error al actualizar el perfil' }, 500);
+        }
+    });
+
     app.post('/logout', (c) => {
         deps.clearSession(c);
         return c.json({ ok: true });
@@ -302,13 +388,13 @@ export function createAuthRouter(deps: AuthRouterDeps) {
     app.post('/password-reset/request', async (c) => {
         const payload = await c.req.json().catch(() => null);
         const parsed = deps.passwordResetRequestSchema.safeParse(payload);
-        if (!parsed.success) return c.json({ ok: false, error: 'Payload inválido' }, 400);
+        if (!parsed.success) return c.json({ ok: false, error: 'Solicitud inválida.' }, 400);
 
         const clientId = deps.getClientIdentifier(c);
         const ipRateLimit = deps.consumeRateLimit(`auth:reset-request:ip:${clientId}`, 5, deps.AUTH_RATE_LIMIT_WINDOW_MS);
         if (!ipRateLimit.ok) {
             c.header('Retry-After', String(ipRateLimit.retryAfterSeconds));
-            return c.json({ ok: false, error: 'Demasiados intentos. Intenta nuevamente más tarde.' }, 429);
+            return c.json({ ok: false, error: 'Hiciste demasiados intentos. Intenta nuevamente más tarde.' }, 429);
         }
         if (process.env.NODE_ENV === 'production' && !deps.isAuthEmailConfigured()) {
             return c.json({ ok: false, error: 'La recuperación de contraseña no está configurada en este entorno.' }, 503);
@@ -342,13 +428,13 @@ export function createAuthRouter(deps: AuthRouterDeps) {
     app.post('/password-reset/confirm', async (c) => {
         const payload = await c.req.json().catch(() => null);
         const parsed = deps.passwordResetConfirmSchema.safeParse(payload);
-        if (!parsed.success) return c.json({ ok: false, error: 'Payload inválido' }, 400);
+        if (!parsed.success) return c.json({ ok: false, error: 'Solicitud inválida.' }, 400);
 
         const clientId = deps.getClientIdentifier(c);
         const ipRateLimit = deps.consumeRateLimit(`auth:reset-confirm:ip:${clientId}`, 10, deps.AUTH_RATE_LIMIT_WINDOW_MS);
         if (!ipRateLimit.ok) {
             c.header('Retry-After', String(ipRateLimit.retryAfterSeconds));
-            return c.json({ ok: false, error: 'Demasiados intentos. Intenta nuevamente más tarde.' }, 429);
+            return c.json({ ok: false, error: 'Hiciste demasiados intentos. Intenta nuevamente más tarde.' }, 429);
         }
 
         const now = new Date();
@@ -386,7 +472,7 @@ export function createAuthRouter(deps: AuthRouterDeps) {
     app.post('/email-verification/request', async (c) => {
         const payload = await c.req.json().catch(() => null);
         const parsed = deps.emailVerificationRequestSchema.safeParse(payload);
-        if (!parsed.success) return c.json({ ok: false, error: 'Payload inválido' }, 400);
+        if (!parsed.success) return c.json({ ok: false, error: 'Solicitud inválida.' }, 400);
 
         if (process.env.NODE_ENV === 'production' && !deps.isAuthEmailConfigured()) {
             return c.json({ ok: false, error: 'La confirmación de correo no está configurada en este entorno.' }, 503);
@@ -415,7 +501,7 @@ export function createAuthRouter(deps: AuthRouterDeps) {
     app.post('/email-verification/confirm', async (c) => {
         const payload = await c.req.json().catch(() => null);
         const parsed = deps.emailVerificationConfirmSchema.safeParse(payload);
-        if (!parsed.success) return c.json({ ok: false, error: 'Payload inválido' }, 400);
+        if (!parsed.success) return c.json({ ok: false, error: 'Solicitud inválida.' }, 400);
 
         const now = new Date();
         const tokenHash = deps.hashOpaqueToken(parsed.data.token);
@@ -446,7 +532,7 @@ export function createAuthRouter(deps: AuthRouterDeps) {
         return c.json({ ok: true, user: deps.sanitizeUser({ ...user, status: 'verified', primaryAccountId: personalAccount.id }) });
     });
 
-    // ── Google OAuth ──────────────────────────────────────────────────────────
+    // â”€â”€ Google OAuth â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     app.get('/google', async (c) => {
         const clientId = deps.asString(process.env.GOOGLE_CLIENT_ID);
@@ -476,7 +562,7 @@ export function createAuthRouter(deps: AuthRouterDeps) {
         const state = deps.asString(c.req.query('state'));
 
         if (!code || !state) {
-            return c.json({ ok: false, error: 'Parámetros requeridos faltantes' }, 400);
+            return c.json({ ok: false, error: 'Faltan parámetros requeridos.' }, 400);
         }
 
         try {
@@ -491,7 +577,7 @@ export function createAuthRouter(deps: AuthRouterDeps) {
             const redirectPath = result.isNewUser ? '/onboarding' : '/inicio';
             const redirectUrl = `${origin}${redirectPath}`;
 
-            // Devolver HTML con redirección JavaScript para mantener la sesión cross-origin
+            // Devolver HTML con redirecciÃ³n JavaScript para mantener la sesiÃ³n cross-origin
             return c.html(`
 <!DOCTYPE html>
 <html>
@@ -517,7 +603,7 @@ export function createAuthRouter(deps: AuthRouterDeps) {
 </html>`);
         } catch (error) {
             console.error('Error en google callback:', error);
-            return c.json({ ok: false, error: 'Error procesando autenticación' }, 500);
+            return c.json({ ok: false, error: 'No pudimos procesar tu autenticación.' }, 500);
         }
     });
 
@@ -526,28 +612,13 @@ export function createAuthRouter(deps: AuthRouterDeps) {
         if (!token) return c.json({ ok: false, error: 'Token requerido' }, 400);
 
         const entry = pendingOAuthSessions.get(token);
-        if (!entry || entry.expiresAt < Date.now()) return c.json({ ok: false, error: 'Token expirado o inválido' }, 401);
+        if (!entry || entry.expiresAt < Date.now()) return c.json({ ok: false, error: 'El token expiró o no es válido.' }, 401);
         pendingOAuthSessions.delete(token);
 
         const user = await deps.getUserById(entry.userId);
         if (!user || !deps.canAuthenticateUser(user)) return c.json({ ok: false, error: 'Usuario no encontrado' }, 401);
 
         deps.setSession(c, user.id);
-        return c.json({ ok: true, user: deps.sanitizeUser(user) });
-    });
-
-    // Endpoint para obtener el usuario actual (verificar sesión)
-    app.get('/me', async (c) => {
-        const userId = c.get('userId') as string | undefined;
-        if (!userId) {
-            return c.json({ ok: false, error: 'No autenticado' }, 401);
-        }
-
-        const user = await deps.getUserById(userId);
-        if (!user || !deps.canAuthenticateUser(user)) {
-            return c.json({ ok: false, error: 'Usuario no encontrado' }, 401);
-        }
-
         return c.json({ ok: true, user: deps.sanitizeUser(user) });
     });
 

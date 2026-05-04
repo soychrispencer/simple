@@ -5,22 +5,24 @@ import {
     IconArrowLeft,
     IconCurrencyDollar,
     IconTrendingUp,
-    IconTrendingDown,
     IconCalendar,
     IconCreditCard,
     IconLoader,
-    IconArrowUpRight,
-    IconArrowDownRight,
 } from '@tabler/icons-react';
 import { useRouter } from 'next/navigation';
-import { useAuth } from '@/context/AuthContext';
 import { API_BASE } from '@simple/config';
+import { SerenatasPageHeader, SerenatasPageShell } from '@/components/shell';
 
 interface Transaction {
     id: string;
-    type: 'subscription' | 'serenata';
-    amount: number;
-    captainEarnings?: number;
+    /** Presente cuando el backend distingue tipo; si no, se infiere por serenataId */
+    type?: 'subscription' | 'serenata';
+    /** Campo histórico / compat */
+    amount?: number;
+    totalAmount?: number;
+    coordinatorEarnings?: number;
+    platformCommission?: number;
+    commissionVat?: number;
     platformFee?: number;
     status: string;
     createdAt: string;
@@ -36,14 +38,16 @@ interface Finances {
     averagePerSerenata: number;
     subscription: {
         plan: string;
-        commissionRate: string;
-        expiresAt: string;
+        /** UI legacy */
+        commissionRate?: string;
+        /** Respuesta actual del API de finanzas */
+        platformLeadCommission?: string;
+        expiresAt: string | null;
     };
 }
 
 export default function FinanzasPage() {
     const router = useRouter();
-    const { captainProfile } = useAuth();
     const [finances, setFinances] = useState<Finances | null>(null);
     const [transactions, setTransactions] = useState<Transaction[]>([]);
     const [isLoading, setIsLoading] = useState(true);
@@ -56,8 +60,8 @@ export default function FinanzasPage() {
     const fetchFinances = async () => {
         try {
             const [financesRes, transactionsRes] = await Promise.all([
-                fetch(`${API_BASE}/api/serenatas/captains/me/finances`, { credentials: 'include' }),
-                fetch(`${API_BASE}/api/serenatas/captains/me/transactions`, { credentials: 'include' }),
+                fetch(`${API_BASE}/api/serenatas/coordinators/me/finances`, { credentials: 'include' }),
+                fetch(`${API_BASE}/api/serenatas/coordinators/me/transactions`, { credentials: 'include' }),
             ]);
 
             if (financesRes.ok) {
@@ -77,47 +81,52 @@ export default function FinanzasPage() {
 
     if (isLoading) {
         return (
-            <div className="min-h-screen bg-zinc-50 flex items-center justify-center">
-                <IconLoader className="animate-spin text-rose-500" size={32} />
+            <div className="flex min-h-[50vh] items-center justify-center">
+                <IconLoader className="animate-spin" size={32} style={{ color: 'var(--accent)' }} />
             </div>
         );
     }
 
     return (
-        <div className="min-h-screen bg-zinc-50 pb-20">
+        <div className="pb-20">
             {/* Header */}
-            <div className="bg-white px-6 py-4 border-b border-zinc-100">
+            <div className="px-6 py-4 border-b" style={{ background: 'var(--surface)', borderColor: 'var(--border)' }}>
                 <button 
+                    type="button"
                     onClick={() => router.push('/inicio')}
-                    className="flex items-center gap-2 text-zinc-600 mb-4"
+                    className="flex items-center gap-2 mb-4 serenatas-interactive rounded-lg"
+                    style={{ color: 'var(--fg-secondary)' }}
                 >
                     <IconArrowLeft size={20} />
                     <span>Volver</span>
                 </button>
-                <h1 className="text-xl font-bold text-zinc-900">Mis Finanzas</h1>
-                <p className="text-sm text-zinc-500">Plan {finances?.subscription.plan.toUpperCase()}</p>
+                <SerenatasPageHeader
+                    title="Mis finanzas"
+                    description={`Plan ${finances?.subscription.plan?.toUpperCase() ?? '—'}`}
+                    className="!mb-0"
+                />
             </div>
 
             {/* Tabs */}
-            <div className="bg-white border-b border-zinc-100">
+            <div className="border-b" style={{ background: 'var(--surface)', borderColor: 'var(--border)' }}>
                 <div className="flex">
                     <button
                         onClick={() => setActiveTab('overview')}
-                        className={`flex-1 py-3 text-sm font-medium border-b-2 transition-colors ${
-                            activeTab === 'overview'
-                                ? 'border-rose-500 text-rose-600'
-                                : 'border-transparent text-zinc-500'
-                        }`}
+                        className="flex-1 py-3 text-sm font-medium border-b-2 transition-colors"
+                        style={{
+                            borderColor: activeTab === 'overview' ? 'var(--accent)' : 'transparent',
+                            color: activeTab === 'overview' ? 'var(--accent)' : 'var(--fg-secondary)',
+                        }}
                     >
                         Resumen
                     </button>
                     <button
                         onClick={() => setActiveTab('transactions')}
-                        className={`flex-1 py-3 text-sm font-medium border-b-2 transition-colors ${
-                            activeTab === 'transactions'
-                                ? 'border-rose-500 text-rose-600'
-                                : 'border-transparent text-zinc-500'
-                        }`}
+                        className="flex-1 py-3 text-sm font-medium border-b-2 transition-colors"
+                        style={{
+                            borderColor: activeTab === 'transactions' ? 'var(--accent)' : 'transparent',
+                            color: activeTab === 'transactions' ? 'var(--accent)' : 'var(--fg-secondary)',
+                        }}
                     >
                         Transacciones
                     </button>
@@ -125,12 +134,12 @@ export default function FinanzasPage() {
             </div>
 
             {activeTab === 'overview' && (
-                <div className="p-6 space-y-6">
+                <SerenatasPageShell width="default" className="space-y-6">
                     {/* Main Stats */}
-                    <div className="bg-rose-500 rounded-2xl p-6 text-white">
-                        <p className="text-rose-100 text-sm mb-1">Ganancias totales</p>
+                    <div className="rounded-2xl p-6" style={{ background: 'var(--accent)', color: 'var(--accent-contrast)' }}>
+                        <p className="text-sm mb-1" style={{ color: 'color-mix(in oklab, var(--accent-contrast) 75%, transparent)' }}>Ganancias totales</p>
                         <p className="text-3xl font-bold">${finances?.totalEarnings.toLocaleString() || 0}</p>
-                        <div className="flex items-center gap-2 mt-2 text-rose-100 text-sm">
+                        <div className="flex items-center gap-2 mt-2 text-sm" style={{ color: 'color-mix(in oklab, var(--accent-contrast) 75%, transparent)' }}>
                             <IconTrendingUp size={16} />
                             <span>Este mes: ${finances?.thisMonthEarnings.toLocaleString() || 0}</span>
                         </div>
@@ -138,39 +147,43 @@ export default function FinanzasPage() {
 
                     {/* Stats Grid */}
                     <div className="grid grid-cols-2 gap-4">
-                        <div className="bg-white rounded-xl p-4 shadow-sm">
-                            <div className="flex items-center gap-2 text-zinc-500 text-sm mb-1">
+                        <div className="rounded-xl p-4 border" style={{ background: 'var(--surface)', borderColor: 'var(--border)' }}>
+                            <div className="flex items-center gap-2 text-sm mb-1" style={{ color: 'var(--fg-secondary)' }}>
                                 <IconCalendar size={16} />
                                 <span>Serenatas</span>
                             </div>
-                            <p className="text-2xl font-bold text-zinc-900">{finances?.completedSerenatas || 0}</p>
+                            <p className="text-2xl font-bold" style={{ color: 'var(--fg)' }}>{finances?.completedSerenatas || 0}</p>
                         </div>
-                        <div className="bg-white rounded-xl p-4 shadow-sm">
-                            <div className="flex items-center gap-2 text-zinc-500 text-sm mb-1">
+                        <div className="rounded-xl p-4 border" style={{ background: 'var(--surface)', borderColor: 'var(--border)' }}>
+                            <div className="flex items-center gap-2 text-sm mb-1" style={{ color: 'var(--fg-secondary)' }}>
                                 <IconCurrencyDollar size={16} />
                                 <span>Promedio</span>
                             </div>
-                            <p className="text-2xl font-bold text-zinc-900">
+                            <p className="text-2xl font-bold" style={{ color: 'var(--fg)' }}>
                                 ${Math.round(finances?.averagePerSerenata || 0).toLocaleString()}
                             </p>
                         </div>
                     </div>
 
                     {/* Commission Info */}
-                    <div className="bg-white rounded-xl p-5 shadow-sm">
-                        <h3 className="font-semibold text-zinc-900 mb-4">Comisiones</h3>
+                    <div className="rounded-xl p-5 border" style={{ background: 'var(--surface)', borderColor: 'var(--border)' }}>
+                        <h3 className="font-semibold mb-4" style={{ color: 'var(--fg)' }}>Comisiones</h3>
                         <div className="space-y-3">
                             <div className="flex items-center justify-between">
-                                <span className="text-zinc-600">Tasa actual</span>
-                                <span className="font-bold text-rose-600">{finances?.subscription.commissionRate || '20%'}</span>
+                                <span style={{ color: 'var(--fg-secondary)' }}>Tasa actual</span>
+                                <span className="font-bold" style={{ color: 'var(--accent)' }}>
+                                    {finances?.subscription.commissionRate
+                                        ?? finances?.subscription.platformLeadCommission
+                                        ?? '20%'}
+                                </span>
                             </div>
                             <div className="flex items-center justify-between">
-                                <span className="text-zinc-600">Comisiones pagadas</span>
-                                <span className="font-medium text-zinc-900">${finances?.totalPlatformFees.toLocaleString() || 0}</span>
+                                <span style={{ color: 'var(--fg-secondary)' }}>Comisiones pagadas</span>
+                                <span className="font-medium" style={{ color: 'var(--fg)' }}>${finances?.totalPlatformFees.toLocaleString() || 0}</span>
                             </div>
                             <div className="flex items-center justify-between">
-                                <span className="text-zinc-600">Pendiente de pago</span>
-                                <span className="font-medium text-amber-600">${finances?.pendingEarnings.toLocaleString() || 0}</span>
+                                <span style={{ color: 'var(--fg-secondary)' }}>Pendiente de pago</span>
+                                <span className="font-medium" style={{ color: 'var(--warning)' }}>${finances?.pendingEarnings.toLocaleString() || 0}</span>
                             </div>
                         </div>
                     </div>
@@ -179,60 +192,76 @@ export default function FinanzasPage() {
                     {finances?.subscription.plan === 'free' && (
                         <button
                             onClick={() => router.push('/suscripcion')}
-                            className="w-full bg-zinc-900 text-white py-4 rounded-xl font-medium flex items-center justify-center gap-2 hover:bg-zinc-800 transition-colors"
+                            className="w-full py-4 rounded-xl font-medium flex items-center justify-center gap-2 transition-colors"
+                            style={{ background: 'var(--fg)', color: 'var(--bg)' }}
                         >
                             <IconTrendingUp size={20} />
-                            Reducir comision al 10% con Pro
+                            Reducir comisión al 10% con Pro
                         </button>
                     )}
-                </div>
+                </SerenatasPageShell>
             )}
 
             {activeTab === 'transactions' && (
-                <div className="divide-y divide-zinc-100">
+                <div className="divide-y" style={{ borderColor: 'var(--border)' }}>
                     {transactions.length === 0 ? (
                         <div className="text-center py-12">
-                            <IconCreditCard size={48} className="mx-auto text-zinc-300 mb-4" />
-                            <p className="text-zinc-500">No hay transacciones aun</p>
+                            <IconCreditCard size={48} className="mx-auto mb-4" style={{ color: 'var(--fg-muted)' }} />
+                            <p style={{ color: 'var(--fg-secondary)' }}>No hay transacciones aun</p>
                         </div>
                     ) : (
-                        transactions.map((t) => (
-                            <div key={t.id} className="bg-white p-4 flex items-center justify-between">
+                        transactions.map((t) => {
+                            const kind =
+                                t.type
+                                ?? (t.serenataId ? 'serenata' : 'subscription');
+                            const net =
+                                t.coordinatorEarnings
+                                ?? t.totalAmount
+                                ?? t.amount
+                                ?? 0;
+                            const fee = t.platformCommission ?? t.platformFee ?? 0;
+                            return (
+                            <div key={t.id} className="p-4 flex items-center justify-between" style={{ background: 'var(--surface)' }}>
                                 <div className="flex items-center gap-3">
-                                    <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
-                                        t.type === 'subscription' ? 'bg-blue-100' : 'bg-green-100'
-                                    }`}>
-                                        {t.type === 'subscription' ? (
-                                            <IconCreditCard size={20} className="text-blue-600" />
+                                    <div
+                                        className="w-10 h-10 rounded-full flex items-center justify-center"
+                                        style={{
+                                            background:
+                                                kind === 'subscription'
+                                                    ? 'color-mix(in oklab, var(--surface) 75%, var(--info) 25%)'
+                                                    : 'color-mix(in oklab, var(--surface) 75%, var(--success) 25%)',
+                                        }}
+                                    >
+                                        {kind === 'subscription' ? (
+                                            <IconCreditCard size={20} style={{ color: 'var(--info)' }} />
                                         ) : (
-                                            <IconCurrencyDollar size={20} className="text-green-600" />
+                                            <IconCurrencyDollar size={20} style={{ color: 'var(--success)' }} />
                                         )}
                                     </div>
                                     <div>
-                                        <p className="font-medium text-zinc-900">
-                                            {t.type === 'subscription' ? 'Suscripcion' : 'Serenata'}
+                                        <p className="font-medium" style={{ color: 'var(--fg)' }}>
+                                            {kind === 'subscription' ? 'Suscripcion' : 'Serenata'}
                                         </p>
-                                        <p className="text-xs text-zinc-500">
+                                        <p className="text-xs" style={{ color: 'var(--fg-secondary)' }}>
                                             {new Date(t.createdAt).toLocaleDateString('es-CL')}
                                         </p>
                                     </div>
                                 </div>
                                 <div className="text-right">
-                                    <p className={`font-semibold ${
-                                        t.type === 'subscription' ? 'text-zinc-900' : 'text-green-600'
-                                    }`}>
-                                        {t.type === 'subscription' ? '-' : '+'}${
-                                            (t.captainEarnings || t.amount).toLocaleString()
+                                    <p className="font-semibold" style={{ color: kind === 'subscription' ? 'var(--fg)' : 'var(--success)' }}>
+                                        {kind === 'subscription' ? '-' : '+'}${
+                                            net.toLocaleString()
                                         }
                                     </p>
-                                    {t.type === 'serenata' && t.platformFee && (
-                                        <p className="text-xs text-zinc-400">
-                                            -${t.platformFee} comision
+                                    {kind === 'serenata' && !!fee && (
+                                        <p className="text-xs" style={{ color: 'var(--fg-muted)' }}>
+                                            -${fee} comisión
                                         </p>
                                     )}
                                 </div>
                             </div>
-                        ))
+                            );
+                        })
                     )}
                 </div>
             )}

@@ -6686,8 +6686,8 @@
           "primaryKey": false,
           "notNull": true
         },
-        "captain_id": {
-          "name": "captain_id",
+        "group_lead_musician_id": {
+          "name": "group_lead_musician_id",
           "type": "uuid",
           "primaryKey": false,
           "notNull": false
@@ -6787,11 +6787,11 @@
           "method": "btree",
           "with": {}
         },
-        "serenata_groups_captain_idx": {
-          "name": "serenata_groups_captain_idx",
+        "serenata_groups_lead_musician_idx": {
+          "name": "serenata_groups_lead_musician_idx",
           "columns": [
             {
-              "expression": "captain_id",
+              "expression": "group_lead_musician_id",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
@@ -6832,12 +6832,12 @@
           "onDelete": "no action",
           "onUpdate": "no action"
         },
-        "serenata_groups_captain_id_serenata_musicians_id_fk": {
-          "name": "serenata_groups_captain_id_serenata_musicians_id_fk",
+        "serenata_groups_group_lead_musician_id_serenata_musicians_id_fk": {
+          "name": "serenata_groups_group_lead_musician_id_serenata_musicians_id_fk",
           "tableFrom": "serenata_groups",
           "tableTo": "serenata_musicians",
           "columnsFrom": [
-            "captain_id"
+            "group_lead_musician_id"
           ],
           "columnsTo": [
             "id"

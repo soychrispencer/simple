@@ -47,8 +47,9 @@ export type AdminUserListItem = {
     agendaListings: number;
     subscriptions?: {
         agenda?: { plan: 'free' | 'pro'; expiresAt: string | null; status: 'active' | 'expired' | 'free' } | null;
-        autos?: { planId: string; planName: string; status: string; expiresAt: string | null } | null;
-        propiedades?: { planId: string; planName: string; status: string; expiresAt: string | null } | null;
+        autos?: { planId: string | null; planName: string | null; status: string; expiresAt: string | null } | null;
+        propiedades?: { planId: string | null; planName: string | null; status: string; expiresAt: string | null } | null;
+        serenatas?: { planId: string | null; planName: string | null; status: string; roleLabel?: string | null; activityCount?: number | null } | null;
     } | null;
 };
 
@@ -75,7 +76,7 @@ export type AdminListingListItem = {
 
 export type AdminServiceLead = {
     id: string;
-    vertical: 'autos' | 'propiedades';
+    vertical: 'autos' | 'propiedades' | 'serenatas';
     serviceType: 'venta_asistida' | 'gestion_inmobiliaria';
     serviceLabel: string;
     planId: 'basico' | 'premium';
@@ -361,6 +362,143 @@ export async function fetchAdminUsers(): Promise<AdminUserListItem[]> {
         role: normalizeAdminUserRole(item.role),
         status: normalizeAdminUserStatus(item.status),
     }));
+}
+
+export async function updateAdminUserRole(
+    userId: string,
+    role: 'user' | 'admin' | 'superadmin'
+): Promise<{ ok: boolean; error?: string }> {
+    try {
+        const { response, data } = await apiRequest(`/api/admin/users/${encodeURIComponent(userId)}/role`, {
+            method: 'PATCH',
+            body: JSON.stringify({ role }),
+        });
+        if (!response.ok || !data?.ok) return { ok: false, error: data?.error || 'No pudimos actualizar el rol.' };
+        return { ok: true };
+    } catch {
+        return { ok: false, error: 'No pudimos conectar con el backend.' };
+    }
+}
+
+export async function updateAdminUserStatus(
+    userId: string,
+    status: 'active' | 'verified' | 'suspended'
+): Promise<{ ok: boolean; error?: string }> {
+    try {
+        const { response, data } = await apiRequest(`/api/admin/users/${encodeURIComponent(userId)}/status`, {
+            method: 'PATCH',
+            body: JSON.stringify({ status }),
+        });
+        if (!response.ok || !data?.ok) return { ok: false, error: data?.error || 'No pudimos actualizar el estado.' };
+        return { ok: true };
+    } catch {
+        return { ok: false, error: 'No pudimos conectar con el backend.' };
+    }
+}
+
+export async function updateAdminUserSubscriptions(
+    userId: string,
+    subscriptions: AdminUserListItem['subscriptions']
+): Promise<{ ok: boolean; error?: string }> {
+    try {
+        const { response, data } = await apiRequest(`/api/admin/users/${encodeURIComponent(userId)}/subscriptions`, {
+            method: 'PATCH',
+            body: JSON.stringify({ subscriptions }),
+        });
+        if (!response.ok || !data?.ok) return { ok: false, error: data?.error || 'No pudimos actualizar suscripciones.' };
+        return { ok: true };
+    } catch {
+        return { ok: false, error: 'No pudimos conectar con el backend.' };
+    }
+}
+
+export type AdminSerenataPayment = {
+    id: string;
+    status: 'pending' | 'holding' | 'released' | 'refunded' | 'disputed';
+    totalAmount: number;
+    platformCommission: number;
+    commissionVat: number;
+    coordinatorEarnings: number;
+    createdAt: string | null;
+    releasedToCoordinatorAt: string | null;
+    refundedAt: string | null;
+    coordinatorProfileId: string | null;
+    coordinatorUserId: string | null;
+    coordinatorName: string | null;
+    serenataId: string | null;
+    clientName: string | null;
+};
+
+export type AdminAuditLogItem = {
+    id: string;
+    actorUserId: string;
+    action: string;
+    entityType: string;
+    entityId: string;
+    payload: Record<string, unknown>;
+    createdAt: string | null;
+};
+
+export async function updateAdminUserSerenatasRole(
+    userId: string,
+    role: 'client' | 'musician' | 'coordinator'
+): Promise<{ ok: boolean; error?: string }> {
+    try {
+        const { response, data } = await apiRequest(`/api/admin/users/${encodeURIComponent(userId)}/serenatas-role`, {
+            method: 'PATCH',
+            body: JSON.stringify({ role }),
+        });
+        if (!response.ok || !data?.ok) return { ok: false, error: data?.error || 'No pudimos actualizar el rol de serenatas.' };
+        return { ok: true };
+    } catch {
+        return { ok: false, error: 'No pudimos conectar con el backend.' };
+    }
+}
+
+export async function fetchAdminSerenataPayments(filters?: {
+    status?: AdminSerenataPayment['status'] | 'all';
+    from?: string;
+    to?: string;
+}): Promise<AdminSerenataPayment[]> {
+    const params = new URLSearchParams();
+    if (filters?.status && filters.status !== 'all') params.set('status', filters.status);
+    if (filters?.from) params.set('from', filters.from);
+    if (filters?.to) params.set('to', filters.to);
+    const suffix = params.toString() ? `?${params.toString()}` : '';
+    const { response, data } = await apiRequest<{ items?: AdminSerenataPayment[] }>(`/api/admin/serenatas/payments${suffix}`, { method: 'GET' });
+    if (!response.ok || !data?.ok) return [];
+    return data.items || [];
+}
+
+export async function updateAdminSerenataPaymentStatus(
+    paymentId: string,
+    status: AdminSerenataPayment['status']
+): Promise<{ ok: boolean; error?: string }> {
+    try {
+        const { response, data } = await apiRequest(`/api/admin/serenatas/payments/${encodeURIComponent(paymentId)}/status`, {
+            method: 'PATCH',
+            body: JSON.stringify({ status }),
+        });
+        if (!response.ok || !data?.ok) return { ok: false, error: data?.error || 'No pudimos actualizar el pago.' };
+        return { ok: true };
+    } catch {
+        return { ok: false, error: 'No pudimos conectar con el backend.' };
+    }
+}
+
+export async function fetchAdminAuditLogs(filters?: {
+    entityType?: string;
+    entityId?: string;
+    limit?: number;
+}): Promise<AdminAuditLogItem[]> {
+    const params = new URLSearchParams();
+    if (filters?.entityType) params.set('entityType', filters.entityType);
+    if (filters?.entityId) params.set('entityId', filters.entityId);
+    if (filters?.limit) params.set('limit', String(filters.limit));
+    const suffix = params.toString() ? `?${params.toString()}` : '';
+    const { response, data } = await apiRequest<{ items?: AdminAuditLogItem[] }>(`/api/admin/audit-logs${suffix}`, { method: 'GET' });
+    if (!response.ok || !data?.ok || !Array.isArray(data.items)) return [];
+    return data.items;
 }
 
 export async function fetchAdminListings(): Promise<AdminListingListItem[]> {

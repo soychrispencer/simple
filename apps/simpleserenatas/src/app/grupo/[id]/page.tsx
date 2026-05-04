@@ -3,32 +3,29 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { 
-  IconUsers, 
   IconCalendar,
   IconCheck,
   IconArrowLeft,
-  IconCurrencyDollar,
   IconMapPin,
   IconConfetti,
   IconClock,
   IconUser,
   IconPlus,
   IconTrash,
-  IconPlayerPlay,
-  IconFlag,
   IconLoader2,
   IconX
 } from '@tabler/icons-react';
 import Link from 'next/link';
 import { useToast } from '@/hooks';
 import { API_BASE } from '@simple/config';
+import { SerenatasPageHeader, SerenatasPageShell } from '@/components/shell';
 
 interface Group {
   id: string;
   name: string;
   date: string;
   status: string;
-  captainName: string;
+  coordinatorName?: string;
   members: Member[];
   serenatas: Serenata[];
   totalEarnings: string;
@@ -51,11 +48,27 @@ interface Serenata {
   status: string;
 }
 
-const statusLabels: Record<string, { label: string; color: string }> = {
-  forming: { label: 'Formando', color: 'bg-yellow-100 text-yellow-800' },
-  confirmed: { label: 'Confirmado', color: 'bg-green-100 text-green-800' },
-  active: { label: 'Activo', color: 'bg-blue-100 text-blue-800' },
-  completed: { label: 'Completado', color: 'bg-zinc-100 text-zinc-800' },
+const statusLabels: Record<string, { label: string; bg: string; fg: string }> = {
+  forming: {
+    label: 'Formando',
+    bg: 'color-mix(in oklab, var(--surface) 75%, var(--warning) 25%)',
+    fg: 'var(--warning)',
+  },
+  confirmed: {
+    label: 'Confirmado',
+    bg: 'color-mix(in oklab, var(--surface) 75%, var(--success) 25%)',
+    fg: 'var(--success)',
+  },
+  active: {
+    label: 'Activo',
+    bg: 'color-mix(in oklab, var(--surface) 75%, var(--info) 25%)',
+    fg: 'var(--info)',
+  },
+  completed: {
+    label: 'Completado',
+    bg: 'var(--bg-subtle)',
+    fg: 'var(--fg-secondary)',
+  },
 };
 
 export default function GroupDetailPage({ params }: { params: { id: string } }) {
@@ -219,18 +232,18 @@ export default function GroupDetailPage({ params }: { params: { id: string } }) 
 
   if (isLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-rose-500"></div>
+      <div className="flex min-h-[50vh] items-center justify-center">
+        <div className="h-8 w-8 animate-spin rounded-full border-b-2" style={{ borderColor: 'var(--accent)' }} />
       </div>
     );
   }
 
   if (!group) {
     return (
-      <div className="min-h-screen bg-zinc-50 flex items-center justify-center">
+      <div className="flex min-h-[50vh] flex-col items-center justify-center px-6">
         <div className="text-center">
-          <p className="text-zinc-500 mb-4">Grupo no encontrado</p>
-          <Link href="/grupos" className="text-rose-600 font-medium">
+          <p className="mb-4" style={{ color: 'var(--fg-secondary)' }}>Grupo no encontrado</p>
+          <Link href="/grupos" className="font-medium" style={{ color: 'var(--accent)' }}>
             Volver a grupos
           </Link>
         </div>
@@ -238,38 +251,38 @@ export default function GroupDetailPage({ params }: { params: { id: string } }) 
     );
   }
 
-  const status = statusLabels[group.status] || { label: group.status, color: 'bg-zinc-100' };
+  const status = statusLabels[group.status] || { label: group.status, bg: 'var(--bg-subtle)', fg: 'var(--fg-secondary)' };
 
   return (
-    <div className="min-h-screen bg-zinc-50 pb-20">
-      {/* Header */}
-      <div className="bg-white sticky top-0 z-10 border-b border-zinc-200">
-        <div className="px-4 py-4 flex items-center gap-3">
-          <Link 
-            href="/grupos" 
-            className="p-2 hover:bg-zinc-100 rounded-full transition-colors"
+    <div className="pb-20">
+      <div className="sticky top-0 z-10 border-b" style={{ background: 'var(--surface)', borderColor: 'var(--border)' }}>
+        <div className="mx-auto flex max-w-4xl items-center gap-3 px-4 py-4 sm:px-6">
+          <Link
+            href="/grupos"
+            className="serenatas-interactive shrink-0 rounded-full p-2 transition-colors"
+            style={{ color: 'var(--fg-secondary)' }}
           >
-            <IconArrowLeft size={24} className="text-zinc-700" />
+            <IconArrowLeft size={24} />
           </Link>
-          <h1 className="text-lg font-semibold text-zinc-900">{group.name}</h1>
+          <SerenatasPageHeader title={group.name} className="min-w-0 !mb-0 flex-1" />
         </div>
       </div>
 
-      {/* Content */}
-      <div className="p-4 space-y-4">
+      <SerenatasPageShell width="default" className="space-y-4">
         {/* Status Banner */}
-        <div className={`rounded-xl p-4 ${status.color}`}>
+        <div className="rounded-xl p-4" style={{ background: status.bg, color: status.fg }}>
           <div className="flex items-center justify-between mb-3">
             <span className="font-semibold">{status.label}</span>
             <span className="text-lg font-bold">{formatCurrency(group.totalEarnings)}</span>
           </div>
           {/* Action Buttons */}
           {group.status === 'forming' && (
-            <div className="flex gap-2 mt-3 pt-3 border-t border-zinc-200/50">
+            <div className="flex gap-2 mt-3 pt-3 border-t" style={{ borderColor: 'color-mix(in oklab, currentColor 25%, transparent)' }}>
               <button
                 onClick={handleConfirmGroup}
                 disabled={isConfirming}
-                className="flex-1 flex items-center justify-center gap-2 bg-green-600 text-white py-2 rounded-lg font-medium hover:bg-green-700 disabled:opacity-50"
+                className="flex-1 flex items-center justify-center gap-2 py-2 rounded-lg font-medium disabled:opacity-50"
+                style={{ background: 'var(--success)', color: 'var(--accent-contrast)' }}
               >
                 {isConfirming ? (
                   <IconLoader2 className="w-4 h-4 animate-spin" />
@@ -283,7 +296,8 @@ export default function GroupDetailPage({ params }: { params: { id: string } }) 
           {routeId && (
             <Link
               href={`/ruta/${routeId}`}
-              className="flex items-center justify-center gap-2 mt-3 pt-3 border-t border-zinc-200/50 text-blue-600 font-medium hover:text-blue-700"
+              className="flex items-center justify-center gap-2 mt-3 pt-3 border-t font-medium"
+              style={{ borderColor: 'color-mix(in oklab, currentColor 25%, transparent)' }}
             >
               <IconMapPin className="w-4 h-4" />
               Ver Ruta del Grupo
@@ -292,59 +306,60 @@ export default function GroupDetailPage({ params }: { params: { id: string } }) 
         </div>
 
         {/* Date */}
-        <div className="bg-white rounded-xl p-4 shadow-sm">
+        <div className="rounded-xl p-4 border" style={{ background: 'var(--surface)', borderColor: 'var(--border)' }}>
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-rose-100 rounded-full flex items-center justify-center">
-              <IconCalendar size={20} className="text-rose-500" />
+            <div className="w-10 h-10 rounded-full flex items-center justify-center" style={{ background: 'var(--accent-subtle)' }}>
+              <IconCalendar size={20} style={{ color: 'var(--accent)' }} />
             </div>
             <div>
-              <p className="font-semibold text-zinc-900 capitalize">{formatDate(group.date)}</p>
-              <p className="text-sm text-zinc-500">Fecha del grupo</p>
+              <p className="font-semibold capitalize" style={{ color: 'var(--fg)' }}>{formatDate(group.date)}</p>
+              <p className="text-sm" style={{ color: 'var(--fg-secondary)' }}>Fecha del grupo</p>
             </div>
           </div>
         </div>
 
-        {/* Captain */}
-        <div className="bg-white rounded-xl p-4 shadow-sm">
-          <h2 className="text-sm font-medium text-zinc-500 mb-3">CAPITÁN DEL GRUPO</h2>
+        {/* Coordinator */}
+        <div className="rounded-xl p-4 border" style={{ background: 'var(--surface)', borderColor: 'var(--border)' }}>
+          <h2 className="text-sm font-medium mb-3" style={{ color: 'var(--fg-secondary)' }}>COORDINADOR DEL GRUPO</h2>
           <div className="flex items-center gap-3">
-            <div className="w-12 h-12 bg-zinc-200 rounded-full flex items-center justify-center">
-              <IconUser size={24} className="text-zinc-500" />
+            <div className="w-12 h-12 rounded-full flex items-center justify-center" style={{ background: 'var(--bg-subtle)' }}>
+              <IconUser size={24} style={{ color: 'var(--fg-muted)' }} />
             </div>
             <div>
-              <p className="font-semibold text-zinc-900">{group.captainName}</p>
-              <p className="text-sm text-zinc-500">Responsable del grupo</p>
+              <p className="font-semibold" style={{ color: 'var(--fg)' }}>{group.coordinatorName || 'Sin asignar'}</p>
+              <p className="text-sm" style={{ color: 'var(--fg-secondary)' }}>Responsable de la coordinación</p>
             </div>
           </div>
         </div>
 
         {/* Members */}
-        <div className="bg-white rounded-xl p-4 shadow-sm">
+        <div className="rounded-xl p-4 border" style={{ background: 'var(--surface)', borderColor: 'var(--border)' }}>
           <div className="flex items-center justify-between mb-4">
-            <h2 className="text-sm font-medium text-zinc-500">INTEGRANTES</h2>
+            <h2 className="text-sm font-medium" style={{ color: 'var(--fg-secondary)' }}>INTEGRANTES</h2>
             <div className="flex items-center gap-2">
-              <span className="text-sm text-zinc-500">{group.members.length} músicos</span>
+              <span className="text-sm" style={{ color: 'var(--fg-secondary)' }}>{group.members.length} músicos</span>
               {group.status === 'forming' && (
                 <button
                   onClick={openAddMemberModal}
-                  className="p-1 hover:bg-zinc-100 rounded-full transition-colors"
+                  className="p-1 rounded-full transition-colors"
+                  style={{ color: 'var(--fg-secondary)' }}
                   title="Agregar miembro"
                 >
-                  <IconPlus className="w-5 h-5 text-zinc-600" />
+                  <IconPlus className="w-5 h-5" />
                 </button>
               )}
             </div>
           </div>
           <div className="space-y-3">
             {group.members.map((member) => (
-              <div key={member.id} className="flex items-center justify-between p-3 bg-zinc-50 rounded-lg">
+              <div key={member.id} className="flex items-center justify-between p-3 rounded-lg" style={{ background: 'var(--bg-subtle)' }}>
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 bg-zinc-200 rounded-full flex items-center justify-center">
-                    <IconConfetti size={18} className="text-zinc-500" />
+                  <div className="w-10 h-10 rounded-full flex items-center justify-center" style={{ background: 'var(--surface)' }}>
+                    <IconConfetti size={18} style={{ color: 'var(--fg-muted)' }} />
                   </div>
                   <div>
-                    <p className="font-medium text-zinc-900">{member.name}</p>
-                    <p className="text-sm text-zinc-500 capitalize">{member.instrument}</p>
+                    <p className="font-medium" style={{ color: 'var(--fg)' }}>{member.name}</p>
+                    <p className="text-sm capitalize" style={{ color: 'var(--fg-secondary)' }}>{member.instrument}</p>
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
@@ -358,10 +373,11 @@ export default function GroupDetailPage({ params }: { params: { id: string } }) 
                   {group.status === 'forming' && (
                     <button
                       onClick={() => handleRemoveMember(member.id)}
-                      className="p-1 hover:bg-red-100 rounded-full transition-colors"
+                      className="p-1 rounded-full transition-colors"
+                      style={{ color: 'var(--error)' }}
                       title="Remover miembro"
                     >
-                      <IconTrash className="w-4 h-4 text-red-500" />
+                      <IconTrash className="w-4 h-4" />
                     </button>
                   )}
                 </div>
@@ -372,20 +388,20 @@ export default function GroupDetailPage({ params }: { params: { id: string } }) 
 
         {/* Add Member Modal */}
         {showAddMemberModal && (
-          <div className="fixed inset-0 bg-black/50 z-50 flex items-end sm:items-center justify-center p-4">
-            <div className="bg-white rounded-t-2xl sm:rounded-2xl w-full max-w-md max-h-[80vh] overflow-hidden">
-              <div className="p-4 border-b border-zinc-100 flex items-center justify-between">
-                <h2 className="font-semibold text-zinc-900">Agregar Miembro</h2>
+          <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4" style={{ background: 'color-mix(in oklab, var(--fg) 35%, transparent)' }}>
+            <div className="rounded-t-2xl sm:rounded-2xl w-full max-w-md max-h-[80vh] overflow-hidden border" style={{ background: 'var(--surface)', borderColor: 'var(--border)' }}>
+              <div className="p-4 border-b flex items-center justify-between" style={{ borderColor: 'var(--border)' }}>
+                <h2 className="font-semibold" style={{ color: 'var(--fg)' }}>Agregar Miembro</h2>
                 <button
                   onClick={() => setShowAddMemberModal(false)}
-                  className="p-2 hover:bg-zinc-100 rounded-full"
+                  className="p-2 rounded-full"
                 >
-                  <IconX className="w-5 h-5 text-zinc-500" />
+                  <IconX className="w-5 h-5" style={{ color: 'var(--fg-secondary)' }} />
                 </button>
               </div>
               <div className="p-4 overflow-y-auto max-h-[60vh]">
                 {availableMusicians.length === 0 ? (
-                  <p className="text-zinc-500 text-center py-8">
+                  <p className="text-center py-8" style={{ color: 'var(--fg-secondary)' }}>
                     No hay músicos disponibles para agregar
                   </p>
                 ) : (
@@ -395,14 +411,15 @@ export default function GroupDetailPage({ params }: { params: { id: string } }) 
                         key={musician.id}
                         onClick={() => handleAddMember(musician.id)}
                         disabled={isAddingMember}
-                        className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-zinc-50 transition-colors text-left disabled:opacity-50"
+                        className="w-full flex items-center gap-3 p-3 rounded-xl transition-colors text-left disabled:opacity-50"
+                        style={{ background: 'var(--bg-subtle)' }}
                       >
-                        <div className="w-10 h-10 bg-zinc-200 rounded-full flex items-center justify-center">
-                          <IconConfetti className="w-5 h-5 text-zinc-500" />
+                        <div className="w-10 h-10 rounded-full flex items-center justify-center" style={{ background: 'var(--surface)' }}>
+                          <IconConfetti className="w-5 h-5" style={{ color: 'var(--fg-muted)' }} />
                         </div>
                         <div className="flex-1">
-                          <p className="font-medium text-zinc-900">{musician.name}</p>
-                          <p className="text-sm text-zinc-500">{musician.instrument}</p>
+                          <p className="font-medium" style={{ color: 'var(--fg)' }}>{musician.name}</p>
+                          <p className="text-sm" style={{ color: 'var(--fg-secondary)' }}>{musician.instrument}</p>
                         </div>
                         {isAddingMember ? (
                           <IconLoader2 className="w-5 h-5 animate-spin text-blue-500" />
@@ -419,39 +436,43 @@ export default function GroupDetailPage({ params }: { params: { id: string } }) 
         )}
 
         {/* Serenatas */}
-        <div className="bg-white rounded-xl p-4 shadow-sm">
+        <div className="rounded-xl p-4 border" style={{ background: 'var(--surface)', borderColor: 'var(--border)' }}>
           <div className="flex items-center justify-between mb-4">
-            <h2 className="text-sm font-medium text-zinc-500">SERENATAS ASIGNADAS</h2>
-            <span className="text-sm text-zinc-500">{group.serenatas.length} serenatas</span>
+            <h2 className="text-sm font-medium" style={{ color: 'var(--fg-secondary)' }}>SERENATAS ASIGNADAS</h2>
+            <span className="text-sm" style={{ color: 'var(--fg-secondary)' }}>{group.serenatas.length} serenatas</span>
           </div>
           <div className="space-y-3">
             {group.serenatas.map((serenata) => (
               <Link
                 key={serenata.id}
                 href={`/serenata/${serenata.id}`}
-                className="block p-3 bg-zinc-50 rounded-lg hover:bg-zinc-100 transition-colors"
+                className="block p-3 rounded-lg transition-colors"
+                style={{ background: 'var(--bg-subtle)' }}
               >
                 <div className="flex items-start justify-between">
                   <div>
-                    <p className="font-medium text-zinc-900">{serenata.clientName}</p>
-                    <div className="flex items-center gap-1 text-sm text-zinc-500 mt-1">
+                    <p className="font-medium" style={{ color: 'var(--fg)' }}>{serenata.clientName}</p>
+                    <div className="flex items-center gap-1 text-sm mt-1" style={{ color: 'var(--fg-secondary)' }}>
                       <IconMapPin size={14} />
                       <span className="truncate">{serenata.address}</span>
                     </div>
-                    <div className="flex items-center gap-1 text-sm text-zinc-500 mt-1">
+                    <div className="flex items-center gap-1 text-sm mt-1" style={{ color: 'var(--fg-secondary)' }}>
                       <IconClock size={14} />
                       <span>{formatTime(serenata.dateTime)}</span>
                     </div>
                   </div>
                   <div className="text-right">
-                    <p className="font-semibold text-zinc-900">{formatCurrency(serenata.price)}</p>
-                    <span className={`text-xs px-2 py-0.5 rounded-full ${
-                      serenata.status === 'confirmed' 
-                        ? 'bg-green-100 text-green-800' 
-                        : serenata.status === 'completed'
-                        ? 'bg-zinc-100 text-zinc-800'
-                        : 'bg-yellow-100 text-yellow-800'
-                    }`}>
+                    <p className="font-semibold" style={{ color: 'var(--fg)' }}>{formatCurrency(serenata.price)}</p>
+                    <span
+                      className="text-xs px-2 py-0.5 rounded-full"
+                      style={
+                        serenata.status === 'confirmed'
+                          ? { background: 'color-mix(in oklab, var(--surface) 75%, var(--success) 25%)', color: 'var(--success)' }
+                          : serenata.status === 'completed'
+                          ? { background: 'var(--bg-subtle)', color: 'var(--fg-secondary)' }
+                          : { background: 'color-mix(in oklab, var(--surface) 75%, var(--warning) 25%)', color: 'var(--warning)' }
+                      }
+                    >
                       {serenata.status === 'confirmed' ? 'Confirmada' : 
                        serenata.status === 'completed' ? 'Completada' : 'Pendiente'}
                     </span>
@@ -461,7 +482,7 @@ export default function GroupDetailPage({ params }: { params: { id: string } }) 
             ))}
           </div>
         </div>
-      </div>
+      </SerenatasPageShell>
     </div>
   );
 }

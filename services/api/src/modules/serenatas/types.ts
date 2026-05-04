@@ -18,10 +18,12 @@ export const SerenataStatus = {
   PENDING: 'pending',
   QUOTED: 'quoted',
   ACCEPTED: 'accepted',
+  PAYMENT_PENDING: 'payment_pending',
   CONFIRMED: 'confirmed',
   IN_PROGRESS: 'in_progress',
   COMPLETED: 'completed',
   CANCELLED: 'cancelled',
+  REJECTED: 'rejected',
 } as const;
 
 export const SerenataSource = {
@@ -39,7 +41,7 @@ export const PaymentStatus = {
 } as const;
 
 // Schemas
-export const createCaptainProfileSchema = z.object({
+export const createCoordinatorProfileSchema = z.object({
   bio: z.string().max(1000).optional(),
   phone: z.string().max(50).optional(),
   experience: z.number().min(0).max(50).optional(),
@@ -50,6 +52,7 @@ export const createCaptainProfileSchema = z.object({
   serviceRadius: z.number().min(1).max(200).default(50),
   minPrice: z.number().min(0).default(100),
   maxPrice: z.number().min(0).default(500),
+  subscriptionPlan: z.enum(['free', 'pro', 'premium']).optional(),
 });
 
 export const createSerenataSchema = z.object({
@@ -71,10 +74,11 @@ export const createSerenataSchema = z.object({
   songRequests: z.array(z.string().max(255)).optional(),
   price: z.number().min(0).optional(),
   source: z.enum(['self_captured', 'platform_lead', 'platform_assigned']).default('platform_lead'),
+  coordinatorId: z.string().uuid().optional(),
 });
 
 export const updateSerenataStatusSchema = z.object({
-  status: z.enum(['pending', 'quoted', 'accepted', 'confirmed', 'in_progress', 'completed', 'cancelled']),
+  status: z.enum(['pending', 'quoted', 'accepted', 'payment_pending', 'confirmed', 'in_progress', 'completed', 'cancelled', 'rejected']),
   price: z.number().min(0).optional(),
 });
 
@@ -88,7 +92,7 @@ export const createReviewSchema = z.object({
 });
 
 // Types
-export type CreateCaptainProfileInput = z.infer<typeof createCaptainProfileSchema>;
+export type CreateCoordinatorProfileInput = z.infer<typeof createCoordinatorProfileSchema>;
 export type CreateSerenataInput = z.infer<typeof createSerenataSchema>;
 export type UpdateSerenataStatusInput = z.infer<typeof updateSerenataStatusSchema>;
 export type CreateReviewInput = z.infer<typeof createReviewSchema>;

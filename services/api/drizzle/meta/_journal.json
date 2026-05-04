@@ -215,29 +215,127 @@
     {
       "idx": 30,
       "version": "7",
+      "when": 1776660000000,
+      "tag": "0030_placeholder",
+      "breakpoints": true
+    },
+    {
+      "idx": 31,
+      "version": "7",
+      "when": 1776661000000,
+      "tag": "0031_placeholder",
+      "breakpoints": true
+    },
+    {
+      "idx": 32,
+      "version": "7",
+      "when": 1776662000000,
+      "tag": "0032_placeholder",
+      "breakpoints": true
+    },
+    {
+      "idx": 33,
+      "version": "7",
+      "when": 1776663000000,
+      "tag": "0033_placeholder",
+      "breakpoints": true
+    },
+    {
+      "idx": 34,
+      "version": "7",
+      "when": 1776664000000,
+      "tag": "0034_placeholder",
+      "breakpoints": true
+    },
+    {
+      "idx": 35,
+      "version": "7",
+      "when": 1776665000000,
+      "tag": "0035_placeholder",
+      "breakpoints": true
+    },
+    {
+      "idx": 36,
+      "version": "7",
+      "when": 1776666000000,
+      "tag": "0036_placeholder",
+      "breakpoints": true
+    },
+    {
+      "idx": 37,
+      "version": "7",
+      "when": 1776667000000,
+      "tag": "0037_placeholder",
+      "breakpoints": true
+    },
+    {
+      "idx": 38,
+      "version": "7",
       "when": 1776662400000,
       "tag": "0038_accounts_multitenancy",
       "breakpoints": true
     },
     {
-      "idx": 31,
+      "idx": 39,
       "version": "7",
       "when": 1776748800000,
       "tag": "0039_user_primary_vertical",
       "breakpoints": true
     },
     {
-      "idx": 32,
+      "idx": 40,
       "version": "7",
       "when": 1779350400000,
       "tag": "0040_mortgage_rates",
       "breakpoints": true
     },
     {
-      "idx": 33,
+      "idx": 41,
       "version": "7",
       "when": 1779354000000,
-      "tag": "0041_serenatas_captains",
+      "tag": "0041_serenatas_coordinators",
+      "breakpoints": true
+    },
+    {
+      "idx": 42,
+      "version": "7",
+      "when": 1779355200000,
+      "tag": "0042_serenatas_coordinator_alias_views",
+      "breakpoints": true
+    },
+    {
+      "idx": 43,
+      "version": "7",
+      "when": 1779356400000,
+      "tag": "0043_serenata_payment_commission_vat",
+      "breakpoints": true
+    },
+    {
+      "idx": 44,
+      "version": "7",
+      "when": 1779357600000,
+      "tag": "0044_serenatas_coordinator_naming",
+      "breakpoints": true
+    },
+    {
+      "idx": 45,
+      "version": "7",
+      "when": 1777517364674,
+      "tag": "0045_serenatas_mp_webhook_and_preapprovals",
+      "breakpoints": true
+    },
+    {
+      "idx": 46,
+      "version": "7",
+      "when": 1777519011323,
+      "tag": "0046_serenata_lineup_invitations_and_crew_membership",
+      "breakpoints": true
+    },
+    {
+      "idx": 47,
+      "version": "7",
+      "when": 1777520500000,
+      "tag": "0047_unify_musician_crew_and_lineup",
       "breakpoints": true
     }
   ]

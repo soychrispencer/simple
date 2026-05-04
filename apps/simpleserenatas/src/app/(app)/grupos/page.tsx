@@ -1,29 +1,30 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { 
-    IconUsers, 
+import {
+    IconUsers,
     IconPlus,
-    IconMapPin,
     IconCalendar,
     IconCheck,
     IconClock,
     IconConfetti,
     IconSearch,
-    IconFilter,
-    IconTrendingUp
+    IconSend,
+    IconTrendingUp,
+    IconInfoCircle,
 } from '@tabler/icons-react';
 import Link from 'next/link';
 import { useAuth } from '@/context/AuthContext';
 import { useToast } from '@/hooks';
 import { API_BASE } from '@simple/config';
+import { SerenatasPageHeader, SerenatasPageShell } from '@/components/shell';
 
 interface Group {
     id: string;
     name: string;
     date: string;
     status: string;
-    captainName: string;
+    coordinatorName?: string;
     members: number;
     serenatas: number;
     totalEarnings: number;
@@ -33,35 +34,105 @@ interface Musician {
     id: string;
     name: string;
     instrument: string;
-    distance: number;
+    /** km desde tu ubicación; `null` si no hay punto de referencia en tu perfil / query. */
+    distance: number | null;
+}
+
+interface AvailableMusiciansMeta {
+    hasOrigin: boolean;
+    radiusKm: number;
+}
+
+interface CrewMembership {
+    crewMembershipId: string;
+    /** Alias retrocompatible. */
+    profileId?: string;
+    membershipStatus: 'active' | 'invited' | 'requested' | 'declined' | 'removed';
+    membershipInitiator: 'coordinator' | 'musician' | null;
+    membershipInvitedAt: string | null;
+    coordinatorProfileId: string | null;
+    city: string | null;
+    rating: string | null;
+    coordinatorName: string | null;
+}
+
+function normalizeCrewMembershipsFromApi(raw: unknown[]): CrewMembership[] {
+    if (!Array.isArray(raw)) return [];
+    return raw.map((row) => {
+        const item = row as CrewMembership & { profileId?: string };
+        const pid = typeof item.profileId === 'string' ? item.profileId : '';
+        const cid =
+            typeof item.crewMembershipId === 'string' ? item.crewMembershipId : pid;
+        return { ...item, crewMembershipId: cid || pid, profileId: pid || cid };
+    });
 }
 
 export default function GruposPage() {
-    const { user } = useAuth();
+    const { musicianProfile, effectiveRole } = useAuth();
     const { showToast } = useToast();
     const [myGroups, setMyGroups] = useState<Group[]>([]);
     const [availableMusicians, setAvailableMusicians] = useState<Musician[]>([]);
+    const [musiciansMeta, setMusiciansMeta] = useState<AvailableMusiciansMeta | null>(null);
+    const [memberships, setMemberships] = useState<CrewMembership[]>([]);
     const [showCreateModal, setShowCreateModal] = useState(false);
     const [isLoading, setIsLoading] = useState(true);
     const [newGroupName, setNewGroupName] = useState('');
     const [newGroupDate, setNewGroupDate] = useState('');
 
+    const isMusician = effectiveRole === 'musician' || !!musicianProfile;
+
+    const profileLocationHref =
+        effectiveRole === 'musician' || !!musicianProfile
+            ? '/musician/edit?section=location'
+            : '/perfil';
+
     useEffect(() => {
         const loadData = async () => {
             try {
-                const [groupsRes, musiciansRes] = await Promise.all([
+                const requests: Promise<Response>[] = [
                     fetch(`${API_BASE}/api/serenatas/groups/my`, { credentials: 'include' }),
                     fetch(`${API_BASE}/api/serenatas/musicians/available?radius=10`, { credentials: 'include' }),
-                ]);
+                ];
+                if (isMusician) {
+                    requests.push(
+                        fetch(`${API_BASE}/api/serenatas/musicians/me/coordinators`, {
+                            credentials: 'include',
+                        })
+                    );
+                }
+                const responses = await Promise.all(requests);
+                const groupsData = await responses[0].json().catch(() => ({}));
+                const musiciansData = await responses[1].json().catch(() => ({}));
+                const membershipsData = responses[2]
+                    ? await responses[2].json().catch(() => ({}))
+                    : null;
 
-                const groupsData = await groupsRes.json();
-                const musiciansData = await musiciansRes.json();
-                
                 if (groupsData.ok && groupsData.groups) {
                     setMyGroups(groupsData.groups);
                 }
-                if (musiciansData.ok && musiciansData.musicians) {
+                if (musiciansData.ok && Array.isArray(musiciansData.musicians)) {
                     setAvailableMusicians(musiciansData.musicians);
+                    const rawMeta = musiciansData.meta as AvailableMusiciansMeta | undefined;
+                    if (
+                        rawMeta &&
+                        typeof rawMeta.hasOrigin === 'boolean' &&
+                        typeof rawMeta.radiusKm === 'number'
+                    ) {
+                        setMusiciansMeta(rawMeta);
+                    } else {
+                        const list = musiciansData.musicians as Musician[];
+                        const inferredNoOrigin = list.some((m) => m.distance == null);
+                        setMusiciansMeta(
+                            inferredNoOrigin
+                                ? { hasOrigin: false, radiusKm: 10 }
+                                : { hasOrigin: true, radiusKm: 10 }
+                        );
+                    }
+                }
+                if (membershipsData?.ok && Array.isArray(membershipsData.memberships)) {
+                    setMemberships(
+                        normalizeCrewMembershipsFromApi(membershipsData.memberships)
+                    );
                 }
             } catch {
                 showToast('Error al cargar datos', 'error');
@@ -71,7 +142,7 @@ export default function GruposPage() {
         };
 
         loadData();
-    }, [showToast]);
+    }, [showToast, isMusician]);
 
     const formatCurrency = (amount: number) => {
         return new Intl.NumberFormat('es-CL', {
@@ -125,22 +196,113 @@ export default function GruposPage() {
     }
 
     return (
-        <div className="p-4 md:p-6">
-            {/* Header */}
-            <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6">
-                <div>
-                    <h1 className="text-2xl font-semibold" style={{ color: 'var(--fg)' }}>Mis Grupos</h1>
-                    <p style={{ color: 'var(--fg-muted)' }}>{myGroups.length} grupos activos</p>
-                </div>
-                <button
-                    onClick={() => setShowCreateModal(true)}
-                    className="flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl font-medium transition-colors"
-                    style={{ background: 'var(--accent)', color: 'var(--accent-contrast)' }}
-                >
-                    <IconPlus size={20} />
-                    Crear Grupo
-                </button>
-            </div>
+        <>
+        <SerenatasPageShell width="wide">
+            <SerenatasPageHeader
+                title="Mis grupos"
+                description={`${myGroups.length} grupos activos`}
+                trailing={
+                    <button
+                        type="button"
+                        onClick={() => setShowCreateModal(true)}
+                        className="serenatas-interactive flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl font-medium transition-colors"
+                        style={{ background: 'var(--accent)', color: 'var(--accent-contrast)' }}
+                    >
+                        <IconPlus size={20} />
+                        Crear grupo
+                    </button>
+                }
+            />
+
+            {isMusician && (
+                <SearchCoordinatorPanel
+                    onRequestSent={async () => {
+                        try {
+                            const res = await fetch(
+                                `${API_BASE}/api/serenatas/musicians/me/coordinators`,
+                                { credentials: 'include' }
+                            );
+                            const data = await res.json().catch(() => ({}));
+                            if (data?.ok && Array.isArray(data.memberships)) {
+                                setMemberships(normalizeCrewMembershipsFromApi(data.memberships));
+                            }
+                        } catch (err) {
+                            console.error('refresh memberships failed', err);
+                        }
+                    }}
+                />
+            )}
+
+            {isMusician && memberships.length > 0 && (
+                <section className="mb-6">
+                    <h2 className="text-lg font-semibold mb-3" style={{ color: 'var(--fg)' }}>
+                        Mis cuadrillas
+                    </h2>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                        {memberships.map((m) => (
+                            <div key={m.crewMembershipId} className="card">
+                                <div className="flex items-start justify-between gap-2">
+                                    <div className="min-w-0">
+                                        <h3 className="font-semibold truncate" style={{ color: 'var(--fg)' }}>
+                                            {m.coordinatorName ?? 'Coordinador'}
+                                        </h3>
+                                        <p className="text-sm" style={{ color: 'var(--fg-muted)' }}>
+                                            {m.city ?? '—'}
+                                            {m.rating ? ` · ⭐ ${m.rating}` : ''}
+                                        </p>
+                                    </div>
+                                    <span
+                                        className="text-xs font-medium px-2 py-1 rounded whitespace-nowrap"
+                                        style={
+                                            m.membershipStatus === 'active'
+                                                ? {
+                                                      background: 'var(--success)',
+                                                      color: 'var(--accent-contrast)',
+                                                  }
+                                                : m.membershipStatus === 'invited'
+                                                ? {
+                                                      background: 'var(--accent-soft)',
+                                                      color: 'var(--accent)',
+                                                  }
+                                                : m.membershipStatus === 'requested'
+                                                ? {
+                                                      background: 'var(--bg-subtle)',
+                                                      color: 'var(--fg-muted)',
+                                                  }
+                                                : {
+                                                      background: 'var(--bg-subtle)',
+                                                      color: 'var(--fg-muted)',
+                                                  }
+                                        }
+                                    >
+                                        {m.membershipStatus === 'active'
+                                            ? 'Activa'
+                                            : m.membershipStatus === 'invited'
+                                            ? 'Invitación pendiente'
+                                            : m.membershipStatus === 'requested'
+                                            ? 'Solicitud enviada'
+                                            : m.membershipStatus === 'declined'
+                                            ? 'Rechazada'
+                                            : 'Removido'}
+                                    </span>
+                                </div>
+                                {(m.membershipStatus === 'invited' ||
+                                    m.membershipStatus === 'requested') && (
+                                    <div className="mt-3">
+                                        <Link
+                                            href="/invitaciones"
+                                            className="text-sm font-medium"
+                                            style={{ color: 'var(--accent)' }}
+                                        >
+                                            Ir a invitaciones →
+                                        </Link>
+                                    </div>
+                                )}
+                            </div>
+                        ))}
+                    </div>
+                </section>
+            )}
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                 {/* My Groups */}
@@ -191,7 +353,7 @@ export default function GruposPage() {
                                         style={{ borderColor: 'var(--border)' }}
                                     >
                                         <span className="text-sm" style={{ color: 'var(--fg-muted)' }}>
-                                            Capitán: {group.captainName}
+                                            Coordinador: {group.coordinatorName || 'Sin asignar'}
                                         </span>
                                         <span className="font-semibold" style={{ color: 'var(--accent)' }}>
                                             {formatCurrency(group.totalEarnings)}
@@ -246,16 +408,55 @@ export default function GruposPage() {
 
                     {/* Available Musicians */}
                     <div className="card">
-                        <div className="flex items-center justify-between mb-4">
-                            <h3 className="font-semibold" style={{ color: 'var(--fg)' }}>Músicos Cerca</h3>
-                            <span className="text-xs px-2 py-1 rounded-full" style={{ background: 'var(--bg-subtle)', color: 'var(--fg-muted)' }}>
-                                10km
+                        <div className="flex items-center justify-between mb-4 gap-2">
+                            <h3 className="font-semibold" style={{ color: 'var(--fg)' }}>
+                                {musiciansMeta?.hasOrigin === false ? 'Músicos disponibles' : 'Músicos cerca'}
+                            </h3>
+                            <span
+                                className="text-xs px-2 py-1 rounded-full shrink-0"
+                                style={{ background: 'var(--bg-subtle)', color: 'var(--fg-muted)' }}
+                            >
+                                {musiciansMeta?.hasOrigin === false
+                                    ? 'Sugeridos'
+                                    : `${musiciansMeta?.radiusKm ?? 10} km`}
                             </span>
                         </div>
 
+                        {musiciansMeta?.hasOrigin === false && (
+                            <div
+                                className="mb-4 flex gap-3 rounded-xl border p-3 text-sm"
+                                style={{
+                                    borderColor: 'var(--border)',
+                                    background: 'color-mix(in oklab, var(--accent) 8%, var(--surface))',
+                                    color: 'var(--fg-secondary)',
+                                }}
+                            >
+                                <IconInfoCircle
+                                    size={20}
+                                    className="shrink-0 mt-0.5"
+                                    style={{ color: 'var(--accent)' }}
+                                />
+                                <div className="min-w-0 space-y-2">
+                                    <p>
+                                        Sin ubicación de referencia no podemos calcular distancias. Añade coordenadas en tu
+                                        perfil para ver “cerca” según radio.
+                                    </p>
+                                    <Link
+                                        href={profileLocationHref}
+                                        className="inline-flex font-medium"
+                                        style={{ color: 'var(--accent)' }}
+                                    >
+                                        Configurar ubicación →
+                                    </Link>
+                                </div>
+                            </div>
+                        )}
+
                         {availableMusicians.length === 0 ? (
                             <p className="text-sm text-center py-4" style={{ color: 'var(--fg-muted)' }}>
-                                No hay músicos disponibles cerca
+                                {musiciansMeta?.hasOrigin === false
+                                    ? 'No hay músicos disponibles por ahora'
+                                    : 'No hay músicos disponibles en este radio'}
                             </p>
                         ) : (
                             <div className="space-y-3">
@@ -277,7 +478,9 @@ export default function GruposPage() {
                                                 <p className="text-xs capitalize" style={{ color: 'var(--fg-muted)' }}>{musician.instrument}</p>
                                             </div>
                                         </div>
-                                        <span className="text-xs" style={{ color: 'var(--fg-muted)' }}>{musician.distance} km</span>
+                                        <span className="text-xs tabular-nums shrink-0" style={{ color: 'var(--fg-muted)' }}>
+                                            {musician.distance != null ? `${musician.distance} km` : '—'}
+                                        </span>
                                     </div>
                                 ))}
                             </div>
@@ -285,12 +488,13 @@ export default function GruposPage() {
                     </div>
                 </div>
             </div>
+        </SerenatasPageShell>
 
             {/* Create Group Modal */}
             {showCreateModal && (
                 <div 
                     className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4"
-                    style={{ background: 'rgba(0,0,0,0.5)' }}
+                    style={{ background: 'color-mix(in oklab, var(--fg) 35%, transparent)' }}
                 >
                     <div 
                         className="w-full max-w-lg rounded-2xl p-6 max-h-[90vh] overflow-y-auto"
@@ -360,7 +564,7 @@ export default function GruposPage() {
                     </div>
                 </div>
             )}
-        </div>
+        </>
     );
 }
 
@@ -387,5 +591,157 @@ function IconX({ size }: { size: number }) {
         <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
             <path d="M18 6L6 18M6 6l12 12" />
         </svg>
+    );
+}
+
+interface SearchedCoordinator {
+    id: string;
+    name: string | null;
+    email: string | null;
+    city: string | null;
+    region: string | null;
+    rating: string | null;
+    totalSerenatas: number;
+    isVerified: boolean;
+}
+
+function SearchCoordinatorPanel({ onRequestSent }: { onRequestSent: () => Promise<void> }) {
+    const { showToast } = useToast();
+    const [query, setQuery] = useState('');
+    const [results, setResults] = useState<SearchedCoordinator[]>([]);
+    const [searching, setSearching] = useState(false);
+    const [requestingId, setRequestingId] = useState<string | null>(null);
+
+    useEffect(() => {
+        const q = query.trim();
+        if (q.length < 2) {
+            setResults([]);
+            return;
+        }
+        const handle = setTimeout(async () => {
+            setSearching(true);
+            try {
+                const res = await fetch(
+                    `${API_BASE}/api/serenatas/coordinators/search?q=${encodeURIComponent(q)}`,
+                    { credentials: 'include' }
+                );
+                const data = await res.json().catch(() => ({}));
+                if (data?.ok && Array.isArray(data.coordinators)) {
+                    setResults(data.coordinators);
+                }
+            } catch (err) {
+                console.error('search failed', err);
+            } finally {
+                setSearching(false);
+            }
+        }, 300);
+        return () => clearTimeout(handle);
+    }, [query]);
+
+    const handleRequest = async (coord: SearchedCoordinator) => {
+        const message = window.prompt(
+            `Mensaje para ${coord.name ?? 'el coordinador'} (opcional):`
+        );
+        setRequestingId(coord.id);
+        try {
+            const res = await fetch(
+                `${API_BASE}/api/serenatas/coordinators/${coord.id}/crew/request`,
+                {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include',
+                    body: JSON.stringify({ message: message ?? undefined }),
+                }
+            );
+            const data = await res.json().catch(() => ({}));
+            if (res.ok && data?.ok) {
+                showToast('Solicitud enviada', 'success');
+                setQuery('');
+                setResults([]);
+                await onRequestSent();
+            } else {
+                showToast(data?.error || 'No pudimos enviar la solicitud', 'error');
+            }
+        } finally {
+            setRequestingId(null);
+        }
+    };
+
+    return (
+        <section className="mb-6">
+            <h2 className="text-lg font-semibold mb-2" style={{ color: 'var(--fg)' }}>
+                Buscar cuadrillas
+            </h2>
+            <p className="text-sm mb-3" style={{ color: 'var(--fg-muted)' }}>
+                Encuentra un coordinador y solicita unirte a su cuadrilla.
+            </p>
+            <div className="relative">
+                <IconSearch
+                    size={18}
+                    className="absolute left-3 top-1/2 -translate-y-1/2"
+                    style={{ color: 'var(--fg-muted)' }}
+                />
+                <input
+                    type="text"
+                    value={query}
+                    onChange={(e) => setQuery(e.target.value)}
+                    placeholder="Nombre, email o ciudad del coordinador…"
+                    className="w-full pl-10 pr-3 py-2.5 rounded-lg border"
+                    style={{
+                        background: 'var(--surface)',
+                        borderColor: 'var(--border)',
+                        color: 'var(--fg)',
+                    }}
+                />
+            </div>
+            {searching && (
+                <p className="text-xs mt-2" style={{ color: 'var(--fg-muted)' }}>
+                    Buscando…
+                </p>
+            )}
+            {results.length > 0 && (
+                <ul className="mt-3 space-y-2">
+                    {results.map((c) => (
+                        <li
+                            key={c.id}
+                            className="card flex items-center justify-between gap-3"
+                        >
+                            <div className="min-w-0">
+                                <p className="font-semibold truncate" style={{ color: 'var(--fg)' }}>
+                                    {c.name ?? c.email}
+                                    {c.isVerified && (
+                                        <span
+                                            className="ml-2 text-xs"
+                                            style={{ color: 'var(--success)' }}
+                                        >
+                                            ✓ verificado
+                                        </span>
+                                    )}
+                                </p>
+                                <p className="text-xs" style={{ color: 'var(--fg-muted)' }}>
+                                    {c.city ?? '—'}
+                                    {c.region ? `, ${c.region}` : ''}
+                                    {' · '}
+                                    ⭐ {c.rating ?? '—'} · {c.totalSerenatas} serenatas
+                                </p>
+                            </div>
+                            <button
+                                type="button"
+                                disabled={requestingId === c.id}
+                                onClick={() => handleRequest(c)}
+                                className="px-3 py-1.5 rounded-lg text-xs font-medium flex items-center gap-1 disabled:opacity-50"
+                                style={{
+                                    background: 'var(--accent)',
+                                    color: 'var(--accent-contrast)',
+                                }}
+                            >
+                                <IconSend size={14} />
+                                {requestingId === c.id ? 'Enviando…' : 'Solicitar unirme'}
+                            </button>
+                        </li>
+                    ))}
+                </ul>
+            )}
+        </section>
     );
 }

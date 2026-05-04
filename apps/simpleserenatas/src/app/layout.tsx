@@ -17,7 +17,7 @@ export const viewport: Viewport = {
   maximumScale: 1,
   userScalable: false,
   viewportFit: 'cover',
-  themeColor: '#E11D48',
+  themeColor: 'rgb(225, 29, 72)',
 };
 
 export default function RootLayout({
@@ -26,13 +26,13 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="es-CL" suppressHydrationWarning>
+    <html lang="es-CL" suppressHydrationWarning data-scroll-behavior="smooth">
       <body className={inter.className}>
         <ThemeProvider attribute="class" defaultTheme="light" enableSystem={false}>
           <AuthProvider>
             <ToastProvider>
               <ServiceWorker />
-              <div className="min-h-screen bg-background">
+              <div className="min-h-dvh" style={{ background: 'var(--bg)' }}>
                 {children}
               </div>
             </ToastProvider>

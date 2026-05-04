@@ -128,7 +128,7 @@ async function seed() {
     // Create some groups
     console.log('\nCreating groups...');
     const groups = [];
-    const captain = createdMusicians[0]; // Pablo is captain
+    const coordinator = createdMusicians[0]; // Pablo will coordinate groups
     
     for (let i = 0; i < 3; i++) {
       const date = new Date();
@@ -137,8 +137,8 @@ async function seed() {
       const [group] = await db.insert(serenataGroups).values({
         name: `Grupo ${['Mañana', 'Tarde', 'Noche'][i]} ${date.toLocaleDateString('es-CL', { weekday: 'long' })}`,
         date,
-        createdBy: captain.id,
-        captainId: captain.id,
+        createdBy: coordinator.id,
+        groupLeadMusicianId: coordinator.id,
         serenataIds: [],
         status: i === 0 ? 'confirmed' : 'forming',
         totalEarnings: '0',
@@ -180,7 +180,7 @@ async function seed() {
 
     console.log('\n🎉 Seed completed successfully!');
     console.log('\nTest accounts:');
-    console.log('  pablo@simpleserenatas.cl (captain)');
+    console.log('  pablo@simpleserenatas.cl (coordinator)');
     console.log('  maria@simpleserenatas.cl');
     console.log('  juan@simpleserenatas.cl');
     console.log('  etc...');

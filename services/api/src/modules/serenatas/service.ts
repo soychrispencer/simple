@@ -3,8 +3,9 @@ import type { PostgresJsDatabase } from 'drizzle-orm/postgres-js';
 import * as schema from '../../db/schema';
 
 type Database = PostgresJsDatabase<typeof schema>;
+import { computeSerenataPlatformFees } from './constants';
 import type { 
-  CreateCaptainProfileInput, 
+  CreateCoordinatorProfileInput, 
   CreateSerenataInput, 
   UpdateSerenataStatusInput,
   CreateReviewInput 
@@ -13,13 +14,16 @@ import type {
 export class SerenatasService {
   constructor(private db: Database) {}
 
-  // ==================== CAPTAIN PROFILES ====================
+  // ==================== COORDINATOR PROFILES ====================
 
-  async createCaptainProfile(userId: string, input: CreateCaptainProfileInput) {
+  async createCoordinatorProfile(userId: string, input: CreateCoordinatorProfileInput) {
+    const { subscriptionPlan: planChoice, ...fields } = input as CreateCoordinatorProfileInput & {
+      subscriptionPlan?: 'free' | 'pro' | 'premium';
+    };
     const values: any = {
       userId,
-      ...input,
-      subscriptionPlan: 'free',
+      ...fields,
+      subscriptionPlan: planChoice ?? 'free',
       subscriptionStatus: 'active',
     };
     // Convert decimal fields to strings if present
@@ -27,22 +31,22 @@ export class SerenatasService {
     if (input.longitude != null) values.longitude = String(input.longitude);
     
     const [profile] = await this.db
-      .insert(schema.serenataCaptainProfiles)
+      .insert(schema.serenataCoordinatorProfiles)
       .values(values)
       .returning();
     return profile;
   }
 
-  async getCaptainProfileByUserId(userId: string) {
+  async getCoordinatorProfileByUserId(userId: string) {
     const [profile] = await this.db
       .select()
-      .from(schema.serenataCaptainProfiles)
-      .where(eq(schema.serenataCaptainProfiles.userId, userId));
+      .from(schema.serenataCoordinatorProfiles)
+      .where(eq(schema.serenataCoordinatorProfiles.userId, userId));
     return profile;
   }
 
-  async updateCaptainProfile(userId: string, input: Partial<CreateCaptainProfileInput>) {
-    const profile = await this.getCaptainProfileByUserId(userId);
+  async updateCoordinatorProfile(userId: string, input: Partial<CreateCoordinatorProfileInput>) {
+    const profile = await this.getCoordinatorProfileByUserId(userId);
     if (!profile) throw new Error('Profile not found');
 
     const values: any = { ...input, updatedAt: new Date() };
@@ -51,20 +55,24 @@ export class SerenatasService {
     if (input.longitude != null) values.longitude = String(input.longitude);
     
     const [updated] = await this.db
-      .update(schema.serenataCaptainProfiles)
+      .update(schema.serenataCoordinatorProfiles)
       .set(values)
-      .where(eq(schema.serenataCaptainProfiles.id, profile.id))
+      .where(eq(schema.serenataCoordinatorProfiles.id, profile.id))
       .returning();
     return updated;
   }
 
   // ==================== SERENATAS ====================
 
-  async createSerenata(userId: string, input: CreateSerenataInput) {
+  async createSerenata(userId: string, input: CreateSerenataInput & { coordinatorId?: string }) {
+    const { coordinatorId, ...rest } = input as CreateSerenataInput & { coordinatorId?: string };
     const values: any = {
       clientId: userId,
-      ...input,
+      ...rest,
     };
+    if (coordinatorId) {
+      values.coordinatorProfileId = coordinatorId;
+    }
     // Convert decimal fields to strings if present
     if (input.latitude != null) values.latitude = String(input.latitude);
     if (input.longitude != null) values.longitude = String(input.longitude);
@@ -92,23 +100,23 @@ export class SerenatasService {
       .orderBy(desc(schema.serenatas.createdAt));
   }
 
-  async getSerenatasByCaptain(captainId: string) {
+  async getSerenatasByCoordinator(coordinatorId: string) {
     return await this.db
       .select()
       .from(schema.serenatas)
-      .where(eq(schema.serenatas.captainId, captainId))
+      .where(eq(schema.serenatas.coordinatorProfileId, coordinatorId))
       .orderBy(desc(schema.serenatas.createdAt));
   }
 
-  async getAssignedSerenatasForCaptain(userId: string) {
-    // First get the captain profile
-    const profile = await this.getCaptainProfileByUserId(userId);
+  async getAssignedSerenatasForCoordinator(userId: string) {
+    // Perfil coordinador del usuario
+    const profile = await this.getCoordinatorProfileByUserId(userId);
     if (!profile) return [];
 
     return await this.db
       .select()
       .from(schema.serenatas)
-      .where(eq(schema.serenatas.captainId, profile.id))
+      .where(eq(schema.serenatas.coordinatorProfileId, profile.id))
       .orderBy(desc(schema.serenatas.createdAt));
   }
 
@@ -132,26 +140,26 @@ export class SerenatasService {
     return updated;
   }
 
-  async assignSerenataToCaptain(serenataId: string, captainId: string) {
+  async assignSerenataToCoordinator(serenataId: string, coordinatorId: string) {
     const [updated] = await this.db
       .update(schema.serenatas)
-      .set({ captainId, status: 'accepted', acceptedAt: new Date() })
+      .set({ coordinatorProfileId: coordinatorId, status: 'accepted', acceptedAt: new Date() })
       .where(eq(schema.serenatas.id, serenataId))
       .returning();
     return updated;
   }
 
-  // Find available captains near a location
-  async findCaptainsNearLocation(latitude: number, longitude: number, radius: number = 50) {
+  /** Coordinadores con suscripción activa cerca de un punto (radio en km). */
+  async findCoordinatorsNearLocation(latitude: number, longitude: number, radius: number = 50) {
     return await this.db
       .select()
-      .from(schema.serenataCaptainProfiles)
+      .from(schema.serenataCoordinatorProfiles)
       .where(
         and(
-          eq(schema.serenataCaptainProfiles.subscriptionStatus, 'active'),
+          eq(schema.serenataCoordinatorProfiles.subscriptionStatus, 'active'),
           sql`ST_DWithin(
             ST_MakePoint(${longitude}, ${latitude})::geography,
-            ST_MakePoint(${schema.serenataCaptainProfiles.longitude}, ${schema.serenataCaptainProfiles.latitude})::geography,
+            ST_MakePoint(${schema.serenataCoordinatorProfiles.longitude}, ${schema.serenataCoordinatorProfiles.latitude})::geography,
             ${radius * 1000}
           )`
         )
@@ -160,30 +168,25 @@ export class SerenatasService {
 
   // ==================== PAYMENTS ====================
 
-  async createSerenataPayment(serenataId: string, clientId: string, captainId: string, amount: number) {
-    // Get captain's subscription to determine commission
-    const captain = await this.db
+  async createSerenataPayment(serenataId: string, clientId: string, coordinatorProfileId: string, amount: number) {
+    const [serenata] = await this.db
       .select()
-      .from(schema.serenataCaptainProfiles)
-      .where(eq(schema.serenataCaptainProfiles.id, captainId))
-      .then(rows => rows[0]);
+      .from(schema.serenatas)
+      .where(eq(schema.serenatas.id, serenataId))
+      .limit(1);
 
-    let commission = 0;
-    if (captain?.subscriptionPlan === 'free') commission = Math.round(amount * 0.20); // 20%
-    else if (captain?.subscriptionPlan === 'pro') commission = Math.round(amount * 0.10); // 10%
-    // premium = 0% commission
-
-    const captainEarnings = amount - commission;
+    const fees = computeSerenataPlatformFees(amount, serenata?.source);
 
     const [payment] = await this.db
       .insert(schema.serenataPayments)
       .values({
         serenataId,
         clientId,
-        captainId,
+        coordinatorProfileId,
         totalAmount: amount,
-        platformCommission: commission,
-        captainEarnings,
+        platformCommission: fees.platformCommission,
+        commissionVat: fees.commissionVat,
+        coordinatorEarnings: fees.coordinatorEarnings,
         status: 'pending',
       })
       .returning();
@@ -192,21 +195,33 @@ export class SerenatasService {
 
   // ==================== REVIEWS ====================
 
-  async createReview(input: CreateReviewInput, reviewerId: string, reviewerType: 'client' | 'captain') {
-    // Get serenata to determine reviewee
+  async createReview(input: CreateReviewInput, reviewerId: string, reviewerType: 'client' | 'coordinator') {
     const serenata = await this.getSerenataById(input.serenataId);
     if (!serenata) throw new Error('Serenata not found');
 
-    const revieweeId = reviewerType === 'client' ? serenata.captainId : serenata.clientId;
-    const revieweeType = reviewerType === 'client' ? 'captain' : 'client';
+    let revieweeUserId: string;
+    const revieweeType = reviewerType === 'client' ? 'coordinator' : 'client';
+
+    if (reviewerType === 'client') {
+      if (!serenata.coordinatorProfileId) throw new Error('Serenata sin coordinador');
+      const [coordProf] = await this.db
+        .select({ userId: schema.serenataCoordinatorProfiles.userId })
+        .from(schema.serenataCoordinatorProfiles)
+        .where(eq(schema.serenataCoordinatorProfiles.id, serenata.coordinatorProfileId))
+        .limit(1);
+      if (!coordProf) throw new Error('Perfil coordinador no encontrado');
+      revieweeUserId = coordProf.userId;
+    } else {
+      revieweeUserId = serenata.clientId;
+    }
 
     const [review] = await this.db
-      .insert(schema.serenataCapitanReviews)
+      .insert(schema.serenataCoordinatorReviews)
       .values({
         serenataId: input.serenataId,
         reviewerId,
         reviewerType,
-        revieweeId: revieweeId!,
+        revieweeId: revieweeUserId,
         revieweeType,
         rating: input.rating,
         punctualityRating: input.punctualityRating,
@@ -216,63 +231,72 @@ export class SerenatasService {
       })
       .returning();
 
-    // Update captain rating
-    if (revieweeType === 'captain') {
-      await this.updateCaptainRating(revieweeId!);
+    if (revieweeType === 'coordinator') {
+      await this.updateCoordinatorRatingAggregate(serenata.coordinatorProfileId!);
     }
 
     return review;
   }
 
-  private async updateCaptainRating(captainId: string) {
-    const reviews = await this.db
-      .select({ rating: schema.serenataCapitanReviews.rating })
-      .from(schema.serenataCapitanReviews)
-      .where(eq(schema.serenataCapitanReviews.revieweeId, captainId));
+  private async updateCoordinatorRatingAggregate(coordinatorProfileId: string) {
+    const [prof] = await this.db
+      .select({ userId: schema.serenataCoordinatorProfiles.userId })
+      .from(schema.serenataCoordinatorProfiles)
+      .where(eq(schema.serenataCoordinatorProfiles.id, coordinatorProfileId))
+      .limit(1);
+    if (!prof) return;
 
-    if (reviews.length > 0) {
-      const avgRating = reviews.reduce((acc, r) => acc + r.rating, 0) / reviews.length;
-      
-      await this.db
-        .update(schema.serenataCaptainProfiles)
-        .set({ 
-          rating: avgRating.toFixed(1), 
-          reviewsCount: reviews.length 
-        })
-        .where(eq(schema.serenataCaptainProfiles.id, captainId));
-    }
+    const reviews = await this.db
+      .select({ rating: schema.serenataCoordinatorReviews.rating })
+      .from(schema.serenataCoordinatorReviews)
+      .where(
+        and(
+          eq(schema.serenataCoordinatorReviews.revieweeId, prof.userId),
+          eq(schema.serenataCoordinatorReviews.revieweeType, 'coordinator'),
+        ),
+      );
+
+    if (reviews.length === 0) return;
+
+    const avgRating = reviews.reduce((acc, r) => acc + r.rating, 0) / reviews.length;
+
+    await this.db
+      .update(schema.serenataCoordinatorProfiles)
+      .set({
+        rating: avgRating.toFixed(1),
+        reviewsCount: reviews.length,
+      })
+      .where(eq(schema.serenataCoordinatorProfiles.id, coordinatorProfileId));
   }
 
   // ==================== MATCHING & STATS ====================
 
-  async findMatchingCaptains(filters: { comuna: string; date: string; time: string; budget: number }) {
+  async findMatchingCoordinators(filters: { comuna: string; date: string; time: string; budget: number }) {
     const { comuna, date, time, budget } = filters;
     
-    // Find captains in the same city/comuna with availability
-    const captains = await this.db
+    const coordinators = await this.db
       .select({
-        id: schema.serenataCaptainProfiles.id,
-        bio: schema.serenataCaptainProfiles.bio,
-        city: schema.serenataCaptainProfiles.city,
-        minPrice: schema.serenataCaptainProfiles.minPrice,
-        maxPrice: schema.serenataCaptainProfiles.maxPrice,
-        rating: schema.serenataCaptainProfiles.rating,
-        reviewsCount: schema.serenataCaptainProfiles.reviewsCount,
-        subscriptionPlan: schema.serenataCaptainProfiles.subscriptionPlan,
-        userId: schema.serenataCaptainProfiles.userId,
+        id: schema.serenataCoordinatorProfiles.id,
+        bio: schema.serenataCoordinatorProfiles.bio,
+        city: schema.serenataCoordinatorProfiles.city,
+        minPrice: schema.serenataCoordinatorProfiles.minPrice,
+        maxPrice: schema.serenataCoordinatorProfiles.maxPrice,
+        rating: schema.serenataCoordinatorProfiles.rating,
+        reviewsCount: schema.serenataCoordinatorProfiles.reviewsCount,
+        subscriptionPlan: schema.serenataCoordinatorProfiles.subscriptionPlan,
+        userId: schema.serenataCoordinatorProfiles.userId,
       })
-      .from(schema.serenataCaptainProfiles)
+      .from(schema.serenataCoordinatorProfiles)
       .where(
         and(
-          eq(schema.serenataCaptainProfiles.city, comuna),
-          lte(schema.serenataCaptainProfiles.minPrice, budget),
-          gte(schema.serenataCaptainProfiles.maxPrice, budget)
+          eq(schema.serenataCoordinatorProfiles.city, comuna),
+          lte(schema.serenataCoordinatorProfiles.minPrice, budget),
+          gte(schema.serenataCoordinatorProfiles.maxPrice, budget)
         )
       );
 
-    // Get user info for each captain
-    const captainsWithUsers = await Promise.all(
-      captains.map(async (captain) => {
+    const coordinatorsWithUsers = await Promise.all(
+      coordinators.map(async (coord) => {
         const [user] = await this.db
           .select({
             id: schema.users.id,
@@ -281,48 +305,21 @@ export class SerenatasService {
             avatarUrl: schema.users.avatarUrl,
           })
           .from(schema.users)
-          .where(eq(schema.users.id, captain.userId))
+          .where(eq(schema.users.id, coord.userId))
           .limit(1);
         
         return {
-          ...captain,
+          ...coord,
           user: user || null,
         };
       })
     );
 
-    return captainsWithUsers;
+    return coordinatorsWithUsers;
   }
 
-  async updateAverageRating(reviewedId: string, type: 'captain' | 'client') {
-    // Get all reviews for this user/captain
-    // Note: reviewerId in serenataReviews stores the reviewed person's ID for simplicity
-    const reviews = await this.db
-      .select({ overallRating: schema.serenataReviews.overallRating })
-      .from(schema.serenataReviews)
-      .where(and(
-        eq(schema.serenataReviews.reviewerId, reviewedId),
-        eq(schema.serenataReviews.reviewerType, type === 'captain' ? 'client' : 'captain')
-      ));
-
-    if (reviews.length === 0) return;
-
-    const average = reviews.reduce((sum, r) => sum + r.overallRating, 0) / reviews.length;
-
-    if (type === 'captain') {
-      await this.db
-        .update(schema.serenataCaptainProfiles)
-        .set({
-          rating: String(average),
-          reviewsCount: reviews.length,
-        })
-        .where(eq(schema.serenataCaptainProfiles.id, reviewedId));
-    }
-    // For clients, we could store in users table if needed
-  }
-
-  async getCaptainStats(captainId: string) {
-    // Get serenatas count and earnings
+  async getCoordinatorStats(coordinatorId: string) {
+    // Conteo de serenatas y montos por estado (precio como referencia)
     const serenatas = await this.db
       .select({
         id: schema.serenatas.id,
@@ -331,7 +328,7 @@ export class SerenatasService {
         createdAt: schema.serenatas.createdAt,
       })
       .from(schema.serenatas)
-      .where(eq(schema.serenatas.captainId, captainId));
+      .where(eq(schema.serenatas.coordinatorProfileId, coordinatorId));
 
     const now = new Date();
     const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
@@ -358,11 +355,11 @@ export class SerenatasService {
 
   // ==================== SUBSCRIPTIONS ====================
 
-  async createSubscription(captainId: string, plan: 'free' | 'pro' | 'premium', priceMonthly: number) {
+  async createSubscription(coordinatorProfileId: string, plan: 'free' | 'pro' | 'premium', priceMonthly: number) {
     const [subscription] = await this.db
       .insert(schema.serenataSubscriptions)
       .values({
-        captainId,
+        coordinatorProfileId,
         plan,
         priceMonthly,
         status: 'active',
@@ -371,19 +368,19 @@ export class SerenatasService {
     return subscription;
   }
 
-  async updateCaptainSubscription(userId: string, plan: 'free' | 'pro' | 'premium') {
-    const profile = await this.getCaptainProfileByUserId(userId);
+  async updateCoordinatorSubscription(userId: string, plan: 'free' | 'pro' | 'premium') {
+    const profile = await this.getCoordinatorProfileByUserId(userId);
     if (!profile) throw new Error('Profile not found');
 
     const priceMonthly = plan === 'free' ? 0 : plan === 'pro' ? 3900 : 7900; // CLP
 
     await this.db
-      .update(schema.serenataCaptainProfiles)
+      .update(schema.serenataCoordinatorProfiles)
       .set({ 
         subscriptionPlan: plan,
         subscriptionStartedAt: new Date(),
       })
-      .where(eq(schema.serenataCaptainProfiles.id, profile.id));
+      .where(eq(schema.serenataCoordinatorProfiles.id, profile.id));
 
     return await this.createSubscription(profile.id, plan, priceMonthly);
   }

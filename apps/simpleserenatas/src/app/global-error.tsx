@@ -26,14 +26,14 @@ export default function GlobalError({
                         padding: '2rem 1rem',
                         textAlign: 'center',
                         fontFamily: 'system-ui, -apple-system, sans-serif',
-                        background: '#0b0b0b',
-                        color: '#f5f5f5',
+                        background: 'rgb(11, 11, 11)',
+                        color: 'rgb(245, 245, 245)',
                     }}
                 >
                     <h1 style={{ fontSize: '1.5rem', fontWeight: 600, marginBottom: '0.5rem' }}>
                         Algo salió muy mal
                     </h1>
-                    <p style={{ fontSize: '0.875rem', color: '#a0a0a0', marginBottom: '2rem', maxWidth: '24rem' }}>
+                    <p style={{ fontSize: '0.875rem', color: 'rgb(160, 160, 160)', marginBottom: '2rem', maxWidth: '24rem' }}>
                         Ocurrió un error inesperado. Si el problema persiste, contáctanos.
                     </p>
                     <button
@@ -42,8 +42,8 @@ export default function GlobalError({
                         style={{
                             padding: '0.625rem 1.25rem',
                             borderRadius: '0.75rem',
-                            background: '#e11d48',
-                            color: '#fff',
+                            background: 'rgb(225, 29, 72)',
+                            color: 'rgb(255, 255, 255)',
                             border: 'none',
                             fontSize: '0.875rem',
                             fontWeight: 600,
@@ -53,7 +53,7 @@ export default function GlobalError({
                         Reintentar
                     </button>
                     {error.digest ? (
-                        <p style={{ marginTop: '1.5rem', fontSize: '0.625rem', fontFamily: 'monospace', color: '#666' }}>
+                        <p style={{ marginTop: '1.5rem', fontSize: '0.625rem', fontFamily: 'monospace', color: 'rgb(102, 102, 102)' }}>
                             ref: {error.digest}
                         </p>
                     ) : null}

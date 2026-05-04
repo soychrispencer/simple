@@ -54,3 +54,6 @@ seed.txt
 # Development
 .cache/
 .turbo/
+playwright-report/
+test-results/
+blob-report/
