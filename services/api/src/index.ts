@@ -156,6 +156,7 @@ import {
 } from './db/schema.js';
 import { createSerenatasRouter } from './modules/serenatas/router.js';
 import { SerenatasService } from './modules/serenatas/service.js';
+import { COORDINATOR_SUBSCRIPTION_PLAN, isCoordinatorSubscriptionActive } from './modules/serenatas/constants.js';
 import { createAccountsRouter } from './modules/accounts/index.js';
 import { createCrmRouter } from './modules/crm/index.js';
 import { createAdminRouter } from './modules/admin/index.js';
@@ -11103,14 +11104,21 @@ async function listAdminUsersSnapshot(vertical?: VerticalType | null): Promise<A
         };
     };
 }>> {
-    const [userRows, listingRows, agendaProfiles, coordinatorProfiles, musiciansRows] = await Promise.all([
+    const [userRows, listingRows, agendaProfiles, coordinatorProfileRows, musiciansRows] = await Promise.all([
         db.select().from(users).orderBy(desc(users.createdAt)),
         db.select({
             ownerId: listings.ownerId,
             vertical: listings.vertical,
         }).from(listings),
         db.select({ userId: agendaProfessionalProfiles.userId }).from(agendaProfessionalProfiles),
-        db.select({ userId: serenataCoordinatorProfiles.userId }).from(serenataCoordinatorProfiles),
+        db
+            .select({
+                userId: serenataCoordinatorProfiles.userId,
+                subscriptionPlan: serenataCoordinatorProfiles.subscriptionPlan,
+                subscriptionStatus: serenataCoordinatorProfiles.subscriptionStatus,
+                subscriptionEndsAt: serenataCoordinatorProfiles.subscriptionEndsAt,
+            })
+            .from(serenataCoordinatorProfiles),
         db.select({ userId: serenataMusicians.userId }).from(serenataMusicians),
     ]);
 
@@ -11140,7 +11148,10 @@ async function listAdminUsersSnapshot(vertical?: VerticalType | null): Promise<A
         vertical ? listingRows.filter((l) => l.vertical === vertical).map((l) => l.ownerId) : [],
     );
     const agendaUsers = new Set(agendaProfiles.map((row) => row.userId));
-    const coordinatorUsers = new Set(coordinatorProfiles.map((row) => row.userId));
+    const coordinatorProfileByUserId = new Map(
+        coordinatorProfileRows.map((row) => [row.userId, row])
+    );
+    const coordinatorUsers = new Set(coordinatorProfileRows.map((row) => row.userId));
     const musicianUsers = new Set(musiciansRows.map((row) => row.userId));
     const subscriptionsByUser = new Map<string, Record<string, {
         planId: string | null;
@@ -11187,28 +11198,73 @@ async function listAdminUsersSnapshot(vertical?: VerticalType | null): Promise<A
                 propiedadesListings: counters.propiedades,
                 subscriptions: (() => {
                     const sub = subscriptionsByUser.get(user.id);
-                    if (!sub) return undefined;
-                    return {
-                        autos: sub.autos ? {
-                            planId: sub.autos.planId,
-                            planName: sub.autos.planId,
-                            status: sub.autos.status,
-                            expiresAt: sub.autos.expiresAt?.toISOString() ?? null,
-                        } : undefined,
-                        propiedades: sub.propiedades ? {
-                            planId: sub.propiedades.planId,
-                            planName: sub.propiedades.planId,
-                            status: sub.propiedades.status,
-                            expiresAt: sub.propiedades.expiresAt?.toISOString() ?? null,
-                        } : undefined,
-                        serenatas: sub.serenatas ? {
-                            planId: sub.serenatas.planId,
-                            planName: sub.serenatas.planId,
-                            status: sub.serenatas.status,
-                            expiresAt: sub.serenatas.expiresAt?.toISOString() ?? null,
-                            roleLabel: coordinatorUsers.has(user.id) ? 'Coordinador' : musicianUsers.has(user.id) ? 'Músico' : 'Cliente',
+                    const coordProf = coordinatorProfileByUserId.get(user.id);
+                    const subSer = sub?.serenatas;
+                    let serenatas:
+                        | {
+                              planId: string | null;
+                              planName: string | null;
+                              status: string;
+                              expiresAt: string | null;
+                              roleLabel: string;
+                              activityCount: number;
+                          }
+                        | undefined;
+
+                    if (subSer || coordProf || coordinatorUsers.has(user.id) || musicianUsers.has(user.id)) {
+                        const planId = coordProf?.subscriptionPlan ?? subSer?.planId ?? null;
+                        let planName: string | null = null;
+                        if (planId === COORDINATOR_SUBSCRIPTION_PLAN) planName = 'Coordinador';
+                        else if (planId === 'free') planName = 'Sin pago (legacy)';
+                        else if (planId === 'pro' || planId === 'premium') planName = `Legacy (${planId})`;
+                        else if (planId) planName = planId;
+
+                        const statusUi = coordProf
+                            ? isCoordinatorSubscriptionActive({
+                                  subscriptionStatus: coordProf.subscriptionStatus,
+                                  subscriptionEndsAt: coordProf.subscriptionEndsAt,
+                                  subscriptionPlan: coordProf.subscriptionPlan,
+                              })
+                                ? 'active'
+                                : coordProf.subscriptionStatus
+                            : subSer?.status ?? 'unknown';
+
+                        serenatas = {
+                            planId,
+                            planName,
+                            status: statusUi,
+                            expiresAt:
+                                coordProf?.subscriptionEndsAt?.toISOString() ??
+                                subSer?.expiresAt?.toISOString() ??
+                                null,
+                            roleLabel: coordinatorUsers.has(user.id)
+                                ? 'Coordinador'
+                                : musicianUsers.has(user.id)
+                                  ? 'Músico'
+                                  : 'Cliente',
                             activityCount: 0,
-                        } : undefined,
+                        };
+                    }
+
+                    if (!sub && !serenatas) return undefined;
+                    return {
+                        autos: sub?.autos
+                            ? {
+                                  planId: sub.autos.planId,
+                                  planName: sub.autos.planId,
+                                  status: sub.autos.status,
+                                  expiresAt: sub.autos.expiresAt?.toISOString() ?? null,
+                              }
+                            : undefined,
+                        propiedades: sub?.propiedades
+                            ? {
+                                  planId: sub.propiedades.planId,
+                                  planName: sub.propiedades.planId,
+                                  status: sub.propiedades.status,
+                                  expiresAt: sub.propiedades.expiresAt?.toISOString() ?? null,
+                              }
+                            : undefined,
+                        serenatas,
                     };
                 })(),
             };
@@ -12910,6 +12966,8 @@ const serenatasDeps = {
     db,
     authUser,
     service: serenatasService,
+    vapidPublicKey: VAPID_PUBLIC_KEY,
+    sendPushToUser,
     requireAuth: async (c: any, next: any) => {
         const user = await authUser(c);
         if (!user) {
@@ -12919,6 +12977,7 @@ const serenatasDeps = {
         await next();
     },
     tables: {
+        pushSubscriptions,
         serenataGroups,
         serenataGroupMembers,
         serenataMusicians,

@@ -50,66 +50,48 @@ const ROUTE_ROLE_ACCESS: Record<string, SerenatasUserRole[]> = {
     // ═══════════════════════════════════════════════════════════════════════════════
     '/solicitar': ['client'],                    // Wizard de solicitud
     '/mis-serenatas': ['client'],                // Historial de serenatas del cliente
-    '/tracking': ['client', 'coordinator'],    // Seguimiento en tiempo real
+    '/tracking': ['client', 'coordinator', 'musician'], // Seguimiento (ruta canónica única)
     
     // ═══════════════════════════════════════════════════════════════════════════════
     // MÚSICO - Perfil profesional
     // ═══════════════════════════════════════════════════════════════════════════════
-    '/invitaciones': ['musician', 'coordinator'], // Invitaciones de coordinadores
-    '/perfil/configuracion/disponibilidad': ['musician', 'coordinator'],
-    '/perfil/configuracion/datos': ['musician', 'coordinator', 'client'],
+    '/invitaciones': ['musician'], // Invitaciones del músico
+    '/perfil/configuracion/disponibilidad': ['musician'],
     
     // ═══════════════════════════════════════════════════════════════════════════════
     // COORDINADOR - Operaciones (requiere suscripción activa)
     // ═══════════════════════════════════════════════════════════════════════════════
-    '/solicitudes': ['coordinator'],             // Pickup de solicitudes disponibles
+    '/solicitudes': ['coordinator'],             // Serenatas asignadas + captura directa (subrutas /nueva, /:id, /:id/editar)
     '/cuadrilla': ['coordinator'],              // Gestión de músicos
     '/mapa': ['coordinator'],                   // Rutas y optimización
     '/finanzas': ['coordinator'],               // Ingresos y pagos
     '/grupos': ['coordinator'],                 // Grupos de trabajo
-    '/suscripcion': ['coordinator'],            // Gestión de suscripción
-    '/serenatas-manuales': ['coordinator'],     // Serenatas sin comisión
+    '/suscripcion': ['musician', 'coordinator', 'admin'],
     
     // ═══════════════════════════════════════════════════════════════════════════════
-    // CHAT - Acceso cruzado según contexto
-    // ═══════════════════════════════════════════════════════════════════════════════
-    '/chat': ['client', 'musician', 'coordinator'],
+    // CHAT — MVP coordinador: fuera de foco (WhatsApp sigue siendo canal); reactivar en SERENATAS_POST_MVP.md
+    '/chat': ['client', 'musician'],
 };
 
-const PANEL_NAV_ITEMS: SerenatasPanelNavItem[] = [
-    // ═══════════════════════════════════════════════════════════════════════════════
-    // NAVEGACIÓN COMÚN
-    // ═══════════════════════════════════════════════════════════════════════════════
-    { href: '/inicio', label: 'Inicio', icon: IconHome, roles: ['client', 'musician', 'coordinator', 'admin'], mobileRoles: ['client', 'musician', 'coordinator', 'admin'] },
-    { href: '/agenda', label: 'Agenda', icon: IconCalendar, roles: ['musician', 'coordinator', 'admin'], mobileRoles: ['musician', 'coordinator', 'admin'] },
-    { href: '/notificaciones', label: 'Notificaciones', icon: IconBellRinging, roles: ['client', 'musician', 'coordinator', 'admin'] },
+// ============================================================================
+// NAVEGACIÓN SIMPLIFICADA - Solo esencial
+// ============================================================================
 
-    // ═══════════════════════════════════════════════════════════════════════════════
-    // CLIENTE - Flujo simple
-    // ═══════════════════════════════════════════════════════════════════════════════
+const PANEL_NAV_ITEMS: SerenatasPanelNavItem[] = [
+    // 1. INICIO (todos)
+    { href: '/inicio', label: 'Inicio', icon: IconHome, roles: ['client', 'musician', 'coordinator', 'admin'], mobileRoles: ['client', 'musician', 'coordinator', 'admin'] },
+    
+    // 2. SOLICITAR (cliente)
     { href: '/solicitar', label: 'Solicitar', icon: IconPlus, roles: ['client'], mobileRoles: ['client'] },
-    { href: '/mis-serenatas', label: 'Mis Serenatas', icon: IconBell, roles: ['client'], mobileRoles: ['client'] },
     
-    // ═══════════════════════════════════════════════════════════════════════════════
-    // MÚSICO - Perfil profesional
-    // ═══════════════════════════════════════════════════════════════════════════════
-    { href: '/invitaciones', label: 'Invitaciones', icon: IconMailbox, roles: ['musician', 'coordinator'], mobileRoles: ['musician'] },
-    { href: '/perfil/configuracion/disponibilidad', label: 'Disponibilidad', icon: IconSettings, roles: ['musician', 'coordinator'] },
-    
-    // ═══════════════════════════════════════════════════════════════════════════════
-    // COORDINADOR - Panel de operaciones
-    // ═══════════════════════════════════════════════════════════════════════════════
+    // 3. SOLICITUDES/INVITACIONES (coordinador/musico)
     { href: '/solicitudes', label: 'Solicitudes', icon: IconBell, roles: ['coordinator'], mobileRoles: ['coordinator'] },
-    { href: '/cuadrilla', label: 'Cuadrilla', icon: IconUsersGroup, roles: ['coordinator'] },
-    { href: '/grupos', label: 'Grupos', icon: IconUsersGroup, roles: ['coordinator'] },
-    { href: '/mapa', label: 'Rutas', icon: IconRoute, roles: ['coordinator'], mobileRoles: ['coordinator'] },
-    { href: '/finanzas', label: 'Finanzas', icon: IconWallet, roles: ['coordinator'] },
-    { href: '/suscripcion', label: 'Suscripción', icon: IconCreditCard, roles: ['coordinator'] },
-    { href: '/chat', label: 'Chat', icon: IconMessageCircle, roles: ['client', 'musician', 'coordinator'] },
+    { href: '/invitaciones', label: 'Invitaciones', icon: IconBellRinging, roles: ['musician'], mobileRoles: ['musician'] },
     
-    // ═══════════════════════════════════════════════════════════════════════════════
-    // MI CUENTA - Siempre al final del sidebar, separado visualmente
-    // ═══════════════════════════════════════════════════════════════════════════════
+    // 4. NOTIFICACIONES (todos)
+    { href: '/notificaciones', label: 'Notificaciones', icon: IconMailbox, roles: ['client', 'musician', 'coordinator', 'admin'] },
+    
+    // 5. MI CUENTA (footer - todos)
     { href: '/perfil', label: 'Mi Cuenta', icon: IconUser, roles: ['client', 'musician', 'coordinator', 'admin'], mobileRoles: ['client', 'musician', 'coordinator', 'admin'], isFooter: true },
 ];
 
@@ -118,23 +100,16 @@ const PANEL_NAV_ITEMS: SerenatasPanelNavItem[] = [
  * cuatro accesos frecuentes, no todas las funciones.
  */
 function mobileBarHrefsForRole(role?: string): readonly string[] {
-    // ═══════════════════════════════════════════════════════════════════════════════
-    // CLIENTE - Experiencia simple: Inicio, Solicitar, Mis Serenatas, Mi Cuenta
-    // ═══════════════════════════════════════════════════════════════════════════════
-    if (role === 'client') return ['/inicio', '/solicitar', '/mis-serenatas', '/perfil'];
-    
-    // ═══════════════════════════════════════════════════════════════════════════════
-    // MÚSICO - Perfil profesional: Inicio, Invitaciones, Agenda, Mi Cuenta
-    // ═══════════════════════════════════════════════════════════════════════════════
-    if (role === 'musician') return ['/inicio', '/invitaciones', '/agenda', '/perfil'];
-    
-    // ═══════════════════════════════════════════════════════════════════════════════
-    // COORDINADOR - Panel de operaciones: Inicio, Solicitudes, Cuadrilla, Finanzas
-    // ═══════════════════════════════════════════════════════════════════════════════
-    if (role === 'coordinator' || role === 'admin' || role === 'superadmin') {
-        return ['/inicio', '/solicitudes', '/cuadrilla', '/finanzas'];
+    // Simplificado: máximo 4 items
+    if (role === 'client') {
+        return ['/inicio', '/solicitar', '/notificaciones', '/perfil'];
     }
-    
+    if (role === 'musician') {
+        return ['/inicio', '/invitaciones', '/notificaciones', '/perfil'];
+    }
+    if (role === 'coordinator' || role === 'admin') {
+        return ['/inicio', '/solicitudes', '/notificaciones', '/perfil'];
+    }
     return ['/inicio', '/perfil'];
 }
 

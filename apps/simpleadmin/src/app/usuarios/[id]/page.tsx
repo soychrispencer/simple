@@ -53,6 +53,12 @@ function AdminUserDetailContent({ adminUser }: { adminUser: AdminSessionUser }) 
 
   const user = items.find((item) => item.id === userId) ?? null;
   const memberships = user ? deriveUserVerticalMemberships(user) : [];
+  /** Solo estos valores pueden asignarse como rol de panel vía API admin. */
+  const panelAssignableRole =
+    user &&
+    (user.role === 'admin' || user.role === 'superadmin' || user.role === 'user')
+      ? user.role
+      : 'user';
   const canEditRole = hasAdminCapability(adminUser, 'users.editRole', scope);
   const canEditStatus = hasAdminCapability(adminUser, 'users.editStatus', scope);
   const canEditSubscriptions = hasAdminCapability(adminUser, 'users.editSubscriptions', scope);
@@ -192,20 +198,20 @@ function AdminUserDetailContent({ adminUser }: { adminUser: AdminSessionUser }) 
                     <label className="space-y-1.5 text-sm">
                       <span style={{ color: 'var(--fg-muted)' }}>Plan serenatas</span>
                       <select
+                        key={`ser-plan-${user.id}-${user.subscriptions?.serenatas?.planId ?? 'none'}-${user.subscriptions?.serenatas?.status ?? ''}`}
                         className="form-select h-10"
                         defaultValue={user.subscriptions?.serenatas?.planId ?? ''}
                         disabled={saving}
                         onChange={(event) => void handleSerenatasPlanChange(event.target.value)}
                       >
                         <option value="">Sin plan</option>
-                        <option value="starter">starter</option>
-                        <option value="pro">pro</option>
-                        <option value="elite">elite</option>
+                        <option value="coordinator">Coordinador (único)</option>
                       </select>
                     </label>
                     <label className="space-y-1.5 text-sm">
                       <span style={{ color: 'var(--fg-muted)' }}>Rol serenatas</span>
                       <select
+                        key={`ser-role-${user.id}-${user.subscriptions?.serenatas?.roleLabel ?? ''}`}
                         className="form-select h-10"
                         defaultValue={
                           user.subscriptions?.serenatas?.roleLabel === 'Coordinador'

@@ -8,3 +8,4 @@ export {
     type CrewInvitation,
     type MusicianInvitationsCounts,
 } from './useMusicianInvitations';
+export { useSerenatasPushNotifications } from './useSerenatasPushNotifications';

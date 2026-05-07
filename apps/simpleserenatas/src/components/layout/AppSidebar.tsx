@@ -7,6 +7,7 @@ import {
     IconChevronRight,
 } from '@tabler/icons-react';
 import { useAuth } from '@/context/AuthContext';
+import { useSerenatasNotificationBadge } from '@/context/SerenatasNotificationBadgeContext';
 import { useMusicianInvitations } from '@/hooks';
 import { getSerenatasPanelNavItems, isSerenatasNavActive } from '@/components/layout/panel-nav-config';
 
@@ -23,7 +24,11 @@ export function AppSidebar({ collapsed, onToggle }: AppSidebarProps) {
     const navItems = allNavItems.filter((item) => !item.isFooter);
     const footerItems = allNavItems.filter((item) => item.isFooter);
     // Badge dinámico para /invitaciones. Polling lento, sólo cuenta lo que requiere acción.
-    const { totalPending } = useMusicianInvitations({ pollMs: 60000 });
+    const { totalPending } = useMusicianInvitations({
+        pollMs: 60000,
+        enabled: effectiveRole === 'musician',
+    });
+    const { unreadCount: inAppUnread } = useSerenatasNotificationBadge();
 
     return (
         <aside
@@ -81,8 +86,18 @@ export function AppSidebar({ collapsed, onToggle }: AppSidebarProps) {
                                     </span>
                                     {(() => {
                                         const isInvitaciones = item.href === '/invitaciones';
-                                        const dynamicBadge =
-                                            isInvitaciones && totalPending > 0 ? String(totalPending) : null;
+                                        const isNotificaciones = item.href === '/notificaciones';
+                                        const dynamicBadge = isInvitaciones
+                                            ? totalPending > 0
+                                                ? String(totalPending)
+                                                : null
+                                            : isNotificaciones
+                                              ? inAppUnread > 0
+                                                  ? inAppUnread > 9
+                                                      ? '9+'
+                                                      : String(inAppUnread)
+                                                  : null
+                                              : null;
                                         if (collapsed) {
                                             if (!dynamicBadge) return null;
                                             return (

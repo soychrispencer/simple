@@ -11,27 +11,17 @@ export interface ApiResponse<T> {
 // API Response Types
 interface RequestsListResponse {
   ok: boolean;
-  requests: Array<{
-    id: string;
-    clientName: string;
-    address: string;
-    dateTime: string;
-    status: string;
-    price: string;
-    urgency?: string;
-  }>;
+  /** Coordinador: `GET /requests?assignedToMe=true` */
+  serenatas?: Array<Record<string, unknown>>;
+  /** Otros listados legacy */
+  requests?: Array<Record<string, unknown>>;
 }
 
 interface RequestResponse {
   ok: boolean;
-  request?: {
-    id: string;
-    clientName: string;
-    address: string;
-    dateTime: string;
-    status: string;
-    price: string;
-  };
+  request?: Record<string, unknown>;
+  /** Detalle canónico tabla `serenatas` */
+  serenata?: Record<string, unknown>;
 }
 
 interface GroupsListResponse {
@@ -189,49 +179,94 @@ export const musiciansApi = {
 
 // Requests API
 export const requestsApi = {
-  list: (params?: { status?: string; urgency?: string; dateFrom?: string; dateTo?: string }) => {
+  list: (params?: {
+    status?: string;
+    urgency?: string;
+    dateFrom?: string;
+    dateTo?: string;
+    /** Serenatas asignadas al perfil coordinador (todas los estados). */
+    assignedToMe?: boolean;
+  }) => {
     const query = new URLSearchParams();
     if (params?.status) query.append('status', params.status);
     if (params?.urgency) query.append('urgency', params.urgency);
     if (params?.dateFrom) query.append('dateFrom', params.dateFrom);
     if (params?.dateTo) query.append('dateTo', params.dateTo);
+    if (params?.assignedToMe) query.append('assignedToMe', 'true');
     return fetchApi<RequestsListResponse>(`/requests?${query}`);
   },
-  
+
+  assignedByDay: (date: string) =>
+    fetchApi<RequestsListResponse>(`/requests/my/assigned?date=${encodeURIComponent(date)}`),
+
+  assignedByWeek: (week: string) =>
+    fetchApi<RequestsListResponse>(`/requests/my/assigned?week=${encodeURIComponent(week)}`),
+
   get: (id: string) => fetchApi<RequestResponse>(`/requests/${id}`),
-  
-  create: (data: {
-    clientName: string;
-    clientPhone: string;
-    clientEmail?: string;
-    address: string;
-    dateTime: string;
-    price: number;
-    occasion?: string;
-    message?: string;
-    urgency?: string;
-  }) => fetchApi('/requests', {
-    method: 'POST',
-    body: JSON.stringify(data),
-  }),
-  
-  update: (id: string, data: Partial<{
-    clientName: string;
-    clientPhone: string;
-    clientEmail: string;
-    address: string;
-    dateTime: string;
-    price: number;
-    occasion: string;
-    message: string;
-    urgency: string;
-  }>) => 
+
+  /** Crea fila en `serenatas`: cliente de la plataforma o coordinador con captura directa. */
+  create: (
+    data: {
+      clientName: string;
+      clientPhone?: string;
+      clientEmail?: string;
+      eventDate: string;
+      eventTime: string;
+      duration?: number;
+      address: string;
+      city?: string;
+      region?: string;
+      price?: number;
+      eventType?: string;
+      recipientName?: string;
+      recipientRelation?: string;
+      message?: string;
+      songRequests?: string[];
+      source?: string;
+      latitude?: number;
+      longitude?: number;
+      /** Coordinador registra trabajo propio; cliente final va en clientName/Phone. */
+      capturedByCoordinator?: boolean;
+    }
+  ) =>
+    fetchApi('/requests', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+
+  update: (
+    id: string,
+    data: Partial<{
+      clientName: string;
+      clientPhone: string;
+      clientEmail: string | null;
+      eventType: string;
+      eventDate: string;
+      eventTime: string;
+      duration: number;
+      address: string;
+      city: string | null;
+      region: string | null;
+      latitude: number | null;
+      longitude: number | null;
+      recipientName: string | null;
+      recipientRelation: string | null;
+      message: string | null;
+      songRequests: string[];
+      price: number | null;
+    }>
+  ) =>
     fetchApi(`/requests/${id}`, {
       method: 'PATCH',
       body: JSON.stringify(data),
     }),
-  
-  cancel: (id: string, reason?: string) => 
+
+  complete: (id: string) =>
+    fetchApi(`/requests/${id}/complete`, {
+      method: 'POST',
+    }),
+
+  cancel: (id: string, reason?: string) =>
     fetchApi(`/requests/${id}/cancel`, {
       method: 'POST',
       body: JSON.stringify({ reason }),
@@ -249,6 +284,10 @@ export const requestsApi = {
   getUrgent: () => fetchApi<RequestsListResponse>('/requests/urgent/list'),
   
   findMatches: (id: string) => fetchApi(`/requests/${id}/matches`),
+};
+
+export const coordinatorStatsApi = {
+  get: () => fetchApi<{ ok: boolean; stats?: Record<string, unknown> }>('/stats/coordinator'),
 };
 
 // Groups API

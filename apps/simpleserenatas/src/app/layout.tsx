@@ -9,7 +9,16 @@ import './globals.css';
 
 const inter = Inter({ subsets: ['latin'] });
 
-export const metadata: Metadata = buildSimpleAppMetadata('simpleserenatas');
+const googleSiteVerification = process.env.NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION?.trim();
+
+export const metadata: Metadata = {
+  ...buildSimpleAppMetadata('simpleserenatas'),
+  verification: googleSiteVerification
+    ? {
+        google: googleSiteVerification,
+      }
+    : undefined,
+};
 
 export const viewport: Viewport = {
   width: 'device-width',

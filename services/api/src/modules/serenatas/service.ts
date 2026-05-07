@@ -1,15 +1,21 @@
-import { eq, and, desc, gte, lte, sql, inArray } from 'drizzle-orm';
+import { eq, and, or, gt, desc, gte, lte, sql, isNull } from 'drizzle-orm';
 import type { PostgresJsDatabase } from 'drizzle-orm/postgres-js';
 import * as schema from '../../db/schema';
+import {
+  computeSerenataPlatformFees,
+  COORDINATOR_MONTHLY_PRICE_CLP,
+  COORDINATOR_SUBSCRIPTION_PLAN,
+  isCoordinatorSubscriptionActive,
+  isPlatformCommissionSource,
+} from './constants';
+import type {
+  CreateCoordinatorProfileInput,
+  CreateSerenataInput,
+  UpdateSerenataStatusInput,
+  CreateReviewInput,
+} from './types';
 
 type Database = PostgresJsDatabase<typeof schema>;
-import { computeSerenataPlatformFees } from './constants';
-import type { 
-  CreateCoordinatorProfileInput, 
-  CreateSerenataInput, 
-  UpdateSerenataStatusInput,
-  CreateReviewInput 
-} from './types';
 
 export class SerenatasService {
   constructor(private db: Database) {}
@@ -17,14 +23,12 @@ export class SerenatasService {
   // ==================== COORDINATOR PROFILES ====================
 
   async createCoordinatorProfile(userId: string, input: CreateCoordinatorProfileInput) {
-    const { subscriptionPlan: planChoice, ...fields } = input as CreateCoordinatorProfileInput & {
-      subscriptionPlan?: 'free' | 'pro' | 'premium';
-    };
     const values: any = {
       userId,
-      ...fields,
-      subscriptionPlan: planChoice ?? 'free',
-      subscriptionStatus: 'active',
+      ...input,
+      subscriptionPlan: COORDINATOR_SUBSCRIPTION_PLAN,
+      subscriptionStatus: 'paused',
+      subscriptionEndsAt: null,
     };
     // Convert decimal fields to strings if present
     if (input.latitude != null) values.latitude = String(input.latitude);
@@ -65,13 +69,21 @@ export class SerenatasService {
   // ==================== SERENATAS ====================
 
   async createSerenata(userId: string, input: CreateSerenataInput & { coordinatorId?: string }) {
-    const { coordinatorId, ...rest } = input as CreateSerenataInput & { coordinatorId?: string };
+    const { coordinatorId, capturedByCoordinator, ...rest } = input as CreateSerenataInput & {
+      coordinatorId?: string;
+      capturedByCoordinator?: boolean;
+    };
     const values: any = {
       clientId: userId,
       ...rest,
     };
     if (coordinatorId) {
       values.coordinatorProfileId = coordinatorId;
+    }
+    if (capturedByCoordinator && coordinatorId) {
+      values.source = 'own_lead';
+      values.status = 'confirmed';
+      values.confirmedAt = new Date();
     }
     // Convert decimal fields to strings if present
     if (input.latitude != null) values.latitude = String(input.latitude);
@@ -149,14 +161,19 @@ export class SerenatasService {
     return updated;
   }
 
-  /** Coordinadores con suscripción activa cerca de un punto (radio en km). */
+  /** Coordinadores activos con período vigente (mapa / demanda plataforma). */
   async findCoordinatorsNearLocation(latitude: number, longitude: number, radius: number = 50) {
+    const now = new Date();
     return await this.db
       .select()
       .from(schema.serenataCoordinatorProfiles)
       .where(
         and(
           eq(schema.serenataCoordinatorProfiles.subscriptionStatus, 'active'),
+          or(
+            isNull(schema.serenataCoordinatorProfiles.subscriptionEndsAt),
+            gt(schema.serenataCoordinatorProfiles.subscriptionEndsAt, now)
+          ),
           sql`ST_DWithin(
             ST_MakePoint(${longitude}, ${latitude})::geography,
             ST_MakePoint(${schema.serenataCoordinatorProfiles.longitude}, ${schema.serenataCoordinatorProfiles.latitude})::geography,
@@ -273,7 +290,8 @@ export class SerenatasService {
 
   async findMatchingCoordinators(filters: { comuna: string; date: string; time: string; budget: number }) {
     const { comuna, date, time, budget } = filters;
-    
+
+    const now = new Date();
     const coordinators = await this.db
       .select({
         id: schema.serenataCoordinatorProfiles.id,
@@ -284,6 +302,8 @@ export class SerenatasService {
         rating: schema.serenataCoordinatorProfiles.rating,
         reviewsCount: schema.serenataCoordinatorProfiles.reviewsCount,
         subscriptionPlan: schema.serenataCoordinatorProfiles.subscriptionPlan,
+        subscriptionStatus: schema.serenataCoordinatorProfiles.subscriptionStatus,
+        subscriptionEndsAt: schema.serenataCoordinatorProfiles.subscriptionEndsAt,
         userId: schema.serenataCoordinatorProfiles.userId,
       })
       .from(schema.serenataCoordinatorProfiles)
@@ -291,7 +311,12 @@ export class SerenatasService {
         and(
           eq(schema.serenataCoordinatorProfiles.city, comuna),
           lte(schema.serenataCoordinatorProfiles.minPrice, budget),
-          gte(schema.serenataCoordinatorProfiles.maxPrice, budget)
+          gte(schema.serenataCoordinatorProfiles.maxPrice, budget),
+          eq(schema.serenataCoordinatorProfiles.subscriptionStatus, 'active'),
+          or(
+            isNull(schema.serenataCoordinatorProfiles.subscriptionEndsAt),
+            gt(schema.serenataCoordinatorProfiles.subscriptionEndsAt, now)
+          )
         )
       );
 
@@ -355,7 +380,7 @@ export class SerenatasService {
 
   // ==================== SUBSCRIPTIONS ====================
 
-  async createSubscription(coordinatorProfileId: string, plan: 'free' | 'pro' | 'premium', priceMonthly: number) {
+  async createSubscription(coordinatorProfileId: string, plan: string, priceMonthly: number) {
     const [subscription] = await this.db
       .insert(schema.serenataSubscriptions)
       .values({
@@ -368,11 +393,11 @@ export class SerenatasService {
     return subscription;
   }
 
-  async updateCoordinatorSubscription(userId: string, plan: 'free' | 'pro' | 'premium') {
+  async updateCoordinatorSubscription(userId: string, plan: string = COORDINATOR_SUBSCRIPTION_PLAN) {
     const profile = await this.getCoordinatorProfileByUserId(userId);
     if (!profile) throw new Error('Profile not found');
 
-    const priceMonthly = plan === 'free' ? 0 : plan === 'pro' ? 3900 : 7900; // CLP
+    const priceMonthly = COORDINATOR_MONTHLY_PRICE_CLP;
 
     await this.db
       .update(schema.serenataCoordinatorProfiles)

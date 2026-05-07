@@ -56,7 +56,6 @@ SELECT DISTINCT ON ("p"."user_id")
 	NULL,
 	NULL,
 	NULL,
-	NULL,
 	true,
 	false,
 	false,

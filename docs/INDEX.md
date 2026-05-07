@@ -56,6 +56,21 @@ docs/
 │   └── Arquitectura detallada del flujo de publicaciones
 │   └── Componentes, hooks, data flow
 │
+├── ✅ SIMPLESERENATAS_MVP_AND_SCOPE.md
+│   └── MVP coordinador, WIP, DoD, piloto (Pablo +1)
+├── ✅ SERENATAS_DATA_MODEL.md
+│   └── Tabla canónica `serenatas` vs legado `serenata_requests`
+├── ✅ SERENATAS_RESEARCH_GUIDE.md
+│   └── Guion entrevistas nicho y métrica de piloto
+├── ✅ SERENATAS_PILOT_RUNBOOK.md
+│   └── Checklist 3–5 jornadas reales
+├── ✅ SERENATAS_POST_MVP.md
+│   └── Reactivar chat, suscripción, cliente/músico
+├── ✅ SIMPLESERENATAS_DEVELOPMENT_PLAN.md
+│   └── Plan maestro por fases (0–12), coordinador primero, criterios de éxito
+├── ✅ schema.md
+│   └── Resumen de tablas Serenatas / enlaces a migraciones
+│
 ├── ✅ login_analysis.md
 │   └── Análisis del flujo de login y duplicaciones identificadas
 │   └── Recomendaciones de refactorización
@@ -211,6 +226,9 @@ Roadmap section
 | Configurar almacenamiento B2 | [STORAGE_SETUP.md](./STORAGE_SETUP.md) |
 | Desarrollar SimpleAgenda | [SIMPLEAGENDA_DEVELOPMENT.md](./SIMPLEAGENDA_DEVELOPMENT.md) |
 | Implementar Instagram | [INSTAGRAM_INTELLIGENCE_IMPLEMENTATION.md](./INSTAGRAM_INTELLIGENCE_IMPLEMENTATION.md) |
+| Roadmap SimpleSerenatas (fases 0–12) | [SIMPLESERENATAS_DEVELOPMENT_PLAN.md](./SIMPLESERENATAS_DEVELOPMENT_PLAN.md) |
+| Schema DB Serenatas (resumen) | [schema.md](./schema.md) |
+| Auditoría de rutas `simpleserenatas` | [apps/simpleserenatas/AUDIT.md](../apps/simpleserenatas/AUDIT.md) |
 
 ---
 

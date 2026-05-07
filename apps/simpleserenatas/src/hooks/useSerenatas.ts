@@ -50,7 +50,7 @@ export function useSerenatas() {
     try {
       const res = await requestsApi.getUrgent();
       if (res.ok && res.data) {
-        return res.data.requests as Serenata[];
+        return (res.data.requests as unknown) as Serenata[];
       }
       throw new Error(res.error || 'Failed to fetch urgent requests');
     } catch (err) {

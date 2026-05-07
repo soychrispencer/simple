@@ -74,9 +74,8 @@ export default function SolicitarSerenataPage() {
     };
 
     const handleNext = async () => {
-        if (step < 4) {
+        if (step < 3) {
             if (step === 2) {
-                // Buscar coordinadores disponibles
                 await findMatchingCoordinators();
             }
             setStep(step + 1);
@@ -136,7 +135,7 @@ export default function SolicitarSerenataPage() {
                 message: fullMessage || undefined,
                 songRequests: formData.songs.length > 0 ? formData.songs : undefined,
                 price: Math.round(formData.budget * 1000),
-                source: selectedCoordinator ? 'platform_assigned' : 'platform_lead',
+                source: 'platform_lead',
                 coordinatorId: selectedCoordinator || undefined,
             };
 
@@ -176,7 +175,6 @@ export default function SolicitarSerenataPage() {
         if (step === 2)
             return Boolean(formData.address && formData.comuna && formData.date && formData.time);
         if (step === 3) return true;
-        if (step === 4) return true;
         return false;
     };
 
@@ -200,13 +198,13 @@ export default function SolicitarSerenataPage() {
                             Solicitar serenata
                         </h1>
                         <span className="text-sm shrink-0" style={{ color: 'var(--fg-muted)' }}>
-                            Paso {step} de 4
+                            Paso {step} de 3
                         </span>
                     </div>
                     <div className="h-1 rounded-full mt-3 overflow-hidden" style={{ background: 'var(--bg-subtle)' }}>
                         <div
                             className="h-full transition-all duration-300"
-                            style={{ width: `${(step / 4) * 100}%`, background: 'var(--accent)' }}
+                            style={{ width: `${(step / 3) * 100}%`, background: 'var(--accent)' }}
                         />
                     </div>
                 </div>
@@ -286,7 +284,7 @@ export default function SolicitarSerenataPage() {
                     </div>
                 )}
 
-                {/* Step 2: Ubicación y fecha */}
+                {/* Paso 2: Cuándo, dónde y preferencias (presupuesto estimado) */}
                 {step === 2 && (
                     <div className="space-y-6">
                         <div>
@@ -355,12 +353,7 @@ export default function SolicitarSerenataPage() {
                                 ))}
                             </div>
                         </div>
-                    </div>
-                )}
 
-                {/* Step 3: Preferencias y presupuesto */}
-                {step === 3 && (
-                    <div className="space-y-6">
                         <div>
                             <label className="block text-sm font-medium mb-2" style={{ color: 'var(--fg-secondary)' }}>
                                 Duración de la serenata
@@ -447,8 +440,8 @@ export default function SolicitarSerenataPage() {
                     </div>
                 )}
 
-                {/* Step 4: Selección de coordinador */}
-                {step === 4 && (
+                {/* Step 3: Confirmación + coordinador */}
+                {step === 3 && (
                     <div className="space-y-4">
                         {submitError ? (
                             <div
@@ -542,7 +535,7 @@ export default function SolicitarSerenataPage() {
                     >
                         {isSubmitting ? (
                             <IconLoader size={20} className="animate-spin" />
-                        ) : step === 4 ? (
+                        ) : step === 3 ? (
                             <>Confirmar solicitud <IconCheck size={20} /></>
                         ) : (
                             <>Continuar <IconChevronRight size={20} /></>

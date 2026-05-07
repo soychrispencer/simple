@@ -26,8 +26,9 @@ interface CoordinatorProfile {
   serviceRadius?: number;
   minPrice?: number;
   maxPrice?: number;
-  subscriptionPlan: 'free' | 'pro' | 'premium';
+  subscriptionPlan: string;
   subscriptionStatus: 'active' | 'cancelled' | 'paused';
+  subscriptionEndsAt?: string | null;
   isVerified: boolean;
   totalSerenatas: number;
   rating: number;
@@ -77,8 +78,11 @@ interface AuthContextType {
   user: User | null;
   coordinatorProfile: CoordinatorProfile | null;
   musicianProfile: MusicianProfile | null;
-  /** Rol JWT o inferido por perfiles cargados (compatibilidad cuentas sin `role`). */
-  effectiveRole: UserRole | undefined;
+  /**
+   * Rol para navegación/UI: `user.role` del API o inferencia si faltara (cuentas legacy).
+   * Carga de datos (`fetchMusicianProfile` / `fetchCoordinatorProfile`) sigue el rol canónico del servidor.
+   */
+  effectiveRole: UserRole;
   isLoading: boolean;
   isAuthenticated: boolean;
   login: (email: string, password: string) => Promise<void>;
@@ -155,17 +159,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const data = await res.json().catch(() => ({ ok: false })) as { ok?: boolean; user?: User };
       
       if (data.ok && data.user) {
-        console.log('AuthContext checkSession - user received:', data.user);
-        console.log('AuthContext checkSession - user.role:', data.user.role);
         const normalized = normalizeUserRole(data.user.role);
-        console.log('AuthContext checkSession - normalized role:', normalized);
         setUser(normalized ? { ...data.user, role: normalized } : data.user);
-        if (normalized === 'coordinator') {
-          await fetchCoordinatorProfile();
-        } else {
-          setCoordinatorProfile(null);
-        }
-        // Only fetch musician profile if user is a musician
+        await fetchCoordinatorProfile();
         if (normalized === 'musician') {
           await fetchMusicianProfile();
         } else {
@@ -221,8 +217,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const data = await res.json().catch(() => ({ ok: false })) as { ok?: boolean; profile?: CoordinatorProfile };
       if (data.ok && data.profile) {
         setCoordinatorProfile(data.profile);
-        setUser((prev) => (prev ? { ...prev, role: 'coordinator' } : null));
-        await fetchMusicianProfile();
       }
     } catch (error) {
       console.error('Error creating coordinator profile:', error);
@@ -244,7 +238,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const data = await res.json().catch(() => ({ ok: false })) as { ok?: boolean; profile?: CoordinatorProfile };
       if (data.ok && data.profile) {
         setCoordinatorProfile(data.profile);
-        await fetchMusicianProfile();
       }
     } catch (error) {
       console.error('Error updating coordinator profile:', error);
@@ -264,8 +257,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return;
       }
       
-      // Silently handle 500 - database tables may not exist yet
       if (res.status === 500) {
+        if (process.env.NODE_ENV !== 'production') {
+          console.error(
+            '[AuthContext] fetchMusicianProfile: 500 del API (¿migraciones o tabla `serenata_musicians`?).',
+            res.status
+          );
+        }
         setMusicianProfile(null);
         return;
       }
@@ -283,7 +281,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setMusicianProfile(null);
       }
     } catch (error) {
-      // Silently handle all errors
+      if (process.env.NODE_ENV !== 'production') {
+        console.error('[AuthContext] fetchMusicianProfile error:', error);
+      }
       setMusicianProfile(null);
     }
   };
@@ -301,12 +301,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       const loginRole = normalizeUserRole(data.user.role);
       setUser(loginRole ? { ...data.user, role: loginRole } : data.user);
-      if (loginRole === 'coordinator') {
-        await fetchCoordinatorProfile();
-      } else {
-        setCoordinatorProfile(null);
-      }
-      // Only fetch musician profile if user is a musician
+      await fetchCoordinatorProfile();
       if (loginRole === 'musician') {
         await fetchMusicianProfile();
       } else {
@@ -358,11 +353,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const regRole = normalizeUserRole(data.user.role);
       const u = regRole ? { ...data.user, role: regRole } : data.user;
       setUser(u);
-      if (regRole === 'coordinator') {
-        await fetchCoordinatorProfile();
-      } else {
-        setCoordinatorProfile(null);
-      }
+      await fetchCoordinatorProfile();
       if (extraData?.userType === 'client' && extraData.addressLine1?.trim()) {
         await fetch(`${API_BASE}/api/address-book`, {
           method: 'POST',
@@ -409,14 +400,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const refreshProfile = async () => {
-    if (!user) return;
-    const r = normalizeUserRole(user.role);
-    if (r === 'coordinator') {
-      await fetchCoordinatorProfile();
-    }
-    // Only fetch musician profile if user is a musician
-    if (r === 'musician') {
-      await fetchMusicianProfile();
+    try {
+      const res = await fetch(`${API_BASE}/api/auth/me`, { credentials: 'include' });
+      const data = await res.json().catch(() => ({ ok: false })) as { ok?: boolean; user?: User };
+      if (res.ok && data.ok && data.user) {
+        const normalized = normalizeUserRole(data.user.role);
+        setUser(normalized ? { ...data.user, role: normalized } : data.user);
+        await fetchCoordinatorProfile();
+        if (normalized === 'musician') {
+          await fetchMusicianProfile();
+        } else {
+          setMusicianProfile(null);
+        }
+      }
+    } catch {
+      // ignore
     }
   };
 

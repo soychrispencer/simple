@@ -26,6 +26,8 @@ interface CrewMember {
     bio: string | null;
     phone: string | null;
     isActive: boolean;
+    /** Disponible para urgencias del día (tabla `serenata_musicians.available_now`). */
+    availableNow?: boolean;
     membershipStatus: 'active' | 'invited' | 'requested' | 'declined' | 'removed';
     membershipInitiator: 'coordinator' | 'musician' | null;
     membershipInvitedAt: string | null;
@@ -40,8 +42,8 @@ const INSTRUMENT_OPTIONS = [
 
 const STATUS_BADGE: Record<CrewMember['membershipStatus'], { label: string; tone: string }> = {
     active: { label: 'Activo', tone: 'var(--success)' },
-    invited: { label: 'Invitado', tone: 'var(--info)' },
-    requested: { label: 'Solicita unirse', tone: 'var(--warning)' },
+    invited: { label: 'Invitación enviada', tone: 'var(--info)' },
+    requested: { label: 'Solicitud recibida', tone: 'var(--warning)' },
     declined: { label: 'Rechazado', tone: 'var(--fg-muted)' },
     removed: { label: 'Removido', tone: 'var(--fg-muted)' },
 };
@@ -66,7 +68,17 @@ export default function CuadrillaPage() {
             );
             const data = await res.json().catch(() => ({}));
             if (res.ok && data?.ok) {
-                setMembers(data.members ?? []);
+                const raw = (data.members ?? []) as CrewMember[];
+                setMembers(
+                    raw.map((m) => ({
+                        ...m,
+                        instruments: Array.isArray(m.instruments)
+                            ? m.instruments
+                            : typeof m.instruments === 'string'
+                              ? [m.instruments]
+                              : m.instruments ?? null,
+                    }))
+                );
             } else {
                 if (res.status !== 404) {
                     showToast(data?.error || 'Error al cargar cuadrilla', 'error');
@@ -491,7 +503,18 @@ function MemberRow({
                     )}
                 </div>
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-wrap justify-end">
+                {member.membershipStatus === 'active' && member.availableNow ? (
+                    <span
+                        className="text-[10px] font-semibold uppercase tracking-wide px-2 py-0.5 rounded-full"
+                        style={{
+                            background: 'color-mix(in oklab, var(--success) 18%, transparent)',
+                            color: 'var(--success)',
+                        }}
+                    >
+                        Disponible ahora
+                    </span>
+                ) : null}
                 <span
                     className="text-xs font-medium px-2 py-1 rounded"
                     style={{

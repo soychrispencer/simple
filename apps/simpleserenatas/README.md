@@ -2,6 +2,16 @@
 
 Sistema operativo para músicos de mariachis en Chile.
 
+## Plan maestro (MVP y alcance)
+
+Documentación viva del plan acordado (gobernanza, datos, piloto, post-MVP):
+
+- [docs/SIMPLESERENATAS_MVP_AND_SCOPE.md](../../docs/SIMPLESERENATAS_MVP_AND_SCOPE.md)
+- [docs/SERENATAS_DATA_MODEL.md](../../docs/SERENATAS_DATA_MODEL.md)
+- [docs/SERENATAS_RESEARCH_GUIDE.md](../../docs/SERENATAS_RESEARCH_GUIDE.md)
+- [docs/SERENATAS_PILOT_RUNBOOK.md](../../docs/SERENATAS_PILOT_RUNBOOK.md)
+- [docs/SERENATAS_POST_MVP.md](../../docs/SERENATAS_POST_MVP.md)
+
 ## 🎯 Descripción
 
 SimpleSerenatas es una plataforma mobile-first diseñada para organizar músicos de mariachis, gestionar serenatas, optimizar rutas y coordinar grupos dinámicos.

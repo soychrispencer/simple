@@ -1,5 +1,5 @@
 // SimpleSerenatas Service Worker
-const CACHE_NAME = 'simpleserenatas-v1';
+const CACHE_NAME = 'simpleserenatas-v2';
 const STATIC_ASSETS = [
   '/',
   '/inicio',
@@ -93,43 +93,39 @@ self.addEventListener('fetch', (event) => {
   );
 });
 
-// Push notification event
+// Push — payload JSON del API (`title`, `body`, `url`) igual que SimpleAgenda
 self.addEventListener('push', (event) => {
   if (!event.data) return;
-  
-  const data = event.data.json();
+  let payload;
+  try {
+    payload = event.data.json();
+  } catch {
+    payload = { title: 'SimpleSerenatas', body: event.data.text() };
+  }
+  const title = payload.title || 'SimpleSerenatas';
   const options = {
-    body: data.message,
+    body: payload.body || payload.message || '',
     icon: '/icon',
     badge: '/icon',
-    tag: data.tag || 'default',
-    requireInteraction: data.requireInteraction || false,
-    data: data.data || {},
+    tag: payload.tag || 'serenatas-push',
+    data: { url: payload.url || '/inicio' },
+    vibrate: [200, 100, 200],
   };
-  
-  event.waitUntil(
-    self.registration.showNotification(data.title || 'SimpleSerenatas', options)
-  );
+  event.waitUntil(self.registration.showNotification(title, options));
 });
 
-// Notification click event
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
-  
-  const urlToOpen = event.notification.data?.url || '/';
-  
+  const url = event.notification.data?.url || '/inicio';
   event.waitUntil(
-    clients.matchAll({ type: 'window' }).then((clientList) => {
-      // Focus existing window if open
+    clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
       for (const client of clientList) {
-        if (client.url === urlToOpen && 'focus' in client) {
+        if (client.url.includes(self.location.origin) && 'focus' in client) {
+          client.navigate(url);
           return client.focus();
         }
       }
-      // Open new window
-      if (clients.openWindow) {
-        return clients.openWindow(urlToOpen);
-      }
+      if (clients.openWindow) return clients.openWindow(url);
     })
   );
 });

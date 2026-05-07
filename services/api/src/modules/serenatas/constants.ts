@@ -1,32 +1,35 @@
-/** Orígenes explícitos de demanda generada por la plataforma (comisión 8 % + IVA aparte) */
+/** Orígenes explícitos de demanda generada por la plataforma (comisión etapa inicial). */
 export const SERENATA_SOURCES_PLATFORM_COMMISSION = ['platform_lead', 'platform_assigned'] as const;
 
 /** Serenatas cargadas por el coordinador — sin comisión */
-export const SERENATA_SOURCES_SELF_FREE = ['self_captured'] as const;
+export const SERENATA_SOURCES_SELF_FREE = ['own_lead', 'self_captured'] as const;
 
 export const PLATFORM_COMMISSION_RATE = 0.08;
 
-/** IVA sobre la parte comisión (referencia Chile); se suma, no incluido en el 8 % */
+/** IVA sobre comisión (Chile). */
 export const PLATFORM_COMMISSION_VAT_RATE = 0.19;
 
-/** Trial coordinador: meses gratis promoción */
-export const COORDINATOR_TRIAL_MONTHS = 3;
+/** Único plan de suscripción coordinador (sin tiers ni “free”). */
+export const COORDINATOR_SUBSCRIPTION_PLAN = 'coordinator' as const;
+
+/** Precio mensual en CLP (Checkout / preapproval). Alinear con `/suscripcion`. */
+export const COORDINATOR_MONTHLY_PRICE_CLP = 4990;
 
 export function isPlatformCommissionSource(source: string | null | undefined): boolean {
   const s = source || '';
   return s === 'platform_lead' || s === 'platform_assigned';
 }
 
-/** Coordinador con funciones de negocio: suscripción activa, plan distinto de free vigente y periodo no vencido */
+/** Suscripción coordinador pagada y vigente (no hay plan “free”). */
 export function isCoordinatorSubscriptionActive(profile: {
   subscriptionStatus?: string | null;
   subscriptionEndsAt?: Date | null;
   subscriptionPlan?: string | null;
 }): boolean {
+  const plan = profile.subscriptionPlan ?? '';
+  if (plan === 'free') return false;
   if (!profile.subscriptionStatus || profile.subscriptionStatus !== 'active') return false;
   if (profile.subscriptionEndsAt && new Date(profile.subscriptionEndsAt).getTime() < Date.now()) return false;
-  const plan = profile.subscriptionPlan || 'free';
-  if (plan === 'free') return false;
   return true;
 }
 

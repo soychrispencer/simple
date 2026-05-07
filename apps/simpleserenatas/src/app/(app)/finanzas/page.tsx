@@ -38,6 +38,7 @@ interface Finances {
     averagePerSerenata: number;
     subscription: {
         plan: string;
+        active?: boolean;
         /** UI legacy */
         commissionRate?: string;
         /** Respuesta actual del API de finanzas */
@@ -174,7 +175,7 @@ export default function FinanzasPage() {
                                 <span className="font-bold" style={{ color: 'var(--accent)' }}>
                                     {finances?.subscription.commissionRate
                                         ?? finances?.subscription.platformLeadCommission
-                                        ?? '20%'}
+                                        ?? '8% + IVA'}
                                 </span>
                             </div>
                             <div className="flex items-center justify-between">
@@ -188,15 +189,15 @@ export default function FinanzasPage() {
                         </div>
                     </div>
 
-                    {/* Upgrade CTA */}
-                    {finances?.subscription.plan === 'free' && (
+                    {/* Suscripción CTA */}
+                    {finances?.subscription.active === false && (
                         <button
                             onClick={() => router.push('/suscripcion')}
                             className="w-full py-4 rounded-xl font-medium flex items-center justify-center gap-2 transition-colors"
                             style={{ background: 'var(--fg)', color: 'var(--bg)' }}
                         >
                             <IconTrendingUp size={20} />
-                            Reducir comisión al 10% con Pro
+                            Activar suscripción coordinador
                         </button>
                     )}
                 </SerenatasPageShell>

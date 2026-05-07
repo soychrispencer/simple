@@ -8,6 +8,7 @@ import {
     IconMessageCircle,
 } from '@tabler/icons-react';
 import { useAuth } from '@/context/AuthContext';
+import { useSerenatasNotificationBadge } from '@/context/SerenatasNotificationBadgeContext';
 import { API_BASE } from '@simple/config';
 import { SerenatasPageHeader, SerenatasPageShell } from '@/components/shell';
 
@@ -23,6 +24,7 @@ interface Notification {
 
 export default function NotificacionesPage() {
     useAuth();
+    const { refresh: refreshBadge } = useSerenatasNotificationBadge();
     const [notifications, setNotifications] = useState<Notification[]>([]);
     const [isLoading, setIsLoading] = useState(true);
 
@@ -38,6 +40,7 @@ export default function NotificacionesPage() {
             if (res.ok) {
                 const data = await res.json();
                 setNotifications(data.notifications || []);
+                void refreshBadge();
             }
         } catch (error) {
             console.error('Error fetching notifications:', error);
@@ -56,6 +59,7 @@ export default function NotificacionesPage() {
                 setNotifications(prev =>
                     prev.map(n => n.id === id ? { ...n, isRead: true } : n)
                 );
+                void refreshBadge();
             }
         } catch (error) {
             console.error('Error marking as read:', error);
@@ -70,6 +74,7 @@ export default function NotificacionesPage() {
             });
             if (res.ok) {
                 setNotifications(prev => prev.map(n => ({ ...n, isRead: true })));
+                void refreshBadge();
             }
         } catch (error) {
             console.error('Error marking all as read:', error);

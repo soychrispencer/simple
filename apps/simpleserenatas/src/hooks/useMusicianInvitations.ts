@@ -63,8 +63,8 @@ const EMPTY_COUNTS: MusicianInvitationsCounts = {
  * Bandeja de invitaciones (lineup + crew) del músico autenticado.
  * Polling cada 60s para mantener el badge fresco sin sobrecargar la API.
  */
-export function useMusicianInvitations(options: { pollMs?: number } = {}) {
-    const { pollMs = 60000 } = options;
+export function useMusicianInvitations(options: { pollMs?: number; enabled?: boolean } = {}) {
+    const { pollMs = 60000, enabled = true } = options;
     const [lineup, setLineup] = useState<MusicianLineupInvitation[]>([]);
     const [crew, setCrew] = useState<CrewInvitation[]>([]);
     const [counts, setCounts] = useState<MusicianInvitationsCounts>(EMPTY_COUNTS);
@@ -107,13 +107,17 @@ export function useMusicianInvitations(options: { pollMs?: number } = {}) {
     }, []);
 
     useEffect(() => {
+        if (!enabled) {
+            setIsLoading(false);
+            return;
+        }
         void refresh();
         if (pollMs <= 0) return;
         const interval = setInterval(() => {
             void refresh();
         }, pollMs);
         return () => clearInterval(interval);
-    }, [refresh, pollMs]);
+    }, [refresh, pollMs, enabled]);
 
     const respondLineup = useCallback(
         async (serenataId: string, accept: boolean, reason?: string) => {

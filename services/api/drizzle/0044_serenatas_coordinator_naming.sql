@@ -1,9 +1,34 @@
 -- Actualización de instalaciones legacy: vistas obsoletas, renombre de objetos previos al naming coordinador.
 -- Identificadores antiguos en predicados se construyen por concatenación (sin literales problemáticos).
 
-DROP VIEW IF EXISTS serenata_coordinator_profiles CASCADE;
-DROP VIEW IF EXISTS serenata_coordinator_musicians CASCADE;
-DROP VIEW IF EXISTS serenata_coordinator_reviews CASCADE;
+-- DROP VIEW IF EXISTS falla si el nombre existe pero es tabla (PG); solo eliminar si relkind = vista.
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1 FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
+    WHERE n.nspname = 'public' AND c.relname = 'serenata_coordinator_profiles' AND c.relkind = 'v'
+  ) THEN
+    EXECUTE 'DROP VIEW serenata_coordinator_profiles CASCADE';
+  END IF;
+END $$;
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1 FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
+    WHERE n.nspname = 'public' AND c.relname = 'serenata_coordinator_musicians' AND c.relkind = 'v'
+  ) THEN
+    EXECUTE 'DROP VIEW serenata_coordinator_musicians CASCADE';
+  END IF;
+END $$;
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1 FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
+    WHERE n.nspname = 'public' AND c.relname = 'serenata_coordinator_reviews' AND c.relkind = 'v'
+  ) THEN
+    EXECUTE 'DROP VIEW serenata_coordinator_reviews CASCADE';
+  END IF;
+END $$;
 
 DO $$
 BEGIN

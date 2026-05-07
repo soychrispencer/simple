@@ -2,9 +2,7 @@ import { z } from 'zod';
 
 // Enums
 export const SubscriptionPlan = {
-  FREE: 'free',
-  PRO: 'pro',
-  PREMIUM: 'premium',
+  COORDINATOR: 'coordinator',
 } as const;
 
 export const SubscriptionStatus = {
@@ -27,6 +25,7 @@ export const SerenataStatus = {
 } as const;
 
 export const SerenataSource = {
+  OWN_LEAD: 'own_lead',
   SELF_CAPTURED: 'self_captured',
   PLATFORM_LEAD: 'platform_lead',
   PLATFORM_ASSIGNED: 'platform_assigned',
@@ -52,7 +51,6 @@ export const createCoordinatorProfileSchema = z.object({
   serviceRadius: z.number().min(1).max(200).default(50),
   minPrice: z.number().min(0).default(100),
   maxPrice: z.number().min(0).default(500),
-  subscriptionPlan: z.enum(['free', 'pro', 'premium']).optional(),
 });
 
 export const createSerenataSchema = z.object({
@@ -73,8 +71,10 @@ export const createSerenataSchema = z.object({
   message: z.string().max(2000).optional(),
   songRequests: z.array(z.string().max(255)).optional(),
   price: z.number().min(0).optional(),
-  source: z.enum(['self_captured', 'platform_lead', 'platform_assigned']).default('platform_lead'),
+  source: z.enum(['own_lead', 'self_captured', 'platform_lead', 'platform_assigned']).default('platform_lead'),
   coordinatorId: z.string().uuid().optional(),
+  /** Coordinador registra datos del cliente final; `clientId` en BD = usuario coordinador (placeholder). */
+  capturedByCoordinator: z.boolean().optional(),
 });
 
 export const updateSerenataStatusSchema = z.object({

@@ -1,4 +1,5 @@
 import { Hono } from 'hono';
+import { COORDINATOR_SUBSCRIPTION_PLAN } from '../serenatas/constants.js';
 import {
     type CrmServiceDeps,
     type AppUser,
@@ -287,7 +288,9 @@ export function createAdminRouter(deps: AdminRouterDeps) {
         try {
             const adminUser = await deps.authUser(c);
             if (!adminUser) return c.json({ ok: false, error: 'No autenticado' }, 401);
-            if (adminUser.role !== 'superadmin') return c.json({ ok: false, error: 'Solo superadmin puede acceder' }, 403);
+            if (!deps.isAdminRole(adminUser.role)) {
+                return c.json({ ok: false, error: 'No autorizado' }, 403);
+            }
 
             const payload = await c.req.json().catch(() => null);
             const userId = c.req.param('id') ?? '';
@@ -381,12 +384,46 @@ export function createAdminRouter(deps: AdminRouterDeps) {
                         UPDATE subscriptions SET plan_id = ${planId}, status = ${status}, expires_at = ${expiresAt}, updated_at = now()
                         WHERE id = ${(existing[0] as any).id}
                     `);
-                } else {
+                } else if (planId) {
                     await deps.db.execute(deps.sql`
                         INSERT INTO subscriptions (account_id, user_id, plan_id, vertical, status, provider, expires_at)
                         VALUES (${targetAccount.id}, ${userId}, ${planId}, 'serenatas', ${status}, 'manual', ${expiresAt})
                     `);
                 }
+
+                if (deps.tables.serenataCoordinatorProfiles) {
+                    const [prof] = await deps.db
+                        .select()
+                        .from(deps.tables.serenataCoordinatorProfiles)
+                        .where(deps.eq(deps.tables.serenataCoordinatorProfiles.userId, userId))
+                        .limit(1);
+                    if (prof) {
+                        await deps.db
+                            .update(deps.tables.serenataCoordinatorProfiles)
+                            .set({
+                                subscriptionPlan:
+                                    planId ?? prof.subscriptionPlan ?? COORDINATOR_SUBSCRIPTION_PLAN,
+                                subscriptionStatus: planId ? status : 'paused',
+                                subscriptionEndsAt: expiresAt,
+                                updatedAt: new Date(),
+                            })
+                            .where(deps.eq(deps.tables.serenataCoordinatorProfiles.id, prof.id));
+                    } else if (planId) {
+                        await deps.db.insert(deps.tables.serenataCoordinatorProfiles).values({
+                            userId,
+                            subscriptionPlan: planId,
+                            subscriptionStatus: status,
+                            subscriptionEndsAt: expiresAt,
+                        });
+                    }
+                    if (planId === COORDINATOR_SUBSCRIPTION_PLAN && status === 'active') {
+                        await deps.db
+                            .update(deps.tables.users)
+                            .set({ role: 'coordinator', updatedAt: new Date() })
+                            .where(deps.eq(deps.tables.users.id, userId));
+                    }
+                }
+
                 results.serenatas = { planId, status, expiresAt: expiresAt?.toISOString() || null };
             }
 

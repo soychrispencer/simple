@@ -36,7 +36,8 @@ export type AdminUserListItem = {
     id: string;
     name: string;
     email: string;
-    role: 'user' | 'admin' | 'superadmin';
+    /** Rol en `users.role` (incluye rol de app Serenatas cuando aplica). */
+    role: 'user' | 'admin' | 'superadmin' | 'client' | 'musician' | 'coordinator';
     status: 'active' | 'verified' | 'suspended';
     provider: string | null;
     createdAt: number;
@@ -263,6 +264,7 @@ type ApiResponse<T> = {
 
 function normalizeAdminUserRole(role: string): AdminUserListItem['role'] {
     if (role === 'admin' || role === 'superadmin') return role;
+    if (role === 'coordinator' || role === 'musician' || role === 'client') return role;
     return 'user';
 }
 

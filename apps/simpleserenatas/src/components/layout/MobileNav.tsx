@@ -3,12 +3,17 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
+import { useMusicianInvitations } from '@/hooks';
 import { getSerenatasMobileNavItems, isSerenatasNavActive } from '@/components/layout/panel-nav-config';
 
 export function MobileNav() {
     const pathname = usePathname() ?? '';
     const { effectiveRole } = useAuth();
     const navItems = getSerenatasMobileNavItems(effectiveRole);
+    const { totalPending } = useMusicianInvitations({
+        pollMs: 60000,
+        enabled: effectiveRole === 'musician',
+    });
 
     return (
         <nav 
@@ -24,6 +29,10 @@ export function MobileNav() {
                 {navItems.map((item) => {
                     const Icon = item.icon;
                     const active = isSerenatasNavActive(pathname, item.href);
+                    const invitationBadge =
+                        item.href === '/invitaciones' && effectiveRole === 'musician' && totalPending > 0
+                            ? totalPending
+                            : null;
 
                     return (
                         <Link
@@ -37,12 +46,23 @@ export function MobileNav() {
                                     stroke={active ? 2 : 1.5}
                                     style={{ color: active ? 'var(--accent)' : 'var(--fg-muted)' }}
                                 />
-                                {item.badge && (
+                                {invitationBadge !== null ? (
+                                    <span
+                                        className="absolute -top-1 -right-1 min-w-[1rem] px-1 text-[9px] font-bold leading-none rounded-full flex items-center justify-center"
+                                        style={{
+                                            background: 'var(--accent)',
+                                            color: 'var(--accent-contrast)',
+                                            height: '1rem',
+                                        }}
+                                    >
+                                        {invitationBadge > 9 ? '9+' : invitationBadge}
+                                    </span>
+                                ) : item.badge ? (
                                     <span
                                         className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full"
                                         style={{ background: 'var(--accent)' }}
                                     />
-                                )}
+                                ) : null}
                             </div>
                             <span
                                 className="text-xs mt-0.5"

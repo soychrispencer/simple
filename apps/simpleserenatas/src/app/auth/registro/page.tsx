@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { IconArrowLeft, IconCheck, IconEye, IconEyeOff, IconExternalLink, IconHeart, IconMusic } from '@tabler/icons-react';
@@ -10,6 +10,9 @@ import { ModernSelect } from '@simple/ui';
 import { AuthFeedback } from '@/components/auth/auth-feedback';
 import { BrandLogo } from '@simple/ui';
 import { AUTH_PASSWORD_MIN_LENGTH, getPasswordStrength, normalizeEmail } from '@simple/auth';
+import { MARIACHIS_BY_PATH } from '@/lib/mariachis-comunas';
+
+const REGION_RM_ID = 'cl-13';
 
 const instruments = [
   'Voz',
@@ -118,6 +121,7 @@ export default function RegisterPage() {
   const [step, setStep] = useState<1 | 2 | 3>(1);
   const [clientAddressInputEl, setClientAddressInputEl] = useState<HTMLInputElement | null>(null);
   const [placesUnavailable, setPlacesUnavailable] = useState(false);
+  const verifiedRedirectRef = useRef<string | null>(null);
 
   const communeOptions = useMemo(
     () =>
@@ -147,6 +151,26 @@ export default function RegisterPage() {
   const passwordStrength = useMemo(() => {
     return getPasswordStrength(password);
   }, [password]);
+
+  useEffect(() => {
+    const params = new URLSearchParams(typeof window !== 'undefined' ? window.location.search : '');
+    if (!params.size) return;
+    if (params.get('tipo') === 'cliente') setUserType('client');
+
+    const next = params.get('next');
+    if (next && next.startsWith('/') && !next.startsWith('//')) {
+      verifiedRedirectRef.current = decodeURIComponent(next);
+    }
+
+    const pref = params.get('pref_comuna');
+    if (pref) {
+      const cfg = MARIACHIS_BY_PATH.get(pref);
+      if (cfg) {
+        setClientRegion(REGION_RM_ID);
+        setClientComuna(cfg.comunName);
+      }
+    }
+  }, []);
 
   const canContinueStep = (currentStep: 1 | 2 | 3) => {
     if (currentStep === 1) return !!userType;
@@ -185,7 +209,7 @@ export default function RegisterPage() {
         ...(userType === 'musician' ? { instrument, region, comuna } : {}),
       });
       if (createdUser.status === 'verified') {
-        router.push('/inicio');
+        router.push(verifiedRedirectRef.current ?? '/inicio');
       } else {
         router.push(`/auth/verificar-correo?email=${encodeURIComponent(normalizedEmail)}`);
       }

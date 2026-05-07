@@ -8,43 +8,12 @@ import {
     IconCheck,
     IconLoader,
     IconMapPin,
-    IconUsersGroup,
     IconWallet,
 } from '@tabler/icons-react';
 import { useAuth } from '@/context/AuthContext';
 import { useToast } from '@/hooks';
 import { LOCATION_REGIONS, getCommunesForRegion } from '@simple/utils';
 import { ModernSelect } from '@simple/ui';
-
-const SUBSCRIPTION_PLANS: Array<{
-    id: 'free' | 'pro' | 'premium';
-    label: string;
-    price: string;
-    description: string;
-    perks: string[];
-}> = [
-    {
-        id: 'free',
-        label: 'Free',
-        price: 'Sin costo mensual',
-        description: 'Para coordinar serenatas captadas por ti mismo. Sin comisión.',
-        perks: ['Sin comisión por leads propios', 'Hasta 5 serenatas/mes'],
-    },
-    {
-        id: 'pro',
-        label: 'Pro',
-        price: '$19.990 CLP/mes',
-        description: 'Acceso a leads de la plataforma con 8 % + IVA por serenata.',
-        perks: ['Leads de plataforma', 'Visibilidad ampliada', 'Sin tope mensual'],
-    },
-    {
-        id: 'premium',
-        label: 'Premium',
-        price: '$49.990 CLP/mes',
-        description: 'Prioridad en matching y soporte dedicado.',
-        perks: ['Match prioritario', 'Soporte directo', 'Estadísticas avanzadas'],
-    },
-];
 
 export default function CoordinatorOnboardingPage() {
     const router = useRouter();
@@ -64,13 +33,16 @@ export default function CoordinatorOnboardingPage() {
     const [serviceRadius, setServiceRadius] = useState<number>(50);
     const [minPrice, setMinPrice] = useState<number>(80_000);
     const [maxPrice, setMaxPrice] = useState<number>(300_000);
-    const [plan, setPlan] = useState<'free' | 'pro' | 'premium'>('free');
 
     useEffect(() => {
-        if (coordinatorProfile) {
+        if (user?.role === 'coordinator') {
             router.replace('/inicio');
+            return;
         }
-    }, [coordinatorProfile, router]);
+        if (coordinatorProfile && user?.role === 'musician') {
+            router.replace('/suscripcion');
+        }
+    }, [coordinatorProfile, user?.role, router]);
 
     const regionOptions = useMemo(
         () => LOCATION_REGIONS.map((r) => ({ value: r.id, label: r.name })),
@@ -106,10 +78,9 @@ export default function CoordinatorOnboardingPage() {
                 serviceRadius,
                 minPrice,
                 maxPrice,
-                subscriptionPlan: plan,
             });
-            showToast('Perfil de coordinador creado', 'success');
-            router.push('/inicio');
+            showToast('Perfil listo. Activa tu suscripción para ser coordinador.', 'success');
+            router.push('/suscripcion');
         } catch (err) {
             const message = err instanceof Error ? err.message : 'No pudimos crear tu perfil';
             setError(message);
@@ -206,8 +177,6 @@ export default function CoordinatorOnboardingPage() {
                         setMinPrice={setMinPrice}
                         maxPrice={maxPrice}
                         setMaxPrice={setMaxPrice}
-                        plan={plan}
-                        setPlan={setPlan}
                     />
                 ) : null}
             </div>
@@ -433,15 +402,11 @@ function Step3({
     setMinPrice,
     maxPrice,
     setMaxPrice,
-    plan,
-    setPlan,
 }: {
     minPrice: number;
     setMinPrice: (v: number) => void;
     maxPrice: number;
     setMaxPrice: (v: number) => void;
-    plan: 'free' | 'pro' | 'premium';
-    setPlan: (v: 'free' | 'pro' | 'premium') => void;
 }) {
     return (
         <div className="space-y-5">
@@ -451,10 +416,10 @@ function Step3({
                 </div>
                 <div>
                     <h2 className="text-base font-semibold" style={{ color: 'var(--fg)' }}>
-                        Tarifas y plan
+                        Tus tarifas
                     </h2>
                     <p className="text-sm mt-1" style={{ color: 'var(--fg-muted)' }}>
-                        Define tu rango de precios y el plan con el que arrancas.
+                        Define tu rango de precios. La suscripción al panel de coordinador es un único plan ($4.990/mes) en el siguiente paso.
                     </p>
                 </div>
             </header>
@@ -490,52 +455,9 @@ function Step3({
                 </div>
             </div>
 
-            <div className="space-y-3">
-                <p className="text-sm font-medium" style={{ color: 'var(--fg-secondary)' }}>
-                    Plan inicial
-                </p>
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                    {SUBSCRIPTION_PLANS.map((p) => {
-                        const selected = plan === p.id;
-                        return (
-                            <button
-                                key={p.id}
-                                type="button"
-                                onClick={() => setPlan(p.id)}
-                                className="rounded-xl p-4 border text-left transition-all"
-                                style={{
-                                    borderColor: selected ? 'var(--accent)' : 'var(--border)',
-                                    background: selected ? 'var(--accent-subtle)' : 'var(--surface)',
-                                }}
-                            >
-                                <div className="flex items-center gap-2 mb-1">
-                                    <IconUsersGroup size={18} style={{ color: 'var(--accent)' }} />
-                                    <span className="text-sm font-semibold" style={{ color: 'var(--fg)' }}>
-                                        {p.label}
-                                    </span>
-                                </div>
-                                <p className="text-xs" style={{ color: 'var(--fg-muted)' }}>
-                                    {p.price}
-                                </p>
-                                <p className="text-sm mt-2" style={{ color: 'var(--fg-secondary)' }}>
-                                    {p.description}
-                                </p>
-                                <ul className="mt-2 space-y-1 text-xs" style={{ color: 'var(--fg-muted)' }}>
-                                    {p.perks.map((perk) => (
-                                        <li key={perk} className="flex items-start gap-1">
-                                            <IconCheck size={14} className="mt-0.5 shrink-0" />
-                                            <span>{perk}</span>
-                                        </li>
-                                    ))}
-                                </ul>
-                            </button>
-                        );
-                    })}
-                </div>
-                <p className="text-xs" style={{ color: 'var(--fg-muted)' }}>
-                    Tendrás {3} meses de prueba gratis en cualquier plan al lanzar la plataforma.
-                </p>
-            </div>
+            <p className="text-xs rounded-xl border p-3" style={{ borderColor: 'var(--border)', color: 'var(--fg-muted)' }}>
+                Después de crear tu perfil te llevamos a pagar la suscripción mensual; con eso se activa el rol coordinador y todas las funciones del panel.
+            </p>
         </div>
     );
 }

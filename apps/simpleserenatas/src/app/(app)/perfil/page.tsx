@@ -509,7 +509,7 @@ export default function PerfilPage() {
             {/* Suscripción - Coordinadores */}
             {isCoordinator && (
                 <div className="space-y-4 mb-6">
-                    <SectionCard title="Suscripción" action="Gestionar" actionHref="/coordinator/subscription">
+                    <SectionCard title="Suscripción" action="Gestionar" actionHref="/suscripcion">
                         <div className="flex items-center gap-3">
                             <div 
                                 className="w-12 h-12 rounded-xl flex items-center justify-center"
@@ -519,13 +519,12 @@ export default function PerfilPage() {
                             </div>
                             <div>
                                 <p className="font-semibold" style={{ color: 'var(--fg)' }}>
-                                    Plan {coordinatorProfile?.subscriptionPlan?.toUpperCase() || 'FREE'}
+                                    Suscripción coordinador
                                 </p>
                                 <p className="text-sm" style={{ color: 'var(--fg-muted)' }}>
-                                    {coordinatorProfile?.subscriptionPlan === 'premium' 
-                                        ? 'Todas las funciones habilitadas'
-                                        : 'Actualiza para más funciones'
-                                    }
+                                    {coordinatorProfile?.subscriptionStatus === 'active'
+                                        ? 'Todas las funciones del panel habilitadas'
+                                        : 'Completa el pago en Suscripción si aún no está activa'}
                                 </p>
                             </div>
                         </div>
@@ -533,10 +532,10 @@ export default function PerfilPage() {
                 </div>
             )}
 
-            {/* Upgrade a Coordinador - Solo músicos sin coordinación */}
+            {/* Activación Coordinador - Solo músicos sin coordinación */}
             {!isCoordinator && isMusician && (
                 <div className="mb-6">
-                    <Link href="/onboarding/coordinator">
+                    <Link href="/suscripcion">
                         <div 
                             className="flex items-center gap-4 p-4 rounded-xl"
                             style={{ background: 'var(--accent-subtle)', border: '1px solid var(--accent)' }}
@@ -545,9 +544,9 @@ export default function PerfilPage() {
                                 <IconUsersGroup size={24} color="white" />
                             </div>
                             <div className="flex-1">
-                                <p className="font-semibold" style={{ color: 'var(--accent)' }}>Conviértete en coordinador</p>
+                                <p className="font-semibold" style={{ color: 'var(--accent)' }}>Activa modo coordinador</p>
                                 <p className="text-sm" style={{ color: 'var(--accent)', opacity: 0.8 }}>
-                                    Forma cuadrillas y recibe leads · 3 meses gratis
+                                    Carga serenatas propias sin comisión y toma leads de la app con comisión
                                 </p>
                             </div>
                             <IconChevronRight size={20} style={{ color: 'var(--accent)' }} />

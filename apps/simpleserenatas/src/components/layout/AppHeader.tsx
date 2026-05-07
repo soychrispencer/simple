@@ -18,6 +18,7 @@ import {
     IconHome,
 } from '@tabler/icons-react';
 import { useAuth } from '@/context/AuthContext';
+import { useSerenatasNotificationBadge } from '@/context/SerenatasNotificationBadgeContext';
 import { getSerenatasOverflowNavItems, isSerenatasNavActive } from '@/components/layout/panel-nav-config';
 import { BrandLogo } from '@simple/ui';
 
@@ -71,7 +72,8 @@ export function AppHeader() {
     const overflowNavLinks = getSerenatasOverflowNavItems(effectiveRole);
     const headerCta = serenatasHeaderCta(effectiveRole as UserRole | undefined);
     const CtaIcon = headerCta.Icon;
-    const notificationsHref = effectiveRole === 'musician' ? '/invitaciones' : '/notificaciones';
+    const { unreadCount } = useSerenatasNotificationBadge();
+    const notificationsHref = '/notificaciones';
 
     return (
         <header
@@ -113,14 +115,22 @@ export function AppHeader() {
                         <Link
                             href={notificationsHref}
                             className="header-icon-chip relative shrink-0"
-                            aria-label="Notificaciones"
+                            aria-label={
+                                unreadCount > 0
+                                    ? `Notificaciones, ${unreadCount} sin leer`
+                                    : 'Notificaciones'
+                            }
                         >
                             <IconBell size={16} stroke={1.9} />
-                            <span
-                                className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full"
-                                style={{ background: 'var(--accent)' }}
-                                aria-hidden
-                            />
+                            {unreadCount > 0 ? (
+                                <span
+                                    className="absolute -top-0.5 -right-0.5 min-w-[1rem] h-4 px-1 text-[9px] font-bold leading-none rounded-full flex items-center justify-center"
+                                    style={{ background: 'var(--accent)', color: 'var(--accent-contrast)' }}
+                                    aria-hidden
+                                >
+                                    {unreadCount > 9 ? '9+' : unreadCount}
+                                </span>
+                            ) : null}
                         </Link>
                     )}
 
