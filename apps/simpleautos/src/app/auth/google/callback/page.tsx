@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { IconCheck, IconX } from '@tabler/icons-react';
 import { PanelButton, PanelNotice } from '@simple/ui';
+import { useAuth, GoogleLoginButton } from '@simple/auth';
 import { API_BASE } from '@simple/config';
 
 export default function GoogleCallback() {

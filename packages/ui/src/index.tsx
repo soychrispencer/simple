@@ -1,18 +1,14 @@
-import clsx from 'clsx';
+'use client';
+
 import { useEffect, useMemo, useRef, useState, type ComponentType, type CSSProperties, type ReactNode } from 'react';
-import {
-    IconBuildingSkyscraper,
-    IconCalendar,
-    IconCheck,
-    IconChevronDown,
-    IconConfettiFilled,
-    IconDotsCircleHorizontal,
-    IconSteeringWheel,
-} from '@tabler/icons-react';
+import { IconBuildingSkyscraper, IconCalendar, IconConfetti, IconDotsCircleHorizontal, IconMusic, IconSteeringWheel, IconUser } from '@tabler/icons-react';
+import clsx from 'clsx';
 import { getSimpleAppBrand, type SimpleAppId } from '@simple/config';
 import type { AddressBookEntry, AddressBookKind, ListingLocation, ListingLocationKind, ListingLocationVisibilityMode } from '@simple/types';
 import { applyAddressBookEntryToLocation, createEmptyListingLocation, patchListingLocation } from '@simple/types';
 
+export * from './theme-provider';
+export * from './modern-select';
 type SelectOption = {
     value: string;
     label: string;
@@ -30,13 +26,21 @@ type BrandLogoProps = {
     variant?: BrandLogoVariant;
 };
 
+type PanelAccountProfileCardProps = {
+    name?: string;
+    email?: string;
+    role?: string;
+    subtitle?: string;
+    className?: string;
+};
+
 const BRAND_ICON_BY_APP: Record<SimpleAppId, ComponentType<{ size?: number; style?: CSSProperties }>> = {
     simpleautos: IconSteeringWheel,
     simplepropiedades: IconBuildingSkyscraper,
     simpleadmin: IconBuildingSkyscraper,
     simpleplataforma: IconBuildingSkyscraper,
     simpleagenda: IconCalendar,
-    simpleserenatas: IconConfettiFilled,
+    simpleserenatas: IconConfetti,
 };
 
 function brandLogoIconWrapStyle(variant: BrandLogoVariant): CSSProperties {
@@ -150,6 +154,7 @@ type ListingLocationEditorProps = {
     showGoogleMapsLink?: boolean;
     showLocationMeta?: boolean;
     addressRequired?: boolean;
+    showAddressLine2?: boolean;
     showSimpleVisibilityToggle?: boolean;
     visibilityOptions?: VisibilityOption[];
     geocoding?: boolean;
@@ -751,6 +756,7 @@ type AddressBookManagerProps = {
     title?: string;
     description?: string;
     showHeader?: boolean;
+    googleMapsApiKey?: string;
     entries: AddressBookEntry[];
     regions: SelectOption[];
     getCommunes: (regionId: string) => SelectOption[];
@@ -1234,7 +1240,11 @@ function applyPlaceToLocation(
         || location.communeName
         || null;
     const matchedRegion = regionNameFromPlace
-        ? regions.find((item) => normalizeText(item.label) === normalizeText(regionNameFromPlace))
+        ? regions.find((item) => {
+            const itemLabel = normalizeText(item.label);
+            const placeLabel = normalizeText(regionNameFromPlace);
+            return itemLabel === placeLabel || itemLabel.includes(placeLabel) || placeLabel.includes(itemLabel);
+        })
         : null;
     const matchedCommune = communeNameFromPlace
         ? communes.find((item) => normalizeText(item.label) === normalizeText(communeNameFromPlace))
@@ -1276,32 +1286,79 @@ function loadGooglePlacesScript(apiKey: string): Promise<boolean> {
     if (googleMaps?.maps?.places?.Autocomplete) {
         return Promise.resolve(true);
     }
+    if (googleMaps?.maps?.importLibrary) {
+        return googleMaps.maps.importLibrary('places')
+            .then(() => Boolean((window as typeof window & { google?: any }).google?.maps?.places?.Autocomplete))
+            .catch(() => false);
+    }
 
     if (googlePlacesScriptPromise) return googlePlacesScriptPromise;
 
     googlePlacesScriptPromise = new Promise((resolve) => {
         const existingScript = document.querySelector<HTMLScriptElement>('script[data-google-places-script="true"]');
         if (existingScript) {
-            existingScript.addEventListener('load', () => resolve(Boolean((window as typeof window & { google?: any }).google?.maps?.places?.Autocomplete)), { once: true });
-            existingScript.addEventListener('error', () => resolve(false), { once: true });
-            return;
+            if ((window as typeof window & { google?: any }).google?.maps?.places?.Autocomplete) {
+                resolve(true);
+                return;
+            }
+            if (existingScript.dataset.googlePlacesLoaded === 'true' || existingScript.dataset.googlePlacesFailed === 'true') {
+                existingScript.remove();
+            } else {
+                const timer = window.setTimeout(() => {
+                    googlePlacesScriptPromise = null;
+                    resolve(Boolean((window as typeof window & { google?: any }).google?.maps?.places?.Autocomplete));
+                }, 8000);
+                existingScript.addEventListener('load', () => {
+                    window.clearTimeout(timer);
+                    resolve(Boolean((window as typeof window & { google?: any }).google?.maps?.places?.Autocomplete));
+                }, { once: true });
+                existingScript.addEventListener('error', () => {
+                    window.clearTimeout(timer);
+                    googlePlacesScriptPromise = null;
+                    resolve(false);
+                }, { once: true });
+                return;
+            }
         }
 
         const script = document.createElement('script');
-        script.src = `https://maps.googleapis.com/maps/api/js?key=${encodeURIComponent(apiKey)}&libraries=places&language=es&region=CL`;
+        script.src = `https://maps.googleapis.com/maps/api/js?key=${encodeURIComponent(apiKey)}&libraries=places&language=es&region=CL&loading=async`;
         script.async = true;
         script.defer = true;
         script.dataset.googlePlacesScript = 'true';
+        script.dataset.googlePlacesKey = apiKey;
         script.onload = () => {
             const ok = Boolean((window as typeof window & { google?: any }).google?.maps?.places?.Autocomplete);
+            script.dataset.googlePlacesLoaded = 'true';
             if (!ok) googlePlacesScriptPromise = null;
             resolve(ok);
         };
-        script.onerror = () => { googlePlacesScriptPromise = null; resolve(false); };
+        script.onerror = () => {
+            script.dataset.googlePlacesFailed = 'true';
+            googlePlacesScriptPromise = null;
+            resolve(false);
+        };
         document.head.appendChild(script);
     });
 
     return googlePlacesScriptPromise;
+}
+
+function GoogleMapIcon() {
+    return (
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+            <path d="M12 21s7-5.7 7-12a7 7 0 1 0-14 0c0 6.3 7 12 7 12Z" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+            <path d="M12 11.5a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5Z" stroke="currentColor" strokeWidth="1.8" />
+        </svg>
+    );
+}
+
+function ShareIcon() {
+    return (
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+            <path d="M8.8 10.7 15.2 7M8.8 13.3l6.4 3.7M7 15.5a3 3 0 1 0 0-6 3 3 0 0 0 0 6ZM17 8.5a3 3 0 1 0 0-6 3 3 0 0 0 0 6ZM17 21.5a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+    );
 }
 
 function fieldError(errors: FieldErrorMap | undefined, key: keyof FieldErrorMap) {
@@ -3135,7 +3192,7 @@ export function PanelPageHeader(props: PanelPageHeaderProps) {
     const { title, description, actions, backHref, className } = props;
 
     return (
-        <div className={joinClasses('mb-6', className)}>
+        <div className={joinClasses('mb-5 lg:mb-6', className)}>
             {backHref ? (
                 <a
                     href={backHref}
@@ -3150,7 +3207,7 @@ export function PanelPageHeader(props: PanelPageHeaderProps) {
             ) : null}
             <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                 <div className="min-w-0">
-                    <h1 className="text-xl font-bold" style={{ color: 'var(--fg)' }}>
+                    <h1 className="text-2xl font-bold" style={{ color: 'var(--fg)' }}>
                         {title}
                     </h1>
                     {description ? (
@@ -3160,6 +3217,21 @@ export function PanelPageHeader(props: PanelPageHeaderProps) {
                     ) : null}
                 </div>
                 {actions ? <div className="flex items-center gap-2 flex-wrap sm:justify-end">{actions}</div> : null}
+            </div>
+        </div>
+    );
+}
+
+export function PanelConfigPage(props: PanelConfigPageProps) {
+    const { title, description, sections, extras, showProgress = false, loading = false, className } = props;
+
+    return (
+        <div className={joinClasses('container-app panel-page py-4 lg:py-8 max-w-2xl', className)}>
+            <PanelPageHeader title={title} description={description} />
+
+            <div className="space-y-6">
+                <PanelConfigSection title="Configuración" items={sections} showProgress={showProgress} loading={loading} />
+                {extras ? <PanelConfigSection title="Opciones adicionales" items={extras} loading={loading} /> : null}
             </div>
         </div>
     );
@@ -3212,6 +3284,41 @@ export function PanelCard(props: PanelCardProps) {
         >
             {children}
         </div>
+    );
+}
+
+export function PanelAccountProfileCard(props: PanelAccountProfileCardProps) {
+    const {
+        name = 'Usuario Simple',
+        email = 'Sin correo',
+        role,
+        subtitle,
+        className,
+    } = props;
+
+    return (
+        <PanelCard className={joinClasses('space-y-4', className)} size="md">
+            <div className="flex items-center gap-4">
+                <div
+                    className="w-16 h-16 rounded-full flex items-center justify-center shrink-0"
+                    style={{ background: 'var(--accent-subtle)', color: 'var(--accent)' }}
+                >
+                    <IconUser size={24} />
+                </div>
+                <div className="min-w-0">
+                    <p className="text-sm font-semibold" style={{ color: 'var(--fg)' }}>{name}</p>
+                    <p className="text-sm" style={{ color: 'var(--fg-muted)' }}>{email}</p>
+                    {role ? (
+                        <p className="text-xs uppercase tracking-[0.16em] mt-1" style={{ color: 'var(--fg-muted)' }}>
+                            {role}
+                        </p>
+                    ) : null}
+                </div>
+            </div>
+            {subtitle ? (
+                <p className="text-sm" style={{ color: 'var(--fg-secondary)' }}>{subtitle}</p>
+            ) : null}
+        </PanelCard>
     );
 }
 
@@ -3512,6 +3619,7 @@ export function ListingLocationEditor(props: ListingLocationEditorProps) {
         showGoogleMapsLink = false,
         showLocationMeta = false,
         addressRequired = false,
+        showAddressLine2 = true,
         showSimpleVisibilityToggle = true,
         visibilityOptions = DEFAULT_VISIBILITY_OPTIONS,
         geocoding = false,
@@ -3620,7 +3728,9 @@ export function ListingLocationEditor(props: ListingLocationEditorProps) {
         };
     }, [googlePlacesKey, location.sourceMode, addressInputEl]);
 
-    const addressHint = autocompleteReady ? 'Selecciona una sugerencia cuando aparezca.' : undefined;
+    const addressHint = autocompleteReady
+        ? 'Selecciona una sugerencia cuando aparezca.'
+        : (googlePlacesKey ? 'Si no ves sugerencias, puedes escribir la dirección manualmente.' : 'Puedes escribir la dirección manualmente.');
     const internalMapsUrl = (showGoogleMapsLink || showLocationMeta)
         ? buildGoogleMapsUrls(
             location.geoPoint.latitude,
@@ -3668,18 +3778,22 @@ export function ListingLocationEditor(props: ListingLocationEditorProps) {
         </Field>
     );
     const mapsActionButtons = internalMapsUrl ? (
-        <div className="flex gap-2 flex-wrap">
+        <div className="flex shrink-0 gap-2">
             <a
                 href={internalMapsUrl}
                 target="_blank"
                 rel="noreferrer"
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-medium transition-colors hover:opacity-80"
+                aria-label="Ver en Maps"
+                title="Ver en Maps"
+                className="inline-flex size-10 items-center justify-center rounded-xl border transition-colors hover:opacity-80"
                 style={{ borderColor: 'var(--border)', color: 'var(--fg-secondary)', background: 'var(--bg)' }}
             >
-                Ver en Maps
+                <GoogleMapIcon />
             </a>
             <button
                 type="button"
+                aria-label="Compartir dirección"
+                title="Compartir dirección"
                 onClick={() => {
                     if (typeof navigator !== 'undefined' && navigator.share) {
                         void navigator.share({ title: location.label || 'Dirección', url: internalMapsUrl });
@@ -3687,10 +3801,10 @@ export function ListingLocationEditor(props: ListingLocationEditorProps) {
                         void navigator.clipboard.writeText(internalMapsUrl);
                     }
                 }}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-medium transition-colors hover:opacity-80"
+                className="inline-flex size-10 items-center justify-center rounded-xl border transition-colors hover:opacity-80"
                 style={{ borderColor: 'var(--border)', color: 'var(--fg-secondary)', background: 'var(--bg)' }}
             >
-                Compartir
+                <ShareIcon />
             </button>
         </div>
     ) : null;
@@ -3729,24 +3843,28 @@ export function ListingLocationEditor(props: ListingLocationEditorProps) {
         simpleMode ? (
             <div className="grid grid-cols-1 gap-3">
                 <Field label="Dirección" required={addressRequired} error={fieldError(errors, 'addressLine1')} hint={addressHint}>
-                    <input
-                        ref={addressInputRef}
-                        className="form-input"
-                        value={location.addressLine1 || ''}
-                        autoComplete="off"
-                        onChange={(event) => onChange(patchListingLocation(location, {
-                            addressLine1: event.target.value,
-                            sourceAddressId: location.sourceMode === 'saved_address' ? null : location.sourceAddressId,
-                            sourceMode: location.sourceMode === 'saved_address' ? 'custom' : location.sourceMode,
-                            ...clearResolvedGeo(location),
-                        }))}
-                        placeholder="Ej: Av. Italia 1452"
-                    />
-                    {mapsActionButtons}
+                    <div className="flex items-center gap-2">
+                        <input
+                            ref={addressInputRef}
+                            className="form-input min-w-0 flex-1"
+                            value={location.addressLine1 || ''}
+                            autoComplete="off"
+                            onChange={(event) => onChange(patchListingLocation(location, {
+                                addressLine1: event.target.value,
+                                sourceAddressId: location.sourceMode === 'saved_address' ? null : location.sourceAddressId,
+                                sourceMode: location.sourceMode === 'saved_address' ? 'custom' : location.sourceMode,
+                                ...clearResolvedGeo(location),
+                            }))}
+                            placeholder="Ej: Av. Italia 1452"
+                        />
+                        {mapsActionButtons}
+                    </div>
                 </Field>
-                <Field label="Depto, oficina o referencia">
-                    <input className="form-input" value={location.addressLine2 || ''} onChange={(event) => onChange(patchListingLocation(location, { addressLine2: event.target.value }))} placeholder="Ej: Depto 608, torre B o portón gris" />
-                </Field>
+                {showAddressLine2 ? (
+                    <Field label="Depto, oficina o referencia">
+                        <input className="form-input" value={location.addressLine2 || ''} onChange={(event) => onChange(patchListingLocation(location, { addressLine2: event.target.value }))} placeholder="Ej: Depto 608, torre B o portón gris" />
+                    </Field>
+                ) : null}
             </div>
         ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
@@ -3778,9 +3896,11 @@ export function ListingLocationEditor(props: ListingLocationEditorProps) {
                         ) : null}
                     </div>
                 </Field>
-                <Field label="Depto, oficina o referencia">
-                    <input className="form-input" value={location.addressLine2 || ''} onChange={(event) => onChange(patchListingLocation(location, { addressLine2: event.target.value }))} placeholder="Ej: Depto 608, torre B o portón gris" />
-                </Field>
+                {showAddressLine2 ? (
+                    <Field label="Depto, oficina o referencia">
+                        <input className="form-input" value={location.addressLine2 || ''} onChange={(event) => onChange(patchListingLocation(location, { addressLine2: event.target.value }))} placeholder="Ej: Depto 608, torre B o portón gris" />
+                    </Field>
+                ) : null}
             </div>
         )
     ) : null;
@@ -3828,12 +3948,14 @@ export function ListingLocationEditor(props: ListingLocationEditorProps) {
                         </Field>
                     ) : null}
                     {addressFields}
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                        {regionField}
-                        {communeField}
-                    </div>
+                    {showAreaFields ? (
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                            {regionField}
+                            {communeField}
+                        </div>
+                    ) : null}
                     {arrivalField}
-                    {(showSimpleVisibilityToggle || onSaveToAddressBook) ? (
+                    {(showSimpleVisibilityToggle || (onSaveToAddressBook && location.sourceMode !== 'saved_address')) ? (
                         <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
                             {showSimpleVisibilityToggle ? (
                                 <label className="inline-flex items-center gap-2 text-sm" style={{ color: 'var(--fg-secondary)' }}>
@@ -3848,7 +3970,7 @@ export function ListingLocationEditor(props: ListingLocationEditorProps) {
                                     <span>No mostrar dirección exacta</span>
                                 </label>
                             ) : <div />}
-                            {onSaveToAddressBook ? (
+                            {onSaveToAddressBook && location.sourceMode !== 'saved_address' ? (
                                 <PanelButton type="button" variant="ghost" size="sm" onClick={() => void onSaveToAddressBook()}>
                                     Guardar en libreta
                                 </PanelButton>
@@ -3983,6 +4105,7 @@ export function AddressBookManager(props: AddressBookManagerProps) {
         title = 'Direcciones guardadas',
         description = 'Guarda direcciones particulares, de empresa, sucursal o envíos para reutilizarlas en publicaciones y operaciones.',
         showHeader = true,
+        googleMapsApiKey,
         entries,
         regions,
         getCommunes,
@@ -4016,10 +4139,11 @@ export function AddressBookManager(props: AddressBookManagerProps) {
     );
 
     const submitDisabled = !(draft.location.label?.trim() || draft.label.trim()) || !draft.location.regionId || !draft.location.communeId || !draft.location.addressLine1?.trim();
+    const draftLabel = draft.label || draft.location.label || '';
 
     const handleStartCreate = () => {
         setEditingId(null);
-        setDraft(createDraftFromEntry());
+        setDraft({ ...createDraftFromEntry(), isDefault: entries.length === 0 });
         setComposerOpen(true);
     };
 
@@ -4042,8 +4166,13 @@ export function AddressBookManager(props: AddressBookManagerProps) {
         }
     };
 
+    const handleMakeDefault = async (entry: AddressBookEntry) => {
+        if (entry.isDefault) return;
+        await onSaveEntry({ ...createDraftFromEntry(entry), isDefault: true });
+    };
+
     return (
-        <div className="space-y-6">
+        <div className="space-y-5">
             <div className="flex flex-wrap gap-4" style={{ justifyContent: 'space-between', alignItems: 'flex-start' }}>
                 {showHeader ? (
                     <div>
@@ -4053,7 +4182,7 @@ export function AddressBookManager(props: AddressBookManagerProps) {
                 ) : null}
                 {!composerOpen ? (
                     <button type="button" className="btn btn-primary h-10 px-4 text-sm" style={{ marginLeft: 'auto' }} onClick={handleStartCreate}>
-                        + Agregar direccion
+                        + Agregar dirección
                     </button>
                 ) : null}
             </div>
@@ -4063,18 +4192,23 @@ export function AddressBookManager(props: AddressBookManagerProps) {
                     {entries.length > 0 ? entries.map((entry) => (
                         <div key={entry.id} className="rounded-2xl border p-4" style={{ borderColor: editingId === entry.id ? 'var(--fg)' : 'var(--border)', background: editingId === entry.id ? 'var(--bg-subtle)' : 'var(--bg)' }}>
                             <div className="flex items-start justify-between gap-3">
-                                <div>
+                                <div className="min-w-0">
                                     <p className="text-sm font-semibold" style={{ color: 'var(--fg)' }}>{entry.label}</p>
-                                    <p className="text-xs mt-1" style={{ color: 'var(--fg-muted)' }}>{ADDRESS_KIND_OPTIONS.find((item) => item.value === entry.kind)?.label || entry.kind}</p>
+                                    <p className="text-xs mt-1" style={{ color: 'var(--fg-muted)' }}>{[entry.communeName, entry.regionName].filter(Boolean).join(', ') || 'Sin comuna'}</p>
                                 </div>
                                 {entry.isDefault ? <span className="rounded-full px-2 py-1 text-[11px] font-medium" style={{ background: 'var(--bg-muted)', color: 'var(--fg-secondary)' }}>Predeterminada</span> : null}
                             </div>
-                            <p className="text-sm mt-3" style={{ color: 'var(--fg-secondary)' }}>{addressSummary(entry)}</p>
+                            <p className="text-sm mt-3" style={{ color: 'var(--fg-secondary)' }}>{[entry.addressLine1, entry.addressLine2].filter(Boolean).join(', ') || addressSummary(entry)}</p>
                             {entry.arrivalInstructions ? (
                                 <p className="text-xs mt-2 italic" style={{ color: 'var(--fg-muted)' }}>{entry.arrivalInstructions}</p>
                             ) : null}
                             <div className="mt-4 flex flex-wrap gap-2">
                                 <button type="button" className="btn btn-outline h-9 px-3 text-xs" onClick={() => handleEdit(entry)}>Editar</button>
+                                {!entry.isDefault ? (
+                                    <button type="button" className="btn btn-outline h-9 px-3 text-xs" onClick={() => void handleMakeDefault(entry)} disabled={saving}>
+                                        Predeterminar
+                                    </button>
+                                ) : null}
                                 <button type="button" className="btn btn-outline h-9 px-3 text-xs" onClick={() => void onDeleteEntry(entry.id)} disabled={deletingId === entry.id}>{deletingId === entry.id ? 'Eliminando...' : 'Eliminar'}</button>
                             </div>
                         </div>
@@ -4087,11 +4221,11 @@ export function AddressBookManager(props: AddressBookManagerProps) {
 
                 {composerOpen ? (
                     <PanelCard tone="surface" size="lg" className="shadow-(--shadow-xs)">
-                        <div className="mx-auto max-w-[1160px] space-y-6">
+                        <div className="mx-auto max-w-2xl space-y-5">
                             <div className="flex flex-wrap gap-3" style={{ justifyContent: 'space-between', alignItems: 'flex-start' }}>
                                 <div className="pr-2">
                                     <p className="text-base font-semibold" style={{ color: 'var(--fg)' }}>{editingId ? 'Editar dirección' : 'Nueva dirección'}</p>
-                                    <p className="text-sm mt-1" style={{ color: 'var(--fg-muted)' }}>Completa región, comuna y dirección para guardarla y reutilizarla después.</p>
+                                    <p className="text-sm mt-1" style={{ color: 'var(--fg-muted)' }}>Guarda una dirección clara para reutilizarla después.</p>
                                 </div>
                                 <button type="button" className="btn btn-outline h-9 px-3 text-xs" style={{ marginLeft: 'auto' }} onClick={handleReset}>
                                     Cancelar
@@ -4099,19 +4233,38 @@ export function AddressBookManager(props: AddressBookManagerProps) {
                             </div>
 
                             <div className="space-y-5">
+                                <Field label="Nombre de la dirección" required>
+                                    <input
+                                        className="form-input"
+                                        value={draftLabel}
+                                        onChange={(event) => {
+                                            const nextLabel = event.target.value;
+                                            setDraft((current) => ({
+                                                ...current,
+                                                label: nextLabel,
+                                                location: patchListingLocation(current.location, { label: nextLabel }),
+                                            }));
+                                        }}
+                                        placeholder="Ej: Casa, Oficina, Casa mamá"
+                                    />
+                                </Field>
+
                                 <div className="space-y-3">
-                                    <p className="text-sm font-semibold" style={{ color: 'var(--fg)' }}>Ubicación</p>
                                     <ListingLocationEditor
                                         simpleMode
-                                        showLocationMeta
+                                        title="Dirección"
+                                        description="Busca la dirección y selecciona una sugerencia si aparece."
                                         location={draft.location}
-                                        onChange={(next) => setDraft((current) => ({ ...current, location: patchListingLocation(next, { visibilityMode: 'exact', publicMapEnabled: true }), label: next.label?.trim() || current.label, kind: (next.kind as AddressBookKind | null) || current.kind }))}
+                                        onChange={(next) => setDraft((current) => ({
+                                            ...current,
+                                            location: patchListingLocation(next, { visibilityMode: 'exact', publicMapEnabled: true, label: current.label || next.label }),
+                                        }))}
                                         regions={regions}
                                         communes={communes}
                                         allCommunes={allCommunes}
                                         addressBook={[]}
-                                        showHeader={false}
-                                        framed={false}
+                                        showHeader
+                                        framed
                                         addressFirst
                                         allowAreaOnly={false}
                                         showSourceSelector={false}
@@ -4121,6 +4274,7 @@ export function AddressBookManager(props: AddressBookManagerProps) {
                                         showActionBar={false}
                                         showGoogleMapsLink
                                         addressRequired
+                                        googleMapsApiKey={googleMapsApiKey}
                                     />
                                 </div>
 
@@ -4310,230 +4464,31 @@ export function ErrorView({
     errorDigest,
 }: ErrorViewProps) {
     return (
-        <div className="min-h-[60vh] flex flex-col items-center justify-center px-6 py-12 text-center">
-            {code && (
-                <span
-                    className="inline-block mb-4 text-7xl font-bold tracking-tighter"
-                    style={{ color: 'var(--fg-muted)' }}
-                >
+        <div
+            className="min-h-screen flex flex-col items-center justify-center px-4 py-10 text-center"
+            style={{ background: 'var(--bg)' }}
+        >
+            {code ? (
+                <p className="text-5xl sm:text-6xl font-bold mb-3" style={{ color: 'var(--accent)' }}>
                     {code}
-                </span>
-            )}
-            <h1 className="text-2xl font-semibold mb-2" style={{ color: 'var(--fg)' }}>
+                </p>
+            ) : null}
+            <h1 className="text-xl sm:text-2xl font-semibold mb-2" style={{ color: 'var(--fg)' }}>
                 {title}
             </h1>
-            {description && (
-                <p className="max-w-md mb-6" style={{ color: 'var(--fg-secondary)' }}>
+            {description ? (
+                <p className="text-sm mb-8 max-w-sm" style={{ color: 'var(--fg-muted)' }}>
                     {description}
                 </p>
-            )}
-            {errorDigest && (
-                <p className="text-xs mb-6" style={{ color: 'var(--fg-muted)' }}>
-                    Error: {errorDigest}
-                </p>
-            )}
-            <div className="flex items-center gap-3">
+            ) : <div className="mb-8" />}
+            <div className="flex flex-col sm:flex-row items-center gap-3">
                 {primaryAction}
                 {secondaryAction}
             </div>
-        </div>
-    );
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// ModernSelect — Dropdown global con estilos consistentes
-// ─────────────────────────────────────────────────────────────────────────────
-
-export type ModernSelectOption = {
-    value: string;
-    label: string;
-    disabled?: boolean;
-    swatchColor?: string;
-};
-
-type ModernSelectProps = {
-    value: string;
-    onChange: (value: string) => void;
-    options: ModernSelectOption[];
-    placeholder?: string;
-    disabled?: boolean;
-    ariaLabel?: string;
-    triggerClassName?: string;
-    dropdownClassName?: string;
-    leadingIcon?: React.ReactNode;
-};
-
-export function ModernSelect({
-    value,
-    onChange,
-    options,
-    placeholder = 'Seleccionar',
-    disabled = false,
-    ariaLabel,
-    triggerClassName,
-    dropdownClassName,
-    leadingIcon,
-}: ModernSelectProps) {
-    const [open, setOpen] = useState(false);
-    const [focusedIndex, setFocusedIndex] = useState(-1);
-    const rootRef = useRef<HTMLDivElement | null>(null);
-    const triggerRef = useRef<HTMLButtonElement | null>(null);
-
-    useEffect(() => {
-        const onPointerDown = (event: PointerEvent) => {
-            if (!rootRef.current?.contains(event.target as Node)) {
-                setOpen(false);
-            }
-        };
-        window.addEventListener('pointerdown', onPointerDown);
-        return () => window.removeEventListener('pointerdown', onPointerDown);
-    }, []);
-
-    useEffect(() => {
-        if (!open) return;
-        const enabledOptions = options.filter((o) => !o.disabled);
-        const onKeyDown = (event: KeyboardEvent) => {
-            if (event.key === 'Escape') {
-                setOpen(false);
-                triggerRef.current?.focus();
-                return;
-            }
-            if (event.key === 'ArrowDown') {
-                event.preventDefault();
-                setFocusedIndex((prev) => {
-                    const next = prev + 1;
-                    return next < enabledOptions.length ? next : prev;
-                });
-                return;
-            }
-            if (event.key === 'ArrowUp') {
-                event.preventDefault();
-                setFocusedIndex((prev) => (prev > 0 ? prev - 1 : 0));
-                return;
-            }
-            if (event.key === 'Home') {
-                event.preventDefault();
-                setFocusedIndex(0);
-                return;
-            }
-            if (event.key === 'End') {
-                event.preventDefault();
-                setFocusedIndex(enabledOptions.length - 1);
-                return;
-            }
-            if (event.key === 'Enter' && focusedIndex >= 0) {
-                event.preventDefault();
-                const option = enabledOptions[focusedIndex];
-                if (option) { onChange(option.value); setOpen(false); }
-                return;
-            }
-        };
-        window.addEventListener('keydown', onKeyDown);
-        return () => window.removeEventListener('keydown', onKeyDown);
-    }, [open, focusedIndex, options, onChange]);
-
-    const selectedOption = useMemo(
-        () => options.find((option) => option.value === value),
-        [options, value]
-    );
-    const triggerLabel = selectedOption?.label ?? placeholder;
-
-    const enabledOptions = useMemo(() => options.filter((o) => !o.disabled), [options]);
-
-    return (
-        <div className="relative w-full" ref={rootRef}>
-            <button
-                ref={triggerRef}
-                type="button"
-                aria-label={ariaLabel}
-                aria-haspopup="listbox"
-                aria-expanded={open}
-                disabled={disabled}
-                onClick={() => {
-                    if (disabled) return;
-                    const next = !open;
-                    setOpen(next);
-                    if (next) {
-                        const idx = enabledOptions.findIndex((o) => o.value === value);
-                        setFocusedIndex(idx >= 0 ? idx : 0);
-                    }
-                }}
-                className={`form-input flex items-center text-left ${leadingIcon ? 'pl-9' : ''} ${triggerClassName ?? ''}`}
-                style={{
-                    color: selectedOption ? 'var(--fg)' : 'var(--fg-muted)',
-                    paddingLeft: leadingIcon ? '2.2rem' : undefined,
-                    paddingRight: '2.4rem',
-                }}
-            >
-                {leadingIcon ? (
-                    <span className="absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" style={{ color: 'var(--fg-muted)' }}>
-                        {leadingIcon}
-                    </span>
-                ) : null}
-                <span className="truncate pr-1 flex items-center gap-2 min-w-0">
-                    {selectedOption?.swatchColor ? (
-                        <span
-                            className="h-3 w-3 rounded-full border shrink-0"
-                            style={{ background: selectedOption.swatchColor, borderColor: 'var(--border)' }}
-                        />
-                    ) : null}
-                    <span className="truncate">{triggerLabel}</span>
-                </span>
-                <span
-                    className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none transition-transform"
-                    style={{ color: 'var(--fg-muted)', transform: `translateY(-50%) rotate(${open ? '180deg' : '0deg'})` }}
-                >
-                    <IconChevronDown size={14} />
-                </span>
-            </button>
-
-            {open ? (
-                <div
-                    role="listbox"
-                    className={`absolute left-0 right-0 top-[calc(100%+0.35rem)] z-40 max-h-64 overflow-auto rounded-xl border p-1.5 ${dropdownClassName ?? ''}`}
-                    style={{
-                        borderColor: 'var(--border)',
-                        background: 'var(--surface)',
-                        boxShadow: '0 18px 44px rgba(0,0,0,0.16)',
-                    }}
-                >
-                    {options.map((option) => {
-                        const isSelected = option.value === value;
-                        const enabledIdx = enabledOptions.indexOf(option);
-                        const isFocused = enabledIdx >= 0 && enabledIdx === focusedIndex;
-                        return (
-                            <button
-                                key={`${option.value}-${option.label}`}
-                                type="button"
-                                disabled={option.disabled}
-                                onClick={() => {
-                                    if (option.disabled) return;
-                                    onChange(option.value);
-                                    setOpen(false);
-                                }}
-                                onMouseEnter={() => { if (enabledIdx >= 0) setFocusedIndex(enabledIdx); }}
-                                className="w-full h-9 px-2.5 rounded-lg text-sm flex items-center justify-between transition-colors"
-                                style={{
-                                    background: isFocused ? 'var(--bg-muted)' : isSelected ? 'var(--bg-subtle)' : 'transparent',
-                                    color: option.disabled ? 'var(--fg-faint)' : 'var(--fg)',
-                                    outline: isFocused ? '2px solid var(--accent-border)' : 'none',
-                                    outlineOffset: '-2px',
-                                }}
-                            >
-                                <span className="truncate flex items-center gap-2 min-w-0">
-                                    {option.swatchColor ? (
-                                        <span
-                                            className="h-3 w-3 rounded-full border shrink-0"
-                                            style={{ background: option.swatchColor, borderColor: 'var(--border)' }}
-                                        />
-                                    ) : null}
-                                    <span className="truncate">{option.label}</span>
-                                </span>
-                                {isSelected ? <IconCheck size={14} style={{ color: 'var(--fg-secondary)' }} /> : null}
-                            </button>
-                        );
-                    })}
-                </div>
+            {errorDigest ? (
+                <p className="mt-6 text-[10px] font-mono" style={{ color: 'var(--fg-muted)' }}>
+                    ref: {errorDigest}
+                </p>
             ) : null}
         </div>
     );
@@ -4558,5 +4513,174 @@ export type {
     PublicListingCardProps,
 } from './listing-card/types';
 
+// Panel Config Section
+export type PanelConfigSectionItem = {
+    key: string;
+    title: string;
+    description?: string;
+    icon?: React.ReactNode;
+    href?: string;
+    onClick?: () => void;
+    disabled?: boolean;
+    done?: boolean;
+    required?: boolean;
+    badge?: string;
+};
+
+export type PanelConfigSectionProps = {
+    title: string;
+    items: PanelConfigSectionItem[];
+    className?: string;
+    showProgress?: boolean;
+    loading?: boolean;
+};
+
+export type PanelConfigPageProps = {
+    title: string;
+    description?: string;
+    sections: PanelConfigSectionItem[];
+    extras?: PanelConfigSectionItem[];
+    showProgress?: boolean;
+    loading?: boolean;
+    className?: string;
+};
+
+export function PanelConfigSection(props: PanelConfigSectionProps) {
+    const { title, items, className, showProgress = false, loading = false } = props;
+
+    const requiredItems = items.filter((item) => item.required !== false);
+    const completedRequired = requiredItems.filter((item) => item.done).length;
+    const allReady = requiredItems.length > 0 && completedRequired === requiredItems.length;
+
+    if (loading) {
+        return (
+            <div className={joinClasses('space-y-3', className)}>
+                <h3 className="text-sm font-semibold" style={{ color: 'var(--fg)' }}>
+                    {title}
+                </h3>
+                <div className="grid grid-cols-1 gap-2">
+                    {Array.from({ length: 5 }).map((_, i) => (
+                        <div key={i} className="h-18 rounded-2xl animate-pulse" style={{ background: 'var(--border)' }} />
+                    ))}
+                </div>
+            </div>
+        );
+    }
+
+    return (
+        <div className={joinClasses('space-y-3', className)}>
+            <h3 className="text-sm font-semibold" style={{ color: 'var(--fg)' }}>
+                {title}
+            </h3>
+
+            {/* Progress bar — solo si está habilitado y no está todo completo */}
+            {showProgress && !loading && !allReady && requiredItems.length > 0 && (
+                <div className="mb-6">
+                    <div className="flex items-center justify-between mb-2">
+                        <span className="text-xs font-medium" style={{ color: 'var(--fg-muted)' }}>
+                            {completedRequired} de {requiredItems.length} secciones esenciales
+                        </span>
+                        <span className="text-xs font-semibold" style={{ color: 'var(--accent)' }}>
+                            {Math.round((completedRequired / requiredItems.length) * 100)}%
+                        </span>
+                    </div>
+                    <div className="h-1.5 rounded-full overflow-hidden" style={{ background: 'var(--border)' }}>
+                        <div
+                            className="h-full rounded-full transition-all duration-500"
+                            style={{
+                                width: `${(completedRequired / requiredItems.length) * 100}%`,
+                                background: 'var(--accent)',
+                            }}
+                        />
+                    </div>
+                </div>
+            )}
+
+            <div className="grid grid-cols-1 gap-2">
+                {items.map((item) => {
+                    const isRequired = item.required !== false;
+                    const isDone = Boolean(item.done);
+                    const pendingRequired = isRequired && !isDone;
+
+                    const content = (
+                        <div className="flex items-center gap-3 p-3 rounded-xl border transition-colors hover:bg-[var(--bg-subtle)] hover:border-[var(--border-strong)]" style={{ borderColor: pendingRequired ? 'var(--accent-border)' : 'var(--border)', background: pendingRequired ? 'var(--accent-soft)' : 'var(--surface)' }}>
+                            {/* Icono de estado o icono normal */}
+                            <div
+                                className="w-8 h-8 rounded-xl flex items-center justify-center shrink-0 transition-colors"
+                                style={{
+                                    background: isDone ? 'var(--accent)' : 'var(--bg-muted)',
+                                    color: isDone ? '#fff' : 'var(--fg-muted)',
+                                }}
+                            >
+                                {isDone ? (
+                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                                        <path d="M20 6L9 17L4 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                                    </svg>
+                                ) : item.icon ? (
+                                    item.icon
+                                ) : (
+                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                                        <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="2" />
+                                    </svg>
+                                )}
+                            </div>
+
+                            <div className="min-w-0 flex-1">
+                                <div className="flex items-center gap-2">
+                                    <p className="text-sm font-medium" style={{ color: 'var(--fg)' }}>
+                                        {item.title}
+                                    </p>
+                                    {!isDone && !isRequired && (
+                                        <span className="text-[10px] font-medium px-1.5 py-0.5 rounded" style={{ background: 'var(--bg-muted)', color: 'var(--fg-muted)' }}>
+                                            Opcional
+                                        </span>
+                                    )}
+                                    {item.badge && (
+                                        <span className="text-[10px] font-medium px-1.5 py-0.5 rounded" style={{ background: 'var(--bg-muted)', color: 'var(--fg-muted)' }}>
+                                            {item.badge}
+                                        </span>
+                                    )}
+                                </div>
+                                {item.description && (
+                                    <p className="text-xs mt-1" style={{ color: 'var(--fg-muted)' }}>
+                                        {item.description}
+                                    </p>
+                                )}
+                            </div>
+                        </div>
+                    );
+
+                    if (item.href) {
+                        return (
+                            <a
+                                key={item.key}
+                                href={item.href}
+                                className="block"
+                                style={{ pointerEvents: item.disabled ? 'none' : 'auto', opacity: item.disabled ? 0.6 : 1 }}
+                            >
+                                {content}
+                            </a>
+                        );
+                    }
+
+                    return (
+                        <button
+                            key={item.key}
+                            type="button"
+                            onClick={item.onClick}
+                            disabled={item.disabled}
+                            className="block w-full text-left"
+                            style={{ pointerEvents: item.disabled ? 'none' : 'auto', opacity: item.disabled ? 0.6 : 1 }}
+                        >
+                            {content}
+                        </button>
+                    );
+                })}
+            </div>
+        </div>
+    );
+}
+
 // Sidebar
-export { AppSidebar, type NavItem, type UserInfo, type AppSidebarProps } from './sidebar/app-sidebar';
+export { Sidebar, AppSidebar, type NavItem, type UserInfo, type SidebarProps, type AppSidebarProps } from './sidebar/app-sidebar';
+export { PanelShell, type PanelShellProps } from './panel/panel-shell';

@@ -7,7 +7,9 @@
     "rootDir": "src",
     "declaration": true,
     "jsx": "react-jsx",
-    "types": ["node"],
+    "types": [
+      "node"
+    ],
     "strict": true,
     "esModuleInterop": true,
     "skipLibCheck": true,
@@ -19,6 +21,9 @@
     "src/**/*.tsx"
   ],
   "references": [
-    { "path": "../types" }
-  ]
+    {
+      "path": "../types"
+    }
+  ],
+  "extends": "../../tsconfig.base.json"
 }

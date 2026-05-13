@@ -332,7 +332,7 @@ export default function ClienteFichaPage() {
                     <div className="flex-1 min-w-0">
                         <div className="flex items-start justify-between gap-2">
                             <div className="min-w-0">
-                                <h1 className="text-xl font-bold" style={{ color: 'var(--fg)' }}>{fullName}</h1>
+                                <h1 className="text-2xl font-bold" style={{ color: 'var(--fg)' }}>{fullName}</h1>
                                 {client.city && <p className="text-xs mt-0.5" style={{ color: 'var(--fg-muted)' }}>{client.city}</p>}
                             </div>
                             <div className="flex items-center gap-1.5 shrink-0">
@@ -749,7 +749,7 @@ export default function ClienteFichaPage() {
                                             className="w-12 h-12 rounded-lg overflow-hidden shrink-0 border"
                                             style={{ borderColor: 'var(--border)' }}
                                         >
-                                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                                            { }
                                             <img src={att.url} alt={att.name} className="w-full h-full object-cover" />
                                         </a>
                                     ) : (

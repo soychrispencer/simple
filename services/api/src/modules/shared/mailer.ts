@@ -3,7 +3,7 @@
  *
  * Envoltorio mínimo sobre nodemailer + variables `SMTP_*` ya documentadas en
  * `services/api/.env*.example`. Se usa para correos cortos de eventos
- * (pago confirmado, suscripción activada, etc.) en verticales como serenatas.
+ * (pago confirmado, suscripción activada, etc.).
  *
  * Si las variables no están configuradas, las llamadas son `no-op` (resuelven
  * con `{ ok: false, skipped: true }`). Esto permite usarlo en desarrollo

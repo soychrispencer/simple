@@ -32,7 +32,7 @@ API_BASE_URL=https://api.simpleplataforma.app
 
 DATABASE_URL=                        # ver .env local → DATABASE_URL
 
-CORS_ORIGINS=https://simpleautos.app,https://www.simpleautos.app,https://simplepropiedades.cl,https://www.simplepropiedades.cl,https://simpleplataforma.app,https://www.simpleplataforma.app,https://simpleagenda.app,https://www.simpleagenda.app,https://admin.simpleplataforma.app
+CORS_ORIGINS=https://simpleautos.app,https://www.simpleautos.app,https://simplepropiedades.app,https://www.simplepropiedades.app,https://simpleplataforma.app,https://www.simpleplataforma.app,https://simpleagenda.app,https://www.simpleagenda.app,https://admin.simpleplataforma.app
 
 SESSION_SECRET=                      # ver .env local → SESSION_SECRET
 AUTH_COOKIE_SAMESITE=none
@@ -98,7 +98,7 @@ GOOGLE_AI_API_KEY=                   # ver .env local de simpleautos → GOOGLE_
 
 ---
 
-## 3. SimplePropiedades (`simplepropiedades.cl`)
+## 3. SimplePropiedades (`simplepropiedades.app`)
 
 ### Setup del servicio
 
@@ -110,7 +110,7 @@ GOOGLE_AI_API_KEY=                   # ver .env local de simpleautos → GOOGLE_
 
 ```env
 NEXT_PUBLIC_API_URL=https://api.simpleplataforma.app
-NEXT_PUBLIC_APP_URL=https://simplepropiedades.cl
+NEXT_PUBLIC_APP_URL=https://simplepropiedades.app
 ```
 
 ---
@@ -148,8 +148,8 @@ NEXT_PUBLIC_APP_URL=https://simpleplataforma.app
 |---|---|---|
 | `API_BASE_URL` | `http://localhost:4000` | `https://api.simpleplataforma.app` |
 | `AUTH_COOKIE_SAMESITE` | `lax` | `none` |
-| `MERCADO_PAGO_PUBLIC_ORIGIN_AUTOS` | `http://localhost:3000` | `https://simpleautos.app` |
-| `MERCADO_PAGO_PUBLIC_ORIGIN_PROPIEDADES` | `http://localhost:3001` | `https://simplepropiedades.cl` |
+| `MERCADO_PAGO_PUBLIC_ORIGIN_AUTOS` | `http://localhost:3002` | `https://simpleautos.app` |
+| `MERCADO_PAGO_PUBLIC_ORIGIN_PROPIEDADES` | `http://localhost:3003` | `https://simplepropiedades.app` |
 | `AGENDA_APP_URL` | `http://localhost:3004` | `https://simpleagenda.app` |
 | `ENABLE_ADMIN_BOOTSTRAP` | `true` | `false` |
 
@@ -203,7 +203,7 @@ Si la vista previa del template se ve bien pero al publicar en Instagram el logo
 2. **Verificar que el build local tiene los cambios:**
    ```bash
    cd services/api
-   npm run build
+   pnpm run build
    grep "width: 80, height: 80" dist/index.js
    # Debe mostrar la línea con el logo 80x80
    ```
@@ -223,7 +223,7 @@ Si la vista previa del template se ve bien pero al publicar en Instagram el logo
 - [ ] Confirmar que el API usa puerto interno `4000`
 - [ ] Verificar `https://api.simpleplataforma.app/health` responde 200
 - [ ] Verificar `https://simpleautos.app/` responde 200
-- [ ] Verificar `https://simplepropiedades.cl/` responde 200
+- [ ] Verificar `https://simplepropiedades.app/` responde 200
 - [ ] Verificar login con Google en cada app
 - [ ] Verificar subida de imágenes (Backblaze)
 - [ ] Verificar flujo OAuth de Instagram en panel de un usuario Pro
@@ -238,7 +238,7 @@ El Dockerfile de la API (`services/api/Dockerfile`) copia el código fuente y ha
 COPY services ./services
 COPY packages ./packages
 COPY apps ./apps
-RUN npm run build --workspace=@simple/api
+RUN pnpm run build --workspace=@simple/api
 ```
 
 **Problema**: Docker cachea estas capas. Si solo cambias código fuente sin modificar el Dockerfile, Docker puede reutilizar la capa cacheada con el código antiguo.

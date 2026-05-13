@@ -1,9 +1,12 @@
 // Shared domain types across API modules
 
+import type { VerticalType, ListingVerticalType } from '@simple/types';
+export type { VerticalType, ListingVerticalType };
+export type * from './db-types.js';
+
 // Enums / Union Types
 export type UserRole = 'user' | 'admin' | 'superadmin';
 export type UserStatus = 'active' | 'verified' | 'suspended';
-export type VerticalType = 'autos' | 'propiedades' | 'agenda' | 'serenatas';
 export type AccountType = 'general' | 'autos' | 'propiedades' | 'agenda' | 'crm_only';
 export type AccountRole = 'owner' | 'admin' | 'agent';
 export type CrmEntityType = 'listing' | 'service' | 'external';

@@ -62,7 +62,7 @@ export default function VehicleDetailClient({ item }: VehicleDetailClientProps) 
                 await navigator.share({
                     title: item.title,
                     text: `Mira este ${item.title} en SimpleAutos`,
-                    url: url,
+                    url,
                 });
                 return;
             } catch {

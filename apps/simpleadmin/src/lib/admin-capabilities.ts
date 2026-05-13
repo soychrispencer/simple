@@ -6,8 +6,7 @@ export type AdminCapability =
   | 'users.editRole'
   | 'users.editStatus'
   | 'users.editSubscriptions'
-  | 'users.delete'
-  | 'serenatas.operations.view';
+  | 'users.delete';
 
 function isSuperadmin(user: AdminSessionUser): boolean {
   return user.role === 'superadmin';
@@ -19,9 +18,6 @@ export function hasAdminCapability(
   scope: AdminScope
 ): boolean {
   if (capability === 'users.view') return true;
-  if (capability === 'serenatas.operations.view') {
-    return isSuperadmin(user) || scope === 'serenatas' || user.primaryVertical === 'serenatas';
-  }
   if (capability === 'users.editRole') return isSuperadmin(user);
   if (capability === 'users.editStatus') return isSuperadmin(user);
   if (capability === 'users.editSubscriptions') return isSuperadmin(user);

@@ -7,13 +7,26 @@
     "rootDir": "src",
     "declaration": true,
     "jsx": "react-jsx",
-    "types": ["node"],
+    "types": [
+      "node"
+    ],
     "strict": true,
     "esModuleInterop": true,
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,
     "composite": true
   },
-  "include": ["src/**/*.ts", "src/**/*.tsx"],
-  "references": [{ "path": "../auth" }, { "path": "../ui" }]
+  "include": [
+    "src/**/*.ts",
+    "src/**/*.tsx"
+  ],
+  "references": [
+    {
+      "path": "../auth"
+    },
+    {
+      "path": "../ui"
+    }
+  ],
+  "extends": "../../tsconfig.base.json"
 }

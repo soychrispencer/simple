@@ -47,7 +47,7 @@ export default function EstadisticasPage() {
     ];
 
     return (
-        <div className="container-app panel-page py-8">
+        <div className="container-app panel-page py-4 lg:py-8">
             <PanelSectionHeader
                 title="Estadísticas"
                 description="Métricas reales de tus publicaciones"

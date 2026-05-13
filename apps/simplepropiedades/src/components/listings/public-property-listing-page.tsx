@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { IconArrowsSort, IconGridDots, IconList } from '@tabler/icons-react';
 import InlineResultAd from '@/components/ads/inline-result-ad';
 import { PublicBreadcrumbs } from '@/components/layout/public-breadcrumbs';
-import ModernSelect from '@/components/ui/modern-select';
+import { ModernSelect } from '@simple/ui';
 import PropertyListingCard, { type PropertyListingCardData } from '@/components/listings/property-listing-card';
 import { fetchPublicListings, type PublicListing, type PublicListingSection } from '@/lib/public-listings';
 import { PanelCard, PanelNotice, PanelPageHeader, PanelSegmentedToggle } from '@simple/ui';

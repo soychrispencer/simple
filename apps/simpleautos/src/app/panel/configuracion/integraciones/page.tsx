@@ -5,7 +5,7 @@ import { PanelPageHeader } from '@simple/ui';
 
 export default function IntegracionesPage() {
     return (
-        <div className="container-app panel-page py-8 max-w-2xl">
+        <div className="container-app panel-page py-4 lg:py-8 max-w-2xl">
             <PanelPageHeader
                 backHref="/panel/configuracion"
                 title="Integraciones"

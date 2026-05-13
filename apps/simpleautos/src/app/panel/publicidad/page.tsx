@@ -19,7 +19,7 @@ import {
 } from '@tabler/icons-react';
 import PanelSectionHeader from '@/components/panel/panel-section-header';
 import BoostManager from '@/components/panel/boost-manager';
-import ModernSelect from '@/components/ui/modern-select';
+import { ModernSelect } from '@simple/ui';
 import { fetchMyPanelListings } from '@/lib/panel-listings';
 import {
   AD_UPDATE_EVENT,
@@ -707,7 +707,7 @@ export default function PublicidadPage() {
   const alignClass = overlayAlign === 'center' ? 'items-center text-center' : overlayAlign === 'right' ? 'items-end text-right' : 'items-start text-left';
 
   return (
-    <div className="container-app panel-page max-w-6xl py-8">
+    <div className="container-app panel-page max-w-6xl py-4 lg:py-8">
       <PanelSectionHeader
         title="Publicidad"
         description="Gestiona campañas promocionales y boosts de publicaciones desde una sola sección."

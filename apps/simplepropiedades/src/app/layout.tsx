@@ -13,7 +13,7 @@ const inter = Inter({
 
 export const metadata: Metadata = buildSimpleAppMetadata('simplepropiedades');
 
-const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? 'https://simplepropiedades.cl';
+const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? 'https://simplepropiedades.app';
 
 const siteSchema = {
     '@context': 'https://schema.org',
@@ -53,7 +53,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             <head>
                 <script
                     type="application/ld+json"
-                    // eslint-disable-next-line react/no-danger
+                     
                     dangerouslySetInnerHTML={{ __html: JSON.stringify(siteSchema) }}
                 />
             </head>

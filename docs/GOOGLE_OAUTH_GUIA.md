@@ -46,23 +46,30 @@ GOOGLE_CLIENT_SECRET=tu_google_client_secret_aqui
 5. Click "Create Credentials" > "OAuth 2.0 Client IDs"
 6. Configura la pantalla de consentimiento:
    - User Type: External
-   - App name: Tu App (ej: "SimpleV2")
+   - App name: Tu App (ej: "Simple")
    - User support email: tu-email@dominio.com
    - Developer contact: tu-email@dominio.com
 7. Agrega scopes: `openid`, `email`, `profile`
 8. Crea las credenciales:
    - **Application type**: Web application
-   - **Authorized JavaScript origins**: `http://localhost:3000` (solo el dominio, SIN rutas)
-   - **Authorized redirect URIs**: `http://localhost:3000/api/auth/google/callback` (URL completa del callback)
+   - **Authorized JavaScript origins** (un origin por cada app del monorepo):
+     - `http://localhost:3000` (SimpleAdmin)
+     - `http://localhost:3001` (SimplePlataforma)
+     - `http://localhost:3002` (SimpleAutos)
+     - `http://localhost:3003` (SimplePropiedades)
+     - `http://localhost:3004` (SimpleAgenda)
+     - `http://localhost:4000` (API)
+   - **Authorized redirect URIs** (el callback se procesa en el API):
+     - `http://localhost:4000/api/auth/google/callback`
 
 ### ⚠️ **IMPORTANTE: Campos Correctos**
 
 **❌ NO pongas rutas en "Authorized JavaScript origins"**
 - ✅ Correcto: `http://localhost:3000`
-- ❌ Incorrecto: `http://localhost:3000/api/auth/google/callback`
+- ❌ Incorrecto: `http://localhost:4000/api/auth/google/callback`
 
 **✅ URLs completas van en "Authorized redirect URIs"**
-- ✅ Correcto: `http://localhost:3000/api/auth/google/callback`
+- ✅ Correcto: `http://localhost:4000/api/auth/google/callback`
 - ❌ Incorrecto: `http://localhost:3000` (muy genérico, pero funcionaría)
 
 ### Obtener Client ID y Secret
@@ -88,7 +95,7 @@ Cuando crees las credenciales OAuth, verás estos campos:
 
 #### **Authorized redirect URIs**
 - **Propósito**: URLs exactas a donde Google redirigirá después de la autenticación
-- **Ejemplo correcto**: `http://localhost:3000/api/auth/google/callback`
+- **Ejemplo correcto**: `http://localhost:4000/api/auth/google/callback`
 - **Ejemplo correcto producción**: `https://tu-dominio.com/api/auth/google/callback`
 
 ### URLs para Desarrollo vs Producción
@@ -96,10 +103,15 @@ Cuando crees las credenciales OAuth, verás estos campos:
 #### **Desarrollo (localhost)**
 ```
 Authorized JavaScript origins:
-- http://localhost:3000
+- http://localhost:3000  (SimpleAdmin)
+- http://localhost:3001  (SimplePlataforma)
+- http://localhost:3002  (SimpleAutos)
+- http://localhost:3003  (SimplePropiedades)
+- http://localhost:3004  (SimpleAgenda)
+- http://localhost:4000  (API)
 
 Authorized redirect URIs:
-- http://localhost:3000/api/auth/google/callback
+- http://localhost:4000/api/auth/google/callback
 ```
 
 #### **Producción - Client ID Compartido**
@@ -107,16 +119,15 @@ Dado que el login es unificado para todo el ecosistema Simple, usarás **un solo
 
 ```
 Authorized JavaScript origins:
+- https://simpleadmin.app
+- https://simpleplataforma.app
 - https://simpleautos.app
 - https://simplepropiedades.app
-- https://simpleplataforma.app
-- https://admin.simpleplataforma.app
+- https://simpleagenda.app
+- https://api.simpleplataforma.app
 
 Authorized redirect URIs:
-- https://simpleautos.app/api/auth/google/callback
-- https://simplepropiedades.app/api/auth/google/callback
-- https://simpleplataforma.app/api/auth/google/callback
-- https://admin.simpleplataforma.app/api/auth/google/callback
+- https://api.simpleplataforma.app/api/auth/google/callback
 ```
 
 **Ventajas:**
@@ -421,7 +432,7 @@ export default function LoginPage() {
 3. Solo deja el dominio base: `http://localhost:3000`
 
 4. Ve al campo **"Authorized redirect URIs"**
-5. Agrega la URL completa: `http://localhost:3000/api/auth/google/callback`
+5. Agrega la URL completa: `http://localhost:4000/api/auth/google/callback`
 
 ### Error: "redirect_uri_mismatch"
 
@@ -487,7 +498,7 @@ SESSION_SECRET=tu_session_secret_seguro_de_64_caracteres
 - [x] Pantalla de consentimiento configurada
 - [x] Credenciales OAuth 2.0 creadas
 - [x] **Authorized JavaScript origins**: Solo dominio base (`http://localhost:3000`)
-- [x] **Authorized redirect URIs**: URL completa del callback (`http://localhost:3000/api/auth/google/callback`)
+- [x] **Authorized redirect URIs**: URL completa del callback (`http://localhost:4000/api/auth/google/callback`)
 - [x] Client ID y Secret copiados a `.env`
 - [x] Scopes `openid`, `email`, `profile` configurados
 - [x] **Client ID Compartido**: Un solo ID para todas las apps del ecosistema

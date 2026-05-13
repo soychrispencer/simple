@@ -1,7 +1,6 @@
 'use client';
 
-import { AuthProvider } from '@/context/auth-context';
-import { AuthModal } from '@/components/auth/auth-modal';
+import { AuthProvider, AuthModal } from '@simple/auth';
 import { Header } from '@/components/layout/header';
 import { Footer } from '@/components/layout/footer';
 

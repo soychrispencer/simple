@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
-import { useAuth } from '@/context/auth-context';
+import { useAuth } from '@simple/auth';
 import { isListingSaved, subscribeSavedListings, toggleSavedListing } from '@/lib/saved-listings';
 import { 
     IconHeart, 
@@ -257,7 +257,7 @@ export default function PropertyListingCard({ data, mode }: Props) {
                     await navigator.share({
                         title: data.title,
                         text: `Mira esta propiedad: ${data.title} - ${data.price}`,
-                        url: url,
+                        url,
                     });
                 } catch {
                     // User cancelled or error

@@ -3,7 +3,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { API_BASE } from '@simple/config';
 
-type VerticalType = 'autos' | 'propiedades' | 'agenda' | 'serenatas';
+import type { VerticalType } from '@simple/types';
 
 type User = {
     id: string;
@@ -32,9 +32,10 @@ type AuthContextType = {
     register: (name: string, email: string, password: string) => Promise<AuthActionResult>;
     logout: () => Promise<void>;
     requireAuth: (callback?: () => void) => boolean;
-    openAuth: () => void;
+    openAuth: (mode?: 'login' | 'register') => void;
     closeAuth: () => void;
     authOpen: boolean;
+    authInitialMode: 'login' | 'register';
 };
 
 const AuthContext = createContext<AuthContextType | null>(null);
@@ -83,6 +84,7 @@ async function authRequest(path: string, init?: RequestInit): Promise<{ status: 
 export function AuthProvider({ children }: { children: ReactNode }) {
     const [user, setUser] = useState<User>(null);
     const [authOpen, setAuthOpen] = useState(false);
+    const [authInitialMode, setAuthInitialMode] = useState<'login' | 'register'>('login');
     const [authLoading, setAuthLoading] = useState(true);
     const [pendingCallback, setPendingCallback] = useState<(() => void) | null>(null);
 
@@ -170,7 +172,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         [user]
     );
 
-    const openAuth = useCallback(() => setAuthOpen(true), []);
+    const openAuth = useCallback((mode: 'login' | 'register' = 'login') => {
+        setAuthInitialMode(mode);
+        setAuthOpen(true);
+    }, []);
     const closeAuth = useCallback(() => {
         setAuthOpen(false);
         setPendingCallback(null);
@@ -189,8 +194,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             openAuth,
             closeAuth,
             authOpen,
+            authInitialMode,
         }),
-        [authLoading, authOpen, closeAuth, login, logout, openAuth, refreshSession, register, requireAuth, user]
+        [authInitialMode, authLoading, authOpen, closeAuth, login, logout, openAuth, refreshSession, register, requireAuth, user]
     );
 
     return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { useAuth, GoogleLoginButton } from '@simple/auth';
 import { IconCheck, IconX } from '@tabler/icons-react';
 import { PanelButton, PanelNotice } from '@simple/ui';
 
@@ -25,7 +26,7 @@ export default function GoogleCallback() {
         }
 
         // Enviar código al backend
-        const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000';
+        const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://127.0.0.1:4000';
         const response = await fetch(`${API_BASE}/api/auth/google/callback`, {
           method: 'POST',
           credentials: 'include',

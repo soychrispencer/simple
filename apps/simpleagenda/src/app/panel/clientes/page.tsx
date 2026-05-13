@@ -213,7 +213,7 @@ export default function ClientesPage() {
         <div className="container-app panel-page py-4 lg:py-8">
             <div className="flex items-center justify-between gap-3 mb-5 lg:mb-6">
                 <div className="min-w-0">
-                    <h1 className="text-xl font-bold" style={{ color: 'var(--fg)' }}>{vocab.Clients}</h1>
+                    <h1 className="text-2xl font-bold" style={{ color: 'var(--fg)' }}>{vocab.Clients}</h1>
                     <p className="text-sm mt-0.5" style={{ color: 'var(--fg-muted)' }}>
                         {clients.length} {clients.length !== 1 ? vocab.clients : vocab.client}
                     </p>

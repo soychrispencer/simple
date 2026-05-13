@@ -1,5 +1,18 @@
 import { z } from 'zod';
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Vertical types — fuente única de verdad para los productos del marketplace
+// ─────────────────────────────────────────────────────────────────────────────
+export const verticalTypeSchema = z.enum(['autos', 'propiedades', 'agenda']);
+export type VerticalType = z.infer<typeof verticalTypeSchema>;
+
+/** Verticales tipo "listing" (autos, propiedades). Excluye agenda. */
+export const listingVerticalTypeSchema = z.enum(['autos', 'propiedades']);
+export type ListingVerticalType = z.infer<typeof listingVerticalTypeSchema>;
+
+export const VERTICAL_TYPES = verticalTypeSchema.options;
+export const LISTING_VERTICAL_TYPES = listingVerticalTypeSchema.options;
+
 export const listingLocationKindSchema = z.enum([
     'personal',
     'office',

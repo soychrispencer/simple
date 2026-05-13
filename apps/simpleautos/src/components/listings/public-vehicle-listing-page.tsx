@@ -5,7 +5,7 @@ import { useSearchParams } from 'next/navigation';
 import { IconArrowsSort, IconGridDots, IconList, IconChevronLeft, IconChevronRight, IconAdjustmentsHorizontal } from '@tabler/icons-react';
 import InlineResultAd from '@/components/ads/inline-result-ad';
 import { PublicBreadcrumbs } from '@/components/layout/public-breadcrumbs';
-import ModernSelect from '@/components/ui/modern-select';
+import { ModernSelect } from '@simple/ui';
 import VehicleListingCard, { type VehicleListingCardData } from '@/components/listings/vehicle-listing-card';
 import VehicleFilters, { type VehicleType } from '@/components/listings/vehicle-filters';
 import { fetchPublicListings, type PublicListing, type PublicListingSection, type PublicListingsFilters } from '@/lib/public-listings';

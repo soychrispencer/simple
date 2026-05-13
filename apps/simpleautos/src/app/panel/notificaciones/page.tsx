@@ -25,7 +25,7 @@ export default function NotificacionesPage() {
     }, []);
 
     return (
-        <div className="container-app panel-page max-w-2xl py-8">
+        <div className="container-app panel-page max-w-2xl py-4 lg:py-8">
             <PanelSectionHeader title="Notificaciones" description="Actividad real del panel" />
             {loading ? (
                 <p className="text-sm" style={{ color: 'var(--fg-muted)' }}>Cargando notificaciones...</p>

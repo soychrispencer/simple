@@ -1,6 +1,8 @@
+import type { VerticalType } from '@simple/types';
+
 export interface ListingData {
     id: string;
-    vertical: 'autos' | 'propiedades' | 'agenda' | 'serenatas';
+    vertical: VerticalType;
     title: string;
     price?: number;
     offerPrice?: number;

@@ -7,7 +7,7 @@ import postgres from 'postgres';
 const tag = process.argv[2];
 if (!tag) {
   console.error('Uso: pnpm exec tsx scripts/run-single-migration-file.ts <tag_sin_sql>');
-  console.error('Ej: ... 0041_serenatas_coordinators');
+  console.error('Ej: ... 0041_remove_discontinued_vertical');
   process.exit(1);
 }
 

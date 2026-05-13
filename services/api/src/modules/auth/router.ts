@@ -1,5 +1,6 @@
 import { Hono } from 'hono';
 import { randomBytes, createHash } from 'crypto';
+import { logger } from '@simple/logger';
 
 export type AuthRouterDeps = {
     db: any;
@@ -12,7 +13,6 @@ export type AuthRouterDeps = {
         users: any;
         passwordResetTokens: any;
         emailVerificationTokens: any;
-        serenataMusicians?: any;
     };
     bcrypt: { hash: (pw: string, rounds: number) => Promise<string>; compare: (pw: string, hash: string) => Promise<boolean> };
     getUserByEmail: (email: string) => Promise<any | null>;
@@ -45,7 +45,6 @@ export type AuthRouterDeps = {
     PASSWORD_RESET_TOKEN_TTL_MS: number;
     loginSchema: any;
     registerSchema: any;
-    extendedRegisterSchema?: any;
     passwordResetRequestSchema: any;
     passwordResetConfirmSchema: any;
     emailVerificationRequestSchema: any;
@@ -218,18 +217,21 @@ export function createAuthRouter(deps: AuthRouterDeps) {
 
         await deps.touchUserLastLoginAt(user.id);
         const personalAccount = await deps.ensurePrimaryAccountForUser(user);
+        const profile = null;
         deps.clearRateLimit(`auth:login:ip:${clientId}`);
         deps.clearRateLimit(`auth:login:email:${normalizedEmail}`);
         deps.setSession(c, user.id);
-        return c.json({ ok: true, user: deps.sanitizeUser({ ...user, lastLoginAt: new Date(), primaryAccountId: personalAccount.id }) });
+        return c.json({
+            ok: true,
+            user: deps.sanitizeUser({ ...user, lastLoginAt: new Date(), primaryAccountId: personalAccount.id }),
+            ...(profile ? { profile } : {}),
+        });
     });
 
     app.post('/register', async (c) => {
         const payload = await c.req.json().catch(() => null);
 
-        // Intentar usar extendedRegisterSchema primero (para datos adicionales de serenatas)
-        const schemaToUse = deps.extendedRegisterSchema || deps.registerSchema;
-        const parsed = schemaToUse.safeParse(payload);
+        const parsed = deps.registerSchema.safeParse(payload);
         if (!parsed.success) return c.json({ ok: false, error: 'Solicitud inválida.' }, 400);
 
         const clientId = deps.getClientIdentifier(c);
@@ -252,65 +254,36 @@ export function createAuthRouter(deps: AuthRouterDeps) {
 
         const hashedPassword = await deps.bcrypt.hash(parsed.data.password, 10);
 
-        // Detectar si es registro de serenatas
-        const isSerenatas = origin.includes('simpleserenatas');
-        const phone = parsed.data.phone?.trim() || null;
-        const serenatasUserType = parsed.data.userType === 'client' ? 'client' : 'musician';
 
-        /**
-         * Rol funcional para los guards. Para serenatas mapeamos `userType` directo.
-         * Para otros sitios, dejamos `'user'` (compatibilidad).
-         */
-        const initialRole = isSerenatas ? serenatasUserType : 'user';
+        let insertedUser: any;
+        await deps.db.transaction(async (tx: any) => {
+            const [createdUser] = await tx.insert(deps.tables.users).values({
+                email: normalizedEmail,
+                passwordHash: hashedPassword,
+                name: parsed.data.name.trim(),
+                role: 'user',
+                status: 'active',
+                provider: 'local',
+            }).returning({ id: deps.tables.users.id });
+            insertedUser = createdUser;
+        });
 
-        const [insertedUser] = await deps.db.insert(deps.tables.users).values({
-            email: normalizedEmail,
-            passwordHash: hashedPassword,
-            name: parsed.data.name.trim(),
-            role: initialRole,
-            status: 'active',
-            provider: 'local',
-            // Guardar telÃ©fono si viene
-            ...(phone && { phone }),
-        }).returning({ id: deps.tables.users.id });
-
-        let newUser: any = {
+        const newUser: any = {
             id: insertedUser.id,
             email: normalizedEmail,
             passwordHash: hashedPassword,
             name: parsed.data.name.trim(),
-            role: initialRole,
+            role: 'user',
             status: 'active',
             provider: 'local',
             lastLoginAt: new Date(),
-            ...(phone && { phone }),
         };
 
         const personalAccount = await deps.ensurePrimaryAccountForUser(newUser);
         newUser.primaryAccountId = personalAccount.id;
 
-        // Si es serenatas y tiene datos de mÃºsico, crear perfil de serenata_musicians
-        const hasMusicianData = serenatasUserType === 'musician';
-        if (isSerenatas && deps.tables.serenataMusicians && hasMusicianData) {
-            try {
-                const instrument = parsed.data.instrument?.trim() || 'Voz';
-                await deps.db.insert(deps.tables.serenataMusicians).values({
-                    userId: insertedUser.id,
-                    instrument,
-                    comuna: parsed.data.comuna?.trim() || null,
-                    region: parsed.data.region?.trim() || null,
-                    phone: phone,
-                    status: 'active',
-                });
-            } catch (error) {
-                console.error('Error creating serenata musician profile:', error);
-                // Eliminar el usuario creado para mantener consistencia
-                await deps.db.delete(deps.tables.users).where(deps.eq(deps.tables.users.id, insertedUser.id));
-                return c.json({ ok: false, error: 'No pudimos crear el perfil de músico. Inténtalo nuevamente.' }, 500);
-            }
-        }
-
-        if (process.env.NODE_ENV === 'production') {
+        const shouldSendVerificationEmail = process.env.NODE_ENV === 'production' || deps.isAuthEmailConfigured();
+        if (shouldSendVerificationEmail) {
             try {
                 await deps.issueEmailVerification(newUser.id, normalizedEmail, origin);
             } catch (error) {
@@ -325,15 +298,17 @@ export function createAuthRouter(deps: AuthRouterDeps) {
         }
 
         await deps.touchUserLastLoginAt(newUser.id);
+        const profile = null;
         deps.clearRateLimit(`auth:register:ip:${clientId}`);
         deps.setSession(c, newUser.id);
-        return c.json({ ok: true, user: deps.sanitizeUser(newUser) }, 201);
+        return c.json({ ok: true, user: deps.sanitizeUser(newUser), ...(profile ? { profile } : {}) }, 201);
     });
 
     app.get('/me', async (c) => {
         const user = await deps.authUser(c);
         if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
-        return c.json({ ok: true, user: deps.sanitizeUser(user) });
+        const profile = null;
+        return c.json({ ok: true, user: deps.sanitizeUser(user), ...(profile ? { profile } : {}) });
     });
 
     // Actualizar perfil del usuario autenticado
@@ -543,7 +518,7 @@ export function createAuthRouter(deps: AuthRouterDeps) {
         // Use GOOGLE_REDIRECT_URI env var if set, otherwise fallback to building from origin
         const configuredRedirectUri = process.env.GOOGLE_REDIRECT_URI;
         const redirectUri = configuredRedirectUri || deps.buildGoogleRedirectUri(origin);
-        console.log('[Google OAuth] Using redirect URI:', redirectUri, '| Configured:', configuredRedirectUri);
+        logger.info('[Google OAuth] Using redirect URI', { redirectUri, configuredRedirectUri });
 
         const nonce = randomBytes(16).toString('hex');
         const state = buildOAuthState(nonce, origin);
@@ -557,12 +532,9 @@ export function createAuthRouter(deps: AuthRouterDeps) {
         return c.json({ ok: true, authUrl });
     });
 
-    app.get('/google/callback', async (c) => {
-        const code = deps.asString(c.req.query('code'));
-        const state = deps.asString(c.req.query('state'));
-
+    async function completeGoogleCallback(code: string, state: string, c: any) {
         if (!code || !state) {
-            return c.json({ ok: false, error: 'Faltan parámetros requeridos.' }, 400);
+            return c.json({ ok: false, error: 'Parámetros requeridos faltantes' }, 400);
         }
 
         try {
@@ -572,13 +544,25 @@ export function createAuthRouter(deps: AuthRouterDeps) {
             }
 
             deps.setSession(c, result.user.id);
+            return { result };
+        } catch (error) {
+            console.error('Error en google callback:', error);
+            return c.json({ ok: false, error: 'Error procesando autenticación' }, 500);
+        }
+    }
 
-            const origin = result.origin || deps.resolveBrowserOrigin(c) || 'http://localhost:3005';
-            const redirectPath = result.isNewUser ? '/onboarding' : '/inicio';
-            const redirectUrl = `${origin}${redirectPath}`;
+    app.get('/google/callback', async (c) => {
+        const code = deps.asString(c.req.query('code'));
+        const state = deps.asString(c.req.query('state'));
 
-            // Devolver HTML con redirecciÃ³n JavaScript para mantener la sesiÃ³n cross-origin
-            return c.html(`
+        const callback = await completeGoogleCallback(code, state, c);
+        if (!('result' in callback)) return callback;
+
+        const origin = callback.result.origin || deps.resolveBrowserOrigin(c) || 'http://localhost:3000';
+        const redirectUrl = `${origin}/`;
+
+        // Devolver HTML con redirección JavaScript para mantener la sesión cross-origin
+        return c.html(`
 <!DOCTYPE html>
 <html>
 <head>
@@ -601,10 +585,22 @@ export function createAuthRouter(deps: AuthRouterDeps) {
     </script>
 </body>
 </html>`);
-        } catch (error) {
-            console.error('Error en google callback:', error);
-            return c.json({ ok: false, error: 'No pudimos procesar tu autenticación.' }, 500);
-        }
+    });
+
+    app.post('/google/callback', async (c) => {
+        const payload = await c.req.json().catch(() => null);
+        const body = deps.asObject(payload);
+        const code = deps.asString(body.code);
+        const state = deps.asString(body.state);
+
+        const callback = await completeGoogleCallback(code, state, c);
+        if (!('result' in callback)) return callback;
+
+        return c.json({
+            ok: true,
+            user: deps.sanitizeUser(callback.result.user),
+            isNewUser: callback.result.isNewUser,
+        });
     });
 
     app.get('/google/exchange', async (c) => {

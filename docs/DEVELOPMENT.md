@@ -1,6 +1,6 @@
 # Development Guide 🚀
 
-**Para desarrolladores que trabajan en SimpleV2**
+**Para desarrolladores que trabajan en el monorepo Simple**
 
 ---
 
@@ -8,17 +8,18 @@
 
 ```bash
 # 1. Instalar dependencias
-npm install
+pnpm install
 
 # 2. Configurar .env.local (ver template abajo)
 # 3. Iniciar todo
-npm run dev:all
+pnpm run dev:all
 
 # 4. Abrir navegadores
-# SimpleAutos:       http://localhost:3000
-# SimplePropiedades: http://localhost:3001
-# SimpleAdmin:       http://localhost:3002
-# SimplePlataforma:  http://localhost:3003
+# SimpleAdmin:       http://localhost:3000
+# SimplePlataforma:  http://localhost:3001
+# SimpleAutos:       http://localhost:3002
+# SimplePropiedades: http://localhost:3003
+# SimpleAgenda:      http://localhost:3004
 # API:               http://localhost:4000 (sin UI)
 ```
 
@@ -28,27 +29,26 @@ npm run dev:all
 
 ```bash
 # DESARROLLO
-npm run dev:all            # Todas las apps + API simultaneamente
-npm run dev:autos          # Solo SimpleAutos
-npm run dev:propiedades    # Solo SimplePropiedades
-npm run dev:simpleadmin    # Solo SimpleAdmin
-npm run dev:simpleplataforma # Solo SimplePlataforma
-npm run dev:api            # Solo API backend
+pnpm run dev:all              # Todas las apps + API simultáneamente
+pnpm run dev:simpleadmin      # Solo SimpleAdmin
+pnpm run dev:simpleplataforma # Solo SimplePlataforma
+pnpm run dev:autos            # Solo SimpleAutos
+pnpm run dev:propiedades      # Solo SimplePropiedades
+pnpm run dev:agenda           # Solo SimpleAgenda
+pnpm run dev:api              # Solo API backend
 
 # CONSTRUCCIÓN
-npm run build              # Build todas las apps
-npm run build:autos        # Build SimpleAutos
-npm run start              # Start en producción
+pnpm run build                # Build todos los workspaces
+pnpm run build:autos          # Build SimpleAutos
 
 # LINTING & VALIDACIÓN
-npm run lint               # ESLint all workspaces
-npm run type-check         # TypeScript check
+pnpm run lint                 # ESLint workspace
+pnpm -r exec tsc --noEmit     # TypeScript check en monorepo
 
-# DATABASE (cuando esté implementado)
-npm run db:generate        # Generar migrations
-npm run db:migrate         # Ejecutar migrations
-npm run db:push            # Push schema a DB
-npm run db:studio          # Drizzle Studio UI
+# DATABASE
+pnpm run db:generate          # Generar migrations (services/api)
+pnpm run db:migrate           # Ejecutar migrations (services/api)
+pnpm run db:seed              # Seed de datos (services/api)
 ```
 
 ---
@@ -96,8 +96,8 @@ npm run db:studio          # Drizzle Studio UI
    ```
 
 4. **Testear:**
-   - `npm run dev:autos`
-   - Visit http://localhost:3000/panel/mensajes
+   - `pnpm run dev:autos`
+   - Visit http://localhost:3002/panel/mensajes
 
 ---
 
@@ -328,7 +328,7 @@ import {
 
 ```bash
 # 1. Iniciar dev servers
-npm run dev:all
+pnpm run dev:all
 
 # 2. Test login
 http://localhost:3000 → Click "Ingresar" → Test login/registro
@@ -347,11 +347,12 @@ DevTools → Network → Watch requests to /api/*
 
 ```bash
 # Todos los endpoints OK
-curl http://localhost:3000   # SimpleAutos OK
-curl http://localhost:3001   # SimplePropiedades OK
-curl http://localhost:3002   # SimpleAdmin OK
-curl http://localhost:3003   # SimplePlataforma OK
-curl http://localhost:4000/api/health  # API OK (si existe)
+curl http://localhost:3000   # SimpleAdmin OK
+curl http://localhost:3001   # SimplePlataforma OK
+curl http://localhost:3002   # SimpleAutos OK
+curl http://localhost:3003   # SimplePropiedades OK
+curl http://localhost:3004   # SimpleAgenda OK
+curl http://localhost:4000/api/health  # API OK
 ```
 
 ---
@@ -372,8 +373,7 @@ kill -9 12345                  (macOS/Linux)
 ### Error: "Cannot find module '@simple/ui'"
 ```bash
 # Reinstalar
-npm install
-
+pnpm install
 # Verificar symlinks
 npm ls @simple/ui
 ```
@@ -390,10 +390,10 @@ fetch('/api/something', {
 ```bash
 # Limpiar cache
 rm -rf .next
-npm run build
+pnpm run build
 
 # O verificar tipos
-npm run type-check
+pnpm run type-check
 ```
 
 ---

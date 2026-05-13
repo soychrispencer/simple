@@ -7,7 +7,8 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 // Core Types
 // ─────────────────────────────────────────────────────────────────────────────
 
-export type VerticalType = 'autos' | 'propiedades';
+import type { ListingVerticalType } from '@simple/types';
+export type VerticalType = ListingVerticalType;
 
 export type ListingStatus = 'draft' | 'active' | 'paused' | 'sold' | 'archived';
 

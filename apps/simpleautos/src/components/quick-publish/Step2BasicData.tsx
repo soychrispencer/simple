@@ -6,7 +6,7 @@ import {
     IconTag, IconKey, IconHammer, IconMapPin, IconChevronRight,
 } from '@tabler/icons-react';
 import { PanelButton } from '@simple/ui';
-import ModernSelect from '@/components/ui/modern-select';
+import { ModernSelect } from '@simple/ui';
 import {
     type PublishWizardCatalog,
     getBrandsForVehicleType,

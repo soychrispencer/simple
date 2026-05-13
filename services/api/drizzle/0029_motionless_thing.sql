@@ -436,150 +436,6 @@ CREATE TABLE IF NOT EXISTS "push_subscriptions" (
 	"created_at" timestamp DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
-CREATE TABLE IF NOT EXISTS "serenata_assignments" (
-	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
-	"serenata_id" uuid NOT NULL,
-	"group_id" uuid NOT NULL,
-	"status" varchar(20) DEFAULT 'pending' NOT NULL,
-	"position" integer DEFAULT 0 NOT NULL,
-	"estimated_arrival" timestamp,
-	"actual_arrival" timestamp,
-	"created_at" timestamp DEFAULT now() NOT NULL,
-	"updated_at" timestamp DEFAULT now() NOT NULL
-);
---> statement-breakpoint
-CREATE TABLE IF NOT EXISTS "serenata_availability_slots" (
-	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
-	"musician_id" uuid NOT NULL,
-	"day_of_week" integer NOT NULL,
-	"start_time" varchar(5) NOT NULL,
-	"end_time" varchar(5) NOT NULL,
-	"is_available" boolean DEFAULT true NOT NULL,
-	"created_at" timestamp DEFAULT now() NOT NULL,
-	"updated_at" timestamp DEFAULT now() NOT NULL
-);
---> statement-breakpoint
-CREATE TABLE IF NOT EXISTS "serenata_group_members" (
-	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
-	"group_id" uuid NOT NULL,
-	"musician_id" uuid NOT NULL,
-	"role" varchar(30) NOT NULL,
-	"earnings" numeric(10, 2) DEFAULT '0',
-	"status" varchar(20) DEFAULT 'invited' NOT NULL,
-	"invited_at" timestamp DEFAULT now() NOT NULL,
-	"responded_at" timestamp,
-	"created_at" timestamp DEFAULT now() NOT NULL
-);
---> statement-breakpoint
-CREATE TABLE IF NOT EXISTS "serenata_groups" (
-	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
-	"name" varchar(255) NOT NULL,
-	"date" timestamp NOT NULL,
-	"created_by" uuid NOT NULL,
-	"group_lead_musician_id" uuid,
-	"serenata_ids" jsonb DEFAULT '[]' NOT NULL,
-	"optimized_order" jsonb,
-	"route_distance" numeric(10, 2),
-	"estimated_duration" integer,
-	"status" varchar(20) DEFAULT 'forming' NOT NULL,
-	"total_earnings" numeric(10, 2) DEFAULT '0',
-	"platform_commission" numeric(10, 2) DEFAULT '0',
-	"created_at" timestamp DEFAULT now() NOT NULL,
-	"updated_at" timestamp DEFAULT now() NOT NULL,
-	"confirmed_at" timestamp,
-	"started_at" timestamp,
-	"completed_at" timestamp
-);
---> statement-breakpoint
-CREATE TABLE IF NOT EXISTS "serenata_musicians" (
-	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
-	"user_id" uuid NOT NULL,
-	"instrument" varchar(30) NOT NULL,
-	"experience" integer,
-	"bio" text,
-	"avatar_url" varchar(500),
-	"comuna" varchar(100),
-	"region" varchar(100),
-	"lat" numeric(10, 8),
-	"lng" numeric(11, 8),
-	"is_available" boolean DEFAULT true NOT NULL,
-	"is_online" boolean DEFAULT false NOT NULL,
-	"available_now" boolean DEFAULT false NOT NULL,
-	"availability_schedule" jsonb,
-	"rating" numeric(3, 2) DEFAULT '5.00',
-	"total_serenatas" integer DEFAULT 0 NOT NULL,
-	"completed_serenatas" integer DEFAULT 0 NOT NULL,
-	"payment_info" jsonb,
-	"commission_rate" numeric(5, 2) DEFAULT '10.00',
-	"status" varchar(20) DEFAULT 'active' NOT NULL,
-	"verified_at" timestamp,
-	"created_at" timestamp DEFAULT now() NOT NULL,
-	"updated_at" timestamp DEFAULT now() NOT NULL
-);
---> statement-breakpoint
-CREATE TABLE IF NOT EXISTS "serenata_requests" (
-	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
-	"client_name" varchar(255) NOT NULL,
-	"client_phone" varchar(20) NOT NULL,
-	"client_email" varchar(255),
-	"address" text NOT NULL,
-	"comuna" varchar(100),
-	"lat" numeric(10, 8),
-	"lng" numeric(11, 8),
-	"date_time" timestamp NOT NULL,
-	"duration" integer DEFAULT 30 NOT NULL,
-	"occasion" varchar(50),
-	"message" text,
-	"special_requests" text,
-	"required_instruments" jsonb,
-	"min_musicians" integer DEFAULT 3 NOT NULL,
-	"max_musicians" integer,
-	"price" numeric(10, 2) NOT NULL,
-	"commission" numeric(10, 2),
-	"status" varchar(20) DEFAULT 'pending' NOT NULL,
-	"urgency" varchar(20) DEFAULT 'normal' NOT NULL,
-	"assigned_group_id" uuid,
-	"assigned_at" timestamp,
-	"source" varchar(30) DEFAULT 'web',
-	"created_at" timestamp DEFAULT now() NOT NULL,
-	"updated_at" timestamp DEFAULT now() NOT NULL,
-	"completed_at" timestamp,
-	"cancelled_at" timestamp,
-	"cancellation_reason" text
-);
---> statement-breakpoint
-CREATE TABLE IF NOT EXISTS "serenata_reviews" (
-	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
-	"serenata_id" uuid NOT NULL,
-	"group_id" uuid NOT NULL,
-	"reviewer_type" varchar(20) NOT NULL,
-	"reviewer_id" varchar(255) NOT NULL,
-	"overall_rating" integer NOT NULL,
-	"punctuality_rating" integer,
-	"music_quality_rating" integer,
-	"professionalism_rating" integer,
-	"comment" text,
-	"is_public" boolean DEFAULT false NOT NULL,
-	"moderated_at" timestamp,
-	"created_at" timestamp DEFAULT now() NOT NULL
-);
---> statement-breakpoint
-CREATE TABLE IF NOT EXISTS "serenata_routes" (
-	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
-	"group_id" uuid NOT NULL,
-	"date" timestamp NOT NULL,
-	"waypoints" jsonb NOT NULL,
-	"total_distance" numeric(10, 2),
-	"total_duration" integer,
-	"optimization_type" varchar(30) DEFAULT 'nearest_neighbor',
-	"is_optimized" boolean DEFAULT false NOT NULL,
-	"status" varchar(20) DEFAULT 'planned' NOT NULL,
-	"started_at" timestamp,
-	"completed_at" timestamp,
-	"created_at" timestamp DEFAULT now() NOT NULL,
-	"updated_at" timestamp DEFAULT now() NOT NULL
-);
---> statement-breakpoint
 CREATE TABLE IF NOT EXISTS "subscription_plans" (
 	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
 	"vertical" varchar(20) NOT NULL,
@@ -697,17 +553,6 @@ DO $$ BEGIN ALTER TABLE "agenda_session_notes" ADD CONSTRAINT "agenda_session_no
 DO $$ BEGIN ALTER TABLE "payment_orders" ADD CONSTRAINT "payment_orders_user_id_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."users"("id") ON DELETE no action ON UPDATE no action; EXCEPTION WHEN duplicate_object THEN NULL; END $$;--> statement-breakpoint
 DO $$ BEGIN ALTER TABLE "payment_orders" ADD CONSTRAINT "payment_orders_subscription_id_subscriptions_id_fk" FOREIGN KEY ("subscription_id") REFERENCES "public"."subscriptions"("id") ON DELETE no action ON UPDATE no action; EXCEPTION WHEN duplicate_object THEN NULL; END $$;--> statement-breakpoint
 DO $$ BEGIN ALTER TABLE "push_subscriptions" ADD CONSTRAINT "push_subscriptions_user_id_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."users"("id") ON DELETE no action ON UPDATE no action; EXCEPTION WHEN duplicate_object THEN NULL; END $$;--> statement-breakpoint
-DO $$ BEGIN ALTER TABLE "serenata_assignments" ADD CONSTRAINT "serenata_assignments_serenata_id_serenata_requests_id_fk" FOREIGN KEY ("serenata_id") REFERENCES "public"."serenata_requests"("id") ON DELETE no action ON UPDATE no action; EXCEPTION WHEN duplicate_object THEN NULL; END $$;--> statement-breakpoint
-DO $$ BEGIN ALTER TABLE "serenata_assignments" ADD CONSTRAINT "serenata_assignments_group_id_serenata_groups_id_fk" FOREIGN KEY ("group_id") REFERENCES "public"."serenata_groups"("id") ON DELETE no action ON UPDATE no action; EXCEPTION WHEN duplicate_object THEN NULL; END $$;--> statement-breakpoint
-DO $$ BEGIN ALTER TABLE "serenata_availability_slots" ADD CONSTRAINT "serenata_availability_slots_musician_id_serenata_musicians_id_fk" FOREIGN KEY ("musician_id") REFERENCES "public"."serenata_musicians"("id") ON DELETE no action ON UPDATE no action; EXCEPTION WHEN duplicate_object THEN NULL; END $$;--> statement-breakpoint
-DO $$ BEGIN ALTER TABLE "serenata_group_members" ADD CONSTRAINT "serenata_group_members_group_id_serenata_groups_id_fk" FOREIGN KEY ("group_id") REFERENCES "public"."serenata_groups"("id") ON DELETE no action ON UPDATE no action; EXCEPTION WHEN duplicate_object THEN NULL; END $$;--> statement-breakpoint
-DO $$ BEGIN ALTER TABLE "serenata_group_members" ADD CONSTRAINT "serenata_group_members_musician_id_serenata_musicians_id_fk" FOREIGN KEY ("musician_id") REFERENCES "public"."serenata_musicians"("id") ON DELETE no action ON UPDATE no action; EXCEPTION WHEN duplicate_object THEN NULL; END $$;--> statement-breakpoint
-DO $$ BEGIN ALTER TABLE "serenata_groups" ADD CONSTRAINT "serenata_groups_created_by_serenata_musicians_id_fk" FOREIGN KEY ("created_by") REFERENCES "public"."serenata_musicians"("id") ON DELETE no action ON UPDATE no action; EXCEPTION WHEN duplicate_object THEN NULL; END $$;--> statement-breakpoint
-DO $$ BEGIN ALTER TABLE "serenata_groups" ADD CONSTRAINT "serenata_groups_group_lead_musician_id_serenata_musicians_id_fk" FOREIGN KEY ("group_lead_musician_id") REFERENCES "public"."serenata_musicians"("id") ON DELETE no action ON UPDATE no action; EXCEPTION WHEN duplicate_object THEN NULL; END $$;--> statement-breakpoint
-DO $$ BEGIN ALTER TABLE "serenata_musicians" ADD CONSTRAINT "serenata_musicians_user_id_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."users"("id") ON DELETE no action ON UPDATE no action; EXCEPTION WHEN duplicate_object THEN NULL; END $$;--> statement-breakpoint
-DO $$ BEGIN ALTER TABLE "serenata_reviews" ADD CONSTRAINT "serenata_reviews_serenata_id_serenata_requests_id_fk" FOREIGN KEY ("serenata_id") REFERENCES "public"."serenata_requests"("id") ON DELETE no action ON UPDATE no action; EXCEPTION WHEN duplicate_object THEN NULL; END $$;--> statement-breakpoint
-DO $$ BEGIN ALTER TABLE "serenata_reviews" ADD CONSTRAINT "serenata_reviews_group_id_serenata_groups_id_fk" FOREIGN KEY ("group_id") REFERENCES "public"."serenata_groups"("id") ON DELETE no action ON UPDATE no action; EXCEPTION WHEN duplicate_object THEN NULL; END $$;--> statement-breakpoint
-DO $$ BEGIN ALTER TABLE "serenata_routes" ADD CONSTRAINT "serenata_routes_group_id_serenata_groups_id_fk" FOREIGN KEY ("group_id") REFERENCES "public"."serenata_groups"("id") ON DELETE no action ON UPDATE no action; EXCEPTION WHEN duplicate_object THEN NULL; END $$;--> statement-breakpoint
 DO $$ BEGIN ALTER TABLE "subscriptions" ADD CONSTRAINT "subscriptions_user_id_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."users"("id") ON DELETE no action ON UPDATE no action; EXCEPTION WHEN duplicate_object THEN NULL; END $$;--> statement-breakpoint
 DO $$ BEGIN ALTER TABLE "subscriptions" ADD CONSTRAINT "subscriptions_plan_id_subscription_plans_id_fk" FOREIGN KEY ("plan_id") REFERENCES "public"."subscription_plans"("id") ON DELETE no action ON UPDATE no action; EXCEPTION WHEN others THEN NULL; END $$;--> statement-breakpoint
 CREATE INDEX IF NOT EXISTS "address_book_user_id_idx" ON "address_book" USING btree ("user_id");--> statement-breakpoint
@@ -765,29 +610,6 @@ CREATE INDEX IF NOT EXISTS "payment_orders_kind_idx" ON "payment_orders" USING b
 CREATE INDEX IF NOT EXISTS "payment_orders_vertical_idx" ON "payment_orders" USING btree ("vertical");--> statement-breakpoint
 CREATE INDEX IF NOT EXISTS "push_subscriptions_user_idx" ON "push_subscriptions" USING btree ("user_id");--> statement-breakpoint
 CREATE UNIQUE INDEX IF NOT EXISTS "push_subscriptions_endpoint_idx" ON "push_subscriptions" USING btree ("endpoint");--> statement-breakpoint
-CREATE UNIQUE INDEX IF NOT EXISTS "serenata_assignments_serenata_idx" ON "serenata_assignments" USING btree ("serenata_id");--> statement-breakpoint
-CREATE INDEX IF NOT EXISTS "serenata_assignments_group_idx" ON "serenata_assignments" USING btree ("group_id");--> statement-breakpoint
-CREATE INDEX IF NOT EXISTS "serenata_availability_musician_idx" ON "serenata_availability_slots" USING btree ("musician_id");--> statement-breakpoint
-CREATE INDEX IF NOT EXISTS "serenata_availability_day_idx" ON "serenata_availability_slots" USING btree ("day_of_week");--> statement-breakpoint
-CREATE UNIQUE INDEX IF NOT EXISTS "serenata_group_members_unique_idx" ON "serenata_group_members" USING btree ("group_id","musician_id");--> statement-breakpoint
-CREATE INDEX IF NOT EXISTS "serenata_group_members_group_idx" ON "serenata_group_members" USING btree ("group_id");--> statement-breakpoint
-CREATE INDEX IF NOT EXISTS "serenata_group_members_musician_idx" ON "serenata_group_members" USING btree ("musician_id");--> statement-breakpoint
-CREATE INDEX IF NOT EXISTS "serenata_groups_date_idx" ON "serenata_groups" USING btree ("date");--> statement-breakpoint
-CREATE INDEX IF NOT EXISTS "serenata_groups_lead_musician_idx" ON "serenata_groups" USING btree ("group_lead_musician_id");--> statement-breakpoint
-CREATE INDEX IF NOT EXISTS "serenata_groups_status_idx" ON "serenata_groups" USING btree ("status");--> statement-breakpoint
-CREATE UNIQUE INDEX IF NOT EXISTS "serenata_musicians_user_idx" ON "serenata_musicians" USING btree ("user_id");--> statement-breakpoint
-CREATE INDEX IF NOT EXISTS "serenata_musicians_location_idx" ON "serenata_musicians" USING btree ("lat","lng");--> statement-breakpoint
-CREATE INDEX IF NOT EXISTS "serenata_musicians_available_idx" ON "serenata_musicians" USING btree ("is_available");--> statement-breakpoint
-CREATE INDEX IF NOT EXISTS "serenata_musicians_available_now_idx" ON "serenata_musicians" USING btree ("available_now");--> statement-breakpoint
-CREATE INDEX IF NOT EXISTS "serenata_musicians_instrument_idx" ON "serenata_musicians" USING btree ("instrument");--> statement-breakpoint
-CREATE INDEX IF NOT EXISTS "serenata_requests_date_time_idx" ON "serenata_requests" USING btree ("date_time");--> statement-breakpoint
-CREATE INDEX IF NOT EXISTS "serenata_requests_status_idx" ON "serenata_requests" USING btree ("status");--> statement-breakpoint
-CREATE INDEX IF NOT EXISTS "serenata_requests_location_idx" ON "serenata_requests" USING btree ("lat","lng");--> statement-breakpoint
-CREATE INDEX IF NOT EXISTS "serenata_requests_urgency_idx" ON "serenata_requests" USING btree ("urgency");--> statement-breakpoint
-CREATE UNIQUE INDEX IF NOT EXISTS "serenata_reviews_serenata_idx" ON "serenata_reviews" USING btree ("serenata_id","reviewer_id");--> statement-breakpoint
-CREATE INDEX IF NOT EXISTS "serenata_reviews_group_idx" ON "serenata_reviews" USING btree ("group_id");--> statement-breakpoint
-CREATE UNIQUE INDEX IF NOT EXISTS "serenata_routes_group_idx" ON "serenata_routes" USING btree ("group_id");--> statement-breakpoint
-CREATE INDEX IF NOT EXISTS "serenata_routes_date_idx" ON "serenata_routes" USING btree ("date");--> statement-breakpoint
 CREATE UNIQUE INDEX IF NOT EXISTS "subscription_plans_vertical_plan_idx" ON "subscription_plans" USING btree ("vertical","plan_id");--> statement-breakpoint
 CREATE INDEX IF NOT EXISTS "subscription_plans_vertical_idx" ON "subscription_plans" USING btree ("vertical");--> statement-breakpoint
 CREATE UNIQUE INDEX IF NOT EXISTS "subscriptions_user_vertical_idx" ON "subscriptions" USING btree ("user_id","vertical");--> statement-breakpoint

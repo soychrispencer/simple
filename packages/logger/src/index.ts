@@ -96,7 +96,7 @@ function log(level: LogLevel, message: string, meta?: LogMeta, err?: Error): voi
     } else if (level === 'warn') {
         console.warn(formatted);
     } else {
-        console.log(formatted);
+        console.info(formatted);
     }
 }
 

@@ -1,6 +1,6 @@
 import { API_BASE } from '@simple/config';
 
-type VerticalType = 'autos' | 'propiedades' | 'agenda' | 'serenatas';
+type VerticalType = 'autos' | 'propiedades' | 'agenda';
 
 export type AdminSessionUser = {
     id: string;
@@ -36,7 +36,6 @@ export type AdminUserListItem = {
     id: string;
     name: string;
     email: string;
-    /** Rol en `users.role` (incluye rol de app Serenatas cuando aplica). */
     role: 'user' | 'admin' | 'superadmin' | 'client' | 'musician' | 'coordinator';
     status: 'active' | 'verified' | 'suspended';
     provider: string | null;
@@ -50,7 +49,14 @@ export type AdminUserListItem = {
         agenda?: { plan: 'free' | 'pro'; expiresAt: string | null; status: 'active' | 'expired' | 'free' } | null;
         autos?: { planId: string | null; planName: string | null; status: string; expiresAt: string | null } | null;
         propiedades?: { planId: string | null; planName: string | null; status: string; expiresAt: string | null } | null;
-        serenatas?: { planId: string | null; planName: string | null; status: string; roleLabel?: string | null; activityCount?: number | null } | null;
+    } | null;
+    serenatas?: {
+        client: boolean;
+        musician: boolean;
+        coordinator: boolean;
+        instrument: string | null;
+        coordinatorStatus: string | null;
+        trialEndsAt: string | null;
     } | null;
 };
 
@@ -77,7 +83,7 @@ export type AdminListingListItem = {
 
 export type AdminServiceLead = {
     id: string;
-    vertical: 'autos' | 'propiedades' | 'serenatas';
+    vertical: 'autos' | 'propiedades';
     serviceType: 'venta_asistida' | 'gestion_inmobiliaria';
     serviceLabel: string;
     planId: 'basico' | 'premium';
@@ -414,23 +420,6 @@ export async function updateAdminUserSubscriptions(
     }
 }
 
-export type AdminSerenataPayment = {
-    id: string;
-    status: 'pending' | 'holding' | 'released' | 'refunded' | 'disputed';
-    totalAmount: number;
-    platformCommission: number;
-    commissionVat: number;
-    coordinatorEarnings: number;
-    createdAt: string | null;
-    releasedToCoordinatorAt: string | null;
-    refundedAt: string | null;
-    coordinatorProfileId: string | null;
-    coordinatorUserId: string | null;
-    coordinatorName: string | null;
-    serenataId: string | null;
-    clientName: string | null;
-};
-
 export type AdminAuditLogItem = {
     id: string;
     actorUserId: string;
@@ -440,53 +429,6 @@ export type AdminAuditLogItem = {
     payload: Record<string, unknown>;
     createdAt: string | null;
 };
-
-export async function updateAdminUserSerenatasRole(
-    userId: string,
-    role: 'client' | 'musician' | 'coordinator'
-): Promise<{ ok: boolean; error?: string }> {
-    try {
-        const { response, data } = await apiRequest(`/api/admin/users/${encodeURIComponent(userId)}/serenatas-role`, {
-            method: 'PATCH',
-            body: JSON.stringify({ role }),
-        });
-        if (!response.ok || !data?.ok) return { ok: false, error: data?.error || 'No pudimos actualizar el rol de serenatas.' };
-        return { ok: true };
-    } catch {
-        return { ok: false, error: 'No pudimos conectar con el backend.' };
-    }
-}
-
-export async function fetchAdminSerenataPayments(filters?: {
-    status?: AdminSerenataPayment['status'] | 'all';
-    from?: string;
-    to?: string;
-}): Promise<AdminSerenataPayment[]> {
-    const params = new URLSearchParams();
-    if (filters?.status && filters.status !== 'all') params.set('status', filters.status);
-    if (filters?.from) params.set('from', filters.from);
-    if (filters?.to) params.set('to', filters.to);
-    const suffix = params.toString() ? `?${params.toString()}` : '';
-    const { response, data } = await apiRequest<{ items?: AdminSerenataPayment[] }>(`/api/admin/serenatas/payments${suffix}`, { method: 'GET' });
-    if (!response.ok || !data?.ok) return [];
-    return data.items || [];
-}
-
-export async function updateAdminSerenataPaymentStatus(
-    paymentId: string,
-    status: AdminSerenataPayment['status']
-): Promise<{ ok: boolean; error?: string }> {
-    try {
-        const { response, data } = await apiRequest(`/api/admin/serenatas/payments/${encodeURIComponent(paymentId)}/status`, {
-            method: 'PATCH',
-            body: JSON.stringify({ status }),
-        });
-        if (!response.ok || !data?.ok) return { ok: false, error: data?.error || 'No pudimos actualizar el pago.' };
-        return { ok: true };
-    } catch {
-        return { ok: false, error: 'No pudimos conectar con el backend.' };
-    }
-}
 
 export async function fetchAdminAuditLogs(filters?: {
     entityType?: string;

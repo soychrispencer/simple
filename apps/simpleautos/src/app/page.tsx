@@ -130,6 +130,7 @@ export default function HomePage() {
     const [slides, setSlides] = useState<HeroSlide[]>(BASE_SLIDES);
     const [cardAds, setCardAds] = useState<SponsoredBlock[]>([]);
     const [isMobileViewport, setIsMobileViewport] = useState(false);
+    const [hasMounted, setHasMounted] = useState(false);
 
     const dragStartXRef = useRef<number | null>(null);
     const dragDeltaXRef = useRef(0);
@@ -158,6 +159,7 @@ export default function HomePage() {
     }, []);
 
     useEffect(() => {
+        setHasMounted(true);
         reloadSlides();
         const onCampaignUpdate = () => reloadSlides();
 
@@ -257,7 +259,9 @@ export default function HomePage() {
         suppressClickRef.current = false;
     }, []);
 
-    const heroImage = isMobileViewport
+    // Use desktop image during SSR to ensure consistent hydration,
+    // then switch to mobile-aware selection after mount.
+    const heroImage = hasMounted && isMobileViewport
         ? activeSlide.mobileImageUrl ?? activeSlide.desktopImageUrl
         : activeSlide.desktopImageUrl ?? activeSlide.mobileImageUrl;
 

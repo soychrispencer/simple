@@ -1,6 +1,7 @@
 'use client';
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { IconX, IconBrandGoogle, IconMail, IconLock, IconUser, IconMailCheck } from '@tabler/icons-react';
 import { API_BASE } from '@simple/config';
 import { PanelButton, PanelIconButton, PanelNotice } from '@simple/ui';
@@ -9,8 +10,21 @@ import { useAuth } from './auth-context';
 
 type Mode = 'login' | 'register' | 'recovery' | 'verify-email';
 
-export function AuthModal() {
-    const { authOpen, closeAuth, login, register, logout } = useAuth();
+type AuthModalProps = {
+    allowRegister?: boolean;
+    registerIntro?: ReactNode;
+    canSubmitRegister?: boolean;
+    registerDisabledMessage?: string;
+};
+
+export function AuthModal({
+    allowRegister = true,
+    registerIntro,
+    canSubmitRegister = true,
+    registerDisabledMessage = 'Completa los datos requeridos para crear tu cuenta.',
+}: AuthModalProps = {}) {
+    const { authOpen, authInitialMode, closeAuth, login, register, logout } = useAuth();
+    const [portalElement, setPortalElement] = useState<HTMLDivElement | null>(null);
     const dialogRef = useRef<HTMLDivElement>(null);
     const [mode, setMode] = useState<Mode>('login');
     const [email, setEmail] = useState('');
@@ -43,12 +57,23 @@ export function AuthModal() {
     };
 
     useEffect(() => {
+        const el = document.createElement('div');
+        document.body.appendChild(el);
+        setPortalElement(el);
+        return () => {
+            document.body.removeChild(el);
+            setPortalElement(null);
+        };
+    }, []);
+
+    useEffect(() => {
         if (!authOpen) return;
+        setMode(allowRegister ? authInitialMode : 'login');
         const timeoutId = window.setTimeout(() => {
             dialogRef.current?.focus();
         }, 0);
         return () => window.clearTimeout(timeoutId);
-    }, [authOpen]);
+    }, [allowRegister, authInitialMode, authOpen]);
 
     useEffect(() => {
         if (!authOpen) return;
@@ -100,7 +125,7 @@ export function AuthModal() {
         return 'Fuerte';
     }, [password]);
 
-    if (!authOpen) return null;
+    if (!authOpen || !portalElement) return null;
 
     const handleLogin = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -122,6 +147,10 @@ export function AuthModal() {
     const handleRegister = async (e: React.FormEvent) => {
         e.preventDefault();
         setError('');
+        if (!canSubmitRegister) {
+            setError(registerDisabledMessage);
+            return;
+        }
         if (password.length < 8) {
             setError('La contraseña debe tener al menos 8 caracteres.');
             return;
@@ -136,6 +165,10 @@ export function AuthModal() {
         if (!result.ok || !result.user) {
             setError(result.error || 'No pudimos completar el registro.');
         } else {
+            if (result.user.status === 'verified') {
+                handleClose();
+                return;
+            }
             setRegisteredEmail(result.user.email);
             setSuccess('');
             setMode('verify-email');
@@ -200,8 +233,8 @@ export function AuthModal() {
         }
     };
 
-    return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center" onClick={handleClose}>
+    return createPortal(
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" onClick={handleClose}>
             <div className="absolute inset-0" style={{ background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(4px)' }} />
             <div
                 ref={dialogRef}
@@ -209,7 +242,7 @@ export function AuthModal() {
                 aria-modal="true"
                 aria-labelledby="auth-modal-title"
                 tabIndex={-1}
-                className="relative w-full max-w-md mx-4 rounded-xl p-6 animate-scale-in"
+                className="relative w-full max-w-sm max-h-[90vh] overflow-y-auto rounded-2xl shadow-2xl animate-scale-in"
                 style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}
                 onClick={(e) => e.stopPropagation()}
             >
@@ -218,26 +251,17 @@ export function AuthModal() {
                     aria-label="Cerrar modal"
                     disabled={submitting}
                     type="button"
+                    className="absolute top-3 right-3 z-10 flex items-center justify-center w-9 h-9 bg-transparent border-none"
                     style={{
-                        position: 'absolute',
-                        top: '12px',
-                        right: '12px',
-                        background: 'transparent',
-                        border: 'none',
                         cursor: submitting ? 'not-allowed' : 'pointer',
                         color: 'var(--fg)',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        width: '36px',
-                        height: '36px',
-                        zIndex: 10,
                         opacity: submitting ? 0.5 : 1,
                     }}
                 >
                     <IconX size={24} strokeWidth={2.5} />
                 </button>
 
+                <div className="p-5 sm:p-6">
                 {mode === 'login' && (
                     <>
                         <h2 id="auth-modal-title" className="text-lg font-semibold mb-1" style={{ color: 'var(--fg)' }}>
@@ -251,16 +275,16 @@ export function AuthModal() {
                                 {error}
                             </PanelNotice>
                         ) : null}
-                        <form onSubmit={handleLogin} className="space-y-0" aria-label="Formulario de inicio de sesión">
-                            <div className="relative flex items-center mb-5">
+                        <form onSubmit={handleLogin} className="grid gap-4" aria-label="Formulario de inicio de sesión">
+                            <div className="relative flex items-center">
                                 <IconMail size={16} className="pointer-events-none absolute" style={{ color: 'var(--fg-muted)', left: '12px' }} />
                                 <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} className="form-input" placeholder="Correo electrónico" required style={{ background: 'var(--surface)', color: 'var(--fg)', borderColor: 'var(--border)', paddingLeft: '40px' }} />
                             </div>
-                            <div className="relative flex items-center mb-6">
+                            <div className="relative flex items-center">
                                 <IconLock size={16} className="pointer-events-none absolute" style={{ color: 'var(--fg-muted)', left: '12px' }} />
                                 <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} className="form-input" placeholder="Contraseña" required style={{ background: 'var(--surface)', color: 'var(--fg)', borderColor: 'var(--border)', paddingLeft: '40px' }} />
                             </div>
-                            <PanelButton type="submit" variant="primary" className="w-full mt-4" disabled={submitting}>
+                            <PanelButton type="submit" variant="primary" className="w-full" disabled={submitting}>
                                 {submitting ? 'Ingresando...' : 'Iniciar sesión'}
                             </PanelButton>
                         </form>
@@ -280,14 +304,16 @@ export function AuthModal() {
                             <button onClick={() => { setMode('recovery'); setError(''); }} style={{ color: 'var(--fg-muted)' }} disabled={submitting}>
                                 ¿Olvidaste tu contraseña?
                             </button>
-                            <button onClick={() => { setMode('register'); setError(''); }} className="font-medium" style={{ color: 'var(--fg)' }} disabled={submitting}>
-                                Crear cuenta
-                            </button>
+                            {allowRegister ? (
+                                <button onClick={() => { setMode('register'); setError(''); }} className="font-medium" style={{ color: 'var(--fg)' }} disabled={submitting}>
+                                    Crear cuenta
+                                </button>
+                            ) : null}
                         </div>
                     </>
                 )}
 
-                {mode === 'register' && (
+                {allowRegister && mode === 'register' && (
                     <>
                         <h2 id="auth-modal-title" className="text-lg font-semibold mb-1" style={{ color: 'var(--fg)' }}>
                             Crear cuenta
@@ -300,34 +326,38 @@ export function AuthModal() {
                                 {error}
                             </PanelNotice>
                         ) : null}
-                        <form onSubmit={handleRegister} className="space-y-0" aria-label="Formulario de registro">
-                            <div className="relative flex items-center mb-5">
+                        {registerIntro ? <div className="mb-4">{registerIntro}</div> : null}
+                        <form onSubmit={handleRegister} className="grid gap-4" aria-label="Formulario de registro">
+                            <div className="relative flex items-center">
                                 <IconUser size={16} className="pointer-events-none absolute" style={{ color: 'var(--fg-muted)', left: '12px' }} />
                                 <input type="text" value={name} onChange={(e) => setName(e.target.value)} className="form-input" placeholder="Nombre completo" required style={{ background: 'var(--surface)', color: 'var(--fg)', borderColor: 'var(--border)', paddingLeft: '40px' }} />
                             </div>
-                            <div className="relative flex items-center mb-5">
+                            <div className="relative flex items-center">
                                 <IconMail size={16} className="pointer-events-none absolute" style={{ color: 'var(--fg-muted)', left: '12px' }} />
                                 <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} className="form-input" placeholder="Correo electrónico" required style={{ background: 'var(--surface)', color: 'var(--fg)', borderColor: 'var(--border)', paddingLeft: '40px' }} />
                             </div>
-                            <div className="relative flex items-center mb-5">
+                            <div className="relative flex items-center">
                                 <IconLock size={16} className="pointer-events-none absolute" style={{ color: 'var(--fg-muted)', left: '12px' }} />
                                 <input type="password" minLength={8} value={password} onChange={(e) => setPassword(e.target.value)} className="form-input" placeholder="Contraseña (mínimo 8 caracteres)" required style={{ background: 'var(--surface)', color: 'var(--fg)', borderColor: 'var(--border)', paddingLeft: '40px' }} />
                             </div>
                             {password ? (
-                                <p className="text-xs mb-5" style={{ color: passwordStrength === 'Débil' ? '#dc2626' : 'var(--fg-muted)' }}>
+                                <p className="text-xs" style={{ color: passwordStrength === 'Débil' ? '#dc2626' : 'var(--fg-muted)' }}>
                                     Fortaleza: {passwordStrength}
                                 </p>
                             ) : null}
-                            <div className="relative flex items-center mb-6">
+                            <div className="relative flex items-center">
                                 <IconLock size={16} className="pointer-events-none absolute" style={{ color: 'var(--fg-muted)', left: '12px' }} />
                                 <input type="password" minLength={8} value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} className="form-input" placeholder="Confirmar contraseña" required style={{ background: 'var(--surface)', color: 'var(--fg)', borderColor: 'var(--border)', paddingLeft: '40px' }} />
                             </div>
-                            <PanelButton type="submit" variant="primary" className="w-full mt-4" disabled={submitting}>
+                            <PanelButton type="submit" variant="primary" className="w-full" disabled={submitting || !canSubmitRegister}>
                                 {submitting ? 'Creando...' : 'Crear cuenta'}
                             </PanelButton>
                         </form>
-                        <GoogleLoginButton disabled={submitting} onError={(message) => setError(message)}>
-                            <PanelButton variant="secondary" className="mt-3 w-full" disabled={submitting}>
+                        <GoogleLoginButton
+                            disabled={submitting || !canSubmitRegister}
+                            onError={(message) => setError(message)}
+                        >
+                            <PanelButton variant="secondary" className="mt-3 w-full" disabled={submitting || !canSubmitRegister}>
                                 <IconBrandGoogle size={15} /> Continuar con Google
                             </PanelButton>
                         </GoogleLoginButton>
@@ -449,7 +479,9 @@ export function AuthModal() {
                         </button>
                     </>
                 )}
+                </div>
             </div>
-        </div>
+        </div>,
+        portalElement
     );
 }

@@ -20,8 +20,8 @@ import {
     IconSparkles,
 } from '@tabler/icons-react';
 import PanelSectionHeader from '@/components/panel/panel-section-header';
-import ModernSelect from '@/components/ui/modern-select';
-import { useAuth } from '@/context/auth-context';
+import { ModernSelect } from '@simple/ui';
+import { useAuth } from '@simple/auth';
 import { uploadMediaFile } from '@simple/utils';
 import { getPublicationLifecyclePolicy, type PublicationLifecyclePolicy } from '@simple/config';
 import {
@@ -2020,7 +2020,7 @@ export default function PublishWizardPage() {
     };
 
     return (
-        <div className="container-app panel-page max-w-6xl py-8">
+        <div className="container-app panel-page max-w-6xl py-4 lg:py-8">
             <PanelSectionHeader
                 title={isEditing ? 'Editar propiedad' : 'Publicar propiedad'}
                 description={`Paso ${stepIndex + 1} de ${STEPS.length}`}

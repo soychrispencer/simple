@@ -1,5 +1,4 @@
 import { Hono } from 'hono';
-import { COORDINATOR_SUBSCRIPTION_PLAN } from '../serenatas/constants.js';
 import {
     type CrmServiceDeps,
     type AppUser,
@@ -32,6 +31,7 @@ import {
     mapListingLeadRow,
 } from '../crm/service.js';
 
+
 export type AdminRouterDeps = CrmServiceDeps & {
     authUser: (c: any) => Promise<AppUser | null>;
     isAdminRole: (role: any) => boolean;
@@ -57,60 +57,10 @@ export type AdminRouterDeps = CrmServiceDeps & {
     tables: CrmServiceDeps['tables'] & {
         agendaProfessionalProfiles: any;
         subscriptions?: any;
-        serenataCoordinatorProfiles?: any;
-        serenataMusicians?: any;
-        serenataPayments?: any;
-        serenatas?: any;
     };
     sql: any;
 };
 
-/** Recorre `cause` y adjunta `code`/`detail`/`hint` de Postgres (PostgresError no siempre va en el primer nivel). */
-function serializePgErrorChain(error: unknown): string {
-    const parts: string[] = [];
-    const seen = new Set<unknown>();
-    let cur: unknown = error;
-    for (let depth = 0; depth < 14 && cur != null; depth++) {
-        if (seen.has(cur)) break;
-        seen.add(cur);
-        if (cur instanceof Error) {
-            parts.push(cur.message);
-        } else if (typeof cur === 'object') {
-            const o = cur as Record<string, unknown>;
-            if (typeof o.message === 'string') parts.push(o.message);
-        } else {
-            parts.push(String(cur));
-        }
-        if (typeof cur === 'object' && cur !== null) {
-            const o = cur as Record<string, unknown>;
-            if (typeof o.code === 'string') parts.push(`code=${o.code}`);
-            if (typeof o.detail === 'string' && o.detail) parts.push(o.detail);
-            if (typeof o.hint === 'string' && o.hint) parts.push(`hint=${o.hint}`);
-            if (typeof o.column === 'string') parts.push(`column=${o.column}`);
-        }
-        cur = typeof cur === 'object' && cur !== null && 'cause' in cur ? (cur as { cause?: unknown }).cause : undefined;
-    }
-    return parts.join(' | ');
-}
-
-/** SQLSTATE Postgres (5 caracteres; ej. `42P01` relación inexistente, `42703` columna inexistente). */
-function pickPgCode(error: unknown): string | undefined {
-    let cur: unknown = error;
-    const seen = new Set<unknown>();
-    for (let depth = 0; depth < 14 && cur != null; depth++) {
-        if (seen.has(cur)) break;
-        seen.add(cur);
-        if (typeof cur === 'object' && cur !== null && 'code' in cur) {
-            const c = (cur as { code?: unknown }).code;
-            if (typeof c === 'string' && /^[0-9A-Z]{5}$/i.test(c)) return c.toUpperCase();
-        }
-        cur =
-            typeof cur === 'object' && cur !== null && 'cause' in cur
-                ? (cur as { cause?: unknown }).cause
-                : undefined;
-    }
-    return undefined;
-}
 
 export function createAdminRouter(deps: AdminRouterDeps) {
     const app = new Hono();
@@ -372,60 +322,6 @@ export function createAdminRouter(deps: AdminRouterDeps) {
                 results.propiedades = { planId, status, expiresAt: expiresAt?.toISOString() || null };
             }
 
-            if (subData.serenatas) {
-                const planId = subData.serenatas.planId || null;
-                const status = subData.serenatas.status || 'active';
-                const expiresAt = subData.serenatas.expiresAt ? new Date(subData.serenatas.expiresAt) : null;
-                const existing = await deps.db.execute(deps.sql`
-                    SELECT id FROM subscriptions WHERE user_id = ${userId} AND vertical = 'serenatas' LIMIT 1
-                `);
-                if (existing.length > 0) {
-                    await deps.db.execute(deps.sql`
-                        UPDATE subscriptions SET plan_id = ${planId}, status = ${status}, expires_at = ${expiresAt}, updated_at = now()
-                        WHERE id = ${(existing[0] as any).id}
-                    `);
-                } else if (planId) {
-                    await deps.db.execute(deps.sql`
-                        INSERT INTO subscriptions (account_id, user_id, plan_id, vertical, status, provider, expires_at)
-                        VALUES (${targetAccount.id}, ${userId}, ${planId}, 'serenatas', ${status}, 'manual', ${expiresAt})
-                    `);
-                }
-
-                if (deps.tables.serenataCoordinatorProfiles) {
-                    const [prof] = await deps.db
-                        .select()
-                        .from(deps.tables.serenataCoordinatorProfiles)
-                        .where(deps.eq(deps.tables.serenataCoordinatorProfiles.userId, userId))
-                        .limit(1);
-                    if (prof) {
-                        await deps.db
-                            .update(deps.tables.serenataCoordinatorProfiles)
-                            .set({
-                                subscriptionPlan:
-                                    planId ?? prof.subscriptionPlan ?? COORDINATOR_SUBSCRIPTION_PLAN,
-                                subscriptionStatus: planId ? status : 'paused',
-                                subscriptionEndsAt: expiresAt,
-                                updatedAt: new Date(),
-                            })
-                            .where(deps.eq(deps.tables.serenataCoordinatorProfiles.id, prof.id));
-                    } else if (planId) {
-                        await deps.db.insert(deps.tables.serenataCoordinatorProfiles).values({
-                            userId,
-                            subscriptionPlan: planId,
-                            subscriptionStatus: status,
-                            subscriptionEndsAt: expiresAt,
-                        });
-                    }
-                    if (planId === COORDINATOR_SUBSCRIPTION_PLAN && status === 'active') {
-                        await deps.db
-                            .update(deps.tables.users)
-                            .set({ role: 'coordinator', updatedAt: new Date() })
-                            .where(deps.eq(deps.tables.users.id, userId));
-                    }
-                }
-
-                results.serenatas = { planId, status, expiresAt: expiresAt?.toISOString() || null };
-            }
 
             return c.json({ ok: true, results });
         } catch (error) {
@@ -434,297 +330,8 @@ export function createAdminRouter(deps: AdminRouterDeps) {
         }
     });
 
-    app.patch('/users/:id/serenatas-role', async (c) => {
-        try {
-            const adminUser = await deps.authUser(c);
-            if (!adminUser) return c.json({ ok: false, error: 'No autenticado' }, 401);
-            if (!deps.isAdminRole(adminUser.role)) {
-                return c.json({ ok: false, error: 'No autorizado' }, 403);
-            }
 
-            const userId = c.req.param('id') ?? '';
-            const payload = await c.req.json().catch(() => null);
-            const role = payload?.role;
-            if (!role || !['client', 'musician', 'coordinator'].includes(role)) {
-                return c.json({ ok: false, error: 'Rol serenatas inválido' }, 400);
-            }
 
-            const targetUser = await deps.getUserById(userId);
-            if (!targetUser) return c.json({ ok: false, error: 'Usuario no encontrado' }, 404);
-            if (!deps.tables.serenataCoordinatorProfiles || !deps.tables.serenataMusicians) {
-                return c.json({ ok: false, error: 'Tablas serenatas no disponibles' }, 500);
-            }
-
-            /**
-             * Permite borrar `serenata_coordinator_profiles`:
-             * - serenatas conserva filas pero pierde el vínculo (nullable)
-             * - serenata_payments tiene FK sin CASCADE: hay que borrar esos pagos primero
-             */
-            const prepareCoordinatorProfileDeletion = async (profileId: string) => {
-                // Pagos primero: FK a coordinador sin ON DELETE CASCADE bloquea otros pasos.
-                if (deps.tables.serenataPayments) {
-                    try {
-                        await deps.db
-                            .delete(deps.tables.serenataPayments)
-                            .where(deps.eq(deps.tables.serenataPayments.coordinatorProfileId, profileId));
-                    } catch (payErr) {
-                        const pc = pickPgCode(payErr);
-                        if (pc === '42P01') {
-                            // Migraciones no aplicadas: tabla `serenata_payments` inexistente; seguir con `serenatas`.
-                        } else if (pc === '42703') {
-                            await deps.db.execute(deps.sql`
-                                DELETE FROM serenata_payments WHERE captain_id = ${profileId}
-                            `);
-                        } else {
-                            throw payErr;
-                        }
-                    }
-                }
-                if (deps.tables.serenatas) {
-                    try {
-                        await deps.db.execute(deps.sql`
-                            UPDATE serenatas
-                            SET coordinator_profile_id = NULL
-                            WHERE coordinator_profile_id = ${profileId}
-                        `);
-                    } catch (serErr) {
-                        const sc = pickPgCode(serErr);
-                        if (sc === '42P01') {
-                            // Migraciones Serenatas no aplicadas: no existe `serenatas`.
-                            return;
-                        }
-                        if (sc !== '42703') throw serErr;
-                        await deps.db.execute(deps.sql`
-                            UPDATE serenatas SET captain_id = NULL WHERE captain_id = ${profileId}
-                        `);
-                    }
-                }
-            };
-
-            /** Inserta fila músico si no existe (sin ON CONFLICT: evita errores si el índice único difiere). */
-            const ensureMusicianRow = async () => {
-                const existing = await deps.db
-                    .select({ id: deps.tables.serenataMusicians.id })
-                    .from(deps.tables.serenataMusicians)
-                    .where(deps.eq(deps.tables.serenataMusicians.userId, userId))
-                    .limit(1);
-                if (existing.length > 0) return;
-                try {
-                    await deps.db.execute(deps.sql`
-                        INSERT INTO serenata_musicians (user_id, instrument, instruments, status)
-                        SELECT ${userId}, 'Voz', ARRAY['Voz']::varchar(255)[], 'active'
-                        WHERE NOT EXISTS (
-                          SELECT 1 FROM serenata_musicians m WHERE m.user_id = ${userId}
-                        )
-                    `);
-                } catch {
-                    try {
-                        await deps.db.insert(deps.tables.serenataMusicians).values({
-                            userId,
-                            instrument: 'Voz',
-                            status: 'active',
-                        });
-                    } catch (insertErr: unknown) {
-                        const code =
-                            insertErr && typeof insertErr === 'object' && 'code' in insertErr
-                                ? (insertErr as { code?: string }).code
-                                : undefined;
-                        if (code === '23505') return;
-                        throw insertErr;
-                    }
-                }
-            };
-
-            if (role === 'coordinator') {
-                const existing = await deps.db
-                    .select({ id: deps.tables.serenataCoordinatorProfiles.id })
-                    .from(deps.tables.serenataCoordinatorProfiles)
-                    .where(deps.eq(deps.tables.serenataCoordinatorProfiles.userId, userId))
-                    .limit(1);
-                if (existing.length === 0) {
-                    await deps.db.insert(deps.tables.serenataCoordinatorProfiles).values({
-                        userId,
-                        phone: targetUser.phone ?? null,
-                        city: null,
-                        region: null,
-                        subscriptionPlan: 'free',
-                        subscriptionStatus: 'active',
-                    });
-                }
-                await deps.db.delete(deps.tables.serenataMusicians).where(deps.eq(deps.tables.serenataMusicians.userId, userId));
-                await deps.db
-                    .update(deps.tables.users)
-                    .set({ role: 'coordinator' })
-                    .where(deps.eq(deps.tables.users.id, userId));
-            }
-
-            if (role === 'musician') {
-                await ensureMusicianRow();
-                const coordRows = await deps.db
-                    .select({ id: deps.tables.serenataCoordinatorProfiles.id })
-                    .from(deps.tables.serenataCoordinatorProfiles)
-                    .where(deps.eq(deps.tables.serenataCoordinatorProfiles.userId, userId))
-                    .limit(1);
-                if (coordRows.length > 0) {
-                    const profileId = coordRows[0].id;
-                    await prepareCoordinatorProfileDeletion(profileId);
-                }
-                await deps.db
-                    .delete(deps.tables.serenataCoordinatorProfiles)
-                    .where(deps.eq(deps.tables.serenataCoordinatorProfiles.userId, userId));
-                await deps.db
-                    .update(deps.tables.users)
-                    .set({ role: 'musician' })
-                    .where(deps.eq(deps.tables.users.id, userId));
-            }
-
-            if (role === 'client') {
-                await deps.db.delete(deps.tables.serenataMusicians).where(deps.eq(deps.tables.serenataMusicians.userId, userId));
-                const coordRows = await deps.db
-                    .select({ id: deps.tables.serenataCoordinatorProfiles.id })
-                    .from(deps.tables.serenataCoordinatorProfiles)
-                    .where(deps.eq(deps.tables.serenataCoordinatorProfiles.userId, userId))
-                    .limit(1);
-                if (coordRows.length > 0) {
-                    await prepareCoordinatorProfileDeletion(coordRows[0].id);
-                }
-                await deps.db
-                    .delete(deps.tables.serenataCoordinatorProfiles)
-                    .where(deps.eq(deps.tables.serenataCoordinatorProfiles.userId, userId));
-                await deps.db
-                    .update(deps.tables.users)
-                    .set({ role: 'client' })
-                    .where(deps.eq(deps.tables.users.id, userId));
-            }
-
-            await createAdminAudit({
-                actorUserId: adminUser.id,
-                action: 'serenatas_role_changed',
-                entityType: 'user',
-                entityId: userId,
-                payload: { role },
-            });
-
-            return c.json({ ok: true, role });
-        } catch (error) {
-            const chain = serializePgErrorChain(error);
-            console.error('[admin serenatas-role]', chain, error);
-            const isDev = process.env.NODE_ENV !== 'production';
-            return c.json(
-                {
-                    ok: false,
-                    error: isDev ? `Error al actualizar rol serenatas: ${chain}` : 'Error al actualizar rol serenatas',
-                },
-                500
-            );
-        }
-    });
-
-    app.get('/serenatas/payments', async (c) => {
-        const adminUser = await deps.authUser(c);
-        if (!adminUser) return c.json({ ok: false, error: 'No autenticado' }, 401);
-        if (!deps.isAdminRole(adminUser.role)) return c.json({ ok: false, error: 'No autorizado' }, 403);
-        if (!deps.tables.serenataPayments || !deps.tables.serenataCoordinatorProfiles || !deps.tables.serenatas) {
-            return c.json({ ok: false, error: 'Tablas serenatas no disponibles' }, 500);
-        }
-
-        const statusFilter = c.req.query('status');
-        const fromDate = c.req.query('from');
-        const toDate = c.req.query('to');
-        const conditions: any[] = [];
-        if (statusFilter && ['pending', 'holding', 'released', 'refunded', 'disputed'].includes(statusFilter)) {
-            conditions.push(deps.eq(deps.tables.serenataPayments.status, statusFilter));
-        }
-        if (fromDate) {
-            const date = new Date(fromDate);
-            if (!Number.isNaN(date.getTime())) {
-                conditions.push(deps.sql`${deps.tables.serenataPayments.createdAt} >= ${date}`);
-            }
-        }
-        if (toDate) {
-            const date = new Date(toDate);
-            if (!Number.isNaN(date.getTime())) {
-                conditions.push(deps.sql`${deps.tables.serenataPayments.createdAt} <= ${date}`);
-            }
-        }
-
-        const query = deps.db.select({
-            id: deps.tables.serenataPayments.id,
-            status: deps.tables.serenataPayments.status,
-            totalAmount: deps.tables.serenataPayments.totalAmount,
-            platformCommission: deps.tables.serenataPayments.platformCommission,
-            commissionVat: deps.tables.serenataPayments.commissionVat,
-            coordinatorEarnings: deps.tables.serenataPayments.coordinatorEarnings,
-            createdAt: deps.tables.serenataPayments.createdAt,
-            releasedToCoordinatorAt: deps.tables.serenataPayments.releasedToCoordinatorAt,
-            refundedAt: deps.tables.serenataPayments.refundedAt,
-            coordinatorProfileId: deps.tables.serenataPayments.coordinatorProfileId,
-            coordinatorUserId: deps.tables.serenataCoordinatorProfiles.userId,
-            coordinatorName: deps.tables.users.name,
-            serenataId: deps.tables.serenataPayments.serenataId,
-            clientName: deps.tables.serenatas.clientName,
-        })
-            .from(deps.tables.serenataPayments)
-            .leftJoin(
-                deps.tables.serenataCoordinatorProfiles,
-                deps.eq(deps.tables.serenataPayments.coordinatorProfileId, deps.tables.serenataCoordinatorProfiles.id)
-            )
-            .leftJoin(deps.tables.users, deps.eq(deps.tables.serenataCoordinatorProfiles.userId, deps.tables.users.id))
-            .leftJoin(deps.tables.serenatas, deps.eq(deps.tables.serenataPayments.serenataId, deps.tables.serenatas.id));
-        const rows = await (conditions.length > 0
-            ? query.where(deps.and(...conditions)).orderBy(deps.desc(deps.tables.serenataPayments.createdAt))
-            : query.orderBy(deps.desc(deps.tables.serenataPayments.createdAt)));
-
-        return c.json({
-            ok: true,
-            items: rows.map((row: any) => ({
-                ...row,
-                createdAt: row.createdAt ? row.createdAt.toISOString() : null,
-                releasedToCoordinatorAt: row.releasedToCoordinatorAt ? row.releasedToCoordinatorAt.toISOString() : null,
-                refundedAt: row.refundedAt ? row.refundedAt.toISOString() : null,
-            })),
-        });
-    });
-
-    app.patch('/serenatas/payments/:id/status', async (c) => {
-        const adminUser = await deps.authUser(c);
-        if (!adminUser) return c.json({ ok: false, error: 'No autenticado' }, 401);
-        if (!deps.isAdminRole(adminUser.role)) return c.json({ ok: false, error: 'No autorizado' }, 403);
-        if (!deps.tables.serenataPayments) return c.json({ ok: false, error: 'Tabla de pagos no disponible' }, 500);
-
-        const paymentId = c.req.param('id') ?? '';
-        const payload = await c.req.json().catch(() => null);
-        const status = payload?.status;
-        if (!status || !['pending', 'holding', 'released', 'refunded', 'disputed'].includes(status)) {
-            return c.json({ ok: false, error: 'Estado de pago inválido' }, 400);
-        }
-
-        const patch: Record<string, unknown> = {
-            status,
-            updatedAt: new Date(),
-        };
-        if (status === 'released') {
-            patch.releasedToCoordinatorAt = new Date();
-        }
-        if (status === 'refunded') {
-            patch.refundedAt = new Date();
-        }
-
-        const updated = await deps.db.update(deps.tables.serenataPayments)
-            .set(patch)
-            .where(deps.eq(deps.tables.serenataPayments.id, paymentId))
-            .returning({ id: deps.tables.serenataPayments.id, status: deps.tables.serenataPayments.status });
-
-        if (updated.length === 0) return c.json({ ok: false, error: 'Pago no encontrado' }, 404);
-        await createAdminAudit({
-            actorUserId: adminUser.id,
-            action: 'serenatas_payment_status_changed',
-            entityType: 'serenata_payment',
-            entityId: paymentId,
-            payload: { status },
-        });
-        return c.json({ ok: true, item: updated[0] });
-    });
 
     app.get('/audit-logs', async (c) => {
         const adminUser = await deps.authUser(c);
@@ -792,7 +399,7 @@ export function createAdminRouter(deps: AdminRouterDeps) {
         const vertical = scopedVertical ?? c.req.query('vertical');
         const status = c.req.query('status');
         const items = await listServiceLeadRecords(deps, {
-            vertical: vertical === 'autos' || vertical === 'propiedades' || vertical === 'agenda' || vertical === 'serenatas' ? (vertical as VerticalType) : undefined,
+            vertical: vertical === 'autos' || vertical === 'propiedades' || vertical === 'agenda' ? (vertical as VerticalType) : undefined,
             status: status === 'new' || status === 'contacted' || status === 'qualified' || status === 'closed' ? (status as ServiceLeadStatus) : undefined,
         });
         return c.json({ ok: true, items: items.map((r) => serviceLeadToResponse(deps, r)) });
@@ -887,7 +494,7 @@ export function createAdminRouter(deps: AdminRouterDeps) {
         const vertical = scopedVertical ?? c.req.query('vertical');
         const status = c.req.query('status');
         const items = await listListingLeadRecords(deps, {
-            vertical: vertical === 'autos' || vertical === 'propiedades' || vertical === 'agenda' || vertical === 'serenatas' ? (vertical as VerticalType) : undefined,
+            vertical: vertical === 'autos' || vertical === 'propiedades' || vertical === 'agenda' ? (vertical as VerticalType) : undefined,
             status: status === 'new' || status === 'contacted' || status === 'qualified' || status === 'closed' ? (status as ListingLeadStatus) : undefined,
         });
         return c.json({ ok: true, items: items.map((item) => listingLeadToResponse(deps, item)) });

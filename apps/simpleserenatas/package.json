@@ -1,41 +1,34 @@
 {
-    "name": "@simple/serenatas",
-    "version": "1.0.0",
-    "private": true,
-    "scripts": {
-        "dev": "next dev --turbopack --port 3005",
-        "build": "next build",
-        "start": "next start",
-        "lint": "next lint",
-        "e2e": "playwright test",
-        "e2e:ui": "playwright test --ui",
-        "e2e:headed": "playwright test --headed",
-        "e2e:integration": "playwright test tests/e2e/auth.integration.spec.ts"
-    },
-    "dependencies": {
-        "@simple/auth": "*",
-        "@simple/config": "*",
-        "@simple/types": "*",
-        "@simple/ui": "*",
-        "@simple/utils": "*",
-        "@tabler/icons-react": "^3.31.0",
-        "clsx": "^2.1.1",
-        "leaflet": "^1.9.4",
-        "next": "^16.1.6",
-        "next-themes": "^0.4.6",
-        "react": "^19.2.4",
-        "react-dom": "^19.2.4",
-        "react-leaflet": "^5.0.0",
-        "zod": "^3.25.73"
-    },
-    "devDependencies": {
-        "@playwright/test": "^1.59.1",
-        "@tailwindcss/postcss": "^4.2.1",
-        "@types/leaflet": "^1.9.21",
-        "@types/node": "^22.16.0",
-        "@types/react": "^19.1.8",
-        "@types/react-dom": "^19.1.6",
-        "tailwindcss": "^4.2.1",
-        "typescript": "^5.9.3"
-    }
+  "name": "@simple/serenatas",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev --turbopack --port 3005",
+    "build": "next build",
+    "start": "next start",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@simple/auth": "workspace:*",
+    "@simple/config": "workspace:*",
+    "@simple/types": "workspace:*",
+    "@simple/ui": "workspace:*",
+    "@simple/utils": "workspace:*",
+    "@simple/marketplace-header": "workspace:*",
+    "@tabler/icons-react": "^3.31.0",
+    "leaflet": "^1.9.4",
+    "next": "^16.1.6",
+    "next-themes": "^0.4.6",
+    "react": "^19.2.4",
+    "react-dom": "^19.2.4"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "^4.2.1",
+    "@types/leaflet": "^1.9.21",
+    "@types/node": "^22.19.17",
+    "@types/react": "^19.1.8",
+    "@types/react-dom": "^19.1.6",
+    "tailwindcss": "^4.2.1",
+    "typescript": "^5.9.3"
+  }
 }

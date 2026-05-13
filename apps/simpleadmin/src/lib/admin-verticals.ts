@@ -24,7 +24,7 @@ export function deriveUserVerticalMemberships(user: AdminUserListItem): AdminVer
   const agenda = user.subscriptions?.agenda;
   const autos = user.subscriptions?.autos;
   const propiedades = user.subscriptions?.propiedades;
-  const serenatas = user.subscriptions?.serenatas;
+  const serenatas = user.serenatas;
 
   return [
     {
@@ -57,10 +57,16 @@ export function deriveUserVerticalMemberships(user: AdminUserListItem): AdminVer
     {
       key: 'serenatas',
       label: 'SimpleSerenatas',
-      roleLabel: serenatas?.roleLabel ?? 'Sin rol',
-      subscriptionLabel: serenatas?.planName ?? 'Sin plan',
-      statusLabel: normalizeStatus(serenatas?.status),
-      activityCount: serenatas?.activityCount ?? 0,
+      roleLabel: [
+        serenatas?.client ? 'Cliente' : null,
+        serenatas?.musician ? 'Músico' : null,
+        serenatas?.coordinator ? 'Coordinador' : null,
+      ].filter(Boolean).join(' + ') || 'Sin perfil',
+      subscriptionLabel: serenatas?.coordinator
+        ? (serenatas.coordinatorStatus === 'trialing' ? 'Coordinador trial' : serenatas.coordinatorStatus || 'Coordinador')
+        : 'Sin suscripción',
+      statusLabel: serenatas ? 'Activa' : 'Sin estado',
+      activityCount: serenatas ? 1 : 0,
       enabled: Boolean(serenatas),
     },
   ];

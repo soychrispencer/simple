@@ -1,0 +1,12 @@
+8:48:15 a. m. - Projects in this build: 
+    * ../types/tsconfig.json
+    * tsconfig.json
+
+8:48:15 a. m. - Project '../types/tsconfig.json' is out of date because output file '../types/tsconfig.tsbuildinfo' does not exist
+
+8:48:15 a. m. - Building project 'C:/Users/chris/Desktop/Simple/packages/types/tsconfig.json'...
+
+8:48:20 a. m. - Project 'tsconfig.json' is out of date because output file 'tsconfig.tsbuildinfo' does not exist
+
+8:48:20 a. m. - Building project 'C:/Users/chris/Desktop/Simple/packages/ui/tsconfig.json'...
+

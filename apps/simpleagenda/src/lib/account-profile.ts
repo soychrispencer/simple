@@ -1,0 +1,1 @@
+export { updateAccountProfile } from '@simple/utils';

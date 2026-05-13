@@ -1,6 +1,6 @@
 import type { PublicListing } from './public-listings';
 
-const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? 'https://simplepropiedades.cl';
+const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? 'https://simplepropiedades.app';
 
 // ─── Price parser ────────────────────────────────────────────────────────────
 

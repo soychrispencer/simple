@@ -12,7 +12,7 @@ import {
     IconExternalLink, IconCalendar, IconLoader2,
 } from '@tabler/icons-react';
 import { jsPDF } from 'jspdf';
-import ModernSelect from '@/components/ui/modern-select';
+import { ModernSelect } from '@simple/ui';
 import { CURRENT_RATES, getRateCitation, EMPLOYMENT_FACTORS, MIN_EMPLOYMENT_YEARS, getDTILimits, CLIENT_SEGMENTS, type ClientSegment, DEBT_TYPE_FACTORS, DEBT_TYPES_INFO } from './rates.config';
 const MAX_LOAN_YEARS = 30;
 const STANDARD_LOAN_YEARS = [10, 15, 20, 25, 30];

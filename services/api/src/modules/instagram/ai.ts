@@ -58,7 +58,7 @@ export class InstagramAIService {
     userHistory?: any[]
   ): AIPromptConfig {
     
-    let baseConfig: AIPromptConfig = {
+    const baseConfig: AIPromptConfig = {
       tone: 'professional',
       targetAudience: 'general',
       includeFeatures: true,

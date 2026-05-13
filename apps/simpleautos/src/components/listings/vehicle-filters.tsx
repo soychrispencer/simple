@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { IconChevronDown, IconAdjustmentsHorizontal } from '@tabler/icons-react';
-import ModernSelect from '@/components/ui/modern-select';
+import { ModernSelect } from '@simple/ui';
 import { LOCATION_REGIONS, getCommunesForRegion } from '@simple/utils';
 import { loadPublishWizardCatalog, type CatalogBrand, type CatalogModel } from '@/lib/publish-wizard-catalog';
 import { PanelButton } from '@simple/ui';
@@ -149,7 +149,7 @@ export default function VehicleFilters({ currentVehicleType = '' }: VehicleFilte
         setMachineryType(searchParams.get('machinery_type') || '');
         setNauticalType(searchParams.get('nautical_type') || '');
         setAerialType(searchParams.get('aerial_type') || '');
-        // eslint-disable-next-line react-hooks/exhaustive-deps
+         
     }, []);
 
     useEffect(() => {

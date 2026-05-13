@@ -43,7 +43,7 @@ function mapFeaturedBoostToPropertyCard(item: FeaturedBoostItem): PropertyListin
     const sectionLabel = item.section === 'sale' ? 'Venta' : item.section === 'rent' ? 'Arriendo' : 'Proyecto';
     const metaItems = orderPropertyTags(
         item.subtitle
-            .split(/[•\|;,]|\s+-\s+/g)
+            .split(/[•|;,]|\s+-\s+/g)
             .map(p => p.trim())
             .filter(p => p.length > 0)
     );

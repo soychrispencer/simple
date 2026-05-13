@@ -1,52 +1,19 @@
-import { existsSync, appendFileSync } from 'node:fs';
+import { appendFileSync } from 'node:fs';
 import fs from 'node:fs/promises';
 import { createHash, randomBytes, randomUUID, timingSafeEqual } from 'node:crypto';
 import path from 'node:path';
+import { env, isProduction } from './env.js';
 import { createDebugLogger, asString, asNumber, asObject } from './modules/shared/index.js';
 import type { ValuationFeedRecord, VehicleValuationFeedRecord, ValuationHistoricalPoint, ValuationSourceBreakdown, ValuationConfidenceBreakdown, ValuationFeedLicense, ValuationFeedTransport, ValuationFeedHealth, ValuationFeedSourceStatus, ValuationFeedConnectorLoadResult, ValuationFeedConnector, VehicleValuationFeedConnector, ValuationComparable, VehicleValuationComparable } from './modules/shared/index.js';
-
-// Load environment variables FIRST, before any other imports.
-// IMPORTANT: igual que `drizzle.config.ts` — cargar `.env` antes y `.env.local` después para que los
-// valores locales sobrescriban; si el orden está invertido, `pnpm dev` usa otra DATABASE_URL que
-// `pnpm db:migrate` y aparecen errores tipo «no existe la columna instruments».
-const API_ROOT_DIR = path.resolve(__dirname, '..');
-
-for (const candidate of [
-    path.join(API_ROOT_DIR, '.env'),
-    path.join(API_ROOT_DIR, '.env.local'),
-    path.resolve(process.cwd(), '.env'),
-    path.resolve(process.cwd(), '.env.local'),
-]) {
-    try {
-        if (existsSync(candidate)) {
-            console.log('Loading env file:', candidate);
-            process.loadEnvFile?.(candidate);
-        }
-    } catch {
-        // Local dev can run without an env file.
-    }
-}
 import { serve } from '@hono/node-server';
 import { Hono } from 'hono';
 import type { Context } from 'hono';
 import { GetObjectCommand, PutObjectCommand, S3Client } from '@aws-sdk/client-s3';
-
-// Safety Polyfill for 'File' in Node.js environment
-if (typeof global !== 'undefined' && typeof (global as any).File === 'undefined') {
-    (global as any).File = class File extends Blob {
-        name: string;
-        lastModified: number;
-        constructor(parts: any[], name: string, options?: any) {
-            super(parts, options);
-            this.name = name;
-            this.lastModified = options?.lastModified || Date.now();
-        }
-    };
-}
 import { cors } from 'hono/cors';
 import { deleteCookie, getCookie, setCookie } from 'hono/cookie';
 import jwt from 'jsonwebtoken';
 import { z } from 'zod';
+import { logger } from '@simple/logger';
 import { evaluatePublicationLifecycle, getPublicationLifecyclePolicy } from '@simple/config';
 import {
     generateSmartTemplates,
@@ -132,37 +99,21 @@ import {
     agendaClientPacks,
     agendaGroupSessions,
     agendaGroupAttendees,
-    serenataGroups,
-    serenataGroupMembers,
+    serenataClients,
     serenataMusicians,
-    serenataRequests,
-    serenataAssignments,
-    serenataRoutes,
-    serenataNotifications,
-    serenataCoordinatorProfiles,
-    serenataCoordinatorCrewMemberships,
+    serenataCoordinators,
     serenatas,
-    serenataMusicianLineup,
-    serenataSubscriptions,
-    serenataSubscriptionPayments,
-    serenataPayments,
-    serenataReviews,
-    serenataCoordinatorReviews,
-    serenataAvailability,
-    serenataMessages,
-    serenataMpWebhookEvents,
-    serenataCoordinatorPreapprovals,
     mortgageRates,
 } from './db/schema.js';
-import { createSerenatasRouter } from './modules/serenatas/router.js';
-import { SerenatasService } from './modules/serenatas/service.js';
-import { COORDINATOR_SUBSCRIPTION_PLAN, isCoordinatorSubscriptionActive } from './modules/serenatas/constants.js';
 import { createAccountsRouter } from './modules/accounts/index.js';
 import { createCrmRouter } from './modules/crm/index.js';
 import { createAdminRouter } from './modules/admin/index.js';
 import { createAuthRouter } from './modules/auth/router.js';
 import { createListingsRouter, createListingDraftRouter } from './modules/listings/index.js';
 import { createBoostRouter } from './modules/boost/index.js';
+import { getAllBoostOrdersNormalized, getBoostListingById, getBoostOrdersForUser, isBoostSectionAllowed, getBoostListingsByOwner, parseBoostSection, getSectionsForVertical, getBoostPlans, createBoostOrderRecord, normalizeBoostOrder, countReservedSlots, getFreeBoostQuota, sectionLabel } from './modules/boost/service.js';
+import { createValuationRouter } from './modules/valuation/index.js';
+import { createVehicleValuationRouter } from './modules/vehicle-valuation/index.js';
 import { createAddressBookRouter } from './modules/address-book/index.js';
 import { createPaymentsRouter } from './modules/payments/index.js';
 import bcrypt from 'bcryptjs';
@@ -183,8 +134,11 @@ import { getStorageProvider } from './storage-providers/index.js';
 import { rateLimit } from './lib/rate-limit.js';
 import { logAudit, logNotification } from './lib/audit.js';
 import { createAgendaRouter, createPublicAgendaRouter } from './modules/agenda/router.js';
+import { registerAgendaCronJobs } from './modules/agenda/cron.js';
 import { createAccountRouter } from './modules/public-profile/index.js';
 import { createAdvertisingRouter } from './modules/advertising/index.js';
+import { getAdvertisingPrice, getAdPaymentStatusFromOrderStatus, normalizeAdCampaigns, getSubscriptionPlans, isValidHttpDestinationUrl, isAdPlacementSectionAllowed } from './modules/advertising/service.js';
+import { AD_FORMAT_LABELS, MAX_CAMPAIGNS_TOTAL, MAX_ACTIVE_HERO_CAMPAIGNS } from './modules/advertising/types.js';
 import { createLeadsRouter } from './modules/leads/index.js';
 import { createMessagesRouter, createPanelNotificationsRouter } from './modules/messages/index.js';
 import { createInstagramRouter, createInstagramPublicImageRouter } from './modules/instagram/index.js';
@@ -192,7 +146,9 @@ import { createMediaRouter, createStorageRouter } from './modules/media/index.js
 import { createSystemRouter } from './modules/system/index.js';
 import { createSocialRouter } from './modules/social/index.js';
 import { createPublicRouter } from './modules/public/index.js';
+import { attachSerenataPaymentOrder, createSerenatasRouter, getSerenataPaymentTarget, markSerenataPaymentFailed, publishPaidSerenataToCoordinators } from './modules/serenatas/index.js';
 
+const API_ROOT_DIR = path.resolve(__dirname, '..');
 const DEBUG_LOG_FILE = path.resolve(process.cwd(), 'api_debug.log');
 const logDebug = createDebugLogger(DEBUG_LOG_FILE);
 
@@ -204,7 +160,8 @@ logDebug('--- API RESTARTED ---');
 
 type UserRole = 'user' | 'admin' | 'superadmin';
 type UserStatus = 'active' | 'verified' | 'suspended';
-type VerticalType = 'autos' | 'propiedades' | 'agenda' | 'serenatas';
+type VerticalType = 'autos' | 'propiedades' | 'agenda';
+type PaymentVerticalType = VerticalType | 'serenatas';
 type AccountType = 'general' | 'autos' | 'propiedades' | 'agenda' | 'crm_only';
 type AccountRole = 'owner' | 'admin' | 'agent';
 type CrmEntityType = 'listing' | 'service' | 'external';
@@ -489,8 +446,9 @@ type AdStatus = 'scheduled' | 'active' | 'paused' | 'ended';
 type AdPaymentStatus = 'pending' | 'paid' | 'failed' | 'cancelled';
 type AdDestinationType = 'none' | 'custom_url' | 'listing' | 'profile';
 type AdOverlayAlign = 'left' | 'center' | 'right';
+type AdCampaignVerticalType = VerticalType | 'serenatas' | 'plataforma';
 type AdPlacementSection = 'home' | 'ventas' | 'arriendos' | 'subastas' | 'proyectos';
-type CheckoutKind = 'boost' | 'advertising' | 'subscription';
+type CheckoutKind = 'boost' | 'advertising' | 'subscription' | 'serenata_booking';
 type PaymentOrderStatus = 'pending' | 'approved' | 'authorized' | 'rejected' | 'cancelled';
 type SubscriptionPlanId = 'free' | 'pro' | 'enterprise';
 type ActiveSubscriptionStatus = 'active' | 'cancelled' | 'paused';
@@ -583,13 +541,18 @@ type PaymentOrderMetadata =
         kind: 'subscription';
         planId: Exclude<SubscriptionPlanId, 'free'>;
         planName: string;
+    }
+    | {
+        kind: 'serenata_booking';
+        serenataId: string;
+        recipientName: string;
     };
 
 type PaymentOrderRecord = {
     id: string;
     accountId?: string | null;
     userId: string;
-    vertical: VerticalType;
+    vertical: PaymentVerticalType;
     kind: CheckoutKind;
     title: string;
     amount: number;
@@ -699,7 +662,7 @@ type AdCampaignRecord = {
     id: string;
     accountId?: string | null;
     userId: string;
-    vertical: VerticalType;
+    vertical: AdCampaignVerticalType;
     name: string;
     format: AdFormat;
     status: AdStatus;
@@ -855,9 +818,9 @@ type MessageEntryRecord = {
 const SESSION_COOKIE = 'simple_session';
 const OAUTH_STATE_COOKIE = 'simple_oauth_state';
 const INSTAGRAM_STATE_COOKIE = 'simple_instagram_state';
-const SESSION_SECRET = asString(process.env.SESSION_SECRET);
+const SESSION_SECRET = asString(env.SESSION_SECRET);
 
-// â”€â”€ Web Push (VAPID) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ── Web Push (VAPID) ──────────────────────────────────────────────────────────
 const VAPID_PUBLIC_KEY = process.env.VAPID_PUBLIC_KEY ?? '';
 const VAPID_PRIVATE_KEY = process.env.VAPID_PRIVATE_KEY ?? '';
 const VAPID_SUBJECT = process.env.VAPID_SUBJECT ?? 'mailto:hola@simpleplataforma.app';
@@ -868,13 +831,13 @@ const PASSWORD_RESET_TOKEN_TTL_MS = 1000 * 60 * 60;
 const EMAIL_VERIFICATION_TOKEN_TTL_MS = 1000 * 60 * 60 * 24 * 3;
 const AUTH_RATE_LIMIT_WINDOW_MS = 1000 * 60 * 15;
 const authCookieSameSite = (() => {
-    const raw = asString(process.env.AUTH_COOKIE_SAMESITE).toLowerCase();
+    const raw = asString(env.AUTH_COOKIE_SAMESITE).toLowerCase();
     if (raw === 'strict') return 'Strict' as const;
     if (raw === 'none') return 'None' as const;
     if (raw === 'lax') return 'Lax' as const;
-    return process.env.NODE_ENV === 'production' ? 'None' as const : 'Lax' as const;
+    return isProduction ? 'None' as const : 'Lax' as const;
 })();
-const authCookieSecure = process.env.NODE_ENV === 'production' || authCookieSameSite === 'None';
+const authCookieSecure = isProduction || authCookieSameSite === 'None';
 
 if (!SESSION_SECRET) {
     throw new Error('SESSION_SECRET is required');
@@ -889,15 +852,6 @@ const registerSchema = z.object({
     name: z.string().min(2).max(80),
     email: z.string().email(),
     password: z.string().min(8).max(120),
-});
-
-// Schema extendido para SimpleSerenatas con datos adicionales
-const extendedRegisterSchema = registerSchema.extend({
-    userType: z.enum(['client', 'musician']).optional().default('musician'),
-    phone: z.string().optional(),
-    instrument: z.string().optional(),
-    region: z.string().optional(),
-    comuna: z.string().optional(),
 });
 
 const updateProfileSchema = z.object({
@@ -998,6 +952,7 @@ const followToggleSchema = z.object({
 });
 
 const boostVerticalSchema = z.enum(['autos', 'propiedades', 'agenda']);
+const subscriptionVerticalSchema = z.enum(['autos', 'propiedades', 'agenda', 'serenatas']);
 const boostPlanIdSchema = z.enum(['boost_starter', 'boost_pro', 'boost_max']);
 const boostSectionSchema = z.enum(['sale', 'rent', 'auction', 'project']);
 const portalKeySchema = z.enum(['yapo', 'chileautos', 'mercadolibre', 'facebook']);
@@ -1244,7 +1199,7 @@ const createCheckoutSchema = z.discriminatedUnion('kind', [
     }),
     z.object({
         kind: z.literal('subscription'),
-        vertical: boostVerticalSchema,
+        vertical: subscriptionVerticalSchema,
         returnUrl: z.string().url(),
         planId: paidSubscriptionPlanIdSchema.optional(), // top-level (agenda)
         subscription: z.object({
@@ -1252,6 +1207,14 @@ const createCheckoutSchema = z.discriminatedUnion('kind', [
         }).optional(),
     }).refine((d) => d.planId != null || d.subscription?.planId != null, {
         message: 'planId is required',
+    }),
+    z.object({
+        kind: z.literal('serenata_booking'),
+        vertical: z.literal('serenatas'),
+        returnUrl: z.string().url(),
+        serenata: z.object({
+            serenataId: z.string().uuid(),
+        }),
     }),
 ]);
 
@@ -1450,7 +1413,7 @@ const listingLeadCountsByListing = new Map<string, number>();
 
 // Load data from DB into Maps on startup
 async function loadDataFromDB() {
-    console.log('Loading data from database...');
+    logger.info('Loading data from database');
 
     // Load users
     const userResults = await db.select().from(users);
@@ -1458,7 +1421,7 @@ async function loadDataFromDB() {
     for (const user of userResults) {
         usersById.set(user.id, mapUserRowToAppUser(user));
     }
-    console.log(`Loaded ${userResults.length} users`);
+    logger.info('Loaded users', { count: userResults.length });
 
     const accountResults = await db.select().from(accounts);
     accountsById.clear();
@@ -1472,7 +1435,7 @@ async function loadDataFromDB() {
     for (const membership of accountUserResults) {
         upsertAccountUserCache(mapAccountUserRow(membership));
     }
-    console.log(`Loaded ${accountResults.length} accounts and ${accountUserResults.length} account memberships`);
+    logger.info('Loaded accounts and memberships', { accounts: accountResults.length, memberships: accountUserResults.length });
 
     const publicProfileResults = await db.select().from(publicProfiles);
     publicProfilesByUserVertical.clear();
@@ -1480,14 +1443,14 @@ async function loadDataFromDB() {
     for (const profile of publicProfileResults) {
         upsertPublicProfileCache(mapPublicProfileRow(profile));
     }
-    console.log(`Loaded ${publicProfileResults.length} public profiles`);
+    logger.info('Loaded public profiles', { count: publicProfileResults.length });
 
     const publicProfileTeamMemberResults = await db.select().from(publicProfileTeamMembers);
     publicProfileTeamMembersByUserVertical.clear();
     for (const member of publicProfileTeamMemberResults) {
         upsertPublicProfileTeamMemberCache(mapPublicProfileTeamMemberRow(member));
     }
-    console.log(`Loaded ${publicProfileTeamMemberResults.length} public profile team members`);
+    logger.info('Loaded public profile team members', { count: publicProfileTeamMemberResults.length });
 
     // Load listings
     const listingResults = await db.select().from(listings);
@@ -1495,7 +1458,7 @@ async function loadDataFromDB() {
     for (const listing of listingResults) {
         listingsById.set(listing.id, mapListingRowToRecord(listing));
     }
-    console.log(`Loaded ${listingResults.length} listings`);
+    logger.info('Loaded listings', { count: listingResults.length });
 
     // Sync boost listings from loaded listings
     boostListingsSeed.length = 0;
@@ -1504,7 +1467,7 @@ async function loadDataFromDB() {
             upsertBoostListingFromListing(listing);
         }
     }
-    console.log(`Synced ${boostListingsSeed.length} boost listings from DB`);
+    logger.info('Synced boost listings from DB', { count: boostListingsSeed.length });
 
     // Load listing lead counts
     const listingLeadResults = await db.select({
@@ -1521,7 +1484,7 @@ async function loadDataFromDB() {
             listingsById.set(listingId, listing);
         }
     }
-    console.log(`Loaded ${listingLeadResults.length} listing leads`);
+    logger.info('Loaded listing leads', { count: listingLeadResults.length });
 
     // Load saved listings
     const savedResults = await db.select().from(savedListings);
@@ -1541,7 +1504,7 @@ async function loadDataFromDB() {
     for (const [userId, list] of savedByUserMap) {
         savedByUser.set(userId, list);
     }
-    console.log(`Loaded ${savedResults.length} saved listings`);
+    logger.info('Loaded saved listings', { count: savedResults.length });
 
     // Load follows
     const followResults = await db.select().from(follows);
@@ -1558,7 +1521,7 @@ async function loadDataFromDB() {
     for (const [userId, list] of followsByUserMap) {
         followsByUser.set(userId, list);
     }
-    console.log(`Loaded ${followResults.length} follows`);
+    logger.info('Loaded follows', { count: followResults.length });
 
     // Load boost orders
     const boostResults = await db.select().from(boostOrders);
@@ -1586,14 +1549,14 @@ async function loadDataFromDB() {
     for (const [userId, list] of boostOrdersByUserMap) {
         boostOrdersByUser.set(userId, list);
     }
-    console.log(`Loaded ${boostResults.length} boost orders`);
+    logger.info('Loaded boost orders', { count: boostResults.length });
 
     const instagramAccountResults = await db.select().from(instagramAccounts);
     for (const account of instagramAccountResults) {
         const mapped = mapInstagramAccountRow(account);
         instagramAccountByUserVertical.set(instagramAccountKey(mapped.userId, mapped.vertical), mapped);
     }
-    console.log(`Loaded ${instagramAccountResults.length} Instagram accounts`);
+    logger.info('Loaded Instagram accounts', { count: instagramAccountResults.length });
 
     const instagramPublicationResults = await db.select().from(instagramPublications);
     const instagramPublicationsByUserMap = new Map<string, InstagramPublicationRecord[]>();
@@ -1606,7 +1569,7 @@ async function loadDataFromDB() {
     for (const [userId, list] of instagramPublicationsByUserMap) {
         instagramPublicationsByUser.set(userId, list.sort((a, b) => b.createdAt - a.createdAt));
     }
-    console.log(`Loaded ${instagramPublicationResults.length} Instagram publications`);
+    logger.info('Loaded Instagram publications', { count: instagramPublicationResults.length });
     
     // Load address book
     const addressBookResults = await db.select().from(addressBook);
@@ -1637,9 +1600,9 @@ async function loadDataFromDB() {
     for (const [userId, list] of addressBookByUserMap) {
         addressBookByUser.set(userId, list);
     }
-    console.log(`Loaded ${addressBookResults.length} address book entries`);
+    logger.info('Loaded address book entries', { count: addressBookResults.length });
 
-    console.log('Data loading complete');
+    logger.info('Data loading complete');
 }
 async function getUserById(id: string): Promise<AppUser | null> {
     const result = await db.select().from(users).where(eq(users.id, id)).limit(1);
@@ -1958,7 +1921,7 @@ async function loadPartnerFeed(sourceId: string, envUrlKey: string | undefined, 
 
     const response = await fetch(sourceUrl);
     if (!response.ok) {
-        throw new Error(`Feed ${sourceId} respondiÃ³ ${response.status}`);
+        throw new Error(`Feed ${sourceId} respondió ${response.status}`);
     }
 
     const payload = await response.json().catch(() => null);
@@ -2135,8 +2098,8 @@ const vehicleValuationFeedRecords: import('./modules/shared/index.js').VehicleVa
         version: '2.5 hybrid cvt',
         year: 2022,
         mileageKm: 36500,
-        fuelType: 'HÃ­brido',
-        transmission: 'AutomÃ¡tica',
+        fuelType: 'Híbrido',
+        transmission: 'Automática',
         bodyType: 'SUV',
         regionId: 'rm',
         communeId: 'las-condes',
@@ -2157,8 +2120,8 @@ const vehicleValuationFeedRecords: import('./modules/shared/index.js').VehicleVa
         version: '2.5 hybrid cvt',
         year: 2022,
         mileageKm: 42100,
-        fuelType: 'HÃ­brido',
-        transmission: 'AutomÃ¡tica',
+        fuelType: 'Híbrido',
+        transmission: 'Automática',
         bodyType: 'SUV',
         regionId: 'rm',
         communeId: 'la-florida',
@@ -2202,7 +2165,7 @@ const vehicleValuationFeedRecords: import('./modules/shared/index.js').VehicleVa
         year: 2021,
         mileageKm: 51400,
         fuelType: 'Bencina',
-        transmission: 'AutomÃ¡tica',
+        transmission: 'Automática',
         bodyType: 'SUV',
         regionId: 'rm',
         communeId: 'pudahuel',
@@ -2232,7 +2195,7 @@ const vehicleValuationFeedRecords: import('./modules/shared/index.js').VehicleVa
         price: 7890000,
         currency: 'CLP',
         publishedAt: Date.now() - 1000 * 60 * 60 * 24 * 4,
-        addressLabel: 'Ã‘uÃ±oa',
+        addressLabel: 'Ñuñoa',
         url: null,
     },
     {
@@ -2245,8 +2208,8 @@ const vehicleValuationFeedRecords: import('./modules/shared/index.js').VehicleVa
         version: '460 6x2',
         year: 2021,
         mileageKm: 210000,
-        fuelType: 'DiÃ©sel',
-        transmission: 'AutomÃ¡tica',
+        fuelType: 'Diésel',
+        transmission: 'Automática',
         bodyType: 'Tracto',
         regionId: 'bio',
         communeId: 'concepcion',
@@ -2254,7 +2217,7 @@ const vehicleValuationFeedRecords: import('./modules/shared/index.js').VehicleVa
         price: 86900000,
         currency: 'CLP',
         publishedAt: Date.now() - 1000 * 60 * 60 * 24 * 10,
-        addressLabel: 'ConcepciÃ³n',
+        addressLabel: 'Concepción',
         url: null,
     },
 ];
@@ -2353,7 +2316,7 @@ async function loadVehiclePartnerFeed(sourceId: string, envUrlKey: string | unde
 
     const response = await fetch(sourceUrl);
     if (!response.ok) {
-        throw new Error(`Feed ${sourceId} respondiÃ³ ${response.status}`);
+        throw new Error(`Feed ${sourceId} respondió ${response.status}`);
     }
 
     const payload = await response.json().catch(() => null);
@@ -2391,7 +2354,7 @@ const vehicleValuationFeedConnectors: VehicleValuationFeedConnector[] = [
     },
     {
         id: 'mercadolibre_vehicles_partner',
-        label: 'Mercado Libre VehÃ­culos',
+        label: 'Mercado Libre Vehículos',
         license: 'commercial_feed',
         transport: 'remote_json',
         supportsHistory: true,
@@ -2466,7 +2429,7 @@ function primeVehicleValuationFeedState() {
             sourceUrl: null,
             itemCount: 0,
             lastSyncAt: null,
-            lastError: 'Requiere integraciÃ³n autorizada. No usamos scraping como fuente operativa.',
+            lastError: 'Requiere integración autorizada. No usamos scraping como fuente operativa.',
             supportsHistory: false,
         },
     ];
@@ -2539,7 +2502,7 @@ async function refreshVehicleValuationFeeds() {
         sourceUrl: null,
         itemCount: 0,
         lastSyncAt: null,
-        lastError: 'Requiere integraciÃ³n autorizada. No usamos scraping como fuente operativa.',
+        lastError: 'Requiere integración autorizada. No usamos scraping como fuente operativa.',
         supportsHistory: false,
     });
 
@@ -2600,441 +2563,17 @@ const BOOST_PRICE_BY_VERTICAL_SECTION: Record<VerticalType, Record<BoostSection,
         auction: { boost_starter: 0, boost_pro: 0, boost_max: 0 },
         project: { boost_starter: 0, boost_pro: 0, boost_max: 0 },
     },
-    serenatas: {
-        sale: { boost_starter: 0, boost_pro: 0, boost_max: 0 },
-        rent: { boost_starter: 0, boost_pro: 0, boost_max: 0 },
-        auction: { boost_starter: 0, boost_pro: 0, boost_max: 0 },
-        project: { boost_starter: 0, boost_pro: 0, boost_max: 0 },
-    },
 };
 
-const AD_FORMAT_LABELS: Record<AdFormat, string> = {
-    hero: 'Hero principal',
-    card: 'Card destacada',
-    inline: 'Banner inline',
-};
+// Advertising constants moved to modules/advertising/types.ts
 
-const MAX_CAMPAIGNS_TOTAL = 10;
-const MAX_ACTIVE_HERO_CAMPAIGNS = 5;
-
-const AD_PRICING_BY_VERTICAL: Record<VerticalType, Record<AdFormat, Record<AdDurationDays, number>>> = {
-    autos: {
-        hero: { 7: 29990, 15: 49990, 30: 79990 },
-        card: { 7: 9990, 15: 14990, 30: 24990 },
-        inline: { 7: 4990, 15: 9990, 30: 14990 },
-    },
-    propiedades: {
-        hero: { 7: 29990, 15: 49990, 30: 79990 },
-        card: { 7: 9990, 15: 14990, 30: 24990 },
-        inline: { 7: 4990, 15: 9990, 30: 14990 },
-    },
-    agenda: {
-        hero: { 7: 0, 15: 0, 30: 0 },
-        card: { 7: 0, 15: 0, 30: 0 },
-        inline: { 7: 0, 15: 0, 30: 0 },
-    },
-    serenatas: {
-        hero: { 7: 0, 15: 0, 30: 0 },
-        card: { 7: 0, 15: 0, 30: 0 },
-        inline: { 7: 0, 15: 0, 30: 0 },
-    },
-};
-
-const SUBSCRIPTION_PLANS_BY_VERTICAL: Record<VerticalType, SubscriptionPlanRecord[]> = {
-    autos: [
-        {
-            id: 'free',
-            name: 'Gratuito',
-            description: 'Plan base para comenzar a publicar vehÃ­culos.',
-            priceMonthly: 0,
-            currency: 'CLP',
-            maxListings: 3,
-            maxFeaturedListings: 0,
-            maxImagesPerListing: 5,
-            analyticsEnabled: false,
-            crmEnabled: false,
-            prioritySupport: false,
-            customBranding: false,
-            apiAccess: false,
-            maxFreeBoostsPerMonth: 0,
-            features: ['3 publicaciones activas', '5 fotos por aviso', 'Soporte bÃ¡sico'],
-        },
-        {
-            id: 'pro',
-            name: 'Profesional',
-            description: 'Para equipos comerciales con operaciÃ³n diaria.',
-            priceMonthly: 39990,
-            currency: 'CLP',
-            maxListings: 50,
-            maxFeaturedListings: 5,
-            maxImagesPerListing: 20,
-            analyticsEnabled: true,
-            crmEnabled: true,
-            prioritySupport: true,
-            customBranding: false,
-            apiAccess: false,
-            recommended: true,
-            maxFreeBoostsPerMonth: 1,
-            features: ['50 publicaciones activas', '5 avisos destacados', 'CRM completo', 'EstadÃ­sticas avanzadas', '20 fotos por aviso', '1 boost gratuito al mes'],
-        },
-        {
-            id: 'enterprise',
-            name: 'Empresarial',
-            description: 'Para empresas con operaciÃ³n multicanal y equipos grandes.',
-            priceMonthly: 99990,
-            currency: 'CLP',
-            maxListings: -1,
-            maxFeaturedListings: -1,
-            maxImagesPerListing: 50,
-            analyticsEnabled: true,
-            crmEnabled: true,
-            prioritySupport: true,
-            customBranding: true,
-            apiAccess: true,
-            maxFreeBoostsPerMonth: 3,
-            features: ['Publicaciones ilimitadas', 'Destacados ilimitados', 'API y branding propio', 'Soporte prioritario 24/7', '50 fotos por aviso', '3 boosts gratuitos al mes'],
-        },
-    ],
-    propiedades: [
-        {
-            id: 'free',
-            name: 'Gratuito',
-            description: 'Plan base para comenzar a publicar propiedades.',
-            priceMonthly: 0,
-            currency: 'CLP',
-            maxListings: 3,
-            maxFeaturedListings: 0,
-            maxImagesPerListing: 12,
-            analyticsEnabled: false,
-            crmEnabled: false,
-            prioritySupport: false,
-            customBranding: false,
-            apiAccess: false,
-            maxFreeBoostsPerMonth: 0,
-            features: ['3 propiedades activas', '12 fotos por aviso', 'Soporte bÃ¡sico'],
-        },
-        {
-            id: 'pro',
-            name: 'Profesional',
-            description: 'Para corredoras con operaciÃ³n comercial constante.',
-            priceMonthly: 39990,
-            currency: 'CLP',
-            maxListings: 50,
-            maxFeaturedListings: 5,
-            maxImagesPerListing: 30,
-            analyticsEnabled: true,
-            crmEnabled: true,
-            prioritySupport: true,
-            customBranding: false,
-            apiAccess: false,
-            recommended: true,
-            maxFreeBoostsPerMonth: 1,
-            features: ['50 propiedades activas', '5 destacadas', 'CRM con pipeline', 'EstadÃ­sticas avanzadas', '30 fotos por aviso', '1 boost gratuito al mes'],
-        },
-        {
-            id: 'enterprise',
-            name: 'Empresarial',
-            description: 'Para equipos grandes, desarrolladoras y franquicias.',
-            priceMonthly: 99990,
-            currency: 'CLP',
-            maxListings: -1,
-            maxFeaturedListings: -1,
-            maxImagesPerListing: 60,
-            analyticsEnabled: true,
-            crmEnabled: true,
-            prioritySupport: true,
-            customBranding: true,
-            apiAccess: true,
-            maxFreeBoostsPerMonth: 3,
-            features: ['Publicaciones ilimitadas', 'Destacados ilimitados', 'API y branding propio', 'Soporte prioritario 24/7', '60 fotos por aviso', '3 boosts gratuitos al mes'],
-        },
-    ],
-    agenda: [
-        {
-            id: 'free',
-            name: 'Gratuito',
-            description: 'Para empezar a ordenar tu consulta.',
-            priceMonthly: 0,
-            currency: 'CLP',
-            maxListings: 1,
-            maxFeaturedListings: 0,
-            maxImagesPerListing: 5,
-            analyticsEnabled: false,
-            crmEnabled: false,
-            prioritySupport: false,
-            customBranding: false,
-            apiAccess: false,
-            maxFreeBoostsPerMonth: 0,
-            features: ['Hasta 10 citas al mes', 'Hasta 5 pacientes', 'PÃ¡gina de reserva pÃºblica', 'ConfirmaciÃ³n por email al paciente', 'Recordatorio automÃ¡tico 24h antes'],
-        },
-        {
-            id: 'pro',
-            name: 'Profesional',
-            description: 'Para profesionales con prÃ¡ctica activa.',
-            priceMonthly: 14990,
-            currency: 'CLP',
-            maxListings: 1,
-            maxFeaturedListings: 0,
-            maxImagesPerListing: 20,
-            analyticsEnabled: true,
-            crmEnabled: true,
-            prioritySupport: true,
-            customBranding: false,
-            apiAccess: false,
-            recommended: true,
-            maxFreeBoostsPerMonth: 0,
-            features: ['Citas y pacientes ilimitados', 'Notas clÃ­nicas por sesiÃ³n', 'Control de pagos y cobros', 'Recordatorios por email y WhatsApp', 'Recordatorio 30 min antes por WhatsApp', 'EstadÃ­sticas de consulta', 'SincronizaciÃ³n con Google Calendar'],
-        },
-        {
-            id: 'enterprise',
-            name: 'Empresarial',
-            description: 'PrÃ³ximamente. Plan para clÃ­nicas y centros mÃ©dicos.',
-            priceMonthly: 0,
-            currency: 'CLP',
-            maxListings: 1,
-            maxFeaturedListings: 0,
-            maxImagesPerListing: 50,
-            analyticsEnabled: true,
-            crmEnabled: true,
-            prioritySupport: true,
-            customBranding: true,
-            apiAccess: true,
-            isComingSoon: true,
-            maxFreeBoostsPerMonth: 0,
-            features: ['MÃºltiples profesionales', 'GestiÃ³n de salas', 'Reportes avanzados', 'Integraciones con sistemas de salud', 'Branding completo'],
-        },
-    ],
-    serenatas: [
-        {
-            id: 'free',
-            name: 'Gratuito',
-            description: 'Plan base para mÃºsicos y grupos de serenata.',
-            priceMonthly: 0,
-            currency: 'CLP',
-            maxListings: 0,
-            maxFeaturedListings: 0,
-            maxImagesPerListing: 0,
-            analyticsEnabled: false,
-            crmEnabled: false,
-            prioritySupport: false,
-            customBranding: false,
-            apiAccess: false,
-            maxFreeBoostsPerMonth: 0,
-            features: ['Acceso bÃ¡sico a SimpleSerenatas'],
-        },
-    ],
-};
+// Subscription plans moved to modules/advertising/types.ts
 
 const boostListingsSeed: BoostListingRecord[] = [];
 
-function isBoostSectionAllowed(vertical: VerticalType, section: BoostSection): boolean {
-    if (vertical === 'autos') return section === 'sale' || section === 'rent' || section === 'auction';
-    return section === 'sale' || section === 'rent' || section === 'project';
-}
+// Boost functions moved to modules/boost/service.ts
 
-function getSectionsForVertical(vertical: VerticalType): BoostSection[] {
-    return vertical === 'autos' ? ['sale', 'rent', 'auction'] : ['sale', 'rent', 'project'];
-}
-
-function parseBoostSection(raw: string | undefined, vertical: VerticalType): BoostSection {
-    const normalized = raw === 'rent' || raw === 'auction' || raw === 'project' ? raw : 'sale';
-    return isBoostSectionAllowed(vertical, normalized) ? normalized : 'sale';
-}
-
-function getBoostPlans(vertical: VerticalType, section: BoostSection): BoostPlanRecord[] {
-    const safeSection = isBoostSectionAllowed(vertical, section) ? section : 'sale';
-    const sectionPricing = BOOST_PRICE_BY_VERTICAL_SECTION[vertical][safeSection];
-    return BOOST_PLAN_TEMPLATES.map((template) => ({
-        id: template.id,
-        name: template.name,
-        days: template.days,
-        visibilityLift: template.visibilityLift,
-        price: sectionPricing[template.id],
-    }));
-}
-
-function getBoostListingById(vertical: VerticalType, listingId: string): BoostListingRecord | null {
-    return boostListingsSeed.find((item) => item.vertical === vertical && item.id === listingId) ?? null;
-}
-
-function getBoostListingsByOwner(vertical: VerticalType, ownerId: string): BoostListingRecord[] {
-    return boostListingsSeed.filter((item) => item.vertical === vertical && item.ownerId === ownerId);
-}
-
-function normalizeBoostOrder(order: BoostOrder, now = Date.now()): BoostOrder {
-    if (order.status === 'paused' || order.status === 'ended') {
-        if (order.status === 'ended') return { ...order, status: 'ended' };
-        if (now >= order.endAt) return { ...order, status: 'ended' };
-        return order;
-    }
-
-    if (now >= order.endAt) return { ...order, status: 'ended' };
-    if (now < order.startAt) return { ...order, status: 'scheduled' };
-    return { ...order, status: 'active' };
-}
-
-function getAllBoostOrdersNormalized(now = Date.now()): BoostOrder[] {
-    const all: BoostOrder[] = [];
-    for (const [userId, orders] of boostOrdersByUser.entries()) {
-        const normalized = orders.map((order) => normalizeBoostOrder(order, now));
-        boostOrdersByUser.set(userId, normalized);
-        all.push(...normalized);
-    }
-    return all;
-}
-
-function getBoostOrdersForUser(userId: string, vertical?: VerticalType): BoostOrder[] {
-    const normalized = (boostOrdersByUser.get(userId) ?? []).map((order) => normalizeBoostOrder(order));
-    boostOrdersByUser.set(userId, normalized);
-    const filtered = vertical ? normalized.filter((item) => item.vertical === vertical) : normalized;
-    return [...filtered].sort((a, b) => b.createdAt - a.createdAt);
-}
-
-function sectionLabel(section: BoostSection): string {
-    if (section === 'rent') return 'Arriendos';
-    if (section === 'auction') return 'Subastas';
-    if (section === 'project') return 'Proyectos';
-    return 'Ventas';
-}
-
-function makeBoostOrderId(): string {
-    return `boost-${Date.now()}-${Math.floor(Math.random() * 100_000)}`;
-}
-
-function countReservedSlots(vertical: VerticalType, section: BoostSection): number {
-    return getAllBoostOrdersNormalized().filter((order) => {
-        if (order.vertical !== vertical) return false;
-        if (order.section !== section) return false;
-        return order.status === 'active' || order.status === 'scheduled' || order.status === 'paused';
-    }).length;
-}
-
-function countFreeBoostsUsedThisMonth(userId: string, vertical: VerticalType): number {
-    const now = new Date();
-    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).getTime();
-    const orders = getBoostOrdersForUser(userId, vertical);
-    return orders.filter((order) => order.createdAt >= monthStart && order.price === 0).length;
-}
-
-function getFreeBoostQuota(user: AppUser, vertical: VerticalType): { max: number; used: number; remaining: number } {
-    if (user.role === 'superadmin') {
-        return { max: -1, used: 0, remaining: -1 }; // -1 = ilimitado
-    }
-    const planId = getEffectivePlanId(user, vertical);
-    const plan = getSubscriptionPlans(vertical).find((p) => p.id === planId);
-    const max = plan?.maxFreeBoostsPerMonth ?? 0;
-    const used = countFreeBoostsUsedThisMonth(user.id, vertical);
-    return { max, used, remaining: Math.max(0, max - used) };
-}
-
-function createBoostOrderRecord(input: {
-    userId: string;
-    vertical: VerticalType;
-    listing: BoostListingRecord;
-    section: BoostSection;
-    plan: BoostPlanRecord;
-    startAt?: number;
-}): { ok: boolean; order?: BoostOrder; error?: string } {
-    const ownOrders = getBoostOrdersForUser(input.userId);
-    const hasRunningForListing = ownOrders.some((order) => {
-        if (order.vertical !== input.vertical || order.listingId !== input.listing.id) return false;
-        return order.status === 'active' || order.status === 'scheduled' || order.status === 'paused';
-    });
-
-    if (hasRunningForListing) {
-        return { ok: false, error: 'Ya tienes un boost vigente para esta publicaciÃ³n' };
-    }
-
-    const reserved = countReservedSlots(input.vertical, input.section);
-    if (reserved >= MAX_BOOST_SLOTS_PER_SECTION) {
-        return { ok: false, error: 'No quedan cupos en esta secciÃ³n para el periodo seleccionado' };
-    }
-
-    const startAt = input.startAt && Number.isFinite(input.startAt) ? input.startAt : Date.now();
-    const endAt = startAt + input.plan.days * 24 * 60 * 60 * 1000;
-    const createdAt = Date.now();
-
-    const nextOrder = normalizeBoostOrder({
-        id: makeBoostOrderId(),
-        userId: input.userId,
-        vertical: input.vertical,
-        listingId: input.listing.id,
-        section: input.section,
-        planId: input.plan.id,
-        planName: input.plan.name,
-        days: input.plan.days,
-        price: input.plan.price,
-        startAt,
-        endAt,
-        status: 'active',
-        createdAt,
-        updatedAt: createdAt,
-    });
-
-    const existing = boostOrdersByUser.get(input.userId) ?? [];
-    boostOrdersByUser.set(input.userId, [nextOrder, ...existing]);
-
-    return { ok: true, order: nextOrder };
-}
-
-function getAdvertisingPrice(vertical: VerticalType, format: AdFormat, durationDays: AdDurationDays): number {
-    return AD_PRICING_BY_VERTICAL[vertical][format][durationDays];
-}
-
-function isAdPlacementSectionAllowed(vertical: VerticalType, section: AdPlacementSection): boolean {
-    if (section === 'home') return true;
-    if (vertical === 'autos') return section === 'ventas' || section === 'arriendos' || section === 'subastas';
-    return section === 'ventas' || section === 'arriendos' || section === 'proyectos';
-}
-
-function normalizeAdCampaignStatus(record: AdCampaignRecord, now = Date.now()): AdCampaignRecord {
-    if (record.status === 'paused') {
-        if (now >= record.endAt) return { ...record, status: 'ended' };
-        return record;
-    }
-    if (now >= record.endAt) return { ...record, status: 'ended' };
-    if (now < record.startAt) return { ...record, status: 'scheduled' };
-    return { ...record, status: 'active' };
-}
-
-function normalizeAdCampaigns(items: AdCampaignRecord[], now = Date.now()): AdCampaignRecord[] {
-    const normalized = items.map((item) => normalizeAdCampaignStatus(item, now));
-
-    const activeHeroCandidates = normalized
-        .filter((item) => item.paymentStatus === 'paid' && item.format === 'hero' && item.status === 'active')
-        .sort((a, b) => a.startAt - b.startAt || a.createdAt - b.createdAt);
-
-    const allowedHeroIds = new Set(
-        activeHeroCandidates.slice(0, MAX_ACTIVE_HERO_CAMPAIGNS).map((item) => item.id)
-    );
-
-    return normalized.map((item) => {
-        if (item.paymentStatus !== 'paid') return item;
-        if (item.format !== 'hero' || item.status !== 'active') return item;
-        if (allowedHeroIds.has(item.id)) return item;
-        return { ...item, status: 'scheduled' };
-    });
-}
-
-function getAdPaymentStatusFromOrderStatus(status: PaymentOrderStatus): AdPaymentStatus {
-    if (status === 'approved' || status === 'authorized') return 'paid';
-    if (status === 'rejected') return 'failed';
-    if (status === 'cancelled') return 'cancelled';
-    return 'pending';
-}
-
-function isValidHttpDestinationUrl(url: string): boolean {
-    try {
-        const parsed = new URL(url);
-        return parsed.protocol === 'http:' || parsed.protocol === 'https:';
-    } catch {
-        return false;
-    }
-}
-
-function getSubscriptionPlans(vertical: VerticalType): SubscriptionPlanRecord[] {
-    return SUBSCRIPTION_PLANS_BY_VERTICAL[vertical];
-}
+// Advertising functions moved to modules/advertising/service.ts
 
 function getPaidSubscriptionPlan(
     vertical: VerticalType,
@@ -3286,7 +2825,7 @@ function makeSubscriptionId(vertical: VerticalType, planId: Exclude<Subscription
     return `sub-${vertical}-${planId}-${Date.now()}-${Math.floor(Math.random() * 100_000)}`;
 }
 
-function getPaymentOrdersForUser(userId: string, options: { vertical?: VerticalType; kind?: CheckoutKind } = {}): PaymentOrderRecord[] {
+function getPaymentOrdersForUser(userId: string, options: { vertical?: PaymentVerticalType; kind?: CheckoutKind } = {}): PaymentOrderRecord[] {
     const current = paymentOrdersByUser.get(userId) ?? [];
     return current
         .filter((item) => (options.vertical ? item.vertical === options.vertical : true))
@@ -3478,7 +3017,7 @@ async function disconnectInstagramAccount(userId: string, vertical: VerticalType
     await db.delete(instagramPublications).where(eq(instagramPublications.instagramAccountId, existing.id));
     await db.delete(instagramAccounts).where(eq(instagramAccounts.id, existing.id));
     instagramAccountByUserVertical.delete(instagramAccountKey(userId, vertical));
-    // Limpiar tambiÃ©n las publicaciones del cache en memoria
+    // Limpiar también las publicaciones del cache en memoria
     instagramPublicationsByUser.delete(userId);
 }
 
@@ -3527,10 +3066,10 @@ function getLatestInstagramPublicationForListing(userId: string, vertical: Verti
 
 function defaultInstagramCaptionTemplate(vertical: VerticalType): string {
     if (vertical === 'autos') {
-        return 'ðŸš— {{title}}\nðŸ’° {{price}}\nðŸ“ {{location}}\n\n{{description}}\n\nðŸ”— Ver mÃ¡s: {{url}}\n\n#SimpleAutos #AutosChile #Autos #VentaAutos';
+        return '🚗 {{title}}\n💰 {{price}}\n📍 {{location}}\n\n{{description}}\n\n🔗 Ver más: {{url}}\n\n#SimpleAutos #AutosChile #Autos #VentaAutos';
     }
     if (vertical === 'propiedades') {
-        return 'ðŸ  {{title}}\nðŸ’° {{price}}\nðŸ“ {{location}}\n\n{{description}}\n\nðŸ”— Ver mÃ¡s: {{url}}\n\n#SimplePropiedades #PropiedadesChile #Inmobiliaria';
+        return '🏠 {{title}}\n💰 {{price}}\n📍 {{location}}\n\n{{description}}\n\n🔗 Ver más: {{url}}\n\n#SimplePropiedades #PropiedadesChile #Inmobiliaria';
     }
     return '{{title}}\n{{price}}\n{{location}}\n\n{{description}}\n\n{{url}}';
 }
@@ -3538,7 +3077,7 @@ function defaultInstagramCaptionTemplate(vertical: VerticalType): string {
 function buildInstagramCaption(listing: ListingRecord, publicUrl: string, template: string | null, override: string | null): string {
     if (override) return override.trim();
 
-    const summary = extractListingSummary(listing).join(' Â· ');
+    const summary = extractListingSummary(listing).join(' · ');
     const locationLabel = getInstagramCommuneLabel(listing, asObject(listing.rawData)) || listing.location || 'Chile';
     const source = (template && template.trim()) || defaultInstagramCaptionTemplate(listing.vertical);
     return source
@@ -3621,7 +3160,7 @@ function buildInstagramListingData(listing: ListingRecord): InstagramListingData
         bathrooms: parseNumberFromString(basic.bathrooms) ?? undefined,
         surfaceLabel: (() => {
             const surface = parseNumberFromString(basic.totalArea) ?? parseNumberFromString(basic.surface);
-            return surface != null ? `${surface.toLocaleString('es-CL')} mÂ²` : undefined;
+            return surface != null ? `${surface.toLocaleString('es-CL')} m²` : undefined;
         })(),
         features: extractListingSummary(listing),
         images: extractListingMediaUrls(listing).map((url) => ({ url })),
@@ -3670,7 +3209,7 @@ function escapeSvgText(value: string): string {
 function clampTemplateText(value: string, maxLength: number): string {
     const normalized = value.replace(/\s+/g, ' ').trim();
     if (normalized.length <= maxLength) return normalized;
-    return `${normalized.slice(0, Math.max(0, maxLength - 1)).trimEnd()}â€¦`;
+    return `${normalized.slice(0, Math.max(0, maxLength - 1)).trimEnd()}…`;
 }
 
 // SVG icon paths (24x24 viewBox) for highlights / badges / location / discount
@@ -3710,17 +3249,17 @@ function getHighlightIconKey(text: string): string {
     if (t === 'nuevo') return 'nuevo';
     if (t.includes('km')) return 'km';
     if (t.includes('bencina') || t.includes('gasolina')) return 'bencina';
-    if (t.includes('diesel') || t.includes('diÃ©sel') || t.includes('petrÃ³leo')) return 'diesel';
+    if (t.includes('diesel') || t.includes('diésel') || t.includes('petróleo')) return 'diesel';
     if (t.includes('dorm')) return 'dorm';
     if (t.includes('bano')) return 'bano';
-    if (t.includes('mÂ²') || t.includes('m2') || t.includes('mt')) return 'superficie';
+    if (t.includes('m²') || t.includes('m2') || t.includes('mt')) return 'superficie';
     if (t.includes('casa')) return 'casa';
     if (t.includes('depto') || t.includes('departamento')) return 'depto';
     if (t.includes('terreno') || t.includes('sitio') || t.includes('parcela')) return 'terreno';
     return 'servicio'; // fallback
 }
 
-// FunciÃ³n simple para crear texto SVG usando <text> (evita fontconfig)
+// Función simple para crear texto SVG usando <text> (evita fontconfig)
 // Nota: text-to-svg fue removido porque requiere fuentes del sistema no disponibles en Docker
 function svgTextElement(
     text: string,
@@ -3838,7 +3377,7 @@ async function buildInstagramTemplateOverlaySvg(
     const pricePrefix = escapeSvgText(priceLockup.prefix);
     const priceAmount = escapeSvgText(priceLockup.amount);
     const highlights = (template.highlights ?? []).slice(0, 4).map((item: string) => clampTemplateText(item, 18));
-    const summaryLine = clampTemplateText(highlights.join('   Â·   '), 64);
+    const summaryLine = clampTemplateText(highlights.join('   ·   '), 64);
     const badgeText = escapeSvgText(clampTemplateText(template.branding.badgeText, 18));
     const ctaLabel = escapeSvgText(clampTemplateText(template.ctaLabel, 26));
     const topBandHeight = template.layoutVariant === 'portrait' ? 128 : 104;
@@ -3902,10 +3441,10 @@ async function buildInstagramTemplateOverlaySvg(
             <text x="${width - 76}" y="${height - bottomBandHeight + 152}" fill="${template.colors.textInverse}" font-size="18" font-weight="700" text-anchor="end">${ctaLabel}</text>
         `;
     } else if (template.overlayVariant === 'essential-watermark') {
-        // BÃSICO: Sin overlay SVG â€” solo logo (agregado por sharp composite)
+        // BÁSICO: Sin overlay SVG — solo logo (agregado por sharp composite)
         detailsBand = '';
     } else if (template.overlayVariant === 'professional-centered') {
-        // PROFESIONAL: Card brandAccent en la parte inferior con precio, tÃ­tulo (1 lÃ­nea), highlights con iconos, ubicaciÃ³n, badges
+        // PROFESIONAL: Card brandAccent en la parte inferior con precio, título (1 línea), highlights con iconos, ubicación, badges
         const cx = Math.round(width / 2);
         const margin = 40;
         const cardW = width - margin * 2;
@@ -3942,7 +3481,7 @@ async function buildInstagramTemplateOverlaySvg(
             titleSvg = svgTextElement(proTitleText, { x: cx, y: y + 30, fontSize: 38, fontWeight: 900, fill: '#FFFFFF', anchor: 'middle' });
             y += 40;
         }
-        // Highlights with icons â€” horizontal row, font 30 semibold
+        // Highlights with icons — horizontal row, font 30 semibold
         let hlSvg = '';
         if (highlights.length > 0) {
             y += 8;
@@ -3960,7 +3499,7 @@ async function buildInstagramTemplateOverlaySvg(
             }
             y += 36;
         }
-        // Location pill with icon â€” bigger
+        // Location pill with icon — bigger
         let locSvg = '';
         if (locTextRaw) {
             y += 14;
@@ -3974,7 +3513,7 @@ async function buildInstagramTemplateOverlaySvg(
             `;
         }
 
-        // Badges top-right â€” auto-width based on text length
+        // Badges top-right — auto-width based on text length
         let badgesSvg = '';
         let bY = 28;
         if (template.discountLabel) {
@@ -4010,7 +3549,7 @@ async function buildInstagramTemplateOverlaySvg(
             ${locSvg}
         `;
     } else if (template.overlayVariant === 'signature-complete') {
-        // PREMIUM: Gradiente oscuro elegante, tÃ­tulo 1 lÃ­nea, highlights con iconos, badges/loc mÃ¡s grandes
+        // PREMIUM: Gradiente oscuro elegante, título 1 línea, highlights con iconos, badges/loc más grandes
         const cx = Math.round(width / 2);
         const fullPrice = escapeSvgText(clampTemplateText(template.offerPriceLabel || template.priceLabel || 'Consultar', 20));
         const origPrice = template.offerPriceLabel ? escapeSvgText(clampTemplateText(template.priceLabel || '', 20)) : '';
@@ -4036,7 +3575,7 @@ async function buildInstagramTemplateOverlaySvg(
             `;
             y -= 10;
         }
-        // Highlights with icons â€” horizontal row
+        // Highlights with icons — horizontal row
         let hlSvg = '';
         if (highlights.length > 0) {
             y -= 36;
@@ -4053,7 +3592,7 @@ async function buildInstagramTemplateOverlaySvg(
             }
             y -= 14;
         }
-        // Title â€” single line, font 38
+        // Title — single line, font 38
         let titleSvg = '';
         if (sigTitle) {
             y -= 44;
@@ -4068,7 +3607,7 @@ async function buildInstagramTemplateOverlaySvg(
         }
         const priceBaseline = y;
 
-        // Badges top-right â€” auto-width based on text length
+        // Badges top-right — auto-width based on text length
         let badgesSvg = '';
         let bY = 28;
         if (template.discountLabel) {
@@ -4140,12 +3679,12 @@ async function buildInstagramTemplateOverlaySvg(
 function getInstagramBasePublicOrigin(): string {
     const origin = getInstagramPublicApiOrigin();
     if (!origin) {
-        throw new Error('INSTAGRAM_REDIRECT_URI debe apuntar a una URL pÃºblica del API.');
+        throw new Error('INSTAGRAM_REDIRECT_URI debe apuntar a una URL pública del API.');
     }
 
     const url = new URL(origin);
     if (url.protocol !== 'https:' || isLocalHostname(url.hostname)) {
-        throw new Error('Instagram requiere un API pÃºblico HTTPS para servir imÃ¡genes.');
+        throw new Error('Instagram requiere un API público HTTPS para servir imágenes.');
     }
     return url.origin;
 }
@@ -4155,7 +3694,7 @@ function buildListingPublicUrlForInstagram(listing: ListingRecord): string {
     if (/^https?:\/\//i.test(listing.href)) {
         const target = new URL(listing.href);
         if (target.protocol !== 'https:' || isLocalHostname(target.hostname)) {
-            throw new Error('La URL pÃºblica del aviso debe ser HTTPS y accesible desde Internet.');
+            throw new Error('La URL pública del aviso debe ser HTTPS y accesible desde Internet.');
         }
         return target.toString();
     }
@@ -4176,7 +3715,7 @@ async function prepareInstagramImageUrl(
 ): Promise<string> {
     const images = extractListingMediaUrls(listing);
     const rawUrl = images[index];
-    if (!rawUrl) throw new Error('La publicaciÃ³n no tiene imÃ¡genes en el Ã­ndice solicitado.');
+    if (!rawUrl) throw new Error('La publicación no tiene imágenes en el índice solicitado.');
 
     const bucketName = process.env.CLOUDFLARE_R2_BUCKET_NAME || 'simple-media';
     const effectiveLayoutVariant = options.layoutVariant ?? options.template?.layoutVariant ?? 'square';
@@ -4209,7 +3748,7 @@ async function prepareInstagramImageUrl(
 
     const sharp = require('sharp') as typeof import('sharp');
     let pipeline = sharp(rawBuffer)
-        .rotate() // Aplicar orientaciÃ³n EXIF automÃ¡ticamente
+        .rotate() // Aplicar orientación EXIF automáticamente
         .resize({ width: 1080, height: targetHeight, fit: 'cover' });
 
     if (options.template) {
@@ -4224,13 +3763,13 @@ async function prepareInstagramImageUrl(
 
         const variant = options.template.overlayVariant;
         const appId = options.template.branding.appId;
-        // Auto templates (BÃ¡sico, Profesional, Premium) use logo-light; property templates use logo
+        // Auto templates (Básico, Profesional, Premium) use logo-light; property templates use logo
         const useLight = ['essential-watermark', 'professional-centered', 'signature-complete'].includes(variant);
         const logoBuffer = !appId ? null : useLight ? await getInstagramBrandLogoLightBuffer(appId) : await getInstagramBrandLogoBuffer(appId);
         if (logoBuffer) {
             let logoPlacement: { width: number; height: number; top: number; left: number; opacity?: number };
             if (variant === 'essential-watermark') {
-                // BÃ¡sico: top-left corner watermark
+                // Básico: top-left corner watermark
                 logoPlacement = { width: 96, height: 96, top: 36, left: 36, opacity: 0.5 };
             } else if (variant === 'professional-centered') {
                 // Profesional: centered above brandAccent card - calculate card height dynamically
@@ -4297,7 +3836,7 @@ async function prepareInstagramImageUrl(
         CacheControl: 'public, max-age=86400',
     }));
 
-    console.log('[instagram] uploaded to R2:', {
+    logger.info('[instagram] uploaded to R2', {
         listingId: listing.id,
         imageIndex: index,
         isCover: options.isCover === true,
@@ -4308,7 +3847,7 @@ async function prepareInstagramImageUrl(
     return directUrl;
 }
 
-// Nueva funciÃ³n: Usa Cloudflare Worker para generar imÃ¡genes de Instagram
+// Nueva función: Usa Cloudflare Worker para generar imágenes de Instagram
 // Elimina la necesidad de Sharp + fontconfig en el servidor
 async function prepareInstagramImageUrlCloudflare(
     listing: ListingRecord,
@@ -4322,21 +3861,21 @@ async function prepareInstagramImageUrlCloudflare(
 ): Promise<string> {
     const images = extractListingMediaUrls(listing);
     const rawUrl = images[index];
-    if (!rawUrl) throw new Error('La publicaciÃ³n no tiene imÃ¡genes en el Ã­ndice solicitado.');
+    if (!rawUrl) throw new Error('La publicación no tiene imágenes en el índice solicitado.');
 
     // Detectar si estamos usando Cloudflare R2
     const storageProvider = getStorageProvider();
     const isCloudflare = storageProvider.constructor.name === 'CloudflareR2Provider';
     
     if (!isCloudflare || !process.env.CLOUDFLARE_WORKER_URL) {
-        // Fallback a mÃ©todo tradicional con Sharp
+        // Fallback a método tradicional con Sharp
         return prepareInstagramImageUrl(listing, index, options);
     }
 
-    // Si la imagen estÃ¡ en Backblaze (URLs antiguas), usar mÃ©todo tradicional con Sharp
-    // porque el Worker no puede componer imagen + overlay todavÃ­a
+    // Si la imagen está en Backblaze (URLs antiguas), usar método tradicional con Sharp
+    // porque el Worker no puede componer imagen + overlay todavía
     if (rawUrl.includes('backblazeb2.com') || rawUrl.includes('f005.backblazeb2.com')) {
-        console.log('[instagram] imagen en Backblaze detectada, usando mÃ©todo tradicional con Sharp');
+        logger.info('[instagram] imagen en Backblaze detectada, usando método tradicional con Sharp');
         return prepareInstagramImageUrl(listing, index, options);
     }
 
@@ -4370,11 +3909,11 @@ async function prepareInstagramImageUrlCloudflare(
         const r2PublicUrl = process.env.CLOUDFLARE_R2_PUBLIC_URL || 'https://pub-4809688bad1a41768578b221b0df942c.r2.dev';
         directImageUrl = `${r2PublicUrl}/${sourceKey}`;
     } else if (sourceUrl.includes('backblazeb2.com')) {
-        // Es URL de Backblaze B2 - usar la URL pÃºblica directa
+        // Es URL de Backblaze B2 - usar la URL pública directa
         const urlObj = new URL(sourceUrl);
         const pathParts = urlObj.pathname.split('/');
         sourceKey = pathParts.slice(pathParts.indexOf('file') > -1 ? 3 : 1).join('/');
-        // Usar la URL pÃºblica directa de Backblaze (el Worker debe poder descargarla)
+        // Usar la URL pública directa de Backblaze (el Worker debe poder descargarla)
         directImageUrl = sourceUrl;
     } else {
         // URL externa, usar directamente
@@ -4404,7 +3943,7 @@ async function prepareInstagramImageUrlCloudflare(
         else variant = 'essential-watermark';
     }
 
-    // Generar URL del Worker con parÃ¡metros
+    // Generar URL del Worker con parámetros
     const params = new URLSearchParams({
         image: directImageUrl,
         variant,
@@ -4415,7 +3954,7 @@ async function prepareInstagramImageUrlCloudflare(
 
     const overlayUrl = `${workerUrl}/overlay?${params.toString()}`;
 
-    console.log('[instagram] usando Cloudflare Worker:', {
+    logger.info('[instagram] usando Cloudflare Worker', {
         listingId: listing.id,
         imageIndex: index,
         workerUrl: overlayUrl.substring(0, 100) + '...',
@@ -4449,7 +3988,7 @@ async function publishListingToInstagram(user: AppUser, listing: ListingRecord, 
     if (!account || account.status === 'disconnected') throw new Error('Primero conecta una cuenta de Instagram.');
     
     if (!userCanUseInstagram(user, listing.vertical)) {
-        throw new Error('Instagram estÃ¡ disponible solo para planes Pro y Empresa.');
+        throw new Error('Instagram está disponible solo para planes Pro y Empresa.');
     }
     if (listing.status !== 'active') {
         throw new Error('Solo puedes publicar en Instagram avisos activos.');
@@ -4465,7 +4004,7 @@ async function publishListingToInstagram(user: AppUser, listing: ListingRecord, 
     const mediaUrls = extractListingMediaUrls(listing).slice(0, 10);
     if (mediaUrls.length === 0) {
         logDebug(`[instagram] no media for listing ${listing.id}`);
-        throw new Error('El aviso no tiene imÃ¡genes.');
+        throw new Error('El aviso no tiene imágenes.');
     }
 
     logDebug(`[instagram] preparing ${mediaUrls.length} images for ${listing.id}`);
@@ -4484,7 +4023,7 @@ async function publishListingToInstagram(user: AppUser, listing: ListingRecord, 
         if (coverUrl && coverUrl.startsWith('http')) {
             preparedImages.push({ url: coverUrl });
         }
-        console.log('[instagram] cover image prepared:', {
+        logger.info('[instagram] cover image prepared', {
             listingId: listing.id,
             templateId: coverTemplate?.id ?? null,
             url: coverUrl,
@@ -4498,7 +4037,7 @@ async function publishListingToInstagram(user: AppUser, listing: ListingRecord, 
         logDebug(`[instagram] failed to prepare cover image: ${e instanceof Error ? e.message : String(e)}`);
     }
 
-    // Template minimal para marca de agua en imÃ¡genes del carrusel (solo logo, sin overlay de texto)
+    // Template minimal para marca de agua en imágenes del carrusel (solo logo, sin overlay de texto)
     const watermarkTemplate: InstagramRenderTemplate | null = options.template
         ? {
             ...options.template,
@@ -4545,7 +4084,7 @@ async function publishListingToInstagram(user: AppUser, listing: ListingRecord, 
     }
 
     if (preparedImages.length === 0) {
-        throw new Error('No se pudo preparar ninguna imagen vÃ¡lida para Instagram. Verifica que el aviso tenga fotos pÃºblicas y accesibles.');
+        throw new Error('No se pudo preparar ninguna imagen válida para Instagram. Verifica que el aviso tenga fotos públicas y accesibles.');
     }
 
     const caption = buildInstagramCaption(listing, publicUrl, refreshedAccount.captionTemplate, options.captionOverride ?? null);
@@ -4666,14 +4205,20 @@ function isLocalHostname(hostname: string): boolean {
         || normalized.endsWith('.local');
 }
 
-function getMercadoPagoPublicOrigin(vertical: VerticalType): string {
+function getMercadoPagoPublicOrigin(vertical: PaymentVerticalType): string {
     if (vertical === 'autos') {
         return asString(process.env.MERCADO_PAGO_PUBLIC_ORIGIN_AUTOS) || asString(process.env.MERCADO_PAGO_PUBLIC_ORIGIN);
+    }
+    if (vertical === 'agenda') {
+        return asString(process.env.MERCADO_PAGO_PUBLIC_ORIGIN_AGENDA) || asString(process.env.MERCADO_PAGO_PUBLIC_ORIGIN);
+    }
+    if (vertical === 'serenatas') {
+        return asString(process.env.MERCADO_PAGO_PUBLIC_ORIGIN_SERENATAS) || asString(process.env.MERCADO_PAGO_PUBLIC_ORIGIN);
     }
     return asString(process.env.MERCADO_PAGO_PUBLIC_ORIGIN_PROPIEDADES) || asString(process.env.MERCADO_PAGO_PUBLIC_ORIGIN);
 }
 
-function resolveMercadoPagoReturnUrl(vertical: VerticalType, rawReturnUrl: string): string {
+function resolveMercadoPagoReturnUrl(vertical: PaymentVerticalType, rawReturnUrl: string): string {
     const target = new URL(rawReturnUrl);
     const overrideOrigin = getMercadoPagoPublicOrigin(vertical);
     if (!overrideOrigin) return target.toString();
@@ -4684,7 +4229,7 @@ function resolveMercadoPagoReturnUrl(vertical: VerticalType, rawReturnUrl: strin
     return target.toString();
 }
 
-function ensureMercadoPagoSubscriptionReturnUrl(vertical: VerticalType, rawReturnUrl: string): string {
+function ensureMercadoPagoSubscriptionReturnUrl(vertical: PaymentVerticalType, rawReturnUrl: string): string {
     const resolved = resolveMercadoPagoReturnUrl(vertical, rawReturnUrl);
     const target = new URL(resolved);
 
@@ -4892,7 +4437,7 @@ async function listFeaturedBoosted(vertical: VerticalType, section: BoostSection
                 imageUrls: listingImageUrls,
                 section: listing.section,
                 boosted: false,
-                planName: 'OrgÃ¡nico',
+                planName: 'Orgánico',
                 boostEndsAt: null,
                 owner: owner ? sanitizeUser(owner) : null,
             };
@@ -5107,7 +4652,7 @@ async function saveListingRecord(record: ListingRecord): Promise<ListingRecord> 
     }).where(eq(listings.id, record.id)).returning();
 
     if (!row) {
-        throw new Error('PublicaciÃ³n no encontrada');
+        throw new Error('Publicación no encontrada');
     }
 
     return upsertListingCache(mapListingRowToRecord(row));
@@ -5154,7 +4699,7 @@ async function deleteListingRecord(listingId: string): Promise<void> {
                         .map((key) => storage.delete(key))
                 );
             } catch {
-                // Media cleanup is best-effort â€” don't fail the delete
+                // Media cleanup is best-effort — don't fail the delete
             }
         }
     }
@@ -5649,39 +5194,39 @@ function listingDefaultHref(vertical: VerticalType, listingId: string): string {
 function listingFieldLabel(key: string): string {
     switch (key) {
         case 'title':
-            return 'TÃ­tulo';
+            return 'Título';
         case 'description':
-            return 'DescripciÃ³n';
+            return 'Descripción';
         case 'brand':
             return 'Marca';
         case 'model':
             return 'Modelo';
         case 'year':
-            return 'AÃ±o';
+            return 'Año';
         case 'mileage':
             return 'Kilometraje';
         case 'fuel':
             return 'Combustible';
         case 'transmission':
-            return 'TransmisiÃ³n';
+            return 'Transmisión';
         case 'bodyType':
-            return 'CarrocerÃ­a / tipo';
+            return 'Carrocería / tipo';
         case 'condition':
-            return 'CondiciÃ³n del vehÃ­culo';
+            return 'Condición del vehículo';
         case 'location':
-            return 'RegiÃ³n + comuna';
+            return 'Región + comuna';
         case 'price':
             return 'Precio';
         case 'photos':
-            return 'Fotos (mÃ­nimo 3)';
+            return 'Fotos (mínimo 3)';
         case 'specificRequired':
-            return 'Campos especiales por categorÃ­a';
+            return 'Campos especiales por categoría';
         case 'rentMinDays':
-            return 'Arriendo: dÃ­as mÃ­nimos';
+            return 'Arriendo: días mínimos';
         case 'rentAvailability':
             return 'Arriendo: rango de disponibilidad';
         case 'auctionIncrement':
-            return 'Subasta: incremento mÃ­nimo';
+            return 'Subasta: incremento mínimo';
         case 'rooms':
             return 'Dormitorios';
         case 'bathrooms':
@@ -6191,11 +5736,11 @@ function estimatePropertyValuation(input: z.infer<typeof propertyValuationReques
     const notes = [
         comparables.length > 0
             ? `Se consideraron ${comparables.length} comparables combinando publicaciones internas y feeds externos de la misma comuna.`
-            : 'No hubo comparables suficientes; se aplicÃ³ una base tipolÃ³gica ajustada.',
+            : 'No hubo comparables suficientes; se aplicó una base tipológica ajustada.',
         operationType === 'sale'
-            ? 'La estimaciÃ³n de venta se expresa en UF para mantener consistencia con publicaciones residenciales.'
-            : 'La estimaciÃ³n de arriendo se expresa en CLP mensuales.',
-        'La confianza mejora con geocodificaciÃ³n exacta, mÃ¡s fuentes integradas y comparables cerrados por sector.',
+            ? 'La estimación de venta se expresa en UF para mantener consistencia con publicaciones residenciales.'
+            : 'La estimación de arriendo se expresa en CLP mensuales.',
+        'La confianza mejora con geocodificación exacta, más fuentes integradas y comparables cerrados por sector.',
     ];
 
     return {
@@ -6393,9 +5938,9 @@ function estimateVehicleValuation(input: z.infer<typeof vehicleValuationRequestS
     const notes = [
         comparables.length > 0
             ? `Se consideraron ${comparables.length} comparables combinando avisos del marketplace y fuentes externas del segmento.`
-            : 'No hubo comparables suficientes; se aplicÃ³ una referencia base ajustada por aÃ±o, kilometraje y condiciÃ³n.',
-        'La confianza mejora cuando coinciden versiÃ³n, transmisiÃ³n, combustible y ubicaciÃ³n del vehÃ­culo.',
-        'Esta referencia orienta el precio de mercado, pero no reemplaza una tasaciÃ³n comercial ni garantiza el cierre.',
+            : 'No hubo comparables suficientes; se aplicó una referencia base ajustada por año, kilometraje y condición.',
+        'La confianza mejora cuando coinciden versión, transmisión, combustible y ubicación del vehículo.',
+        'Esta referencia orienta el precio de mercado, pero no reemplaza una tasación comercial ni garantiza el cierre.',
     ];
 
     return {
@@ -6519,7 +6064,7 @@ function activeSubscriptionToResponse(subscription: ActiveSubscription | null) {
 
 function upsertBoostListingFromListing(listing: ListingRecord): void {
     const summary = extractListingSummary(listing);
-    const subtitle = summary.join(' â€¢ ');
+    const subtitle = summary.join(' • ');
     const imageUrls = extractListingMediaUrls(listing);
     const existing = boostListingsSeed.find((item) => item.id === listing.id && item.vertical === listing.vertical);
     if (existing) {
@@ -6571,8 +6116,8 @@ function sanitizeUser(user: AppUser): PublicUser {
 }
 
 function localDevForcesSuperadmin(): boolean {
-    /** Opt-in explícito: el valor anterior rompía apps verticales (p. ej. SimpleSerenatas) mostrando `superadmin` y omitiendo cargar `musicians/me/profile`. */
-    return process.env.NODE_ENV !== 'production' && process.env.LOCAL_DEV_FORCE_SUPERADMIN === 'true';
+    /** Opt-in explícito: evita elevar roles locales salvo cuando se pide expresamente. */
+    return !isProduction && process.env.LOCAL_DEV_FORCE_SUPERADMIN === 'true';
 }
 
 function applyRuntimeRole(user: AppUser): AppUser {
@@ -7098,7 +6643,7 @@ function isLocalOrigin(origin: string): boolean {
 function isAllowedBrowserOrigin(origin: string): boolean {
     if (!origin) return false;
     if (allowedOrigins.has(origin)) return true;
-    return process.env.NODE_ENV !== 'production' && isLocalOrigin(origin);
+    return !isProduction && isLocalOrigin(origin);
 }
 
 function resolveBrowserOrigin(c: Context): string | null {
@@ -7115,7 +6660,7 @@ function resolveBrowserOrigin(c: Context): string | null {
         }
     }
 
-    return process.env.NODE_ENV === 'production' ? null : defaultOrigin;
+    return isProduction ? null : defaultOrigin;
 }
 
 function sanitizeBrowserReturnUrl(rawReturnUrl: string, fallbackOrigin: string): string {
@@ -7136,11 +6681,11 @@ function buildGoogleRedirectUri(origin: string): string {
 }
 
 function buildPasswordResetUrl(origin: string, token: string): string {
-    return `${origin}/auth/restablecer?token=${encodeURIComponent(token)}`;
+    return `${origin}/auth/reset-password?token=${encodeURIComponent(token)}`;
 }
 
 function buildEmailVerificationUrl(origin: string, token: string): string {
-    return `${origin}/auth/confirmar-correo?token=${encodeURIComponent(token)}`;
+    return `${origin}/auth/verify-email?token=${encodeURIComponent(token)}`;
 }
 
 type AuthBrandProfile = {
@@ -7155,7 +6700,20 @@ type AuthBrandProfile = {
 };
 
 function getAuthBrandProfile(origin: string): AuthBrandProfile {
-    const host = new URL(origin).hostname.toLowerCase();
+    const url = new URL(origin);
+    const host = url.hostname.toLowerCase();
+    if (host.includes('simpleserenatas') || url.port === '3005') {
+        return {
+            appName: 'SimpleSerenatas',
+            productName: 'Simple',
+            accent: '#E11D48',
+            accentSoft: '#fff1f2',
+            surface: '#881337',
+            title: 'SimpleSerenatas',
+            supportLabel: 'equipo SimpleSerenatas',
+            supportEmail: 'soporte@simpleserenatas.app',
+        };
+    }
     if (host.includes('simpleautos')) {
         return {
             appName: 'SimpleAutos',
@@ -7192,18 +6750,6 @@ function getAuthBrandProfile(origin: string): AuthBrandProfile {
             supportEmail: 'hola@simpleplataforma.app',
         };
     }
-    if (host.includes('simpleserenatas')) {
-        return {
-            appName: 'SimpleSerenatas',
-            productName: 'Simple',
-            accent: '#E11D48',
-            accentSoft: '#fff1f2',
-            surface: '#E11D48',
-            title: 'SimpleSerenatas',
-            supportLabel: 'SimpleSerenatas',
-            supportEmail: 'hola@simpleserenatas.app',
-        };
-    }
     if (host.includes('admin.simpleplataforma.app')) {
         return {
             appName: 'SimpleAdmin',
@@ -7229,7 +6775,12 @@ function getAuthBrandProfile(origin: string): AuthBrandProfile {
 }
 
 function isAuthEmailConfigured(): boolean {
-    return Boolean(asString(process.env.SMTP_HOST) && asString(process.env.SMTP_FROM));
+    return Boolean(
+        asString(process.env.SMTP_HOST)
+        && asString(process.env.SMTP_FROM)
+        && asString(process.env.SMTP_USER)
+        && asString(process.env.SMTP_PASSWORD)
+    );
 }
 
 function getAuthMailerTransporter() {
@@ -7281,7 +6832,7 @@ function buildAuthEmailHtml(input: {
                 <a href="${input.actionUrl}" style="display:inline-block;padding:14px 20px;border-radius:14px;background:${input.brand.accent};color:#ffffff;text-decoration:none;font-weight:700;font-size:14px;">${input.buttonLabel}</a>
               </div>
               <p style="margin:0 0 12px 0;font-size:13px;line-height:1.6;color:#64748b;">${input.footnote}</p>
-              <p style="margin:0;font-size:12px;line-height:1.6;color:#94a3b8;">Si el botÃ³n no funciona, copia y pega este enlace en tu navegador:<br /><a href="${input.actionUrl}" style="color:${input.brand.accent};word-break:break-all;">${input.actionUrl}</a></p>
+              <p style="margin:0;font-size:12px;line-height:1.6;color:#94a3b8;">Si el botón no funciona, copia y pega este enlace en tu navegador:<br /><a href="${input.actionUrl}" style="color:${input.brand.accent};word-break:break-all;">${input.actionUrl}</a></p>
             </div>
           </td>
         </tr>
@@ -7307,30 +6858,41 @@ function buildAuthEmailText(input: {
 
 function formatAuthFromAddress(brand: AuthBrandProfile): string {
     const smtpFrom = asString(process.env.SMTP_FROM);
-    return `${brand.appName} <${smtpFrom}>`;
+    const email = smtpFrom.match(/<([^<>]+)>/)?.[1] ?? smtpFrom;
+    return `${brand.appName} <${email}>`;
+}
+
+function logAuthEmailDelivery(kind: string, brand: AuthBrandProfile, info: any): void {
+    console.info(`[auth-email] ${kind} sent`, {
+        appName: brand.appName,
+        messageId: info?.messageId,
+        accepted: Array.isArray(info?.accepted) ? info.accepted.length : 0,
+        rejected: Array.isArray(info?.rejected) ? info.rejected.length : 0,
+        response: info?.response,
+    });
 }
 
 async function sendPasswordResetEmail(email: string, resetUrl: string, origin: string): Promise<void> {
     const transporter = getAuthMailerTransporter();
     const brand = getAuthBrandProfile(origin);
     if (!transporter) {
-        if (process.env.NODE_ENV === 'production') {
+        if (isProduction) {
             throw new Error('Password reset email delivery is not configured');
         }
         console.info(`Password reset link for ${email}: ${resetUrl}`);
         return;
     }
     const heading = `Restablece el acceso a tu cuenta de ${brand.appName}.`;
-    const body = 'Recibimos una solicitud para cambiar tu contraseÃ±a. Si fuiste tÃº, usa el botÃ³n de abajo para definir una nueva contraseÃ±a segura.';
-    const footnote = 'Si no solicitaste este cambio, puedes ignorar este correo. Tu cuenta seguirÃ¡ protegida.';
-    await transporter.sendMail({
+    const body = 'Recibimos una solicitud para cambiar tu contraseña. Si fuiste tú, usa el botón de abajo para definir una nueva contraseña segura.';
+    const footnote = 'Si no solicitaste este cambio, puedes ignorar este correo. Tu cuenta seguirá protegida.';
+    const info = await transporter.sendMail({
         from: formatAuthFromAddress(brand),
         to: email,
-        subject: `${brand.appName}: restablece tu contraseÃ±a`,
+        subject: `${brand.appName}: restablece tu contraseña`,
         text: buildAuthEmailText({
             heading,
             body,
-            buttonLabel: 'Restablecer contraseÃ±a',
+            buttonLabel: 'Restablecer contraseña',
             actionUrl: resetUrl,
             footnote,
             supportEmail: brand.supportEmail,
@@ -7340,27 +6902,28 @@ async function sendPasswordResetEmail(email: string, resetUrl: string, origin: s
             eyebrow: 'Seguridad de cuenta',
             heading,
             body,
-            buttonLabel: 'Restablecer contraseÃ±a',
+            buttonLabel: 'Restablecer contraseña',
             actionUrl: resetUrl,
             footnote,
         }),
     });
+    logAuthEmailDelivery('password reset', brand, info);
 }
 
 async function sendEmailVerificationEmail(email: string, verificationUrl: string, origin: string): Promise<void> {
     const transporter = getAuthMailerTransporter();
     const brand = getAuthBrandProfile(origin);
     if (!transporter) {
-        if (process.env.NODE_ENV === 'production') {
+        if (isProduction) {
             throw new Error('Email verification delivery is not configured');
         }
         console.info(`Email verification link for ${email}: ${verificationUrl}`);
         return;
     }
     const heading = `Confirma tu correo para activar tu cuenta de ${brand.appName}.`;
-    const body = 'Queremos asegurarnos de que este correo te pertenece y mantener la comunicaciÃ³n de tu cuenta con el branding correcto de la vertical.';
-    const footnote = 'Si no creaste esta cuenta, puedes ignorar este mensaje. No activaremos ninguna acciÃ³n adicional.';
-    await transporter.sendMail({
+    const body = 'Queremos asegurarnos de que este correo te pertenece y mantener la comunicación de tu cuenta con el branding correcto de la vertical.';
+    const footnote = 'Si no creaste esta cuenta, puedes ignorar este mensaje. No activaremos ninguna acción adicional.';
+    const info = await transporter.sendMail({
         from: formatAuthFromAddress(brand),
         to: email,
         subject: `${brand.appName}: confirma tu correo`,
@@ -7374,7 +6937,7 @@ async function sendEmailVerificationEmail(email: string, verificationUrl: string
         }),
         html: buildAuthEmailHtml({
             brand,
-            eyebrow: 'ConfirmaciÃ³n de cuenta',
+            eyebrow: 'Confirmación de cuenta',
             heading,
             body,
             buttonLabel: 'Confirmar correo',
@@ -7382,13 +6945,17 @@ async function sendEmailVerificationEmail(email: string, verificationUrl: string
             footnote,
         }),
     });
+    logAuthEmailDelivery('verification', brand, info);
+    if (info.rejected?.length) {
+        throw new Error(`Email verification rejected by SMTP provider: ${info.response ?? 'unknown response'}`);
+    }
 }
 
 async function sendPasswordChangedEmail(email: string, origin: string): Promise<void> {
     const transporter = getAuthMailerTransporter();
     const brand = getAuthBrandProfile(origin);
     if (!transporter) {
-        if (process.env.NODE_ENV === 'production') {
+        if (isProduction) {
             throw new Error('Password changed email delivery is not configured');
         }
         console.info(`Password changed notice for ${email} on ${brand.appName}`);
@@ -7397,7 +6964,7 @@ async function sendPasswordChangedEmail(email: string, origin: string): Promise<
     const heading = `Tu contrasena de ${brand.appName} fue actualizada.`;
     const body = 'Este correo confirma que el acceso a tu cuenta fue actualizado correctamente. Si no realizaste este cambio, contacta soporte de inmediato.';
     const footnote = 'Por seguridad, revisa tus dispositivos activos y cambia nuevamente la clave si detectas algo fuera de lo normal.';
-    await transporter.sendMail({
+    const info = await transporter.sendMail({
         from: formatAuthFromAddress(brand),
         to: email,
         subject: `${brand.appName}: cambio de contrasena confirmado`,
@@ -7419,13 +6986,14 @@ async function sendPasswordChangedEmail(email: string, origin: string): Promise<
             footnote,
         }),
     });
+    logAuthEmailDelivery('password changed', brand, info);
 }
 
 async function sendWelcomeEmail(email: string, name: string, origin: string): Promise<void> {
     const transporter = getAuthMailerTransporter();
     const brand = getAuthBrandProfile(origin);
     if (!transporter) {
-        if (process.env.NODE_ENV === 'production') {
+        if (isProduction) {
             throw new Error('Welcome email delivery is not configured');
         }
         console.info(`Welcome email for ${email} on ${brand.appName}`);
@@ -7434,7 +7002,7 @@ async function sendWelcomeEmail(email: string, name: string, origin: string): Pr
     const heading = `Tu cuenta de ${brand.appName} ya esta lista.`;
     const body = `Hola ${name}. Tu correo quedo confirmado y ya puedes usar tu cuenta con la experiencia completa de ${brand.appName}.`;
     const footnote = 'Si necesitas ayuda con tu cuenta o con la publicacion de tus contenidos, nuestro equipo de soporte esta disponible.';
-    await transporter.sendMail({
+    const info = await transporter.sendMail({
         from: formatAuthFromAddress(brand),
         to: email,
         subject: `${brand.appName}: bienvenida a tu cuenta`,
@@ -7456,9 +7024,10 @@ async function sendWelcomeEmail(email: string, name: string, origin: string): Pr
             footnote,
         }),
     });
+    logAuthEmailDelivery('welcome', brand, info);
 }
 
-// â”€â”€ Booking confirmation emails â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ── Booking confirmation emails ───────────────────────────────────────────────
 
 type BookingEmailData = {
     appointmentId: string;
@@ -7536,7 +7105,7 @@ function buildBookingEmailHtml(data: BookingEmailData & { cancelUrl: string; app
                 <p style="margin:0;font-size:12px;color:#16a34a;line-height:1.7;">
                     Banco: ${bt.bank}<br/>
                     Tipo: ${bt.accountType}<br/>
-                    NÂ° cuenta: ${bt.accountNumber}<br/>
+                    N° cuenta: ${bt.accountNumber}<br/>
                     Titular: ${bt.holderName}<br/>
                     RUT: ${bt.holderRut}<br/>
                     ${bt.alias ? `Alias: ${bt.alias}` : ''}
@@ -7553,8 +7122,8 @@ function buildBookingEmailHtml(data: BookingEmailData & { cancelUrl: string; app
     }
 
     const statusLabel = isPending
-        ? `<div style="display:inline-block;padding:6px 14px;border-radius:999px;background:#fef3c7;color:#92400e;font-size:12px;font-weight:700;letter-spacing:.04em;">â³ Pendiente de confirmaciÃ³n</div>`
-        : `<div style="display:inline-block;padding:6px 14px;border-radius:999px;background:#d1fae5;color:#065f46;font-size:12px;font-weight:700;letter-spacing:.04em;">âœ… Confirmada</div>`;
+        ? `<div style="display:inline-block;padding:6px 14px;border-radius:999px;background:#fef3c7;color:#92400e;font-size:12px;font-weight:700;letter-spacing:.04em;">⏳ Pendiente de confirmación</div>`
+        : `<div style="display:inline-block;padding:6px 14px;border-radius:999px;background:#d1fae5;color:#065f46;font-size:12px;font-weight:700;letter-spacing:.04em;">✅ Confirmada</div>`;
 
     // Series section (if patient reserved multiple sessions)
     let seriesSection = '';
@@ -7570,7 +7139,7 @@ function buildBookingEmailHtml(data: BookingEmailData & { cancelUrl: string; app
         }).join('');
         seriesSection = `
         <div style="margin-top:20px;padding:16px;background:#faf5ff;border:1px solid #e9d5ff;border-radius:12px;">
-            <p style="margin:0 0 6px 0;font-size:13px;font-weight:700;color:#6b21a8;">ðŸ” Reserva ${freqLabel} â€” ${seriesDates.length} sesiones</p>
+            <p style="margin:0 0 6px 0;font-size:13px;font-weight:700;color:#6b21a8;">🔍 Reserva ${freqLabel} — ${seriesDates.length} sesiones</p>
             <p style="margin:0 0 10px 0;font-size:12px;color:#7c3aed;">Estas son todas las fechas reservadas:</p>
             <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#ffffff;border-radius:10px;overflow:hidden;border:1px solid #ede9fe;">
                 ${rows}
@@ -7589,8 +7158,8 @@ function buildBookingEmailHtml(data: BookingEmailData & { cancelUrl: string; app
         <tr>
           <td style="background:#ffffff;border-radius:24px;overflow:hidden;border:1px solid #e5e7eb;">
             <div style="padding:28px 32px;background:${surface};color:#ffffff;">
-              <div style="font-size:22px;font-weight:700;letter-spacing:-0.01em;">ðŸ“… Tu cita con ${data.professionalName}</div>
-              <div style="margin-top:8px;font-size:14px;color:rgba(255,255,255,.75);">${isPending ? 'Tu solicitud fue recibida y estÃ¡ en espera de confirmaciÃ³n.' : 'Tu cita estÃ¡ confirmada. Te esperamos.'}</div>
+              <div style="font-size:22px;font-weight:700;letter-spacing:-0.01em;">📅 Tu cita con ${data.professionalName}</div>
+              <div style="margin-top:8px;font-size:14px;color:rgba(255,255,255,.75);">${isPending ? 'Tu solicitud fue recibida y está en espera de confirmación.' : 'Tu cita está confirmada. Te esperamos.'}</div>
             </div>
             <div style="padding:28px 32px;">
               <div style="margin-bottom:20px;">${statusLabel}</div>
@@ -7606,19 +7175,19 @@ function buildBookingEmailHtml(data: BookingEmailData & { cancelUrl: string; app
                 <tr>
                   <td style="padding:14px 18px;border-bottom:1px solid #e5e7eb;">
                     <p style="margin:0;font-size:11px;font-weight:600;color:#94a3b8;text-transform:uppercase;letter-spacing:.06em;">Servicio</p>
-                    <p style="margin:4px 0 0;font-size:15px;color:#0f172a;">${data.serviceName} Â· ${durationStr}</p>
+                    <p style="margin:4px 0 0;font-size:15px;color:#0f172a;">${data.serviceName} · ${durationStr}</p>
                   </td>
                 </tr>` : `
                 <tr>
                   <td style="padding:14px 18px;border-bottom:1px solid #e5e7eb;">
-                    <p style="margin:0;font-size:11px;font-weight:600;color:#94a3b8;text-transform:uppercase;letter-spacing:.06em;">DuraciÃ³n</p>
+                    <p style="margin:0;font-size:11px;font-weight:600;color:#94a3b8;text-transform:uppercase;letter-spacing:.06em;">Duración</p>
                     <p style="margin:4px 0 0;font-size:15px;color:#0f172a;">${durationStr}</p>
                   </td>
                 </tr>`}
                 <tr>
                   <td style="padding:14px 18px;${priceStr ? 'border-bottom:1px solid #e5e7eb;' : ''}">
                     <p style="margin:0;font-size:11px;font-weight:600;color:#94a3b8;text-transform:uppercase;letter-spacing:.06em;">Modalidad</p>
-                    <p style="margin:4px 0 0;font-size:15px;color:#0f172a;">${modalityStr}${data.location ? ` Â· ${data.location}` : ''}</p>
+                    <p style="margin:4px 0 0;font-size:15px;color:#0f172a;">${modalityStr}${data.location ? ` · ${data.location}` : ''}</p>
                   </td>
                 </tr>
                 ${priceStr ? `
@@ -7632,7 +7201,7 @@ function buildBookingEmailHtml(data: BookingEmailData & { cancelUrl: string; app
 
               ${data.modality !== 'presencial' && data.meetingUrl ? `
               <div style="margin-top:20px;padding:14px 18px;background:#eff6ff;border:1px solid #bfdbfe;border-radius:12px;">
-                <p style="margin:0 0 6px 0;font-size:13px;font-weight:600;color:#1e40af;">ðŸŽ¥ Enlace de videollamada</p>
+                <p style="margin:0 0 6px 0;font-size:13px;font-weight:600;color:#1e40af;">🎥 Enlace de videollamada</p>
                 <a href="${data.meetingUrl}" style="font-size:13px;color:#2563eb;word-break:break-all;">${data.meetingUrl}</a>
               </div>` : ''}
 
@@ -7641,11 +7210,11 @@ function buildBookingEmailHtml(data: BookingEmailData & { cancelUrl: string; app
               ${paymentSection}
 
               <div style="margin-top:24px;border-top:1px solid #e5e7eb;padding-top:20px;">
-                <p style="margin:0 0 14px 0;font-size:14px;color:#334155;">Â¿Necesitas cancelar? Puedes hacerlo desde el siguiente enlace:</p>
+                <p style="margin:0 0 14px 0;font-size:14px;color:#334155;">¿Necesitas cancelar? Puedes hacerlo desde el siguiente enlace:</p>
                 <a href="${data.cancelUrl}" style="display:inline-block;padding:10px 18px;border-radius:10px;background:#f1f5f9;color:#475569;text-decoration:none;font-size:13px;font-weight:600;border:1px solid #e2e8f0;">Cancelar cita</a>
               </div>
 
-              <p style="margin:24px 0 0;font-size:12px;color:#94a3b8;">Si tienes dudas, contacta directamente a ${data.professionalName}. Este correo fue generado automÃ¡ticamente por SimpleAgenda.</p>
+              <p style="margin:24px 0 0;font-size:12px;color:#94a3b8;">Si tienes dudas, contacta directamente a ${data.professionalName}. Este correo fue generado automáticamente por SimpleAgenda.</p>
             </div>
           </td>
         </tr>
@@ -7661,7 +7230,7 @@ function buildBookingEmailHtml(data: BookingEmailData & { cancelUrl: string; app
 async function sendBookingConfirmationEmail(clientEmail: string, data: BookingEmailData & { cancelUrl: string; appUrl: string }): Promise<void> {
     const transporter = getAuthMailerTransporter();
     if (!transporter) {
-        if (process.env.NODE_ENV === 'production') {
+        if (isProduction) {
             throw new Error('Booking confirmation email delivery is not configured');
         }
         console.info(`[agenda] Booking confirmation for ${clientEmail}: ${data.cancelUrl}`);
@@ -7672,10 +7241,10 @@ async function sendBookingConfirmationEmail(clientEmail: string, data: BookingEm
     const subject = seriesCount > 0
         ? (isPending
             ? `Tu solicitud de ${seriesCount} sesiones con ${data.professionalName} fue recibida`
-            : `Tus ${seriesCount} sesiones con ${data.professionalName} estÃ¡n confirmadas`)
+            : `Tus ${seriesCount} sesiones con ${data.professionalName} están confirmadas`)
         : (isPending
             ? `Tu solicitud de cita con ${data.professionalName} fue recibida`
-            : `Tu cita con ${data.professionalName} estÃ¡ confirmada`);
+            : `Tu cita con ${data.professionalName} está confirmada`);
 
     const dateStr = fmtBookingDateTime(data.startsAt, data.timezone);
     const seriesLines = seriesCount > 0 && data.seriesDates
@@ -7714,11 +7283,11 @@ async function sendAppointmentReminderEmail(clientEmail: string, data: {
 }): Promise<void> {
     const transporter = getAuthMailerTransporter();
     if (!transporter) {
-        if (process.env.NODE_ENV === 'production') return;
+        if (isProduction) return;
         console.info(`[agenda] Reminder for ${clientEmail}: ${data.dateLabel}`);
         return;
     }
-    const subject = `Recordatorio: tu cita con ${data.professionalName} es maÃ±ana`;
+    const subject = `Recordatorio: tu cita con ${data.professionalName} es mañana`;
     const locationLine = data.modality === 'online'
         ? (data.meetingUrl ? `Enlace: ${data.meetingUrl}` : 'Modalidad: Online')
         : (data.location ? `Lugar: ${data.location}` : 'Modalidad: Presencial');
@@ -7726,7 +7295,7 @@ async function sendAppointmentReminderEmail(clientEmail: string, data: {
         subject,
         '',
         `Hola ${data.clientName},`,
-        `Te recordamos que tienes una cita maÃ±ana: ${data.dateLabel}.`,
+        `Te recordamos que tienes una cita mañana: ${data.dateLabel}.`,
         locationLine,
         '',
         `Para cancelar: ${data.cancelUrl}`,
@@ -7768,7 +7337,6 @@ function usernameFromName(name: string): string {
 function parseVertical(raw: string | undefined): VerticalType {
     if (raw === 'propiedades') return 'propiedades';
     if (raw === 'agenda') return 'agenda';
-    if (raw === 'serenatas') return 'serenatas';
     return 'autos';
 }
 
@@ -7824,8 +7392,8 @@ function getPublicProfileDefaultValues(user: AppUser, vertical: VerticalType): O
         leadRoutingCursor: 0,
         displayName: user.name,
         headline: vertical === 'autos'
-            ? 'AtenciÃ³n directa y publicaciones activas verificadas.'
-            : 'AtenciÃ³n inmobiliaria con publicaciones activas verificadas.',
+            ? 'Atención directa y publicaciones activas verificadas.'
+            : 'Atención inmobiliaria con publicaciones activas verificadas.',
         bio: null,
         companyName: null,
         website: null,
@@ -8148,15 +7716,15 @@ function buildMediaProxyUrl(url: string): string {
 function toDeliveredMediaUrl(url: string): string {
     const normalized = fixBrokenB2Url(url);
     const apiBaseUrl = process.env.API_BASE_URL;
-    const isProd = process.env.NODE_ENV === 'production';
+    const isProd = isProduction;
     
     if (isBackblazeUrl(normalized)) {
-        // En producciÃ³n, si la URL base es localhost, usamos directo para evitar el popup PNA
+        // En producción, si la URL base es localhost, usamos directo para evitar el popup PNA
         if (isProd && (!apiBaseUrl || apiBaseUrl.includes('localhost'))) {
             return normalized;
         }
         
-        // En desarrollo local o producciÃ³n bien configurada, el proxy es la mejor opciÃ³n
+        // En desarrollo local o producción bien configurada, el proxy es la mejor opción
         // ya que evita problemas de CORS y centraliza la entrega.
         return buildMediaProxyUrl(normalized);
     }
@@ -8269,9 +7837,9 @@ function extractPropertiesSummary(record: ListingRecord): string[] {
         const usableAreaFrom = parseNumberFromString(project.usableAreaFrom);
         const usableAreaTo = parseNumberFromString(project.usableAreaTo);
         if (usableAreaFrom != null && usableAreaTo != null && usableAreaTo > usableAreaFrom) {
-            appendUniqueSummary(summary, `${usableAreaFrom.toLocaleString('es-CL')}-${usableAreaTo.toLocaleString('es-CL')} mÂ²`);
+            appendUniqueSummary(summary, `${usableAreaFrom.toLocaleString('es-CL')}-${usableAreaTo.toLocaleString('es-CL')} m²`);
         } else if (usableAreaFrom != null) {
-            appendUniqueSummary(summary, `Desde ${usableAreaFrom.toLocaleString('es-CL')} mÂ²`);
+            appendUniqueSummary(summary, `Desde ${usableAreaFrom.toLocaleString('es-CL')} m²`);
         }
 
         appendUniqueSummary(summary, asString(project.deliveryStatus));
@@ -8286,7 +7854,7 @@ function extractPropertiesSummary(record: ListingRecord): string[] {
     if (bathrooms != null) appendUniqueSummary(summary, `${bathrooms.toLocaleString('es-CL')}B`);
 
     const totalArea = parseNumberFromString(basic.totalArea ?? basic.surface);
-    if (totalArea != null) appendUniqueSummary(summary, `${totalArea.toLocaleString('es-CL')} mÂ²`);
+    if (totalArea != null) appendUniqueSummary(summary, `${totalArea.toLocaleString('es-CL')} m²`);
 
     const parkingSpaces = parseNumberFromString(basic.parkingSpaces);
     if (parkingSpaces != null) appendUniqueSummary(summary, `${parkingSpaces.toLocaleString('es-CL')} est.`);
@@ -8688,42 +8256,6 @@ async function permanentlyDeleteUser(userId: string): Promise<void> {
             await tx.delete(agendaProfessionalProfiles).where(eq(agendaProfessionalProfiles.id, professionalId));
         }
 
-        // Delete serenatas data if exists
-        const coordinatorProfile = await tx
-            .select({ id: serenataCoordinatorProfiles.id })
-            .from(serenataCoordinatorProfiles)
-            .where(eq(serenataCoordinatorProfiles.userId, userId))
-            .limit(1);
-        const coordinatorId = coordinatorProfile.length > 0 ? coordinatorProfile[0].id : null;
-
-        if (coordinatorId) {
-            // Get subscription IDs first
-            const subscriptionRows = await tx
-                .select({ id: serenataSubscriptions.id })
-                .from(serenataSubscriptions)
-                .where(eq(serenataSubscriptions.coordinatorProfileId, coordinatorId));
-            const subscriptionIds = subscriptionRows.map(r => r.id);
-
-            // Delete dependent tables first
-            if (subscriptionIds.length > 0) {
-                await tx.delete(serenataSubscriptionPayments).where(sql`${serenataSubscriptionPayments.subscriptionId} = ANY(${subscriptionIds})`);
-            }
-
-            // Delete serenatas tables
-            await tx.delete(serenataCoordinatorCrewMemberships).where(
-                eq(serenataCoordinatorCrewMemberships.coordinatorProfileId, coordinatorId)
-            );
-            await tx.delete(serenataSubscriptionPayments).where(eq(serenataSubscriptionPayments.coordinatorProfileId, coordinatorId));
-            await tx.delete(serenataSubscriptions).where(eq(serenataSubscriptions.coordinatorProfileId, coordinatorId));
-            await tx.delete(serenataAvailability).where(eq(serenataAvailability.coordinatorProfileId, coordinatorId));
-            await tx.delete(serenataPayments).where(eq(serenataPayments.coordinatorProfileId, coordinatorId));
-            await tx.delete(serenataCoordinatorProfiles).where(eq(serenataCoordinatorProfiles.id, coordinatorId));
-        }
-
-        // Delete user-level serenatas data
-        await tx.delete(serenataMusicians).where(eq(serenataMusicians.userId, userId));
-        await tx.delete(serenataNotifications).where(eq(serenataNotifications.userId, userId));
-        await tx.delete(serenataPayments).where(eq(serenataPayments.clientId, userId));
 
         if (ownedListingIds.length > 0) {
             await tx.delete(listings).where(sql`${listings.id} = ANY(${ownedListingIds})`);
@@ -8771,7 +8303,7 @@ async function permanentlyDeleteUser(userId: string): Promise<void> {
                     .map((key) => storage.delete(key))
             );
         } catch {
-            // Media cleanup is best-effort â€” don't fail the user delete
+            // Media cleanup is best-effort — don't fail the user delete
         }
     }
 }
@@ -8879,11 +8411,11 @@ function sanitizeAdCampaignWriteInput(
 
     if (destinationType === 'custom_url') {
         if (!destinationUrl || !isValidHttpDestinationUrl(destinationUrl)) {
-            throw new Error('La URL de destino no es vÃ¡lida.');
+            throw new Error('La URL de destino no es válida.');
         }
     }
     if (destinationType === 'listing' && !listingHref) {
-        throw new Error('Debes elegir una publicaciÃ³n como destino.');
+        throw new Error('Debes elegir una publicación como destino.');
     }
     if (destinationType === 'profile' && !profileSlug) {
         throw new Error('Debes ingresar el slug del perfil.');
@@ -8891,7 +8423,7 @@ function sanitizeAdCampaignWriteInput(
 
     if (options.format === 'inline') {
         if (!placementSection || !isAdPlacementSectionAllowed(options.vertical, placementSection)) {
-            throw new Error('La secciÃ³n objetivo de la campaÃ±a inline no es vÃ¡lida.');
+            throw new Error('La sección objetivo de la campaña inline no es válida.');
         }
     }
 
@@ -9005,7 +8537,7 @@ function buildLeadSlaSignals(input: {
     if (signals.length === 0 && idleHours >= 24) {
         signals.push({
             key: 'idle_follow_up',
-            label: `Sin gestiÃ³n ${formatAgo(input.lastActivityAt)}`,
+            label: `Sin gestión ${formatAgo(input.lastActivityAt)}`,
             tone: idleHours >= 72 ? 'urgent' : 'attention',
         });
     }
@@ -9478,7 +9010,7 @@ function buildListingLeadNotification(record: ListingLeadRecord) {
     return {
         id: `listing-lead:${record.id}`,
         type: 'listing_lead' as const,
-        title: `${record.contactName} consulto por ${listing?.title ?? 'tu publicaciÃ³n'}.`,
+        title: `${record.contactName} consulto por ${listing?.title ?? 'tu publicación'}.`,
         time: formatAgo(record.createdAt),
         href: '/panel/crm',
         createdAt: record.createdAt,
@@ -9498,8 +9030,8 @@ async function buildMessageThreadNotification(thread: MessageThreadRecord, viewe
         id: `message-thread:${thread.id}`,
         type: 'message_thread' as const,
         title: lastEntry
-            ? `${counterpart?.name ?? 'Contacto'} escribiÃ³ por ${listing?.title ?? 'tu publicaciÃ³n'}.`
-            : `ConversaciÃ³n activa por ${listing?.title ?? 'tu publicaciÃ³n'}.`,
+            ? `${counterpart?.name ?? 'Contacto'} escribió por ${listing?.title ?? 'tu publicación'}.`
+            : `Conversación activa por ${listing?.title ?? 'tu publicación'}.`,
         time: formatAgo(thread.lastMessageAt),
         href: `/panel/mensajes?thread=${encodeURIComponent(thread.id)}`,
         createdAt: thread.lastMessageAt,
@@ -9540,7 +9072,7 @@ function buildServiceLeadNotification(record: ServiceLeadRecord) {
 
 function getEnvStatus() {
     return {
-        nodeEnv: process.env.NODE_ENV || 'development',
+        nodeEnv: env.NODE_ENV,
         databaseConfigured: Boolean(process.env.DATABASE_URL),
         smtpConfigured: Boolean(process.env.SMTP_HOST && process.env.SMTP_USER && process.env.SMTP_PASSWORD && process.env.SMTP_FROM),
         mercadoPagoConfigured: isMercadoPagoConfigured(),
@@ -9656,7 +9188,6 @@ function getAllowedOrigins(): Set<string> {
         'http://localhost:3002',
         'http://localhost:3003',
         'http://localhost:3004',
-        'http://localhost:3005',
         'https://simpleautos.app',
         'https://simplepropiedades.app',
         'https://simpleagenda.app',
@@ -9854,12 +9385,12 @@ async function getListingPipelineColumnById(id: string): Promise<PipelineColumnR
 async function reorderPipelineColumns(userId: string, vertical: VerticalType, columnIds: string[]) {
     const columns = await ensureListingPipelineColumns(userId, vertical);
     if (columns.length !== columnIds.length) {
-        return { ok: false as const, error: 'El orden de columnas es invÃ¡lido.' };
+        return { ok: false as const, error: 'El orden de columnas es inválido.' };
     }
 
     const knownIds = new Set(columns.map((column) => column.id));
     if (columnIds.some((id) => !knownIds.has(id))) {
-        return { ok: false as const, error: 'El orden de columnas es invÃ¡lido.' };
+        return { ok: false as const, error: 'El orden de columnas es inválido.' };
     }
 
     for (let index = 0; index < columnIds.length; index += 1) {
@@ -9941,11 +9472,11 @@ async function updateServiceLeadRecord(input: {
     }
 
     if (Object.prototype.hasOwnProperty.call(input.changes, 'assignedToUserId')) {
-        let nextAssignedId: string | null = input.changes.assignedToUserId ?? null;
+        const nextAssignedId: string | null = input.changes.assignedToUserId ?? null;
         if (nextAssignedId) {
             const nextAssignedUser = usersById.get(nextAssignedId);
             if (!nextAssignedUser || !isAdminRole(nextAssignedUser.role)) {
-                return { ok: false as const, error: 'El usuario asignado no es vÃ¡lido.' };
+                return { ok: false as const, error: 'El usuario asignado no es válido.' };
             }
         }
 
@@ -9957,7 +9488,7 @@ async function updateServiceLeadRecord(input: {
                 ? previous
                     ? `Lead reasignado de ${previous.name} a ${next.name}.`
                     : `Lead asignado a ${next.name}.`
-                : 'AsignaciÃ³n eliminada.';
+                : 'Asignación eliminada.';
             activities.push({
                 type: 'assignment',
                 body,
@@ -9982,7 +9513,7 @@ async function updateServiceLeadRecord(input: {
             : input.lead.nextTaskAt;
 
         if (Object.prototype.hasOwnProperty.call(input.changes, 'nextTaskAt') && input.changes.nextTaskAt && nextTaskAt == null) {
-            return { ok: false as const, error: 'La fecha de la prÃ³xima tarea no es vÃ¡lida.' };
+            return { ok: false as const, error: 'La fecha de la próxima tarea no es válida.' };
         }
 
         const changed = nextTaskTitle !== input.lead.nextTaskTitle || nextTaskAt !== input.lead.nextTaskAt;
@@ -9992,8 +9523,8 @@ async function updateServiceLeadRecord(input: {
             activities.push({
                 type: 'task',
                 body: nextTaskTitle || nextTaskAt
-                    ? `PrÃ³xima tarea actualizada${nextTaskTitle ? `: ${nextTaskTitle}` : ''}${nextTaskAt ? ` Â· ${formatServiceLeadTimestamp(nextTaskAt)}` : ''}.`
-                    : 'PrÃ³xima tarea eliminada.',
+                    ? `Próxima tarea actualizada${nextTaskTitle ? `: ${nextTaskTitle}` : ''}${nextTaskAt ? ` · ${formatServiceLeadTimestamp(nextTaskAt)}` : ''}.`
+                    : 'Próxima tarea eliminada.',
                 meta: {
                     title: nextTaskTitle,
                     at: nextTaskAt,
@@ -10038,7 +9569,7 @@ async function runServiceLeadQuickAction(input: {
 
     if (input.action === 'call') {
         if (!input.lead.contactPhone?.trim()) {
-            return { ok: false as const, error: 'Este lead no tiene telÃ©fono disponible.' };
+            return { ok: false as const, error: 'Este lead no tiene teléfono disponible.' };
         }
         activityBody = 'Llamada iniciada desde el CRM.';
         meta.target = input.lead.contactPhone.trim();
@@ -10061,7 +9592,7 @@ async function runServiceLeadQuickAction(input: {
         const nextTaskTitle = input.lead.nextTaskTitle?.trim() || 'Seguimiento comercial';
         updates.nextTaskTitle = nextTaskTitle;
         updates.nextTaskAt = new Date(nextTaskAt);
-        activityBody = `Seguimiento rÃ¡pido programado: ${nextTaskTitle} Â· ${formatServiceLeadTimestamp(nextTaskAt)}.`;
+        activityBody = `Seguimiento rápido programado: ${nextTaskTitle} · ${formatServiceLeadTimestamp(nextTaskAt)}.`;
         meta.title = nextTaskTitle;
         meta.at = nextTaskAt;
     }
@@ -10428,7 +9959,7 @@ async function updateListingLeadRecord(input: {
         if (nextPipelineColumnId) {
             nextPipelineColumn = pipelineColumns.find((column) => column.id === nextPipelineColumnId) ?? null;
             if (!nextPipelineColumn) {
-                return { ok: false as const, error: 'La columna del pipeline no es vÃ¡lida.' };
+                return { ok: false as const, error: 'La columna del pipeline no es válida.' };
             }
         } else {
             nextPipelineColumn = pipelineColumns.find((column) => column.status === input.lead.status) ?? pipelineColumns[0] ?? null;
@@ -10498,10 +10029,10 @@ async function updateListingLeadRecord(input: {
     const hasAssignedTeamMemberChange = Object.prototype.hasOwnProperty.call(input.changes, 'assignedToTeamMemberId');
 
     if (hasAssignedUserChange || hasAssignedTeamMemberChange) {
-        let nextAssignedUserId = hasAssignedUserChange
+        const nextAssignedUserId = hasAssignedUserChange
             ? input.changes.assignedToUserId ?? null
             : input.lead.assignedToUserId;
-        let nextAssignedTeamMemberId = hasAssignedTeamMemberChange
+        const nextAssignedTeamMemberId = hasAssignedTeamMemberChange
             ? input.changes.assignedToTeamMemberId ?? null
             : input.lead.assignedToTeamMemberId;
 
@@ -10515,7 +10046,7 @@ async function updateListingLeadRecord(input: {
             const expectedValue = crmAssigneeValue({ kind: 'user', id: nextAssignedUserId });
             const matched = validAssignees.find((item) => item.value === expectedValue) ?? null;
             if (!matched || matched.kind !== 'user') {
-                return { ok: false as const, error: 'La cuenta asignada no es vÃ¡lida para este lead.' };
+                return { ok: false as const, error: 'La cuenta asignada no es válida para este lead.' };
             }
         }
 
@@ -10523,7 +10054,7 @@ async function updateListingLeadRecord(input: {
             const expectedValue = crmAssigneeValue({ kind: 'team_member', id: nextAssignedTeamMemberId });
             const matched = validAssignees.find((item) => item.value === expectedValue) ?? null;
             if (!matched || matched.kind !== 'team_member') {
-                return { ok: false as const, error: 'El asesor asignado no es vÃ¡lido para este lead.' };
+                return { ok: false as const, error: 'El asesor asignado no es válido para este lead.' };
             }
         }
 
@@ -10545,7 +10076,7 @@ async function updateListingLeadRecord(input: {
                 ? previous
                     ? `Lead reasignado de ${previous.name} a ${next.name}.`
                     : `Lead asignado a ${next.name}.`
-                : 'AsignaciÃ³n eliminada.';
+                : 'Asignación eliminada.';
 
             activities.push({
                 type: 'assignment',
@@ -10573,7 +10104,7 @@ async function updateListingLeadRecord(input: {
             : input.lead.nextTaskAt;
 
         if (Object.prototype.hasOwnProperty.call(input.changes, 'nextTaskAt') && input.changes.nextTaskAt && nextTaskAt == null) {
-            return { ok: false as const, error: 'La fecha de la prÃ³xima tarea no es vÃ¡lida.' };
+            return { ok: false as const, error: 'La fecha de la próxima tarea no es válida.' };
         }
 
         const changed = nextTaskTitle !== input.lead.nextTaskTitle || nextTaskAt !== input.lead.nextTaskAt;
@@ -10583,8 +10114,8 @@ async function updateListingLeadRecord(input: {
             activities.push({
                 type: 'task',
                 body: nextTaskTitle || nextTaskAt
-                    ? `PrÃ³xima tarea actualizada${nextTaskTitle ? `: ${nextTaskTitle}` : ''}${nextTaskAt ? ` Â· ${formatServiceLeadTimestamp(nextTaskAt)}` : ''}.`
-                    : 'PrÃ³xima tarea eliminada.',
+                    ? `Próxima tarea actualizada${nextTaskTitle ? `: ${nextTaskTitle}` : ''}${nextTaskAt ? ` · ${formatServiceLeadTimestamp(nextTaskAt)}` : ''}.`
+                    : 'Próxima tarea eliminada.',
                 meta: { title: nextTaskTitle, at: nextTaskAt },
             });
         }
@@ -10627,7 +10158,7 @@ async function runListingLeadQuickAction(input: {
 
     if (input.action === 'call') {
         if (!input.lead.contactPhone?.trim()) {
-            return { ok: false as const, error: 'Este lead no tiene telÃ©fono disponible.' };
+            return { ok: false as const, error: 'Este lead no tiene teléfono disponible.' };
         }
         activityBody = 'Llamada iniciada desde el CRM.';
         meta.target = input.lead.contactPhone.trim();
@@ -10650,7 +10181,7 @@ async function runListingLeadQuickAction(input: {
         const nextTaskTitle = input.lead.nextTaskTitle?.trim() || 'Seguimiento comercial';
         updates.nextTaskTitle = nextTaskTitle;
         updates.nextTaskAt = new Date(nextTaskAt);
-        activityBody = `Seguimiento rÃ¡pido programado: ${nextTaskTitle} Â· ${formatServiceLeadTimestamp(nextTaskAt)}.`;
+        activityBody = `Seguimiento rápido programado: ${nextTaskTitle} · ${formatServiceLeadTimestamp(nextTaskAt)}.`;
         meta.title = nextTaskTitle;
         meta.at = nextTaskAt;
     }
@@ -10989,7 +10520,7 @@ async function createOrAppendListingConversation(input: {
     if (existingThread) {
         const lead = await getListingLeadById(existingThread.leadId);
         if (!lead) {
-            throw new Error('El hilo no tiene un lead asociado vÃ¡lido.');
+            throw new Error('El hilo no tiene un lead asociado válido.');
         }
 
         const now = Date.now();
@@ -11043,7 +10574,7 @@ async function createOrAppendListingConversation(input: {
         leadId: lead.id,
         actorUserId: input.buyer.id,
         type: 'created',
-        body: `Lead creado desde conversaciÃ³n en ${input.sourcePage || 'publicaciÃ³n pÃºblica'}.`,
+        body: `Lead creado desde conversación en ${input.sourcePage || 'publicación pública'}.`,
         meta: {
             source: 'direct_message',
             channel: 'message',
@@ -11094,32 +10625,30 @@ async function listAdminUsersSnapshot(vertical?: VerticalType | null): Promise<A
     subscriptions?: {
         autos?: { planId: string | null; planName: string | null; status: string; expiresAt: string | null };
         propiedades?: { planId: string | null; planName: string | null; status: string; expiresAt: string | null };
-        serenatas?: {
-            planId: string | null;
-            planName: string | null;
-            status: string;
-            expiresAt: string | null;
-            roleLabel?: string;
-            activityCount?: number;
-        };
+    };
+    serenatas?: {
+        client: boolean;
+        musician: boolean;
+        coordinator: boolean;
+        instrument: string | null;
+        coordinatorStatus: string | null;
+        trialEndsAt: string | null;
     };
 }>> {
-    const [userRows, listingRows, agendaProfiles, coordinatorProfileRows, musiciansRows] = await Promise.all([
+    const [userRows, listingRows, agendaProfiles, serenataClientRows, serenataMusicianRows, serenataCoordinatorRows] = await Promise.all([
         db.select().from(users).orderBy(desc(users.createdAt)),
         db.select({
             ownerId: listings.ownerId,
             vertical: listings.vertical,
         }).from(listings),
         db.select({ userId: agendaProfessionalProfiles.userId }).from(agendaProfessionalProfiles),
-        db
-            .select({
-                userId: serenataCoordinatorProfiles.userId,
-                subscriptionPlan: serenataCoordinatorProfiles.subscriptionPlan,
-                subscriptionStatus: serenataCoordinatorProfiles.subscriptionStatus,
-                subscriptionEndsAt: serenataCoordinatorProfiles.subscriptionEndsAt,
-            })
-            .from(serenataCoordinatorProfiles),
-        db.select({ userId: serenataMusicians.userId }).from(serenataMusicians),
+        db.select({ userId: serenataClients.userId }).from(serenataClients),
+        db.select({ userId: serenataMusicians.userId, instrument: serenataMusicians.instrument }).from(serenataMusicians),
+        db.select({
+            userId: serenataCoordinators.userId,
+            subscriptionStatus: serenataCoordinators.subscriptionStatus,
+            trialEndsAt: serenataCoordinators.trialEndsAt,
+        }).from(serenataCoordinators),
     ]);
 
     const userIds = userRows.map((user) => user.id);
@@ -11148,11 +10677,9 @@ async function listAdminUsersSnapshot(vertical?: VerticalType | null): Promise<A
         vertical ? listingRows.filter((l) => l.vertical === vertical).map((l) => l.ownerId) : [],
     );
     const agendaUsers = new Set(agendaProfiles.map((row) => row.userId));
-    const coordinatorProfileByUserId = new Map(
-        coordinatorProfileRows.map((row) => [row.userId, row])
-    );
-    const coordinatorUsers = new Set(coordinatorProfileRows.map((row) => row.userId));
-    const musicianUsers = new Set(musiciansRows.map((row) => row.userId));
+    const serenataClientsByUser = new Set(serenataClientRows.map((row) => row.userId));
+    const serenataMusiciansByUser = new Map(serenataMusicianRows.map((row) => [row.userId, row]));
+    const serenataCoordinatorsByUser = new Map(serenataCoordinatorRows.map((row) => [row.userId, row]));
     const subscriptionsByUser = new Map<string, Record<string, {
         planId: string | null;
         status: string;
@@ -11167,9 +10694,6 @@ async function listAdminUsersSnapshot(vertical?: VerticalType | null): Promise<A
         };
         subscriptionsByUser.set(row.userId, bucket);
     }
-    const serenatasSubscriptionUsers = new Set(
-        subscriptionRows.filter((row) => row.vertical === 'serenatas').map((row) => row.userId)
-    );
 
     return userRows
         .filter((user) => {
@@ -11177,11 +10701,13 @@ async function listAdminUsersSnapshot(vertical?: VerticalType | null): Promise<A
             const userVertical = user.primaryVertical ?? null;
             if (userVertical === vertical) return true;
             if (ownersWithVerticalListings.has(user.id)) return true;
-            if (vertical === 'serenatas' && (serenatasSubscriptionUsers.has(user.id) || coordinatorUsers.has(user.id) || musicianUsers.has(user.id))) return true;
             return false;
         })
         .map((user) => {
             const counters = listingCounters.get(user.id) ?? { total: 0, autos: 0, propiedades: 0 };
+            const serenataMusician = serenataMusiciansByUser.get(user.id);
+            const serenataCoordinator = serenataCoordinatorsByUser.get(user.id);
+            const hasSerenataProfile = serenataClientsByUser.has(user.id) || Boolean(serenataMusician) || Boolean(serenataCoordinator);
             return {
                 id: user.id,
                 name: user.name,
@@ -11196,57 +10722,19 @@ async function listAdminUsersSnapshot(vertical?: VerticalType | null): Promise<A
                 agendaListings: agendaUsers.has(user.id) ? 1 : 0,
                 autosListings: counters.autos,
                 propiedadesListings: counters.propiedades,
+                serenatas: hasSerenataProfile
+                    ? {
+                          client: serenataClientsByUser.has(user.id),
+                          musician: Boolean(serenataMusician),
+                          coordinator: Boolean(serenataCoordinator),
+                          instrument: serenataMusician?.instrument ?? null,
+                          coordinatorStatus: serenataCoordinator?.subscriptionStatus ?? null,
+                          trialEndsAt: serenataCoordinator?.trialEndsAt?.toISOString() ?? null,
+                      }
+                    : undefined,
                 subscriptions: (() => {
                     const sub = subscriptionsByUser.get(user.id);
-                    const coordProf = coordinatorProfileByUserId.get(user.id);
-                    const subSer = sub?.serenatas;
-                    let serenatas:
-                        | {
-                              planId: string | null;
-                              planName: string | null;
-                              status: string;
-                              expiresAt: string | null;
-                              roleLabel: string;
-                              activityCount: number;
-                          }
-                        | undefined;
-
-                    if (subSer || coordProf || coordinatorUsers.has(user.id) || musicianUsers.has(user.id)) {
-                        const planId = coordProf?.subscriptionPlan ?? subSer?.planId ?? null;
-                        let planName: string | null = null;
-                        if (planId === COORDINATOR_SUBSCRIPTION_PLAN) planName = 'Coordinador';
-                        else if (planId === 'free') planName = 'Sin pago (legacy)';
-                        else if (planId === 'pro' || planId === 'premium') planName = `Legacy (${planId})`;
-                        else if (planId) planName = planId;
-
-                        const statusUi = coordProf
-                            ? isCoordinatorSubscriptionActive({
-                                  subscriptionStatus: coordProf.subscriptionStatus,
-                                  subscriptionEndsAt: coordProf.subscriptionEndsAt,
-                                  subscriptionPlan: coordProf.subscriptionPlan,
-                              })
-                                ? 'active'
-                                : coordProf.subscriptionStatus
-                            : subSer?.status ?? 'unknown';
-
-                        serenatas = {
-                            planId,
-                            planName,
-                            status: statusUi,
-                            expiresAt:
-                                coordProf?.subscriptionEndsAt?.toISOString() ??
-                                subSer?.expiresAt?.toISOString() ??
-                                null,
-                            roleLabel: coordinatorUsers.has(user.id)
-                                ? 'Coordinador'
-                                : musicianUsers.has(user.id)
-                                  ? 'Músico'
-                                  : 'Cliente',
-                            activityCount: 0,
-                        };
-                    }
-
-                    if (!sub && !serenatas) return undefined;
+                    if (!sub) return undefined;
                     return {
                         autos: sub?.autos
                             ? {
@@ -11263,8 +10751,7 @@ async function listAdminUsersSnapshot(vertical?: VerticalType | null): Promise<A
                                   status: sub.propiedades.status,
                                   expiresAt: sub.propiedades.expiresAt?.toISOString() ?? null,
                               }
-                            : undefined,
-                        serenatas,
+                            : undefined
                     };
                 })(),
             };
@@ -11353,7 +10840,7 @@ app.onError((error, c) => {
         {
             ok: false,
             error: 'Internal server error',
-            details: process.env.NODE_ENV !== 'production' ? errMsg : undefined,
+            details: !isProduction ? errMsg : undefined,
         },
         500
     );
@@ -11363,7 +10850,7 @@ app.route('/', createSystemRouter({
     serviceName: 'simple-v2-api',
     apiRootDir: API_ROOT_DIR,
     env: {
-        NODE_ENV: process.env.NODE_ENV,
+        NODE_ENV: env.NODE_ENV,
         STORAGE_PROVIDER: process.env.STORAGE_PROVIDER,
         LOCAL_STORAGE_URL: process.env.LOCAL_STORAGE_URL,
         BACKBLAZE_DOWNLOAD_URL: process.env.BACKBLAZE_DOWNLOAD_URL,
@@ -11383,7 +10870,7 @@ function getBackblazeS3Client(): S3Client | null {
     const secretAccessKey = process.env.BACKBLAZE_S3_SECRET_KEY;
 
     if (!endpoint || !region || !accessKeyId || !secretAccessKey) {
-        console.warn('[MediaProxy] Backblaze S3 credentials not configured');
+        logger.warn('[MediaProxy] Backblaze S3 credentials not configured');
         return null;
     }
 
@@ -11408,7 +10895,7 @@ function getR2S3Client(): S3Client | null {
     const secretAccessKey = process.env.CLOUDFLARE_R2_SECRET_ACCESS_KEY;
 
     if (!accountId || !accessKeyId || !secretAccessKey) {
-        console.warn('[MediaProxy] R2 credentials not configured');
+        logger.warn('[MediaProxy] R2 credentials not configured');
         return null;
     }
 
@@ -11460,9 +10947,7 @@ app.route('/api/auth', createAuthRouter({
         users,
         passwordResetTokens,
         emailVerificationTokens,
-        serenataMusicians,
     },
-    extendedRegisterSchema,
     bcrypt,
     getUserByEmail,
     getUserById,
@@ -11571,6 +11056,10 @@ app.route('/api/boost', createBoostRouter({
     },
 }));
 
+app.route('/api/valuation', createValuationRouter());
+
+app.route('/api/vehicle-valuation', createVehicleValuationRouter());
+
 app.use('/api/address-book', requireVerifiedSession);
 app.use('/api/address-book/*', requireVerifiedSession);
 app.use('/api/boost/*', requireVerifiedSession);
@@ -11639,6 +11128,12 @@ app.route('/api', createPaymentsRouter({
         createCheckoutSchema,
         confirmCheckoutSchema,
     },
+    serenataPayments: {
+        getTarget: getSerenataPaymentTarget,
+        attachOrder: attachSerenataPaymentOrder,
+        applyPaid: publishPaidSerenataToCoordinators,
+        markFailed: markSerenataPaymentFailed,
+    },
 }));
 app.use('/api/advertising/campaigns', requireVerifiedSession);
 app.use('/api/advertising/campaigns/*', requireVerifiedSession);
@@ -11686,7 +11181,7 @@ app.route('/api/admin', createAdminRouter({
         if (existingAdmins.length > 0) return c.json({ ok: false, error: 'Ya existe un administrador en el sistema' }, 403);
         const payload = await c.req.json().catch(() => null);
         const parsed = registerSchema.safeParse(payload);
-        if (!parsed.success) return c.json({ ok: false, error: 'Payload invÃ¡lido' }, 400);
+        if (!parsed.success) return c.json({ ok: false, error: 'Payload inválido' }, 400);
         const normalizedEmail = parsed.data.email.trim().toLowerCase();
         const existing = await getUserByEmail(normalizedEmail);
         if (existing) return c.json({ ok: false, error: 'Email ya registrado' }, 409);
@@ -11724,10 +11219,6 @@ app.route('/api/admin', createAdminRouter({
         users,
         agendaProfessionalProfiles,
         subscriptions,
-        serenataCoordinatorProfiles,
-        serenataMusicians,
-        serenataPayments,
-        serenatas,
     },
 }));
 
@@ -12057,6 +11548,28 @@ app.route('/api/public', createPublicRouter({
     tables: { mortgageRates },
 }));
 
+app.route('/api/serenatas', createSerenatasRouter({
+    authUser,
+}));
+
+async function sendPushToUser(userId: string, payload: { title: string; body: string; url?: string }): Promise<void> {
+    if (!VAPID_PUBLIC_KEY || !VAPID_PRIVATE_KEY) return;
+    const subs = await db.select().from(pushSubscriptions).where(eq(pushSubscriptions.userId, userId));
+    await Promise.allSettled(subs.map(async (sub) => {
+        try {
+            await webpush.sendNotification(
+                { endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth } },
+                JSON.stringify(payload),
+            );
+        } catch (e: unknown) {
+            if (e && typeof e === 'object' && 'statusCode' in e && (e as { statusCode: number }).statusCode === 410) {
+                await db.delete(pushSubscriptions).where(eq(pushSubscriptions.id, sub.id));
+            }
+        }
+    }));
+}
+
+
 const RESERVED_SLUGS = new Set([
     'panel', 'auth', 'api', 'admin', 'login', 'register', 'logout',
     'settings', 'configuracion', 'perfil', 'profile', 'cuenta', 'account',
@@ -12068,12 +11581,12 @@ const RESERVED_SLUGS = new Set([
 
 function isValidSlug(slug: string): { ok: true } | { ok: false; error: string } {
     if (!slug || slug.length < 3) return { ok: false, error: 'El link debe tener al menos 3 caracteres.' };
-    if (slug.length > 60) return { ok: false, error: 'El link no puede tener mÃ¡s de 60 caracteres.' };
+    if (slug.length > 60) return { ok: false, error: 'El link no puede tener más de 60 caracteres.' };
     if (!/^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?$/.test(slug)) {
-        return { ok: false, error: 'Solo letras minÃºsculas, nÃºmeros y guiones. No puede empezar ni terminar con guion.' };
+        return { ok: false, error: 'Solo letras minúsculas, números y guiones. No puede empezar ni terminar con guion.' };
     }
     if (/--/.test(slug)) return { ok: false, error: 'No puede contener guiones consecutivos.' };
-    if (RESERVED_SLUGS.has(slug)) return { ok: false, error: 'Este link no estÃ¡ disponible.' };
+    if (RESERVED_SLUGS.has(slug)) return { ok: false, error: 'Este link no está disponible.' };
     return { ok: true };
 }
 
@@ -12108,7 +11621,7 @@ async function syncToGoogleCalendar(
 
         const isOnline = appointment.modality === 'online';
         const resource: any = {
-            summary: appointment.clientName ? `SesiÃ³n con ${appointment.clientName}` : 'SesiÃ³n',
+            summary: appointment.clientName ? `Sesión con ${appointment.clientName}` : 'Sesión',
             description: appointment.internalNotes ?? undefined,
             start: { dateTime: appointment.startsAt.toISOString() },
             end: { dateTime: appointment.endsAt.toISOString() },
@@ -12147,23 +11660,6 @@ async function syncToGoogleCalendar(
     }
 }
 
-async function sendPushToUser(userId: string, payload: { title: string; body: string; url?: string }): Promise<void> {
-    if (!VAPID_PUBLIC_KEY || !VAPID_PRIVATE_KEY) return;
-    const subs = await db.select().from(pushSubscriptions).where(eq(pushSubscriptions.userId, userId));
-    await Promise.allSettled(subs.map(async (sub) => {
-        try {
-            await webpush.sendNotification(
-                { endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth } },
-                JSON.stringify(payload),
-            );
-        } catch (e: unknown) {
-            if (e && typeof e === 'object' && 'statusCode' in e && (e as { statusCode: number }).statusCode === 410) {
-                await db.delete(pushSubscriptions).where(eq(pushSubscriptions.id, sub.id));
-            }
-        }
-    }));
-}
-
 async function ensureNpsForAppointment(professionalId: string, appointmentId: string, clientId: string | null): Promise<{ token: string } | null> {
     const existing = await db.query.agendaNpsResponses.findFirst({
         where: eq(agendaNpsResponses.appointmentId, appointmentId),
@@ -12176,9 +11672,9 @@ async function ensureNpsForAppointment(professionalId: string, appointmentId: st
     return created ? { token: created.token } : null;
 }
 
-// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─────────────────────────────────────────────────────────────────────────────
 // SimpleAgenda helpers
-// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─────────────────────────────────────────────────────────────────────────────
 
 async function getAgendaProfile(userId: string) {
     return db.query.agendaProfessionalProfiles.findFirst({
@@ -12197,7 +11693,7 @@ function isFreePlan(profile: { plan: string; planExpiresAt: Date | null }, userR
 
 async function checkClientLimit(profileId: string): Promise<string | null> {
     const [row] = await db.select({ total: sql<number>`count(*)::int` }).from(agendaClients).where(eq(agendaClients.professionalId, profileId));
-    if ((row?.total ?? 0) >= FREE_TIER_LIMITS.maxClientsTotal) return `Has alcanzado el lÃ­mite de ${FREE_TIER_LIMITS.maxClientsTotal} pacientes del plan gratuito. Actualiza a Pro para pacientes ilimitados.`;
+    if ((row?.total ?? 0) >= FREE_TIER_LIMITS.maxClientsTotal) return `Has alcanzado el límite de ${FREE_TIER_LIMITS.maxClientsTotal} pacientes del plan gratuito. Actualiza a Pro para pacientes ilimitados.`;
     return null;
 }
 
@@ -12205,7 +11701,7 @@ async function checkAppointmentLimit(profileId: string): Promise<string | null> 
     const now = new Date();
     const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
     const [row] = await db.select({ total: sql<number>`count(*)::int` }).from(agendaAppointments).where(and(eq(agendaAppointments.professionalId, profileId), gte(agendaAppointments.startsAt, monthStart)));
-    if ((row?.total ?? 0) >= FREE_TIER_LIMITS.maxAppointmentsPerMonth) return `Has alcanzado el lÃ­mite de ${FREE_TIER_LIMITS.maxAppointmentsPerMonth} citas mensuales del plan gratuito. Actualiza a Pro para citas ilimitadas.`;
+    if ((row?.total ?? 0) >= FREE_TIER_LIMITS.maxAppointmentsPerMonth) return `Has alcanzado el límite de ${FREE_TIER_LIMITS.maxAppointmentsPerMonth} citas mensuales del plan gratuito. Actualiza a Pro para citas ilimitadas.`;
     return null;
 }
 
@@ -12253,9 +11749,9 @@ function generateSlots(
     return slots;
 }
 
-// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-// SimpleAgenda â€” mount modular routers
-// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─────────────────────────────────────────────────────────────────────────────
+// SimpleAgenda — mount modular routers
+// ─────────────────────────────────────────────────────────────────────────────
 
 {
     const agendaDeps = {
@@ -12321,762 +11817,34 @@ function generateSlots(
     app.route('/api/public/agenda', createPublicAgendaRouter(agendaDeps));
 }
 
-// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-// SimpleAgenda â€” WhatsApp reminder cron jobs
-// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─────────────────────────────────────────────────────────────────────────────
+// SimpleAgenda — WhatsApp reminder cron jobs
+// ─────────────────────────────────────────────────────────────────────────────
 
-function registerAgendaCronJobs() {
-    // Solo activar cron jobs de SimpleAgenda en producciÃ³n o cuando estÃ© configurado
-    const isProduction = process.env.NODE_ENV === 'production';
-    const agendaEnabled = process.env.AGENDA_CRON_ENABLED === 'true';
-    
-    if (!isProduction && !agendaEnabled) {
-        console.log('[agenda] cron jobs desactivados (no es producciÃ³n y AGENDA_CRON_ENABLED != true)');
-        return;
-    }
-    
-    console.log('[agenda] registering reminder cron jobs...');
-    // Every 5 minutes: check for appointments that need 24h reminder
-    cron.schedule('*/5 * * * *', async () => {
-        try {
-            const now = new Date();
-            const windowStart = new Date(now.getTime() + 23 * 60 * 60 * 1000);
-            const windowEnd = new Date(now.getTime() + 25 * 60 * 60 * 1000);
+// Cron jobs moved to modules/agenda/cron.ts
 
-            const appts = await db.select({
-                appt: agendaAppointments,
-                prof: agendaProfessionalProfiles,
-            })
-                .from(agendaAppointments)
-                .innerJoin(agendaProfessionalProfiles, eq(agendaAppointments.professionalId, agendaProfessionalProfiles.id))
-                .where(and(
-                    gte(agendaAppointments.startsAt, windowStart),
-                    lte(agendaAppointments.startsAt, windowEnd),
-                    sql`${agendaAppointments.status} IN ('confirmed', 'pending')`,
-                    isNull(agendaAppointments.reminderSentAt),
-                    sql`${agendaProfessionalProfiles.waNotificationsEnabled} = true`,
-                ));
-
-            for (const { appt, prof } of appts) {
-                if (!appt.clientPhone) continue;
-                try {
-                    await notifyReminder24h(
-                        { clientName: appt.clientName, clientPhone: appt.clientPhone, startsAt: appt.startsAt, endsAt: appt.endsAt },
-                        { displayName: prof.displayName, timezone: prof.timezone, cancellationHours: prof.cancellationHours },
-                    );
-                    await logNotification({
-                        professionalId: prof.id,
-                        appointmentId: appt.id,
-                        clientId: appt.clientId,
-                        channel: 'whatsapp',
-                        eventType: 'reminder_24h',
-                        recipient: appt.clientPhone,
-                        status: 'sent',
-                    });
-                } catch (err) {
-                    console.error('[agenda] 24h reminder failed for', appt.id, ':', err);
-                    await logNotification({
-                        professionalId: prof.id,
-                        appointmentId: appt.id,
-                        clientId: appt.clientId,
-                        channel: 'whatsapp',
-                        eventType: 'reminder_24h',
-                        recipient: appt.clientPhone,
-                        status: 'failed',
-                        errorMessage: err instanceof Error ? err.message : String(err),
-                    });
-                }
-                await db.update(agendaAppointments)
-                    .set({ reminderSentAt: now })
-                    .where(eq(agendaAppointments.id, appt.id));
-            }
-        } catch (e) {
-            console.error('[agenda] 24h reminder cron error:', e);
-        }
-    });
-
-    // Every 5 minutes: check for appointments that need 30min reminder
-    cron.schedule('*/5 * * * *', async () => {
-        try {
-            const now = new Date();
-            const windowStart = new Date(now.getTime() + 25 * 60 * 1000);
-            const windowEnd = new Date(now.getTime() + 35 * 60 * 1000);
-
-            const appts = await db.select({
-                appt: agendaAppointments,
-                prof: agendaProfessionalProfiles,
-            })
-                .from(agendaAppointments)
-                .innerJoin(agendaProfessionalProfiles, eq(agendaAppointments.professionalId, agendaProfessionalProfiles.id))
-                .where(and(
-                    gte(agendaAppointments.startsAt, windowStart),
-                    lte(agendaAppointments.startsAt, windowEnd),
-                    sql`${agendaAppointments.status} IN ('confirmed', 'pending')`,
-                    isNull(agendaAppointments.reminder30minSentAt),
-                    sql`${agendaProfessionalProfiles.waNotificationsEnabled} = true`,
-                ));
-
-            for (const { appt, prof } of appts) {
-                if (!appt.clientPhone) continue;
-                try {
-                    await notifyReminder30min(
-                        { clientName: appt.clientName, clientPhone: appt.clientPhone, startsAt: appt.startsAt, endsAt: appt.endsAt },
-                        { displayName: prof.displayName, timezone: prof.timezone, cancellationHours: prof.cancellationHours },
-                    );
-                    await logNotification({
-                        professionalId: prof.id,
-                        appointmentId: appt.id,
-                        clientId: appt.clientId,
-                        channel: 'whatsapp',
-                        eventType: 'reminder_30min',
-                        recipient: appt.clientPhone,
-                        status: 'sent',
-                    });
-                } catch (err) {
-                    console.error('[agenda] 30min reminder failed for', appt.id, ':', err);
-                    await logNotification({
-                        professionalId: prof.id,
-                        appointmentId: appt.id,
-                        clientId: appt.clientId,
-                        channel: 'whatsapp',
-                        eventType: 'reminder_30min',
-                        recipient: appt.clientPhone,
-                        status: 'failed',
-                        errorMessage: err instanceof Error ? err.message : String(err),
-                    });
-                }
-                await db.update(agendaAppointments)
-                    .set({ reminder30minSentAt: now })
-                    .where(eq(agendaAppointments.id, appt.id));
-            }
-        } catch (e) {
-            console.error('[agenda] 30min reminder cron error:', e);
-        }
-    });
-}
-
-const port = Number(process.env.PORT ?? 4000);
-const hostname = process.env.API_HOST ?? '0.0.0.0';
+const port = env.PORT;
+const hostname = env.API_HOST;
 primeValuationFeedState();
 void refreshValuationFeeds();
 
-// Ensure critical tables exist regardless of migration system state.
-// Uses IF NOT EXISTS so it's safe to run on every startup.
-async function bootstrapMissingTables() {
-    console.log('[simple-api] bootstrap starting...');
-    // instagram_accounts (migration 0003)
-    await db.execute(sql`
-        CREATE TABLE IF NOT EXISTS instagram_accounts (
-            id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-            user_id uuid NOT NULL REFERENCES users(id),
-            vertical varchar(20) NOT NULL,
-            instagram_user_id varchar(255) NOT NULL,
-            username varchar(255) NOT NULL,
-            display_name varchar(255),
-            account_type varchar(50),
-            profile_picture_url varchar(500),
-            access_token text NOT NULL,
-            token_expires_at timestamp,
-            scopes jsonb,
-            auto_publish_enabled boolean NOT NULL DEFAULT false,
-            caption_template text,
-            status varchar(20) NOT NULL DEFAULT 'connected',
-            last_synced_at timestamp,
-            last_published_at timestamp,
-            last_error text,
-            created_at timestamp NOT NULL DEFAULT now(),
-            updated_at timestamp NOT NULL DEFAULT now()
-        )
-    `);
-    await db.execute(sql`
-        CREATE UNIQUE INDEX IF NOT EXISTS instagram_accounts_user_vertical_idx
-        ON instagram_accounts(user_id, vertical)
-    `);
-    // profile_picture_url era varchar(500) pero URLs de CDN de Instagram superan ese lÃ­mite
-    try {
-        await db.execute(sql`
-            ALTER TABLE instagram_accounts
-                ALTER COLUMN profile_picture_url TYPE text
-        `);
-    } catch { /* already text */ }
-    // instagram_publications (migration 0003)
-    await db.execute(sql`
-        CREATE TABLE IF NOT EXISTS instagram_publications (
-            id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-            user_id uuid NOT NULL REFERENCES users(id),
-            instagram_account_id uuid NOT NULL REFERENCES instagram_accounts(id),
-            vertical varchar(20) NOT NULL,
-            listing_id varchar(255) NOT NULL,
-            listing_title varchar(255) NOT NULL,
-            instagram_media_id varchar(255),
-            instagram_permalink varchar(500),
-            caption text NOT NULL,
-            image_url text NOT NULL,
-            status varchar(20) NOT NULL DEFAULT 'published',
-            error_message text,
-            source_updated_at timestamp,
-            published_at timestamp,
-            created_at timestamp NOT NULL DEFAULT now(),
-            updated_at timestamp NOT NULL DEFAULT now()
-        )
-    `);
-    // instagram_permalink puede superar varchar(500)
-    try {
-        await db.execute(sql`
-            ALTER TABLE instagram_publications
-                ALTER COLUMN instagram_permalink TYPE text
-        `);
-    } catch { /* already text */ }
-    // address_book (migration 0024)
-    await db.execute(sql`
-        CREATE TABLE IF NOT EXISTS address_book (
-            id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-            user_id uuid NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-            kind varchar(20) NOT NULL DEFAULT 'personal',
-            label varchar(100) NOT NULL DEFAULT '',
-            country_code varchar(3) NOT NULL DEFAULT 'CL',
-            region_id varchar(50),
-            region_name varchar(120),
-            commune_id varchar(50),
-            commune_name varchar(120),
-            neighborhood varchar(120),
-            address_line_1 varchar(255),
-            address_line_2 varchar(255),
-            postal_code varchar(20),
-            contact_name varchar(160),
-            contact_phone varchar(40),
-            is_default boolean NOT NULL DEFAULT false,
-            geo_point jsonb,
-            created_at timestamp NOT NULL DEFAULT now(),
-            updated_at timestamp NOT NULL DEFAULT now()
-        )
-    `);
-    await db.execute(sql`
-        CREATE INDEX IF NOT EXISTS address_book_user_id_idx ON address_book(user_id)
-    `);
-
-    // --- Agenda tables (migration 0019) ---
-    await db.execute(sql`
-        CREATE TABLE IF NOT EXISTS agenda_professional_profiles (
-            id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-            user_id uuid NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-            slug varchar(255) NOT NULL,
-            is_published boolean DEFAULT false NOT NULL,
-            profession varchar(100),
-            display_name varchar(160),
-            headline varchar(255),
-            bio text,
-            avatar_url varchar(500),
-            cover_url varchar(500),
-            public_email varchar(255),
-            public_phone varchar(30),
-            public_whatsapp varchar(30),
-            city varchar(100),
-            region varchar(100),
-            address varchar(255),
-            currency varchar(10) DEFAULT 'CLP' NOT NULL,
-            timezone varchar(50) DEFAULT 'America/Santiago' NOT NULL,
-            booking_window_days integer DEFAULT 30 NOT NULL,
-            cancellation_hours integer DEFAULT 24 NOT NULL,
-            confirmation_mode varchar(20) DEFAULT 'auto' NOT NULL,
-            created_at timestamp NOT NULL DEFAULT now(),
-            updated_at timestamp NOT NULL DEFAULT now()
-        )
-    `);
-    await db.execute(sql`CREATE UNIQUE INDEX IF NOT EXISTS agenda_profiles_slug_idx ON agenda_professional_profiles(slug)`);
-    await db.execute(sql`CREATE UNIQUE INDEX IF NOT EXISTS agenda_profiles_user_id_idx ON agenda_professional_profiles(user_id)`);
-
-    await db.execute(sql`
-        CREATE TABLE IF NOT EXISTS agenda_services (
-            id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-            professional_id uuid NOT NULL REFERENCES agenda_professional_profiles(id) ON DELETE CASCADE,
-            name varchar(160) NOT NULL,
-            description text,
-            duration_minutes integer DEFAULT 50 NOT NULL,
-            price numeric(10, 2),
-            currency varchar(10) DEFAULT 'CLP' NOT NULL,
-            is_online boolean DEFAULT true NOT NULL,
-            is_presential boolean DEFAULT false NOT NULL,
-            color varchar(20),
-            is_active boolean DEFAULT true NOT NULL,
-            position integer DEFAULT 0 NOT NULL,
-            created_at timestamp NOT NULL DEFAULT now(),
-            updated_at timestamp NOT NULL DEFAULT now()
-        )
-    `);
-    await db.execute(sql`CREATE INDEX IF NOT EXISTS agenda_services_professional_idx ON agenda_services(professional_id)`);
-
-    await db.execute(sql`
-        CREATE TABLE IF NOT EXISTS agenda_availability_rules (
-            id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-            professional_id uuid NOT NULL REFERENCES agenda_professional_profiles(id) ON DELETE CASCADE,
-            day_of_week integer NOT NULL,
-            start_time varchar(5) NOT NULL,
-            end_time varchar(5) NOT NULL,
-            break_start varchar(5),
-            break_end varchar(5),
-            is_active boolean DEFAULT true NOT NULL,
-            created_at timestamp NOT NULL DEFAULT now(),
-            updated_at timestamp NOT NULL DEFAULT now()
-        )
-    `);
-    await db.execute(sql`CREATE INDEX IF NOT EXISTS agenda_availability_professional_idx ON agenda_availability_rules(professional_id)`);
-
-    await db.execute(sql`
-        CREATE TABLE IF NOT EXISTS agenda_blocked_slots (
-            id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-            professional_id uuid NOT NULL REFERENCES agenda_professional_profiles(id) ON DELETE CASCADE,
-            starts_at timestamp NOT NULL,
-            ends_at timestamp NOT NULL,
-            reason varchar(255),
-            created_at timestamp NOT NULL DEFAULT now()
-        )
-    `);
-    await db.execute(sql`CREATE INDEX IF NOT EXISTS agenda_blocked_slots_professional_idx ON agenda_blocked_slots(professional_id)`);
-
-    await db.execute(sql`
-        CREATE TABLE IF NOT EXISTS agenda_locations (
-            id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-            professional_id uuid NOT NULL REFERENCES agenda_professional_profiles(id) ON DELETE CASCADE,
-            name varchar(160) NOT NULL,
-            address_line varchar(255) NOT NULL,
-            city varchar(100),
-            region varchar(100),
-            notes text,
-            google_maps_url varchar(500),
-            is_default boolean NOT NULL DEFAULT false,
-            is_active boolean NOT NULL DEFAULT true,
-            position integer NOT NULL DEFAULT 0,
-            created_at timestamp NOT NULL DEFAULT now(),
-            updated_at timestamp NOT NULL DEFAULT now()
-        )
-    `);
-    await db.execute(sql`CREATE INDEX IF NOT EXISTS agenda_locations_professional_idx ON agenda_locations(professional_id)`);
-
-    await db.execute(sql`
-        CREATE TABLE IF NOT EXISTS agenda_clients (
-            id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-            professional_id uuid NOT NULL REFERENCES agenda_professional_profiles(id) ON DELETE CASCADE,
-            first_name varchar(100) NOT NULL,
-            last_name varchar(100),
-            email varchar(255),
-            phone varchar(30),
-            whatsapp varchar(30),
-            rut varchar(20),
-            date_of_birth varchar(10),
-            gender varchar(20),
-            occupation varchar(100),
-            address varchar(255),
-            city varchar(100),
-            emergency_contact_name varchar(160),
-            emergency_contact_phone varchar(30),
-            referred_by varchar(160),
-            internal_notes text,
-            tags jsonb DEFAULT '[]'::jsonb,
-            status varchar(20) DEFAULT 'active' NOT NULL,
-            created_at timestamp NOT NULL DEFAULT now(),
-            updated_at timestamp NOT NULL DEFAULT now()
-        )
-    `);
-    await db.execute(sql`CREATE INDEX IF NOT EXISTS agenda_clients_professional_idx ON agenda_clients(professional_id)`);
-
-    await db.execute(sql`
-        CREATE TABLE IF NOT EXISTS agenda_client_attachments (
-            id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-            professional_id uuid NOT NULL REFERENCES agenda_professional_profiles(id) ON DELETE CASCADE,
-            client_id uuid NOT NULL REFERENCES agenda_clients(id) ON DELETE CASCADE,
-            name varchar(255) NOT NULL,
-            url text NOT NULL,
-            mime_type varchar(120),
-            size_bytes integer,
-            kind varchar(20) NOT NULL DEFAULT 'document',
-            uploaded_at timestamp NOT NULL DEFAULT now()
-        )
-    `);
-    await db.execute(sql`CREATE INDEX IF NOT EXISTS agenda_client_attachments_client_idx ON agenda_client_attachments(client_id)`);
-    await db.execute(sql`CREATE INDEX IF NOT EXISTS agenda_client_attachments_professional_idx ON agenda_client_attachments(professional_id)`);
-
-    await db.execute(sql`
-        CREATE TABLE IF NOT EXISTS agenda_appointments (
-            id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-            professional_id uuid NOT NULL REFERENCES agenda_professional_profiles(id) ON DELETE CASCADE,
-            service_id uuid REFERENCES agenda_services(id),
-            client_id uuid REFERENCES agenda_clients(id),
-            client_name varchar(160),
-            client_email varchar(255),
-            client_phone varchar(30),
-            starts_at timestamp NOT NULL,
-            ends_at timestamp NOT NULL,
-            duration_minutes integer NOT NULL,
-            modality varchar(20) DEFAULT 'online' NOT NULL,
-            meeting_url varchar(500),
-            location varchar(255),
-            status varchar(20) DEFAULT 'confirmed' NOT NULL,
-            price numeric(10, 2),
-            currency varchar(10) DEFAULT 'CLP' NOT NULL,
-            internal_notes text,
-            client_notes text,
-            cancelled_at timestamp,
-            cancelled_by varchar(20),
-            cancellation_reason text,
-            reminder_sent_at timestamp,
-            reminder_30min_sent_at timestamp,
-            policy_agreed boolean NOT NULL DEFAULT false,
-            policy_agreed_at timestamp,
-            google_event_id varchar(255),
-            payment_status varchar(20) NOT NULL DEFAULT 'not_required',
-            created_at timestamp NOT NULL DEFAULT now(),
-            updated_at timestamp NOT NULL DEFAULT now()
-        )
-    `);
-    await db.execute(sql`CREATE INDEX IF NOT EXISTS agenda_appointments_professional_idx ON agenda_appointments(professional_id)`);
-    await db.execute(sql`CREATE INDEX IF NOT EXISTS agenda_appointments_starts_at_idx ON agenda_appointments(starts_at)`);
-    await db.execute(sql`CREATE INDEX IF NOT EXISTS agenda_appointments_client_idx ON agenda_appointments(client_id)`);
-    console.log('[simple-api] bootstrap: agenda_appointments OK');
-
-    // Ensure all columns exist in agenda_appointments (for upgrades)
-    try {
-        await db.execute(sql`
-            ALTER TABLE agenda_appointments
-                ADD COLUMN IF NOT EXISTS reminder_30min_sent_at timestamp,
-                ADD COLUMN IF NOT EXISTS policy_agreed boolean NOT NULL DEFAULT false,
-                ADD COLUMN IF NOT EXISTS policy_agreed_at timestamp,
-                ADD COLUMN IF NOT EXISTS google_event_id varchar(255),
-                ADD COLUMN IF NOT EXISTS payment_status varchar(20) NOT NULL DEFAULT 'not_required',
-                ADD COLUMN IF NOT EXISTS series_id uuid,
-                ADD COLUMN IF NOT EXISTS recurrence_frequency varchar(20)
-        `);
-        await db.execute(sql`CREATE INDEX IF NOT EXISTS agenda_appointments_series_idx ON agenda_appointments(series_id)`);
-        console.log('[simple-api] bootstrap: agenda_appointments columns upgraded');
-    } catch (e) {
-        console.error('[simple-api] bootstrap: failed to upgrade agenda_appointments columns', e);
-    }
-
-    await db.execute(sql`
-        CREATE TABLE IF NOT EXISTS agenda_session_notes (
-            id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-            appointment_id uuid NOT NULL REFERENCES agenda_appointments(id) ON DELETE CASCADE,
-            professional_id uuid NOT NULL REFERENCES agenda_professional_profiles(id) ON DELETE CASCADE,
-            client_id uuid REFERENCES agenda_clients(id),
-            content text NOT NULL,
-            raw_data jsonb,
-            created_at timestamp NOT NULL DEFAULT now(),
-            updated_at timestamp NOT NULL DEFAULT now()
-        )
-    `);
-    await db.execute(sql`CREATE UNIQUE INDEX IF NOT EXISTS agenda_notes_appointment_idx ON agenda_session_notes(appointment_id)`);
-    await db.execute(sql`CREATE INDEX IF NOT EXISTS agenda_notes_professional_idx ON agenda_session_notes(professional_id)`);
-
-    await db.execute(sql`
-        CREATE TABLE IF NOT EXISTS agenda_payments (
-            id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-            professional_id uuid NOT NULL REFERENCES agenda_professional_profiles(id) ON DELETE CASCADE,
-            appointment_id uuid REFERENCES agenda_appointments(id),
-            client_id uuid REFERENCES agenda_clients(id),
-            amount numeric(10, 2) NOT NULL,
-            currency varchar(10) DEFAULT 'CLP' NOT NULL,
-            method varchar(30),
-            status varchar(20) DEFAULT 'pending' NOT NULL,
-            external_id varchar(255),
-            paid_at timestamp,
-            notes text,
-            created_at timestamp NOT NULL DEFAULT now(),
-            updated_at timestamp NOT NULL DEFAULT now()
-        )
-    `);
-    await db.execute(sql`CREATE INDEX IF NOT EXISTS agenda_payments_professional_idx ON agenda_payments(professional_id)`);
-    await db.execute(sql`CREATE INDEX IF NOT EXISTS agenda_payments_appointment_idx ON agenda_payments(appointment_id)`);
-
-    // Existing column upgrades
-    try {
-        await db.execute(sql`
-            ALTER TABLE agenda_professional_profiles
-                ADD COLUMN IF NOT EXISTS google_calendar_id varchar(255),
-                ADD COLUMN IF NOT EXISTS google_access_token text,
-                ADD COLUMN IF NOT EXISTS google_refresh_token text,
-                ADD COLUMN IF NOT EXISTS google_token_expiry timestamp
-        `);
-    } catch { /* ignore */ }
-
-    try {
-        await db.execute(sql`
-            ALTER TABLE agenda_professional_profiles
-                ADD COLUMN IF NOT EXISTS mp_access_token text,
-                ADD COLUMN IF NOT EXISTS mp_public_key varchar(255),
-                ADD COLUMN IF NOT EXISTS mp_user_id varchar(100),
-                ADD COLUMN IF NOT EXISTS mp_refresh_token text,
-                ADD COLUMN IF NOT EXISTS payment_link_url varchar(500),
-                ADD COLUMN IF NOT EXISTS bank_transfer_data jsonb
-        `);
-    } catch { /* ignore */ }
-
-    try {
-        await db.execute(sql`
-            ALTER TABLE agenda_professional_profiles
-                ADD COLUMN IF NOT EXISTS notifications_last_seen_at timestamp
-        `);
-    } catch { /* ignore */ }
-
-    try {
-        await db.execute(sql`
-            ALTER TABLE agenda_professional_profiles
-                ADD COLUMN IF NOT EXISTS encuadre text,
-                ADD COLUMN IF NOT EXISTS requires_advance_payment boolean DEFAULT false,
-                ADD COLUMN IF NOT EXISTS advance_payment_instructions text,
-                ADD COLUMN IF NOT EXISTS wa_notifications_enabled boolean DEFAULT true,
-                ADD COLUMN IF NOT EXISTS wa_notify_professional boolean DEFAULT false,
-                ADD COLUMN IF NOT EXISTS wa_professional_phone varchar(30)
-        `);
-    } catch { /* ignore */ }
-
-    try {
-        await db.execute(sql`
-            ALTER TABLE agenda_professional_profiles
-                ADD COLUMN IF NOT EXISTS plan varchar(20) NOT NULL DEFAULT 'free',
-                ADD COLUMN IF NOT EXISTS plan_expires_at timestamp
-        `);
-    } catch { /* ignore */ }
-
-    try {
-        await db.execute(sql`
-            ALTER TABLE agenda_professional_profiles
-                ADD COLUMN IF NOT EXISTS allows_recurrent_booking boolean NOT NULL DEFAULT true
-        `);
-    } catch { /* ignore */ }
-
-    try {
-        await db.execute(sql`
-            ALTER TABLE agenda_professional_profiles
-                ADD COLUMN IF NOT EXISTS accepts_transfer boolean NOT NULL DEFAULT false,
-                ADD COLUMN IF NOT EXISTS accepts_mp boolean NOT NULL DEFAULT false,
-                ADD COLUMN IF NOT EXISTS accepts_payment_link boolean NOT NULL DEFAULT false
-        `);
-    } catch { /* ignore */ }
-
-    // subscription_plans table
-    await db.execute(sql`
-        CREATE TABLE IF NOT EXISTS subscription_plans (
-            id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-            vertical varchar(20) NOT NULL,
-            plan_id varchar(50) NOT NULL,
-            name varchar(255) NOT NULL,
-            description text NOT NULL DEFAULT '',
-            price_monthly decimal(10,2) NOT NULL DEFAULT 0,
-            price_yearly decimal(10,2) NOT NULL DEFAULT 0,
-            currency varchar(10) NOT NULL DEFAULT 'CLP',
-            max_listings integer NOT NULL DEFAULT 0,
-            max_featured_listings integer NOT NULL DEFAULT 0,
-            max_images_per_listing integer NOT NULL DEFAULT 0,
-            analytics_enabled boolean NOT NULL DEFAULT false,
-            crm_enabled boolean NOT NULL DEFAULT false,
-            priority_support boolean NOT NULL DEFAULT false,
-            custom_branding boolean NOT NULL DEFAULT false,
-            api_access boolean NOT NULL DEFAULT false,
-            is_active boolean NOT NULL DEFAULT true,
-            is_default boolean NOT NULL DEFAULT false,
-            features jsonb NOT NULL DEFAULT '[]',
-            created_at timestamp NOT NULL DEFAULT now(),
-            updated_at timestamp NOT NULL DEFAULT now()
-        )
-    `);
-
-    // subscriptions table (user subscriptions) - drop and recreate to ensure correct types
-    // Note: This is safe for development. For production, use proper migrations.
-    try {
-        await db.execute(sql`DROP TABLE IF EXISTS subscriptions`);
-    } catch { /* ignore */ }
-    await db.execute(sql`
-        CREATE TABLE IF NOT EXISTS subscriptions (
-            id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-            user_id uuid NOT NULL REFERENCES users(id),
-            plan_id varchar(50),
-            vertical varchar(20) NOT NULL,
-            status varchar(20) NOT NULL DEFAULT 'active',
-            provider varchar(30) NOT NULL DEFAULT 'mercadopago',
-            provider_subscription_id varchar(255),
-            provider_status varchar(50),
-            started_at timestamp NOT NULL DEFAULT now(),
-            expires_at timestamp,
-            cancelled_at timestamp,
-            created_at timestamp NOT NULL DEFAULT now(),
-            updated_at timestamp NOT NULL DEFAULT now()
-        )
-    `);
-    await db.execute(sql`
-        CREATE UNIQUE INDEX IF NOT EXISTS subscriptions_user_vertical_idx ON subscriptions(user_id, vertical)
-    `);
-    await db.execute(sql`
-        CREATE INDEX IF NOT EXISTS subscriptions_user_idx ON subscriptions(user_id)
-    `);
-    await db.execute(sql`
-        CREATE INDEX IF NOT EXISTS subscriptions_vertical_idx ON subscriptions(vertical)
-    `);
-
-    // Migration: Convert 'basic' plan subscriptions to 'pro'
-    try {
-        await db.execute(sql`
-            UPDATE subscriptions SET plan_id = 'pro' WHERE plan_id = 'basic'
-        `);
-        console.log('[simple-api] Migrated basic subscriptions to pro');
-    } catch { /* ignore if no basic subscriptions */ }
-
-    // push subscriptions table (migration 0025)
-    await db.execute(sql`
-        CREATE TABLE IF NOT EXISTS push_subscriptions (
-            id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-            user_id uuid NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-            endpoint text NOT NULL,
-            p256dh text NOT NULL,
-            auth text NOT NULL,
-            user_agent varchar(500),
-            created_at timestamp NOT NULL DEFAULT now()
-        )
-    `);
-    await db.execute(sql`
-        CREATE INDEX IF NOT EXISTS push_subscriptions_user_idx ON push_subscriptions(user_id)
-    `);
-    await db.execute(sql`
-        CREATE UNIQUE INDEX IF NOT EXISTS push_subscriptions_endpoint_idx ON push_subscriptions(endpoint)
-    `);
-
-    // admin audit logs
-    await db.execute(sql`
-        CREATE TABLE IF NOT EXISTS admin_audit_logs (
-            id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-            actor_user_id uuid NOT NULL REFERENCES users(id),
-            action varchar(80) NOT NULL,
-            entity_type varchar(80) NOT NULL,
-            entity_id varchar(120) NOT NULL,
-            payload jsonb NOT NULL DEFAULT '{}'::jsonb,
-            created_at timestamp NOT NULL DEFAULT now()
-        )
-    `);
-    await db.execute(sql`
-        CREATE INDEX IF NOT EXISTS admin_audit_logs_created_idx ON admin_audit_logs(created_at)
-    `);
-    await db.execute(sql`
-        CREATE INDEX IF NOT EXISTS admin_audit_logs_entity_idx ON admin_audit_logs(entity_type, entity_id)
-    `);
-}
-
-// SimpleSerenatas routes
-// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-const serenatasService = new SerenatasService(db);
-const serenatasDeps = {
-    db,
-    authUser,
-    service: serenatasService,
-    vapidPublicKey: VAPID_PUBLIC_KEY,
-    sendPushToUser,
-    requireAuth: async (c: any, next: any) => {
-        const user = await authUser(c);
-        if (!user) {
-            return c.json({ ok: false, error: 'No autenticado' }, 401);
-        }
-        c.set('user', user);
-        await next();
-    },
-    tables: {
-        pushSubscriptions,
-        serenataGroups,
-        serenataGroupMembers,
-        serenataMusicians,
-        serenataRequests,
-        serenataAssignments,
-        serenataRoutes,
-        serenataNotifications,
-        serenataCoordinatorProfiles,
-        serenataCoordinatorCrewMemberships,
-        serenatas,
-        serenataMusicianLineup,
-        serenataSubscriptions,
-        serenataSubscriptionPayments,
-    serenataPayments,
-    serenataReviews,
-    serenataCoordinatorReviews,
-    serenataAvailability,
-        serenataMessages,
-        serenataMpWebhookEvents,
-        serenataCoordinatorPreapprovals,
-        users,
-    },
-};
-app.route('/api/serenatas', createSerenatasRouter(serenatasDeps));
-
-/**
- * Cron jobs SimpleSerenatas:
- *  - cada hora marca como `expired` suscripciones cuyo `endsAt` pasó hace ≥ 1h
- *    y mueve el coordinador a `paused` (excepto si el preapproval sigue
- *    `authorized`, donde el cobro recurrente lo vuelve a activar).
- */
-function registerSerenatasCronJobs() {
-    const isProduction = process.env.NODE_ENV === 'production';
-    const serenatasEnabled = process.env.SERENATAS_CRON_ENABLED === 'true';
-    if (!isProduction && !serenatasEnabled) {
-        console.log('[serenatas] cron jobs desactivados (no es producción y SERENATAS_CRON_ENABLED != true)');
-        return;
-    }
-    console.log('[serenatas] registering cron jobs...');
-    cron.schedule('15 * * * *', async () => {
-        try {
-            const expirationCutoff = new Date(Date.now() - 60 * 60 * 1000);
-            const expiringSubs = await db
-                .select()
-                .from(serenataSubscriptions)
-                .where(
-                    sql`${serenataSubscriptions.status} = 'active' AND ${serenataSubscriptions.endsAt} IS NOT NULL AND ${serenataSubscriptions.endsAt} < ${expirationCutoff}`
-                );
-            for (const sub of expiringSubs) {
-                const [activePreapproval] = await db
-                    .select()
-                    .from(serenataCoordinatorPreapprovals)
-                    .where(
-                        sql`${serenataCoordinatorPreapprovals.coordinatorProfileId} = ${sub.coordinatorProfileId} AND ${serenataCoordinatorPreapprovals.status} = 'authorized'`
-                    )
-                    .limit(1);
-                if (activePreapproval) continue;
-                await db
-                    .update(serenataSubscriptions)
-                    .set({ status: 'expired', updatedAt: new Date() })
-                    .where(eq(serenataSubscriptions.id, sub.id));
-                await db
-                    .update(serenataCoordinatorProfiles)
-                    .set({ subscriptionStatus: 'paused', updatedAt: new Date() })
-                    .where(eq(serenataCoordinatorProfiles.id, sub.coordinatorProfileId));
-            }
-            if (expiringSubs.length > 0) {
-                console.log(`[serenatas/cron] revisé ${expiringSubs.length} suscripciones vencidas`);
-            }
-        } catch (e) {
-            console.error('[serenatas/cron] error expirando suscripciones:', e);
-        }
-    });
-}
-
-// Run DB migrations, preload data, then start the HTTP server
+// Run DB migrations, register jobs, preload data, then start the HTTP server
 (async () => {
-    try {
-        await bootstrapMissingTables();
-        console.log('[simple-api] bootstrap tables OK');
-
-        // Register cron jobs after bootstrap is done
-        registerAgendaCronJobs();
-        registerSerenatasCronJobs();
-    } catch (error) {
-        console.error('[simple-api] bootstrap tables failed', error);
-    }
     try {
         const migrationsFolder = path.resolve(__dirname, '../drizzle');
         await migrate(db, { migrationsFolder });
-        console.log('[simple-api] DB migrations applied');
+        console.info('[simple-api] DB migrations applied');
     } catch (error) {
         console.error('[simple-api] DB migration failed', error);
-        if (process.env.NODE_ENV !== 'production') {
-            console.warn(
+        if (!isProduction) {
+            logger.warn(
                 '[simple-api] En local: ejecuta `pnpm run db:migrate` en services/api y revisa que .env.local y esta app usen la MISMA DATABASE_URL (orden .env→.env.local).'
             );
         }
     }
+
+    registerAgendaCronJobs();
+
     try {
         await loadDataFromDB();
     } catch (error) {
@@ -13089,7 +11857,7 @@ function registerSerenatasCronJobs() {
             port,
         },
         (info) => {
-            console.log(`[simple-api] listening on http://${hostname}:${info.port}`);
+            console.info(`[simple-api] listening on http://${hostname}:${info.port}`);
         }
     );
 })();

@@ -33,9 +33,9 @@ import {
     IconPencil,
 } from '@tabler/icons-react';
 import PanelSectionHeader from '@/components/panel/panel-section-header';
-import ModernSelect from '@/components/ui/modern-select';
+import { ModernSelect } from '@simple/ui';
 import { PanelIconButton } from '@simple/ui';
-import { useAuth } from '@/context/auth-context';
+import { useAuth } from '@simple/auth';
 import {
     fetchInstagramIntegrationStatus,
     generateSmartTemplates,
@@ -460,7 +460,7 @@ export default function PublicacionesPage() {
         }
 
         const baseDescription = listing.description?.trim() ? listing.description : `🏠 ${listing.title}\n💰 ${listing.price || 'Consultar precio'}\n📍 ${getListingCommune(listing)}`;
-        const defaultCaption = `${baseDescription}\n\n🔗 Ver más: https://simplepropiedades.cl/propiedad/${listing.id}\n\n#SimplePropiedades #PropiedadesChile #Inmuebles #VentaPropiedades #Casa`;
+        const defaultCaption = `${baseDescription}\n\n🔗 Ver más: https://simplepropiedades.app/propiedad/${listing.id}\n\n#SimplePropiedades #PropiedadesChile #Inmuebles #VentaPropiedades #Casa`;
 
         setPreviewListing(listing);
         setPreviewCaption(defaultCaption);
@@ -730,7 +730,7 @@ export default function PublicacionesPage() {
     };
 
     return (
-        <div className="container-app panel-page py-8">
+        <div className="container-app panel-page py-4 lg:py-8">
             <PanelSectionHeader
                 title="Mis publicaciones"
                 description={`${listings.length} publicaciones`}

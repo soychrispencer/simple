@@ -10,7 +10,7 @@ El error **"Correo electrónico o contraseña incorrectos"** ocurre porque:
 
 ### Paso 1: Asegurar que la API está corriendo
 ```bash
-npm run dev:api
+pnpm run dev:api
 ```
 Verifica que esté en `http://localhost:4000` y retorne `{ ok: true, service: "simple-v2-api" }`
 

@@ -1,485 +1,123 @@
-import { API_BASE } from '@simple/config';
+import {
+    addCrmLeadNote as addCrmLeadNoteForVertical,
+    addCrmListingLeadNote as addCrmListingLeadNoteForVertical,
+    createCrmPipelineColumn as createCrmPipelineColumnForVertical,
+    deleteCrmPipelineColumn as deleteCrmPipelineColumnForVertical,
+    fetchCrmLeadDetail as fetchCrmLeadDetailForVertical,
+    fetchCrmLeads as fetchCrmLeadsForVertical,
+    fetchCrmListingLeadDetail as fetchCrmListingLeadDetailForVertical,
+    fetchCrmListingLeads as fetchCrmListingLeadsForVertical,
+    fetchCrmPipelineColumns as fetchCrmPipelineColumnsForVertical,
+    reorderCrmPipelineColumns as reorderCrmPipelineColumnsForVertical,
+    runCrmLeadQuickAction as runCrmLeadQuickActionForVertical,
+    runCrmListingLeadQuickAction as runCrmListingLeadQuickActionForVertical,
+    updateCrmLead as updateCrmLeadForVertical,
+    updateCrmListingLead as updateCrmListingLeadForVertical,
+    updateCrmPipelineColumn as updateCrmPipelineColumnForVertical,
+    type CrmLead,
+    type CrmLeadActivity,
+    type CrmLeadDetail,
+    type CrmLeadQuickAction,
+    type CrmListingLead,
+    type CrmListingLeadActivity,
+    type CrmListingLeadDetail,
+    type CrmPipelineColumn,
+} from '@simple/utils';
 
-const CRM_VERTICAL = 'propiedades';
+const VERTICAL = 'propiedades';
 
-export type CrmLeadStatus = 'new' | 'contacted' | 'qualified' | 'closed';
-export type CrmLeadPriority = 'low' | 'medium' | 'high';
-export type CrmLeadAttentionLevel = 'fresh' | 'attention' | 'urgent';
-export type CrmLeadQuickAction = 'call' | 'whatsapp' | 'email' | 'follow_up';
-export type CrmLeadSlaSignal = {
-    key: 'response_overdue' | 'task_due_today' | 'task_overdue' | 'hot_lead' | 'idle_follow_up';
-    label: string;
-    tone: Exclude<CrmLeadAttentionLevel, 'fresh'>;
+export type {
+    CrmLead,
+    CrmLeadActivity,
+    CrmLeadDetail,
+    CrmLeadQuickAction,
+    CrmListingLead,
+    CrmListingLeadActivity,
+    CrmListingLeadDetail,
+    CrmPipelineColumn,
 };
 
-export type CrmAssignee = {
-    id: string;
-    kind: 'user' | 'team_member';
-    value: string;
-    name: string;
-    email: string | null;
-    phone: string | null;
-    role: 'user' | 'admin' | 'superadmin' | null;
-    roleTitle: string | null;
-    isLeadContact: boolean;
-};
+export function fetchCrmLeads(): Promise<CrmLead[]> {
+    return fetchCrmLeadsForVertical(VERTICAL);
+}
 
-export type CrmLead = {
-    id: string;
-    vertical: 'propiedades';
-    serviceType: 'gestion_inmobiliaria';
-    serviceLabel: string;
-    planId: 'basico' | 'premium';
-    contactName: string;
-    contactEmail: string;
-    contactPhone: string;
-    contactWhatsapp: string | null;
-    locationLabel: string | null;
-    assetType: string | null;
-    assetArea: string | null;
-    expectedPrice: string | null;
-    notes: string | null;
-    status: CrmLeadStatus;
-    statusLabel: string;
-    priority: CrmLeadPriority;
-    priorityLabel: string;
-    closeReason: string | null;
-    tags: string[];
-    assignedToUserId: string | null;
-    assignedToValue: string | null;
-    assignedTo: CrmAssignee | null;
-    nextTaskTitle: string | null;
-    nextTaskAt: number | null;
-    nextTaskAgo: string | null;
-    sourcePage: string | null;
-    lastActivityAt: number;
-    lastActivityAgo: string;
-    attentionLevel: CrmLeadAttentionLevel;
-    attentionLabel: string | null;
-    slaSignals: CrmLeadSlaSignal[];
-    createdAt: number;
-    createdAgo: string;
-    updatedAt: number;
-};
+export function fetchCrmLeadDetail(leadId: string): Promise<CrmLeadDetail | null> {
+    return fetchCrmLeadDetailForVertical(leadId, VERTICAL);
+}
 
-export type CrmLeadActivity = {
-    id: string;
-    type: 'created' | 'note' | 'status' | 'assignment' | 'task' | 'contact';
-    label: string;
-    body: string;
-    meta: Record<string, unknown> | null;
-    createdAt: number;
-    createdAgo: string;
-    actor: {
-        id: string;
-        name: string;
-        email: string;
-    } | null;
-};
+export function updateCrmLead(
+    leadId: string,
+    changes: Parameters<typeof updateCrmLeadForVertical>[2]
+): ReturnType<typeof updateCrmLeadForVertical> {
+    return updateCrmLeadForVertical(leadId, VERTICAL, changes);
+}
 
-export type CrmLeadDetail = {
-    item: CrmLead;
-    activities: CrmLeadActivity[];
-    assignees: CrmAssignee[];
-};
-
-export type CrmListingLeadStatus = CrmLeadStatus;
-
-export type CrmPipelineColumn = {
-    id: string;
-    userId: string;
-    vertical: 'propiedades';
-    scope: 'listing';
-    name: string;
-    status: CrmListingLeadStatus;
-    statusLabel: string;
-    position: number;
-    createdAt: number;
-    updatedAt: number;
-};
-
-export type CrmListingLead = {
-    id: string;
-    listingId: string;
-    vertical: 'propiedades';
-    source: 'internal_form' | 'direct_message' | 'whatsapp' | 'phone_call' | 'email' | 'instagram' | 'facebook' | 'mercadolibre' | 'yapo' | 'chileautos' | 'portal';
-    sourceLabel: string;
-    channel: 'lead' | 'message' | 'social' | 'portal';
-    channelLabel: string;
-    contactName: string;
-    contactEmail: string;
-    contactPhone: string | null;
-    contactWhatsapp: string | null;
-    message: string | null;
-    status: CrmListingLeadStatus;
-    statusLabel: string;
-    pipelineColumnId: string | null;
-    pipelineColumnName: string | null;
-    priority: CrmLeadPriority;
-    priorityLabel: string;
-    closeReason: string | null;
-    tags: string[];
-    assignedToUserId: string | null;
-    assignedToTeamMemberId: string | null;
-    assignedToValue: string | null;
-    assignedTo: CrmAssignee | null;
-    nextTaskTitle: string | null;
-    nextTaskAt: number | null;
-    nextTaskAgo: string | null;
-    sourcePage: string | null;
-    externalSourceId: string | null;
-    lastActivityAt: number;
-    lastActivityAgo: string;
-    attentionLevel: CrmLeadAttentionLevel;
-    attentionLabel: string | null;
-    slaSignals: CrmLeadSlaSignal[];
-    createdAt: number;
-    createdAgo: string;
-    updatedAt: number;
-    listing: {
-        id: string;
-        title: string;
-        href: string;
-        section: 'sale' | 'rent' | 'project';
-        sectionLabel: string;
-        price: string;
-        location: string;
-    } | null;
-    owner: {
-        id: string;
-        name: string;
-        email: string;
-    } | null;
-    buyer: {
-        id: string;
-        name: string;
-        email: string;
-    } | null;
-    threadId: string | null;
-};
-
-export type CrmListingLeadActivity = {
-    id: string;
-    type: 'created' | 'note' | 'status' | 'assignment' | 'task' | 'message' | 'contact';
-    label: string;
-    body: string;
-    meta: Record<string, unknown> | null;
-    createdAt: number;
-    createdAgo: string;
-    actor: {
-        id: string;
-        name: string;
-        email: string;
-    } | null;
-};
-
-export type CrmListingLeadDetail = {
-    item: CrmListingLead;
-    activities: CrmListingLeadActivity[];
-    assignees: CrmAssignee[];
-    thread: {
-        id: string;
-        vertical: 'propiedades';
-        viewerRole: 'buyer' | 'seller';
-        listing: CrmListingLead['listing'];
-        counterpart: {
-            id: string;
-            name: string;
-            email: string;
-        } | null;
-        leadId: string;
-        lastMessageAt: number;
-        lastMessageAgo: string;
-        lastMessagePreview: string | null;
-        createdAt: number;
-        updatedAt: number;
-    } | null;
-};
-
-type ApiResponse<T> = {
-    ok?: boolean;
+export function addCrmLeadNote(leadId: string, body: string): Promise<{
+    ok: boolean;
+    item?: CrmLead;
+    activity?: CrmLeadActivity;
     error?: string;
-} & T;
-
-async function apiRequest<T>(path: string, init?: RequestInit): Promise<{ response: Response; data: ApiResponse<T> | null }> {
-    const response = await fetch(`${API_BASE}${path}`, {
-        credentials: 'include',
-        headers: {
-            'Content-Type': 'application/json',
-            ...(init?.headers ?? {}),
-        },
-        ...init,
-    });
-    const data = (await response.json().catch(() => null)) as ApiResponse<T> | null;
-    return { response, data };
+}> {
+    return addCrmLeadNoteForVertical(leadId, VERTICAL, body);
 }
 
-export async function fetchCrmLeads(): Promise<CrmLead[]> {
-    try {
-        const { response, data } = await apiRequest<{ items?: CrmLead[] }>(`/api/crm/leads?vertical=${CRM_VERTICAL}`, {
-            method: 'GET',
-        });
-        if (!response.ok || !data?.ok || !Array.isArray(data.items)) return [];
-        return data.items;
-    } catch {
-        return [];
-    }
-}
-
-export async function fetchCrmLeadDetail(leadId: string): Promise<CrmLeadDetail | null> {
-    try {
-        const { response, data } = await apiRequest<CrmLeadDetail>(`/api/crm/leads/${encodeURIComponent(leadId)}?vertical=${CRM_VERTICAL}`, {
-            method: 'GET',
-        });
-        if (!response.ok || !data?.ok || !data.item) return null;
-        return {
-            item: data.item,
-            activities: data.activities ?? [],
-            assignees: data.assignees ?? [],
-        };
-    } catch {
-        return null;
-    }
-}
-
-export async function updateCrmLead(
-    leadId: string,
-    changes: {
-        status?: CrmLeadStatus;
-        priority?: CrmLeadPriority;
-        closeReason?: string | null;
-        tags?: string[];
-        assignedToUserId?: string | null;
-        assignedToTeamMemberId?: string | null;
-        nextTaskTitle?: string | null;
-        nextTaskAt?: string | null;
-    }
-): Promise<{ ok: boolean; item?: CrmLead; error?: string }> {
-    try {
-        const { response, data } = await apiRequest<{ item?: CrmLead }>(`/api/crm/leads/${encodeURIComponent(leadId)}?vertical=${CRM_VERTICAL}`, {
-            method: 'PATCH',
-            body: JSON.stringify(changes),
-        });
-        if (!response.ok || !data?.ok || !data.item) {
-            return { ok: false, error: data?.error || 'No pudimos actualizar el lead.' };
-        }
-        return { ok: true, item: data.item };
-    } catch {
-        return { ok: false, error: 'No pudimos conectar con el backend.' };
-    }
-}
-
-export async function addCrmLeadNote(
-    leadId: string,
-    body: string
-): Promise<{ ok: boolean; item?: CrmLead; activity?: CrmLeadActivity; error?: string }> {
-    try {
-        const { response, data } = await apiRequest<{ item?: CrmLead; activity?: CrmLeadActivity }>(`/api/crm/leads/${encodeURIComponent(leadId)}/notes?vertical=${CRM_VERTICAL}`, {
-            method: 'POST',
-            body: JSON.stringify({ body }),
-        });
-        if (!response.ok || !data?.ok || !data.item || !data.activity) {
-            return { ok: false, error: data?.error || 'No pudimos guardar la nota.' };
-        }
-        return { ok: true, item: data.item, activity: data.activity };
-    } catch {
-        return { ok: false, error: 'No pudimos conectar con el backend.' };
-    }
-}
-
-export async function runCrmLeadQuickAction(
+export function runCrmLeadQuickAction(
     leadId: string,
     action: CrmLeadQuickAction
-): Promise<{ ok: boolean; item?: CrmLead; activity?: CrmLeadActivity; actionLabel?: string; error?: string }> {
-    try {
-        const { response, data } = await apiRequest<{ item?: CrmLead; activity?: CrmLeadActivity; actionLabel?: string }>(`/api/crm/leads/${encodeURIComponent(leadId)}/actions?vertical=${CRM_VERTICAL}`, {
-            method: 'POST',
-            body: JSON.stringify({ action }),
-        });
-        if (!response.ok || !data?.ok || !data.item || !data.activity) {
-            return { ok: false, error: data?.error || 'No pudimos registrar la acción.' };
-        }
-        return { ok: true, item: data.item, activity: data.activity, actionLabel: data.actionLabel };
-    } catch {
-        return { ok: false, error: 'No pudimos conectar con el backend.' };
-    }
+): ReturnType<typeof runCrmLeadQuickActionForVertical> {
+    return runCrmLeadQuickActionForVertical(leadId, VERTICAL, action);
 }
 
-export async function fetchCrmListingLeads(): Promise<CrmListingLead[]> {
-    try {
-        const { response, data } = await apiRequest<{ items?: CrmListingLead[] }>(`/api/crm/listing-leads?vertical=${CRM_VERTICAL}`, {
-            method: 'GET',
-        });
-        if (!response.ok || !data?.ok || !Array.isArray(data.items)) return [];
-        return data.items;
-    } catch {
-        return [];
-    }
+export function fetchCrmListingLeads(): Promise<CrmListingLead[]> {
+    return fetchCrmListingLeadsForVertical(VERTICAL);
 }
 
-export async function fetchCrmPipelineColumns(): Promise<CrmPipelineColumn[]> {
-    try {
-        const { response, data } = await apiRequest<{ items?: CrmPipelineColumn[] }>(`/api/crm/pipeline-columns?vertical=${CRM_VERTICAL}`, {
-            method: 'GET',
-        });
-        if (!response.ok || !data?.ok || !Array.isArray(data.items)) return [];
-        return data.items;
-    } catch {
-        return [];
-    }
+export function fetchCrmPipelineColumns(): Promise<CrmPipelineColumn[]> {
+    return fetchCrmPipelineColumnsForVertical(VERTICAL);
 }
 
-export async function fetchCrmListingLeadDetail(leadId: string): Promise<CrmListingLeadDetail | null> {
-    try {
-        const { response, data } = await apiRequest<CrmListingLeadDetail>(`/api/crm/listing-leads/${encodeURIComponent(leadId)}?vertical=${CRM_VERTICAL}`, {
-            method: 'GET',
-        });
-        if (!response.ok || !data?.ok || !data.item) return null;
-        return {
-            item: data.item,
-            activities: data.activities ?? [],
-            assignees: data.assignees ?? [],
-            thread: data.thread ?? null,
-        };
-    } catch {
-        return null;
-    }
+export function fetchCrmListingLeadDetail(leadId: string): Promise<CrmListingLeadDetail | null> {
+    return fetchCrmListingLeadDetailForVertical(leadId, VERTICAL);
 }
 
-export async function updateCrmListingLead(
+export function updateCrmListingLead(
     leadId: string,
-    changes: {
-        status?: CrmListingLeadStatus;
-        pipelineColumnId?: string | null;
-        priority?: CrmLeadPriority;
-        closeReason?: string | null;
-        tags?: string[];
-        assignedToUserId?: string | null;
-        assignedToTeamMemberId?: string | null;
-        nextTaskTitle?: string | null;
-        nextTaskAt?: string | null;
-    }
-): Promise<{ ok: boolean; item?: CrmListingLead; error?: string }> {
-    try {
-        const { response, data } = await apiRequest<{ item?: CrmListingLead }>(`/api/crm/listing-leads/${encodeURIComponent(leadId)}?vertical=${CRM_VERTICAL}`, {
-            method: 'PATCH',
-            body: JSON.stringify(changes),
-        });
-        if (!response.ok || !data?.ok || !data.item) {
-            return { ok: false, error: data?.error || 'No pudimos actualizar el lead.' };
-        }
-        return { ok: true, item: data.item };
-    } catch {
-        return { ok: false, error: 'No pudimos conectar con el backend.' };
-    }
+    changes: Parameters<typeof updateCrmListingLeadForVertical>[2]
+): ReturnType<typeof updateCrmListingLeadForVertical> {
+    return updateCrmListingLeadForVertical(leadId, VERTICAL, changes);
 }
 
-export async function createCrmPipelineColumn(
-    input: {
-        name: string;
-        status: CrmListingLeadStatus;
-    }
-): Promise<{ ok: boolean; item?: CrmPipelineColumn; items?: CrmPipelineColumn[]; error?: string }> {
-    try {
-        const { response, data } = await apiRequest<{ item?: CrmPipelineColumn; items?: CrmPipelineColumn[] }>(`/api/crm/pipeline-columns?vertical=${CRM_VERTICAL}`, {
-            method: 'POST',
-            body: JSON.stringify(input),
-        });
-        if (!response.ok || !data?.ok || !data.item || !Array.isArray(data.items)) {
-            return { ok: false, error: data?.error || 'No pudimos crear la columna.' };
-        }
-        return { ok: true, item: data.item, items: data.items };
-    } catch {
-        return { ok: false, error: 'No pudimos conectar con el backend.' };
-    }
+export function createCrmPipelineColumn(
+    input: Parameters<typeof createCrmPipelineColumnForVertical>[1]
+): ReturnType<typeof createCrmPipelineColumnForVertical> {
+    return createCrmPipelineColumnForVertical(VERTICAL, input);
 }
 
-export async function updateCrmPipelineColumn(
+export function updateCrmPipelineColumn(
     columnId: string,
-    input: {
-        name?: string;
-        status?: CrmListingLeadStatus;
-    }
-): Promise<{ ok: boolean; item?: CrmPipelineColumn; items?: CrmPipelineColumn[]; error?: string }> {
-    try {
-        const { response, data } = await apiRequest<{ item?: CrmPipelineColumn; items?: CrmPipelineColumn[] }>(`/api/crm/pipeline-columns/${encodeURIComponent(columnId)}?vertical=${CRM_VERTICAL}`, {
-            method: 'PATCH',
-            body: JSON.stringify(input),
-        });
-        if (!response.ok || !data?.ok || !data.item || !Array.isArray(data.items)) {
-            return { ok: false, error: data?.error || 'No pudimos actualizar la columna.' };
-        }
-        return { ok: true, item: data.item, items: data.items };
-    } catch {
-        return { ok: false, error: 'No pudimos conectar con el backend.' };
-    }
+    input: Parameters<typeof updateCrmPipelineColumnForVertical>[2]
+): ReturnType<typeof updateCrmPipelineColumnForVertical> {
+    return updateCrmPipelineColumnForVertical(columnId, VERTICAL, input);
 }
 
-export async function deleteCrmPipelineColumn(
-    columnId: string
-): Promise<{ ok: boolean; items?: CrmPipelineColumn[]; error?: string }> {
-    try {
-        const { response, data } = await apiRequest<{ items?: CrmPipelineColumn[] }>(`/api/crm/pipeline-columns/${encodeURIComponent(columnId)}?vertical=${CRM_VERTICAL}`, {
-            method: 'DELETE',
-        });
-        if (!response.ok || !data?.ok || !Array.isArray(data.items)) {
-            return { ok: false, error: data?.error || 'No pudimos eliminar la columna.' };
-        }
-        return { ok: true, items: data.items };
-    } catch {
-        return { ok: false, error: 'No pudimos conectar con el backend.' };
-    }
+export function deleteCrmPipelineColumn(columnId: string): ReturnType<typeof deleteCrmPipelineColumnForVertical> {
+    return deleteCrmPipelineColumnForVertical(columnId, VERTICAL);
 }
 
-export async function reorderCrmPipelineColumns(
-    columnIds: string[]
-): Promise<{ ok: boolean; items?: CrmPipelineColumn[]; error?: string }> {
-    try {
-        const { response, data } = await apiRequest<{ items?: CrmPipelineColumn[] }>(`/api/crm/pipeline-columns/reorder?vertical=${CRM_VERTICAL}`, {
-            method: 'POST',
-            body: JSON.stringify({ columnIds }),
-        });
-        if (!response.ok || !data?.ok || !Array.isArray(data.items)) {
-            return { ok: false, error: data?.error || 'No pudimos reordenar las columnas.' };
-        }
-        return { ok: true, items: data.items };
-    } catch {
-        return { ok: false, error: 'No pudimos conectar con el backend.' };
-    }
+export function reorderCrmPipelineColumns(columnIds: string[]): ReturnType<typeof reorderCrmPipelineColumnsForVertical> {
+    return reorderCrmPipelineColumnsForVertical(VERTICAL, columnIds);
 }
 
-export async function addCrmListingLeadNote(
+export function addCrmListingLeadNote(
     leadId: string,
     body: string
-): Promise<{ ok: boolean; item?: CrmListingLead; activity?: CrmListingLeadActivity; error?: string }> {
-    try {
-        const { response, data } = await apiRequest<{ item?: CrmListingLead; activity?: CrmListingLeadActivity }>(`/api/crm/listing-leads/${encodeURIComponent(leadId)}/notes?vertical=${CRM_VERTICAL}`, {
-            method: 'POST',
-            body: JSON.stringify({ body }),
-        });
-        if (!response.ok || !data?.ok || !data.item || !data.activity) {
-            return { ok: false, error: data?.error || 'No pudimos guardar la nota.' };
-        }
-        return { ok: true, item: data.item, activity: data.activity };
-    } catch {
-        return { ok: false, error: 'No pudimos conectar con el backend.' };
-    }
+): ReturnType<typeof addCrmListingLeadNoteForVertical> {
+    return addCrmListingLeadNoteForVertical(leadId, VERTICAL, body);
 }
 
-export async function runCrmListingLeadQuickAction(
+export function runCrmListingLeadQuickAction(
     leadId: string,
     action: CrmLeadQuickAction
-): Promise<{ ok: boolean; item?: CrmListingLead; activity?: CrmListingLeadActivity; actionLabel?: string; error?: string }> {
-    try {
-        const { response, data } = await apiRequest<{ item?: CrmListingLead; activity?: CrmListingLeadActivity; actionLabel?: string }>(`/api/crm/listing-leads/${encodeURIComponent(leadId)}/actions?vertical=${CRM_VERTICAL}`, {
-            method: 'POST',
-            body: JSON.stringify({ action }),
-        });
-        if (!response.ok || !data?.ok || !data.item || !data.activity) {
-            return { ok: false, error: data?.error || 'No pudimos registrar la acción.' };
-        }
-        return { ok: true, item: data.item, activity: data.activity, actionLabel: data.actionLabel };
-    } catch {
-        return { ok: false, error: 'No pudimos conectar con el backend.' };
-    }
+): ReturnType<typeof runCrmListingLeadQuickActionForVertical> {
+    return runCrmListingLeadQuickActionForVertical(leadId, VERTICAL, action);
 }

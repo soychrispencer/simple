@@ -5,6 +5,7 @@
     "scripts": {
         "dev": "tsx watch src/index.ts",
         "build": "tsc",
+        "typecheck": "tsc --noEmit",
         "start": "node dist/index.js",
         "db:seed": "tsx scripts/seed-crm-example-leads.ts",
         "db:generate": "drizzle-kit generate",
@@ -13,17 +14,17 @@
         "db:studio": "drizzle-kit studio",
         "user:promote-admin": "tsx scripts/promote-user-to-admin.ts",
         "db:clean": "tsx scripts/clean-db.ts",
-        "seed:admins": "tsx src/scripts/seed-admin-users.ts"
+        "seed:admins": "tsx scripts/seed-admin-users.ts"
     },
     "dependencies": {
         "@aws-sdk/client-s3": "^3.1033.0",
         "@hono/node-server": "^1.19.14",
         "@hono/oauth-providers": "^0.8.5",
-        "@simple/auth": "^1.0.0",
-        "@simple/config": "^1.0.0",
+        "@simple/auth": "workspace:*",
+        "@simple/config": "workspace:*",
         "@simple/logger": "workspace:*",
-        "@simple/types": "^1.0.0",
-        "@simple/utils": "^1.0.0",
+        "@simple/types": "workspace:*",
+        "@simple/utils": "workspace:*",
         "@types/node-cron": "^3.0.11",
         "@types/web-push": "^3.6.4",
         "bcryptjs": "^3.0.3",

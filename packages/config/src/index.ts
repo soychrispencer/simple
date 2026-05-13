@@ -112,7 +112,7 @@ const SHARED_THEME = {
     foregroundLight: '#09090b',
     foregroundDark: '#fafafa',
     themeColor: '#111111',
-    generator: 'Simple V2',
+    generator: 'Simple',
 } as const;
 
 const SIMPLE_APP_BRANDS: Record<SimpleAppId, SimpleAppBrand> = {
@@ -123,7 +123,7 @@ const SIMPLE_APP_BRANDS: Record<SimpleAppId, SimpleAppBrand> = {
         title: 'SimpleAutos | Marketplace de Vehículos en Chile',
         description: 'SimpleAutos simplifica la compra, venta y arriendo de vehículos en Chile.',
         category: 'automotive',
-        siteUrl: 'http://localhost:3000',
+        siteUrl: 'http://localhost:3002',
         keywords: ['SimpleAutos', 'autos', 'vehículos', 'Chile', 'compra', 'venta', 'arriendo', 'subastas'],
         accentLight: '#ff3600',
         accentDark: '#ff3600',
@@ -135,7 +135,7 @@ const SIMPLE_APP_BRANDS: Record<SimpleAppId, SimpleAppBrand> = {
         title: 'SimplePropiedades | Marketplace Inmobiliario en Chile',
         description: 'SimplePropiedades simplifica la compra, venta y arriendo de propiedades en Chile.',
         category: 'real_estate',
-        siteUrl: 'http://localhost:3001',
+        siteUrl: 'http://localhost:3003',
         keywords: ['SimplePropiedades', 'propiedades', 'inmobiliaria', 'Chile', 'compra', 'venta', 'arriendo', 'proyectos'],
         accentLight: '#3232FF',
         accentDark: '#3232FF',
@@ -147,7 +147,7 @@ const SIMPLE_APP_BRANDS: Record<SimpleAppId, SimpleAppBrand> = {
         title: 'SimpleAdmin | Panel de administración',
         description: 'SimpleAdmin centraliza la administración del ecosistema Simple.',
         category: 'business',
-        siteUrl: 'http://localhost:3002',
+        siteUrl: 'http://localhost:3000',
         keywords: ['SimpleAdmin', 'admin', 'panel', 'moderación', 'ecosistema', 'Simple'],
         accentLight: '#111111',
         accentDark: '#ffffff',
@@ -159,7 +159,7 @@ const SIMPLE_APP_BRANDS: Record<SimpleAppId, SimpleAppBrand> = {
         title: 'SimplePlataforma | Ecosistema de Marketplaces',
         description: 'SimplePlataforma conecta todos los marketplaces de Chile. Autos, propiedades, tiendas y más.',
         category: 'business',
-        siteUrl: 'http://localhost:3003',
+        siteUrl: 'http://localhost:3001',
         keywords: ['SimplePlataforma', 'ecosistema', 'marketplaces', 'Chile', 'autos', 'propiedades', 'tiendas'],
         accentLight: '#111111',
         accentDark: '#ffffff',
@@ -179,22 +179,12 @@ const SIMPLE_APP_BRANDS: Record<SimpleAppId, SimpleAppBrand> = {
     simpleserenatas: {
         id: 'simpleserenatas',
         name: 'SimpleSerenatas',
-        shortName: 'SimpleSerenatas',
-        title: 'SimpleSerenatas | Mariachis a domicilio en Santiago',
-        description:
-            'Contrata mariachis y serenatas a domicilio en Santiago desde $50.000. Solicitud online para clientes y panel operativo para músicos y coordinadores.',
+        shortName: 'Serenatas',
+        title: 'SimpleSerenatas | Operación de Mariachis en Chile',
+        description: 'SimpleSerenatas coordina músicos, grupos, serenatas, agenda y rutas para grupos de mariachis en Chile.',
         category: 'business',
         siteUrl: 'http://localhost:3005',
-        keywords: [
-            'SimpleSerenatas',
-            'mariachis Santiago',
-            'serenatas a domicilio',
-            'músicos',
-            'Chile',
-            'cumpleaños',
-            'coordinador',
-            'RM',
-        ],
+        keywords: ['SimpleSerenatas', 'mariachis', 'serenatas', 'músicos', 'agenda', 'rutas', 'Chile'],
         accentLight: '#E11D48',
         accentDark: '#E11D48',
     },
@@ -507,4 +497,4 @@ export function getSimpleBrandIconTokens(appId: SimpleAppId) {
  * URL base del API del backend.
  * Usar esta constante en lugar de duplicar process.env.NEXT_PUBLIC_API_URL.
  */
-export const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000';
+export const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? (typeof window === 'undefined' ? 'http://127.0.0.1:4000' : '');

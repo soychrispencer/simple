@@ -1,11 +1,7 @@
-@import "../../../../packages/ui/src/theme-base.css";
 @import "tailwindcss";
 @source "../../../../packages/ui/src";
+@import "../../../../packages/ui/src/theme-base.css";
 @import "leaflet/dist/leaflet.css";
-
-/* ── SimpleSerenatas — contrato visual (mobile-first, referencia estilo Link)
-    Tipografía base: ver `packages/ui/src/theme-base.css` (.type-page-title, etc.)
-    Accent marca: rosa; resto hereda tokens globales (--bg, --surface, sombras). */
 
 :root {
     --accent: #E11D48;
@@ -13,13 +9,6 @@
     --accent-soft: rgba(225, 29, 72, 0.06);
     --accent-border: rgba(225, 29, 72, 0.22);
     --accent-contrast: #ffffff;
-    /* Anchos máximos de columna (panel / vistas densas) */
-    --serenatas-content-narrow: 32rem;
-    --serenatas-content-default: 56rem;
-    --serenatas-content-wide: 72rem;
-    /* Motion corto, consistente con UI “quiet” */
-    --serenatas-motion-duration: 180ms;
-    --serenatas-motion-ease: cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .dark,
@@ -31,242 +20,31 @@
     --accent-contrast: #ffffff;
 }
 
-/* SimpleSerenatas Design System - Mobile-first + Desktop */
-
-html {
-  touch-action: manipulation;
-}
-
-body {
-  @apply antialiased;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-  background: var(--bg);
-  color: var(--fg);
-}
-
-/* Safe areas */
-.pb-safe {
-  padding-bottom: env(safe-area-inset-bottom, 20px);
-}
-
-.pt-safe {
-  padding-top: env(safe-area-inset-top, 0px);
-}
-
-/* Scrollbar utilities */
-.no-scrollbar::-webkit-scrollbar {
-  display: none;
-}
-.no-scrollbar {
-  -ms-overflow-style: none;
-  scrollbar-width: none;
-}
-
-/* Custom scrollbar for desktop */
-.scrollbar-thin::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
-}
-.scrollbar-thin::-webkit-scrollbar-track {
-  background: transparent;
-}
-.scrollbar-thin::-webkit-scrollbar-thumb {
-  background: var(--border-strong);
-  border-radius: 3px;
-}
-.scrollbar-thin::-webkit-scrollbar-thumb:hover {
-  background: var(--fg-muted);
-}
-
-/* Map container */
 .leaflet-container {
-  @apply rounded-lg;
+    background: var(--bg-subtle);
+    color: var(--fg);
+    font-family: inherit;
 }
 
-/* Touch targets (mobile) */
-.touch-target {
-  @apply min-h-[44px] min-w-[44px];
+.leaflet-control-zoom a {
+    background: var(--surface) !important;
+    border-color: var(--border) !important;
+    color: var(--fg) !important;
 }
 
-/* Card styles - adaptive */
-.card {
-  @apply rounded-xl border p-4;
-  background: var(--surface);
-  border-color: var(--border);
-  box-shadow: var(--shadow-sm);
+.leaflet-control-attribution {
+    background: color-mix(in srgb, var(--surface) 86%, transparent) !important;
+    color: var(--fg-muted) !important;
 }
 
-.card-hover:hover {
-  border-color: var(--accent-border);
-  box-shadow: var(--shadow-md);
+.leaflet-control-attribution a {
+    color: var(--fg-secondary) !important;
 }
 
-/* Legacy mobile card (for backward compat) */
-.card-mobile {
-  @apply rounded-xl p-4;
-  background: var(--surface);
-  border: 1px solid var(--border);
-  box-shadow: var(--shadow-sm);
-}
-
-/* Status badges - using CSS variables */
-.status-badge {
-  @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium;
-}
-
-.status-pending {
-  background: color-mix(in oklab, var(--warning, #F59E0B) 15%, transparent);
-  color: var(--warning, #B45309);
-}
-
-.status-confirmed {
-  background: color-mix(in oklab, var(--success, #22C55E) 15%, transparent);
-  color: var(--success, #15803D);
-}
-
-.status-active {
-  background: color-mix(in oklab, var(--info, #3B82F6) 15%, transparent);
-  color: var(--info, #1D4ED8);
-}
-
-.status-completed {
-  background: var(--bg-muted);
-  color: var(--fg-secondary);
-}
-
-.status-cancelled {
-  background: color-mix(in oklab, var(--error, #EF4444) 15%, transparent);
-  color: var(--error, #B91C1C);
-}
-
-/* App Layout utilities */
-.app-layout {
-  @apply min-h-screen;
-  background: var(--bg);
-}
-
-/* Sidebar styles */
-.sidebar {
-  @apply fixed left-0 top-0 bottom-0 w-64 z-40;
-  background: var(--surface);
-  border-right: 1px solid var(--border);
-}
-
-.sidebar-collapsed {
-  @apply w-16;
-}
-
-/* Header styles */
-.app-header {
-  @apply fixed top-0 right-0 left-0 z-30 h-16;
-  background: var(--surface);
-  border-bottom: 1px solid var(--border);
-}
-
-.app-header-with-sidebar {
-  @apply left-64;
-}
-
-/* Main content area — el offset del header fijo va en el wrapper del layout (pt-16), no duplicar aquí */
-.main-content {
-  @apply min-w-0;
-}
-
-.main-content-with-sidebar {
-  @apply ml-64;
-}
-
-/* Bottom nav (mobile) */
-.bottom-nav {
-  @apply fixed bottom-0 left-0 right-0 z-40 border-t md:hidden;
-  background: color-mix(in oklab, var(--surface) 86%, transparent);
-  backdrop-filter: blur(14px);
-  border-color: var(--border);
-  padding-bottom: env(safe-area-inset-bottom, 0px);
-}
-
-/* Navigation items */
-.nav-item {
-  @apply flex items-center gap-3 px-3 py-2 rounded-xl text-sm font-medium transition-colors;
-  color: var(--fg-secondary);
-}
-
-.nav-item:hover {
-  background: var(--bg-subtle);
-  color: var(--fg);
-}
-
-.nav-item-active {
-  background: var(--accent-subtle);
-  color: var(--accent);
-}
-
-/* Desktop nav item (sidebar) */
-.nav-item-desktop {
-  @apply flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all;
-  color: var(--fg-secondary);
-}
-
-.nav-item-desktop:hover {
-  background: var(--bg-subtle);
-  color: var(--fg);
-}
-
-.nav-item-desktop-active {
-  background: var(--accent-subtle);
-  color: var(--accent);
-}
-
-/* Utility for accent text */
-.text-accent {
-  color: var(--accent);
-}
-
-.bg-accent {
-  background: var(--accent);
-}
-
-.bg-accent-subtle {
-  background: var(--accent-subtle);
-}
-
-/* Gradient backgrounds */
-.gradient-hero {
-  background: linear-gradient(135deg, var(--accent) 0%, color-mix(in oklab, var(--accent) 70%, #000) 100%);
-}
-
-/* Animation */
-@keyframes slide-in {
-  from {
-    opacity: 0;
-    transform: translateY(-8px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-.animate-slide-in {
-  animation: slide-in 0.2s ease-out;
-}
-
-/* Marco de página panel: el espaciado vertical lo aplica SerenatasPageShell */
-.serenatas-page {
-  min-width: 0;
-}
-
-/* Tarjetas / filas clicables: hover sin saltos bruscos */
-.serenatas-interactive {
-  transition:
-    box-shadow var(--serenatas-motion-duration) var(--serenatas-motion-ease),
-    border-color var(--serenatas-motion-duration) var(--serenatas-motion-ease),
-    transform var(--serenatas-motion-duration) var(--serenatas-motion-ease);
-}
-
-@media (hover: hover) and (pointer: fine) {
-  .serenatas-interactive:hover {
-    box-shadow: var(--shadow-sm);
-  }
+.leaflet-popup-content-wrapper,
+.leaflet-popup-tip {
+    background: var(--surface) !important;
+    color: var(--fg) !important;
+    border: 1px solid var(--border);
+    box-shadow: var(--shadow-md);
 }

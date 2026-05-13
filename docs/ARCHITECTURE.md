@@ -1,316 +1,74 @@
-# Architecture Overview 🏗️
+# Arquitectura
 
-**Última actualización:** 9 de marzo de 2026
+**Ultima actualizacion:** 9 de mayo de 2026
 
----
+## Vista General
 
-## System Architecture
-
-```
-┌─────────────────────────────────────────────────────────────────┐
-│                        FRONTEND LAYER                           │
-├─────────────────────────────────────────────────────────────────┤
-│  SimpleAutos (3000)  │  SimplePropiedades (3001)               │
-│  SimpleAdmin (3002)  │  SimplePlataforma (3003)                │
-│                                                                 │
-│  Tech: Next.js 16 + React 19 + TailwindCSS 4 + Turbopack      │
-└─────────────────────────────────────────────────────────────────┘
-                              ↓ HTTP/REST
-┌─────────────────────────────────────────────────────────────────┐
-│                      API GATEWAY (Hono)                         │
-│                    Port 4000 - /api/*                           │
-├─────────────────────────────────────────────────────────────────┤
-│  Auth           Listings       CRM          Payments            │
-│  /auth/register  /listings     /crm         /checkout           │
-│  /auth/login     /listings/:id /contacts    /confirm            │
-│  /auth/me        /listings/:id /stats       /boost/orders       │
-│  /auth/logout    /search       /export      /subscriptions      │
-└─────────────────────────────────────────────────────────────────┘
-           ↓                  ↓                  ↓
-┌──────────────────┬──────────────────┬──────────────────┐
-│   JWT/Session    │   Validación     │   Business Logic │
-│   Middleware     │   (Zod)          │   Functions      │
-└──────────────────┴──────────────────┴──────────────────┘
-                              ↓
-┌─────────────────────────────────────────────────────────────────┐
-│                    DATA LAYER (Drizzle ORM)                     │
-│                                                                 │
-│  Query Builder:  db.select(), db.insert(), db.update() etc     │
-│  Relations:      belongsTo, hasMany, etc                       │
-│  Migrations:     /services/api/drizzle/*.sql                   │
-└─────────────────────────────────────────────────────────────────┘
-                              ↓
-┌─────────────────────────────────────────────────────────────────┐
-│                    DATABASE (PostgreSQL)                        │
-│                                                                 │
-│  Tables: users, listings, saved_listings, follows, etc         │
-│  Port: 5432                                                     │
-└─────────────────────────────────────────────────────────────────┘
+```text
+apps/* (Next.js 16 + React 19)
+  - simpleadmin       :3000
+  - simpleplataforma  :3001
+  - simpleautos       :3002
+  - simplepropiedades :3003
+  - simpleagenda      :3004
+          |
+          v
+services/api (Hono) :4000
+          |
+          v
+PostgreSQL + Drizzle migrations
 ```
 
----
+La vertical experimental retirada no debe agregarse de nuevo a `SimpleAppId`, rutas API, migraciones nuevas ni documentacion activa.
 
-## Monorepo Structure
+## Monorepo
 
-```
-SimpleV2/
-├── apps/
-│   ├── simpleautos/          Next.js app (vertical 1)
-│   │   ├── src/
-│   │   │   ├── app/          Routes + layouts
-│   │   │   ├── components/   Smart components
-│   │   │   ├── context/      Auth context
-│   │   │   ├── lib/          Utilidades
-│   │   │   └── hooks/        Custom hooks
-│   │   ├── public/           Assets (seeds, images)
-│   │   └── tsx, Next config  Config files
-│   │
-│   ├── simplepropiedades/    Next.js app (vertical 2) - Igual estructura
-│   ├── simpleadmin/          Next.js app (admin panel)
-│   └── simpleplataforma/     Next.js app (landing)
-│
-├── packages/                 Código compartido (npm workspace)
-│   ├── types/                TypeScript types
-│   │   ├── index.ts          Exports todas las interfaces
-│   │   └── *.d.ts            Definiciones
-│   │
-│   ├── config/               Constantes y configuración
-│   │   ├── index.ts          Verticales, validaciones, etc
-│   │   └── *.ts              Feature configs
-│   │
-│   ├── ui/                   Componentes reutilizables
-│   │   ├── index.tsx         All components export
-│   │   ├── theme-base.css    Estilos globales
-│   │   └── lib/              UI utilities
-│   │
-│   └── utils/                Funciones auxiliares
-│       ├── index.ts          Exports
-│       └── *.ts              Helpers
-│
-├── services/
-│   └── api/                  Backend Hono
-│       ├── src/
-│       │   ├── index.ts      Server principal
-│       │   ├── db/           Database layer
-│       │   │   ├── schema.ts (Drizzle schemas)
-│       │   │   ├── types.ts   Types para BD
-│       │   │   └── index.ts   Client instance
-│       │   ├── routes/       API endpoints
-│       │   ├── middleware/   Auth, error handling
-│       │   └── mercadopago.ts Payment integration
-│       ├── drizzle.config.ts Config para migrations
-│       └── package.json      Dependencies
-│
-├── docs/                     📚 Documentación
-│   ├── PROJECT_STATUS.md     Estado actual
-│   ├── DATABASE_SETUP.md     Setup Drizzle
-│   ├── ARCHITECTURE.md       Este archivo
-│   ├── DEVELOPMENT.md        Guía dev
-│   └── *.md                  Otros docs
-│
-├── .env.local (no en repo)   Secrets
-├── .gitignore                Archivos ignorados
-├── package.json              Workspace root
-└── README.md                 Guía rápida
+```text
+apps/            Aplicaciones Next.js por vertical/producto
+packages/        Codigo compartido
+services/api/    Backend Hono + Drizzle
+scripts/         Automatizacion de mantenimiento
+infrastructure/  Infraestructura/deploy
+docs/            Documentacion activa
 ```
 
----
+## Paquetes Compartidos
 
-## Data Flow (Ejemplo: Crear Listing)
+- `@simple/config`: branding, metadata, lifecycle de publicaciones y constantes de API.
+- `@simple/types`: schemas y tipos compartidos con Zod.
+- `@simple/utils`: helpers de formato, CRM, geocoding, media, slug, RUT y valuacion.
+- `@simple/ui`: componentes UI compartidos y cards de listings.
+- `@simple/auth`: contexto, modal y helpers de autenticacion frontend.
+- `@simple/marketplace-header`: header/panel compartido para marketplaces.
+- `@simple/listings-core`: hooks y helpers especificos de listings autos/propiedades.
+- `@simple/logger`: logger estructurado para backend.
 
-```
-1. FRONTEND (SimpleAutos)
-   User hace click en "Publicar"
-   ↓
-2. FORM VALIDATION
-   FormData → Zod schema validación local
-   ↓
-3. API REQUEST
-   POST /api/listings
-   Body: { title, description, price, ... }
-   Headers: Authorization: Bearer <JWT_TOKEN>
-   ↓
-4. BACKEND (Hono)
-   - Middleware JWT: Verificar token
-   - Validación Zod: REvalidar datos
-   - Business Logic: generateSlug, validatePrice, etc
-   - Database Query: db.insert(listings).values({...})
-   ↓
-5. DATABASE (PostgreSQL)
-   INSERT INTO listings (
-     id, owner_id, vertical, title, ...
-   ) VALUES (...)
-   ↓
-6. RESPONSE
-   { ok: true, listing: { id, slug, ... } }
-   ↓
-7. FRONTEND
-   Update UI, redirect a /panel/publicaciones
+## Backend
+
+`services/api/src/index.ts` aun orquesta muchas responsabilidades. El patron objetivo es:
+
+```text
+src/index.ts              composicion de app, CORS, errores y routes
+src/db/                   schema, client y migraciones
+src/modules/<dominio>/    router, service, schemas y helpers del dominio
+src/lib/                  utilidades transversales
 ```
 
----
+## Datos y Migraciones
 
-## Authentication Flow
+Drizzle es la fuente de migraciones. La migracion `0041_remove_discontinued_vertical.sql` elimina tablas experimentales legacy de la vertical retirada y actualiza `users.primary_vertical` para aceptar solo `autos`, `propiedades` y `agenda`.
 
-```
-LOGIN
+## Seguridad
 
-1. User ingresa email + password
-   ↓
-2. POST /api/auth/login
-   Body: { email, password }
-   ↓
-3. Backend:
-   - Find user by email (db.query.users.findFirst)
-   - Compare password: bcrypt.compare(pwd, hash)
-   - If valid: generate JWT token
-   - setTimeout cookie with HttpOnly + SameSite
-   ↓
-4. Response:
-   Cookie: 🍪 token=<JWT>; HttpOnly; SameSite=Lax
-   Body: { ok: true, user: { id, email, name, role } }
-   ↓
-5. Frontend stores in auth context (automatic from cookie)
-   ↓
-6. Future requests: automatically include cookie
-   ↓
-7. Backend verifies JWT en middleware
+- Sesion por cookie HttpOnly (`simple_session`).
+- Password hashing con bcrypt.
+- Verificacion de email y reset con tokens opacos hasheados.
+- OAuth Google.
+- Rate limiting por IP/email en auth.
+- CORS controlado por `CORS_ORIGINS`.
 
-LOGOUT
-1. POST /api/auth/logout
-2. Backend: delete cookie (maxAge=0)
-3. Frontend: clear auth context
-```
+## Reglas de Evolucion
 
----
-
-## Request/Response Pattern (Zod)
-
-```typescript
-// Schema
-const createListingSchema = z.object({
-  vertical: z.enum(['autos', 'propiedades']),
-  title: z.string().min(3).max(220),
-  price: z.number().positive(),
-  location: z.string().optional(),
-});
-
-// API Endpoint
-app.post('/api/listings', async (c) => {
-  const user = authUser(c);  // Get from JWT
-  if (!user) return c.json({ ok: false }, 401);
-  
-  // Parse & validate
-  const body = await c.req.json();
-  const parsed = createListingSchema.safeParse(body);
-  
-  if (!parsed.success) {
-    return c.json({
-      ok: false,
-      errors: parsed.error.flatten()
-    }, 400);
-  }
-  
-  // Database
-  const listing = await db.insert(listings).values({
-    owner_id: user.id,
-    ...parsed.data,
-    created_at: new Date(),
-  }).returning();
-  
-  // Response
-  return c.json({
-    ok: true,
-    listing
-  });
-});
-```
-
----
-
-## Security Layers
-
-```
-┌─────────────────────────────────────┐
-│    CORS Headers                     │ ← Allow specific origins
-├─────────────────────────────────────┤
-│    JWT Authentication               │ ← Verify token signature
-├─────────────────────────────────────┤
-│    Input Validation (Zod)           │ ← Sanitize inputs
-├─────────────────────────────────────┤
-│    Password Hashing (bcrypt)        │ ← Never store plaintext
-├─────────────────────────────────────┤
-│    Rate Limiting                    │ ← (TODO) Prevent brute force
-├─────────────────────────────────────┤
-│    HTTPS / SSL                      │ ← Production only
-├─────────────────────────────────────┤
-│    HttpOnly Cookies                 │ ← Prevent XSS theft
-├─────────────────────────────────────┤
-│    SameSite Cookies                 │ ← Prevent CSRF
-├─────────────────────────────────────┤
-│    Database Parameterized Queries   │ ← Prevent SQL injection
-└─────────────────────────────────────┘
-```
-
----
-
-## Deployment Architecture (Future)
-
-```
-┌─────────────────────────────────────┐
-│         CDN (Cloudflare)            │
-│         Cache + DDoS protection     │
-└─────────────────────────────────────┘
-           ↓
-┌─────────────────────────────────────┐
-│    Vercel (Frontend)                │ ← Next.js hosting
-│    - SimpleAutos                    │
-│    - SimplePropiedades              │
-│    - SimpleAdmin                    │
-│    - SimplePlataforma               │
-└─────────────────────────────────────┘
-           ↓
-┌─────────────────────────────────────┐
-│    Railway / Render (Backend)       │ ← Hono API
-│    Auto-scaling containers          │
-│    /api/* routes                    │
-└─────────────────────────────────────┘
-           ↓
-┌─────────────────────────────────────┐
-│    Vercel Postgres / Railway DB     │ ← PostgreSQL
-│    Automated backups                │
-│    Replication                      │
-└─────────────────────────────────────┘
-           ↓
-┌─────────────────────────────────────┐
-│    Third-party Services             │
-│    - MercadoPago (payments)         │
-│    - SendGrid (email)               │
-│    - Backblaze B2 (images)          │
-└─────────────────────────────────────┘
-```
-
----
-
-## Performance Considerations
-
-### Frontend
-- **Code Splitting**: Next.js automático por ruta
-- **Image Optimization**: `next/image` componente
-- **CSS-in-JS**: TailwindCSS → CSS puro
-- **Lazy Loading**: Componentes dinámicos
-- **Caching**: Static generated pages
-
-### Backend
-- **Query Optimization**: Índices en BD
-- **Connection Pooling**: PgBouncer
-- **Caching**: Redis (Redis Cloud, valkey.com)
-- **Compression**: gzip en responses
-- **Rate Limiting**: redis + sliding window
-
-### Database
-- Índices en: `email`, `owner_id`, `vertical`, `section`
-- Partitioning: listings por año (si crece mucho)
-- Full-text search: PostgreSQL native
-- Read replicas: Para consultas pesadas
-
+- No crear nuevas verticales incompletas sin app, package, schema, docs y puertos definidos.
+- Evitar logica destructiva en bootstrap del API; los cambios de DB deben ir por migraciones.
+- Mantener `README.md`, `docs/PROJECT_STATUS.md` y `docs/ARCHITECTURE.md` alineados con paquetes y puertos reales.

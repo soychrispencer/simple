@@ -271,7 +271,7 @@ export default function AgendaPage() {
             return t >= fromMs && t <= toMs;
         }));
         setLoading(false);
-    }, [view, weekStart, monthDate, dayDate]); // eslint-disable-line react-hooks/exhaustive-deps
+    }, [view, weekStart, monthDate, dayDate]);  
 
     useEffect(() => { void load(); }, [load]);
 
@@ -320,7 +320,7 @@ export default function AgendaPage() {
             handleCreateOpen();
             router.replace('/panel/agenda');
         }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+     
     }, [searchParams]);
 
     // Helper: local YYYY-MM-DD key from any Date
@@ -576,12 +576,12 @@ export default function AgendaPage() {
     const nowMinutes = isDayToday ? (new Date().getHours() * 60 + new Date().getMinutes()) : null;
 
     return (
-        <div className="container-app panel-page py-4">
+        <div className="container-app panel-page py-4 lg:py-8">
             {/* Header */}
             <div className="flex flex-col gap-3 mb-5 sm:flex-row sm:items-center sm:justify-between sm:gap-4 sm:mb-6">
                 <div className="min-w-0 flex items-center justify-between gap-3 sm:block">
                     <div className="min-w-0">
-                        <h1 className="text-xl font-bold" style={{ color: 'var(--fg)' }}>Mi Agenda</h1>
+                        <h1 className="text-2xl font-bold" style={{ color: 'var(--fg)' }}>Mi Agenda</h1>
                         <p className="text-sm mt-0.5 capitalize truncate" style={{ color: 'var(--fg-muted)' }}>
                             {headerLabel}
                         </p>

@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { useAuth } from '@/context/auth-context';
+import { useAuth } from '@simple/auth';
 import { useRouter } from 'next/navigation';
 import {
     IconCalendar,
@@ -122,7 +122,7 @@ export default function HomePage() {
     const router = useRouter();
 
     const handleCTA = () => {
-        if (isLoggedIn) { router.push('/panel'); } else { openAuth(); }
+        if (isLoggedIn) { router.push('/panel'); } else { openAuth('login'); }
     };
 
     return (
@@ -204,7 +204,7 @@ export default function HomePage() {
                                     background: 'var(--surface)',
                                 }}
                             >
-                                {/* eslint-disable-next-line @next/next/no-img-element */}
+                                { }
                                 <img
                                     src="/hero/agenda.svg"
                                     alt="Vista de agenda SimpleAgenda"
@@ -286,7 +286,7 @@ export default function HomePage() {
                             className="w-full max-w-sm rounded-2xl overflow-hidden"
                             style={{ border: '1px solid var(--border)', boxShadow: 'var(--shadow-lg)', background: 'var(--surface)' }}
                         >
-                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                            { }
                             <img src="/hero/booking.svg" alt="Pagina de reservas" width={480} height={420} className="w-full h-auto" />
                         </div>
                     </div>
@@ -333,7 +333,7 @@ export default function HomePage() {
                             className="w-full max-w-sm rounded-2xl overflow-hidden"
                             style={{ border: '1px solid var(--border)', boxShadow: 'var(--shadow-lg)', background: 'var(--surface)' }}
                         >
-                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                            { }
                             <img src="/hero/dashboard.svg" alt="Dashboard de SimpleAgenda" width={480} height={340} className="w-full h-auto" />
                         </div>
                     </div>

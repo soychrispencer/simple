@@ -18,7 +18,7 @@
  */
 
 const email = process.argv[2];
-let role = process.argv[3] || 'superadmin';
+const role = process.argv[3] || 'superadmin';
 const adminEmail = process.argv[4];
 const adminPassword = process.argv[5];
 const apiUrl = process.argv[6] || 'http://localhost:4000';

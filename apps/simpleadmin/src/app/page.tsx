@@ -59,8 +59,6 @@ function DashboardContent() {
                 ? overview.recentUsers.filter((user) => user.autosListings > 0)
                 : scope === 'propiedades'
                     ? overview.recentUsers.filter((user) => user.propiedadesListings > 0)
-                    : scope === 'serenatas'
-                        ? overview.recentUsers.filter((user) => Boolean(user.subscriptions?.serenatas))
                     : overview.recentUsers;
 
     const scopedListings =
@@ -105,13 +103,6 @@ function DashboardContent() {
                           { label: 'Leads recientes', value: scopedLeads.length.toLocaleString('es-CL'), meta: 'Últimos leads de la vertical' },
                           { label: 'Cobertura admin', value: overview.recentUsers.filter((user) => user.role !== 'user').length.toLocaleString('es-CL'), meta: 'Equipos con acceso administrativo' },
                     ]
-                    : scope === 'serenatas'
-                        ? [
-                              { label: 'Usuarios serenatas', value: scopedUsers.length.toLocaleString('es-CL'), meta: 'Con perfil o suscripción activa en serenatas' },
-                              { label: 'Músicos/verificables', value: scopedUsers.filter((u) => u.status === 'verified').length.toLocaleString('es-CL'), meta: 'Cuentas verificadas para operación' },
-                              { label: 'Leads recientes', value: scopedLeads.length.toLocaleString('es-CL'), meta: 'Últimos leads de la vertical' },
-                              { label: 'Cobertura admin', value: overview.recentUsers.filter((user) => user.role !== 'user').length.toLocaleString('es-CL'), meta: 'Equipos con acceso administrativo' },
-                          ]
                     : [
                           { label: 'Usuarios', value: overview.stats.usersTotal.toLocaleString('es-CL'), meta: 'Cuentas totales registradas' },
                           { label: 'Agenda', value: (overview.stats.agendaListingsTotal ?? 0).toLocaleString('es-CL'), meta: 'Publicaciones en SimpleAgenda' },

@@ -336,7 +336,7 @@ export default function PagosPage() {
         <div className="container-app panel-page py-4 lg:py-8">
             <div className="flex items-start justify-between gap-3 mb-5 lg:mb-6 flex-wrap">
                 <div className="min-w-0">
-                    <h1 className="text-xl font-bold" style={{ color: 'var(--fg)' }}>Cobros</h1>
+                    <h1 className="text-2xl font-bold" style={{ color: 'var(--fg)' }}>Cobros</h1>
                     <p className="text-sm mt-0.5" style={{ color: 'var(--fg-muted)' }}>
                         Registra y controla los pagos de tus sesiones.
                     </p>

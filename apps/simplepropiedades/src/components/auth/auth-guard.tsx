@@ -1,11 +1,11 @@
 'use client';
 
 import { useState } from 'react';
-import { useAuth } from '@/context/auth-context';
+import { useAuth } from '@simple/auth';
 import { IconLock } from '@tabler/icons-react';
 import { PanelButton } from '@simple/ui';
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000';
+const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://127.0.0.1:4000';
 
 export function AuthGuard({ children }: { children: React.ReactNode }) {
     const { isLoggedIn, authLoading, openAuth, user, logout } = useAuth();
@@ -29,7 +29,7 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
                 </div>
                 <h2 className="text-xl font-semibold mb-2" style={{ color: 'var(--fg)' }}>Acceso restringido</h2>
                 <p className="text-sm mb-6" style={{ color: 'var(--fg-muted)' }}>Necesitas iniciar sesión para acceder a esta sección.</p>
-                <PanelButton onClick={openAuth} variant="primary" className="h-11 px-6 text-sm">Iniciar sesión</PanelButton>
+                <PanelButton onClick={() => openAuth('login')} variant="primary" className="h-11 px-6 text-sm">Iniciar sesión</PanelButton>
             </div>
         );
     }

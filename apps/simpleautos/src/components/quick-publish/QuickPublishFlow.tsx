@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useQuickPublish } from '@/hooks/useQuickPublish';
-import { useAuth } from '@/context/auth-context';
+import { useAuth } from '@simple/auth';
 import { PanelButton, PanelNotice } from '@simple/ui';
 import ProgressBar from './ProgressBar';
 import Step1Photos from './Step1Photos';

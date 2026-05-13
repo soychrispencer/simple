@@ -39,7 +39,7 @@
                    },
                    {
                        "id":  "cz",
-                       "name":  "Ãƒâ€žÃ…â€™Z",
+                       "name":  "ČZ",
                        "vehicle_types":  [
                                              "motorcycle"
                                          ]
@@ -738,14 +738,14 @@
                    },
                    {
                        "id":  "citroen",
-                       "name":  "CitroÃƒÆ’Ã‚Â«n",
+                       "name":  "Citroën",
                        "vehicle_types":  [
                                              "car"
                                          ]
                    },
                    {
                        "id":  "citroen-jumper",
-                       "name":  "CitroÃƒÆ’Ã‚Â«n Jumper",
+                       "name":  "Citroën Jumper",
                        "vehicle_types":  [
                                              "car"
                                          ]
@@ -6869,7 +6869,7 @@
                    {
                        "id":  "citroen-c-elysee",
                        "brand_id":  "citroen",
-                       "name":  "C-ElysÃƒÆ’Ã‚Â©e",
+                       "name":  "C-Elysée",
                        "vehicle_types":  [
                                              "car"
                                          ]
@@ -7133,7 +7133,7 @@
                    {
                        "id":  "cupra-leon",
                        "brand_id":  "cupra",
-                       "name":  "LeÃƒÆ’Ã‚Â³n",
+                       "name":  "León",
                        "vehicle_types":  [
                                              "car"
                                          ]
@@ -21256,7 +21256,7 @@
                    {
                        "id":  "seat-leon",
                        "brand_id":  "seat",
-                       "name":  "LeÃƒÆ’Ã‚Â³n",
+                       "name":  "León",
                        "vehicle_types":  [
                                              "car"
                                          ]
@@ -25659,7 +25659,7 @@
                    {
                        "id":  "yamaha-super-tenere-1200",
                        "brand_id":  "yamaha",
-                       "name":  "Super TÃ©nÃ©rÃ© 1200",
+                       "name":  "Super Ténéré 1200",
                        "vehicle_types":  [
                                              "motorcycle"
                                          ]
@@ -25675,7 +25675,7 @@
                    {
                        "id":  "yamaha-tenere-700-2",
                        "brand_id":  "yamaha",
-                       "name":  "TÃ©nÃ©rÃ© 700",
+                       "name":  "Ténéré 700",
                        "vehicle_types":  [
                                              "motorcycle"
                                          ]
@@ -25683,7 +25683,7 @@
                    {
                        "id":  "yamaha-tenere-700",
                        "brand_id":  "yamaha",
-                       "name":  "TÃƒÆ’Ã‚Â©nÃƒÆ’Ã‚Â©rÃƒÆ’Ã‚Â© 700",
+                       "name":  "Ténéré 700",
                        "vehicle_types":  [
                                              "motorcycle"
                                          ]
@@ -26489,7 +26489,7 @@
                     },
                     {
                         "id":  "araucania",
-                        "name":  "AraucanÃƒÆ’Ã‚Â­a",
+                        "name":  "Araucanía",
                         "code":  "araucania"
                     },
                     {
@@ -26504,12 +26504,12 @@
                     },
                     {
                         "id":  "aysen",
-                        "name":  "AysÃƒÆ’Ã‚Â©n",
+                        "name":  "Aysén",
                         "code":  "aysen"
                     },
                     {
                         "id":  "biobio",
-                        "name":  "BiobÃƒÆ’Ã‚Â­o",
+                        "name":  "Biobío",
                         "code":  "biobio"
                     },
                     {
@@ -26529,7 +26529,7 @@
                     },
                     {
                         "id":  "los-rios",
-                        "name":  "Los RÃƒÆ’Ã‚Â­os",
+                        "name":  "Los Ríos",
                         "code":  "los-rios"
                     },
                     {
@@ -26549,17 +26549,17 @@
                     },
                     {
                         "id":  "nuble",
-                        "name":  "ÃƒÆ’Ã¢â‚¬Ëœuble",
+                        "name":  "Ñuble",
                         "code":  "nuble"
                     },
                     {
                         "id":  "tarapaca",
-                        "name":  "TarapacÃƒÆ’Ã‚Â¡",
+                        "name":  "Tarapacá",
                         "code":  "tarapaca"
                     },
                     {
                         "id":  "valparaiso",
-                        "name":  "ValparaÃƒÆ’Ã‚Â­so",
+                        "name":  "Valparaíso",
                         "code":  "valparaiso"
                     }
                 ],
@@ -26577,7 +26577,7 @@
                      {
                          "id":  "antofagasta-maria-elena",
                          "region_id":  "antofagasta",
-                         "name":  "MarÃƒÆ’Ã‚Â­a Elena"
+                         "name":  "María Elena"
                      },
                      {
                          "id":  "antofagasta-mejillones",
@@ -26587,7 +26587,7 @@
                      {
                          "id":  "antofagasta-ollague",
                          "region_id":  "antofagasta",
-                         "name":  "OllagÃƒÆ’Ã‚Â¼e"
+                         "name":  "Ollagüe"
                      },
                      {
                          "id":  "antofagasta-san-pedro-de-atacama",
@@ -26637,7 +26637,7 @@
                      {
                          "id":  "araucania-curacautin",
                          "region_id":  "araucania",
-                         "name":  "CuracautÃƒÆ’Ã‚Â­n"
+                         "name":  "Curacautín"
                      },
                      {
                          "id":  "araucania-curarrehue",
@@ -26712,17 +26712,17 @@
                      {
                          "id":  "araucania-pitrufquen",
                          "region_id":  "araucania",
-                         "name":  "PitrufquÃƒÆ’Ã‚Â©n"
+                         "name":  "Pitrufquén"
                      },
                      {
                          "id":  "araucania-pucon",
                          "region_id":  "araucania",
-                         "name":  "PucÃƒÆ’Ã‚Â³n"
+                         "name":  "Pucón"
                      },
                      {
                          "id":  "araucania-puren",
                          "region_id":  "araucania",
-                         "name":  "PurÃƒÆ’Ã‚Â©n"
+                         "name":  "Purén"
                      },
                      {
                          "id":  "araucania-renaico",
@@ -26747,12 +26747,12 @@
                      {
                          "id":  "araucania-tolten",
                          "region_id":  "araucania",
-                         "name":  "ToltÃƒÆ’Ã‚Â©n"
+                         "name":  "Toltén"
                      },
                      {
                          "id":  "araucania-traiguen",
                          "region_id":  "araucania",
-                         "name":  "TraiguÃƒÆ’Ã‚Â©n"
+                         "name":  "Traiguén"
                      },
                      {
                          "id":  "araucania-victoria",
@@ -26762,7 +26762,7 @@
                      {
                          "id":  "araucania-vilcun",
                          "region_id":  "araucania",
-                         "name":  "VilcÃƒÆ’Ã‚Âºn"
+                         "name":  "Vilcún"
                      },
                      {
                          "id":  "araucania-villarrica",
@@ -26802,12 +26802,12 @@
                      {
                          "id":  "atacama-chanaral",
                          "region_id":  "atacama",
-                         "name":  "ChaÃƒÆ’Ã‚Â±aral"
+                         "name":  "Chañaral"
                      },
                      {
                          "id":  "atacama-copiapo",
                          "region_id":  "atacama",
-                         "name":  "CopiapÃƒÆ’Ã‚Â³"
+                         "name":  "Copiapó"
                      },
                      {
                          "id":  "atacama-diego-de-almagro",
@@ -26837,7 +26837,7 @@
                      {
                          "id":  "aysen-aysen",
                          "region_id":  "aysen",
-                         "name":  "AysÃƒÆ’Ã‚Â©n"
+                         "name":  "Aysén"
                      },
                      {
                          "id":  "aysen-chile-chico",
@@ -26877,7 +26877,7 @@
                      {
                          "id":  "aysen-rio-ibanez",
                          "region_id":  "aysen",
-                         "name":  "RÃƒÆ’Ã‚Â­o IbÃƒÆ’Ã‚Â¡ÃƒÆ’Ã‚Â±ez"
+                         "name":  "Río Ibáñez"
                      },
                      {
                          "id":  "aysen-tortel",
@@ -26887,7 +26887,7 @@
                      {
                          "id":  "biobio-alto-biobio",
                          "region_id":  "biobio",
-                         "name":  "Alto BiobÃƒÆ’Ã‚Â­o"
+                         "name":  "Alto Biobío"
                      },
                      {
                          "id":  "biobio-antuco",
@@ -26907,7 +26907,7 @@
                      {
                          "id":  "biobio-canete",
                          "region_id":  "biobio",
-                         "name":  "CaÃƒÆ’Ã‚Â±ete"
+                         "name":  "Cañete"
                      },
                      {
                          "id":  "biobio-chiguayante",
@@ -26917,7 +26917,7 @@
                      {
                          "id":  "biobio-concepcion",
                          "region_id":  "biobio",
-                         "name":  "ConcepciÃƒÆ’Ã‚Â³n"
+                         "name":  "Concepción"
                      },
                      {
                          "id":  "biobio-contulmo",
@@ -26942,7 +26942,7 @@
                      {
                          "id":  "biobio-hualpen",
                          "region_id":  "biobio",
-                         "name":  "HualpÃƒÆ’Ã‚Â©n"
+                         "name":  "Hualpén"
                      },
                      {
                          "id":  "biobio-hualqui",
@@ -26962,12 +26962,12 @@
                      {
                          "id":  "biobio-los-alamos",
                          "region_id":  "biobio",
-                         "name":  "Los ÃƒÆ’Ã‚Âlamos"
+                         "name":  "Los Álamos"
                      },
                      {
                          "id":  "biobio-los-angeles",
                          "region_id":  "biobio",
-                         "name":  "Los ÃƒÆ’Ã‚Ângeles"
+                         "name":  "Los Ángeles"
                      },
                      {
                          "id":  "biobio-lota",
@@ -26977,7 +26977,7 @@
                      {
                          "id":  "biobio-mulchen",
                          "region_id":  "biobio",
-                         "name":  "MulchÃƒÆ’Ã‚Â©n"
+                         "name":  "Mulchén"
                      },
                      {
                          "id":  "biobio-nacimiento",
@@ -27017,7 +27017,7 @@
                      {
                          "id":  "biobio-santa-barbara",
                          "region_id":  "biobio",
-                         "name":  "Santa BÃƒÆ’Ã‚Â¡rbara"
+                         "name":  "Santa Bárbara"
                      },
                      {
                          "id":  "biobio-santa-juana",
@@ -27032,12 +27032,12 @@
                      {
                          "id":  "biobio-tirua",
                          "region_id":  "biobio",
-                         "name":  "TirÃƒÆ’Ã‚Âºa"
+                         "name":  "Tirúa"
                      },
                      {
                          "id":  "biobio-tome",
                          "region_id":  "biobio",
-                         "name":  "TomÃƒÆ’Ã‚Â©"
+                         "name":  "Tomé"
                      },
                      {
                          "id":  "biobio-tucapel",
@@ -27062,7 +27062,7 @@
                      {
                          "id":  "coquimbo-combarbala",
                          "region_id":  "coquimbo",
-                         "name":  "CombarbalÃƒÆ’Ã‚Â¡"
+                         "name":  "Combarbalá"
                      },
                      {
                          "id":  "coquimbo-coquimbo",
@@ -27112,7 +27112,7 @@
                      {
                          "id":  "coquimbo-rio-hurtado",
                          "region_id":  "coquimbo",
-                         "name":  "RÃƒÆ’Ã‚Â­o Hurtado"
+                         "name":  "Río Hurtado"
                      },
                      {
                          "id":  "coquimbo-salamanca",
@@ -27122,12 +27122,12 @@
                      {
                          "id":  "coquimbo-vicuna",
                          "region_id":  "coquimbo",
-                         "name":  "VicuÃƒÆ’Ã‚Â±a"
+                         "name":  "Vicuña"
                      },
                      {
                          "id":  "libertador-general-bernardo-ohiggins-chepica",
                          "region_id":  "libertador-general-bernardo-ohiggins",
-                         "name":  "ChÃƒÆ’Ã‚Â©pica"
+                         "name":  "Chépica"
                      },
                      {
                          "id":  "libertador-general-bernardo-ohiggins-chimbarongo",
@@ -27152,7 +27152,7 @@
                      {
                          "id":  "libertador-general-bernardo-ohiggins-donihue",
                          "region_id":  "libertador-general-bernardo-ohiggins",
-                         "name":  "DoÃƒÆ’Ã‚Â±ihue"
+                         "name":  "Doñihue"
                      },
                      {
                          "id":  "libertador-general-bernardo-ohiggins-graneros",
@@ -27182,7 +27182,7 @@
                      {
                          "id":  "libertador-general-bernardo-ohiggins-machali",
                          "region_id":  "libertador-general-bernardo-ohiggins",
-                         "name":  "MachalÃƒÆ’Ã‚Â­"
+                         "name":  "Machalí"
                      },
                      {
                          "id":  "libertador-general-bernardo-ohiggins-malloa",
@@ -27272,7 +27272,7 @@
                      {
                          "id":  "libertador-general-bernardo-ohiggins-requinoa",
                          "region_id":  "libertador-general-bernardo-ohiggins",
-                         "name":  "RequÃƒÆ’Ã‚Â­noa"
+                         "name":  "Requínoa"
                      },
                      {
                          "id":  "libertador-general-bernardo-ohiggins-san-fernando",
@@ -27307,7 +27307,7 @@
                      {
                          "id":  "los-lagos-chaiten",
                          "region_id":  "los-lagos",
-                         "name":  "ChaitÃƒÆ’Ã‚Â©n"
+                         "name":  "Chaitén"
                      },
                      {
                          "id":  "los-lagos-chonchi",
@@ -27317,12 +27317,12 @@
                      {
                          "id":  "los-lagos-cochamo",
                          "region_id":  "los-lagos",
-                         "name":  "CochamÃƒÆ’Ã‚Â³"
+                         "name":  "Cochamó"
                      },
                      {
                          "id":  "los-lagos-curaco-de-velez",
                          "region_id":  "los-lagos",
-                         "name":  "Curaco de VÃƒÆ’Ã‚Â©lez"
+                         "name":  "Curaco de Vélez"
                      },
                      {
                          "id":  "los-lagos-dalcahue",
@@ -27342,12 +27342,12 @@
                      {
                          "id":  "los-lagos-futaleufu",
                          "region_id":  "los-lagos",
-                         "name":  "FutaleufÃƒÆ’Ã‚Âº"
+                         "name":  "Futaleufú"
                      },
                      {
                          "id":  "los-lagos-hualaihue",
                          "region_id":  "los-lagos",
-                         "name":  "HualaihuÃƒÆ’Ã‚Â©"
+                         "name":  "Hualaihué"
                      },
                      {
                          "id":  "los-lagos-llanquihue",
@@ -27362,7 +27362,7 @@
                      {
                          "id":  "los-lagos-maullin",
                          "region_id":  "los-lagos",
-                         "name":  "MaullÃƒÆ’Ã‚Â­n"
+                         "name":  "Maullín"
                      },
                      {
                          "id":  "los-lagos-osorno",
@@ -27392,7 +27392,7 @@
                      {
                          "id":  "los-lagos-puqueldon",
                          "region_id":  "los-lagos",
-                         "name":  "PuqueldÃƒÆ’Ã‚Â³n"
+                         "name":  "Puqueldón"
                      },
                      {
                          "id":  "los-lagos-purranque",
@@ -27407,12 +27407,12 @@
                      {
                          "id":  "los-lagos-queilen",
                          "region_id":  "los-lagos",
-                         "name":  "QueilÃƒÆ’Ã‚Â©n"
+                         "name":  "Queilén"
                      },
                      {
                          "id":  "los-lagos-quellon",
                          "region_id":  "los-lagos",
-                         "name":  "QuellÃƒÆ’Ã‚Â³n"
+                         "name":  "Quellón"
                      },
                      {
                          "id":  "los-lagos-quemchi",
@@ -27427,7 +27427,7 @@
                      {
                          "id":  "los-lagos-rio-negro",
                          "region_id":  "los-lagos",
-                         "name":  "RÃƒÆ’Ã‚Â­o Negro"
+                         "name":  "Río Negro"
                      },
                      {
                          "id":  "los-lagos-san-juan-de-la-costa",
@@ -27452,7 +27452,7 @@
                      {
                          "id":  "los-rios-la-union",
                          "region_id":  "los-rios",
-                         "name":  "La UniÃƒÆ’Ã‚Â³n"
+                         "name":  "La Unión"
                      },
                      {
                          "id":  "los-rios-lago-ranco",
@@ -27472,7 +27472,7 @@
                      {
                          "id":  "los-rios-mafil",
                          "region_id":  "los-rios",
-                         "name":  "MÃƒÆ’Ã‚Â¡fil"
+                         "name":  "Máfil"
                      },
                      {
                          "id":  "los-rios-mariquina",
@@ -27492,7 +27492,7 @@
                      {
                          "id":  "los-rios-rio-bueno",
                          "region_id":  "los-rios",
-                         "name":  "RÃƒÆ’Ã‚Â­o Bueno"
+                         "name":  "Río Bueno"
                      },
                      {
                          "id":  "los-rios-valdivia",
@@ -27502,7 +27502,7 @@
                      {
                          "id":  "magallanes-antartica",
                          "region_id":  "magallanes",
-                         "name":  "AntÃƒÆ’Ã‚Â¡rtica"
+                         "name":  "Antártica"
                      },
                      {
                          "id":  "magallanes-cabo-de-hornos",
@@ -27537,7 +27537,7 @@
                      {
                          "id":  "magallanes-rio-verde",
                          "region_id":  "magallanes",
-                         "name":  "RÃƒÆ’Ã‚Â­o Verde"
+                         "name":  "Río Verde"
                      },
                      {
                          "id":  "magallanes-san-gregorio",
@@ -27567,12 +27567,12 @@
                      {
                          "id":  "maule-colbun",
                          "region_id":  "maule",
-                         "name":  "ColbÃƒÆ’Ã‚Âºn"
+                         "name":  "Colbún"
                      },
                      {
                          "id":  "maule-constitucion",
                          "region_id":  "maule",
-                         "name":  "ConstituciÃƒÆ’Ã‚Â³n"
+                         "name":  "Constitución"
                      },
                      {
                          "id":  "maule-curepto",
@@ -27582,7 +27582,7 @@
                      {
                          "id":  "maule-curico",
                          "region_id":  "maule",
-                         "name":  "CuricÃƒÆ’Ã‚Â³"
+                         "name":  "Curicó"
                      },
                      {
                          "id":  "maule-empedrado",
@@ -27592,12 +27592,12 @@
                      {
                          "id":  "maule-hualane",
                          "region_id":  "maule",
-                         "name":  "HualaÃƒÆ’Ã‚Â±ÃƒÆ’Ã‚Â©"
+                         "name":  "Hualañé"
                      },
                      {
                          "id":  "maule-licanten",
                          "region_id":  "maule",
-                         "name":  "LicantÃƒÆ’Ã‚Â©n"
+                         "name":  "Licantén"
                      },
                      {
                          "id":  "maule-linares",
@@ -27607,7 +27607,7 @@
                      {
                          "id":  "maule-longavi",
                          "region_id":  "maule",
-                         "name":  "LongavÃƒÆ’Ã‚Â­"
+                         "name":  "Longaví"
                      },
                      {
                          "id":  "maule-maule",
@@ -27652,7 +27652,7 @@
                      {
                          "id":  "maule-rio-claro",
                          "region_id":  "maule",
-                         "name":  "RÃƒÆ’Ã‚Â­o Claro"
+                         "name":  "Río Claro"
                      },
                      {
                          "id":  "maule-romeral",
@@ -27692,7 +27692,7 @@
                      {
                          "id":  "maule-vichuquen",
                          "region_id":  "maule",
-                         "name":  "VichuquÃƒÆ’Ã‚Â©n"
+                         "name":  "Vichuquén"
                      },
                      {
                          "id":  "maule-villa-alegre",
@@ -27707,7 +27707,7 @@
                      {
                          "id":  "metropolitana-de-santiago-alhue",
                          "region_id":  "metropolitana-de-santiago",
-                         "name":  "AlhuÃƒÆ’Ã‚Â©"
+                         "name":  "Alhué"
                      },
                      {
                          "id":  "metropolitana-de-santiago-buin",
@@ -27737,12 +27737,12 @@
                      {
                          "id":  "metropolitana-de-santiago-conchali",
                          "region_id":  "metropolitana-de-santiago",
-                         "name":  "ConchalÃƒÆ’Ã‚Â­"
+                         "name":  "Conchalí"
                      },
                      {
                          "id":  "metropolitana-de-santiago-curacavi",
                          "region_id":  "metropolitana-de-santiago",
-                         "name":  "CuracavÃƒÆ’Ã‚Â­"
+                         "name":  "Curacaví"
                      },
                      {
                          "id":  "metropolitana-de-santiago-el-bosque",
@@ -27757,7 +27757,7 @@
                      {
                          "id":  "metropolitana-de-santiago-estacion-central",
                          "region_id":  "metropolitana-de-santiago",
-                         "name":  "EstaciÃƒÆ’Ã‚Â³n Central"
+                         "name":  "Estación Central"
                      },
                      {
                          "id":  "metropolitana-de-santiago-huechuraba",
@@ -27832,12 +27832,12 @@
                      {
                          "id":  "metropolitana-de-santiago-maipu",
                          "region_id":  "metropolitana-de-santiago",
-                         "name":  "MaipÃƒÆ’Ã‚Âº"
+                         "name":  "Maipú"
                      },
                      {
                          "id":  "metropolitana-de-santiago-maria-pinto",
                          "region_id":  "metropolitana-de-santiago",
-                         "name":  "MarÃƒÆ’Ã‚Â­a Pinto"
+                         "name":  "María Pinto"
                      },
                      {
                          "id":  "metropolitana-de-santiago-melipilla",
@@ -27847,7 +27847,7 @@
                      {
                          "id":  "metropolitana-de-santiago-nunoa",
                          "region_id":  "metropolitana-de-santiago",
-                         "name":  "ÃƒÆ’Ã¢â‚¬ËœuÃƒÆ’Ã‚Â±oa"
+                         "name":  "Ñuñoa"
                      },
                      {
                          "id":  "metropolitana-de-santiago-padre-hurtado",
@@ -27867,12 +27867,12 @@
                      {
                          "id":  "metropolitana-de-santiago-penaflor",
                          "region_id":  "metropolitana-de-santiago",
-                         "name":  "PeÃƒÆ’Ã‚Â±aflor"
+                         "name":  "Peñaflor"
                      },
                      {
                          "id":  "metropolitana-de-santiago-penalolen",
                          "region_id":  "metropolitana-de-santiago",
-                         "name":  "PeÃƒÆ’Ã‚Â±alolÃƒÆ’Ã‚Â©n"
+                         "name":  "Peñalolén"
                      },
                      {
                          "id":  "metropolitana-de-santiago-pirque",
@@ -27922,12 +27922,12 @@
                      {
                          "id":  "metropolitana-de-santiago-san-joaquin",
                          "region_id":  "metropolitana-de-santiago",
-                         "name":  "San JoaquÃƒÆ’Ã‚Â­n"
+                         "name":  "San Joaquín"
                      },
                      {
                          "id":  "metropolitana-de-santiago-san-jose-de-maipo",
                          "region_id":  "metropolitana-de-santiago",
-                         "name":  "San JosÃƒÆ’Ã‚Â© de Maipo"
+                         "name":  "San José de Maipo"
                      },
                      {
                          "id":  "metropolitana-de-santiago-san-miguel",
@@ -27942,7 +27942,7 @@
                      {
                          "id":  "metropolitana-de-santiago-san-ramon",
                          "region_id":  "metropolitana-de-santiago",
-                         "name":  "San RamÃƒÆ’Ã‚Â³n"
+                         "name":  "San Ramón"
                      },
                      {
                          "id":  "metropolitana-de-santiago-santiago",
@@ -27972,12 +27972,12 @@
                      {
                          "id":  "nuble-chillan",
                          "region_id":  "nuble",
-                         "name":  "ChillÃƒÆ’Ã‚Â¡n"
+                         "name":  "Chillán"
                      },
                      {
                          "id":  "nuble-chillan-viejo",
                          "region_id":  "nuble",
-                         "name":  "ChillÃƒÆ’Ã‚Â¡n Viejo"
+                         "name":  "Chillán Viejo"
                      },
                      {
                          "id":  "nuble-cobquecura",
@@ -28027,7 +28027,7 @@
                      {
                          "id":  "nuble-quillon",
                          "region_id":  "nuble",
-                         "name":  "QuillÃƒÆ’Ã‚Â³n"
+                         "name":  "Quillón"
                      },
                      {
                          "id":  "nuble-quirihue",
@@ -28037,7 +28037,7 @@
                      {
                          "id":  "nuble-ranquil",
                          "region_id":  "nuble",
-                         "name":  "RÃƒÆ’Ã‚Â¡nquil"
+                         "name":  "Ránquil"
                      },
                      {
                          "id":  "nuble-san-carlos",
@@ -28047,7 +28047,7 @@
                      {
                          "id":  "nuble-san-fabian",
                          "region_id":  "nuble",
-                         "name":  "San FabiÃƒÆ’Ã‚Â¡n"
+                         "name":  "San Fabián"
                      },
                      {
                          "id":  "nuble-san-ignacio",
@@ -28057,7 +28057,7 @@
                      {
                          "id":  "nuble-san-nicolas",
                          "region_id":  "nuble",
-                         "name":  "San NicolÃƒÆ’Ã‚Â¡s"
+                         "name":  "San Nicolás"
                      },
                      {
                          "id":  "nuble-treguaco",
@@ -28077,7 +28077,7 @@
                      {
                          "id":  "tarapaca-camina",
                          "region_id":  "tarapaca",
-                         "name":  "CamiÃƒÆ’Ã‚Â±a"
+                         "name":  "Camiña"
                      },
                      {
                          "id":  "tarapaca-colchane",
@@ -28137,7 +28137,7 @@
                      {
                          "id":  "valparaiso-concon",
                          "region_id":  "valparaiso",
-                         "name":  "ConcÃƒÆ’Ã‚Â³n"
+                         "name":  "Concón"
                      },
                      {
                          "id":  "valparaiso-el-quisco",
@@ -28162,7 +28162,7 @@
                      {
                          "id":  "valparaiso-juan-fernandez",
                          "region_id":  "valparaiso",
-                         "name":  "Juan FernÃƒÆ’Ã‚Â¡ndez"
+                         "name":  "Juan Fernández"
                      },
                      {
                          "id":  "valparaiso-la-calera",
@@ -28202,7 +28202,7 @@
                      {
                          "id":  "valparaiso-olmue",
                          "region_id":  "valparaiso",
-                         "name":  "OlmuÃƒÆ’Ã‚Â©"
+                         "name":  "Olmué"
                      },
                      {
                          "id":  "valparaiso-panquehue",
@@ -28222,7 +28222,7 @@
                      {
                          "id":  "valparaiso-puchuncavi",
                          "region_id":  "valparaiso",
-                         "name":  "PuchuncavÃƒÆ’Ã‚Â­"
+                         "name":  "Puchuncaví"
                      },
                      {
                          "id":  "valparaiso-putaendo",
@@ -28237,7 +28237,7 @@
                      {
                          "id":  "valparaiso-quilpue",
                          "region_id":  "valparaiso",
-                         "name":  "QuilpuÃƒÆ’Ã‚Â©"
+                         "name":  "Quilpué"
                      },
                      {
                          "id":  "valparaiso-quintero",
@@ -28267,7 +28267,7 @@
                      {
                          "id":  "valparaiso-santa-maria",
                          "region_id":  "valparaiso",
-                         "name":  "Santa MarÃƒÆ’Ã‚Â­a"
+                         "name":  "Santa María"
                      },
                      {
                          "id":  "valparaiso-santo-domingo",
@@ -28277,7 +28277,7 @@
                      {
                          "id":  "valparaiso-valparaiso",
                          "region_id":  "valparaiso",
-                         "name":  "ValparaÃƒÆ’Ã‚Â­so"
+                         "name":  "Valparaíso"
                      },
                      {
                          "id":  "valparaiso-villa-alemana",
@@ -28287,7 +28287,7 @@
                      {
                          "id":  "valparaiso-vina-del-mar",
                          "region_id":  "valparaiso",
-                         "name":  "ViÃƒÆ’Ã‚Â±a del Mar"
+                         "name":  "Viña del Mar"
                      },
                      {
                          "id":  "valparaiso-zapallar",
@@ -36690,7 +36690,7 @@
                          "id":  "bronto-skylift-s-70-xdt-plataforma-aerea-2019",
                          "brand_id":  "bronto-skylift",
                          "model_id":  "bronto-skylift-s-70-xdt",
-                         "name":  "Plataforma AÃ©rea",
+                         "name":  "Plataforma Aérea",
                          "year":  "2019",
                          "vehicle_types":  [
                                                "truck"
@@ -36710,7 +36710,7 @@
                          "id":  "bronto-skylift-s-70-xdt-plataforma-aerea-2020",
                          "brand_id":  "bronto-skylift",
                          "model_id":  "bronto-skylift-s-70-xdt",
-                         "name":  "Plataforma AÃ©rea",
+                         "name":  "Plataforma Aérea",
                          "year":  "2020",
                          "vehicle_types":  [
                                                "truck"
@@ -36730,7 +36730,7 @@
                          "id":  "bronto-skylift-s-70-xdt-plataforma-aerea-2021",
                          "brand_id":  "bronto-skylift",
                          "model_id":  "bronto-skylift-s-70-xdt",
-                         "name":  "Plataforma AÃ©rea",
+                         "name":  "Plataforma Aérea",
                          "year":  "2021",
                          "vehicle_types":  [
                                                "truck"
@@ -36750,7 +36750,7 @@
                          "id":  "bronto-skylift-s-70-xdt-plataforma-aerea-2022",
                          "brand_id":  "bronto-skylift",
                          "model_id":  "bronto-skylift-s-70-xdt",
-                         "name":  "Plataforma AÃ©rea",
+                         "name":  "Plataforma Aérea",
                          "year":  "2022",
                          "vehicle_types":  [
                                                "truck"
@@ -36770,7 +36770,7 @@
                          "id":  "bronto-skylift-s-70-xdt-plataforma-aerea-2023",
                          "brand_id":  "bronto-skylift",
                          "model_id":  "bronto-skylift-s-70-xdt",
-                         "name":  "Plataforma AÃ©rea",
+                         "name":  "Plataforma Aérea",
                          "year":  "2023",
                          "vehicle_types":  [
                                                "truck"
@@ -36790,7 +36790,7 @@
                          "id":  "bronto-skylift-s-70-xdt-plataforma-aerea-2024",
                          "brand_id":  "bronto-skylift",
                          "model_id":  "bronto-skylift-s-70-xdt",
-                         "name":  "Plataforma AÃ©rea",
+                         "name":  "Plataforma Aérea",
                          "year":  "2024",
                          "vehicle_types":  [
                                                "truck"
@@ -36980,7 +36980,7 @@
                          "id":  "byd-k11-dd-electrico-2021",
                          "brand_id":  "byd",
                          "model_id":  "byd-k11",
-                         "name":  "DD ElÃ©ctrico",
+                         "name":  "DD Eléctrico",
                          "year":  "2021",
                          "vehicle_types":  [
                                                "bus"
@@ -37000,7 +37000,7 @@
                          "id":  "byd-k11-dd-electrico-2022",
                          "brand_id":  "byd",
                          "model_id":  "byd-k11",
-                         "name":  "DD ElÃ©ctrico",
+                         "name":  "DD Eléctrico",
                          "year":  "2022",
                          "vehicle_types":  [
                                                "bus"
@@ -37020,7 +37020,7 @@
                          "id":  "byd-k11-dd-electrico-2023",
                          "brand_id":  "byd",
                          "model_id":  "byd-k11",
-                         "name":  "DD ElÃ©ctrico",
+                         "name":  "DD Eléctrico",
                          "year":  "2023",
                          "vehicle_types":  [
                                                "bus"
@@ -37040,7 +37040,7 @@
                          "id":  "byd-k11-dd-electrico-2024",
                          "brand_id":  "byd",
                          "model_id":  "byd-k11",
-                         "name":  "DD ElÃ©ctrico",
+                         "name":  "DD Eléctrico",
                          "year":  "2024",
                          "vehicle_types":  [
                                                "bus"
@@ -37060,7 +37060,7 @@
                          "id":  "byd-k9-electrico-12m-2019",
                          "brand_id":  "byd",
                          "model_id":  "byd-k9",
-                         "name":  "ElÃ©ctrico 12m",
+                         "name":  "Eléctrico 12m",
                          "year":  "2019",
                          "vehicle_types":  [
                                                "bus"
@@ -37080,7 +37080,7 @@
                          "id":  "byd-k9-electrico-12m-2020",
                          "brand_id":  "byd",
                          "model_id":  "byd-k9",
-                         "name":  "ElÃ©ctrico 12m",
+                         "name":  "Eléctrico 12m",
                          "year":  "2020",
                          "vehicle_types":  [
                                                "bus"
@@ -37100,7 +37100,7 @@
                          "id":  "byd-k9-electrico-12m-2021",
                          "brand_id":  "byd",
                          "model_id":  "byd-k9",
-                         "name":  "ElÃ©ctrico 12m",
+                         "name":  "Eléctrico 12m",
                          "year":  "2021",
                          "vehicle_types":  [
                                                "bus"
@@ -37120,7 +37120,7 @@
                          "id":  "byd-k9-electrico-12m-2022",
                          "brand_id":  "byd",
                          "model_id":  "byd-k9",
-                         "name":  "ElÃ©ctrico 12m",
+                         "name":  "Eléctrico 12m",
                          "year":  "2022",
                          "vehicle_types":  [
                                                "bus"
@@ -37140,7 +37140,7 @@
                          "id":  "byd-k9-electrico-12m-2023",
                          "brand_id":  "byd",
                          "model_id":  "byd-k9",
-                         "name":  "ElÃ©ctrico 12m",
+                         "name":  "Eléctrico 12m",
                          "year":  "2023",
                          "vehicle_types":  [
                                                "bus"
@@ -37160,7 +37160,7 @@
                          "id":  "byd-k9-electrico-12m-2024",
                          "brand_id":  "byd",
                          "model_id":  "byd-k9",
-                         "name":  "ElÃ©ctrico 12m",
+                         "name":  "Eléctrico 12m",
                          "year":  "2024",
                          "vehicle_types":  [
                                                "bus"
@@ -37230,7 +37230,7 @@
                          "id":  "byd-t9-camion-electrico-2022",
                          "brand_id":  "byd",
                          "model_id":  "byd-t9",
-                         "name":  "CamiÃ³n ElÃ©ctrico",
+                         "name":  "Camión Eléctrico",
                          "year":  "2022",
                          "vehicle_types":  [
                                                "truck"
@@ -37250,7 +37250,7 @@
                          "id":  "byd-t9-camion-electrico-2023",
                          "brand_id":  "byd",
                          "model_id":  "byd-t9",
-                         "name":  "CamiÃ³n ElÃ©ctrico",
+                         "name":  "Camión Eléctrico",
                          "year":  "2023",
                          "vehicle_types":  [
                                                "truck"
@@ -37270,7 +37270,7 @@
                          "id":  "byd-t9-camion-electrico-2024",
                          "brand_id":  "byd",
                          "model_id":  "byd-t9",
-                         "name":  "CamiÃ³n ElÃ©ctrico",
+                         "name":  "Camión Eléctrico",
                          "year":  "2024",
                          "vehicle_types":  [
                                                "truck"
@@ -38400,7 +38400,7 @@
                          "id":  "caterpillar-323-excavadora-hidraulica-23t-2019",
                          "brand_id":  "caterpillar",
                          "model_id":  "caterpillar-323",
-                         "name":  "Excavadora HidrÃ¡ulica 23t",
+                         "name":  "Excavadora Hidráulica 23t",
                          "year":  "2019",
                          "vehicle_types":  [
                                                "machinery"
@@ -38420,7 +38420,7 @@
                          "id":  "caterpillar-323-excavadora-hidraulica-23t-2020",
                          "brand_id":  "caterpillar",
                          "model_id":  "caterpillar-323",
-                         "name":  "Excavadora HidrÃ¡ulica 23t",
+                         "name":  "Excavadora Hidráulica 23t",
                          "year":  "2020",
                          "vehicle_types":  [
                                                "machinery"
@@ -38440,7 +38440,7 @@
                          "id":  "caterpillar-323-excavadora-hidraulica-23t-2021",
                          "brand_id":  "caterpillar",
                          "model_id":  "caterpillar-323",
-                         "name":  "Excavadora HidrÃ¡ulica 23t",
+                         "name":  "Excavadora Hidráulica 23t",
                          "year":  "2021",
                          "vehicle_types":  [
                                                "machinery"
@@ -38460,7 +38460,7 @@
                          "id":  "caterpillar-323-excavadora-hidraulica-23t-2022",
                          "brand_id":  "caterpillar",
                          "model_id":  "caterpillar-323",
-                         "name":  "Excavadora HidrÃ¡ulica 23t",
+                         "name":  "Excavadora Hidráulica 23t",
                          "year":  "2022",
                          "vehicle_types":  [
                                                "machinery"
@@ -38480,7 +38480,7 @@
                          "id":  "caterpillar-323-excavadora-hidraulica-23t-2023",
                          "brand_id":  "caterpillar",
                          "model_id":  "caterpillar-323",
-                         "name":  "Excavadora HidrÃ¡ulica 23t",
+                         "name":  "Excavadora Hidráulica 23t",
                          "year":  "2023",
                          "vehicle_types":  [
                                                "machinery"
@@ -38500,7 +38500,7 @@
                          "id":  "caterpillar-323-excavadora-hidraulica-23t-2024",
                          "brand_id":  "caterpillar",
                          "model_id":  "caterpillar-323",
-                         "name":  "Excavadora HidrÃ¡ulica 23t",
+                         "name":  "Excavadora Hidráulica 23t",
                          "year":  "2024",
                          "vehicle_types":  [
                                                "machinery"
@@ -38630,7 +38630,7 @@
                          "id":  "caterpillar-785d-camion-mineria-150t-2018",
                          "brand_id":  "caterpillar",
                          "model_id":  "caterpillar-785d",
-                         "name":  "CamiÃ³n MinerÃ­a 150t",
+                         "name":  "Camión Minería 150t",
                          "year":  "2018",
                          "vehicle_types":  [
                                                "machinery"
@@ -38650,7 +38650,7 @@
                          "id":  "caterpillar-785d-camion-mineria-150t-2019",
                          "brand_id":  "caterpillar",
                          "model_id":  "caterpillar-785d",
-                         "name":  "CamiÃ³n MinerÃ­a 150t",
+                         "name":  "Camión Minería 150t",
                          "year":  "2019",
                          "vehicle_types":  [
                                                "machinery"
@@ -38670,7 +38670,7 @@
                          "id":  "caterpillar-785d-camion-mineria-150t-2020",
                          "brand_id":  "caterpillar",
                          "model_id":  "caterpillar-785d",
-                         "name":  "CamiÃ³n MinerÃ­a 150t",
+                         "name":  "Camión Minería 150t",
                          "year":  "2020",
                          "vehicle_types":  [
                                                "machinery"
@@ -38690,7 +38690,7 @@
                          "id":  "caterpillar-785d-camion-mineria-150t-2021",
                          "brand_id":  "caterpillar",
                          "model_id":  "caterpillar-785d",
-                         "name":  "CamiÃ³n MinerÃ­a 150t",
+                         "name":  "Camión Minería 150t",
                          "year":  "2021",
                          "vehicle_types":  [
                                                "machinery"
@@ -38710,7 +38710,7 @@
                          "id":  "caterpillar-785d-camion-mineria-150t-2022",
                          "brand_id":  "caterpillar",
                          "model_id":  "caterpillar-785d",
-                         "name":  "CamiÃ³n MinerÃ­a 150t",
+                         "name":  "Camión Minería 150t",
                          "year":  "2022",
                          "vehicle_types":  [
                                                "machinery"
@@ -38730,7 +38730,7 @@
                          "id":  "caterpillar-785d-camion-mineria-150t-2023",
                          "brand_id":  "caterpillar",
                          "model_id":  "caterpillar-785d",
-                         "name":  "CamiÃ³n MinerÃ­a 150t",
+                         "name":  "Camión Minería 150t",
                          "year":  "2023",
                          "vehicle_types":  [
                                                "machinery"
@@ -38750,7 +38750,7 @@
                          "id":  "caterpillar-785d-camion-mineria-150t-2024",
                          "brand_id":  "caterpillar",
                          "model_id":  "caterpillar-785d",
-                         "name":  "CamiÃ³n MinerÃ­a 150t",
+                         "name":  "Camión Minería 150t",
                          "year":  "2024",
                          "vehicle_types":  [
                                                "machinery"
@@ -38770,7 +38770,7 @@
                          "id":  "caterpillar-797f-camion-mineria-363t-2018",
                          "brand_id":  "caterpillar",
                          "model_id":  "caterpillar-797f",
-                         "name":  "CamiÃ³n MinerÃ­a 363t",
+                         "name":  "Camión Minería 363t",
                          "year":  "2018",
                          "vehicle_types":  [
                                                "machinery"
@@ -38790,7 +38790,7 @@
                          "id":  "caterpillar-797f-camion-mineria-363t-2019",
                          "brand_id":  "caterpillar",
                          "model_id":  "caterpillar-797f",
-                         "name":  "CamiÃ³n MinerÃ­a 363t",
+                         "name":  "Camión Minería 363t",
                          "year":  "2019",
                          "vehicle_types":  [
                                                "machinery"
@@ -38810,7 +38810,7 @@
                          "id":  "caterpillar-797f-camion-mineria-363t-2020",
                          "brand_id":  "caterpillar",
                          "model_id":  "caterpillar-797f",
-                         "name":  "CamiÃ³n MinerÃ­a 363t",
+                         "name":  "Camión Minería 363t",
                          "year":  "2020",
                          "vehicle_types":  [
                                                "machinery"
@@ -38830,7 +38830,7 @@
                          "id":  "caterpillar-797f-camion-mineria-363t-2021",
                          "brand_id":  "caterpillar",
                          "model_id":  "caterpillar-797f",
-                         "name":  "CamiÃ³n MinerÃ­a 363t",
+                         "name":  "Camión Minería 363t",
                          "year":  "2021",
                          "vehicle_types":  [
                                                "machinery"
@@ -38850,7 +38850,7 @@
                          "id":  "caterpillar-797f-camion-mineria-363t-2022",
                          "brand_id":  "caterpillar",
                          "model_id":  "caterpillar-797f",
-                         "name":  "CamiÃ³n MinerÃ­a 363t",
+                         "name":  "Camión Minería 363t",
                          "year":  "2022",
                          "vehicle_types":  [
                                                "machinery"
@@ -38870,7 +38870,7 @@
                          "id":  "caterpillar-797f-camion-mineria-363t-2023",
                          "brand_id":  "caterpillar",
                          "model_id":  "caterpillar-797f",
-                         "name":  "CamiÃ³n MinerÃ­a 363t",
+                         "name":  "Camión Minería 363t",
                          "year":  "2023",
                          "vehicle_types":  [
                                                "machinery"
@@ -38890,7 +38890,7 @@
                          "id":  "caterpillar-797f-camion-mineria-363t-2024",
                          "brand_id":  "caterpillar",
                          "model_id":  "caterpillar-797f",
-                         "name":  "CamiÃ³n MinerÃ­a 363t",
+                         "name":  "Camión Minería 363t",
                          "year":  "2024",
                          "vehicle_types":  [
                                                "machinery"
@@ -39330,7 +39330,7 @@
                          "id":  "caterpillar-md6200-perforadora-mineria-2019",
                          "brand_id":  "caterpillar",
                          "model_id":  "caterpillar-md6200",
-                         "name":  "Perforadora MinerÃ­a",
+                         "name":  "Perforadora Minería",
                          "year":  "2019",
                          "vehicle_types":  [
                                                "machinery"
@@ -39350,7 +39350,7 @@
                          "id":  "caterpillar-md6200-perforadora-mineria-2020",
                          "brand_id":  "caterpillar",
                          "model_id":  "caterpillar-md6200",
-                         "name":  "Perforadora MinerÃ­a",
+                         "name":  "Perforadora Minería",
                          "year":  "2020",
                          "vehicle_types":  [
                                                "machinery"
@@ -39370,7 +39370,7 @@
                          "id":  "caterpillar-md6200-perforadora-mineria-2021",
                          "brand_id":  "caterpillar",
                          "model_id":  "caterpillar-md6200",
-                         "name":  "Perforadora MinerÃ­a",
+                         "name":  "Perforadora Minería",
                          "year":  "2021",
                          "vehicle_types":  [
                                                "machinery"
@@ -39390,7 +39390,7 @@
                          "id":  "caterpillar-md6200-perforadora-mineria-2022",
                          "brand_id":  "caterpillar",
                          "model_id":  "caterpillar-md6200",
-                         "name":  "Perforadora MinerÃ­a",
+                         "name":  "Perforadora Minería",
                          "year":  "2022",
                          "vehicle_types":  [
                                                "machinery"
@@ -39410,7 +39410,7 @@
                          "id":  "caterpillar-md6200-perforadora-mineria-2023",
                          "brand_id":  "caterpillar",
                          "model_id":  "caterpillar-md6200",
-                         "name":  "Perforadora MinerÃ­a",
+                         "name":  "Perforadora Minería",
                          "year":  "2023",
                          "vehicle_types":  [
                                                "machinery"
@@ -39430,7 +39430,7 @@
                          "id":  "caterpillar-md6200-perforadora-mineria-2024",
                          "brand_id":  "caterpillar",
                          "model_id":  "caterpillar-md6200",
-                         "name":  "Perforadora MinerÃ­a",
+                         "name":  "Perforadora Minería",
                          "year":  "2024",
                          "vehicle_types":  [
                                                "machinery"
@@ -42910,7 +42910,7 @@
                          "id":  "crown-rc-5500-electrico-reach-2019",
                          "brand_id":  "crown",
                          "model_id":  "crown-rc-5500",
-                         "name":  "ElÃ©ctrico Reach",
+                         "name":  "Eléctrico Reach",
                          "year":  "2019",
                          "vehicle_types":  [
                                                "machinery"
@@ -42930,7 +42930,7 @@
                          "id":  "crown-rc-5500-electrico-reach-2020",
                          "brand_id":  "crown",
                          "model_id":  "crown-rc-5500",
-                         "name":  "ElÃ©ctrico Reach",
+                         "name":  "Eléctrico Reach",
                          "year":  "2020",
                          "vehicle_types":  [
                                                "machinery"
@@ -42950,7 +42950,7 @@
                          "id":  "crown-rc-5500-electrico-reach-2021",
                          "brand_id":  "crown",
                          "model_id":  "crown-rc-5500",
-                         "name":  "ElÃ©ctrico Reach",
+                         "name":  "Eléctrico Reach",
                          "year":  "2021",
                          "vehicle_types":  [
                                                "machinery"
@@ -42970,7 +42970,7 @@
                          "id":  "crown-rc-5500-electrico-reach-2022",
                          "brand_id":  "crown",
                          "model_id":  "crown-rc-5500",
-                         "name":  "ElÃ©ctrico Reach",
+                         "name":  "Eléctrico Reach",
                          "year":  "2022",
                          "vehicle_types":  [
                                                "machinery"
@@ -42990,7 +42990,7 @@
                          "id":  "crown-rc-5500-electrico-reach-2023",
                          "brand_id":  "crown",
                          "model_id":  "crown-rc-5500",
-                         "name":  "ElÃ©ctrico Reach",
+                         "name":  "Eléctrico Reach",
                          "year":  "2023",
                          "vehicle_types":  [
                                                "machinery"
@@ -43010,7 +43010,7 @@
                          "id":  "crown-rc-5500-electrico-reach-2024",
                          "brand_id":  "crown",
                          "model_id":  "crown-rc-5500",
-                         "name":  "ElÃ©ctrico Reach",
+                         "name":  "Eléctrico Reach",
                          "year":  "2024",
                          "vehicle_types":  [
                                                "machinery"
@@ -43210,7 +43210,7 @@
                          "id":  "daimler-ecascadia-camion-ev-2023",
                          "brand_id":  "daimler",
                          "model_id":  "daimler-ecascadia",
-                         "name":  "CamiÃ³n EV",
+                         "name":  "Camión EV",
                          "year":  "2023",
                          "vehicle_types":  [
                                                "truck"
@@ -43230,7 +43230,7 @@
                          "id":  "daimler-ecascadia-camion-ev-2024",
                          "brand_id":  "daimler",
                          "model_id":  "daimler-ecascadia",
-                         "name":  "CamiÃ³n EV",
+                         "name":  "Camión EV",
                          "year":  "2024",
                          "vehicle_types":  [
                                                "truck"
@@ -48390,7 +48390,7 @@
                          "id":  "freightliner-m2-106-rigido-2019",
                          "brand_id":  "freightliner",
                          "model_id":  "freightliner-m2-106",
-                         "name":  "RÃ­gido",
+                         "name":  "Rígido",
                          "year":  "2019",
                          "vehicle_types":  [
                                                "truck"
@@ -48410,7 +48410,7 @@
                          "id":  "freightliner-m2-106-rigido-2020",
                          "brand_id":  "freightliner",
                          "model_id":  "freightliner-m2-106",
-                         "name":  "RÃ­gido",
+                         "name":  "Rígido",
                          "year":  "2020",
                          "vehicle_types":  [
                                                "truck"
@@ -48430,7 +48430,7 @@
                          "id":  "freightliner-m2-106-rigido-2021",
                          "brand_id":  "freightliner",
                          "model_id":  "freightliner-m2-106",
-                         "name":  "RÃ­gido",
+                         "name":  "Rígido",
                          "year":  "2021",
                          "vehicle_types":  [
                                                "truck"
@@ -48450,7 +48450,7 @@
                          "id":  "freightliner-m2-106-rigido-2022",
                          "brand_id":  "freightliner",
                          "model_id":  "freightliner-m2-106",
-                         "name":  "RÃ­gido",
+                         "name":  "Rígido",
                          "year":  "2022",
                          "vehicle_types":  [
                                                "truck"
@@ -48470,7 +48470,7 @@
                          "id":  "freightliner-m2-106-rigido-2023",
                          "brand_id":  "freightliner",
                          "model_id":  "freightliner-m2-106",
-                         "name":  "RÃ­gido",
+                         "name":  "Rígido",
                          "year":  "2023",
                          "vehicle_types":  [
                                                "truck"
@@ -48490,7 +48490,7 @@
                          "id":  "freightliner-m2-106-rigido-2024",
                          "brand_id":  "freightliner",
                          "model_id":  "freightliner-m2-106",
-                         "name":  "RÃ­gido",
+                         "name":  "Rígido",
                          "year":  "2024",
                          "vehicle_types":  [
                                                "truck"
@@ -49070,7 +49070,7 @@
                          "id":  "hamm-hd-120-vv-rodillo-tandem-2018",
                          "brand_id":  "hamm",
                          "model_id":  "hamm-hd-120-vv",
-                         "name":  "Rodillo TÃ¡ndem",
+                         "name":  "Rodillo Tándem",
                          "year":  "2018",
                          "vehicle_types":  [
                                                "machinery"
@@ -49090,7 +49090,7 @@
                          "id":  "hamm-hd-120-vv-rodillo-tandem-2019",
                          "brand_id":  "hamm",
                          "model_id":  "hamm-hd-120-vv",
-                         "name":  "Rodillo TÃ¡ndem",
+                         "name":  "Rodillo Tándem",
                          "year":  "2019",
                          "vehicle_types":  [
                                                "machinery"
@@ -49110,7 +49110,7 @@
                          "id":  "hamm-hd-120-vv-rodillo-tandem-2020",
                          "brand_id":  "hamm",
                          "model_id":  "hamm-hd-120-vv",
-                         "name":  "Rodillo TÃ¡ndem",
+                         "name":  "Rodillo Tándem",
                          "year":  "2020",
                          "vehicle_types":  [
                                                "machinery"
@@ -49130,7 +49130,7 @@
                          "id":  "hamm-hd-120-vv-rodillo-tandem-2021",
                          "brand_id":  "hamm",
                          "model_id":  "hamm-hd-120-vv",
-                         "name":  "Rodillo TÃ¡ndem",
+                         "name":  "Rodillo Tándem",
                          "year":  "2021",
                          "vehicle_types":  [
                                                "machinery"
@@ -49150,7 +49150,7 @@
                          "id":  "hamm-hd-120-vv-rodillo-tandem-2022",
                          "brand_id":  "hamm",
                          "model_id":  "hamm-hd-120-vv",
-                         "name":  "Rodillo TÃ¡ndem",
+                         "name":  "Rodillo Tándem",
                          "year":  "2022",
                          "vehicle_types":  [
                                                "machinery"
@@ -49170,7 +49170,7 @@
                          "id":  "hamm-hd-120-vv-rodillo-tandem-2023",
                          "brand_id":  "hamm",
                          "model_id":  "hamm-hd-120-vv",
-                         "name":  "Rodillo TÃ¡ndem",
+                         "name":  "Rodillo Tándem",
                          "year":  "2023",
                          "vehicle_types":  [
                                                "machinery"
@@ -49190,7 +49190,7 @@
                          "id":  "hamm-hd-120-vv-rodillo-tandem-2024",
                          "brand_id":  "hamm",
                          "model_id":  "hamm-hd-120-vv",
-                         "name":  "Rodillo TÃ¡ndem",
+                         "name":  "Rodillo Tándem",
                          "year":  "2024",
                          "vehicle_types":  [
                                                "machinery"
@@ -49830,7 +49830,7 @@
                          "id":  "hitachi-eh5000ac-3-camion-mineria-296t-2020",
                          "brand_id":  "hitachi",
                          "model_id":  "hitachi-eh5000ac-3",
-                         "name":  "CamiÃ³n MinerÃ­a 296t",
+                         "name":  "Camión Minería 296t",
                          "year":  "2020",
                          "vehicle_types":  [
                                                "machinery"
@@ -49850,7 +49850,7 @@
                          "id":  "hitachi-eh5000ac-3-camion-mineria-296t-2021",
                          "brand_id":  "hitachi",
                          "model_id":  "hitachi-eh5000ac-3",
-                         "name":  "CamiÃ³n MinerÃ­a 296t",
+                         "name":  "Camión Minería 296t",
                          "year":  "2021",
                          "vehicle_types":  [
                                                "machinery"
@@ -49870,7 +49870,7 @@
                          "id":  "hitachi-eh5000ac-3-camion-mineria-296t-2022",
                          "brand_id":  "hitachi",
                          "model_id":  "hitachi-eh5000ac-3",
-                         "name":  "CamiÃ³n MinerÃ­a 296t",
+                         "name":  "Camión Minería 296t",
                          "year":  "2022",
                          "vehicle_types":  [
                                                "machinery"
@@ -49890,7 +49890,7 @@
                          "id":  "hitachi-eh5000ac-3-camion-mineria-296t-2023",
                          "brand_id":  "hitachi",
                          "model_id":  "hitachi-eh5000ac-3",
-                         "name":  "CamiÃ³n MinerÃ­a 296t",
+                         "name":  "Camión Minería 296t",
                          "year":  "2023",
                          "vehicle_types":  [
                                                "machinery"
@@ -49910,7 +49910,7 @@
                          "id":  "hitachi-eh5000ac-3-camion-mineria-296t-2024",
                          "brand_id":  "hitachi",
                          "model_id":  "hitachi-eh5000ac-3",
-                         "name":  "CamiÃ³n MinerÃ­a 296t",
+                         "name":  "Camión Minería 296t",
                          "year":  "2024",
                          "vehicle_types":  [
                                                "machinery"
@@ -49930,7 +49930,7 @@
                          "id":  "hitachi-ex8000-6-pala-mineria-800t-2020",
                          "brand_id":  "hitachi",
                          "model_id":  "hitachi-ex8000-6",
-                         "name":  "Pala MinerÃ­a 800t",
+                         "name":  "Pala Minería 800t",
                          "year":  "2020",
                          "vehicle_types":  [
                                                "machinery"
@@ -49950,7 +49950,7 @@
                          "id":  "hitachi-ex8000-6-pala-mineria-800t-2021",
                          "brand_id":  "hitachi",
                          "model_id":  "hitachi-ex8000-6",
-                         "name":  "Pala MinerÃ­a 800t",
+                         "name":  "Pala Minería 800t",
                          "year":  "2021",
                          "vehicle_types":  [
                                                "machinery"
@@ -49970,7 +49970,7 @@
                          "id":  "hitachi-ex8000-6-pala-mineria-800t-2022",
                          "brand_id":  "hitachi",
                          "model_id":  "hitachi-ex8000-6",
-                         "name":  "Pala MinerÃ­a 800t",
+                         "name":  "Pala Minería 800t",
                          "year":  "2022",
                          "vehicle_types":  [
                                                "machinery"
@@ -49990,7 +49990,7 @@
                          "id":  "hitachi-ex8000-6-pala-mineria-800t-2023",
                          "brand_id":  "hitachi",
                          "model_id":  "hitachi-ex8000-6",
-                         "name":  "Pala MinerÃ­a 800t",
+                         "name":  "Pala Minería 800t",
                          "year":  "2023",
                          "vehicle_types":  [
                                                "machinery"
@@ -50010,7 +50010,7 @@
                          "id":  "hitachi-ex8000-6-pala-mineria-800t-2024",
                          "brand_id":  "hitachi",
                          "model_id":  "hitachi-ex8000-6",
-                         "name":  "Pala MinerÃ­a 800t",
+                         "name":  "Pala Minería 800t",
                          "year":  "2024",
                          "vehicle_types":  [
                                                "machinery"
@@ -50090,7 +50090,7 @@
                          "id":  "hmmwv-m1097-r2-4x4-multiproposito-2003",
                          "brand_id":  "hmmwv",
                          "model_id":  "hmmwv-m1097-r2",
-                         "name":  "4x4 MultipropÃ³sito",
+                         "name":  "4x4 Multipropósito",
                          "year":  "2003",
                          "vehicle_types":  [
                                                "truck"
@@ -50110,7 +50110,7 @@
                          "id":  "hmmwv-m1097-r2-4x4-multiproposito-2004",
                          "brand_id":  "hmmwv",
                          "model_id":  "hmmwv-m1097-r2",
-                         "name":  "4x4 MultipropÃ³sito",
+                         "name":  "4x4 Multipropósito",
                          "year":  "2004",
                          "vehicle_types":  [
                                                "truck"
@@ -50130,7 +50130,7 @@
                          "id":  "hmmwv-m1097-r2-4x4-multiproposito-2005",
                          "brand_id":  "hmmwv",
                          "model_id":  "hmmwv-m1097-r2",
-                         "name":  "4x4 MultipropÃ³sito",
+                         "name":  "4x4 Multipropósito",
                          "year":  "2005",
                          "vehicle_types":  [
                                                "truck"
@@ -50150,7 +50150,7 @@
                          "id":  "hmmwv-m1097-r2-4x4-multiproposito-2006",
                          "brand_id":  "hmmwv",
                          "model_id":  "hmmwv-m1097-r2",
-                         "name":  "4x4 MultipropÃ³sito",
+                         "name":  "4x4 Multipropósito",
                          "year":  "2006",
                          "vehicle_types":  [
                                                "truck"
@@ -50170,7 +50170,7 @@
                          "id":  "hmmwv-m1097-r2-4x4-multiproposito-2007",
                          "brand_id":  "hmmwv",
                          "model_id":  "hmmwv-m1097-r2",
-                         "name":  "4x4 MultipropÃ³sito",
+                         "name":  "4x4 Multipropósito",
                          "year":  "2007",
                          "vehicle_types":  [
                                                "truck"
@@ -50190,7 +50190,7 @@
                          "id":  "hmmwv-m1097-r2-4x4-multiproposito-2008",
                          "brand_id":  "hmmwv",
                          "model_id":  "hmmwv-m1097-r2",
-                         "name":  "4x4 MultipropÃ³sito",
+                         "name":  "4x4 Multipropósito",
                          "year":  "2008",
                          "vehicle_types":  [
                                                "truck"
@@ -50210,7 +50210,7 @@
                          "id":  "hmmwv-m1097-r2-4x4-multiproposito-2009",
                          "brand_id":  "hmmwv",
                          "model_id":  "hmmwv-m1097-r2",
-                         "name":  "4x4 MultipropÃ³sito",
+                         "name":  "4x4 Multipropósito",
                          "year":  "2009",
                          "vehicle_types":  [
                                                "truck"
@@ -50230,7 +50230,7 @@
                          "id":  "hmmwv-m1097-r2-4x4-multiproposito-2010",
                          "brand_id":  "hmmwv",
                          "model_id":  "hmmwv-m1097-r2",
-                         "name":  "4x4 MultipropÃ³sito",
+                         "name":  "4x4 Multipropósito",
                          "year":  "2010",
                          "vehicle_types":  [
                                                "truck"
@@ -50250,7 +50250,7 @@
                          "id":  "hmmwv-m1097-r2-4x4-multiproposito-2011",
                          "brand_id":  "hmmwv",
                          "model_id":  "hmmwv-m1097-r2",
-                         "name":  "4x4 MultipropÃ³sito",
+                         "name":  "4x4 Multipropósito",
                          "year":  "2011",
                          "vehicle_types":  [
                                                "truck"
@@ -50270,7 +50270,7 @@
                          "id":  "hmmwv-m1097-r2-4x4-multiproposito-2012",
                          "brand_id":  "hmmwv",
                          "model_id":  "hmmwv-m1097-r2",
-                         "name":  "4x4 MultipropÃ³sito",
+                         "name":  "4x4 Multipropósito",
                          "year":  "2012",
                          "vehicle_types":  [
                                                "truck"
@@ -50290,7 +50290,7 @@
                          "id":  "hmmwv-m1097-r2-4x4-multiproposito-2013",
                          "brand_id":  "hmmwv",
                          "model_id":  "hmmwv-m1097-r2",
-                         "name":  "4x4 MultipropÃ³sito",
+                         "name":  "4x4 Multipropósito",
                          "year":  "2013",
                          "vehicle_types":  [
                                                "truck"
@@ -50310,7 +50310,7 @@
                          "id":  "hmmwv-m1097-r2-4x4-multiproposito-2014",
                          "brand_id":  "hmmwv",
                          "model_id":  "hmmwv-m1097-r2",
-                         "name":  "4x4 MultipropÃ³sito",
+                         "name":  "4x4 Multipropósito",
                          "year":  "2014",
                          "vehicle_types":  [
                                                "truck"
@@ -50330,7 +50330,7 @@
                          "id":  "hmmwv-m1097-r2-4x4-multiproposito-2015",
                          "brand_id":  "hmmwv",
                          "model_id":  "hmmwv-m1097-r2",
-                         "name":  "4x4 MultipropÃ³sito",
+                         "name":  "4x4 Multipropósito",
                          "year":  "2015",
                          "vehicle_types":  [
                                                "truck"
@@ -50350,7 +50350,7 @@
                          "id":  "hmmwv-m1097-r2-4x4-multiproposito-2016",
                          "brand_id":  "hmmwv",
                          "model_id":  "hmmwv-m1097-r2",
-                         "name":  "4x4 MultipropÃ³sito",
+                         "name":  "4x4 Multipropósito",
                          "year":  "2016",
                          "vehicle_types":  [
                                                "truck"
@@ -50370,7 +50370,7 @@
                          "id":  "hmmwv-m1097-r2-4x4-multiproposito-2017",
                          "brand_id":  "hmmwv",
                          "model_id":  "hmmwv-m1097-r2",
-                         "name":  "4x4 MultipropÃ³sito",
+                         "name":  "4x4 Multipropósito",
                          "year":  "2017",
                          "vehicle_types":  [
                                                "truck"
@@ -50390,7 +50390,7 @@
                          "id":  "hmmwv-m1097-r2-4x4-multiproposito-2018",
                          "brand_id":  "hmmwv",
                          "model_id":  "hmmwv-m1097-r2",
-                         "name":  "4x4 MultipropÃ³sito",
+                         "name":  "4x4 Multipropósito",
                          "year":  "2018",
                          "vehicle_types":  [
                                                "truck"
@@ -50410,7 +50410,7 @@
                          "id":  "hmmwv-m1097-r2-4x4-multiproposito-2019",
                          "brand_id":  "hmmwv",
                          "model_id":  "hmmwv-m1097-r2",
-                         "name":  "4x4 MultipropÃ³sito",
+                         "name":  "4x4 Multipropósito",
                          "year":  "2019",
                          "vehicle_types":  [
                                                "truck"
@@ -50430,7 +50430,7 @@
                          "id":  "hmmwv-m1097-r2-4x4-multiproposito-2020",
                          "brand_id":  "hmmwv",
                          "model_id":  "hmmwv-m1097-r2",
-                         "name":  "4x4 MultipropÃ³sito",
+                         "name":  "4x4 Multipropósito",
                          "year":  "2020",
                          "vehicle_types":  [
                                                "truck"
@@ -50450,7 +50450,7 @@
                          "id":  "hmmwv-m1097-r2-4x4-multiproposito-2021",
                          "brand_id":  "hmmwv",
                          "model_id":  "hmmwv-m1097-r2",
-                         "name":  "4x4 MultipropÃ³sito",
+                         "name":  "4x4 Multipropósito",
                          "year":  "2021",
                          "vehicle_types":  [
                                                "truck"
@@ -50470,7 +50470,7 @@
                          "id":  "hmmwv-m1097-r2-4x4-multiproposito-2022",
                          "brand_id":  "hmmwv",
                          "model_id":  "hmmwv-m1097-r2",
-                         "name":  "4x4 MultipropÃ³sito",
+                         "name":  "4x4 Multipropósito",
                          "year":  "2022",
                          "vehicle_types":  [
                                                "truck"
@@ -50490,7 +50490,7 @@
                          "id":  "hmmwv-m1097-r2-4x4-multiproposito-2023",
                          "brand_id":  "hmmwv",
                          "model_id":  "hmmwv-m1097-r2",
-                         "name":  "4x4 MultipropÃ³sito",
+                         "name":  "4x4 Multipropósito",
                          "year":  "2023",
                          "vehicle_types":  [
                                                "truck"
@@ -50510,7 +50510,7 @@
                          "id":  "hmmwv-m1097-r2-4x4-multiproposito-2024",
                          "brand_id":  "hmmwv",
                          "model_id":  "hmmwv-m1097-r2",
-                         "name":  "4x4 MultipropÃ³sito",
+                         "name":  "4x4 Multipropósito",
                          "year":  "2024",
                          "vehicle_types":  [
                                                "truck"
@@ -53930,7 +53930,7 @@
                          "id":  "hyundai-xcient-fuel-cell-camion-h2-2020",
                          "brand_id":  "hyundai",
                          "model_id":  "hyundai-xcient-fuel-cell",
-                         "name":  "CamiÃ³n H2",
+                         "name":  "Camión H2",
                          "year":  "2020",
                          "vehicle_types":  [
                                                "truck"
@@ -53950,7 +53950,7 @@
                          "id":  "hyundai-xcient-fuel-cell-camion-h2-2021",
                          "brand_id":  "hyundai",
                          "model_id":  "hyundai-xcient-fuel-cell",
-                         "name":  "CamiÃ³n H2",
+                         "name":  "Camión H2",
                          "year":  "2021",
                          "vehicle_types":  [
                                                "truck"
@@ -53970,7 +53970,7 @@
                          "id":  "hyundai-xcient-fuel-cell-camion-h2-2022",
                          "brand_id":  "hyundai",
                          "model_id":  "hyundai-xcient-fuel-cell",
-                         "name":  "CamiÃ³n H2",
+                         "name":  "Camión H2",
                          "year":  "2022",
                          "vehicle_types":  [
                                                "truck"
@@ -53990,7 +53990,7 @@
                          "id":  "hyundai-xcient-fuel-cell-camion-h2-2023",
                          "brand_id":  "hyundai",
                          "model_id":  "hyundai-xcient-fuel-cell",
-                         "name":  "CamiÃ³n H2",
+                         "name":  "Camión H2",
                          "year":  "2023",
                          "vehicle_types":  [
                                                "truck"
@@ -54010,7 +54010,7 @@
                          "id":  "hyundai-xcient-fuel-cell-camion-h2-2024",
                          "brand_id":  "hyundai",
                          "model_id":  "hyundai-xcient-fuel-cell",
-                         "name":  "CamiÃ³n H2",
+                         "name":  "Camión H2",
                          "year":  "2024",
                          "vehicle_types":  [
                                                "truck"
@@ -54600,7 +54600,7 @@
                          "id":  "irizar-ie-bus-electrico-2021",
                          "brand_id":  "irizar",
                          "model_id":  "irizar-ie-bus",
-                         "name":  "ElÃ©ctrico",
+                         "name":  "Eléctrico",
                          "year":  "2021",
                          "vehicle_types":  [
                                                "bus"
@@ -54620,7 +54620,7 @@
                          "id":  "irizar-ie-bus-electrico-2022",
                          "brand_id":  "irizar",
                          "model_id":  "irizar-ie-bus",
-                         "name":  "ElÃ©ctrico",
+                         "name":  "Eléctrico",
                          "year":  "2022",
                          "vehicle_types":  [
                                                "bus"
@@ -54640,7 +54640,7 @@
                          "id":  "irizar-ie-bus-electrico-2023",
                          "brand_id":  "irizar",
                          "model_id":  "irizar-ie-bus",
-                         "name":  "ElÃ©ctrico",
+                         "name":  "Eléctrico",
                          "year":  "2023",
                          "vehicle_types":  [
                                                "bus"
@@ -54660,7 +54660,7 @@
                          "id":  "irizar-ie-bus-electrico-2024",
                          "brand_id":  "irizar",
                          "model_id":  "irizar-ie-bus",
-                         "name":  "ElÃ©ctrico",
+                         "name":  "Eléctrico",
                          "year":  "2024",
                          "vehicle_types":  [
                                                "bus"
@@ -54770,7 +54770,7 @@
                          "id":  "iveco-daily-35s14-furgon-2019",
                          "brand_id":  "iveco",
                          "model_id":  "iveco-daily",
-                         "name":  "35S14 FurgÃ³n",
+                         "name":  "35S14 Furgón",
                          "year":  "2019",
                          "vehicle_types":  [
                                                "truck"
@@ -54790,7 +54790,7 @@
                          "id":  "iveco-daily-35s14-furgon-2020",
                          "brand_id":  "iveco",
                          "model_id":  "iveco-daily",
-                         "name":  "35S14 FurgÃ³n",
+                         "name":  "35S14 Furgón",
                          "year":  "2020",
                          "vehicle_types":  [
                                                "truck"
@@ -54830,7 +54830,7 @@
                          "id":  "iveco-daily-35s14-furgon-2021",
                          "brand_id":  "iveco",
                          "model_id":  "iveco-daily",
-                         "name":  "35S14 FurgÃ³n",
+                         "name":  "35S14 Furgón",
                          "year":  "2021",
                          "vehicle_types":  [
                                                "truck"
@@ -54870,7 +54870,7 @@
                          "id":  "iveco-daily-35s14-furgon-2022",
                          "brand_id":  "iveco",
                          "model_id":  "iveco-daily",
-                         "name":  "35S14 FurgÃ³n",
+                         "name":  "35S14 Furgón",
                          "year":  "2022",
                          "vehicle_types":  [
                                                "truck"
@@ -54910,7 +54910,7 @@
                          "id":  "iveco-daily-35s14-furgon-2023",
                          "brand_id":  "iveco",
                          "model_id":  "iveco-daily",
-                         "name":  "35S14 FurgÃ³n",
+                         "name":  "35S14 Furgón",
                          "year":  "2023",
                          "vehicle_types":  [
                                                "truck"
@@ -54950,7 +54950,7 @@
                          "id":  "iveco-daily-35s14-furgon-2024",
                          "brand_id":  "iveco",
                          "model_id":  "iveco-daily",
-                         "name":  "35S14 FurgÃ³n",
+                         "name":  "35S14 Furgón",
                          "year":  "2024",
                          "vehicle_types":  [
                                                "truck"
@@ -56190,7 +56190,7 @@
                          "id":  "jltv-l-atv-oshkosh-4x4-tactico-2016",
                          "brand_id":  "jltv",
                          "model_id":  "jltv-l-atv-oshkosh",
-                         "name":  "4x4 TÃ¡ctico",
+                         "name":  "4x4 Táctico",
                          "year":  "2016",
                          "vehicle_types":  [
                                                "motorcycle"
@@ -56210,7 +56210,7 @@
                          "id":  "jltv-l-atv-oshkosh-4x4-tactico-2017",
                          "brand_id":  "jltv",
                          "model_id":  "jltv-l-atv-oshkosh",
-                         "name":  "4x4 TÃ¡ctico",
+                         "name":  "4x4 Táctico",
                          "year":  "2017",
                          "vehicle_types":  [
                                                "motorcycle"
@@ -56230,7 +56230,7 @@
                          "id":  "jltv-l-atv-oshkosh-4x4-tactico-2018",
                          "brand_id":  "jltv",
                          "model_id":  "jltv-l-atv-oshkosh",
-                         "name":  "4x4 TÃ¡ctico",
+                         "name":  "4x4 Táctico",
                          "year":  "2018",
                          "vehicle_types":  [
                                                "motorcycle"
@@ -56250,7 +56250,7 @@
                          "id":  "jltv-l-atv-oshkosh-4x4-tactico-2019",
                          "brand_id":  "jltv",
                          "model_id":  "jltv-l-atv-oshkosh",
-                         "name":  "4x4 TÃ¡ctico",
+                         "name":  "4x4 Táctico",
                          "year":  "2019",
                          "vehicle_types":  [
                                                "motorcycle"
@@ -56270,7 +56270,7 @@
                          "id":  "jltv-l-atv-oshkosh-4x4-tactico-2020",
                          "brand_id":  "jltv",
                          "model_id":  "jltv-l-atv-oshkosh",
-                         "name":  "4x4 TÃ¡ctico",
+                         "name":  "4x4 Táctico",
                          "year":  "2020",
                          "vehicle_types":  [
                                                "motorcycle"
@@ -56290,7 +56290,7 @@
                          "id":  "jltv-l-atv-oshkosh-4x4-tactico-2021",
                          "brand_id":  "jltv",
                          "model_id":  "jltv-l-atv-oshkosh",
-                         "name":  "4x4 TÃ¡ctico",
+                         "name":  "4x4 Táctico",
                          "year":  "2021",
                          "vehicle_types":  [
                                                "motorcycle"
@@ -56310,7 +56310,7 @@
                          "id":  "jltv-l-atv-oshkosh-4x4-tactico-2022",
                          "brand_id":  "jltv",
                          "model_id":  "jltv-l-atv-oshkosh",
-                         "name":  "4x4 TÃ¡ctico",
+                         "name":  "4x4 Táctico",
                          "year":  "2022",
                          "vehicle_types":  [
                                                "motorcycle"
@@ -56330,7 +56330,7 @@
                          "id":  "jltv-l-atv-oshkosh-4x4-tactico-2023",
                          "brand_id":  "jltv",
                          "model_id":  "jltv-l-atv-oshkosh",
-                         "name":  "4x4 TÃ¡ctico",
+                         "name":  "4x4 Táctico",
                          "year":  "2023",
                          "vehicle_types":  [
                                                "motorcycle"
@@ -56350,7 +56350,7 @@
                          "id":  "jltv-l-atv-oshkosh-4x4-tactico-2024",
                          "brand_id":  "jltv",
                          "model_id":  "jltv-l-atv-oshkosh",
-                         "name":  "4x4 TÃ¡ctico",
+                         "name":  "4x4 Táctico",
                          "year":  "2024",
                          "vehicle_types":  [
                                                "motorcycle"
@@ -57630,7 +57630,7 @@
                          "id":  "kawasaki-w800-cafe-abs-2019",
                          "brand_id":  "kawasaki",
                          "model_id":  "kawasaki-w800",
-                         "name":  "CafÃ© ABS",
+                         "name":  "Café ABS",
                          "year":  "2019",
                          "vehicle_types":  [
                                                "motorcycle"
@@ -57650,7 +57650,7 @@
                          "id":  "kawasaki-w800-cafe-abs-2020",
                          "brand_id":  "kawasaki",
                          "model_id":  "kawasaki-w800",
-                         "name":  "CafÃ© ABS",
+                         "name":  "Café ABS",
                          "year":  "2020",
                          "vehicle_types":  [
                                                "motorcycle"
@@ -57670,7 +57670,7 @@
                          "id":  "kawasaki-w800-cafe-abs-2021",
                          "brand_id":  "kawasaki",
                          "model_id":  "kawasaki-w800",
-                         "name":  "CafÃ© ABS",
+                         "name":  "Café ABS",
                          "year":  "2021",
                          "vehicle_types":  [
                                                "motorcycle"
@@ -57690,7 +57690,7 @@
                          "id":  "kawasaki-w800-cafe-abs-2022",
                          "brand_id":  "kawasaki",
                          "model_id":  "kawasaki-w800",
-                         "name":  "CafÃ© ABS",
+                         "name":  "Café ABS",
                          "year":  "2022",
                          "vehicle_types":  [
                                                "motorcycle"
@@ -57710,7 +57710,7 @@
                          "id":  "kawasaki-w800-cafe-abs-2023",
                          "brand_id":  "kawasaki",
                          "model_id":  "kawasaki-w800",
-                         "name":  "CafÃ© ABS",
+                         "name":  "Café ABS",
                          "year":  "2023",
                          "vehicle_types":  [
                                                "motorcycle"
@@ -57730,7 +57730,7 @@
                          "id":  "kawasaki-w800-cafe-abs-2024",
                          "brand_id":  "kawasaki",
                          "model_id":  "kawasaki-w800",
-                         "name":  "CafÃ© ABS",
+                         "name":  "Café ABS",
                          "year":  "2024",
                          "vehicle_types":  [
                                                "motorcycle"
@@ -59050,7 +59050,7 @@
                          "id":  "komatsu-930e-camion-mineria-291t-2019",
                          "brand_id":  "komatsu",
                          "model_id":  "komatsu-930e",
-                         "name":  "CamiÃ³n MinerÃ­a 291t",
+                         "name":  "Camión Minería 291t",
                          "year":  "2019",
                          "vehicle_types":  [
                                                "machinery"
@@ -59070,7 +59070,7 @@
                          "id":  "komatsu-930e-camion-mineria-291t-2020",
                          "brand_id":  "komatsu",
                          "model_id":  "komatsu-930e",
-                         "name":  "CamiÃ³n MinerÃ­a 291t",
+                         "name":  "Camión Minería 291t",
                          "year":  "2020",
                          "vehicle_types":  [
                                                "machinery"
@@ -59090,7 +59090,7 @@
                          "id":  "komatsu-930e-camion-mineria-291t-2021",
                          "brand_id":  "komatsu",
                          "model_id":  "komatsu-930e",
-                         "name":  "CamiÃ³n MinerÃ­a 291t",
+                         "name":  "Camión Minería 291t",
                          "year":  "2021",
                          "vehicle_types":  [
                                                "machinery"
@@ -59110,7 +59110,7 @@
                          "id":  "komatsu-930e-camion-mineria-291t-2022",
                          "brand_id":  "komatsu",
                          "model_id":  "komatsu-930e",
-                         "name":  "CamiÃ³n MinerÃ­a 291t",
+                         "name":  "Camión Minería 291t",
                          "year":  "2022",
                          "vehicle_types":  [
                                                "machinery"
@@ -59130,7 +59130,7 @@
                          "id":  "komatsu-930e-camion-mineria-291t-2023",
                          "brand_id":  "komatsu",
                          "model_id":  "komatsu-930e",
-                         "name":  "CamiÃ³n MinerÃ­a 291t",
+                         "name":  "Camión Minería 291t",
                          "year":  "2023",
                          "vehicle_types":  [
                                                "machinery"
@@ -59150,7 +59150,7 @@
                          "id":  "komatsu-930e-camion-mineria-291t-2024",
                          "brand_id":  "komatsu",
                          "model_id":  "komatsu-930e",
-                         "name":  "CamiÃ³n MinerÃ­a 291t",
+                         "name":  "Camión Minería 291t",
                          "year":  "2024",
                          "vehicle_types":  [
                                                "machinery"
@@ -59170,7 +59170,7 @@
                          "id":  "komatsu-d475a-bulldozer-mineria-2019",
                          "brand_id":  "komatsu",
                          "model_id":  "komatsu-d475a",
-                         "name":  "Bulldozer MinerÃ­a",
+                         "name":  "Bulldozer Minería",
                          "year":  "2019",
                          "vehicle_types":  [
                                                "machinery"
@@ -59190,7 +59190,7 @@
                          "id":  "komatsu-d475a-bulldozer-mineria-2020",
                          "brand_id":  "komatsu",
                          "model_id":  "komatsu-d475a",
-                         "name":  "Bulldozer MinerÃ­a",
+                         "name":  "Bulldozer Minería",
                          "year":  "2020",
                          "vehicle_types":  [
                                                "machinery"
@@ -59210,7 +59210,7 @@
                          "id":  "komatsu-d475a-bulldozer-mineria-2021",
                          "brand_id":  "komatsu",
                          "model_id":  "komatsu-d475a",
-                         "name":  "Bulldozer MinerÃ­a",
+                         "name":  "Bulldozer Minería",
                          "year":  "2021",
                          "vehicle_types":  [
                                                "machinery"
@@ -59230,7 +59230,7 @@
                          "id":  "komatsu-d475a-bulldozer-mineria-2022",
                          "brand_id":  "komatsu",
                          "model_id":  "komatsu-d475a",
-                         "name":  "Bulldozer MinerÃ­a",
+                         "name":  "Bulldozer Minería",
                          "year":  "2022",
                          "vehicle_types":  [
                                                "machinery"
@@ -59250,7 +59250,7 @@
                          "id":  "komatsu-d475a-bulldozer-mineria-2023",
                          "brand_id":  "komatsu",
                          "model_id":  "komatsu-d475a",
-                         "name":  "Bulldozer MinerÃ­a",
+                         "name":  "Bulldozer Minería",
                          "year":  "2023",
                          "vehicle_types":  [
                                                "machinery"
@@ -59270,7 +59270,7 @@
                          "id":  "komatsu-d475a-bulldozer-mineria-2024",
                          "brand_id":  "komatsu",
                          "model_id":  "komatsu-d475a",
-                         "name":  "Bulldozer MinerÃ­a",
+                         "name":  "Bulldozer Minería",
                          "year":  "2024",
                          "vehicle_types":  [
                                                "machinery"
@@ -59420,7 +59420,7 @@
                          "id":  "komatsu-hd785-camion-mineria-91t-2019",
                          "brand_id":  "komatsu",
                          "model_id":  "komatsu-hd785",
-                         "name":  "CamiÃ³n MinerÃ­a 91t",
+                         "name":  "Camión Minería 91t",
                          "year":  "2019",
                          "vehicle_types":  [
                                                "machinery"
@@ -59440,7 +59440,7 @@
                          "id":  "komatsu-hd785-camion-mineria-91t-2020",
                          "brand_id":  "komatsu",
                          "model_id":  "komatsu-hd785",
-                         "name":  "CamiÃ³n MinerÃ­a 91t",
+                         "name":  "Camión Minería 91t",
                          "year":  "2020",
                          "vehicle_types":  [
                                                "machinery"
@@ -59460,7 +59460,7 @@
                          "id":  "komatsu-hd785-camion-mineria-91t-2021",
                          "brand_id":  "komatsu",
                          "model_id":  "komatsu-hd785",
-                         "name":  "CamiÃ³n MinerÃ­a 91t",
+                         "name":  "Camión Minería 91t",
                          "year":  "2021",
                          "vehicle_types":  [
                                                "machinery"
@@ -59480,7 +59480,7 @@
                          "id":  "komatsu-hd785-camion-mineria-91t-2022",
                          "brand_id":  "komatsu",
                          "model_id":  "komatsu-hd785",
-                         "name":  "CamiÃ³n MinerÃ­a 91t",
+                         "name":  "Camión Minería 91t",
                          "year":  "2022",
                          "vehicle_types":  [
                                                "machinery"
@@ -59500,7 +59500,7 @@
                          "id":  "komatsu-hd785-camion-mineria-91t-2023",
                          "brand_id":  "komatsu",
                          "model_id":  "komatsu-hd785",
-                         "name":  "CamiÃ³n MinerÃ­a 91t",
+                         "name":  "Camión Minería 91t",
                          "year":  "2023",
                          "vehicle_types":  [
                                                "machinery"
@@ -59520,7 +59520,7 @@
                          "id":  "komatsu-hd785-camion-mineria-91t-2024",
                          "brand_id":  "komatsu",
                          "model_id":  "komatsu-hd785",
-                         "name":  "CamiÃ³n MinerÃ­a 91t",
+                         "name":  "Camión Minería 91t",
                          "year":  "2024",
                          "vehicle_types":  [
                                                "machinery"
@@ -62770,7 +62770,7 @@
                          "id":  "liebherr-hc-l-10-12-grua-torre-2021",
                          "brand_id":  "liebherr",
                          "model_id":  "liebherr-hc-l-10-12",
-                         "name":  "GrÃºa Torre",
+                         "name":  "Grúa Torre",
                          "year":  "2021",
                          "vehicle_types":  [
                                                "machinery"
@@ -62790,7 +62790,7 @@
                          "id":  "liebherr-hc-l-10-12-grua-torre-2022",
                          "brand_id":  "liebherr",
                          "model_id":  "liebherr-hc-l-10-12",
-                         "name":  "GrÃºa Torre",
+                         "name":  "Grúa Torre",
                          "year":  "2022",
                          "vehicle_types":  [
                                                "machinery"
@@ -62810,7 +62810,7 @@
                          "id":  "liebherr-hc-l-10-12-grua-torre-2023",
                          "brand_id":  "liebherr",
                          "model_id":  "liebherr-hc-l-10-12",
-                         "name":  "GrÃºa Torre",
+                         "name":  "Grúa Torre",
                          "year":  "2023",
                          "vehicle_types":  [
                                                "machinery"
@@ -62830,7 +62830,7 @@
                          "id":  "liebherr-hc-l-10-12-grua-torre-2024",
                          "brand_id":  "liebherr",
                          "model_id":  "liebherr-hc-l-10-12",
-                         "name":  "GrÃºa Torre",
+                         "name":  "Grúa Torre",
                          "year":  "2024",
                          "vehicle_types":  [
                                                "machinery"
@@ -62900,7 +62900,7 @@
                          "id":  "liebherr-lr-1750-grua-sobre-orugas-750t-2020",
                          "brand_id":  "liebherr",
                          "model_id":  "liebherr-lr-1750",
-                         "name":  "GrÃºa Sobre Orugas 750t",
+                         "name":  "Grúa Sobre Orugas 750t",
                          "year":  "2020",
                          "vehicle_types":  [
                                                "machinery"
@@ -62920,7 +62920,7 @@
                          "id":  "liebherr-lr-1750-grua-sobre-orugas-750t-2021",
                          "brand_id":  "liebherr",
                          "model_id":  "liebherr-lr-1750",
-                         "name":  "GrÃºa Sobre Orugas 750t",
+                         "name":  "Grúa Sobre Orugas 750t",
                          "year":  "2021",
                          "vehicle_types":  [
                                                "machinery"
@@ -62940,7 +62940,7 @@
                          "id":  "liebherr-lr-1750-grua-sobre-orugas-750t-2022",
                          "brand_id":  "liebherr",
                          "model_id":  "liebherr-lr-1750",
-                         "name":  "GrÃºa Sobre Orugas 750t",
+                         "name":  "Grúa Sobre Orugas 750t",
                          "year":  "2022",
                          "vehicle_types":  [
                                                "machinery"
@@ -62960,7 +62960,7 @@
                          "id":  "liebherr-lr-1750-grua-sobre-orugas-750t-2023",
                          "brand_id":  "liebherr",
                          "model_id":  "liebherr-lr-1750",
-                         "name":  "GrÃºa Sobre Orugas 750t",
+                         "name":  "Grúa Sobre Orugas 750t",
                          "year":  "2023",
                          "vehicle_types":  [
                                                "machinery"
@@ -62980,7 +62980,7 @@
                          "id":  "liebherr-lr-1750-grua-sobre-orugas-750t-2024",
                          "brand_id":  "liebherr",
                          "model_id":  "liebherr-lr-1750",
-                         "name":  "GrÃºa Sobre Orugas 750t",
+                         "name":  "Grúa Sobre Orugas 750t",
                          "year":  "2024",
                          "vehicle_types":  [
                                                "machinery"
@@ -63000,7 +63000,7 @@
                          "id":  "liebherr-ltm-1100-grua-movil-100t-2018",
                          "brand_id":  "liebherr",
                          "model_id":  "liebherr-ltm-1100",
-                         "name":  "GrÃºa MÃ³vil 100t",
+                         "name":  "Grúa Móvil 100t",
                          "year":  "2018",
                          "vehicle_types":  [
                                                "machinery"
@@ -63020,7 +63020,7 @@
                          "id":  "liebherr-ltm-1100-grua-movil-100t-2019",
                          "brand_id":  "liebherr",
                          "model_id":  "liebherr-ltm-1100",
-                         "name":  "GrÃºa MÃ³vil 100t",
+                         "name":  "Grúa Móvil 100t",
                          "year":  "2019",
                          "vehicle_types":  [
                                                "machinery"
@@ -63040,7 +63040,7 @@
                          "id":  "liebherr-ltm-1100-grua-movil-100t-2020",
                          "brand_id":  "liebherr",
                          "model_id":  "liebherr-ltm-1100",
-                         "name":  "GrÃºa MÃ³vil 100t",
+                         "name":  "Grúa Móvil 100t",
                          "year":  "2020",
                          "vehicle_types":  [
                                                "machinery"
@@ -63060,7 +63060,7 @@
                          "id":  "liebherr-ltm-1100-grua-movil-100t-2021",
                          "brand_id":  "liebherr",
                          "model_id":  "liebherr-ltm-1100",
-                         "name":  "GrÃºa MÃ³vil 100t",
+                         "name":  "Grúa Móvil 100t",
                          "year":  "2021",
                          "vehicle_types":  [
                                                "machinery"
@@ -63080,7 +63080,7 @@
                          "id":  "liebherr-ltm-1100-grua-movil-100t-2022",
                          "brand_id":  "liebherr",
                          "model_id":  "liebherr-ltm-1100",
-                         "name":  "GrÃºa MÃ³vil 100t",
+                         "name":  "Grúa Móvil 100t",
                          "year":  "2022",
                          "vehicle_types":  [
                                                "machinery"
@@ -63100,7 +63100,7 @@
                          "id":  "liebherr-ltm-1100-grua-movil-100t-2023",
                          "brand_id":  "liebherr",
                          "model_id":  "liebherr-ltm-1100",
-                         "name":  "GrÃºa MÃ³vil 100t",
+                         "name":  "Grúa Móvil 100t",
                          "year":  "2023",
                          "vehicle_types":  [
                                                "machinery"
@@ -63120,7 +63120,7 @@
                          "id":  "liebherr-ltm-1100-grua-movil-100t-2024",
                          "brand_id":  "liebherr",
                          "model_id":  "liebherr-ltm-1100",
-                         "name":  "GrÃºa MÃ³vil 100t",
+                         "name":  "Grúa Móvil 100t",
                          "year":  "2024",
                          "vehicle_types":  [
                                                "machinery"
@@ -63140,7 +63140,7 @@
                          "id":  "liebherr-ltm-1350-grua-movil-350t-2019",
                          "brand_id":  "liebherr",
                          "model_id":  "liebherr-ltm-1350",
-                         "name":  "GrÃºa MÃ³vil 350t",
+                         "name":  "Grúa Móvil 350t",
                          "year":  "2019",
                          "vehicle_types":  [
                                                "machinery"
@@ -63160,7 +63160,7 @@
                          "id":  "liebherr-ltm-1350-grua-movil-350t-2020",
                          "brand_id":  "liebherr",
                          "model_id":  "liebherr-ltm-1350",
-                         "name":  "GrÃºa MÃ³vil 350t",
+                         "name":  "Grúa Móvil 350t",
                          "year":  "2020",
                          "vehicle_types":  [
                                                "machinery"
@@ -63180,7 +63180,7 @@
                          "id":  "liebherr-ltm-1350-grua-movil-350t-2021",
                          "brand_id":  "liebherr",
                          "model_id":  "liebherr-ltm-1350",
-                         "name":  "GrÃºa MÃ³vil 350t",
+                         "name":  "Grúa Móvil 350t",
                          "year":  "2021",
                          "vehicle_types":  [
                                                "machinery"
@@ -63200,7 +63200,7 @@
                          "id":  "liebherr-ltm-1350-grua-movil-350t-2022",
                          "brand_id":  "liebherr",
                          "model_id":  "liebherr-ltm-1350",
-                         "name":  "GrÃºa MÃ³vil 350t",
+                         "name":  "Grúa Móvil 350t",
                          "year":  "2022",
                          "vehicle_types":  [
                                                "machinery"
@@ -63220,7 +63220,7 @@
                          "id":  "liebherr-ltm-1350-grua-movil-350t-2023",
                          "brand_id":  "liebherr",
                          "model_id":  "liebherr-ltm-1350",
-                         "name":  "GrÃºa MÃ³vil 350t",
+                         "name":  "Grúa Móvil 350t",
                          "year":  "2023",
                          "vehicle_types":  [
                                                "machinery"
@@ -63240,7 +63240,7 @@
                          "id":  "liebherr-ltm-1350-grua-movil-350t-2024",
                          "brand_id":  "liebherr",
                          "model_id":  "liebherr-ltm-1350",
-                         "name":  "GrÃºa MÃ³vil 350t",
+                         "name":  "Grúa Móvil 350t",
                          "year":  "2024",
                          "vehicle_types":  [
                                                "machinery"
@@ -63310,7 +63310,7 @@
                          "id":  "liebherr-r9400-mineria-400t-2019",
                          "brand_id":  "liebherr",
                          "model_id":  "liebherr-r9400",
-                         "name":  "MinerÃ­a 400t",
+                         "name":  "Minería 400t",
                          "year":  "2019",
                          "vehicle_types":  [
                                                "machinery"
@@ -63330,7 +63330,7 @@
                          "id":  "liebherr-r9400-mineria-400t-2020",
                          "brand_id":  "liebherr",
                          "model_id":  "liebherr-r9400",
-                         "name":  "MinerÃ­a 400t",
+                         "name":  "Minería 400t",
                          "year":  "2020",
                          "vehicle_types":  [
                                                "machinery"
@@ -63350,7 +63350,7 @@
                          "id":  "liebherr-r9400-mineria-400t-2021",
                          "brand_id":  "liebherr",
                          "model_id":  "liebherr-r9400",
-                         "name":  "MinerÃ­a 400t",
+                         "name":  "Minería 400t",
                          "year":  "2021",
                          "vehicle_types":  [
                                                "machinery"
@@ -63370,7 +63370,7 @@
                          "id":  "liebherr-r9400-mineria-400t-2022",
                          "brand_id":  "liebherr",
                          "model_id":  "liebherr-r9400",
-                         "name":  "MinerÃ­a 400t",
+                         "name":  "Minería 400t",
                          "year":  "2022",
                          "vehicle_types":  [
                                                "machinery"
@@ -63390,7 +63390,7 @@
                          "id":  "liebherr-r9400-mineria-400t-2023",
                          "brand_id":  "liebherr",
                          "model_id":  "liebherr-r9400",
-                         "name":  "MinerÃ­a 400t",
+                         "name":  "Minería 400t",
                          "year":  "2023",
                          "vehicle_types":  [
                                                "machinery"
@@ -63410,7 +63410,7 @@
                          "id":  "liebherr-r9400-mineria-400t-2024",
                          "brand_id":  "liebherr",
                          "model_id":  "liebherr-r9400",
-                         "name":  "MinerÃ­a 400t",
+                         "name":  "Minería 400t",
                          "year":  "2024",
                          "vehicle_types":  [
                                                "machinery"
@@ -63430,7 +63430,7 @@
                          "id":  "liebherr-t-264-camion-mineria-240t-2019",
                          "brand_id":  "liebherr",
                          "model_id":  "liebherr-t-264",
-                         "name":  "CamiÃ³n MinerÃ­a 240t",
+                         "name":  "Camión Minería 240t",
                          "year":  "2019",
                          "vehicle_types":  [
                                                "machinery"
@@ -63450,7 +63450,7 @@
                          "id":  "liebherr-t-264-camion-mineria-240t-2020",
                          "brand_id":  "liebherr",
                          "model_id":  "liebherr-t-264",
-                         "name":  "CamiÃ³n MinerÃ­a 240t",
+                         "name":  "Camión Minería 240t",
                          "year":  "2020",
                          "vehicle_types":  [
                                                "machinery"
@@ -63470,7 +63470,7 @@
                          "id":  "liebherr-t-264-camion-mineria-240t-2021",
                          "brand_id":  "liebherr",
                          "model_id":  "liebherr-t-264",
-                         "name":  "CamiÃ³n MinerÃ­a 240t",
+                         "name":  "Camión Minería 240t",
                          "year":  "2021",
                          "vehicle_types":  [
                                                "machinery"
@@ -63490,7 +63490,7 @@
                          "id":  "liebherr-t-264-camion-mineria-240t-2022",
                          "brand_id":  "liebherr",
                          "model_id":  "liebherr-t-264",
-                         "name":  "CamiÃ³n MinerÃ­a 240t",
+                         "name":  "Camión Minería 240t",
                          "year":  "2022",
                          "vehicle_types":  [
                                                "machinery"
@@ -63510,7 +63510,7 @@
                          "id":  "liebherr-t-264-camion-mineria-240t-2023",
                          "brand_id":  "liebherr",
                          "model_id":  "liebherr-t-264",
-                         "name":  "CamiÃ³n MinerÃ­a 240t",
+                         "name":  "Camión Minería 240t",
                          "year":  "2023",
                          "vehicle_types":  [
                                                "machinery"
@@ -63530,7 +63530,7 @@
                          "id":  "liebherr-t-264-camion-mineria-240t-2024",
                          "brand_id":  "liebherr",
                          "model_id":  "liebherr-t-264",
-                         "name":  "CamiÃ³n MinerÃ­a 240t",
+                         "name":  "Camión Minería 240t",
                          "year":  "2024",
                          "vehicle_types":  [
                                                "machinery"
@@ -64660,7 +64660,7 @@
                          "id":  "manitowoc-grove-gmk5150-grua-movil-150t-2018",
                          "brand_id":  "manitowoc",
                          "model_id":  "manitowoc-grove-gmk5150",
-                         "name":  "GrÃºa MÃ³vil 150t",
+                         "name":  "Grúa Móvil 150t",
                          "year":  "2018",
                          "vehicle_types":  [
                                                "machinery"
@@ -64680,7 +64680,7 @@
                          "id":  "manitowoc-grove-gmk5150-grua-movil-150t-2019",
                          "brand_id":  "manitowoc",
                          "model_id":  "manitowoc-grove-gmk5150",
-                         "name":  "GrÃºa MÃ³vil 150t",
+                         "name":  "Grúa Móvil 150t",
                          "year":  "2019",
                          "vehicle_types":  [
                                                "machinery"
@@ -64700,7 +64700,7 @@
                          "id":  "manitowoc-grove-gmk5150-grua-movil-150t-2020",
                          "brand_id":  "manitowoc",
                          "model_id":  "manitowoc-grove-gmk5150",
-                         "name":  "GrÃºa MÃ³vil 150t",
+                         "name":  "Grúa Móvil 150t",
                          "year":  "2020",
                          "vehicle_types":  [
                                                "machinery"
@@ -64720,7 +64720,7 @@
                          "id":  "manitowoc-grove-gmk5150-grua-movil-150t-2021",
                          "brand_id":  "manitowoc",
                          "model_id":  "manitowoc-grove-gmk5150",
-                         "name":  "GrÃºa MÃ³vil 150t",
+                         "name":  "Grúa Móvil 150t",
                          "year":  "2021",
                          "vehicle_types":  [
                                                "machinery"
@@ -64740,7 +64740,7 @@
                          "id":  "manitowoc-grove-gmk5150-grua-movil-150t-2022",
                          "brand_id":  "manitowoc",
                          "model_id":  "manitowoc-grove-gmk5150",
-                         "name":  "GrÃºa MÃ³vil 150t",
+                         "name":  "Grúa Móvil 150t",
                          "year":  "2022",
                          "vehicle_types":  [
                                                "machinery"
@@ -64760,7 +64760,7 @@
                          "id":  "manitowoc-grove-gmk5150-grua-movil-150t-2023",
                          "brand_id":  "manitowoc",
                          "model_id":  "manitowoc-grove-gmk5150",
-                         "name":  "GrÃºa MÃ³vil 150t",
+                         "name":  "Grúa Móvil 150t",
                          "year":  "2023",
                          "vehicle_types":  [
                                                "machinery"
@@ -64780,7 +64780,7 @@
                          "id":  "manitowoc-grove-gmk5150-grua-movil-150t-2024",
                          "brand_id":  "manitowoc",
                          "model_id":  "manitowoc-grove-gmk5150",
-                         "name":  "GrÃºa MÃ³vil 150t",
+                         "name":  "Grúa Móvil 150t",
                          "year":  "2024",
                          "vehicle_types":  [
                                                "machinery"
@@ -66550,7 +66550,7 @@
                          "id":  "mercedes-benz-arocs-4x4-camion-bomberos-2019",
                          "brand_id":  "mercedes-benz",
                          "model_id":  "mercedes-benz-arocs-4x4",
-                         "name":  "CamiÃ³n Bomberos",
+                         "name":  "Camión Bomberos",
                          "year":  "2019",
                          "vehicle_types":  [
                                                "truck"
@@ -66570,7 +66570,7 @@
                          "id":  "mercedes-benz-arocs-4x4-camion-bomberos-2020",
                          "brand_id":  "mercedes-benz",
                          "model_id":  "mercedes-benz-arocs-4x4",
-                         "name":  "CamiÃ³n Bomberos",
+                         "name":  "Camión Bomberos",
                          "year":  "2020",
                          "vehicle_types":  [
                                                "truck"
@@ -66590,7 +66590,7 @@
                          "id":  "mercedes-benz-arocs-4x4-camion-bomberos-2021",
                          "brand_id":  "mercedes-benz",
                          "model_id":  "mercedes-benz-arocs-4x4",
-                         "name":  "CamiÃ³n Bomberos",
+                         "name":  "Camión Bomberos",
                          "year":  "2021",
                          "vehicle_types":  [
                                                "truck"
@@ -66610,7 +66610,7 @@
                          "id":  "mercedes-benz-arocs-4x4-camion-bomberos-2022",
                          "brand_id":  "mercedes-benz",
                          "model_id":  "mercedes-benz-arocs-4x4",
-                         "name":  "CamiÃ³n Bomberos",
+                         "name":  "Camión Bomberos",
                          "year":  "2022",
                          "vehicle_types":  [
                                                "truck"
@@ -66630,7 +66630,7 @@
                          "id":  "mercedes-benz-arocs-4x4-camion-bomberos-2023",
                          "brand_id":  "mercedes-benz",
                          "model_id":  "mercedes-benz-arocs-4x4",
-                         "name":  "CamiÃ³n Bomberos",
+                         "name":  "Camión Bomberos",
                          "year":  "2023",
                          "vehicle_types":  [
                                                "truck"
@@ -66650,7 +66650,7 @@
                          "id":  "mercedes-benz-arocs-4x4-camion-bomberos-2024",
                          "brand_id":  "mercedes-benz",
                          "model_id":  "mercedes-benz-arocs-4x4",
-                         "name":  "CamiÃ³n Bomberos",
+                         "name":  "Camión Bomberos",
                          "year":  "2024",
                          "vehicle_types":  [
                                                "truck"
@@ -66670,7 +66670,7 @@
                          "id":  "mercedes-benz-atego-1730-camion-mediano-2018",
                          "brand_id":  "mercedes-benz",
                          "model_id":  "mercedes-benz-atego",
-                         "name":  "1730 CamiÃ³n Mediano",
+                         "name":  "1730 Camión Mediano",
                          "year":  "2018",
                          "vehicle_types":  [
                                                "truck"
@@ -66690,7 +66690,7 @@
                          "id":  "mercedes-benz-atego-1730-camion-mediano-2019",
                          "brand_id":  "mercedes-benz",
                          "model_id":  "mercedes-benz-atego",
-                         "name":  "1730 CamiÃ³n Mediano",
+                         "name":  "1730 Camión Mediano",
                          "year":  "2019",
                          "vehicle_types":  [
                                                "truck"
@@ -66710,7 +66710,7 @@
                          "id":  "mercedes-benz-atego-1730-camion-mediano-2020",
                          "brand_id":  "mercedes-benz",
                          "model_id":  "mercedes-benz-atego",
-                         "name":  "1730 CamiÃ³n Mediano",
+                         "name":  "1730 Camión Mediano",
                          "year":  "2020",
                          "vehicle_types":  [
                                                "truck"
@@ -66730,7 +66730,7 @@
                          "id":  "mercedes-benz-atego-1730-camion-mediano-2021",
                          "brand_id":  "mercedes-benz",
                          "model_id":  "mercedes-benz-atego",
-                         "name":  "1730 CamiÃ³n Mediano",
+                         "name":  "1730 Camión Mediano",
                          "year":  "2021",
                          "vehicle_types":  [
                                                "truck"
@@ -66750,7 +66750,7 @@
                          "id":  "mercedes-benz-atego-1730-camion-mediano-2022",
                          "brand_id":  "mercedes-benz",
                          "model_id":  "mercedes-benz-atego",
-                         "name":  "1730 CamiÃ³n Mediano",
+                         "name":  "1730 Camión Mediano",
                          "year":  "2022",
                          "vehicle_types":  [
                                                "truck"
@@ -66770,7 +66770,7 @@
                          "id":  "mercedes-benz-atego-1730-camion-mediano-2023",
                          "brand_id":  "mercedes-benz",
                          "model_id":  "mercedes-benz-atego",
-                         "name":  "1730 CamiÃ³n Mediano",
+                         "name":  "1730 Camión Mediano",
                          "year":  "2023",
                          "vehicle_types":  [
                                                "truck"
@@ -66790,7 +66790,7 @@
                          "id":  "mercedes-benz-atego-1730-camion-mediano-2024",
                          "brand_id":  "mercedes-benz",
                          "model_id":  "mercedes-benz-atego",
-                         "name":  "1730 CamiÃ³n Mediano",
+                         "name":  "1730 Camión Mediano",
                          "year":  "2024",
                          "vehicle_types":  [
                                                "truck"
@@ -68240,7 +68240,7 @@
                          "id":  "mercedes-benz-sprinter-315-cdi-furgon-2018",
                          "brand_id":  "mercedes-benz",
                          "model_id":  "mercedes-benz-sprinter",
-                         "name":  "315 CDI FurgÃ³n",
+                         "name":  "315 CDI Furgón",
                          "year":  "2018",
                          "vehicle_types":  [
                                                "truck"
@@ -68260,7 +68260,7 @@
                          "id":  "mercedes-benz-sprinter-315-cdi-furgon-2019",
                          "brand_id":  "mercedes-benz",
                          "model_id":  "mercedes-benz-sprinter",
-                         "name":  "315 CDI FurgÃ³n",
+                         "name":  "315 CDI Furgón",
                          "year":  "2019",
                          "vehicle_types":  [
                                                "truck"
@@ -68280,7 +68280,7 @@
                          "id":  "mercedes-benz-sprinter-315-cdi-furgon-2020",
                          "brand_id":  "mercedes-benz",
                          "model_id":  "mercedes-benz-sprinter",
-                         "name":  "315 CDI FurgÃ³n",
+                         "name":  "315 CDI Furgón",
                          "year":  "2020",
                          "vehicle_types":  [
                                                "truck"
@@ -68300,7 +68300,7 @@
                          "id":  "mercedes-benz-sprinter-315-cdi-furgon-2021",
                          "brand_id":  "mercedes-benz",
                          "model_id":  "mercedes-benz-sprinter",
-                         "name":  "315 CDI FurgÃ³n",
+                         "name":  "315 CDI Furgón",
                          "year":  "2021",
                          "vehicle_types":  [
                                                "truck"
@@ -68320,7 +68320,7 @@
                          "id":  "mercedes-benz-sprinter-315-cdi-furgon-2022",
                          "brand_id":  "mercedes-benz",
                          "model_id":  "mercedes-benz-sprinter",
-                         "name":  "315 CDI FurgÃ³n",
+                         "name":  "315 CDI Furgón",
                          "year":  "2022",
                          "vehicle_types":  [
                                                "truck"
@@ -68340,7 +68340,7 @@
                          "id":  "mercedes-benz-sprinter-315-cdi-furgon-2023",
                          "brand_id":  "mercedes-benz",
                          "model_id":  "mercedes-benz-sprinter",
-                         "name":  "315 CDI FurgÃ³n",
+                         "name":  "315 CDI Furgón",
                          "year":  "2023",
                          "vehicle_types":  [
                                                "truck"
@@ -68360,7 +68360,7 @@
                          "id":  "mercedes-benz-sprinter-315-cdi-furgon-2024",
                          "brand_id":  "mercedes-benz",
                          "model_id":  "mercedes-benz-sprinter",
-                         "name":  "315 CDI FurgÃ³n",
+                         "name":  "315 CDI Furgón",
                          "year":  "2024",
                          "vehicle_types":  [
                                                "truck"
@@ -70130,7 +70130,7 @@
                          "id":  "nikola-tre-fcev-camion-hidrogeno-2022",
                          "brand_id":  "nikola",
                          "model_id":  "nikola-tre-fcev",
-                         "name":  "CamiÃ³n HidrÃ³geno",
+                         "name":  "Camión Hidrógeno",
                          "year":  "2022",
                          "vehicle_types":  [
                                                "truck"
@@ -70150,7 +70150,7 @@
                          "id":  "nikola-tre-fcev-camion-hidrogeno-2023",
                          "brand_id":  "nikola",
                          "model_id":  "nikola-tre-fcev",
-                         "name":  "CamiÃ³n HidrÃ³geno",
+                         "name":  "Camión Hidrógeno",
                          "year":  "2023",
                          "vehicle_types":  [
                                                "truck"
@@ -70170,7 +70170,7 @@
                          "id":  "nikola-tre-fcev-camion-hidrogeno-2024",
                          "brand_id":  "nikola",
                          "model_id":  "nikola-tre-fcev",
-                         "name":  "CamiÃ³n HidrÃ³geno",
+                         "name":  "Camión Hidrógeno",
                          "year":  "2024",
                          "vehicle_types":  [
                                                "truck"
@@ -71670,7 +71670,7 @@
                          "id":  "oshkosh-fmtv-m1078-camion-2-5t-2010",
                          "brand_id":  "oshkosh",
                          "model_id":  "oshkosh-fmtv-m1078",
-                         "name":  "CamiÃ³n 2.5t",
+                         "name":  "Camión 2.5t",
                          "year":  "2010",
                          "vehicle_types":  [
                                                "truck"
@@ -71690,7 +71690,7 @@
                          "id":  "oshkosh-fmtv-m1078-camion-2-5t-2011",
                          "brand_id":  "oshkosh",
                          "model_id":  "oshkosh-fmtv-m1078",
-                         "name":  "CamiÃ³n 2.5t",
+                         "name":  "Camión 2.5t",
                          "year":  "2011",
                          "vehicle_types":  [
                                                "truck"
@@ -71710,7 +71710,7 @@
                          "id":  "oshkosh-fmtv-m1078-camion-2-5t-2012",
                          "brand_id":  "oshkosh",
                          "model_id":  "oshkosh-fmtv-m1078",
-                         "name":  "CamiÃ³n 2.5t",
+                         "name":  "Camión 2.5t",
                          "year":  "2012",
                          "vehicle_types":  [
                                                "truck"
@@ -71730,7 +71730,7 @@
                          "id":  "oshkosh-fmtv-m1078-camion-2-5t-2013",
                          "brand_id":  "oshkosh",
                          "model_id":  "oshkosh-fmtv-m1078",
-                         "name":  "CamiÃ³n 2.5t",
+                         "name":  "Camión 2.5t",
                          "year":  "2013",
                          "vehicle_types":  [
                                                "truck"
@@ -71750,7 +71750,7 @@
                          "id":  "oshkosh-fmtv-m1078-camion-2-5t-2014",
                          "brand_id":  "oshkosh",
                          "model_id":  "oshkosh-fmtv-m1078",
-                         "name":  "CamiÃ³n 2.5t",
+                         "name":  "Camión 2.5t",
                          "year":  "2014",
                          "vehicle_types":  [
                                                "truck"
@@ -71770,7 +71770,7 @@
                          "id":  "oshkosh-fmtv-m1078-camion-2-5t-2015",
                          "brand_id":  "oshkosh",
                          "model_id":  "oshkosh-fmtv-m1078",
-                         "name":  "CamiÃ³n 2.5t",
+                         "name":  "Camión 2.5t",
                          "year":  "2015",
                          "vehicle_types":  [
                                                "truck"
@@ -71790,7 +71790,7 @@
                          "id":  "oshkosh-fmtv-m1078-camion-2-5t-2016",
                          "brand_id":  "oshkosh",
                          "model_id":  "oshkosh-fmtv-m1078",
-                         "name":  "CamiÃ³n 2.5t",
+                         "name":  "Camión 2.5t",
                          "year":  "2016",
                          "vehicle_types":  [
                                                "truck"
@@ -71810,7 +71810,7 @@
                          "id":  "oshkosh-fmtv-m1078-camion-2-5t-2017",
                          "brand_id":  "oshkosh",
                          "model_id":  "oshkosh-fmtv-m1078",
-                         "name":  "CamiÃ³n 2.5t",
+                         "name":  "Camión 2.5t",
                          "year":  "2017",
                          "vehicle_types":  [
                                                "truck"
@@ -71830,7 +71830,7 @@
                          "id":  "oshkosh-fmtv-m1078-camion-2-5t-2018",
                          "brand_id":  "oshkosh",
                          "model_id":  "oshkosh-fmtv-m1078",
-                         "name":  "CamiÃ³n 2.5t",
+                         "name":  "Camión 2.5t",
                          "year":  "2018",
                          "vehicle_types":  [
                                                "truck"
@@ -71850,7 +71850,7 @@
                          "id":  "oshkosh-fmtv-m1078-camion-2-5t-2019",
                          "brand_id":  "oshkosh",
                          "model_id":  "oshkosh-fmtv-m1078",
-                         "name":  "CamiÃ³n 2.5t",
+                         "name":  "Camión 2.5t",
                          "year":  "2019",
                          "vehicle_types":  [
                                                "truck"
@@ -71870,7 +71870,7 @@
                          "id":  "oshkosh-fmtv-m1078-camion-2-5t-2020",
                          "brand_id":  "oshkosh",
                          "model_id":  "oshkosh-fmtv-m1078",
-                         "name":  "CamiÃ³n 2.5t",
+                         "name":  "Camión 2.5t",
                          "year":  "2020",
                          "vehicle_types":  [
                                                "truck"
@@ -71890,7 +71890,7 @@
                          "id":  "oshkosh-fmtv-m1078-camion-2-5t-2021",
                          "brand_id":  "oshkosh",
                          "model_id":  "oshkosh-fmtv-m1078",
-                         "name":  "CamiÃ³n 2.5t",
+                         "name":  "Camión 2.5t",
                          "year":  "2021",
                          "vehicle_types":  [
                                                "truck"
@@ -71910,7 +71910,7 @@
                          "id":  "oshkosh-fmtv-m1078-camion-2-5t-2022",
                          "brand_id":  "oshkosh",
                          "model_id":  "oshkosh-fmtv-m1078",
-                         "name":  "CamiÃ³n 2.5t",
+                         "name":  "Camión 2.5t",
                          "year":  "2022",
                          "vehicle_types":  [
                                                "truck"
@@ -71930,7 +71930,7 @@
                          "id":  "oshkosh-fmtv-m1078-camion-2-5t-2023",
                          "brand_id":  "oshkosh",
                          "model_id":  "oshkosh-fmtv-m1078",
-                         "name":  "CamiÃ³n 2.5t",
+                         "name":  "Camión 2.5t",
                          "year":  "2023",
                          "vehicle_types":  [
                                                "truck"
@@ -71950,7 +71950,7 @@
                          "id":  "oshkosh-fmtv-m1078-camion-2-5t-2024",
                          "brand_id":  "oshkosh",
                          "model_id":  "oshkosh-fmtv-m1078",
-                         "name":  "CamiÃ³n 2.5t",
+                         "name":  "Camión 2.5t",
                          "year":  "2024",
                          "vehicle_types":  [
                                                "truck"
@@ -74240,7 +74240,7 @@
                          "id":  "potain-mct-565-grua-torre-2020",
                          "brand_id":  "potain",
                          "model_id":  "potain-mct-565",
-                         "name":  "GrÃºa Torre",
+                         "name":  "Grúa Torre",
                          "year":  "2020",
                          "vehicle_types":  [
                                                "machinery"
@@ -74260,7 +74260,7 @@
                          "id":  "potain-mct-565-grua-torre-2021",
                          "brand_id":  "potain",
                          "model_id":  "potain-mct-565",
-                         "name":  "GrÃºa Torre",
+                         "name":  "Grúa Torre",
                          "year":  "2021",
                          "vehicle_types":  [
                                                "machinery"
@@ -74280,7 +74280,7 @@
                          "id":  "potain-mct-565-grua-torre-2022",
                          "brand_id":  "potain",
                          "model_id":  "potain-mct-565",
-                         "name":  "GrÃºa Torre",
+                         "name":  "Grúa Torre",
                          "year":  "2022",
                          "vehicle_types":  [
                                                "machinery"
@@ -74300,7 +74300,7 @@
                          "id":  "potain-mct-565-grua-torre-2023",
                          "brand_id":  "potain",
                          "model_id":  "potain-mct-565",
-                         "name":  "GrÃºa Torre",
+                         "name":  "Grúa Torre",
                          "year":  "2023",
                          "vehicle_types":  [
                                                "machinery"
@@ -74320,7 +74320,7 @@
                          "id":  "potain-mct-565-grua-torre-2024",
                          "brand_id":  "potain",
                          "model_id":  "potain-mct-565",
-                         "name":  "GrÃºa Torre",
+                         "name":  "Grúa Torre",
                          "year":  "2024",
                          "vehicle_types":  [
                                                "machinery"
@@ -75850,7 +75850,7 @@
                          "id":  "rosenbauer-panther-6x6-vehiculo-aeroportuario-2018",
                          "brand_id":  "rosenbauer",
                          "model_id":  "rosenbauer-panther-6x6",
-                         "name":  "VehÃ­culo Aeroportuario",
+                         "name":  "Vehículo Aeroportuario",
                          "year":  "2018",
                          "vehicle_types":  [
                                                "truck"
@@ -75870,7 +75870,7 @@
                          "id":  "rosenbauer-panther-6x6-vehiculo-aeroportuario-2019",
                          "brand_id":  "rosenbauer",
                          "model_id":  "rosenbauer-panther-6x6",
-                         "name":  "VehÃ­culo Aeroportuario",
+                         "name":  "Vehículo Aeroportuario",
                          "year":  "2019",
                          "vehicle_types":  [
                                                "truck"
@@ -75890,7 +75890,7 @@
                          "id":  "rosenbauer-panther-6x6-vehiculo-aeroportuario-2020",
                          "brand_id":  "rosenbauer",
                          "model_id":  "rosenbauer-panther-6x6",
-                         "name":  "VehÃ­culo Aeroportuario",
+                         "name":  "Vehículo Aeroportuario",
                          "year":  "2020",
                          "vehicle_types":  [
                                                "truck"
@@ -75910,7 +75910,7 @@
                          "id":  "rosenbauer-panther-6x6-vehiculo-aeroportuario-2021",
                          "brand_id":  "rosenbauer",
                          "model_id":  "rosenbauer-panther-6x6",
-                         "name":  "VehÃ­culo Aeroportuario",
+                         "name":  "Vehículo Aeroportuario",
                          "year":  "2021",
                          "vehicle_types":  [
                                                "truck"
@@ -75930,7 +75930,7 @@
                          "id":  "rosenbauer-panther-6x6-vehiculo-aeroportuario-2022",
                          "brand_id":  "rosenbauer",
                          "model_id":  "rosenbauer-panther-6x6",
-                         "name":  "VehÃ­culo Aeroportuario",
+                         "name":  "Vehículo Aeroportuario",
                          "year":  "2022",
                          "vehicle_types":  [
                                                "truck"
@@ -75950,7 +75950,7 @@
                          "id":  "rosenbauer-panther-6x6-vehiculo-aeroportuario-2023",
                          "brand_id":  "rosenbauer",
                          "model_id":  "rosenbauer-panther-6x6",
-                         "name":  "VehÃ­culo Aeroportuario",
+                         "name":  "Vehículo Aeroportuario",
                          "year":  "2023",
                          "vehicle_types":  [
                                                "truck"
@@ -75970,7 +75970,7 @@
                          "id":  "rosenbauer-panther-6x6-vehiculo-aeroportuario-2024",
                          "brand_id":  "rosenbauer",
                          "model_id":  "rosenbauer-panther-6x6",
-                         "name":  "VehÃ­culo Aeroportuario",
+                         "name":  "Vehículo Aeroportuario",
                          "year":  "2024",
                          "vehicle_types":  [
                                                "truck"
@@ -75990,7 +75990,7 @@
                          "id":  "rosenbauer-rtx-electrico-bomberos-2021",
                          "brand_id":  "rosenbauer",
                          "model_id":  "rosenbauer-rtx",
-                         "name":  "ElÃ©ctrico Bomberos",
+                         "name":  "Eléctrico Bomberos",
                          "year":  "2021",
                          "vehicle_types":  [
                                                "truck"
@@ -76010,7 +76010,7 @@
                          "id":  "rosenbauer-rtx-electrico-bomberos-2022",
                          "brand_id":  "rosenbauer",
                          "model_id":  "rosenbauer-rtx",
-                         "name":  "ElÃ©ctrico Bomberos",
+                         "name":  "Eléctrico Bomberos",
                          "year":  "2022",
                          "vehicle_types":  [
                                                "truck"
@@ -76030,7 +76030,7 @@
                          "id":  "rosenbauer-rtx-electrico-bomberos-2023",
                          "brand_id":  "rosenbauer",
                          "model_id":  "rosenbauer-rtx",
-                         "name":  "ElÃ©ctrico Bomberos",
+                         "name":  "Eléctrico Bomberos",
                          "year":  "2023",
                          "vehicle_types":  [
                                                "truck"
@@ -76050,7 +76050,7 @@
                          "id":  "rosenbauer-rtx-electrico-bomberos-2024",
                          "brand_id":  "rosenbauer",
                          "model_id":  "rosenbauer-rtx",
-                         "name":  "ElÃ©ctrico Bomberos",
+                         "name":  "Eléctrico Bomberos",
                          "year":  "2024",
                          "vehicle_types":  [
                                                "truck"
@@ -76410,7 +76410,7 @@
                          "id":  "scania-bev-r-series-camion-ev-2022",
                          "brand_id":  "scania",
                          "model_id":  "scania-bev-r-series",
-                         "name":  "CamiÃ³n EV",
+                         "name":  "Camión EV",
                          "year":  "2022",
                          "vehicle_types":  [
                                                "truck"
@@ -76430,7 +76430,7 @@
                          "id":  "scania-bev-r-series-camion-ev-2023",
                          "brand_id":  "scania",
                          "model_id":  "scania-bev-r-series",
-                         "name":  "CamiÃ³n EV",
+                         "name":  "Camión EV",
                          "year":  "2023",
                          "vehicle_types":  [
                                                "truck"
@@ -76450,7 +76450,7 @@
                          "id":  "scania-bev-r-series-camion-ev-2024",
                          "brand_id":  "scania",
                          "model_id":  "scania-bev-r-series",
-                         "name":  "CamiÃ³n EV",
+                         "name":  "Camión EV",
                          "year":  "2024",
                          "vehicle_types":  [
                                                "truck"
@@ -77600,7 +77600,7 @@
                          "id":  "still-rx-60-electrico-6t-2021",
                          "brand_id":  "still",
                          "model_id":  "still-rx-60",
-                         "name":  "ElÃ©ctrico 6t",
+                         "name":  "Eléctrico 6t",
                          "year":  "2021",
                          "vehicle_types":  [
                                                "machinery"
@@ -77620,7 +77620,7 @@
                          "id":  "still-rx-60-electrico-6t-2022",
                          "brand_id":  "still",
                          "model_id":  "still-rx-60",
-                         "name":  "ElÃ©ctrico 6t",
+                         "name":  "Eléctrico 6t",
                          "year":  "2022",
                          "vehicle_types":  [
                                                "machinery"
@@ -77640,7 +77640,7 @@
                          "id":  "still-rx-60-electrico-6t-2023",
                          "brand_id":  "still",
                          "model_id":  "still-rx-60",
-                         "name":  "ElÃ©ctrico 6t",
+                         "name":  "Eléctrico 6t",
                          "year":  "2023",
                          "vehicle_types":  [
                                                "machinery"
@@ -77660,7 +77660,7 @@
                          "id":  "still-rx-60-electrico-6t-2024",
                          "brand_id":  "still",
                          "model_id":  "still-rx-60",
-                         "name":  "ElÃ©ctrico 6t",
+                         "name":  "Eléctrico 6t",
                          "year":  "2024",
                          "vehicle_types":  [
                                                "machinery"
@@ -79880,7 +79880,7 @@
                          "id":  "tadano-gr-800xll-grua-80t-2019",
                          "brand_id":  "tadano",
                          "model_id":  "tadano-gr-800xll",
-                         "name":  "GrÃºa 80t",
+                         "name":  "Grúa 80t",
                          "year":  "2019",
                          "vehicle_types":  [
                                                "machinery"
@@ -79900,7 +79900,7 @@
                          "id":  "tadano-gr-800xll-grua-80t-2020",
                          "brand_id":  "tadano",
                          "model_id":  "tadano-gr-800xll",
-                         "name":  "GrÃºa 80t",
+                         "name":  "Grúa 80t",
                          "year":  "2020",
                          "vehicle_types":  [
                                                "machinery"
@@ -79920,7 +79920,7 @@
                          "id":  "tadano-gr-800xll-grua-80t-2021",
                          "brand_id":  "tadano",
                          "model_id":  "tadano-gr-800xll",
-                         "name":  "GrÃºa 80t",
+                         "name":  "Grúa 80t",
                          "year":  "2021",
                          "vehicle_types":  [
                                                "machinery"
@@ -79940,7 +79940,7 @@
                          "id":  "tadano-gr-800xll-grua-80t-2022",
                          "brand_id":  "tadano",
                          "model_id":  "tadano-gr-800xll",
-                         "name":  "GrÃºa 80t",
+                         "name":  "Grúa 80t",
                          "year":  "2022",
                          "vehicle_types":  [
                                                "machinery"
@@ -79960,7 +79960,7 @@
                          "id":  "tadano-gr-800xll-grua-80t-2023",
                          "brand_id":  "tadano",
                          "model_id":  "tadano-gr-800xll",
-                         "name":  "GrÃºa 80t",
+                         "name":  "Grúa 80t",
                          "year":  "2023",
                          "vehicle_types":  [
                                                "machinery"
@@ -79980,7 +79980,7 @@
                          "id":  "tadano-gr-800xll-grua-80t-2024",
                          "brand_id":  "tadano",
                          "model_id":  "tadano-gr-800xll",
-                         "name":  "GrÃºa 80t",
+                         "name":  "Grúa 80t",
                          "year":  "2024",
                          "vehicle_types":  [
                                                "machinery"
@@ -80180,7 +80180,7 @@
                          "id":  "terex-rt100-grua-todo-terreno-100t-2019",
                          "brand_id":  "terex",
                          "model_id":  "terex-rt100",
-                         "name":  "GrÃºa Todo Terreno 100t",
+                         "name":  "Grúa Todo Terreno 100t",
                          "year":  "2019",
                          "vehicle_types":  [
                                                "machinery"
@@ -80200,7 +80200,7 @@
                          "id":  "terex-rt100-grua-todo-terreno-100t-2020",
                          "brand_id":  "terex",
                          "model_id":  "terex-rt100",
-                         "name":  "GrÃºa Todo Terreno 100t",
+                         "name":  "Grúa Todo Terreno 100t",
                          "year":  "2020",
                          "vehicle_types":  [
                                                "machinery"
@@ -80220,7 +80220,7 @@
                          "id":  "terex-rt100-grua-todo-terreno-100t-2021",
                          "brand_id":  "terex",
                          "model_id":  "terex-rt100",
-                         "name":  "GrÃºa Todo Terreno 100t",
+                         "name":  "Grúa Todo Terreno 100t",
                          "year":  "2021",
                          "vehicle_types":  [
                                                "machinery"
@@ -80240,7 +80240,7 @@
                          "id":  "terex-rt100-grua-todo-terreno-100t-2022",
                          "brand_id":  "terex",
                          "model_id":  "terex-rt100",
-                         "name":  "GrÃºa Todo Terreno 100t",
+                         "name":  "Grúa Todo Terreno 100t",
                          "year":  "2022",
                          "vehicle_types":  [
                                                "machinery"
@@ -80260,7 +80260,7 @@
                          "id":  "terex-rt100-grua-todo-terreno-100t-2023",
                          "brand_id":  "terex",
                          "model_id":  "terex-rt100",
-                         "name":  "GrÃºa Todo Terreno 100t",
+                         "name":  "Grúa Todo Terreno 100t",
                          "year":  "2023",
                          "vehicle_types":  [
                                                "machinery"
@@ -80280,7 +80280,7 @@
                          "id":  "terex-rt100-grua-todo-terreno-100t-2024",
                          "brand_id":  "terex",
                          "model_id":  "terex-rt100",
-                         "name":  "GrÃºa Todo Terreno 100t",
+                         "name":  "Grúa Todo Terreno 100t",
                          "year":  "2024",
                          "vehicle_types":  [
                                                "machinery"
@@ -86670,7 +86670,7 @@
                          "id":  "volvo-fh-electric-camion-ev-2021",
                          "brand_id":  "volvo",
                          "model_id":  "volvo-fh-electric",
-                         "name":  "CamiÃ³n EV",
+                         "name":  "Camión EV",
                          "year":  "2021",
                          "vehicle_types":  [
                                                "truck"
@@ -86690,7 +86690,7 @@
                          "id":  "volvo-fh-electric-camion-ev-2022",
                          "brand_id":  "volvo",
                          "model_id":  "volvo-fh-electric",
-                         "name":  "CamiÃ³n EV",
+                         "name":  "Camión EV",
                          "year":  "2022",
                          "vehicle_types":  [
                                                "truck"
@@ -86710,7 +86710,7 @@
                          "id":  "volvo-fh-electric-camion-ev-2023",
                          "brand_id":  "volvo",
                          "model_id":  "volvo-fh-electric",
-                         "name":  "CamiÃ³n EV",
+                         "name":  "Camión EV",
                          "year":  "2023",
                          "vehicle_types":  [
                                                "truck"
@@ -86730,7 +86730,7 @@
                          "id":  "volvo-fh-electric-camion-ev-2024",
                          "brand_id":  "volvo",
                          "model_id":  "volvo-fh-electric",
-                         "name":  "CamiÃ³n EV",
+                         "name":  "Camión EV",
                          "year":  "2024",
                          "vehicle_types":  [
                                                "truck"
@@ -88400,7 +88400,7 @@
                          "id":  "yamaha-srx-600-motonieve-clasica-2000",
                          "brand_id":  "yamaha",
                          "model_id":  "yamaha-srx-600",
-                         "name":  "Motonieve ClÃ¡sica",
+                         "name":  "Motonieve Clásica",
                          "year":  "2000",
                          "vehicle_types":  [
                                                "motorcycle"
@@ -88420,7 +88420,7 @@
                          "id":  "yamaha-srx-600-motonieve-clasica-2001",
                          "brand_id":  "yamaha",
                          "model_id":  "yamaha-srx-600",
-                         "name":  "Motonieve ClÃ¡sica",
+                         "name":  "Motonieve Clásica",
                          "year":  "2001",
                          "vehicle_types":  [
                                                "motorcycle"
@@ -88440,7 +88440,7 @@
                          "id":  "yamaha-srx-600-motonieve-clasica-2002",
                          "brand_id":  "yamaha",
                          "model_id":  "yamaha-srx-600",
-                         "name":  "Motonieve ClÃ¡sica",
+                         "name":  "Motonieve Clásica",
                          "year":  "2002",
                          "vehicle_types":  [
                                                "motorcycle"
@@ -88460,7 +88460,7 @@
                          "id":  "yamaha-srx-600-motonieve-clasica-2003",
                          "brand_id":  "yamaha",
                          "model_id":  "yamaha-srx-600",
-                         "name":  "Motonieve ClÃ¡sica",
+                         "name":  "Motonieve Clásica",
                          "year":  "2003",
                          "vehicle_types":  [
                                                "motorcycle"
@@ -88480,7 +88480,7 @@
                          "id":  "yamaha-srx-600-motonieve-clasica-2004",
                          "brand_id":  "yamaha",
                          "model_id":  "yamaha-srx-600",
-                         "name":  "Motonieve ClÃ¡sica",
+                         "name":  "Motonieve Clásica",
                          "year":  "2004",
                          "vehicle_types":  [
                                                "motorcycle"
@@ -88500,7 +88500,7 @@
                          "id":  "yamaha-srx-600-motonieve-clasica-2005",
                          "brand_id":  "yamaha",
                          "model_id":  "yamaha-srx-600",
-                         "name":  "Motonieve ClÃ¡sica",
+                         "name":  "Motonieve Clásica",
                          "year":  "2005",
                          "vehicle_types":  [
                                                "motorcycle"
@@ -88520,7 +88520,7 @@
                          "id":  "yamaha-srx-600-motonieve-clasica-2006",
                          "brand_id":  "yamaha",
                          "model_id":  "yamaha-srx-600",
-                         "name":  "Motonieve ClÃ¡sica",
+                         "name":  "Motonieve Clásica",
                          "year":  "2006",
                          "vehicle_types":  [
                                                "motorcycle"
@@ -88540,7 +88540,7 @@
                          "id":  "yamaha-srx-600-motonieve-clasica-2007",
                          "brand_id":  "yamaha",
                          "model_id":  "yamaha-srx-600",
-                         "name":  "Motonieve ClÃ¡sica",
+                         "name":  "Motonieve Clásica",
                          "year":  "2007",
                          "vehicle_types":  [
                                                "motorcycle"
@@ -88560,7 +88560,7 @@
                          "id":  "yamaha-srx-600-motonieve-clasica-2008",
                          "brand_id":  "yamaha",
                          "model_id":  "yamaha-srx-600",
-                         "name":  "Motonieve ClÃ¡sica",
+                         "name":  "Motonieve Clásica",
                          "year":  "2008",
                          "vehicle_types":  [
                                                "motorcycle"
@@ -88580,7 +88580,7 @@
                          "id":  "yamaha-srx-600-motonieve-clasica-2009",
                          "brand_id":  "yamaha",
                          "model_id":  "yamaha-srx-600",
-                         "name":  "Motonieve ClÃ¡sica",
+                         "name":  "Motonieve Clásica",
                          "year":  "2009",
                          "vehicle_types":  [
                                                "motorcycle"
@@ -88600,7 +88600,7 @@
                          "id":  "yamaha-srx-600-motonieve-clasica-2010",
                          "brand_id":  "yamaha",
                          "model_id":  "yamaha-srx-600",
-                         "name":  "Motonieve ClÃ¡sica",
+                         "name":  "Motonieve Clásica",
                          "year":  "2010",
                          "vehicle_types":  [
                                                "motorcycle"
@@ -88620,7 +88620,7 @@
                          "id":  "yamaha-srx-600-motonieve-clasica-2011",
                          "brand_id":  "yamaha",
                          "model_id":  "yamaha-srx-600",
-                         "name":  "Motonieve ClÃ¡sica",
+                         "name":  "Motonieve Clásica",
                          "year":  "2011",
                          "vehicle_types":  [
                                                "motorcycle"
@@ -88640,7 +88640,7 @@
                          "id":  "yamaha-srx-600-motonieve-clasica-2012",
                          "brand_id":  "yamaha",
                          "model_id":  "yamaha-srx-600",
-                         "name":  "Motonieve ClÃ¡sica",
+                         "name":  "Motonieve Clásica",
                          "year":  "2012",
                          "vehicle_types":  [
                                                "motorcycle"
@@ -88660,7 +88660,7 @@
                          "id":  "yamaha-srx-600-motonieve-clasica-2013",
                          "brand_id":  "yamaha",
                          "model_id":  "yamaha-srx-600",
-                         "name":  "Motonieve ClÃ¡sica",
+                         "name":  "Motonieve Clásica",
                          "year":  "2013",
                          "vehicle_types":  [
                                                "motorcycle"
@@ -88680,7 +88680,7 @@
                          "id":  "yamaha-srx-600-motonieve-clasica-2014",
                          "brand_id":  "yamaha",
                          "model_id":  "yamaha-srx-600",
-                         "name":  "Motonieve ClÃ¡sica",
+                         "name":  "Motonieve Clásica",
                          "year":  "2014",
                          "vehicle_types":  [
                                                "motorcycle"
@@ -88700,7 +88700,7 @@
                          "id":  "yamaha-srx-600-motonieve-clasica-2015",
                          "brand_id":  "yamaha",
                          "model_id":  "yamaha-srx-600",
-                         "name":  "Motonieve ClÃ¡sica",
+                         "name":  "Motonieve Clásica",
                          "year":  "2015",
                          "vehicle_types":  [
                                                "motorcycle"
@@ -88720,7 +88720,7 @@
                          "id":  "yamaha-srx-600-motonieve-clasica-2016",
                          "brand_id":  "yamaha",
                          "model_id":  "yamaha-srx-600",
-                         "name":  "Motonieve ClÃ¡sica",
+                         "name":  "Motonieve Clásica",
                          "year":  "2016",
                          "vehicle_types":  [
                                                "motorcycle"
@@ -88740,7 +88740,7 @@
                          "id":  "yamaha-srx-600-motonieve-clasica-2017",
                          "brand_id":  "yamaha",
                          "model_id":  "yamaha-srx-600",
-                         "name":  "Motonieve ClÃ¡sica",
+                         "name":  "Motonieve Clásica",
                          "year":  "2017",
                          "vehicle_types":  [
                                                "motorcycle"
@@ -88760,7 +88760,7 @@
                          "id":  "yamaha-srx-600-motonieve-clasica-2018",
                          "brand_id":  "yamaha",
                          "model_id":  "yamaha-srx-600",
-                         "name":  "Motonieve ClÃ¡sica",
+                         "name":  "Motonieve Clásica",
                          "year":  "2018",
                          "vehicle_types":  [
                                                "motorcycle"
@@ -88780,7 +88780,7 @@
                          "id":  "yamaha-srx-600-motonieve-clasica-2019",
                          "brand_id":  "yamaha",
                          "model_id":  "yamaha-srx-600",
-                         "name":  "Motonieve ClÃ¡sica",
+                         "name":  "Motonieve Clásica",
                          "year":  "2019",
                          "vehicle_types":  [
                                                "motorcycle"
@@ -88800,7 +88800,7 @@
                          "id":  "yamaha-srx-600-motonieve-clasica-2020",
                          "brand_id":  "yamaha",
                          "model_id":  "yamaha-srx-600",
-                         "name":  "Motonieve ClÃ¡sica",
+                         "name":  "Motonieve Clásica",
                          "year":  "2020",
                          "vehicle_types":  [
                                                "motorcycle"
@@ -88820,7 +88820,7 @@
                          "id":  "yamaha-srx-600-motonieve-clasica-2021",
                          "brand_id":  "yamaha",
                          "model_id":  "yamaha-srx-600",
-                         "name":  "Motonieve ClÃ¡sica",
+                         "name":  "Motonieve Clásica",
                          "year":  "2021",
                          "vehicle_types":  [
                                                "motorcycle"
@@ -88840,7 +88840,7 @@
                          "id":  "yamaha-srx-600-motonieve-clasica-2022",
                          "brand_id":  "yamaha",
                          "model_id":  "yamaha-srx-600",
-                         "name":  "Motonieve ClÃ¡sica",
+                         "name":  "Motonieve Clásica",
                          "year":  "2022",
                          "vehicle_types":  [
                                                "motorcycle"
@@ -88860,7 +88860,7 @@
                          "id":  "yamaha-srx-600-motonieve-clasica-2023",
                          "brand_id":  "yamaha",
                          "model_id":  "yamaha-srx-600",
-                         "name":  "Motonieve ClÃ¡sica",
+                         "name":  "Motonieve Clásica",
                          "year":  "2023",
                          "vehicle_types":  [
                                                "motorcycle"
@@ -88880,7 +88880,7 @@
                          "id":  "yamaha-srx-600-motonieve-clasica-2024",
                          "brand_id":  "yamaha",
                          "model_id":  "yamaha-srx-600",
-                         "name":  "Motonieve ClÃ¡sica",
+                         "name":  "Motonieve Clásica",
                          "year":  "2024",
                          "vehicle_types":  [
                                                "motorcycle"
@@ -89470,7 +89470,7 @@
                          "id":  "yutong-zk6180chevg1-electrico-articulado-2022",
                          "brand_id":  "yutong",
                          "model_id":  "yutong-zk6180chevg1",
-                         "name":  "ElÃ©ctrico Articulado",
+                         "name":  "Eléctrico Articulado",
                          "year":  "2022",
                          "vehicle_types":  [
                                                "bus"
@@ -89490,7 +89490,7 @@
                          "id":  "yutong-zk6180chevg1-electrico-articulado-2023",
                          "brand_id":  "yutong",
                          "model_id":  "yutong-zk6180chevg1",
-                         "name":  "ElÃ©ctrico Articulado",
+                         "name":  "Eléctrico Articulado",
                          "year":  "2023",
                          "vehicle_types":  [
                                                "bus"
@@ -89510,7 +89510,7 @@
                          "id":  "yutong-zk6180chevg1-electrico-articulado-2024",
                          "brand_id":  "yutong",
                          "model_id":  "yutong-zk6180chevg1",
-                         "name":  "ElÃ©ctrico Articulado",
+                         "name":  "Eléctrico Articulado",
                          "year":  "2024",
                          "vehicle_types":  [
                                                "bus"

@@ -41,9 +41,9 @@ import {
     IconPencil,
 } from '@tabler/icons-react';
 import PanelSectionHeader from '@/components/panel/panel-section-header';
-import ModernSelect from '@/components/ui/modern-select';
+import { ModernSelect } from '@simple/ui';
 import { PanelIconButton } from '@simple/ui';
-import { useAuth } from '@/context/auth-context';
+import { useAuth } from '@simple/auth';
 import {
     fetchInstagramIntegrationStatus,
     publishListingToInstagramEnhanced,
@@ -961,7 +961,7 @@ export default function PublicacionesPage() {
     };
 
     return (
-        <div className="container-app panel-page py-8">
+        <div className="container-app panel-page py-4 lg:py-8">
             <PanelSectionHeader
                 title="Mis publicaciones"
                 description={`${listings.length} publicaciones en total`}

@@ -133,7 +133,7 @@ export default function MensajesPage() {
     }
 
     return (
-        <div className="container-app panel-page py-8">
+        <div className="container-app panel-page py-4 lg:py-8">
             <PanelSectionHeader
                 title="Mensajes"
                 description="Conversaciones reales entre interesados y anunciantes"

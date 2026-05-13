@@ -45,7 +45,7 @@ export default function GuardadosPage() {
     );
 
     return (
-        <div className="container-app panel-page py-8 max-w-4xl">
+        <div className="container-app panel-page py-4 lg:py-8 max-w-4xl">
             <PanelSectionHeader title="Guardados" description={description} />
 
             {items.length === 0 ? (

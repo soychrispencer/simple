@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useMemo, useEffect, useCallback } from 'react';
-import { useAuth } from '@/context/auth-context';
+import { useAuth } from '@simple/auth';
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { IconCalculator, IconDownload, IconHistory, IconDeviceFloppy, IconSparkles, IconInfoCircle, IconTrendingUp, IconShieldCheck, IconTrash, IconFileText } from '@tabler/icons-react';
@@ -588,7 +588,7 @@ export default function SimuladorPanelPage() {
         doc.setTextColor(rBrand, gBrand, bBrand);
         doc.text('Propiedades', margin + doc.getTextWidth('Simple '), pageHeight - 8);
         doc.setTextColor(rMute, gMute, bMute);
-        doc.text('• simplepropiedades.cl', margin + doc.getTextWidth('SimplePropiedades ') + 2, pageHeight - 8);
+        doc.text('• simplepropiedades.app', margin + doc.getTextWidth('SimplePropiedades ') + 2, pageHeight - 8);
         
         doc.save(`simulacion-hipotecaria-${clientName || 'cliente'}-${new Date().toISOString().split('T')[0]}.pdf`);
     }, [result, clientName, notes, age, annualRate, bankPercentage]);

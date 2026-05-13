@@ -1,6 +1,6 @@
 -- Add primary_vertical column to users for vertical-scoped admin access.
 -- NULL = platform-wide (superadmin sees everything).
--- 'autos' | 'propiedades' | 'agenda' | 'serenatas' = vertical-scoped admin.
+-- 'autos' | 'propiedades' | 'agenda' = vertical-scoped admin.
 
 ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "primary_vertical" varchar(20);
 
@@ -12,7 +12,7 @@ BEGIN
     ) THEN
         ALTER TABLE "users"
         ADD CONSTRAINT "users_primary_vertical_check"
-        CHECK ("primary_vertical" IS NULL OR "primary_vertical" IN ('autos','propiedades','agenda','serenatas'));
+        CHECK ("primary_vertical" IS NULL OR "primary_vertical" IN ('autos','propiedades','agenda'));
     END IF;
 END $$;
 

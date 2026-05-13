@@ -8,7 +8,6 @@ import {
     IconCar,
     IconHome,
     IconCalendar,
-    IconMusic,
     IconUsers,
     IconShieldCheck,
     IconChartBar,
@@ -38,7 +37,6 @@ import {
     IconX,
     IconChevronRight,
     IconLeaf,
-    IconGift,
     IconHeart,
     IconPin,
     IconPhone,
@@ -67,12 +65,6 @@ const BRAND = {
         color: '#0D9488',
         icon: IconCalendar,
         url: 'https://agenda.simple.cl',
-    },
-    serenatas: {
-        name: 'SimpleSerenatas',
-        color: '#E11D48',
-        icon: IconMusic,
-        url: 'https://serenatas.simple.cl',
     },
 } as const;
 
@@ -103,17 +95,30 @@ function HeaderIconChip({
 
 function Logo({ brand }: { brand?: keyof typeof BRAND }) {
     const b = brand ? BRAND[brand] : null;
-    const Icon = b?.icon || IconBuilding;
-    const color = b ? b.color : '#475569';
-    const name = b ? b.name : 'Plataforma';
+    const Icon = b?.icon || (() => (
+        <span className="font-semibold text-sm" style={{ color: 'var(--fg)' }}>S</span>
+    ));
+
     return (
-        <Link href="/" className="flex items-center gap-2 group shrink-0">
-            <span className="w-9 h-9 rounded-[10px] border flex items-center justify-center transition-colors group-hover:opacity-80" style={{ borderColor: color, color }}>
-                <Icon size={18} />
-            </span>
-            <span className="hidden sm:inline-flex items-baseline gap-[0.08rem] text-[1.05rem] tracking-tight" style={{ color: 'var(--fg)' }}>
+        <Link href="/" className="flex items-center gap-1.5 group shrink-0">
+            <div
+                className="w-9 h-9 rounded-[10px] border flex items-center justify-center transition-all duration-200 group-hover:border-[var(--accent)]"
+                style={{
+                    borderColor: 'var(--border)',
+                    background: b
+                        ? `linear-gradient(135deg, ${b.color}20 0%, ${b.color}08 100%)`
+                        : 'var(--bg-subtle)',
+                }}
+            >
+                {b ? <Icon size={18} stroke={1.5} style={{ color: b.color }} /> : <Icon />}
+            </div>
+            <span className="inline-flex items-end gap-[0.08rem] text-[1.05rem] tracking-tight" style={{ color: 'var(--fg)' }}>
                 <span className="font-semibold leading-none">Simple</span>
-                <span className="font-normal leading-none" style={{ color }}>{name}</span>
+                {b && (
+                    <span className="translate-y-[0.02em] font-normal leading-none" style={{ color: 'var(--fg-muted)' }}>
+                        {b.name.replace('Simple', '')}
+                    </span>
+                )}
             </span>
         </Link>
     );
@@ -296,7 +301,6 @@ function VerticalCard({
             style={{
                 borderColor: isActive ? brand.color : 'var(--border)',
                 background: isActive ? `${brand.color}08` : 'var(--surface)',
-                ringColor: isActive ? brand.color : undefined,
             }}
         >
             <div className="flex items-start gap-4">
@@ -314,7 +318,6 @@ function VerticalCard({
                         {id === 'autos' && 'Compra, vende y arrienda vehículos'}
                         {id === 'propiedades' && 'Encuentra tu hogar ideal'}
                         {id === 'agenda' && 'Gestión de citas y servicios'}
-                        {id === 'serenatas' && 'Contrata artistas para eventos'}
                     </p>
                 </div>
                 <IconChevronRight
@@ -345,7 +348,7 @@ export default function LandingPage() {
         { value: '33,000+', label: 'Publicaciones activas' },
         { value: '25,000+', label: 'Usuarios registrados' },
         { value: '50,000+', label: 'Citas agendadas' },
-        { value: '4', label: 'Verticales conectadas' },
+        { value: '3', label: 'Verticales conectadas' },
     ];
 
     const features = [
@@ -395,14 +398,6 @@ export default function LandingPage() {
             { icon: IconDeviceMobile, title: 'App móvil', desc: 'Gestiona tu negocio desde cualquier lugar' },
             { icon: IconUsers, title: 'CRM integrado', desc: 'Historial de clientes y preferencias' },
             { icon: IconStar, title: 'Reseñas y NPS', desc: 'Feedback y evaluación de servicio' },
-        ],
-        serenatas: [
-            { icon: IconSearch, title: 'Catálogo de artistas', desc: 'Navega por género, precio y disponibilidad' },
-            { icon: IconCalendar, title: 'Reserva instantánea', desc: 'Confirma fechas y horarios en tiempo real' },
-            { icon: IconCreditCard, title: 'Pago protegido', desc: 'Tu dinero está seguro hasta que el servicio se complete' },
-            { icon: IconStar, title: 'Reviews verificadas', desc: 'Calificaciones reales de clientes' },
-            { icon: IconMapPin, title: 'Cobertura nacional', desc: 'Artistas en todas las regiones de Chile' },
-            { icon: IconGift, title: 'Personalización', desc: 'Solicita canciones especiales y dedicatorias' },
         ],
     };
 
@@ -526,7 +521,7 @@ export default function LandingPage() {
 
                         {/* Subheadline */}
                         <p className="text-lg md:text-xl mb-10 max-w-2xl mx-auto" style={{ color: 'var(--fg-secondary)' }}>
-                            SimplePlataforma conecta <strong>autos, propiedades, agenda y serenatas</strong> bajo una
+                            SimplePlataforma conecta <strong>autos, propiedades y agenda</strong> bajo una
                             identidad única. Una cuenta, un ecosistema infinito de posibilidades.
                         </p>
 
@@ -577,7 +572,7 @@ export default function LandingPage() {
                 <div className="container-app">
                     <SectionHeading
                         eyebrow="Nuestros Productos"
-                        title="Cuatro verticales, infinitas posibilidades"
+                        title="Tres verticales, infinitas posibilidades"
                         description="Cada vertical está diseñada específicamente para su industria, con herramientas profesionales y una experiencia optimizada."
                     />
 
@@ -631,8 +626,6 @@ export default function LandingPage() {
                                             'El marketplace inmobiliario que conecta compradores, arrendatarios y corredores. Casas, departamentos, oficinas, terrenos y proyectos nuevos en un solo lugar.'}
                                         {activeVertical === 'agenda' &&
                                             'El sistema de agendamiento preferido por profesionales y negocios. Desde peluquerías hasta consultas médicas, gestiona tu tiempo y el de tus clientes sin complicaciones.'}
-                                        {activeVertical === 'serenatas' &&
-                                            'La plataforma líder en contratación de artistas para eventos. Mariachis, tríos, solistas y grupos musicales en todas las regiones de Chile.'}
                                     </p>
                                 </div>
 
@@ -801,7 +794,7 @@ export default function LandingPage() {
                             {
                                 step: '02',
                                 title: 'Elige tu vertical',
-                                description: 'Navega entre SimpleAutos, SimplePropiedades, SimpleAgenda o SimpleSerenatas.',
+                                description: 'Navega entre SimpleAutos, SimplePropiedades y SimpleAgenda.',
                                 icon: IconBuilding,
                             },
                             {

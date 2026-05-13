@@ -15,19 +15,19 @@ const publicLinks = [
 ];
 
 export function Header() {
-  const savedListings = useMemo(
-    () => ({ clearCache: clearSavedListingsCache, syncFromApi: syncSavedListingsFromApi }),
-    []
-  );
+    const savedListings = useMemo(
+        () => ({ clearCache: clearSavedListingsCache, syncFromApi: syncSavedListingsFromApi }),
+        []
+    );
 
     return (
-    <MarketplaceHeader
-      brandAppId="simpleautos"
-      publicLinks={publicLinks}
-      getPanelNavItems={(role: PanelRole) => getPanelNavItems(role)}
-      isPanelNavActive={isPanelNavActive}
-      fetchPanelNotifications={fetchPanelNotifications}
-      savedListings={savedListings}
-    />
+        <MarketplaceHeader
+            brandAppId="simpleautos"
+            publicLinks={publicLinks}
+            getPanelNavItems={getPanelNavItems}
+            isPanelNavActive={isPanelNavActive}
+            fetchPanelNotifications={fetchPanelNotifications}
+            savedListings={savedListings}
+        />
     );
 }

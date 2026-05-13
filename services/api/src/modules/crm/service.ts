@@ -3,7 +3,8 @@ import { z } from 'zod';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-export type VerticalType = 'autos' | 'propiedades' | 'agenda' | 'serenatas';
+import type { VerticalType } from '@simple/types';
+export type { VerticalType };
 export type UserRole = 'user' | 'admin' | 'superadmin';
 export type UserStatus = 'active' | 'verified' | 'suspended';
 export type LeadPriority = 'low' | 'medium' | 'high';

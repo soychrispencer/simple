@@ -334,7 +334,7 @@ export function createPublicRouter(deps: PublicRouterDeps) {
     app.post('/mortgage-rates/refresh', async (c) => {
         try {
             // Import the update function dynamically to avoid circular dependencies
-            const { updateMortgageRates } = await import('../../scripts/updateMortgageRates.js');
+            const { updateMortgageRates } = await import('../../lib/updateMortgageRates.js');
             await updateMortgageRates();
             
             // Get updated rates

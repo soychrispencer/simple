@@ -22,7 +22,7 @@ import {
     IconWorld,
 } from '@tabler/icons-react';
 import PanelSectionHeader from '@/components/panel/panel-section-header';
-import { useAuth } from '@/context/auth-context';
+import { useAuth } from '@simple/auth';
 import {
     addCrmLeadNote,
     addCrmListingLeadNote,
@@ -635,7 +635,7 @@ export default function CRMPage() {
     };
 
     return (
-        <div className="container-app panel-page py-8">
+        <div className="container-app panel-page py-4 lg:py-8">
             <PanelSectionHeader
                 title="CRM"
                 description="Gestión comercial de leads de tus publicaciones"

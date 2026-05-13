@@ -220,7 +220,7 @@ export default function OnboardingPage() {
                                 {avatarUploading ? (
                                     <IconLoader2 size={24} className="animate-spin" style={{ color: 'var(--fg-muted)' }} />
                                 ) : perfil.avatarUrl ? (
-                                    // eslint-disable-next-line @next/next/no-img-element
+                                     
                                     <img src={perfil.avatarUrl} alt="Avatar" className="w-full h-full object-cover" />
                                 ) : (
                                     <div className="flex flex-col items-center gap-1">

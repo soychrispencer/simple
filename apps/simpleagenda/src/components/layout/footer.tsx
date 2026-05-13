@@ -28,13 +28,13 @@ export function Footer() {
             <div className="container-app py-16">
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-10 mb-12">
                     <div className="col-span-2 sm:col-span-1">
-                        <Link href="/" className="group mb-4 flex items-center gap-2 shrink-0">
-                            <span className="w-9 h-9 rounded-[10px] border flex items-center justify-center transition-colors group-hover:opacity-80" style={{ borderColor: '#0d9488', color: '#0d9488' }}>
-                                <IconCalendar size={18} />
-                            </span>
-                            <span className="inline-flex items-baseline gap-[0.08rem] text-[1.05rem] tracking-tight" style={{ color: 'var(--fg)' }}>
+                        <Link href="/" className="group mb-4 flex items-center gap-1 shrink-0">
+                            <div className="w-8 h-8 rounded-xl flex items-center justify-center" style={{ background: '#0d9488', color: '#fff' }}>
+                                <IconCalendar size={16} />
+                            </div>
+                            <span className="inline-flex items-end gap-[0.08rem] text-[1.05rem] tracking-tight" style={{ color: 'var(--fg)' }}>
                                 <span className="font-semibold leading-none">Simple</span>
-                                <span className="font-normal leading-none" style={{ color: '#0d9488' }}>Agenda</span>
+                                <span className="translate-y-[0.02em] font-normal leading-none" style={{ color: 'var(--fg-muted)' }}>Agenda</span>
                             </span>
                         </Link>
                         <p className="text-sm leading-relaxed max-w-[220px] text-(--fg-muted)">
@@ -60,7 +60,7 @@ export function Footer() {
 
                 <div className="pt-8 border-t border-(--border) flex flex-col sm:flex-row items-center justify-between gap-4">
                     <p className="text-sm text-(--fg-muted)">
-                        © {new Date().getFullYear()} Simple Plataforma. Todos los derechos reservados.
+                        © {new Date().getFullYear()} SimpleAgenda. Todos los derechos reservados.
                     </p>
                     <div className="flex items-center gap-6">
                         <Link href="/privacidad" className="text-sm text-(--fg-muted) hover:text-(--fg) transition-colors">Privacidad</Link>

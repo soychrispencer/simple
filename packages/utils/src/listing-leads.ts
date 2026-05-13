@@ -32,7 +32,7 @@ export async function submitListingLead(
                 'Content-Type': 'application/json',
             },
             body: JSON.stringify({
-                vertical: vertical,
+                vertical,
                 listingId: input.listingId,
                 contactName: input.contactName,
                 contactEmail: input.contactEmail,
@@ -89,7 +89,7 @@ export async function submitListingLeadAction(
                 'Content-Type': 'application/json',
             },
             body: JSON.stringify({
-                vertical: vertical,
+                vertical,
                 listingId: input.listingId,
                 source: input.source,
                 contactName: input.contactName,

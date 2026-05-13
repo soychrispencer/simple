@@ -2,18 +2,16 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { useState, type ComponentType } from 'react';
+import { useMemo, useState, type ComponentType } from 'react';
 import { IconChevronLeft, IconChevronRight, IconUser } from '@tabler/icons-react';
 
-// Tabler icon component type - using any to avoid strict type issues with Tabler's custom props
-type TablerIcon = ComponentType<any>;
+type TablerIcon = ComponentType<{ size?: number; stroke?: number }>;
 
-// Types
 export interface NavItem {
     href: string;
     label: string;
     icon: TablerIcon;
-    badge?: boolean;
+    badge?: string;
 }
 
 export interface UserInfo {
@@ -22,162 +20,211 @@ export interface UserInfo {
     avatar?: string;
 }
 
-export interface AppSidebarProps {
+export interface SidebarProps {
     navItems: NavItem[];
     user: UserInfo;
     collapsed: boolean;
-    onToggle: () => void;
+    onToggle?: () => void;
+    activeHref?: string | null;
+    fixed?: boolean;
     storageKey?: string;
+    footerHref?: string | null;
+    footerLabel?: string;
+    footerIcon?: TablerIcon;
 }
 
-export function AppSidebar({
+function cleanHref(href: string): string {
+    return href.split('#')[0] ?? href;
+}
+
+function cleanPathname(href: string): string {
+    return href.split('?')[0]?.split('#')[0] ?? href;
+}
+
+export function Sidebar({
     navItems,
     user,
     collapsed,
     onToggle,
-    storageKey = 'app:sidebar:collapsed',
-}: AppSidebarProps) {
+    activeHref = null,
+    fixed = false,
+    footerHref = null,
+    footerLabel = 'Mi cuenta',
+    footerIcon,
+}: SidebarProps) {
     const pathname = usePathname() ?? '';
     const [hovered, setHovered] = useState(false);
 
-    const isActive = (href: string) => pathname === href || pathname.startsWith(`${href}/`);
-    const showExpanded = !collapsed || hovered;
+    const isActive = (href: string) => {
+        if (activeHref) return cleanHref(activeHref) === cleanHref(href);
+        const normalized = cleanPathname(href);
+        return pathname === normalized || pathname.startsWith(`${normalized}/`);
+    };
 
+    const showExpanded = !collapsed || hovered;
     const userName = user?.name || 'Usuario';
     const userInitial = userName.charAt(0).toUpperCase();
     const userRoleLabel = user?.role || 'Usuario';
+    const FooterIcon = footerIcon || IconUser;
+
+    const asideClassName = useMemo(() => {
+        if (fixed) {
+            return 'hidden md:flex fixed left-0 top-0 bottom-0 z-40 flex-col transition-all duration-300';
+        }
+        return `hidden lg:block px-2 pt-3 pb-2 shrink-0 transition-[width] duration-200 ${collapsed ? 'w-29' : 'w-73'}`;
+    }, [collapsed, fixed]);
+
+    const outerStyle = fixed
+        ? {
+            width: showExpanded ? '16rem' : '4rem',
+            background: 'var(--surface)',
+            borderRight: '1px solid var(--border)',
+        }
+        : undefined;
+
+    const innerClassName = fixed
+        ? 'flex items-center h-16 px-4 border-b flex-shrink-0'
+        : 'sticky top-4 rounded-2xl border p-3 flex flex-col';
+
+    const innerStyle = fixed
+        ? { borderColor: 'var(--border)' }
+        : {
+            borderColor: 'var(--border)',
+            background: 'color-mix(in srgb, var(--surface) 92%, transparent)',
+            boxShadow: 'var(--shadow-md)',
+        };
 
     return (
         <aside
-            className="hidden md:flex fixed left-0 top-0 bottom-0 z-40 flex-col transition-all duration-300"
-            style={{
-                width: showExpanded ? '16rem' : '4rem',
-                background: 'var(--surface)',
-                borderRight: '1px solid var(--border)',
-            }}
-            onMouseEnter={() => collapsed && setHovered(true)}
-            onMouseLeave={() => setHovered(false)}
+            className={asideClassName}
+            style={outerStyle}
+            onMouseEnter={() => fixed && collapsed && setHovered(true)}
+            onMouseLeave={() => fixed && setHovered(false)}
         >
-            {/* User Avatar Area */}
-            <div
-                className="flex items-center h-16 px-4 border-b flex-shrink-0"
-                style={{ borderColor: 'var(--border)' }}
-            >
-                <div className={`flex items-center overflow-hidden ${showExpanded ? 'gap-3' : 'justify-center w-full'}`}>
-                    <div
-                        className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0"
-                        style={{ backgroundColor: 'var(--bg-muted)' }}
+            <div className={innerClassName} style={innerStyle}>
+                <div className={`mb-3 flex ${collapsed ? 'justify-center' : 'justify-end'}`}>
+                    {onToggle ? (
+                        <button
+                            type="button"
+                            onClick={onToggle}
+                            className="flex h-8 w-8 items-center justify-center rounded-[10px] border transition-colors hover:bg-[var(--bg-subtle)] hover:border-[var(--border-strong)] hover:text-[var(--fg)]"
+                            style={{
+                                borderColor: 'var(--border)',
+                                background: 'var(--surface)',
+                                color: 'var(--fg-muted)',
+                                boxShadow: 'var(--shadow-xs)',
+                            }}
+                            aria-label={collapsed ? 'Expandir sidebar' : 'Contraer sidebar'}
+                        >
+                            {collapsed ? <IconChevronRight size={15} /> : <IconChevronLeft size={15} />}
+                        </button>
+                    ) : null}
+                </div>
+
+                <div
+                    className={`mb-3 rounded-xl border ${collapsed ? 'p-1.5 flex justify-center' : 'p-2.5 flex items-center gap-2.5'}`}
+                    style={{ borderColor: 'var(--border)' }}
+                    title={collapsed ? `${userName} · ${userRoleLabel}` : undefined}
+                >
+                    <span
+                        className="w-8 h-8 rounded-[10px] flex items-center justify-center text-sm font-semibold"
+                        style={{ background: 'var(--bg-muted)', color: 'var(--fg)' }}
                     >
-                        <span className="text-sm font-semibold" style={{ color: 'var(--fg)' }}>
-                            {userInitial}
-                        </span>
-                    </div>
-                    {!collapsed && (
+                        {userInitial}
+                    </span>
+                    {!collapsed ? (
                         <span className="min-w-0 flex-1">
-                            <span className="block text-sm font-medium truncate" style={{ color: 'var(--fg)' }}>
+                            <span className="block text-sm truncate" style={{ color: 'var(--fg)' }}>
                                 {userName}
                             </span>
                             <span className="block text-xs truncate" style={{ color: 'var(--fg-muted)' }}>
                                 {userRoleLabel}
                             </span>
                         </span>
-                    )}
+                    ) : null}
                 </div>
-            </div>
 
-            {/* Navigation */}
-            <nav className="flex-1 py-4 px-2 space-y-1 overflow-y-auto scrollbar-thin">
-                {navItems.map((item) => {
-                    const Icon = item.icon;
-                    const active = isActive(item.href);
+                <nav className="pr-1 space-y-2">
+                    {navItems.map((item) => {
+                        const Icon = item.icon;
+                        const active = isActive(item.href);
 
-                    return (
-                        <Link
-                            key={item.href}
-                            href={item.href}
-                            className={`flex items-center gap-3 px-3 py-3 rounded-xl text-sm font-medium transition-all ${
-                                active
-                                    ? 'nav-item-desktop-active'
-                                    : 'nav-item-desktop'
-                            }`}
-                            title={!showExpanded ? item.label : undefined}
-                        >
-                            <div className="relative flex-shrink-0">
-                                <Icon size="20" strokeWidth={active ? 2 : 1.5} />
-                                {item.badge && (
-                                    <span
-                                        className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full"
-                                        style={{ background: 'var(--accent)' }}
-                                    />
-                                )}
-                            </div>
-                            <span
-                                className={`transition-all duration-300 whitespace-nowrap ${
-                                    showExpanded ? 'opacity-100 w-auto' : 'opacity-0 w-0'
+                        return (
+                            <Link
+                                key={item.href}
+                                href={item.href}
+                                aria-current={active ? 'page' : undefined}
+                                className={`group relative flex h-11 items-center rounded-xl text-sm transition-colors hover:bg-[var(--bg-subtle)] ${
+                                    collapsed ? 'justify-center px-1.5' : 'gap-2.5 px-2.5'
                                 }`}
+                                style={{
+                                    background: active ? 'var(--bg-subtle)' : 'transparent',
+                                    color: active ? 'var(--fg)' : 'var(--fg-secondary)',
+                                }}
                             >
-                                {item.label}
+                                <span
+                                    className="w-9 h-9 rounded-[10px] border flex items-center justify-center transition-colors group-hover:border-[var(--border-strong)] group-hover:text-[var(--fg)]"
+                                    style={{
+                                        borderColor: active ? 'var(--button-primary-border)' : 'var(--border)',
+                                        background: active ? 'var(--button-primary-bg)' : 'transparent',
+                                        color: active ? 'var(--button-primary-color)' : 'var(--fg-secondary)',
+                                        boxShadow: active ? 'var(--shadow-xs)' : 'none',
+                                    }}
+                                >
+                                    <Icon size={17} stroke={1.9} />
+                                </span>
+
+                                {!collapsed ? (
+                                    <span className="min-w-0 flex-1 flex items-center justify-between gap-2">
+                                        <span className="truncate text-sm font-medium">{item.label}</span>
+                                        {item.badge ? (
+                                            <span
+                                                className="text-[10px] font-medium px-1.5 py-[0.2rem] rounded-[5px] border uppercase tracking-[0.04em]"
+                                                style={{ borderColor: 'var(--border)', color: 'var(--fg-muted)' }}
+                                            >
+                                                {item.badge}
+                                            </span>
+                                        ) : null}
+                                    </span>
+                                ) : (
+                                    <span
+                                        className="pointer-events-none absolute left-[calc(100%+10px)] top-1/2 z-60 -translate-y-1/2 translate-x-1 whitespace-nowrap rounded-[10px] border px-2.5 py-1.5 text-sm font-medium opacity-0 transition-all group-hover:translate-x-0 group-hover:opacity-100 group-focus-visible:translate-x-0 group-focus-visible:opacity-100"
+                                        style={{
+                                            background: 'var(--surface)',
+                                            borderColor: 'var(--border)',
+                                            color: 'var(--fg)',
+                                            boxShadow: 'var(--shadow-sm)',
+                                        }}
+                                    >
+                                        {item.label}
+                                    </span>
+                                )}
+                            </Link>
+                        );
+                    })}
+                </nav>
+
+                {footerHref ? (
+                    <div className="pt-3 mt-3 border-t" style={{ borderColor: 'var(--border)' }}>
+                        <Link
+                            href={footerHref}
+                            className={`group flex h-10 items-center rounded-[10px] border transition-colors hover:bg-[var(--bg-subtle)] hover:border-[var(--border-strong)] hover:text-[var(--fg)] ${
+                                collapsed ? 'justify-center' : 'gap-2 px-2.5'
+                            }`}
+                            style={{ borderColor: 'var(--border)', color: 'var(--fg-secondary)' }}
+                            title={collapsed ? footerLabel : undefined}
+                        >
+                            <span className="w-7 h-7 rounded-lg flex items-center justify-center bg-[var(--bg-muted)]">
+                                <FooterIcon size={13} stroke={1.9} />
                             </span>
+                            {!collapsed ? <span className="text-sm">{footerLabel}</span> : null}
                         </Link>
-                    );
-                })}
-            </nav>
-
-            {/* User Section */}
-            <div
-                className="p-3 border-t flex-shrink-0"
-                style={{ borderColor: 'var(--border)' }}
-            >
-                <Link
-                    href="/perfil"
-                    className={`flex items-center gap-3 rounded-xl transition-all overflow-hidden ${
-                        showExpanded ? 'px-3 py-2' : 'p-2 justify-center'
-                    }`}
-                    style={{
-                        background: isActive('/perfil') ? 'var(--accent-subtle)' : 'transparent'
-                    }}
-                    title={!showExpanded ? userName : undefined}
-                >
-                    <div
-                        className="w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0"
-                        style={{ background: 'var(--accent-subtle)' }}
-                    >
-                        <IconUser size={18} style={{ color: 'var(--accent)' }} />
                     </div>
-                    <div
-                        className={`flex-1 min-w-0 transition-all duration-300 ${
-                            showExpanded ? 'opacity-100' : 'opacity-0 w-0'
-                        }`}
-                    >
-                        <p
-                            className="text-sm font-medium truncate"
-                            style={{ color: isActive('/perfil') ? 'var(--accent)' : 'var(--fg)' }}
-                        >
-                            {userName}
-                        </p>
-                        <p
-                            className="text-xs truncate"
-                            style={{ color: 'var(--fg-muted)' }}
-                        >
-                            {userRoleLabel}
-                        </p>
-                    </div>
-                </Link>
+                ) : null}
             </div>
-
-            {/* Toggle Button */}
-            <button
-                onClick={onToggle}
-                className="absolute -right-3 top-20 w-6 h-6 rounded-full flex items-center justify-center shadow-md transition-colors hover:scale-105"
-                style={{
-                    background: 'var(--surface)',
-                    border: '1px solid var(--border)',
-                    color: 'var(--fg-secondary)'
-                }}
-                aria-label={collapsed ? 'Expandir sidebar' : 'Colapsar sidebar'}
-            >
-                {collapsed ? <IconChevronRight size={14} /> : <IconChevronLeft size={14} />}
-            </button>
         </aside>
     );
 }
+
+export type AppSidebarProps = SidebarProps;
+export { Sidebar as AppSidebar };

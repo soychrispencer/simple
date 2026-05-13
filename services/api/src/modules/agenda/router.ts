@@ -1339,7 +1339,7 @@ export function createAgendaRouter(deps: AgendaRouterDeps) {
         const user = await authUser(c);
         if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
         const profile = await getAgendaProfile(user.id);
-        if (profile && isFreePlan(profile, user.role)) return c.redirect(`${process.env.AGENDA_APP_URL ?? 'http://localhost:3002'}/panel/configuracion/integraciones?gc=upgrade`);
+        if (profile && isFreePlan(profile, user.role)) return c.redirect(`${process.env.AGENDA_APP_URL ?? 'http://localhost:3004'}/panel/configuracion/integraciones?gc=upgrade`);
         const oauth2Client = getGoogleOAuth2Client();
         const url = oauth2Client.generateAuthUrl({ access_type: 'offline', scope: ['https://www.googleapis.com/auth/calendar'], state: user.id, prompt: 'consent' });
         return c.redirect(url);
@@ -1347,7 +1347,7 @@ export function createAgendaRouter(deps: AgendaRouterDeps) {
 
     app.get('/google-calendar/callback', async (c) => {
         const code = c.req.query('code'); const state = c.req.query('state');
-        if (!code || !state) return c.redirect(`${process.env.AGENDA_APP_URL ?? 'http://localhost:3002'}/panel/configuracion/integraciones?gc=error&message=${encodeURIComponent('Faltan parámetros')}`);
+        if (!code || !state) return c.redirect(`${process.env.AGENDA_APP_URL ?? 'http://localhost:3004'}/panel/configuracion/integraciones?gc=error&message=${encodeURIComponent('Faltan parámetros')}`);
         try {
             const oauth2Client = getGoogleOAuth2Client();
             const { tokens } = await oauth2Client.getToken(code);
@@ -1356,10 +1356,10 @@ export function createAgendaRouter(deps: AgendaRouterDeps) {
             const calList = await calendarApi.calendarList.list({ minAccessRole: 'owner' });
             const primaryCal = calList.data.items?.find((c: any) => c.primary) ?? calList.data.items?.[0];
             const profile = await db.query.agendaProfessionalProfiles.findFirst({ where: eq(agendaProfessionalProfiles.userId, state) });
-            if (!profile) return c.redirect(`${process.env.AGENDA_APP_URL ?? 'http://localhost:3002'}/panel/configuracion/integraciones?gc=error&message=${encodeURIComponent('Perfil no encontrado')}`);
+            if (!profile) return c.redirect(`${process.env.AGENDA_APP_URL ?? 'http://localhost:3004'}/panel/configuracion/integraciones?gc=error&message=${encodeURIComponent('Perfil no encontrado')}`);
             await db.update(agendaProfessionalProfiles).set({ googleCalendarId: primaryCal?.id ?? null, googleAccessToken: tokens.access_token ?? null, googleRefreshToken: tokens.refresh_token ?? null, googleTokenExpiry: tokens.expiry_date ? new Date(tokens.expiry_date) : null, updatedAt: new Date() }).where(eq(agendaProfessionalProfiles.id, profile.id));
-            return c.redirect(`${process.env.AGENDA_APP_URL ?? 'http://localhost:3002'}/panel/configuracion/integraciones?gc=connected`);
-        } catch (e) { const msg = e instanceof Error ? e.message : 'Error desconocido'; return c.redirect(`${process.env.AGENDA_APP_URL ?? 'http://localhost:3002'}/panel/configuracion/integraciones?gc=error&message=${encodeURIComponent(msg)}`); }
+            return c.redirect(`${process.env.AGENDA_APP_URL ?? 'http://localhost:3004'}/panel/configuracion/integraciones?gc=connected`);
+        } catch (e) { const msg = e instanceof Error ? e.message : 'Error desconocido'; return c.redirect(`${process.env.AGENDA_APP_URL ?? 'http://localhost:3004'}/panel/configuracion/integraciones?gc=error&message=${encodeURIComponent(msg)}`); }
     });
 
     app.delete('/google-calendar/disconnect', requireVerifiedSession, async (c) => {
@@ -1383,7 +1383,7 @@ export function createAgendaRouter(deps: AgendaRouterDeps) {
         const user = await authUser(c);
         if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
         const mpProfile = await getAgendaProfile(user.id);
-        if (mpProfile && isFreePlan(mpProfile, user.role)) return c.redirect(`${process.env.AGENDA_APP_URL ?? 'http://localhost:3002'}/panel/configuracion/integraciones?mp=upgrade`);
+        if (mpProfile && isFreePlan(mpProfile, user.role)) return c.redirect(`${process.env.AGENDA_APP_URL ?? 'http://localhost:3004'}/panel/configuracion/integraciones?mp=upgrade`);
         const appId = process.env.MP_AGENDA_APP_ID;
         if (!appId) return c.json({ ok: false, error: 'MP_AGENDA_APP_ID no configurado' }, 500);
         const redirectUri = encodeURIComponent(`${process.env.API_BASE_URL ?? 'http://localhost:4000'}/api/agenda/mercadopago/callback`);
@@ -1393,19 +1393,19 @@ export function createAgendaRouter(deps: AgendaRouterDeps) {
 
     app.get('/mercadopago/callback', async (c) => {
         const code = c.req.query('code'); const state = c.req.query('state');
-        if (!code || !state) return c.redirect(`${process.env.AGENDA_APP_URL ?? 'http://localhost:3002'}/panel/configuracion/integraciones?mp=error`);
+        if (!code || !state) return c.redirect(`${process.env.AGENDA_APP_URL ?? 'http://localhost:3004'}/panel/configuracion/integraciones?mp=error`);
         try {
             const appId = process.env.MP_AGENDA_APP_ID; const appSecret = process.env.MP_AGENDA_APP_SECRET;
-            if (!appId || !appSecret) return c.redirect(`${process.env.AGENDA_APP_URL ?? 'http://localhost:3002'}/panel/configuracion/integraciones?mp=error`);
+            if (!appId || !appSecret) return c.redirect(`${process.env.AGENDA_APP_URL ?? 'http://localhost:3004'}/panel/configuracion/integraciones?mp=error`);
             const redirectUri = `${process.env.API_BASE_URL ?? 'http://localhost:4000'}/api/agenda/mercadopago/callback`;
             const tokenRes = await fetch('https://api.mercadopago.com/oauth/token', { method: 'POST', headers: { 'Content-Type': 'application/json', Accept: 'application/json' }, body: JSON.stringify({ client_id: appId, client_secret: appSecret, grant_type: 'authorization_code', code, redirect_uri: redirectUri }) });
             if (!tokenRes.ok) throw new Error('MP token exchange failed');
             const tokens = await tokenRes.json() as { access_token: string; public_key: string; refresh_token?: string; user_id?: number };
             const profile = await db.query.agendaProfessionalProfiles.findFirst({ where: eq(agendaProfessionalProfiles.userId, state) });
-            if (!profile) return c.redirect(`${process.env.AGENDA_APP_URL ?? 'http://localhost:3002'}/panel/configuracion/integraciones?mp=error`);
+            if (!profile) return c.redirect(`${process.env.AGENDA_APP_URL ?? 'http://localhost:3004'}/panel/configuracion/integraciones?mp=error`);
             await db.update(agendaProfessionalProfiles).set({ mpAccessToken: tokens.access_token, mpPublicKey: tokens.public_key ?? null, mpUserId: tokens.user_id ? String(tokens.user_id) : null, mpRefreshToken: tokens.refresh_token ?? null, updatedAt: new Date() }).where(eq(agendaProfessionalProfiles.id, profile.id));
-            return c.redirect(`${process.env.AGENDA_APP_URL ?? 'http://localhost:3002'}/panel/configuracion/integraciones?mp=connected`);
-        } catch (e) { console.error('[agenda] MP OAuth callback error:', e); return c.redirect(`${process.env.AGENDA_APP_URL ?? 'http://localhost:3002'}/panel/configuracion/integraciones?mp=error`); }
+            return c.redirect(`${process.env.AGENDA_APP_URL ?? 'http://localhost:3004'}/panel/configuracion/integraciones?mp=connected`);
+        } catch (e) { console.error('[agenda] MP OAuth callback error:', e); return c.redirect(`${process.env.AGENDA_APP_URL ?? 'http://localhost:3004'}/panel/configuracion/integraciones?mp=error`); }
     });
 
     app.delete('/mercadopago/disconnect', requireVerifiedSession, async (c) => {
@@ -1788,7 +1788,7 @@ export function createPublicAgendaRouter(deps: AgendaRouterDeps) {
         let checkoutUrl: string|null = null;
         if (profile.requiresAdvancePayment && profile.acceptsMp && profile.mpAccessToken && price) {
             try {
-                const baseUrl = process.env.AGENDA_APP_URL ?? 'http://localhost:3002';
+                const baseUrl = process.env.AGENDA_APP_URL ?? 'http://localhost:3004';
                 const pref = await createCheckoutPreference({ externalReference: appointment.id, title: `Sesión con ${profile.displayName ?? 'el profesional'}`, amount: parseFloat(price), currencyId: profile.currency, payerEmail: typeof body.clientEmail === 'string' && body.clientEmail ? body.clientEmail : 'paciente@simpleagenda.app', payerName: String(body.clientName), backUrls: { success: `${baseUrl}/${slug}?payment=success&appt=${appointment.id}`, failure: `${baseUrl}/${slug}?payment=failure&appt=${appointment.id}`, pending: `${baseUrl}/${slug}?payment=pending&appt=${appointment.id}` }, accessToken: profile.mpAccessToken });
                 checkoutUrl = pref.initPoint;
             } catch (e) { console.error('[agenda] MP checkout creation error:', e); }

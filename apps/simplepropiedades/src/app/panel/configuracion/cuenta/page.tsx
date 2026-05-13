@@ -1,10 +1,9 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { IconUser } from '@tabler/icons-react';
-import { useAuth } from '@/context/auth-context';
+import { useAuth } from '@simple/auth';
 import { updateAccountProfile } from '@/lib/account-profile';
-import { PanelPageHeader, PanelCard, PanelField, PanelButton, PanelNotice } from '@simple/ui';
+import { PanelPageHeader, PanelAccountProfileCard, PanelField, PanelButton, PanelNotice } from '@simple/ui';
 
 export default function CuentaPage() {
     const [profileName, setProfileName] = useState('');
@@ -38,57 +37,45 @@ export default function CuentaPage() {
     };
 
     return (
-        <div className="container-app panel-page py-8 max-w-2xl">
+        <div className="container-app panel-page py-4 lg:py-8 max-w-2xl">
             <PanelPageHeader
                 backHref="/panel/configuracion"
-                title="Cuenta"
-                description="Datos base de tu sesion y tu informacion principal."
+                title="Datos personales"
+                description="Nombre, correo y teléfono de tu cuenta."
             />
 
             <div className="flex flex-col gap-6">
-                <PanelCard size="md">
-                    <div className="flex items-center gap-4 mb-5">
-                        <div
-                            className="w-16 h-16 rounded-full flex items-center justify-center shrink-0"
-                            style={{ background: 'var(--accent-subtle)', color: 'var(--accent)' }}
-                        >
-                            <IconUser size={24} />
-                        </div>
-                        <div>
-                            <p className="text-sm font-medium" style={{ color: 'var(--fg)' }}>
-                                {user?.name || 'Usuario Simple'}
-                            </p>
-                            <p className="text-sm" style={{ color: 'var(--fg-muted)' }}>
-                                {user?.email || 'Sin correo'}
-                            </p>
-                        </div>
-                    </div>
+                <PanelAccountProfileCard
+                    name={user?.name || 'Usuario Simple'}
+                    email={user?.email || 'Sin correo'}
+                    role={user?.role || undefined}
+                    subtitle="Datos base de tu sesión y tu información principal."
+                />
 
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                        <PanelField label="Nombre">
-                            <input
-                                className="form-input"
-                                value={profileName}
-                                onChange={(e) => setProfileName(e.target.value)}
-                                placeholder="Tu nombre"
-                            />
-                        </PanelField>
-                        <PanelField label="Telefono">
-                            <input
-                                className="form-input"
-                                value={profilePhone}
-                                onChange={(e) => setProfilePhone(e.target.value)}
-                                placeholder="+56 9 1234 5678"
-                            />
-                        </PanelField>
-                        <PanelField label="Correo electronico">
-                            <div className="form-input flex items-center">{user?.email || '-'}</div>
-                        </PanelField>
-                        <PanelField label="Rol">
-                            <div className="form-input flex items-center">{user?.role || '-'}</div>
-                        </PanelField>
-                    </div>
-                </PanelCard>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <PanelField label="Nombre">
+                        <input
+                            className="form-input"
+                            value={profileName}
+                            onChange={(e) => setProfileName(e.target.value)}
+                            placeholder="Tu nombre"
+                        />
+                    </PanelField>
+                    <PanelField label="Telefono">
+                        <input
+                            className="form-input"
+                            value={profilePhone}
+                            onChange={(e) => setProfilePhone(e.target.value)}
+                            placeholder="+56 9 1234 5678"
+                        />
+                    </PanelField>
+                    <PanelField label="Correo electronico">
+                        <div className="form-input flex items-center">{user?.email || '-'}</div>
+                    </PanelField>
+                    <PanelField label="Rol">
+                        <div className="form-input flex items-center">{user?.role || '-'}</div>
+                    </PanelField>
+                </div>
 
                 {message && <PanelNotice>{message}</PanelNotice>}
 

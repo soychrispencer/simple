@@ -679,7 +679,7 @@ export function createInstagramPublicImageRouter(deps: InstagramPublicImageRoute
 
             const needsConversion = contentType.includes('webp') || contentType.includes('avif') || contentType.includes('gif');
             if (needsConversion) {
-                // eslint-disable-next-line @typescript-eslint/no-var-requires
+                 
                 const sharp = require('sharp') as typeof import('sharp');
                 const jpegBuffer = await sharp(Buffer.from(rawArrayBuffer)).jpeg({ quality: 90 }).toBuffer();
                 return new Response(new Uint8Array(jpegBuffer), {

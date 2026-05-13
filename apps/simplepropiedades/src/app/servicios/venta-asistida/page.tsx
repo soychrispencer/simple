@@ -12,7 +12,7 @@ import {
     IconCoin,
     IconShieldCheck,
 } from '@tabler/icons-react';
-import ModernSelect from '@/components/ui/modern-select';
+import { ModernSelect } from '@simple/ui';
 import { submitServiceLead } from '@/lib/service-leads';
 import { PanelBlockHeader, PanelButton, PanelCard, PanelNotice, PanelSegmentedToggle } from '@simple/ui';
 

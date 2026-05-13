@@ -1,74 +1,70 @@
-import Link from 'next/link';
 import {
     IconUser,
     IconNotebook,
     IconMapPin,
     IconPlugConnected,
-    IconChevronRight,
     IconCreditCard,
+    IconShield,
 } from '@tabler/icons-react';
+import { PanelConfigPage, type PanelConfigSectionItem } from '@simple/ui';
 
-const CONFIG_SECTIONS = [
+const CONFIG_SECTIONS: PanelConfigSectionItem[] = [
     {
+        key: 'cuenta',
         href: '/panel/configuracion/cuenta',
-        icon: IconUser,
-        title: 'Cuenta',
-        description: 'Datos de tu sesion, nombre y telefono.',
+        icon: <IconUser size={18} />,
+        title: 'Datos personales',
+        description: 'Nombre, correo y teléfono de tu cuenta.',
+        required: true,
     },
     {
+        key: 'seguridad',
+        href: '/panel/configuracion/seguridad',
+        icon: <IconShield size={18} />,
+        title: 'Seguridad',
+        description: 'Contraseña, autenticación de dos factores.',
+        required: true,
+    },
+    {
+        key: 'pagina',
         href: '/panel/configuracion/pagina',
-        icon: IconNotebook,
-        title: 'Pagina publica',
+        icon: <IconNotebook size={18} />,
+        title: 'Página pública',
         description: 'Personaliza tu perfil visible para clientes.',
+        required: false,
     },
     {
+        key: 'direcciones',
         href: '/panel/configuracion/direcciones',
-        icon: IconMapPin,
+        icon: <IconMapPin size={18} />,
         title: 'Direcciones',
         description: 'Gestiona tus direcciones de propiedades.',
+        required: false,
     },
     {
+        key: 'integraciones',
         href: '/panel/configuracion/integraciones',
-        icon: IconPlugConnected,
+        icon: <IconPlugConnected size={18} />,
         title: 'Integraciones',
         description: 'Conecta Instagram y otros servicios externos.',
+        required: false,
     },
     {
+        key: 'suscripciones',
         href: '/panel/suscripciones',
-        icon: IconCreditCard,
+        icon: <IconCreditCard size={18} />,
         title: 'Suscripción',
         description: 'Gestiona tu plan y método de pago mensual.',
+        required: true,
     },
 ];
 
 export default function ConfiguracionPage() {
     return (
-        <div className="container-app panel-page py-8 max-w-2xl">
-            <h1 className="text-xl font-bold mb-1" style={{ color: 'var(--fg)' }}>Configuracion</h1>
-            <p className="text-sm mb-8" style={{ color: 'var(--fg-muted)' }}>Gestiona tu cuenta y preferencias.</p>
-
-            <div className="grid sm:grid-cols-2 gap-3">
-                {CONFIG_SECTIONS.map((section) => (
-                    <Link
-                        key={section.href}
-                        href={section.href}
-                        className="flex items-center gap-4 p-4 rounded-2xl border transition-colors hover:border-[--accent-border]"
-                        style={{ borderColor: 'var(--border)', background: 'var(--surface)' }}
-                    >
-                        <div
-                            className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0"
-                            style={{ background: 'var(--accent-soft)', color: 'var(--accent)' }}
-                        >
-                            <section.icon size={18} />
-                        </div>
-                        <div className="flex-1 min-w-0">
-                            <p className="text-sm font-semibold" style={{ color: 'var(--fg)' }}>{section.title}</p>
-                            <p className="text-xs mt-0.5" style={{ color: 'var(--fg-muted)' }}>{section.description}</p>
-                        </div>
-                        <IconChevronRight size={16} style={{ color: 'var(--fg-muted)' }} />
-                    </Link>
-                ))}
-            </div>
-        </div>
+        <PanelConfigPage
+            title="Mi Cuenta"
+            description="Administra tus datos personales y tu perfil de cuenta."
+            sections={CONFIG_SECTIONS}
+        />
     );
 }

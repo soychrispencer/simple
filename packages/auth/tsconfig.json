@@ -3,7 +3,9 @@
     "target": "ES2022",
     "module": "ESNext",
     "moduleResolution": "Bundler",
-    "types": ["node"],
+    "types": [
+      "node"
+    ],
     "outDir": "dist",
     "rootDir": "src",
     "declaration": true,
@@ -19,7 +21,12 @@
     "src/**/*.tsx"
   ],
   "references": [
-    { "path": "../types" },
-    { "path": "../ui" }
-  ]
+    {
+      "path": "../types"
+    },
+    {
+      "path": "../ui"
+    }
+  ],
+  "extends": "../../tsconfig.base.json"
 }

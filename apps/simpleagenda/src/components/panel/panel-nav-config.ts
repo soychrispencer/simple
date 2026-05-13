@@ -26,7 +26,7 @@ const BASE_ITEMS: PanelNavItem[] = [
     { href: '/panel/pagos', label: 'Cobros', icon: IconCoin },
     { href: '/panel/analytics', label: 'Estadísticas', icon: IconChartBar },
     { href: '/panel/referidos', label: 'Referidos', icon: IconShare },
-    { href: '/panel/configuracion', label: 'Configuración', icon: IconSettings },
+    { href: '/panel/configuracion', label: 'Mi Cuenta', icon: IconSettings },
 ];
 
 export function getPanelNavItems(_role: PanelRole): PanelNavItem[] {

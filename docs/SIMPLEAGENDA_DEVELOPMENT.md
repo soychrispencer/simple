@@ -82,7 +82,7 @@ ALTER TABLE agenda_appointments
 
 ```bash
 # Aplicar migraciones pendientes
-npm run db:push
+pnpm run db:push
 ```
 
 ### **2. Configurar Variables de Entorno**

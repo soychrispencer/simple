@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { useAuth } from '@/context/auth-context';
+import { useAuth } from '@simple/auth';
 import { IconLock } from '@tabler/icons-react';
 import { PanelButton } from '@simple/ui';
 import { API_BASE } from '@simple/config';
@@ -28,7 +28,7 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
                 </div>
                 <h2 className="text-xl font-semibold mb-2" style={{ color: 'var(--fg)' }}>Acceso restringido</h2>
                 <p className="text-sm mb-6" style={{ color: 'var(--fg-muted)' }}>Necesitas iniciar sesión para acceder a esta sección.</p>
-                <PanelButton onClick={openAuth} variant="primary" className="h-11 px-6 text-sm">Iniciar sesión</PanelButton>
+                <PanelButton onClick={() => openAuth('login')} variant="primary" className="h-11 px-6 text-sm">Iniciar sesión</PanelButton>
             </div>
         );
     }

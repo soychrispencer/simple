@@ -43,7 +43,7 @@ function mapFeaturedBoostToVehicleCard(item: FeaturedBoostItem): VehicleListingC
     const sectionLabel = item.section === 'sale' ? 'Venta' : item.section === 'rent' ? 'Arriendo' : 'Subasta';
     const metaItems = orderVehicleTags(
         item.subtitle
-            .split(/[•\|;,]|\s+-\s+/g)
+            .split(/[•|;,]|\s+-\s+/g)
             .map(p => p.trim())
             .filter(p => p.length > 0)
     );

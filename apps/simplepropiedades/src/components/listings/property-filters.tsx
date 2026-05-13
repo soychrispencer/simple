@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { IconAdjustmentsHorizontal } from '@tabler/icons-react';
-import ModernSelect from '@/components/ui/modern-select';
+import { ModernSelect } from '@simple/ui';
 import { LOCATION_REGIONS, getCommunesForRegion } from '@simple/utils';
 import { PanelCard, PanelButton } from '@simple/ui';
 

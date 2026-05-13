@@ -1,36 +1,36 @@
 {
-    "name": "@simple/auth",
-    "version": "1.0.0",
-    "private": true,
-    "main": "dist/index.js",
-    "types": "dist/index.d.ts",
-    "files": [
-        "dist"
-    ],
-    "exports": {
-        ".": {
-            "types": "./dist/index.d.ts",
-            "default": "./dist/index.js"
-        }
-    },
-    "scripts": {
-        "build": "tsc --build",
-        "typecheck": "tsc --noEmit"
-    },
-    "dependencies": {
-        "@simple/config": "*",
-        "@simple/types": "*",
-        "@simple/ui": "*",
-        "@tabler/icons-react": "^3.31.0"
-    },
-    "peerDependencies": {
-        "react": "^19.2.4",
-        "react-dom": "^19.2.4"
-    },
-    "devDependencies": {
-        "@types/node": "^22.0.0",
-        "@types/react": "^19.1.8",
-        "@types/react-dom": "^19.1.6",
-        "typescript": "^5.9.3"
+  "name": "@simple/auth",
+  "version": "1.0.0",
+  "private": true,
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "files": [
+    "dist"
+  ],
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
     }
+  },
+  "scripts": {
+    "build": "tsc --build",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@simple/config": "workspace:*",
+    "@simple/types": "workspace:*",
+    "@simple/ui": "workspace:*",
+    "@tabler/icons-react": "^3.31.0"
+  },
+  "peerDependencies": {
+    "react": "^19.2.4",
+    "react-dom": "^19.2.4"
+  },
+  "devDependencies": {
+    "@types/node": "^22.19.17",
+    "@types/react": "^19.1.8",
+    "@types/react-dom": "^19.1.6",
+    "typescript": "^5.9.3"
+  }
 }

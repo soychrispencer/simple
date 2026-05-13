@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useRef, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import { useAuth } from '@/context/auth-context';
+import { useAuth } from '@simple/auth';
 import { isListingSaved, subscribeSavedListings, toggleSavedListing } from '@/lib/saved-listings';
 import { 
     IconHeart, 
@@ -254,7 +254,7 @@ export default function VehicleListingCard({ data, mode }: Props) {
                     await navigator.share({
                         title: data.title,
                         text: `Mira este vehículo: ${data.title} - ${data.price}`,
-                        url: url,
+                        url,
                     });
                 } catch {
                     // User cancelled or error

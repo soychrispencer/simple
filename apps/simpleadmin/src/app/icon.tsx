@@ -4,10 +4,9 @@ export const contentType = 'image/svg+xml';
 export default function Icon() {
     const svg = `<svg width="512" height="512" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg">
             <rect width="512" height="512" rx="128" fill="#4f46e5"/>
-            <!-- IconShieldLock de Tabler -->
-            <path d="M256 64 C350 64 420 110 420 110 L420 244 C420 350 340 448 256 448 C172 448 92 350 92 244 L92 110 C92 110 162 64 256 64 Z" stroke="white" stroke-width="28" fill="none"/>
-            <circle cx="256" cy="260" r="40" fill="white"/>
-            <path d="M256 180 L256 220" stroke="white" stroke-width="28" stroke-linecap="round"/>
+            <path d="M256 140 C321 140 374 193 374 258 L374 316 C374 342 353 363 327 363 L185 363 C159 363 138 342 138 316 L138 258 C138 193 191 140 256 140 Z" stroke="white" stroke-width="16" fill="none"/>
+            <circle cx="256" cy="276" r="24" fill="white"/>
+            <line x1="256" y1="200" x2="256" y2="252" stroke="white" stroke-width="16" stroke-linecap="round"/>
         </svg>`;
     
     return new Response(svg, {

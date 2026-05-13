@@ -20,7 +20,7 @@ import {
     IconDotsVertical,
     IconShare,
 } from '@tabler/icons-react';
-import { useAuth } from '@/context/auth-context';
+import { useAuth } from '@simple/auth';
 import { fetchSocialFeed, toggleFollowAuthor, type SocialClip, type SocialSection } from '@simple/utils';
 
 const FILTERS: Array<{ value: SocialSection; label: string }> = [

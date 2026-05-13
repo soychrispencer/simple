@@ -160,7 +160,7 @@ export default function DireccionesConfigPage() {
             <PanelPageHeader
                 backHref="/panel/configuracion"
                 title="Direcciones"
-                description="Registra cada lugar donde atiendes. Puedes tener más de una dirección activa."
+                description="Registra y gestiona tus direcciones. Puedes tener más de una activa."
                 actions={
                     !showForm ? (
                         <PanelButton variant="accent" size="sm" onClick={handleNew}>
@@ -178,11 +178,21 @@ export default function DireccionesConfigPage() {
                             {editingId ? 'Editar dirección' : 'Nueva dirección'}
                         </h2>
                         <div className="flex flex-col gap-4">
+                            <label className="block">
+                                <span className="block text-sm font-medium mb-1.5" style={{ color: 'var(--fg)' }}>
+                                    Nombre de la dirección <span style={{ color: 'var(--danger)' }}>*</span>
+                                </span>
+                                <input
+                                    className="form-input"
+                                    value={form.label || ''}
+                                    onChange={(event) => setForm((current) => ({ ...current, label: event.target.value }))}
+                                    placeholder="Ej: Consulta Providencia, Oficina, Casa"
+                                />
+                            </label>
                             <ListingLocationEditor
-                                framed={false}
-                                showHeader={false}
+                                title="Dirección"
+                                description="Busca la dirección y selecciona una sugerencia si aparece."
                                 simpleMode
-                                showLocationMeta
                                 showSourceSelector={false}
                                 showVisibilityField={false}
                                 showPublicPreviewCard={false}
@@ -293,13 +303,17 @@ export default function DireccionesConfigPage() {
                                                     href={mapsUrl}
                                                     target="_blank"
                                                     rel="noopener noreferrer"
-                                                    className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg border text-[11px] font-medium transition-colors hover:opacity-80"
+                                                    aria-label="Ver en Maps"
+                                                    title="Ver en Maps"
+                                                    className="inline-flex size-8 items-center justify-center rounded-lg border transition-colors hover:opacity-80"
                                                     style={{ borderColor: 'var(--border)', color: 'var(--fg-secondary)', background: 'var(--bg)' }}
                                                 >
-                                                    <IconMap size={11} /> Ver en Maps
+                                                    <IconMap size={14} />
                                                 </a>
                                                 <button
                                                     type="button"
+                                                    aria-label="Compartir dirección"
+                                                    title="Compartir dirección"
                                                     onClick={() => {
                                                         if (navigator.share) {
                                                             void navigator.share({ title: loc.name, url: mapsUrl });
@@ -307,10 +321,10 @@ export default function DireccionesConfigPage() {
                                                             void navigator.clipboard.writeText(mapsUrl);
                                                         }
                                                     }}
-                                                    className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg border text-[11px] font-medium transition-colors hover:opacity-80"
+                                                    className="inline-flex size-8 items-center justify-center rounded-lg border transition-colors hover:opacity-80"
                                                     style={{ borderColor: 'var(--border)', color: 'var(--fg-secondary)', background: 'var(--bg)' }}
                                                 >
-                                                    <IconShare size={11} /> Compartir
+                                                    <IconShare size={14} />
                                                 </button>
                                             </div>
                                         )}

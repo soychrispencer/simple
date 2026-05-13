@@ -3,7 +3,7 @@
 import { useEffect, useState, type FormEvent } from 'react';
 import { useRouter } from 'next/navigation';
 import { IconBrandWhatsapp, IconMail, IconPhone } from '@tabler/icons-react';
-import { useAuth } from '@/context/auth-context';
+import { useAuth } from '@simple/auth';
 import { submitListingLead, submitListingLeadAction } from '@simple/utils';
 import { PanelBlockHeader, PanelButton, PanelCard } from '@simple/ui';
 

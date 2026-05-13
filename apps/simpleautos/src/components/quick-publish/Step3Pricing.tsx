@@ -3,7 +3,7 @@
 import { useState, useCallback, useEffect } from 'react';
 import { IconSparkles, IconX } from '@tabler/icons-react';
 import { PanelNotice, PanelSwitch, PanelButton } from '@simple/ui';
-import ModernSelect from '@/components/ui/modern-select';
+import { ModernSelect } from '@simple/ui';
 import { getPriceReference, type PriceReferenceResult } from '@/actions/get-price-reference';
 import { formatPrice } from '@/hooks/useQuickPublish';
 import type { QuickBasicData } from './types';

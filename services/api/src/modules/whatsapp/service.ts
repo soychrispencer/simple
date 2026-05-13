@@ -23,10 +23,12 @@
  */
 
 import { fmtDateTz, fmtTime } from '@simple/utils';
+import { logger } from '@simple/logger';
 
 const GRAPH_API = 'https://graph.facebook.com/v21.0';
 
-export type WaVertical = 'agenda' | 'autos' | 'propiedades';
+import type { VerticalType } from '@simple/types';
+export type WaVertical = VerticalType;
 
 function getPhoneNumberId(vertical?: WaVertical): string | null {
     if (vertical === 'agenda')       return process.env.WHATSAPP_PHONE_NUMBER_ID_AGENDA    ?? process.env.WHATSAPP_PHONE_NUMBER_ID ?? null;
@@ -64,7 +66,7 @@ async function sendTemplate(
     const phoneNumberId = getPhoneNumberId(vertical)!;
     const normalized = normalizePhone(to);
     if (!normalized) {
-        console.warn('[whatsapp] Invalid phone number:', to);
+        logger.warn('[whatsapp] Invalid phone number', { to });
         return;
     }
 

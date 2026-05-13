@@ -1,6 +1,6 @@
-@import "../../../../packages/ui/src/theme-base.css";
 @import "tailwindcss";
 @source "../../../../packages/ui/src";
+@import "../../../../packages/ui/src/theme-base.css";
 
 .field-input {
     width: 100%;

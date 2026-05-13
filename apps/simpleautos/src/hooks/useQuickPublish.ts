@@ -471,7 +471,7 @@ export function useQuickPublish() {
             }));
         })();
         return () => { cancelled = true; };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+     
     }, []);
 
     // Keep session storage in sync with state (local only — no server round-trip)
@@ -612,7 +612,7 @@ export function useQuickPublish() {
     const goToStep = useCallback((step: QuickPublishStep) => {
         setState((prev) => ({ ...prev, step, publishError: null }));
         serverSave({ step });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+     
     }, []);
 
     const submitBasicData = useCallback((data: QuickBasicData) => {
@@ -650,7 +650,7 @@ export function useQuickPublish() {
         };
         setState((s) => ({ ...s, basicData: data, step: 3, generatedText: nextGeneratedText }));
         serverSave({ step: 3, basicData: data, generatedText: nextGeneratedText });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+     
     }, []);
 
     const generateText = useCallback(async () => {

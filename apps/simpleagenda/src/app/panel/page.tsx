@@ -22,6 +22,7 @@ import Link from 'next/link';
 import { fetchAgendaStats, fetchAgendaProfile, isPlanActive, type AgendaStats, type AgendaWeekDay, type AgendaProfile } from '@/lib/agenda-api';
 import { fmtCLP, fmtTime, fmtDateShort as fmtDate } from '@/lib/format';
 import { vocab } from '@/lib/vocabulary';
+import { PanelPageHeader } from '@simple/ui';
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -314,7 +315,7 @@ export default function PanelHomePage() {
         if (typeof window !== 'undefined') {
             setChecklistDismissed(window.localStorage.getItem('simpleagenda:setup-dismissed') === '1');
         }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+     
     }, []);
 
     const handleDismissChecklist = () => {
@@ -370,13 +371,10 @@ export default function PanelHomePage() {
 
     return (
         <div className="container-app panel-page py-4 lg:py-8">
-            {/* Header */}
-            <div className="mb-5 lg:mb-8">
-                <h1 className="text-2xl font-bold mb-0.5" style={{ color: 'var(--fg)' }}>{greeting}</h1>
-                <p className="text-sm" style={{ color: 'var(--fg-muted)' }}>
-                    {new Date().toLocaleDateString('es-CL', { weekday: 'long', day: 'numeric', month: 'long' })}
-                </p>
-            </div>
+            <PanelPageHeader
+                title={greeting}
+                description={new Date().toLocaleDateString('es-CL', { weekday: 'long', day: 'numeric', month: 'long' })}
+            />
 
             {/* Stat cards */}
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-6">

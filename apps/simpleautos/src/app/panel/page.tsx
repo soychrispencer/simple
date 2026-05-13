@@ -44,7 +44,7 @@ export default function DashboardPage() {
     }, [activeItems.length, items]);
 
     return (
-        <div className="container-app panel-page py-8">
+        <div className="container-app panel-page py-4 lg:py-8">
             <PanelSectionHeader title="Dashboard" description="Resumen real de tu actividad" />
 
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-6">

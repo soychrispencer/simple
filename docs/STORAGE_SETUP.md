@@ -2,7 +2,7 @@
 
 ## Overview
 
-SimpleV2 uses Backblaze B2 for file storage (fotos, videos, documentos). B2 is an S3-compatible, cost-effective solution ideal for production.
+Simple uses Backblaze B2 for file storage (fotos, videos, documentos). B2 is an S3-compatible, cost-effective solution ideal for production.
 
 ## Cost Estimation
 

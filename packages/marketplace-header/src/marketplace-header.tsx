@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useTheme } from 'next-themes';
-import { useEffect, useMemo, useRef, useState, type ComponentType } from 'react';
+import { useEffect, useMemo, useRef, useState, type ComponentType, type ReactNode } from 'react';
 import {
   IconBell,
   IconSun,
@@ -38,7 +38,7 @@ export type PanelNotification = {
 };
 
 export type MarketplaceHeaderProps = {
-  brandAppId: 'simpleautos' | 'simplepropiedades';
+  brandAppId: 'simpleautos' | 'simplepropiedades' | 'simpleserenatas' | 'simpleadmin' | 'simpleagenda';
   publicLinks: Array<{ href: string; label: string; isNew?: boolean }>;
   getPanelNavItems: (role: MarketplacePanelRole) => MarketplacePanelNavItem[];
   isPanelNavActive: (pathname: string, href: string) => boolean;
@@ -50,6 +50,19 @@ export type MarketplaceHeaderProps = {
   };
   /** Ruta de inicio al hacer clic en el logo (default "/"). */
   homeHref?: string;
+  /** Contenido central opcional. Si se entrega, reemplaza la navegación pública en desktop. */
+  centerSlot?: ReactNode;
+  /** Acciones personalizadas opcionales a la derecha. Si se entrega, reemplaza el bloque por defecto. */
+  rightSlot?: ReactNode;
+  /** Contenido opcional para el menú hamburguesa mobile. */
+  renderMobileMenu?: (closeMenu: () => void) => ReactNode;
+  /** Slot opcional para notificaciones cuando una vertical ya tiene su propio flujo. */
+  notificationSlot?: ReactNode;
+  /** Acción principal del header autenticado. Defaults: Publicar -> /panel/publicar. */
+  primaryActionLabel?: string;
+  primaryActionHref?: string;
+  primaryActionIcon?: ComponentType<{ size?: number; stroke?: number }>;
+  showPrimaryAction?: boolean;
 };
 
 export function MarketplaceHeader({
@@ -60,6 +73,14 @@ export function MarketplaceHeader({
   fetchPanelNotifications,
   savedListings,
   homeHref = '/',
+  centerSlot,
+  rightSlot,
+  renderMobileMenu,
+  notificationSlot,
+  primaryActionLabel = 'Publicar',
+  primaryActionHref = '/panel/publicar',
+  primaryActionIcon: PrimaryActionIcon = IconPlus,
+  showPrimaryAction = true,
 }: MarketplaceHeaderProps) {
   const pathname = usePathname() ?? '';
   const router = useRouter();
@@ -94,7 +115,7 @@ export function MarketplaceHeader({
 
   useEffect(() => {
     let active = true;
-    if (!isLoggedIn) {
+    if (notificationSlot || !isLoggedIn) {
       setNotifications([]);
       return;
     }
@@ -107,7 +128,7 @@ export function MarketplaceHeader({
     return () => {
       active = false;
     };
-  }, [isLoggedIn, pathname, fetchPanelNotifications]);
+  }, [isLoggedIn, pathname, fetchPanelNotifications, notificationSlot]);
 
   useEffect(() => {
     const handleOutside = (event: MouseEvent) => {
@@ -120,9 +141,9 @@ export function MarketplaceHeader({
     return () => document.removeEventListener('pointerdown', handleOutside);
   }, []);
 
-  const handlePublicar = () => {
-    if (requireAuth(() => router.push('/panel/publicar'))) {
-      router.push('/panel/publicar');
+  const handlePrimaryAction = () => {
+    if (requireAuth(() => router.push(primaryActionHref))) {
+      router.push(primaryActionHref);
     }
   };
 
@@ -138,29 +159,43 @@ export function MarketplaceHeader({
           <BrandLogo appId={brandAppId} />
         </Link>
 
-        <nav className="hidden md:flex items-center gap-1">
-          {publicLinks.map((l) => (
-            <Link
-              key={l.href}
-              href={l.href}
-              className="header-nav-link px-3.5 py-2 text-sm font-medium rounded-lg transition-colors duration-200"
-              data-active={pathname === l.href || pathname.startsWith(`${l.href}/`) ? 'true' : 'false'}
-            >
-              <span className="inline-flex items-center gap-1.5">
-                <span>{l.label}</span>
-                {l.isNew ? (
-                  <span className="header-nav-link-badge inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] font-medium">
-                    <IconSparkles size={10} />
-                    Nuevo
-                  </span>
-                ) : null}
-              </span>
-            </Link>
-          ))}
-        </nav>
+        {centerSlot ? (
+          <div className="flex min-w-0 flex-1 justify-center px-2">
+            <div className="flex min-w-0 items-center justify-center">
+              {centerSlot}
+            </div>
+          </div>
+        ) : (
+          <nav className="hidden md:flex items-center gap-1">
+            {publicLinks.map((l) => (
+              <Link
+                key={l.href}
+                href={l.href}
+                className="header-nav-link px-3.5 py-2 text-sm font-medium rounded-lg transition-colors duration-200"
+                data-active={pathname === l.href || pathname.startsWith(`${l.href}/`) ? 'true' : 'false'}
+              >
+                <span className="inline-flex items-center gap-1.5">
+                  <span>{l.label}</span>
+                  {l.isNew ? (
+                    <span className="header-nav-link-badge inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] font-medium">
+                      <IconSparkles size={10} />
+                      Nuevo
+                    </span>
+                  ) : null}
+                </span>
+              </Link>
+            ))}
+          </nav>
+        )}
 
-        <div className="flex items-center gap-2">
-          {isLoggedIn && (
+        <div className="flex items-center gap-2" style={{ minWidth: rightSlot ? 'auto' : '120px', justifyContent: 'flex-end' }}>
+          {rightSlot ? (
+            <div className="flex items-center gap-2">{rightSlot}</div>
+          ) : (
+            <>
+          {isLoggedIn && notificationSlot ? notificationSlot : null}
+
+          {isLoggedIn && !notificationSlot && (
             <div className="relative" ref={notificationsRef}>
               <button
                 type="button"
@@ -334,17 +369,19 @@ export function MarketplaceHeader({
             </div>
           )}
 
+          {showPrimaryAction ? (
           <div className="hidden md:flex">
             {isLoggedIn ? (
-              <PanelButton onClick={handlePublicar} variant="primary" size="sm" className="h-9 px-4 text-sm">
-                <IconPlus size={13} /> Publicar
+              <PanelButton onClick={handlePrimaryAction} variant="primary" size="sm" className="h-9 px-4 text-sm">
+                <PrimaryActionIcon size={13} /> {primaryActionLabel}
               </PanelButton>
             ) : (
-              <PanelButton onClick={openAuth} variant="primary" size="sm" className="h-9 px-4 text-sm">
+              <PanelButton onClick={() => openAuth('login')} variant="primary" size="sm" className="h-9 px-4 text-sm">
                 Iniciar sesión
               </PanelButton>
             )}
           </div>
+          ) : null}
 
           <div className="relative md:hidden" ref={menuRef}>
             <button
@@ -362,29 +399,33 @@ export function MarketplaceHeader({
                 className="absolute right-0 top-[calc(100%+8px)] z-50 w-[260px] rounded-xl border p-2 animate-slide-down"
                 style={{ background: 'var(--surface)', borderColor: 'var(--border)', boxShadow: 'var(--shadow-md)' }}
               >
-                {isLoggedIn ? (
+                {renderMobileMenu ? (
+                  renderMobileMenu(() => setMenuOpen(false))
+                ) : (
+                  <>
+                {isLoggedIn && showPrimaryAction ? (
                   <PanelButton
                     onClick={() => {
                       setMenuOpen(false);
-                      handlePublicar();
+                      handlePrimaryAction();
                     }}
                     variant="primary"
                     className="w-full h-10 text-sm mb-2"
                   >
-                    <IconPlus size={14} /> Publicar
+                    <PrimaryActionIcon size={14} /> {primaryActionLabel}
                   </PanelButton>
-                ) : (
+                ) : !isLoggedIn ? (
                   <PanelButton
                     onClick={() => {
                       setMenuOpen(false);
-                      openAuth();
+                      openAuth('login');
                     }}
                     variant="primary"
                     className="w-full h-10 text-sm mb-2"
                   >
                     Iniciar sesión
                   </PanelButton>
-                )}
+                ) : null}
 
                 <div className="my-2 border-t" style={{ borderColor: 'var(--border)' }} />
 
@@ -408,9 +449,13 @@ export function MarketplaceHeader({
                     ) : null}
                   </Link>
                 ))}
+                  </>
+                )}
               </div>
             )}
           </div>
+            </>
+          )}
         </div>
       </div>
     </header>

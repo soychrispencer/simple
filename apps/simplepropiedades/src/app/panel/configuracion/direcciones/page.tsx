@@ -34,7 +34,7 @@ export default function DireccionesPage() {
     }, []);
 
     return (
-        <div className="container-app panel-page py-8 max-w-2xl">
+        <div className="container-app panel-page py-4 lg:py-8 max-w-2xl">
             <PanelPageHeader
                 backHref="/panel/configuracion"
                 title="Direcciones"
@@ -44,6 +44,7 @@ export default function DireccionesPage() {
             <div className="space-y-4">
                 <AddressBookManager
                     showHeader={false}
+                    googleMapsApiKey={process.env.NEXT_PUBLIC_GOOGLE_MAPS_BROWSER_KEY || process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY}
                     entries={addressBook}
                     regions={LOCATION_REGIONS.map((item) => ({ value: item.id, label: item.name }))}
                     getCommunes={(regionId) => getCommunesForRegion(regionId).map((item) => ({ value: item.id, label: item.name }))}

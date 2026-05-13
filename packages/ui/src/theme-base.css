@@ -9,6 +9,7 @@
     --font-mono: 'JetBrains Mono', ui-monospace, monospace;
 }
 
+@layer base {
 /* ── Light ────────────────────────────────────────────────────────────────── */
 :root {
     --bg: #fafafa;
@@ -149,6 +150,9 @@ h4 {
     background: transparent;
 }
 
+} /* End layer base */
+
+@layer utilities {
 /* ── Animations ──────────────────────────────────────────────────────────── */
 @keyframes fade-in {
     from {
@@ -248,6 +252,37 @@ h4 {
     animation-delay: 420ms;
 }
 
+/* ── Reduced Motion ─────────────────────────────────────────────────────── */
+@media (prefers-reduced-motion: reduce) {
+    .animate-fade-in,
+    .animate-slide-up,
+    .animate-slide-down,
+    .animate-scale-in,
+    .stagger-item {
+        animation: none !important;
+    }
+
+    *,
+    *::before,
+    *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+        scroll-behavior: auto !important;
+    }
+
+    html {
+        scroll-behavior: auto;
+    }
+
+    body {
+        transition: none;
+    }
+}
+
+} /* End layer utilities */
+
+@layer components {
 /* ── Layout ──────────────────────────────────────────────────────────────── */
 .container-app {
     width: 100%;
@@ -293,6 +328,9 @@ h4 {
     }
 }
 
+} /* End layer components */
+
+@layer utilities {
 /* ── Typography Helpers ─────────────────────────────────────────────────── */
 .type-display {
     font-size: var(--text-3xl);
@@ -387,6 +425,9 @@ h4 {
     letter-spacing: -0.028em;
 }
 
+} /* End layer utilities */
+
+@layer components {
 /* ── Buttons ─────────────────────────────────────────────────────────────── */
 .btn {
     display: inline-flex;
@@ -641,3 +682,4 @@ button:disabled,
 [role="button"][aria-disabled="true"] {
     cursor: not-allowed;
 }
+} /* End layer components */

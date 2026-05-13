@@ -51,7 +51,6 @@ function UsuariosContent() {
         if (scope === 'agenda') return items.filter((item) => item.agendaListings > 0);
         if (scope === 'autos') return items.filter((item) => item.autosListings > 0);
         if (scope === 'propiedades') return items.filter((item) => item.propiedadesListings > 0);
-        if (scope === 'serenatas') return items.filter((item) => Boolean(item.subscriptions?.serenatas));
         return items;
     }, [items, scope]);
 
@@ -73,8 +72,6 @@ function UsuariosContent() {
                     ? 'Publicaciones autos'
                     : scope === 'propiedades'
                         ? 'Publicaciones propiedades'
-                        : scope === 'serenatas'
-                            ? 'Usuarios serenatas'
                         : 'Administradores';
         const listingValue =
             scope === 'agenda'
@@ -83,8 +80,6 @@ function UsuariosContent() {
                     ? scopedItems.reduce((sum, item) => sum + item.autosListings, 0)
                     : scope === 'propiedades'
                         ? scopedItems.reduce((sum, item) => sum + item.propiedadesListings, 0)
-                        : scope === 'serenatas'
-                            ? scopedItems.length
                         : admins;
 
         return [
@@ -303,7 +298,7 @@ function UsuariosContent() {
                                             {user.subscriptions?.agenda && <SubscriptionBadge vertical="Agenda" subscription={user.subscriptions.agenda} />}
                                             {user.subscriptions?.autos && <SubscriptionBadge vertical="Autos" subscription={user.subscriptions.autos} />}
                                             {user.subscriptions?.propiedades && <SubscriptionBadge vertical="Propiedades" subscription={user.subscriptions.propiedades} />}
-                                            {user.subscriptions?.serenatas && <SubscriptionBadge vertical="Serenatas" subscription={user.subscriptions.serenatas} />}
+                                            {user.serenatas && <SerenatasBadge serenatas={user.serenatas} />}
                                         </div>
                                     </div>
                                 )}
@@ -494,7 +489,7 @@ function StatItem({ label, value, color }: { label: string; value: string; color
 }
 
 function hasSubscriptions(user: AdminUserListItem): boolean {
-    return !!(user.subscriptions?.agenda || user.subscriptions?.autos || user.subscriptions?.propiedades || user.subscriptions?.serenatas);
+    return !!(user.subscriptions?.agenda || user.subscriptions?.autos || user.subscriptions?.propiedades || user.serenatas);
 }
 
 function hasAnyListing(user: AdminUserListItem): boolean {
@@ -552,6 +547,23 @@ function SubscriptionBadge({ vertical, subscription }: { vertical: string; subsc
             style={{ background: statusColor, color: statusTextColor }}
         >
             {vertical}: {planLabel}
+        </span>
+    );
+}
+
+function SerenatasBadge({ serenatas }: { serenatas: NonNullable<AdminUserListItem['serenatas']> }) {
+    const roles = [
+        serenatas.client ? 'Cliente' : null,
+        serenatas.musician ? `Músico${serenatas.instrument ? `: ${serenatas.instrument}` : ''}` : null,
+        serenatas.coordinator ? `Coordinador${serenatas.coordinatorStatus ? `: ${serenatas.coordinatorStatus}` : ''}` : null,
+    ].filter(Boolean).join(' · ');
+
+    return (
+        <span
+            className="inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-medium"
+            style={{ background: 'color-mix(in oklab, #E11D48 12%, transparent)', color: '#E11D48' }}
+        >
+            Serenatas: {roles || 'Perfil'}
         </span>
     );
 }

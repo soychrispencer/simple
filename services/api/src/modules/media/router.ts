@@ -1,6 +1,7 @@
 import { Hono } from 'hono';
 import type { Context } from 'hono';
 import { GetObjectCommand } from '@aws-sdk/client-s3';
+import { logger } from '@simple/logger';
 
 export interface MediaRouterDeps {
     authUser: (c: Context) => Promise<any>;
@@ -203,12 +204,14 @@ export function createStorageRouter(deps: StorageRouterDeps) {
             const isHealthy = await storage.health();
 
             // Debug info
-            console.log('[STORAGE HEALTH] Provider type:', env.STORAGE_PROVIDER);
-            console.log('[STORAGE HEALTH] B2 App Key ID:', env.BACKBLAZE_APP_KEY_ID ? 'Set' : 'Not set');
-            console.log('[STORAGE HEALTH] B2 App Key:', env.BACKBLAZE_APP_KEY ? 'Set' : 'Not set');
-            console.log('[STORAGE HEALTH] B2 Bucket ID:', env.BACKBLAZE_BUCKET_ID ? 'Set' : 'Not set');
-            console.log('[STORAGE HEALTH] B2 Bucket Name:', env.BACKBLAZE_BUCKET_NAME ? 'Set' : 'Not set');
-            console.log('[STORAGE HEALTH] B2 Download URL:', env.BACKBLAZE_DOWNLOAD_URL ? 'Set' : 'Not set');
+            logger.info('[STORAGE HEALTH] provider configuration', {
+                provider: env.STORAGE_PROVIDER,
+                b2AppKeyId: env.BACKBLAZE_APP_KEY_ID ? 'Set' : 'Not set',
+                b2AppKey: env.BACKBLAZE_APP_KEY ? 'Set' : 'Not set',
+                b2BucketId: env.BACKBLAZE_BUCKET_ID ? 'Set' : 'Not set',
+                b2BucketName: env.BACKBLAZE_BUCKET_NAME ? 'Set' : 'Not set',
+                b2DownloadUrl: env.BACKBLAZE_DOWNLOAD_URL ? 'Set' : 'Not set',
+            });
 
             return c.json({ ok: true, healthy: isHealthy }, 200);
         } catch (error) {

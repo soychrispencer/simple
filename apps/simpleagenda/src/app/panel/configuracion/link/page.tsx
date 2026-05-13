@@ -276,7 +276,7 @@ export default function LinkReservasPage() {
                                     className="mt-4 p-4 rounded-xl flex flex-col sm:flex-row items-center gap-4"
                                     style={{ background: 'var(--bg)', border: '1px solid var(--border)' }}
                                 >
-                                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                                    { }
                                     <img
                                         src={qrSrc}
                                         alt={`QR de ${publicUrl}`}

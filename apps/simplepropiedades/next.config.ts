@@ -1,10 +1,12 @@
 import type { NextConfig } from 'next';
 import path from 'path';
 
+const apiBackendUrl = process.env.API_INTERNAL_URL || process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:4000';
+
 const nextConfig: NextConfig = {
     output: 'standalone',
     outputFileTracingRoot: path.join(process.cwd(), '../..'),
-    transpilePackages: ['@simple/types', '@simple/config', '@simple/ui'],
+    transpilePackages: ['@simple/types', '@simple/config', '@simple/ui', '@simple/utils', '@simple/auth', '@simple/marketplace-header', '@simple/listings-core'],
     images: {
         remotePatterns: [{ protocol: 'https', hostname: '**' }],
     },
@@ -12,11 +14,11 @@ const nextConfig: NextConfig = {
         return [
             {
                 source: '/api/public/:path*',
-                destination: 'http://localhost:4000/api/public/:path*',
+                destination: `${apiBackendUrl}/api/public/:path*`,
             },
             {
                 source: '/api/:path*',
-                destination: 'http://localhost:4000/api/:path*',
+                destination: `${apiBackendUrl}/api/:path*`,
             },
         ];
     },

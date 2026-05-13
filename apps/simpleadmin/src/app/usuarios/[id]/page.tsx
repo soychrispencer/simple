@@ -8,8 +8,6 @@ import {
   fetchAdminUsers,
   updateAdminUserRole,
   updateAdminUserStatus,
-  updateAdminUserSubscriptions,
-  updateAdminUserSerenatasRole,
   type AdminSessionUser,
   type AdminUserListItem,
 } from '@/lib/api';
@@ -61,7 +59,6 @@ function AdminUserDetailContent({ adminUser }: { adminUser: AdminSessionUser }) 
       : 'user';
   const canEditRole = hasAdminCapability(adminUser, 'users.editRole', scope);
   const canEditStatus = hasAdminCapability(adminUser, 'users.editStatus', scope);
-  const canEditSubscriptions = hasAdminCapability(adminUser, 'users.editSubscriptions', scope);
 
   async function refreshUsers() {
     const next = await fetchAdminUsers();
@@ -98,42 +95,6 @@ function AdminUserDetailContent({ adminUser }: { adminUser: AdminSessionUser }) 
     setMessage('Estado actualizado.');
   }
 
-  async function handleSerenatasPlanChange(planId: string) {
-    if (!user || !canEditSubscriptions) return;
-    setSaving(true);
-    setMessage(null);
-    setError(null);
-    const result = await updateAdminUserSubscriptions(user.id, {
-      serenatas: {
-        planId: planId || null,
-        status: planId ? 'active' : 'cancelled',
-        planName: planId || null,
-      },
-    });
-    setSaving(false);
-    if (!result.ok) {
-      setError(result.error || 'No pudimos actualizar la suscripción de serenatas.');
-      return;
-    }
-    await refreshUsers();
-    setMessage('Suscripción de serenatas actualizada.');
-  }
-
-  async function handleSerenatasRoleChange(role: 'client' | 'musician' | 'coordinator') {
-    if (!user || !canEditSubscriptions) return;
-    setSaving(true);
-    setMessage(null);
-    setError(null);
-    const result = await updateAdminUserSerenatasRole(user.id, role);
-    setSaving(false);
-    if (!result.ok) {
-      setError(result.error || 'No pudimos actualizar el rol de serenatas.');
-      return;
-    }
-    await refreshUsers();
-    setMessage('Rol de serenatas actualizado.');
-  }
-
   return (
     <div className="container-app panel-page py-8">
       <div className="mb-6 flex items-center justify-between gap-3">
@@ -161,7 +122,7 @@ function AdminUserDetailContent({ adminUser }: { adminUser: AdminSessionUser }) 
               <Meta label="Proveedor" value={user.provider ?? 'local'} />
               <Meta label="Registro" value={new Date(user.createdAt).toLocaleDateString('es-CL')} />
             </div>
-            {(canEditRole || canEditStatus || canEditSubscriptions) ? (
+            {(canEditRole || canEditStatus) ? (
               <div className="mt-4 grid grid-cols-1 md:grid-cols-3 gap-3">
                 {canEditRole ? (
                   <label className="space-y-1.5 text-sm">
@@ -192,43 +153,6 @@ function AdminUserDetailContent({ adminUser }: { adminUser: AdminSessionUser }) 
                       <option value="suspended">suspended</option>
                     </select>
                   </label>
-                ) : null}
-                {canEditSubscriptions ? (
-                  <>
-                    <label className="space-y-1.5 text-sm">
-                      <span style={{ color: 'var(--fg-muted)' }}>Plan serenatas</span>
-                      <select
-                        key={`ser-plan-${user.id}-${user.subscriptions?.serenatas?.planId ?? 'none'}-${user.subscriptions?.serenatas?.status ?? ''}`}
-                        className="form-select h-10"
-                        defaultValue={user.subscriptions?.serenatas?.planId ?? ''}
-                        disabled={saving}
-                        onChange={(event) => void handleSerenatasPlanChange(event.target.value)}
-                      >
-                        <option value="">Sin plan</option>
-                        <option value="coordinator">Coordinador (único)</option>
-                      </select>
-                    </label>
-                    <label className="space-y-1.5 text-sm">
-                      <span style={{ color: 'var(--fg-muted)' }}>Rol serenatas</span>
-                      <select
-                        key={`ser-role-${user.id}-${user.subscriptions?.serenatas?.roleLabel ?? ''}`}
-                        className="form-select h-10"
-                        defaultValue={
-                          user.subscriptions?.serenatas?.roleLabel === 'Coordinador'
-                            ? 'coordinator'
-                            : user.subscriptions?.serenatas?.roleLabel === 'Músico'
-                              ? 'musician'
-                              : 'client'
-                        }
-                        disabled={saving}
-                        onChange={(event) => void handleSerenatasRoleChange(event.target.value as 'client' | 'musician' | 'coordinator')}
-                      >
-                        <option value="client">Cliente</option>
-                        <option value="musician">Músico</option>
-                        <option value="coordinator">Coordinador</option>
-                      </select>
-                    </label>
-                  </>
                 ) : null}
               </div>
             ) : null}

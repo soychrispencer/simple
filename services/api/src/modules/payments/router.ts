@@ -62,6 +62,12 @@ export type PaymentsRouterDeps = {
         createCheckoutSchema: any;
         confirmCheckoutSchema: any;
     };
+    serenataPayments?: {
+        getTarget: (userId: string, serenataId: string) => Promise<any | null>;
+        attachOrder: (userId: string, serenataId: string, orderId: string) => Promise<any | null>;
+        applyPaid: (userId: string, serenataId: string, orderId: string) => Promise<{ item: any; offersCount: number } | null>;
+        markFailed: (userId: string, serenataId: string) => Promise<any | null>;
+    };
 };
 
 export function createPaymentsRouter(deps: PaymentsRouterDeps) {
@@ -73,7 +79,8 @@ export function createPaymentsRouter(deps: PaymentsRouterDeps) {
         const user = await deps.authUser(c);
         if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
 
-        const vertical = deps.parseVertical(c.req.query('vertical'));
+        const rawVertical = c.req.query('vertical');
+        const vertical = rawVertical === 'serenatas' ? 'serenatas' : deps.parseVertical(rawVertical);
         const plans = deps.getSubscriptionPlans(vertical);
         const freePlan = plans.find((plan: any) => plan.id === 'free') ?? null;
         const orders = deps.getPaymentOrdersForUser(user.id, { vertical, kind: 'subscription' }).map((order: any) => deps.paymentOrderToResponse(order));
@@ -215,6 +222,77 @@ export function createPaymentsRouter(deps: PaymentsRouterDeps) {
         const checkoutData = parsed.data;
 
         try {
+            if (checkoutData.kind === 'serenata_booking') {
+                if (!deps.serenataPayments) {
+                    return c.json({ ok: false, error: 'Pagos de serenatas no disponibles.' }, 503);
+                }
+                const target = await deps.serenataPayments.getTarget(user.id, checkoutData.serenata.serenataId);
+                if (!target) return c.json({ ok: false, error: 'Serenata no encontrada.' }, 404);
+                if (target.status !== 'payment_pending') {
+                    return c.json({ ok: false, error: 'Esta serenata no está pendiente de pago.' }, 409);
+                }
+                if (target.paymentStatus === 'paid') {
+                    return c.json({ ok: false, error: 'Esta serenata ya fue pagada.' }, 409);
+                }
+                if (target.price == null || Number(target.price) <= 0) {
+                    return c.json({ ok: false, error: 'Esta serenata no tiene un precio válido.' }, 409);
+                }
+                const vertical = 'serenatas';
+                const returnUrl = deps.resolveMercadoPagoReturnUrl(vertical, checkoutData.returnUrl);
+                const orderId = deps.makePaymentOrderId('serenata_booking');
+                const backUrls = {
+                    success: deps.appendCheckoutParams(returnUrl, { checkout: 'success', purchaseId: orderId, kind: 'serenata_booking' }),
+                    failure: deps.appendCheckoutParams(returnUrl, { checkout: 'failure', purchaseId: orderId, kind: 'serenata_booking' }),
+                    pending: deps.appendCheckoutParams(returnUrl, { checkout: 'pending', purchaseId: orderId, kind: 'serenata_booking' }),
+                };
+                let preference: any = null;
+                let checkoutUrl: string | null = null;
+                try {
+                    preference = await deps.createCheckoutPreference({
+                        externalReference: orderId,
+                        title: target.eventType ?? 'Serenata SimpleSerenatas',
+                        description: `${target.recipientName} · ${new Intl.DateTimeFormat('es-CL', { day: '2-digit', month: 'short', year: 'numeric' }).format(target.eventDate)}`,
+                        amount: Number(target.price),
+                        currencyId: 'CLP',
+                        payerEmail: user.email,
+                        payerName: user.name,
+                        backUrls,
+                        metadata: { kind: 'serenata_booking', vertical, serenataId: target.id },
+                    });
+                    checkoutUrl = preference.initPoint ?? preference.sandboxInitPoint ?? null;
+                } catch (error) {
+                    if (process.env.NODE_ENV === 'production' || process.env.MERCADO_PAGO_DEV_CHECKOUT_FALLBACK === 'false') {
+                        throw error;
+                    }
+                    const fallback = new URL(backUrls.success);
+                    fallback.searchParams.set('payment_id', 'dev-approved');
+                    checkoutUrl = fallback.toString();
+                }
+
+                await deps.serenataPayments.attachOrder(user.id, target.id, orderId);
+                const order = deps.upsertPaymentOrder({
+                    id: orderId,
+                    userId: user.id,
+                    vertical,
+                    kind: 'serenata_booking',
+                    title: target.eventType ?? 'Serenata SimpleSerenatas',
+                    amount: Number(target.price ?? 0),
+                    currency: 'CLP',
+                    status: 'pending',
+                    providerStatus: preference ? 'created' : 'dev_fallback',
+                    providerReferenceId: null,
+                    preferenceId: preference?.id ?? null,
+                    checkoutUrl,
+                    createdAt: Date.now(),
+                    updatedAt: Date.now(),
+                    appliedAt: null,
+                    appliedResourceId: null,
+                    metadata: { kind: 'serenata_booking', serenataId: target.id, recipientName: target.recipientName },
+                });
+
+                return c.json({ ok: true, orderId: order.id, checkoutUrl: order.checkoutUrl, order: deps.paymentOrderToResponse(order) });
+            }
+
             if (checkoutData.kind === 'boost') {
                 const vertical = checkoutData.vertical;
                 const boostInput = checkoutData.boost;
@@ -368,7 +446,7 @@ export function createPaymentsRouter(deps: PaymentsRouterDeps) {
             const orderId = deps.makePaymentOrderId('subscription');
             const preapproval = await deps.createPreapproval({
                 externalReference: orderId,
-                reason: `Suscripción ${plan.name} · ${vertical === 'autos' ? 'SimpleAutos' : vertical === 'propiedades' ? 'SimplePropiedades' : 'SimpleAgenda'}`,
+                reason: `Suscripción ${plan.name} · ${vertical === 'autos' ? 'SimpleAutos' : vertical === 'propiedades' ? 'SimplePropiedades' : vertical === 'serenatas' ? 'SimpleSerenatas' : 'SimpleAgenda'}`,
                 amount: plan.priceMonthly,
                 currencyId: plan.currency,
                 payerEmail: user.email,
@@ -496,7 +574,8 @@ export function createPaymentsRouter(deps: PaymentsRouterDeps) {
                 return c.json({ ok: false, error: 'Mercado Pago no devolvió un identificador de pago.' }, 400);
             }
 
-            const providerPayload = await deps.getPaymentById(paymentReferenceId);
+            const isDevApprovedPayment = paymentReferenceId === 'dev-approved' && process.env.NODE_ENV !== 'production';
+            const providerPayload = isDevApprovedPayment ? { status: 'approved', external_reference: order.id } : await deps.getPaymentById(paymentReferenceId);
             const payloadObject = providerPayload as any;
             const providerStatus = String(payloadObject?.status ?? '');
             const externalReference = String(payloadObject?.external_reference ?? '');
@@ -513,6 +592,34 @@ export function createPaymentsRouter(deps: PaymentsRouterDeps) {
             })) ?? order;
 
             if ((nextOrder.status === 'approved' || nextOrder.status === 'authorized') && !nextOrder.appliedAt) {
+                if (nextOrder.kind === 'serenata_booking') {
+                    const serenataMeta = nextOrder.metadata.kind === 'serenata_booking' ? nextOrder.metadata : null;
+                    if (!serenataMeta || !deps.serenataPayments) {
+                        return c.json({ ok: false, error: 'La orden no tiene metadata de serenata válida.' }, 409);
+                    }
+                    const applied = await deps.serenataPayments.applyPaid(user.id, serenataMeta.serenataId, nextOrder.id);
+                    if (!applied) {
+                        return c.json({ ok: false, error: 'Pago aprobado, pero no pudimos activar la serenata.' }, 409);
+                    }
+                    nextOrder = deps.updatePaymentOrder(user.id, order.id, (current: any) => ({
+                        ...current,
+                        status: 'approved',
+                        providerStatus,
+                        providerReferenceId: paymentReferenceId,
+                        updatedAt: Date.now(),
+                        appliedAt: Date.now(),
+                        appliedResourceId: applied.item.id,
+                    })) ?? nextOrder;
+
+                    return c.json({
+                        ok: true,
+                        status: nextOrder.status,
+                        order: deps.paymentOrderToResponse(nextOrder),
+                        serenata: applied.item,
+                        offersCount: applied.offersCount,
+                    });
+                }
+
                 if (nextOrder.kind === 'boost') {
                     const boostMeta = nextOrder.metadata.kind === 'boost' ? nextOrder.metadata : null;
                     if (!boostMeta) {
@@ -623,6 +730,12 @@ export function createPaymentsRouter(deps: PaymentsRouterDeps) {
                         deps.dbHelpers.eq(deps.tables.adCampaigns.id, advertisingMeta.campaignId),
                         deps.dbHelpers.eq(deps.tables.adCampaigns.userId, user.id),
                     ));
+                }
+            }
+            if ((nextOrder.status === 'rejected' || nextOrder.status === 'cancelled') && nextOrder.kind === 'serenata_booking') {
+                const serenataMeta = nextOrder.metadata.kind === 'serenata_booking' ? nextOrder.metadata : null;
+                if (serenataMeta && deps.serenataPayments) {
+                    await deps.serenataPayments.markFailed(user.id, serenataMeta.serenataId);
                 }
             }
 

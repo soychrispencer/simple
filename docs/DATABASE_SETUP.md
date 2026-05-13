@@ -12,9 +12,9 @@
 - [ ] Instalar/verificar PostgreSQL localmente
 - [ ] Crear `.env.local` con `DATABASE_URL`
 - [ ] Definir schemas en `/services/api/src/db/schema.ts`
-- [ ] Generar migrations: `npm run db:generate`
-- [ ] Ejecutar migrations: `npm run db:migrate`
-- [ ] Verificar conexión: `npm run db:studio`
+- [ ] Generar migrations: `pnpm run db:generate`
+- [ ] Ejecutar migrations: `pnpm run db:migrate`
+- [ ] Verificar conexión: `pnpm run db:studio`
 
 **Archivos a crear:**
 ```
@@ -307,13 +307,13 @@ NODE_ENV="development"
 cd services/api
 
 # Generar migrations
-npm run db:generate
+pnpm run db:generate
 
 # Ejecutar migrations
-npm run db:migrate
+pnpm run db:migrate
 
 # Abrir Drizzle Studio (UI)
-npm run db:studio  # → http://localhost:3001
+pnpm run db:studio  # → https://local.drizzle.studio
 ```
 
 ---
@@ -322,10 +322,10 @@ npm run db:studio  # → http://localhost:3001
 
 ```bash
 # Ver estado de migrations
-npm run db:status
+pnpm run db:status
 
 # Ver schema en Drizzle Studio
-npm run db:studio
+pnpm run db:studio
 
 # Hacer query manual
 psql -U simple_user -d simple_v2

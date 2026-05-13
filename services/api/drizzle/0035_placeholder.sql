@@ -1,1 +1,1 @@
--- Placeholder migration - no changes
+-- Historical placeholder migration. Intentionally empty.
