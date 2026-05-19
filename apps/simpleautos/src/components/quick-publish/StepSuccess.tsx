@@ -72,13 +72,12 @@ export default function StepSuccess({ listingId, listingHref, listingTitle, onPu
         <div className="flex flex-col gap-5 py-2">
             {/* Success header */}
             <div
-                className="rounded-[28px] border p-5 md:p-6"
-                style={{ borderColor: 'var(--border)', background: 'linear-gradient(180deg, rgba(255,255,255,0.03), rgba(255,255,255,0))' }}
+                className="qp-card rounded-card border p-5 md:p-6"
             >
                 <div className="flex flex-col gap-5">
                     <div className="flex items-start gap-4">
-                        <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl" style={{ background: '#ecfdf5' }}>
-                            <div className="flex h-10 w-10 items-center justify-center rounded-xl" style={{ background: '#059669' }}>
+                        <div className="qp-success-icon flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl">
+                            <div className="qp-success-icon-inner flex h-10 w-10 items-center justify-center rounded-xl">
                                 <IconCheck size={20} color="white" strokeWidth={2.5} />
                             </div>
                         </div>
@@ -99,8 +98,7 @@ export default function StepSuccess({ listingId, listingHref, listingTitle, onPu
                     <div className="grid gap-3 md:grid-cols-[1.3fr_1fr]">
                         <Link
                             href={`/panel/publicar?edit=${listingId}&created=1`}
-                            className="flex items-center justify-center gap-2 rounded-2xl px-4 py-3.5 text-sm font-semibold transition-opacity active:opacity-80"
-                            style={{ background: '#FF3600', color: 'white' }}
+                            className="flex items-center justify-center gap-2 rounded-2xl bg-[var(--accent)] px-4 py-3.5 text-sm font-semibold text-[var(--accent-contrast,#fff)] transition-opacity active:opacity-80"
                         >
                             Abrir ficha completa
                             <IconChevronRight size={16} />
@@ -328,3 +326,4 @@ function InstagramShareCard({
         </div>
     );
 }
+

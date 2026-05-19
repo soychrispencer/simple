@@ -62,7 +62,7 @@ const CONFIG_SECTIONS: PanelConfigSectionItem[] = [
 export default function ConfiguracionPage() {
     return (
         <PanelConfigPage
-            title="Mi Cuenta"
+            title="Mi cuenta"
             description="Administra tus datos personales y tu perfil de cuenta."
             sections={CONFIG_SECTIONS}
         />

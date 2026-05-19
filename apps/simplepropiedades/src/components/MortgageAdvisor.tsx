@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
@@ -210,33 +210,30 @@ export default function MortgageAdvisor() {
     const approvalMsg = result ? getApprovalMessage(result.approvalProbability) : 'Ingresa los datos del cliente para evaluar.';
 
     return (
-        <div className="min-h-screen" style={{ background: 'var(--bg-secondary)' }}>
+        <div className="min-h-screen mortgage-page">
             {/* Sticky Header */}
-            <div className="sticky top-0 z-50 border-b backdrop-blur-md" style={{
-                background: 'rgba(var(--bg-rgb, 255,255,255), 0.85)',
-                borderColor: 'var(--border)',
-            }}>
+            <div className="sticky top-0 z-50 border-b backdrop-blur-md mortgage-sticky-header">
                 <div className="max-w-7xl mx-auto px-4 py-3 flex items-center justify-between gap-4">
                     <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ background: 'var(--accent)' }}>
+                        <div className="w-10 h-10 rounded-xl flex items-center justify-center mortgage-accent-icon">
                             <IconBuildingBank size={20} className="text-white" />
                         </div>
                         <div>
-                            <h1 className="font-semibold text-sm" style={{ color: 'var(--fg)' }}>Simulador Hipotecario</h1>
-                            <p className="text-[10px]" style={{ color: 'var(--fg-muted)' }}>Para asesores · {ufValue.toLocaleString('es-CL')} UF {ufLoading && '⟳'}</p>
+                            <h1 className="font-semibold text-sm mortgage-fg">Simulador Hipotecario</h1>
+                            <p className="text-[10px] mortgage-muted">Para asesores · {ufValue.toLocaleString('es-CL')} UF {ufLoading && '⟳'}</p>
                         </div>
                     </div>
-                    <div className="flex items-center gap-3 text-[11px]" style={{ color: 'var(--fg-muted)' }}>
+                    <div className="flex items-center gap-3 text-[11px] mortgage-muted">
                         <div className="flex items-center gap-1.5">
-                            <IconStar size={14} style={{ color: 'var(--color-success, #22c55e)' }} />
+                            <IconStar size={14} className="mortgage-icon-success" />
                             <span>{mortgageRates?.bestMarketRate?.toFixed(2) ?? '3.39'}%</span>
                         </div>
                         <div className="flex items-center gap-1.5">
-                            <IconTrendingUp size={14} style={{ color: 'var(--fg)' }} />
+                            <IconTrendingUp size={14} className="mortgage-fg" />
                             <span>{mortgageRates?.standardRate?.toFixed(2) ?? '5.50'}%</span>
                         </div>
                         <div className="flex items-center gap-1.5">
-                            <IconCalculator size={14} style={{ color: 'var(--accent, #3b82f6)' }} />
+                            <IconCalculator size={14} className="mortgage-accent" />
                             <span>CAE {((mortgageRates?.bestMarketRate ?? 3.39) + 0.21).toFixed(2)}%</span>
                         </div>
                     </div>
@@ -245,34 +242,28 @@ export default function MortgageAdvisor() {
 
             <div className="max-w-4xl mx-auto px-4 py-6">
                 {/* Hero */}
-                <div className="mb-6 p-4 rounded-2xl border" style={{
-                    background: 'var(--bg)',
-                    borderColor: 'var(--border)',
-                }}>
+                <div className="mb-6 p-4 rounded-2xl border mortgage-card">
                     <div className="flex items-center gap-2 mb-1">
-                        <IconInfoCircle size={16} style={{ color: 'var(--accent)' }} />
-                        <h2 className="font-semibold text-sm" style={{ color: 'var(--fg)' }}>Perfil rápido del cliente</h2>
+                        <IconInfoCircle size={16} className="mortgage-accent" />
+                        <h2 className="font-semibold text-sm mortgage-fg">Perfil rápido del cliente</h2>
                     </div>
-                    <p className="text-xs" style={{ color: 'var(--fg-muted)' }}>
+                    <p className="text-xs mortgage-muted">
                         Ingresa los datos básicos para evaluar capacidad de crédito hipotecario en videollamada.
                     </p>
                 </div>
 
                 {/* Semáforo */}
                 {result && (
-                    <div className="mb-6 p-4 rounded-2xl border flex items-center gap-4" style={{
-                        background: 'var(--bg)',
-                        borderColor: 'var(--border)',
-                    }}>
+                    <div className="mb-6 p-4 rounded-2xl border flex items-center gap-4 mortgage-card">
                         <div className={`w-14 h-14 rounded-full flex items-center justify-center text-white font-bold text-xs ${approvalColor}`}>
                             {result.approvalProbability === 'high' ? <IconCheck size={24} /> :
                                 result.approvalProbability === 'low' ? <IconX size={24} /> :
                                     <IconAlertTriangle size={24} />}
                         </div>
                         <div>
-                            <p className="text-xs uppercase tracking-wide font-semibold" style={{ color: 'var(--fg-muted)' }}>Evaluación</p>
-                            <p className="text-lg font-bold" style={{ color: 'var(--fg)' }}>{approvalLabel}</p>
-                            <p className="text-xs mt-0.5" style={{ color: 'var(--fg-muted)' }}>{approvalMsg}</p>
+                            <p className="text-xs uppercase tracking-wide font-semibold mortgage-muted">Evaluación</p>
+                            <p className="text-lg font-bold mortgage-fg">{approvalLabel}</p>
+                            <p className="text-xs mt-0.5 mortgage-muted">{approvalMsg}</p>
                         </div>
                     </div>
                 )}
@@ -281,107 +272,98 @@ export default function MortgageAdvisor() {
                     {/* Left: Form */}
                     <div className="lg:col-span-3 space-y-4">
                         {/* Step 1: Cliente */}
-                        <div className="p-4 rounded-2xl border" style={{ background: 'var(--bg)', borderColor: 'var(--border)' }}>
-                            <h3 className="text-sm font-semibold flex items-center gap-2 mb-3" style={{ color: 'var(--fg)' }}>
-                                <div className="w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold text-white" style={{ background: 'var(--accent)' }}>1</div>
+                        <div className="p-4 rounded-2xl border mortgage-card">
+                            <h3 className="text-sm font-semibold flex items-center gap-2 mb-3 mortgage-fg">
+                                <div className="w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold text-white mortgage-step-badge">1</div>
                                 Datos del cliente
                             </h3>
                             <div className="grid gap-3 sm:grid-cols-2">
                                 <div className="sm:col-span-2">
-                                    <label className="text-xs font-medium mb-1 block" style={{ color: 'var(--fg-muted)' }}>Nombre completo</label>
+                                    <label className="text-xs font-medium mb-1 block mortgage-muted">Nombre completo</label>
                                     <input
                                         type="text"
                                         value={clientName}
                                         onChange={e => setClientName(e.target.value)}
-                                        className="w-full px-3 py-2 rounded-xl text-sm border outline-none focus:ring-2"
-                                        style={{ background: 'var(--bg-secondary)', borderColor: 'var(--border)', color: 'var(--fg)' }}
+                                        className="w-full px-3 py-2 rounded-xl text-sm border outline-none focus:ring-2 mortgage-input"
                                         placeholder="Ej: Juan Pérez"
                                     />
                                 </div>
                                 <div>
-                                    <label className="text-xs font-medium mb-1 block" style={{ color: 'var(--fg-muted)' }}>Ingreso líquido mensual</label>
+                                    <label className="text-xs font-medium mb-1 block mortgage-muted">Ingreso líquido mensual</label>
                                     <input
                                         type="number"
                                         value={monthlyIncome}
                                         onChange={e => setMonthlyIncome(e.target.value)}
-                                        className="w-full px-3 py-2 rounded-xl text-sm border outline-none focus:ring-2"
-                                        style={{ background: 'var(--bg-secondary)', borderColor: 'var(--border)', color: 'var(--fg)' }}
+                                        className="w-full px-3 py-2 rounded-xl text-sm border outline-none focus:ring-2 mortgage-input"
                                         placeholder="Ej: 1500000"
                                     />
                                 </div>
                                 <div>
-                                    <label className="text-xs font-medium mb-1 block" style={{ color: 'var(--fg-muted)' }}>Deudas mensuales totales</label>
+                                    <label className="text-xs font-medium mb-1 block mortgage-muted">Deudas mensuales totales</label>
                                     <input
                                         type="number"
                                         value={monthlyDebts}
                                         onChange={e => setMonthlyDebts(e.target.value)}
-                                        className="w-full px-3 py-2 rounded-xl text-sm border outline-none focus:ring-2"
-                                        style={{ background: 'var(--bg-secondary)', borderColor: 'var(--border)', color: 'var(--fg)' }}
+                                        className="w-full px-3 py-2 rounded-xl text-sm border outline-none focus:ring-2 mortgage-input"
                                         placeholder="Ej: 200000"
                                     />
                                 </div>
                                 <div>
-                                    <label className="text-xs font-medium mb-1 block" style={{ color: 'var(--fg-muted)' }}>Edad actual</label>
+                                    <label className="text-xs font-medium mb-1 block mortgage-muted">Edad actual</label>
                                     <input
                                         type="number"
                                         value={age}
                                         onChange={e => setAge(e.target.value)}
-                                        className="w-full px-3 py-2 rounded-xl text-sm border outline-none focus:ring-2"
-                                        style={{ background: 'var(--bg-secondary)', borderColor: 'var(--border)', color: 'var(--fg)' }}
+                                        className="w-full px-3 py-2 rounded-xl text-sm border outline-none focus:ring-2 mortgage-input"
                                     />
                                 </div>
                                 <div>
-                                    <label className="text-xs font-medium mb-1 block" style={{ color: 'var(--fg-muted)' }}>Edad límite</label>
+                                    <label className="text-xs font-medium mb-1 block mortgage-muted">Edad límite</label>
                                     <input
                                         type="number"
                                         value={maxAge}
                                         onChange={e => setMaxAge(e.target.value)}
-                                        className="w-full px-3 py-2 rounded-xl text-sm border outline-none focus:ring-2"
-                                        style={{ background: 'var(--bg-secondary)', borderColor: 'var(--border)', color: 'var(--fg)' }}
+                                        className="w-full px-3 py-2 rounded-xl text-sm border outline-none focus:ring-2 mortgage-input"
                                     />
                                 </div>
                                 <div>
-                                    <label className="text-xs font-medium mb-1 block" style={{ color: 'var(--fg-muted)' }}>Tipo empleo</label>
+                                    <label className="text-xs font-medium mb-1 block mortgage-muted">Tipo empleo</label>
                                     <select
                                         value={employmentType}
                                         onChange={e => setEmploymentType(e.target.value)}
-                                        className="w-full px-3 py-2 rounded-xl text-sm border outline-none"
-                                        style={{ background: 'var(--bg-secondary)', borderColor: 'var(--border)', color: 'var(--fg)' }}
+                                        className="w-full px-3 py-2 rounded-xl text-sm border outline-none mortgage-input"
                                     >
                                         <option value="dependent">Dependiente</option>
                                         <option value="independent">Independiente</option>
                                     </select>
                                 </div>
                                 <div>
-                                    <label className="text-xs font-medium mb-1 block" style={{ color: 'var(--fg-muted)' }}>Años en el empleo</label>
+                                    <label className="text-xs font-medium mb-1 block mortgage-muted">Años en el empleo</label>
                                     <input
                                         type="number"
                                         value={employmentYears}
                                         onChange={e => setEmploymentYears(e.target.value)}
-                                        className="w-full px-3 py-2 rounded-xl text-sm border outline-none focus:ring-2"
-                                        style={{ background: 'var(--bg-secondary)', borderColor: 'var(--border)', color: 'var(--fg)' }}
+                                        className="w-full px-3 py-2 rounded-xl text-sm border outline-none focus:ring-2 mortgage-input"
                                         placeholder="Ej: 3"
                                     />
                                 </div>
                                 <div className="sm:col-span-2">
-                                    <label className="text-xs font-medium mb-1 block" style={{ color: 'var(--fg-muted)' }}>Teléfono</label>
+                                    <label className="text-xs font-medium mb-1 block mortgage-muted">Teléfono</label>
                                     <input
                                         type="tel"
                                         value={clientPhone}
                                         onChange={e => setClientPhone(e.target.value)}
-                                        className="w-full px-3 py-2 rounded-xl text-sm border outline-none focus:ring-2"
-                                        style={{ background: 'var(--bg-secondary)', borderColor: 'var(--border)', color: 'var(--fg)' }}
+                                        className="w-full px-3 py-2 rounded-xl text-sm border outline-none focus:ring-2 mortgage-input"
                                         placeholder="+56 9 1234 5678"
                                     />
                                 </div>
                                 <div className="sm:col-span-2">
-                                    <label className="text-xs font-medium mb-1 block" style={{ color: 'var(--fg-muted)' }}>Email</label>
+                                    <label className="text-xs font-medium mb-1 block mortgage-muted">Email</label>
                                     <input
                                         type="email"
                                         value={clientEmail}
                                         onChange={e => setClientEmail(e.target.value)}
-                                        className="w-full px-3 py-2 rounded-xl text-sm border outline-none focus:ring-2"
-                                        style={{ background: 'var(--bg-secondary)', borderColor: 'var(--border)', color: 'var(--fg)' }}
+                                        className="w-full px-3 py-2 rounded-xl text-sm border outline-none focus:ring-2 mortgage-input"
                                         placeholder="cliente@email.com"
                                     />
                                 </div>
@@ -389,54 +371,50 @@ export default function MortgageAdvisor() {
                         </div>
 
                         {/* Step 2: Condiciones */}
-                        <div className="p-4 rounded-2xl border" style={{ background: 'var(--bg)', borderColor: 'var(--border)' }}>
-                            <h3 className="text-sm font-semibold flex items-center gap-2 mb-3" style={{ color: 'var(--fg)' }}>
-                                <div className="w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold text-white" style={{ background: 'var(--accent)' }}>2</div>
+                        <div className="p-4 rounded-2xl border mortgage-card">
+                            <h3 className="text-sm font-semibold flex items-center gap-2 mb-3 mortgage-fg">
+                                <div className="w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold text-white mortgage-step-badge">2</div>
                                 Condiciones del crédito
                             </h3>
                             <div className="grid gap-3 sm:grid-cols-2">
                                 <div>
-                                    <label className="text-xs font-medium mb-1 block" style={{ color: 'var(--fg-muted)' }}>Tasa anual (%)</label>
+                                    <label className="text-xs font-medium mb-1 block mortgage-muted">Tasa anual (%)</label>
                                     <input
                                         type="number"
                                         step="0.01"
                                         value={annualRate}
                                         onChange={e => setAnnualRate(e.target.value)}
-                                        className="w-full px-3 py-2 rounded-xl text-sm border outline-none focus:ring-2"
-                                        style={{ background: 'var(--bg-secondary)', borderColor: 'var(--border)', color: 'var(--fg)' }}
+                                        className="w-full px-3 py-2 rounded-xl text-sm border outline-none focus:ring-2 mortgage-input"
                                     />
-                                    <p className="text-[10px] mt-1" style={{ color: 'var(--fg-muted)' }}>Mejor tasa disponible</p>
+                                    <p className="text-[10px] mt-1 mortgage-muted">Mejor tasa disponible</p>
                                 </div>
                                 <div>
-                                    <label className="text-xs font-medium mb-1 block" style={{ color: 'var(--fg-muted)' }}>Financiamiento (%)</label>
+                                    <label className="text-xs font-medium mb-1 block mortgage-muted">Financiamiento (%)</label>
                                     <input
                                         type="number"
                                         value={bankPercentage}
                                         onChange={e => setBankPercentage(e.target.value)}
-                                        className="w-full px-3 py-2 rounded-xl text-sm border outline-none focus:ring-2"
-                                        style={{ background: 'var(--bg-secondary)', borderColor: 'var(--border)', color: 'var(--fg)' }}
+                                        className="w-full px-3 py-2 rounded-xl text-sm border outline-none focus:ring-2 mortgage-input"
                                     />
                                 </div>
                                 <div>
-                                    <label className="text-xs font-medium mb-1 block" style={{ color: 'var(--fg-muted)' }}>Tipo propiedad</label>
+                                    <label className="text-xs font-medium mb-1 block mortgage-muted">Tipo propiedad</label>
                                     <select
                                         value={propertyType}
                                         onChange={e => setPropertyType(e.target.value as 'new' | 'used')}
-                                        className="w-full px-3 py-2 rounded-xl text-sm border outline-none"
-                                        style={{ background: 'var(--bg-secondary)', borderColor: 'var(--border)', color: 'var(--fg)' }}
+                                        className="w-full px-3 py-2 rounded-xl text-sm border outline-none mortgage-input"
                                     >
                                         <option value="new">Nueva</option>
                                         <option value="used">Usada</option>
                                     </select>
                                 </div>
                                 <div>
-                                    <label className="text-xs font-medium mb-1 block" style={{ color: 'var(--fg-muted)' }}>Plazo (años) · opcional</label>
+                                    <label className="text-xs font-medium mb-1 block mortgage-muted">Plazo (años) · opcional</label>
                                     <input
                                         type="number"
                                         value={customLoanYears}
                                         onChange={e => setCustomLoanYears(e.target.value)}
-                                        className="w-full px-3 py-2 rounded-xl text-sm border outline-none focus:ring-2"
-                                        style={{ background: 'var(--bg-secondary)', borderColor: 'var(--border)', color: 'var(--fg)' }}
+                                        className="w-full px-3 py-2 rounded-xl text-sm border outline-none focus:ring-2 mortgage-input"
                                         placeholder="Auto"
                                     />
                                 </div>
@@ -446,8 +424,7 @@ export default function MortgageAdvisor() {
                         {/* Calculate Button */}
                         <button
                             onClick={handleCalculate}
-                            className="w-full py-3 px-4 rounded-xl text-sm font-semibold text-white transition-all hover:opacity-90"
-                            style={{ background: 'var(--accent)' }}
+                            className="w-full py-3 px-4 rounded-xl text-sm font-semibold text-white transition-all hover:opacity-90 mortgage-btn-primary"
                         >
                             Calcular capacidad de crédito
                         </button>
@@ -458,101 +435,100 @@ export default function MortgageAdvisor() {
                         {result && (
                             <>
                                 {/* Main Result Card */}
-                                <div className="p-4 rounded-2xl border" style={{ background: 'var(--bg)', borderColor: 'var(--border)' }}>
-                                    <p className="text-[10px] uppercase tracking-wide font-semibold mb-1" style={{ color: 'var(--fg-muted)' }}>Valor máx. propiedad</p>
-                                    <p className="text-2xl font-bold" style={{ color: 'var(--fg)' }}>
+                                <div className="p-4 rounded-2xl border mortgage-card">
+                                    <p className="text-[10px] uppercase tracking-wide font-semibold mb-1 mortgage-muted">Valor máx. propiedad</p>
+                                    <p className="text-2xl font-bold mortgage-fg">
                                         {hasValidIncome ? formatCurrency(result.propertyValue30) : '$0'}
                                     </p>
-                                    <p className="text-xs mt-1" style={{ color: 'var(--fg-muted)' }}>
+                                    <p className="text-xs mt-1 mortgage-muted">
                                         {hasValidIncome ? formatUF(result.propertyValue30 / ufValue, ufValue) : '0.00 UF'}
                                     </p>
                                 </div>
 
                                 {/* Key Numbers */}
                                 <div className="grid grid-cols-2 gap-3">
-                                    <div className="p-3 rounded-xl border" style={{ background: 'var(--bg)', borderColor: 'var(--border)' }}>
-                                        <p className="text-[10px] uppercase font-semibold" style={{ color: 'var(--fg-muted)' }}>Pie necesario</p>
-                                        <p className="text-sm font-semibold" style={{ color: 'var(--fg)' }}>
+                                    <div className="p-3 rounded-xl border mortgage-stat-cell">
+                                        <p className="text-[10px] uppercase font-semibold mortgage-muted">Pie necesario</p>
+                                        <p className="text-sm font-semibold mortgage-fg">
                                             {hasValidIncome ? formatCurrency(result.pie30) : '$0'}
                                         </p>
                                     </div>
-                                    <div className="p-3 rounded-xl border" style={{ background: 'var(--bg)', borderColor: 'var(--border)' }}>
-                                        <p className="text-[10px] uppercase font-semibold" style={{ color: 'var(--fg-muted)' }}>Cuota mensual</p>
-                                        <p className="text-sm font-semibold" style={{ color: 'var(--fg)' }}>
+                                    <div className="p-3 rounded-xl border mortgage-stat-cell">
+                                        <p className="text-[10px] uppercase font-semibold mortgage-muted">Cuota mensual</p>
+                                        <p className="text-sm font-semibold mortgage-fg">
                                             {hasValidIncome ? formatCurrency(result.monthlyPayment30) : '$0'}
                                         </p>
                                     </div>
-                                    <div className="p-3 rounded-xl border" style={{ background: 'var(--bg)', borderColor: 'var(--border)' }}>
-                                        <p className="text-[10px] uppercase font-semibold" style={{ color: 'var(--fg-muted)' }}>Monto crédito</p>
-                                        <p className="text-sm font-semibold" style={{ color: 'var(--fg)' }}>
+                                    <div className="p-3 rounded-xl border mortgage-stat-cell">
+                                        <p className="text-[10px] uppercase font-semibold mortgage-muted">Monto crédito</p>
+                                        <p className="text-sm font-semibold mortgage-fg">
                                             {hasValidIncome ? formatCurrency(result.maxCredit30) : '$0'}
                                         </p>
                                     </div>
-                                    <div className="p-3 rounded-xl border" style={{ background: 'var(--bg)', borderColor: 'var(--border)' }}>
-                                        <p className="text-[10px] uppercase font-semibold" style={{ color: 'var(--fg-muted)' }}>Plazo</p>
-                                        <p className="text-sm font-semibold" style={{ color: 'var(--fg)' }}>
+                                    <div className="p-3 rounded-xl border mortgage-stat-cell">
+                                        <p className="text-[10px] uppercase font-semibold mortgage-muted">Plazo</p>
+                                        <p className="text-sm font-semibold mortgage-fg">
                                             {result.loanTermYears} años
                                         </p>
                                     </div>
                                 </div>
 
                                 {/* Ranges */}
-                                <div className="p-4 rounded-2xl border space-y-2" style={{ background: 'var(--bg)', borderColor: 'var(--border)' }}>
-                                    <p className="text-xs font-semibold mb-2" style={{ color: 'var(--fg-muted)' }}>Rango según DTI</p>
+                                <div className="p-4 rounded-2xl border space-y-2 mortgage-range-panel">
+                                    <p className="text-xs font-semibold mb-2 mortgage-muted">Rango según DTI</p>
                                     <div className="flex items-center justify-between text-xs">
-                                        <span style={{ color: 'var(--fg-muted)' }}>Conservador (25%)</span>
-                                        <span className="font-semibold" style={{ color: 'var(--fg)' }}>{hasValidIncome ? formatCurrency(result.propertyValue25) : '$0'}</span>
+                                        <span className="mortgage-muted">Conservador (25%)</span>
+                                        <span className="font-semibold mortgage-fg">{hasValidIncome ? formatCurrency(result.propertyValue25) : '$0'}</span>
                                     </div>
-                                    <div className="h-1 rounded-full" style={{ background: 'var(--bg-secondary)' }}>
-                                        <div className="h-1 rounded-full" style={{ width: '33%', background: 'var(--color-success)' }} />
-                                    </div>
-                                    <div className="flex items-center justify-between text-xs">
-                                        <span style={{ color: 'var(--fg-muted)' }}>Recomendado (30%)</span>
-                                        <span className="font-semibold" style={{ color: 'var(--fg)' }}>{hasValidIncome ? formatCurrency(result.propertyValue30) : '$0'}</span>
-                                    </div>
-                                    <div className="h-1 rounded-full" style={{ background: 'var(--bg-secondary)' }}>
-                                        <div className="h-1 rounded-full" style={{ width: '66%', background: 'var(--accent)' }} />
+                                    <div className="h-1 rounded-full mortgage-range-track">
+                                        <div className="h-1 rounded-full mortgage-range-fill--25" />
                                     </div>
                                     <div className="flex items-center justify-between text-xs">
-                                        <span style={{ color: 'var(--fg-muted)' }}>Límite (33%)</span>
-                                        <span className="font-semibold" style={{ color: 'var(--fg)' }}>{hasValidIncome ? formatCurrency(result.propertyValue33) : '$0'}</span>
+                                        <span className="mortgage-muted">Recomendado (30%)</span>
+                                        <span className="font-semibold mortgage-fg">{hasValidIncome ? formatCurrency(result.propertyValue30) : '$0'}</span>
                                     </div>
-                                    <div className="h-1 rounded-full" style={{ background: 'var(--bg-secondary)' }}>
-                                        <div className="h-1 rounded-full" style={{ width: '100%', background: 'var(--color-warning, #eab308)' }} />
+                                    <div className="h-1 rounded-full mortgage-range-track">
+                                        <div className="h-1 rounded-full mortgage-range-fill--30" />
+                                    </div>
+                                    <div className="flex items-center justify-between text-xs">
+                                        <span className="mortgage-muted">Límite (33%)</span>
+                                        <span className="font-semibold mortgage-fg">{hasValidIncome ? formatCurrency(result.propertyValue33) : '$0'}</span>
+                                    </div>
+                                    <div className="h-1 rounded-full mortgage-range-track">
+                                        <div className="h-1 rounded-full mortgage-range-fill--33" />
                                     </div>
                                 </div>
 
                                 {/* Advanced toggle */}
                                 <button
                                     onClick={() => setShowAdvanced(!showAdvanced)}
-                                    className="w-full py-2 px-3 rounded-xl text-xs font-medium flex items-center justify-center gap-2 border"
-                                    style={{ background: 'var(--bg)', borderColor: 'var(--border)', color: 'var(--fg-muted)' }}
+                                    className="w-full py-2 px-3 rounded-xl text-xs font-medium flex items-center justify-center gap-2 border mortgage-btn-ghost"
                                 >
                                     {showAdvanced ? <IconChevronUp size={14} /> : <IconChevronDown size={14} />}
                                     {showAdvanced ? 'Ocultar detalles' : 'Ver detalles avanzados'}
                                 </button>
 
                                 {showAdvanced && (
-                                    <div className="p-4 rounded-2xl border space-y-2 text-xs" style={{ background: 'var(--bg)', borderColor: 'var(--border)' }}>
+                                    <div className="p-4 rounded-2xl border space-y-2 text-xs mortgage-range-panel">
                                         <div className="flex justify-between">
-                                            <span style={{ color: 'var(--fg-muted)' }}>DTI actual</span>
-                                            <span className="font-medium" style={{ color: 'var(--fg)' }}>{result.dtiRatio.toFixed(1)}%</span>
+                                            <span className="mortgage-muted">DTI actual</span>
+                                            <span className="font-medium mortgage-fg">{result.dtiRatio.toFixed(1)}%</span>
                                         </div>
                                         <div className="flex justify-between">
-                                            <span style={{ color: 'var(--fg-muted)' }}>Cuota disponible</span>
-                                            <span className="font-medium" style={{ color: 'var(--fg)' }}>{formatCurrency(result.availableQuota30)}</span>
+                                            <span className="mortgage-muted">Cuota disponible</span>
+                                            <span className="font-medium mortgage-fg">{formatCurrency(result.availableQuota30)}</span>
                                         </div>
                                         <div className="flex justify-between">
-                                            <span style={{ color: 'var(--fg-muted)' }}>Seguros mensuales</span>
-                                            <span className="font-medium" style={{ color: 'var(--fg)' }}>{formatCurrency(result.totalInsuranceMonthly)}</span>
+                                            <span className="mortgage-muted">Seguros mensuales</span>
+                                            <span className="font-medium mortgage-fg">{formatCurrency(result.totalInsuranceMonthly)}</span>
                                         </div>
                                         <div className="flex justify-between">
-                                            <span style={{ color: 'var(--fg-muted)' }}>Intereses totales</span>
-                                            <span className="font-medium" style={{ color: 'var(--fg)' }}>{formatCurrency(result.totalInterest30)}</span>
+                                            <span className="mortgage-muted">Intereses totales</span>
+                                            <span className="font-medium mortgage-fg">{formatCurrency(result.totalInterest30)}</span>
                                         </div>
                                         <div className="flex justify-between">
-                                            <span style={{ color: 'var(--fg-muted)' }}>Costo total</span>
-                                            <span className="font-medium" style={{ color: 'var(--fg)' }}>{formatCurrency(result.totalCost30)}</span>
+                                            <span className="mortgage-muted">Costo total</span>
+                                            <span className="font-medium mortgage-fg">{formatCurrency(result.totalCost30)}</span>
                                         </div>
                                     </div>
                                 )}
@@ -560,18 +536,18 @@ export default function MortgageAdvisor() {
                         )}
 
                         {!result && (
-                            <div className="p-6 rounded-2xl border text-center" style={{ background: 'var(--bg)', borderColor: 'var(--border)' }}>
-                                <IconCalculator size={32} className="mx-auto mb-2" style={{ color: 'var(--fg-muted)' }} />
-                                <p className="text-sm font-medium" style={{ color: 'var(--fg-muted)' }}>Ingresa los datos y calcula</p>
+                            <div className="p-6 rounded-2xl border text-center mortgage-stat-cell">
+                                <IconCalculator size={32} className="mx-auto mb-2 mortgage-muted" />
+                                <p className="text-sm font-medium mortgage-muted">Ingresa los datos y calcula</p>
                             </div>
                         )}
                     </div>
                 </div>
 
                 {/* Save Section */}
-                <div className="mt-6 p-4 rounded-2xl border" style={{ background: 'var(--bg)', borderColor: 'var(--border)' }}>
+                <div className="mt-6 p-4 rounded-2xl border mortgage-stat-cell">
                     <div className="flex items-center justify-between mb-3">
-                        <h3 className="text-sm font-semibold flex items-center gap-2" style={{ color: 'var(--fg)' }}>
+                        <h3 className="text-sm font-semibold flex items-center gap-2 mortgage-fg">
                             <IconDeviceFloppy size={16} />
                             Guardar y gestionar simulaciones
                         </h3>
@@ -579,16 +555,14 @@ export default function MortgageAdvisor() {
                             {result && (
                                 <button
                                     onClick={handleSave}
-                                    className="px-3 py-1.5 rounded-lg text-xs font-medium text-white"
-                                    style={{ background: 'var(--accent)' }}
+                                    className="px-3 py-1.5 rounded-lg text-xs font-medium text-white mortgage-btn-primary"
                                 >
                                     Guardar
                                 </button>
                             )}
                             <button
                                 onClick={() => setShowSaved(!showSaved)}
-                                className="px-3 py-1.5 rounded-lg text-xs font-medium border"
-                                style={{ background: 'var(--bg-secondary)', borderColor: 'var(--border)', color: 'var(--fg)' }}
+                                className="px-3 py-1.5 rounded-lg text-xs font-medium border mortgage-input"
                             >
                                 <IconHistory size={14} className="inline mr-1" />
                                 Historial ({saved.length})
@@ -599,20 +573,19 @@ export default function MortgageAdvisor() {
                     {showSaved && (
                         <div className="space-y-2">
                             {saved.length === 0 ? (
-                                <p className="text-xs text-center py-2" style={{ color: 'var(--fg-muted)' }}>No hay simulaciones guardadas</p>
+                                <p className="text-xs text-center py-2 mortgage-muted">No hay simulaciones guardadas</p>
                             ) : (
                                 saved.map(sim => (
-                                    <div key={sim.id} className="flex items-center justify-between p-3 rounded-xl border" style={{ background: 'var(--bg-secondary)', borderColor: 'var(--border)' }}>
+                                    <div key={sim.id} className="flex items-center justify-between p-3 rounded-xl border mortgage-card-subtle">
                                         <div>
-                                            <p className="text-xs font-medium" style={{ color: 'var(--fg)' }}>{sim.clientName || 'Sin nombre'}</p>
-                                            <p className="text-[10px]" style={{ color: 'var(--fg-muted)' }}>
+                                            <p className="text-xs font-medium mortgage-fg">{sim.clientName || 'Sin nombre'}</p>
+                                            <p className="text-[10px] mortgage-muted">
                                                 {sim.date} · {formatCurrency(sim.monthlyIncome)} · {sim.loanTermYears}años
                                             </p>
                                         </div>
                                         <button
                                             onClick={() => handleDelete(sim.id)}
-                                            className="p-1.5 rounded-lg"
-                                            style={{ color: 'var(--color-danger, #ef4444)' }}
+                                            className="p-1.5 rounded-lg mortgage-danger"
                                         >
                                             <IconTrash size={14} />
                                         </button>
@@ -625,8 +598,7 @@ export default function MortgageAdvisor() {
                     {result && (
                         <button
                             onClick={handleDownload}
-                            className="mt-3 w-full py-2 px-3 rounded-xl text-xs font-medium border flex items-center justify-center gap-2"
-                            style={{ background: 'var(--bg-secondary)', borderColor: 'var(--border)', color: 'var(--fg)' }}
+                            className="mt-3 w-full py-2 px-3 rounded-xl text-xs font-medium border flex items-center justify-center gap-2 mortgage-input"
                         >
                             <IconDownload size={14} />
                             Descargar resumen (JSON)
@@ -637,3 +609,4 @@ export default function MortgageAdvisor() {
         </div>
     );
 }
+

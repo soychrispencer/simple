@@ -12,7 +12,7 @@ import { PanelBottomNav as SharedPanelBottomNav } from '@simple/ui';
 import { isPanelNavActive } from '@/components/panel/panel-nav-config';
 
 const items = [
-    { href: '/panel', label: 'Inicio', icon: IconCar },
+    { href: '/panel', label: 'Mi panel', icon: IconCar },
     { href: '/panel/publicaciones', label: 'Publicaciones', icon: IconFileText },
     { href: '/panel/publicar', label: 'Publicar', icon: IconPlus, highlight: true },
     { href: '/panel/mensajes', label: 'Mensajes', icon: IconMessageCircle },
@@ -42,7 +42,6 @@ export function PanelBottomNav() {
             LinkComponent={Link}
             moreActive={moreActive}
             onMoreClick={openDrawer}
-            highlightStyle={{ boxShadow: '0 4px 12px rgba(255, 54, 0, 0.25)' }}
         />
     );
 }

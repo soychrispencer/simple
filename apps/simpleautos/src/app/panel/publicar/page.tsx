@@ -79,11 +79,11 @@ import {
     createPanelListing,
     updatePanelListing,
     fetchPanelListingDetail,
-    savePanelListingDraft,
     fetchPanelListingDraft,
     deletePanelListingDraft,
     type CreatePanelListingInput,
 } from '@/lib/panel-listings';
+import { mapPanelListingToPublishForm } from '@/lib/map-listing-to-publish-form';
 import { PanelButton, PanelCard, PanelNotice } from '@simple/ui';
 import { ModernSelect } from '@simple/ui';
 import { ColorPicker } from '@/components/ui/color-picker';
@@ -105,7 +105,7 @@ type ListingType = 'sale' | 'rent' | 'auction';
 
 interface FormData {
     // Paso 1: Identidad
-    photos: Array<{ id: string; file: File; preview: string; isCover: boolean }>;
+    photos: Array<{ id: string; file?: File; preview: string; isCover: boolean }>;
     listingType: ListingType;
     vehicleType: VehicleCatalogType;
     brandId: string;
@@ -192,9 +192,9 @@ const VEHICLE_TYPES = [
 ] as const;
 
 const LISTING_TYPES = [
-    { value: 'sale', label: 'Venta', Icon: IconTag, color: '#22c55e' },
-    { value: 'rent', label: 'Arriendo', Icon: IconKey, color: '#3b82f6' },
-    { value: 'auction', label: 'Subasta', Icon: IconHammer, color: '#f59e0b' },
+    { value: 'sale', label: 'Venta', Icon: IconTag, color: 'var(--color-success)' },
+    { value: 'rent', label: 'Arriendo', Icon: IconKey, color: 'var(--accent)' },
+    { value: 'auction', label: 'Subasta', Icon: IconHammer, color: 'var(--color-warning)' },
 ] as const;
 
 const FUEL_TYPES = ['Bencina', 'Diésel', 'Eléctrico', 'Híbrido', 'Gas'];
@@ -232,6 +232,9 @@ const COMMUNES: Record<string, string[]> = {
 // COMPONENTE PRINCIPAL
 // =============================================================================
 
+const QUICK_PUBLISH_PHOTOS_FIRST =
+    process.env.NEXT_PUBLIC_QUICK_PUBLISH_PHOTOS_FIRST === 'true';
+
 export default function PublicarPage() {
     const router = useRouter();
     const searchParams = useSearchParams();
@@ -250,6 +253,7 @@ export default function PublicarPage() {
         history: false,
         equipment: false,
     });
+    const [draftNotice, setDraftNotice] = useState<string | null>(null);
     
     // Cargar catálogo
     useEffect(() => {
@@ -262,40 +266,40 @@ export default function PublicarPage() {
             // Intentar cargar borrador
             fetchPanelListingDraft('autos-quick').then((result) => {
                 if (result.ok && result.draft) {
-                    // TODO: Mapear draft a FormData
+                    setDraftNotice('Hay un borrador guardado. Usa «Continuar» cuando esté disponible o publica una nueva.');
                 }
             }).catch(() => null);
         } else {
             // Cargar para edición
             setLoading(true);
-            fetchPanelListingDetail(editingId!).then((listing) => {
-                if (listing) {
-                    // TODO: Mapear listing a FormData
+            fetchPanelListingDetail(editingId!).then((result) => {
+                if (result.ok && result.item) {
+                    setForm(mapPanelListingToPublishForm(result.item));
                 }
                 setLoading(false);
             }).catch(() => setLoading(false));
         }
     }, [editingId]);
     
-    // Autosave borrador
-    useEffect(() => {
-        if (!isEditing && step !== 'success') {
-            const timer = setTimeout(() => {
-                // TODO: Guardar borrador
-            }, 10000);
-            return () => clearTimeout(timer);
-        }
-    }, [form, step, isEditing]);
-    
     const updateForm = useCallback(<K extends keyof FormData>(key: K, value: FormData[K]) => {
         setForm(prev => ({ ...prev, [key]: value }));
     }, []);
     
+    const hasIdentityFields = Boolean(
+        form.brandId && form.modelId && form.year && form.price,
+    );
+
     const canProceed = () => {
         if (step === 1) {
-            return form.photos.length >= 1 && form.brandId && form.modelId && form.year && form.price;
+            if (QUICK_PUBLISH_PHOTOS_FIRST) {
+                return form.photos.length >= 1;
+            }
+            return form.photos.length >= 1 && hasIdentityFields;
         }
         if (step === 2) {
+            if (QUICK_PUBLISH_PHOTOS_FIRST && !hasIdentityFields) {
+                return false;
+            }
             return true; // Todo opcional en paso 2
         }
         if (step === 3) {
@@ -320,7 +324,21 @@ export default function PublicarPage() {
                 mimeType: string;
             }> = [];
             
-            const photoFiles = form.photos.filter(p => p.file);
+            const photoFiles = form.photos.filter((p): p is typeof p & { file: File } => Boolean(p.file));
+
+            for (const photo of form.photos.filter((p) => !p.file && p.preview)) {
+                uploadedPhotos.push({
+                    id: photo.id,
+                    name: 'foto-existente',
+                    dataUrl: photo.preview,
+                    previewUrl: photo.preview,
+                    isCover: photo.isCover,
+                    width: 0,
+                    height: 0,
+                    sizeBytes: 0,
+                    mimeType: 'image/jpeg',
+                });
+            }
             
             for (const photo of photoFiles) {
                 try {
@@ -590,6 +608,14 @@ export default function PublicarPage() {
             {/* Contenido - Responsive: mobile full width, desktop wider with sidebar-like spacing */}
             <main className="flex-1 overflow-y-auto">
                 <div className="max-w-2xl xl:max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-6 lg:py-10">
+                    {draftNotice && step !== 'success' ? (
+                        <PanelNotice tone="warning" className="mb-4">{draftNotice}</PanelNotice>
+                    ) : null}
+                    {!isEditing && step !== 'success' ? (
+                        <PanelNotice tone="neutral" className="mb-4">
+                            Guardar borrador estará disponible próximamente.
+                        </PanelNotice>
+                    ) : null}
                     {step === 1 && (
                         <Step1PhotosAndIdentity 
                             form={form} 
@@ -630,7 +656,7 @@ export default function PublicarPage() {
                         {/* Info del paso - solo desktop */}
                         <div className="hidden lg:block">
                             <p className="text-sm font-medium text-[var(--fg)]">
-                                {step === 1 && 'Paso 1: Fotos e identidad'}
+                                {step === 1 && (QUICK_PUBLISH_PHOTOS_FIRST ? 'Paso 1: Fotos' : 'Paso 1: Fotos e identidad')}
                                 {step === 2 && 'Paso 2: Estado del vehículo'}
                                 {step === 3 && 'Paso 3: Ubicación y publicar'}
                             </p>
@@ -674,6 +700,11 @@ export default function PublicarPage() {
                                 )}
                             </button>
                             
+                            {step === 2 && QUICK_PUBLISH_PHOTOS_FIRST && !canProceed() && (
+                                <p className="text-xs text-center lg:text-right text-[var(--fg-muted)] mt-2">
+                                    Completa marca, modelo, año y precio en el paso 1 antes de continuar
+                                </p>
+                            )}
                             {step === 3 && !canProceed() && (
                                 <p className="text-xs text-center lg:text-right text-[var(--fg-muted)] mt-2">
                                     Completa todos los campos requeridos para publicar
@@ -721,7 +752,7 @@ function SortablePhotoItem({
                 touchAction: 'none',
             }}
             className={`relative aspect-square rounded-2xl overflow-hidden border-2 transition-all group cursor-move
-                ${isCover ? 'border-[#FF3600] shadow-md' : 'border-[var(--border)]'}
+                ${isCover ? 'border-[var(--accent)] shadow-md' : 'border-[var(--border)]'}
                 ${isDragging ? 'opacity-30 shadow-none z-50' : ''}`}
             {...attributes}
             {...listeners}
@@ -733,8 +764,8 @@ function SortablePhotoItem({
             />
             {/* Badge Portada */}
             {index === 0 && (
-                <div className="absolute top-1.5 left-1.5 flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-bold bg-[#FF3600] text-white">
-                    <IconStar size={8} fill="white" />
+                <div className="absolute top-1.5 left-1.5 flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-bold bg-[var(--accent)] text-[var(--accent-contrast)]">
+                    <IconStar size={8} fill="currentColor" />
                     Portada
                 </div>
             )}
@@ -864,10 +895,10 @@ function Step1PhotosAndIdentity({
                         onDragLeave={() => setDragOver(false)}
                         onDrop={(e) => { e.preventDefault(); setDragOver(false); handleFiles(e.dataTransfer.files); }}
                         className={`border-2 border-dashed rounded-2xl p-8 text-center cursor-pointer transition-all
-                            ${dragOver ? 'border-[#FF3600] bg-[#fff8f5]' : 'border-[var(--border)] hover:border-[#FF3600]/50'}`}
+                            ${dragOver ? 'border-[var(--accent)] bg-[color-mix(in oklab, var(--accent) 6%, var(--bg))]' : 'border-[var(--border)] hover:border-[var(--accent)]/50'}`}
                     >
                         <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-[var(--bg-subtle)] flex items-center justify-center">
-                            <IconCamera size={28} className="text-[#FF3600]" />
+                            <IconCamera size={28} className="text-[var(--accent)]" />
                         </div>
                         <p className="font-medium">Toma fotos o selecciona de tu galería</p>
                         <p className="text-xs text-[var(--fg-muted)] mt-1">
@@ -917,15 +948,15 @@ function Step1PhotosAndIdentity({
                                     return (
                                         <button
                                             onClick={() => fileInputRef.current?.click()}
-                                            className="aspect-square rounded-2xl border-2 border-dashed border-[#FF3600]/40 
+                                            className="aspect-square rounded-2xl border-2 border-dashed border-[var(--accent)]/40 
                                                 flex flex-col items-center justify-center gap-1.5 
-                                                transition-all hover:border-[#FF3600] hover:bg-[#fff8f5] active:scale-95"
+                                                transition-all hover:border-[var(--accent)] hover:bg-[color-mix(in oklab, var(--accent) 6%, var(--bg))] active:scale-95"
                                             style={{ background: 'var(--bg-subtle)' }}
                                         >
-                                            <div className="w-8 h-8 rounded-full bg-[#FF3600]/10 flex items-center justify-center">
-                                                <suggestion.Icon size={16} strokeWidth={1.5} className="text-[#FF3600]" />
+                                            <div className="w-8 h-8 rounded-full bg-[var(--accent)]/10 flex items-center justify-center">
+                                                <suggestion.Icon size={16} strokeWidth={1.5} className="text-[var(--accent)]" />
                                             </div>
-                                            <span className="text-[10px] font-semibold text-[#FF3600]">{suggestion.label}</span>
+                                            <span className="text-[10px] font-semibold text-[var(--accent)]">{suggestion.label}</span>
                                             <span className="text-[9px] text-[var(--fg-muted)] opacity-70">{suggestion.desc}</span>
                                         </button>
                                     );
@@ -938,7 +969,7 @@ function Step1PhotosAndIdentity({
                                 <button
                                     onClick={() => fileInputRef.current?.click()}
                                     className="aspect-square rounded-2xl border-2 border-dashed border-[var(--border)]
-                                        flex flex-col items-center justify-center gap-1 hover:border-[#FF3600] hover:bg-[#fff8f5] transition-all"
+                                        flex flex-col items-center justify-center gap-1 hover:border-[var(--accent)] hover:bg-[color-mix(in oklab, var(--accent) 6%, var(--bg))] transition-all"
                                 >
                                     <IconPlus size={20} className="text-[var(--fg-muted)]" />
                                 </button>
@@ -978,8 +1009,10 @@ function Step1PhotosAndIdentity({
                                     : 'border-[var(--border)] bg-[var(--bg)] hover:border-[var(--accent)]/50 hover:shadow-sm'}`}
                         >
                             <div className={`w-12 h-12 mx-auto mb-2 rounded-xl flex items-center justify-center transition-all
-                                ${form.listingType === value ? 'bg-[var(--accent)] text-white' : 'bg-[var(--bg-subtle)] group-hover:bg-[var(--accent-subtle)]'}`}
-                                style={{ color: form.listingType === value ? 'white' : color }}
+                                ${form.listingType === value
+                                    ? 'bg-[var(--accent)] text-[var(--accent-contrast,white)]'
+                                    : 'bg-[var(--bg-subtle)] group-hover:bg-[var(--accent-subtle)]'}`}
+                                style={form.listingType === value ? undefined : { color }}
                             >
                                 <Icon size={24} />
                             </div>

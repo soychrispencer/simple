@@ -63,15 +63,3 @@ export function conditionAdjustmentFactor(raw: unknown): number {
     if (value.includes('classic') || value.includes('clasico')) return 1.02;
     return 1;
 }
-
-// Placeholder for extractVehicleComparable - needs more dependencies
-export function extractVehicleComparable(record: any, operationType: 'sale' | 'rent', targetGeoPoint?: any): any {
-    // Implementation moved from index.ts - needs proper types and dependencies
-    return null;
-}
-
-// Placeholder for estimateVehicleValuation - needs more dependencies
-export function estimateVehicleValuation(input: any): any {
-    // Implementation moved from index.ts - needs proper types and dependencies
-    return null;
-}

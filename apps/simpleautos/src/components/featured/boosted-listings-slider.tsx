@@ -1,9 +1,7 @@
 'use client';
 
-import Link from 'next/link';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { IconArrowRight } from '@tabler/icons-react';
-import { FeaturedCardSwiper } from '@simple/ui';
+import { FeaturedBoostSliderSection } from '@simple/ui';
 import {
     BOOST_SECTION_META,
     fetchFeaturedBoosted,
@@ -21,7 +19,7 @@ function orderVehicleTags(tags: string[]): string[] {
         /usado|nuevo|seminuevo|impecable|excelente|buen estado|como nuevo/i,
         /km|kilometraje|kilómetro/i,
         /bencina|diesel|híbrido|hibrido|eléctrico|electrico|gas|petróleo/i,
-        /automático|automatico|manual|cvt|secuencial/i
+        /automático|automatico|manual|cvt|secuencial/i,
     ];
 
     const ordered: string[] = [];
@@ -44,10 +42,10 @@ function mapFeaturedBoostToVehicleCard(item: FeaturedBoostItem): VehicleListingC
     const metaItems = orderVehicleTags(
         item.subtitle
             .split(/[•|;,]|\s+-\s+/g)
-            .map(p => p.trim())
-            .filter(p => p.length > 0)
+            .map((p) => p.trim())
+            .filter((p) => p.length > 0),
     );
-    const images = item.imageUrls && item.imageUrls.length > 0 ? item.imageUrls : (item.imageUrl ? [item.imageUrl] : []);
+    const images = item.imageUrls && item.imageUrls.length > 0 ? item.imageUrls : item.imageUrl ? [item.imageUrl] : [];
     return {
         id: item.id,
         href: item.href,
@@ -89,80 +87,28 @@ export default function BoostedListingsSlider() {
         loadItems();
     }, [loadItems]);
 
-    const slides = useMemo(() => {
-        return items.map((item) => ({
-            key: item.id,
-            node: <VehicleListingCard data={mapFeaturedBoostToVehicleCard(item)} mode="grid" />,
-        }));
-    }, [items]);
+    const slides = useMemo(
+        () =>
+            items.map((item) => ({
+                key: item.id,
+                node: <VehicleListingCard data={mapFeaturedBoostToVehicleCard(item)} mode="grid" />,
+            })),
+        [items],
+    );
+
+    const tabs = SECTIONS.map((key) => ({ key, label: BOOST_SECTION_META[key].label }));
 
     return (
-        <section style={{ borderTop: '1px solid var(--border)' }}>
-            <div className="container-app py-14">
-                <div className="flex flex-wrap items-center justify-between gap-3 mb-6">
-                    <div>
-                        <h2 className="type-section-title" style={{ color: 'var(--fg)' }}>
-                            Publicaciones destacadas
-                        </h2>
-                        <p className="text-sm mt-1" style={{ color: 'var(--fg-secondary)' }}>
-                            Ordenadas por campañas Boost activas.
-                        </p>
-                    </div>
-                    <Link
-                        href={sectionMeta.href}
-                        className="text-sm font-medium inline-flex items-center gap-1"
-                        style={{ color: 'var(--fg-muted)' }}
-                    >
-                        Ver {sectionMeta.label.toLowerCase()} <IconArrowRight size={12} />
-                    </Link>
-                </div>
-
-                <div className="flex flex-wrap items-center gap-2 mb-4">
-                    {SECTIONS.map((itemSection) => (
-                        <button
-                            key={itemSection}
-                            onClick={() => setSection(itemSection)}
-                            className="h-9 px-4 rounded-md text-sm border transition-all hover:bg-(--bg-subtle) hover:border-(--border-strong) hover:text-(--fg)"
-                            style={{
-                                borderColor: section === itemSection ? 'var(--button-primary-border)' : 'var(--border)',
-                                background: section === itemSection ? 'var(--button-primary-bg)' : 'var(--surface)',
-                                color: section === itemSection ? 'var(--button-primary-color)' : 'var(--fg-secondary)',
-                            }}
-                        >
-                            {BOOST_SECTION_META[itemSection].label}
-                        </button>
-                    ))}
-                </div>
-
-                {loading ? (
-                    <div className="flex gap-4 overflow-hidden">
-                        {Array.from({ length: 4 }, (_, index) => (
-                            <div
-                                key={`placeholder-${index}`}
-                                className="shrink-0 w-[calc(85%-8px)] sm:w-[45%] md:w-[32%] xl:w-[24%] rounded-2xl border animate-pulse"
-                                style={{ borderColor: 'var(--border)', background: 'var(--surface)' }}
-                            >
-                                <div className="aspect-4/3 rounded-t-2xl" style={{ background: 'var(--bg-muted)' }} />
-                                <div className="p-4 space-y-2">
-                                    <div className="h-4 rounded" style={{ background: 'var(--bg-muted)' }} />
-                                    <div className="h-3 rounded w-3/4" style={{ background: 'var(--bg-muted)' }} />
-                                </div>
-                            </div>
-                        ))}
-                    </div>
-                ) : items.length === 0 ? (
-                    <article
-                        className="w-full rounded-xl border p-8 text-center"
-                        style={{ borderColor: 'var(--border)', background: 'var(--surface)' }}
-                    >
-                        <p className="text-sm" style={{ color: 'var(--fg-secondary)' }}>
-                            Aún no hay publicaciones impulsadas en esta sección.
-                        </p>
-                    </article>
-                ) : (
-                    <FeaturedCardSwiper items={slides} />
-                )}
-            </div>
-        </section>
+        <FeaturedBoostSliderSection
+            viewMoreHref={sectionMeta.href}
+            viewMoreLabel={`Ver ${sectionMeta.label.toLowerCase()}`}
+            tabs={tabs}
+            activeTab={section}
+            onTabChange={setSection}
+            loading={loading}
+            emptyMessage="Aún no hay publicaciones impulsadas en esta sección."
+            slides={slides}
+            placeholderAspectClass="aspect-4/3"
+        />
     );
 }

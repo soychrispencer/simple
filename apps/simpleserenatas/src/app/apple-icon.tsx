@@ -1,1 +1,12 @@
-export { default, size, contentType } from './icon';
+import { getSimpleBrandIconSvg } from '@simple/config';
+
+export const size = { width: 180, height: 180 };
+export const contentType = 'image/svg+xml';
+
+export default function AppleIcon() {
+    return new Response(getSimpleBrandIconSvg('simpleserenatas'), {
+        headers: {
+            'Content-Type': 'image/svg+xml',
+        },
+    });
+}

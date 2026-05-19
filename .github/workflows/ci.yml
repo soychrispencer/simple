@@ -5,6 +5,12 @@ on:
     branches: [main, develop]
   pull_request:
     branches: [main]
+  workflow_dispatch:
+    inputs:
+      e2e_serenatas_real:
+        description: 'Ejecutar E2E Serenatas real (Playwright + API)'
+        type: boolean
+        default: false
 
 jobs:
   lint:
@@ -83,6 +89,133 @@ jobs:
         
       - name: Run tests
         run: pnpm run test
+
+  # Playwright Serenatas: por defecto no instala browsers (PLAYWRIGHT_SKIP=1).
+  # E2E real: job `e2e-serenatas-real` (workflow_dispatch o secret E2E_TEST_EMAIL).
+  e2e-serenatas:
+    name: E2E Serenatas (smoke script)
+    runs-on: ubuntu-latest
+    needs: lint
+    env:
+      PLAYWRIGHT_SKIP: '1'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'pnpm'
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Run Serenatas E2E script
+        working-directory: apps/simpleserenatas
+        run: pnpm run test:e2e:ci
+
+  # E2E real (opt-in): no corre en push/PR salvo que exista secret E2E_TEST_EMAIL.
+  # Manual: Actions → CI → Run workflow → marcar "Ejecutar E2E Serenatas real".
+  # Secrets: E2E_TEST_EMAIL, E2E_TEST_PASSWORD; opcional E2E_API_URL (staging) o stack local con Postgres.
+  e2e-serenatas-real:
+    name: E2E Serenatas (real, opt-in)
+    runs-on: ubuntu-latest
+    needs: lint
+    if: >
+      (github.event_name == 'workflow_dispatch' && inputs.e2e_serenatas_real == true) ||
+      (github.event_name != 'workflow_dispatch' && secrets.E2E_TEST_EMAIL != '')
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: password
+          POSTGRES_DB: simplev2
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      PLAYWRIGHT_SKIP: '0'
+      E2E_TEST_EMAIL: ${{ secrets.E2E_TEST_EMAIL }}
+      E2E_TEST_PASSWORD: ${{ secrets.E2E_TEST_PASSWORD }}
+      SERENATAS_E2E_EMAIL: ${{ secrets.E2E_TEST_EMAIL }}
+      SERENATAS_E2E_PASSWORD: ${{ secrets.E2E_TEST_PASSWORD }}
+      E2E_API_URL: ${{ secrets.E2E_API_URL || 'http://localhost:4000' }}
+      NEXT_PUBLIC_API_URL: ${{ secrets.E2E_API_URL || 'http://localhost:4000' }}
+      API_INTERNAL_URL: ${{ secrets.E2E_API_URL || 'http://localhost:4000' }}
+      DATABASE_URL: postgresql://postgres:password@localhost:5432/simplev2
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'pnpm'
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Configure API for E2E
+        if: env.E2E_API_URL == 'http://localhost:4000'
+        working-directory: services/api
+        run: |
+          cat > .env.local <<'EOF'
+          PORT=4000
+          API_HOST=0.0.0.0
+          API_BASE_URL=http://localhost:4000
+          DATABASE_URL=postgresql://postgres:password@localhost:5432/simplev2
+          CORS_ORIGINS=http://localhost:3005
+          SESSION_SECRET=ci_e2e_session_secret_change_me
+          AUTH_COOKIE_SAMESITE=lax
+          STORAGE_PROVIDER=local
+          LOCAL_DEV_FORCE_SUPERADMIN=false
+          EOF
+
+      - name: Migrate database
+        if: env.E2E_API_URL == 'http://localhost:4000'
+        run: |
+          pnpm --filter @simple/api run db:migrate
+          pnpm --filter @simple/api run db:apply:post-journal
+
+      - name: Seed Serenatas E2E
+        if: env.E2E_API_URL == 'http://localhost:4000'
+        run: pnpm --filter @simple/api run db:seed:serenatas-e2e
+
+      - name: Start API
+        if: env.E2E_API_URL == 'http://localhost:4000'
+        run: |
+          pnpm --filter @simple/api run dev &
+          for i in $(seq 1 60); do
+            if curl -sf http://localhost:4000/api/health >/dev/null; then
+              echo "API ready"
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "API did not become ready"
+          exit 1
+
+      # Opt-in real E2E: Playwright + Chromium con API local o E2E_API_URL staging.
+      # Secrets: E2E_TEST_EMAIL, E2E_TEST_PASSWORD; workflow_dispatch → e2e_serenatas_real.
+      - name: Run Serenatas E2E real (Chromium)
+        working-directory: apps/simpleserenatas
+        run: pnpm run test:e2e:real
         
   security:
     name: Security Audit

@@ -1,0 +1,444 @@
+import { and, asc, eq, gte, inArray, lte } from 'drizzle-orm';
+import { db } from '../../db/index.js';
+import {
+    serenataAvailabilityRules,
+    serenataGroups,
+    serenataGroupMembers,
+    serenataProviderGroups,
+    serenatas,
+} from '../../db/schema.js';
+import { eventDateYmd, SERENATA_TIMEZONE, todayYmdInChile } from './lifecycle.js';
+
+export const DEFAULT_SLA_HOURS = 24;
+export const MARKETPLACE_MIN_LEAD_HOURS = 2;
+export const MARKETPLACE_DAY_START = '09:00';
+export const MARKETPLACE_DAY_END = '22:00';
+
+const BLOCKING_SERENATA_STATUSES = ['accepted_pending_group', 'scheduled'] as const;
+/** Incluye `pending` para anti-doble-booking: máximo una solicitud pendiente por slot/grupo. */
+const STRICT_BLOCKING_STATUSES = ['pending', 'accepted_pending_group', 'scheduled'] as const;
+
+export type ProviderGroupSlotOptions = {
+    dayStart?: string;
+    dayEnd?: string;
+    bufferMinutes?: number;
+};
+
+export type SerenataAvailabilityRuleInput = {
+    dayOfWeek: number;
+    startTime: string;
+    endTime: string;
+    isActive?: boolean;
+};
+
+export function toNumber(value: string | null): number | null {
+    if (value == null) return null;
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : null;
+}
+
+export function toDateRange(rawDate: string | undefined): { start: Date; end: Date } | null {
+    if (!rawDate) return null;
+    const start = new Date(`${rawDate}T00:00:00.000Z`);
+    const end = new Date(`${rawDate}T23:59:59.999Z`);
+    if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) return null;
+    return { start, end };
+}
+
+export function minutesFromTime(value: string) {
+    const [rawHours, rawMinutes] = value.split(':');
+    const hours = Number(rawHours);
+    const minutes = Number(rawMinutes);
+    if (!Number.isFinite(hours) || !Number.isFinite(minutes)) return null;
+    return hours * 60 + minutes;
+}
+
+export function minutesToTime(totalMinutes: number) {
+    const hours = Math.floor(totalMinutes / 60);
+    const minutes = totalMinutes % 60;
+    return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
+}
+
+function rangesOverlap(startA: number, durationA: number, startB: number, durationB: number) {
+    return startA < startB + durationB && startB < startA + durationA;
+}
+
+function distanceKm(a: { lat: number; lng: number }, b: { lat: number; lng: number }) {
+    const toRad = (value: number) => (value * Math.PI) / 180;
+    const radius = 6371;
+    const dLat = toRad(b.lat - a.lat);
+    const dLng = toRad(b.lng - a.lng);
+    const lat1 = toRad(a.lat);
+    const lat2 = toRad(b.lat);
+    const h = Math.sin(dLat / 2) ** 2 + Math.cos(lat1) * Math.cos(lat2) * Math.sin(dLng / 2) ** 2;
+    return 2 * radius * Math.asin(Math.sqrt(h));
+}
+
+function estimatedTravelMinutes(a: typeof serenatas.$inferSelect, b: typeof serenatas.$inferSelect) {
+    const aLat = toNumber(a.lat);
+    const aLng = toNumber(a.lng);
+    const bLat = toNumber(b.lat);
+    const bLng = toNumber(b.lng);
+    if (aLat == null || aLng == null || bLat == null || bLng == null) return 15;
+    return Math.max(10, Math.ceil((distanceKm({ lat: aLat, lng: aLng }, { lat: bLat, lng: bLng }) / 28) * 60) + 8);
+}
+
+function chileTimeParts(date = new Date()) {
+    const formatter = new Intl.DateTimeFormat('en-GB', {
+        timeZone: SERENATA_TIMEZONE,
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: false,
+    });
+    const parts = formatter.formatToParts(date);
+    const read = (type: string) => Number(parts.find((part) => part.type === type)?.value ?? NaN);
+    return {
+        ymd: `${read('year')}-${String(read('month')).padStart(2, '0')}-${String(read('day')).padStart(2, '0')}`,
+        minutes: read('hour') * 60 + read('minute'),
+    };
+}
+
+/** UTC ms para una fecha/hora expresada en America/Santiago. */
+export function chileWallClockToMs(ymd: string, minutes: number): number | null {
+    const [year, month, day] = ymd.split('-').map(Number);
+    if (!year || !month || !day || !Number.isFinite(minutes)) return null;
+    const hh = Math.floor(minutes / 60);
+    const mm = minutes % 60;
+    const formatter = new Intl.DateTimeFormat('en-GB', {
+        timeZone: SERENATA_TIMEZONE,
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: false,
+    });
+    for (let offset = -5; offset <= -2; offset += 1) {
+        const candidate = Date.UTC(year, month - 1, day, hh - offset, mm);
+        const parts = formatter.formatToParts(new Date(candidate));
+        const read = (type: string) => Number(parts.find((part) => part.type === type)?.value ?? NaN);
+        const candidateYmd = `${read('year')}-${String(read('month')).padStart(2, '0')}-${String(read('day')).padStart(2, '0')}`;
+        const candidateMinutes = read('hour') * 60 + read('minute');
+        if (candidateYmd === ymd && candidateMinutes === minutes) return candidate;
+    }
+    return null;
+}
+
+export function dayOfWeekChile(ymd: string): number {
+    const ms = chileWallClockToMs(ymd, 12 * 60);
+    const date = ms != null ? new Date(ms) : new Date(`${ymd}T12:00:00.000Z`);
+    const weekday = new Intl.DateTimeFormat('en-US', {
+        timeZone: SERENATA_TIMEZONE,
+        weekday: 'long',
+    }).format(date);
+    const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+    const index = days.indexOf(weekday);
+    return index >= 0 ? index : date.getUTCDay();
+}
+
+export function resolveBufferMinutes(value?: number | null) {
+    if (!Number.isFinite(value) || value == null || value < 0) return 0;
+    return Math.min(120, Math.floor(value));
+}
+
+export const DEFAULT_WEEKLY_RULES: SerenataAvailabilityRuleInput[] = [
+    { dayOfWeek: 0, startTime: '10:00', endTime: '21:00', isActive: true },
+    { dayOfWeek: 1, startTime: MARKETPLACE_DAY_START, endTime: MARKETPLACE_DAY_END, isActive: true },
+    { dayOfWeek: 2, startTime: MARKETPLACE_DAY_START, endTime: MARKETPLACE_DAY_END, isActive: true },
+    { dayOfWeek: 3, startTime: MARKETPLACE_DAY_START, endTime: MARKETPLACE_DAY_END, isActive: true },
+    { dayOfWeek: 4, startTime: MARKETPLACE_DAY_START, endTime: MARKETPLACE_DAY_END, isActive: true },
+    { dayOfWeek: 5, startTime: MARKETPLACE_DAY_START, endTime: MARKETPLACE_DAY_END, isActive: true },
+    { dayOfWeek: 6, startTime: '10:00', endTime: '22:00', isActive: true },
+];
+
+export async function listProviderGroupAvailabilityRules(providerGroupId: string) {
+    return db.select().from(serenataAvailabilityRules).where(
+        eq(serenataAvailabilityRules.providerGroupId, providerGroupId),
+    ).orderBy(asc(serenataAvailabilityRules.dayOfWeek), asc(serenataAvailabilityRules.startTime));
+}
+
+export async function getProviderGroupSlotOptions(
+    providerGroupId: string,
+    dayYmd: string,
+): Promise<ProviderGroupSlotOptions | null> {
+    const group = await db.query.serenataProviderGroups.findFirst({
+        where: eq(serenataProviderGroups.id, providerGroupId),
+        columns: { bufferMinutes: true },
+    });
+    if (!group) return null;
+
+    const dow = dayOfWeekChile(dayYmd);
+    const rules = await listProviderGroupAvailabilityRules(providerGroupId);
+    const activeRules = rules.filter((rule) => rule.isActive);
+    const dayRule = activeRules.length > 0
+        ? activeRules.find((rule) => rule.dayOfWeek === dow)
+        : DEFAULT_WEEKLY_RULES.find((rule) => rule.dayOfWeek === dow);
+
+    if (!dayRule) {
+        return { bufferMinutes: resolveBufferMinutes(group.bufferMinutes) };
+    }
+
+    return {
+        dayStart: dayRule.startTime,
+        dayEnd: dayRule.endTime,
+        bufferMinutes: resolveBufferMinutes(group.bufferMinutes),
+    };
+}
+
+export async function replaceProviderGroupAvailabilityRules(
+    providerGroupId: string,
+    rules: SerenataAvailabilityRuleInput[],
+) {
+    const now = new Date();
+    await db.delete(serenataAvailabilityRules).where(eq(serenataAvailabilityRules.providerGroupId, providerGroupId));
+    if (rules.length === 0) return [];
+    return db.insert(serenataAvailabilityRules).values(rules.map((rule) => ({
+        providerGroupId,
+        dayOfWeek: rule.dayOfWeek,
+        startTime: rule.startTime,
+        endTime: rule.endTime,
+        isActive: rule.isActive ?? true,
+        createdAt: now,
+        updatedAt: now,
+    }))).returning();
+}
+
+export function resolveSlaHours(groupSlaHours?: number | null, adminSlaHours?: number | null) {
+    const value = groupSlaHours ?? adminSlaHours ?? DEFAULT_SLA_HOURS;
+    if (!Number.isFinite(value) || value < 1) return DEFAULT_SLA_HOURS;
+    return Math.min(168, Math.max(1, Math.floor(value)));
+}
+
+export function validateMarketplaceEventLead(
+    eventDate: Date,
+    eventTime: string | null | undefined,
+    minLeadHours = MARKETPLACE_MIN_LEAD_HOURS,
+): string | null {
+    const ymd = eventDateYmd(eventDate);
+    if (!ymd) return 'Fecha inválida.';
+    if (!eventTime) return null;
+    const eventMinutes = minutesFromTime(eventTime);
+    if (eventMinutes == null) return 'Hora inválida.';
+    const eventMs = chileWallClockToMs(ymd, eventMinutes);
+    if (eventMs == null) return 'Fecha u hora inválida.';
+    const nowMs = Date.now();
+    if (eventMs < nowMs) return 'La fecha y hora del evento deben ser futuras.';
+    if (eventMs - nowMs < minLeadHours * 60 * 60 * 1000) {
+        return `Reserva con al menos ${minLeadHours} horas de anticipación.`;
+    }
+    return null;
+}
+
+export async function validateGroupForSerenata<TClient extends Pick<typeof db, 'query' | 'select'>>(
+    tx: TClient,
+    input: {
+        ownerId: string;
+        serenataId?: string;
+        groupId: string | null | undefined;
+        requiredMusicians?: number;
+        eventDate: Date;
+        eventTime: string | null;
+        duration: number;
+    },
+) {
+    if (!input.groupId || !input.eventTime) return null;
+    const group = await tx.query.serenataGroups.findFirst({
+        where: and(eq(serenataGroups.id, input.groupId), eq(serenataGroups.ownerId, input.ownerId)),
+    });
+    if (!group) return 'Grupo no encontrado.';
+
+    const requiredMusicians = input.requiredMusicians ?? 0;
+    if (requiredMusicians > 0) {
+        const members = await tx.select({ id: serenataGroupMembers.id }).from(serenataGroupMembers)
+            .where(eq(serenataGroupMembers.groupId, input.groupId));
+        if (members.length < requiredMusicians) {
+            return `Este servicio requiere ${requiredMusicians} músicos. El grupo seleccionado tiene ${members.length}.`;
+        }
+    }
+
+    const eventDate = input.eventDate.toISOString().slice(0, 10);
+    const range = toDateRange(eventDate);
+    if (!range) return null;
+    const currentStart = minutesFromTime(input.eventTime);
+    if (currentStart == null) return null;
+    const existing = await tx.select().from(serenatas).where(and(
+        eq(serenatas.ownerId, input.ownerId),
+        eq(serenatas.groupId, input.groupId),
+        inArray(serenatas.status, [...BLOCKING_SERENATA_STATUSES]),
+        gte(serenatas.eventDate, range.start),
+        lte(serenatas.eventDate, range.end),
+    ));
+    const conflicting = existing.find((item) => {
+        if (input.serenataId && item.id === input.serenataId) return false;
+        if (!item.eventTime) return false;
+        const otherStart = minutesFromTime(item.eventTime);
+        return otherStart != null && rangesOverlap(currentStart, input.duration, otherStart, item.duration);
+    });
+    if (conflicting) {
+        return `Ese grupo ya tiene una serenata a las ${conflicting.eventTime ?? '—'}. Ajusta horario o selecciona otro grupo.`;
+    }
+
+    return null;
+}
+
+export async function validateOwnerAvailability(
+    client: Pick<typeof db, 'select'>,
+    input: {
+        ownerId: string;
+        serenata: typeof serenatas.$inferSelect;
+        excludeId?: string;
+    },
+) {
+    const eventDate = input.serenata.eventDate.toISOString().slice(0, 10);
+    const range = toDateRange(eventDate);
+    if (!range) return null;
+    if (!input.serenata.eventTime) return null;
+    const start = minutesFromTime(input.serenata.eventTime);
+    if (start == null) return null;
+    const items = await client.select().from(serenatas).where(and(
+        eq(serenatas.ownerId, input.ownerId),
+        inArray(serenatas.status, [...BLOCKING_SERENATA_STATUSES]),
+        gte(serenatas.eventDate, range.start),
+        lte(serenatas.eventDate, range.end),
+    ));
+
+    for (const item of items) {
+        if (item.id === input.serenata.id || item.id === input.excludeId) continue;
+        if (!item.eventTime) continue;
+        const otherStart = minutesFromTime(item.eventTime);
+        if (otherStart == null) continue;
+        const travel = estimatedTravelMinutes(input.serenata, item);
+        const currentBeforeOther = start <= otherStart;
+        const currentEndWithTravel = start + input.serenata.duration + travel;
+        const otherEndWithTravel = otherStart + item.duration + travel;
+        if ((currentBeforeOther && currentEndWithTravel > otherStart) || (!currentBeforeOther && otherEndWithTravel > start)) {
+            return `No hay tiempo suficiente con ${item.recipientName} a las ${item.eventTime}. Considera otro horario o reordenar la ruta.`;
+        }
+    }
+
+    return null;
+}
+
+export async function validateProviderGroupSlot(
+    client: Pick<typeof db, 'select'>,
+    input: {
+        ownerId: string;
+        providerGroupId: string;
+        eventDate: Date;
+        eventTime: string;
+        duration: number;
+        excludeId?: string;
+        includePending?: boolean;
+    },
+): Promise<string | null> {
+    const draft = {
+        id: input.excludeId ?? '',
+        ownerId: input.ownerId,
+        providerGroupId: input.providerGroupId,
+        eventDate: input.eventDate,
+        eventTime: input.eventTime,
+        duration: input.duration,
+        lat: null,
+        lng: null,
+    } as typeof serenatas.$inferSelect;
+
+    const adminConflict = await validateOwnerAvailability(client, {
+        ownerId: input.ownerId,
+        serenata: draft,
+        excludeId: input.excludeId,
+    });
+    if (adminConflict) return adminConflict;
+
+    const ymd = eventDateYmd(input.eventDate);
+    const range = ymd ? toDateRange(ymd) : null;
+    const currentStart = minutesFromTime(input.eventTime);
+    if (!range || currentStart == null) return null;
+
+    const statuses = input.includePending
+        ? [...STRICT_BLOCKING_STATUSES]
+        : [...BLOCKING_SERENATA_STATUSES];
+
+    const existing = await client.select().from(serenatas).where(and(
+        eq(serenatas.providerGroupId, input.providerGroupId),
+        inArray(serenatas.status, statuses),
+        gte(serenatas.eventDate, range.start),
+        lte(serenatas.eventDate, range.end),
+    ));
+
+    const conflicting = existing.find((item) => {
+        if (input.excludeId && item.id === input.excludeId) return false;
+        if (!item.eventTime) return false;
+        const otherStart = minutesFromTime(item.eventTime);
+        return otherStart != null && rangesOverlap(currentStart, input.duration, otherStart, item.duration);
+    });
+
+    if (conflicting) {
+        const label = conflicting.status === 'pending' ? 'solicitud pendiente' : 'serenata';
+        return `Ese horario se solapa con una ${label} a las ${conflicting.eventTime}. Elige otro horario.`;
+    }
+
+    return null;
+}
+
+type SlotSerenata = Pick<typeof serenatas.$inferSelect, 'eventTime' | 'duration' | 'status'>;
+
+export function generateMarketplaceTimeSlots(
+    durationMinutes: number,
+    dayYmd: string,
+    existing: SlotSerenata[],
+    options?: ProviderGroupSlotOptions,
+): string[] {
+    const dayStart = minutesFromTime(options?.dayStart ?? MARKETPLACE_DAY_START) ?? 9 * 60;
+    const dayEnd = minutesFromTime(options?.dayEnd ?? MARKETPLACE_DAY_END) ?? 22 * 60;
+    const bufferMinutes = resolveBufferMinutes(options?.bufferMinutes);
+    const step = durationMinutes + bufferMinutes;
+    if (dayEnd <= dayStart || step <= 0) return [];
+
+    const slots: string[] = [];
+    const today = todayYmdInChile();
+    const nowParts = chileTimeParts();
+
+    for (let cursor = dayStart; cursor + durationMinutes <= dayEnd; cursor += step) {
+        if (dayYmd === today && cursor <= nowParts.minutes) continue;
+        const overlaps = existing.some((item) => {
+            if (!item.eventTime) return false;
+            const otherStart = minutesFromTime(item.eventTime);
+            if (otherStart == null) return false;
+            return rangesOverlap(
+                cursor,
+                durationMinutes + bufferMinutes,
+                otherStart,
+                item.duration + bufferMinutes,
+            );
+        });
+        if (!overlaps) slots.push(minutesToTime(cursor));
+    }
+
+    return slots;
+}
+
+export async function listProviderGroupBusySerenatas(
+    providerGroupId: string,
+    dayYmd: string,
+    includePending = true,
+) {
+    const range = toDateRange(dayYmd);
+    if (!range) return [];
+    const statuses = includePending
+        ? [...STRICT_BLOCKING_STATUSES]
+        : [...BLOCKING_SERENATA_STATUSES];
+    const rows = await db.select({
+        eventTime: serenatas.eventTime,
+        duration: serenatas.duration,
+        status: serenatas.status,
+    }).from(serenatas).where(and(
+        eq(serenatas.providerGroupId, providerGroupId),
+        inArray(serenatas.status, statuses),
+        gte(serenatas.eventDate, range.start),
+        lte(serenatas.eventDate, range.end),
+    ));
+    return rows.filter((row) => row.eventTime != null);
+}

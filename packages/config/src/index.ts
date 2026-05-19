@@ -1,3 +1,5 @@
+import { buildSimpleBrandIconDataUri, buildSimpleBrandIconSvg } from './brand-icon-svg.js';
+
 export type SimpleAppId =
     | 'simpleautos'
     | 'simplepropiedades'
@@ -487,6 +489,18 @@ export function getSimpleBrandIconTokens(appId: SimpleAppId) {
         accent: brand.accentLight,
         ring: '#e7e5e4',
     };
+}
+
+/** Mismos iconos que app/icon.tsx y BrandLogo (@simple/ui, p. ej. confeti en Serenatas). */
+export function getSimpleBrandIconSvg(appId: SimpleAppId): string {
+    const tokens = getSimpleBrandIconTokens(appId);
+    return buildSimpleBrandIconSvg(appId, tokens);
+}
+
+/** Data URI para correos (no depende de localhost ni CDN). */
+export function getSimpleBrandIconDataUri(appId: SimpleAppId): string {
+    const tokens = getSimpleBrandIconTokens(appId);
+    return buildSimpleBrandIconDataUri(appId, tokens);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

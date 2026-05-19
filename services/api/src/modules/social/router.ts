@@ -5,16 +5,15 @@ export interface SocialRouterDeps {
     authUser: (c: Context) => Promise<any>;
     parseVertical: (v: string | undefined) => any;
     db: any;
-    tables: { savedListings: any };
     dbHelpers: { eq: any; and: any };
     savedRecordSchema: any;
     followToggleSchema: any;
     getSavedListingsByUser: (userId: string) => Promise<any[]>;
-    savedByUser: Map<string, any[]>;
     getListingById: (id: string) => Promise<any>;
     getFollowSetByVertical: (userId: string, vertical: any) => Set<string>;
-    getFollowRecords: (userId: string) => any[];
-    followsByUser: Map<string, any[]>;
+    getFollowsByUser: (userId: string) => Promise<any[]>;
+    syncFollowsCache: (userId: string, records: any[]) => void;
+    tables: { savedListings: any; follows: any };
     countFollowers: (userId: string, vertical: any) => number;
     usersById: Map<string, any>;
     buildSocialFeedClips: (vertical: any, section: string | undefined) => any[];
@@ -28,16 +27,15 @@ export function createSocialRouter(deps: SocialRouterDeps) {
         authUser,
         parseVertical,
         db,
-        tables: { savedListings },
+        tables: { savedListings, follows },
         dbHelpers: { eq, and },
         savedRecordSchema,
         followToggleSchema,
         getSavedListingsByUser,
-        savedByUser,
         getListingById,
         getFollowSetByVertical,
-        getFollowRecords,
-        followsByUser,
+        getFollowsByUser,
+        syncFollowsCache,
         countFollowers,
         usersById,
         buildSocialFeedClips,
@@ -53,7 +51,6 @@ export function createSocialRouter(deps: SocialRouterDeps) {
         if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
 
         const items = await getSavedListingsByUser(user.id);
-        savedByUser.set(user.id, items);
         return c.json({ ok: true, items });
     });
 
@@ -95,7 +92,6 @@ export function createSocialRouter(deps: SocialRouterDeps) {
         }
 
         const items = await getSavedListingsByUser(user.id);
-        savedByUser.set(user.id, items);
         return c.json({ ok: true, saved, items });
     });
 
@@ -109,8 +105,6 @@ export function createSocialRouter(deps: SocialRouterDeps) {
             .where(and(eq(savedListings.userId, user.id), eq(savedListings.listingId, id)));
 
         const items = await getSavedListingsByUser(user.id);
-        savedByUser.set(user.id, items);
-
         return c.json({ ok: true, items });
     });
 
@@ -189,20 +183,37 @@ export function createSocialRouter(deps: SocialRouterDeps) {
             return c.json({ ok: false, error: 'No puedes seguirte a ti mismo' }, 400);
         }
 
-        const existing = getFollowRecords(user.id);
-        const index = existing.findIndex((entry: any) => entry.followeeUserId === followeeUserId && entry.vertical === vertical);
+        const existing = await db
+            .select()
+            .from(follows)
+            .where(and(
+                eq(follows.followerId, user.id),
+                eq(follows.followeeId, followeeUserId),
+                eq(follows.vertical, vertical),
+            ))
+            .limit(1);
 
         let following = false;
-        let updated: any[];
-
-        if (index >= 0) {
-            updated = existing.filter((_: any, idx: number) => idx !== index);
+        if (existing.length > 0) {
+            await db
+                .delete(follows)
+                .where(and(
+                    eq(follows.followerId, user.id),
+                    eq(follows.followeeId, followeeUserId),
+                    eq(follows.vertical, vertical),
+                ));
         } else {
             following = true;
-            updated = [{ followeeUserId, vertical, followedAt: Date.now() }, ...existing];
+            await db.insert(follows).values({
+                followerId: user.id,
+                followeeId: followeeUserId,
+                vertical,
+                followedAt: new Date(),
+            });
         }
 
-        followsByUser.set(user.id, updated);
+        const updated = await getFollowsByUser(user.id);
+        syncFollowsCache(user.id, updated);
 
         return c.json({
             ok: true,
@@ -214,3 +225,4 @@ export function createSocialRouter(deps: SocialRouterDeps) {
 
     return app;
 }
+

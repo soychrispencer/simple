@@ -30,10 +30,11 @@ const GRAPH_API = 'https://graph.facebook.com/v21.0';
 import type { VerticalType } from '@simple/types';
 export type WaVertical = VerticalType;
 
-function getPhoneNumberId(vertical?: WaVertical): string | null {
+function getPhoneNumberId(vertical?: WaVertical | 'serenatas'): string | null {
     if (vertical === 'agenda')       return process.env.WHATSAPP_PHONE_NUMBER_ID_AGENDA    ?? process.env.WHATSAPP_PHONE_NUMBER_ID ?? null;
     if (vertical === 'autos')        return process.env.WHATSAPP_PHONE_NUMBER_ID_AUTOS     ?? process.env.WHATSAPP_PHONE_NUMBER_ID ?? null;
     if (vertical === 'propiedades')  return process.env.WHATSAPP_PHONE_NUMBER_ID_PROPIEDADES ?? process.env.WHATSAPP_PHONE_NUMBER_ID ?? null;
+    if (vertical === 'serenatas')    return process.env.WHATSAPP_PHONE_NUMBER_ID_SERENATAS ?? process.env.WHATSAPP_PHONE_NUMBER_ID ?? null;
     return process.env.WHATSAPP_PHONE_NUMBER_ID ?? null;
 }
 

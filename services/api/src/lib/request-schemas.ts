@@ -1,0 +1,485 @@
+import { z } from 'zod';
+import { geoPointSchema, listingLocationSchema } from '../modules/listings/location.js';
+import { inferPortalFromLeadImportSource } from '../modules/listings/portals.js';
+
+export const loginSchema = z.object({
+    email: z.string().email(),
+    password: z.string().min(1),
+});
+
+export const registerSchema = z.object({
+    name: z.string().min(2).max(80),
+    email: z.string().email(),
+    password: z.string().min(8).max(120),
+});
+
+export const updateProfileSchema = z.object({
+    name: z.string().trim().min(2).max(80),
+    phone: z.string().trim().max(20).nullable().optional().default(null),
+});
+
+const publicProfileAccountKindSchema = z.enum(['individual', 'independent', 'company']);
+const publicProfileLeadRoutingModeSchema = z.enum(['owner', 'round_robin', 'unassigned']);
+const publicProfileDayIdSchema = z.enum(['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday']);
+const publicProfileSocialLinksSchema = z.object({
+    instagram: z.string().trim().max(120).nullable().optional().default(null),
+    facebook: z.string().trim().max(120).nullable().optional().default(null),
+    linkedin: z.string().trim().max(120).nullable().optional().default(null),
+    youtube: z.string().trim().max(120).nullable().optional().default(null),
+    tiktok: z.string().trim().max(120).nullable().optional().default(null),
+    x: z.string().trim().max(120).nullable().optional().default(null),
+});
+const publicProfileBusinessHourSchema = z.object({
+    day: publicProfileDayIdSchema,
+    open: z.string().trim().regex(/^\d{2}:\d{2}$/).nullable().optional().default(null),
+    close: z.string().trim().regex(/^\d{2}:\d{2}$/).nullable().optional().default(null),
+    closed: z.boolean().default(false),
+});
+const publicProfileTeamSocialLinksSchema = z.object({
+    instagram: z.string().trim().max(120).nullable().optional().default(null),
+    facebook: z.string().trim().max(120).nullable().optional().default(null),
+    linkedin: z.string().trim().max(120).nullable().optional().default(null),
+});
+const publicProfileTeamMemberSchema = z.object({
+    id: z.string().uuid().nullable().optional().default(null),
+    name: z.string().trim().min(2).max(160),
+    roleTitle: z.string().trim().max(120).nullable().optional().default(null),
+    bio: z.string().trim().max(1200).nullable().optional().default(null),
+    email: z.string().trim().email().max(255).nullable().optional().default(null),
+    phone: z.string().trim().max(40).nullable().optional().default(null),
+    whatsapp: z.string().trim().max(40).nullable().optional().default(null),
+    avatarImageUrl: z.string().trim().max(500).nullable().optional().default(null),
+    socialLinks: publicProfileTeamSocialLinksSchema.default({
+        instagram: null,
+        facebook: null,
+        linkedin: null,
+    }),
+    specialties: z.array(z.string().trim().min(1).max(40)).max(6).default([]),
+    isLeadContact: z.boolean().default(false),
+    receivesLeads: z.boolean().default(true),
+    isPublished: z.boolean().default(true),
+});
+
+export const publicProfileWriteSchema = z.object({
+    slug: z.string().trim().min(3).max(80),
+    isPublished: z.boolean().default(false),
+    accountKind: publicProfileAccountKindSchema.default('individual'),
+    leadRoutingMode: publicProfileLeadRoutingModeSchema.default('round_robin'),
+    displayName: z.string().trim().min(2).max(160),
+    headline: z.string().trim().max(180).nullable().optional().default(null),
+    bio: z.string().trim().max(2400).nullable().optional().default(null),
+    companyName: z.string().trim().max(160).nullable().optional().default(null),
+    website: z.string().trim().max(500).nullable().optional().default(null),
+    publicEmail: z.string().trim().email().max(255).nullable().optional().default(null),
+    publicPhone: z.string().trim().max(40).nullable().optional().default(null),
+    publicWhatsapp: z.string().trim().max(40).nullable().optional().default(null),
+    addressLine: z.string().trim().max(255).nullable().optional().default(null),
+    city: z.string().trim().max(120).nullable().optional().default(null),
+    region: z.string().trim().max(120).nullable().optional().default(null),
+    coverImageUrl: z.string().trim().max(500).nullable().optional().default(null),
+    avatarImageUrl: z.string().trim().max(500).nullable().optional().default(null),
+    socialLinks: publicProfileSocialLinksSchema.default({
+        instagram: null,
+        facebook: null,
+        linkedin: null,
+        youtube: null,
+        tiktok: null,
+        x: null,
+    }),
+    businessHours: z.array(publicProfileBusinessHourSchema).length(7),
+    specialties: z.array(z.string().trim().min(1).max(40)).max(8).default([]),
+    teamMembers: z.array(publicProfileTeamMemberSchema).max(12).default([]),
+    scheduleNote: z.string().trim().max(255).nullable().optional().default(null),
+    alwaysOpen: z.boolean().default(false),
+});
+
+export const passwordResetRequestSchema = z.object({
+    email: z.string().email(),
+});
+
+export const passwordResetConfirmSchema = z.object({
+    token: z.string().min(32).max(256),
+    password: z.string().min(8).max(120),
+});
+
+export const savedRecordSchema = z.object({
+    id: z.string().min(1),
+});
+
+export const followToggleSchema = z.object({
+    followeeUserId: z.string().min(1),
+    vertical: z.enum(['autos', 'propiedades']),
+});
+
+const boostVerticalSchema = z.enum(['autos', 'propiedades', 'agenda']);
+const subscriptionVerticalSchema = z.enum(['autos', 'propiedades', 'agenda', 'serenatas']);
+const boostPlanIdSchema = z.enum(['boost_starter', 'boost_pro', 'boost_max']);
+const boostSectionSchema = z.enum(['sale', 'rent', 'auction', 'project']);
+export const portalKeySchema = z.enum(['yapo', 'chileautos', 'mercadolibre', 'facebook']);
+const adFormatSchema = z.enum(['hero', 'card', 'inline']);
+const adDurationDaysSchema = z.union([z.literal(7), z.literal(15), z.literal(30)]);
+const adDestinationTypeSchema = z.enum(['none', 'custom_url', 'listing', 'profile']);
+const adOverlayAlignSchema = z.enum(['left', 'center', 'right']);
+const adPlacementSectionSchema = z.enum(['home', 'ventas', 'arriendos', 'subastas', 'proyectos']);
+const paidSubscriptionPlanIdSchema = z.enum(['pro', 'enterprise']);
+const listingStatusSchema = z.enum(['draft', 'active', 'paused', 'sold', 'archived']);
+const listingManageStatusSchema = z.enum(['draft', 'active', 'paused', 'sold', 'archived']);
+const addressBookKindSchema = z.enum(['personal', 'shipping', 'billing', 'company', 'branch', 'warehouse', 'pickup', 'other']);
+
+export const updateListingStatusSchema = z.object({
+    status: listingManageStatusSchema,
+});
+
+export const listingDraftWriteSchema = z.object({
+    draft: z.unknown(),
+});
+
+export const addressBookWriteSchema = z.object({
+    kind: addressBookKindSchema.default('personal'),
+    label: z.string().trim().min(1).max(80),
+    countryCode: z.string().trim().min(2).max(3).default('CL'),
+    regionId: z.string().trim().nullable().default(null),
+    regionName: z.string().trim().nullable().default(null),
+    communeId: z.string().trim().nullable().default(null),
+    communeName: z.string().trim().nullable().default(null),
+    neighborhood: z.string().trim().nullable().default(null),
+    addressLine1: z.string().trim().nullable().default(null),
+    addressLine2: z.string().trim().nullable().default(null),
+    postalCode: z.string().trim().nullable().default(null),
+    arrivalInstructions: z.string().trim().nullable().default(null),
+    isDefault: z.boolean().default(false),
+    geoPoint: geoPointSchema.optional(),
+});
+
+export const createBoostOrderSchema = z.object({
+    vertical: boostVerticalSchema,
+    listingId: z.string().min(1),
+    planId: boostPlanIdSchema,
+    startAt: z.number().int().positive().optional(),
+    section: boostSectionSchema.optional(),
+    useFreeBoost: z.boolean().optional(),
+});
+
+export const updateBoostOrderSchema = z.object({
+    status: z.enum(['active', 'paused', 'ended']),
+});
+
+export const createListingSchema = z.object({
+    vertical: boostVerticalSchema,
+    listingType: boostSectionSchema,
+    title: z.string().min(3).max(220),
+    description: z.string().max(6000),
+    priceLabel: z.string().min(1).max(120),
+    location: z.string().max(120).optional(),
+    locationData: listingLocationSchema.optional(),
+    href: z.string().max(240).optional(),
+    status: listingStatusSchema.optional(),
+    rawData: z.unknown().optional(),
+});
+
+export const updateListingSchema = z.object({
+    listingType: boostSectionSchema,
+    title: z.string().min(3).max(220),
+    description: z.string().max(6000),
+    priceLabel: z.string().min(1).max(120),
+    location: z.string().max(120).optional(),
+    locationData: listingLocationSchema.optional(),
+    href: z.string().max(240).optional(),
+    status: listingStatusSchema.optional(),
+    rawData: z.unknown().optional(),
+});
+
+export const publishListingPortalSchema = z.object({
+    portal: portalKeySchema,
+});
+
+const instagramVerticalSchema = z.enum(['autos', 'propiedades']);
+
+export const instagramSettingsSchema = z.object({
+    vertical: instagramVerticalSchema,
+    autoPublishEnabled: z.boolean(),
+    captionTemplate: z.string().trim().max(2200).nullable().optional(),
+});
+
+export const instagramPublishSchema = z.object({
+    vertical: instagramVerticalSchema,
+    listingId: z.string().trim().min(1),
+    captionOverride: z.string().trim().max(2200).nullable().optional(),
+});
+
+export const instagramEnhancedPublishSchema = z.object({
+    vertical: instagramVerticalSchema,
+    listingId: z.string().trim().min(1),
+    captionOverride: z.string().trim().max(2200).nullable().optional(),
+    templateId: z.string().trim().max(120).nullable().optional(),
+    layoutVariant: z.enum(['square', 'portrait']).nullable().optional(),
+    options: z.object({
+        useAI: z.boolean().optional(),
+        enableABTesting: z.boolean().optional(),
+        schedulePost: z.boolean().optional(),
+        useTemplates: z.boolean().optional(),
+        optimizeContent: z.boolean().optional(),
+        preferredTime: z.coerce.date().optional(),
+        tone: z.enum(['professional', 'casual', 'excited', 'luxury', 'urgent']).optional(),
+        targetAudience: z.enum(['young', 'professional', 'investors', 'families', 'general']).optional(),
+        priority: z.enum(['low', 'medium', 'high', 'urgent']).optional(),
+    }).optional(),
+});
+
+export const adCampaignCreateSchema = z.object({
+    vertical: boostVerticalSchema,
+    name: z.string().trim().min(1).max(120),
+    format: adFormatSchema,
+    destinationType: adDestinationTypeSchema,
+    destinationUrl: z.string().trim().max(2000).nullable().optional().default(null),
+    listingHref: z.string().trim().max(500).nullable().optional().default(null),
+    profileSlug: z.string().trim().max(255).nullable().optional().default(null),
+    desktopImageDataUrl: z.string().trim().min(10),
+    mobileImageDataUrl: z.string().trim().nullable().optional().default(null),
+    overlayEnabled: z.boolean(),
+    overlayTitle: z.string().trim().max(160).nullable().optional().default(null),
+    overlaySubtitle: z.string().trim().max(300).nullable().optional().default(null),
+    overlayCta: z.string().trim().max(80).nullable().optional().default(null),
+    overlayAlign: adOverlayAlignSchema,
+    placementSection: adPlacementSectionSchema.nullable().optional().default(null),
+    startAt: z.string().datetime(),
+    durationDays: adDurationDaysSchema,
+});
+
+export const adCampaignUpdateSchema = z.discriminatedUnion('action', [
+    z.object({
+        action: z.literal('content'),
+        name: z.string().trim().min(1).max(120),
+        destinationType: adDestinationTypeSchema,
+        destinationUrl: z.string().trim().max(2000).nullable().optional().default(null),
+        listingHref: z.string().trim().max(500).nullable().optional().default(null),
+        profileSlug: z.string().trim().max(255).nullable().optional().default(null),
+        desktopImageDataUrl: z.string().trim().min(10),
+        mobileImageDataUrl: z.string().trim().nullable().optional().default(null),
+        overlayEnabled: z.boolean(),
+        overlayTitle: z.string().trim().max(160).nullable().optional().default(null),
+        overlaySubtitle: z.string().trim().max(300).nullable().optional().default(null),
+        overlayCta: z.string().trim().max(80).nullable().optional().default(null),
+        overlayAlign: adOverlayAlignSchema,
+    }),
+    z.object({
+        action: z.literal('lifecycle'),
+        status: z.enum(['paused', 'scheduled', 'active']),
+    }),
+]);
+
+export const createCheckoutSchema = z.discriminatedUnion('kind', [
+    z.object({
+        kind: z.literal('boost'),
+        vertical: boostVerticalSchema,
+        returnUrl: z.string().url(),
+        boost: z.object({
+            listingId: z.string().min(1),
+            section: boostSectionSchema.optional(),
+            planId: boostPlanIdSchema,
+        }),
+    }),
+    z.object({
+        kind: z.literal('advertising'),
+        vertical: boostVerticalSchema,
+        returnUrl: z.string().url(),
+        advertising: z.object({
+            campaignId: z.string().trim().min(1),
+        }),
+    }),
+    z.object({
+        kind: z.literal('subscription'),
+        vertical: subscriptionVerticalSchema,
+        returnUrl: z.string().url(),
+        planId: paidSubscriptionPlanIdSchema.optional(),
+        subscription: z.object({
+            planId: paidSubscriptionPlanIdSchema,
+        }).optional(),
+    }).refine((d) => d.planId != null || d.subscription?.planId != null, {
+        message: 'planId is required',
+    }),
+    z.object({
+        kind: z.literal('serenata_booking'),
+        vertical: z.literal('serenatas'),
+        returnUrl: z.string().url(),
+        serenata: z.object({
+            serenataId: z.string().uuid(),
+        }),
+    }),
+]);
+
+export const confirmCheckoutSchema = z.object({
+    orderId: z.string().min(1),
+    paymentId: z.union([z.string().min(1), z.number().int().positive()]).optional(),
+});
+
+const serviceLeadTypeSchema = z.enum(['venta_asistida', 'gestion_inmobiliaria']);
+const serviceLeadPlanSchema = z.enum(['basico', 'premium']);
+const serviceLeadStatusSchema = z.enum(['new', 'contacted', 'qualified', 'closed']);
+const listingLeadStatusSchema = z.enum(['new', 'contacted', 'qualified', 'closed']);
+const leadPrioritySchema = z.enum(['low', 'medium', 'high']);
+const listingLeadSourceSchema = z.enum(['internal_form', 'direct_message', 'whatsapp', 'phone_call', 'email', 'instagram', 'facebook', 'mercadolibre', 'yapo', 'chileautos', 'portal']);
+const listingLeadChannelSchema = z.enum(['lead', 'message', 'social', 'portal']);
+const listingLeadActionSourceSchema = z.enum(['whatsapp', 'phone_call', 'email']);
+
+export const serviceLeadCreateSchema = z.object({
+    vertical: boostVerticalSchema,
+    serviceType: serviceLeadTypeSchema,
+    planId: serviceLeadPlanSchema,
+    contactName: z.string().trim().min(2).max(120),
+    contactEmail: z.string().email(),
+    contactPhone: z.string().trim().min(6).max(40),
+    contactWhatsapp: z.string().trim().max(40).nullable().optional().default(null),
+    locationLabel: z.string().trim().max(255).nullable().optional().default(null),
+    assetType: z.string().trim().max(120).nullable().optional().default(null),
+    assetBrand: z.string().trim().max(120).nullable().optional().default(null),
+    assetModel: z.string().trim().max(120).nullable().optional().default(null),
+    assetYear: z.string().trim().max(20).nullable().optional().default(null),
+    assetMileage: z.string().trim().max(80).nullable().optional().default(null),
+    assetArea: z.string().trim().max(80).nullable().optional().default(null),
+    expectedPrice: z.string().trim().max(80).nullable().optional().default(null),
+    notes: z.string().trim().max(3000).nullable().optional().default(null),
+    sourcePage: z.string().trim().max(255).nullable().optional().default(null),
+    acceptedTerms: z.literal(true),
+});
+
+export const serviceLeadUpdateSchema = z.object({
+    status: serviceLeadStatusSchema.optional(),
+    priority: leadPrioritySchema.optional(),
+    closeReason: z.string().trim().max(255).nullable().optional(),
+    tags: z.array(z.string().trim().min(1).max(24)).max(8).optional(),
+    assignedToUserId: z.string().uuid().nullable().optional(),
+    nextTaskTitle: z.string().trim().max(255).nullable().optional(),
+    nextTaskAt: z.union([z.string().trim().min(1), z.null()]).optional(),
+});
+
+export const serviceLeadNoteSchema = z.object({
+    body: z.string().trim().min(2).max(4000),
+});
+
+export const leadQuickActionSchema = z.object({
+    action: z.enum(['call', 'whatsapp', 'email', 'follow_up']),
+});
+
+export const listingLeadCreateSchema = z.object({
+    vertical: boostVerticalSchema,
+    listingId: z.string().uuid(),
+    contactName: z.string().trim().min(2).max(120),
+    contactEmail: z.string().email(),
+    contactPhone: z.string().trim().max(40).nullable().optional().default(null),
+    contactWhatsapp: z.string().trim().max(40).nullable().optional().default(null),
+    message: z.string().trim().min(2).max(4000),
+    sourcePage: z.string().trim().max(255).nullable().optional().default(null),
+    createThread: z.boolean().optional().default(true),
+    acceptedTerms: z.literal(true),
+});
+
+export const listingLeadActionCreateSchema = z.object({
+    vertical: boostVerticalSchema,
+    listingId: z.string().uuid(),
+    source: listingLeadActionSourceSchema,
+    contactName: z.string().trim().min(2).max(120),
+    contactEmail: z.string().email(),
+    contactPhone: z.string().trim().max(40).nullable().optional().default(null),
+    contactWhatsapp: z.string().trim().max(40).nullable().optional().default(null),
+    message: z.string().trim().max(4000).nullable().optional().default(null),
+    sourcePage: z.string().trim().max(255).nullable().optional().default(null),
+    acceptedTerms: z.literal(true),
+});
+
+export const externalListingLeadImportSchema = z.object({
+    vertical: boostVerticalSchema,
+    source: listingLeadSourceSchema,
+    channel: listingLeadChannelSchema.optional(),
+    portal: portalKeySchema.nullable().optional().default(null),
+    listingId: z.string().uuid().nullable().optional().default(null),
+    listingSlug: z.string().trim().min(1).max(255).nullable().optional().default(null),
+    listingHref: z.string().trim().min(1).max(500).nullable().optional().default(null),
+    externalListingId: z.string().trim().min(1).max(255).nullable().optional().default(null),
+    externalSourceId: z.string().trim().min(1).max(255).nullable().optional().default(null),
+    contactName: z.string().trim().max(120).nullable().optional().default(null),
+    contactEmail: z.string().trim().email().nullable().optional().default(null),
+    contactPhone: z.string().trim().max(40).nullable().optional().default(null),
+    contactWhatsapp: z.string().trim().max(40).nullable().optional().default(null),
+    message: z.string().trim().max(4000).nullable().optional().default(null),
+    sourcePage: z.string().trim().max(255).nullable().optional().default(null),
+    receivedAt: z.union([z.number().int().positive(), z.string().trim().min(1)]).nullable().optional().default(null),
+    meta: z.record(z.string(), z.unknown()).nullable().optional().default(null),
+}).superRefine((value, ctx) => {
+    if (!value.listingId && !value.listingSlug && !value.listingHref && !value.externalListingId) {
+        ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            path: ['listingId'],
+            message: 'Debes indicar listingId, listingSlug, listingHref o externalListingId.',
+        });
+    }
+
+    const derivedPortal = inferPortalFromLeadImportSource(value.source, value.portal);
+    if (value.source === 'portal' && !derivedPortal) {
+        ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            path: ['portal'],
+            message: 'Portal es obligatorio cuando source es portal.',
+        });
+    }
+
+    if (value.externalListingId && !derivedPortal) {
+        ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            path: ['portal'],
+            message: 'Portal es obligatorio para resolver externalListingId.',
+        });
+    }
+});
+
+export const listingLeadUpdateSchema = z.object({
+    status: listingLeadStatusSchema.optional(),
+    priority: leadPrioritySchema.optional(),
+    closeReason: z.string().trim().max(255).nullable().optional(),
+    tags: z.array(z.string().trim().min(1).max(24)).max(8).optional(),
+    assignedToUserId: z.string().uuid().nullable().optional(),
+    assignedToTeamMemberId: z.string().uuid().nullable().optional(),
+    pipelineColumnId: z.string().uuid().nullable().optional(),
+    nextTaskTitle: z.string().trim().max(255).nullable().optional(),
+    nextTaskAt: z.union([z.string().trim().min(1), z.null()]).optional(),
+});
+
+export const listingLeadNoteSchema = z.object({
+    body: z.string().trim().min(2).max(4000),
+});
+
+export const pipelineColumnCreateSchema = z.object({
+    name: z.string().trim().min(2).max(80),
+    status: listingLeadStatusSchema,
+});
+
+export const pipelineColumnUpdateSchema = z.object({
+    name: z.string().trim().min(2).max(80).optional(),
+    status: listingLeadStatusSchema.optional(),
+});
+
+export const pipelineColumnReorderSchema = z.object({
+    columnIds: z.array(z.string().uuid()).min(1),
+});
+
+export const emailVerificationRequestSchema = z.object({
+    email: z.string().email().optional(),
+});
+
+export const emailVerificationConfirmSchema = z.object({
+    token: z.string().trim().min(1),
+});
+
+export const emailChangeRequestSchema = z.object({
+    newEmail: z.string().trim().email().max(255),
+});
+
+export const messageEntryCreateSchema = z.object({
+    body: z.string().trim().min(1).max(4000),
+});
+
+export const messageFolderSchema = z.enum(['inbox', 'archived', 'spam']);
+
+export const messageThreadUpdateSchema = z.object({
+    action: z.enum(['read', 'archive', 'unarchive', 'spam', 'unspam']),
+});

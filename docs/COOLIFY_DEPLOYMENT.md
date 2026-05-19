@@ -1,11 +1,13 @@
 # Configuración de Variables de Entorno en Coolify
 
 Para cada servicio ir a **Settings → Environment Variables** y pegar el bloque correspondiente.
-Los valores reales de cada secreto están en `services/api/.env` (local, gitignored).
+Los valores reales de cada secreto están en el gestor de secretos de Coolify o en `services/api/.env` (local, gitignored).
+
+> **Seguridad:** Nunca commitear contraseñas, tokens ni claves en el repositorio. Si algún secreto estuvo en git o en docs versionadas, **rotarlo de inmediato** en Coolify y en el proveedor (Mercado Pago, Google, Meta, etc.).
 
 > ⚠️ Las variables `NEXT_PUBLIC_*` se hornean en el build. Si las cambias debes hacer **Redeploy** (no solo Restart).
 >
-> ⚠️ Los frontends `simpleautos` y `simplepropiedades` ahora usan **Next standalone**. En Coolify deben construirse con su **Dockerfile específico** y exponer el **puerto interno 3000**.
+> ⚠️ Los frontends `simpleautos`, `simplepropiedades` y `simpleserenatas` usan **Next standalone**. En Coolify deben construirse con su **Dockerfile específico** y exponer el **puerto interno 3000**.
 
 ---
 
@@ -18,13 +20,13 @@ Los valores reales de cada secreto están en `services/api/.env` (local, gitigno
 - **Port / Exposed Port**: `4000`
 - **Healthcheck recomendado**: `/health`
 
-Acceso coolify:
-IP: 142.44.211.73
-http://142.44.211.73:8000/login
-User: soychrispencer@gmail.com
-pass: Pik@0819
+Acceso Coolify (solo en vault / variables de entorno del operador, no en git):
 
-Token: 1|rKKXgE8R7ImQdFGfZzKUD9cUmis0buRtrNdy5ivRc231f547
+- `COOLIFY_URL` — URL del panel (ej. `http://<servidor>:8000/login`)
+- `COOLIFY_EMAIL` — usuario del panel
+- `COOLIFY_PASSWORD` — contraseña (set in vault)
+- `COOLIFY_API_TOKEN` — token de API (set in vault)
+
 ```env
 PORT=4000
 API_HOST=0.0.0.0
@@ -32,7 +34,7 @@ API_BASE_URL=https://api.simpleplataforma.app
 
 DATABASE_URL=                        # ver .env local → DATABASE_URL
 
-CORS_ORIGINS=https://simpleautos.app,https://www.simpleautos.app,https://simplepropiedades.app,https://www.simplepropiedades.app,https://simpleplataforma.app,https://www.simpleplataforma.app,https://simpleagenda.app,https://www.simpleagenda.app,https://admin.simpleplataforma.app
+CORS_ORIGINS=https://simpleautos.app,https://www.simpleautos.app,https://simplepropiedades.app,https://www.simplepropiedades.app,https://simpleplataforma.app,https://www.simpleplataforma.app,https://simpleagenda.app,https://www.simpleagenda.app,https://simpleserenatas.app,https://www.simpleserenatas.app,https://admin.simpleplataforma.app
 
 SESSION_SECRET=                      # ver .env local → SESSION_SECRET
 AUTH_COOKIE_SAMESITE=none
@@ -40,6 +42,7 @@ AUTH_COOKIE_SAMESITE=none
 GOOGLE_CLIENT_ID=                    # ver .env local → GOOGLE_CLIENT_ID
 GOOGLE_CLIENT_SECRET=                # ver .env local → GOOGLE_CLIENT_SECRET
 
+# Storage: ver docs/STORAGE_SETUP.md (fuente única). Producción puede usar backblaze-s3 o cloudflare-r2.
 STORAGE_PROVIDER=backblaze-s3
 BACKBLAZE_S3_ENDPOINT=https://s3.us-east-005.backblazeb2.com
 BACKBLAZE_S3_REGION=us-east-5
@@ -47,6 +50,7 @@ BACKBLAZE_S3_ACCESS_KEY=             # ver .env local → BACKBLAZE_S3_ACCESS_KE
 BACKBLAZE_S3_SECRET_KEY=             # ver .env local → BACKBLAZE_S3_SECRET_KEY
 BACKBLAZE_BUCKET_NAME=simple-media
 BACKBLAZE_DOWNLOAD_URL=              # ver .env local → BACKBLAZE_DOWNLOAD_URL
+# Alternativa R2 (recomendada en services/api/.env.example): STORAGE_PROVIDER=cloudflare-r2 + CLOUDFLARE_R2_*
 
 GOOGLE_MAPS_API_KEY=                 # ver .env local → GOOGLE_MAPS_API_KEY
 
@@ -58,8 +62,10 @@ SMTP_PASSWORD=                       # ver .env local → SMTP_PASSWORD
 SMTP_FROM=Simple <noreply@simpleplataforma.app>
 
 MERCADO_PAGO_ACCESS_TOKEN=           # ver .env local → MERCADO_PAGO_ACCESS_TOKEN
+MERCADO_PAGO_WEBHOOK_SECRET=         # obligatorio en prod — panel MP → Notificaciones
 MERCADO_PAGO_PUBLIC_ORIGIN_AUTOS=https://simpleautos.app
 MERCADO_PAGO_PUBLIC_ORIGIN_PROPIEDADES=https://simplepropiedades.app
+MERCADO_PAGO_PUBLIC_ORIGIN_SERENATAS=https://simpleserenatas.app
 
 MP_AGENDA_APP_ID=                    # ver .env local → MP_AGENDA_APP_ID
 MP_AGENDA_APP_SECRET=                # ver .env local → MP_AGENDA_APP_SECRET
@@ -142,6 +148,25 @@ NEXT_PUBLIC_APP_URL=https://simpleplataforma.app
 
 ---
 
+## 7. SimpleSerenatas (`simpleserenatas.app`)
+
+### Setup del servicio
+
+- **Build Pack**: `Dockerfile`
+- **Dockerfile Location**: `apps/simpleserenatas/Dockerfile`
+- **Port / Exposed Port**: `3000` (interno; el dominio público puede ser otro)
+- **Healthcheck recomendado**: `/`
+- **Importante**: redeploy completo si cambias `NEXT_PUBLIC_*`
+
+```env
+NEXT_PUBLIC_API_URL=https://api.simpleplataforma.app
+NEXT_PUBLIC_APP_URL=https://simpleserenatas.app
+```
+
+Desarrollo local: `http://localhost:3005` (incluido en `CORS_ORIGINS` de `services/api/.env.example`).
+
+---
+
 ## Diferencias clave local vs producción
 
 | Variable | Local | Producción |
@@ -151,6 +176,7 @@ NEXT_PUBLIC_APP_URL=https://simpleplataforma.app
 | `MERCADO_PAGO_PUBLIC_ORIGIN_AUTOS` | `http://localhost:3002` | `https://simpleautos.app` |
 | `MERCADO_PAGO_PUBLIC_ORIGIN_PROPIEDADES` | `http://localhost:3003` | `https://simplepropiedades.app` |
 | `AGENDA_APP_URL` | `http://localhost:3004` | `https://simpleagenda.app` |
+| `MERCADO_PAGO_PUBLIC_ORIGIN_SERENATAS` | `http://localhost:3005` | `https://simpleserenatas.app` |
 | `ENABLE_ADMIN_BOOTSTRAP` | `true` | `false` |
 
 ---
@@ -171,8 +197,8 @@ Si haces cambios en el código (como el tamaño del logo 80x80 o posición top-l
 
 **Alternativa - Forzar rebuild sin caché via CLI:**
 ```bash
-# Conectarse al servidor de Coolify
-ssh root@142.44.211.73
+# Conectarse al servidor de Coolify (usar IP/host del vault, no commitear)
+ssh root@<COOLIFY_SERVER_IP>
 
 # Listar builds
 docker builder ls
@@ -224,9 +250,47 @@ Si la vista previa del template se ve bien pero al publicar en Instagram el logo
 - [ ] Verificar `https://api.simpleplataforma.app/health` responde 200
 - [ ] Verificar `https://simpleautos.app/` responde 200
 - [ ] Verificar `https://simplepropiedades.app/` responde 200
+- [ ] Verificar `https://simpleserenatas.app/` responde 200
+- [ ] Confirmar que `simpleserenatas` usa Dockerfile multi-stage y puerto interno `3000`
 - [ ] Verificar login con Google en cada app
-- [ ] Verificar subida de imágenes (Backblaze)
+- [ ] Verificar subida de imágenes (según [STORAGE_SETUP.md](./STORAGE_SETUP.md))
 - [ ] Verificar flujo OAuth de Instagram en panel de un usuario Pro
+
+---
+
+## Rate limiting en proxy (recomendado)
+
+El rate limit de auth en la API (`authRateLimitBuckets` en memoria) **no se comparte entre réplicas**. En producción conviene limitar en el reverse proxy (Traefik o nginx) las rutas sensibles.
+
+### Traefik (middleware `rateLimit`)
+
+```yaml
+# docker-compose / labels del servicio API
+labels:
+  - traefik.http.middlewares.api-auth-ratelimit.ratelimit.average=20
+  - traefik.http.middlewares.api-auth-ratelimit.ratelimit.burst=40
+  - traefik.http.routers.api.middlewares=api-auth-ratelimit
+  # Router adicional o regla PathPrefix para auth:
+  - traefik.http.routers.api-auth.rule=Host(`api.simpleplataforma.app`) && PathPrefix(`/api/auth`)
+  - traefik.http.routers.api-auth.middlewares=api-auth-ratelimit
+```
+
+Ajustar `average` / `burst` según tráfico legítimo (login, registro, reset password).
+
+### nginx (`limit_req`)
+
+```nginx
+limit_req_zone $binary_remote_addr zone=auth_api:10m rate=30r/m;
+
+server {
+    location /api/auth/ {
+        limit_req zone=auth_api burst=20 nodelay;
+        proxy_pass http://api_upstream;
+    }
+}
+```
+
+Documentación de referencia; **no** está aplicado automáticamente en este repo — configurar en Coolify/proxy según el stack real.
 
 ---
 

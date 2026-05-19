@@ -92,17 +92,14 @@ function SortablePhoto({
                     unoptimized
                 />
             ) : (
-                <div className="w-full h-full flex items-center justify-center" style={{ background: 'var(--bg-muted)' }}>
-                    <span className="text-xs" style={{ color: 'var(--fg-muted)' }}>Sin imagen</span>
+                <div className="w-full h-full flex items-center justify-center qp-placeholder">
+                    <span className="text-xs qp-muted">Sin imagen</span>
                 </div>
             )}
 
             {/* Cover badge */}
             {index === 0 && (
-                <div
-                    className="absolute top-1.5 left-1.5 flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-bold pointer-events-none"
-                    style={{ background: '#FF3600', color: 'white' }}
-                >
+                <div className="absolute top-1.5 left-1.5 flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-bold pointer-events-none qp-badge-cover">
                     <IconStar size={8} fill="white" />
                     Portada
                 </div>
@@ -110,8 +107,7 @@ function SortablePhoto({
 
             {/* Drag handle hint on hover */}
             <div
-                className="absolute inset-0 flex items-end justify-center pb-1.5 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none [@media(hover:none)]:hidden"
-                style={{ background: 'linear-gradient(to top, rgba(0,0,0,0.45) 0%, transparent 60%)' }}
+                className="absolute inset-0 flex items-end justify-center pb-1.5 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none [@media(hover:none)]:hidden qp-photo-gradient"
             >
                 <span className="text-[10px] font-medium text-white/90">⠿ mover</span>
             </div>
@@ -120,8 +116,7 @@ function SortablePhoto({
             <button
                 type="button"
                 aria-label="Eliminar foto"
-                className="absolute top-1.5 right-1.5 flex h-6 w-6 items-center justify-center rounded-full transition-opacity opacity-0 group-hover:opacity-100 [@media(hover:none)]:opacity-100"
-                style={{ background: 'rgba(0,0,0,0.65)', color: 'white' }}
+                className="absolute top-1.5 right-1.5 flex h-6 w-6 items-center justify-center rounded-full transition-opacity opacity-0 group-hover:opacity-100 [@media(hover:none)]:opacity-100 qp-remove-btn"
                 onClick={(e) => { e.stopPropagation(); onRemove(photo.id); }}
                 onPointerDown={(e) => e.stopPropagation()}
                 onTouchStart={(e) => e.stopPropagation()}
@@ -146,11 +141,10 @@ function GuideSlot({
         <button
             type="button"
             onClick={onClick}
-            className="relative aspect-square rounded-2xl border-2 border-dashed flex flex-col items-center justify-center gap-1 transition-all hover:border-[#FF3600] hover:bg-[#fff8f5] active:scale-95"
-            style={{ borderColor: 'var(--border)', background: 'var(--bg-subtle)' }}
+            className="relative aspect-square rounded-2xl border-2 border-dashed flex flex-col items-center justify-center gap-1 transition-all hover:border-[var(--accent)] hover:bg-[var(--accent-soft)] active:scale-95 qp-guide-slot"
         >
-            <Icon size={18} style={{ color: 'var(--fg-muted)' }} strokeWidth={1.5} />
-            <span className="text-[10px] font-medium leading-none" style={{ color: 'var(--fg-muted)' }}>
+            <Icon size={18} className="qp-muted" strokeWidth={1.5} />
+            <span className="text-[10px] font-medium leading-none qp-muted">
                 {slot.label}
             </span>
         </button>
@@ -164,10 +158,9 @@ function AddSlot({ onClick }: { onClick: () => void }) {
         <button
             type="button"
             onClick={onClick}
-            className="aspect-square rounded-2xl border-2 border-dashed flex flex-col items-center justify-center transition-all hover:border-[#FF3600] hover:bg-[#fff8f5] active:scale-95"
-            style={{ borderColor: 'var(--border)' }}
+            className="aspect-square rounded-2xl border-2 border-dashed flex flex-col items-center justify-center transition-all hover:border-[var(--accent)] hover:bg-[var(--accent-soft)] active:scale-95 qp-add-slot"
         >
-            <IconPlus size={20} style={{ color: 'var(--fg-muted)' }} />
+            <IconPlus size={20} className="qp-muted" />
         </button>
     );
 }
@@ -257,12 +250,9 @@ export default function Step1Photos({
         <div className="flex flex-col gap-5">
             {/* Restored photos notice */}
             {restoredPhotoCount > 0 && photos.length === 0 && (
-                <div
-                    className="flex items-start gap-3 rounded-2xl px-4 py-3 text-sm"
-                    style={{ background: 'var(--bg-subtle)', border: '1px solid var(--border)' }}
-                >
-                    <IconPhoto size={16} className="mt-0.5 shrink-0" style={{ color: 'var(--fg-muted)' }} />
-                    <span style={{ color: 'var(--fg-secondary)' }}>
+                <div className="flex items-start gap-3 rounded-2xl px-4 py-3 text-sm qp-notice">
+                    <IconPhoto size={16} className="mt-0.5 shrink-0 qp-muted" />
+                    <span className="qp-secondary">
                         Tu sesión anterior tenía {restoredPhotoCount} foto{restoredPhotoCount !== 1 ? 's' : ''}.
                         Por seguridad, las fotos no se guardan entre sesiones — vuelve a subirlas.
                     </span>
@@ -271,10 +261,7 @@ export default function Step1Photos({
 
             {/* Limit toast */}
             {limitToast && (
-                <div
-                    className="fixed bottom-20 left-1/2 -translate-x-1/2 z-50 rounded-2xl px-4 py-2.5 text-sm font-medium text-white shadow-xl"
-                    style={{ background: '#FF3600' }}
-                >
+                <div className="fixed bottom-20 left-1/2 -translate-x-1/2 z-50 rounded-2xl px-4 py-2.5 text-sm font-medium text-white shadow-xl qp-toast">
                     Máximo 20 fotos
                 </div>
             )}
@@ -292,15 +279,13 @@ export default function Step1Photos({
                 /* Mobile: 2-button row */
                 <div className="grid grid-cols-2 gap-3">
                     <button type="button" onClick={() => cameraRef.current?.click()} disabled={!canAdd}
-                        className="flex items-center justify-center gap-2 rounded-2xl py-3.5 border-2 font-semibold text-sm transition-all active:scale-95"
-                        style={{ background: '#FF3600', borderColor: '#FF3600', color: 'white', opacity: canAdd ? 1 : 0.4 }}>
+                        className={`flex items-center justify-center gap-2 rounded-2xl py-3.5 border-2 font-semibold text-sm transition-all active:scale-95 qp-btn-camera ${canAdd ? '' : 'opacity-40'}`}>
                         <IconCamera size={18} />
                         Cámara
                     </button>
                     <button type="button" onClick={() => galleryRef.current?.click()} disabled={!canAdd}
-                        className="flex items-center justify-center gap-2 rounded-2xl py-3.5 border-2 font-semibold text-sm transition-all active:scale-95"
-                        style={{ borderColor: 'var(--border)', background: 'var(--bg)', color: 'var(--fg)', opacity: canAdd ? 1 : 0.4 }}>
-                        <IconPhoto size={18} style={{ color: 'var(--fg-muted)' }} />
+                        className={`flex items-center justify-center gap-2 rounded-2xl py-3.5 border-2 font-semibold text-sm transition-all active:scale-95 qp-btn-gallery ${canAdd ? '' : 'opacity-40'}`}>
+                        <IconPhoto size={18} className="qp-muted" />
                         Galería
                     </button>
                 </div>
@@ -311,41 +296,25 @@ export default function Step1Photos({
                     onDragOver={(e) => { e.preventDefault(); if (canAdd) setIsDraggingFile(true); }}
                     onDragLeave={() => setIsDraggingFile(false)}
                     onDrop={handleFileDrop}
-                    className="flex items-center justify-center gap-4 rounded-2xl border-2 border-dashed transition-all"
-                    style={{
-                        borderColor: isDraggingFile ? '#FF3600' : 'var(--border)',
-                        background: isDraggingFile ? '#fff2ee' : 'var(--bg-subtle)',
-                        cursor: canAdd ? 'pointer' : 'default',
-                        opacity: canAdd ? 1 : 0.4,
-                        padding: hasPhotos ? '14px 20px' : '36px 24px',
-                        flexDirection: hasPhotos ? 'row' : 'column',
-                    }}
+                    className={`flex items-center justify-center gap-4 rounded-2xl border-2 border-dashed transition-all qp-dropzone ${isDraggingFile ? 'qp-dropzone--active' : ''} ${hasPhotos ? 'qp-dropzone--row' : 'qp-dropzone--column'} ${canAdd ? 'cursor-pointer' : 'cursor-default opacity-40'}`}
                 >
                     <div
-                        className="flex items-center justify-center rounded-xl transition-colors shrink-0"
-                        style={{
-                            background: isDraggingFile ? '#FF3600' : 'var(--bg-muted)',
-                            color: isDraggingFile ? 'white' : 'var(--fg-muted)',
-                            padding: hasPhotos ? '8px' : '14px',
-                        }}
+                        className={`flex items-center justify-center rounded-xl transition-colors shrink-0 qp-dropzone-icon ${isDraggingFile ? 'qp-dropzone-icon--active' : ''} ${hasPhotos ? 'qp-dropzone-icon--sm' : 'qp-dropzone-icon--lg'}`}
                     >
                         <IconUpload size={hasPhotos ? 18 : 26} />
                     </div>
                     <div className={hasPhotos ? '' : 'text-center'}>
-                        <p className="text-sm font-semibold" style={{ color: 'var(--fg)' }}>
+                        <p className="text-sm font-semibold qp-fg">
                             {isDraggingFile ? 'Suelta aquí' : hasPhotos ? 'Agregar más fotos' : 'Arrastra tus fotos aquí'}
                         </p>
                         {!hasPhotos && (
-                            <p className="text-xs mt-1" style={{ color: 'var(--fg-muted)' }}>
+                            <p className="text-xs mt-1 qp-muted">
                                 o haz clic para seleccionar · JPG, PNG, WebP
                             </p>
                         )}
                     </div>
                     {!hasPhotos && (
-                        <span
-                            className="mt-2 rounded-xl px-4 py-2 text-sm font-medium pointer-events-none"
-                            style={{ background: 'var(--bg-muted)', color: 'var(--fg-secondary)' }}
-                        >
+                        <span className="mt-2 rounded-xl px-4 py-2 text-sm font-medium pointer-events-none qp-chip-muted">
                             Seleccionar fotos
                         </span>
                     )}
@@ -354,7 +323,7 @@ export default function Step1Photos({
 
             {/* Processing indicator */}
             {processing && (
-                <div className="flex items-center gap-2" style={{ color: 'var(--fg-muted)' }}>
+                <div className="flex items-center gap-2 qp-muted">
                     <div className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
                     <span className="text-sm">Procesando…</span>
                 </div>
@@ -399,17 +368,7 @@ export default function Step1Photos({
                 {/* Drag overlay — matches the actual cell size, no scale animation */}
                 <DragOverlay dropAnimation={{ duration: 180, easing: 'cubic-bezier(0.25, 1, 0.5, 1)' }}>
                     {activePhoto && dragSize > 0 && (
-                        <div
-                            style={{
-                                width: dragSize,
-                                height: dragSize,
-                                transform: 'rotate(2deg) scale(1.04)',
-                                boxShadow: '0 20px 40px rgba(0,0,0,0.3)',
-                                borderRadius: 16,
-                                overflow: 'hidden',
-                                opacity: 0.97,
-                            }}
-                        >
+                        <div className="qp-drag-overlay" style={{ width: dragSize, height: dragSize }}>
                             <Image
                                 src={activePhoto.previewUrl}
                                 alt="Foto seleccionada"
@@ -424,7 +383,7 @@ export default function Step1Photos({
             </DndContext>
 
             {/* Helper text */}
-            <div className="flex items-center justify-between text-[11px]" style={{ color: 'var(--fg-muted)' }}>
+            <div className="flex items-center justify-between text-[11px] qp-muted">
                 <span>{hasPhotos ? `${photos.length} foto${photos.length !== 1 ? 's' : ''} · ${isTouchDevice ? 'mantén pulsado para ordenar' : 'arrastra para ordenar'}` : 'Mínimo 1 foto para continuar'}</span>
                 <span>máx. 20</span>
             </div>
@@ -433,10 +392,10 @@ export default function Step1Photos({
             {!isExtended && onNext && (
                 <div className="flex flex-col items-end gap-1.5">
                     {!hasPhotos && (
-                        <p className="text-xs" style={{ color: 'var(--fg-muted)' }}>Sube al menos una foto para continuar</p>
+                        <p className="text-xs qp-muted">Sube al menos una foto para continuar</p>
                     )}
                     {hasPhotos && (
-                        <p className="text-xs text-right" style={{ color: 'var(--fg-muted)' }}>
+                        <p className="text-xs text-right qp-muted">
                             Al continuar seguirás la ficha dentro de tu cuenta.
                         </p>
                     )}

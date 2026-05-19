@@ -89,7 +89,7 @@ function processQueue() {
 }
 
 // Crear icono personalizado con branding configurable
-const createCustomIcon = (brandColor: string = '#ff3600') => {
+const createCustomIcon = (brandColor: string = 'var(--accent)') => {
     return L.divIcon({
         className: 'custom-marker',
         html: `
@@ -153,7 +153,7 @@ function MapView({ center }: { center: [number, number] }) {
     return null;
 }
 
-export default function SearchMap({ showMap, publications = [], brandColor = '#ff3600' }: SearchMapProps) {
+export default function SearchMap({ showMap, publications = [], brandColor = 'var(--accent)' }: SearchMapProps) {
     const [isDarkMode, setIsDarkMode] = useState(false);
     const [geocodedPublications, setGeocodedPublications] = useState<Publication[]>([]);
     const [isGeocoding, setIsGeocoding] = useState(false);
@@ -242,7 +242,7 @@ export default function SearchMap({ showMap, publications = [], brandColor = '#f
     };
 
     return (
-        <div className="w-full h-96 rounded-xl overflow-hidden border relative" style={{ borderColor: 'var(--border)' }}>
+        <div className="w-full h-96 rounded-xl overflow-hidden border relative autos-map-border">
             {isGeocoding && (
                 <div className="absolute inset-0 flex items-center justify-center bg-white/80 backdrop-blur-sm z-10">
                     <div className="text-sm" style={{ color: 'var(--fg)' }}>Cargando ubicaciones...</div>
@@ -269,14 +269,13 @@ export default function SearchMap({ showMap, publications = [], brandColor = '#f
                                     <div className="p-0">
                                         <div className="relative">
                                             <img 
-                                                src={pub.image || 'https://via.placeholder.com/280x180/ff3600/ffffff?text=Auto'} 
+                                                src={pub.image || 'https://via.placeholder.com/280x180/888888/ffffff?text=Auto'} 
                                                 alt={pub.title}
                                                 className="w-full h-32 object-cover rounded-t-lg"
                                                 style={{ borderTopLeftRadius: '8px', borderTopRightRadius: '8px' }}
                                             />
                                             <div 
-                                                className="absolute top-2 right-2 px-2 py-1 rounded text-xs font-bold text-white"
-                                                style={{ background: brandColor }}
+                                                className="absolute top-2 right-2 px-2 py-1 rounded text-xs font-bold text-white autos-map-popup-price"
                                             >
                                                 {pub.price}
                                             </div>
@@ -293,8 +292,7 @@ export default function SearchMap({ showMap, publications = [], brandColor = '#f
                                             {pub.href && (
                                                 <button 
                                                     onClick={() => handleViewDetails(pub.href)}
-                                                    className="w-full py-2 rounded text-sm font-medium text-white transition-colors hover:opacity-90"
-                                                    style={{ background: brandColor }}
+                                                    className="w-full py-2 rounded text-sm font-medium text-white transition-colors hover:opacity-90 autos-map-popup-cta"
                                                 >
                                                     Ver detalles
                                                 </button>

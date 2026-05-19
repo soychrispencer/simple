@@ -598,6 +598,11 @@ export async function publishListingToInstagramWithAI(
     return { result, aiContent, scheduledPost, testCampaign };
 }
 
+export function isInstagramDemoAnalyticsMode(): boolean {
+    if (!isInstagramConfigured()) return true;
+    return process.env.INSTAGRAM_ANALYTICS_DEMO === 'true';
+}
+
 // Obtener insights de Instagram
 export async function getInstagramInsights(
     instagramUserId: string,
@@ -605,14 +610,31 @@ export async function getInstagramInsights(
     listingId?: string,
     dateRange?: { from: Date; to: Date }
 ): Promise<{
+    source: 'demo' | 'unavailable' | 'live';
     analytics: InstagramAnalytics[];
     summary: any;
     insights: any;
     recommendations: string[];
+    message?: string;
 }> {
-    
-    // En producción, esto obtendría datos reales de la API de Instagram
-    // Por ahora, simulamos con datos de ejemplo
+    if (process.env.NODE_ENV === 'production' && !isInstagramConfigured()) {
+        return {
+            source: 'unavailable',
+            analytics: [],
+            summary: {},
+            insights: {},
+            recommendations: [],
+            message: 'Instagram no está configurado en este entorno.',
+        };
+    }
+
+    if (process.env.NODE_ENV === 'production' && isInstagramDemoAnalyticsMode()) {
+        igLogger.warn('Analytics en modo demo en producción (INSTAGRAM_ANALYTICS_DEMO=true)');
+    } else if (process.env.NODE_ENV !== 'production' || isInstagramDemoAnalyticsMode()) {
+        igLogger.warn('[instagram] Devolviendo analytics de demostración (source=demo)');
+    }
+
+    // Datos simulados hasta integrar Graph API real
     const mockAnalytics: InstagramAnalytics[] = [
         {
             id: '1',
@@ -649,10 +671,12 @@ export async function getInstagramInsights(
     const insights = InstagramAnalyticsService.generateInsights(mockAnalytics, summary);
     
     return {
+        source: 'demo',
         analytics: mockAnalytics,
         summary,
         insights,
-        recommendations: insights.recommendations
+        recommendations: insights.recommendations,
+        message: 'Datos de demostración. No usar para decisiones de negocio.',
     };
 }
 

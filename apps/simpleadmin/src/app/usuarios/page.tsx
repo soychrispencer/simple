@@ -9,7 +9,9 @@ import { fetchAdminUsers, type AdminUserListItem } from '@/lib/api';
 import { PanelButton, PanelCard, PanelNotice, PanelStatCard } from '@simple/ui';
 import { adminScopeLabel, normalizeAdminScope, withAdminScope } from '@/lib/admin-scope';
 
-import { API_BASE } from '@simple/config';
+import { API_BASE, getSimpleAppBrand } from '@simple/config';
+
+const AUTOS_BRAND_COLOR = getSimpleAppBrand('simpleautos').accentLight;
 
 export default function UsuariosPage() {
     return (
@@ -288,7 +290,7 @@ function UsuariosContent() {
                                     <StatItem label="Registro" value={new Date(user.createdAt).toLocaleDateString('es-CL')} />
                                     <StatItem label="Publicaciones" value={String(user.totalListings || 0)} />
                                     <StatItem label="Agenda" value={String(user.agendaListings || 0)} color="#8b5cf6" />
-                                    <StatItem label="Autos" value={String(user.autosListings || 0)} color="#3b82f6" />
+                                    <StatItem label="Autos" value={String(user.autosListings || 0)} color={AUTOS_BRAND_COLOR} />
                                 </div>
 
                                 {/* Row 3: Subscriptions */}
@@ -314,14 +316,10 @@ function UsuariosContent() {
                         type="button"
                         aria-label="Cerrar modal"
                         onClick={handleCloseAction}
-                        className="absolute inset-0"
-                        style={{ background: 'rgba(15, 23, 42, 0.44)', backdropFilter: 'blur(8px)' }}
+                        className="absolute inset-0 admin-modal-backdrop"
                     />
-                    <div
-                        className="relative z-1 w-full max-w-md rounded-[28px] border p-6"
-                        style={{ borderColor: 'var(--border)', background: 'var(--surface)', boxShadow: 'var(--shadow-xl)' }}
-                    >
-                        <h2 className="type-section-title" style={{ color: 'var(--fg)' }}>Cambiar rol</h2>
+                    <div className="relative z-1 w-full max-w-md rounded-card border p-6 admin-modal-surface">
+                        <h2 className="type-section-title text-(--fg)">Cambiar rol</h2>
                         <p className="mt-1 text-sm" style={{ color: 'var(--fg-muted)' }}>
                             Actualiza el nivel de acceso de <strong style={{ color: 'var(--fg)' }}>{selectedUser.name}</strong>.
                         </p>
@@ -365,17 +363,13 @@ function UsuariosContent() {
                         type="button"
                         aria-label="Cerrar modal"
                         onClick={handleCloseAction}
-                        className="absolute inset-0"
-                        style={{ background: 'rgba(15, 23, 42, 0.44)', backdropFilter: 'blur(8px)' }}
-                    />
+                        className="absolute inset-0 admin-modal-backdrop" />
                     <div
-                        className="relative z-1 w-full max-w-md rounded-[28px] border p-6"
-                        style={{ borderColor: 'var(--border)', background: 'var(--surface)', boxShadow: 'var(--shadow-xl)' }}
+                        className="relative z-1 w-full max-w-md rounded-card border p-6 admin-modal-surface"
                     >
                         <div className="flex items-start gap-3">
                             <div
-                                className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full"
-                                style={{ background: 'rgba(244, 63, 94, 0.12)', color: 'rgb(244, 63, 94)' }}
+                                className="admin-modal-danger-icon flex h-11 w-11 shrink-0 items-center justify-center rounded-full"
                             >
                                 <IconAlertCircle size={20} stroke={1.9} />
                             </div>
@@ -466,7 +460,7 @@ function ActionButton({
     return (
         <button
             onClick={onClick}
-            className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+            className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-button text-xs font-medium transition-colors ${
                 variant === 'danger'
                     ? 'hover:bg-red-500/10 text-[var(--fg-muted)] hover:text-red-500'
                     : 'hover:bg-[var(--bg-muted)] text-[var(--fg-muted)] hover:text-[var(--fg)]'
@@ -555,7 +549,7 @@ function SerenatasBadge({ serenatas }: { serenatas: NonNullable<AdminUserListIte
     const roles = [
         serenatas.client ? 'Cliente' : null,
         serenatas.musician ? `Músico${serenatas.instrument ? `: ${serenatas.instrument}` : ''}` : null,
-        serenatas.coordinator ? `Coordinador${serenatas.coordinatorStatus ? `: ${serenatas.coordinatorStatus}` : ''}` : null,
+        serenatas.coordinator ? `Administrador Serenatas${serenatas.coordinatorStatus ? `: ${serenatas.coordinatorStatus}` : ''}` : null,
     ].filter(Boolean).join(' · ');
 
     return (
@@ -614,13 +608,9 @@ function SubscriptionModal({
                 type="button"
                 aria-label="Cerrar modal"
                 onClick={onClose}
-                className="absolute inset-0"
-                style={{ background: 'rgba(0, 0, 0, 0.5)', backdropFilter: 'blur(4px)' }}
+                className="absolute inset-0 admin-modal-backdrop--dense"
             />
-            <div
-                className="relative z-1 w-full max-w-md rounded-xl border p-0 overflow-hidden"
-                style={{ borderColor: 'var(--border)', background: 'var(--surface)', boxShadow: 'var(--shadow-xl)' }}
-            >
+            <div className="relative z-1 w-full max-w-md overflow-hidden rounded-card border p-0 admin-modal-surface">
                 {/* Header */}
                 <div className="px-5 py-4 border-b" style={{ borderColor: 'var(--border)', background: 'var(--bg-subtle)' }}>
                     <h2 className="text-base font-semibold" style={{ color: 'var(--fg)' }}>Gestionar Suscripciones</h2>
@@ -685,11 +675,11 @@ function SubscriptionModal({
                     <div className="rounded-lg border p-4" style={{ borderColor: 'var(--border)', background: 'var(--bg-subtle)' }}>
                         <div className="flex items-center justify-between mb-3">
                             <div className="flex items-center gap-2">
-                                <span className="w-2 h-2 rounded-full" style={{ background: '#3b82f6' }} />
+                                <span className="w-2 h-2 rounded-full" style={{ background: AUTOS_BRAND_COLOR }} />
                                 <h3 className="text-sm font-medium" style={{ color: 'var(--fg)' }}>SimpleAutos</h3>
                             </div>
                             <span className="text-xs px-2 py-0.5 rounded-full font-medium" style={{
-                                color: subscriptions?.autos?.planId && subscriptions?.autos?.planId !== 'free' ? '#3b82f6' : 'var(--fg-muted)',
+                                color: subscriptions?.autos?.planId && subscriptions?.autos?.planId !== 'free' ? AUTOS_BRAND_COLOR : 'var(--fg-muted)',
                                 background: subscriptions?.autos?.planId && subscriptions?.autos?.planId !== 'free' ? 'rgba(59, 130, 246, 0.1)' : 'var(--bg-muted)'
                             }}>
                                 {subscriptions?.autos?.planName || 'Sin plan'}
@@ -781,3 +771,5 @@ function SubscriptionModal({
         </div>
     );
 }
+
+

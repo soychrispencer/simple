@@ -12,6 +12,14 @@ export type ListingsRouterDeps = {
     listingsById: Map<string, any>;
     listingIdsByUser: Map<string, string[]>;
     getListingById: (id: string) => Promise<any | null>;
+    /** Lectura panel sin Map en memoria (PostgreSQL directo). */
+    getListingByIdFromDb?: (id: string) => Promise<any | null>;
+    /** Listado panel desde PostgreSQL (DB-first). */
+    listListingsFromDb?: (
+        user: { id: string; role: string },
+        vertical: unknown,
+        mine: boolean,
+    ) => Promise<any[]>;
     insertListingRecord: (record: any) => Promise<any>;
     saveListingRecord: (record: any) => Promise<any>;
     deleteListingRecord: (id: string) => Promise<void>;
@@ -75,6 +83,13 @@ export function createListingDraftRouter(deps: ListingsRouterDeps) {
 export function createListingsRouter(deps: ListingsRouterDeps) {
     const app = new Hono();
 
+    async function resolvePanelListing(listingId: string) {
+        if (deps.getListingByIdFromDb) {
+            return deps.getListingByIdFromDb(listingId);
+        }
+        return deps.listingsById.get(listingId) ?? await deps.getListingById(listingId);
+    }
+
     // ── Listings ──────────────────────────────────────────────────────────────
 
     app.get('/', async (c) => {
@@ -84,14 +99,17 @@ export function createListingsRouter(deps: ListingsRouterDeps) {
         const vertical = deps.parseVertical(c.req.query('vertical'));
         const mine = c.req.query('mine') !== 'false';
 
-        const items = Array.from(deps.listingsById.values())
-            .filter((listing) => listing.vertical === vertical)
-            .filter((listing) => {
-                if (!mine) return user.role === 'superadmin' ? true : listing.ownerId === user.id;
-                return listing.ownerId === user.id;
-            })
-            .sort((a: any, b: any) => b.updatedAt - a.updatedAt)
-            .map((listing: any) => deps.listingToResponse(listing));
+        const records = deps.listListingsFromDb
+            ? await deps.listListingsFromDb(user, vertical, mine)
+            : Array.from(deps.listingsById.values())
+                .filter((listing) => listing.vertical === vertical)
+                .filter((listing) => {
+                    if (!mine) return user.role === 'superadmin' ? true : listing.ownerId === user.id;
+                    return listing.ownerId === user.id;
+                })
+                .sort((a: any, b: any) => b.updatedAt - a.updatedAt);
+
+        const items = records.map((listing: any) => deps.listingToResponse(listing));
 
         return c.json({ ok: true, items });
     });
@@ -156,7 +174,7 @@ export function createListingsRouter(deps: ListingsRouterDeps) {
         if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
 
         const listingId = c.req.param('id') ?? '';
-        const listing = deps.listingsById.get(listingId) ?? await deps.getListingById(listingId);
+        const listing = await resolvePanelListing(listingId);
         if (!listing) return c.json({ ok: false, error: 'Publicación no encontrada' }, 404);
         if (listing.ownerId !== user.id && user.role !== 'superadmin') {
             return c.json({ ok: false, error: 'No tienes permisos sobre esta publicación' }, 403);
@@ -170,7 +188,7 @@ export function createListingsRouter(deps: ListingsRouterDeps) {
         if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
 
         const listingId = c.req.param('id') ?? '';
-        let listing = deps.listingsById.get(listingId) ?? await deps.getListingById(listingId);
+        let listing = await resolvePanelListing(listingId);
         if (!listing) return c.json({ ok: false, error: 'Publicación no encontrada' }, 404);
         if (listing.ownerId !== user.id && user.role !== 'superadmin') {
             return c.json({ ok: false, error: 'No tienes permisos sobre esta publicación' }, 403);
@@ -218,7 +236,7 @@ export function createListingsRouter(deps: ListingsRouterDeps) {
         if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
 
         const listingId = c.req.param('id') ?? '';
-        let listing = deps.listingsById.get(listingId) ?? await deps.getListingById(listingId);
+        let listing = await resolvePanelListing(listingId);
         if (!listing) return c.json({ ok: false, error: 'Publicación no encontrada' }, 404);
         if (listing.ownerId !== user.id && user.role !== 'superadmin') {
             return c.json({ ok: false, error: 'No tienes permisos sobre esta publicación' }, 403);
@@ -282,7 +300,7 @@ export function createListingsRouter(deps: ListingsRouterDeps) {
         if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
 
         const listingId = c.req.param('id') ?? '';
-        let listing = deps.listingsById.get(listingId) ?? await deps.getListingById(listingId);
+        let listing = await resolvePanelListing(listingId);
         if (!listing) return c.json({ ok: false, error: 'Publicación no encontrada' }, 404);
         if (listing.ownerId !== user.id && user.role !== 'superadmin') {
             return c.json({ ok: false, error: 'No tienes permisos sobre esta publicación' }, 403);
@@ -317,7 +335,7 @@ export function createListingsRouter(deps: ListingsRouterDeps) {
         if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
 
         const listingId = c.req.param('id') ?? '';
-        const listing = deps.listingsById.get(listingId) ?? await deps.getListingById(listingId);
+        const listing = await resolvePanelListing(listingId);
         if (!listing) return c.json({ ok: false, error: 'Publicación no encontrada' }, 404);
         if (listing.ownerId !== user.id && user.role !== 'superadmin') {
             return c.json({ ok: false, error: 'No tienes permisos sobre esta publicación' }, 403);
@@ -332,7 +350,7 @@ export function createListingsRouter(deps: ListingsRouterDeps) {
         if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
 
         const listingId = c.req.param('id') ?? '';
-        let listing = deps.listingsById.get(listingId) ?? await deps.getListingById(listingId);
+        let listing = await resolvePanelListing(listingId);
         if (!listing) return c.json({ ok: false, error: 'Publicación no encontrada' }, 404);
         if (listing.ownerId !== user.id && user.role !== 'superadmin') {
             return c.json({ ok: false, error: 'No tienes permisos sobre esta publicación' }, 403);

@@ -401,7 +401,7 @@ function LeadsContent() {
                   </div>
               </div>
 
-            <div className="mb-6 rounded-[18px] border px-3 py-3" style={{ borderColor: 'var(--border)', background: 'var(--bg-subtle)' }}>
+            <div className="mb-6 rounded-card border px-3 py-3" style={{ borderColor: 'var(--border)', background: 'var(--bg-subtle)' }}>
                 <div className="space-y-2.5">
                     <div className="flex flex-col gap-2.5 lg:flex-row lg:items-center lg:justify-between">
                         <div className="flex flex-col gap-2.5">
@@ -521,7 +521,7 @@ function LeadsContent() {
                                 {pipelineStages.map((stage) => (
                                     <div
                                         key={stage.key}
-                                        className="rounded-[18px] border transition-colors"
+                                        className="rounded-card border transition-colors"
                                         onDragOver={(event) => {
                                             if (!dragLeadId) return;
                                             event.preventDefault();
@@ -1149,7 +1149,7 @@ function LeadInfoItem(props: { icon: typeof IconUser; label: string; value: stri
     if (!props.value) return null;
     const Icon = props.icon;
     return (
-        <div className="rounded-[18px] border px-3.5 py-3" style={{ borderColor: 'var(--border)', background: 'var(--surface)' }}>
+        <div className="rounded-card border px-3.5 py-3" style={{ borderColor: 'var(--border)', background: 'var(--surface)' }}>
             <div className="flex items-start gap-3">
                 <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full" style={{ background: 'var(--bg-muted)', color: 'var(--fg-secondary)' }}>
                     <Icon size={16} />
@@ -1167,7 +1167,7 @@ function LeadInfoItem(props: { icon: typeof IconUser; label: string; value: stri
 
 function LeadAccordionSection(props: { title: string; subtitle?: string; defaultOpen?: boolean; children: ReactNode }) {
     return (
-        <details className="group rounded-[18px] border" style={{ borderColor: 'var(--border)', background: 'var(--bg)' }} open={props.defaultOpen}>
+        <details className="group rounded-card border" style={{ borderColor: 'var(--border)', background: 'var(--bg)' }} open={props.defaultOpen}>
             <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-3">
                 <div>
                     <p className="text-sm font-medium" style={{ color: 'var(--fg)' }}>{props.title}</p>

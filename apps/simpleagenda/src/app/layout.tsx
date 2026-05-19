@@ -54,12 +54,7 @@ export default function RootLayout({
                 />
             </head>
             <body className={`${(inter as any).variable} font-sans antialiased`}>
-                <ThemeProvider
-                    attribute="class"
-                    defaultTheme="dark"
-                    enableSystem
-                    disableTransitionOnChange
-                >
+                <ThemeProvider>
                     <ClientProviders>
                         {children}
                     </ClientProviders>

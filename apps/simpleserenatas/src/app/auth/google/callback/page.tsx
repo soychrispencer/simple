@@ -29,7 +29,7 @@ export default function GoogleCallbackPage() {
         }
         if (!code || !state) {
             setStatus('error');
-            setMessage('No recibimos una respuesta valida de Google.');
+            setMessage('No recibimos una respuesta válida de Google.');
             return;
         }
 
@@ -44,7 +44,7 @@ export default function GoogleCallbackPage() {
                 const data = (await response.json().catch(() => null)) as { ok?: boolean; error?: string } | null;
                 if (!response.ok || !data?.ok) {
                     setStatus('error');
-                    setMessage(data?.error || 'No pudimos iniciar sesion con Google.');
+                    setMessage(data?.error || 'No pudimos iniciar sesión con Google.');
                     return;
                 }
 
@@ -57,7 +57,7 @@ export default function GoogleCallbackPage() {
                 }, 800);
             } catch {
                 setStatus('error');
-                setMessage('No pudimos iniciar sesion con Google.');
+                setMessage('No pudimos iniciar sesión con Google.');
             }
         })();
     }, [refreshSession]);
@@ -66,9 +66,9 @@ export default function GoogleCallbackPage() {
         <AuthResultShell>
             {status === 'loading' ? (
                 <div className="text-center">
-                    <div className="mx-auto mb-4 size-12 animate-spin rounded-full border-b-2" style={{ borderColor: 'var(--accent)' }} />
+                    <div className="auth-spinner mx-auto mb-4 size-12 animate-spin rounded-full border-b-2" />
                     <BrandLogo appId="simpleserenatas" size="md" />
-                    <p className="mt-4 text-sm" style={{ color: 'var(--fg-muted)' }}>{message}</p>
+                    <p className="auth-text-muted mt-4 text-sm">{message}</p>
                 </div>
             ) : null}
 
@@ -79,7 +79,7 @@ export default function GoogleCallbackPage() {
             {status === 'error' ? (
                 <div className="text-center">
                     <ResultIcon tone="error"><IconX size={24} /></ResultIcon>
-                    <h1 className="mt-4 text-xl font-semibold" style={{ color: 'var(--fg)' }}>No pudimos conectar Google</h1>
+                    <h1 className="auth-title mt-4 text-xl font-semibold">No pudimos conectar Google</h1>
                     <PanelNotice tone="error" className="mt-4 text-left">{message}</PanelNotice>
                     <PanelButton className="mt-5 w-full" onClick={() => router.push(returnTo)}>Volver</PanelButton>
                 </div>
@@ -90,8 +90,8 @@ export default function GoogleCallbackPage() {
 
 function AuthResultShell({ children }: { children: ReactNode }) {
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center px-4" style={{ background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(4px)' }}>
-            <div className="w-full max-w-md rounded-2xl p-6 shadow-2xl" style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}>
+        <div className="auth-overlay fixed inset-0 z-50 flex items-center justify-center px-4">
+            <div className="auth-surface w-full max-w-md rounded-2xl p-6 shadow-2xl">
                 {children}
             </div>
         </div>
@@ -100,10 +100,9 @@ function AuthResultShell({ children }: { children: ReactNode }) {
 
 function ResultIcon({ tone, children }: { tone: 'success' | 'error'; children: ReactNode }) {
     return (
-        <div className="mx-auto flex size-12 items-center justify-center rounded-full" style={{
-            background: tone === 'success' ? 'color-mix(in oklab, var(--accent) 14%, transparent)' : 'color-mix(in oklab, var(--danger) 14%, transparent)',
-            color: tone === 'success' ? 'var(--accent)' : 'var(--danger)',
-        }}>
+        <div
+            className={`mx-auto flex size-12 items-center justify-center rounded-full ${tone === 'success' ? 'auth-icon-success' : 'auth-icon-error'}`}
+        >
             {children}
         </div>
     );
@@ -113,8 +112,8 @@ function ResultContent({ icon, title, message, tone }: { icon: ReactNode; title:
     return (
         <div className="text-center">
             <ResultIcon tone={tone}>{icon}</ResultIcon>
-            <h1 className="mt-4 text-xl font-semibold" style={{ color: 'var(--fg)' }}>{title}</h1>
-            <p className="mt-2 text-sm" style={{ color: 'var(--fg-muted)' }}>{message}</p>
+            <h1 className="auth-title mt-4 text-xl font-semibold">{title}</h1>
+            <p className="auth-text-muted mt-2 text-sm">{message}</p>
         </div>
     );
 }

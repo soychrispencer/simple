@@ -1,8 +1,13 @@
-# Storage Setup - Backblaze B2
+# Storage Setup
 
 ## Overview
 
-Simple uses Backblaze B2 for file storage (fotos, videos, documentos). B2 is an S3-compatible, cost-effective solution ideal for production.
+Simple soporta varios proveedores (`local`, `backblaze-s3`, `cloudflare-r2`). **Fuente de verdad operativa:** este documento y `services/api/.env.example`.
+
+- **Desarrollo:** `STORAGE_PROVIDER=local` (por defecto en `.env.local.example`).
+- **Producción (Coolify):** muchos entornos usan Backblaze B2; nuevos despliegues pueden usar Cloudflare R2 (ver comentarios en `docs/COOLIFY_DEPLOYMENT.md`).
+
+Backblaze B2 es S3-compatible y sigue siendo válido para fotos, videos y documentos.
 
 ## Cost Estimation
 

@@ -63,18 +63,17 @@ export default function ListingOwnerActions({ primary, secondary = [], busyActio
                     </PanelIconButton>
                     {open ? (
                         <div
-                            className="absolute right-0 bottom-full z-40 mb-1 w-56 overflow-hidden rounded-xl border py-1 shadow-lg"
-                            style={{ borderColor: 'var(--border)', background: 'var(--surface)' }}
+                            className="listing-owner-menu absolute right-0 bottom-full z-40 mb-1 w-56 overflow-hidden rounded-xl border py-1 shadow-lg"
                             onClick={(e) => e.stopPropagation()}
                         >
                             {secondary.map((action) => {
                                 const isBusy = busyActionKey === action.key;
-                                const toneColor =
+                                const toneClass =
                                     action.tone === 'danger'
-                                        ? 'var(--color-error)'
+                                        ? 'listing-owner-menu-item--danger'
                                         : action.tone === 'primary'
-                                            ? 'var(--accent)'
-                                            : 'var(--fg)';
+                                            ? 'listing-owner-menu-item--primary'
+                                            : 'listing-owner-menu-item';
                                 return (
                                     <button
                                         key={action.key}
@@ -84,8 +83,7 @@ export default function ListingOwnerActions({ primary, secondary = [], busyActio
                                             setOpen(false);
                                             action.onSelect();
                                         }}
-                                        className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs transition hover:bg-[var(--bg-muted)] disabled:cursor-not-allowed disabled:opacity-50"
-                                        style={{ color: toneColor }}
+                                        className={`${toneClass} flex w-full items-center gap-2 px-3 py-2 text-left text-xs transition hover:bg-[var(--bg-muted)] disabled:cursor-not-allowed disabled:opacity-50`}
                                     >
                                         {isBusy ? <IconLoader2 size={13} className="animate-spin" /> : action.icon}
                                         <span>{action.label}</span>

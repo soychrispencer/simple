@@ -581,8 +581,8 @@ export default function AgendaPage() {
             <div className="flex flex-col gap-3 mb-5 sm:flex-row sm:items-center sm:justify-between sm:gap-4 sm:mb-6">
                 <div className="min-w-0 flex items-center justify-between gap-3 sm:block">
                     <div className="min-w-0">
-                        <h1 className="text-2xl font-bold" style={{ color: 'var(--fg)' }}>Mi Agenda</h1>
-                        <p className="text-sm mt-0.5 capitalize truncate" style={{ color: 'var(--fg-muted)' }}>
+                        <h1 className="text-2xl font-bold agenda-panel-fg">Mi Agenda</h1>
+                        <p className="text-sm mt-0.5 capitalize truncate agenda-panel-muted">
                             {headerLabel}
                         </p>
                     </div>
@@ -592,28 +592,22 @@ export default function AgendaPage() {
                         onClick={() => setSearchOpen((v) => !v)}
                         aria-pressed={searchOpen}
                         aria-label="Buscar y filtrar"
-                        className="sm:hidden relative w-10 h-10 rounded-xl flex items-center justify-center border transition-colors active:bg-(--bg-subtle) shrink-0"
-                        style={{
-                            borderColor: searchOpen || filtersActive ? 'var(--accent)' : 'var(--border)',
-                            background: searchOpen ? 'var(--accent-soft)' : 'transparent',
-                            color: searchOpen || filtersActive ? 'var(--accent)' : 'var(--fg-muted)',
-                        }}
+                        className={`sm:hidden relative w-10 h-10 rounded-xl flex items-center justify-center border transition-colors active:bg-(--bg-subtle) shrink-0 ${searchOpen || filtersActive ? 'agenda-panel-search-btn--active' : 'agenda-panel-search-btn'}`}
                     >
                         <IconSearch size={18} />
                         {filtersActive && !searchOpen && (
-                            <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full" style={{ background: 'var(--accent)' }} />
+                            <span className="agenda-panel-accent-dot absolute top-1.5 right-1.5 w-2 h-2 rounded-full" />
                         )}
                     </button>
                 </div>
                 <div className="flex items-center gap-2 flex-wrap">
                     {/* View toggle — icons only in mobile, icon+label from sm */}
-                    <div className="flex rounded-lg border overflow-hidden" style={{ borderColor: 'var(--border)' }}>
+                    <div className="agenda-panel-view-toggle flex rounded-lg border overflow-hidden">
                         <button
                             onClick={() => changeView('day')}
                             aria-pressed={view === 'day'}
                             aria-label="Vista día"
-                            className="px-3 py-2 sm:py-1.5 text-xs flex items-center gap-1.5 transition-colors"
-                            style={{ background: view === 'day' ? 'var(--accent)' : 'transparent', color: view === 'day' ? '#fff' : 'var(--fg-muted)' }}
+                            className={`px-3 py-2 sm:py-1.5 text-xs flex items-center gap-1.5 transition-colors ${view === 'day' ? 'agenda-panel-view-btn--active' : 'agenda-panel-view-btn'}`}
                         >
                             <IconLayoutList size={14} /> <span className="hidden sm:inline">Día</span>
                         </button>
@@ -621,8 +615,7 @@ export default function AgendaPage() {
                             onClick={() => changeView('week')}
                             aria-pressed={view === 'week'}
                             aria-label="Vista semana"
-                            className="hidden sm:flex px-3 py-1.5 text-xs items-center gap-1.5 transition-colors"
-                            style={{ background: view === 'week' ? 'var(--accent)' : 'transparent', color: view === 'week' ? '#fff' : 'var(--fg-muted)' }}
+                            className={`hidden sm:flex px-3 py-1.5 text-xs items-center gap-1.5 transition-colors ${view === 'week' ? 'agenda-panel-view-btn--active' : 'agenda-panel-view-btn'}`}
                         >
                             <IconLayoutColumns size={13} /> Semana
                         </button>
@@ -630,8 +623,7 @@ export default function AgendaPage() {
                             onClick={() => changeView('month')}
                             aria-pressed={view === 'month'}
                             aria-label="Vista mes"
-                            className="px-3 py-2 sm:py-1.5 text-xs flex items-center gap-1.5 transition-colors"
-                            style={{ background: view === 'month' ? 'var(--accent)' : 'transparent', color: view === 'month' ? '#fff' : 'var(--fg-muted)' }}
+                            className={`px-3 py-2 sm:py-1.5 text-xs flex items-center gap-1.5 transition-colors ${view === 'month' ? 'agenda-panel-view-btn--active' : 'agenda-panel-view-btn'}`}
                         >
                             <IconLayoutGrid size={14} /> <span className="hidden sm:inline">Mes</span>
                         </button>
@@ -642,16 +634,11 @@ export default function AgendaPage() {
                         onClick={() => setSearchOpen((v) => !v)}
                         aria-pressed={searchOpen}
                         aria-label="Buscar y filtrar"
-                        className="hidden sm:flex relative w-8 h-8 rounded-lg items-center justify-center border transition-colors hover:bg-(--bg-subtle)"
-                        style={{
-                            borderColor: searchOpen || filtersActive ? 'var(--accent)' : 'var(--border)',
-                            background: searchOpen ? 'var(--accent-soft)' : 'transparent',
-                            color: searchOpen || filtersActive ? 'var(--accent)' : 'var(--fg-muted)',
-                        }}
+                        className={`hidden sm:flex relative w-8 h-8 rounded-lg items-center justify-center border transition-colors hover:bg-(--bg-subtle) ${searchOpen || filtersActive ? 'agenda-panel-search-btn--active' : 'agenda-panel-search-btn'}`}
                     >
                         <IconSearch size={14} />
                         {filtersActive && !searchOpen && (
-                            <span className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full" style={{ background: 'var(--accent)' }} />
+                            <span className="agenda-panel-accent-dot absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full" />
                         )}
                     </button>
                     {seriesCount > 0 && (
@@ -661,42 +648,33 @@ export default function AgendaPage() {
                             aria-pressed={onlySeries}
                             title={onlySeries ? 'Mostrar todas' : 'Ver solo series recurrentes'}
                             aria-label={onlySeries ? 'Mostrar todas las citas' : 'Ver solo series recurrentes'}
-                            className="px-3 py-2 sm:py-1.5 rounded-lg text-xs border flex items-center gap-1.5 transition-colors"
-                            style={{
-                                borderColor: onlySeries ? 'var(--accent)' : 'var(--border)',
-                                background: onlySeries ? 'var(--accent-soft)' : 'transparent',
-                                color: onlySeries ? 'var(--accent)' : 'var(--fg-secondary)',
-                                fontWeight: onlySeries ? 600 : 400,
-                            }}
+                            className={`px-3 py-2 sm:py-1.5 rounded-lg text-xs border flex items-center gap-1.5 transition-colors ${onlySeries ? 'agenda-panel-chip--active' : 'agenda-panel-chip'}`}
                         >
                             <IconRepeat size={14} />
                             <span className="hidden sm:inline">{onlySeries ? 'Solo series' : 'Series'}</span>
                         </button>
                     )}
-                    <button onClick={handleToday} className="px-3 py-2 sm:py-1.5 rounded-lg text-xs border transition-colors hover:bg-(--bg-subtle)" style={{ borderColor: 'var(--border)', color: 'var(--fg-secondary)' }}>
+                    <button onClick={handleToday} className="agenda-panel-btn-outline px-3 py-2 sm:py-1.5 rounded-button text-xs border transition-colors hover:bg-(--bg-subtle)">
                         Hoy
                     </button>
                     <button
                         onClick={handlePrev}
                         aria-label="Anterior"
-                        className="w-9 h-9 sm:w-8 sm:h-8 rounded-lg flex items-center justify-center border transition-colors hover:bg-(--bg-subtle)"
-                        style={{ borderColor: 'var(--border)', color: 'var(--fg-muted)' }}
+                        className="agenda-panel-btn-muted w-9 h-9 sm:w-8 sm:h-8 rounded-lg flex items-center justify-center border transition-colors hover:bg-(--bg-subtle)"
                     >
                         <IconChevronLeft size={16} />
                     </button>
                     <button
                         onClick={handleNext}
                         aria-label="Siguiente"
-                        className="w-9 h-9 sm:w-8 sm:h-8 rounded-lg flex items-center justify-center border transition-colors hover:bg-(--bg-subtle)"
-                        style={{ borderColor: 'var(--border)', color: 'var(--fg-muted)' }}
+                        className="agenda-panel-btn-muted w-9 h-9 sm:w-8 sm:h-8 rounded-lg flex items-center justify-center border transition-colors hover:bg-(--bg-subtle)"
                     >
                         <IconChevronRight size={16} />
                     </button>
                     {/* Nueva cita — el CTA (+) en el bottom nav cubre este flujo en mobile */}
                     <button
                         onClick={() => handleCreateOpen()}
-                        className="hidden sm:inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-opacity hover:opacity-90"
-                        style={{ background: 'var(--accent)', color: '#fff' }}
+                        className="agenda-panel-btn-accent hidden sm:inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-opacity hover:opacity-90"
                     >
                         <IconPlus size={15} />
                         Nueva cita
@@ -707,14 +685,12 @@ export default function AgendaPage() {
             {/* Search & filters bar */}
             {searchOpen && (
                 <div
-                    className="rounded-2xl border p-3 mb-3 flex flex-col sm:flex-row gap-2"
-                    style={{ borderColor: 'var(--border)', background: 'var(--surface)' }}
+                    className="agenda-panel-surface rounded-2xl border p-3 mb-3 flex flex-col sm:flex-row gap-2"
                 >
                     <div className="relative flex-1">
                         <IconSearch
                             size={14}
                             className="absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none"
-                            style={{ color: 'var(--fg-muted)' }}
                         />
                         <input
                             type="text"
@@ -730,7 +706,6 @@ export default function AgendaPage() {
                                 onClick={() => setSearchQuery('')}
                                 aria-label="Limpiar búsqueda"
                                 className="absolute right-2 top-1/2 -translate-y-1/2 w-6 h-6 rounded-md flex items-center justify-center transition-colors hover:bg-(--bg-subtle)"
-                                style={{ color: 'var(--fg-muted)' }}
                             >
                                 <IconX size={13} />
                             </button>
@@ -753,8 +728,7 @@ export default function AgendaPage() {
                         <button
                             type="button"
                             onClick={() => { setSearchQuery(''); setStatusFilter('all'); }}
-                            className="px-3 py-1.5 rounded-lg text-xs border transition-colors hover:bg-(--bg-subtle) self-stretch sm:self-auto"
-                            style={{ borderColor: 'var(--border)', color: 'var(--fg-secondary)' }}
+                            className="px-3 py-1.5 rounded-lg text-xs border transition-colors hover:bg-(--bg-subtle) self-stretch sm:self-auto agenda-panel-btn-outline"
                         >
                             Limpiar
                         </button>
@@ -765,8 +739,7 @@ export default function AgendaPage() {
             {/* Active-filter summary */}
             {!searchOpen && filtersActive && (
                 <div
-                    className="rounded-xl border px-3 py-2 mb-3 flex items-center justify-between gap-2 text-xs"
-                    style={{ borderColor: 'var(--accent)', background: 'var(--accent-soft)', color: 'var(--accent)' }}
+                    className="rounded-xl border px-3 py-2 mb-3 flex items-center justify-between gap-2 text-xs agenda-panel-accent-soft"
                 >
                     <span className="truncate">
                         {visibleAppointments.length} {visibleAppointments.length === 1 ? 'cita' : 'citas'} con filtros activos
@@ -784,8 +757,7 @@ export default function AgendaPage() {
             {/* Day view — vertical timeline */}
             {view === 'day' && (
                 <div
-                    className="rounded-2xl border overflow-hidden"
-                    style={{ borderColor: 'var(--border)', background: 'var(--surface)' }}
+                    className="rounded-2xl border overflow-hidden agenda-panel-surface"
                 >
                     <div className="relative" style={{ height: dayHours.length * DAY_VIEW_HOUR_HEIGHT }}>
                         {/* Hour grid */}
@@ -797,7 +769,6 @@ export default function AgendaPage() {
                             >
                                 <span
                                     className="w-14 sm:w-16 shrink-0 text-[10px] font-medium pt-1 pl-3 tabular-nums"
-                                    style={{ color: 'var(--fg-muted)' }}
                                 >
                                     {String(h).padStart(2, '0')}:00
                                 </span>
@@ -822,8 +793,8 @@ export default function AgendaPage() {
                                 aria-label="Hora actual"
                             >
                                 <div className="flex items-center">
-                                    <div className="w-2 h-2 rounded-full -ml-1" style={{ background: 'var(--accent)' }} />
-                                    <div className="flex-1 h-px" style={{ background: 'var(--accent)' }} />
+                                    <div className="w-2 h-2 rounded-full -ml-1" />
+                                    <div className="flex-1 h-px" />
                                 </div>
                             </div>
                         )}
@@ -895,9 +866,9 @@ export default function AgendaPage() {
                         {/* Loading skeletons */}
                         {loading && (
                             <div className="absolute inset-0 left-14 sm:left-16 p-2 flex flex-col gap-2 pointer-events-none" aria-hidden="true">
-                                <div className="h-10 rounded-lg animate-pulse" style={{ background: 'var(--border)' }} />
-                                <div className="h-10 rounded-lg animate-pulse opacity-60" style={{ background: 'var(--border)' }} />
-                                <div className="h-10 rounded-lg animate-pulse opacity-40" style={{ background: 'var(--border)' }} />
+                                <div className="h-10 rounded-lg animate-pulse" />
+                                <div className="h-10 rounded-lg animate-pulse opacity-60" />
+                                <div className="h-10 rounded-lg animate-pulse opacity-40" />
                             </div>
                         )}
                     </div>
@@ -905,8 +876,7 @@ export default function AgendaPage() {
                     {/* Empty state for day */}
                     {!loading && dayAppts.length === 0 && (
                         <div
-                            className="text-center py-6 text-xs border-t"
-                            style={{ borderColor: 'var(--border)', color: 'var(--fg-muted)' }}
+                            className="text-center py-6 text-xs border-t agenda-panel-btn-muted"
                         >
                             Sin citas este día. Toca un horario para crear una.
                         </div>
@@ -916,10 +886,10 @@ export default function AgendaPage() {
 
             {/* Month view */}
             {view === 'month' && (
-                <div className="rounded-2xl border overflow-hidden" style={{ borderColor: 'var(--border)' }}>
-                    <div className="grid grid-cols-7 border-b" style={{ borderColor: 'var(--border)', background: 'var(--surface)' }}>
+                <div className="agenda-panel-border rounded-2xl border overflow-hidden">
+                    <div className="agenda-panel-surface grid grid-cols-7 border-b">
                         {dayHeaders.map((d) => (
-                            <div key={d} className="p-2 text-center text-[10px] uppercase tracking-widest font-medium" style={{ color: 'var(--fg-muted)' }}>{d}</div>
+                            <div key={d} className="p-2 text-center text-[10px] uppercase tracking-widest font-medium">{d}</div>
                         ))}
                     </div>
                     <div className="grid grid-cols-7">
@@ -974,7 +944,7 @@ export default function AgendaPage() {
                                         );
                                     })())}
                                     {!loading && dayAppts.length > 3 && (
-                                        <p className="text-[10px] pl-1" style={{ color: 'var(--fg-muted)' }}>+{dayAppts.length - 3} más</p>
+                                        <p className="text-[10px] pl-1">+{dayAppts.length - 3} más</p>
                                     )}
                                 </div>
                             );
@@ -985,9 +955,9 @@ export default function AgendaPage() {
 
             {/* Week view */}
             {view === 'week' && (
-            <div className="rounded-2xl border overflow-hidden" style={{ borderColor: 'var(--border)' }}>
+            <div className="agenda-panel-border rounded-2xl border overflow-hidden">
                 {/* Day headers */}
-                <div className="grid grid-cols-7 border-b" style={{ borderColor: 'var(--border)', background: 'var(--surface)' }}>
+                <div className="agenda-panel-surface grid grid-cols-7 border-b">
                     {weekDays.map((day) => {
                         const key = localKey(day);
                         const isToday = key === todayKey;
@@ -997,7 +967,7 @@ export default function AgendaPage() {
                                 className="p-3 text-center cursor-pointer hover:bg-(--bg-subtle) transition-colors"
                                 onClick={() => handleCreateOpen(day)}
                             >
-                                <p className="text-[10px] uppercase tracking-widest font-medium" style={{ color: 'var(--fg-muted)' }}>
+                                <p className="text-[10px] uppercase tracking-widest font-medium">
                                     {day.toLocaleDateString('es-CL', { weekday: 'short' })}
                                 </p>
                                 <div
@@ -1032,8 +1002,8 @@ export default function AgendaPage() {
                             >
                                 {loading ? (
                                     <div className="flex flex-col gap-1.5 mt-2" aria-hidden="true">
-                                        <div className="h-7 rounded-lg animate-pulse" style={{ background: 'var(--border)' }} />
-                                        <div className="h-7 rounded-lg animate-pulse opacity-60" style={{ background: 'var(--border)' }} />
+                                        <div className="h-7 rounded-lg animate-pulse" />
+                                        <div className="h-7 rounded-lg animate-pulse opacity-60" />
                                     </div>
                                 ) : dayAppts.map((appt) => (
                                     <button
@@ -1111,13 +1081,13 @@ export default function AgendaPage() {
                         )}
 
                         {selectedAppt.preconsultResponses && selectedAppt.preconsultResponses.length > 0 && (
-                            <div className="border-t pt-4" style={{ borderColor: 'var(--border)' }}>
-                                <p className="text-xs font-semibold mb-2" style={{ color: 'var(--fg)' }}>Pre-consulta</p>
+                            <div className="agenda-panel-border border-t pt-4">
+                                <p className="text-xs font-semibold mb-2">Pre-consulta</p>
                                 <div className="flex flex-col gap-2">
                                     {selectedAppt.preconsultResponses.map((r, i) => (
                                         <div key={i} className="p-2.5 rounded-lg" style={{ background: 'var(--bg-subtle)' }}>
-                                            <p className="text-[11px] font-medium mb-0.5" style={{ color: 'var(--fg-muted)' }}>{r.label}</p>
-                                            <p className="text-sm whitespace-pre-wrap" style={{ color: 'var(--fg)' }}>{r.value || <span style={{ color: 'var(--fg-muted)' }}>—</span>}</p>
+                                            <p className="text-[11px] font-medium mb-0.5">{r.label}</p>
+                                            <p className="text-sm whitespace-pre-wrap">{r.value || <span>—</span>}</p>
                                         </div>
                                     ))}
                                 </div>
@@ -1127,16 +1097,15 @@ export default function AgendaPage() {
                         {/* Edit button */}
                         <button
                             onClick={handleOpenEdit}
-                            className="self-start inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs border transition-colors hover:bg-(--bg-subtle)"
-                            style={{ borderColor: 'var(--border)', color: 'var(--fg-secondary)' }}
+                            className="self-start inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs border transition-colors hover:bg-(--bg-subtle) agenda-panel-btn-outline"
                         >
                             <IconEdit size={12} /> Editar cita
                         </button>
 
                         {/* Session notes */}
-                        <div className="border-t pt-4" style={{ borderColor: 'var(--border)' }}>
+                        <div className="agenda-panel-border border-t pt-4">
                             <div className="flex items-center justify-between mb-2">
-                                <p className="text-xs font-semibold flex items-center gap-1.5" style={{ color: 'var(--fg)' }}>
+                                <p className="text-xs font-semibold flex items-center gap-1.5">
                                     <IconNotes size={13} /> Nota de sesión
                                 </p>
                                 <button
@@ -1150,7 +1119,7 @@ export default function AgendaPage() {
                                 </button>
                             </div>
                             {noteLoading ? (
-                                <div className="flex items-center gap-1.5 text-xs py-2" style={{ color: 'var(--fg-muted)' }}>
+                                <div className="flex items-center gap-1.5 text-xs py-2">
                                     <IconLoader2 size={12} className="animate-spin" /> Cargando...
                                 </div>
                             ) : (
@@ -1177,7 +1146,7 @@ export default function AgendaPage() {
 
                         {/* Status actions */}
                         {selectedAppt.status !== 'cancelled' && selectedAppt.status !== 'completed' && (
-                            <div className="flex flex-col gap-2 pt-2 border-t" style={{ borderColor: 'var(--border)' }}>
+                            <div className="flex flex-col gap-2 pt-2 border-t">
                                 <div className="flex gap-2">
                                     {selectedAppt.status !== 'completed' && (
                                         <button
@@ -1214,7 +1183,7 @@ export default function AgendaPage() {
                                 </div>
                                 {confirmCancelId === selectedAppt.id && !selectedAppt.seriesId && (
                                     <div className="flex items-center gap-2 px-3 py-2 rounded-xl text-xs" style={{ background: 'rgba(239,68,68,0.06)', border: '1px solid rgba(239,68,68,0.2)' }}>
-                                        <span className="flex-1" style={{ color: 'var(--fg)' }}>¿Cancelar esta cita?</span>
+                                        <span className="flex-1">¿Cancelar esta cita?</span>
                                         <button
                                             onClick={() => { setConfirmCancelId(null); void handleStatusChange(selectedAppt, 'cancelled'); }}
                                             disabled={savingStatus === 'cancelled'}
@@ -1225,8 +1194,7 @@ export default function AgendaPage() {
                                         </button>
                                         <button
                                             onClick={() => setConfirmCancelId(null)}
-                                            className="px-2.5 py-1 rounded-lg text-xs border transition-colors"
-                                            style={{ borderColor: 'var(--border)', color: 'var(--fg-secondary)' }}
+                                            className="px-2.5 py-1 rounded-lg text-xs border transition-colors agenda-panel-btn-outline"
                                         >
                                             No
                                         </button>
@@ -1235,7 +1203,7 @@ export default function AgendaPage() {
 
                                 {confirmCancelId === selectedAppt.id && selectedAppt.seriesId && (
                                     <div className="flex flex-col gap-2 px-3 py-3 rounded-xl text-xs" style={{ background: 'rgba(239,68,68,0.06)', border: '1px solid rgba(239,68,68,0.2)' }}>
-                                        <p style={{ color: 'var(--fg)' }}>Esta cita es parte de una serie. ¿Qué quieres cancelar?</p>
+                                        <p>Esta cita es parte de una serie. ¿Qué quieres cancelar?</p>
                                         <div className="flex flex-col gap-1.5">
                                             <button
                                                 onClick={() => { void handleStatusChange(selectedAppt, 'cancelled'); }}
@@ -1264,7 +1232,6 @@ export default function AgendaPage() {
                                             <button
                                                 onClick={() => setConfirmCancelId(null)}
                                                 className="w-full text-center px-3 py-1.5 rounded-lg text-xs transition-colors hover:bg-(--bg-subtle)"
-                                                style={{ color: 'var(--fg-muted)' }}
                                             >
                                                 Volver
                                             </button>
@@ -1276,17 +1243,16 @@ export default function AgendaPage() {
 
                         {/* NPS — share post-visit survey link (solo si completada) */}
                         {selectedAppt.status === 'completed' && (
-                            <div className="flex flex-col gap-2 pt-3 border-t" style={{ borderColor: 'var(--border)' }}>
+                            <div className="flex flex-col gap-2 pt-3 border-t">
                                 <div className="flex items-center gap-2">
                                     <span
-                                        className="w-7 h-7 rounded-lg border flex items-center justify-center"
-                                        style={{ borderColor: 'var(--border)', color: 'var(--fg-muted)' }}
+                                        className="w-7 h-7 rounded-lg border flex items-center justify-center agenda-panel-btn-muted"
                                     >
                                         <IconHeart size={13} />
                                     </span>
                                     <div className="flex-1 min-w-0">
-                                        <p className="text-sm font-semibold" style={{ color: 'var(--fg)' }}>Encuesta de satisfacción</p>
-                                        <p className="text-xs" style={{ color: 'var(--fg-muted)' }}>
+                                        <p className="text-sm font-semibold">Encuesta de satisfacción</p>
+                                        <p className="text-xs">
                                             Comparte el enlace para que tu paciente responda.
                                         </p>
                                     </div>
@@ -1348,7 +1314,7 @@ export default function AgendaPage() {
                     <div className="flex flex-col gap-4">
                         <div className="grid grid-cols-2 gap-3">
                             <div className="flex flex-col gap-1.5">
-                                <label className="text-xs font-medium" style={{ color: 'var(--fg-muted)' }}>Fecha y hora</label>
+                                <label className="text-xs font-medium">Fecha y hora</label>
                                 <input
                                     type="datetime-local"
                                     value={editForm.startsAt}
@@ -1357,7 +1323,7 @@ export default function AgendaPage() {
                                 />
                             </div>
                             <div className="flex flex-col gap-1.5">
-                                <label className="text-xs font-medium" style={{ color: 'var(--fg-muted)' }}>Duración (min)</label>
+                                <label className="text-xs font-medium">Duración (min)</label>
                                 <input
                                     type="number"
                                     min={15}
@@ -1369,7 +1335,7 @@ export default function AgendaPage() {
                             </div>
                         </div>
                         <div className="flex flex-col gap-1.5">
-                            <label className="text-xs font-medium" style={{ color: 'var(--fg-muted)' }}>Precio (CLP)</label>
+                            <label className="text-xs font-medium">Precio (CLP)</label>
                             <input
                                 type="number"
                                 min={0}
@@ -1380,7 +1346,7 @@ export default function AgendaPage() {
                             />
                         </div>
                         <div className="flex flex-col gap-1.5">
-                            <label className="text-xs font-medium" style={{ color: 'var(--fg-muted)' }}>Notas internas</label>
+                            <label className="text-xs font-medium">Notas internas</label>
                             <textarea
                                 value={editForm.internalNotes}
                                 onChange={(e) => setEditForm((p) => ({ ...p, internalNotes: e.target.value }))}
@@ -1389,20 +1355,18 @@ export default function AgendaPage() {
                                 className="field-input resize-none"
                             />
                         </div>
-                        <div className="flex gap-3 pt-2 border-t" style={{ borderColor: 'var(--border)' }}>
+                        <div className="flex gap-3 pt-2 border-t">
                             <button
                                 onClick={() => void handleSaveEdit()}
                                 disabled={editSaving}
-                                className="flex-1 inline-flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-semibold transition-opacity hover:opacity-90 disabled:opacity-60"
-                                style={{ background: 'var(--accent)', color: '#fff' }}
+                                className="flex-1 inline-flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-semibold transition-opacity hover:opacity-90 disabled:opacity-60 agenda-panel-btn-accent"
                             >
                                 {editSaving && <IconLoader2 size={14} className="animate-spin" />}
                                 {editSaving ? 'Guardando...' : 'Guardar cambios'}
                             </button>
                             <button
                                 onClick={() => setShowEdit(false)}
-                                className="px-4 py-2.5 rounded-xl text-sm border transition-colors hover:bg-(--bg-subtle)"
-                                style={{ borderColor: 'var(--border)', color: 'var(--fg-secondary)' }}
+                                className="px-4 py-2.5 rounded-xl text-sm border transition-colors hover:bg-(--bg-subtle) agenda-panel-btn-outline"
                             >
                                 Cancelar
                             </button>
@@ -1417,26 +1381,25 @@ export default function AgendaPage() {
                     <div className="flex flex-col gap-4">
                         {/* Client — searchable combobox */}
                         <div className="flex flex-col gap-1.5">
-                            <label className="text-xs font-medium" style={{ color: 'var(--fg-muted)' }}>{vocab.Client}</label>
+                            <label className="text-xs font-medium">{vocab.Client}</label>
                             {clients.length > 0 ? (
                                 <div ref={clientDropRef} className="relative">
                                     {/* Selected display or search input */}
                                     {form.clientId ? (
                                         <div className="field-input flex items-center justify-between gap-2">
-                                            <span className="text-sm truncate" style={{ color: 'var(--fg)' }}>
+                                            <span className="text-sm truncate">
                                                 {clients.find((c) => c.id === form.clientId)?.firstName} {clients.find((c) => c.id === form.clientId)?.lastName ?? ''}
                                             </span>
                                             <button
                                                 onClick={() => { handleClientChange(''); setClientSearch(''); }}
                                                 className="shrink-0 text-xs"
-                                                style={{ color: 'var(--fg-muted)' }}
                                             >
                                                 <IconX size={13} />
                                             </button>
                                         </div>
                                     ) : (
                                         <div className="relative">
-                                            <IconSearch size={13} className="absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" style={{ color: 'var(--fg-muted)' }} />
+                                            <IconSearch size={13} className="absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
                                             <input
                                                 type="text"
                                                 value={clientSearch}
@@ -1456,22 +1419,20 @@ export default function AgendaPage() {
                                             <button
                                                 onClick={() => { handleClientChange(''); setClientDropOpen(false); setClientSearch(''); }}
                                                 className="w-full text-left px-3 py-2 text-xs hover:bg-(--bg-subtle) transition-colors"
-                                                style={{ color: 'var(--fg-muted)' }}
                                             >
                                                 — Nuevo / sin ficha —
                                             </button>
                                             {filteredClients.length === 0 ? (
-                                                <p className="px-3 py-2 text-xs" style={{ color: 'var(--fg-muted)' }}>Sin resultados</p>
+                                                <p className="px-3 py-2 text-xs">Sin resultados</p>
                                             ) : filteredClients.map((c) => (
                                                 <button
                                                     key={c.id}
                                                     onClick={() => { handleClientChange(c.id); setClientDropOpen(false); setClientSearch(''); }}
                                                     className="w-full text-left px-3 py-2 text-xs hover:bg-(--bg-subtle) transition-colors"
-                                                    style={{ color: 'var(--fg)' }}
                                                 >
                                                     <span className="font-medium">{c.firstName} {c.lastName ?? ''}</span>
                                                     {(c.email || c.phone) && (
-                                                        <span className="ml-1.5" style={{ color: 'var(--fg-muted)' }}>{c.email ?? c.phone}</span>
+                                                        <span className="ml-1.5">{c.email ?? c.phone}</span>
                                                     )}
                                                 </button>
                                             ))}
@@ -1493,7 +1454,7 @@ export default function AgendaPage() {
                         {/* Service */}
                         {services.length > 0 && (
                             <div className="flex flex-col gap-1.5">
-                                <label className="text-xs font-medium" style={{ color: 'var(--fg-muted)' }}>Servicio</label>
+                                <label className="text-xs font-medium">Servicio</label>
                                 <select value={form.serviceId} onChange={(e) => handleServiceChange(e.target.value)} className="field-input">
                                     <option value="">— Sin servicio —</option>
                                     {services.map((s) => (
@@ -1506,7 +1467,7 @@ export default function AgendaPage() {
                         {/* Date/time */}
                         <div className="grid grid-cols-2 gap-3">
                             <div className="flex flex-col gap-1.5">
-                                <label className="text-xs font-medium" style={{ color: 'var(--fg-muted)' }}>Fecha y hora</label>
+                                <label className="text-xs font-medium">Fecha y hora</label>
                                 <input
                                     type="datetime-local"
                                     value={form.startsAt}
@@ -1515,7 +1476,7 @@ export default function AgendaPage() {
                                 />
                             </div>
                             <div className="flex flex-col gap-1.5">
-                                <label className="text-xs font-medium" style={{ color: 'var(--fg-muted)' }}>Duración (min)</label>
+                                <label className="text-xs font-medium">Duración (min)</label>
                                 <input
                                     type="number"
                                     min={15}
@@ -1529,7 +1490,7 @@ export default function AgendaPage() {
 
                         {/* Modality */}
                         <div className="flex flex-col gap-1.5">
-                            <label className="text-xs font-medium" style={{ color: 'var(--fg-muted)' }}>Modalidad</label>
+                            <label className="text-xs font-medium">Modalidad</label>
                             <div className="flex gap-2">
                                 {(['online', 'presential'] as const).map((m) => (
                                     <button
@@ -1551,7 +1512,7 @@ export default function AgendaPage() {
                         {/* Location (presential only) */}
                         {form.modality === 'presential' && (
                             <div className="flex flex-col gap-1.5">
-                                <label className="text-xs font-medium" style={{ color: 'var(--fg-muted)' }}>Ubicación</label>
+                                <label className="text-xs font-medium">Ubicación</label>
                                 {locations.length > 0 ? (
                                     <select
                                         value={form.location}
@@ -1580,7 +1541,7 @@ export default function AgendaPage() {
                         {/* Bono / pack del cliente */}
                         {form.clientId && activeClientPacks.length > 0 && (
                             <div className="flex flex-col gap-1.5">
-                                <label className="text-xs font-medium" style={{ color: 'var(--fg-muted)' }}>Usar bono del cliente</label>
+                                <label className="text-xs font-medium">Usar bono del cliente</label>
                                 <select
                                     value={form.clientPackId}
                                     onChange={(e) => setForm((p) => ({ ...p, clientPackId: e.target.value }))}
@@ -1597,7 +1558,7 @@ export default function AgendaPage() {
                                     })}
                                 </select>
                                 {form.clientPackId && (
-                                    <p className="text-xs" style={{ color: 'var(--fg-muted)' }}>
+                                    <p className="text-xs">
                                         Se descontará una sesión del bono{form.recurrenceFrequency !== 'none' ? ` por cada cita de la serie (${form.recurrenceCount} en total)` : ''}. No se cobrará precio.
                                     </p>
                                 )}
@@ -1607,7 +1568,7 @@ export default function AgendaPage() {
                         {/* Price */}
                         {!form.clientPackId && (
                             <div className="flex flex-col gap-1.5">
-                                <label className="text-xs font-medium" style={{ color: 'var(--fg-muted)' }}>Precio (CLP)</label>
+                                <label className="text-xs font-medium">Precio (CLP)</label>
                                 <input
                                     type="number"
                                     min={0}
@@ -1621,7 +1582,7 @@ export default function AgendaPage() {
 
                         {/* Recurrence */}
                         <div className="flex flex-col gap-1.5">
-                            <label className="text-xs font-medium" style={{ color: 'var(--fg-muted)' }}>¿Se repite?</label>
+                            <label className="text-xs font-medium">¿Se repite?</label>
                             <div className="flex items-center gap-2 flex-wrap">
                                 <select
                                     value={form.recurrenceFrequency}
@@ -1646,7 +1607,7 @@ export default function AgendaPage() {
                                             }}
                                             className="field-input w-16 text-center"
                                         />
-                                        <span className="text-xs whitespace-nowrap" style={{ color: 'var(--fg-muted)' }}>
+                                        <span className="text-xs whitespace-nowrap">
                                             sesiones en total
                                         </span>
                                     </>
@@ -1658,20 +1619,18 @@ export default function AgendaPage() {
                             <p className="text-sm" style={{ color: '#dc2626' }}>{createError}</p>
                         )}
 
-                        <div className="flex gap-3 pt-2 border-t" style={{ borderColor: 'var(--border)' }}>
+                        <div className="flex gap-3 pt-2 border-t">
                             <button
                                 onClick={() => void handleCreate()}
                                 disabled={creating}
-                                className="flex-1 inline-flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-semibold transition-opacity hover:opacity-90 disabled:opacity-60"
-                                style={{ background: 'var(--accent)', color: '#fff' }}
+                                className="flex-1 inline-flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-semibold transition-opacity hover:opacity-90 disabled:opacity-60 agenda-panel-btn-accent"
                             >
                                 {creating && <IconLoader2 size={14} className="animate-spin" />}
                                 {creating ? 'Guardando...' : 'Crear cita'}
                             </button>
                             <button
                                 onClick={() => { setShowCreate(false); setClientSearch(''); setClientDropOpen(false); }}
-                                className="px-4 py-2.5 rounded-xl text-sm border transition-colors hover:bg-(--bg-subtle)"
-                                style={{ borderColor: 'var(--border)', color: 'var(--fg-secondary)' }}
+                                className="px-4 py-2.5 rounded-xl text-sm border transition-colors hover:bg-(--bg-subtle) agenda-panel-btn-outline"
                             >
                                 Cancelar
                             </button>
@@ -1697,13 +1656,12 @@ function Modal({ title, children, onClose }: { title: string; children: React.Re
                 style={{ background: 'var(--surface)', borderColor: 'var(--border)', boxShadow: 'var(--shadow-md)' }}
             >
                 <div className="flex items-center justify-between mb-5">
-                    <h2 id={titleId} className="text-base font-semibold" style={{ color: 'var(--fg)' }}>{title}</h2>
+                    <h2 id={titleId} className="text-base font-semibold">{title}</h2>
                     <button
                         type="button"
                         aria-label="Cerrar"
                         onClick={onClose}
-                        className="w-7 h-7 rounded-lg flex items-center justify-center border transition-colors hover:bg-(--bg-subtle)"
-                        style={{ borderColor: 'var(--border)', color: 'var(--fg-muted)' }}
+                        className="w-7 h-7 rounded-lg flex items-center justify-center border transition-colors hover:bg-(--bg-subtle) agenda-panel-btn-muted"
                     >
                         <IconX size={14} />
                     </button>
@@ -1716,8 +1674,8 @@ function Modal({ title, children, onClose }: { title: string; children: React.Re
 
 function InfoRow({ icon, label }: { icon: React.ReactNode; label: string }) {
     return (
-        <div className="flex items-center gap-2 text-sm" style={{ color: 'var(--fg)' }}>
-            <span style={{ color: 'var(--fg-muted)' }}>{icon}</span>
+        <div className="flex items-center gap-2 text-sm">
+            <span>{icon}</span>
             {label}
         </div>
     );

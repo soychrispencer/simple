@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useEffect, useMemo, useState, useCallback } from 'react';
 import {
@@ -336,8 +336,8 @@ export default function PagosPage() {
         <div className="container-app panel-page py-4 lg:py-8">
             <div className="flex items-start justify-between gap-3 mb-5 lg:mb-6 flex-wrap">
                 <div className="min-w-0">
-                    <h1 className="text-2xl font-bold" style={{ color: 'var(--fg)' }}>Cobros</h1>
-                    <p className="text-sm mt-0.5" style={{ color: 'var(--fg-muted)' }}>
+                    <h1 className="text-2xl font-bold agenda-pagos-title">Cobros</h1>
+                    <p className="text-sm mt-0.5 agenda-pagos-muted">
                         Registra y controla los pagos de tus sesiones.
                     </p>
                 </div>
@@ -346,8 +346,7 @@ export default function PagosPage() {
                         <button
                             onClick={handleExportCsv}
                             aria-label="Descargar histórico en CSV"
-                            className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm border transition-colors hover:bg-(--bg-subtle)"
-                            style={{ borderColor: 'var(--border)', color: 'var(--fg-secondary)' }}
+                            className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm border transition-colors hover:bg-(--bg-subtle) agenda-pagos-btn-outline"
                             title="Descargar histórico en CSV"
                         >
                             <IconDownload size={14} />
@@ -357,8 +356,7 @@ export default function PagosPage() {
                     <button
                         onClick={() => setShowCreate(true)}
                         aria-label="Registrar cobro"
-                        className="inline-flex items-center gap-2 px-3 sm:px-4 py-2 rounded-xl text-sm font-semibold transition-opacity hover:opacity-90"
-                        style={{ background: 'var(--accent)', color: '#fff' }}
+                        className="inline-flex items-center gap-2 px-3 sm:px-4 py-2 rounded-xl text-sm font-semibold transition-opacity hover:opacity-90 agenda-pagos-btn-accent"
                     >
                         <IconPlus size={15} />
                         <span className="hidden sm:inline">Registrar cobro</span>
@@ -376,12 +374,7 @@ export default function PagosPage() {
                             role="tab"
                             aria-selected={active}
                             onClick={() => setPeriod(p)}
-                            className="px-3 py-1.5 rounded-full text-xs font-medium border whitespace-nowrap transition-colors"
-                            style={{
-                                background: active ? 'var(--accent)' : 'var(--surface)',
-                                borderColor: active ? 'var(--accent)' : 'var(--border)',
-                                color: active ? '#fff' : 'var(--fg-secondary)',
-                            }}
+                            className={`px-3 py-1.5 rounded-full text-xs font-medium border whitespace-nowrap transition-colors agenda-pagos-tab ${active ? 'agenda-pagos-tab--active' : ''}`}
                         >
                             {PERIOD_LABELS[p]}
                         </button>
@@ -400,28 +393,28 @@ export default function PagosPage() {
                     </>
                 ) : (
                     <>
-                        <div className="p-4 rounded-2xl border" style={{ borderColor: 'var(--border)', background: 'var(--surface)' }}>
-                            <p className="text-xl sm:text-2xl font-bold tracking-tight" style={{ color: 'var(--accent)' }}>{fmtCLP(totalInPeriod)}</p>
-                            <p className="text-xs mt-0.5" style={{ color: 'var(--fg-muted)' }}>Cobrado · {PERIOD_LABELS[period].toLowerCase()}</p>
+                        <div className="p-4 rounded-2xl border agenda-pagos-surface">
+                            <p className="text-xl sm:text-2xl font-bold tracking-tight agenda-pagos-stat-accent">{fmtCLP(totalInPeriod)}</p>
+                            <p className="text-xs mt-0.5 agenda-pagos-muted">Cobrado · {PERIOD_LABELS[period].toLowerCase()}</p>
                         </div>
-                        <div className="p-4 rounded-2xl border" style={{ borderColor: 'var(--border)', background: 'var(--surface)' }}>
-                            <p className="text-xl sm:text-2xl font-bold tracking-tight" style={{ color: '#d97706' }}>{fmtCLP(totalPendingAmount)}</p>
-                            <p className="text-xs mt-0.5" style={{ color: 'var(--fg-muted)' }}>
+                        <div className="p-4 rounded-2xl border agenda-pagos-surface">
+                            <p className="text-xl sm:text-2xl font-bold tracking-tight agenda-pagos-stat-warning">{fmtCLP(totalPendingAmount)}</p>
+                            <p className="text-xs mt-0.5 agenda-pagos-muted">
                                 Pendientes
                                 {overdueIds.size > 0 && (
-                                    <span className="ml-1.5 inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-medium" style={{ background: 'rgba(239,68,68,0.1)', color: '#dc2626' }}>
+                                    <span className="ml-1.5 inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-medium agenda-pagos-overdue">
                                         <IconAlertTriangle size={9} /> {overdueIds.size} atrasados
                                     </span>
                                 )}
                             </p>
                         </div>
-                        <div className="p-4 rounded-2xl border" style={{ borderColor: 'var(--border)', background: 'var(--surface)' }}>
-                            <p className="text-xl sm:text-2xl font-bold tracking-tight" style={{ color: 'var(--fg)' }}>{paidInPeriod.length}</p>
-                            <p className="text-xs mt-0.5" style={{ color: 'var(--fg-muted)' }}>Cobros realizados</p>
+                        <div className="p-4 rounded-2xl border agenda-pagos-surface">
+                            <p className="text-xl sm:text-2xl font-bold tracking-tight agenda-pagos-stat-fg">{paidInPeriod.length}</p>
+                            <p className="text-xs mt-0.5 agenda-pagos-muted">Cobros realizados</p>
                         </div>
-                        <div className="p-4 rounded-2xl border" style={{ borderColor: 'var(--border)', background: 'var(--surface)' }}>
-                            <p className="text-xl sm:text-2xl font-bold tracking-tight" style={{ color: 'var(--fg)' }}>{fmtCLP(avgInPeriod)}</p>
-                            <p className="text-xs mt-0.5" style={{ color: 'var(--fg-muted)' }}>Promedio por cobro</p>
+                        <div className="p-4 rounded-2xl border agenda-pagos-surface">
+                            <p className="text-xl sm:text-2xl font-bold tracking-tight agenda-pagos-stat-fg">{fmtCLP(avgInPeriod)}</p>
+                            <p className="text-xs mt-0.5 agenda-pagos-muted">Promedio por cobro</p>
                         </div>
                     </>
                 )}
@@ -431,10 +424,10 @@ export default function PagosPage() {
             {!loading && payments.some((p) => p.status === 'paid') && (
                 <div className="grid lg:grid-cols-3 gap-3 mb-8">
                     {/* 6-month bars */}
-                    <div className="lg:col-span-2 p-4 rounded-2xl border" style={{ borderColor: 'var(--border)', background: 'var(--surface)' }}>
+                    <div className="lg:col-span-2 p-4 rounded-2xl border agenda-pagos-surface">
                         <div className="flex items-center gap-2 mb-3">
-                            <IconChartBar size={14} style={{ color: 'var(--fg-muted)' }} />
-                            <p className="text-xs font-semibold uppercase tracking-wider" style={{ color: 'var(--fg-muted)' }}>
+                            <IconChartBar size={14} className="agenda-pagos-muted" />
+                            <p className="text-xs font-semibold uppercase tracking-wider agenda-pagos-muted">
                                 Últimos 6 meses
                             </p>
                         </div>
@@ -465,7 +458,7 @@ export default function PagosPage() {
                     </div>
 
                     {/* Method breakdown */}
-                    <div className="p-4 rounded-2xl border" style={{ borderColor: 'var(--border)', background: 'var(--surface)' }}>
+                    <div className="p-4 rounded-2xl border agenda-pagos-surface">
                         <p className="text-xs font-semibold uppercase tracking-wider mb-3" style={{ color: 'var(--fg-muted)' }}>
                             Por método
                         </p>
@@ -572,7 +565,7 @@ export default function PagosPage() {
                                         </span>
                                     )}
                                 </div>
-                                <p className="text-xs mt-0.5" style={{ color: 'var(--fg-muted)' }}>
+                                <p className="text-xs mt-0.5 agenda-pagos-muted">
                                     {clientName(payment.clientId) ?? '—'}
                                     {payment.notes ? ` · ${payment.notes}` : ''}
                                     {' · '}
@@ -907,3 +900,4 @@ export default function PagosPage() {
         </div>
     );
 }
+

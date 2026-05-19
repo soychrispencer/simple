@@ -7,7 +7,25 @@
 @theme {
     --font-sans: 'Inter', ui-sans-serif, system-ui, -apple-system, sans-serif;
     --font-mono: 'JetBrains Mono', ui-monospace, monospace;
+    --radius-button: 0.75rem;
+    --radius-card: 1rem;
+    /* Tokens semánticos → utilidades Tailwind (border-border, bg-surface, text-fg-muted, …) */
+    --color-border: var(--border);
+    --color-border-strong: var(--border-strong);
+    --color-fg: var(--fg);
+    --color-fg-secondary: var(--fg-secondary);
+    --color-fg-muted: var(--fg-muted);
+    --color-bg-subtle: var(--bg-subtle);
+    --color-bg-muted: var(--bg-muted);
+    --color-surface: var(--surface);
+    --color-accent: var(--accent);
+    --color-accent-soft: var(--accent-soft);
+    --color-accent-border: var(--accent-border);
+    --color-accent-contrast: var(--accent-contrast);
 }
+
+/* Tailwind v4: dark: utilities siguen la clase .dark de next-themes (no solo prefers-color-scheme) */
+@custom-variant dark (&:where(.dark, .dark *));
 
 @layer base {
 /* ── Light ────────────────────────────────────────────────────────────────── */
@@ -28,6 +46,10 @@
     --accent-soft: rgba(17, 17, 17, 0.04);
     --accent-border: rgba(17, 17, 17, 0.18);
     --accent-contrast: #ffffff;
+    /* Vertical accent: cada app define --accent* en su globals.css (valores de getSimpleAppBrand en @simple/config).
+       Ejemplo SimpleSerenatas: --accent: #E11D48 en apps/simpleserenatas/src/app/globals.css.
+       No usamos applyVerticalTheme() en runtime: Next inyecta tokens por app en build; evita flash y mantiene SSR estático. */
+    /* Modales/dialogs del panel: preferir rounded-card (--radius-card) salvo overlays fullscreen documentados en la app. */
     --button-primary-bg: #111111;
     --button-primary-color: #ffffff;
     --button-primary-border: #111111;
@@ -49,8 +71,14 @@
     --color-success-subtle: rgba(5, 150, 105, 0.08);
     --color-warning: #d97706;
     --color-warning-subtle: rgba(217, 119, 6, 0.08);
+    --danger: var(--color-error);
+    --success: var(--color-success);
+    --warning: var(--color-warning);
     --radius: 10px;
     --radius-lg: 16px;
+    --radius-xl: 24px;
+    --radius-button: 12px;
+    --radius-card: 16px;
     --text-2xs: 0.6875rem;
     --text-xs: 0.75rem;
     --text-sm: 0.875rem;
@@ -94,6 +122,9 @@
     --color-success-subtle: rgba(52, 211, 153, 0.12);
     --color-warning: #fbbf24;
     --color-warning-subtle: rgba(251, 191, 36, 0.12);
+    --danger: var(--color-error);
+    --success: var(--color-success);
+    --warning: var(--color-warning);
     --field-focus-border: var(--accent);
     --field-focus-ring: color-mix(in oklab, var(--accent) 15%, transparent);
     --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.34);
@@ -112,6 +143,12 @@ html {
     scroll-behavior: smooth;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+    color-scheme: light;
+}
+
+html.dark,
+html[data-theme="dark"] {
+    color-scheme: dark;
 }
 
 body {
@@ -436,14 +473,68 @@ h4 {
     gap: 0.375rem;
     font-weight: 500;
     font-size: var(--text-sm);
-    border-radius: 8px;
+    border-radius: var(--radius-button);
     transition: all 0.2s ease;
     cursor: pointer;
     white-space: nowrap;
 }
 
+.rounded-button {
+    border-radius: var(--radius-button);
+}
+
+.rounded-card {
+    border-radius: var(--radius-card);
+}
+
+/* Panel — superficies con borde 1px tokenizado (PanelCard, inset subtle, listas) */
+.panel-card {
+    border-radius: var(--radius-card);
+    border: 1px solid var(--border);
+}
+
+.panel-surface-subtle {
+    border-radius: var(--radius-card);
+    border: 1px solid var(--border);
+    background: var(--bg-subtle);
+}
+
+.panel-surface-card {
+    border-radius: var(--radius-card);
+    border: 1px solid var(--border);
+    background: var(--surface);
+}
+
+/* Listing owner actions */
+.listing-owner-menu {
+    border-color: var(--border);
+    background: var(--surface);
+}
+.listing-owner-menu-item { color: var(--fg); }
+.listing-owner-menu-item--danger { color: var(--color-error); }
+.listing-owner-menu-item--primary { color: var(--accent); }
+
+/* Location editor */
+.loc-editor-card { border-color: var(--border); background: var(--bg); }
+.loc-editor-fg { color: var(--fg); }
+.loc-editor-muted { color: var(--fg-muted); }
+.loc-editor-secondary { color: var(--fg-secondary); }
+.loc-editor-badge { background: var(--bg-muted); color: var(--fg-secondary); }
+.loc-editor-map-frame { border-color: var(--border); background: #eef2f7; }
+.loc-editor-map-icon { background: rgba(15, 23, 42, 0.08); color: var(--fg); }
+.loc-editor-source-btn { border-color: var(--border); color: var(--fg-secondary); background: var(--bg); }
+.loc-editor-source-btn--active { border-color: var(--fg); background: var(--bg-subtle); }
+.loc-editor-action-bar { border-color: var(--border); }
+
+/* Tarjetas con .border sin color explícito: evitar currentColor (borde visualmente grueso) */
+.rounded-card.border:not(.border-2):not(.border-4):not([class*='border-accent']):not([class*='border-\(--']):not([class*='border-[']) {
+    border-width: 1px;
+    border-style: solid;
+    border-color: var(--border);
+}
+
 .panel-button {
-    border-radius: var(--radius);
+    border-radius: var(--radius-button);
     background: var(--panel-btn-bg, var(--surface));
     color: var(--panel-btn-color, var(--fg));
     border-color: var(--panel-btn-border, var(--border));
@@ -483,6 +574,31 @@ h4 {
 }
 
 .btn-outline:hover {
+    border-color: var(--border-strong);
+    color: var(--fg);
+    background: var(--bg-subtle);
+    box-shadow: var(--shadow-xs);
+}
+
+.btn-secondary {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.375rem;
+    font-weight: 500;
+    font-size: var(--text-sm);
+    border-radius: var(--radius-button);
+    border: 1px solid var(--border);
+    color: var(--fg-secondary);
+    height: 40px;
+    padding: 0 1.25rem;
+    background: transparent;
+    transition: all 0.2s ease;
+    cursor: pointer;
+    white-space: nowrap;
+}
+
+.btn-secondary:hover {
     border-color: var(--border-strong);
     color: var(--fg);
     background: var(--bg-subtle);
@@ -533,6 +649,43 @@ h4 {
     color: var(--fg);
     border-color: var(--border-strong);
     box-shadow: var(--shadow-xs);
+}
+
+/* ── Panel filter chips ───────────────────────────────────────────────────── */
+.panel-filter-chip {
+    display: inline-flex;
+    min-height: 2.75rem;
+    align-items: center;
+    gap: 0.75rem;
+    border-radius: 1rem;
+    padding: 0.5rem 1.25rem;
+    font-size: var(--text-sm);
+    font-weight: 600;
+    border: none;
+    cursor: pointer;
+    transition: background-color 0.15s ease, color 0.15s ease;
+    background: var(--surface);
+    color: var(--fg);
+}
+
+.panel-filter-chip[data-active="true"] {
+    background: var(--accent);
+    color: var(--accent-contrast);
+}
+
+.panel-filter-chip__count {
+    min-width: 1.5rem;
+    border-radius: 9999px;
+    padding: 0.125rem 0.5rem;
+    text-align: center;
+    font-size: var(--text-xs);
+    background: var(--bg-muted);
+    color: var(--fg-muted);
+}
+
+.panel-filter-chip[data-active="true"] .panel-filter-chip__count {
+    background: color-mix(in oklab, var(--accent-contrast) 22%, transparent);
+    color: var(--accent-contrast);
 }
 
 /* ── Forms ────────────────────────────────────────────────────────────────── */
@@ -681,5 +834,88 @@ summary {
 button:disabled,
 [role="button"][aria-disabled="true"] {
     cursor: not-allowed;
+}
+
+/* Site info (nosotros, FAQ, términos) */
+.site-info-aside {
+    border-radius: 24px;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    padding: 1.25rem;
+}
+
+.site-info-aside--subtle {
+    background: var(--bg-subtle);
+}
+
+.site-info-section {
+    border-radius: 28px;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    padding: 1.75rem 1.5rem;
+}
+
+@media (min-width: 768px) {
+    .site-info-section {
+        padding: 1.75rem 2rem;
+    }
+}
+
+.site-info-bullet {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.75rem;
+    font-size: 0.875rem;
+    line-height: 1.5rem;
+}
+
+.site-info-bullet::before {
+    content: '';
+    margin-top: 0.5rem;
+    height: 0.375rem;
+    width: 0.375rem;
+    flex-shrink: 0;
+    border-radius: 9999px;
+    background: var(--fg);
+}
+
+.featured-boost-tab {
+    border-color: var(--border);
+    background: var(--surface);
+    color: var(--fg-secondary);
+}
+
+.featured-boost-tab--active {
+    border-color: var(--button-primary-border);
+    background: var(--button-primary-bg);
+    color: var(--button-primary-color);
+}
+
+/* Perfil público marketplace (Autos / Propiedades) */
+.pp-skeleton { background: var(--bg-muted); }
+.pp-hero { border-color: var(--border); }
+.pp-hero--fallback { background: linear-gradient(135deg, #0b0b0b 0%, #232323 100%); }
+.pp-contact-muted { color: var(--fg-muted); }
+.pp-contact-fg { color: var(--fg); }
+.pp-contact-secondary { color: var(--fg-secondary); }
+.pp-surface-row {
+    border-color: var(--border);
+    background: var(--surface);
+}
+.pp-icon-well {
+    background: var(--bg-muted);
+    color: var(--fg-secondary);
+}
+.pp-fg { color: var(--fg); }
+.pp-muted { color: var(--fg-muted); }
+.pp-secondary { color: var(--fg-secondary); }
+.pp-team-card {
+    border-color: var(--border);
+    background: var(--surface);
+}
+.pp-social-chip {
+    border-color: var(--border);
+    color: var(--fg-secondary);
+    background: var(--bg-muted);
 }
 } /* End layer components */

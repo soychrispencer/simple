@@ -12,13 +12,13 @@ export interface MessagesRouterDeps {
     messageEntryCreateSchema: any;
     listMessageThreadsForUser: (userId: string, vertical: any, folder: any) => Promise<any[]>;
     listMessageEntries: (threadId: string) => Promise<any[]>;
-    messageThreadToResponse: (thread: any, userId: string, entries: any[]) => any;
+    messageThreadToResponse: (thread: any, userId: string, entries: any[]) => any | Promise<any>;
     messageEntryToResponse: (entry: any, userId: string) => any;
     getMessageThreadById: (id: string) => Promise<any>;
     isThreadParticipant: (userId: string, thread: any) => boolean;
     markMessageThreadRead: (thread: any, userId: string) => Promise<any>;
     getListingLeadById: (id: string) => Promise<any>;
-    listingLeadToResponse: (lead: any, opts?: any) => any;
+    listingLeadToResponse: (lead: any, opts?: any) => any | Promise<any>;
     updateMessageThreadViewerState: (thread: any, userId: string, action: any) => Promise<any>;
     createMessageEntry: (opts: any) => Promise<any>;
     touchMessageThreadAfterIncomingMessage: (thread: any, senderRole: any, now: number) => Promise<any>;
@@ -80,7 +80,7 @@ export function createMessagesRouter(deps: MessagesRouterDeps) {
         const threads = await listMessageThreadsForUser(user.id, vertical, folder);
         const items = await Promise.all(threads.map(async (thread: any) => {
             const entries = await listMessageEntries(thread.id);
-            return messageThreadToResponse(thread, user.id, entries);
+            return await messageThreadToResponse(thread, user.id, entries);
         }));
 
         return c.json({ ok: true, items });
@@ -107,9 +107,9 @@ export function createMessagesRouter(deps: MessagesRouterDeps) {
 
         return c.json({
             ok: true,
-            item: messageThreadToResponse(hydratedThread, user.id, entries),
+            item: await messageThreadToResponse(hydratedThread, user.id, entries),
             entries: entries.map((entry: any) => messageEntryToResponse(entry, user.id)),
-            lead: lead ? listingLeadToResponse(lead, { threadId: hydratedThread.id }) : null,
+            lead: lead ? await listingLeadToResponse(lead, { threadId: hydratedThread.id }) : null,
         });
     });
 
@@ -137,7 +137,7 @@ export function createMessagesRouter(deps: MessagesRouterDeps) {
 
         return c.json({
             ok: true,
-            item: messageThreadToResponse(updatedThread, user.id, entries),
+            item: await messageThreadToResponse(updatedThread, user.id, entries),
         });
     });
 
@@ -205,10 +205,10 @@ export function createMessagesRouter(deps: MessagesRouterDeps) {
         const entries = await listMessageEntries(updatedThread.id);
         return c.json({
             ok: true,
-            item: messageThreadToResponse(updatedThread, user.id, entries),
+            item: await messageThreadToResponse(updatedThread, user.id, entries),
             entry: messageEntryToResponse(entry, user.id),
             entries: entries.map((e: any) => messageEntryToResponse(e, user.id)),
-            lead: updatedLead ? listingLeadToResponse(updatedLead, { threadId: updatedThread.id }) : null,
+            lead: updatedLead ? await listingLeadToResponse(updatedLead, { threadId: updatedThread.id }) : null,
         }, 201);
     });
 

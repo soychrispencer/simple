@@ -1,6 +1,7 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import type { StorageProvider, StorageUploadInput, StorageUploadResult } from '@simple/config';
+import { readUploadBuffer } from './file-buffer.js';
 
 const DEFAULT_UPLOAD_DIR = path.resolve(process.cwd(), 'uploads');
 const DEFAULT_BASE_URL = process.env.LOCAL_STORAGE_URL?.replace(/\/+$/, '') || 'http://localhost:4000/uploads';
@@ -29,16 +30,7 @@ export class LocalStorageProvider implements StorageProvider {
         const fileName = `${now}-${sanitizeFileName(input.fileName || 'file')}`;
         const storagePath = path.join(folder, fileName);
 
-        let buffer: Buffer;
-        if (Buffer.isBuffer(input.file)) {
-            buffer = input.file;
-        } else if (typeof (input.file as any).arrayBuffer === 'function') {
-            buffer = Buffer.from(await (input.file as any).arrayBuffer());
-        } else if (input.file instanceof Uint8Array) {
-            buffer = Buffer.from(input.file);
-        } else {
-            throw new Error('Unsupported file type for local storage');
-        }
+        const buffer = await readUploadBuffer(input.file);
 
         await fs.writeFile(storagePath, buffer);
 

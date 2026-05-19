@@ -221,7 +221,7 @@ export default function OwnerListingCard(props: OwnerListingCardProps) {
                 onKeyDown={(e) => {
                     if (e.key === 'Enter') activate();
                 }}
-                className="group/card relative grid cursor-pointer gap-3 rounded-2xl border p-3 transition-all duration-200 hover:shadow-lg hover:-translate-y-[1px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-[var(--accent)] sm:p-4 sm:gap-4 grid-cols-[140px_1fr] sm:grid-cols-[160px_1fr_auto]"
+                className="group/card relative grid cursor-pointer gap-3 rounded-card border p-3 transition-all duration-200 hover:shadow-lg hover:-translate-y-[1px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-[var(--accent)] sm:p-4 sm:gap-4 grid-cols-[140px_1fr] sm:grid-cols-[160px_1fr_auto]"
                 style={{
                     borderColor: 'var(--border)',
                     background: 'var(--surface)',
@@ -295,7 +295,7 @@ export default function OwnerListingCard(props: OwnerListingCardProps) {
             onKeyDown={(e) => {
                 if (e.key === 'Enter') activate();
             }}
-            className="group/card relative flex h-full flex-col cursor-pointer rounded-2xl border transition-all duration-200 hover:shadow-lg hover:-translate-y-[2px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-[var(--accent)]"
+            className="group/card relative flex h-full flex-col cursor-pointer rounded-card border transition-all duration-200 hover:shadow-lg hover:-translate-y-[2px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-[var(--accent)]"
             style={{
                 borderColor: 'var(--border)',
                 background: 'var(--surface)',

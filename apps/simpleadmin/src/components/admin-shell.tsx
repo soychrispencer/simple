@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
-import { useTheme } from 'next-themes';
+import { useTheme } from '@simple/ui';
 import { useEffect, useMemo, useState } from 'react';
 import {
     IconArrowLeft,
@@ -49,7 +49,7 @@ export function AdminShell({ children, user }: { children: React.ReactNode; user
     const pathname = usePathname() ?? '';
     const searchParams = useSearchParams();
     const router = useRouter();
-    const { theme, setTheme } = useTheme();
+    const { resolvedTheme, setTheme } = useTheme();
     const [mounted, setMounted] = useState(false);
     const [collapsed, setCollapsed] = useState(false);
 
@@ -129,11 +129,11 @@ export function AdminShell({ children, user }: { children: React.ReactNode; user
                         {mounted ? (
                             <button
                                 type="button"
-                                onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
+                                onClick={() => setTheme(resolvedTheme === 'dark' ? 'light' : 'dark')}
                                 className="header-icon-chip"
                                 aria-label="Cambiar tema"
                             >
-                                {theme === 'dark' ? <IconSun size={16} /> : <IconMoon size={16} />}
+                                {resolvedTheme === 'dark' ? <IconSun size={16} /> : <IconMoon size={16} />}
                             </button>
                         ) : null}
                         <Link

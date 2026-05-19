@@ -213,8 +213,8 @@ export default function ClientesPage() {
         <div className="container-app panel-page py-4 lg:py-8">
             <div className="flex items-center justify-between gap-3 mb-5 lg:mb-6">
                 <div className="min-w-0">
-                    <h1 className="text-2xl font-bold" style={{ color: 'var(--fg)' }}>{vocab.Clients}</h1>
-                    <p className="text-sm mt-0.5" style={{ color: 'var(--fg-muted)' }}>
+                    <h1 className="text-2xl font-bold agenda-panel-fg">{vocab.Clients}</h1>
+                    <p className="text-sm mt-0.5 agenda-panel-muted">
                         {clients.length} {clients.length !== 1 ? vocab.clients : vocab.client}
                     </p>
                 </div>
@@ -223,8 +223,7 @@ export default function ClientesPage() {
                         <button
                             onClick={exportCSV}
                             aria-label="Exportar a CSV"
-                            className="inline-flex items-center gap-2 px-3 py-2 rounded-xl text-sm border transition-colors hover:bg-(--bg-subtle)"
-                            style={{ borderColor: 'var(--border)', color: 'var(--fg-secondary)' }}
+                            className="inline-flex items-center gap-2 px-3 py-2 rounded-button text-sm border transition-colors hover:bg-(--bg-subtle) agenda-panel-btn-outline"
                         >
                             <IconDownload size={14} />
                             <span className="hidden sm:inline">Exportar CSV</span>
@@ -233,8 +232,7 @@ export default function ClientesPage() {
                     <button
                         onClick={() => { setShowForm(true); setForm(emptyForm()); setError(''); }}
                         aria-label={vocab.newClient}
-                        className="inline-flex items-center gap-2 px-3 sm:px-4 py-2 rounded-xl text-sm font-semibold transition-opacity hover:opacity-90"
-                        style={{ background: 'var(--accent)', color: '#fff' }}
+                        className="inline-flex items-center gap-2 px-3 sm:px-4 py-2 rounded-button text-sm font-semibold transition-opacity hover:opacity-90 agenda-panel-btn-accent"
                     >
                         <IconPlus size={15} />
                         <span className="hidden sm:inline">{vocab.newClient}</span>
@@ -244,7 +242,7 @@ export default function ClientesPage() {
 
             {/* Search */}
             <div className="relative mb-3">
-                <IconSearch size={15} className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: 'var(--fg-muted)' }} />
+                <IconSearch size={15} className="absolute left-3 top-1/2 -translate-y-1/2 agenda-panel-muted" />
                 <input
                     type="text"
                     value={query}
@@ -298,10 +296,10 @@ export default function ClientesPage() {
             {showForm && (
                 <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4" role="dialog" aria-modal="true" aria-labelledby="clientes-create-title">
                     <button type="button" aria-label="Cerrar" className="absolute inset-0 bg-black/40 backdrop-blur-[2px]" onClick={() => setShowForm(false)} />
-                    <div className="relative w-full max-w-lg rounded-2xl border p-5 max-h-[90vh] overflow-y-auto" style={{ background: 'var(--surface)', borderColor: 'var(--border)', boxShadow: 'var(--shadow-md)' }}>
+                    <div className="relative w-full max-w-lg rounded-2xl border p-5 max-h-[90vh] overflow-y-auto agenda-panel-popover">
                         <div className="flex items-center justify-between mb-5">
-                            <h2 id="clientes-create-title" className="text-base font-semibold" style={{ color: 'var(--fg)' }}>{vocab.newClient}</h2>
-                            <button type="button" aria-label="Cerrar" onClick={() => setShowForm(false)} className="w-7 h-7 rounded-lg flex items-center justify-center border transition-colors hover:bg-(--bg-subtle)" style={{ borderColor: 'var(--border)', color: 'var(--fg-muted)' }}>
+                            <h2 id="clientes-create-title" className="text-base font-semibold agenda-panel-fg">{vocab.newClient}</h2>
+                            <button type="button" aria-label="Cerrar" onClick={() => setShowForm(false)} className="w-7 h-7 rounded-button flex items-center justify-center border transition-colors hover:bg-(--bg-subtle) agenda-panel-btn-muted">
                                 <IconX size={14} />
                             </button>
                         </div>
@@ -369,16 +367,14 @@ export default function ClientesPage() {
                                 <button
                                     onClick={() => void handleSave()}
                                     disabled={saving}
-                                    className="flex-1 inline-flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-semibold transition-opacity hover:opacity-90 disabled:opacity-60"
-                                    style={{ background: 'var(--accent)', color: '#fff' }}
+                                    className="flex-1 inline-flex items-center justify-center gap-2 py-2.5 rounded-button text-sm font-semibold transition-opacity hover:opacity-90 disabled:opacity-60 agenda-panel-btn-accent"
                                 >
                                     {saving && <IconLoader2 size={14} className="animate-spin" />}
                                     {saving ? 'Guardando...' : `Crear ${vocab.client}`}
                                 </button>
                                 <button
                                     onClick={() => setShowForm(false)}
-                                    className="px-4 py-2.5 rounded-xl text-sm border transition-colors hover:bg-(--bg-subtle)"
-                                    style={{ borderColor: 'var(--border)', color: 'var(--fg-secondary)' }}
+                                    className="px-4 py-2.5 rounded-button text-sm border transition-colors hover:bg-(--bg-subtle) agenda-panel-btn-outline"
                                 >
                                     Cancelar
                                 </button>
@@ -396,11 +392,11 @@ export default function ClientesPage() {
                     ))}
                 </div>
             ) : filtered.length === 0 ? (
-                <div className="rounded-2xl border flex flex-col items-center justify-center py-20 text-center" style={{ borderColor: 'var(--border)', background: 'var(--surface)' }}>
-                    <div className="w-12 h-12 rounded-2xl flex items-center justify-center mb-3" style={{ background: 'var(--accent-soft)', color: 'var(--accent)' }}>
+                <div className="rounded-2xl border flex flex-col items-center justify-center py-20 text-center agenda-panel-surface">
+                    <div className="w-12 h-12 rounded-2xl flex items-center justify-center mb-3 agenda-panel-accent-soft">
                         <IconUsers size={20} />
                     </div>
-                    <p className="text-sm font-medium mb-1" style={{ color: 'var(--fg)' }}>
+                    <p className="text-sm font-medium mb-1 agenda-panel-fg">
                         {query ? 'Sin resultados' : vocab.noClients}
                     </p>
                     <p className="text-sm" style={{ color: 'var(--fg-muted)' }}>
@@ -423,7 +419,7 @@ export default function ClientesPage() {
                             {/* Info — click goes to detail */}
                             <Link href={`/panel/clientes/${client.id}`} className="flex-1 min-w-0">
                                 <div className="flex items-center gap-2 flex-wrap">
-                                    <p className="text-sm font-semibold" style={{ color: 'var(--fg)' }}>{fullName(client)}</p>
+                                    <p className="text-sm font-semibold agenda-panel-fg">{fullName(client)}</p>
                                     {(client.tagIds ?? []).slice(0, 2).map((tid) => {
                                         const t = tags.find((x) => x.id === tid);
                                         if (!t) return null;
@@ -482,10 +478,10 @@ export default function ClientesPage() {
             {editClient && (
                 <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4" role="dialog" aria-modal="true" aria-labelledby="clientes-edit-title">
                     <button type="button" aria-label="Cerrar" className="absolute inset-0 bg-black/40 backdrop-blur-[2px]" onClick={() => setEditClient(null)} />
-                    <div className="relative w-full max-w-lg rounded-2xl border p-5 max-h-[90vh] overflow-y-auto" style={{ background: 'var(--surface)', borderColor: 'var(--border)', boxShadow: 'var(--shadow-md)' }}>
+                    <div className="relative w-full max-w-lg rounded-2xl border p-5 max-h-[90vh] overflow-y-auto agenda-panel-popover">
                         <div className="flex items-center justify-between mb-5">
-                            <h2 id="clientes-edit-title" className="text-base font-semibold" style={{ color: 'var(--fg)' }}>Editar {vocab.client}</h2>
-                            <button type="button" aria-label="Cerrar" onClick={() => setEditClient(null)} className="w-7 h-7 rounded-lg flex items-center justify-center border transition-colors hover:bg-(--bg-subtle)" style={{ borderColor: 'var(--border)', color: 'var(--fg-muted)' }}>
+                            <h2 id="clientes-edit-title" className="text-base font-semibold agenda-panel-fg">Editar {vocab.client}</h2>
+                            <button type="button" aria-label="Cerrar" onClick={() => setEditClient(null)} className="w-7 h-7 rounded-button flex items-center justify-center border transition-colors hover:bg-(--bg-subtle)" style={{ borderColor: 'var(--border)', color: 'var(--fg-muted)' }}>
                                 <IconX size={14} />
                             </button>
                         </div>
@@ -524,11 +520,11 @@ export default function ClientesPage() {
                             </Field>
                             {editError && <p className="flex items-center gap-1.5 text-sm" style={{ color: '#dc2626' }}><IconAlertCircle size={13} />{editError}</p>}
                             <div className="flex gap-3 pt-2 border-t" style={{ borderColor: 'var(--border)' }}>
-                                <button onClick={() => void handleEditSave()} disabled={editSaving} className="flex-1 inline-flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-semibold transition-opacity hover:opacity-90 disabled:opacity-60" style={{ background: 'var(--accent)', color: '#fff' }}>
+                                <button onClick={() => void handleEditSave()} disabled={editSaving} className="flex-1 inline-flex items-center justify-center gap-2 py-2.5 rounded-button text-sm font-semibold transition-opacity hover:opacity-90 disabled:opacity-60" style={{ background: 'var(--accent)', color: '#fff' }}>
                                     {editSaving ? <IconLoader2 size={14} className="animate-spin" /> : <IconCheck size={14} />}
                                     {editSaving ? 'Guardando...' : 'Guardar cambios'}
                                 </button>
-                                <button onClick={() => setEditClient(null)} className="px-4 py-2.5 rounded-xl text-sm border transition-colors hover:bg-(--bg-subtle)" style={{ borderColor: 'var(--border)', color: 'var(--fg-secondary)' }}>Cancelar</button>
+                                <button onClick={() => setEditClient(null)} className="px-4 py-2.5 rounded-button text-sm border transition-colors hover:bg-(--bg-subtle)" style={{ borderColor: 'var(--border)', color: 'var(--fg-secondary)' }}>Cancelar</button>
                             </div>
                         </div>
                     </div>
@@ -541,21 +537,21 @@ export default function ClientesPage() {
                     <button type="button" aria-label="Cerrar" className="absolute inset-0 bg-black/40 backdrop-blur-[2px]" onClick={() => setDeleteClient(null)} />
                     <div className="relative w-full max-w-sm rounded-2xl border p-6" style={{ background: 'var(--surface)', borderColor: 'var(--border)', boxShadow: 'var(--shadow-md)' }}>
                         <div className="flex items-start gap-3 mb-4">
-                            <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0" style={{ background: 'rgba(220,38,38,0.1)', color: '#dc2626' }}>
+                            <div className="w-9 h-9 rounded-button flex items-center justify-center shrink-0" style={{ background: 'rgba(220,38,38,0.1)', color: '#dc2626' }}>
                                 <IconAlertCircle size={18} />
                             </div>
                             <div>
-                                <p id="clientes-delete-title" className="text-sm font-semibold mb-1" style={{ color: 'var(--fg)' }}>¿Eliminar {vocab.client}?</p>
+                                <p id="clientes-delete-title" className="text-sm font-semibold mb-1 agenda-panel-fg">¿Eliminar {vocab.client}?</p>
                                 <p className="text-xs" style={{ color: 'var(--fg-muted)' }}>Esta acción no se puede deshacer. Se eliminarán todos los datos de <strong>{fullName(deleteClient)}</strong>.</p>
                             </div>
                         </div>
                         {deleteError && <p className="text-xs mb-3" style={{ color: '#dc2626' }}>{deleteError}</p>}
                         <div className="flex gap-2">
-                            <button onClick={() => void handleDelete()} disabled={deleting} className="flex-1 inline-flex items-center justify-center gap-2 py-2 rounded-xl text-sm font-semibold border transition-opacity hover:opacity-80 disabled:opacity-50" style={{ background: 'rgba(220,38,38,0.1)', color: '#dc2626', borderColor: 'rgba(220,38,38,0.3)' }}>
+                            <button onClick={() => void handleDelete()} disabled={deleting} className="flex-1 inline-flex items-center justify-center gap-2 py-2 rounded-button text-sm font-semibold border transition-opacity hover:opacity-80 disabled:opacity-50" style={{ background: 'rgba(220,38,38,0.1)', color: '#dc2626', borderColor: 'rgba(220,38,38,0.3)' }}>
                                 {deleting ? <IconLoader2 size={13} className="animate-spin" /> : <IconTrash size={13} />}
                                 {deleting ? 'Eliminando...' : 'Sí, eliminar'}
                             </button>
-                            <button onClick={() => setDeleteClient(null)} disabled={deleting} className="flex-1 py-2 rounded-xl text-sm border transition-colors hover:bg-(--bg-subtle)" style={{ borderColor: 'var(--border)', color: 'var(--fg-secondary)' }}>Cancelar</button>
+                            <button onClick={() => setDeleteClient(null)} disabled={deleting} className="flex-1 py-2 rounded-button text-sm border transition-colors hover:bg-(--bg-subtle)" style={{ borderColor: 'var(--border)', color: 'var(--fg-secondary)' }}>Cancelar</button>
                         </div>
                     </div>
                 </div>

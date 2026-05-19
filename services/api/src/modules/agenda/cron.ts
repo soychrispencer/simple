@@ -6,8 +6,37 @@ import { notifyReminder24h, notifyReminder30min } from '../whatsapp/service.js';
 import { logNotification } from '../../lib/audit.js';
 import { isProduction } from '../../env.js';
 
+/** Advisory lock PostgreSQL: solo una réplica API ejecuta jobs de agenda a la vez. */
+const AGENDA_CRON_ADVISORY_LOCK_KEY = 839_201;
+
+async function tryAcquireAgendaCronLock(): Promise<boolean> {
+    try {
+        const result = await db.execute(
+            sql`SELECT pg_try_advisory_lock(${AGENDA_CRON_ADVISORY_LOCK_KEY}) AS acquired`,
+        );
+        const row = (result as { rows?: Array<{ acquired?: boolean }> }).rows?.[0];
+        return row?.acquired === true;
+    } catch {
+        // Sin PostgreSQL advisory locks (tests locales): permitir ejecución best-effort.
+        return true;
+    }
+}
+
+async function releaseAgendaCronLock(): Promise<void> {
+    try {
+        await db.execute(sql`SELECT pg_advisory_unlock(${AGENDA_CRON_ADVISORY_LOCK_KEY})`);
+    } catch {
+        // ignore
+    }
+}
+
 export function registerAgendaCronJobs() {
-    // Solo activar cron jobs de SimpleAgenda en producción o cuando esté configurado
+    /**
+     * Cron de recordatorios Agenda:
+     * - Producción: activo por defecto (una réplica con lock advisory).
+     * - Desarrollo/staging: solo con AGENDA_CRON_ENABLED=true (evita duplicados en dev).
+     * - Con N réplicas: usar 1 instancia con cron o confiar en pg_try_advisory_lock.
+     */
     const agendaEnabled = process.env.AGENDA_CRON_ENABLED === 'true';
 
     if (!isProduction && !agendaEnabled) {
@@ -15,10 +44,25 @@ export function registerAgendaCronJobs() {
         return;
     }
 
-    console.info('[agenda] registering reminder cron jobs...');
+    if (isProduction && agendaEnabled) {
+        console.info('[agenda] AGENDA_CRON_ENABLED=true en producción — preferir una sola réplica con cron');
+    }
+
+    console.info('[agenda] registering reminder cron jobs (advisory lock %s)...', AGENDA_CRON_ADVISORY_LOCK_KEY);
+
+    const runWithLock = async (job: () => Promise<void>) => {
+        const acquired = await tryAcquireAgendaCronLock();
+        if (!acquired) return;
+        try {
+            await job();
+        } finally {
+            await releaseAgendaCronLock();
+        }
+    };
 
     // Every 5 minutes: check for appointments that need 24h reminder
     cron.schedule('*/5 * * * *', async () => {
+        await runWithLock(async () => {
         try {
             const now = new Date();
             const windowStart = new Date(now.getTime() + 23 * 60 * 60 * 1000);
@@ -74,10 +118,12 @@ export function registerAgendaCronJobs() {
         } catch (e) {
             console.error('[agenda] 24h reminder cron error:', e);
         }
+        });
     });
 
     // Every 5 minutes: check for appointments that need 30min reminder
     cron.schedule('*/5 * * * *', async () => {
+        await runWithLock(async () => {
         try {
             const now = new Date();
             const windowStart = new Date(now.getTime() + 25 * 60 * 1000);
@@ -133,5 +179,6 @@ export function registerAgendaCronJobs() {
         } catch (e) {
             console.error('[agenda] 30min reminder cron error:', e);
         }
+        });
     });
 }

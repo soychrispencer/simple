@@ -362,8 +362,7 @@ export default function BookingFlow({ profile }: { profile: PublicProfile }) {
                 {isReschedule && (
                     <div
                         role="status"
-                        className="rounded-2xl border p-4 flex items-center gap-3"
-                        style={{ borderColor: 'var(--accent)', background: 'var(--accent-soft)', color: 'var(--accent)' }}
+                        className="rounded-2xl border p-4 flex items-center gap-3 booking-accent-banner"
                     >
                         <IconCalendarEvent size={18} className="shrink-0" />
                         <div className="flex-1 min-w-0">
@@ -377,30 +376,28 @@ export default function BookingFlow({ profile }: { profile: PublicProfile }) {
                 {profile.services.map((service) => (
                     <div
                         key={service.id}
-                        className="p-4 rounded-2xl border"
-                        style={{ borderColor: 'var(--border)', background: 'var(--surface)' }}
+                        className="p-4 rounded-2xl border booking-surface"
                     >
                         <div className="flex items-start justify-between gap-4">
                             <div className="flex-1 min-w-0">
-                                <h3 className="font-semibold text-sm" style={{ color: 'var(--fg)' }}>{service.name}</h3>
+                                <h3 className="font-semibold text-sm booking-fg">{service.name}</h3>
                                 <div className="flex flex-wrap items-center gap-3 mt-1.5">
-                                    <span className="flex items-center gap-1 text-xs" style={{ color: 'var(--fg-muted)' }}>
+                                    <span className="flex items-center gap-1 text-xs booking-muted">
                                         <IconClock size={11} />{service.durationMinutes} min
                                     </span>
                                     {service.isOnline && (
-                                        <span className="text-xs px-1.5 py-0.5 rounded-md" style={{ background: 'var(--accent-soft)', color: 'var(--accent)' }}>Online</span>
+                                        <span className="text-xs px-1.5 py-0.5 rounded-md booking-badge-online">Online</span>
                                     )}
                                     {service.isPresential && (
-                                        <span className="text-xs px-1.5 py-0.5 rounded-md" style={{ background: 'var(--bg-subtle)', color: 'var(--fg-muted)' }}>Presencial</span>
+                                        <span className="text-xs px-1.5 py-0.5 rounded-md booking-badge-presential">Presencial</span>
                                     )}
                                 </div>
                             </div>
                             <div className="shrink-0 text-right">
-                                <p className="font-bold text-sm" style={{ color: 'var(--fg)' }}>{formattedPrice(service.price, service.currency)}</p>
+                                <p className="font-bold text-sm booking-fg">{formattedPrice(service.price, service.currency)}</p>
                                 <button
                                     onClick={() => openBooking(service)}
-                                    className="mt-2 px-3 py-1.5 rounded-xl text-xs font-semibold transition-opacity hover:opacity-90"
-                                    style={{ background: 'var(--accent)', color: '#fff' }}
+                                    className="mt-2 px-3 py-1.5 rounded-xl text-xs font-semibold transition-opacity hover:opacity-90 booking-btn-primary"
                                 >
                                     <IconCalendar size={11} className="inline mr-1" />
                                     Reservar
@@ -419,12 +416,12 @@ export default function BookingFlow({ profile }: { profile: PublicProfile }) {
             {/* Services list (behind modal) */}
             <div className="flex flex-col gap-3">
                 {profile.services.map((service) => (
-                    <div key={service.id} className="p-4 rounded-2xl border" style={{ borderColor: 'var(--border)', background: 'var(--surface)' }}>
+                    <div key={service.id} className="p-4 rounded-2xl border booking-surface">
                         <div className="flex items-start justify-between gap-4">
                             <div className="flex-1 min-w-0">
-                                <h3 className="font-semibold text-sm" style={{ color: 'var(--fg)' }}>{service.name}</h3>
+                                <h3 className="font-semibold text-sm booking-fg">{service.name}</h3>
                             </div>
-                            <p className="font-bold text-sm shrink-0" style={{ color: 'var(--fg)' }}>{formattedPrice(service.price, service.currency)}</p>
+                            <p className="font-bold text-sm shrink-0 booking-fg">{formattedPrice(service.price, service.currency)}</p>
                         </div>
                     </div>
                 ))}
@@ -434,14 +431,13 @@ export default function BookingFlow({ profile }: { profile: PublicProfile }) {
             <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4" role="dialog" aria-modal="true" aria-labelledby="booking-step-title">
                 <button type="button" aria-label="Cerrar" className="absolute inset-0 bg-black/40 backdrop-blur-[2px]" onClick={close} />
                 <div
-                    className="relative w-full max-w-md rounded-2xl border overflow-hidden"
-                    style={{ background: 'var(--surface)', borderColor: 'var(--border)', boxShadow: 'var(--shadow-md)', maxHeight: '90vh', overflowY: 'auto' }}
+                    className="relative w-full max-w-md rounded-2xl border overflow-hidden booking-modal booking-modal-scroll"
                 >
                     {/* Modal header */}
-                    <div className="flex items-center justify-between px-5 py-4 border-b" style={{ borderColor: 'var(--border)' }}>
+                    <div className="flex items-center justify-between px-5 py-4 border-b border-(--border)">
                         <div>
-                            <p className="text-xs" style={{ color: 'var(--fg-muted)' }}>{selectedService?.name}</p>
-                            <p id="booking-step-title" className="text-sm font-semibold" style={{ color: 'var(--fg)' }}>
+                            <p className="text-xs booking-muted">{selectedService?.name}</p>
+                            <p id="booking-step-title" className="text-sm font-semibold booking-fg">
                                 {step === 'date' && 'Elige una fecha'}
                                 {step === 'time' && 'Elige un horario'}
                                 {step === 'info' && 'Tus datos'}
@@ -455,8 +451,7 @@ export default function BookingFlow({ profile }: { profile: PublicProfile }) {
                             type="button"
                             aria-label="Cerrar"
                             onClick={close}
-                            className="w-8 h-8 rounded-lg flex items-center justify-center border transition-colors hover:bg-(--bg-subtle)"
-                            style={{ borderColor: 'var(--border)', color: 'var(--fg-muted)' }}
+                            className="w-8 h-8 rounded-lg flex items-center justify-center border transition-colors hover:bg-(--bg-subtle) booking-btn-outline"
                         >
                             <IconX size={14} />
                         </button>
@@ -467,19 +462,19 @@ export default function BookingFlow({ profile }: { profile: PublicProfile }) {
                         {step === 'date' && (
                             <div>
                                 <div className="flex items-center justify-between mb-4">
-                                    <button type="button" aria-label="Mes anterior" onClick={prevMonth} className="w-8 h-8 rounded-lg flex items-center justify-center border hover:bg-(--bg-subtle) transition-colors" style={{ borderColor: 'var(--border)', color: 'var(--fg-muted)' }}>
+                                    <button type="button" aria-label="Mes anterior" onClick={prevMonth} className="w-8 h-8 rounded-button flex items-center justify-center border hover:bg-(--bg-subtle) transition-colors booking-btn-outline">
                                         <IconChevronLeft size={16} />
                                     </button>
-                                    <p className="text-sm font-semibold" style={{ color: 'var(--fg)' }}>
+                                    <p className="text-sm font-semibold booking-fg">
                                         {MONTHS_ES[viewMonth]} {viewYear}
                                     </p>
-                                    <button type="button" aria-label="Mes siguiente" onClick={nextMonth} className="w-8 h-8 rounded-lg flex items-center justify-center border hover:bg-(--bg-subtle) transition-colors" style={{ borderColor: 'var(--border)', color: 'var(--fg-muted)' }}>
+                                    <button type="button" aria-label="Mes siguiente" onClick={nextMonth} className="w-8 h-8 rounded-button flex items-center justify-center border hover:bg-(--bg-subtle) transition-colors booking-btn-outline">
                                         <IconChevronRight size={16} />
                                     </button>
                                 </div>
                                 <div className="grid grid-cols-7 gap-1 mb-2">
                                     {DAYS_ES.map((d) => (
-                                        <p key={d} className="text-center text-xs font-medium" style={{ color: 'var(--fg-muted)' }}>{d}</p>
+                                        <p key={d} className="text-center text-xs font-medium booking-muted">{d}</p>
                                     ))}
                                 </div>
                                 <div className="grid grid-cols-7 gap-1">
@@ -496,14 +491,7 @@ export default function BookingFlow({ profile }: { profile: PublicProfile }) {
                                                 key={d}
                                                 disabled={!available}
                                                 onClick={() => available && handleDateSelect(dateStr)}
-                                                className="h-9 w-full rounded-xl text-sm transition-colors"
-                                                style={{
-                                                    background: isSelected ? 'var(--accent)' : 'transparent',
-                                                    color: isSelected ? '#fff' : available ? 'var(--fg)' : 'var(--fg-muted)',
-                                                    opacity: available ? 1 : 0.35,
-                                                    cursor: available ? 'pointer' : 'not-allowed',
-                                                    fontWeight: isSelected ? 600 : 400,
-                                                }}
+                                                className={`h-9 w-full rounded-xl text-sm transition-colors booking-day ${isSelected ? 'booking-day--selected' : ''} ${!available ? 'booking-day--disabled' : ''}`}
                                             >
                                                 {d}
                                             </button>
@@ -518,21 +506,20 @@ export default function BookingFlow({ profile }: { profile: PublicProfile }) {
                             <div>
                                 <button
                                     onClick={() => setStep('date')}
-                                    className="flex items-center gap-1 text-xs mb-4 hover:underline"
-                                    style={{ color: 'var(--fg-muted)' }}
+                                    className="flex items-center gap-1 text-xs mb-4 hover:underline booking-muted"
                                 >
                                     <IconChevronLeft size={12} />
                                     {selectedDate ? new Date(selectedDate + 'T12:00:00').toLocaleDateString('es-CL', { weekday: 'long', day: 'numeric', month: 'long' }) : ''}
                                 </button>
                                 {loadingSlots ? (
-                                    <div className="flex items-center justify-center py-8 gap-2 text-sm" style={{ color: 'var(--fg-muted)' }}>
+                                    <div className="flex items-center justify-center py-8 gap-2 text-sm booking-muted">
                                         <IconLoader2 size={16} className="animate-spin" /> Buscando horarios disponibles...
                                     </div>
                                 ) : slots.length === 0 ? (
                                     <div className="py-8 text-center">
-                                        <p className="text-sm font-medium mb-1" style={{ color: 'var(--fg)' }}>Sin horarios disponibles</p>
-                                        <p className="text-xs" style={{ color: 'var(--fg-muted)' }}>Elige otra fecha.</p>
-                                        <button onClick={() => setStep('date')} className="mt-4 px-4 py-2 rounded-xl border text-sm transition-colors hover:bg-(--bg-subtle)" style={{ borderColor: 'var(--border)', color: 'var(--fg-secondary)' }}>
+                                        <p className="text-sm font-medium mb-1 booking-fg">Sin horarios disponibles</p>
+                                        <p className="text-xs booking-muted">Elige otra fecha.</p>
+                                        <button onClick={() => setStep('date')} className="mt-4 px-4 py-2 rounded-button border text-sm transition-colors hover:bg-(--bg-subtle) booking-btn-secondary">
                                             Volver al calendario
                                         </button>
                                     </div>
@@ -542,12 +529,7 @@ export default function BookingFlow({ profile }: { profile: PublicProfile }) {
                                             <button
                                                 key={slot.startsAt}
                                                 onClick={() => handleSlotSelect(slot)}
-                                                className="py-2.5 rounded-xl border text-sm font-medium transition-colors"
-                                                style={{
-                                                    borderColor: selectedSlot?.startsAt === slot.startsAt ? 'var(--accent)' : 'var(--border)',
-                                                    background: selectedSlot?.startsAt === slot.startsAt ? 'var(--accent-soft)' : 'transparent',
-                                                    color: selectedSlot?.startsAt === slot.startsAt ? 'var(--accent)' : 'var(--fg)',
-                                                }}
+                                                className={`py-2.5 rounded-xl border text-sm font-medium transition-colors booking-slot ${selectedSlot?.startsAt === slot.startsAt ? 'booking-slot--selected' : ''}`}
                                             >
                                                 {formatTime(slot.startsAt, profile.timezone)}
                                             </button>
@@ -561,7 +543,7 @@ export default function BookingFlow({ profile }: { profile: PublicProfile }) {
                         {step === 'info' && (
                             <div>
                                 {selectedSlot && (
-                                    <div className="flex items-center gap-2 p-3 rounded-xl mb-5" style={{ background: 'var(--accent-soft)', color: 'var(--accent)' }}>
+                                    <div className="flex items-center gap-2 p-3 rounded-xl mb-5 booking-badge-online">
                                         <IconCalendar size={14} />
                                         <span className="text-xs font-medium">
                                             {formatDate(selectedSlot.startsAt, profile.timezone)} — {formatTime(selectedSlot.startsAt, profile.timezone)}
@@ -571,7 +553,7 @@ export default function BookingFlow({ profile }: { profile: PublicProfile }) {
                                 <div className="flex flex-col gap-4">
                                     <div className="grid grid-cols-2 gap-3">
                                         <div>
-                                            <label className="text-xs font-medium block mb-1.5" style={{ color: 'var(--fg-muted)' }}>
+                                            <label className="text-xs font-medium block mb-1.5 booking-muted">
                                                 <IconUser size={11} className="inline mr-1" />Nombre *
                                             </label>
                                             <input
@@ -583,7 +565,7 @@ export default function BookingFlow({ profile }: { profile: PublicProfile }) {
                                             />
                                         </div>
                                         <div>
-                                            <label className="text-xs font-medium block mb-1.5" style={{ color: 'var(--fg-muted)' }}>Apellido *</label>
+                                            <label className="text-xs font-medium block mb-1.5 booking-muted">Apellido *</label>
                                             <input
                                                 type="text"
                                                 value={clientLastName}
@@ -594,48 +576,44 @@ export default function BookingFlow({ profile }: { profile: PublicProfile }) {
                                         </div>
                                     </div>
                                     <div>
-                                        <label className="text-xs font-medium block mb-1.5" style={{ color: 'var(--fg-muted)' }}>
+                                        <label className="text-xs font-medium block mb-1.5 booking-muted">
                                             <IconMail size={11} className="inline mr-1" />Email
                                         </label>
                                         <input type="email" value={clientEmail} onChange={(e) => { setClientEmail(e.target.value); setInfoError(''); }} placeholder="tu@email.com" className="booking-input" />
                                     </div>
                                     <div>
-                                        <label className="text-xs font-medium block mb-1.5" style={{ color: 'var(--fg-muted)' }}>
+                                        <label className="text-xs font-medium block mb-1.5 booking-muted">
                                             <IconPhone size={11} className="inline mr-1" />Teléfono
                                         </label>
                                         <input type="tel" value={clientPhone} onChange={(e) => { setClientPhone(e.target.value); setInfoError(''); }} placeholder="+56 9 1234 5678" className="booking-input" />
                                     </div>
                                     <div>
-                                        <label className="text-xs font-medium block mb-1.5" style={{ color: 'var(--fg-muted)' }}>Mensaje (opcional)</label>
+                                        <label className="text-xs font-medium block mb-1.5 booking-muted">Mensaje (opcional)</label>
                                         <textarea value={clientNotes} onChange={(e) => setClientNotes(e.target.value)} placeholder="¿Hay algo que quieras comentarle al profesional?" rows={3} className="booking-input resize-none" />
                                     </div>
 
                                     {/* Recurrencia */}
                                     {profile.allowsRecurrentBooking && (
-                                    <div className="rounded-xl border p-3" style={{ borderColor: 'var(--border)', background: 'var(--bg-subtle)' }}>
+                                    <div className="rounded-xl border p-3 booking-subtle">
                                         <label className="flex items-start gap-3 cursor-pointer">
                                             <button
                                                 type="button"
                                                 onClick={() => setIsRecurring((v) => !v)}
-                                                className="mt-0.5 w-4 h-4 rounded border-2 flex items-center justify-center shrink-0 transition-colors"
-                                                style={{
-                                                    borderColor: isRecurring ? 'var(--accent)' : 'var(--border)',
-                                                    background: isRecurring ? 'var(--accent)' : 'transparent',
-                                                }}
+                                                className={`mt-0.5 w-4 h-4 rounded border-2 flex items-center justify-center shrink-0 transition-colors booking-checkbox ${isRecurring ? 'booking-checkbox--checked' : ''}`}
                                                 aria-label="Reservar varias sesiones"
                                             >
                                                 {isRecurring && <IconCheck size={10} color="#fff" />}
                                             </button>
                                             <div className="flex-1 min-w-0">
-                                                <p className="text-sm font-medium" style={{ color: 'var(--fg)' }}>Quiero reservar varias sesiones</p>
-                                                <p className="text-xs mt-0.5" style={{ color: 'var(--fg-muted)' }}>Se reservarán todas en el mismo horario del día elegido.</p>
+                                                <p className="text-sm font-medium booking-fg">Quiero reservar varias sesiones</p>
+                                                <p className="text-xs mt-0.5 booking-muted">Se reservarán todas en el mismo horario del día elegido.</p>
                                             </div>
                                         </label>
 
                                         {isRecurring && (
                                             <div className="mt-3 grid grid-cols-2 gap-2">
                                                 <div>
-                                                    <label className="text-xs font-medium block mb-1.5" style={{ color: 'var(--fg-muted)' }}>Frecuencia</label>
+                                                    <label className="text-xs font-medium block mb-1.5 booking-muted">Frecuencia</label>
                                                     <select
                                                         value={recurrenceFrequency}
                                                         onChange={(e) => setRecurrenceFrequency(e.target.value as RecurrenceFrequency)}
@@ -647,7 +625,7 @@ export default function BookingFlow({ profile }: { profile: PublicProfile }) {
                                                     </select>
                                                 </div>
                                                 <div>
-                                                    <label className="text-xs font-medium block mb-1.5" style={{ color: 'var(--fg-muted)' }}>Sesiones</label>
+                                                    <label className="text-xs font-medium block mb-1.5 booking-muted">Sesiones</label>
                                                     <input
                                                         type="number"
                                                         min={2}
@@ -664,12 +642,12 @@ export default function BookingFlow({ profile }: { profile: PublicProfile }) {
 
                                     {/* Cupón / código de descuento */}
                                     {selectedService?.price && (
-                                        <div className="rounded-xl border p-3" style={{ borderColor: 'var(--border)', background: 'var(--bg-subtle)' }}>
-                                            <label className="text-xs font-medium block mb-1.5" style={{ color: 'var(--fg-muted)' }}>
+                                        <div className="rounded-xl border p-3 booking-subtle">
+                                            <label className="text-xs font-medium block mb-1.5 booking-muted">
                                                 ¿Tienes un cupón de descuento?
                                             </label>
                                             {appliedPromo ? (
-                                                <div className="flex items-center gap-2 p-2 rounded-lg" style={{ background: 'var(--accent-soft)', color: 'var(--accent)' }}>
+                                                <div className="flex items-center gap-2 p-2 rounded-lg booking-badge-online">
                                                     <IconCheck size={14} className="shrink-0" />
                                                     <div className="flex-1 min-w-0">
                                                         <p className="text-xs font-semibold truncate">{appliedPromo.label}</p>
@@ -700,15 +678,14 @@ export default function BookingFlow({ profile }: { profile: PublicProfile }) {
                                                         type="button"
                                                         onClick={() => void handleApplyPromo()}
                                                         disabled={promoChecking || !promoCode.trim()}
-                                                        className="px-3 py-2 rounded-xl text-xs font-semibold transition-opacity hover:opacity-90 disabled:opacity-50 shrink-0"
-                                                        style={{ background: 'var(--accent)', color: '#fff' }}
+                                                        className="px-3 py-2 rounded-xl text-xs font-semibold transition-opacity hover:opacity-90 disabled:opacity-50 shrink-0 booking-btn-primary"
                                                     >
                                                         {promoChecking ? <IconLoader2 size={13} className="animate-spin" /> : 'Aplicar'}
                                                     </button>
                                                 </div>
                                             )}
                                             {promoError && (
-                                                <p className="flex items-center gap-1 text-[11px] mt-1.5" style={{ color: '#dc2626' }}>
+                                                <p className="flex items-center gap-1 text-[11px] mt-1.5 booking-error">
                                                     <IconAlertCircle size={11} /> {promoError}
                                                 </p>
                                             )}
@@ -716,15 +693,14 @@ export default function BookingFlow({ profile }: { profile: PublicProfile }) {
                                     )}
 
                                     {infoError && (
-                                        <p className="flex items-center gap-1.5 text-xs" style={{ color: '#dc2626' }}>
+                                        <p className="flex items-center gap-1.5 text-xs booking-error">
                                             <IconAlertCircle size={13} />{infoError}
                                         </p>
                                     )}
                                     <button
                                         onClick={handleInfoNext}
                                         disabled={!clientName.trim() || !clientLastName.trim()}
-                                        className="w-full py-3 rounded-xl text-sm font-semibold transition-opacity hover:opacity-90 disabled:opacity-50"
-                                        style={{ background: 'var(--accent)', color: '#fff' }}
+                                        className="w-full py-3 rounded-xl text-sm font-semibold transition-opacity hover:opacity-90 disabled:opacity-50 booking-btn-primary"
                                     >
                                         Continuar
                                     </button>
@@ -735,7 +711,7 @@ export default function BookingFlow({ profile }: { profile: PublicProfile }) {
                         {/* Step: Preconsult */}
                         {step === 'preconsult' && selectedService && (selectedService.preconsultFields?.length ?? 0) > 0 && (
                             <div className="flex flex-col gap-4">
-                                <p className="text-xs" style={{ color: 'var(--fg-muted)' }}>
+                                <p className="text-xs booking-muted">
                                     El profesional quiere conocer algunos detalles antes de tu cita. Tus respuestas son privadas.
                                 </p>
                                 {(selectedService.preconsultFields ?? []).map((field) => {
@@ -743,8 +719,8 @@ export default function BookingFlow({ profile }: { profile: PublicProfile }) {
                                     const setVal = (v: string | boolean) => setPreconsultValues((prev) => ({ ...prev, [field.id]: v }));
                                     return (
                                         <div key={field.id} className="flex flex-col gap-1.5">
-                                            <label className="text-xs font-medium" style={{ color: 'var(--fg)' }}>
-                                                {field.label}{field.required && <span style={{ color: 'var(--accent)' }}> *</span>}
+                                            <label className="text-xs font-medium booking-fg">
+                                                {field.label}{field.required && <span className="booking-required"> *</span>}
                                             </label>
                                             {field.type === 'textarea' && (
                                                 <textarea
@@ -783,27 +759,25 @@ export default function BookingFlow({ profile }: { profile: PublicProfile }) {
                                                         checked={val === true}
                                                         onChange={(e) => setVal(e.target.checked)}
                                                     />
-                                                    <span className="text-sm" style={{ color: 'var(--fg-muted)' }}>Sí</span>
+                                                    <span className="text-sm booking-muted">Sí</span>
                                                 </label>
                                             )}
                                         </div>
                                     );
                                 })}
-                                {preconsultError && <p className="text-xs" style={{ color: '#dc2626' }}>{preconsultError}</p>}
+                                {preconsultError && <p className="text-xs booking-error">{preconsultError}</p>}
                                 <div className="flex gap-2">
                                     <button
                                         type="button"
                                         onClick={() => setStep('info')}
-                                        className="px-4 py-2.5 rounded-xl border text-sm transition-colors hover:bg-(--bg-subtle)"
-                                        style={{ borderColor: 'var(--border)', color: 'var(--fg-secondary)' }}
+                                        className="px-4 py-2.5 rounded-xl border text-sm transition-colors hover:bg-(--bg-subtle) booking-btn-secondary"
                                     >
                                         Atrás
                                     </button>
                                     <button
                                         type="button"
                                         onClick={handlePreconsultNext}
-                                        className="flex-1 py-2.5 rounded-xl text-sm font-semibold transition-opacity hover:opacity-90"
-                                        style={{ background: 'var(--accent)', color: '#fff' }}
+                                        className="flex-1 py-2.5 rounded-xl text-sm font-semibold transition-opacity hover:opacity-90 booking-btn-primary"
                                     >
                                         Continuar
                                     </button>
@@ -814,32 +788,27 @@ export default function BookingFlow({ profile }: { profile: PublicProfile }) {
                         {/* Step: Encuadre */}
                         {step === 'encuadre' && (
                             <div>
-                                <p className="text-xs mb-3" style={{ color: 'var(--fg-muted)' }}>
+                                <p className="text-xs mb-3 booking-muted">
                                     Lee las condiciones de atención del profesional antes de confirmar tu cita.
                                 </p>
-                                <div className="rounded-xl border p-4 mb-5 text-sm leading-relaxed" style={{ borderColor: 'var(--border)', background: 'var(--bg-subtle)', color: 'var(--fg)', whiteSpace: 'pre-wrap' }}>
+                                <div className="rounded-xl border p-4 mb-5 text-sm leading-relaxed booking-encuadre-box">
                                     {profile.encuadre}
                                 </div>
                                 <label className="flex items-start gap-3 cursor-pointer mb-5">
                                     <button
                                         onClick={() => setPolicyAgreed(!policyAgreed)}
-                                        className="mt-0.5 w-5 h-5 rounded border-2 flex items-center justify-center shrink-0 transition-colors"
-                                        style={{
-                                            borderColor: policyAgreed ? 'var(--accent)' : 'var(--border)',
-                                            background: policyAgreed ? 'var(--accent)' : 'transparent',
-                                        }}
+                                        className={`mt-0.5 w-5 h-5 rounded border-2 flex items-center justify-center shrink-0 transition-colors booking-checkbox ${policyAgreed ? 'booking-checkbox--checked' : ''}`}
                                     >
                                         {policyAgreed && <IconCheck size={12} color="#fff" />}
                                     </button>
-                                    <span className="text-sm" style={{ color: 'var(--fg)' }}>
+                                    <span className="text-sm booking-fg">
                                         He leído y acepto las condiciones de atención.
                                     </span>
                                 </label>
                                 <button
                                     onClick={handleEncuadreNext}
                                     disabled={!policyAgreed || submitting}
-                                    className="w-full py-3 rounded-xl text-sm font-semibold transition-opacity hover:opacity-90 disabled:opacity-50"
-                                    style={{ background: 'var(--accent)', color: '#fff' }}
+                                    className="w-full py-3 rounded-xl text-sm font-semibold transition-opacity hover:opacity-90 disabled:opacity-50 booking-btn-primary"
                                 >
                                     {submitting ? <IconLoader2 size={16} className="animate-spin inline" /> : 'Confirmar reserva'}
                                 </button>
@@ -849,24 +818,23 @@ export default function BookingFlow({ profile }: { profile: PublicProfile }) {
                         {/* Step: Payment instructions */}
                         {step === 'payment' && (
                             <div>
-                                <p className="text-sm font-semibold mb-1" style={{ color: 'var(--fg)' }}>Pago anticipado</p>
-                                <p className="text-xs mb-5" style={{ color: 'var(--fg-muted)' }}>
+                                <p className="text-sm font-semibold mb-1 booking-fg">Pago anticipado</p>
+                                <p className="text-xs mb-5 booking-muted">
                                     Esta sesión requiere pago anticipado. Elige tu método de pago preferido.
                                 </p>
 
                                 <div className="flex flex-col gap-3 mb-5">
                                     {/* MercadoPago automatic checkout */}
                                     {profile.paymentMethods.mpConnected && selectedService?.price && (
-                                        <div className="rounded-xl border p-4" style={{ borderColor: 'var(--border)', background: 'var(--bg-subtle)' }}>
-                                            <p className="text-xs font-semibold mb-1" style={{ color: 'var(--fg)' }}>MercadoPago</p>
-                                            <p className="text-xs mb-3" style={{ color: 'var(--fg-muted)' }}>
+                                        <div className="rounded-xl border p-4 booking-subtle">
+                                            <p className="text-xs font-semibold mb-1 booking-fg">MercadoPago</p>
+                                            <p className="text-xs mb-3 booking-muted">
                                                 Paga de forma segura con tarjeta, débito o efectivo.
                                             </p>
                                             <button
                                                 onClick={() => void handleSubmitAndRedirect('mp')}
                                                 disabled={submitting}
-                                                className="w-full py-2.5 rounded-xl text-sm font-semibold transition-opacity hover:opacity-90 disabled:opacity-50 flex items-center justify-center gap-2"
-                                                style={{ background: '#009EE3', color: '#fff' }}
+                                                className="w-full py-2.5 rounded-xl text-sm font-semibold transition-opacity hover:opacity-90 disabled:opacity-50 flex items-center justify-center gap-2 booking-mercadopago"
                                             >
                                                 {submitting ? <IconLoader2 size={14} className="animate-spin" /> : null}
                                                 Pagar con MercadoPago
@@ -876,17 +844,16 @@ export default function BookingFlow({ profile }: { profile: PublicProfile }) {
 
                                     {/* Payment link */}
                                     {profile.paymentMethods.paymentLinkUrl && (
-                                        <div className="rounded-xl border p-4" style={{ borderColor: 'var(--border)', background: 'var(--bg-subtle)' }}>
-                                            <p className="text-xs font-semibold mb-1" style={{ color: 'var(--fg)' }}>Link de pago</p>
-                                            <p className="text-xs mb-3" style={{ color: 'var(--fg-muted)' }}>
+                                        <div className="rounded-xl border p-4 booking-subtle">
+                                            <p className="text-xs font-semibold mb-1 booking-fg">Link de pago</p>
+                                            <p className="text-xs mb-3 booking-muted">
                                                 Paga a través del link del profesional.
                                             </p>
                                             <a
                                                 href={profile.paymentMethods.paymentLinkUrl}
                                                 target="_blank"
                                                 rel="noopener noreferrer"
-                                                className="w-full py-2.5 rounded-xl text-sm font-semibold transition-opacity hover:opacity-90 flex items-center justify-center gap-2 block text-center"
-                                                style={{ background: 'var(--accent)', color: '#fff' }}
+                                                className="w-full py-2.5 rounded-xl text-sm font-semibold transition-opacity hover:opacity-90 flex items-center justify-center gap-2 block text-center booking-btn-primary"
                                                 onClick={() => void handleSubmit()}
                                             >
                                                 Ir a pagar
@@ -896,8 +863,8 @@ export default function BookingFlow({ profile }: { profile: PublicProfile }) {
 
                                     {/* Bank transfer */}
                                     {profile.paymentMethods.bankTransferData && (
-                                        <div className="rounded-xl border p-4" style={{ borderColor: 'var(--border)', background: 'var(--bg-subtle)' }}>
-                                            <p className="text-xs font-semibold mb-2" style={{ color: 'var(--fg)' }}>Transferencia bancaria</p>
+                                        <div className="rounded-xl border p-4 booking-subtle">
+                                            <p className="text-xs font-semibold mb-2 booking-fg">Transferencia bancaria</p>
                                             <div className="flex flex-col gap-1 mb-3">
                                                 {[
                                                     ['Banco', profile.paymentMethods.bankTransferData.bank],
@@ -909,16 +876,15 @@ export default function BookingFlow({ profile }: { profile: PublicProfile }) {
                                                     ...(profile.paymentMethods.bankTransferData.alias ? [['Asunto', profile.paymentMethods.bankTransferData.alias]] : []),
                                                 ].map(([label, value]) => (
                                                     <div key={label} className="flex items-center justify-between text-xs">
-                                                        <span style={{ color: 'var(--fg-muted)' }}>{label}</span>
-                                                        <span className="font-medium" style={{ color: 'var(--fg)' }}>{value}</span>
+                                                        <span className="booking-muted">{label}</span>
+                                                        <span className="font-medium booking-fg">{value}</span>
                                                     </div>
                                                 ))}
                                             </div>
                                             <button
                                                 onClick={() => void handleSubmit()}
                                                 disabled={submitting}
-                                                className="w-full py-2.5 rounded-xl text-sm font-semibold transition-opacity hover:opacity-90 disabled:opacity-50 flex items-center justify-center gap-2"
-                                                style={{ background: 'var(--accent)', color: '#fff' }}
+                                                className="w-full py-2.5 rounded-xl text-sm font-semibold transition-opacity hover:opacity-90 disabled:opacity-50 flex items-center justify-center gap-2 booking-btn-primary"
                                             >
                                                 {submitting ? <IconLoader2 size={14} className="animate-spin" /> : null}
                                                 Confirmar reserva
@@ -928,15 +894,14 @@ export default function BookingFlow({ profile }: { profile: PublicProfile }) {
 
                                     {/* Fallback: no methods configured but requiresAdvancePayment */}
                                     {!profile.paymentMethods.mpConnected && !profile.paymentMethods.paymentLinkUrl && !profile.paymentMethods.bankTransferData && (
-                                        <div className="rounded-xl border p-4" style={{ borderColor: 'var(--border)' }}>
-                                            <p className="text-xs mb-3" style={{ color: 'var(--fg-muted)' }}>
+                                        <div className="rounded-xl border p-4 border-(--border)">
+                                            <p className="text-xs mb-3 booking-muted">
                                                 El profesional confirmará los detalles de pago contigo directamente.
                                             </p>
                                             <button
                                                 onClick={() => void handleSubmit()}
                                                 disabled={submitting}
-                                                className="w-full py-2.5 rounded-xl text-sm font-semibold transition-opacity hover:opacity-90 disabled:opacity-50 flex items-center justify-center gap-2"
-                                                style={{ background: 'var(--accent)', color: '#fff' }}
+                                                className="w-full py-2.5 rounded-xl text-sm font-semibold transition-opacity hover:opacity-90 disabled:opacity-50 flex items-center justify-center gap-2 booking-btn-primary"
                                             >
                                                 {submitting ? <IconLoader2 size={14} className="animate-spin" /> : null}
                                                 Confirmar reserva
@@ -946,7 +911,7 @@ export default function BookingFlow({ profile }: { profile: PublicProfile }) {
                                 </div>
 
                                 {submitError && (
-                                    <div className="flex items-center gap-2 p-3 rounded-xl text-sm" style={{ background: 'rgba(220,38,38,0.1)', color: '#dc2626' }}>
+                                    <div className="flex items-center gap-2 p-3 rounded-xl text-sm booking-error-banner">
                                         <IconAlertCircle size={14} /> {submitError}
                                     </div>
                                 )}
@@ -957,34 +922,33 @@ export default function BookingFlow({ profile }: { profile: PublicProfile }) {
                         {step === 'confirmed' && (
                             <div className="text-center py-4">
                                 <div
-                                    className="w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4"
-                                    style={{ background: 'var(--accent-soft)', color: 'var(--accent)' }}
+                                    className="w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4 booking-badge-online"
                                 >
                                     <IconCheck size={32} />
                                 </div>
-                                <h3 className="text-lg font-bold mb-1" style={{ color: 'var(--fg)' }}>
+                                <h3 className="text-lg font-bold mb-1 booking-fg">
                                     {confirmedAppt?.status === 'confirmed' ? '¡Cita confirmada!' : 'Solicitud enviada'}
                                 </h3>
-                                <p className="text-sm mb-2" style={{ color: 'var(--fg-muted)' }}>
+                                <p className="text-sm mb-2 booking-muted">
                                     {confirmedAppt?.status === 'confirmed'
                                         ? 'Tu cita ha sido confirmada automáticamente.'
                                         : 'El profesional revisará tu solicitud y te contactará pronto.'}
                                 </p>
                                 {selectedSlot && (
-                                    <p className="text-sm font-medium mb-4" style={{ color: 'var(--fg)' }}>
+                                    <p className="text-sm font-medium mb-4 booking-fg">
                                         {formatDate(selectedSlot.startsAt, profile.timezone)}<br />
                                         {formatTime(selectedSlot.startsAt, profile.timezone)} — {formatTime(selectedSlot.endsAt, profile.timezone)}
                                     </p>
                                 )}
                                 {confirmedSeries && confirmedSeries.length > 1 && (
-                                    <div className="rounded-xl border p-3 mb-4 text-left" style={{ borderColor: 'var(--accent-border)', background: 'var(--accent-soft)' }}>
-                                        <p className="text-xs font-semibold mb-2" style={{ color: 'var(--accent)' }}>
+                                    <div className="rounded-xl border p-3 mb-4 text-left booking-confirmed-box">
+                                        <p className="text-xs font-semibold mb-2 booking-video-label">
                                             Reservaste {confirmedSeries.length} sesiones
                                         </p>
-                                        <ul className="flex flex-col gap-1 text-xs" style={{ color: 'var(--fg)' }}>
+                                        <ul className="flex flex-col gap-1 text-xs booking-fg">
                                             {confirmedSeries.map((a, i) => (
                                                 <li key={a.id} className="flex items-center gap-2">
-                                                    <span className="w-4 text-right" style={{ color: 'var(--fg-muted)' }}>{i + 1}.</span>
+                                                    <span className="w-4 text-right booking-muted">{i + 1}.</span>
                                                     <span>{formatDate(a.startsAt, profile.timezone)} — {formatTime(a.startsAt, profile.timezone)}</span>
                                                 </li>
                                             ))}
@@ -992,13 +956,10 @@ export default function BookingFlow({ profile }: { profile: PublicProfile }) {
                                     </div>
                                 )}
                                 {confirmedAppt?.modality === 'online' && confirmedAppt?.meetingUrl && (
-                                    <div
-                                        className="rounded-xl border p-3 mb-3 text-left"
-                                        style={{ borderColor: 'var(--border)', background: 'color-mix(in srgb, var(--accent) 6%, transparent)' }}
-                                    >
+                                    <div className="rounded-xl border p-3 mb-3 text-left booking-video-box">
                                         <div className="flex items-center gap-2 mb-1.5">
-                                            <IconVideo size={14} style={{ color: 'var(--accent)' }} />
-                                            <span className="text-xs font-semibold uppercase tracking-wide" style={{ color: 'var(--accent)' }}>
+                                            <IconVideo size={14} className="booking-video-label" />
+                                            <span className="text-xs font-semibold uppercase tracking-wide booking-video-label">
                                                 Google Meet
                                             </span>
                                         </div>
@@ -1006,42 +967,36 @@ export default function BookingFlow({ profile }: { profile: PublicProfile }) {
                                             href={confirmedAppt.meetingUrl}
                                             target="_blank"
                                             rel="noreferrer"
-                                            className="block text-xs break-all font-mono"
-                                            style={{ color: 'var(--fg)' }}
+                                            className="block text-xs break-all font-mono booking-fg"
                                         >
                                             {confirmedAppt.meetingUrl}
                                         </a>
-                                        <p className="text-[11px] mt-1.5" style={{ color: 'var(--fg-muted)' }}>
+                                        <p className="text-[11px] mt-1.5 booking-muted">
                                             Guarda este enlace. Te lo reenviaremos por correo y WhatsApp.
                                         </p>
                                     </div>
                                 )}
                                 {confirmedAppt?.modality === 'online' && !confirmedAppt?.meetingUrl && (
-                                    <div
-                                        className="rounded-xl border p-3 mb-3 text-left text-xs"
-                                        style={{ borderColor: 'var(--border)', background: 'var(--bg-subtle)', color: 'var(--fg-muted)' }}
-                                    >
+                                    <div className="rounded-xl border p-3 mb-3 text-left text-xs booking-muted-box">
                                         El profesional te compartirá el enlace de la videollamada por correo o WhatsApp.
                                     </div>
                                 )}
                                 {confirmedAppt?.paymentStatus === 'pending' && checkoutUrl && (
                                     <a
                                         href={checkoutUrl}
-                                        className="block w-full py-2.5 rounded-xl text-sm font-semibold text-center transition-opacity hover:opacity-90 mb-3"
-                                        style={{ background: '#009EE3', color: '#fff' }}
+                                        className="block w-full py-2.5 rounded-xl text-sm font-semibold text-center transition-opacity hover:opacity-90 mb-3 booking-mercadopago"
                                     >
                                         Completar pago en MercadoPago
                                     </a>
                                 )}
                                 {confirmedAppt?.paymentStatus === 'pending' && !checkoutUrl && (
-                                    <div className="rounded-xl border p-3 mb-4 text-xs text-left" style={{ borderColor: 'var(--border)', background: 'var(--bg-subtle)', color: 'var(--fg-muted)' }}>
+                                    <div className="rounded-xl border p-3 mb-4 text-xs text-left booking-muted-box">
                                         Recuerda realizar el pago anticipado según las instrucciones recibidas para asegurar tu cita.
                                     </div>
                                 )}
                                 <button
                                     onClick={close}
-                                    className="px-6 py-2.5 rounded-xl text-sm font-semibold border transition-colors hover:bg-(--bg-subtle)"
-                                    style={{ borderColor: 'var(--border)', color: 'var(--fg-secondary)' }}
+                                    className="px-6 py-2.5 rounded-xl text-sm font-semibold border transition-colors hover:bg-(--bg-subtle) booking-btn-secondary"
                                 >
                                     Cerrar
                                 </button>
@@ -1050,7 +1005,7 @@ export default function BookingFlow({ profile }: { profile: PublicProfile }) {
 
                         {/* Error banner for non-payment steps */}
                         {submitError && step !== 'payment' && (
-                            <div className="flex items-center gap-2 p-3 rounded-xl text-sm mt-4" style={{ background: 'rgba(220,38,38,0.1)', color: '#dc2626' }}>
+                            <div className="flex items-center gap-2 p-3 rounded-xl text-sm mt-4 booking-error-banner">
                                 <IconAlertCircle size={14} /> {submitError}
                             </div>
                         )}
@@ -1061,3 +1016,5 @@ export default function BookingFlow({ profile }: { profile: PublicProfile }) {
         </>
     );
 }
+
+

@@ -1,14 +1,32 @@
 'use client';
 
 import { useEffect, useMemo, useRef, useState, type ComponentType, type CSSProperties, type ReactNode } from 'react';
-import { IconBuildingSkyscraper, IconCalendar, IconConfetti, IconDotsCircleHorizontal, IconMusic, IconSteeringWheel, IconUser } from '@tabler/icons-react';
+import { IconBuildingSkyscraper, IconCalendar, IconConfetti, IconDotsCircleHorizontal, IconSteeringWheel, IconUser } from '@tabler/icons-react';
 import clsx from 'clsx';
 import { getSimpleAppBrand, type SimpleAppId } from '@simple/config';
-import type { AddressBookEntry, AddressBookKind, ListingLocation, ListingLocationKind, ListingLocationVisibilityMode } from '@simple/types';
-import { applyAddressBookEntryToLocation, createEmptyListingLocation, patchListingLocation } from '@simple/types';
-
 export * from './theme-provider';
 export * from './modern-select';
+
+// Deuda técnica: Google Places Autocomplete (API clásica). Migrar a PlaceAutocompleteElement cuando actualicemos la integración.
+import { joinClasses } from './shared/join-classes';
+import { PanelButton, getPanelButtonClassName, getPanelButtonStyle, type PanelButtonProps } from './panel/panel-button';
+import { PanelCard, type PanelCardProps } from './panel/panel-card';
+export { ThemeProvider, useTheme, useThemeToggle, SIMPLE_THEME_PROVIDER_DEFAULTS } from './theme-provider';
+export type { SimpleThemeProviderProps } from './theme-provider';
+export { ThemeToggleButton, type ThemeToggleButtonProps } from './theme-toggle-button';
+export { joinClasses };
+export {
+    ListingLocationEditor,
+    LocationMapPreview,
+    type ListingLocationEditorProps,
+    type LocationMapPreviewProps,
+} from './location/listing-location-editor';
+export { AddressBookManager, type AddressBookManagerSubmitInput } from './address-book/address-book-manager';
+export { useAddressBookPage } from './address-book/use-address-book-page';
+export { PanelButton, getPanelButtonClassName, getPanelButtonStyle, type PanelButtonProps } from './panel/panel-button';
+export { PanelCard, type PanelCardProps } from './panel/panel-card';
+export { PanelFilterChip, type PanelFilterChipProps } from './panel/panel-filter-chip';
+
 type SelectOption = {
     value: string;
     label: string;
@@ -123,54 +141,6 @@ export function BrandLogo({
     );
 }
 
-type FieldErrorMap = Partial<Record<'regionId' | 'communeId' | 'sourceAddressId' | 'addressLine1', string>>;
-
-type VisibilityOption = {
-    value: ListingLocationVisibilityMode;
-    label: string;
-};
-
-type ListingLocationEditorProps = {
-    title?: string;
-    description?: string;
-    showHeader?: boolean;
-    framed?: boolean;
-    simpleMode?: boolean;
-    location: ListingLocation;
-    onChange: (next: ListingLocation) => void;
-    regions: SelectOption[];
-    communes: SelectOption[];
-    allCommunes?: SelectOption[];
-    addressBook: AddressBookEntry[];
-    addressBookLoading?: boolean;
-    errors?: FieldErrorMap;
-    allowAreaOnly?: boolean;
-    showAreaFields?: boolean;
-    addressFirst?: boolean;
-    showSourceSelector?: boolean;
-    showVisibilityField?: boolean;
-    showPublicPreviewCard?: boolean;
-    showActionBar?: boolean;
-    showGoogleMapsLink?: boolean;
-    showLocationMeta?: boolean;
-    addressRequired?: boolean;
-    showAddressLine2?: boolean;
-    showSimpleVisibilityToggle?: boolean;
-    visibilityOptions?: VisibilityOption[];
-    geocoding?: boolean;
-    googleMapsApiKey?: string;
-    onGeocode?: () => void | Promise<void>;
-    onSaveToAddressBook?: () => void | Promise<void>;
-};
-
-type LocationMapPreviewProps = {
-    location: ListingLocation;
-    title?: string;
-    subtitle?: string;
-    mode?: 'public' | 'internal';
-    showTechnicalMeta?: boolean;
-};
-
 export type InstagramTemplatePreviewData = {
     layoutVariant: 'square' | 'portrait';
     overlayVariant: string;
@@ -212,13 +182,6 @@ type InstagramTemplatePreviewProps = {
     style?: CSSProperties;
 };
 
-export type AddressBookManagerSubmitInput = {
-    id?: string;
-    label: string;
-    kind: AddressBookKind;
-    isDefault: boolean;
-    location: ListingLocation;
-};
 
 function clampPreviewText(value: string | undefined | null, maxLength: number): string {
     if (!value) return '';
@@ -301,11 +264,11 @@ export function InstagramTemplatePreview(props: InstagramTemplatePreviewProps) {
     const ctaLabel = template ? clampPreviewText(template.ctaLabel, 24) : '';
     const priceLockup = template ? splitPreviewPrice(template.priceLabel) : { prefix: '', amount: '' };
     const effectiveLayoutVariant = template?.layoutVariant ?? layoutVariant ?? 'square';
-    const brandAccent = template?.branding.appId === 'simplepropiedades' ? '#3232FF' : '#ff3600';
+    const brandAccent = getSimpleAppBrand(template?.branding.appId ?? 'simpleautos').accentLight;
 
     return (
         <div
-            className={`relative overflow-hidden rounded-2xl border ${className ?? ''}`.trim()}
+            className={`relative overflow-hidden rounded-card border ${className ?? ''}`.trim()}
             style={{
                 aspectRatio: effectiveLayoutVariant === 'portrait' ? '3 / 4' : '1 / 1',
                 borderColor: 'var(--border)',
@@ -752,20 +715,6 @@ export function InstagramTemplatePreview(props: InstagramTemplatePreviewProps) {
     );
 }
 
-type AddressBookManagerProps = {
-    title?: string;
-    description?: string;
-    showHeader?: boolean;
-    googleMapsApiKey?: string;
-    entries: AddressBookEntry[];
-    regions: SelectOption[];
-    getCommunes: (regionId: string) => SelectOption[];
-    loading?: boolean;
-    saving?: boolean;
-    deletingId?: string | null;
-    onSaveEntry: (input: AddressBookManagerSubmitInput) => boolean | Promise<boolean>;
-    onDeleteEntry: (entryId: string) => void | Promise<void>;
-};
 
 type PanelPillNavItem = {
     key: string;
@@ -886,16 +835,6 @@ type PanelSwitchProps = {
     size?: 'sm' | 'md';
 };
 
-type PanelButtonProps = {
-    children: React.ReactNode;
-    onClick?: React.MouseEventHandler<HTMLButtonElement>;
-    type?: 'button' | 'submit' | 'reset';
-    disabled?: boolean;
-    className?: string;
-    size?: PanelButtonSize;
-    variant?: PanelButtonVariant;
-};
-
 type PanelChoiceCardProps = {
     children: React.ReactNode;
     onClick?: React.MouseEventHandler<HTMLButtonElement>;
@@ -983,10 +922,6 @@ type PanelDocumentUploaderProps = {
     maxBytes?: number;
 };
 
-type PanelButtonSize = 'sm' | 'md';
-
-type PanelButtonVariant = 'primary' | 'secondary' | 'danger' | 'ghost' | 'accent';
-
 type PanelFieldProps = {
     label: string;
     hint?: string;
@@ -1008,13 +943,6 @@ type PanelBlockHeaderProps = {
     description?: React.ReactNode;
     actions?: React.ReactNode;
     className?: string;
-};
-
-type PanelCardProps = {
-    children: React.ReactNode;
-    className?: string;
-    tone?: 'surface' | 'default' | 'subtle';
-    size?: 'sm' | 'md' | 'lg';
 };
 
 type PanelNoticeProps = {
@@ -1048,438 +976,6 @@ type PanelEmptyStateProps = {
     className?: string;
 };
 
-type GoogleAddressComponent = {
-    long_name?: string;
-    short_name?: string;
-    types?: string[];
-};
-
-type GooglePlaceResult = {
-    address_components?: GoogleAddressComponent[];
-    formatted_address?: string;
-    geometry?: {
-        location?: {
-            lat?: () => number;
-            lng?: () => number;
-        };
-    };
-    name?: string;
-};
-
-const DEFAULT_VISIBILITY_OPTIONS: VisibilityOption[] = [
-    { value: 'exact', label: 'Exacta' },
-    { value: 'approximate', label: 'Aproximada en mapa' },
-    { value: 'sector_only', label: 'Solo sector / barrio' },
-    { value: 'commune_only', label: 'Solo comuna' },
-    { value: 'hidden', label: 'Oculta' },
-];
-
-const LOCATION_KIND_LABELS: Record<ListingLocationKind, string> = {
-    personal: 'Dirección personal',
-    office: 'Oficina',
-    clinic: 'Consulta médica',
-    store: 'Local comercial',
-    branch: 'Sucursal',
-    company: 'Empresa',
-    warehouse: 'Bodega',
-    shipping: 'Envíos',
-    pickup: 'Retiro',
-    billing: 'Facturación',
-    other: 'Otro',
-};
-const ADDRESS_KIND_OPTIONS: Array<{ value: AddressBookKind; label: string }> = (
-    Object.keys(LOCATION_KIND_LABELS) as ListingLocationKind[]
-).map((k) => ({ value: k, label: LOCATION_KIND_LABELS[k] }));
-
-let googlePlacesScriptPromise: Promise<boolean> | null = null;
-
-function createEmptyGeoPoint(): ListingLocation['geoPoint'] {
-    return {
-        latitude: null,
-        longitude: null,
-        precision: 'none',
-        provider: 'none',
-        accuracyMeters: null,
-    };
-}
-
-function clearResolvedGeo(location: ListingLocation): Partial<ListingLocation> {
-    if (location.geoPoint.precision === 'none' && location.publicGeoPoint.precision === 'none') {
-        return {};
-    }
-
-    return {
-        geoPoint: createEmptyGeoPoint(),
-        publicGeoPoint: createEmptyGeoPoint(),
-    };
-}
-
-function ensureGooglePlacesDropdownStyles() {
-    if (typeof document === 'undefined') return;
-    if (document.head.querySelector('style[data-google-pac-styles="true"]')) return;
-
-    const style = document.createElement('style');
-    style.dataset.googlePacStyles = 'true';
-    style.textContent = `
-        .pac-container {
-            margin-top: 8px !important;
-            border: 1px solid var(--border) !important;
-            border-radius: 14px !important;
-            background: var(--surface) !important;
-            box-shadow: 0 18px 44px rgba(0,0,0,0.16) !important;
-            overflow: hidden !important;
-            z-index: 9999 !important;
-            font-family: inherit !important;
-        }
-        .pac-item {
-            display: flex !important;
-            align-items: center !important;
-            gap: 8px !important;
-            padding: 10px 16px !important;
-            border-top: 1px solid var(--border) !important;
-            color: var(--fg) !important;
-            font-size: 13px !important;
-            line-height: 1 !important;
-            background: transparent !important;
-            white-space: nowrap !important;
-            overflow: hidden !important;
-            cursor: pointer !important;
-        }
-        .pac-item:first-child {
-            border-top: 0 !important;
-        }
-        .pac-item:hover,
-        .pac-item-selected {
-            background: var(--bg-subtle) !important;
-        }
-        .pac-icon {
-            display: none !important;
-        }
-        .pac-item-query {
-            flex-shrink: 0 !important;
-            font-size: 13px !important;
-            font-weight: 600 !important;
-            color: var(--fg) !important;
-            overflow: hidden !important;
-            text-overflow: ellipsis !important;
-            white-space: nowrap !important;
-        }
-        .pac-matched {
-            font-weight: 700 !important;
-        }
-        .pac-item span:not(.pac-icon):not(.pac-item-query) {
-            flex: 1 !important;
-            font-size: 12px !important;
-            color: var(--fg-muted) !important;
-            overflow: hidden !important;
-            text-overflow: ellipsis !important;
-            white-space: nowrap !important;
-        }
-    `;
-    document.head.appendChild(style);
-}
-
-function normalizeText(value: string | null | undefined) {
-    return (value || '')
-        .normalize('NFD')
-        .replace(/[\u0300-\u036f]/g, '')
-        .toLowerCase()
-        .trim();
-}
-
-function findGoogleComponent(components: GoogleAddressComponent[] | undefined, types: string[]) {
-    if (!Array.isArray(components)) return null;
-    return components.find((component) => Array.isArray(component.types) && types.every((type) => component.types?.includes(type))) || null;
-}
-
-function buildAddressLineFromPlace(place: GooglePlaceResult) {
-    const streetNumber = findGoogleComponent(place.address_components, ['street_number'])?.long_name || '';
-    const route = findGoogleComponent(place.address_components, ['route'])?.long_name || '';
-    const direct = [route, streetNumber].filter(Boolean).join(' ').trim();
-    return direct || place.name || place.formatted_address || '';
-}
-
-function buildPublicPreviewPoint(
-    location: ListingLocation,
-    point: ListingLocation['geoPoint']
-): ListingLocation['publicGeoPoint'] {
-    if (location.visibilityMode === 'hidden' || !location.publicMapEnabled) {
-        return createEmptyGeoPoint();
-    }
-
-    if (location.visibilityMode === 'commune_only') {
-        return location.publicGeoPoint;
-    }
-
-    return {
-        ...point,
-        precision: location.visibilityMode === 'exact' ? 'exact' : 'approximate',
-    };
-}
-
-function applyPlaceToLocation(
-    place: GooglePlaceResult,
-    location: ListingLocation,
-    regions: SelectOption[],
-    communes: SelectOption[]
-): ListingLocation {
-    const latitude = place.geometry?.location?.lat?.();
-    const longitude = place.geometry?.location?.lng?.();
-    const nextAddress = buildAddressLineFromPlace(place).trim();
-    const nextNeighborhood = findGoogleComponent(place.address_components, ['sublocality_level_1'])?.long_name
-        || findGoogleComponent(place.address_components, ['neighborhood'])?.long_name
-        || findGoogleComponent(place.address_components, ['sublocality'])?.long_name
-        || location.neighborhood
-        || null;
-    const nextPostalCode = findGoogleComponent(place.address_components, ['postal_code'])?.long_name || location.postalCode || null;
-    const nextCountryCode = findGoogleComponent(place.address_components, ['country'])?.short_name || location.countryCode || 'CL';
-    const regionNameFromPlace = findGoogleComponent(place.address_components, ['administrative_area_level_1'])?.long_name || location.regionName || null;
-    const communeNameFromPlace = findGoogleComponent(place.address_components, ['administrative_area_level_3'])?.long_name
-        || findGoogleComponent(place.address_components, ['locality'])?.long_name
-        || findGoogleComponent(place.address_components, ['administrative_area_level_2'])?.long_name
-        || location.communeName
-        || null;
-    const matchedRegion = regionNameFromPlace
-        ? regions.find((item) => {
-            const itemLabel = normalizeText(item.label);
-            const placeLabel = normalizeText(regionNameFromPlace);
-            return itemLabel === placeLabel || itemLabel.includes(placeLabel) || placeLabel.includes(itemLabel);
-        })
-        : null;
-    const matchedCommune = communeNameFromPlace
-        ? communes.find((item) => normalizeText(item.label) === normalizeText(communeNameFromPlace))
-        : null;
-    const nextRegionId = matchedRegion?.value || location.regionId;
-    const nextRegionName = matchedRegion?.label || regionNameFromPlace;
-    const regionChanged = Boolean(matchedRegion?.value && matchedRegion.value !== location.regionId);
-    const nextCommuneId = matchedCommune?.value || (regionChanged ? null : location.communeId);
-    const nextCommuneName = matchedCommune?.label || communeNameFromPlace;
-    const nextPoint = typeof latitude === 'number' && typeof longitude === 'number'
-        ? {
-            latitude,
-            longitude,
-            precision: 'exact' as const,
-            provider: 'external' as const,
-            accuracyMeters: 20,
-        }
-        : createEmptyGeoPoint();
-
-    return patchListingLocation(location, {
-        sourceMode: location.sourceMode === 'saved_address' ? 'custom' : location.sourceMode,
-        sourceAddressId: location.sourceMode === 'saved_address' ? null : location.sourceAddressId,
-        countryCode: nextCountryCode,
-        regionId: nextRegionId,
-        regionName: nextRegionName,
-        communeId: nextCommuneId,
-        communeName: nextCommuneName,
-        neighborhood: nextNeighborhood,
-        addressLine1: nextAddress || location.addressLine1,
-        postalCode: nextPostalCode,
-        geoPoint: nextPoint,
-        publicGeoPoint: buildPublicPreviewPoint(location, nextPoint),
-    });
-}
-
-function loadGooglePlacesScript(apiKey: string): Promise<boolean> {
-    if (!apiKey || typeof window === 'undefined') return Promise.resolve(false);
-    const googleMaps = (window as typeof window & { google?: any }).google;
-    if (googleMaps?.maps?.places?.Autocomplete) {
-        return Promise.resolve(true);
-    }
-    if (googleMaps?.maps?.importLibrary) {
-        return googleMaps.maps.importLibrary('places')
-            .then(() => Boolean((window as typeof window & { google?: any }).google?.maps?.places?.Autocomplete))
-            .catch(() => false);
-    }
-
-    if (googlePlacesScriptPromise) return googlePlacesScriptPromise;
-
-    googlePlacesScriptPromise = new Promise((resolve) => {
-        const existingScript = document.querySelector<HTMLScriptElement>('script[data-google-places-script="true"]');
-        if (existingScript) {
-            if ((window as typeof window & { google?: any }).google?.maps?.places?.Autocomplete) {
-                resolve(true);
-                return;
-            }
-            if (existingScript.dataset.googlePlacesLoaded === 'true' || existingScript.dataset.googlePlacesFailed === 'true') {
-                existingScript.remove();
-            } else {
-                const timer = window.setTimeout(() => {
-                    googlePlacesScriptPromise = null;
-                    resolve(Boolean((window as typeof window & { google?: any }).google?.maps?.places?.Autocomplete));
-                }, 8000);
-                existingScript.addEventListener('load', () => {
-                    window.clearTimeout(timer);
-                    resolve(Boolean((window as typeof window & { google?: any }).google?.maps?.places?.Autocomplete));
-                }, { once: true });
-                existingScript.addEventListener('error', () => {
-                    window.clearTimeout(timer);
-                    googlePlacesScriptPromise = null;
-                    resolve(false);
-                }, { once: true });
-                return;
-            }
-        }
-
-        const script = document.createElement('script');
-        script.src = `https://maps.googleapis.com/maps/api/js?key=${encodeURIComponent(apiKey)}&libraries=places&language=es&region=CL&loading=async`;
-        script.async = true;
-        script.defer = true;
-        script.dataset.googlePlacesScript = 'true';
-        script.dataset.googlePlacesKey = apiKey;
-        script.onload = () => {
-            const ok = Boolean((window as typeof window & { google?: any }).google?.maps?.places?.Autocomplete);
-            script.dataset.googlePlacesLoaded = 'true';
-            if (!ok) googlePlacesScriptPromise = null;
-            resolve(ok);
-        };
-        script.onerror = () => {
-            script.dataset.googlePlacesFailed = 'true';
-            googlePlacesScriptPromise = null;
-            resolve(false);
-        };
-        document.head.appendChild(script);
-    });
-
-    return googlePlacesScriptPromise;
-}
-
-function GoogleMapIcon() {
-    return (
-        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-            <path d="M12 21s7-5.7 7-12a7 7 0 1 0-14 0c0 6.3 7 12 7 12Z" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-            <path d="M12 11.5a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5Z" stroke="currentColor" strokeWidth="1.8" />
-        </svg>
-    );
-}
-
-function ShareIcon() {
-    return (
-        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-            <path d="M8.8 10.7 15.2 7M8.8 13.3l6.4 3.7M7 15.5a3 3 0 1 0 0-6 3 3 0 0 0 0 6ZM17 8.5a3 3 0 1 0 0-6 3 3 0 0 0 0 6ZM17 21.5a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-        </svg>
-    );
-}
-
-function fieldError(errors: FieldErrorMap | undefined, key: keyof FieldErrorMap) {
-    return errors?.[key] ?? null;
-}
-
-function joinClasses(...values: Array<string | false | null | undefined>) {
-    return values.filter(Boolean).join(' ');
-}
-
-function Field(props: { label: string; required?: boolean; error?: string | null; hint?: string; children: React.ReactNode }) {
-    return (
-        <div>
-            <label className="block text-sm font-medium mb-1.5" style={{ color: 'var(--fg-secondary)' }}>
-                {props.label}
-                {props.required ? <span style={{ color: '#b45309' }}> *</span> : null}
-            </label>
-            {props.children}
-            {props.hint ? <p className="text-xs mt-1" style={{ color: 'var(--fg-muted)' }}>{props.hint}</p> : null}
-            {props.error ? <p className="text-xs mt-1" style={{ color: '#b42318' }}>{props.error}</p> : null}
-        </div>
-    );
-}
-
-function StyledSelect(props: {
-    value: string;
-    onChange: (value: string) => void;
-    options: SelectOption[];
-    placeholder?: string;
-    disabled?: boolean;
-    ariaLabel?: string;
-}) {
-    const { value, onChange, options, placeholder = 'Seleccionar', disabled = false, ariaLabel } = props;
-    const [open, setOpen] = useState(false);
-    const rootRef = useRef<HTMLDivElement | null>(null);
-    const selectedOption = options.find((option) => option.value === value);
-
-    useEffect(() => {
-        const onPointerDown = (event: PointerEvent) => {
-            if (!rootRef.current?.contains(event.target as Node)) {
-                setOpen(false);
-            }
-        };
-        window.addEventListener('pointerdown', onPointerDown);
-        return () => window.removeEventListener('pointerdown', onPointerDown);
-    }, []);
-
-    useEffect(() => {
-        const onKeyDown = (event: KeyboardEvent) => {
-            if (event.key === 'Escape') setOpen(false);
-        };
-        window.addEventListener('keydown', onKeyDown);
-        return () => window.removeEventListener('keydown', onKeyDown);
-    }, []);
-
-    return (
-        <div className="relative w-full" ref={rootRef}>
-            <button
-                type="button"
-                aria-label={ariaLabel}
-                aria-haspopup="listbox"
-                aria-expanded={open}
-                disabled={disabled}
-                onClick={() => !disabled && setOpen((current) => !current)}
-                className="form-input flex items-center text-left"
-                style={{
-                    color: selectedOption ? 'var(--fg)' : 'var(--fg-muted)',
-                    paddingRight: '2.4rem',
-                }}
-            >
-                <span className="truncate pr-1">{selectedOption?.label ?? placeholder}</span>
-                <span
-                    className="absolute right-3 top-1/2 pointer-events-none transition-transform"
-                    style={{
-                        color: 'var(--fg-muted)',
-                        transform: `translateY(-50%) rotate(${open ? '180deg' : '0deg'})`,
-                    }}
-                >
-                    ˅
-                </span>
-            </button>
-
-            {open ? (
-                <div
-                    role="listbox"
-                    className="absolute left-0 right-0 top-[calc(100%+0.35rem)] z-40 max-h-64 overflow-auto rounded-xl border p-1.5"
-                    style={{
-                        borderColor: 'var(--border)',
-                        background: 'var(--surface)',
-                        boxShadow: '0 18px 44px rgba(0,0,0,0.16)',
-                    }}
-                >
-                    {options.map((option) => {
-                        const isSelected = option.value === value;
-                        return (
-                            <button
-                                key={`${option.value}-${option.label}`}
-                                type="button"
-                                disabled={option.disabled}
-                                onClick={() => {
-                                    if (option.disabled) return;
-                                    onChange(option.value);
-                                    setOpen(false);
-                                }}
-                                className="w-full h-9 px-2.5 rounded-lg text-sm flex items-center justify-between transition-colors"
-                                style={{
-                                    background: isSelected ? 'var(--bg-subtle)' : 'transparent',
-                                    color: option.disabled ? 'var(--fg-faint)' : 'var(--fg)',
-                                }}
-                            >
-                                <span className="truncate">{option.label}</span>
-                                {isSelected ? <span style={{ color: 'var(--fg-secondary)' }}>✓</span> : null}
-                            </button>
-                        );
-                    })}
-                </div>
-            ) : null}
-        </div>
-    );
-}
-
 export function PanelPillNav(props: PanelPillNavProps) {
     const {
         items,
@@ -1507,8 +1003,8 @@ export function PanelPillNav(props: PanelPillNavProps) {
         ? `${visibilityClass.desktop} flex-nowrap items-center gap-1.5 overflow-x-auto pb-1`
         : `${visibilityClass.desktop} flex-nowrap items-center gap-2 overflow-x-auto pb-1`;
     const triggerClass = size === 'sm'
-        ? 'w-full flex items-center justify-between gap-3 px-3 py-2.5 rounded-2xl text-left'
-        : 'w-full flex items-center justify-between gap-3 px-4 py-3 rounded-2xl text-left';
+        ? 'w-full flex items-center justify-between gap-3 px-3 py-2.5 rounded-card text-left'
+        : 'w-full flex items-center justify-between gap-3 px-4 py-3 rounded-card text-left';
 
     return (
         <>
@@ -1539,7 +1035,7 @@ export function PanelPillNav(props: PanelPillNavProps) {
                     </button>
 
                     {mobileOpen ? (
-                        <div className="overflow-hidden rounded-2xl border" style={{ borderColor: 'var(--border)', background: 'var(--bg)' }}>
+                        <div className="overflow-hidden rounded-card border" style={{ borderColor: 'var(--border)', background: 'var(--bg)' }}>
                             {items.map((item, index) => {
                                 const isActive = item.key === activeKey;
                                 const isDisabled = Boolean(item.disabled);
@@ -1785,7 +1281,7 @@ export function PanelSegmentedToggle(props: PanelSegmentedToggleProps) {
                         type="button"
                         aria-label={item.ariaLabel || item.label}
                         onClick={() => onChange(item.key)}
-                        className={joinClasses('inline-flex items-center gap-1.5 rounded-[10px] text-sm font-medium transition-colors hover:text-(--fg)', buttonClass)}
+                        className={joinClasses('inline-flex items-center gap-1.5 rounded-button text-sm font-medium transition-colors hover:text-(--fg)', buttonClass)}
                         style={{
                             background: isActive ? 'var(--button-primary-bg)' : 'transparent',
                             color: isActive ? 'var(--button-primary-color)' : 'var(--fg-muted)',
@@ -1828,7 +1324,7 @@ export function PanelStatusBadge(props: PanelStatusBadgeProps) {
             : tone === 'danger'
                 ? { background: 'var(--color-danger, #ef4444)', color: '#ffffff' }
                 : tone === 'info'
-                    ? { background: 'var(--color-info, #3b82f6)', color: '#ffffff' }
+                    ? { background: 'var(--color-info)', color: '#ffffff' }
                     : { background: 'var(--accent)', color: '#ffffff' };
 
     return (
@@ -1849,7 +1345,7 @@ export function PanelSummaryCard(props: PanelSummaryCardProps) {
     const { eyebrow, title, rows, children, className } = props;
 
     return (
-        <div className={joinClasses('rounded-2xl border p-4', className)} style={{ borderColor: 'var(--border)', background: 'var(--bg)' }}>
+        <div className={joinClasses('rounded-card border p-4', className)} style={{ borderColor: 'var(--border)', background: 'var(--bg)' }}>
             {eyebrow ? (
                 <p className="text-xs uppercase tracking-[0.16em]" style={{ color: 'var(--fg-muted)' }}>
                     {eyebrow}
@@ -1882,35 +1378,11 @@ export function PanelList(props: PanelListProps) {
 
     return (
         <div
-            className={joinClasses('rounded-[20px] border overflow-hidden', className)}
+            className={joinClasses('rounded-card border overflow-hidden', className)}
             style={{ borderColor: 'var(--border)', background: 'var(--surface)' }}
         >
             {children}
         </div>
-    );
-}
-
-export function PanelButton(props: PanelButtonProps) {
-    const {
-        children,
-        onClick,
-        type = 'button',
-        disabled = false,
-        className,
-        size = 'md',
-        variant = 'secondary',
-    } = props;
-
-    return (
-        <button
-            type={type}
-            onClick={onClick}
-            disabled={disabled}
-            className={getPanelButtonClassName({ size, className })}
-            style={getPanelButtonStyle(variant)}
-        >
-            {children}
-        </button>
     );
 }
 
@@ -1930,7 +1402,7 @@ export function PanelChoiceCard(props: PanelChoiceCardProps) {
             onClick={onClick}
             disabled={disabled}
             className={joinClasses(
-                'rounded-xl border p-4 text-left transition-[border-color,background,opacity,transform,box-shadow] duration-150 hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-black/10 disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:translate-y-0',
+                'rounded-card border p-4 text-left transition-[border-color,background,opacity,transform,box-shadow] duration-150 hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-black/10 disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:translate-y-0',
                 className,
             )}
             style={{
@@ -1942,74 +1414,6 @@ export function PanelChoiceCard(props: PanelChoiceCardProps) {
             {children}
         </button>
     );
-}
-
-export function getPanelButtonClassName(props?: {
-    size?: PanelButtonSize;
-    className?: string;
-}) {
-    const sizeClass = props?.size === 'sm'
-        ? 'h-9 px-3 text-sm'
-        : 'h-10 px-4 text-sm';
-
-    return joinClasses(
-        'panel-button inline-flex items-center justify-center gap-2 rounded-xl border font-medium transition-[background,color,border-color,box-shadow,transform] duration-150 active:scale-[0.99] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-black/10 disabled:cursor-not-allowed disabled:opacity-50 disabled:active:scale-100',
-        sizeClass,
-        props?.className,
-    );
-}
-
-export function getPanelButtonStyle(variant: PanelButtonVariant = 'secondary') {
-    return variant === 'primary'
-        ? ({
-            '--panel-btn-bg': 'var(--button-primary-bg)',
-            '--panel-btn-color': 'var(--button-primary-color)',
-            '--panel-btn-border': 'var(--button-primary-border)',
-            '--panel-btn-shadow': 'var(--button-primary-shadow)',
-            '--panel-btn-hover-bg': 'var(--button-primary-hover-bg)',
-            '--panel-btn-hover-color': 'var(--button-primary-hover-color)',
-            '--panel-btn-hover-border': 'var(--button-primary-hover-border)',
-            '--panel-btn-hover-shadow': 'var(--button-primary-hover-shadow)',
-        } as CSSProperties)
-        : variant === 'danger'
-            ? ({
-                '--panel-btn-bg': 'rgba(185,28,28,0.06)',
-                '--panel-btn-color': '#b91c1c',
-                '--panel-btn-border': 'rgba(185,28,28,0.18)',
-                '--panel-btn-hover-bg': 'rgba(185,28,28,0.1)',
-                '--panel-btn-hover-color': '#991b1b',
-                '--panel-btn-hover-border': 'rgba(185,28,28,0.26)',
-            } as CSSProperties)
-            : variant === 'ghost'
-                ? ({
-                    '--panel-btn-bg': 'transparent',
-                    '--panel-btn-color': 'var(--fg-secondary)',
-                    '--panel-btn-border': 'transparent',
-                    '--panel-btn-hover-bg': 'var(--bg-muted)',
-                    '--panel-btn-hover-color': 'var(--fg)',
-                    '--panel-btn-hover-border': 'transparent',
-                    '--panel-btn-hover-shadow': 'none',
-                } as CSSProperties)
-                : variant === 'accent'
-                    ? ({
-                        '--panel-btn-bg': 'var(--accent)',
-                        '--panel-btn-color': 'var(--accent-contrast)',
-                        '--panel-btn-border': 'var(--accent)',
-                        '--panel-btn-shadow': 'none',
-                        '--panel-btn-hover-bg': 'var(--accent)',
-                        '--panel-btn-hover-color': 'var(--accent-contrast)',
-                        '--panel-btn-hover-border': 'var(--accent)',
-                        '--panel-btn-hover-shadow': 'none',
-                    } as CSSProperties)
-                    : ({
-                        '--panel-btn-bg': 'var(--surface)',
-                        '--panel-btn-color': 'var(--fg)',
-                        '--panel-btn-border': 'var(--border)',
-                        '--panel-btn-hover-bg': 'var(--bg-subtle)',
-                        '--panel-btn-hover-color': 'var(--fg)',
-                        '--panel-btn-hover-border': 'var(--border-strong)',
-                        '--panel-btn-hover-shadow': 'var(--shadow-xs)',
-                    } as CSSProperties);
 }
 
 export function PanelSwitch(props: PanelSwitchProps) {
@@ -2080,7 +1484,7 @@ export function PanelIconButton(props: PanelIconButtonProps) {
             onClick={onClick}
             disabled={disabled}
             className={joinClasses(
-                'rounded-md flex items-center justify-center shrink-0 transition-[background,color,opacity,transform] duration-150 hover:opacity-90 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-black/10 disabled:cursor-not-allowed disabled:opacity-50 disabled:active:scale-100',
+                'rounded-button flex items-center justify-center shrink-0 transition-[background,color,opacity,transform] duration-150 hover:opacity-90 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-black/10 disabled:cursor-not-allowed disabled:opacity-50 disabled:active:scale-100',
                 sizeClass,
                 className,
             )}
@@ -2614,7 +2018,7 @@ export function PanelMediaUploader(props: PanelMediaUploaderProps) {
                 }}
                 onPointerDown={(event) => startPointerDrag(event, item)}
                 className={joinClasses(
-                    'relative overflow-hidden rounded-[22px] border ease-out',
+                    'relative overflow-hidden rounded-card border ease-out',
                     isActivelyDragging ? '' : 'transition-[border-color,box-shadow,opacity,transform] duration-150',
                 )}
                 style={{
@@ -2632,7 +2036,7 @@ export function PanelMediaUploader(props: PanelMediaUploaderProps) {
                     pointerEvents: isActivelyDragging ? 'none' : 'auto',
                 }}
             >
-                <div className="relative aspect-4/3 overflow-hidden rounded-[20px]">
+                <div className="relative aspect-4/3 overflow-hidden rounded-card">
                     {item.previewUrl ? (
                         <img
                             src={item.previewUrl}
@@ -2702,7 +2106,7 @@ export function PanelMediaUploader(props: PanelMediaUploaderProps) {
 
                     {isDropTarget ? (
                         <div
-                            className="absolute inset-3 rounded-[18px] border-2 border-dashed"
+                            className="absolute inset-3 rounded-card border-2 border-dashed"
                             style={{
                                 borderColor: '#2563eb',
                                 background: 'rgba(37,99,235,0.10)',
@@ -2723,7 +2127,7 @@ export function PanelMediaUploader(props: PanelMediaUploaderProps) {
     const renderPlaceholderTile = (label: string, index: number) => (
         <div
             key={`placeholder-${label}-${index}`}
-            className="relative aspect-4/3 rounded-[22px] border border-dashed p-4"
+            className="relative aspect-4/3 rounded-card border border-dashed p-4"
             style={{
                 borderColor: 'color-mix(in oklab, var(--border) 86%, transparent)',
                 background: 'color-mix(in oklab, var(--surface) 96%, var(--bg-subtle) 4%)',
@@ -2816,7 +2220,7 @@ export function PanelMediaUploader(props: PanelMediaUploaderProps) {
                 <div className="panel-media-grid">
                     <button
                         type="button"
-                        className="relative aspect-4/3 rounded-[22px] border border-dashed p-4 text-left transition-colors"
+                        className="relative aspect-4/3 rounded-card border border-dashed p-4 text-left transition-colors"
                         style={{
                             borderColor: fileDragActive ? 'var(--border-strong)' : 'color-mix(in oklab, var(--border) 86%, transparent)',
                             background: 'color-mix(in oklab, var(--surface) 96%, var(--bg-subtle) 4%)',
@@ -2927,10 +2331,10 @@ export function PanelVideoUploader(props: PanelVideoUploaderProps) {
 
                 {asset ? (
                     <div className="space-y-3">
-                        <div className="rounded-[22px] border p-4" style={{ borderColor: 'var(--border)', background: 'var(--bg-muted)' }}>
+                        <div className="rounded-card border p-4" style={{ borderColor: 'var(--border)', background: 'var(--bg-muted)' }}>
                             <div className="flex flex-col gap-4 lg:flex-row lg:items-center">
-                                <div className="shrink-0 rounded-[26px] border p-1.5 shadow-sm" style={{ width: '116px', borderColor: 'var(--border)', background: 'var(--surface)' }}>
-                                    <div className="relative w-[116px] overflow-hidden rounded-[20px] border" style={{ borderColor: 'color-mix(in oklab, var(--border) 80%, transparent)', background: '#020617' }}>
+                                <div className="shrink-0 rounded-card border p-1.5 shadow-sm" style={{ width: '116px', borderColor: 'var(--border)', background: 'var(--surface)' }}>
+                                    <div className="relative w-[116px] overflow-hidden rounded-card border" style={{ borderColor: 'color-mix(in oklab, var(--border) 80%, transparent)', background: '#020617' }}>
                                         <video
                                             src={asset.previewUrl}
                                             muted
@@ -2972,7 +2376,7 @@ export function PanelVideoUploader(props: PanelVideoUploaderProps) {
                     </div>
                 ) : (
                     <div
-                        className="w-full overflow-hidden rounded-[22px] border-2 border-dashed p-4 transition-colors sm:p-5"
+                        className="w-full overflow-hidden rounded-card border-2 border-dashed p-4 transition-colors sm:p-5"
                         style={{
                             borderColor: dragging ? 'var(--border-strong)' : 'var(--border)',
                             background: dragging ? 'color-mix(in oklab, var(--surface) 98%, var(--bg-subtle) 2%)' : 'var(--surface)',
@@ -3088,7 +2492,7 @@ export function PanelDocumentUploader(props: PanelDocumentUploaderProps) {
                 />
 
                 <div
-                    className="w-full overflow-hidden rounded-[22px] border-2 border-dashed p-4 transition-colors sm:p-5"
+                    className="w-full overflow-hidden rounded-card border-2 border-dashed p-4 transition-colors sm:p-5"
                     style={{
                         borderColor: dragging ? 'var(--border-strong)' : 'var(--border)',
                         background: dragging ? 'color-mix(in oklab, var(--surface) 98%, var(--bg-subtle) 2%)' : 'var(--surface)',
@@ -3124,7 +2528,7 @@ export function PanelDocumentUploader(props: PanelDocumentUploaderProps) {
                 {items.length > 0 ? (
                     <div className="space-y-2">
                         {items.map((item) => (
-                            <div key={item.id} className="flex items-center justify-between gap-3 rounded-[18px] border px-4 py-3" style={{ borderColor: 'var(--border)', background: 'var(--surface)' }}>
+                            <div key={item.id} className="flex items-center justify-between gap-3 rounded-card border px-4 py-3" style={{ borderColor: 'var(--border)', background: 'var(--surface)' }}>
                                 <div className="min-w-0">
                                     <p className="truncate text-sm font-medium" style={{ color: 'var(--fg)' }}>{item.name}</p>
                                     <p className="text-xs mt-1" style={{ color: 'var(--fg-muted)' }}>{formatPanelMediaBytes(item.sizeBytes)}</p>
@@ -3257,36 +2661,6 @@ export function PanelBlockHeader(props: PanelBlockHeaderProps) {
     );
 }
 
-export function PanelCard(props: PanelCardProps) {
-    const {
-        children,
-        className,
-        tone = 'surface',
-        size = 'md',
-    } = props;
-
-    const paddingClass = size === 'sm'
-        ? 'p-4'
-        : size === 'lg'
-            ? 'p-5 md:p-6'
-            : 'p-4 md:p-5';
-
-    const background = tone === 'default'
-        ? 'var(--bg)'
-        : tone === 'subtle'
-            ? 'color-mix(in oklab, var(--bg) 78%, transparent)'
-            : 'var(--surface)';
-
-    return (
-        <div
-            className={joinClasses('rounded-[24px] border', paddingClass, className)}
-            style={{ borderColor: 'var(--border)', background }}
-        >
-            {children}
-        </div>
-    );
-}
-
 export function PanelAccountProfileCard(props: PanelAccountProfileCardProps) {
     const {
         name = 'Usuario Simple',
@@ -3334,7 +2708,7 @@ export function PanelNotice(props: PanelNoticeProps) {
                 : { borderColor: 'var(--border)', background: 'var(--surface)', color: 'var(--fg-secondary)' };
 
     return (
-        <div className={joinClasses('rounded-2xl border px-4 py-3 text-sm', className)} style={toneStyle}>
+        <div className={joinClasses('rounded-card border px-4 py-3 text-sm', className)} style={toneStyle}>
             {children}
         </div>
     );
@@ -3383,7 +2757,7 @@ export function PanelStatCard(props: PanelStatCardProps) {
         : 'var(--bg-muted)';
 
     return (
-        <div className="rounded-2xl border p-4" style={{ borderColor: 'var(--border)', background: 'var(--surface)' }}>
+        <div className="rounded-card border p-4" style={{ borderColor: 'var(--border)', background: 'var(--surface)' }}>
             <div className="mb-3 flex items-center justify-between gap-3">
                 {icon ? (
                     <div className="flex h-8 w-8 items-center justify-center rounded-xl" style={{ background: 'var(--bg-muted)', color: 'var(--fg-muted)' }}>
@@ -3407,7 +2781,7 @@ export function PanelEmptyState(props: PanelEmptyStateProps) {
     const { title = 'Sin resultados', description, action, className } = props;
 
     return (
-        <div className={joinClasses('rounded-[24px] border p-6 md:p-7 text-center', className)} style={{ borderColor: 'var(--border)', background: 'var(--surface)' }}>
+        <div className={joinClasses('rounded-card border p-6 md:p-7 text-center', className)} style={{ borderColor: 'var(--border)', background: 'var(--surface)' }}>
             <p className="text-base font-semibold" style={{ color: 'var(--fg)' }}>{title}</p>
             <p className="text-sm mt-2" style={{ color: 'var(--fg-secondary)' }}>{description}</p>
             {action ? <div className="mt-4 flex items-center justify-center">{action}</div> : null}
@@ -3431,873 +2805,6 @@ function CompactSectionHeader(props: { title: string; hint?: string }) {
     );
 }
 
-function addressSummary(address: AddressBookEntry) {
-    return [address.label, address.addressLine1, address.communeName, address.regionName].filter(Boolean).join(' · ');
-}
-
-function mapWindowByPrecision(precision: ListingLocation['publicGeoPoint']['precision']) {
-    switch (precision) {
-        case 'exact':
-            return { latDelta: 0.008, lonDelta: 0.010 };
-        case 'approximate':
-            return { latDelta: 0.02, lonDelta: 0.025 };
-        case 'commune':
-            return { latDelta: 0.055, lonDelta: 0.065 };
-        default:
-            return { latDelta: 0.014, lonDelta: 0.018 };
-    }
-}
-
-function buildOsmUrls(latitude: number, longitude: number, precision: ListingLocation['publicGeoPoint']['precision']) {
-    const zoom = mapZoomByPrecision(precision);
-    return {
-        embedUrl: null,
-        imageUrl: `https://staticmap.openstreetmap.de/staticmap.php?center=${latitude.toFixed(6)},${longitude.toFixed(6)}&zoom=${zoom}&size=1200x520&markers=${latitude.toFixed(6)},${longitude.toFixed(6)},red-pushpin`,
-        externalUrl: `https://www.openstreetmap.org/?mlat=${latitude.toFixed(6)}&mlon=${longitude.toFixed(6)}#map=15/${latitude.toFixed(6)}/${longitude.toFixed(6)}`,
-        providerLabel: 'OpenStreetMap',
-    };
-}
-
-function mapZoomByPrecision(precision: ListingLocation['publicGeoPoint']['precision']) {
-    switch (precision) {
-        case 'exact':
-            return 16;
-        case 'approximate':
-            return 14;
-        case 'commune':
-            return 12;
-        default:
-            return 13;
-    }
-}
-
-function buildLocationQuery(location: ListingLocation, mode: 'public' | 'internal'): string {
-    return mode === 'internal'
-        ? [location.addressLine1, location.communeName, location.regionName, 'Chile'].filter(Boolean).join(', ')
-        : [location.publicLabel || location.addressLine1, location.communeName, location.regionName, 'Chile'].filter(Boolean).join(', ');
-}
-
-function buildGoogleMapsUrls(
-    latitude: number | null,
-    longitude: number | null,
-    precision: ListingLocation['publicGeoPoint']['precision'],
-    query: string,
-    embedKey?: string
-) {
-    const zoom = mapZoomByPrecision(precision);
-    const previewTarget = latitude != null && longitude != null
-        ? `${latitude.toFixed(6)},${longitude.toFixed(6)}`
-        : query.trim();
-    const searchTarget = query.trim() || previewTarget;
-    if (!previewTarget && !searchTarget) return null;
-
-    return {
-        embedUrl: embedKey
-            ? `https://www.google.com/maps/embed/v1/place?key=${encodeURIComponent(embedKey)}&q=${encodeURIComponent(previewTarget || searchTarget)}&zoom=${zoom}`
-            : null,
-        imageUrl: null,
-        externalUrl: `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(searchTarget || previewTarget)}`,
-        providerLabel: 'Google Maps',
-    };
-}
-
-export function LocationMapPreview({ location, title = 'Mapa público', subtitle, mode = 'public', showTechnicalMeta = false }: LocationMapPreviewProps) {
-    const previewGeoPoint = mode === 'internal'
-        ? location.geoPoint
-        : (location.publicMapEnabled && location.visibilityMode !== 'hidden'
-            ? (location.publicGeoPoint.latitude != null && location.publicGeoPoint.longitude != null ? location.publicGeoPoint : location.geoPoint)
-            : createEmptyGeoPoint());
-    const addressQuery = buildLocationQuery(location, mode);
-    const canUsePrecisePoint = previewGeoPoint.latitude != null && previewGeoPoint.longitude != null && previewGeoPoint.provider !== 'catalog_seed';
-    const googleUrls = buildGoogleMapsUrls(
-        canUsePrecisePoint ? previewGeoPoint.latitude : null,
-        canUsePrecisePoint ? previewGeoPoint.longitude : null,
-        previewGeoPoint.precision,
-        addressQuery,
-        process.env.NEXT_PUBLIC_GOOGLE_MAPS_EMBED_KEY
-    );
-    const previewUrls = canUsePrecisePoint
-        ? buildOsmUrls(previewGeoPoint.latitude!, previewGeoPoint.longitude!, previewGeoPoint.precision)
-        : null;
-    const subtitleText = subtitle || (
-        mode === 'internal'
-            ? [location.addressLine1, location.neighborhood, location.communeName, location.regionName].filter(Boolean).join(', ') || 'Sin dirección interna todavía.'
-            : location.publicLabel || 'Sin vista pública todavía.'
-    );
-    const externalMapsUrl = googleUrls?.externalUrl || previewUrls?.externalUrl || null;
-    const statusLabel = !addressQuery
-        ? 'Completa la dirección'
-        : canUsePrecisePoint
-            ? (mode === 'internal' ? 'Ubicación confirmada' : 'Vista pública lista')
-            : 'Pendiente de verificar';
-    const emptyStateText = !addressQuery
-        ? (mode === 'internal' ? 'Escribe una dirección para mostrar la ubicación.' : 'Sin dirección pública todavía.')
-        : 'Aún no pudimos ubicar esta dirección con precisión. Verifica la dirección o activa Google Places para usar sugerencias.';
-
-    return (
-        <div className="rounded-2xl border p-4" style={{ borderColor: 'var(--border)', background: 'var(--bg)' }}>
-            <div className="flex items-start justify-between gap-3">
-                <div>
-                    <p className="text-sm font-semibold" style={{ color: 'var(--fg)' }}>{title}</p>
-                    <p className="text-xs mt-1" style={{ color: 'var(--fg-muted)' }}>{subtitleText}</p>
-                </div>
-                <span className="text-[11px] px-2 py-1 rounded-full" style={{ background: 'var(--bg-muted)', color: 'var(--fg-secondary)' }}>
-                    {statusLabel}
-                </span>
-            </div>
-            <div className="relative mt-3 h-52 overflow-hidden rounded-[18px] border" style={{ borderColor: 'var(--border)', background: '#eef2f7' }}>
-                {previewUrls?.imageUrl ? (
-                    <img
-                        alt={title}
-                        src={previewUrls.imageUrl}
-                        className="absolute inset-0 h-full w-full object-cover"
-                    />
-                ) : externalMapsUrl ? (
-                    <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 px-6 text-center">
-                        <div className="h-12 w-12 rounded-full flex items-center justify-center" style={{ background: 'rgba(15,23,42,0.08)', color: 'var(--fg)' }}>
-                            <span className="text-lg">+</span>
-                        </div>
-                        <div>
-                            <p className="text-sm font-medium" style={{ color: 'var(--fg)' }}>
-                                Abre esta dirección en Google Maps
-                            </p>
-                            <p className="text-xs mt-1" style={{ color: 'var(--fg-muted)' }}>
-                                Usa el mapa para confirmar que la dirección corresponde al punto correcto.
-                            </p>
-                        </div>
-                        <a href={externalMapsUrl} target="_blank" rel="noreferrer" className="btn btn-outline h-9 px-3 text-xs">
-                            Abrir en Google Maps
-                        </a>
-                    </div>
-                ) : (
-                    <div className="absolute inset-0 flex items-center justify-center text-sm" style={{ color: 'var(--fg-secondary)' }}>
-                        {emptyStateText}
-                    </div>
-                )}
-            </div>
-            {showTechnicalMeta ? (
-                <div className="grid grid-cols-2 gap-3 mt-3 text-xs" style={{ color: 'var(--fg-secondary)' }}>
-                    <span>Interna: {location.geoPoint.latitude != null && location.geoPoint.longitude != null ? `${location.geoPoint.latitude.toFixed(4)}, ${location.geoPoint.longitude.toFixed(4)}` : 'Pendiente'}</span>
-                    <span>{mode === 'internal' ? 'Precisión' : 'Publica'}: {mode === 'internal'
-                        ? location.geoPoint.precision
-                        : (location.publicGeoPoint.latitude != null && location.publicGeoPoint.longitude != null ? `${location.publicGeoPoint.latitude.toFixed(4)}, ${location.publicGeoPoint.longitude.toFixed(4)}` : 'Oculta')}</span>
-                </div>
-            ) : null}
-            {externalMapsUrl ? (
-                <div className="mt-3 flex justify-end">
-                    <a href={externalMapsUrl} target="_blank" rel="noreferrer" className="text-xs font-medium" style={{ color: 'var(--fg)' }}>
-                        Ver en Google Maps
-                    </a>
-                </div>
-            ) : null}
-        </div>
-    );
-}
-
-export function ListingLocationEditor(props: ListingLocationEditorProps) {
-    const {
-        title = 'Ubicación del aviso',
-        description = 'Controla la dirección interna, la visibilidad pública y la geocodificación automática.',
-        showHeader = true,
-        framed = true,
-        simpleMode = false,
-        location,
-        onChange,
-        regions,
-        communes,
-        allCommunes,
-        addressBook,
-        addressBookLoading = false,
-        errors,
-        allowAreaOnly = true,
-        showAreaFields = true,
-        addressFirst = false,
-        showSourceSelector = true,
-        showVisibilityField = true,
-        showPublicPreviewCard = true,
-        showActionBar = true,
-        showGoogleMapsLink = false,
-        showLocationMeta = false,
-        addressRequired = false,
-        showAddressLine2 = true,
-        showSimpleVisibilityToggle = true,
-        visibilityOptions = DEFAULT_VISIBILITY_OPTIONS,
-        geocoding = false,
-        googleMapsApiKey,
-        onGeocode,
-        onSaveToAddressBook,
-    } = props;
-    const [addressInputEl, setAddressInputEl] = useState<HTMLInputElement | null>(null);
-    const addressInputRef = (el: HTMLInputElement | null) => { setAddressInputEl(el); };
-    const addressInputElRef = useRef<HTMLInputElement | null>(null);
-    const locationRef = useRef(location);
-    const regionsRef = useRef(regions);
-    const communesRef = useRef(communes);
-    const allCommunesRef = useRef(allCommunes ?? communes);
-    const onChangeRef = useRef(onChange);
-    const autocompleteRef = useRef<any>(null);
-    const googlePlacesKey = googleMapsApiKey
-        || process.env.NEXT_PUBLIC_GOOGLE_MAPS_BROWSER_KEY
-        || process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY
-        || process.env.NEXT_PUBLIC_GOOGLE_MAPS_EMBED_KEY
-        || '';
-    const [autocompleteReady, setAutocompleteReady] = useState(false);
-
-    const sourceOptions = useMemo(() => {
-        const base = [
-            { value: 'custom', label: 'Dirección personalizada', description: 'Ingresa una dirección nueva para este aviso.' },
-            { value: 'saved_address', label: 'Dirección guardada', description: 'Reutiliza una dirección desde la libreta.' },
-        ];
-        return allowAreaOnly
-            ? [{ value: 'area_only', label: 'Solo zona', description: 'Publica solo con región y comuna.' }, ...base]
-            : base;
-    }, [allowAreaOnly]);
-
-    useEffect(() => {
-        locationRef.current = location;
-    }, [location]);
-
-    useEffect(() => {
-        regionsRef.current = regions;
-    }, [regions]);
-
-    useEffect(() => {
-        communesRef.current = communes;
-    }, [communes]);
-
-    useEffect(() => {
-        allCommunesRef.current = allCommunes ?? communes;
-    }, [allCommunes, communes]);
-
-    useEffect(() => {
-        onChangeRef.current = onChange;
-    }, [onChange]);
-
-    useEffect(() => {
-        addressInputElRef.current = addressInputEl;
-    }, [addressInputEl]);
-
-    useEffect(() => {
-        if (!googlePlacesKey || location.sourceMode === 'area_only' || !addressInputEl) {
-            setAutocompleteReady(false);
-            return;
-        }
-
-        let disposed = false;
-        ensureGooglePlacesDropdownStyles();
-
-        void loadGooglePlacesScript(googlePlacesKey).then((ready) => {
-            if (disposed || !ready || !addressInputElRef.current) {
-                setAutocompleteReady(false);
-                return;
-            }
-
-            const googleMaps = (window as typeof window & { google?: any }).google?.maps;
-            if (!googleMaps?.places?.Autocomplete) {
-                setAutocompleteReady(false);
-                return;
-            }
-
-            if (autocompleteRef.current && googleMaps.event?.clearInstanceListeners) {
-                googleMaps.event.clearInstanceListeners(autocompleteRef.current);
-            }
-
-            const autocomplete = new googleMaps.places.Autocomplete(addressInputElRef.current, {
-                componentRestrictions: { country: 'cl' },
-                fields: ['address_components', 'formatted_address', 'geometry', 'name'],
-                types: ['address'],
-            });
-
-            autocomplete.addListener('place_changed', () => {
-                const place = autocomplete.getPlace?.() as GooglePlaceResult | undefined;
-                if (!place) return;
-                const nextLocation = applyPlaceToLocation(place, locationRef.current, regionsRef.current, allCommunesRef.current);
-                onChangeRef.current(nextLocation);
-            });
-
-            autocompleteRef.current = autocomplete;
-            setAutocompleteReady(true);
-        });
-
-        return () => {
-            disposed = true;
-            const googleMaps = (window as typeof window & { google?: any }).google?.maps;
-            if (autocompleteRef.current && googleMaps?.event?.clearInstanceListeners) {
-                googleMaps.event.clearInstanceListeners(autocompleteRef.current);
-            }
-        };
-    }, [googlePlacesKey, location.sourceMode, addressInputEl]);
-
-    const addressHint = autocompleteReady
-        ? 'Selecciona una sugerencia cuando aparezca.'
-        : (googlePlacesKey ? 'Si no ves sugerencias, puedes escribir la dirección manualmente.' : 'Puedes escribir la dirección manualmente.');
-    const internalMapsUrl = (showGoogleMapsLink || showLocationMeta)
-        ? buildGoogleMapsUrls(
-            location.geoPoint.latitude,
-            location.geoPoint.longitude,
-            location.geoPoint.precision,
-            buildLocationQuery(location, 'internal')
-        )?.externalUrl || null
-        : null;
-    const kindOptions = ADDRESS_KIND_OPTIONS;
-    const savedAddressSelectValue = location.sourceMode === 'saved_address' && location.sourceAddressId
-        ? location.sourceAddressId
-        : '__new__';
-    const savedAddressOptions = [
-        { value: '__new__', label: 'Nueva dirección' },
-        ...addressBook.map((item) => ({ value: item.id, label: addressSummary(item) })),
-    ];
-    const regionField = (
-        <Field label="Región" required error={fieldError(errors, 'regionId')}>
-            <StyledSelect value={location.regionId || ''} onChange={(nextValue) => onChange(patchListingLocation(location, {
-                regionId: nextValue || null,
-                regionName: regions.find((item) => item.value === nextValue)?.label || null,
-                communeId: null,
-                communeName: null,
-                sourceAddressId: location.sourceMode === 'saved_address' ? null : location.sourceAddressId,
-                sourceMode: location.sourceMode === 'saved_address' ? 'custom' : location.sourceMode,
-                ...clearResolvedGeo(location),
-            }))} options={regions} />
-        </Field>
-    );
-    const communeField = (
-        <Field label="Comuna" required error={fieldError(errors, 'communeId')}>
-            <StyledSelect
-                value={location.communeId || ''}
-                onChange={(nextValue) => onChange(patchListingLocation(location, {
-                    communeId: nextValue || null,
-                    communeName: allCommunesRef.current.find((item) => item.value === nextValue)?.label || null,
-                    sourceAddressId: location.sourceMode === 'saved_address' ? null : location.sourceAddressId,
-                    sourceMode: location.sourceMode === 'saved_address' ? 'custom' : location.sourceMode,
-                    ...clearResolvedGeo(location),
-                }))}
-                disabled={!location.regionId}
-                placeholder={location.regionId ? 'Seleccionar' : 'Primero región'}
-                options={communes}
-            />
-        </Field>
-    );
-    const mapsActionButtons = internalMapsUrl ? (
-        <div className="flex shrink-0 gap-2">
-            <a
-                href={internalMapsUrl}
-                target="_blank"
-                rel="noreferrer"
-                aria-label="Ver en Maps"
-                title="Ver en Maps"
-                className="inline-flex size-10 items-center justify-center rounded-xl border transition-colors hover:opacity-80"
-                style={{ borderColor: 'var(--border)', color: 'var(--fg-secondary)', background: 'var(--bg)' }}
-            >
-                <GoogleMapIcon />
-            </a>
-            <button
-                type="button"
-                aria-label="Compartir dirección"
-                title="Compartir dirección"
-                onClick={() => {
-                    if (typeof navigator !== 'undefined' && navigator.share) {
-                        void navigator.share({ title: location.label || 'Dirección', url: internalMapsUrl });
-                    } else if (typeof navigator !== 'undefined' && navigator.clipboard) {
-                        void navigator.clipboard.writeText(internalMapsUrl);
-                    }
-                }}
-                className="inline-flex size-10 items-center justify-center rounded-xl border transition-colors hover:opacity-80"
-                style={{ borderColor: 'var(--border)', color: 'var(--fg-secondary)', background: 'var(--bg)' }}
-            >
-                <ShareIcon />
-            </button>
-        </div>
-    ) : null;
-    const locationMetaFields = showLocationMeta ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-            <Field label="Nombre de la dirección" required>
-                <input
-                    className="form-input"
-                    value={location.label || ''}
-                    onChange={(event) => onChange(patchListingLocation(location, { label: event.target.value }))}
-                    placeholder="Ej: Consulta Providencia"
-                />
-            </Field>
-            <Field label="Tipo">
-                <StyledSelect
-                    value={location.kind || ''}
-                    onChange={(nextValue) => onChange(patchListingLocation(location, { kind: (nextValue as ListingLocationKind) || null }))}
-                    placeholder="Seleccionar tipo"
-                    options={kindOptions}
-                />
-            </Field>
-        </div>
-    ) : null;
-    const arrivalField = showLocationMeta ? (
-        <Field label="Instrucciones de llegada" hint="Referencias visibles para el paciente antes de la sesión.">
-            <textarea
-                className="form-textarea"
-                value={location.arrivalInstructions || ''}
-                onChange={(event) => onChange(patchListingLocation(location, { arrivalInstructions: event.target.value }))}
-                placeholder="Ej: Piso 3, timbre 301. Estacionamiento disponible en el edificio."
-                rows={3}
-            />
-        </Field>
-    ) : null;
-    const addressFields = location.sourceMode !== 'area_only' ? (
-        simpleMode ? (
-            <div className="grid grid-cols-1 gap-3">
-                <Field label="Dirección" required={addressRequired} error={fieldError(errors, 'addressLine1')} hint={addressHint}>
-                    <div className="flex items-center gap-2">
-                        <input
-                            ref={addressInputRef}
-                            className="form-input min-w-0 flex-1"
-                            value={location.addressLine1 || ''}
-                            autoComplete="off"
-                            onChange={(event) => onChange(patchListingLocation(location, {
-                                addressLine1: event.target.value,
-                                sourceAddressId: location.sourceMode === 'saved_address' ? null : location.sourceAddressId,
-                                sourceMode: location.sourceMode === 'saved_address' ? 'custom' : location.sourceMode,
-                                ...clearResolvedGeo(location),
-                            }))}
-                            placeholder="Ej: Av. Italia 1452"
-                        />
-                        {mapsActionButtons}
-                    </div>
-                </Field>
-                {showAddressLine2 ? (
-                    <Field label="Depto, oficina o referencia">
-                        <input className="form-input" value={location.addressLine2 || ''} onChange={(event) => onChange(patchListingLocation(location, { addressLine2: event.target.value }))} placeholder="Ej: Depto 608, torre B o portón gris" />
-                    </Field>
-                ) : null}
-            </div>
-        ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                <Field label="Dirección" required={addressRequired} error={fieldError(errors, 'addressLine1')} hint={addressHint}>
-                    <div className="flex flex-col gap-2 md:flex-row md:items-center">
-                        <input
-                            ref={addressInputRef}
-                            className="form-input"
-                            style={{ flex: 1 }}
-                            value={location.addressLine1 || ''}
-                            autoComplete="street-address"
-                            onChange={(event) => onChange(patchListingLocation(location, {
-                                addressLine1: event.target.value,
-                                sourceAddressId: location.sourceMode === 'saved_address' ? null : location.sourceAddressId,
-                                sourceMode: location.sourceMode === 'saved_address' ? 'custom' : location.sourceMode,
-                                ...clearResolvedGeo(location),
-                            }))}
-                            placeholder="Ej: Av. Italia 1452"
-                        />
-                        {internalMapsUrl ? (
-                            <a
-                                href={internalMapsUrl}
-                                target="_blank"
-                                rel="noreferrer"
-                                className="btn btn-outline h-10 px-3 text-sm whitespace-nowrap"
-                            >
-                                Ver en Google Maps
-                            </a>
-                        ) : null}
-                    </div>
-                </Field>
-                {showAddressLine2 ? (
-                    <Field label="Depto, oficina o referencia">
-                        <input className="form-input" value={location.addressLine2 || ''} onChange={(event) => onChange(patchListingLocation(location, { addressLine2: event.target.value }))} placeholder="Ej: Depto 608, torre B o portón gris" />
-                    </Field>
-                ) : null}
-            </div>
-        )
-    ) : null;
-    const areaFieldsBlock = showAreaFields ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-            {regionField}
-            {communeField}
-        </div>
-    ) : null;
-
-    return (
-        <div
-            className={framed ? 'rounded-2xl border p-4 space-y-4' : 'space-y-4'}
-            style={framed ? { borderColor: 'var(--border)', background: 'var(--bg)' } : undefined}
-        >
-            {showHeader ? (
-                <div>
-                    <p className="text-sm font-semibold" style={{ color: 'var(--fg)' }}>{title}</p>
-                    <p className="text-xs mt-1" style={{ color: 'var(--fg-muted)' }}>{description}</p>
-                </div>
-            ) : null}
-            {simpleMode ? (
-                <>
-                    {locationMetaFields}
-                    {addressBookLoading || addressBook.length > 0 ? (
-                        <Field label="Usar dirección">
-                            <StyledSelect
-                                value={savedAddressSelectValue}
-                                placeholder={addressBookLoading ? 'Cargando...' : 'Nueva dirección'}
-                                disabled={addressBookLoading}
-                                options={savedAddressOptions}
-                                onChange={(nextValue) => {
-                                    if (!nextValue || nextValue === '__new__') {
-                                        onChange(patchListingLocation(location, {
-                                            sourceMode: 'custom',
-                                            sourceAddressId: null,
-                                        }));
-                                        return;
-                                    }
-                                    const nextAddress = addressBook.find((item) => item.id === nextValue);
-                                    if (!nextAddress) return;
-                                    onChange(applyAddressBookEntryToLocation(nextAddress, location));
-                                }}
-                            />
-                        </Field>
-                    ) : null}
-                    {addressFields}
-                    {showAreaFields ? (
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                            {regionField}
-                            {communeField}
-                        </div>
-                    ) : null}
-                    {arrivalField}
-                    {(showSimpleVisibilityToggle || (onSaveToAddressBook && location.sourceMode !== 'saved_address')) ? (
-                        <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-                            {showSimpleVisibilityToggle ? (
-                                <label className="inline-flex items-center gap-2 text-sm" style={{ color: 'var(--fg-secondary)' }}>
-                                    <input
-                                        type="checkbox"
-                                        checked={location.visibilityMode !== 'exact'}
-                                        onChange={(event) => onChange(patchListingLocation(location, {
-                                            visibilityMode: event.target.checked ? 'commune_only' : 'exact',
-                                            publicMapEnabled: !event.target.checked,
-                                        }))}
-                                    />
-                                    <span>No mostrar dirección exacta</span>
-                                </label>
-                            ) : <div />}
-                            {onSaveToAddressBook && location.sourceMode !== 'saved_address' ? (
-                                <PanelButton type="button" variant="ghost" size="sm" onClick={() => void onSaveToAddressBook()}>
-                                    Guardar en libreta
-                                </PanelButton>
-                            ) : null}
-                        </div>
-                    ) : null}
-                </>
-            ) : (
-                <>
-            {showSourceSelector ? (
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
-                    {sourceOptions.map((option) => {
-                        const disabled = option.value === 'saved_address' && !addressBookLoading && addressBook.length === 0;
-                        const active = location.sourceMode === option.value;
-                        return (
-                            <button
-                                key={option.value}
-                                type="button"
-                                disabled={disabled}
-                                onClick={() => onChange(patchListingLocation(location, {
-                                    sourceMode: option.value as ListingLocation['sourceMode'],
-                                    sourceAddressId: option.value === 'saved_address' ? location.sourceAddressId : null,
-                                    addressLine1: option.value === 'area_only' ? null : location.addressLine1,
-                                    addressLine2: option.value === 'area_only' ? null : location.addressLine2,
-                                    ...(option.value === 'area_only' ? clearResolvedGeo(location) : {}),
-                                }))}
-                                className="rounded-xl border p-3 text-left"
-                                style={{ borderColor: active ? 'var(--fg)' : 'var(--border)', background: active ? 'var(--bg-subtle)' : 'transparent', opacity: disabled ? 0.6 : 1 }}
-                            >
-                                <p className="text-sm font-semibold">{option.label}</p>
-                                <p className="text-xs mt-1" style={{ color: 'var(--fg-muted)' }}>{option.description}</p>
-                            </button>
-                        );
-                    })}
-                </div>
-            ) : null}
-            {location.sourceMode === 'saved_address' ? (
-                <Field label="Dirección guardada" error={fieldError(errors, 'sourceAddressId')}>
-                    <StyledSelect
-                        value={location.sourceAddressId || ''}
-                        placeholder={addressBookLoading ? 'Cargando...' : 'Seleccionar'}
-                        disabled={addressBookLoading || addressBook.length === 0}
-                        options={addressBook.map((item) => ({ value: item.id, label: addressSummary(item) }))}
-                        onChange={(nextValue) => {
-                        const nextAddress = addressBook.find((item) => item.id === nextValue);
-                        if (!nextAddress) return;
-                        onChange(applyAddressBookEntryToLocation(nextAddress, location));
-                    }}
-                    />
-                </Field>
-            ) : null}
-            {addressFirst ? addressFields : areaFieldsBlock}
-            {addressFirst ? areaFieldsBlock : addressFields}
-            {(showAreaFields || showVisibilityField) ? (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                    {showAreaFields ? (
-                        <Field label="Sector / barrio">
-                            <input className="form-input" value={location.neighborhood || ''} onChange={(event) => onChange(patchListingLocation(location, { neighborhood: event.target.value }))} placeholder="Ej: Barrio Italia" />
-                        </Field>
-                    ) : null}
-                    {showVisibilityField ? (
-                        <Field label="Visibilidad pública">
-                            <StyledSelect
-                                value={location.visibilityMode}
-                                onChange={(nextValue) => onChange(patchListingLocation(location, { visibilityMode: nextValue as ListingLocationVisibilityMode }))}
-                                options={visibilityOptions}
-                            />
-                        </Field>
-                    ) : null}
-                </div>
-            ) : null}
-            {(showActionBar && (showPublicPreviewCard || onGeocode || onSaveToAddressBook)) ? (
-                <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between rounded-xl border px-3 py-3" style={{ borderColor: 'var(--border)' }}>
-                    {showPublicPreviewCard ? (
-                        <div>
-                            <p className="text-sm font-medium">Vista pública</p>
-                            <p className="text-xs mt-1" style={{ color: 'var(--fg-secondary)' }}>
-                                {location.publicLabel || 'La ubicación pública quedará oculta.'}
-                            </p>
-                            <p className="text-xs mt-1" style={{ color: 'var(--fg-muted)' }}>Mapa público: {location.visibilityMode === 'hidden' ? 'Oculto' : location.publicMapEnabled ? 'Visible' : 'No visible'}</p>
-                        </div>
-                    ) : <div />}
-                    <div className="flex items-center gap-2 flex-wrap">
-                        {onGeocode ? <button type="button" className="btn btn-outline h-9 px-3 text-xs" onClick={() => void onGeocode()}>{geocoding ? 'Actualizando mapa...' : 'Actualizar mapa'}</button> : null}
-                        {showPublicPreviewCard ? <button type="button" className="btn btn-outline h-9 px-3 text-xs" onClick={() => onChange(patchListingLocation(location, { publicMapEnabled: !location.publicMapEnabled }))} disabled={location.visibilityMode === 'hidden'}>{location.publicMapEnabled ? 'Ocultar mapa' : 'Mostrar mapa'}</button> : null}
-                        {onSaveToAddressBook ? <button type="button" className="btn btn-outline h-9 px-3 text-xs" onClick={() => void onSaveToAddressBook()}>Guardar en libreta</button> : null}
-                    </div>
-                </div>
-            ) : null}
-            {showPublicPreviewCard ? <LocationMapPreview location={location} /> : null}
-                </>
-            )}
-        </div>
-    );
-}
-
-function createDraftFromEntry(entry?: AddressBookEntry | null): AddressBookManagerSubmitInput {
-    return {
-        id: entry?.id,
-        label: entry?.label || '',
-        kind: entry?.kind || 'personal',
-        isDefault: entry?.isDefault || false,
-        location: patchListingLocation(
-            createEmptyListingLocation({
-                sourceMode: 'custom',
-                countryCode: entry?.countryCode || 'CL',
-                visibilityMode: 'exact',
-                publicMapEnabled: true,
-                label: entry?.label || null,
-                kind: entry?.kind || null,
-            }),
-            {
-                regionId: entry?.regionId || null,
-                regionName: entry?.regionName || null,
-                communeId: entry?.communeId || null,
-                communeName: entry?.communeName || null,
-                neighborhood: entry?.neighborhood || null,
-                addressLine1: entry?.addressLine1 || null,
-                addressLine2: entry?.addressLine2 || null,
-                postalCode: entry?.postalCode || null,
-                arrivalInstructions: entry?.arrivalInstructions || null,
-                geoPoint: entry?.geoPoint || undefined,
-                publicGeoPoint: entry?.geoPoint || undefined,
-                publicLabel: [entry?.addressLine1, entry?.communeName, entry?.regionName].filter(Boolean).join(', '),
-            }
-        ),
-    };
-}
-
-export function AddressBookManager(props: AddressBookManagerProps) {
-    const {
-        title = 'Direcciones guardadas',
-        description = 'Guarda direcciones particulares, de empresa, sucursal o envíos para reutilizarlas en publicaciones y operaciones.',
-        showHeader = true,
-        googleMapsApiKey,
-        entries,
-        regions,
-        getCommunes,
-        loading = false,
-        saving = false,
-        deletingId = null,
-        onSaveEntry,
-        onDeleteEntry,
-    } = props;
-    const [draft, setDraft] = useState<AddressBookManagerSubmitInput>(createDraftFromEntry());
-    const [editingId, setEditingId] = useState<string | null>(null);
-    const [composerOpen, setComposerOpen] = useState(false);
-
-    useEffect(() => {
-        if (!editingId) return;
-        const current = entries.find((item) => item.id === editingId);
-        if (!current) {
-            setEditingId(null);
-            setDraft(createDraftFromEntry());
-            setComposerOpen(false);
-        }
-    }, [editingId, entries]);
-
-    const communes = useMemo(
-        () => getCommunes(draft.location.regionId || ''),
-        [draft.location.regionId, getCommunes]
-    );
-    const allCommunes = useMemo(
-        () => regions.flatMap((region) => getCommunes(region.value)),
-        [regions, getCommunes]
-    );
-
-    const submitDisabled = !(draft.location.label?.trim() || draft.label.trim()) || !draft.location.regionId || !draft.location.communeId || !draft.location.addressLine1?.trim();
-    const draftLabel = draft.label || draft.location.label || '';
-
-    const handleStartCreate = () => {
-        setEditingId(null);
-        setDraft({ ...createDraftFromEntry(), isDefault: entries.length === 0 });
-        setComposerOpen(true);
-    };
-
-    const handleEdit = (entry: AddressBookEntry) => {
-        setEditingId(entry.id);
-        setDraft(createDraftFromEntry(entry));
-        setComposerOpen(true);
-    };
-
-    const handleReset = () => {
-        setEditingId(null);
-        setDraft(createDraftFromEntry());
-        setComposerOpen(false);
-    };
-
-    const handleSave = async () => {
-        const saved = await onSaveEntry(draft);
-        if (saved) {
-            handleReset();
-        }
-    };
-
-    const handleMakeDefault = async (entry: AddressBookEntry) => {
-        if (entry.isDefault) return;
-        await onSaveEntry({ ...createDraftFromEntry(entry), isDefault: true });
-    };
-
-    return (
-        <div className="space-y-5">
-            <div className="flex flex-wrap gap-4" style={{ justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                {showHeader ? (
-                    <div>
-                        <h2 className="text-base font-semibold mb-1" style={{ color: 'var(--fg)' }}>{title}</h2>
-                        <p className="text-sm" style={{ color: 'var(--fg-muted)' }}>{description}</p>
-                    </div>
-                ) : null}
-                {!composerOpen ? (
-                    <button type="button" className="btn btn-primary h-10 px-4 text-sm" style={{ marginLeft: 'auto' }} onClick={handleStartCreate}>
-                        + Agregar dirección
-                    </button>
-                ) : null}
-            </div>
-
-            <div className="space-y-4">
-                <div className="grid gap-3 md:grid-cols-2">
-                    {entries.length > 0 ? entries.map((entry) => (
-                        <div key={entry.id} className="rounded-2xl border p-4" style={{ borderColor: editingId === entry.id ? 'var(--fg)' : 'var(--border)', background: editingId === entry.id ? 'var(--bg-subtle)' : 'var(--bg)' }}>
-                            <div className="flex items-start justify-between gap-3">
-                                <div className="min-w-0">
-                                    <p className="text-sm font-semibold" style={{ color: 'var(--fg)' }}>{entry.label}</p>
-                                    <p className="text-xs mt-1" style={{ color: 'var(--fg-muted)' }}>{[entry.communeName, entry.regionName].filter(Boolean).join(', ') || 'Sin comuna'}</p>
-                                </div>
-                                {entry.isDefault ? <span className="rounded-full px-2 py-1 text-[11px] font-medium" style={{ background: 'var(--bg-muted)', color: 'var(--fg-secondary)' }}>Predeterminada</span> : null}
-                            </div>
-                            <p className="text-sm mt-3" style={{ color: 'var(--fg-secondary)' }}>{[entry.addressLine1, entry.addressLine2].filter(Boolean).join(', ') || addressSummary(entry)}</p>
-                            {entry.arrivalInstructions ? (
-                                <p className="text-xs mt-2 italic" style={{ color: 'var(--fg-muted)' }}>{entry.arrivalInstructions}</p>
-                            ) : null}
-                            <div className="mt-4 flex flex-wrap gap-2">
-                                <button type="button" className="btn btn-outline h-9 px-3 text-xs" onClick={() => handleEdit(entry)}>Editar</button>
-                                {!entry.isDefault ? (
-                                    <button type="button" className="btn btn-outline h-9 px-3 text-xs" onClick={() => void handleMakeDefault(entry)} disabled={saving}>
-                                        Predeterminar
-                                    </button>
-                                ) : null}
-                                <button type="button" className="btn btn-outline h-9 px-3 text-xs" onClick={() => void onDeleteEntry(entry.id)} disabled={deletingId === entry.id}>{deletingId === entry.id ? 'Eliminando...' : 'Eliminar'}</button>
-                            </div>
-                        </div>
-                    )) : (
-                        <div className="rounded-2xl border p-5 text-sm md:col-span-2" style={{ borderColor: 'var(--border)', background: 'var(--bg)', color: 'var(--fg-secondary)' }}>
-                            <p>{loading ? 'Cargando direcciones...' : 'Todavía no tienes direcciones guardadas.'}</p>
-                        </div>
-                    )}
-                </div>
-
-                {composerOpen ? (
-                    <PanelCard tone="surface" size="lg" className="shadow-(--shadow-xs)">
-                        <div className="mx-auto max-w-2xl space-y-5">
-                            <div className="flex flex-wrap gap-3" style={{ justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                                <div className="pr-2">
-                                    <p className="text-base font-semibold" style={{ color: 'var(--fg)' }}>{editingId ? 'Editar dirección' : 'Nueva dirección'}</p>
-                                    <p className="text-sm mt-1" style={{ color: 'var(--fg-muted)' }}>Guarda una dirección clara para reutilizarla después.</p>
-                                </div>
-                                <button type="button" className="btn btn-outline h-9 px-3 text-xs" style={{ marginLeft: 'auto' }} onClick={handleReset}>
-                                    Cancelar
-                                </button>
-                            </div>
-
-                            <div className="space-y-5">
-                                <Field label="Nombre de la dirección" required>
-                                    <input
-                                        className="form-input"
-                                        value={draftLabel}
-                                        onChange={(event) => {
-                                            const nextLabel = event.target.value;
-                                            setDraft((current) => ({
-                                                ...current,
-                                                label: nextLabel,
-                                                location: patchListingLocation(current.location, { label: nextLabel }),
-                                            }));
-                                        }}
-                                        placeholder="Ej: Casa, Oficina, Casa mamá"
-                                    />
-                                </Field>
-
-                                <div className="space-y-3">
-                                    <ListingLocationEditor
-                                        simpleMode
-                                        title="Dirección"
-                                        description="Busca la dirección y selecciona una sugerencia si aparece."
-                                        location={draft.location}
-                                        onChange={(next) => setDraft((current) => ({
-                                            ...current,
-                                            location: patchListingLocation(next, { visibilityMode: 'exact', publicMapEnabled: true, label: current.label || next.label }),
-                                        }))}
-                                        regions={regions}
-                                        communes={communes}
-                                        allCommunes={allCommunes}
-                                        addressBook={[]}
-                                        showHeader
-                                        framed
-                                        addressFirst
-                                        allowAreaOnly={false}
-                                        showSourceSelector={false}
-                                        showVisibilityField={false}
-                                        showSimpleVisibilityToggle={false}
-                                        showPublicPreviewCard={false}
-                                        showActionBar={false}
-                                        showGoogleMapsLink
-                                        addressRequired
-                                        googleMapsApiKey={googleMapsApiKey}
-                                    />
-                                </div>
-
-                                <label className="flex items-center gap-3 rounded-xl border px-4 py-3 text-sm" style={{ borderColor: 'var(--border)', background: 'var(--bg)' }}>
-                                    <input type="checkbox" checked={draft.isDefault} onChange={(event) => setDraft((current) => ({ ...current, isDefault: event.target.checked }))} />
-                                    <span style={{ color: 'var(--fg-secondary)' }}>Usar como dirección predeterminada</span>
-                                </label>
-
-                                <div className="flex flex-wrap gap-2 pt-1">
-                                    <button type="button" className="btn btn-primary h-10 px-4 text-sm" onClick={() => void handleSave()} disabled={saving || submitDisabled}>
-                                        {saving ? 'Guardando...' : editingId ? 'Guardar dirección' : 'Agregar dirección'}
-                                    </button>
-                                </div>
-                            </div>
-                        </div>
-                    </PanelCard>
-                ) : null}
-            </div>
-        </div>
-    );
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
 // PanelBottomNav — mobile-first bottom navigation for authenticated panels.
 // Consumers supply their framework LinkComponent (e.g. next/link) so this
 // component stays framework-agnostic while still supporting client routing.
@@ -4367,7 +2874,7 @@ export function PanelBottomNav({
                                     style={{
                                         background: 'var(--accent)',
                                         color: 'var(--accent-contrast, #fff)',
-                                        boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
+                                        boxShadow: highlightStyle?.boxShadow ?? '0 4px 12px color-mix(in oklab, var(--accent) 25%, transparent)',
                                         ...highlightStyle,
                                     }}
                                 >
@@ -4560,7 +3067,7 @@ export function PanelConfigSection(props: PanelConfigSectionProps) {
                 </h3>
                 <div className="grid grid-cols-1 gap-2">
                     {Array.from({ length: 5 }).map((_, i) => (
-                        <div key={i} className="h-18 rounded-2xl animate-pulse" style={{ background: 'var(--border)' }} />
+                        <div key={i} className="h-18 rounded-card animate-pulse" style={{ background: 'var(--border)' }} />
                     ))}
                 </div>
             </div>
@@ -4684,3 +3191,35 @@ export function PanelConfigSection(props: PanelConfigSectionProps) {
 // Sidebar
 export { Sidebar, AppSidebar, type NavItem, type UserInfo, type SidebarProps, type AppSidebarProps } from './sidebar/app-sidebar';
 export { PanelShell, type PanelShellProps } from './panel/panel-shell';
+export { resolveActiveNavHref, cleanPanelPath } from './panel/resolve-active-nav';
+export { PublicProfileEditor, type PublicProfileEditorProps, type PublicProfileVertical } from './panel/public-profile-editor';
+export { AvatarUpload, type AvatarUploadConfig, type AvatarUploadProps } from './avatar-upload';
+export { PanelAddressesPage } from './address-book/panel-addresses-page';
+export { CrmTeamSettingsManager, type CrmTeamSettingsManagerProps } from './panel/crm-team-settings-manager';
+export { CrmModalShell, type CrmModalShellProps } from './panel/crm-modal-shell';
+export {
+    SubscriptionManager,
+    type SubscriptionManagerProps,
+    type SubscriptionManagerPayments,
+} from './panel/subscription-manager';
+export {
+    InstagramIntegrationCard,
+    type InstagramIntegrationCardProps,
+    type InstagramIntegrationStatus,
+} from './integrations/instagram-integration-card';
+export { MarketplaceFooter, type MarketplaceFooterProps } from './layout/marketplace-footer';
+export { FeaturedBoostSliderSection, type FeaturedBoostSliderSectionProps, type FeaturedBoostTab } from './featured/featured-boost-slider-section';
+export { SiteInfoPage, type SiteInfoPageData, type SiteInfoSection } from './content/site-info-page';
+export {
+    PublicProfileShell,
+    PublicProfileLoadingSkeleton,
+    PUBLIC_PROFILE_DAY_LABELS,
+    initialsFromPublicProfileName,
+    formatPublicProfileTime,
+    getPublicProfileTodayState,
+    type PublicProfileShellProps,
+    type PublicProfileShellData,
+    type PublicProfileShellTeamMember,
+    type PublicProfileDay,
+    type PublicProfileTodayState,
+} from './public-profile/public-profile-shell';

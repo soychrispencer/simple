@@ -11,10 +11,15 @@
     ".": {
       "types": "./dist/index.d.ts",
       "default": "./dist/index.js"
+    },
+    "./theme-provider": {
+      "types": "./dist/theme-provider.d.ts",
+      "default": "./dist/theme-provider.js"
     }
   },
   "scripts": {
     "build": "tsc --build",
+    "dev": "tsc --build --watch",
     "lint": "eslint .",
     "test": "vitest run",
     "typecheck": "tsc --noEmit"
@@ -22,23 +27,28 @@
   "dependencies": {
     "@simple/config": "workspace:*",
     "@simple/types": "workspace:*",
+    "@simple/utils": "workspace:*",
     "clsx": "^2.1.1",
+    "next-themes": "^0.4.6",
+    "react-easy-crop": "^5.5.7",
     "tailwind-merge": "^3.5.0"
   },
   "peerDependencies": {
     "@tabler/icons-react": "^3.31.0",
     "next": "^16.0.0",
+    "next-themes": "^0.4.6",
     "react": "^19.2.4",
     "react-dom": "^19.2.4",
     "swiper": "^12.1.2"
   },
   "devDependencies": {
     "@tabler/icons-react": "^3.31.0",
+    "next-themes": "^0.4.6",
     "@types/node": "^22.19.17",
     "@types/react": "^19.1.8",
+    "@types/react-dom": "^19.1.6",
     "next": "^16.1.6",
     "swiper": "^12.1.2",
-    "typescript": "^5.9.3",
-    "@types/react-dom": "^19.1.6"
+    "typescript": "^5.9.3"
   }
 }

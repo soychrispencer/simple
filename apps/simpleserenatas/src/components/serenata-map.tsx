@@ -12,7 +12,7 @@ const CARTO_LIGHT_TILES = 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{
 const CARTO_DARK_TILES = 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png';
 const CARTO_ATTRIBUTION = '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>';
 
-function parseCoordinate(value: string | null): number | null {
+function parseLatLng(value: string | null): number | null {
     if (!value) return null;
     const parsed = Number(value);
     return Number.isFinite(parsed) ? parsed : null;
@@ -31,14 +31,14 @@ function markerHtml(index: number) {
             height: 36px;
             border-radius: 999px;
             background: var(--accent);
-            color: var(--accent-contrast, #fff);
+            color: var(--accent-contrast);
             display: flex;
             align-items: center;
             justify-content: center;
             font-weight: 800;
             font-size: 14px;
             border: 3px solid var(--surface);
-            box-shadow: 0 12px 26px rgba(0,0,0,.28);
+            box-shadow: var(--shadow-lg);
             position: relative;
         ">
             ${index + 1}
@@ -135,7 +135,7 @@ export default function SerenataMap({ items }: SerenataMapProps) {
             polylineRef.current = null;
 
             const points = items
-                .map((item) => ({ item, lat: parseCoordinate(item.lat), lng: parseCoordinate(item.lng) }))
+                .map((item) => ({ item, lat: parseLatLng(item.lat), lng: parseLatLng(item.lng) }))
                 .filter((point): point is { item: Serenata; lat: number; lng: number } => point.lat != null && point.lng != null);
 
             points.forEach(({ item, lat, lng }, index) => {
@@ -154,7 +154,7 @@ export default function SerenataMap({ items }: SerenataMapProps) {
 
             if (points.length > 1) {
                 polylineRef.current = L.polyline(points.map((point) => [point.lat, point.lng]), {
-                    color: getComputedStyle(document.documentElement).getPropertyValue('--accent').trim() || '#E11D48',
+                    color: getComputedStyle(document.documentElement).getPropertyValue('--accent').trim(),
                     weight: 4,
                     opacity: 0.86,
                     dashArray: '10 10',

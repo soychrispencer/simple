@@ -74,7 +74,7 @@ export default function EstadisticasPage() {
                 <PanelCard size="md">
                     <PanelBlockHeader title="Top publicaciones" className="mb-4" />
                     {loading ? (
-                        <div className="h-28 rounded-[18px] animate-pulse" style={{ background: 'var(--bg-muted)' }} />
+                        <div className="h-28 rounded-card animate-pulse" style={{ background: 'var(--bg-muted)' }} />
                     ) : topItems.length === 0 ? (
                         <PanelNotice tone="neutral">Todavía no hay publicaciones para medir.</PanelNotice>
                     ) : (
@@ -99,7 +99,7 @@ export default function EstadisticasPage() {
                 <PanelCard size="md">
                     <PanelBlockHeader title="Estado del inventario" className="mb-4" />
                     {loading ? (
-                        <div className="h-28 rounded-[18px] animate-pulse" style={{ background: 'var(--bg-muted)' }} />
+                        <div className="h-28 rounded-card animate-pulse" style={{ background: 'var(--bg-muted)' }} />
                     ) : statusRows.length === 0 ? (
                         <PanelNotice tone="neutral">No hay publicaciones para analizar estados.</PanelNotice>
                     ) : (

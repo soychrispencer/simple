@@ -2,8 +2,9 @@
  * Mailer transaccional compartido.
  *
  * Envoltorio mínimo sobre nodemailer + variables `SMTP_*` ya documentadas en
- * `services/api/.env*.example`. Se usa para correos cortos de eventos
- * (pago confirmado, suscripción activada, etc.).
+ * `services/api/.env*.example` (`SMTP_FROM=noreply@simpleplataforma.app`, todas las
+ * verticales). El nombre visible (`fromName`) puede variar; el email From no.
+ * Se usa para correos cortos de eventos (pago confirmado, suscripción activada, etc.).
  *
  * Si las variables no están configuradas, las llamadas son `no-op` (resuelven
  * con `{ ok: false, skipped: true }`). Esto permite usarlo en desarrollo
@@ -11,6 +12,10 @@
  */
 import nodemailer from 'nodemailer';
 import type { Transporter } from 'nodemailer';
+import { getEmailBrandProfile } from '../../lib/email-brand.js';
+import { ensureEmailLogoCache } from '../../lib/email-brand-logo.js';
+import { buildPlainTextEmailPackage } from '../../lib/email-template.js';
+import { formatEmailFromAddress } from '../../lib/smtp-from.js';
 
 let cachedTransporter: Transporter | null | undefined = undefined;
 
@@ -51,6 +56,8 @@ export type SendTransactionalEmailInput = {
     html?: string;
     /** Nombre visible del remitente. Default: "Simple". */
     fromName?: string;
+    /** Origin de la app (p. ej. http://localhost:3005) para branding del HTML. */
+    brandOrigin?: string;
 };
 
 export type SendTransactionalEmailResult =
@@ -74,19 +81,21 @@ export async function sendTransactionalEmail(
         return { ok: false, skipped: true, reason: 'not_configured' };
     }
 
-    const smtpFrom = asString(process.env.SMTP_FROM);
-    const fromName = input.fromName ?? 'Simple';
-    const fromAddress = smtpFrom.includes('<')
-        ? smtpFrom
-        : `${fromName} <${smtpFrom}>`;
+    const fromAddress = formatEmailFromAddress(input.fromName ?? 'Simple');
 
     try {
+        await ensureEmailLogoCache();
+        const brand = getEmailBrandProfile(input.brandOrigin ?? 'https://simpleplataforma.app');
+        const mail = input.html
+            ? { html: input.html, attachments: [] as const }
+            : buildPlainTextEmailPackage(input.text, brand);
         const info = await transporter.sendMail({
             from: fromAddress,
             to: input.to,
             subject: input.subject,
             text: input.text,
-            html: input.html ?? `<pre style="font-family:inherit">${escapeHtml(input.text)}</pre>`,
+            html: mail.html,
+            attachments: mail.attachments.length ? [...mail.attachments] : undefined,
         });
         return { ok: true, messageId: String(info.messageId ?? '') };
     } catch (error) {
@@ -98,10 +107,3 @@ export async function sendTransactionalEmail(
     }
 }
 
-function escapeHtml(s: string): string {
-    return s
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;')
-        .replace(/"/g, '&quot;');
-}

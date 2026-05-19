@@ -20,7 +20,7 @@ export function MobileNav() {
         { href: '/ventas', icon: IconSearch, label: 'Buscar' },
         { href: '/panel/publicar', icon: IconPlus, label: 'Publicar', primary: true },
         { href: '/panel/guardados', icon: IconBookmark, label: 'Guardados' },
-        { href: '/panel', icon: IconUser, label: 'Perfil' },
+        { href: '/panel', icon: IconUser, label: 'Mi cuenta' },
     ];
 
     return (

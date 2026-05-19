@@ -1,11 +1,41 @@
 import type { StorageProvider } from '@simple/config';
+import { logger } from '@simple/logger';
 import { BackblazeB2Provider } from './backblaze-b2';
 import { BackblazeS3Provider } from './backblaze-s3';
 import { CloudflareR2Provider } from './cloudflare-r2';
 import { LocalStorageProvider } from './local';
 
+function isDev(): boolean {
+    return process.env.NODE_ENV !== 'production';
+}
+
+function useLocalDevFallback(reason: string): StorageProvider {
+    logger.warn('[storage] Usando almacenamiento local en desarrollo', { reason });
+    return new LocalStorageProvider();
+}
+
+function hasBackblazeS3Config(): boolean {
+    return Boolean(
+        process.env.BACKBLAZE_S3_ENDPOINT
+        && process.env.BACKBLAZE_S3_ACCESS_KEY
+        && process.env.BACKBLAZE_S3_SECRET_KEY
+        && process.env.BACKBLAZE_BUCKET_NAME
+        && process.env.BACKBLAZE_DOWNLOAD_URL
+    );
+}
+
+function hasCloudflareR2Config(): boolean {
+    return Boolean(
+        process.env.CLOUDFLARE_R2_ACCOUNT_ID
+        && process.env.CLOUDFLARE_R2_ACCESS_KEY_ID
+        && process.env.CLOUDFLARE_R2_SECRET_ACCESS_KEY
+        && process.env.CLOUDFLARE_R2_BUCKET_NAME
+        && process.env.CLOUDFLARE_R2_PUBLIC_URL
+    );
+}
+
 export function createStorageProvider(): StorageProvider {
-    const storageType = process.env.STORAGE_PROVIDER || (process.env.NODE_ENV === 'development' ? 'local' : 'cloudflare-r2');
+    const storageType = process.env.STORAGE_PROVIDER || (isDev() ? 'local' : 'cloudflare-r2');
 
     if (storageType === 'local') {
         return new LocalStorageProvider();
@@ -21,11 +51,13 @@ export function createStorageProvider(): StorageProvider {
         const workerUrl = process.env.CLOUDFLARE_WORKER_URL || '';
 
         if (!accountId || !accessKeyId || !secretAccessKey || !bucketName || !publicUrl) {
+            if (isDev()) {
+                return useLocalDevFallback('CLOUDFLARE_R2 sin credenciales completas');
+            }
             throw new Error(
-                'Missing required Cloudflare R2 environment variables: ' +
-                'CLOUDFLARE_R2_ACCOUNT_ID, CLOUDFLARE_R2_ACCESS_KEY_ID, CLOUDFLARE_R2_SECRET_ACCESS_KEY, ' +
-                'CLOUDFLARE_R2_BUCKET_NAME, CLOUDFLARE_R2_PUBLIC_URL. ' +
-                'Para development puedes usar STORAGE_PROVIDER=local.'
+                'Faltan variables de Cloudflare R2: CLOUDFLARE_R2_ACCOUNT_ID, CLOUDFLARE_R2_ACCESS_KEY_ID, ' +
+                'CLOUDFLARE_R2_SECRET_ACCESS_KEY, CLOUDFLARE_R2_BUCKET_NAME, CLOUDFLARE_R2_PUBLIC_URL. ' +
+                'En desarrollo usa STORAGE_PROVIDER=local.'
             );
         }
 
@@ -40,10 +72,12 @@ export function createStorageProvider(): StorageProvider {
         const downloadUrl = process.env.BACKBLAZE_DOWNLOAD_URL;
 
         if (!appKeyId || !appKey || !bucketId || !bucketName || !downloadUrl) {
+            if (isDev()) {
+                return useLocalDevFallback('backblaze-b2 sin credenciales completas');
+            }
             throw new Error(
-                'Missing required Backblaze B2 environment variables: ' +
-                'BACKBLAZE_APP_KEY_ID, BACKBLAZE_APP_KEY, BACKBLAZE_BUCKET_ID, BACKBLAZE_BUCKET_NAME, BACKBLAZE_DOWNLOAD_URL. ' +
-                'Para development puedes usar STORAGE_PROVIDER=local y opcionalmente LOCAL_STORAGE_URL.'
+                'Faltan variables de Backblaze B2: BACKBLAZE_APP_KEY_ID, BACKBLAZE_APP_KEY, BACKBLAZE_BUCKET_ID, ' +
+                'BACKBLAZE_BUCKET_NAME, BACKBLAZE_DOWNLOAD_URL. En desarrollo usa STORAGE_PROVIDER=local.'
             );
         }
 
@@ -59,9 +93,12 @@ export function createStorageProvider(): StorageProvider {
         const downloadUrl = process.env.BACKBLAZE_DOWNLOAD_URL;
 
         if (!endpoint || !accessKey || !secretKey || !bucketName || !downloadUrl) {
+            if (isDev()) {
+                return useLocalDevFallback('backblaze-s3 sin credenciales completas');
+            }
             throw new Error(
-                'Missing required Backblaze S3 environment variables: ' +
-                'BACKBLAZE_S3_ENDPOINT, BACKBLAZE_S3_ACCESS_KEY, BACKBLAZE_S3_SECRET_KEY, BACKBLAZE_BUCKET_NAME, BACKBLAZE_DOWNLOAD_URL'
+                'Faltan variables de Backblaze S3: BACKBLAZE_S3_ENDPOINT, BACKBLAZE_S3_ACCESS_KEY, ' +
+                'BACKBLAZE_S3_SECRET_KEY, BACKBLAZE_BUCKET_NAME, BACKBLAZE_DOWNLOAD_URL'
             );
         }
 
@@ -73,9 +110,22 @@ export function createStorageProvider(): StorageProvider {
 
 let storageProviderInstance: StorageProvider | null = null;
 
+export function resetStorageProviderForTests(): void {
+    storageProviderInstance = null;
+}
+
 export function getStorageProvider(): StorageProvider {
     if (!storageProviderInstance) {
         storageProviderInstance = createStorageProvider();
+        if (isDev()) {
+            const type = process.env.STORAGE_PROVIDER || 'local';
+            if (type === 'cloudflare-r2' && !hasCloudflareR2Config()) {
+                logger.warn('[storage] STORAGE_PROVIDER=cloudflare-r2 pero faltan credenciales; revisa .env.local');
+            }
+            if ((type === 'backblaze-s3' || type === 's3') && !hasBackblazeS3Config()) {
+                logger.warn('[storage] STORAGE_PROVIDER=backblaze-s3 pero faltan credenciales; revisa .env.local');
+            }
+        }
     }
     return storageProviderInstance;
 }

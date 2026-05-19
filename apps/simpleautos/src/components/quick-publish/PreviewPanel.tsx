@@ -63,15 +63,9 @@ export default function PreviewPanel({ step, photos, basicData, generatedText }:
     return (
         <div className="space-y-4">
             {/* Mini listing card preview */}
-            <div
-                className="rounded-2xl overflow-hidden border"
-                style={{ borderColor: 'var(--border)', background: 'var(--bg-subtle)' }}
-            >
+            <div className="qp-card rounded-2xl overflow-hidden border">
                 {/* Cover image */}
-                <div
-                    className="relative w-full aspect-16/10"
-                    style={{ background: 'var(--bg-muted)' }}
-                >
+                <div className="qp-thumb relative w-full aspect-16/10">
                     {cover ? (
                         <Image
                             src={cover.previewUrl}
@@ -82,15 +76,14 @@ export default function PreviewPanel({ step, photos, basicData, generatedText }:
                         />
                     ) : (
                         <div className="flex h-full items-center justify-center flex-col gap-2">
-                            <IconCamera size={24} style={{ color: 'var(--fg-muted)' }} />
-                            <span className="text-xs" style={{ color: 'var(--fg-muted)' }}>Sin foto aún</span>
+                            <IconCamera size={24} className="qp-muted" />
+                            <span className="text-xs qp-muted">Sin foto aún</span>
                         </div>
                     )}
 
                     {photos.length > 1 && (
                         <div
-                            className="absolute bottom-2 right-2 rounded-full px-2 py-0.5 text-[10px] font-semibold text-white"
-                            style={{ background: 'rgba(0,0,0,0.55)' }}
+                            className="qp-overlay-badge absolute bottom-2 right-2 rounded-full px-2 py-0.5 text-[10px] font-semibold text-white"
                         >
                             {photos.length} fotos
                         </div>
@@ -146,7 +139,7 @@ export default function PreviewPanel({ step, photos, basicData, generatedText }:
             >
                 <div className="flex items-center justify-between mb-2.5">
                     <span className="text-xs font-semibold" style={{ color: 'var(--fg)' }}>Completitud</span>
-                    <span className="text-xs font-semibold" style={{ color: '#FF3600' }}>
+                    <span className="text-xs font-semibold" style={{ color: 'var(--accent)' }}>
                         {doneCount}/{items.length}
                     </span>
                 </div>
@@ -183,7 +176,7 @@ export default function PreviewPanel({ step, photos, basicData, generatedText }:
                     style={{ borderColor: 'var(--border)', background: 'var(--bg-subtle)' }}
                 >
                     <div className="flex items-center gap-1.5 mb-2">
-                        <IconSparkles size={13} style={{ color: '#FF3600' }} />
+                        <IconSparkles size={13} style={{ color: 'var(--accent)' }} />
                         <span className="text-xs font-semibold" style={{ color: 'var(--fg)' }}>{tips.title}</span>
                     </div>
                     <ul className="space-y-1.5">

@@ -65,10 +65,10 @@ export default function Step3Text({ data, generatedText, isGenerating, onUpdateT
                         </div>
                         {!editing && (
                             <div className="flex items-center gap-1.5 text-[var(--accent)]">
-                                <button type="button" onClick={onGenerateText} className="flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-medium border border-[var(--border)] bg-[var(--surface)] text-[var(--fg-muted)] hover:text-[var(--fg)]">
+                                <button type="button" onClick={onGenerateText} className="flex items-center gap-1 rounded-button px-2.5 py-1 text-[11px] font-medium border border-[var(--border)] bg-[var(--surface)] text-[var(--fg-muted)] hover:text-[var(--fg)]">
                                     <IconSparkles size={11} /> Regenerar
                                 </button>
-                                <button type="button" onClick={startEdit} className="flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-medium border border-[var(--accent-border)] bg-[var(--surface)]">
+                                <button type="button" onClick={startEdit} className="flex items-center gap-1 rounded-button px-2.5 py-1 text-[11px] font-medium border border-[var(--accent-border)] bg-[var(--surface)]">
                                     <IconEdit size={11} /> Editar
                                 </button>
                             </div>
@@ -87,7 +87,7 @@ export default function Step3Text({ data, generatedText, isGenerating, onUpdateT
                                 <textarea className="form-textarea resize-none" value={editDesc} rows={6} maxLength={2000} onChange={(e) => setEditDesc(e.target.value)} />
                                 <p className="text-[10px] mt-1 text-[var(--fg-muted)] text-right">{editDesc.length}/2000</p>
                             </div>
-                            <button type="button" onClick={saveEdit} className="flex items-center gap-1.5 rounded-full px-4 py-2 text-xs font-bold bg-[var(--accent)] text-[var(--accent-contrast)] hover:opacity-90 transition-opacity">
+                            <button type="button" onClick={saveEdit} className="flex items-center gap-1.5 rounded-button px-4 py-2 text-xs font-bold bg-[var(--accent)] text-[var(--accent-contrast)] hover:opacity-90 transition-opacity">
                                 <IconCheck size={14} /> Guardar cambios
                             </button>
                         </div>

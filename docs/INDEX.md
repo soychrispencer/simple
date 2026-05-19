@@ -1,6 +1,6 @@
 # Índice de Documentación
 
-**Actualizado:** 9 de mayo de 2026
+**Actualizado:** 17 de mayo de 2026
 
 Índice de documentación activa del monorepo Simple.
 
@@ -26,6 +26,7 @@
 
 - [SIMPLEAUTOS_ARQUITECTURA_COMPLETA.md](./SIMPLEAUTOS_ARQUITECTURA_COMPLETA.md): arquitectura detallada de SimpleAutos.
 - [SIMPLEAGENDA_DEVELOPMENT.md](./SIMPLEAGENDA_DEVELOPMENT.md): guía de desarrollo SimpleAgenda.
+- **SimpleSerenatas** (`apps/simpleserenatas`, puerto `3005`): marketplace de serenatas; ver [ARCHITECTURE.md](./ARCHITECTURE.md) y deploy en [COOLIFY_DEPLOYMENT.md](./COOLIFY_DEPLOYMENT.md#7-simpleserenatas-simpleserenatasapp).
 - [FACEBOOK_DEVELOPERS_SETUP_2026.md](./FACEBOOK_DEVELOPERS_SETUP_2026.md): configuración Meta Developers.
 - [INTEGRATION_ROADMAP.md](./INTEGRATION_ROADMAP.md): roadmap de integración.
 

@@ -191,7 +191,7 @@ export default function DireccionesConfigPage() {
                             </label>
                             <ListingLocationEditor
                                 title="Dirección"
-                                description="Busca la dirección y selecciona una sugerencia si aparece."
+                                addressHintMode="none"
                                 simpleMode
                                 showSourceSelector={false}
                                 showVisibilityField={false}

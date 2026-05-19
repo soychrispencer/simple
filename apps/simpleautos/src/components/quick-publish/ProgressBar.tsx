@@ -26,7 +26,7 @@ export default function ProgressBar({ step }: Props) {
                         {i > 0 && (
                             <div
                                 className="h-px w-6 shrink-0 transition-colors duration-300"
-                                style={{ background: isDone ? '#FF3600' : 'var(--border)' }}
+                                style={{ background: isDone ? 'var(--accent)' : 'var(--border)' }}
                             />
                         )}
                         <div className="flex items-center gap-1.5">
@@ -36,7 +36,7 @@ export default function ProgressBar({ step }: Props) {
                                     width: isActive ? 28 : 20,
                                     height: 20,
                                     borderRadius: isActive ? 10 : '50%',
-                                    background: isActive ? '#FF3600' : isDone ? '#FF3600' : 'var(--bg-muted)',
+                                    background: isActive ? 'var(--accent)' : isDone ? 'var(--accent)' : 'var(--bg-muted)',
                                 }}
                             >
                                 {isDone ? (
@@ -54,7 +54,7 @@ export default function ProgressBar({ step }: Props) {
                             </div>
                             <span
                                 className="text-xs font-medium hidden sm:inline"
-                                style={{ color: isActive ? '#FF3600' : isDone ? 'var(--fg-secondary)' : 'var(--fg-muted)' }}
+                                style={{ color: isActive ? 'var(--accent)' : isDone ? 'var(--fg-secondary)' : 'var(--fg-muted)' }}
                             >
                                 {label}
                             </span>

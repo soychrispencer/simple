@@ -1,15 +1,26 @@
-'use client';
+﻿'use client';
 
-import { useEffect, useMemo, useRef, useState, type ChangeEvent, type ComponentType, type CSSProperties, type ReactNode } from 'react';
-import { useSearchParams } from 'next/navigation';
+/** Mi cuenta — pestañas horizontales (PanelPillNav). Sin hub de configuración legacy ni pantalla overview. */
+import { useEffect, useMemo, useState, type ChangeEvent, type ComponentType, type CSSProperties, type ReactNode } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { API_BASE } from '@simple/config';
 import type { AddressBookEntry } from '@simple/types';
-import { AddressBookManager, PanelBlockHeader, PanelButton, PanelCard, PanelField, PanelNotice, PanelPageHeader, PanelStatusBadge, PanelAccountProfileCard, PanelConfigSection, type AddressBookManagerSubmitInput, type PanelConfigSectionItem } from '@simple/ui';
-import { createAddressBookEntry, deleteAddressBookEntry, fetchAddressBook, getCommunesForRegion, LOCATION_REGIONS, resolveLocationNames, updateAddressBookEntry } from '@simple/utils';
+import {
+    AvatarUpload,
+    PanelBlockHeader,
+    PanelButton,
+    PanelCard,
+    PanelField,
+    PanelNotice,
+    PanelPageHeader,
+    PanelPillNav,
+    PanelStatusBadge,
+    PanelSwitch,
+} from '@simple/ui';
+import { fetchAddressBook } from '@simple/utils';
 import {
     IconBell,
     IconBrandGoogle,
-    IconCamera,
     IconCheck,
     IconChevronLeft,
     IconCreditCard,
@@ -21,39 +32,185 @@ import {
     IconShield,
     IconUser,
 } from '@tabler/icons-react';
-import { type ActiveProfile, type ClientProfile, type CoordinatorProfile, type MusicianProfile, type SerenatasUser, serenatasApi } from '@/lib/serenatas-api';
+import {
+    type ActiveProfile,
+    type ClientProfile,
+    type MusicianProfile,
+    type OwnerProfile,
+    type Profiles as ApiProfiles,
+    type SerenatasUser,
+    serenatasApi,
+} from '@/lib/serenatas-api';
+import type { AppMode } from '@/lib/app-mode';
+import { ownerFeaturesEnabled } from '@/lib/app-mode';
+import type { Section } from '@/context/serenata-context';
+import { type AccountTab, isAccountTab, readStoredAccountTab, profileSectionHref } from '@/lib/account-tab';
+import {
+    readEmailNotificationPrefs,
+    writeEmailNotificationPrefs,
+    type EmailNotificationPrefs,
+} from '@/lib/account-notification-prefs';
+import { OwnerOnboardingCard } from './owner-onboarding-card';
 import { confirmCheckout, fetchSubscriptionCatalog, startSubscriptionCheckout, type PaymentOrderStatus, type PaymentOrderView, type SubscriptionCatalogResponse } from '@/lib/payments';
-import { FieldInput, FieldSelect, FieldTextarea, FormFeedback, InstrumentSelect, type FormStatus } from './shared';
+import { FieldInput, FieldTextarea, FormFeedback, InstrumentSelect, type FormStatus } from './shared';
+import { RegionCommuneFields } from './region-commune-fields';
+import { WorkZonesPicker } from './work-zones-picker';
+import { AddressesSection, communesFromAddressBook } from './addresses-section';
 
-type AccountSubsection = 'overview' | 'data' | 'addresses' | 'security' | 'subscription';
+type AccountSubsection = AccountTab;
 type WorkProfile = Exclude<ActiveProfile, 'client'>;
 type Profiles = {
     client: ClientProfile | null;
     musician: MusicianProfile | null;
-    coordinator: CoordinatorProfile | null;
+    owner: OwnerProfile | null;
 };
 
 const ACTIVE_PROFILE_KEY = 'serenatas-active-profile';
-export function ProfileView({ profiles, profile, accountUser, refresh }: { profiles: Profiles; profile: ActiveProfile; accountUser: SerenatasUser | null; refresh: () => Promise<void> }) {
+
+const ACCOUNT_PILL_ITEMS: { key: AccountTab; label: string }[] = [
+    { key: 'data', label: 'Datos' },
+    { key: 'security', label: 'Seguridad' },
+    { key: 'addresses', label: 'Direcciones' },
+    { key: 'notifications', label: 'Notificaciones' },
+    { key: 'integrations', label: 'Integraciones' },
+    { key: 'subscription', label: 'Suscripción' },
+];
+
+function resolveAccountTab(urlTab: string | null): AccountTab {
+    if (isAccountTab(urlTab)) return urlTab;
+    return readStoredAccountTab() ?? 'data';
+}
+
+function whatsappPhoneValidation(enabled: boolean, phone: string): string | null {
+    if (enabled && !phone.trim()) return 'Ingresa un número de teléfono para contactarte por WhatsApp.';
+    return null;
+}
+
+function NotificationPrefToggle({
+    title,
+    description,
+    checked,
+    onChange,
+}: {
+    title: string;
+    description: string;
+    checked: boolean;
+    onChange: (value: boolean) => void;
+}) {
+    return (
+        <div className="flex items-start justify-between gap-3 rounded-xl border border-[var(--border)] p-4">
+            <div className="min-w-0 flex-1">
+                <p className="text-sm font-medium text-[var(--fg)]">{title}</p>
+                <p className="mt-0.5 text-xs text-[var(--fg-muted)]">{description}</p>
+            </div>
+            <PanelSwitch checked={checked} onChange={onChange} size="sm" ariaLabel={title} />
+        </div>
+    );
+}
+
+function WhatsappContactToggle({ enabled, onChange }: { enabled: boolean; onChange: (value: boolean) => void }) {
+    return (
+        <div className="flex items-start justify-between gap-3 rounded-xl border border-[var(--border)] p-4">
+            <div className="min-w-0 flex-1">
+                <p className="text-sm font-medium text-[var(--fg)]">Contactarme por WhatsApp</p>
+                <p className="mt-0.5 text-xs text-[var(--fg-muted)]">
+                    {enabled
+                        ? 'Usaremos tu teléfono para avisos y coordinación por WhatsApp.'
+                        : 'Si lo activas, usaremos el teléfono de arriba para escribirte por WhatsApp.'}
+                </p>
+            </div>
+            <PanelSwitch
+                checked={enabled}
+                onChange={onChange}
+                size="sm"
+                ariaLabel={enabled ? 'Desactivar contacto por WhatsApp' : 'Activar contacto por WhatsApp'}
+            />
+        </div>
+    );
+}
+
+function splitDisplayName(name: string | null | undefined) {
+    const parts = (name || '').trim().split(/\s+/).filter(Boolean);
+    return { firstName: parts[0] || '', lastName: parts.slice(1).join(' ') };
+}
+
+const EXPERIENCE_YEARS_MIN = 0;
+const EXPERIENCE_YEARS_MAX = 80;
+
+function experienceYearsValidation(value: number): string | null {
+    if (!Number.isFinite(value)) return 'Indica un número válido.';
+    if (value < EXPERIENCE_YEARS_MIN) return `Mínimo ${EXPERIENCE_YEARS_MIN} años.`;
+    if (value > EXPERIENCE_YEARS_MAX) return `Máximo ${EXPERIENCE_YEARS_MAX} años.`;
+    return null;
+}
+
+function resolveProfile(mode: AppMode | undefined, profiles: ApiProfiles, explicit?: ActiveProfile): ActiveProfile {
+    if (explicit) return explicit;
+    if (mode === 'client') return 'client';
+    if (mode === 'work') {
+        if (profiles.owner) return 'owner';
+        if (profiles.musician) return 'musician';
+        return 'musician';
+    }
+    if (profiles.client) return 'client';
+    if (profiles.musician) return 'musician';
+    if (profiles.owner) return 'owner';
+    return 'client';
+}
+
+type ProfileViewProps = {
+    profiles: ApiProfiles;
+    mode?: AppMode;
+    profile?: ActiveProfile;
+    accountUser: SerenatasUser | null;
+    refresh: () => Promise<void>;
+    setSection?: (section: Section) => void;
+};
+
+export function ProfileView({
+    profiles: apiProfiles,
+    mode,
+    profile: profileProp,
+    accountUser,
+    refresh,
+    setSection,
+}: ProfileViewProps) {
+    const profiles = apiProfiles;
+    const profile = resolveProfile(mode, apiProfiles, profileProp);
+    const ownerActive = ownerFeaturesEnabled(profiles);
+    const router = useRouter();
     const searchParams = useSearchParams();
-    const fileInputRef = useRef<HTMLInputElement>(null);
-    const [subsection, setSubsection] = useState<AccountSubsection>('overview');
+    const [subsection, setSubsection] = useState<AccountSubsection>(() => resolveAccountTab(searchParams.get('account_tab')));
+    const [whatsappEnabled, setWhatsappEnabled] = useState(false);
+    const [emailNotificationPrefs, setEmailNotificationPrefs] = useState<EmailNotificationPrefs>(() => readEmailNotificationPrefs());
+    const [notificationPrefsSaving, setNotificationPrefsSaving] = useState(false);
+    const [notificationPrefsStatus, setNotificationPrefsStatus] = useState<FormStatus>({ loading: false, error: null, ok: null });
+
+    const selectSubsection = (tab: AccountTab) => {
+        setSubsection(tab);
+        if (typeof window !== 'undefined') window.localStorage.setItem('account_tab', tab);
+        router.replace(profileSectionHref(tab), { scroll: false });
+    };
+
+    useEffect(() => {
+        const urlTab = searchParams.get('account_tab');
+        if (isAccountTab(urlTab)) setSubsection(urlTab);
+    }, [searchParams]);
     const [status, setStatus] = useState<FormStatus>({ loading: false, error: null, ok: null });
     const [accountStatus, setAccountStatus] = useState<FormStatus>({ loading: false, error: null, ok: null });
-    const [avatarUploading, setAvatarUploading] = useState(false);
     const [avatarUrl, setAvatarUrl] = useState('');
-    const [name, setName] = useState('');
+    const [firstName, setFirstName] = useState('');
+    const [lastName, setLastName] = useState('');
     const [phone, setPhone] = useState('');
-    const [region, setRegion] = useState('');
-    const [comuna, setComuna] = useState('');
-    const [bio, setBio] = useState('');
+    const [workZones, setWorkZones] = useState<string[]>([]);
+    const [musicianBio, setMusicianBio] = useState('');
+    const [clientRegion, setClientRegion] = useState('');
+    const [clientComuna, setClientComuna] = useState('');
+    const [musicianRegion, setMusicianRegion] = useState('');
+    const [musicianComuna, setMusicianComuna] = useState('');
     const [instrument, setInstrument] = useState('');
     const [experienceYears, setExperienceYears] = useState(0);
-    const [availableNow, setAvailableNow] = useState(false);
-    const [minPrice, setMinPrice] = useState('');
-    const [maxPrice, setMaxPrice] = useState('');
-    const [workingComunas, setWorkingComunas] = useState<string[]>([]);
-    const [acceptsUrgent, setAcceptsUrgent] = useState(false);
+    const [saving, setSaving] = useState(false);
     const [subscriptionCatalog, setSubscriptionCatalog] = useState<SubscriptionCatalogResponse | null>(null);
     const [subscriptionOrders, setSubscriptionOrders] = useState<PaymentOrderView[]>([]);
     const [subscriptionLoading, setSubscriptionLoading] = useState(false);
@@ -61,127 +218,135 @@ export function ProfileView({ profiles, profile, accountUser, refresh }: { profi
     const [handledPurchaseId, setHandledPurchaseId] = useState<string | null>(null);
     const [addressBook, setAddressBook] = useState<AddressBookEntry[]>([]);
     const [addressBookLoading, setAddressBookLoading] = useState(true);
-    const [addressBookSaving, setAddressBookSaving] = useState(false);
-    const [addressBookDeletingId, setAddressBookDeletingId] = useState<string | null>(null);
-    const [addressBookMessage, setAddressBookMessage] = useState<string | null>(null);
-    const communes = useMemo(() => getCommunesForRegion(region), [region]);
+    const appMode: AppMode = mode ?? (profile === 'client' ? 'client' : 'work');
+    const isDualWorkProfile = appMode === 'work' && ownerActive && Boolean(profiles.musician);
+    const showMusicianWorkFields =
+        appMode === 'work' && Boolean(profiles.musician) && (!ownerActive || isDualWorkProfile);
+
+    const experienceYearsError = useMemo(
+        () => (showMusicianWorkFields ? experienceYearsValidation(experienceYears) : null),
+        [showMusicianWorkFields, experienceYears],
+    );
 
     useEffect(() => {
-        setName(accountUser?.name ?? '');
-        setPhone(accountUser?.phone ?? profiles.client?.phone ?? '');
+        const { firstName: nextFirst, lastName: nextLast } = splitDisplayName(accountUser?.name);
+        setFirstName(nextFirst);
+        setLastName(nextLast);
+        setPhone(profiles.client?.phone?.trim() || accountUser?.phone?.trim() || '');
+        setWhatsappEnabled(accountUser?.whatsappEnabled ?? false);
         setAvatarUrl(accountUser?.avatarUrl ?? accountUser?.avatar ?? '');
-    }, [accountUser?.avatar, accountUser?.avatarUrl, accountUser?.name, accountUser?.phone, profiles.client?.phone]);
+        setClientRegion(profiles.client?.region ?? '');
+        setClientComuna(profiles.client?.comuna ?? '');
+        setInstrument(profiles.musician?.instrument || '');
+        setExperienceYears(profiles.musician?.experienceYears ?? 0);
+        setMusicianRegion(profiles.musician?.region ?? '');
+        setMusicianComuna(profiles.musician?.comuna ?? '');
+        setWorkZones(profiles.musician?.workZones ?? []);
+        setMusicianBio(profiles.musician?.bio ?? '');
+    }, [accountUser, profiles, appMode]);
 
-    useEffect(() => {
-        if (profile === 'musician' && profiles.musician) {
-            setRegion(profiles.musician.region ?? '');
-            setComuna(profiles.musician.comuna ?? '');
-            setBio(profiles.musician.bio ?? '');
-            setInstrument(profiles.musician.instrument ?? '');
-            setExperienceYears(profiles.musician.experienceYears ?? 0);
-            setAvailableNow(Boolean(profiles.musician.availableNow));
+    const saveUserBasics = async () => {
+        const fullName = `${firstName} ${lastName}`.trim();
+        const userResponse = await serenatasApi.updateUser({
+            name: fullName,
+            phone,
+            avatarUrl: avatarUrl || null,
+            whatsappEnabled,
+        });
+        if (!userResponse.ok) {
+            setAccountStatus({ loading: false, error: userResponse.error ?? 'No pudimos guardar tus datos.', ok: null });
+            return false;
+        }
+        return true;
+    };
+
+    const handleSaveBasics = async () => {
+        const whatsappError = whatsappPhoneValidation(whatsappEnabled, phone);
+        if (whatsappError) {
+            setAccountStatus({ loading: false, error: whatsappError, ok: null });
             return;
         }
-        if (profile === 'coordinator' && profiles.coordinator) {
-            setRegion(profiles.coordinator.region ?? '');
-            setComuna(profiles.coordinator.comuna ?? '');
-            setBio(profiles.coordinator.bio ?? '');
-            setMinPrice(profiles.coordinator.minPrice == null ? '' : String(profiles.coordinator.minPrice));
-            setMaxPrice(profiles.coordinator.maxPrice == null ? '' : String(profiles.coordinator.maxPrice));
-            setWorkingComunas(profiles.coordinator.workingComunas ?? []);
-            setAcceptsUrgent(Boolean(profiles.coordinator.acceptsUrgent));
-            return;
-        }
-        if (profile === 'client' && profiles.client) {
-            setRegion(profiles.client.region ?? '');
-            setComuna(profiles.client.comuna ?? '');
-        }
-    }, [profile, profiles.client, profiles.coordinator, profiles.musician]);
-
-    async function saveAccount() {
         setAccountStatus({ loading: true, error: null, ok: null });
-        const userResponse = await serenatasApi.updateUser({ name, phone, avatarUrl: avatarUrl || null });
-        const clientResponse = profiles.client
-            ? await serenatasApi.saveClientProfile({ phone, region: profiles.client.region, comuna: profiles.client.comuna })
-            : null;
-        if (!userResponse.ok || (clientResponse && !clientResponse.ok)) {
-            setAccountStatus({ loading: false, error: userResponse.error ?? clientResponse?.error ?? 'No pudimos guardar tus datos.', ok: null });
+        if (!(await saveUserBasics())) {
+            setAccountStatus((s) => ({ ...s, loading: false }));
             return;
         }
-        setAccountStatus({ loading: false, error: null, ok: 'Datos de contacto guardados.' });
         await refresh();
-    }
+        setAccountStatus({ loading: false, error: null, ok: 'Datos personales guardados.' });
+    };
 
-    async function handleAvatarChange(event: ChangeEvent<HTMLInputElement>) {
-        const file = event.target.files?.[0];
-        if (!file) return;
-        setAvatarUploading(true);
-        const response = await serenatasApi.uploadAvatar(file);
-        setAvatarUploading(false);
-        if (!response.ok || !response.url) {
-            setAccountStatus({ loading: false, error: response.error ?? 'No pudimos subir tu foto.', ok: null });
+    const handleSaveClient = async () => {
+        const whatsappError = whatsappPhoneValidation(whatsappEnabled, phone);
+        if (whatsappError) {
+            setStatus({ loading: false, error: whatsappError, ok: null });
             return;
         }
-        setAvatarUrl(response.url);
-        setAccountStatus({ loading: false, error: null, ok: null });
-    }
-
-    async function saveClient() {
+        setSaving(true);
         setStatus({ loading: true, error: null, ok: null });
-        const names = resolveLocationNames(region, comuna);
-        const [profileResponse, userResponse] = await Promise.all([
-            serenatasApi.saveClientProfile({ phone, region: names.regionName, comuna: names.communeName }),
-            serenatasApi.updateUser({ phone }),
-        ]);
-        if (!profileResponse.ok || !userResponse.ok) {
-            setStatus({ loading: false, error: profileResponse.error ?? userResponse.error ?? 'No pudimos guardar.', ok: null });
+        if (!(await saveUserBasics())) {
+            setSaving(false);
             return;
         }
-        setStatus({ loading: false, error: null, ok: 'Perfil cliente guardado.' });
+        const profileResponse = await serenatasApi.saveClientProfile({
+            phone: phone.trim() || null,
+            region: clientRegion.trim() || null,
+            comuna: clientComuna.trim() || null,
+        });
+        if (!profileResponse.ok) {
+            setStatus({ loading: false, error: profileResponse.error ?? 'No pudimos guardar tu perfil.', ok: null });
+            setSaving(false);
+            return;
+        }
         await refresh();
-    }
+        setSaving(false);
+        setStatus({ loading: false, error: null, ok: 'Perfil guardado correctamente.' });
+    };
 
-    async function submit(kind: WorkProfile) {
-        setStatus({ loading: true, error: null, ok: null });
-        const names = resolveLocationNames(region, comuna);
-        const response = kind === 'musician'
-            ? await serenatasApi.saveMusicianProfile({
-                instrument,
-                instruments: instrument ? [instrument] : [],
-                bio,
-                region: names.regionName,
-                comuna: names.communeName,
-                experienceYears,
-                isAvailable: true,
-                availableNow,
-            })
-            : await serenatasApi.saveCoordinatorProfile({
-                bio,
-                region: names.regionName,
-                comuna: names.communeName,
-                workingComunas: workingComunas.length > 0 ? workingComunas : (names.communeName ? [names.communeName] : []),
-                acceptsUrgent,
-                minPrice: minPrice ? Number(minPrice) : null,
-                maxPrice: maxPrice ? Number(maxPrice) : null,
-            });
-        if (!response.ok) {
-            setStatus({ loading: false, error: response.error ?? 'No pudimos guardar.', ok: null });
+    const handleSaveMusicianProfile = async () => {
+        if (experienceYearsError) {
+            setStatus({ loading: false, error: experienceYearsError, ok: null });
             return;
         }
-        setStatus({ loading: false, error: null, ok: 'Perfil guardado.' });
-        window.localStorage.setItem(ACTIVE_PROFILE_KEY, kind);
-        await refresh();
-    }
-
-    async function startCoordinatorTrial() {
+        const whatsappError = whatsappPhoneValidation(whatsappEnabled, phone);
+        if (whatsappError) {
+            setStatus({ loading: false, error: whatsappError, ok: null });
+            return;
+        }
+        setSaving(true);
         setStatus({ loading: true, error: null, ok: null });
-        const response = await serenatasApi.startCoordinatorTrial();
+        if (!(await saveUserBasics())) {
+            setSaving(false);
+            return;
+        }
+        const trimmedInstrument = instrument.trim();
+        const musicianResponse = await serenatasApi.saveMusicianProfile({
+            bio: musicianBio.trim() || null,
+            instrument: trimmedInstrument || null,
+            instruments: trimmedInstrument ? [trimmedInstrument] : [],
+            experienceYears,
+            region: musicianRegion.trim() || null,
+            comuna: musicianComuna.trim() || null,
+            workZones,
+        });
+        if (!musicianResponse.ok) {
+            setStatus({ loading: false, error: musicianResponse.error ?? 'No pudimos guardar el perfil músico.', ok: null });
+            setSaving(false);
+            return;
+        }
+        await refresh();
+        setSaving(false);
+        setStatus({ loading: false, error: null, ok: 'Perfil de músico guardado.' });
+    };
+
+    async function startOwnerTrial() {
+        setStatus({ loading: true, error: null, ok: null });
+        const response = await serenatasApi.startOwnerTrial();
         if (!response.ok) {
             setStatus({ loading: false, error: response.error ?? 'No pudimos iniciar la suscripción.', ok: null });
             return;
         }
-        window.localStorage.setItem(ACTIVE_PROFILE_KEY, 'coordinator');
-        setStatus({ loading: false, error: null, ok: 'Coordinador activado con 30 días de prueba.' });
+        window.localStorage.setItem(ACTIVE_PROFILE_KEY, 'owner');
+        setStatus({ loading: false, error: null, ok: 'Plan de dueño activado con 30 días de prueba.' });
         await refresh();
     }
 
@@ -217,7 +382,9 @@ export function ProfileView({ profiles, profile, accountUser, refresh }: { profi
         const result = await fetchAddressBook();
         setAddressBook(result.items);
         setAddressBookLoading(false);
-        if (!result.ok) setAddressBookMessage(result.error ?? 'No pudimos cargar tus direcciones.');
+        if (!result.ok) {
+            // ignore; AddressesSection shows empty state
+        }
     }
 
     useEffect(() => {
@@ -238,7 +405,7 @@ export function ProfileView({ profiles, profile, accountUser, refresh }: { profi
                 return;
             }
             if (result.status === 'authorized' || result.status === 'approved') {
-                if (!profiles.coordinator) await startCoordinatorTrial();
+                if (!profiles.owner) await startOwnerTrial();
                 setStatus({ loading: false, error: null, ok: 'Suscripción activada correctamente.' });
             } else if (result.status === 'pending') {
                 setStatus({ loading: false, error: null, ok: 'Tu suscripción quedó pendiente de validación.' });
@@ -248,12 +415,12 @@ export function ProfileView({ profiles, profile, accountUser, refresh }: { profi
             await loadSubscriptionCatalog();
             await refresh();
         })();
-    }, [handledPurchaseId, profiles.coordinator, refresh, searchParams]);
+    }, [handledPurchaseId, profiles.owner, refresh, searchParams]);
 
     async function connectGoogle() {
         setAccountStatus({ loading: true, error: null, ok: null });
         try {
-            const returnTo = '/?section=profile';
+            const returnTo = profileSectionHref('integrations');
             const response = await fetch(`${API_BASE}/api/auth/google?returnTo=${encodeURIComponent(returnTo)}`, {
                 credentials: 'include',
             });
@@ -268,389 +435,349 @@ export function ProfileView({ profiles, profile, accountUser, refresh }: { profi
         }
     }
 
-    const accountDone = Boolean(name.trim() && phone.trim() && accountUser?.email);
     const securityDone = accountUser?.status === 'verified';
-    const profileDone = profile === 'client'
-        ? Boolean(profiles.client?.region && profiles.client?.comuna)
-        : profile === 'musician'
-            ? Boolean(profiles.musician?.instrument && profiles.musician?.region && profiles.musician?.comuna)
-            : Boolean(profiles.coordinator?.region && profiles.coordinator?.comuna);
-    const accountProvider = accountUser?.provider === 'google' ? 'Google' : 'Email y contraseña';
-    const profileLabel = profile === 'client' ? 'Cliente' : profile === 'musician' ? 'Músico' : 'Coordinador';
-    const coordinatorTrialDate = profiles.coordinator?.trialEndsAt
-        ? new Intl.DateTimeFormat('es-CL', { day: '2-digit', month: 'short', year: 'numeric' }).format(new Date(profiles.coordinator.trialEndsAt))
+    const canPrefillWorkZones = addressBook.length > 0;
+    const handlePrefillWorkZonesFromAddresses = () => {
+        const fromAddresses = communesFromAddressBook(addressBook);
+        if (fromAddresses.length === 0) return;
+        setWorkZones(fromAddresses);
+    };
+    const profileLabel =
+        profile === 'client' ? 'Cliente' : profile === 'musician' ? 'Músico' : ownerActive ? 'Dueño del grupo' : 'Operación';
+    const ownerTrialDate = profiles.owner?.trialEndsAt
+        ? new Intl.DateTimeFormat('es-CL', { day: '2-digit', month: 'short', year: 'numeric' }).format(new Date(profiles.owner.trialEndsAt))
         : null;
     const currentPaidSubscription = subscriptionCatalog?.currentSubscription ?? null;
-    const coordinatorPlan = subscriptionCatalog?.plans.find((item) => item.id === 'pro') ?? null;
+    const ownerPlan = subscriptionCatalog?.plans.find((item) => item.id === 'pro') ?? null;
     const enterprisePlan = subscriptionCatalog?.plans.find((item) => item.id === 'enterprise') ?? null;
     const mercadoPagoEnabled = Boolean(subscriptionCatalog?.mercadoPagoEnabled);
-
-    const backToOverview = (
-        <button
-            type="button"
-            onClick={() => setSubsection('overview')}
-            className="inline-flex items-center gap-1 text-xs font-medium transition-colors"
-            style={{ color: 'var(--fg-muted)' }}
-        >
-            <IconChevronLeft size={14} />
-            Mi Cuenta
-        </button>
-    );
-
-    const overviewSections: PanelConfigSectionItem[] = [
-        {
-            key: 'data',
-            title: 'Datos',
-            description: 'Nombre, foto, WhatsApp, ubicación y datos de tu perfil.',
-            icon: <IconUser size={18} />,
-            onClick: () => setSubsection('data'),
-            badge: accountDone && profileDone ? 'Actualizado' : 'Revisar',
-            required: true,
-            done: accountDone && profileDone,
-        },
-        {
-            key: 'security',
-            title: 'Seguridad y acceso',
-            description: `Correo, verificación y acceso actual por ${accountProvider}.`,
-            icon: <IconShield size={18} />,
-            onClick: () => setSubsection('security'),
-            badge: securityDone ? 'Verificado' : 'Pendiente',
-            required: true,
-            done: securityDone,
-        },
-        {
-            key: 'addresses',
-            title: 'Direcciones',
-            description: 'Direcciones guardadas para contratar serenatas más rápido.',
-            icon: <IconMapPin size={18} />,
-            onClick: () => setSubsection('addresses'),
-            badge: addressBook.length > 0 ? `${addressBook.length}` : 'Agregar',
-            required: false,
-            done: addressBook.length > 0,
-        },
-        {
-            key: 'subscription',
-            title: 'Suscripción',
-            description: profiles.coordinator ? 'Plan, prueba y reglas comerciales de coordinación.' : 'Activa un plan cuando quieras coordinar serenatas y grupos.',
-            icon: <IconCreditCard size={18} />,
-            onClick: () => setSubsection('subscription'),
-            badge: profiles.coordinator ? profiles.coordinator.subscriptionStatus : 'Opcional',
-            required: false,
-        },
-    ];
-
-    const preferencesSections: PanelConfigSectionItem[] = [
-        {
-            key: 'notifications',
-            title: 'Notificaciones',
-            description: 'Invitaciones, cambios de agenda y avisos de cuenta.',
-            icon: <IconBell size={18} />,
-            disabled: true,
-            badge: 'Próximo',
-            required: false,
-        },
-        {
-            key: 'more-services',
-            title: 'Otros servicios',
-            description: 'Explora otros servicios disponibles cuando quieras.',
-            icon: <IconPlug size={18} />,
-            disabled: true,
-            badge: 'Opcional',
-            required: false,
-        },
-    ];
 
     const accountLayoutClass = 'container-app panel-page grid w-full gap-5 py-4 lg:py-8';
 
     return (
         <div className={accountLayoutClass}>
-            {subsection === 'overview' ? (
-                <>
-                    <PanelPageHeader
-                        title="Mi Cuenta"
-                        description="Configura tus datos, acceso y suscripción."
-                        actions={<PanelStatusBadge tone="success" label={profileLabel} />}
-                    />
+            <PanelPageHeader
+                title="Mi cuenta"
+                description="Datos personales, acceso, direcciones y preferencias."
+                actions={<PanelStatusBadge tone="success" label={profileLabel} />}
+            />
 
-                    <PanelConfigSection
-                        title="Configuración"
-                        items={overviewSections}
-                        showProgress={true}
-                    />
+            <PanelPillNav
+                items={ACCOUNT_PILL_ITEMS.map((item) => ({
+                    key: item.key,
+                    label: item.label,
+                }))}
+                activeKey={subsection}
+                onChange={(key) => {
+                    if (isAccountTab(key)) selectSubsection(key);
+                }}
+                ariaLabel="Secciones de mi cuenta"
+                showMobileDropdown
+                breakpoint="md"
+                size="sm"
+            />
 
-                    <PanelConfigSection
-                        title="Preferencias"
-                        items={preferencesSections}
+            {subsection === 'notifications' ? (
+            <PanelCard>
+                <PanelBlockHeader
+                    title="Notificaciones"
+                    description="Invitaciones, cambios de agenda y avisos de cuenta."
+                />
+                <div className="mt-4 grid gap-3">
+                    <NotificationPrefToggle
+                        title="Invitaciones de grupo"
+                        description="Cuando un mariachi te invite a unirte a su equipo."
+                        checked={emailNotificationPrefs.invitations}
+                        onChange={(invitations) => setEmailNotificationPrefs((p) => ({ ...p, invitations }))}
                     />
-                </>
+                    <NotificationPrefToggle
+                        title="Agenda y serenatas"
+                        description="Confirmaciones, cambios de horario y recordatorios de eventos."
+                        checked={emailNotificationPrefs.agenda}
+                        onChange={(agenda) => setEmailNotificationPrefs((p) => ({ ...p, agenda }))}
+                    />
+                    <NotificationPrefToggle
+                        title="Cuenta y seguridad"
+                        description="Verificación de correo, accesos y novedades de tu perfil."
+                        checked={emailNotificationPrefs.account}
+                        onChange={(account) => setEmailNotificationPrefs((p) => ({ ...p, account }))}
+                    />
+                </div>
+                <PanelNotice tone="neutral" className="mt-4">
+                    Los avisos de la campana del panel siguen activos aunque desactives el correo.
+                </PanelNotice>
+                <PanelButton
+                    className="mt-4"
+                    disabled={notificationPrefsSaving}
+                    onClick={() => {
+                        setNotificationPrefsSaving(true);
+                        writeEmailNotificationPrefs(emailNotificationPrefs);
+                        setNotificationPrefsSaving(false);
+                        setNotificationPrefsStatus({ loading: false, error: null, ok: 'Preferencias guardadas.' });
+                    }}
+                >
+                    {notificationPrefsSaving ? 'Guardando...' : 'Guardar preferencias'}
+                </PanelButton>
+                <FormFeedback status={notificationPrefsStatus} />
+            </PanelCard>
+            ) : null}
+
+            {subsection === 'integrations' ? (
+            <div className="grid gap-6">
+                <PanelCard>
+                    <PanelBlockHeader
+                        title="Integraciones"
+                        description="Conecta servicios para entrar más rápido y coordinar mejor."
+                    />
+                    <div className="mt-4 grid gap-3">
+                        <SecurityRow
+                            icon={IconBrandGoogle}
+                            title="Google"
+                            description={accountUser?.provider === 'google'
+                                ? 'Tu cuenta usa Google como acceso principal.'
+                                : 'Conecta Google para iniciar sesión con un clic.'}
+                            badge={accountUser?.provider === 'google'
+                                ? <PanelStatusBadge tone="success" label="Conectado" />
+                                : <PanelButton variant="secondary" disabled={accountStatus.loading} onClick={() => void connectGoogle()}>Conectar Google</PanelButton>}
+                        />
+                    </div>
+                </PanelCard>
+                <PanelCard>
+                    <PanelBlockHeader
+                        title="Otros servicios Simple"
+                        description="Explora otros productos del ecosistema cuando quieras."
+                    />
+                    <div className="mt-4 grid gap-2 text-sm text-[var(--fg-secondary)]">
+                        <p>Simple Autos, Simple Propiedades y Simple Agenda comparten tu cuenta Simple cuando uses el mismo correo.</p>
+                        <PanelButton
+                            variant="secondary"
+                            onClick={() => window.open('https://simpleplataforma.com', '_blank', 'noopener,noreferrer')}
+                        >
+                            Ver ecosistema Simple
+                        </PanelButton>
+                    </div>
+                </PanelCard>
+            </div>
             ) : null}
 
             {subsection === 'data' ? (
-            <div>
-            {backToOverview}
-            <div className="mt-4">
-                <PanelPageHeader
-                    title="Datos personales"
-                    description="Administra tu información personal, contacto y datos específicos de tu perfil."
-                />
-            </div>
+            <div className="grid gap-6">
+            {appMode === 'work' && setSection ? (
+                <OwnerOnboardingCard profiles={profiles} setSection={setSection} />
+            ) : null}
             <PanelCard>
                 <PanelBlockHeader
-                    title="Datos personales"
-                    description="Mantén actualizada tu información de contacto."
+                    title="Información básica"
+                    description="Datos públicos y de contacto."
                     actions={<PanelStatusBadge tone={accountUser?.status === 'verified' ? 'success' : 'warning'} label={accountUser?.status === 'verified' ? 'Correo verificado' : 'Pendiente'} />}
                 />
-                <PanelAccountProfileCard
-                    name={accountUser?.name || 'Usuario Simple'}
-                    email={accountUser?.email || 'Sin correo'}
-                    role={profile === 'client' ? 'Cliente' : profile === 'musician' ? 'Músico' : profile === 'coordinator' ? 'Coordinador' : 'Usuario'}
-                />
-                <div className="mt-4">
-                    <PanelField label="WhatsApp">
-                        <FieldInput value={phone} onChange={(event) => setPhone(event.target.value)} placeholder="+56 9..." />
-                    </PanelField>
+                <div className="mt-4 grid gap-4">
+                    <AvatarUpload
+                        currentUrl={avatarUrl}
+                        config={{
+                            maxSize: 5120,
+                            maxWidth: 80,
+                            maxHeight: 80,
+                            aspectRatio: 1,
+                            circular: true,
+                            onUpload: async (file, croppedBlob) => {
+                                const uploadResult = await serenatasApi.uploadAvatar(
+                                    croppedBlob,
+                                    file.name || 'avatar.jpg',
+                                );
+                                if (uploadResult.ok && uploadResult.url) {
+                                    await serenatasApi.updateUser({ avatarUrl: uploadResult.url });
+                                    await refresh();
+                                    return { url: uploadResult.url };
+                                }
+                                throw new Error(uploadResult.error || 'Error al subir el avatar');
+                            },
+                        }}
+                        onSuccess={(url) => setAvatarUrl(url)}
+                        onError={(error) => setAccountStatus({ loading: false, error, ok: null })}
+                    />
+                    <div className="grid gap-3 sm:grid-cols-2">
+                        <PanelField label="Nombre">
+                            <FieldInput value={firstName} onChange={(e) => setFirstName(e.target.value)} placeholder="Ej: Felipe" />
+                        </PanelField>
+                        <PanelField label="Apellido">
+                            <FieldInput value={lastName} onChange={(e) => setLastName(e.target.value)} placeholder="Ej: Jara" />
+                        </PanelField>
+                    </div>
+                    {appMode === 'work' ? (
+                        <>
+                            <PanelField label="Teléfono">
+                                <FieldInput value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="+56 9..." />
+                            </PanelField>
+                            <WhatsappContactToggle enabled={whatsappEnabled} onChange={setWhatsappEnabled} />
+                        </>
+                    ) : null}
                 </div>
                 <FormFeedback status={accountStatus} />
-                <PanelButton className="mt-4 w-full md:w-auto" disabled={accountStatus.loading} onClick={() => void saveAccount()}>
-                    {accountStatus.loading ? 'Guardando...' : 'Guardar datos personales'}
-                </PanelButton>
+                {appMode === 'client' ? (
+                    <PanelButton className="mt-4" onClick={() => void handleSaveBasics()} disabled={accountStatus.loading}>
+                        {accountStatus.loading ? 'Guardando...' : 'Guardar cambios'}
+                    </PanelButton>
+                ) : null}
             </PanelCard>
 
-            <PanelCard className="mt-4">
-                <PanelBlockHeader
-                    title={`Datos de ${profileLabel.toLowerCase()}`}
-                    description="Información específica para usar SimpleSerenatas."
-                    actions={<PanelStatusBadge tone={profileDone ? 'success' : 'warning'} label={profileDone ? 'Completo' : 'Incompleto'} />}
-                />
-                {profile === 'client' ? (
-                    <>
-                        <p className="text-sm" style={{ color: 'var(--fg-muted)' }}>
-                            Mantén tu comuna y región actualizadas para futuras solicitudes de serenatas.
-                        </p>
-                        <div className="mt-4 grid gap-3 sm:grid-cols-2">
-                            <PanelField label="Región">
-                                <FieldSelect value={region} onChange={(event) => { setRegion(event.target.value); setComuna(''); }}>
-                                    <option value="">Seleccionar</option>
-                                    {LOCATION_REGIONS.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
-                                </FieldSelect>
-                            </PanelField>
-                            <PanelField label="Comuna">
-                                <FieldSelect value={comuna} onChange={(event) => setComuna(event.target.value)}>
-                                    <option value="">Seleccionar</option>
-                                    {communes.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
-                                </FieldSelect>
-                            </PanelField>
-                        </div>
-                        <FormFeedback status={status} />
-                        <PanelButton className="mt-4 w-full md:w-auto" disabled={status.loading} onClick={() => void saveClient()}>
-                            {status.loading ? 'Guardando...' : 'Guardar perfil cliente'}
-                        </PanelButton>
-                    </>
-                ) : null}
-                {profile === 'musician' ? (
-                    <>
-                        <ProfileFormFields
-                            region={region}
-                            comuna={comuna}
-                            communes={communes}
-                            bio={bio}
-                            setRegion={setRegion}
-                            setComuna={setComuna}
-                            setBio={setBio}
+            {appMode === 'client' ? (
+                <PanelCard>
+                    <PanelBlockHeader
+                        title="Datos de cliente"
+                        description="Teléfono y ubicación para coordinar tus serenatas."
+                    />
+                    <div className="mt-4 grid gap-4">
+                        <PanelField label="Teléfono">
+                            <FieldInput value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="+56 9..." />
+                        </PanelField>
+                        <WhatsappContactToggle enabled={whatsappEnabled} onChange={setWhatsappEnabled} />
+                        <RegionCommuneFields
+                            region={clientRegion}
+                            comuna={clientComuna}
+                            onRegionChange={setClientRegion}
+                            onComunaChange={setClientComuna}
+                            disabled={saving}
                         />
-                        <div className="mt-3 grid gap-3 sm:grid-cols-2">
-                            <PanelField label="Instrumento principal"><InstrumentSelect value={instrument} onChange={setInstrument} /></PanelField>
-                            <PanelField label="Años de experiencia"><FieldInput type="number" min={0} value={experienceYears} onChange={(event) => setExperienceYears(Number(event.target.value))} /></PanelField>
+                    </div>
+                    <FormFeedback status={status} />
+                    <PanelButton className="mt-4" onClick={() => void handleSaveClient()} disabled={saving}>
+                        {saving ? 'Guardando...' : 'Guardar perfil'}
+                    </PanelButton>
+                </PanelCard>
+            ) : null}
+
+            {showMusicianWorkFields && !isDualWorkProfile ? (
+                <PanelCard>
+                    <PanelBlockHeader title="Datos de músico" description="Tu ficha profesional como integrante." />
+                    <div className="mt-4 grid gap-4">
+                        <div className="grid gap-3 sm:grid-cols-2">
+                            <PanelField label="Instrumento principal">
+                                <InstrumentSelect value={instrument} onChange={setInstrument} />
+                            </PanelField>
+                            <PanelField label="Años de experiencia (opcional)">
+                                <FieldInput
+                                    type="number"
+                                    min={EXPERIENCE_YEARS_MIN}
+                                    max={EXPERIENCE_YEARS_MAX}
+                                    value={experienceYears}
+                                    onChange={(e) => setExperienceYears(Number(e.target.value))}
+                                />
+                                {experienceYearsError ? (
+                                    <p className="mt-1 text-xs text-[var(--danger)]">{experienceYearsError}</p>
+                                ) : null}
+                            </PanelField>
                         </div>
-                        <label className="mt-3 flex items-center gap-2 text-sm" style={{ color: 'var(--fg-secondary)' }}>
-                            <input type="checkbox" checked={availableNow} onChange={(event) => setAvailableNow(event.target.checked)} />
-                            Disponible ahora
-                        </label>
-                        <FormFeedback status={status} />
-                        <PanelButton className="mt-4 w-full md:w-auto" disabled={status.loading} onClick={() => void submit('musician')}>
-                            Guardar perfil músico
-                        </PanelButton>
-                    </>
-                ) : null}
-                {profile === 'coordinator' ? (
-                    <>
-                        <ProfileFormFields
-                            region={region}
-                            comuna={comuna}
-                            communes={communes}
-                            bio={bio}
-                            setRegion={setRegion}
-                            setComuna={setComuna}
-                            setBio={setBio}
+                        <RegionCommuneFields
+                            region={musicianRegion}
+                            comuna={musicianComuna}
+                            onRegionChange={setMusicianRegion}
+                            onComunaChange={setMusicianComuna}
+                            disabled={saving}
+                            optional
                         />
-                        <div className="mt-3 grid gap-3 sm:grid-cols-2">
-                            <PanelField label="Precio mínimo"><FieldInput type="number" min={0} value={minPrice} onChange={(event) => setMinPrice(event.target.value)} /></PanelField>
-                            <PanelField label="Precio máximo"><FieldInput type="number" min={0} value={maxPrice} onChange={(event) => setMaxPrice(event.target.value)} /></PanelField>
-                        </div>
-                        <div className="mt-4 rounded-2xl border p-4" style={{ borderColor: 'var(--border)', background: 'var(--bg-subtle)' }}>
-                            <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                                <div>
-                                    <p className="text-sm font-semibold" style={{ color: 'var(--fg)' }}>Zonas donde trabajas</p>
-                                    <p className="mt-1 text-sm" style={{ color: 'var(--fg-muted)' }}>
-                                        Las solicitudes de la aplicación se ofrecen primero a coordinadores activos en la comuna del evento.
-                                    </p>
-                                </div>
-                                <PanelStatusBadge tone={workingComunas.length > 0 ? 'success' : 'warning'} label={`${workingComunas.length} seleccionada${workingComunas.length === 1 ? '' : 's'}`} />
-                            </div>
-                            <div className="mt-3 flex flex-wrap gap-2">
-                                <button
-                                    type="button"
-                                    className="rounded-xl border px-3 py-1.5 text-xs font-medium"
-                                    style={{ borderColor: 'var(--border)', color: 'var(--fg-secondary)', background: 'var(--surface)' }}
-                                    onClick={() => setWorkingComunas(communes.map((item) => item.name))}
-                                    disabled={communes.length === 0}
-                                >
-                                    Seleccionar todas
-                                </button>
-                                <button
-                                    type="button"
-                                    className="rounded-xl border px-3 py-1.5 text-xs font-medium"
-                                    style={{ borderColor: 'var(--border)', color: 'var(--fg-secondary)', background: 'var(--surface)' }}
-                                    onClick={() => setWorkingComunas(comuna ? [communes.find((item) => item.id === comuna)?.name ?? comuna] : [])}
-                                >
-                                    Solo mi comuna base
-                                </button>
-                                <button
-                                    type="button"
-                                    className="rounded-xl border px-3 py-1.5 text-xs font-medium"
-                                    style={{ borderColor: 'var(--border)', color: 'var(--fg-secondary)', background: 'var(--surface)' }}
-                                    onClick={() => setWorkingComunas([])}
-                                >
-                                    Limpiar
-                                </button>
-                            </div>
-                            {workingComunas.length > 0 ? (
-                                <div className="mt-3 flex flex-wrap gap-2">
-                                    {workingComunas.slice(0, 8).map((name) => (
-                                        <span key={name} className="rounded-full px-2.5 py-1 text-xs font-medium" style={{ background: 'var(--accent-soft)', color: 'var(--accent)' }}>
-                                            {name}
-                                        </span>
-                                    ))}
-                                    {workingComunas.length > 8 ? (
-                                        <span className="rounded-full px-2.5 py-1 text-xs font-medium" style={{ background: 'var(--bg-muted)', color: 'var(--fg-muted)' }}>
-                                            +{workingComunas.length - 8}
-                                        </span>
-                                    ) : null}
-                                </div>
-                            ) : null}
-                            <div className="mt-3 grid max-h-56 gap-2 overflow-y-auto pr-1 sm:grid-cols-2">
-                                {communes.length === 0 ? (
-                                    <p className="text-sm" style={{ color: 'var(--fg-muted)' }}>Selecciona una región para elegir comunas.</p>
-                                ) : communes.map((item) => {
-                                    const checked = workingComunas.includes(item.name);
-                                    return (
-                                        <label key={item.id} className="flex items-center gap-2 rounded-xl border px-3 py-2 text-sm" style={{ borderColor: checked ? 'var(--accent-border)' : 'var(--border)', color: 'var(--fg-secondary)', background: checked ? 'var(--accent-soft)' : 'var(--surface)' }}>
-                                            <input
-                                                type="checkbox"
-                                                checked={checked}
-                                                onChange={(event) => setWorkingComunas((current) => event.target.checked ? [...new Set([...current, item.name])] : current.filter((name) => name !== item.name))}
-                                            />
-                                            {item.name}
-                                        </label>
-                                    );
-                                })}
-                            </div>
-                            <label className="mt-3 flex items-center gap-2 text-sm" style={{ color: 'var(--fg-secondary)' }}>
-                                <input type="checkbox" checked={acceptsUrgent} onChange={(event) => setAcceptsUrgent(event.target.checked)} />
-                                Acepto solicitudes urgentes
-                            </label>
-                        </div>
-                        <FormFeedback status={status} />
-                        <PanelButton className="mt-4 w-full md:w-auto" disabled={status.loading} onClick={() => void submit('coordinator')}>
-                            Guardar perfil coordinador
+                        <PanelField label="Zonas de trabajo">
+                            <WorkZonesPicker value={workZones} onChange={setWorkZones} disabled={saving} />
+                        </PanelField>
+                        <PanelField label="Bio de músico (opcional)">
+                            <FieldTextarea
+                                rows={3}
+                                value={musicianBio}
+                                onChange={(e) => setMusicianBio(e.target.value)}
+                                placeholder="Estilo, repertorio y experiencia como músico."
+                            />
+                        </PanelField>
+                        <PanelButton onClick={() => void handleSaveMusicianProfile()} disabled={saving || Boolean(experienceYearsError)}>
+                            {saving ? 'Guardando...' : 'Guardar perfil músico'}
                         </PanelButton>
-                    </>
-                ) : null}
-            </PanelCard>
+                    </div>
+                </PanelCard>
+            ) : null}
+
+            {isDualWorkProfile ? (
+                <PanelCard>
+                    <PanelBlockHeader
+                        title="Perfil de músico"
+                        description="Tu ficha como integrante, independiente del perfil comercial."
+                    />
+                    <div className="mt-4 grid gap-4">
+                        <div className="grid gap-3 sm:grid-cols-2">
+                            <PanelField label="Instrumento principal">
+                                <InstrumentSelect value={instrument} onChange={setInstrument} />
+                            </PanelField>
+                            <PanelField label="Años de experiencia (opcional)">
+                                <FieldInput
+                                    type="number"
+                                    min={EXPERIENCE_YEARS_MIN}
+                                    max={EXPERIENCE_YEARS_MAX}
+                                    value={experienceYears}
+                                    onChange={(e) => setExperienceYears(Number(e.target.value))}
+                                />
+                            </PanelField>
+                        </div>
+                        <RegionCommuneFields
+                            region={musicianRegion}
+                            comuna={musicianComuna}
+                            onRegionChange={setMusicianRegion}
+                            onComunaChange={setMusicianComuna}
+                            disabled={saving}
+                            optional
+                        />
+                        <PanelField label="Zonas de trabajo como músico">
+                            <WorkZonesPicker value={workZones} onChange={setWorkZones} disabled={saving} />
+                        </PanelField>
+                        <PanelField label="Bio de músico (opcional)">
+                            <FieldTextarea
+                                rows={3}
+                                value={musicianBio}
+                                onChange={(e) => setMusicianBio(e.target.value)}
+                                placeholder="Texto público en tu perfil de músico."
+                            />
+                        </PanelField>
+                        <PanelButton onClick={() => void handleSaveMusicianProfile()} disabled={saving || Boolean(experienceYearsError)}>
+                            {saving ? 'Guardando...' : 'Guardar perfil músico'}
+                        </PanelButton>
+                    </div>
+                </PanelCard>
+            ) : null}
+
+            {appMode === 'work' && !isDualWorkProfile ? (
+                <PanelButton onClick={() => void handleSaveBasics()} disabled={accountStatus.loading}>
+                    {accountStatus.loading ? 'Guardando...' : 'Guardar datos personales'}
+                </PanelButton>
+            ) : null}
+
+            {isDualWorkProfile ? (
+                <PanelNotice tone="neutral">
+                    Los datos básicos (nombre, teléfono y WhatsApp) se guardan con el botón del perfil de músico. Tu mariachi comercial está en Mi negocio.
+                </PanelNotice>
+            ) : null}
             </div>
             ) : null}
 
             {subsection === 'addresses' ? (
-            <div>
-            {backToOverview}
-            <div className="mt-4">
-                <PanelPageHeader
+            <PanelCard>
+                <PanelBlockHeader
                     title="Direcciones"
-                    description="Guarda una o más direcciones de eventos. La predeterminada se usará al contratar una serenata."
+                    description="Guarda direcciones para contratar serenatas más rápido."
                 />
-            </div>
-            <AddressBookManager
-                showHeader={false}
-                googleMapsApiKey={process.env.NEXT_PUBLIC_GOOGLE_MAPS_BROWSER_KEY || process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY}
-                entries={addressBook}
-                regions={LOCATION_REGIONS.map((item) => ({ value: item.id, label: item.name }))}
-                getCommunes={(regionId) => getCommunesForRegion(regionId).map((item) => ({ value: item.id, label: item.name }))}
-                loading={addressBookLoading}
-                saving={addressBookSaving}
-                deletingId={addressBookDeletingId}
-                onSaveEntry={async (draft: AddressBookManagerSubmitInput) => {
-                    setAddressBookSaving(true);
-                    setAddressBookMessage(null);
-                    const payload = {
-                        kind: draft.kind,
-                        label: draft.label.trim(),
-                        countryCode: draft.location.countryCode,
-                        regionId: draft.location.regionId,
-                        regionName: draft.location.regionName,
-                        communeId: draft.location.communeId,
-                        communeName: draft.location.communeName,
-                        neighborhood: draft.location.neighborhood,
-                        addressLine1: draft.location.addressLine1,
-                        addressLine2: draft.location.addressLine2,
-                        postalCode: draft.location.postalCode,
-                        arrivalInstructions: draft.location.arrivalInstructions,
-                        geoPoint: draft.location.geoPoint,
-                        isDefault: draft.isDefault,
-                    };
-                    const result = draft.id
-                        ? await updateAddressBookEntry(draft.id, payload)
-                        : await createAddressBookEntry(payload);
-                    setAddressBookSaving(false);
-                    if (!result.ok) {
-                        setAddressBookMessage(result.error ?? 'No pudimos guardar la dirección.');
-                        return false;
-                    }
-                    setAddressBook(result.items);
-                    setAddressBookMessage(draft.id ? 'Dirección actualizada.' : 'Dirección agregada.');
-                    return true;
-                }}
-                onDeleteEntry={async (entryId) => {
-                    setAddressBookDeletingId(entryId);
-                    setAddressBookMessage(null);
-                    const result = await deleteAddressBookEntry(entryId);
-                    setAddressBookDeletingId(null);
-                    if (!result.ok) {
-                        setAddressBookMessage(result.error ?? 'No pudimos eliminar la dirección.');
-                        return;
-                    }
-                    setAddressBook(result.items);
-                    setAddressBookMessage('Dirección eliminada.');
-                }}
-            />
-            {addressBookMessage ? <PanelNotice className="mt-4">{addressBookMessage}</PanelNotice> : null}
-            </div>
+                <div className="mt-4">
+                    <AddressesSection
+                        entries={addressBook}
+                        loading={addressBookLoading}
+                        onEntriesChange={setAddressBook}
+                    />
+                </div>
+            </PanelCard>
             ) : null}
 
             {subsection === 'security' ? (
-            <div>
-            {backToOverview}
-            <div className="mt-4">
-                <PanelPageHeader
-                    title="Seguridad y acceso"
-                    description="Controla tu correo, verificación, contraseña y conexiones de acceso."
-                />
-            </div>
             <PanelCard>
                 <PanelBlockHeader
                     title="Seguridad y acceso"
-                    description="Controla cómo entras a tu cuenta y qué conexiones tienes activas."
+                    description="Correo, verificación y contraseña. Para Google, usa la pestaña Integraciones."
                 />
-                <div className="grid gap-3">
+                <div className="mt-4 grid gap-3">
                     <SecurityRow
                         icon={securityDone ? IconCheck : IconMailCheck}
                         title="Correo electrónico"
@@ -659,56 +786,39 @@ export function ProfileView({ profiles, profile, accountUser, refresh }: { profi
                         done={securityDone}
                     />
                     <SecurityRow
-                        icon={IconBrandGoogle}
-                        title="Google"
-                        description={accountUser?.provider === 'google' ? 'Tu cuenta usa Google como acceso principal.' : 'Puedes conectar Google para entrar más rápido.'}
-                        badge={accountUser?.provider === 'google'
-                            ? <PanelStatusBadge tone="success" label="Conectado" />
-                            : <PanelButton variant="secondary" disabled={accountStatus.loading} onClick={() => void connectGoogle()}>Conectar Google</PanelButton>}
-                    />
-                    <SecurityRow
                         icon={IconKey}
                         title="Contraseña"
                         description="La recuperación se gestiona desde el modal de inicio de sesión."
                     />
                 </div>
             </PanelCard>
-            </div>
             ) : null}
 
             {subsection === 'subscription' ? (
-            <>
-            {backToOverview}
-            <div className="mt-4">
-                <PanelPageHeader
-                    title="Suscripción"
-                    description="Tu plan mensual para SimpleSerenatas."
-                />
-            </div>
-            <div className="space-y-6">
+            <div className="grid gap-6">
             <PanelCard size="lg">
                 <PanelBlockHeader
                     title="Plan actual"
                     description="Gestiona tu suscripción mensual para coordinar serenatas."
-                    actions={currentPaidSubscription ? <PanelStatusBadge tone="success" label="Suscripción activa" /> : profiles.coordinator ? <PanelStatusBadge tone="success" label={profiles.coordinator.subscriptionStatus} /> : <PanelStatusBadge tone="warning" label="Sin suscripción" />}
+                    actions={currentPaidSubscription ? <PanelStatusBadge tone="success" label="Suscripción activa" /> : profiles.owner ? <PanelStatusBadge tone="success" label={profiles.owner.subscriptionStatus} /> : <PanelStatusBadge tone="warning" label="Sin suscripción" />}
                 />
                 <div className="rounded-2xl border p-5" style={{ borderColor: 'var(--border)', background: 'var(--bg-subtle)' }}>
                     <div className="flex flex-wrap items-center justify-between gap-3">
                         <div>
                             <p className="text-sm" style={{ color: 'var(--fg-secondary)' }}>Actualmente activo</p>
                             <h3 className="text-2xl font-semibold" style={{ color: 'var(--fg)' }}>
-                                {currentPaidSubscription?.planName ?? (profiles.coordinator ? 'Coordinador' : 'Sin plan activo')}
+                                {currentPaidSubscription?.planName ?? (profiles.owner ? 'Dueño del grupo' : 'Sin plan activo')}
                             </h3>
                             <p className="mt-1 text-sm" style={{ color: 'var(--fg-secondary)' }}>
-                                {currentPaidSubscription ? `${formatCurrency(currentPaidSubscription.priceMonthly)} / mes` : profiles.coordinator ? '$19.990 / mes IVA incluido' : 'Puedes usar tu cuenta como cliente o músico sin costo mensual.'}
+                                {currentPaidSubscription ? `${formatCurrency(currentPaidSubscription.priceMonthly)} / mes` : profiles.owner ? '$19.990 / mes IVA incluido' : 'Puedes usar tu cuenta como cliente o músico sin costo mensual.'}
                             </p>
                         </div>
                         <PanelStatusBadge
-                            label={currentPaidSubscription ? 'Suscrito' : profiles.coordinator ? (profiles.coordinator.subscriptionStatus === 'trialing' ? 'Prueba activa' : 'Suscrito') : 'Base'}
-                            tone={currentPaidSubscription || profiles.coordinator ? 'success' : 'neutral'}
+                            label={currentPaidSubscription ? 'Suscrito' : profiles.owner ? (profiles.owner.subscriptionStatus === 'trialing' ? 'Prueba activa' : 'Suscrito') : 'Base'}
+                            tone={currentPaidSubscription || profiles.owner ? 'success' : 'neutral'}
                         />
                     </div>
-                    {profiles.coordinator ? (
+                    {profiles.owner ? (
                         <div className="mt-4 grid gap-2 md:grid-cols-2">
                             <SubscriptionFeature text="Crear serenatas propias con costo de plataforma $0." />
                             <SubscriptionFeature text="Crear y gestionar grupos por fecha." />
@@ -716,8 +826,8 @@ export function ProfileView({ profiles, profile, accountUser, refresh }: { profi
                             <SubscriptionFeature text="Aceptar serenatas de la aplicación con comisión de 8% + IVA." />
                         </div>
                     ) : null}
-                    {!currentPaidSubscription && coordinatorTrialDate ? (
-                        <p className="mt-4 text-xs" style={{ color: 'var(--fg-muted)' }}>Prueba vigente hasta {coordinatorTrialDate}.</p>
+                    {!currentPaidSubscription && ownerTrialDate ? (
+                        <p className="mt-4 text-xs" style={{ color: 'var(--fg-muted)' }}>Prueba vigente hasta {ownerTrialDate}.</p>
                     ) : null}
                 </div>
             </PanelCard>
@@ -731,8 +841,8 @@ export function ProfileView({ profiles, profile, accountUser, refresh }: { profi
                     <article
                         className="rounded-2xl border p-5"
                         style={{
-                            borderColor: !profiles.coordinator ? 'var(--fg)' : 'var(--border)',
-                            background: !profiles.coordinator ? 'var(--bg-subtle)' : 'var(--surface)',
+                            borderColor: !profiles.owner ? 'var(--fg)' : 'var(--border)',
+                            background: !profiles.owner ? 'var(--bg-subtle)' : 'var(--surface)',
                         }}
                     >
                         <div className="flex items-start justify-between gap-3">
@@ -740,7 +850,7 @@ export function ProfileView({ profiles, profile, accountUser, refresh }: { profi
                                 <p className="text-lg font-semibold" style={{ color: 'var(--fg)' }}>Base</p>
                                 <p className="mt-1 text-sm" style={{ color: 'var(--fg-secondary)' }}>Para clientes y músicos.</p>
                             </div>
-                            {!profiles.coordinator ? <PanelStatusBadge label="Actual" tone="neutral" size="sm" /> : null}
+                            {!profiles.owner ? <PanelStatusBadge label="Actual" tone="neutral" size="sm" /> : null}
                         </div>
                         <p className="mt-4 text-2xl font-semibold" style={{ color: 'var(--fg)' }}>Gratis</p>
                         <p className="text-xs" style={{ color: 'var(--fg-muted)' }}>sin facturación mensual</p>
@@ -757,18 +867,18 @@ export function ProfileView({ profiles, profile, accountUser, refresh }: { profi
                     <article
                         className="rounded-2xl border p-5"
                         style={{
-                            borderColor: profiles.coordinator ? 'var(--fg)' : 'var(--border)',
-                            background: profiles.coordinator ? 'var(--bg-subtle)' : 'var(--surface)',
+                            borderColor: profiles.owner ? 'var(--fg)' : 'var(--border)',
+                            background: profiles.owner ? 'var(--bg-subtle)' : 'var(--surface)',
                         }}
                     >
                         <div className="flex items-start justify-between gap-3">
                             <div>
-                                <p className="text-lg font-semibold" style={{ color: 'var(--fg)' }}>Coordinador</p>
+                                <p className="text-lg font-semibold" style={{ color: 'var(--fg)' }}>Dueño del grupo</p>
                                 <p className="mt-1 text-sm" style={{ color: 'var(--fg-secondary)' }}>Para operar grupos, agenda y rutas.</p>
                             </div>
-                            <PanelStatusBadge label={currentPaidSubscription?.planId === 'pro' || profiles.coordinator ? 'Actual' : '30 días gratis'} tone={currentPaidSubscription?.planId === 'pro' || profiles.coordinator ? 'success' : 'info'} size="sm" />
+                            <PanelStatusBadge label={currentPaidSubscription?.planId === 'pro' || profiles.owner ? 'Actual' : '30 días gratis'} tone={currentPaidSubscription?.planId === 'pro' || profiles.owner ? 'success' : 'info'} size="sm" />
                         </div>
-                        <p className="mt-4 text-2xl font-semibold" style={{ color: 'var(--fg)' }}>{formatCurrency(coordinatorPlan?.priceMonthly ?? 19990)}</p>
+                        <p className="mt-4 text-2xl font-semibold" style={{ color: 'var(--fg)' }}>{formatCurrency(ownerPlan?.priceMonthly ?? 19990)}</p>
                         <p className="text-xs" style={{ color: 'var(--fg-muted)' }}>mensual</p>
                         <div className="mt-4 space-y-2">
                             <SubscriptionFeature text="Serenatas propias con costo de plataforma $0." />
@@ -776,14 +886,14 @@ export function ProfileView({ profiles, profile, accountUser, refresh }: { profi
                             <SubscriptionFeature text="Mapa y rutas para coordinar jornadas." />
                             <SubscriptionFeature text="Oportunidades de la app con comisión de 8% + IVA." />
                         </div>
-                        {profile === 'musician' && !profiles.coordinator && !currentPaidSubscription ? (
-                            <PanelButton className="mt-5 w-full" disabled={status.loading || subscriptionBusyPlan === 'pro'} onClick={() => mercadoPagoEnabled ? void startPaidSubscription('pro') : void startCoordinatorTrial()}>
+                        {profile === 'musician' && !profiles.owner && !currentPaidSubscription ? (
+                            <PanelButton className="mt-5 w-full" disabled={status.loading || subscriptionBusyPlan === 'pro'} onClick={() => mercadoPagoEnabled ? void startPaidSubscription('pro') : void startOwnerTrial()}>
                                 {status.loading || subscriptionBusyPlan === 'pro' ? <IconLoader2 size={14} className="animate-spin" /> : <IconCreditCard size={14} />}
                                 {mercadoPagoEnabled ? 'Suscribirme' : 'Iniciar prueba'}
                             </PanelButton>
                         ) : (
                             <PanelButton className="mt-5 w-full" variant="secondary" disabled>
-                                {profiles.coordinator || currentPaidSubscription ? 'Plan activo' : 'Disponible para músicos'}
+                                {profiles.owner || currentPaidSubscription ? 'Plan activo' : 'Disponible para músicos'}
                             </PanelButton>
                         )}
                     </article>
@@ -840,7 +950,6 @@ export function ProfileView({ profiles, profile, accountUser, refresh }: { profi
                 )}
             </PanelCard>
             </div>
-            </>
             ) : null}
         </div>
     );
@@ -895,37 +1004,5 @@ function SubscriptionFeature({ text, muted = false }: { text: string; muted?: bo
             <IconCheck size={14} className="mt-0.5 shrink-0" style={{ color }} />
             <span style={{ color }}>{text}</span>
         </div>
-    );
-}
-
-function ProfileFormFields(props: {
-    region: string;
-    comuna: string;
-    communes: ReturnType<typeof getCommunesForRegion>;
-    bio: string;
-    setRegion: (value: string) => void;
-    setComuna: (value: string) => void;
-    setBio: (value: string) => void;
-}) {
-    return (
-        <>
-            <div className="mt-4 grid gap-3 sm:grid-cols-2">
-                <PanelField label="Región">
-                    <FieldSelect value={props.region} onChange={(event) => { props.setRegion(event.target.value); props.setComuna(''); }}>
-                        <option value="">Seleccionar</option>
-                        {LOCATION_REGIONS.map((region) => <option key={region.id} value={region.id}>{region.name}</option>)}
-                    </FieldSelect>
-                </PanelField>
-                <PanelField label="Comuna">
-                    <FieldSelect value={props.comuna} onChange={(event) => props.setComuna(event.target.value)}>
-                        <option value="">Seleccionar</option>
-                        {props.communes.map((commune) => <option key={commune.id} value={commune.id}>{commune.name}</option>)}
-                    </FieldSelect>
-                </PanelField>
-            </div>
-            <PanelField className="mt-3" label="Bio">
-                <FieldTextarea rows={3} value={props.bio} onChange={(event) => props.setBio(event.target.value)} placeholder="Breve descripción para tu equipo." />
-            </PanelField>
-        </>
     );
 }

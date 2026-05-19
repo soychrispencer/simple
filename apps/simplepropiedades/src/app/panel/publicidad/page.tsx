@@ -732,18 +732,18 @@ export default function PublicidadPage() {
       ) : (
         <>
           <div className="grid grid-cols-2 xl:grid-cols-4 gap-3 mb-6">
-            <div className="rounded-xl border p-3" style={{ borderColor: 'var(--border)' }}><p className="type-caption" style={{ color: 'var(--fg-muted)' }}>Vigentes</p><p className="text-xl font-semibold">{counters.totalNotEnded}/{MAX_CAMPAIGNS_TOTAL}</p></div>
-            <div className="rounded-xl border p-3" style={{ borderColor: 'var(--border)' }}><p className="type-caption" style={{ color: 'var(--fg-muted)' }}>Hero activas</p><p className="text-xl font-semibold">{counters.activeHero}/{MAX_ACTIVE_HERO_CAMPAIGNS}</p></div>
-            <div className="rounded-xl border p-3" style={{ borderColor: 'var(--border)' }}><p className="type-caption" style={{ color: 'var(--fg-muted)' }}>Programadas</p><p className="text-xl font-semibold">{counters.scheduled}</p></div>
-            <div className="rounded-xl border p-3" style={{ borderColor: 'var(--border)' }}><p className="type-caption" style={{ color: 'var(--fg-muted)' }}>Costo referencial</p><p className="text-xl font-semibold">${selected.price[duration].toLocaleString('es-CL')}</p></div>
+            <div className="prop-stat-tile"><p className="type-caption text-[var(--fg-muted)]">Vigentes</p><p className="text-xl font-semibold">{counters.totalNotEnded}/{MAX_CAMPAIGNS_TOTAL}</p></div>
+            <div className="prop-stat-tile"><p className="type-caption text-[var(--fg-muted)]">Hero activas</p><p className="text-xl font-semibold">{counters.activeHero}/{MAX_ACTIVE_HERO_CAMPAIGNS}</p></div>
+            <div className="prop-stat-tile"><p className="type-caption text-[var(--fg-muted)]">Programadas</p><p className="text-xl font-semibold">{counters.scheduled}</p></div>
+            <div className="prop-stat-tile"><p className="type-caption text-[var(--fg-muted)]">Costo referencial</p><p className="text-xl font-semibold">${selected.price[duration].toLocaleString('es-CL')}</p></div>
           </div>
 
           {error ? <PanelNotice tone="error" className="mb-3">{error}</PanelNotice> : null}
           {message ? <PanelNotice tone="success" className="mb-3">{message}</PanelNotice> : null}
           {isEditing && editingCampaign ? (
-            <div className="mb-4 rounded-lg border px-3 py-2 flex flex-wrap items-center gap-2" style={{ borderColor: 'var(--border)', background: 'var(--bg-subtle)' }}>
-              <p className="text-sm" style={{ color: 'var(--fg-secondary)' }}>
-                Editando: <span className="font-medium" style={{ color: 'var(--fg)' }}>{editingCampaign.name}</span>
+            <div className="mb-4 flex flex-wrap items-center gap-2 rounded-lg border px-3 py-2 prop-subtle-card">
+              <p className="text-sm text-[var(--fg-secondary)]">
+                Editando: <span className="font-medium text-[var(--fg)]">{editingCampaign.name}</span>
               </p>
               <PanelButton onClick={cancelEditing} variant="secondary" size="sm">
                 <IconX size={14} /> Cancelar
@@ -772,28 +772,28 @@ export default function PublicidadPage() {
             <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
               {FORMATS.map((item) => (
                 <PanelChoiceCard key={item.id} onClick={() => { if (!lockCommercialFields) setFormat(item.id); }} disabled={lockCommercialFields} selected={format === item.id}>
-                  <div className="w-9 h-9 rounded-lg flex items-center justify-center mb-3" style={{ background: 'var(--bg-muted)', color: 'var(--fg-secondary)' }}>{item.id === 'hero' ? <IconLayoutBoard size={18} /> : item.id === 'card' ? <IconPhoto size={18} /> : <IconRectangle size={18} />}</div>
+                  <div className="w-9 h-9 rounded-lg flex items-center justify-center mb-3 prop-icon-tile" >{item.id === 'hero' ? <IconLayoutBoard size={18} /> : item.id === 'card' ? <IconPhoto size={18} /> : <IconRectangle size={18} />}</div>
                   <p className="text-sm font-semibold">{item.label}</p>
-                  <p className="type-caption mt-1" style={{ color: 'var(--fg-muted)' }}>{item.description}</p>
-                  <p className="type-caption mt-2" style={{ color: 'var(--fg-secondary)' }}>Desktop {item.desktop[0]}x{item.desktop[1]} · Móvil {item.mobile[0]}x{item.mobile[1]}</p>
+                  <p className="type-caption mt-1 text-[var(--fg-muted)]">{item.description}</p>
+                  <p className="type-caption mt-2 text-[var(--fg-secondary)]">Desktop {item.desktop[0]}x{item.desktop[1]} · Móvil {item.mobile[0]}x{item.mobile[1]}</p>
                 </PanelChoiceCard>
               ))}
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-              <div><label className="type-caption font-medium mb-1 block" style={{ color: 'var(--fg-secondary)' }}>Nombre campaña</label><input className="form-input" value={campaignName} onChange={(event) => setCampaignName(event.target.value)} /></div>
-              <div><label className="type-caption font-medium mb-1 block" style={{ color: 'var(--fg-secondary)' }}>Duración</label><div className="grid grid-cols-3 gap-2">{([7, 15, 30] as Duration[]).map((days) => <button key={days} onClick={() => { if (!lockCommercialFields) setDuration(days); }} disabled={lockCommercialFields} className="rounded-lg border py-2 text-sm disabled:cursor-not-allowed" style={{ borderColor: duration === days ? 'var(--fg)' : 'var(--border)', background: duration === days ? 'var(--bg-subtle)' : 'var(--surface)', opacity: lockCommercialFields && duration !== days ? 0.6 : 1 }}>{days} días</button>)}</div></div>
+              <div><label className="type-caption font-medium mb-1 block text-[var(--fg-secondary)]">Nombre campaña</label><input className="form-input" value={campaignName} onChange={(event) => setCampaignName(event.target.value)} /></div>
+              <div><label className="type-caption font-medium mb-1 block text-[var(--fg-secondary)]">Duración</label><div className="grid grid-cols-3 gap-2">{([7, 15, 30] as Duration[]).map((days) => <button key={days} onClick={() => { if (!lockCommercialFields) setDuration(days); }} disabled={lockCommercialFields} className={`rounded-button border py-2 text-sm disabled:cursor-not-allowed prop-duration-btn ${duration === days ? "prop-duration-btn--active" : ""}`} style={{ opacity: lockCommercialFields && duration !== days ? 0.6 : 1 }}>{days} días</button>)}</div></div>
             </div>
 
             {lockCommercialFields ? (
-              <p className="type-caption -mt-1" style={{ color: 'var(--fg-muted)' }}>
+              <p className="type-caption -mt-1">
                 Fecha, duración, formato y sección quedan bloqueados durante la edición.
               </p>
             ) : null}
 
-            <div className="rounded-xl border p-3" style={{ borderColor: 'var(--border)' }}>
+            <div className="prop-stat-tile">
               <p className="text-sm font-medium">Destino (opcional)</p>
-              <p className="type-caption mt-1 mb-3" style={{ color: 'var(--fg-muted)' }}>
+              <p className="type-caption mt-1 mb-3">
                 Define qué ocurre cuando alguien hace clic en tu publicidad.
               </p>
 
@@ -809,25 +809,25 @@ export default function PublicidadPage() {
                     >
                       <div className="flex items-start gap-3">
                         <span
-                          className="mt-0.5 w-4 h-4 rounded-full border inline-flex items-center justify-center"
-                          style={{ borderColor: active ? 'var(--fg)' : 'var(--border-strong)' }}
+                          className={`mt-0.5 w-4 h-4 rounded-full border inline-flex items-center justify-center prop-radio-ring ${active ? "prop-radio-ring--active" : ""}`}
+                          
                           aria-hidden
                         >
                           {active ? (
-                            <span className="w-2 h-2 rounded-full" style={{ background: 'var(--fg)' }} />
+                            <span className="w-2 h-2 rounded-full prop-radio-dot" />
                           ) : null}
                         </span>
                         <span className="min-w-0">
-                          <span className="text-sm font-medium block" style={{ color: 'var(--fg)' }}>
+                          <span className="text-sm font-medium block prop-text-fg">
                             {option.label}
                           </span>
-                          <span className="type-caption block mt-0.5" style={{ color: 'var(--fg-muted)' }}>
+                          <span className="type-caption block mt-0.5 prop-text-muted">
                             {option.hint}
                           </span>
                         </span>
                       </div>
-                      {option.badge ? (
-                        <span className="inline-flex mt-2 rounded-full border px-2 py-0.5 text-[11px] font-medium" style={{ borderColor: 'var(--border)', color: 'var(--fg-secondary)' }}>
+                          {option.badge ? (
+                        <span className="inline-flex mt-2 rounded-full border px-2 py-0.5 text-[11px] font-medium prop-dest-badge">
                           {option.badge}
                         </span>
                       ) : null}
@@ -836,15 +836,15 @@ export default function PublicidadPage() {
                 })}
               </div>
 
-              <div className="mt-3 rounded-lg border px-3 py-2" style={{ borderColor: 'var(--border)', background: 'var(--bg-subtle)' }}>
-                <p className="type-caption" style={{ color: 'var(--fg-muted)' }}>Seleccionado</p>
-                <p className="text-sm font-medium" style={{ color: 'var(--fg)' }}>{selectedDestination.label}</p>
-                <p className="type-caption" style={{ color: 'var(--fg-secondary)' }}>{selectedDestination.hint}</p>
+              <div className="mt-3 rounded-lg border px-3 py-2 prop-subtle-box">
+                <p className="type-caption text-[var(--fg-muted)]">Seleccionado</p>
+                <p className="text-sm font-medium">{selectedDestination.label}</p>
+                <p className="type-caption">{selectedDestination.hint}</p>
               </div>
 
               {destinationType === 'custom_url' ? (
                 <div className="mt-3">
-                  <label className="type-caption font-medium mb-1 block" style={{ color: 'var(--fg-secondary)' }}>
+                  <label className="type-caption font-medium mb-1 block text-[var(--fg-secondary)]">
                     URL destino
                   </label>
                   <input
@@ -858,7 +858,7 @@ export default function PublicidadPage() {
 
               {destinationType === 'listing' ? (
                 <div className="mt-3">
-                  <label className="type-caption font-medium mb-1 block" style={{ color: 'var(--fg-secondary)' }}>
+                  <label className="type-caption font-medium mb-1 block text-[var(--fg-secondary)]">
                     Elige la publicación
                   </label>
                   <ModernSelect
@@ -873,12 +873,12 @@ export default function PublicidadPage() {
 
               {destinationType === 'profile' ? (
                 <div className="mt-3">
-                  <label className="type-caption font-medium mb-1 block" style={{ color: 'var(--fg-secondary)' }}>
+                  <label className="type-caption font-medium mb-1 block text-[var(--fg-secondary)]">
                     Slug del perfil
                   </label>
                   <input
                     className="form-input"
-                    placeholder="broker-demo"
+                    placeholder="concesionaria-demo"
                     value={profileSlug}
                     onChange={(event) => setProfileSlug(event.target.value)}
                   />
@@ -887,11 +887,11 @@ export default function PublicidadPage() {
             </div>
 
             {format === 'inline' ? (
-              <div className="rounded-xl border p-3" style={{ borderColor: 'var(--border)' }}>
-                <p className="text-sm font-medium" style={{ color: 'var(--fg)' }}>
+              <div className="prop-stat-tile">
+                <p className="text-sm font-medium">
                   Sección objetivo del inline
                 </p>
-                <p className="type-caption mt-1 mb-3" style={{ color: 'var(--fg-muted)' }}>
+                <p className="type-caption mt-1 mb-3">
                   El banner inline solo se mostrará en la sección seleccionada.
                 </p>
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
@@ -902,13 +902,7 @@ export default function PublicidadPage() {
                         key={sectionOption.id}
                         onClick={() => { if (!lockCommercialFields) setInlinePlacementSection(sectionOption.id); }}
                         disabled={lockCommercialFields}
-                        className="rounded-lg border p-2 text-sm disabled:cursor-not-allowed"
-                        style={{
-                          borderColor: active ? 'var(--fg)' : 'var(--border)',
-                          background: active ? 'var(--bg-subtle)' : 'var(--surface)',
-                          color: active ? 'var(--fg)' : 'var(--fg-secondary)',
-                          opacity: lockCommercialFields && !active ? 0.6 : 1,
-                        }}
+                        className={`rounded-lg border p-2 text-sm disabled:cursor-not-allowed prop-inline-pick ${active ? "prop-inline-pick--active" : ""}`} style={{ opacity: lockCommercialFields && !active ? 0.6 : 1 }}
                       >
                         {sectionOption.label}
                       </button>
@@ -923,11 +917,11 @@ export default function PublicidadPage() {
         {step === 1 ? (
           <div className="space-y-5">
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-              <div className="rounded-xl border p-3" style={{ borderColor: 'var(--border)' }}><p className="text-sm font-medium mb-2">Imagen desktop ({selected.desktop[0]}x{selected.desktop[1]})</p><input type="file" accept="image/*" onChange={(event) => void onUpload('desktop', event)} className="form-input h-auto py-2" />{desktopAsset ? <p className="type-caption mt-2" style={{ color: 'var(--fg-muted)' }}>{desktopAsset.name} · {desktopAsset.width}x{desktopAsset.height}</p> : null}</div>
-              <div className="rounded-xl border p-3" style={{ borderColor: 'var(--border)' }}><p className="text-sm font-medium mb-2">Imagen móvil opcional ({selected.mobile[0]}x{selected.mobile[1]})</p><input type="file" accept="image/*" onChange={(event) => void onUpload('mobile', event)} className="form-input h-auto py-2" />{mobileAsset ? <p className="type-caption mt-2" style={{ color: 'var(--fg-muted)' }}>{mobileAsset.name} · {mobileAsset.width}x{mobileAsset.height}</p> : null}</div>
+              <div className="prop-stat-tile"><p className="text-sm font-medium mb-2">Imagen desktop ({selected.desktop[0]}x{selected.desktop[1]})</p><input type="file" accept="image/*" onChange={(event) => void onUpload('desktop', event)} className="form-input h-auto py-2" />{desktopAsset ? <p className="type-caption mt-2 prop-text-muted">{desktopAsset.name} · {desktopAsset.width}x{desktopAsset.height}</p> : null}</div>
+              <div className="prop-stat-tile"><p className="text-sm font-medium mb-2">Imagen móvil opcional ({selected.mobile[0]}x{selected.mobile[1]})</p><input type="file" accept="image/*" onChange={(event) => void onUpload('mobile', event)} className="form-input h-auto py-2" />{mobileAsset ? <p className="type-caption mt-2">{mobileAsset.name} · {mobileAsset.width}x{mobileAsset.height}</p> : null}</div>
             </div>
 
-            <div className="rounded-xl border p-3" style={{ borderColor: 'var(--border)' }}>
+            <div className="prop-stat-tile">
               <div className="flex items-center justify-between gap-3 mb-3 flex-wrap">
                 <p className="text-sm font-medium">Overlay opcional</p>
                 <PanelSegmentedToggle
@@ -960,7 +954,7 @@ export default function PublicidadPage() {
               ) : null}
             </div>
 
-            <div className="rounded-xl border p-3" style={{ borderColor: 'var(--border)', background: 'var(--bg-subtle)' }}>
+            <div className="rounded-xl border p-3 prop-subtle-box">
               <div className="flex items-center justify-between gap-3 mb-3 flex-wrap">
                 <p className="text-sm font-medium">Preview visual</p>
                 <PanelSegmentedToggle
@@ -973,7 +967,7 @@ export default function PublicidadPage() {
                   onChange={(key) => setPreviewDevice(key as Device)}
                 />
               </div>
-              <div className="rounded-lg border overflow-hidden" style={{ borderColor: 'var(--border)', aspectRatio: `${previewSpec[0]} / ${previewSpec[1]}`, background: previewImage ? `linear-gradient(to right, rgba(0,0,0,0.45), rgba(0,0,0,0.2)), url(${previewImage}) center / cover no-repeat` : 'var(--bg-muted)' }}>
+              <div className="rounded-lg border overflow-hidden prop-preview-frame" style={{ aspectRatio: `${previewSpec[0]} / ${previewSpec[1]}`, background: previewImage ? `linear-gradient(to right, rgba(0,0,0,0.45), rgba(0,0,0,0.2)), url(${previewImage}) center / cover no-repeat` : undefined }}>
                 <div className={`h-full w-full p-4 md:p-6 flex flex-col justify-end ${alignClass}`}>
                   {showOverlay ? <div className="max-w-xl">{overlayTitle ? <h3 className="text-xl md:text-2xl font-semibold text-white">{overlayTitle}</h3> : null}{overlaySubtitle ? <p className="text-sm text-white/85 mt-1">{overlaySubtitle}</p> : null}{overlayCta ? <span className="inline-flex mt-3 rounded-md border border-white/50 px-3 py-1 text-xs text-white">{overlayCta}</span> : null}</div> : <span className="text-xs text-white/70">Preview sin texto overlay.</span>}
                 </div>
@@ -984,7 +978,7 @@ export default function PublicidadPage() {
 
         {step === 2 ? (
           <div className="space-y-4">
-            <div className="rounded-xl border p-4" style={{ borderColor: 'var(--border)' }}><label className="type-caption font-medium mb-1 block" style={{ color: 'var(--fg-secondary)' }}>Fecha inicio</label><div className="flex items-center gap-2"><IconCalendar size={14} style={{ color: 'var(--fg-muted)' }} /><input type="date" className="form-input max-w-[220px] disabled:cursor-not-allowed" value={startDate} onChange={(event) => setStartDate(event.target.value)} disabled={lockCommercialFields} /></div></div>
+            <div className="prop-stat-tile p-4"><label className="type-caption font-medium mb-1 block text-[var(--fg-secondary)]">Fecha inicio</label><div className="flex items-center gap-2"><IconCalendar size={14} /><input type="date" className="form-input max-w-[220px] disabled:cursor-not-allowed" value={startDate} onChange={(event) => setStartDate(event.target.value)} disabled={lockCommercialFields} /></div></div>
             <PanelSummaryCard
               eyebrow="Resumen"
               title={campaignName || 'Campaña sin nombre'}
@@ -1024,7 +1018,7 @@ export default function PublicidadPage() {
                 const href = getCampaignDestinationHref(campaign);
                 const isExternal = href.startsWith('http://') || href.startsWith('https://');
                 return (
-                  <div key={campaign.id} className="rounded-xl border p-3 sm:p-4 flex flex-col gap-3 sm:flex-row sm:justify-between" style={{ borderColor: 'var(--border)' }}>
+                  <div key={campaign.id} className="rounded-xl border p-3 sm:p-4 flex flex-col gap-3 sm:flex-row sm:justify-between prop-border-card">
                     <div className="min-w-0">
                       <div className="flex items-center gap-2 flex-wrap">
                         <p className="text-sm font-semibold truncate">{campaign.name}</p>
@@ -1033,19 +1027,19 @@ export default function PublicidadPage() {
                           <PanelStatusBadge label={paymentStatusLabel(campaign.paymentStatus)} tone={paymentStatusTone(campaign.paymentStatus)} />
                         ) : null}
                       </div>
-                      <p className="type-caption mt-1" style={{ color: 'var(--fg-secondary)' }}>
+                      <p className="type-caption mt-1 prop-text-secondary">
                         {campaign.format.toUpperCase()} · {campaign.durationDays} días · {formatDate(campaign.startAt)} - {formatDate(campaign.endAt)}
                       </p>
                       {campaign.paymentStatus !== 'paid' ? (
-                        <p className="type-caption mt-1" style={{ color: 'var(--fg-muted)' }}>
+                        <p className="type-caption mt-1 text-[var(--fg-muted)]">
                           Esta campaña aún no queda visible públicamente hasta confirmar el pago.
                         </p>
                       ) : null}
-                      <p className="type-caption mt-1" style={{ color: 'var(--fg-muted)' }}>
+                      <p className="type-caption mt-1 text-[var(--fg-muted)]">
                         Destino: {campaign.destinationType === 'none' ? 'Sin link' : campaign.destinationType === 'listing' ? campaign.listingHref : campaign.destinationType === 'profile' ? `/perfil/${campaign.profileSlug ?? ''}` : campaign.destinationUrl}
                       </p>
                       {href !== '#' ? (
-                        <Link href={href} target={isExternal ? '_blank' : undefined} rel={isExternal ? 'noopener noreferrer' : undefined} className="inline-flex mt-2 text-xs font-medium" style={{ color: 'var(--fg-secondary)' }}>
+                        <Link href={href} target={isExternal ? '_blank' : undefined} rel={isExternal ? 'noopener noreferrer' : undefined} className="inline-flex mt-2 text-xs font-medium prop-text-secondary">
                           Abrir destino
                         </Link>
                       ) : null}

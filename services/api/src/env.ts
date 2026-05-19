@@ -1,19 +1,47 @@
-import { existsSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import { z } from 'zod';
 
 const apiRootDir = path.resolve(__dirname, '..');
 
+function applyEnvFile(filePath: string, override: boolean): void {
+    if (!existsSync(filePath)) return;
+    const raw = readFileSync(filePath, 'utf8');
+    for (const line of raw.split(/\r?\n/)) {
+        const trimmed = line.trim();
+        if (!trimmed || trimmed.startsWith('#')) continue;
+        const eq = trimmed.indexOf('=');
+        if (eq <= 0) continue;
+        const key = trimmed.slice(0, eq).trim();
+        let value = trimmed.slice(eq + 1).trim();
+        if (
+            (value.startsWith('"') && value.endsWith('"'))
+            || (value.startsWith("'") && value.endsWith("'"))
+        ) {
+            value = value.slice(1, -1);
+        }
+        if (!override && process.env[key] !== undefined) continue;
+        process.env[key] = value;
+    }
+}
+
+// .env base; .env.local gana en desarrollo (STORAGE_PROVIDER, etc.).
 for (const candidate of [
     path.join(apiRootDir, '.env'),
-    path.join(apiRootDir, '.env.local'),
     path.resolve(process.cwd(), '.env'),
+]) {
+    try {
+        applyEnvFile(candidate, false);
+    } catch {
+        // Local development can run without every env file.
+    }
+}
+for (const candidate of [
+    path.join(apiRootDir, '.env.local'),
     path.resolve(process.cwd(), '.env.local'),
 ]) {
     try {
-        if (existsSync(candidate)) {
-            process.loadEnvFile?.(candidate);
-        }
+        applyEnvFile(candidate, true);
     } catch {
         // Local development can run without every env file.
     }
@@ -31,6 +59,9 @@ const envSchema = z.object({
     PGPASSWORD: z.string().optional(),
     SESSION_SECRET: z.string().trim().optional(),
     AUTH_COOKIE_SAMESITE: z.string().trim().optional(),
+    STORAGE_PROVIDER: z
+        .enum(['local', 'cloudflare-r2', 'r2', 'backblaze-b2', 'backblaze-s3', 's3'])
+        .optional(),
 }).superRefine((value, ctx) => {
     if (value.NODE_ENV === 'production') {
         if (!value.DATABASE_URL && !value.PGPASSWORD) {

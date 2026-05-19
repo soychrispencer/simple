@@ -13,8 +13,8 @@ export interface LeadsRouterDeps {
     portalKeySchema: any;
     mapServiceLeadRow: (row: any) => any;
     serviceLeadToResponse: (lead: any) => any;
-    listingLeadToResponse: (lead: any, opts?: any) => any;
-    messageThreadToResponse: (thread: any, userId: string, entries: any[]) => any;
+    listingLeadToResponse: (lead: any, opts?: any) => any | Promise<any>;
+    messageThreadToResponse: (thread: any, userId: string, entries: any[]) => any | Promise<any>;
     messageEntryToResponse: (entry: any, userId: string) => any;
     createServiceLeadActivity: (opts: any) => Promise<any>;
     isLeadIngestConfigured: () => boolean;
@@ -135,7 +135,7 @@ export function createLeadsRouter(deps: LeadsRouterDeps) {
             ok: true,
             imported: true,
             created: result.created,
-            item: listingLeadToResponse(result.lead, { threadId: thread?.id ?? null }),
+            item: await listingLeadToResponse(result.lead, { threadId: thread?.id ?? null }),
         }, result.created ? 201 : 200);
     }
 
@@ -238,8 +238,8 @@ export function createLeadsRouter(deps: LeadsRouterDeps) {
 
             return c.json({
                 ok: true,
-                item: listingLeadToResponse(conversation.lead, { threadId: conversation.thread.id }),
-                thread: messageThreadToResponse(conversation.thread, currentUser.id, [conversation.entry]),
+                item: await listingLeadToResponse(conversation.lead, { threadId: conversation.thread.id }),
+                thread: await messageThreadToResponse(conversation.thread, currentUser.id, [conversation.entry]),
                 entry: messageEntryToResponse(conversation.entry, currentUser.id),
             }, conversation.createdLead ? 201 : 200);
         }
@@ -269,7 +269,7 @@ export function createLeadsRouter(deps: LeadsRouterDeps) {
             },
         });
 
-        return c.json({ ok: true, item: listingLeadToResponse(lead) }, 201);
+        return c.json({ ok: true, item: await listingLeadToResponse(lead) }, 201);
     });
 
     app.post('/listing-leads/actions', async (c) => {
@@ -305,7 +305,7 @@ export function createLeadsRouter(deps: LeadsRouterDeps) {
         return c.json({
             ok: true,
             created: result.created,
-            item: listingLeadToResponse(result.lead, { threadId: thread?.id ?? null }),
+            item: await listingLeadToResponse(result.lead, { threadId: thread?.id ?? null }),
         }, result.created ? 201 : 200);
     });
 

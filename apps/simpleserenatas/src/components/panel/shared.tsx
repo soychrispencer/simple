@@ -1,6 +1,6 @@
 'use client';
 
-import type { InputHTMLAttributes, SelectHTMLAttributes, TextareaHTMLAttributes } from 'react';
+import type { InputHTMLAttributes, ReactNode, SelectHTMLAttributes, TextareaHTMLAttributes } from 'react';
 import { PanelEmptyState, PanelNotice, PanelStatusBadge } from '@simple/ui';
 import { createEmptyListingLocation, patchListingLocation, type ListingLocation } from '@simple/types';
 import { getCommunesForRegion, LOCATION_REGIONS } from '@simple/utils';
@@ -87,6 +87,7 @@ export function money(value: number | null) {
 export function serenataStatusLabel(status: Serenata['status']) {
     if (status === 'payment_pending') return 'Pago pendiente';
     if (status === 'pending') return 'Pendiente';
+    if (status === 'pending_open') return 'Sin hora definida';
     if (status === 'accepted_pending_group') return 'Falta grupo';
     if (status === 'scheduled') return 'Programada';
     if (status === 'completed') return 'Completada';
@@ -97,8 +98,9 @@ export function serenataStatusLabel(status: Serenata['status']) {
 
 export function clientSerenataStatusLabel(status: Serenata['status']) {
     if (status === 'payment_pending') return 'Pago pendiente';
-    if (status === 'pending') return 'Buscando coordinador';
-    if (status === 'accepted_pending_group') return 'Coordinador asignado';
+    if (status === 'pending') return 'Solicitud enviada';
+    if (status === 'pending_open') return 'Horario por confirmar';
+    if (status === 'accepted_pending_group') return 'Grupo preparando';
     if (status === 'scheduled') return 'Confirmada';
     if (status === 'completed') return 'Completada';
     if (status === 'rejected') return 'No aceptada';
@@ -108,7 +110,7 @@ export function clientSerenataStatusLabel(status: Serenata['status']) {
 
 export function serenataStatusTone(status: Serenata['status']): 'success' | 'warning' | 'danger' | 'neutral' | 'info' {
     if (status === 'payment_pending') return 'warning';
-    if (status === 'pending') return 'info';
+    if (status === 'pending' || status === 'pending_open') return 'info';
     if (status === 'accepted_pending_group') return 'warning';
     if (status === 'scheduled') return 'warning';
     if (status === 'completed') return 'success';
@@ -175,26 +177,90 @@ export function EmptyBlock({ title, description }: { title: string; description:
     return <PanelEmptyState title={title} description={description} />;
 }
 
+export function SerenataAgendaCard({
+    item,
+    showPrice = true,
+    actions,
+    footer,
+}: {
+    item: Serenata;
+    showPrice?: boolean;
+    actions?: ReactNode;
+    footer?: ReactNode;
+}) {
+    const addressLine = item.comuna ? `${item.comuna} · ${item.address}` : item.address;
+
+    return (
+        <article className="grid gap-3 border-b border-border p-4 last:border-b-0">
+            <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                    <p className="text-xl font-bold leading-none tabular-nums text-fg">{item.eventTime}</p>
+                    <p className="mt-1 text-xs text-fg-muted">{formatDate(item.eventDate)}</p>
+                </div>
+                <div className="shrink-0 text-right">
+                    {showPrice ? (
+                        <>
+                            <p className="text-base font-semibold text-accent">{money(item.price)}</p>
+                            <p className="mt-0.5 text-xs text-fg-muted">{item.duration} min</p>
+                        </>
+                    ) : (
+                        <p className="text-sm font-semibold text-fg-muted">{item.duration} min</p>
+                    )}
+                </div>
+            </div>
+
+            <div className="flex min-w-0 flex-wrap items-center gap-2">
+                <p className="min-w-0 flex-1 text-base font-semibold text-fg">{item.recipientName}</p>
+                <PanelStatusBadge
+                    tone={serenataStatusTone(item.status)}
+                    label={serenataStatusLabel(item.status)}
+                    size="sm"
+                />
+            </div>
+
+            <p className="line-clamp-2 text-sm leading-snug text-fg-muted">{addressLine}</p>
+
+            {item.groupId ? <p className="text-xs font-medium text-accent">Grupo asignado</p> : null}
+
+            {actions ? (
+                <div className="flex flex-wrap items-center gap-2">
+                    {actions}
+                </div>
+            ) : null}
+
+            {footer ? <div className="grid w-full gap-2">{footer}</div> : null}
+        </article>
+    );
+}
+
 export function SerenataRow({ item, context = 'default' }: { item: Serenata; context?: 'default' | 'client' }) {
     const label = context === 'client' ? clientSerenataStatusLabel(item.status) : serenataStatusLabel(item.status);
     const tone = context === 'client' && item.status === 'scheduled' ? 'success' : serenataStatusTone(item.status);
+    const responseDueLabel = item.status === 'pending' && item.responseDueAt
+        ? new Intl.DateTimeFormat('es-CL', { dateStyle: 'short', timeStyle: 'short' }).format(new Date(item.responseDueAt))
+        : null;
 
     return (
-        <div className="rounded-xl border p-4" style={{ borderColor: 'var(--border)', background: 'var(--surface)' }}>
+        <div className="rounded-xl border border-[var(--border)] bg-[var(--surface)] p-4">
             <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
-                    <p className="font-medium" style={{ color: 'var(--fg)' }}>{item.recipientName}</p>
-                    <p className="mt-1 text-sm" style={{ color: 'var(--fg-muted)' }}>
+                    <p className="font-medium text-[var(--fg)]">{item.recipientName}</p>
+                    <p className="mt-1 text-sm text-[var(--fg-muted)]">
                         {formatDate(item.eventDate)} · {item.eventTime} · {item.duration} min
                     </p>
-                    <p className="mt-1 truncate text-sm" style={{ color: 'var(--fg-secondary)' }}>{item.address}</p>
+                    {responseDueLabel ? (
+                        <p className="mt-1 text-xs text-[var(--fg-muted)]">
+                            {context === 'client' ? 'Respuesta esperada antes de' : 'Responder antes de'} {responseDueLabel}
+                        </p>
+                    ) : null}
+                    <p className="mt-1 truncate text-sm text-[var(--fg-secondary)]">{item.address}</p>
                 </div>
                 <PanelStatusBadge
                     tone={tone}
                     label={label}
                 />
             </div>
-            <div className="mt-3 flex items-center justify-between gap-3 text-sm" style={{ color: 'var(--fg-muted)' }}>
+            <div className="mt-3 flex items-center justify-between gap-3 text-sm text-[var(--fg-muted)]">
                 <span>{item.eventType ?? 'Serenata'}</span>
                 <span>{money(item.price)}</span>
             </div>
@@ -202,8 +268,19 @@ export function SerenataRow({ item, context = 'default' }: { item: Serenata; con
     );
 }
 
+function formatFormErrorMessage(error: string): string {
+    const trimmed = error.trim();
+    if (/^error[:\s]/i.test(trimmed)) return trimmed;
+    if (/[.;]/.test(trimmed) || /\b(no se pudo|no pudimos|inválid|debe|guardados)\b/i.test(trimmed)) {
+        return trimmed;
+    }
+    return `Error: ${trimmed}`;
+}
+
 export function FormFeedback({ status }: { status: FormStatus }) {
-    if (status.error) return <PanelNotice className="mt-3" tone="error">Error: {status.error}</PanelNotice>;
+    if (status.error) {
+        return <PanelNotice className="mt-3" tone="error">{formatFormErrorMessage(status.error)}</PanelNotice>;
+    }
     if (status.ok) return <PanelNotice className="mt-3" tone="success">{status.ok}</PanelNotice>;
     return null;
 }

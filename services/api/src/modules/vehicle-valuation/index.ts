@@ -1,31 +1,21 @@
-import { asString, asObject } from '../shared/index.js';
+import { asString, asObject } from '../shared/helpers.js';
 import type {
     VehicleValuationFeedRecord,
     VehicleValuationFeedConnector,
     VehicleValuationFeedConnectorLoadResult,
-    VehicleValuationFeedHealth
-} from './types.js';
+    ValuationFeedHealth,
+    ValuationFeedSourceStatus,
+    ValuationHistoricalPoint,
+} from '../shared/types.js';
+import { VEHICLE_VALUATION_FEED_SEED, VEHICLE_VALUATION_HISTORY_SEED } from './seed-data.js';
 
-// Local type definitions for shared types
-type ValuationFeedHealth = 'ready' | 'syncing' | 'degraded' | 'error' | 'disabled';
-type ValuationFeedSourceStatus = {
-    id: string;
-    label: string;
-    license: string;
-    transport: string;
-    status: ValuationFeedHealth;
-    sourceUrl: string | null;
-    itemCount: number;
-    lastSyncAt: number | null;
-    lastError: string | null;
-    supportsHistory: boolean;
-};
-type ValuationHistoricalPoint = {
-    date: number;
-    price: number;
-    currency: string;
-    source: string;
-};
+let countInternalAutosListings: () => number = () => 0;
+
+export function configureVehicleValuationFeeds(deps: {
+    countInternalAutosListings: () => number;
+}): void {
+    countInternalAutosListings = deps.countInternalAutosListings;
+}
 
 // State
 let vehicleValuationFeedState = {
@@ -34,8 +24,8 @@ let vehicleValuationFeedState = {
     sources: [] as ValuationFeedSourceStatus[],
 };
 
-let vehicleValuationFeedRecords: VehicleValuationFeedRecord[] = [];
-let vehicleValuationHistoryBySegment: Record<string, ValuationHistoricalPoint[]> = {};
+let vehicleValuationFeedRecords: VehicleValuationFeedRecord[] = [...VEHICLE_VALUATION_FEED_SEED];
+let vehicleValuationHistoryBySegment: Record<string, ValuationHistoricalPoint[]> = { ...VEHICLE_VALUATION_HISTORY_SEED };
 
 // Utility functions
 function hashString(str: string): string {
@@ -98,12 +88,17 @@ export function parseVehicleFeedRecord(sourceId: string, raw: unknown): VehicleV
         source: asString(item.source) || sourceId,
         operationType,
         vehicleType,
-        regionId,
-        communeId,
         brand,
         model,
+        version: asString(item.version) || null,
         year: typeof item.year === 'number' ? item.year : parseNumberFromString(item.year),
-        mileage: typeof item.mileageKm === 'number' ? item.mileageKm : parseNumberFromString(item.mileageKm ?? item.kilometers ?? item.mileage),
+        mileageKm: typeof item.mileageKm === 'number' ? item.mileageKm : parseNumberFromString(item.mileageKm ?? item.kilometers ?? item.mileage),
+        fuelType: asString(item.fuelType) || null,
+        transmission: asString(item.transmission) || null,
+        bodyType: asString(item.bodyType) || null,
+        regionId,
+        communeId,
+        title: asString(item.title) || `${brand} ${model}`,
         price,
         currency: asString(item.currency) || 'CLP',
         publishedAt: typeof item.publishedAt === 'number' ? item.publishedAt : Date.now(),
@@ -112,7 +107,7 @@ export function parseVehicleFeedRecord(sourceId: string, raw: unknown): VehicleV
     };
 }
 
-async function loadVehiclePartnerFeed(sourceId: string, envUrlKey: string | undefined, fallbackRecords: VehicleValuationFeedRecord[]): Promise<VehicleValuationFeedConnectorLoadResult<VehicleValuationFeedRecord>> {
+async function loadVehiclePartnerFeed(sourceId: string, envUrlKey: string | undefined, fallbackRecords: VehicleValuationFeedRecord[]): Promise<VehicleValuationFeedConnectorLoadResult> {
     const sourceUrl = envUrlKey ? asString(process.env[envUrlKey]) || null : null;
     if (!sourceUrl) {
         return { records: fallbackRecords, sourceUrl: null };
@@ -207,7 +202,7 @@ export function primeVehicleValuationFeedState() {
             transport: 'snapshot',
             status: 'ready',
             sourceUrl: null,
-            itemCount: 0, // Will be set by caller
+            itemCount: countInternalAutosListings(),
             lastSyncAt: Date.now(),
             lastError: null,
             supportsHistory: false,
@@ -217,7 +212,7 @@ export function primeVehicleValuationFeedState() {
             label: connector.label,
             license: connector.license,
             transport: connector.transport,
-            status: connector.transport === 'snapshot' ? 'ready' as VehicleValuationFeedHealth : 'degraded' as VehicleValuationFeedHealth,
+            status: connector.transport === 'snapshot' ? 'ready' as ValuationFeedHealth : 'degraded' as ValuationFeedHealth,
             sourceUrl: connector.envUrlKey ? asString(process.env[connector.envUrlKey]) || null : null,
             itemCount: vehicleValuationFeedRecords.filter((item) => item.source.includes(connector.label.toLowerCase().split(' ')[0])).length,
             lastSyncAt: null,
@@ -250,7 +245,7 @@ export async function refreshVehicleValuationFeeds() {
             transport: 'snapshot',
             status: 'ready',
             sourceUrl: null,
-            itemCount: 0, // Will be set by caller
+            itemCount: countInternalAutosListings(),
             lastSyncAt: Date.now(),
             lastError: null,
             supportsHistory: false,

@@ -27,6 +27,7 @@ const client = databaseUrl
 
 // Create the drizzle instance
 export const db = drizzle(client, { schema });
+export const pgClient = client;
 
 // Export types
 export type * from './schema';

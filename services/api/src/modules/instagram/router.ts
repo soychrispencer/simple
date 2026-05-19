@@ -440,6 +440,15 @@ export function createInstagramRouter(deps: InstagramRouterDeps) {
                 from && to ? { from: new Date(from as string), to: new Date(to as string) } : undefined
             );
 
+            if (insights.source === 'unavailable') {
+                return c.json({
+                    ok: false,
+                    error: insights.message ?? 'Instagram no disponible',
+                    source: insights.source,
+                }, 503);
+            }
+
+            c.header('X-Instagram-Data-Source', insights.source);
             return c.json({ ok: true, ...insights });
         } catch (error) {
             console.error('[instagram] Error obteniendo insights:', error);

@@ -1,6 +1,21 @@
 # Database Setup: Drizzle ORM + PostgreSQL 🗄️
 
-**Objetivo:** Migrar de Maps en memoria a PostgreSQL + Drizzle ORM persistente
+**Objetivo:** PostgreSQL + Drizzle como fuente de verdad; cachés en memoria solo para lecturas calientes (ver `docs/BACKEND_CONTROL.md`).
+
+---
+
+## Protocolo local — una sola fuente de verdad
+
+1. **Una `DATABASE_URL`** en `services/api/.env.local` (la misma que usa `pnpm dev:api`).
+2. **Setup canónico (recomendado):** `pnpm --filter @simple/api run db:setup` = `db:migrate` + `db:apply:post-journal` + `db:sync:migration-hashes`.
+3. **Journal (manual):** `pnpm --filter @simple/api run db:migrate` (aplica `0000`–`0045` vía `_journal.json`).
+4. **Post-journal:** `pnpm --filter @simple/api run db:apply:post-journal` (`0046`–`0059`, incl. `0058` `mortgage_rates.highest_rate`, `0059` `admin_audit_logs`). El arranque de la API también intenta post-journal (no bloqueante); en deploy usar `db:setup`.
+5. **Comprobar post-journal:** `pnpm --filter @simple/api exec tsx scripts/apply-post-journal-migrations.ts -- --dry-run` → debe listar «ya aplicado» para las **14** tags.
+6. **Datos demo (opcional):** `db:seed:marketplace`, `db:seed:serenatas-e2e`, `db:seed:smoke-toyota`.
+7. **Verificación:** `pnpm --filter @simple/api typecheck` y `pnpm --filter @simple/api test`.
+8. **Nunca** borrar `.sql` ni hacer `DROP` de tablas para «limpiar»; ver `docs/BACKEND_CONTROL.md`.
+
+**Conteo canónico:** 46 migraciones en journal + 14 SQL post-journal en disco = **60** archivos `.sql`.
 
 ---
 
@@ -15,6 +30,48 @@
 - [ ] Generar migrations: `pnpm run db:generate`
 - [ ] Ejecutar migrations: `pnpm run db:migrate`
 - [ ] Verificar conexión: `pnpm run db:studio`
+
+### Procedimiento único (staging / local)
+
+Cuando `drizzle-kit migrate` termina OK pero `drizzle.__drizzle_migrations` no tiene los hashes (drift, p. ej. `0051`/`0052`):
+
+```bash
+pnpm db:migrate
+pnpm --filter=@simple/api run db:repair:marketplace    # solo si faltan tablas 0049–0052
+pnpm --filter=@simple/api run db:sync:migration-hashes # registra hashes sin re-ejecutar DDL
+pnpm --filter=@simple/api run db:seed:marketplace      # datos demo marketplace
+```
+
+- **`db:seed:marketplace`**: crea el grupo `grupo-demo-staging` (active), 2 servicios de ejemplo y vincula `serenata_provider_groups.admin_id` al `serenata_admins` del primer usuario (o reutiliza/crea un admin de prueba). Sin `admin_id`, las solicitudes directas al grupo no llegan al panel de Solicitudes.
+- **`db:repair:marketplace`**: SQL idempotente `0049`–`0052` si el esquema no existe; al final inserta hashes en `__drizzle_migrations`.
+- **`db:sync:migration-hashes`**: para cada entrada del journal cuyo hash falta, comprueba el esquema (probes en `0049`–`0052`, `CREATE TABLE` en otras) e inserta el hash **sin** volver a ejecutar el `.sql`. Opciones: `--dry-run`, `--tags 0051,0052` (en Windows/PowerShell: `pnpm --filter=@simple/api exec tsx scripts/sync-drizzle-migration-hashes.ts --tags 0051,0052` si `pnpm run` parte la coma).
+
+**Migraciones ALTER-only con probe (pasada 6):** si el esquema ya refleja el SQL pero falta el hash en `__drizzle_migrations`, el script puede registrarlas sin re-ejecutar DDL:
+
+| Tag | Probe |
+|-----|--------|
+| `0018_performance_indexes` | índice `listings_owner_id_idx` |
+| `0054_listings_public_search_gin` | índice `listings_raw_data_gin_idx` |
+| `0020_simpleagenda_integrations` | columna `agenda_professional_profiles.encuadre` |
+| `0021_agenda_reminder_30min` | `agenda_appointments.reminder_30min_sent_at` |
+| `0022_agenda_wa_prefs` | `agenda_professional_profiles.wa_notifications_enabled` |
+| `0023_agenda_payment_methods` | `agenda_professional_profiles.mp_access_token` |
+| `0024_address_book` | tabla `address_book` |
+| `0039_user_primary_vertical` | `users.primary_vertical` |
+| `0041_remove_discontinued_vertical` | CHECK sin vertical `serenatas` (en BD con esquema 0042+, usar `scripts/apply-0041-check-only.ts` en lugar del DROP completo) |
+| `0044_serenata_client_requests` | `serenatas.client_id` |
+| `0046_serenata_musician_working_comunas` | `serenata_musicians.working_comunas` |
+| `0048_serenata_package_logistics` | `serenatas.package_code` |
+| `0058_mortgage_rates_highest_rate` | `mortgage_rates.highest_rate` |
+| `0059_admin_audit_logs` | tabla `admin_audit_logs` |
+
+- Arranque API: `migrate()` (journal) + `applyPostJournalMigrations()` (0046–0059, no bloqueante). En CI/deploy preferir `db:setup`.
+
+**Smoke HTTP marketplace:** con la API en marcha (`pnpm run dev:api`), `pnpm --filter=@simple/api run smoke:marketplace` — health + marketplace público; opcional `SMOKE_SESSION_COOKIE` para `/api/serenatas/groups`. Listings: `SMOKE_LISTING_BRAND=toyota` (default); respuesta vacía es válida sin seed autos. Seed opcional con ítems > 0: `pnpm --filter=@simple/api run db:seed:smoke-toyota` (requiere `DATABASE_URL` y al menos un usuario activo).
+
+**Migraciones post-journal (0046–0059):** `pnpm --filter=@simple/api run db:apply:post-journal` — ver `services/api/drizzle/README.md` (incl. `0058_mortgage_rates_highest_rate`, `0059_admin_audit_logs`).
+
+**Índices búsqueda pública listings (`0054`):** GIN `jsonb_path_ops` en `raw_data` y `location_data`. Aplicar con `db:apply:post-journal` (no está en el journal).
 
 **Archivos a crear:**
 ```
@@ -321,9 +378,6 @@ pnpm run db:studio  # → https://local.drizzle.studio
 ## 📊 Verificación
 
 ```bash
-# Ver estado de migrations
-pnpm run db:status
-
 # Ver schema en Drizzle Studio
 pnpm run db:studio
 

@@ -1,5 +1,6 @@
 import type { StorageProvider, StorageUploadInput, StorageUploadResult } from '@simple/config';
 import { S3Client, PutObjectCommand, DeleteObjectCommand, HeadObjectCommand } from '@aws-sdk/client-s3';
+import { readUploadBuffer } from './file-buffer.js';
 
 /**
  * Cloudflare R2 Storage Provider
@@ -45,10 +46,11 @@ export class CloudflareR2Provider implements StorageProvider {
             : `uploads/${userId}/${Date.now()}_${fileName}`;
         
         try {
+            const buffer = await readUploadBuffer(file);
             const command = new PutObjectCommand({
                 Bucket: this.bucketName,
                 Key: key,
-                Body: file,
+                Body: buffer,
                 ContentType: mimeType,
                 Metadata: {
                     userId,
@@ -66,12 +68,13 @@ export class CloudflareR2Provider implements StorageProvider {
                 publicUrl: `${this.publicUrl}/${key}`,
                 fileName,
                 mimeType,
-                sizeBytes: file.length || file.byteLength || 0,
+                sizeBytes: buffer.length,
                 uploadedAt: now,
             };
         } catch (error) {
             console.error('[R2Storage] Upload error:', error);
-            throw new Error(`Failed to upload file to R2: ${error instanceof Error ? error.message : 'Unknown error'}`);
+            const message = error instanceof Error ? error.message : 'Unknown error';
+            throw new Error(`No pudimos subir el archivo a R2: ${message}`);
         }
     }
 

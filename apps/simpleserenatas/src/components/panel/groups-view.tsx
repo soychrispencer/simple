@@ -1,281 +1,527 @@
 'use client';
 
-import { useEffect, useMemo, useState, type ReactNode } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { PanelButton, PanelCard, PanelField, PanelNotice, PanelStatusBadge } from '@simple/ui';
-import { IconCalendar, IconLoader2, IconMusic, IconPlus, IconTrendingUp, IconUsers, IconUserPlus, IconX } from '@tabler/icons-react';
-import type { MusicianDirectoryItem, SerenataGroup } from '@/lib/serenatas-api';
+import { IconLoader2, IconPlus, IconUserPlus, IconUsers, IconX } from '@tabler/icons-react';
+import type { MusicianDirectoryItem, ProviderGroup, ProviderGroupMember } from '@/lib/serenatas-api';
 import { serenatasApi } from '@/lib/serenatas-api';
-import { EmptyBlock, FieldInput, FieldSelect, FieldTextarea, FormFeedback, InstrumentSelect, formatDate, today, type FormStatus } from './shared';
+import { useProviderGroups } from '@/hooks/use-provider-groups';
+import {
+    persistActiveProviderGroupId,
+    readSignupGroupName,
+    resolveActiveProviderGroupId,
+} from '@/lib/active-provider-group';
+import { musicianLocationLabel } from '@/lib/musician-location-label';
+import { PanelSheet } from './panel-sheet';
+import { EmptyBlock, FieldInput, FieldSelect, FieldTextarea, FormFeedback, InstrumentSelect, type FormStatus } from './shared';
+import { MusicianAvailabilityBadge } from './musician-availability-toggle';
 
-export function GroupsView({ groups, musicians, refresh }: { groups: SerenataGroup[]; musicians: MusicianDirectoryItem[]; refresh: () => Promise<void> }) {
+export function GroupsView({
+    musicians,
+    refresh,
+}: {
+    musicians: MusicianDirectoryItem[];
+    refresh: () => Promise<void>;
+}) {
+    const { groups, loading: groupsLoading, error: groupsError, refresh: refreshProviderGroups } = useProviderGroups();
+    const [activeGroupId, setActiveGroupId] = useState<string | null>(null);
+    const [members, setMembers] = useState<ProviderGroupMember[]>([]);
     const [modalOpen, setModalOpen] = useState(false);
-    const [prefillGroupId, setPrefillGroupId] = useState('');
-    const activeGroups = groups.filter((group) => group.status === 'active');
-    const totalMembers = groups.reduce((sum, group) => sum + group.members.length, 0);
-    const acceptedMembers = groups.reduce((sum, group) => sum + group.members.filter((member) => member.status === 'accepted').length, 0);
-    const pendingMembers = groups.reduce((sum, group) => sum + group.members.filter((member) => member.status === 'invited').length, 0);
-    const nearbyMusicians = musicians.filter((musician) => musician.availableNow || musician.isAvailable).slice(0, 5);
+    const [createModalOpen, setCreateModalOpen] = useState(false);
+    const [status, setStatus] = useState<FormStatus>({ loading: true, error: null, ok: null });
 
-    function openModal(groupId = '') {
-        setPrefillGroupId(groupId);
-        setModalOpen(true);
+    const activeGroup = useMemo(
+        () => groups.find((g) => g.id === activeGroupId) ?? null,
+        [groups, activeGroupId],
+    );
+
+    async function loadMembers(groupId: string) {
+        const membersResponse = await serenatasApi.providerGroupMembers(groupId);
+        if (!membersResponse.ok) {
+            setMembers([]);
+            setStatus({ loading: false, error: membersResponse.error ?? 'No pudimos cargar músicos.', ok: null });
+            return false;
+        }
+        setMembers(membersResponse.items);
+        return true;
+    }
+
+    async function syncMembersForGroups(items: typeof groups) {
+        if (items.length === 0) {
+            setActiveGroupId(null);
+            setMembers([]);
+            setStatus({ loading: false, error: null, ok: null });
+            return;
+        }
+        setStatus({ loading: true, error: null, ok: null });
+        const nextId = resolveActiveProviderGroupId(items);
+        if (!nextId) {
+            setStatus({ loading: false, error: null, ok: null });
+            return;
+        }
+        persistActiveProviderGroupId(nextId);
+        setActiveGroupId(nextId);
+        const ok = await loadMembers(nextId);
+        if (ok) setStatus({ loading: false, error: null, ok: null });
+    }
+
+    useEffect(() => {
+        if (groupsLoading) return;
+        if (groupsError) {
+            setStatus({ loading: false, error: groupsError, ok: null });
+            return;
+        }
+        void syncMembersForGroups(groups);
+    }, [groups, groupsLoading, groupsError]);
+
+    async function selectGroup(groupId: string) {
+        persistActiveProviderGroupId(groupId);
+        setActiveGroupId(groupId);
+        setStatus({ loading: true, error: null, ok: null });
+        await loadMembers(groupId);
+        setStatus({ loading: false, error: null, ok: null });
+    }
+
+    const activeMembers = members.filter((member) => member.status === 'active');
+    const pendingMembers = members.filter((member) => member.status === 'invited');
+
+    if (status.loading && groups.length === 0) {
+        return <p className="text-sm text-fg-muted">Cargando grupos…</p>;
+    }
+
+    if (groups.length === 0) {
+        return (
+            <>
+                <PanelNotice tone="neutral" className="mb-1">
+                    Aquí organizas el plantel de músicos con los que trabajas. Cada grupo comercial es un equipo
+                    operativo distinto (por ejemplo, trío de fin de semana o plantel completo).
+                </PanelNotice>
+                <EmptyBlock
+                    title="Sin grupos"
+                    description="Crea tu primer grupo para invitar músicos y armar el plantel."
+                />
+                <div className="mt-4">
+                    <PanelButton onClick={() => setCreateModalOpen(true)}>
+                        <IconPlus size={16} />
+                        Crear grupo
+                    </PanelButton>
+                </div>
+                {createModalOpen ? (
+                    <CreateGroupModal
+                        defaultName={readSignupGroupName() ?? ''}
+                        onClose={() => setCreateModalOpen(false)}
+                        onCreated={async () => {
+                            await refreshProviderGroups();
+                            await refresh();
+                        }}
+                    />
+                ) : null}
+            </>
+        );
     }
 
     return (
         <>
+            <PanelNotice tone="neutral" className="mb-1">
+                Organiza el plantel de cada grupo comercial con el que operas como dueño. No es el
+                listado del marketplace para clientes (eso está en Perfil público).
+            </PanelNotice>
             <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                 <div>
-                    <h2 className="text-2xl font-bold" style={{ color: 'var(--fg)' }}>Mis grupos</h2>
-                    <p className="mt-1 text-sm" style={{ color: 'var(--fg-muted)' }}>{activeGroups.length} grupos activos</p>
+                    <h2 className="text-2xl font-bold text-[var(--fg)]">Grupos</h2>
+                    <p className="mt-1 text-sm text-fg-muted">
+                        {groups.length} grupo{groups.length === 1 ? '' : 's'}
+                        {activeGroup ? ` · ${activeGroup.name}` : ''}
+                    </p>
                 </div>
-                <PanelButton onClick={() => openModal()}>
-                    <IconPlus size={16} />
-                    Crear grupo
-                </PanelButton>
+                <div className="flex flex-wrap gap-2">
+                    <PanelButton variant="secondary" onClick={() => setCreateModalOpen(true)}>
+                        <IconPlus size={16} />
+                        Nuevo grupo
+                    </PanelButton>
+                    {activeGroup ? (
+                        <PanelButton onClick={() => setModalOpen(true)}>
+                            <IconPlus size={16} />
+                            Invitar músico
+                        </PanelButton>
+                    ) : null}
+                </div>
             </div>
 
-            <div className="mt-6 grid gap-5 xl:grid-cols-[minmax(0,1fr)_360px]">
-                <div className="min-w-0">
-                    {groups.length === 0 ? (
-                        <PanelCard className="flex min-h-[230px] items-center justify-center text-center">
-                            <div>
-                                <div className="mx-auto flex size-16 items-center justify-center rounded-2xl" style={{ background: 'var(--bg-subtle)', color: 'var(--fg)' }}>
-                                    <IconUsers size={34} />
+            <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                {groups.map((group) => {
+                    const selected = group.id === activeGroupId;
+                    return (
+                        <button
+                            key={group.id}
+                            type="button"
+                            onClick={() => void selectGroup(group.id)}
+                            className={`rounded-xl border p-4 text-left transition-colors ${
+                                selected
+                                    ? 'border-accent bg-accent-soft'
+                                    : 'border-border bg-bg-subtle hover:border-accent-border'
+                            }`}
+                        >
+                            <p className="font-semibold text-[var(--fg)]">{group.name}</p>
+                            <p className="mt-1 text-xs text-fg-muted">
+                                {group.status === 'active' ? 'Activo en marketplace' : group.status}
+                            </p>
+                        </button>
+                    );
+                })}
+            </div>
+
+            {status.loading ? (
+                <p className="mt-6 text-sm text-fg-muted">Cargando plantel…</p>
+            ) : !activeGroup ? (
+                <EmptyBlock title="Selecciona un grupo" description="Elige un grupo para ver e invitar músicos." />
+            ) : (
+                <>
+                    <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                        <p className="text-sm text-fg-muted">
+                            {activeMembers.length} músicos activos · {pendingMembers.length} invitaciones pendientes
+                        </p>
+                        {groups.length > 1 ? (
+                            <PanelField label="Grupo activo" className="mb-0 sm:max-w-xs">
+                                <FieldSelect
+                                    value={activeGroupId ?? ''}
+                                    onChange={(event) => void selectGroup(event.target.value)}
+                                >
+                                    {groups.map((group) => (
+                                        <option key={group.id} value={group.id}>
+                                            {group.name}
+                                        </option>
+                                    ))}
+                                </FieldSelect>
+                            </PanelField>
+                        ) : null}
+                    </div>
+
+                    <div className="mt-6 grid gap-5 xl:grid-cols-[minmax(0,1fr)_340px]">
+                        <PanelCard>
+                            {members.length === 0 ? (
+                                <div className="flex min-h-[220px] items-center justify-center text-center">
+                                    <EmptyBlock
+                                        title="Sin músicos"
+                                        description="Invita músicos para armar el plantel de este grupo."
+                                    />
                                 </div>
-                                <EmptyBlock title="No tienes grupos activos" description="Crea un grupo para organizar serenatas." />
-                            </div>
+                            ) : (
+                                <div className="grid gap-3">
+                                    {members.map((member) => (
+                                        <MemberRow
+                                            key={member.id}
+                                            groupId={activeGroup.id}
+                                            member={member}
+                                            refresh={async () => {
+                                                await loadMembers(activeGroup.id);
+                                                await refresh();
+                                            }}
+                                        />
+                                    ))}
+                                </div>
+                            )}
                         </PanelCard>
-                    ) : (
-                        <div className="grid gap-3">
-                            {groups.map((group) => (
-                                <GroupCard key={group.id} group={group} onInvite={() => openModal(group.id)} />
-                            ))}
-                        </div>
-                    )}
-                </div>
 
-                <div className="grid content-start gap-5">
-                    <PanelCard>
-                        <h3 className="text-base font-semibold" style={{ color: 'var(--fg)' }}>Resumen</h3>
-                        <div className="mt-5 grid gap-5">
-                            <SummaryRow icon={<IconUsers size={20} />} label="Total grupos" value={groups.length} />
-                            <SummaryRow icon={<IconTrendingUp size={20} />} label="Músicos confirmados" value={acceptedMembers} />
-                            <SummaryRow icon={<IconUserPlus size={20} />} label="Invitaciones pendientes" value={pendingMembers} />
-                        </div>
-                    </PanelCard>
-
-                    <PanelCard>
-                        <div className="flex items-start justify-between gap-3">
-                            <h3 className="text-base font-semibold" style={{ color: 'var(--fg)' }}>Músicos cerca</h3>
-                            <span className="text-sm" style={{ color: 'var(--fg-muted)' }}>{nearbyMusicians.length}</span>
-                        </div>
-                        <div className="mt-5 grid gap-3">
-                            {nearbyMusicians.length === 0 ? (
-                                <p className="py-8 text-center text-sm" style={{ color: 'var(--fg-muted)' }}>No hay músicos disponibles cerca</p>
-                            ) : nearbyMusicians.map((musician) => (
-                                <div key={musician.id} className="flex items-center justify-between gap-3 rounded-xl border p-3" style={{ borderColor: 'var(--border)', background: 'var(--bg-subtle)' }}>
-                                    <div className="min-w-0">
-                                        <p className="truncate text-sm font-semibold" style={{ color: 'var(--fg)' }}>{musician.name}</p>
-                                        <p className="mt-0.5 truncate text-xs" style={{ color: 'var(--fg-muted)' }}>{musician.instrument ?? musician.instruments[0] ?? 'Músico'} · {musician.comuna ?? 'Sin comuna'}</p>
-                                    </div>
-                                    <PanelStatusBadge tone={musician.availableNow ? 'success' : 'neutral'} label={musician.availableNow ? 'Ahora' : 'Disponible'} size="sm" />
+                        <div className="grid content-start gap-5">
+                            <PanelCard>
+                                <h3 className="text-base font-semibold text-[var(--fg)]">Resumen</h3>
+                                <div className="mt-5 grid gap-3">
+                                    <Metric label="Activos" value={activeMembers.length} />
+                                    <Metric label="Pendientes" value={pendingMembers.length} />
+                                    <Metric label="Total" value={members.length} />
                                 </div>
-                            ))}
+                            </PanelCard>
+                            <PanelCard>
+                                <h3 className="text-base font-semibold text-[var(--fg)]">Músicos disponibles</h3>
+                                <div className="mt-4 grid gap-3">
+                                    {musicians
+                                        .filter((item) => item.availableNow)
+                                        .slice(0, 5)
+                                        .map((musician) => (
+                                            <div
+                                                key={musician.id}
+                                                className="flex items-center justify-between gap-3 rounded-xl border border-border bg-bg-subtle p-3"
+                                            >
+                                                <div className="min-w-0">
+                                                    <p className="truncate text-sm font-semibold text-[var(--fg)]">
+                                                        {musician.name}
+                                                    </p>
+                                                    <p className="mt-0.5 truncate text-xs text-fg-muted">
+                                                        {musician.instrument ?? musician.instruments[0] ?? 'Músico'} ·{' '}
+                                                        {musicianLocationLabel(musician)}
+                                                    </p>
+                                                </div>
+                                                <MusicianAvailabilityBadge availableNow={musician.availableNow} />
+                                            </div>
+                                        ))}
+                                </div>
+                            </PanelCard>
                         </div>
-                    </PanelCard>
-                </div>
-            </div>
+                    </div>
+                </>
+            )}
 
-            {modalOpen ? (
-                <GroupManageModal
-                    groups={groups}
+            {modalOpen && activeGroup ? (
+                <InviteMemberModal
+                    group={activeGroup}
                     musicians={musicians}
-                    initialGroupId={prefillGroupId}
-                    refresh={refresh}
+                    existingMemberIds={members.map((member) => member.musicianId)}
                     onClose={() => setModalOpen(false)}
+                    refresh={async () => {
+                        await loadMembers(activeGroup.id);
+                        await refresh();
+                    }}
+                />
+            ) : null}
+
+            {createModalOpen ? (
+                <CreateGroupModal
+                    defaultName={readSignupGroupName() ?? ''}
+                    onClose={() => setCreateModalOpen(false)}
+                    onCreated={async () => {
+                        await refreshProviderGroups();
+                        await refresh();
+                    }}
                 />
             ) : null}
         </>
     );
 }
 
-function GroupCard({ group, onInvite }: { group: SerenataGroup; onInvite: () => void }) {
-    const accepted = group.members.filter((member) => member.status === 'accepted').length;
-    const invited = group.members.filter((member) => member.status === 'invited').length;
-
-    return (
-        <PanelCard className="transition-colors">
-            <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-                <div className="min-w-0">
-                    <div className="flex flex-wrap items-center gap-2">
-                        <h3 className="truncate text-lg font-semibold" style={{ color: 'var(--fg)' }}>{group.name}</h3>
-                        <PanelStatusBadge tone={group.status === 'active' ? 'success' : 'neutral'} label={group.status === 'active' ? 'Activo' : group.status} size="sm" />
-                    </div>
-                    <p className="mt-1 flex items-center gap-1.5 text-sm" style={{ color: 'var(--fg-muted)' }}>
-                        <IconCalendar size={15} />
-                        {formatDate(group.date)}
-                    </p>
-                </div>
-                <PanelButton variant="secondary" onClick={onInvite}>
-                    <IconUserPlus size={15} />
-                    Invitar músico
-                </PanelButton>
-            </div>
-
-            <div className="mt-4 grid gap-3 sm:grid-cols-3">
-                <GroupMetric label="Integrantes" value={group.members.length} />
-                <GroupMetric label="Confirmados" value={accepted} />
-                <GroupMetric label="Pendientes" value={invited} />
-            </div>
-
-            <div className="mt-4 flex flex-wrap gap-2">
-                {group.members.length === 0 ? (
-                    <span className="text-sm" style={{ color: 'var(--fg-muted)' }}>Sin integrantes todavía.</span>
-                ) : group.members.map((member) => (
-                    <span key={member.id} className="inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-sm" style={{ background: 'var(--bg-subtle)', color: 'var(--fg)' }}>
-                        <IconMusic size={14} />
-                        {member.musicianName ?? 'Músico'} · {member.instrument ?? 'Instrumento'}
-                    </span>
-                ))}
-            </div>
-        </PanelCard>
-    );
-}
-
-function GroupMetric({ label, value }: { label: string; value: number }) {
-    return (
-        <div className="rounded-xl border p-3" style={{ borderColor: 'var(--border)', background: 'var(--bg-subtle)' }}>
-            <p className="text-xs" style={{ color: 'var(--fg-muted)' }}>{label}</p>
-            <p className="mt-1 text-xl font-semibold" style={{ color: 'var(--fg)' }}>{value}</p>
-        </div>
-    );
-}
-
-function SummaryRow({ icon, label, value }: { icon: ReactNode; label: string; value: number }) {
-    return (
-        <div className="flex items-center gap-4">
-            <div className="flex size-12 items-center justify-center rounded-xl" style={{ background: 'var(--accent-soft)', color: 'var(--accent)' }}>
-                {icon}
-            </div>
-            <div>
-                <p className="text-sm" style={{ color: 'var(--fg-muted)' }}>{label}</p>
-                <p className="mt-0.5 text-lg font-semibold" style={{ color: 'var(--fg)' }}>{value}</p>
-            </div>
-        </div>
-    );
-}
-
-function GroupManageModal({ groups, musicians, initialGroupId, refresh, onClose }: { groups: SerenataGroup[]; musicians: MusicianDirectoryItem[]; initialGroupId: string; refresh: () => Promise<void>; onClose: () => void }) {
-    const [name, setName] = useState('');
-    const [date, setDate] = useState(today);
-    const [selectedGroup, setSelectedGroup] = useState(initialGroupId);
-    const [selectedMusician, setSelectedMusician] = useState('');
-    const [instrument, setInstrument] = useState('');
-    const [message, setMessage] = useState('');
+function CreateGroupModal({
+    defaultName,
+    onClose,
+    onCreated,
+}: {
+    defaultName: string;
+    onClose: () => void;
+    onCreated: () => Promise<void>;
+}) {
+    const [name, setName] = useState(defaultName);
     const [status, setStatus] = useState<FormStatus>({ loading: false, error: null, ok: null });
-    const selectedMusicianProfile = useMemo(() => musicians.find((item) => item.id === selectedMusician), [musicians, selectedMusician]);
 
-    useEffect(() => {
-        if (selectedMusicianProfile?.instrument) setInstrument(selectedMusicianProfile.instrument);
-    }, [selectedMusicianProfile]);
-
-    async function createGroup() {
-        if (name.trim().length < 2) {
-            setStatus({ loading: false, error: 'Escribe un nombre para el grupo.', ok: null });
+    async function create() {
+        const trimmed = name.trim();
+        if (trimmed.length < 2) {
+            setStatus({ loading: false, error: 'Indica un nombre de al menos 2 caracteres.', ok: null });
             return;
         }
         setStatus({ loading: true, error: null, ok: null });
-        const response = await serenatasApi.createGroup({ name: name.trim(), date, status: 'active' });
-        if (!response.ok) {
+        const response = await serenatasApi.createProviderGroup({
+            name: trimmed,
+            status: 'draft',
+        });
+        if (!response.ok || !response.item) {
             setStatus({ loading: false, error: response.error ?? 'No pudimos crear el grupo.', ok: null });
             return;
         }
-        setName('');
-        setSelectedGroup(response.item.id);
-        setStatus({ loading: false, error: null, ok: 'Grupo creado.' });
+        persistActiveProviderGroupId(response.item.id);
+        await onCreated();
+        onClose();
+    }
+
+    return (
+        <PanelSheet onClose={onClose} ariaLabel="Nuevo grupo" maxWidthClass="sm:max-w-md">
+            <PanelCard size="lg">
+                <div className="flex items-start justify-between gap-4">
+                    <div>
+                        <h2 className="type-section-title text-[var(--fg)]">Nuevo grupo</h2>
+                        <p className="mt-1 text-sm text-fg-muted">Grupo comercial y plantel operativo para tus músicos.</p>
+                    </div>
+                    <button type="button" className="rounded-xl bg-bg-subtle p-2 text-fg-muted" onClick={onClose}>
+                        <IconX size={18} />
+                    </button>
+                </div>
+                <div className="mt-5 grid gap-3">
+                    <PanelField label="Nombre del grupo">
+                        <FieldInput
+                            value={name}
+                            onChange={(e) => setName(e.target.value)}
+                            placeholder="Ej. Trío fin de semana"
+                        />
+                    </PanelField>
+                    <FormFeedback status={status} />
+                    <PanelButton disabled={status.loading} onClick={() => void create()}>
+                        {status.loading ? <IconLoader2 size={14} className="animate-spin" /> : <IconPlus size={15} />}
+                        Crear grupo
+                    </PanelButton>
+                </div>
+            </PanelCard>
+        </PanelSheet>
+    );
+}
+
+function MemberRow({
+    groupId,
+    member,
+    refresh,
+}: {
+    groupId: string;
+    member: ProviderGroupMember;
+    refresh: () => Promise<void>;
+}) {
+    async function setStatus(next: ProviderGroupMember['status']) {
+        await serenatasApi.updateProviderGroupMember(groupId, member.id, { status: next });
         await refresh();
     }
 
+    const tone =
+        member.status === 'active'
+            ? 'success'
+            : member.status === 'invited'
+              ? 'warning'
+              : member.status === 'rejected'
+                ? 'danger'
+                : 'neutral';
+
+    return (
+        <div className="rounded-xl border border-border p-4">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <div className="min-w-0">
+                    <p className="font-semibold text-[var(--fg)]">{member.musicianName ?? 'Músico'}</p>
+                    <p className="mt-1 text-sm text-fg-muted">
+                        {(member.instruments.length > 0 ? member.instruments : [member.instrument ?? 'Instrumento']).join(
+                            ', ',
+                        )}
+                        {member.comuna ? ` · ${member.comuna}` : ''}
+                    </p>
+                </div>
+                <div className="flex flex-wrap items-center gap-2">
+                    <MusicianAvailabilityBadge availableNow={Boolean(member.availableNow)} />
+                    <PanelStatusBadge
+                        tone={tone}
+                        label={
+                            member.status === 'active'
+                                ? 'Activo'
+                                : member.status === 'invited'
+                                  ? 'Invitado'
+                                  : member.status
+                        }
+                    />
+                </div>
+            </div>
+            <div className="mt-3 flex flex-wrap gap-2">
+                {member.status !== 'inactive' ? (
+                    <PanelButton variant="secondary" onClick={() => void setStatus('inactive')}>
+                        Pausar
+                    </PanelButton>
+                ) : (
+                    <PanelButton variant="secondary" onClick={() => void setStatus('active')}>
+                        Activar
+                    </PanelButton>
+                )}
+                <PanelButton variant="secondary" onClick={() => void setStatus('removed')}>
+                    Quitar
+                </PanelButton>
+            </div>
+        </div>
+    );
+}
+
+function Metric({ label, value }: { label: string; value: number }) {
+    return (
+        <div className="flex items-center gap-3 rounded-xl border border-border bg-bg-subtle p-3">
+            <div className="flex size-10 items-center justify-center rounded-xl bg-accent-soft text-accent">
+                <IconUsers size={18} />
+            </div>
+            <div>
+                <p className="text-xs text-fg-muted">{label}</p>
+                <p className="text-lg font-semibold text-[var(--fg)]">{value}</p>
+            </div>
+        </div>
+    );
+}
+
+function InviteMemberModal({
+    group,
+    musicians,
+    existingMemberIds,
+    refresh,
+    onClose,
+}: {
+    group: ProviderGroup;
+    musicians: MusicianDirectoryItem[];
+    existingMemberIds: string[];
+    refresh: () => Promise<void>;
+    onClose: () => void;
+}) {
+    const options = useMemo(
+        () =>
+            musicians
+                .filter((musician) => !existingMemberIds.includes(musician.id))
+                .sort((a, b) => Number(b.availableNow) - Number(a.availableNow)),
+        [existingMemberIds, musicians],
+    );
+    const [selectedMusician, setSelectedMusician] = useState(options[0]?.id ?? '');
+    const [instrument, setInstrument] = useState(options[0]?.instrument ?? '');
+    const [message, setMessage] = useState('');
+    const [status, setStatus] = useState<FormStatus>({ loading: false, error: null, ok: null });
+
     async function invite() {
-        if (!selectedGroup || !selectedMusician) {
-            setStatus({ loading: false, error: 'Selecciona grupo y músico.', ok: null });
+        if (!selectedMusician) {
+            setStatus({ loading: false, error: 'Selecciona un músico.', ok: null });
             return;
         }
         setStatus({ loading: true, error: null, ok: null });
-        const response = await serenatasApi.inviteMember(selectedGroup, { musicianId: selectedMusician, instrument, message });
+        const response = await serenatasApi.inviteProviderGroupMember(group.id, {
+            musicianId: selectedMusician,
+            instruments: instrument ? [instrument] : [],
+            message: message.trim() || null,
+        });
         if (!response.ok) {
             setStatus({ loading: false, error: response.error ?? 'No pudimos invitar al músico.', ok: null });
             return;
         }
-        setSelectedMusician('');
-        setMessage('');
         setStatus({ loading: false, error: null, ok: 'Invitación enviada.' });
         await refresh();
+        onClose();
     }
 
     return (
-        <div className="fixed inset-0 z-[90] flex items-end justify-center p-0 sm:items-center sm:p-4" role="dialog" aria-modal="true" aria-label="Gestionar grupo">
-            <button
-                type="button"
-                aria-label="Cerrar"
-                className="absolute inset-0 cursor-default"
-                style={{ background: 'rgba(0,0,0,0.52)', backdropFilter: 'blur(6px)' }}
-                onClick={onClose}
-            />
-            <div className="relative max-h-[92vh] w-full overflow-y-auto rounded-t-3xl sm:max-w-2xl sm:rounded-3xl">
-                <PanelCard size="lg">
-                    <div className="flex items-start justify-between gap-4">
-                        <div>
-                            <h2 className="text-xl font-semibold" style={{ color: 'var(--fg)' }}>Gestionar grupo</h2>
-                            <p className="mt-1 text-sm" style={{ color: 'var(--fg-muted)' }}>Crea grupos e invita músicos desde el mismo flujo.</p>
-                        </div>
-                        <button type="button" className="rounded-xl p-2" style={{ color: 'var(--fg-muted)', background: 'var(--bg-subtle)' }} onClick={onClose}>
-                            <IconX size={18} />
-                        </button>
+        <PanelSheet onClose={onClose} ariaLabel="Invitar músico" maxWidthClass="sm:max-w-xl">
+            <PanelCard size="lg">
+                <div className="flex items-start justify-between gap-4">
+                    <div>
+                        <h2 className="type-section-title text-[var(--fg)]">Invitar músico</h2>
+                        <p className="mt-1 text-sm text-fg-muted">{group.name}</p>
                     </div>
-
-                    <div className="mt-5 grid gap-5 md:grid-cols-2">
-                        <div className="rounded-2xl border p-4" style={{ borderColor: 'var(--border)' }}>
-                            <h3 className="font-semibold" style={{ color: 'var(--fg)' }}>Crear grupo</h3>
-                            <div className="mt-4 grid gap-3">
-                                <PanelField label="Nombre"><FieldInput value={name} onChange={(event) => setName(event.target.value)} placeholder="Viernes noche" /></PanelField>
-                                <PanelField label="Fecha"><FieldInput type="date" value={date} onChange={(event) => setDate(event.target.value)} /></PanelField>
-                                <PanelButton disabled={status.loading} onClick={() => void createGroup()}>
-                                    {status.loading ? <IconLoader2 size={14} className="animate-spin" /> : <IconPlus size={15} />}
-                                    Crear grupo
-                                </PanelButton>
-                            </div>
-                        </div>
-
-                        <div className="rounded-2xl border p-4" style={{ borderColor: 'var(--border)' }}>
-                            <h3 className="font-semibold" style={{ color: 'var(--fg)' }}>Invitar músico</h3>
-                            <div className="mt-4 grid gap-3">
-                                <PanelField label="Grupo">
-                                    <FieldSelect value={selectedGroup} onChange={(event) => setSelectedGroup(event.target.value)}>
-                                        <option value="">Seleccionar</option>
-                                        {groups.map((group) => <option key={group.id} value={group.id}>{group.name}</option>)}
-                                    </FieldSelect>
-                                </PanelField>
-                                <PanelField label="Músico">
-                                    <FieldSelect value={selectedMusician} onChange={(event) => setSelectedMusician(event.target.value)}>
-                                        <option value="">Seleccionar</option>
-                                        {musicians.map((musician) => <option key={musician.id} value={musician.id}>{musician.name} · {musician.instrument ?? musician.instruments[0] ?? 'Músico'}</option>)}
-                                    </FieldSelect>
-                                </PanelField>
-                                <PanelField label="Instrumento"><InstrumentSelect value={instrument} onChange={setInstrument} /></PanelField>
-                                <PanelField label="Mensaje"><FieldTextarea rows={2} value={message} onChange={(event) => setMessage(event.target.value)} /></PanelField>
-                                <PanelButton disabled={status.loading} onClick={() => void invite()}>
-                                    {status.loading ? <IconLoader2 size={14} className="animate-spin" /> : <IconUserPlus size={15} />}
-                                    Enviar invitación
-                                </PanelButton>
-                            </div>
-                        </div>
-                    </div>
-
-                    {groups.length === 0 ? <PanelNotice className="mt-5">Crea un grupo antes de invitar músicos.</PanelNotice> : null}
+                    <button type="button" className="rounded-xl bg-bg-subtle p-2 text-fg-muted" onClick={onClose}>
+                        <IconX size={18} />
+                    </button>
+                </div>
+                <div className="mt-5 grid gap-3">
+                    <PanelField label="Músico">
+                        <FieldSelect
+                            value={selectedMusician}
+                            onChange={(event) => {
+                                const musician = musicians.find((item) => item.id === event.target.value);
+                                setSelectedMusician(event.target.value);
+                                setInstrument(musician?.instrument ?? '');
+                            }}
+                        >
+                            <option value="">Seleccionar</option>
+                            {options.map((musician) => (
+                                <option key={musician.id} value={musician.id}>
+                                    {musician.name} · {musician.instrument ?? musician.instruments[0] ?? 'Músico'} ·{' '}
+                                    {musician.availableNow ? 'Disponible' : 'No disponible'}
+                                </option>
+                            ))}
+                        </FieldSelect>
+                    </PanelField>
+                    <PanelField label="Instrumento">
+                        <InstrumentSelect value={instrument} onChange={setInstrument} />
+                    </PanelField>
+                    <PanelField label="Mensaje">
+                        <FieldTextarea rows={2} value={message} onChange={(event) => setMessage(event.target.value)} />
+                    </PanelField>
                     <FormFeedback status={status} />
-                </PanelCard>
-            </div>
-        </div>
+                    <PanelButton disabled={status.loading || options.length === 0} onClick={() => void invite()}>
+                        {status.loading ? <IconLoader2 size={14} className="animate-spin" /> : <IconUserPlus size={15} />}
+                        Enviar invitación
+                    </PanelButton>
+                </div>
+            </PanelCard>
+        </PanelSheet>
     );
 }

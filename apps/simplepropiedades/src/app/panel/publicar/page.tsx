@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
@@ -898,18 +898,18 @@ function createPropertyBasicForPayload(data: WizardData) {
 type WizardSetter = React.Dispatch<React.SetStateAction<WizardData>>;
 
 function ErrorText(props: { text: string }) {
-    return <p className="mt-2 text-xs" style={{ color: '#b42318' }}>{props.text}</p>;
+    return <p className="mt-2 text-xs prop-field-error">{props.text}</p>;
 }
 
 function Field(props: { label: string; required?: boolean; error?: string; hint?: string; children: React.ReactNode }) {
     return (
         <div>
-            <label className="block text-sm font-medium mb-1" style={{ color: 'var(--fg-secondary)' }}>
+            <label className="block text-sm font-medium mb-1 prop-field-label">
                 {props.label}
-                {props.required ? <abbr title="requerido" style={{ color: 'var(--color-error, #ef4444)', textDecoration: 'none' }}> *</abbr> : null}
+                {props.required ? <abbr title="requerido" className="text-(--color-error) no-underline"> *</abbr> : null}
             </label>
             {props.children}
-            {props.hint ? <p className="text-xs mt-1" style={{ color: 'var(--fg-muted)' }}>{props.hint}</p> : null}
+            {props.hint ? <p className="text-xs mt-1 prop-field-hint">{props.hint}</p> : null}
             {props.error ? <ErrorText text={props.error} /> : null}
         </div>
     );
@@ -917,13 +917,13 @@ function Field(props: { label: string; required?: boolean; error?: string; hint?
 
 function AccordionGroup(props: { title: string; description?: string; open: boolean; onToggle: () => void; children: React.ReactNode }) {
     return (
-        <section className="border-b pb-3" style={{ borderColor: 'var(--border)' }}>
+        <section className="border-b pb-3 prop-section-border">
             <button type="button" onClick={props.onToggle} className="w-full px-4 py-3 flex items-start justify-between gap-3 text-left cursor-pointer">
                 <span>
                     <span className="block text-sm font-medium">{props.title}</span>
-                    {props.description ? <span className="block text-xs mt-0.5" style={{ color: 'var(--fg-muted)' }}>{props.description}</span> : null}
+                    {props.description ? <span className="block text-xs mt-0.5 prop-field-hint">{props.description}</span> : null}
                 </span>
-                <span className="text-xs mt-0.5" style={{ color: 'var(--fg-muted)' }}>
+                <span className="text-xs mt-0.5 prop-field-hint">
                     {props.open ? 'Contraer' : 'Expandir'}
                 </span>
             </button>
@@ -937,19 +937,15 @@ function ToggleCard(props: { title: string; description?: string; active: boolea
         <button
             type="button"
             onClick={props.onToggle}
-            className="rounded-lg border px-3 py-3 text-left"
-            style={{
-                borderColor: props.active ? 'var(--fg)' : 'var(--border)',
-                background: props.active ? 'var(--bg-muted)' : 'transparent',
-            }}
+            className={`rounded-lg border px-3 py-3 text-left prop-toggle-card ${props.active ? 'prop-toggle-card--active' : ''}`}
         >
             <p className="text-sm font-medium">{props.title}</p>
             {props.description ? (
-                <p className="text-xs mt-1" style={{ color: 'var(--fg-muted)' }}>
+                <p className="text-xs mt-1 prop-field-hint">
                     {props.description}
                 </p>
             ) : null}
-            <p className="text-xs mt-1" style={{ color: 'var(--fg-secondary)' }}>{props.active ? 'Activado' : 'Desactivado'}</p>
+            <p className="text-xs mt-1 text-(--fg-secondary)">{props.active ? 'Activado' : 'Desactivado'}</p>
         </button>
     );
 }
@@ -959,25 +955,13 @@ function SelectableChip(props: { label: string; active: boolean; onToggle: () =>
         <button
             type="button"
             onClick={props.onToggle}
-            className="rounded-2xl border px-3 py-3 text-sm text-left transition-colors"
-            style={{
-                borderColor: props.active ? 'var(--fg)' : 'var(--border)',
-                background: props.active ? 'var(--bg-subtle)' : 'var(--surface)',
-                color: 'var(--fg-secondary)',
-            }}
+            className={`rounded-2xl border px-3 py-3 text-sm text-left transition-colors prop-select-chip ${props.active ? 'prop-select-chip--active' : ''}`}
         >
             <span className="flex items-center gap-3">
-                <span
-                    className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full border"
-                    style={{
-                        borderColor: props.active ? 'var(--fg)' : 'var(--border)',
-                        background: props.active ? 'var(--fg)' : 'var(--bg-muted)',
-                        color: props.active ? 'var(--bg)' : 'var(--fg-muted)',
-                    }}
-                >
+                <span className={`inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full border prop-select-chip-dot ${props.active ? 'prop-select-chip-dot--active' : ''}`}>
                     {props.active ? <IconCheck size={13} /> : null}
                 </span>
-                <span className="font-medium" style={{ color: 'var(--fg)' }}>{props.label}</span>
+                <span className="font-medium text-(--fg)">{props.label}</span>
             </span>
         </button>
     );
@@ -985,9 +969,9 @@ function SelectableChip(props: { label: string; active: boolean; onToggle: () =>
 
 function QualityItem(props: { label: string; ok: boolean }) {
     return (
-        <div className="rounded-lg border px-3 py-2 flex items-center justify-between gap-2 text-sm" style={{ borderColor: 'var(--border)' }}>
-            <span style={{ color: 'var(--fg-secondary)' }}>{props.label}</span>
-            <span style={{ color: props.ok ? '#16a34a' : 'var(--fg-muted)' }}>
+        <div className="rounded-lg border px-3 py-2 flex items-center justify-between gap-2 text-sm prop-section-border">
+            <span className="text-(--fg-secondary)">{props.label}</span>
+            <span className={props.ok ? 'prop-quality-ok' : 'prop-quality-muted'}>
                 <IconCircleCheck size={14} />
             </span>
         </div>
@@ -1001,7 +985,7 @@ function StepSetup(props: { data: WizardData; setData: WizardSetter; errors: Rec
         <section className="space-y-6">
             <h2 className="type-section-title">Tipo y categoría</h2>
             <div className="space-y-2">
-                <p className="text-xs uppercase tracking-[0.08em]" style={{ color: 'var(--fg-muted)' }}>
+                <p className="text-xs uppercase tracking-[0.08em] prop-field-hint">
                     Operación del aviso
                 </p>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
@@ -1017,7 +1001,7 @@ function StepSetup(props: { data: WizardData; setData: WizardSetter; errors: Rec
                             className="h-20 px-3 text-center"
                         >
                             <div className="flex h-full flex-col items-center justify-center gap-2">
-                                <span className="h-8 w-8 rounded-full inline-flex items-center justify-center shrink-0" style={{ background: 'var(--bg-muted)', color: 'var(--fg)' }}>
+                                <span className="h-8 w-8 rounded-full inline-flex items-center justify-center shrink-0 prop-publish-icon">
                                     {card.icon}
                                 </span>
                                 <span className="text-sm font-medium leading-none">{card.label}</span>
@@ -1028,7 +1012,7 @@ function StepSetup(props: { data: WizardData; setData: WizardSetter; errors: Rec
                 {errors['setup.operationType'] ? <ErrorText text={errors['setup.operationType']} /> : null}
             </div>
             <div className="space-y-2">
-                <p className="text-xs uppercase tracking-[0.08em]" style={{ color: 'var(--fg-muted)' }}>
+                <p className="text-xs uppercase tracking-[0.08em] prop-field-hint">
                     Tipo de propiedad
                 </p>
                 <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-2">
@@ -1043,12 +1027,12 @@ function StepSetup(props: { data: WizardData; setData: WizardSetter; errors: Rec
                             className="min-h-[78px] px-3"
                         >
                             <div className="flex items-center gap-3">
-                                <span className="h-9 w-9 rounded-full inline-flex items-center justify-center shrink-0" style={{ background: 'var(--bg-muted)', color: 'var(--fg)' }}>
+                                <span className="h-9 w-9 rounded-full inline-flex items-center justify-center shrink-0 prop-publish-icon">
                                     {option.icon}
                                 </span>
                                 <div className="min-w-0">
-                                    <p className="text-sm font-medium truncate" style={{ color: 'var(--fg)' }}>{option.label}</p>
-                                    <p className="text-xs mt-1" style={{ color: 'var(--fg-muted)' }}>Define los campos específicos del inmueble.</p>
+                                    <p className="text-sm font-medium truncate prop-publish-fg">{option.label}</p>
+                                    <p className="text-xs mt-1 prop-field-hint">Define los campos específicos del inmueble.</p>
                                 </div>
                             </div>
                         </PanelChoiceCard>
@@ -1170,7 +1154,7 @@ function StepBasic(props: {
                         </div>
                         <Field label="Descripción" required error={errors['basic.description']}>
                             <textarea className="form-textarea" rows={5} value={data.basic.description} onChange={(event) => setData((current) => ({ ...current, basic: { ...current.basic, description: event.target.value } }))} placeholder="Describe el proyecto, sus diferenciales, entorno, conectividad, amenidades y por qué destaca frente a otras alternativas." />
-                            <p className="text-xs mt-1" style={{ color: 'var(--fg-muted)' }}>{data.basic.description.length} / 2500</p>
+                            <p className="text-xs mt-1 prop-field-hint">{data.basic.description.length} / 2500</p>
                         </Field>
                     </>
                 ) : (
@@ -1185,11 +1169,11 @@ function StepBasic(props: {
                         </div>
                         <Field label="Descripción" required error={errors['basic.description']}>
                             <textarea className="form-textarea" rows={5} value={data.basic.description} onChange={(event) => setData((current) => ({ ...current, basic: { ...current.basic, description: event.target.value } }))} placeholder="Distribución, terminaciones, orientación, entorno, conectividad y cualquier ventaja competitiva del inmueble." />
-                            <p className="text-xs mt-1" style={{ color: 'var(--fg-muted)' }}>{data.basic.description.length} / 2500</p>
+                            <p className="text-xs mt-1 prop-field-hint">{data.basic.description.length} / 2500</p>
                         </Field>
                         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-3 mt-3">
-                            <Field label="Dormitorios" required error={errors['basic.rooms']}><div className="relative"><IconBed size={15} className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: 'var(--fg-muted)' }} /><input className="form-input pl-10" type="number" min={0} value={data.basic.rooms} onChange={(event) => setData((current) => ({ ...current, basic: { ...current.basic, rooms: event.target.value } }))} placeholder="3" /></div></Field>
-                            <Field label="Baños" required error={errors['basic.bathrooms']}><div className="relative"><IconBath size={15} className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: 'var(--fg-muted)' }} /><input className="form-input pl-10" type="number" min={0} value={data.basic.bathrooms} onChange={(event) => setData((current) => ({ ...current, basic: { ...current.basic, bathrooms: event.target.value } }))} placeholder="2" /></div></Field>
+                            <Field label="Dormitorios" required error={errors['basic.rooms']}><div className="relative"><IconBed size={15} className="absolute left-3 top-1/2 -translate-y-1/2 prop-field-hint" /><input className="form-input pl-10" type="number" min={0} value={data.basic.rooms} onChange={(event) => setData((current) => ({ ...current, basic: { ...current.basic, rooms: event.target.value } }))} placeholder="3" /></div></Field>
+                            <Field label="Baños" required error={errors['basic.bathrooms']}><div className="relative"><IconBath size={15} className="absolute left-3 top-1/2 -translate-y-1/2 prop-field-hint" /><input className="form-input pl-10" type="number" min={0} value={data.basic.bathrooms} onChange={(event) => setData((current) => ({ ...current, basic: { ...current.basic, bathrooms: event.target.value } }))} placeholder="2" /></div></Field>
                             <Field label="Superficie total (m²)" required error={errors['basic.totalArea']}><input className="form-input" type="number" min={0} value={data.basic.totalArea} onChange={(event) => setData((current) => ({ ...current, basic: { ...current.basic, totalArea: event.target.value } }))} placeholder="92" /></Field>
                             <Field label="Superficie útil (m²)" required error={errors['basic.usableArea']}><input className="form-input" type="number" min={0} value={data.basic.usableArea} onChange={(event) => setData((current) => ({ ...current, basic: { ...current.basic, usableArea: event.target.value } }))} placeholder="84" /></Field>
                             <Field label="Estacionamientos" required error={errors['basic.parkingSpaces']}><input className="form-input" type="number" min={0} value={data.basic.parkingSpaces} onChange={(event) => setData((current) => ({ ...current, basic: { ...current.basic, parkingSpaces: event.target.value } }))} placeholder="1" /></Field>
@@ -1235,7 +1219,7 @@ function StepBasic(props: {
                             <div className="flex items-center justify-between gap-3">
                                 <div>
                                     <p className="text-sm font-medium">Tipologías o unidades modelo</p>
-                                    <p className="text-xs mt-1" style={{ color: 'var(--fg-muted)' }}>
+                                    <p className="text-xs mt-1 prop-field-hint">
                                         Define el inventario comercial del proyecto con rangos y precios por tipología.
                                     </p>
                                 </div>
@@ -1255,7 +1239,7 @@ function StepBasic(props: {
                                 </PanelButton>
                             </div>
                             {errors['project.models'] ? <ErrorText text={errors['project.models']} /> : null}
-                            <div className="hidden xl:grid xl:grid-cols-[minmax(180px,1.3fr)_80px_80px_120px_120px_140px_140px_86px] gap-2 px-3 text-[11px] uppercase tracking-[0.08em]" style={{ color: 'var(--fg-muted)' }}>
+                            <div className="hidden xl:grid xl:grid-cols-[minmax(180px,1.3fr)_80px_80px_120px_120px_140px_140px_86px] gap-2 px-3 text-[11px] uppercase tracking-[0.08em] text-(--fg-muted)">
                                 <span>Tipología</span>
                                 <span>Dorm.</span>
                                 <span>Baños</span>
@@ -1267,7 +1251,7 @@ function StepBasic(props: {
                             </div>
                             <div className="space-y-2">
                                 {data.project.models.map((model, index) => (
-                                    <div key={model.id} className="rounded-2xl border p-3" style={{ borderColor: 'var(--border)', background: 'var(--surface)' }}>
+                                    <div key={model.id} className="rounded-2xl border p-3 prop-publish-card">
                                         <div className="xl:grid xl:grid-cols-[minmax(180px,1.3fr)_80px_80px_120px_120px_140px_140px_86px] xl:gap-2 xl:items-start">
                                             <div className="mb-3 xl:mb-0">
                                                 <Field label="Tipología" required error={errors[`project.models.${index}.label`]}>
@@ -1452,11 +1436,11 @@ function StepMedia(props: { data: WizardData; setData: WizardSetter; errors: Rec
                     <div className="space-y-4">
                         <Field label="Video del aviso" error={errors['media.videoUrl']}>
                             <input className="form-input" placeholder="https://www.youtube.com/... o https://vimeo.com/..." value={data.media.videoUrl} onChange={(event) => setData((current) => ({ ...current, media: { ...current.media, videoUrl: event.target.value } }))} />
-                            <p className="text-xs mt-1" style={{ color: 'var(--fg-muted)' }}>Solo YouTube o Vimeo.</p>
+                            <p className="text-xs mt-1 prop-field-hint">Solo YouTube o Vimeo.</p>
                         </Field>
                         <Field label="Tour 360" error={errors['media.tour360Url']}>
                             <input className="form-input" placeholder="https://..." value={data.media.tour360Url} onChange={(event) => setData((current) => ({ ...current, media: { ...current.media, tour360Url: event.target.value } }))} />
-                            <p className="text-xs mt-1" style={{ color: 'var(--fg-muted)' }}>Opcional. Puedes enlazar Matterport, Kuula u otra vista 360 externa.</p>
+                            <p className="text-xs mt-1 prop-field-hint">Opcional. Puedes enlazar Matterport, Kuula u otra vista 360 externa.</p>
                         </Field>
                         <PanelVideoUploader
                             asset={data.media.discoverVideo}
@@ -1554,12 +1538,12 @@ function StepCommercial(props: {
             <div className="space-y-4">
                 <PanelCard tone="subtle" size="md">
                     <div className="flex items-start gap-3">
-                        <span className="h-10 w-10 rounded-2xl inline-flex items-center justify-center" style={{ background: 'var(--bg-muted)', color: 'var(--fg)' }}>
+                        <span className="h-10 w-10 rounded-2xl inline-flex items-center justify-center bg-(--bg-muted) text-(--fg)">
                             <IconCalculator size={18} />
                         </span>
                         <div className="min-w-0">
                             <h3 className="text-lg font-semibold">Tasador online</h3>
-                            <p className="text-sm mt-1" style={{ color: 'var(--fg-secondary)' }}>
+                            <p className="text-sm mt-1 text-(--fg-secondary)">
                                 {data.setup.operationType === 'project'
                                     ? 'Disponible para venta y arriendo. En proyectos todavía publicas sin tasación automática.'
                                     : 'Referencia de mercado para venta o arriendo con comparables, tendencia y confianza del modelo.'}
@@ -1589,14 +1573,14 @@ function StepCommercial(props: {
                                 ]}
                             />
                             {estimate.historicalSeries.length > 0 ? (
-                                <div className="rounded-xl border p-4" style={{ borderColor: 'var(--border)' }}>
+                                <div className="rounded-xl border p-4 border-(--border)">
                                     <p className="text-sm font-semibold">Tendencia del segmento</p>
                                     <div className="space-y-2 mt-3">
                                         {estimate.historicalSeries.map((point) => (
                                             <div key={point.ts} className="grid grid-cols-[110px_minmax(0,1fr)_auto] items-center gap-3 text-sm">
-                                                <span style={{ color: 'var(--fg-secondary)' }}>{formatSeriesLabel(point.ts)}</span>
-                                                <div className="h-2 rounded-full" style={{ background: 'rgba(15,23,42,0.08)' }}>
-                                                    <div className="h-full rounded-full" style={{ width: `${Math.max(12, Math.min(100, estimate.maxPrice > 0 ? (point.medianPrice / estimate.maxPrice) * 100 : 12))}%`, background: 'var(--fg)' }} />
+                                                <span className="text-(--fg-secondary)">{formatSeriesLabel(point.ts)}</span>
+                                                <div className="h-2 rounded-full prop-chart-track">
+                                                    <div className="h-full rounded-full prop-chart-bar" style={{ width: `${Math.max(12, Math.min(100, estimate.maxPrice > 0 ? (point.medianPrice / estimate.maxPrice) * 100 : 12))}%` }} />
                                                 </div>
                                                 <span className="font-medium">{formatAmount(point.medianPrice, estimate.currency as Currency)}</span>
                                             </div>
@@ -1605,11 +1589,11 @@ function StepCommercial(props: {
                                 </div>
                             ) : null}
                             {estimate.notes.length > 0 ? (
-                                <div className="rounded-xl border p-4" style={{ borderColor: 'var(--border)' }}>
+                                <div className="rounded-xl border p-4 border-(--border)">
                                     <p className="text-sm font-semibold">Notas del tasador</p>
                                     <div className="space-y-2 mt-3">
                                         {estimate.notes.map((note) => (
-                                            <div key={note} className="flex items-start gap-2 text-sm" style={{ color: 'var(--fg-secondary)' }}>
+                                            <div key={note} className="flex items-start gap-2 text-sm text-(--fg-secondary)">
                                                 <IconSparkles size={15} className="mt-0.5 shrink-0" />
                                                 <span>{note}</span>
                                             </div>
@@ -1655,13 +1639,13 @@ function StepReview(props: { data: WizardData; estimate: PropertyValuationEstima
                 <QualityItem label={isProject ? 'Tasador no requerido' : 'Tasador ejecutado'} ok={isProject ? true : !!estimate} />
             </div>
 
-            <label className="flex items-start gap-3 rounded-2xl border px-4 py-3" style={{ borderColor: errors['review.acceptTerms'] ? '#b42318' : 'var(--border)', background: 'var(--bg)' }}>
+            <label className={`flex items-start gap-3 rounded-2xl border px-4 py-3 prop-terms-box ${errors['review.acceptTerms'] ? 'prop-terms-box--error' : ''}`}>
                 <input type="checkbox" checked={data.review.acceptTerms} onChange={(event) => setData((current) => ({ ...current, review: { ...current.review, acceptTerms: event.target.checked } }))} className="mt-1" />
-                <span className="text-sm" style={{ color: 'var(--fg-secondary)' }}>
+                <span className="text-sm text-(--fg-secondary)">
                     Confirmo que la información del inmueble, su ubicación y sus condiciones comerciales fueron revisadas y pueden publicarse en Simple y futuros portales integrados.
                 </span>
             </label>
-            {errors['review.acceptTerms'] ? <p className="text-xs" style={{ color: '#b42318' }}>{errors['review.acceptTerms']}</p> : null}
+            {errors['review.acceptTerms'] ? <p className="text-xs prop-field-error-text">{errors['review.acceptTerms']}</p> : null}
         </section>
     );
 }
@@ -2027,7 +2011,7 @@ export default function PublishWizardPage() {
                 actions={(
                     <div className="flex items-center gap-2">
                         {draftSavedNote ? (
-                            <span className="rounded-lg border px-2.5 h-9 inline-flex items-center text-xs" style={{ borderColor: 'var(--border)', color: 'var(--fg-secondary)' }}>
+                            <span className="rounded-lg border px-2.5 h-9 inline-flex items-center text-xs prop-draft-badge">
                                 {draftSavedNote}
                             </span>
                         ) : null}
@@ -2047,22 +2031,22 @@ export default function PublishWizardPage() {
                 <div className="flex flex-col gap-4">
                     <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
                         <div className="min-w-0">
-                            <p className="text-xs uppercase tracking-[0.18em]" style={{ color: 'var(--fg-muted)' }}>
+                            <p className="text-xs uppercase tracking-[0.18em] text-(--fg-muted)">
                                 Publicación guiada
                             </p>
-                            <h2 className="text-xl font-semibold mt-1" style={{ color: 'var(--fg)' }}>
+                            <h2 className="text-xl font-semibold mt-1 text-(--fg)">
                                 {currentStep.label}
                             </h2>
-                            <p className="text-sm mt-1" style={{ color: 'var(--fg-secondary)' }}>
+                            <p className="text-sm mt-1 text-(--fg-secondary)">
                                 {currentStep.helper}
                             </p>
                         </div>
                         <div className="w-full md:max-w-xs">
-                            <div className="flex items-center justify-between text-xs mb-1" style={{ color: 'var(--fg-muted)' }}>
+                            <div className="flex items-center justify-between text-xs mb-1 text-(--fg-muted)">
                                 <span>Progreso</span>
                                 <span>{Math.round(((stepIndex + 1) / STEPS.length) * 100)}%</span>
                             </div>
-                            <div className="h-2 rounded-full" style={{ background: 'var(--bg-muted)' }}>
+                            <div className="h-2 rounded-full bg-(--bg-muted)">
                                 <div
                                     className="h-full rounded-full transition-all duration-300"
                                     style={{ width: `${((stepIndex + 1) / STEPS.length) * 100}%`, background: 'var(--fg)' }}
@@ -2070,7 +2054,7 @@ export default function PublishWizardPage() {
                             </div>
                         </div>
                     </div>
-                    <div className="rounded-2xl border px-3 py-3" style={{ borderColor: 'var(--border)', background: 'color-mix(in oklab, var(--bg) 78%, transparent)' }}>
+                    <div className="rounded-2xl border px-3 py-3 prop-wizard-nav">
                         <PanelStepNav
                             items={STEPS.map((item, index) => ({
                                 key: item.id,
@@ -2151,3 +2135,5 @@ export default function PublishWizardPage() {
         </div>
     );
 }
+
+

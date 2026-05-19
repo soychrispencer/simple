@@ -43,7 +43,7 @@ const r2Client = new S3Client({
 
 const BACKBLAZE_BUCKET = process.env.BACKBLAZE_BUCKET_NAME || 'simple-media';
 const R2_BUCKET = process.env.CLOUDFLARE_R2_BUCKET_NAME || 'simple-media';
-const R2_PUBLIC_URL = process.env.CLOUDFLARE_R2_PUBLIC_URL || 'https://pub-4809688bad1a41768578b221b0df942c.r2.dev';
+const R2_PUBLIC_URL = process.env.CLOUDFLARE_R2_PUBLIC_URL?.trim().replace(/\/$/, '');
 
 interface MigrationStats {
     total: number;
@@ -216,6 +216,12 @@ async function main() {
     console.log('╚════════════════════════════════════════════════════════╝');
 
     // Validar credenciales
+    if (!R2_PUBLIC_URL) {
+        console.error('\n❌ Error: CLOUDFLARE_R2_PUBLIC_URL no está configurada.');
+        console.error('   Define la URL pública del bucket R2 antes de migrar.');
+        process.exit(1);
+    }
+
     if (!process.env.BACKBLAZE_S3_ACCESS_KEY || !process.env.CLOUDFLARE_R2_ACCESS_KEY_ID) {
         console.error('\n❌ Error: Faltan credenciales de Backblaze o Cloudflare');
         console.error('   Asegúrate de tener las variables de entorno configuradas:');

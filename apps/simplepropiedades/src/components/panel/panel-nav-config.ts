@@ -27,14 +27,14 @@ export type PanelNavItem = {
 };
 
 const PANEL_NAV_ITEMS: PanelNavItem[] = [
-    { href: '/panel', label: 'Mi Panel', icon: IconHome2 },
+    { href: '/panel', label: 'Mi panel', icon: IconHome2 },
     { href: '/panel/publicaciones', label: 'Publicaciones', icon: IconFileText },
     { href: '/panel/publicar', label: 'Nueva publicación', icon: IconPlus },
     { href: '/panel/guardados', label: 'Guardados', icon: IconBookmark },
     { href: '/panel/mensajes', label: 'Mensajes', icon: IconMessageCircle },
     { href: '/panel/equipo', label: 'Equipo y leads', icon: IconUsersGroup, badge: 'PRO' },
     { href: '/panel/herramientas/simulador', label: 'Herramientas', icon: IconTools },
-    { href: '/panel/configuracion', label: 'Mi Cuenta', icon: IconSettings },
+    { href: '/panel/configuracion', label: 'Mi cuenta', icon: IconSettings },
     { href: '/panel/estadisticas', label: 'Estadísticas', icon: IconChartBar, visibility: 'admin_plus' },
     { href: '/panel/crm', label: 'CRM', icon: IconSparkles, badge: 'PRO' },
     { href: '/panel/publicidad', label: 'Publicidad', icon: IconRocket, visibility: 'admin_plus', badge: 'PRO' },

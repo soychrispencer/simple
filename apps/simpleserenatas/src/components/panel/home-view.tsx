@@ -1,187 +1,470 @@
 'use client';
 
-import { PanelButton, PanelCard, PanelStatusBadge } from '@simple/ui';
-import type { ActiveProfile, Invitation, Serenata, SerenataGroup } from '@/lib/serenatas-api';
-import { EmptyBlock, SerenataRow } from './shared';
-
-type Section = 'home' | 'contratar' | 'serenatas' | 'groups' | 'invitations' | 'agenda' | 'map' | 'profile';
+import { useEffect, useState } from 'react';
+import { IconChevronRight } from '@tabler/icons-react';
+import {
+    PanelBlockHeader,
+    PanelButton,
+    PanelCard,
+    PanelList,
+    PanelListRow,
+    PanelNotice,
+    PanelStatCard,
+    PanelStatusBadge,
+} from '@simple/ui';
+import type { Invitation, Serenata, SerenataGroup, Profiles } from '@/lib/serenatas-api';
+import { serenatasApi } from '@/lib/serenatas-api';
+import { resolveActiveProviderGroupId } from '@/lib/active-provider-group';
+import type { AppMode } from '@/lib/app-mode';
+import { type Section } from '@/context/serenata-context';
+import { isOwnerHomePendingMetric } from '@/lib/serenata-pending';
+import { isUpcomingScheduled, needsClosure } from '@/lib/serenata-dates';
+import {
+    formatDate,
+    formatShortSerenataDate,
+    money,
+    SerenataRow,
+    toInputDate,
+} from './shared';
+import { ProfileIncompleteNotice } from './profile-incomplete-notice';
+import { OwnerOnboardingCard } from './owner-onboarding-card';
+import { MusicianAvailabilityToggle } from './musician-availability-toggle';
 
 export function HomeView(props: {
-    profile: ActiveProfile;
+    mode: AppMode;
+    ownerFeaturesEnabled: boolean;
+    profiles: Profiles;
     serenatas: Serenata[];
+    ownerSerenatas: Serenata[];
+    ownerClosureSerenatas: Serenata[];
+    agendaItems: Serenata[];
     groups: SerenataGroup[];
     invitations: Invitation[];
-    setSection: (section: Section) => void;
+    setSection: (section: Section, query?: Record<string, string | null | undefined>) => void;
     openClientRequest?: () => void;
+    accountSuspended?: boolean;
+    refresh: () => Promise<void>;
 }) {
-    const upcoming = props.serenatas.filter((item) => item.status === 'scheduled').slice(0, 3);
-    const pendingApp = props.profile === 'coordinator'
-        ? props.serenatas.filter((item) => item.source === 'platform_lead' && item.status === 'pending')
-        : [];
-    const reviewPending = () => {
-        if (typeof window !== 'undefined') window.localStorage.setItem('serenatas-filter', 'pending');
-        props.setSection('serenatas');
-    };
-
-    if (props.profile === 'client') {
-        const pending = props.serenatas.filter((item) => item.status === 'payment_pending' || item.status === 'pending' || item.status === 'accepted_pending_group').length;
-        const confirmed = props.serenatas.filter((item) => item.status === 'scheduled').length;
-        const completed = props.serenatas.filter((item) => item.status === 'completed').length;
-
-        return (
-            <div className="grid gap-4 md:grid-cols-[1.3fr_0.7fr]">
-                <PanelCard>
-                    <div>
-                        <div>
-                            <p className="text-sm" style={{ color: 'var(--fg-muted)' }}>Cliente</p>
-                            <h2 className="mt-1 text-2xl font-semibold" style={{ color: 'var(--fg)' }}>
-                                Tus serenatas
-                            </h2>
-                            <p className="mt-2 max-w-2xl text-sm" style={{ color: 'var(--fg-muted)' }}>
-                                Revisa el estado de cada serenata que contrataste y mantén los datos del evento listos para el coordinador.
-                            </p>
-                        </div>
-                    </div>
-                    <div className="mt-6 grid gap-3 sm:grid-cols-3">
-                        <Stat label="Contratadas" value={props.serenatas.length} />
-                        <Stat label="En proceso" value={pending} />
-                        <Stat label="Confirmadas" value={confirmed} />
-                    </div>
-                </PanelCard>
-
-                <PanelCard>
-                    <h3 className="font-semibold" style={{ color: 'var(--fg)' }}>Acciones rápidas</h3>
-                    <div className="mt-4 grid gap-2">
-                        <PanelButton onClick={() => props.openClientRequest?.() ?? props.setSection('contratar')}>Contratar serenata</PanelButton>
-                        <PanelButton variant="secondary" onClick={() => props.setSection('serenatas')}>Ver mis serenatas</PanelButton>
-                        <PanelButton variant="secondary" onClick={() => props.setSection('profile')}>Mi cuenta</PanelButton>
-                    </div>
-                </PanelCard>
-
-                <PanelCard className="md:col-span-2">
-                    <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                        <div>
-                            <h3 className="font-semibold" style={{ color: 'var(--fg)' }}>Estado de tus serenatas</h3>
-                            <p className="mt-1 text-sm" style={{ color: 'var(--fg-muted)' }}>
-                                Tus serenatas contratadas, confirmadas y completadas.
-                            </p>
-                        </div>
-                        {completed > 0 ? <PanelStatusBadge tone="neutral" label={`${completed} completada${completed === 1 ? '' : 's'}`} /> : null}
-                    </div>
-                    <div className="mt-4 grid gap-3">
-                        {props.serenatas.length === 0 ? (
-                            <EmptyBlock title="Sin serenatas contratadas" description="Contrata una serenata para ver aquí el seguimiento del evento." />
-                        ) : props.serenatas.slice(0, 4).map((item) => <SerenataRow key={item.id} item={item} context="client" />)}
-                    </div>
-                </PanelCard>
-
-                <PanelCard className="md:col-span-2">
-                    <h3 className="font-semibold" style={{ color: 'var(--fg)' }}>Próximas serenatas</h3>
-                    <div className="mt-4 grid gap-3">
-                        {upcoming.length === 0 ? <EmptyBlock title="Sin serenatas confirmadas" description="Cuando un coordinador confirme una serenata, aparecerá aquí." /> : upcoming.map((item) => <SerenataRow key={item.id} item={item} context="client" />)}
-                    </div>
-                </PanelCard>
-            </div>
-        );
+    if (props.mode === 'client') {
+        return <ClientHome {...props} />;
     }
 
+    return <WorkHome {...props} />;
+}
+
+function sortSerenatasByEvent(a: Serenata, b: Serenata) {
+    const dateA = toInputDate(a.eventDate) ?? '';
+    const dateB = toInputDate(b.eventDate) ?? '';
+    if (dateA !== dateB) return dateA.localeCompare(dateB);
+    return (a.eventTime ?? '').localeCompare(b.eventTime ?? '');
+}
+
+function ViewAllAction({ label, onClick }: { label: string; onClick: () => void }) {
     return (
-        <div className="grid gap-4 md:grid-cols-[1.3fr_0.7fr]">
-            <PanelCard>
-                <div>
-                    <div>
-                        <p className="text-sm" style={{ color: 'var(--fg-muted)' }}>{props.profile === 'coordinator' ? 'Coordinación' : props.profile === 'musician' ? 'Músico' : 'Cliente'}</p>
-                        <h2 className="mt-1 text-2xl font-semibold" style={{ color: 'var(--fg)' }}>
-                            {props.profile === 'coordinator' ? 'Solicitudes y grupos en orden' : props.profile === 'musician' ? 'Tus invitaciones y agenda' : 'Tus serenatas en un solo lugar'}
-                        </h2>
-                    </div>
-                </div>
-                <div className="mt-6 grid gap-3 sm:grid-cols-3">
-                    <Stat label={props.profile === 'coordinator' ? 'Solicitudes' : 'Serenatas'} value={props.serenatas.length} />
-                    <Stat label="Grupos" value={props.groups.length} />
-                    <Stat label="Invitaciones" value={props.invitations.length} />
-                </div>
-            </PanelCard>
+        <button
+            type="button"
+            onClick={onClick}
+            className="inline-flex items-center gap-1 text-sm text-fg-muted transition-colors hover:text-fg"
+        >
+            {label}
+            <IconChevronRight size={11} />
+        </button>
+    );
+}
 
-            <PanelCard>
-                <h3 className="font-semibold" style={{ color: 'var(--fg)' }}>Acciones rápidas</h3>
-                <div className="mt-4 grid gap-2">
-                    {props.profile === 'coordinator' ? (
-                        <>
-                            <PanelButton onClick={() => props.setSection('serenatas')}>Crear serenata</PanelButton>
-                            <PanelButton variant="secondary" onClick={() => props.setSection('groups')}>Organizar grupos</PanelButton>
-                            <PanelButton variant="secondary" onClick={() => props.setSection('map')}>Ver ruta</PanelButton>
-                        </>
-                    ) : props.profile === 'musician' ? (
-                        <>
-                            <PanelButton onClick={() => props.setSection('invitations')}>Ver invitaciones</PanelButton>
-                            <PanelButton variant="secondary" onClick={() => props.setSection('agenda')}>Ver agenda</PanelButton>
-                            <PanelButton variant="secondary" onClick={() => props.setSection('profile')}>Editar perfil</PanelButton>
-                        </>
-                    ) : (
-                        <>
-                            <PanelButton onClick={() => props.setSection('serenatas')}>Ver Mis Serenatas</PanelButton>
-                            <PanelButton variant="secondary" onClick={() => props.setSection('profile')}>Mi cuenta</PanelButton>
-                        </>
-                    )}
-                </div>
-            </PanelCard>
+function ClientHome(props: Parameters<typeof HomeView>[0]) {
+    const pending = props.serenatas.filter(
+        (item) =>
+            item.status === 'payment_pending' ||
+            item.status === 'pending' ||
+            item.status === 'accepted_pending_group',
+    );
+    const confirmed = props.serenatas.filter(isUpcomingScheduled).length;
+    const completed = props.serenatas.filter((item) => item.status === 'completed').length;
+    const toClose = props.serenatas.filter(needsClosure);
+    const inProgress = [...pending].sort(sortSerenatasByEvent).slice(0, 5);
+    const upcoming = props.serenatas
+        .filter(isUpcomingScheduled)
+        .sort(sortSerenatasByEvent)
+        .slice(0, 3);
+    const closurePreview = [...toClose].sort(sortSerenatasByEvent).slice(0, 3);
 
-            {props.profile === 'coordinator' ? (
-                <PanelCard className="md:col-span-2">
-                    <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                        <div>
-                            <div className="flex items-center gap-2">
-                                <h3 className="font-semibold" style={{ color: 'var(--fg)' }}>Solicitudes de la aplicación</h3>
-                                {pendingApp.length > 0 ? <PanelStatusBadge tone="info" label={`${pendingApp.length} pendiente${pendingApp.length === 1 ? '' : 's'}`} /> : null}
-                            </div>
-                            <p className="mt-1 text-sm" style={{ color: 'var(--fg-muted)' }}>
-                                Revisa serenatas disponibles para aceptar antes de organizar grupo y ruta.
-                            </p>
-                        </div>
-                        <PanelButton variant={pendingApp.length > 0 ? 'primary' : 'secondary'} onClick={reviewPending}>
-                            Revisar
-                        </PanelButton>
-                    </div>
-                    <div className="mt-4 grid gap-3">
-                        {pendingApp.length === 0 ? (
-                            <EmptyBlock title="Sin solicitudes pendientes" description="Cuando la aplicación te ofrezca una serenata, aparecerá aquí." />
-                        ) : pendingApp.slice(0, 3).map((item) => (
-                            <button
-                                key={item.id}
+    return (
+        <div className="grid gap-4">
+            <ProfileIncompleteNotice mode="client" profiles={props.profiles} />
+            <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
+                <PanelStatCard label="Contratadas" value={String(props.serenatas.length)} />
+                <PanelStatCard label="En proceso" value={String(pending.length)} />
+                <PanelStatCard label="Próximas" value={String(confirmed)} />
+                <PanelStatCard
+                    label={toClose.length > 0 ? 'Por cerrar' : 'Completadas'}
+                    value={String(toClose.length > 0 ? toClose.length : completed)}
+                />
+            </div>
+
+            <div className="grid gap-4 lg:grid-cols-2">
+                <PanelCard size="md">
+                    <PanelBlockHeader
+                        title="En seguimiento"
+                        description="Serenatas con pago, confirmación o grupo en preparación."
+                        actions={(
+                            <ViewAllAction label="Ver todas" onClick={() => props.setSection('serenatas')} />
+                        )}
+                    />
+                    {inProgress.length === 0 ? (
+                        <div className="space-y-3">
+                            <PanelNotice tone="neutral">No tienes serenatas en proceso ahora.</PanelNotice>
+                            <PanelButton
                                 type="button"
-                                onClick={reviewPending}
-                                className="flex items-center justify-between gap-3 rounded-xl border p-4 text-left"
-                                style={{ borderColor: 'var(--accent-border)', background: 'var(--accent-soft)' }}
+                                className="w-full"
+                                disabled={props.accountSuspended}
+                                onClick={() => props.openClientRequest?.() ?? props.setSection('grupos')}
                             >
-                                <div className="min-w-0">
-                                    <p className="truncate text-sm font-semibold" style={{ color: 'var(--fg)' }}>{item.recipientName}</p>
-                                    <p className="mt-1 text-xs" style={{ color: 'var(--fg-muted)' }}>{item.eventTime} · {item.comuna ?? 'Sin comuna'}</p>
-                                </div>
-                                <span className="shrink-0 text-sm font-semibold" style={{ color: 'var(--accent)' }}>
-                                    {new Intl.NumberFormat('es-CL', { style: 'currency', currency: 'CLP', maximumFractionDigits: 0 }).format(item.price ?? 0)}
-                                </span>
-                            </button>
-                        ))}
-                    </div>
+                                Contratar serenata
+                            </PanelButton>
+                        </div>
+                    ) : (
+                        <PanelList className="mt-4 border-0 rounded-2xl">
+                            {inProgress.map((item, index) => (
+                                <PanelListRow key={item.id} divider={index > 0} className="px-4 py-3">
+                                    <SerenataRow item={item} context="client" />
+                                </PanelListRow>
+                            ))}
+                        </PanelList>
+                    )}
                 </PanelCard>
-            ) : null}
 
-            <PanelCard className="md:col-span-2">
-                <h3 className="font-semibold" style={{ color: 'var(--fg)' }}>Próximas serenatas</h3>
-                <div className="mt-4 grid gap-3">
-                    {upcoming.length === 0 ? <EmptyBlock title="Sin serenatas próximas" description="Cuando exista agenda, aparecerá aquí." /> : upcoming.map((item) => <SerenataRow key={item.id} item={item} />)}
-                </div>
-            </PanelCard>
+                <PanelCard size="md">
+                    <PanelBlockHeader
+                        title="Próximas serenatas"
+                        description="Eventos confirmados por el grupo."
+                        actions={(
+                            <ViewAllAction label="Ver todas" onClick={() => props.setSection('serenatas')} />
+                        )}
+                    />
+                    {upcoming.length === 0 ? (
+                        <div className="space-y-3">
+                            <PanelNotice tone="neutral">Cuando el grupo confirme una serenata, aparecerá aquí.</PanelNotice>
+                            <PanelButton
+                                type="button"
+                                variant="secondary"
+                                className="w-full"
+                                onClick={() => props.setSection('serenatas')}
+                            >
+                                Ver mis serenatas
+                            </PanelButton>
+                        </div>
+                    ) : (
+                        <PanelList className="mt-4 border-0 rounded-2xl">
+                            {upcoming.map((item, index) => (
+                                <PanelListRow key={item.id} divider={index > 0} className="px-4 py-3">
+                                    <SerenataRow item={item} context="client" />
+                                </PanelListRow>
+                            ))}
+                        </PanelList>
+                    )}
+                </PanelCard>
+            </div>
+
+            {closurePreview.length > 0 ? (
+                <ClosurePendingCard
+                    items={closurePreview}
+                    total={toClose.length}
+                    onViewAll={() => props.setSection('serenatas')}
+                    context="client"
+                />
+            ) : null}
         </div>
     );
 }
 
-function Stat({ label, value }: { label: string; value: number }) {
+function ClosurePendingCard({
+    items,
+    total,
+    onViewAll,
+    context,
+}: {
+    items: Serenata[];
+    total: number;
+    onViewAll: () => void;
+    context?: 'client';
+}) {
     return (
-        <div className="rounded-xl border p-4" style={{ borderColor: 'var(--border)', background: 'var(--bg-subtle)' }}>
-            <p className="text-2xl font-semibold" style={{ color: 'var(--fg)' }}>{value}</p>
-            <p className="text-sm" style={{ color: 'var(--fg-muted)' }}>{label}</p>
+        <PanelCard size="md">
+            <PanelBlockHeader
+                title="Por cerrar"
+                description="Eventos pasados que aún no se marcaron como completados o cancelados."
+                actions={<ViewAllAction label="Ver todas" onClick={onViewAll} />}
+            />
+            <PanelList className="mt-4 border-0 rounded-2xl">
+                {items.map((item, index) => (
+                    <PanelListRow key={item.id} divider={index > 0} className="px-4 py-3">
+                        <SerenataRow item={item} context={context} />
+                    </PanelListRow>
+                ))}
+            </PanelList>
+            {total > items.length ? (
+                <p className="mt-3 text-center text-xs text-fg-muted">
+                    y {total - items.length} más pendiente{total - items.length === 1 ? '' : 's'} de cierre
+                </p>
+            ) : null}
+        </PanelCard>
+    );
+}
+
+function WorkHome(props: Parameters<typeof HomeView>[0]) {
+    const ownerActive = props.ownerFeaturesEnabled;
+    const [providerMusicianCount, setProviderMusicianCount] = useState<number | null>(null);
+
+    useEffect(() => {
+        if (!ownerActive) {
+            setProviderMusicianCount(null);
+            return;
+        }
+        let cancelled = false;
+        void (async () => {
+            const groupsResponse = await serenatasApi.myProviderGroups();
+            if (cancelled || !groupsResponse.ok || groupsResponse.items.length === 0) {
+                if (!cancelled) setProviderMusicianCount(0);
+                return;
+            }
+            const activeId = resolveActiveProviderGroupId(groupsResponse.items);
+            const group = groupsResponse.items.find((g) => g.id === activeId) ?? groupsResponse.items[0];
+            const membersResponse = await serenatasApi.providerGroupMembers(group.id);
+            if (cancelled) return;
+            setProviderMusicianCount(
+                membersResponse.ok
+                    ? membersResponse.items.filter((m) => m.status === 'active').length
+                    : 0,
+            );
+        })();
+        return () => {
+            cancelled = true;
+        };
+    }, [ownerActive, props.groups]);
+    const pendingApp = ownerActive
+        ? props.ownerSerenatas.filter((item) => isOwnerHomePendingMetric(item))
+        : [];
+    const reviewPending = () => {
+        props.setSection('solicitudes', { filter: 'pending' });
+    };
+
+    const musicianGroupCount = new Set([
+        ...props.invitations.map((item) => item.groupId),
+        ...props.serenatas.map((item) => item.groupId).filter((id): id is string => Boolean(id)),
+    ]).size;
+    const pendingInvitations = props.invitations.filter((item) => item.status === 'invited');
+    const needsGroupSerenatas = ownerActive
+        ? props.ownerSerenatas.filter((item) => item.status === 'accepted_pending_group')
+        : [];
+    const legacyMemberCount = props.groups.reduce(
+        (sum, group) => sum + group.members.filter((member) => member.status === 'accepted').length,
+        0,
+    );
+    const confirmedMembers = ownerActive
+        ? (providerMusicianCount ?? legacyMemberCount)
+        : legacyMemberCount;
+    const upcomingSource = ownerActive ? props.agendaItems : props.serenatas;
+    const upcoming = upcomingSource
+        .filter(isUpcomingScheduled)
+        .sort(sortSerenatasByEvent)
+        .slice(0, 3);
+    const toClose = ownerActive ? props.ownerClosureSerenatas : props.serenatas.filter(needsClosure);
+    const closurePreview = [...toClose].sort(sortSerenatasByEvent).slice(0, 3);
+    const showAssignGroupCard = ownerActive && needsGroupSerenatas.length > 0;
+
+    return (
+        <div className="grid gap-4">
+            <ProfileIncompleteNotice mode="work" profiles={props.profiles} />
+            <OwnerOnboardingCard profiles={props.profiles} setSection={props.setSection} />
+            {props.profiles.musician && !ownerActive ? (
+                <MusicianAvailabilityToggle musician={props.profiles.musician} refresh={props.refresh} />
+            ) : null}
+            <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
+                <PanelStatCard label="Mis serenatas" value={String(props.serenatas.length)} />
+                <PanelStatCard
+                    label={ownerActive ? 'Músicos' : 'Grupos'}
+                    value={String(ownerActive ? confirmedMembers : musicianGroupCount)}
+                />
+                {!ownerActive ? (
+                    <PanelStatCard label="Invitaciones" value={String(props.invitations.length)} />
+                ) : (
+                    <PanelStatCard label="Solicitudes" value={String(pendingApp.length)} />
+                )}
+                {ownerActive ? (
+                    <PanelStatCard
+                        label={toClose.length > 0 ? 'Por cerrar' : 'Por asignar'}
+                        value={String(toClose.length > 0 ? toClose.length : needsGroupSerenatas.length)}
+                    />
+                ) : (
+                    <PanelStatCard label="Pendientes" value={String(pendingInvitations.length)} />
+                )}
+            </div>
+
+            <div className="grid gap-4 lg:grid-cols-2">
+                {ownerActive ? (
+                    <PanelCard size="md">
+                        <PanelBlockHeader
+                            title="Solicitudes pendientes"
+                            description="Leads del marketplace por revisar."
+                            actions={<ViewAllAction label="Ver todas" onClick={reviewPending} />}
+                        />
+                        {pendingApp.length === 0 ? (
+                            <div className="space-y-3">
+                                <PanelNotice tone="neutral">
+                                    Sin solicitudes pendientes. Cuando un cliente solicite tu grupo, aparecerá aquí.
+                                </PanelNotice>
+                                <PanelButton type="button" variant="secondary" className="w-full" onClick={reviewPending}>
+                                    Ir a solicitudes
+                                </PanelButton>
+                            </div>
+                        ) : (
+                            <PanelList className="mt-4 border-0 rounded-2xl">
+                                {pendingApp.slice(0, 5).map((item, index) => (
+                                    <PanelListRow
+                                        key={item.id}
+                                        divider={index > 0}
+                                        className="px-4 py-3"
+                                    >
+                                        <button
+                                            type="button"
+                                            onClick={reviewPending}
+                                            className="flex w-full items-center justify-between gap-3 text-left"
+                                        >
+                                            <div className="min-w-0">
+                                                <p className="truncate text-sm font-semibold text-fg">{item.recipientName}</p>
+                                                <p className="mt-1 text-xs text-fg-muted">
+                                                    {item.eventTime} · {item.comuna ?? 'Sin comuna'}
+                                                </p>
+                                            </div>
+                                            <span className="shrink-0 text-sm font-semibold text-accent">{money(item.price)}</span>
+                                        </button>
+                                    </PanelListRow>
+                                ))}
+                            </PanelList>
+                        )}
+                    </PanelCard>
+                ) : (
+                    <PanelCard size="md">
+                        <PanelBlockHeader
+                            title="Invitaciones pendientes"
+                            description="Revisa fecha, comuna e instrumento antes de responder."
+                            actions={(
+                                <ViewAllAction label="Ver todas" onClick={() => props.setSection('invitations')} />
+                            )}
+                        />
+                        {pendingInvitations.length === 0 ? (
+                            <div className="space-y-3">
+                                <PanelNotice tone="neutral">No tienes invitaciones nuevas por ahora.</PanelNotice>
+                                <PanelButton
+                                    type="button"
+                                    variant="secondary"
+                                    className="w-full"
+                                    onClick={() => props.setSection('invitations')}
+                                >
+                                    Ver invitaciones
+                                </PanelButton>
+                            </div>
+                        ) : (
+                            <PanelList className="mt-4 border-0 rounded-2xl">
+                                {pendingInvitations.slice(0, 5).map((item, index) => (
+                                    <PanelListRow key={item.id} divider={index > 0} className="px-4 py-3">
+                                        <button
+                                            type="button"
+                                            onClick={() => props.setSection('invitations')}
+                                            className="flex w-full items-center justify-between gap-3 text-left"
+                                        >
+                                            <div className="min-w-0">
+                                                <div className="flex items-center gap-2">
+                                                    <p className="truncate text-sm font-semibold text-fg">{item.groupName}</p>
+                                                    {index === 0 ? (
+                                                        <PanelStatusBadge
+                                                            tone="warning"
+                                                            label={`${pendingInvitations.length} nueva${pendingInvitations.length === 1 ? '' : 's'}`}
+                                                        />
+                                                    ) : null}
+                                                </div>
+                                                <p className="mt-1 text-xs text-fg-muted">
+                                                    {(item.eventTime ? `${item.eventTime} · ` : '')}
+                                                    {formatDate(item.eventDate ?? item.groupDate)}
+                                                    {item.comuna ? ` · ${item.comuna}` : ''}
+                                                </p>
+                                            </div>
+                                            <span className="shrink-0 text-xs font-semibold text-accent">
+                                                {item.instrument ?? 'Instrumento'}
+                                            </span>
+                                        </button>
+                                    </PanelListRow>
+                                ))}
+                            </PanelList>
+                        )}
+                    </PanelCard>
+                )}
+
+                <PanelCard size="md">
+                    <PanelBlockHeader
+                        title={showAssignGroupCard ? 'Por asignar grupo' : 'Próximas serenatas'}
+                        description={
+                            showAssignGroupCard
+                                ? 'Serenatas aceptadas que aún necesitan un grupo.'
+                                : 'Agenda confirmada para los próximos días.'
+                        }
+                        actions={(
+                            <ViewAllAction
+                                label="Ver todas"
+                                onClick={() => props.setSection(showAssignGroupCard ? 'solicitudes' : 'agenda')}
+                            />
+                        )}
+                    />
+                    {showAssignGroupCard ? (
+                        <PanelList className="mt-4 border-0 rounded-2xl">
+                            {needsGroupSerenatas.slice(0, 5).map((item, index) => (
+                                <PanelListRow key={item.id} divider={index > 0} className="px-4 py-3">
+                                    <button
+                                        type="button"
+                                        onClick={() => props.setSection('solicitudes')}
+                                        className="flex w-full items-center justify-between gap-3 text-left"
+                                    >
+                                        <div className="min-w-0">
+                                            <p className="truncate text-sm font-semibold text-fg">{item.recipientName}</p>
+                                            <p className="mt-1 text-xs text-fg-muted">{formatShortSerenataDate(item)}</p>
+                                        </div>
+                                        <span className="shrink-0 text-sm font-semibold text-accent">Asignar</span>
+                                    </button>
+                                </PanelListRow>
+                            ))}
+                        </PanelList>
+                    ) : upcoming.length === 0 ? (
+                        <div className="space-y-3">
+                            <PanelNotice tone="neutral">Sin serenatas próximas en la agenda.</PanelNotice>
+                            <PanelButton
+                                type="button"
+                                variant="secondary"
+                                className="w-full"
+                                onClick={() => props.setSection('agenda')}
+                            >
+                                Ver agenda
+                            </PanelButton>
+                        </div>
+                    ) : (
+                        <PanelList className="mt-4 border-0 rounded-2xl">
+                            {upcoming.map((item, index) => (
+                                <PanelListRow key={item.id} divider={index > 0} className="px-4 py-3">
+                                    <SerenataRow item={item} />
+                                </PanelListRow>
+                            ))}
+                        </PanelList>
+                    )}
+                </PanelCard>
+            </div>
+
+            {!showAssignGroupCard && closurePreview.length > 0 ? (
+                <ClosurePendingCard
+                    items={closurePreview}
+                    total={toClose.length}
+                    onViewAll={() => props.setSection('agenda')}
+                />
+            ) : null}
         </div>
     );
 }

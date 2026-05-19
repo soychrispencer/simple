@@ -860,27 +860,15 @@ export default function HomeSearchBox() {
 
     return (
         <section className="container-app relative z-11 mt-0 mb-10">
-            <div
-                className="rounded-[22px] border overflow-visible"
-                style={{
-                    borderColor: 'var(--border)',
-                    background: 'var(--surface)',
-                    boxShadow: '0 16px 46px rgba(0,0,0,0.12)',
-                }}
-            >
-                <div className="flex flex-nowrap items-center justify-between gap-2 px-3 sm:px-4 pt-3 pb-2 border-b" style={{ borderColor: 'var(--border)' }}>
-                    <div className="inline-flex rounded-xl p-1 flex-1 min-w-0 overflow-x-auto" style={{ background: 'var(--bg-subtle)', scrollbarWidth: 'none' }}>
+            <div className="rounded-[22px] border overflow-visible autos-search-hero">
+                <div className="flex flex-nowrap items-center justify-between gap-2 border-b border-[var(--border)] px-3 pt-3 pb-2 sm:px-4">
+                    <div className="inline-flex rounded-xl p-1 flex-1 min-w-0 overflow-x-auto autos-search-tabs">
                         {(Object.keys(TAB_META) as AutosTab[]).map((tabKey) => (
                             <button
                                 key={tabKey}
                                 type="button"
                                 onClick={() => setFilters((current) => ({ ...current, tab: tabKey }))}
-                                className="h-8 sm:h-9 px-3 sm:px-4 text-sm font-medium rounded-md border transition-all shrink-0 hover:bg-[var(--bg-subtle)] hover:border-[var(--border-strong)] hover:text-[var(--fg)]"
-                                style={{
-                                    background: filters.tab === tabKey ? 'var(--button-primary-bg)' : 'transparent',
-                                    color: filters.tab === tabKey ? 'var(--button-primary-color)' : 'var(--fg-secondary)',
-                                    borderColor: filters.tab === tabKey ? 'var(--button-primary-border)' : 'transparent',
-                                }}
+                                className={`h-8 sm:h-9 px-3 sm:px-4 text-sm font-medium rounded-md border transition-all shrink-0 hover:bg-[var(--bg-subtle)] hover:border-[var(--border-strong)] hover:text-[var(--fg)] autos-search-tab ${filters.tab === tabKey ? 'autos-search-tab--active' : ''}`}
                             >
                                 {TAB_META[tabKey].label}
                             </button>
@@ -892,7 +880,7 @@ export default function HomeSearchBox() {
                 <form onSubmit={handleSubmit} className="p-3 sm:p-4 space-y-3">
                     <div className="flex flex-col md:flex-row gap-2.5 items-stretch">
                         <div className="flex-1 relative" ref={inputWrapRef}>
-                            <IconSearch size={15} className="absolute left-4 top-1/2 -translate-y-1/2 pointer-events-none" style={{ color: 'var(--fg-muted)' }} />
+                            <IconSearch size={15} className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-[var(--fg-muted)]" />
                             <input
                                 ref={inputRef}
                                 type="text"
@@ -907,8 +895,7 @@ export default function HomeSearchBox() {
                                 }}
                                 onKeyDown={handleKeyDown}
                                 placeholder={tabMeta.placeholder}
-                                className="form-input h-11"
-                                style={{ paddingLeft: '2.75rem', paddingRight: uploadedImage || isListening ? '7rem' : '4.5rem' }}
+                                className={`form-input h-11 autos-search-input ${uploadedImage || isListening ? 'autos-search-input--actions' : ''}`}
                                 aria-expanded={showSuggestions}
                                 aria-autocomplete="list"
                                 aria-controls={showSuggestions ? 'search-suggestions' : undefined}
@@ -925,8 +912,7 @@ export default function HomeSearchBox() {
                             <button
                                 type="button"
                                 onClick={toggleVoiceSearch}
-                                className={`absolute right-3 top-1/2 -translate-y-1/2 h-6 w-6 rounded-full inline-flex items-center justify-center ${isListening ? 'animate-pulse' : ''}`}
-                                style={{ background: isListening ? 'var(--button-primary-bg)' : 'var(--bg-muted)', color: isListening ? 'var(--button-primary-color)' : 'var(--fg-secondary)' }}
+                                className={`absolute right-3 top-1/2 -translate-y-1/2 h-6 w-6 rounded-full inline-flex items-center justify-center ${isListening ? 'animate-pulse autos-icon-btn--primary' : 'autos-icon-btn'}`}
                                 aria-label="Buscar por voz"
                             >
                                 <IconMicrophone size={12} />
@@ -936,8 +922,7 @@ export default function HomeSearchBox() {
                                     <button
                                         type="button"
                                         onClick={searchByImage}
-                                        className="h-6 w-6 rounded-full inline-flex items-center justify-center"
-                                        style={{ background: 'var(--button-primary-bg)', color: 'var(--button-primary-color)' }}
+                                        className="h-6 w-6 rounded-full inline-flex items-center justify-center autos-icon-btn--primary"
                                         aria-label="Buscar en Google Lens"
                                         title="Buscar vehículos similares"
                                     >
@@ -946,8 +931,7 @@ export default function HomeSearchBox() {
                                     <button
                                         type="button"
                                         onClick={() => setUploadedImage(null)}
-                                        className="h-6 w-6 rounded-full inline-flex items-center justify-center"
-                                        style={{ background: 'var(--bg-muted)', color: 'var(--fg-secondary)' }}
+                                        className="h-6 w-6 rounded-full inline-flex items-center justify-center autos-icon-btn"
                                         aria-label="Eliminar imagen"
                                     >
                                         <IconX size={12} />
@@ -957,8 +941,7 @@ export default function HomeSearchBox() {
                                 <button
                                     type="button"
                                     onClick={() => fileInputRef.current?.click()}
-                                    className="absolute right-12 top-1/2 -translate-y-1/2 h-6 w-6 rounded-full inline-flex items-center justify-center"
-                                    style={{ background: 'var(--bg-muted)', color: 'var(--fg-secondary)' }}
+                                    className="absolute right-12 top-1/2 -translate-y-1/2 h-6 w-6 rounded-full inline-flex items-center justify-center autos-icon-btn"
                                     aria-label="Buscar por imagen"
                                 >
                                     <IconCamera size={12} />
@@ -969,8 +952,7 @@ export default function HomeSearchBox() {
                                     type="button"
                                     aria-label="Limpiar búsqueda"
                                     onClick={() => setFilters((current) => ({ ...current, query: '' }))}
-                                    className="absolute right-20 top-1/2 -translate-y-1/2 h-6 w-6 rounded-full inline-flex items-center justify-center"
-                                    style={{ background: 'var(--bg-muted)', color: 'var(--fg-secondary)' }}
+                                    className="absolute right-20 top-1/2 -translate-y-1/2 h-6 w-6 rounded-full inline-flex items-center justify-center autos-icon-btn"
                                 >
                                     <IconX size={12} />
                                 </button>
@@ -980,13 +962,12 @@ export default function HomeSearchBox() {
                                 <div
                                     id="search-suggestions"
                                     role="listbox"
-                                    className="absolute left-0 right-0 top-[calc(100%+0.35rem)] rounded-xl border overflow-hidden z-30"
-                                    style={{ borderColor: 'var(--border)', background: 'var(--surface)', boxShadow: 'var(--shadow-lg)' }}
+                                    className="autos-search-shell absolute left-0 right-0 top-[calc(100%+0.35rem)] z-30 overflow-hidden rounded-xl border"
                                 >
                                     {/* Historial de búsqueda */}
                                     {searchHistory.length > 0 && filters.query.length < 2 && (
                                         <>
-                                            <div className="px-3 py-1.5 text-xs border-b flex items-center gap-2" style={{ borderColor: 'var(--border)', color: 'var(--fg-muted)', background: 'var(--bg-subtle)' }}>
+                                            <div className="autos-search-section-head flex items-center gap-2 border-b px-3 py-1.5 text-xs">
                                                 <IconClock size={12} />
                                                 Recientes
                                             </div>
@@ -998,10 +979,9 @@ export default function HomeSearchBox() {
                                                         setFilters((current) => ({ ...current, query: historyItem }));
                                                         setShowSuggestions(false);
                                                     }}
-                                                    className="w-full text-left px-3 py-2.5 border-b last:border-b-0 hover:bg-[var(--bg-subtle)] transition-colors"
-                                                    style={{ borderColor: 'var(--border)' }}
+                                                    className="w-full border-b border-[var(--border)] px-3 py-2.5 text-left transition-colors last:border-b-0 hover:bg-[var(--bg-subtle)]"
                                                 >
-                                                    <p className="text-sm" style={{ color: 'var(--fg)' }}>{historyItem}</p>
+                                                    <p className="text-sm text-[var(--fg)]">{historyItem}</p>
                                                 </button>
                                             ))}
                                         </>
@@ -1010,7 +990,7 @@ export default function HomeSearchBox() {
                                     {/* Sugerencias personalizadas */}
                                     {personalizedSuggestions.length > 0 && filters.query.length < 2 && (
                                         <>
-                                            <div className="px-3 py-1.5 text-xs border-b flex items-center gap-2" style={{ borderColor: 'var(--border)', color: 'var(--fg-muted)', background: 'var(--bg-subtle)' }}>
+                                            <div className="autos-search-section-head flex items-center gap-2 border-b px-3 py-1.5 text-xs">
                                                 <IconFlame size={12} />
                                                 Para ti
                                             </div>
@@ -1022,10 +1002,9 @@ export default function HomeSearchBox() {
                                                         setFilters((current) => ({ ...current, query: suggestion }));
                                                         handleSubmit();
                                                     }}
-                                                    className="w-full text-left px-3 py-2.5 border-b last:border-b-0 hover:bg-[var(--bg-subtle)] transition-colors"
-                                                    style={{ borderColor: 'var(--border)' }}
+                                                    className="w-full border-b border-[var(--border)] px-3 py-2.5 text-left transition-colors last:border-b-0 hover:bg-[var(--bg-subtle)]"
                                                 >
-                                                    <p className="text-sm" style={{ color: 'var(--fg)' }}>{suggestion}</p>
+                                                    <p className="text-sm text-[var(--fg)]">{suggestion}</p>
                                                 </button>
                                             ))}
                                         </>
@@ -1034,7 +1013,7 @@ export default function HomeSearchBox() {
                                     {/* Búsquedas populares */}
                                     {filters.query.length < 2 && (
                                         <>
-                                            <div className="px-3 py-1.5 text-xs border-b flex items-center gap-2" style={{ borderColor: 'var(--border)', color: 'var(--fg-muted)', background: 'var(--bg-subtle)' }}>
+                                            <div className="autos-search-section-head flex items-center gap-2 border-b px-3 py-1.5 text-xs">
                                                 <IconFlame size={12} />
                                                 Populares
                                             </div>
@@ -1046,10 +1025,9 @@ export default function HomeSearchBox() {
                                                         setFilters((current) => ({ ...current, query: trendingItem }));
                                                         handleSubmit();
                                                     }}
-                                                    className="w-full text-left px-3 py-2.5 border-b last:border-b-0 hover:bg-[var(--bg-subtle)] transition-colors"
-                                                    style={{ borderColor: 'var(--border)' }}
+                                                    className="w-full border-b border-[var(--border)] px-3 py-2.5 text-left transition-colors last:border-b-0 hover:bg-[var(--bg-subtle)]"
                                                 >
-                                                    <p className="text-sm" style={{ color: 'var(--fg)' }}>{trendingItem}</p>
+                                                    <p className="text-sm text-[var(--fg)]">{trendingItem}</p>
                                                 </button>
                                             ))}
                                         </>
@@ -1060,9 +1038,9 @@ export default function HomeSearchBox() {
                                         <>
                                             {/* Corrección de typo */}
                                             {typoCorrection && (
-                                                <div className="px-3 py-2 border-b" style={{ borderColor: 'var(--border)', background: 'var(--bg-subtle)' }}>
-                                                    <p className="text-xs" style={{ color: 'var(--fg-muted)' }}>
-                                                        ¿Quisiste decir <span style={{ color: 'var(--fg)', fontWeight: 'medium' }}>{typoCorrection.correction}</span>?
+                                                <div className="autos-search-section-head border-b px-3 py-2">
+                                                    <p className="text-xs text-[var(--fg-muted)]">
+                                                        ¿Quisiste decir <span className="font-medium text-[var(--fg)]">{typoCorrection.correction}</span>?
                                                     </p>
                                                 </div>
                                             )}
@@ -1070,7 +1048,7 @@ export default function HomeSearchBox() {
                                             {/* Marcas */}
                                             {brandSuggestions.length > 0 && (
                                                 <>
-                                                    <div className="px-3 py-1.5 text-xs border-b" style={{ borderColor: 'var(--border)', color: 'var(--fg-muted)', background: 'var(--bg-subtle)' }}>
+                                                    <div className="autos-search-section-head border-b px-3 py-1.5 text-xs">
                                                         Marcas
                                                     </div>
                                                     {brandSuggestions.map((brand, index) => (
@@ -1081,10 +1059,9 @@ export default function HomeSearchBox() {
                                                                 setFilters((current) => ({ ...current, brand: brand.id, model: '' }));
                                                                 setShowSuggestions(false);
                                                             }}
-                                                            className="w-full text-left px-3 py-2.5 border-b last:border-b-0 hover:bg-[var(--bg-subtle)] transition-colors"
-                                                            style={{ borderColor: 'var(--border)' }}
+                                                            className="w-full border-b border-[var(--border)] px-3 py-2.5 text-left transition-colors last:border-b-0 hover:bg-[var(--bg-subtle)]"
                                                         >
-                                                            <p className="text-sm" style={{ color: 'var(--fg)' }}>{brand.name}</p>
+                                                            <p className="text-sm text-[var(--fg)]">{brand.name}</p>
                                                         </button>
                                                     ))}
                                                 </>
@@ -1093,7 +1070,7 @@ export default function HomeSearchBox() {
                                             {/* Modelos */}
                                             {modelSuggestions.length > 0 && (
                                                 <>
-                                                    <div className="px-3 py-1.5 text-xs border-b" style={{ borderColor: 'var(--border)', color: 'var(--fg-muted)', background: 'var(--bg-subtle)' }}>
+                                                    <div className="autos-search-section-head border-b px-3 py-1.5 text-xs">
                                                         Modelos
                                                     </div>
                                                     {modelSuggestions.map((model, index) => (
@@ -1104,10 +1081,9 @@ export default function HomeSearchBox() {
                                                                 setFilters((current) => ({ ...current, model: model.id }));
                                                                 setShowSuggestions(false);
                                                             }}
-                                                            className="w-full text-left px-3 py-2.5 border-b last:border-b-0 hover:bg-[var(--bg-subtle)] transition-colors"
-                                                            style={{ borderColor: 'var(--border)' }}
+                                                            className="w-full border-b border-[var(--border)] px-3 py-2.5 text-left transition-colors last:border-b-0 hover:bg-[var(--bg-subtle)]"
                                                         >
-                                                            <p className="text-sm" style={{ color: 'var(--fg)' }}>{model.name}</p>
+                                                            <p className="text-sm text-[var(--fg)]">{model.name}</p>
                                                         </button>
                                                     ))}
                                                 </>
@@ -1116,7 +1092,7 @@ export default function HomeSearchBox() {
                                             {/* Tipos de vehículo */}
                                             {vehicleTypeSuggestions.length > 0 && (
                                                 <>
-                                                    <div className="px-3 py-1.5 text-xs border-b" style={{ borderColor: 'var(--border)', color: 'var(--fg-muted)', background: 'var(--bg-subtle)' }}>
+                                                    <div className="autos-search-section-head border-b px-3 py-1.5 text-xs">
                                                         Tipo de vehículo
                                                     </div>
                                                     {vehicleTypeSuggestions.map((vt, index) => (
@@ -1127,10 +1103,9 @@ export default function HomeSearchBox() {
                                                                 setFilters((current) => ({ ...current, vehicleType: vt.id as VehicleType, brand: '', model: '' }));
                                                                 setShowSuggestions(false);
                                                             }}
-                                                            className="w-full text-left px-3 py-2.5 border-b last:border-b-0 hover:bg-[var(--bg-subtle)] transition-colors"
-                                                            style={{ borderColor: 'var(--border)' }}
+                                                            className="w-full border-b border-[var(--border)] px-3 py-2.5 text-left transition-colors last:border-b-0 hover:bg-[var(--bg-subtle)]"
                                                         >
-                                                            <p className="text-sm" style={{ color: 'var(--fg)' }}>{vt.name}</p>
+                                                            <p className="text-sm text-[var(--fg)]">{vt.name}</p>
                                                         </button>
                                                     ))}
                                                 </>
@@ -1139,7 +1114,7 @@ export default function HomeSearchBox() {
                                             {/* Sugerencias */}
                                             {suggestions.length > 0 && (
                                                 <>
-                                                    <div className="px-3 py-1.5 text-xs border-b" style={{ borderColor: 'var(--border)', color: 'var(--fg-muted)', background: 'var(--bg-subtle)' }}>
+                                                    <div className="autos-search-section-head border-b px-3 py-1.5 text-xs">
                                                         Sugerencias (↓↑ para navegar, Enter para seleccionar)
                                                     </div>
                                                     {suggestions.map((suggestion, index) => (
@@ -1150,11 +1125,10 @@ export default function HomeSearchBox() {
                                                             role="option"
                                                             aria-selected={index === activeSuggestion}
                                                             onClick={() => applySuggestion(suggestion)}
-                                                            className={`w-full text-left px-3 py-2.5 border-b last:border-b-0 hover:bg-[var(--bg-subtle)] transition-colors ${index === activeSuggestion ? 'bg-[var(--bg-subtle)]' : ''}`}
-                                                            style={{ borderColor: 'var(--border)' }}
+                                                            className={`w-full border-b border-[var(--border)] px-3 py-2.5 text-left transition-colors last:border-b-0 hover:bg-[var(--bg-subtle)] ${index === activeSuggestion ? 'bg-[var(--bg-subtle)]' : ''}`}
                                                         >
-                                                            <p className="text-sm font-medium" style={{ color: 'var(--fg)' }}>{suggestion.label}</p>
-                                                            <p className="text-xs" style={{ color: 'var(--fg-muted)' }}>{suggestion.hint}</p>
+                                                            <p className="text-sm font-medium text-[var(--fg)]">{suggestion.label}</p>
+                                                            <p className="text-xs text-[var(--fg-muted)]">{suggestion.hint}</p>
                                                         </button>
                                                     ))}
                                                 </>
@@ -1165,7 +1139,7 @@ export default function HomeSearchBox() {
                                     {/* Preview de resultados */}
                                     {showPreview && previewResults.length > 0 && (
                                         <>
-                                            <div className="px-3 py-1.5 text-xs border-b" style={{ borderColor: 'var(--border)', color: 'var(--fg-muted)', background: 'var(--bg-subtle)' }}>
+                                            <div className="autos-search-section-head border-b px-3 py-1.5 text-xs">
                                                 Resultados destacados
                                             </div>
                                             {previewResults.map((result) => (
@@ -1176,17 +1150,16 @@ export default function HomeSearchBox() {
                                                         setFilters((current) => ({ ...current, query: result.title }));
                                                         handleSubmit();
                                                     }}
-                                                    className="w-full text-left px-3 py-2.5 border-b last:border-b-0 hover:bg-[var(--bg-subtle)] transition-colors flex items-center gap-3"
-                                                    style={{ borderColor: 'var(--border)' }}
+                                                    className="flex w-full items-center gap-3 border-b border-[var(--border)] px-3 py-2.5 text-left transition-colors last:border-b-0 hover:bg-[var(--bg-subtle)]"
                                                 >
-                                                    <div className="w-12 h-12 rounded-lg bg-[var(--bg-muted)] flex-shrink-0 flex items-center justify-center" style={{ background: 'var(--bg-muted)' }}>
-                                                        <IconSearch size={16} style={{ color: 'var(--fg-muted)' }} />
+                                                    <div className="w-12 h-12 rounded-lg bg-[var(--bg-muted)] flex-shrink-0 flex items-center justify-center">
+                                                        <IconSearch size={16} className="text-[var(--fg-muted)]" />
                                                     </div>
                                                     <div className="flex-1 min-w-0">
-                                                        <p className="text-sm font-medium truncate" style={{ color: 'var(--fg)' }}>{result.title}</p>
-                                                        <p className="text-xs" style={{ color: 'var(--fg-muted)' }}>{result.location} · {result.year}</p>
+                                                        <p className="truncate text-sm font-medium text-[var(--fg)]">{result.title}</p>
+                                                        <p className="text-xs text-[var(--fg-muted)]">{result.location} · {result.year}</p>
                                                     </div>
-                                                    <p className="text-sm font-medium" style={{ color: 'var(--fg)' }}>{result.price}</p>
+                                                    <p className="text-sm font-medium text-[var(--fg)]">{result.price}</p>
                                                 </button>
                                             ))}
                                         </>
@@ -1246,12 +1219,7 @@ export default function HomeSearchBox() {
                                     key={chip.key}
                                     type="button"
                                     onClick={() => removeChip(chip)}
-                                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm border transition-all hover:border-[var(--border-strong)] hover:text-[var(--fg)]"
-                                    style={{
-                                        background: 'var(--bg-subtle)',
-                                        borderColor: 'var(--border)',
-                                        color: 'var(--fg-secondary)',
-                                    }}
+                                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm border transition-all hover:border-[var(--border-strong)] hover:text-[var(--fg)] autos-filter-chip"
                                 >
                                     {chip.label}
                                     <IconX size={12} />
@@ -1260,8 +1228,7 @@ export default function HomeSearchBox() {
                             <button
                                 type="button"
                                 onClick={() => setFilters((current) => ({ ...current, brand: '', model: '', vehicleType: '', fuel: '', region: '', commune: '', priceFrom: '', priceTo: '', yearFrom: '', yearTo: '' }))}
-                                className="text-xs underline"
-                                style={{ color: 'var(--fg-muted)' }}
+                                className="text-xs text-[var(--fg-muted)] underline"
                             >
                                 Limpiar todos
                             </button>
@@ -1269,7 +1236,7 @@ export default function HomeSearchBox() {
                     )}
 
                     {/* Mapa de búsqueda */}
-                    <SearchMap showMap={showMap} publications={mapPublications} brandColor="#ff3600" />
+                    <SearchMap showMap={showMap} publications={mapPublications} />
                 </form>
             </div>
         </section>

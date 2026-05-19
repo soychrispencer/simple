@@ -7,7 +7,7 @@ import { vocab } from '@/lib/vocabulary';
 import { generatePolicies } from '@/actions/generate-policies';
 import Link from 'next/link';
 import { IconChevronRight, IconMapPin, IconPlus, IconLoader2 as IconLoader2Loc } from '@tabler/icons-react';
-import { PanelCard, PanelField, PanelButton, PanelNotice, PanelBlockHeader, PanelPageHeader, PanelSwitch } from '@simple/ui';
+import { PanelCard, PanelField, PanelButton, PanelNotice, PanelBlockHeader, PanelPageHeader, PanelSwitch, AvatarUpload } from '@simple/ui';
 
 type SocialPlatform = 'instagram' | 'facebook' | 'linkedin' | 'tiktok' | 'youtube' | 'twitter';
 type SocialLink = { platform: SocialPlatform; username: string };
@@ -35,11 +35,9 @@ export default function PerfilConfigPage() {
     const [togglingId, setTogglingId] = useState<string | null>(null);
     const [saved, setSaved] = useState(false);
     const [error, setError] = useState('');
-    const [avatarUploading, setAvatarUploading] = useState(false);
     const [avatarError, setAvatarError] = useState(false);
     const [coverUploading, setCoverUploading] = useState(false);
     const [generatingPolicies, setGeneratingPolicies] = useState(false);
-    const fileInputRef = useRef<HTMLInputElement>(null);
     const coverInputRef = useRef<HTMLInputElement>(null);
 
     const [form, setForm] = useState({
@@ -129,28 +127,6 @@ export default function PerfilConfigPage() {
         if (!result.ok) { setError(result.error ?? 'Error al subir la imagen.'); return; }
         if (result.url) set('coverUrl', result.url);
         if (coverInputRef.current) coverInputRef.current.value = '';
-    };
-
-    const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-        const file = e.target.files?.[0];
-        if (!file) return;
-        if (file.size > 5 * 1024 * 1024) {
-            setError('La imagen no puede pesar más de 5 MB.');
-            return;
-        }
-        setAvatarUploading(true);
-        setError('');
-        const result = await uploadAvatar(file);
-        setAvatarUploading(false);
-        if (!result.ok) {
-            setError(result.error ?? 'Error al subir la imagen.');
-            return;
-        }
-        if (result.url) {
-            setAvatarError(false);
-            set('avatarUrl', result.url);
-        }
-        if (fileInputRef.current) fileInputRef.current.value = '';
     };
 
     const handleGeneratePolicies = async () => {
@@ -250,15 +226,6 @@ export default function PerfilConfigPage() {
                                 {coverUploading ? <IconLoader2 size={16} className="animate-spin" /> : <IconCamera size={16} />}
                                 {form.coverUrl ? 'Cambiar portada' : 'Subir portada'}
                             </button>
-                            <button
-                                onClick={() => fileInputRef.current?.click()}
-                                disabled={avatarUploading}
-                                className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-colors"
-                                style={{ background: 'var(--bg-muted)', color: 'var(--fg)' }}
-                            >
-                                {avatarUploading ? <IconLoader2 size={16} className="animate-spin" /> : <IconCamera size={16} />}
-                                {form.avatarUrl ? 'Cambiar foto' : 'Subir foto'}
-                            </button>
                             {(form.coverUrl || form.avatarUrl) && (
                                 <button
                                     onClick={() => { set('coverUrl', ''); set('avatarUrl', ''); }}
@@ -270,7 +237,32 @@ export default function PerfilConfigPage() {
                             )}
                         </div>
                         <input ref={coverInputRef} type="file" accept="image/*" className="hidden" onChange={handleCoverUpload} />
-                        <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handleAvatarUpload} />
+                        <div className="flex justify-center pt-4">
+                            <AvatarUpload
+                                currentUrl={form.avatarUrl}
+                                config={{
+                                    maxSize: 5120,
+                                    maxWidth: 112,
+                                    maxHeight: 112,
+                                    aspectRatio: 1,
+                                    circular: false,
+                                    onUpload: async (_file, croppedBlob) => {
+                                        const uploadFile = new File([croppedBlob], 'avatar.jpg', { type: 'image/jpeg' });
+                                        const result = await uploadAvatar(uploadFile);
+                                        if (!result.ok || !result.url) {
+                                            throw new Error(result.error ?? 'Error al subir la imagen.');
+                                        }
+                                        return { url: result.url };
+                                    },
+                                }}
+                                onSuccess={(url) => {
+                                    setAvatarError(false);
+                                    set('avatarUrl', url);
+                                    setError('');
+                                }}
+                                onError={(message) => setError(message)}
+                            />
+                        </div>
                     </div>
                 </PanelCard>
 

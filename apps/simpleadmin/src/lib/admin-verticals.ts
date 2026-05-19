@@ -60,10 +60,10 @@ export function deriveUserVerticalMemberships(user: AdminUserListItem): AdminVer
       roleLabel: [
         serenatas?.client ? 'Cliente' : null,
         serenatas?.musician ? 'Músico' : null,
-        serenatas?.coordinator ? 'Coordinador' : null,
+        serenatas?.coordinator ? 'Administrador Serenatas' : null,
       ].filter(Boolean).join(' + ') || 'Sin perfil',
       subscriptionLabel: serenatas?.coordinator
-        ? (serenatas.coordinatorStatus === 'trialing' ? 'Coordinador trial' : serenatas.coordinatorStatus || 'Coordinador')
+        ? (serenatas.coordinatorStatus === 'trialing' ? 'Admin Serenatas trial' : serenatas.coordinatorStatus || 'Administrador Serenatas')
         : 'Sin suscripción',
       statusLabel: serenatas ? 'Activa' : 'Sin estado',
       activityCount: serenatas ? 1 : 0,

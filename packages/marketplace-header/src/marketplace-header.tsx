@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { useTheme } from 'next-themes';
+import { useTheme } from '@simple/ui';
 import { useEffect, useMemo, useRef, useState, type ComponentType, type ReactNode } from 'react';
 import {
   IconBell,
@@ -14,6 +14,8 @@ import {
   IconSparkles,
   IconMenu2,
   IconX,
+  IconUsersGroup,
+  IconMessage,
 } from '@tabler/icons-react';
 import { useAuth } from '@simple/auth';
 import { BrandLogo, PanelButton } from '@simple/ui';
@@ -35,7 +37,15 @@ export type PanelNotification = {
   time: string;
   href: string;
   createdAt: number;
+  /** Etiqueta corta opcional (p. ej. Serenatas: tipo de alerta). */
+  categoryLabel?: string;
 };
+
+function notificationListIcon(type: PanelNotification['type']) {
+  if (type === 'message_thread') return IconUsersGroup;
+  if (type === 'listing_lead') return IconMessage;
+  return IconSparkles;
+}
 
 export type MarketplaceHeaderProps = {
   brandAppId: 'simpleautos' | 'simplepropiedades' | 'simpleserenatas' | 'simpleadmin' | 'simpleagenda';
@@ -63,6 +73,8 @@ export type MarketplaceHeaderProps = {
   primaryActionHref?: string;
   primaryActionIcon?: ComponentType<{ size?: number; stroke?: number }>;
   showPrimaryAction?: boolean;
+  /** Si se define, reemplaza `logout` de useAuth (p. ej. redirigir al inicio). */
+  onLogout?: () => void | Promise<void>;
 };
 
 export function MarketplaceHeader({
@@ -81,10 +93,11 @@ export function MarketplaceHeader({
   primaryActionHref = '/panel/publicar',
   primaryActionIcon: PrimaryActionIcon = IconPlus,
   showPrimaryAction = true,
+  onLogout,
 }: MarketplaceHeaderProps) {
   const pathname = usePathname() ?? '';
   const router = useRouter();
-  const { theme, setTheme } = useTheme();
+  const { resolvedTheme, setTheme } = useTheme();
   const [mounted, setMounted] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [accountOpen, setAccountOpen] = useState(false);
@@ -93,7 +106,8 @@ export function MarketplaceHeader({
   const menuRef = useRef<HTMLDivElement | null>(null);
   const accountRef = useRef<HTMLDivElement | null>(null);
   const notificationsRef = useRef<HTMLDivElement | null>(null);
-  const { user, isLoggedIn, requireAuth, logout, openAuth } = useAuth();
+  const { user, isLoggedIn, requireAuth, logout: authLogout, openAuth } = useAuth();
+  const logout = onLogout ?? authLogout;
 
   useEffect(() => {
     setMounted(true);
@@ -171,7 +185,7 @@ export function MarketplaceHeader({
               <Link
                 key={l.href}
                 href={l.href}
-                className="header-nav-link px-3.5 py-2 text-sm font-medium rounded-lg transition-colors duration-200"
+                className="header-nav-link px-3.5 py-2 text-sm font-medium rounded-button transition-colors duration-200"
                 data-active={pathname === l.href || pathname.startsWith(`${l.href}/`) ? 'true' : 'false'}
               >
                 <span className="inline-flex items-center gap-1.5">
@@ -238,15 +252,27 @@ export function MarketplaceHeader({
                         Sin novedades por ahora.
                       </div>
                     ) : (
-                      notifications.map((item) => (
+                      notifications.map((item) => {
+                        const ItemIcon = notificationListIcon(item.type);
+                        return (
                         <Link
                           key={item.id}
                           href={item.href}
                           onClick={() => setNotificationsOpen(false)}
                           className="flex items-start gap-2.5 rounded-lg px-2.5 py-2 transition-colors hover:bg-[var(--bg-subtle)]"
                         >
-                          <span className="mt-1.5 h-1.5 w-1.5 rounded-full shrink-0" style={{ background: 'var(--fg)' }} />
+                          <span
+                            className="mt-0.5 flex size-7 shrink-0 items-center justify-center rounded-lg"
+                            style={{ background: 'var(--bg-subtle)', color: 'var(--fg-muted)' }}
+                          >
+                            <ItemIcon size={15} stroke={1.8} />
+                          </span>
                           <span className="min-w-0 flex-1">
+                            {item.categoryLabel ? (
+                              <p className="text-[11px] font-medium uppercase tracking-wide" style={{ color: 'var(--fg-muted)' }}>
+                                {item.categoryLabel}
+                              </p>
+                            ) : null}
                             <p className="text-sm leading-5" style={{ color: 'var(--fg)' }}>
                               {item.title}
                             </p>
@@ -255,7 +281,8 @@ export function MarketplaceHeader({
                             </p>
                           </span>
                         </Link>
-                      ))
+                        );
+                      })
                     )}
                   </div>
                 </div>
@@ -266,11 +293,11 @@ export function MarketplaceHeader({
           {mounted && (
             <button
               type="button"
-              onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
+              onClick={() => setTheme(resolvedTheme === 'dark' ? 'light' : 'dark')}
               className="header-icon-chip"
               aria-label="Cambiar tema"
             >
-              {theme === 'dark' ? <IconSun size={16} /> : <IconMoon size={16} />}
+              {resolvedTheme === 'dark' ? <IconSun size={16} /> : <IconMoon size={16} />}
             </button>
           )}
 
@@ -434,7 +461,7 @@ export function MarketplaceHeader({
                     key={l.href}
                     href={l.href}
                     onClick={() => setMenuOpen(false)}
-                    className="flex items-center gap-2 rounded-lg px-2.5 py-2 text-sm transition-colors hover:bg-[var(--bg-subtle)]"
+                    className="flex items-center gap-2 rounded-button px-2.5 py-2 text-sm transition-colors hover:bg-[var(--bg-subtle)]"
                     style={{ color: 'var(--fg-secondary)' }}
                   >
                     <span>{l.label}</span>

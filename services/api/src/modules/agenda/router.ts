@@ -1,6 +1,7 @@
 import { Hono } from 'hono';
 import type { Context } from 'hono';
 import type { SQL } from 'drizzle-orm';
+import { getPaymentById, verifyMercadoPagoWebhookSignature } from '../mercadopago/service.js';
 
 export interface AgendaRouterDeps {
     authUser: (c: Context) => Promise<any>;
@@ -1421,19 +1422,80 @@ export function createAgendaRouter(deps: AgendaRouterDeps) {
         try {
             const body = await c.req.json().catch(() => ({})) as Record<string, unknown>;
             const bodyData = (body.data ?? {}) as Record<string, unknown>;
-            const topic = c.req.query('topic') ?? String(body.type ?? '');
-            const resourceId = c.req.query('id') ?? String(bodyData.id ?? body.id ?? '');
-            if (topic !== 'payment' && topic !== 'merchant_order') return c.json({ ok: true });
-            if (!resourceId) return c.json({ ok: true });
-            const externalRef = String(body.external_reference ?? bodyData.external_reference ?? '');
+            const topic = String(c.req.query('topic') ?? c.req.query('type') ?? body.type ?? '');
+            const paymentId = String(c.req.query('id') ?? bodyData.id ?? body.id ?? '');
+
+            const signatureResult = verifyMercadoPagoWebhookSignature({
+                xSignature: c.req.header('x-signature'),
+                xRequestId: c.req.header('x-request-id'),
+                dataId: paymentId || null,
+            });
+            if (signatureResult === false) {
+                return c.json({ ok: false, error: 'Firma de webhook inválida' }, 401);
+            }
+            if (signatureResult === 'unsigned' && process.env.MERCADO_PAGO_WEBHOOK_ALLOW_UNSIGNED !== 'true') {
+                return c.json({ ok: false, error: 'Webhook sin firma no permitido' }, 401);
+            }
+
+            const isPayment = topic === 'payment' || String(body.type ?? '') === 'payment';
+            if (!isPayment) return c.json({ ok: true });
+            if (!paymentId) return c.json({ ok: true });
+
+            let paymentPayload: Record<string, unknown> | null = null;
+            try {
+                paymentPayload = (await getPaymentById(paymentId)) as Record<string, unknown>;
+            } catch (err) {
+                console.warn('[agenda] MP webhook: consulta de pago con token global falló:', err);
+            }
+
+            let externalRef = String(paymentPayload?.external_reference ?? '');
+            let paymentStatus = String(paymentPayload?.status ?? '');
+
+            if (!externalRef && signatureResult === 'unsigned') {
+                externalRef = String(body.external_reference ?? bodyData.external_reference ?? '');
+            }
             if (!externalRef) return c.json({ ok: true });
+
             const appt = await db.query.agendaAppointments.findFirst({ where: eq(agendaAppointments.id, externalRef) });
             if (!appt) return c.json({ ok: true });
+
+            const profile = await db.query.agendaProfessionalProfiles.findFirst({
+                where: eq(agendaProfessionalProfiles.id, appt.professionalId),
+            });
+            if (profile?.mpAccessToken && (paymentStatus !== 'approved' || !paymentPayload)) {
+                try {
+                    paymentPayload = (await getPaymentById(paymentId, { accessToken: profile.mpAccessToken })) as Record<string, unknown>;
+                    externalRef = String(paymentPayload.external_reference ?? externalRef);
+                    paymentStatus = String(paymentPayload.status ?? '');
+                } catch (err) {
+                    console.error('[agenda] MP webhook: consulta con token del profesional falló:', err);
+                    return c.json({ ok: true });
+                }
+            }
+
+            if (paymentStatus !== 'approved') return c.json({ ok: true });
+            if (externalRef !== appt.id) return c.json({ ok: true });
+
             await db.update(agendaAppointments).set({ paymentStatus: 'paid', status: 'confirmed', updatedAt: new Date() }).where(eq(agendaAppointments.id, appt.id));
             const existingPayment = await db.query.agendaPayments.findFirst({ where: and(eq(agendaPayments.appointmentId, appt.id), eq(agendaPayments.status, 'paid')) });
-            if (!existingPayment && appt.price) await db.insert(agendaPayments).values({ professionalId: appt.professionalId, appointmentId: appt.id, clientId: appt.clientId ?? null, amount: appt.price, currency: appt.currency, method: 'mercadopago', status: 'paid', paidAt: new Date(), notes: `Pago automático MP ref: ${resourceId}` });
+            if (!existingPayment && appt.price) {
+                await db.insert(agendaPayments).values({
+                    professionalId: appt.professionalId,
+                    appointmentId: appt.id,
+                    clientId: appt.clientId ?? null,
+                    amount: appt.price,
+                    currency: appt.currency,
+                    method: 'mercadopago',
+                    status: 'paid',
+                    paidAt: new Date(),
+                    notes: `Pago automático MP ref: ${paymentId}`,
+                });
+            }
             return c.json({ ok: true });
-        } catch (e) { console.error('[agenda] MP webhook error:', e); return c.json({ ok: true }); }
+        } catch (e) {
+            console.error('[agenda] MP webhook error:', e);
+            return c.json({ ok: true });
+        }
     });
 
     app.get('/mercadopago/status', requireVerifiedSession, async (c) => {

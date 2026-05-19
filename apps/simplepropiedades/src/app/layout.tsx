@@ -58,7 +58,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                 />
             </head>
             <body className={`${inter.variable} font-sans antialiased`}>
-                <ThemeProvider attribute="class" defaultTheme="dark" enableSystem disableTransitionOnChange>
+                <ThemeProvider>
                     <ClientProviders>{children}</ClientProviders>
                 </ThemeProvider>
             </body>

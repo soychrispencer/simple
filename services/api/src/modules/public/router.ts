@@ -1,6 +1,7 @@
 import { Hono } from 'hono';
 import type { Context } from 'hono';
 import { eq, desc } from 'drizzle-orm';
+import { listPublicListingsFromSource } from './listing-search.js';
 
 export interface PublicRouterDeps {
     parseVertical: (v: string | undefined) => any;
@@ -15,7 +16,15 @@ export interface PublicRouterDeps {
     usersById: Map<string, any>;
     getPublishedPublicProfileBySlug: (vertical: any, slug: string) => any;
     userCanUsePublicProfile: (user: any, vertical: any) => boolean;
-    buildPublicProfileResponse: (user: any, vertical: any, profile: any) => any;
+    getListingBySlug: (slugLike: string) => Promise<any | null>;
+    fetchActivePublicListingRowsForMarketplace: (input: {
+        vertical: string;
+        section?: string | null;
+        fetchLimit: number;
+        searchQuery?: import('./listing-search.js').PublicListingSearchQuery;
+    }) => Promise<unknown[]>;
+    mapListingRowToRecord: (row: unknown) => any;
+    buildPublicProfileResponse: (user: any, vertical: any, profile: any) => Promise<any>;
     geocodeLocationRequestSchema: any;
     normalizeListingLocation: (location: any) => any;
     geocodeLocationRemotely: (location: any) => Promise<any>;
@@ -48,6 +57,9 @@ export function createPublicRouter(deps: PublicRouterDeps) {
         usersById,
         getPublishedPublicProfileBySlug,
         userCanUsePublicProfile,
+        getListingBySlug,
+        fetchActivePublicListingRowsForMarketplace,
+        mapListingRowToRecord,
         buildPublicProfileResponse,
         geocodeLocationRequestSchema,
         normalizeListingLocation,
@@ -66,120 +78,64 @@ export function createPublicRouter(deps: PublicRouterDeps) {
 
     const app = new Hono();
 
-    app.get('/listings', (c) => {
+    app.get('/listings', async (c) => {
         const vertical = parseVertical(c.req.query('vertical'));
-        const section = c.req.query('section');
+        const sectionRaw = c.req.query('section');
         const limitRaw = Number(c.req.query('limit') ?? '60');
         const limit = Number.isFinite(limitRaw) ? Math.min(120, Math.max(1, limitRaw)) : 60;
+        const normalizedSection = sectionRaw ? parseBoostSection(sectionRaw, vertical) : null;
 
-        const q = c.req.query('q');
-        const region = c.req.query('region');
-        const commune = c.req.query('commune');
-        const priceFrom = c.req.query('price_from');
-        const priceTo = c.req.query('price_to');
-        const brand = c.req.query('brand');
-        const model = c.req.query('model');
-        const yearFrom = c.req.query('year_from');
-        const yearTo = c.req.query('year_to');
-        const fuel = c.req.query('fuel');
+        const searchQuery = {
+            q: c.req.query('q'),
+            region: c.req.query('region'),
+            commune: c.req.query('commune'),
+            priceFrom: c.req.query('price_from'),
+            priceTo: c.req.query('price_to'),
+            brand: c.req.query('brand'),
+            model: c.req.query('model'),
+            yearFrom: c.req.query('year_from'),
+            yearTo: c.req.query('year_to'),
+            fuel: c.req.query('fuel'),
+        };
 
-        const items = Array.from(listingsById.values())
-            .filter((listing) => listing.vertical === vertical)
-            .filter((listing) => isPublicListingVisible(listing))
-            .filter((listing) => {
-                if (!section) return true;
-                const normalized = parseBoostSection(section, vertical);
-                return listing.section === normalized;
-            })
-            .filter((listing) => {
-                if (!q) return true;
-                const query = q.toLowerCase();
-                const title = listing.title?.toLowerCase() ?? '';
-                const description = listing.description?.toLowerCase() ?? '';
-                const rawData = asObject(listing.rawData);
-                const basic = asObject(rawData.basic);
-                const brandField = (asString(basic.brand) || asString(rawData.brand) || '').toLowerCase();
-                const modelField = (asString(basic.model) || asString(rawData.model) || '').toLowerCase();
-                return title.includes(query) || description.includes(query) || brandField.includes(query) || modelField.includes(query);
-            })
-            .filter((listing) => {
-                if (!region) return true;
-                const locationData = asObject(listing.locationData);
-                const rawData = asObject(listing.rawData);
-                const location = asObject(rawData.location);
-                const listingRegionId = (asString(locationData.regionId) || asString(location.regionId) || '').toLowerCase();
-                return listingRegionId === region.toLowerCase();
-            })
-            .filter((listing) => {
-                if (!commune) return true;
-                const locationData = asObject(listing.locationData);
-                const rawData = asObject(listing.rawData);
-                const location = asObject(rawData.location);
-                const listingCommuneId = (asString(locationData.communeId) || asString(location.communeId) || '').toLowerCase();
-                return listingCommuneId === commune.toLowerCase();
-            })
-            .filter((listing) => {
-                if (!brand) return true;
-                const rawData = asObject(listing.rawData);
-                const basic = asObject(rawData.basic);
-                const listingBrand = (asString(basic.brand) || asString(rawData.brand) || '').toLowerCase();
-                return listingBrand === brand.toLowerCase();
-            })
-            .filter((listing) => {
-                if (!model) return true;
-                const rawData = asObject(listing.rawData);
-                const basic = asObject(rawData.basic);
-                const listingModel = (asString(basic.model) || asString(rawData.model) || '').toLowerCase();
-                return listingModel === model.toLowerCase();
-            })
-            .filter((listing) => {
-                if (!fuel) return true;
-                const rawData = asObject(listing.rawData);
-                const basic = asObject(rawData.basic);
-                const listingFuel = (asString(basic.fuelType) || asString(rawData.fuelType) || '').toLowerCase();
-                return listingFuel === fuel.toLowerCase();
-            })
-            .filter((listing) => {
-                if (!yearFrom) return true;
-                const rawData = asObject(listing.rawData);
-                const basic = asObject(rawData.basic);
-                const listingYear = parseNumberFromString(basic.year) ?? parseNumberFromString(rawData.year) ?? 0;
-                return listingYear >= Number(yearFrom);
-            })
-            .filter((listing) => {
-                if (!yearTo) return true;
-                const rawData = asObject(listing.rawData);
-                const basic = asObject(rawData.basic);
-                const listingYear = parseNumberFromString(basic.year) ?? parseNumberFromString(rawData.year) ?? 0;
-                return listingYear <= Number(yearTo);
-            })
-            .filter((listing) => {
-                const listingPrice = parseNumberFromString(listing.price) ?? 0;
-                if (priceFrom && priceTo) {
-                    return listingPrice >= Number(priceFrom) && listingPrice <= Number(priceTo);
-                }
-                if (priceFrom) return listingPrice >= Number(priceFrom);
-                if (priceTo) return listingPrice <= Number(priceTo);
-                return true;
-            })
-            .sort((a, b) => b.updatedAt - a.updatedAt)
-            .slice(0, limit)
-            .map((listing) => listingToPublicResponse(listing));
+        const items = await listPublicListingsFromSource({
+            vertical,
+            section: normalizedSection,
+            limit,
+            searchQuery,
+            deps: {
+                asString,
+                asObject,
+                parseNumberFromString,
+                isPublicListingVisible,
+                listingToPublicResponse,
+                fetchActiveRowsFromDb: () =>
+                    fetchActivePublicListingRowsForMarketplace({
+                        vertical,
+                        section: normalizedSection,
+                        fetchLimit: Math.min(500, Math.max(limit * 4, limit)),
+                        searchQuery,
+                    }),
+                mapRowToListing: mapListingRowToRecord,
+                listingsById,
+            },
+        });
 
         return c.json({ ok: true, items });
     });
 
-    app.get('/listings/:slug', (c) => {
+    app.get('/listings/:slug', async (c) => {
         const vertical = parseVertical(c.req.query('vertical'));
         const slug = c.req.param('slug') ?? '';
-        const listing = Array.from(listingsById.values())
-            .find((item) => item.vertical === vertical && isPublicListingVisible(item) && matchesListingSlug(item, slug));
+        const listing = await getListingBySlug(slug);
 
-        if (!listing) return c.json({ ok: false, error: 'Publicación no encontrada' }, 404);
+        if (!listing || listing.vertical !== vertical || !isPublicListingVisible(listing)) {
+            return c.json({ ok: false, error: 'Publicación no encontrada' }, 404);
+        }
         return c.json({ ok: true, item: listingToPublicResponse(listing) });
     });
 
-    app.get('/profiles/:slug', (c) => {
+    app.get('/profiles/:slug', async (c) => {
         const vertical = parseVertical(c.req.query('vertical'));
         const slug = c.req.param('slug') ?? '';
         const profile = getPublishedPublicProfileBySlug(vertical, slug);
@@ -190,7 +146,7 @@ export function createPublicRouter(deps: PublicRouterDeps) {
             return c.json({ ok: false, error: 'Perfil no encontrado' }, 404);
         }
 
-        const payload = buildPublicProfileResponse(user, vertical, profile);
+        const payload = await buildPublicProfileResponse(user, vertical, profile);
         return c.json({ ok: true, ...payload });
     });
 

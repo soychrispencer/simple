@@ -163,7 +163,7 @@ export default function MensajesPage() {
                     ) : filtered.length === 0 ? (
                         <PanelEmptyState title="Sin conversaciones" description={folder === 'inbox' ? 'Cuando un interesado te escriba desde una propiedad aparecerá aquí.' : folder === 'archived' ? 'Todavía no has archivado conversaciones.' : 'No hay conversaciones marcadas como spam.'} />
                     ) : (
-                        <PanelList className="border-0 rounded-[18px]">
+                        <PanelList className="border-0 rounded-card">
                             <PanelListHeader className="grid-cols-[1fr_70px] gap-4">
                                 <span>Conversación</span>
                                 <span>Tiempo</span>
@@ -253,7 +253,7 @@ export default function MensajesPage() {
                                 ) : entries.map((entry) => (
                                     <div key={entry.id} className={`flex ${entry.isMine ? 'justify-end' : 'justify-start'}`}>
                                         <div
-                                            className="max-w-[85%] rounded-[18px] border px-3.5 py-3"
+                                            className="max-w-[85%] rounded-card border px-3.5 py-3"
                                             style={{
                                                 borderColor: entry.isMine ? 'var(--button-primary-border)' : 'var(--border)',
                                                 background: entry.isMine ? 'var(--button-primary-bg)' : 'var(--bg-subtle)',

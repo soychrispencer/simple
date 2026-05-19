@@ -52,7 +52,7 @@ import {
     type CrmListingLeadDetail,
 } from '@simple/utils';
 import { fetchSubscriptionCatalog } from '@/lib/payments';
-import { PanelButton, PanelCard, PanelEmptyState, PanelStatCard, PanelStatusBadge } from '@simple/ui';
+import { CrmModalShell, PanelButton, PanelCard, PanelEmptyState, PanelStatCard, PanelStatusBadge } from '@simple/ui';
 
 type LeadTab = 'publicaciones' | 'servicios';
 type AnyLead = CrmLead | CrmListingLead;
@@ -643,16 +643,16 @@ export default function CRMPage() {
             />
 
             {eligibilityLoading ? (
-                <div className="mt-5 rounded-[22px] border px-5 py-6 text-sm" style={{ borderColor: 'var(--border)', background: 'var(--bg-subtle)', color: 'var(--fg-muted)' }}>
+                <div className="mt-5 rounded-card border px-5 py-6 text-sm crm-subtle-panel">
                     Verificando acceso CRM...
                 </div>
             ) : !crmEligible ? (
                 <PanelCard size="lg" className="mt-5">
                     <div className="space-y-3">
-                        <p className="text-xs font-medium uppercase tracking-[0.18em]" style={{ color: 'var(--fg-muted)' }}>CRM Pro</p>
+                        <p className="text-xs font-medium uppercase tracking-[0.18em] crm-text-muted">CRM Pro</p>
                         <div>
-                            <h2 className="text-2xl font-semibold" style={{ color: 'var(--fg)' }}>Tu plan actual es {planLabel}.</h2>
-                            <p className="mt-2 text-sm" style={{ color: 'var(--fg-secondary)' }}>
+                            <h2 className="text-2xl font-semibold crm-text-fg">Tu plan actual es {planLabel}.</h2>
+                            <p className="mt-2 text-sm crm-text-secondary">
                                 El CRM comercial completo para leads de publicaciones está disponible desde Pro y Empresa.
                             </p>
                         </div>
@@ -677,7 +677,7 @@ export default function CRMPage() {
                 <PanelStatCard value={String(stats.urgent)} label="Sin gestión" meta="Requieren atención" />
             </div>
 
-            <div className="rounded-[18px] border px-3 py-3" style={{ borderColor: 'var(--border)', background: 'var(--bg-subtle)' }}>
+            <div className="rounded-card border px-3 py-3 crm-subtle-card">
                 <div className="space-y-2.5">
                     <div className="flex flex-col gap-2.5 lg:flex-row lg:items-center lg:justify-between">
                         <LeadToggleGroup
@@ -714,7 +714,7 @@ export default function CRMPage() {
                                     setColumnManagerOpen(true);
                                     setColumnError(null);
                                 }}
-                                className="inline-flex h-10 shrink-0 items-center rounded-full border px-3 text-sm font-medium transition"
+                                className="inline-flex h-10 shrink-0 items-center rounded-full border px-3 text-sm font-medium transition crm-secondary-btn"
                                 style={{
                                     borderColor: 'var(--border)',
                                     background: 'var(--surface)',
@@ -738,7 +738,7 @@ export default function CRMPage() {
             <div className="mt-5">
                 <PanelCard className="overflow-hidden" size="sm">
                     {activeLoading ? (
-                        <div className="px-4 py-6 text-sm" style={{ color: 'var(--fg-muted)' }}>Cargando leads...</div>
+                        <div className="px-4 py-6 text-sm crm-text-muted">Cargando leads...</div>
                     ) : filtered.length === 0 ? (
                         <PanelEmptyState
                             title="Sin leads"
@@ -748,7 +748,7 @@ export default function CRMPage() {
                         />
                     ) : leadView === 'list' ? (
                         <>
-                            <div className="grid grid-cols-[1fr_auto] gap-3 px-4 py-2.5 text-xs font-medium uppercase tracking-wider" style={{ background: 'var(--bg-muted)', color: 'var(--fg-muted)' }}>
+                            <div className="grid grid-cols-[1fr_auto] gap-3 px-4 py-2.5 text-xs font-medium uppercase tracking-wider crm-list-head">
                                 <span>Contactos</span>
                                 <span>Etapa</span>
                             </div>
@@ -772,9 +772,9 @@ export default function CRMPage() {
                                             }}
                                             className="min-w-0 text-left"
                                         >
-                                            <p className="truncate text-sm font-medium" style={{ color: 'var(--fg)' }}>{lead.contactName}</p>
-                                            <p className="mt-1 truncate text-xs" style={{ color: 'var(--fg-secondary)' }}>{simpleLeadListLabel(lead)}</p>
-                                            <div className="mt-2 flex flex-wrap items-center gap-2 text-xs" style={{ color: 'var(--fg-muted)' }}>
+                                            <p className="truncate text-sm font-medium crm-text-fg">{lead.contactName}</p>
+                                            <p className="mt-1 truncate text-xs crm-text-secondary">{simpleLeadListLabel(lead)}</p>
+                                            <div className="mt-2 flex flex-wrap items-center gap-2 text-xs crm-text-muted">
                                                 {'source' in lead ? <LeadSourceInline lead={lead} /> : null}
                                                 <span>{lead.createdAgo}</span>
                                             </div>
@@ -811,7 +811,7 @@ export default function CRMPage() {
                                 {pipelineStages.map((stage) => (
                                     <div
                                         key={stage.key}
-                                        className="rounded-[18px] border transition-colors"
+                                        className="rounded-card border transition-colors"
                                         onDragOver={(event) => {
                                             if (!dragLeadId) return;
                                             event.preventDefault();
@@ -830,11 +830,11 @@ export default function CRMPage() {
                                             background: dropColumnId === stage.key ? 'var(--bg)' : 'var(--bg-subtle)',
                                         }}
                                     >
-                                        <div className="border-b px-3 py-3" style={{ borderColor: 'var(--border)' }}>
+                                        <div className="border-b px-3 py-3 crm-border-b">
                                             <div className="flex items-center justify-between gap-3">
                                                 <div>
-                                                    <p className="text-sm font-semibold" style={{ color: 'var(--fg)' }}>{stage.label}</p>
-                                                    <p className="text-[11px]" style={{ color: 'var(--fg-muted)' }}>
+                                                    <p className="text-sm font-semibold crm-text-fg">{stage.label}</p>
+                                                    <p className="text-[11px] crm-text-muted">
                                                         {stage.count} lead{stage.count === 1 ? '' : 's'} · {stage.statusLabel}
                                                     </p>
                                                 </div>
@@ -843,7 +843,7 @@ export default function CRMPage() {
                                         </div>
                                         <div className="space-y-2 p-2">
                                             {stage.items.length === 0 ? (
-                                                <div className="rounded-[14px] border border-dashed px-3 py-4 text-center text-xs" style={{ borderColor: 'var(--border)', color: 'var(--fg-muted)' }}>
+                                                <div className="rounded-[14px] border border-dashed px-3 py-4 text-center text-xs crm-empty-dashed">
                                                     Sin leads en esta etapa
                                                 </div>
                                             ) : stage.items.map((lead) => {
@@ -878,12 +878,12 @@ export default function CRMPage() {
                                                             }}
                                                             className="w-full text-left"
                                                         >
-                                                            <p className="truncate text-sm font-medium" style={{ color: 'var(--fg)' }}>{lead.contactName}</p>
-                                                            <p className="mt-1 truncate text-xs" style={{ color: 'var(--fg-secondary)' }}>{simpleLeadListLabel(lead)}</p>
-                                                            <div className="mt-2 flex flex-wrap items-center gap-2 text-xs" style={{ color: 'var(--fg-muted)' }}>
+                                                            <p className="truncate text-sm font-medium crm-text-fg">{lead.contactName}</p>
+                                                            <p className="mt-1 truncate text-xs crm-text-secondary">{simpleLeadListLabel(lead)}</p>
+                                                            <div className="mt-2 flex flex-wrap items-center gap-2 text-xs crm-text-muted">
                                                                 {'source' in lead ? <LeadSourceInline lead={lead} /> : null}
                                                             </div>
-                                                            <p className="mt-2 text-[11px]" style={{ color: 'var(--fg-muted)' }}>{lead.createdAgo}</p>
+                                                            <p className="mt-2 text-[11px] crm-text-muted">{lead.createdAgo}</p>
                                                         </button>
                                                         <div className="mt-2 flex justify-end">
                                                             <LeadQuickActions
@@ -907,28 +907,28 @@ export default function CRMPage() {
             <LeadDetailModal open={detailVisible} onClose={closeLeadDetail}>
                         <div className="mb-4 flex items-center justify-between gap-3">
                             <div>
-                                <p className="text-sm font-medium" style={{ color: 'var(--fg)' }}>Detalle del lead</p>
-                                <p className="text-xs" style={{ color: 'var(--fg-muted)' }}>Gestión comercial y contexto del contacto</p>
+                                <p className="text-sm font-medium crm-text-fg">Detalle del lead</p>
+                                <p className="text-xs crm-text-muted">Gestión comercial y contexto del contacto</p>
                             </div>
                             <button
                                 type="button"
                                 onClick={closeLeadDetail}
-                                className="rounded-full border px-3 py-1.5 text-xs font-medium"
-                                style={{ borderColor: 'var(--border)', color: 'var(--fg-secondary)', background: 'var(--surface)' }}
+                                className="rounded-full border px-3 py-1.5 text-xs font-medium crm-close-btn"
+                               
                             >
                                 Cerrar
                             </button>
                         </div>
                         {detailLoading || !detail ? (
-                            <div className="px-1 py-6 text-sm" style={{ color: 'var(--fg-muted)' }}>Cargando detalle...</div>
+                            <div className="px-1 py-6 text-sm crm-text-muted">Cargando detalle...</div>
                         ) : (
                             <div className="space-y-5">
-                            <div className="rounded-[20px] border p-4" style={{ borderColor: 'var(--border)', background: 'var(--bg-subtle)' }}>
+                            <div className="rounded-card border p-4 crm-subtle-card">
                                 <div className="flex flex-col gap-3">
                                     <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
                                         <div>
-                                            <p className="text-lg font-semibold" style={{ color: 'var(--fg)' }}>{detail.item.contactName}</p>
-                                            <p className="text-sm" style={{ color: 'var(--fg-muted)' }}>{summarizeLead(detail.item)}</p>
+                                            <p className="text-lg font-semibold crm-text-fg">{detail.item.contactName}</p>
+                                            <p className="text-sm">{summarizeLead(detail.item)}</p>
                                         </div>
                                         <div className="flex flex-col gap-2 lg:items-end">
                                             <div className="flex flex-wrap items-center gap-2 whitespace-nowrap">
@@ -937,7 +937,7 @@ export default function CRMPage() {
                                                 {detail.item.attentionLabel ? <PanelStatusBadge label={detail.item.attentionLabel} tone={crmAttentionTone(detail.item.attentionLevel)} /> : null}
                                             </div>
                                             <div className="flex items-center gap-2">
-                                                <span className="text-[11px] font-medium uppercase tracking-[0.14em]" style={{ color: 'var(--fg-muted)' }}>Etapa</span>
+                                                <span className="text-[11px] font-medium uppercase tracking-[0.14em] crm-label-muted">Etapa</span>
                                                 {'listing' in detail.item ? (
                                                     <PipelineColumnSelect
                                                         columns={pipelineColumns}
@@ -956,7 +956,7 @@ export default function CRMPage() {
                                         </div>
                                     </div>
                                     <div>
-                                        <p className="text-[11px] font-medium uppercase tracking-[0.16em]" style={{ color: 'var(--fg-muted)' }}>Contacto</p>
+                                        <p className="text-[11px] font-medium uppercase tracking-[0.16em] crm-label-muted">Contacto</p>
                                     </div>
                                     <div className="grid gap-3 sm:grid-cols-2">
                                         <LeadInfoItem icon={IconUser} label="Nombre" value={detail.item.contactName} />
@@ -979,7 +979,7 @@ export default function CRMPage() {
                                         onAction={(action) => void handleQuickAction(detail.item, action)}
                                     />
                                     {'thread' in detail && detail.thread?.id ? (
-                                        <Link href={`/panel/mensajes?thread=${encodeURIComponent(detail.thread.id)}`} className="inline-flex items-center gap-2 text-sm font-medium" style={{ color: 'var(--fg-secondary)' }}>
+                                        <Link href={`/panel/mensajes?thread=${encodeURIComponent(detail.thread.id)}`} className="inline-flex items-center gap-2 text-sm font-medium">
                                             <IconMessageCircle size={15} />
                                             Abrir conversación
                                         </Link>
@@ -1013,14 +1013,14 @@ export default function CRMPage() {
                                 {detail.item.tags.length > 0 ? (
                                     <div className="mt-3 flex flex-wrap gap-2">
                                         {detail.item.tags.map((tag) => (
-                                            <span key={tag} className="rounded-full px-2.5 py-1 text-xs" style={{ background: 'var(--bg-muted)', color: 'var(--fg-secondary)' }}>
+                                            <span key={tag} className="rounded-full px-2.5 py-1 text-xs crm-tag">
                                                 #{tag}
                                             </span>
                                         ))}
                                     </div>
                                 ) : null}
                                 {'message' in detail.item && detail.item.message ? (
-                                    <div className="mt-3 rounded-xl border px-3 py-2 text-sm" style={{ borderColor: 'var(--border)', background: 'var(--bg)', color: 'var(--fg-secondary)' }}>
+                                    <div className="mt-3 rounded-xl border px-3 py-2 text-sm crm-detail-box">
                                         {detail.item.message}
                                     </div>
                                 ) : null}
@@ -1030,7 +1030,7 @@ export default function CRMPage() {
                                 <div className="grid gap-3 sm:grid-cols-2">
                                     {'listing' in detail.item ? (
                                         <label className="space-y-1.5">
-                                            <span className="text-xs font-medium" style={{ color: 'var(--fg-muted)' }}>Columna del pipeline</span>
+                                            <span className="text-xs font-medium crm-label-muted">Columna del pipeline</span>
                                             <PipelineColumnSelect
                                                 columns={pipelineColumns}
                                                 value={pipelineColumnIdValue}
@@ -1039,7 +1039,7 @@ export default function CRMPage() {
                                         </label>
                                     ) : (
                                         <label className="space-y-1.5">
-                                            <span className="text-xs font-medium" style={{ color: 'var(--fg-muted)' }}>Estado</span>
+                                            <span className="text-xs font-medium crm-label-muted">Estado</span>
                                             <select className="form-select h-10 text-sm" value={statusValue} onChange={(event) => setStatusValue(event.target.value as CrmLeadStatus)}>
                                                 <option value="new">Nuevo</option>
                                                 <option value="contacted">Contactado</option>
@@ -1049,7 +1049,7 @@ export default function CRMPage() {
                                         </label>
                                     )}
                                     <label className="space-y-1.5">
-                                        <span className="text-xs font-medium" style={{ color: 'var(--fg-muted)' }}>Prioridad</span>
+                                        <span className="text-xs font-medium crm-label-muted">Prioridad</span>
                                         <select className="form-select h-10 text-sm" value={priorityValue} onChange={(event) => setPriorityValue(event.target.value as CrmLeadPriority)}>
                                             <option value="low">Baja</option>
                                             <option value="medium">Media</option>
@@ -1057,7 +1057,7 @@ export default function CRMPage() {
                                         </select>
                                     </label>
                                     <label className="space-y-1.5">
-                                        <span className="text-xs font-medium" style={{ color: 'var(--fg-muted)' }}>Asignado a</span>
+                                        <span className="text-xs font-medium crm-label-muted">Asignado a</span>
                                         <select className="form-select h-10 text-sm" value={assignedToValue} onChange={(event) => setAssignedToValue(event.target.value)}>
                                             <option value="">Sin asignar</option>
                                             {detail.assignees.map((assignee) => (
@@ -1066,19 +1066,19 @@ export default function CRMPage() {
                                         </select>
                                     </label>
                                     <label className="space-y-1.5">
-                                        <span className="text-xs font-medium" style={{ color: 'var(--fg-muted)' }}>Etiquetas</span>
+                                        <span className="text-xs font-medium crm-label-muted">Etiquetas</span>
                                         <input className="form-input h-10 text-sm" value={tagsValue} onChange={(event) => setTagsValue(event.target.value)} placeholder="ej. caliente, contado, inversionista" />
                                     </label>
                                     <label className="space-y-1.5 sm:col-span-2">
-                                        <span className="text-xs font-medium" style={{ color: 'var(--fg-muted)' }}>Motivo de cierre</span>
+                                        <span className="text-xs font-medium crm-label-muted">Motivo de cierre</span>
                                         <input className="form-input h-10 text-sm" value={closeReasonValue} onChange={(event) => setCloseReasonValue(event.target.value)} placeholder="ej. vendió con otra corredora" />
                                     </label>
                                     <label className="space-y-1.5 sm:col-span-2">
-                                        <span className="text-xs font-medium" style={{ color: 'var(--fg-muted)' }}>Próxima tarea</span>
+                                        <span className="text-xs font-medium crm-label-muted">Próxima tarea</span>
                                         <input className="form-input h-10 text-sm" value={nextTaskTitle} onChange={(event) => setNextTaskTitle(event.target.value)} placeholder="Ej. Llamar y agendar visita" />
                                     </label>
                                     <label className="space-y-1.5">
-                                        <span className="text-xs font-medium" style={{ color: 'var(--fg-muted)' }}>Fecha y hora</span>
+                                        <span className="text-xs font-medium crm-label-muted">Fecha y hora</span>
                                         <input className="form-input h-10 text-sm" type="datetime-local" value={nextTaskAt} onChange={(event) => setNextTaskAt(event.target.value)} />
                                     </label>
                                     <div className="flex items-end">
@@ -1093,7 +1093,7 @@ export default function CRMPage() {
                                 <form className="space-y-3" onSubmit={(event) => void handleAddNote(event)}>
                                     <textarea className="form-textarea min-h-28 text-sm" value={noteBody} onChange={(event) => setNoteBody(event.target.value)} placeholder="Ej. Cliente con interés real, pidió visita mañana." />
                                     <div className="flex items-center justify-between gap-3">
-                                        <div className="text-xs" style={{ color: error ? 'var(--color-error)' : 'var(--fg-muted)' }}>
+                                        <div className="text-xs crm-text-muted" style={{ color: error ? 'var(--color-error)' : 'var(--fg-muted)' }}>
                                             {error || feedback || 'Cada cambio se registra en el timeline.'}
                                         </div>
                                         <PanelButton type="submit" disabled={addingNote || !noteBody.trim()}>
@@ -1105,7 +1105,7 @@ export default function CRMPage() {
 
                             <LeadAccordionSection title="Timeline" subtitle="Actividad completa del lead.">
                                 {detail.activities.length === 0 ? (
-                                    <p className="text-sm" style={{ color: 'var(--fg-muted)' }}>Todavía no hay actividad registrada.</p>
+                                    <p className="text-sm">Todavía no hay actividad registrada.</p>
                                 ) : (
                                     <div className="space-y-2">
                                         {detail.activities.map((activity) => (
@@ -1157,35 +1157,10 @@ function LeadDetailModal(props: {
     onClose: () => void;
     children: ReactNode;
 }) {
-    useEffect(() => {
-        if (!props.open) return;
-        const handleKeyDown = (event: KeyboardEvent) => {
-            if (event.key === 'Escape') props.onClose();
-        };
-        window.addEventListener('keydown', handleKeyDown);
-        return () => window.removeEventListener('keydown', handleKeyDown);
-    }, [props.open, props.onClose]);
-
-    if (!props.open) return null;
-
     return (
-        <div className="fixed inset-0 z-80 flex items-center justify-center px-4 py-5">
-            <button
-                type="button"
-                aria-label="Cerrar detalle"
-                onClick={props.onClose}
-                className="absolute inset-0"
-                style={{ background: 'rgba(15, 23, 42, 0.44)', backdropFilter: 'blur(8px)' }}
-            />
-            <div
-                className="relative z-1 w-full max-w-[1040px] max-h-[calc(100vh-2.5rem)] overflow-hidden rounded-[28px] border shadow-[0_30px_90px_rgba(15,23,42,0.18)]"
-                style={{ borderColor: 'var(--border)', background: 'var(--surface)' }}
-            >
-                <div className="max-h-[calc(100vh-2.5rem)] overflow-y-auto p-5 sm:p-6">
-                    {props.children}
-                </div>
-            </div>
-        </div>
+        <CrmModalShell open={props.open} onClose={props.onClose} overlayLabel="Cerrar detalle">
+            {props.children}
+        </CrmModalShell>
     );
 }
 
@@ -1206,50 +1181,33 @@ function PipelineColumnsModal(props: {
     onSave: (columnId: string) => void;
     onDelete: (columnId: string) => void;
 }) {
-    useEffect(() => {
-        if (!props.open) return;
-        const handleKeyDown = (event: KeyboardEvent) => {
-            if (event.key === 'Escape') props.onClose();
-        };
-        window.addEventListener('keydown', handleKeyDown);
-        return () => window.removeEventListener('keydown', handleKeyDown);
-    }, [props.onClose, props.open]);
-
-    if (!props.open) return null;
-
     return (
-        <div className="fixed inset-0 z-90 flex items-center justify-center px-4 py-5">
-            <button
-                type="button"
-                aria-label="Cerrar columnas"
-                onClick={props.onClose}
-                className="absolute inset-0"
-                style={{ background: 'rgba(15, 23, 42, 0.4)', backdropFilter: 'blur(8px)' }}
-            />
-            <div
-                className="relative z-1 w-full max-w-[860px] max-h-[calc(100vh-2.5rem)] overflow-hidden rounded-[28px] border shadow-[0_30px_90px_rgba(15,23,42,0.18)]"
-                style={{ borderColor: 'var(--border)', background: 'var(--surface)' }}
-            >
-                <div className="max-h-[calc(100vh-2.5rem)] overflow-y-auto p-5 sm:p-6">
+        <CrmModalShell
+            open={props.open}
+            onClose={props.onClose}
+            overlayLabel="Cerrar columnas"
+            maxWidthClass="max-w-[860px]"
+            zClass="z-90"
+        >
                     <div className="flex items-start justify-between gap-4">
                         <div>
-                            <p className="text-lg font-semibold" style={{ color: 'var(--fg)' }}>Columnas del pipeline</p>
-                            <p className="mt-1 text-sm" style={{ color: 'var(--fg-muted)' }}>
+                            <p className="text-lg font-semibold crm-text-fg">Columnas del pipeline</p>
+                            <p className="mt-1 text-sm crm-text-muted">
                                 Crea y ordena tus propias columnas. Cada una sigue perteneciendo a una etapa base del CRM.
                             </p>
                         </div>
                         <button
                             type="button"
                             onClick={props.onClose}
-                            className="rounded-full border px-3 py-1.5 text-xs font-medium"
-                            style={{ borderColor: 'var(--border)', color: 'var(--fg-secondary)', background: 'var(--surface)' }}
+                            className="rounded-full border px-3 py-1.5 text-xs font-medium crm-close-btn"
+                           
                         >
                             Cerrar
                         </button>
                     </div>
 
-                    <form className="mt-5 rounded-[20px] border p-4" style={{ borderColor: 'var(--border)', background: 'var(--bg-subtle)' }} onSubmit={props.onCreate}>
-                        <p className="text-sm font-medium" style={{ color: 'var(--fg)' }}>Nueva columna</p>
+                    <form className="mt-5 rounded-card border p-4 crm-subtle-card" onSubmit={props.onCreate}>
+                        <p className="text-sm font-medium crm-text-fg">Nueva columna</p>
                         <div className="mt-3 grid gap-3 sm:grid-cols-[minmax(0,1fr)_180px_auto]">
                             <input
                                 className="form-input h-10 text-sm"
@@ -1273,7 +1231,7 @@ function PipelineColumnsModal(props: {
                     </form>
 
                     {props.error ? (
-                        <div className="mt-4 rounded-xl border px-3 py-2 text-sm" style={{ borderColor: 'var(--color-error-subtle)', background: 'var(--color-error-subtle)', color: 'var(--color-error)' }}>
+                        <div className="mt-4 rounded-xl border px-3 py-2 text-sm crm-error-banner">
                             {props.error}
                         </div>
                     ) : null}
@@ -1282,7 +1240,7 @@ function PipelineColumnsModal(props: {
                         {props.columns.map((column, index) => {
                             const draft = props.drafts[column.id] ?? { name: column.name, status: column.status };
                             return (
-                                <div key={column.id} className="rounded-[20px] border p-4" style={{ borderColor: 'var(--border)', background: 'var(--surface)' }}>
+                                <div key={column.id} className="rounded-card border p-4 crm-subtle-card">
                                     <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_180px_auto]">
                                         <input
                                             className="form-input h-10 text-sm"
@@ -1303,7 +1261,7 @@ function PipelineColumnsModal(props: {
                                                 type="button"
                                                 onClick={() => props.onMove(column.id, 'left')}
                                                 disabled={props.saving || index === 0}
-                                                className="inline-flex h-10 items-center rounded-full border px-3 text-sm font-medium"
+                                                className="inline-flex h-10 items-center rounded-full border px-3 text-sm font-medium crm-secondary-btn"
                                                 style={{ borderColor: 'var(--border)', color: 'var(--fg-secondary)', opacity: props.saving || index === 0 ? 0.4 : 1 }}
                                             >
                                                 Mover
@@ -1312,7 +1270,7 @@ function PipelineColumnsModal(props: {
                                                 type="button"
                                                 onClick={() => props.onMove(column.id, 'right')}
                                                 disabled={props.saving || index === props.columns.length - 1}
-                                                className="inline-flex h-10 items-center rounded-full border px-3 text-sm font-medium"
+                                                className="inline-flex h-10 items-center rounded-full border px-3 text-sm font-medium crm-secondary-btn"
                                                 style={{ borderColor: 'var(--border)', color: 'var(--fg-secondary)', opacity: props.saving || index === props.columns.length - 1 ? 0.4 : 1 }}
                                             >
                                                 Adelante
@@ -1324,14 +1282,14 @@ function PipelineColumnsModal(props: {
                                                 type="button"
                                                 onClick={() => props.onDelete(column.id)}
                                                 disabled={props.saving}
-                                                className="inline-flex h-10 items-center rounded-full border px-3 text-sm font-medium"
+                                                className="inline-flex h-10 items-center rounded-full border px-3 text-sm font-medium crm-danger-outline"
                                                 style={{ borderColor: 'var(--border)', color: 'var(--color-error)', opacity: props.saving ? 0.45 : 1 }}
                                             >
                                                 Eliminar
                                             </button>
                                         </div>
                                     </div>
-                                    <div className="mt-2 flex items-center gap-2 text-xs" style={{ color: 'var(--fg-muted)' }}>
+                                    <div className="mt-2 flex items-center gap-2 text-xs crm-text-muted">
                                         <PanelStatusBadge label={column.statusLabel} tone={crmStageTone(column.status)} />
                                         <span>Posición {index + 1}</span>
                                     </div>
@@ -1339,9 +1297,7 @@ function PipelineColumnsModal(props: {
                             );
                         })}
                     </div>
-                </div>
-            </div>
-        </div>
+        </CrmModalShell>
     );
 }
 
@@ -1461,7 +1417,7 @@ function leadSourceVisual(lead: CrmListingLead) {
 function LeadSourceInline(props: { lead: CrmListingLead }) {
     const { Icon, label } = leadSourceVisual(props.lead);
     return (
-        <span className="inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[11px]" style={{ background: 'var(--bg-muted)', color: 'var(--fg-muted)' }}>
+        <span className="inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[11px] crm-source-pill">
             <Icon size={12} />
             {label}
         </span>
@@ -1506,7 +1462,7 @@ function LeadToggleGroup<K extends string>(props: {
 
 function LeadViewToggle(props: { value: LeadView; onChange: (value: LeadView) => void }) {
     return (
-        <div className="inline-flex items-center gap-1 rounded-full border p-1" style={{ borderColor: 'var(--bg-muted)', background: 'transparent' }}>
+        <div className="inline-flex items-center gap-1 rounded-full border p-1 crm-view-toggle">
             <button
                 type="button"
                 onClick={() => props.onChange('pipeline')}
@@ -1669,13 +1625,8 @@ function LeadQuickActions(props: {
                     }}
                     disabled={disabled || props.busy}
                     title={label}
-                    className={`inline-flex items-center rounded-full border transition ${props.compact ? 'h-8 w-8 justify-center' : 'gap-2 px-3 py-2 text-xs font-medium'}`}
-                    style={{
-                        borderColor: 'var(--border)',
-                        background: 'var(--surface)',
-                        color: disabled ? 'var(--fg-muted)' : 'var(--fg-secondary)',
-                        opacity: disabled || props.busy ? 0.45 : 1,
-                    }}
+                    className={`inline-flex items-center rounded-full border transition crm-quick-action ${disabled ? 'crm-quick-action--muted' : ''} ${props.compact ? 'h-8 w-8 justify-center' : 'gap-2 px-3 py-2 text-xs font-medium'}`}
+                    style={{ opacity: disabled || props.busy ? 0.45 : 1 }}
                 >
                     <Icon size={15} />
                     {!props.compact ? label : null}
@@ -1689,13 +1640,13 @@ function LeadInfoItem(props: { icon: typeof IconUser; label: string; value: stri
     if (!props.value) return null;
     const Icon = props.icon;
     return (
-        <div className="rounded-[18px] border px-3.5 py-3" style={{ borderColor: 'var(--border)', background: 'var(--surface)' }}>
+        <div className="rounded-card border px-3.5 py-3 crm-info-card">
             <div className="flex items-start gap-3">
-                <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full" style={{ background: 'var(--bg-muted)', color: 'var(--fg-secondary)' }}>
+                <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full crm-info-icon">
                     <Icon size={16} />
                 </span>
                 <div className="min-w-0">
-                    <p className="text-[11px] font-medium uppercase tracking-[0.16em]" style={{ color: 'var(--fg-muted)' }}>{props.label}</p>
+                    <p className="text-[11px] font-medium uppercase tracking-[0.16em] crm-label-muted">{props.label}</p>
                     <p className={`mt-1.5 text-sm font-medium ${props.mono ? 'font-mono text-[13px]' : ''}`} style={{ color: 'var(--fg)', wordBreak: 'break-word' }}>
                         {props.value}
                     </p>
@@ -1707,17 +1658,17 @@ function LeadInfoItem(props: { icon: typeof IconUser; label: string; value: stri
 
 function LeadAccordionSection(props: { title: string; subtitle?: string; defaultOpen?: boolean; children: ReactNode }) {
     return (
-        <details className="group rounded-[18px] border" style={{ borderColor: 'var(--border)', background: 'var(--bg)' }} open={props.defaultOpen}>
+        <details className="group rounded-card border crm-accordion" open={props.defaultOpen}>
             <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-3">
                 <div>
-                    <p className="text-sm font-medium" style={{ color: 'var(--fg)' }}>{props.title}</p>
-                    {props.subtitle ? <p className="text-xs" style={{ color: 'var(--fg-muted)' }}>{props.subtitle}</p> : null}
+                    <p className="text-sm font-medium crm-text-fg">{props.title}</p>
+                    {props.subtitle ? <p className="text-xs crm-text-muted">{props.subtitle}</p> : null}
                 </div>
-                <span className="inline-flex h-8 w-8 items-center justify-center rounded-full transition group-open:rotate-180" style={{ background: 'var(--bg-subtle)', color: 'var(--fg-muted)' }}>
+                <span className="inline-flex h-8 w-8 items-center justify-center rounded-full transition group-open:rotate-180 crm-accordion-toggle">
                     <IconChevronDown size={16} />
                 </span>
             </summary>
-            <div className="border-t px-4 py-4" style={{ borderColor: 'var(--border)' }}>
+            <div className="border-t px-4 py-4 crm-border-b">
                 {props.children}
             </div>
         </details>
@@ -1774,14 +1725,14 @@ function toDateTimeLocalValue(timestamp: number | null): string {
 
 function ActivityCard(props: { activity: CrmLeadActivity | CrmListingLeadActivity }) {
     return (
-        <div className="rounded-xl border px-3 py-2.5" style={{ borderColor: 'var(--border)', background: 'var(--bg)' }}>
+        <div className="rounded-xl border px-3 py-2.5 crm-activity-card">
             <div className="flex items-center justify-between gap-3">
-                <p className="text-sm font-medium" style={{ color: 'var(--fg)' }}>{props.activity.label}</p>
-                <p className="text-xs" style={{ color: 'var(--fg-muted)' }}>{props.activity.createdAgo}</p>
+                <p className="text-sm font-medium crm-text-fg">{props.activity.label}</p>
+                <p className="text-xs crm-text-muted">{props.activity.createdAgo}</p>
             </div>
-            <p className="mt-1 text-sm" style={{ color: 'var(--fg-secondary)' }}>{props.activity.body}</p>
+            <p className="mt-1 text-sm crm-text-muted">{props.activity.body}</p>
             {props.activity.actor ? (
-                <p className="mt-1 text-xs" style={{ color: 'var(--fg-muted)' }}>{props.activity.actor.name}</p>
+                <p className="mt-1 text-xs crm-text-muted">{props.activity.actor.name}</p>
             ) : null}
         </div>
     );

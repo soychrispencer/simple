@@ -6,6 +6,7 @@ import { usePathname } from 'next/navigation';
 import { useEffect, useMemo, useState } from 'react';
 import { IconX } from '@tabler/icons-react';
 import { Sidebar, type NavItem, type UserInfo } from '../sidebar/app-sidebar';
+import { cleanPanelPath, resolveActiveNavHref } from './resolve-active-nav';
 
 type TablerIcon = ComponentType<{ size?: number; stroke?: number }>;
 
@@ -24,22 +25,28 @@ export type PanelShellProps = {
     isVerified?: boolean;
     mobileMenuEventName?: string;
     mobileDrawerTitle?: string;
+    /** Override pathname for SPA panels (e.g. `/?section=home`). */
+    activePathname?: string;
+    /** Override del ítem activo en sidebar y drawer (p. ej. desde `panelSectionHref`). */
+    activeHref?: string | null;
 };
 
 function PanelNavList({
     items,
-    pathname,
+    activeHref,
     onNavigate,
 }: {
     items: NavItem[];
-    pathname: string;
+    activeHref: string | null;
     onNavigate?: () => void;
 }) {
+
     return (
         <nav className="pr-1 space-y-2">
             {items.map((item) => {
                 const Icon = item.icon;
-                const active = pathname === item.href || pathname.startsWith(`${item.href}/`);
+                const active =
+                    activeHref != null && cleanPanelPath(activeHref) === cleanPanelPath(item.href);
 
                 return (
                     <Link
@@ -96,11 +103,18 @@ export function PanelShell({
     showVerificationBanner = true,
     isVerified = true,
     mobileMenuEventName = 'simple:panel-mobile-open',
-    mobileDrawerTitle = 'Mi Panel',
+    mobileDrawerTitle = 'Mi panel',
+    activePathname,
+    activeHref: activeHrefOverride,
 }: PanelShellProps) {
     const [collapsed, setCollapsed] = useState(false);
     const [mobileOpen, setMobileOpen] = useState(false);
-    const pathname = usePathname() ?? '';
+    const routerPathname = usePathname() ?? '';
+    const pathname = activePathname ?? routerPathname;
+    const activeHref = useMemo(
+        () => activeHrefOverride ?? resolveActiveNavHref(pathname, navItems),
+        [activeHrefOverride, pathname, navItems],
+    );
     const showChrome = chromeEnabled;
     const userName = user?.name?.trim() || 'Usuario';
     const userInitial = userName.charAt(0).toUpperCase();
@@ -144,6 +158,7 @@ export function PanelShell({
                     user={{ ...user, name: userName, role: roleLabel }}
                     collapsed={collapsed}
                     onToggle={() => setCollapsed((prev) => !prev)}
+                    activeHref={activeHref}
                     footerHref={footer?.href}
                     footerLabel={footer?.label}
                     footerIcon={footer?.icon}
@@ -160,7 +175,7 @@ export function PanelShell({
                     />
                     <aside className="absolute left-0 top-0 h-full w-[min(340px,88vw)] p-3">
                         <div
-                            className="flex h-full flex-col rounded-2xl border p-3"
+                            className="flex h-full flex-col rounded-card border p-3"
                             style={{
                                 borderColor: 'var(--border)',
                                 background: 'var(--surface)',
@@ -205,7 +220,11 @@ export function PanelShell({
                                 </span>
                             </div>
 
-                            <PanelNavList items={navItems} pathname={pathname} onNavigate={() => setMobileOpen(false)} />
+                            <PanelNavList
+                                items={navItems}
+                                activeHref={activeHref}
+                                onNavigate={() => setMobileOpen(false)}
+                            />
 
                             {footer ? (
                                 <div className="mt-3 border-t pt-3" style={{ borderColor: 'var(--border)' }}>

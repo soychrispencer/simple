@@ -41,7 +41,7 @@ export default function GlobalError({
                         onClick={reset}
                         style={{
                             padding: '0.625rem 1.25rem',
-                            borderRadius: '0.75rem',
+                            borderRadius: 'var(--radius-button)',
                             background: '#0066cc',
                             color: '#fff',
                             border: 'none',

@@ -1,18 +1,47 @@
 import { Hono, type Context } from 'hono';
-import { and, asc, desc, eq, gte, inArray, lte, or } from 'drizzle-orm';
+import { and, asc, desc, eq, gte, inArray, lte, or, sql } from 'drizzle-orm';
 import { z } from 'zod';
 import { db } from '../../db/index.js';
 import {
-    serenataCoordinators,
+    serenataOwners,
     serenataClients,
     serenataGroupMembers,
+    serenataGroupServices,
     serenataGroups,
     serenataMusicians,
     serenataNotifications,
     serenataOffers,
+    serenataProviderGroupMembers,
+    serenataProviderGroups,
     serenatas,
     users,
 } from '../../db/schema.js';
+import {
+    acceptMarketplaceSerenata,
+    createMarketplaceSerenata,
+    marketplaceSerenataSchema,
+    registerMarketplaceRoutes,
+    rejectMarketplaceSerenata,
+} from './marketplace.js';
+import { listOwnerSerenatas, listMusicianAgenda, listMusicianSerenatas } from './owner-listings.js';
+import {
+    cancelClientPendingSerenata,
+    listOwnerSerenatasNeedingClosure,
+    loadOwnerScheduledForReminders,
+    maybeSendClosureReminders,
+    resolveOwnerUserId,
+    runPendingSerenataLifecycle,
+    validateCancelTransition,
+    validateClientConfirmTransition,
+    validateCompleteTransition,
+} from './lifecycle.js';
+import {
+    toDateRange,
+    toNumber,
+    validateOwnerAvailability,
+    validateGroupForSerenata,
+} from './availability.js';
+import { assignSerenataOperationalGroup } from './assign-group.js';
 
 type AuthUser = {
     id: string;
@@ -24,9 +53,17 @@ type AuthUser = {
 
 type SerenatasRouterDeps = {
     authUser: (c: Context) => Promise<AuthUser | null>;
+    requireVerifiedSession: (c: Context, next: () => Promise<void>) => Promise<Response | void>;
 };
 
 export type SerenataPaymentTarget = typeof serenatas.$inferSelect;
+
+/** Default false: bloquea POST /client/serenatas por paquetes; marketplace sigue habilitado. */
+export function legacySerenataPackagesEnabled(): boolean {
+    const raw = process.env.SERENATAS_LEGACY_PACKAGES?.trim().toLowerCase();
+    if (!raw) return false;
+    return raw === 'true' || raw === '1' || raw === 'yes';
+}
 
 const emptyStringToNull = z.preprocess((value) => value === '' ? null : value, z.string().nullable().optional());
 const optionalNumber = z.preprocess((value) => value === '' || value == null ? null : Number(value), z.number().finite().nullable().optional());
@@ -53,9 +90,25 @@ const musicianProfileSchema = z.object({
     isAvailable: z.boolean().default(true),
     availableNow: z.boolean().default(false),
     experienceYears: z.number().int().min(0).max(80).default(0),
+    workZones: z.array(z.string().min(1)).default([]),
 });
 
-const coordinatorProfileSchema = z.object({
+/** PUT parcial: solo valida campos enviados (sin defaults que pisen el perfil existente). */
+const musicianProfileUpdateSchema = z.object({
+    instrument: emptyStringToNull,
+    instruments: z.array(z.string().min(1)).optional(),
+    bio: emptyStringToNull,
+    comuna: emptyStringToNull,
+    region: emptyStringToNull,
+    lat: optionalNumber,
+    lng: optionalNumber,
+    isAvailable: z.boolean().optional(),
+    availableNow: z.boolean().optional(),
+    experienceYears: z.number().int().min(0).max(80).optional(),
+    workZones: z.array(z.string().min(1)).optional(),
+});
+
+const ownerProfileSchema = z.object({
     bio: emptyStringToNull,
     comuna: emptyStringToNull,
     region: emptyStringToNull,
@@ -170,43 +223,29 @@ const memberStatusSchema = z.object({
     message: emptyStringToNull,
 });
 
+const serenataCancelSchema = z.object({
+    cancelReason: z.string().trim().min(3, 'Indica un motivo de al menos 3 caracteres'),
+});
+
 function jsonError(c: Context, error: string, status: 400 | 401 | 403 | 404 | 409 | 500 = 400) {
     return c.json({ ok: false, error }, status);
 }
 
-function toNumber(value: string | null): number | null {
-    if (value == null) return null;
-    const parsed = Number(value);
-    return Number.isFinite(parsed) ? parsed : null;
-}
-
-function toDateRange(rawDate: string | undefined): { start: Date; end: Date } | null {
-    if (!rawDate) return null;
-    const start = new Date(`${rawDate}T00:00:00.000Z`);
-    const end = new Date(`${rawDate}T23:59:59.999Z`);
-    if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) return null;
-    return { start, end };
-}
-
-function minutesFromTime(value: string) {
-    const [rawHours, rawMinutes] = value.split(':');
-    const hours = Number(rawHours);
-    const minutes = Number(rawMinutes);
-    if (!Number.isFinite(hours) || !Number.isFinite(minutes)) return null;
-    return hours * 60 + minutes;
-}
-
-function rangesOverlap(startA: number, durationA: number, startB: number, durationB: number) {
-    return startA < startB + durationB && startB < startA + durationA;
-}
-
-function estimatedTravelMinutes(a: typeof serenatas.$inferSelect, b: typeof serenatas.$inferSelect) {
-    const aLat = toNumber(a.lat);
-    const aLng = toNumber(a.lng);
-    const bLat = toNumber(b.lat);
-    const bLng = toNumber(b.lng);
-    if (aLat == null || aLng == null || bLat == null || bLng == null) return 15;
-    return Math.max(10, Math.ceil((distanceKm({ lat: aLat, lng: aLng }, { lat: bLat, lng: bLng }) / 28) * 60) + 8);
+function zodFirstFieldError(error: z.ZodError): string {
+    const issue = error.issues[0];
+    if (!issue) return 'Datos inválidos';
+    const field = issue.path.length > 0 ? String(issue.path[issue.path.length - 1]) : null;
+    const fieldLabels: Record<string, string> = {
+        instrument: 'Instrumento',
+        instruments: 'Instrumentos',
+        bio: 'Bio',
+        comuna: 'Comuna',
+        region: 'Región',
+        experienceYears: 'Años de experiencia',
+        workZones: 'Zonas de trabajo',
+    };
+    const label = field ? fieldLabels[field] ?? field : 'Campo';
+    return `${label}: ${issue.message}`;
 }
 
 function packageForCode(code: string | null | undefined) {
@@ -214,128 +253,28 @@ function packageForCode(code: string | null | undefined) {
     return serenataPackageCodeSchema.safeParse(code).success ? serenataPackages[code as SerenataPackageCode] : null;
 }
 
-async function validateGroupForSerenata<TClient extends Pick<typeof db, 'query' | 'select'>>(
-    tx: TClient,
-    input: {
-        coordinatorId: string;
-        serenataId?: string;
-        groupId: string | null | undefined;
-        packageCode?: string | null;
-        eventDate: Date;
-        eventTime: string;
-        duration: number;
-    }
-) {
-    if (!input.groupId) return null;
-    const group = await tx.query.serenataGroups.findFirst({
-        where: and(eq(serenataGroups.id, input.groupId), eq(serenataGroups.coordinatorId, input.coordinatorId)),
-    });
-    if (!group) return 'Grupo no encontrado.';
-
-    const requiredMusicians = packageForCode(input.packageCode)?.musicians ?? 0;
-    if (requiredMusicians > 0) {
-        const members = await tx.select({ id: serenataGroupMembers.id }).from(serenataGroupMembers)
-            .where(eq(serenataGroupMembers.groupId, input.groupId));
-        if (members.length < requiredMusicians) {
-            return `Este servicio requiere ${requiredMusicians} músicos. El grupo seleccionado tiene ${members.length}.`;
-        }
-    }
-
-    const eventDate = input.eventDate.toISOString().slice(0, 10);
-    const range = toDateRange(eventDate);
-    if (!range) return null;
-    const currentStart = minutesFromTime(input.eventTime);
-    if (currentStart == null) return null;
-    const existing = await tx.select().from(serenatas).where(and(
-        eq(serenatas.coordinatorId, input.coordinatorId),
-        eq(serenatas.groupId, input.groupId),
-        inArray(serenatas.status, ['accepted_pending_group', 'scheduled']),
-        gte(serenatas.eventDate, range.start),
-        lte(serenatas.eventDate, range.end),
-    ));
-    const conflicting = existing.find((item) => {
-        if (input.serenataId && item.id === input.serenataId) return false;
-        const otherStart = minutesFromTime(item.eventTime);
-        return otherStart != null && rangesOverlap(currentStart, input.duration, otherStart, item.duration);
-    });
-    if (conflicting) {
-        return `Ese grupo ya tiene una serenata a las ${conflicting.eventTime}. Ajusta horario o selecciona otro grupo.`;
-    }
-
-    return null;
-}
-
-async function validateCoordinatorAvailability(
-    client: Pick<typeof db, 'select'>,
-    input: {
-        coordinatorId: string;
-        serenata: typeof serenatas.$inferSelect;
-        excludeId?: string;
-    }
-) {
-    const eventDate = input.serenata.eventDate.toISOString().slice(0, 10);
-    const range = toDateRange(eventDate);
-    if (!range) return null;
-    const start = minutesFromTime(input.serenata.eventTime);
-    if (start == null) return null;
-    const items = await client.select().from(serenatas).where(and(
-        eq(serenatas.coordinatorId, input.coordinatorId),
-        inArray(serenatas.status, ['accepted_pending_group', 'scheduled']),
-        gte(serenatas.eventDate, range.start),
-        lte(serenatas.eventDate, range.end),
-    ));
-
-    for (const item of items) {
-        if (item.id === input.serenata.id || item.id === input.excludeId) continue;
-        const otherStart = minutesFromTime(item.eventTime);
-        if (otherStart == null) continue;
-        const travel = estimatedTravelMinutes(input.serenata, item);
-        const currentBeforeOther = start <= otherStart;
-        const currentEndWithTravel = start + input.serenata.duration + travel;
-        const otherEndWithTravel = otherStart + item.duration + travel;
-        if ((currentBeforeOther && currentEndWithTravel > otherStart) || (!currentBeforeOther && otherEndWithTravel > start)) {
-            return `No hay tiempo suficiente con ${item.recipientName} a las ${item.eventTime}. Considera otro horario o reordenar la ruta.`;
-        }
-    }
-
-    return null;
-}
-
-function distanceKm(a: { lat: number; lng: number }, b: { lat: number; lng: number }) {
-    const toRad = (value: number) => (value * Math.PI) / 180;
-    const radius = 6371;
-    const dLat = toRad(b.lat - a.lat);
-    const dLng = toRad(b.lng - a.lng);
-    const lat1 = toRad(a.lat);
-    const lat2 = toRad(b.lat);
-    const h = Math.sin(dLat / 2) ** 2 + Math.cos(lat1) * Math.cos(lat2) * Math.sin(dLng / 2) ** 2;
-    return 2 * radius * Math.asin(Math.sqrt(h));
-}
-
 async function createPlatformOffersForSerenata(serenata: { id: string; comuna: string | null; region: string | null; price: number | null; eventDate: Date }) {
-    const coordinators = await db
+    const admins = await db
         .select({
-            id: serenataCoordinators.id,
-            userId: serenataCoordinators.userId,
-            comuna: serenataCoordinators.comuna,
-            region: serenataCoordinators.region,
-            workingComunas: serenataCoordinators.workingComunas,
-            minPrice: serenataCoordinators.minPrice,
-            subscriptionStatus: serenataCoordinators.subscriptionStatus,
+            id: serenataOwners.id,
+            userId: serenataOwners.userId,
+            comuna: serenataOwners.comuna,
+            region: serenataOwners.region,
+            workingComunas: serenataOwners.workingComunas,
+            minPrice: serenataOwners.minPrice,
             name: users.name,
         })
-        .from(serenataCoordinators)
-        .innerJoin(users, eq(users.id, serenataCoordinators.userId))
-        .where(inArray(serenataCoordinators.subscriptionStatus, ['trialing', 'active']));
+        .from(serenataOwners)
+        .innerJoin(users, eq(users.id, serenataOwners.userId));
 
-    const candidates = coordinators
-        .filter((coordinator) => {
-            const workingComunas = Array.isArray(coordinator.workingComunas) ? coordinator.workingComunas : [];
+    const candidates = admins
+        .filter((admin) => {
+            const workingComunas = Array.isArray(admin.workingComunas) ? admin.workingComunas : [];
             const matchesComuna = serenata.comuna
-                ? workingComunas.includes(serenata.comuna) || coordinator.comuna === serenata.comuna
+                ? workingComunas.includes(serenata.comuna) || admin.comuna === serenata.comuna
                 : true;
-            const matchesRegion = serenata.region ? coordinator.region === serenata.region || workingComunas.length > 0 : true;
-            const matchesPrice = coordinator.minPrice == null || serenata.price == null || serenata.price >= coordinator.minPrice;
+            const matchesRegion = serenata.region ? admin.region === serenata.region || workingComunas.length > 0 : true;
+            const matchesPrice = admin.minPrice == null || serenata.price == null || serenata.price >= admin.minPrice;
             return matchesComuna && matchesRegion && matchesPrice;
         })
         .sort((a, b) => {
@@ -350,16 +289,16 @@ async function createPlatformOffersForSerenata(serenata: { id: string; comuna: s
 
     if (candidates.length === 0) return [];
     const expiresAt = new Date(Date.now() + 15 * 60 * 1000);
-    const offers = await db.insert(serenataOffers).values(candidates.map((coordinator, index) => ({
+    const offers = await db.insert(serenataOffers).values(candidates.map((admin, index) => ({
         serenataId: serenata.id,
-        coordinatorId: coordinator.id,
+        ownerId: admin.id,
         status: 'offered',
         rank: index + 1,
         expiresAt,
     }))).onConflictDoNothing().returning();
 
-    await db.insert(serenataNotifications).values(candidates.map((coordinator) => ({
-        userId: coordinator.userId,
+    await db.insert(serenataNotifications).values(candidates.map((admin) => ({
+        userId: admin.userId,
         type: 'platform_serenata_offer',
         title: 'Nueva serenata de la aplicación',
         message: `${serenata.comuna ?? 'Comuna por confirmar'} · ${new Intl.DateTimeFormat('es-CL', { day: '2-digit', month: 'short' }).format(serenata.eventDate)}.`,
@@ -400,7 +339,7 @@ export async function markSerenataPaymentFailed(userId: string, serenataId: stri
     return item ?? null;
 }
 
-export async function publishPaidSerenataToCoordinators(userId: string, serenataId: string, orderId: string): Promise<{ item: SerenataPaymentTarget; offersCount: number } | null> {
+export async function publishPaidSerenataToOwners(userId: string, serenataId: string, orderId: string): Promise<{ item: SerenataPaymentTarget; offersCount: number } | null> {
     const target = await getSerenataPaymentTarget(userId, serenataId);
     if (!target) return null;
     if (target.status !== 'payment_pending' && target.paymentStatus === 'paid') {
@@ -417,6 +356,13 @@ export async function publishPaidSerenataToCoordinators(userId: string, serenata
     }).where(and(eq(serenatas.id, serenataId), eq(serenatas.status, 'payment_pending'))).returning();
     if (!item) return null;
 
+    if (item.providerGroupId) {
+        return { item, offersCount: 0 };
+    }
+    if (!legacySerenataPackagesEnabled()) {
+        return { item, offersCount: 0 };
+    }
+
     const offers = await createPlatformOffersForSerenata({
         id: item.id,
         comuna: item.comuna,
@@ -426,6 +372,9 @@ export async function publishPaidSerenataToCoordinators(userId: string, serenata
     });
     return { item, offersCount: offers.length };
 }
+
+/** @deprecated Usar `publishPaidSerenataToOwners`. */
+export const publishPaidSerenataToAdmins = publishPaidSerenataToOwners;
 
 function relativeNotificationTime(createdAt: Date) {
     const diffMs = Date.now() - createdAt.getTime();
@@ -441,22 +390,68 @@ function relativeNotificationTime(createdAt: Date) {
 
 function notificationHref(metadata: Record<string, unknown> | null) {
     const serenataId = typeof metadata?.serenataId === 'string' ? metadata.serenataId : null;
-    return serenataId ? `/?section=serenatas&serenata=${encodeURIComponent(serenataId)}` : '/?section=serenatas';
+    if (serenataId) {
+        return `/panel/solicitudes?serenata=${encodeURIComponent(serenataId)}`;
+    }
+    return '/panel/solicitudes';
 }
 
 async function getProfiles(userId: string) {
-    const [client, musician, coordinator] = await Promise.all([
+    const [client, musician, owner] = await Promise.all([
         db.query.serenataClients.findFirst({ where: eq(serenataClients.userId, userId) }),
         db.query.serenataMusicians.findFirst({ where: eq(serenataMusicians.userId, userId) }),
-        db.query.serenataCoordinators.findFirst({ where: eq(serenataCoordinators.userId, userId) }),
+        db.query.serenataOwners.findFirst({ where: eq(serenataOwners.userId, userId) }),
     ]);
-    return { client: client ?? null, musician: musician ?? null, coordinator: coordinator ?? null };
+    return {
+        client: client ?? null,
+        musician: musician ?? null,
+        owner: owner ?? null,
+    };
 }
 
-async function requireCoordinator(c: Context, userId: string) {
-    const coordinator = await db.query.serenataCoordinators.findFirst({ where: eq(serenataCoordinators.userId, userId) });
-    if (!coordinator) return { ok: false as const, response: jsonError(c, 'Activa el perfil coordinador para continuar.', 403) };
-    return { ok: true as const, coordinator };
+type SerenataActorRole = 'client' | 'musician' | 'owner';
+
+function resolveActorRole(
+    requested: string | undefined,
+    profiles: Awaited<ReturnType<typeof getProfiles>>,
+): SerenataActorRole | null {
+    if (requested === 'client' && profiles.client) return 'client';
+    if (requested === 'musician' && profiles.musician) return 'musician';
+    if ((requested === 'owner' || requested === 'admin') && profiles.owner) return 'owner';
+    return null;
+}
+
+/** Sin `as`, músico tiene prioridad sobre dueño (evita mezclar datos en cuentas duales). */
+function defaultActorRole(profiles: Awaited<ReturnType<typeof getProfiles>>): SerenataActorRole | null {
+    if (profiles.musician) return 'musician';
+    if (profiles.owner) return 'owner';
+    if (profiles.client) return 'client';
+    return null;
+}
+
+function resolveActorRoleFromRequest(
+    c: Context,
+    profiles: Awaited<ReturnType<typeof getProfiles>>,
+): SerenataActorRole | null {
+    return resolveActorRole(c.req.query('as'), profiles) ?? defaultActorRole(profiles);
+}
+
+async function requireOwner(c: Context, userId: string): Promise<
+    | { ok: false; response: Response }
+    | { ok: true; owner: typeof serenataOwners.$inferSelect }
+> {
+    const owner = await db.query.serenataOwners.findFirst({ where: eq(serenataOwners.userId, userId) });
+    if (!owner) {
+        return {
+            ok: false as const,
+            response: jsonError(
+                c,
+                'Activa tu perfil de dueño en /para-duenos antes de continuar.',
+                403,
+            ),
+        };
+    }
+    return { ok: true as const, owner };
 }
 
 async function requireMusician(c: Context, userId: string) {
@@ -493,6 +488,13 @@ async function notifySerenataClient(clientId: string | null, payload: { type: st
 export function createSerenatasRouter(deps: SerenatasRouterDeps) {
     const app = new Hono();
 
+    app.use('*', async (c, next) => {
+        if (c.req.method === 'GET' || c.req.method === 'HEAD' || c.req.method === 'OPTIONS') {
+            return next();
+        }
+        return deps.requireVerifiedSession(c, next);
+    });
+
     app.get('/notifications', async (c) => {
         const user = await deps.authUser(c);
         if (!user) return jsonError(c, 'No autenticado', 401);
@@ -505,7 +507,14 @@ export function createSerenatasRouter(deps: SerenatasRouterDeps) {
             ok: true,
             items: rows.map((item) => ({
                 id: item.id,
-                type: item.type === 'group_invitation' ? 'message_thread' : 'service_lead',
+                kind: item.type,
+                type:
+                    item.type === 'group_invitation'
+                    || item.type === 'provider_group_invitation'
+                    || item.type === 'provider_group_application_approved'
+                    || item.type === 'provider_group_application_rejected'
+                        ? 'message_thread'
+                        : 'service_lead',
                 title: item.title,
                 time: relativeNotificationTime(item.createdAt),
                 href: notificationHref(item.metadata ?? null),
@@ -542,13 +551,37 @@ export function createSerenatasRouter(deps: SerenatasRouterDeps) {
     app.put('/profiles/musician', async (c) => {
         const user = await deps.authUser(c);
         if (!user) return jsonError(c, 'No autenticado', 401);
-        const parsed = musicianProfileSchema.safeParse(await c.req.json().catch(() => null));
-        if (!parsed.success) return jsonError(c, 'Perfil músico inválido');
+        const parsed = musicianProfileUpdateSchema.safeParse(await c.req.json().catch(() => null));
+        if (!parsed.success) {
+            return c.json(
+                { ok: false, error: zodFirstFieldError(parsed.error), details: parsed.error.flatten() },
+                400,
+            );
+        }
         const existing = await db.query.serenataMusicians.findFirst({ where: eq(serenataMusicians.userId, user.id) });
+        const patch = parsed.data;
+        const nextInstrument = patch.instrument !== undefined ? patch.instrument : existing?.instrument ?? null;
+        const nextInstruments = patch.instruments !== undefined
+            ? patch.instruments
+            : patch.instrument !== undefined
+                ? (patch.instrument ? [patch.instrument] : [])
+                : existing?.instruments ?? [];
         const values = {
-            ...parsed.data,
-            lat: parsed.data.lat == null ? null : String(parsed.data.lat),
-            lng: parsed.data.lng == null ? null : String(parsed.data.lng),
+            instrument: nextInstrument,
+            instruments: nextInstruments,
+            bio: patch.bio !== undefined ? patch.bio : existing?.bio ?? null,
+            comuna: patch.comuna !== undefined ? patch.comuna : existing?.comuna ?? null,
+            region: patch.region !== undefined ? patch.region : existing?.region ?? null,
+            lat: patch.lat !== undefined
+                ? (patch.lat == null ? null : String(patch.lat))
+                : existing?.lat ?? null,
+            lng: patch.lng !== undefined
+                ? (patch.lng == null ? null : String(patch.lng))
+                : existing?.lng ?? null,
+            isAvailable: patch.isAvailable !== undefined ? patch.isAvailable : existing?.isAvailable ?? true,
+            availableNow: patch.availableNow !== undefined ? patch.availableNow : existing?.availableNow ?? false,
+            experienceYears: patch.experienceYears !== undefined ? patch.experienceYears : existing?.experienceYears ?? 0,
+            workZones: patch.workZones !== undefined ? patch.workZones : existing?.workZones ?? [],
             updatedAt: new Date(),
         };
         const [profile] = existing
@@ -557,39 +590,58 @@ export function createSerenatasRouter(deps: SerenatasRouterDeps) {
         return c.json({ ok: true, profile });
     });
 
-    app.put('/profiles/coordinator', async (c) => {
+    const upsertOwnerProfile = async (c: Context) => {
         const user = await deps.authUser(c);
         if (!user) return jsonError(c, 'No autenticado', 401);
-        const parsed = coordinatorProfileSchema.safeParse(await c.req.json().catch(() => null));
-        if (!parsed.success) return jsonError(c, 'Perfil coordinador inválido');
-        const existing = await db.query.serenataCoordinators.findFirst({ where: eq(serenataCoordinators.userId, user.id) });
-        if (!existing) return jsonError(c, 'Suscríbete como coordinador para activar este perfil.', 403);
+        const parsed = ownerProfileSchema.safeParse(await c.req.json().catch(() => null));
+        if (!parsed.success) return jsonError(c, 'Perfil de dueño inválido');
         const values = { ...parsed.data, updatedAt: new Date() };
-        const [profile] = await db.update(serenataCoordinators).set(values).where(eq(serenataCoordinators.id, existing.id)).returning();
+        const existing = await db.query.serenataOwners.findFirst({ where: eq(serenataOwners.userId, user.id) });
+        const [profile] = existing
+            ? await db.update(serenataOwners).set(values).where(eq(serenataOwners.id, existing.id)).returning()
+            : await db.insert(serenataOwners).values({
+                userId: user.id,
+                ...values,
+                subscriptionStatus: 'active',
+                subscriptionPrice: 0,
+                trialEndsAt: new Date('2099-12-31T00:00:00.000Z'),
+            }).returning();
         return c.json({ ok: true, profile });
-    });
+    };
 
-    app.post('/subscriptions/coordinator/start-trial', async (c) => {
+    app.put('/profiles/owner', upsertOwnerProfile);
+    /** @deprecated Usar `PUT /profiles/owner`. */
+    app.put('/profiles/admin', upsertOwnerProfile);
+
+    const startOwnerTrial = async (c: Context) => {
         const user = await deps.authUser(c);
         if (!user) return jsonError(c, 'No autenticado', 401);
-        const musician = await db.query.serenataMusicians.findFirst({ where: eq(serenataMusicians.userId, user.id) });
-        if (!musician) return jsonError(c, 'Debes registrarte como músico antes de suscribirte como coordinador.', 403);
-        const existing = await db.query.serenataCoordinators.findFirst({ where: eq(serenataCoordinators.userId, user.id) });
+        const existing = await db.query.serenataOwners.findFirst({ where: eq(serenataOwners.userId, user.id) });
         if (existing) return c.json({ ok: true, profile: existing });
-        const [profile] = await db.insert(serenataCoordinators).values({
+
+        const musician = await db.query.serenataMusicians.findFirst({ where: eq(serenataMusicians.userId, user.id) });
+        const [profile] = await db.insert(serenataOwners).values({
             userId: user.id,
-            bio: musician.bio,
-            comuna: musician.comuna,
-            region: musician.region,
-            workingComunas: musician.comuna ? [musician.comuna] : [],
-            subscriptionStatus: 'trialing',
-            subscriptionPrice: 19990,
+            bio: musician?.bio ?? null,
+            comuna: musician?.comuna ?? null,
+            region: musician?.region ?? null,
+            workingComunas: musician && musician.workZones.length > 0
+                ? musician.workZones
+                : musician?.comuna
+                    ? [musician.comuna]
+                    : [],
+            subscriptionStatus: 'active',
+            subscriptionPrice: 0,
             commissionRateBps: 800,
             commissionVatRateBps: 1900,
-            trialEndsAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+            trialEndsAt: new Date('2099-12-31T00:00:00.000Z'),
         }).returning();
         return c.json({ ok: true, profile }, 201);
-    });
+    };
+
+    app.post('/subscriptions/owner/start-trial', startOwnerTrial);
+    /** @deprecated Usar `POST /subscriptions/owner/start-trial`. */
+    app.post('/subscriptions/admin/start-trial', startOwnerTrial);
 
     app.get('/musicians', async (c) => {
         const user = await deps.authUser(c);
@@ -603,6 +655,7 @@ export function createSerenatasRouter(deps: SerenatasRouterDeps) {
                 instruments: serenataMusicians.instruments,
                 comuna: serenataMusicians.comuna,
                 region: serenataMusicians.region,
+                workZones: serenataMusicians.workZones,
                 isAvailable: serenataMusicians.isAvailable,
                 availableNow: serenataMusicians.availableNow,
                 experienceYears: serenataMusicians.experienceYears,
@@ -616,57 +669,27 @@ export function createSerenatasRouter(deps: SerenatasRouterDeps) {
     app.get('/serenatas', async (c) => {
         const user = await deps.authUser(c);
         if (!user) return jsonError(c, 'No autenticado', 401);
-        const { coordinator, musician } = await getProfiles(user.id);
+        const profiles = await getProfiles(user.id);
+        const role = resolveActorRoleFromRequest(c, profiles);
         const range = toDateRange(c.req.query('date'));
 
-        if (coordinator) {
-            const assignedConditions = [
-                eq(serenatas.coordinatorId, coordinator.id),
-                inArray(serenatas.status, ['accepted_pending_group']),
-            ];
-            if (range) assignedConditions.push(gte(serenatas.eventDate, range.start), lte(serenatas.eventDate, range.end));
-            const assigned = await db
-                .select({ item: serenatas, offerId: serenataOffers.id, offerStatus: serenataOffers.status })
-                .from(serenatas)
-                .leftJoin(serenataOffers, and(eq(serenataOffers.serenataId, serenatas.id), eq(serenataOffers.coordinatorId, coordinator.id)))
-                .where(and(...assignedConditions))
-                .orderBy(asc(serenatas.eventDate), asc(serenatas.eventTime));
-
-            const offerConditions = [
-                eq(serenataOffers.coordinatorId, coordinator.id),
-                inArray(serenataOffers.status, ['offered', 'accepted']),
-            ];
-            if (range) offerConditions.push(gte(serenatas.eventDate, range.start), lte(serenatas.eventDate, range.end));
-            const offered = await db
-                .select({ item: serenatas, offerId: serenataOffers.id, offerStatus: serenataOffers.status })
-                .from(serenataOffers)
-                .innerJoin(serenatas, eq(serenatas.id, serenataOffers.serenataId))
-                .where(and(...offerConditions))
-                .orderBy(asc(serenatas.eventDate), asc(serenatas.eventTime));
-
-            const seen = new Set<string>();
-            const items = [...assigned, ...offered]
-                .filter((row) => {
-                    if (seen.has(row.item.id)) return false;
-                    seen.add(row.item.id);
-                    return true;
-                })
-                .sort((a, b) => {
-                    const dateDiff = new Date(a.item.eventDate).getTime() - new Date(b.item.eventDate).getTime();
-                    if (dateDiff !== 0) return dateDiff;
-                    return a.item.eventTime.localeCompare(b.item.eventTime);
-                })
-                .map((row) => ({ ...row.item, offerId: row.offerId, offerStatus: row.offerStatus }));
+        if (role === 'owner' && profiles.owner) {
+            await runPendingSerenataLifecycle();
+            if (c.req.query('needsClosure') === '1') {
+                const items = await listOwnerSerenatasNeedingClosure(profiles.owner.id);
+                return c.json({ ok: true, items });
+            }
+            const items = await listOwnerSerenatas(profiles.owner, range);
+            const ownerUserId = await resolveOwnerUserId(profiles.owner.id);
+            if (ownerUserId) {
+                const reminderCandidates = await loadOwnerScheduledForReminders(profiles.owner.id);
+                await maybeSendClosureReminders(ownerUserId, reminderCandidates);
+            }
             return c.json({ ok: true, items });
         }
 
-        if (musician) {
-            const memberRows = await db.select({ groupId: serenataGroupMembers.groupId }).from(serenataGroupMembers).where(eq(serenataGroupMembers.musicianId, musician.id));
-            const groupIds = memberRows.map((row) => row.groupId);
-            if (groupIds.length === 0) return c.json({ ok: true, items: [] });
-            const conditions = [inArray(serenatas.groupId, groupIds)];
-            if (range) conditions.push(gte(serenatas.eventDate, range.start), lte(serenatas.eventDate, range.end));
-            const items = await db.select().from(serenatas).where(and(...conditions)).orderBy(asc(serenatas.eventDate), asc(serenatas.eventTime));
+        if (role === 'musician' && profiles.musician) {
+            const items = await listMusicianSerenatas(profiles.musician, range);
             return c.json({ ok: true, items });
         }
 
@@ -676,6 +699,7 @@ export function createSerenatasRouter(deps: SerenatasRouterDeps) {
     app.get('/client/serenatas', async (c) => {
         const user = await deps.authUser(c);
         if (!user) return jsonError(c, 'No autenticado', 401);
+        await runPendingSerenataLifecycle();
         const client = await db.query.serenataClients.findFirst({ where: eq(serenataClients.userId, user.id) });
         if (!client) return c.json({ ok: true, items: [] });
         const range = toDateRange(c.req.query('date'));
@@ -685,19 +709,35 @@ export function createSerenatasRouter(deps: SerenatasRouterDeps) {
         return c.json({ ok: true, items });
     });
 
+    app.post('/client/serenatas/:id/cancel', async (c) => {
+        const user = await deps.authUser(c);
+        if (!user) return jsonError(c, 'No autenticado', 401);
+        const client = await db.query.serenataClients.findFirst({ where: eq(serenataClients.userId, user.id) });
+        if (!client) return jsonError(c, 'Perfil de cliente no encontrado', 404);
+        const parsed = z.object({ cancelReason: z.string().trim().optional() }).safeParse(await c.req.json().catch(() => ({})));
+        const result = await cancelClientPendingSerenata(
+            client.id,
+            user.id,
+            c.req.param('id'),
+            parsed.success ? parsed.data.cancelReason : undefined,
+        );
+        if (!result.ok) return jsonError(c, result.error, result.status);
+        return c.json({ ok: true, item: result.item });
+    });
+
     app.post('/serenatas', async (c) => {
         const user = await deps.authUser(c);
         if (!user) return jsonError(c, 'No autenticado', 401);
-        const required = await requireCoordinator(c, user.id);
+        const required = await requireOwner(c, user.id);
         if (!required.ok) return required.response;
         const parsed = serenataWriteSchema.safeParse(await c.req.json().catch(() => null));
         if (!parsed.success) return jsonError(c, 'Serenata inválida');
         const selectedPackage = packageForCode(parsed.data.packageCode);
         const duration = selectedPackage?.duration ?? parsed.data.duration;
         const conflict = await validateGroupForSerenata(db, {
-            coordinatorId: required.coordinator.id,
+            ownerId: required.owner.id,
             groupId: parsed.data.groupId,
-            packageCode: parsed.data.packageCode,
+            requiredMusicians: selectedPackage?.musicians ?? 0,
             eventDate: parsed.data.eventDate,
             eventTime: parsed.data.eventTime,
             duration,
@@ -705,7 +745,7 @@ export function createSerenatasRouter(deps: SerenatasRouterDeps) {
         if (conflict) return jsonError(c, conflict, 409);
         const [item] = await db.insert(serenatas).values({
             ...parsed.data,
-            coordinatorId: required.coordinator.id,
+            ownerId: required.owner.id,
             source: 'own_lead',
             status: 'scheduled',
             duration,
@@ -720,8 +760,22 @@ export function createSerenatasRouter(deps: SerenatasRouterDeps) {
     app.post('/client/serenatas', async (c) => {
         const user = await deps.authUser(c);
         if (!user) return jsonError(c, 'No autenticado', 401);
-        const parsed = clientSerenataWriteSchema.safeParse(await c.req.json().catch(() => null));
+        const rawBody = await c.req.json().catch(() => null);
+        const marketplaceParsed = marketplaceSerenataSchema.safeParse(rawBody);
+        if (marketplaceParsed.success) {
+            const result = await createMarketplaceSerenata(user, marketplaceParsed.data, { ensureClientProfile });
+            if (!result.ok) return jsonError(c, result.error, result.status ?? 409);
+            return c.json({ ok: true, item: result.item, offersCount: 0 }, 201);
+        }
+        const parsed = clientSerenataWriteSchema.safeParse(rawBody);
         if (!parsed.success) return jsonError(c, 'Serenata inválida');
+        if (!legacySerenataPackagesEnabled()) {
+            return jsonError(
+                c,
+                'El contrato por paquetes legacy está deshabilitado. Solicita una serenata desde el marketplace de grupos.',
+                400,
+            );
+        }
         const serenataPackage = serenataPackages[parsed.data.packageCode];
         const { packageCode: _packageCode, ...payload } = parsed.data;
         if (!payload.comuna || !payload.region) {
@@ -736,7 +790,7 @@ export function createSerenatasRouter(deps: SerenatasRouterDeps) {
             ...payload,
             clientId: client.id,
             clientPhone: payload.clientPhone ?? client.phone,
-            coordinatorId: null,
+            ownerId: null,
             groupId: null,
             packageCode: parsed.data.packageCode,
             duration: serenataPackage.duration,
@@ -758,48 +812,64 @@ export function createSerenatasRouter(deps: SerenatasRouterDeps) {
         if (!parsed.success) return jsonError(c, 'Serenata inválida');
         const [item] = await db.insert(serenatas).values({
             ...parsed.data,
-            coordinatorId: null,
+            ownerId: null,
             source: 'platform_lead',
             status: 'pending',
             lat: parsed.data.lat == null ? null : String(parsed.data.lat),
             lng: parsed.data.lng == null ? null : String(parsed.data.lng),
         }).returning();
-        const offers = await createPlatformOffersForSerenata({
-            id: item.id,
-            comuna: item.comuna,
-            region: item.region,
-            price: item.price,
-            eventDate: item.eventDate,
-        });
+        const offers = legacySerenataPackagesEnabled()
+            ? await createPlatformOffersForSerenata({
+                id: item.id,
+                comuna: item.comuna,
+                region: item.region,
+                price: item.price,
+                eventDate: item.eventDate,
+            })
+            : [];
         return c.json({ ok: true, item, offers }, 201);
     });
 
     app.post('/serenatas/:id/accept-offer', async (c) => {
         const user = await deps.authUser(c);
         if (!user) return jsonError(c, 'No autenticado', 401);
-        const required = await requireCoordinator(c, user.id);
+        const required = await requireOwner(c, user.id);
         if (!required.ok) return required.response;
         const id = c.req.param('id');
+        const marketplaceSerenata = await db.query.serenatas.findFirst({
+            where: and(eq(serenatas.id, id), eq(serenatas.ownerId, required.owner.id)),
+        });
+        if (marketplaceSerenata?.providerGroupId) {
+            const marketplaceResult = await acceptMarketplaceSerenata(
+                required.owner.id,
+                id,
+                validateOwnerAvailability,
+            );
+            if (marketplaceResult.ok) {
+                return c.json({ ok: true, item: marketplaceResult.item });
+            }
+            return jsonError(c, marketplaceResult.error, 409);
+        }
         const result = await db.transaction(async (tx) => {
             const offer = await tx.query.serenataOffers.findFirst({
-                where: and(eq(serenataOffers.serenataId, id), eq(serenataOffers.coordinatorId, required.coordinator.id), eq(serenataOffers.status, 'offered')),
+                where: and(eq(serenataOffers.serenataId, id), eq(serenataOffers.ownerId, required.owner.id), eq(serenataOffers.status, 'offered')),
             });
             if (!offer) return { ok: false as const, error: 'Esta solicitud ya no está disponible.' };
             const pendingSerenata = await tx.query.serenatas.findFirst({
                 where: and(eq(serenatas.id, id), eq(serenatas.source, 'platform_lead'), eq(serenatas.status, 'pending')),
             });
-            if (!pendingSerenata) return { ok: false as const, error: 'Esta solicitud ya fue tomada por otro coordinador.' };
-            const availabilityError = await validateCoordinatorAvailability(tx, {
-                coordinatorId: required.coordinator.id,
-                serenata: { ...pendingSerenata, coordinatorId: required.coordinator.id },
+            if (!pendingSerenata) return { ok: false as const, error: 'Esta solicitud ya fue tomada por otro grupo.' };
+            const availabilityError = await validateOwnerAvailability(tx, {
+                ownerId: required.owner.id,
+                serenata: { ...pendingSerenata, ownerId: required.owner.id },
             });
             if (availabilityError) return { ok: false as const, error: availabilityError };
             const [item] = await tx.update(serenatas).set({
-                coordinatorId: required.coordinator.id,
+                ownerId: required.owner.id,
                 status: 'accepted_pending_group',
                 updatedAt: new Date(),
             }).where(and(eq(serenatas.id, id), eq(serenatas.source, 'platform_lead'), eq(serenatas.status, 'pending'))).returning();
-            if (!item) return { ok: false as const, error: 'Esta solicitud ya fue tomada por otro coordinador.' };
+            if (!item) return { ok: false as const, error: 'Esta solicitud ya fue tomada por otro grupo.' };
             await tx.update(serenataOffers).set({ status: 'accepted', respondedAt: new Date(), updatedAt: new Date() }).where(eq(serenataOffers.id, offer.id));
             await tx.update(serenataOffers).set({ status: 'expired', updatedAt: new Date() }).where(and(eq(serenataOffers.serenataId, id), eq(serenataOffers.status, 'offered')));
             if (item.clientId) {
@@ -808,8 +878,8 @@ export function createSerenatasRouter(deps: SerenatasRouterDeps) {
                     await tx.insert(serenataNotifications).values({
                         userId: client.userId,
                         type: 'client_serenata_accepted',
-                        title: 'Coordinador asignado',
-                        message: 'Un coordinador aceptó tu serenata y está asignando el grupo.',
+                        title: 'Grupo asignado',
+                        message: 'El grupo aceptó tu serenata y está organizando el evento.',
                         metadata: { serenataId: item.id },
                     });
                 }
@@ -823,10 +893,21 @@ export function createSerenatasRouter(deps: SerenatasRouterDeps) {
     app.post('/serenatas/:id/reject-offer', async (c) => {
         const user = await deps.authUser(c);
         if (!user) return jsonError(c, 'No autenticado', 401);
-        const required = await requireCoordinator(c, user.id);
+        const required = await requireOwner(c, user.id);
         if (!required.ok) return required.response;
+        const id = c.req.param('id');
+        const marketplaceSerenata = await db.query.serenatas.findFirst({
+            where: and(eq(serenatas.id, id), eq(serenatas.ownerId, required.owner.id)),
+        });
+        if (marketplaceSerenata?.providerGroupId) {
+            const marketplaceResult = await rejectMarketplaceSerenata(required.owner.id, id);
+            if (marketplaceResult.ok) {
+                return c.json({ ok: true, item: marketplaceResult.item });
+            }
+            return jsonError(c, marketplaceResult.error, 409);
+        }
         const [offer] = await db.update(serenataOffers).set({ status: 'rejected', respondedAt: new Date(), updatedAt: new Date() })
-            .where(and(eq(serenataOffers.serenataId, c.req.param('id')), eq(serenataOffers.coordinatorId, required.coordinator.id), eq(serenataOffers.status, 'offered'))).returning();
+            .where(and(eq(serenataOffers.serenataId, id), eq(serenataOffers.ownerId, required.owner.id), eq(serenataOffers.status, 'offered'))).returning();
         if (!offer) return jsonError(c, 'Esta solicitud ya no está disponible.', 409);
         return c.json({ ok: true, offer });
     });
@@ -834,10 +915,10 @@ export function createSerenatasRouter(deps: SerenatasRouterDeps) {
     app.patch('/serenatas/:id', async (c) => {
         const user = await deps.authUser(c);
         if (!user) return jsonError(c, 'No autenticado', 401);
-        const required = await requireCoordinator(c, user.id);
+        const required = await requireOwner(c, user.id);
         if (!required.ok) return required.response;
         const id = c.req.param('id');
-        const current = await db.query.serenatas.findFirst({ where: and(eq(serenatas.id, id), eq(serenatas.coordinatorId, required.coordinator.id)) });
+        const current = await db.query.serenatas.findFirst({ where: and(eq(serenatas.id, id), eq(serenatas.ownerId, required.owner.id)) });
         if (!current) return jsonError(c, 'Serenata no encontrada', 404);
         const parsed = serenataPatchSchema.safeParse(await c.req.json().catch(() => null));
         if (!parsed.success) return jsonError(c, 'Serenata inválida');
@@ -847,15 +928,17 @@ export function createSerenatasRouter(deps: SerenatasRouterDeps) {
         const nextDuration = parsed.data.duration ?? current.duration;
         const nextPackageCode = parsed.data.packageCode ?? current.packageCode;
         const nextGroupId = parsed.data.groupId === undefined ? current.groupId : parsed.data.groupId;
-        const conflict = await validateGroupForSerenata(db, {
-            coordinatorId: required.coordinator.id,
-            serenataId: current.id,
-            groupId: nextGroupId,
-            packageCode: nextPackageCode,
-            eventDate: nextEventDate,
-            eventTime: nextEventTime,
-            duration: nextDuration,
-        });
+        const conflict = nextEventTime
+            ? await validateGroupForSerenata(db, {
+                ownerId: required.owner.id,
+                serenataId: current.id,
+                groupId: nextGroupId,
+                requiredMusicians: packageForCode(nextPackageCode)?.musicians ?? 0,
+                eventDate: nextEventDate,
+                eventTime: nextEventTime,
+                duration: nextDuration,
+            })
+            : null;
         if (conflict) return jsonError(c, conflict, 409);
         const [item] = await db.update(serenatas).set({
             ...parsed.data,
@@ -868,127 +951,33 @@ export function createSerenatasRouter(deps: SerenatasRouterDeps) {
             await notifySerenataClient(item.clientId, {
                 type: 'client_serenata_scheduled',
                 title: 'Serenata confirmada',
-                message: 'El coordinador asignó el grupo para tu serenata.',
+                message: 'El grupo confirmó el evento para tu serenata.',
                 serenataId: item.id,
             });
         }
         return c.json({ ok: true, item });
     });
 
+    /**
+     * Jornada operativa (`serenata_groups`): contenedor del día para invitaciones/agenda/mapa.
+     * Si la serenata tiene `providerGroupId`, `musicianIds` deben ser del plantel activo del proveedor.
+     * Ver `apps/simpleserenatas/src/lib/serenata-operational-groups.ts`.
+     */
     app.post('/serenatas/:id/assign-group', async (c) => {
         const user = await deps.authUser(c);
         if (!user) return jsonError(c, 'No autenticado', 401);
-        const required = await requireCoordinator(c, user.id);
+        const required = await requireOwner(c, user.id);
         if (!required.ok) return required.response;
         const parsed = serenataGroupAssignmentSchema.safeParse(await c.req.json().catch(() => null));
         if (!parsed.success) return jsonError(c, 'Asignación inválida');
         const id = c.req.param('id');
-        const musicianIds = Array.from(new Set(parsed.data.musicianIds));
 
-        const result = await db.transaction(async (tx) => {
-            const current = await tx.query.serenatas.findFirst({
-                where: and(eq(serenatas.id, id), eq(serenatas.coordinatorId, required.coordinator.id)),
-            });
-            if (!current) return { ok: false as const, error: 'Serenata no encontrada', status: 404 as const };
-            if (!['accepted_pending_group', 'scheduled'].includes(current.status)) {
-                return { ok: false as const, error: 'Esta serenata no está lista para asignar grupo.', status: 409 as const };
-            }
-
-            let group: typeof serenataGroups.$inferSelect | undefined;
-            if (parsed.data.mode === 'existing') {
-                if (!parsed.data.groupId) return { ok: false as const, error: 'Selecciona un grupo.', status: 400 as const };
-                group = await tx.query.serenataGroups.findFirst({
-                    where: and(eq(serenataGroups.id, parsed.data.groupId), eq(serenataGroups.coordinatorId, required.coordinator.id)),
-                });
-                if (!group) return { ok: false as const, error: 'Grupo no encontrado', status: 404 as const };
-            } else {
-                const fallbackName = `Serenata ${current.recipientName}`;
-                const [created] = await tx.insert(serenataGroups).values({
-                    coordinatorId: required.coordinator.id,
-                    name: parsed.data.name?.trim() || fallbackName,
-                    date: current.eventDate,
-                    status: 'active',
-                }).returning();
-                group = created;
-            }
-
-            const existingMembers = await tx.select({ musicianId: serenataGroupMembers.musicianId }).from(serenataGroupMembers).where(eq(serenataGroupMembers.groupId, group.id));
-            if (existingMembers.length === 0 && musicianIds.length === 0) {
-                return { ok: false as const, error: 'Agrega al menos un músico al grupo.', status: 400 as const };
-            }
-
-            if (musicianIds.length > 0) {
-                const musicians = await tx.select({
-                    id: serenataMusicians.id,
-                    userId: serenataMusicians.userId,
-                    instrument: serenataMusicians.instrument,
-                }).from(serenataMusicians).where(inArray(serenataMusicians.id, musicianIds));
-                if (musicians.length !== musicianIds.length) {
-                    return { ok: false as const, error: 'Uno o más músicos no existen.', status: 404 as const };
-                }
-
-                await tx.insert(serenataGroupMembers).values(musicians.map((musician) => ({
-                    groupId: group.id,
-                    musicianId: musician.id,
-                    instrument: musician.instrument,
-                    message: parsed.data.message,
-                    status: 'invited',
-                }))).onConflictDoUpdate({
-                    target: [serenataGroupMembers.groupId, serenataGroupMembers.musicianId],
-                    set: { message: parsed.data.message, status: 'invited', updatedAt: new Date() },
-                });
-
-                await tx.insert(serenataNotifications).values(musicians.map((musician) => ({
-                    userId: musician.userId,
-                    type: 'group_invitation',
-                    title: 'Nueva invitación',
-                    message: `Te invitaron al grupo ${group.name}.`,
-                    metadata: { serenataId: current.id, groupId: group.id },
-                }))).onConflictDoNothing();
-            }
-
-            const nextMemberCount = existingMembers.length + musicianIds.filter((id) => !existingMembers.some((member) => member.musicianId === id)).length;
-            const requiredMusicians = packageForCode(current.packageCode)?.musicians ?? 0;
-            if (requiredMusicians > 0 && nextMemberCount < requiredMusicians) {
-                return {
-                    ok: false as const,
-                    error: `Este servicio requiere ${requiredMusicians} músicos. Selecciona más integrantes antes de confirmar.`,
-                    status: 409 as const,
-                };
-            }
-
-            const conflict = await validateGroupForSerenata(tx, {
-                coordinatorId: required.coordinator.id,
-                serenataId: current.id,
-                groupId: group.id,
-                packageCode: current.packageCode,
-                eventDate: current.eventDate,
-                eventTime: current.eventTime,
-                duration: current.duration,
-            });
-            if (conflict) return { ok: false as const, error: conflict, status: 409 as const };
-
-            const [item] = await tx.update(serenatas).set({
-                groupId: group.id,
-                status: 'scheduled',
-                updatedAt: new Date(),
-            }).where(eq(serenatas.id, current.id)).returning();
-
-            if (item.clientId) {
-                const client = await tx.query.serenataClients.findFirst({ where: eq(serenataClients.id, item.clientId) });
-                if (client) {
-                    await tx.insert(serenataNotifications).values({
-                        userId: client.userId,
-                        type: 'client_serenata_scheduled',
-                        title: 'Serenata confirmada',
-                        message: 'El coordinador asignó el grupo para tu serenata.',
-                        metadata: { serenataId: item.id, groupId: group.id },
-                    });
-                }
-            }
-
-            return { ok: true as const, item, group };
-        });
+        const result = await db.transaction(async (tx) => assignSerenataOperationalGroup(tx, {
+            ownerId: required.owner.id,
+            serenataId: id,
+            input: parsed.data,
+            requiredMusiciansForPackage: (code) => packageForCode(code)?.musicians ?? 0,
+        }));
 
         if (!result.ok) return jsonError(c, result.error, result.status);
         return c.json({ ok: true, item: result.item, group: result.group });
@@ -997,15 +986,34 @@ export function createSerenatasRouter(deps: SerenatasRouterDeps) {
     app.post('/serenatas/:id/cancel', async (c) => {
         const user = await deps.authUser(c);
         if (!user) return jsonError(c, 'No autenticado', 401);
-        const required = await requireCoordinator(c, user.id);
+        const required = await requireOwner(c, user.id);
         if (!required.ok) return required.response;
-        const [item] = await db.update(serenatas).set({ status: 'cancelled', updatedAt: new Date() })
-            .where(and(eq(serenatas.id, c.req.param('id')), eq(serenatas.coordinatorId, required.coordinator.id))).returning();
-        if (!item) return jsonError(c, 'Serenata no encontrada', 404);
+        const parsed = serenataCancelSchema.safeParse(await c.req.json().catch(() => ({})));
+        if (!parsed.success) return jsonError(c, parsed.error.issues[0]?.message ?? 'Motivo inválido');
+        const id = c.req.param('id');
+        const current = await db.query.serenatas.findFirst({
+            where: and(eq(serenatas.id, id), eq(serenatas.ownerId, required.owner.id)),
+        });
+        if (!current) return jsonError(c, 'Serenata no encontrada', 404);
+        const transitionError = validateCancelTransition(current, parsed.data.cancelReason);
+        if (transitionError) return jsonError(c, transitionError, 409);
+        const now = new Date();
+        const [item] = await db.update(serenatas).set({
+            status: 'cancelled',
+            cancelReason: parsed.data.cancelReason.trim(),
+            cancelledAt: now,
+            cancelledBy: user.id,
+            updatedAt: now,
+        }).where(and(
+            eq(serenatas.id, id),
+            eq(serenatas.ownerId, required.owner.id),
+            inArray(serenatas.status, ['scheduled', 'accepted_pending_group']),
+        )).returning();
+        if (!item) return jsonError(c, 'No se pudo cancelar la serenata.', 409);
         await notifySerenataClient(item.clientId, {
             type: 'client_serenata_cancelled',
             title: 'Serenata cancelada',
-            message: 'El coordinador canceló esta serenata.',
+            message: 'El grupo canceló esta serenata.',
             serenataId: item.id,
         });
         return c.json({ ok: true, item });
@@ -1014,26 +1022,67 @@ export function createSerenatasRouter(deps: SerenatasRouterDeps) {
     app.post('/serenatas/:id/complete', async (c) => {
         const user = await deps.authUser(c);
         if (!user) return jsonError(c, 'No autenticado', 401);
-        const required = await requireCoordinator(c, user.id);
+        const required = await requireOwner(c, user.id);
         if (!required.ok) return required.response;
-        const [item] = await db.update(serenatas).set({ status: 'completed', updatedAt: new Date() })
-            .where(and(eq(serenatas.id, c.req.param('id')), eq(serenatas.coordinatorId, required.coordinator.id))).returning();
-        if (!item) return jsonError(c, 'Serenata no encontrada', 404);
+        const id = c.req.param('id');
+        const current = await db.query.serenatas.findFirst({
+            where: and(eq(serenatas.id, id), eq(serenatas.ownerId, required.owner.id)),
+        });
+        if (!current) return jsonError(c, 'Serenata no encontrada', 404);
+        const transitionError = validateCompleteTransition(current);
+        if (transitionError) return jsonError(c, transitionError, 409);
+        const now = new Date();
+        const [item] = await db.update(serenatas).set({
+            status: 'completed',
+            completedAt: now,
+            completedBy: user.id,
+            updatedAt: now,
+        }).where(and(
+            eq(serenatas.id, id),
+            eq(serenatas.ownerId, required.owner.id),
+            eq(serenatas.status, 'scheduled'),
+        )).returning();
+        if (!item) return jsonError(c, 'No se pudo completar la serenata.', 409);
         await notifySerenataClient(item.clientId, {
             type: 'client_serenata_completed',
             title: 'Serenata completada',
-            message: 'Tu serenata fue marcada como completada.',
+            message: 'Tu serenata fue marcada como completada. Confirma si se realizó correctamente.',
             serenataId: item.id,
         });
+        return c.json({ ok: true, item });
+    });
+
+    app.post('/serenatas/:id/client-confirm', async (c) => {
+        const user = await deps.authUser(c);
+        if (!user) return jsonError(c, 'No autenticado', 401);
+        const client = await db.query.serenataClients.findFirst({ where: eq(serenataClients.userId, user.id) });
+        if (!client) return jsonError(c, 'Perfil de cliente no encontrado', 403);
+        const id = c.req.param('id');
+        const current = await db.query.serenatas.findFirst({
+            where: and(eq(serenatas.id, id), eq(serenatas.clientId, client.id)),
+        });
+        if (!current) return jsonError(c, 'Serenata no encontrada', 404);
+        const transitionError = validateClientConfirmTransition(current);
+        if (transitionError) return jsonError(c, transitionError, 409);
+        const now = new Date();
+        const [item] = await db.update(serenatas).set({
+            clientConfirmedAt: now,
+            updatedAt: now,
+        }).where(and(
+            eq(serenatas.id, id),
+            eq(serenatas.clientId, client.id),
+            eq(serenatas.status, 'completed'),
+        )).returning();
+        if (!item) return jsonError(c, 'No se pudo confirmar la serenata.', 409);
         return c.json({ ok: true, item });
     });
 
     app.get('/groups', async (c) => {
         const user = await deps.authUser(c);
         if (!user) return jsonError(c, 'No autenticado', 401);
-        const required = await requireCoordinator(c, user.id);
+        const required = await requireOwner(c, user.id);
         if (!required.ok) return required.response;
-        const groups = await db.select().from(serenataGroups).where(eq(serenataGroups.coordinatorId, required.coordinator.id)).orderBy(desc(serenataGroups.date));
+        const groups = await db.select().from(serenataGroups).where(eq(serenataGroups.ownerId, required.owner.id)).orderBy(desc(serenataGroups.date));
         const groupIds = groups.map((group) => group.id);
         const members = groupIds.length > 0
             ? await db.select({
@@ -1044,6 +1093,7 @@ export function createSerenatasRouter(deps: SerenatasRouterDeps) {
                 status: serenataGroupMembers.status,
                 message: serenataGroupMembers.message,
                 musicianName: users.name,
+                availableNow: serenataMusicians.availableNow,
             }).from(serenataGroupMembers)
                 .innerJoin(serenataMusicians, eq(serenataMusicians.id, serenataGroupMembers.musicianId))
                 .innerJoin(users, eq(users.id, serenataMusicians.userId))
@@ -1055,20 +1105,20 @@ export function createSerenatasRouter(deps: SerenatasRouterDeps) {
     app.post('/groups', async (c) => {
         const user = await deps.authUser(c);
         if (!user) return jsonError(c, 'No autenticado', 401);
-        const required = await requireCoordinator(c, user.id);
+        const required = await requireOwner(c, user.id);
         if (!required.ok) return required.response;
         const parsed = groupWriteSchema.safeParse(await c.req.json().catch(() => null));
         if (!parsed.success) return jsonError(c, 'Grupo inválido');
-        const [item] = await db.insert(serenataGroups).values({ ...parsed.data, coordinatorId: required.coordinator.id }).returning();
+        const [item] = await db.insert(serenataGroups).values({ ...parsed.data, ownerId: required.owner.id }).returning();
         return c.json({ ok: true, item }, 201);
     });
 
     app.post('/groups/:id/members', async (c) => {
         const user = await deps.authUser(c);
         if (!user) return jsonError(c, 'No autenticado', 401);
-        const required = await requireCoordinator(c, user.id);
+        const required = await requireOwner(c, user.id);
         if (!required.ok) return required.response;
-        const group = await db.query.serenataGroups.findFirst({ where: and(eq(serenataGroups.id, c.req.param('id')), eq(serenataGroups.coordinatorId, required.coordinator.id)) });
+        const group = await db.query.serenataGroups.findFirst({ where: and(eq(serenataGroups.id, c.req.param('id')), eq(serenataGroups.ownerId, required.owner.id)) });
         if (!group) return jsonError(c, 'Grupo no encontrado', 404);
         const parsed = memberInviteSchema.safeParse(await c.req.json().catch(() => null));
         if (!parsed.success) return jsonError(c, 'Invitación inválida');
@@ -1096,9 +1146,9 @@ export function createSerenatasRouter(deps: SerenatasRouterDeps) {
     app.patch('/groups/:groupId/members/:memberId', async (c) => {
         const user = await deps.authUser(c);
         if (!user) return jsonError(c, 'No autenticado', 401);
-        const required = await requireCoordinator(c, user.id);
+        const required = await requireOwner(c, user.id);
         if (!required.ok) return required.response;
-        const group = await db.query.serenataGroups.findFirst({ where: and(eq(serenataGroups.id, c.req.param('groupId')), eq(serenataGroups.coordinatorId, required.coordinator.id)) });
+        const group = await db.query.serenataGroups.findFirst({ where: and(eq(serenataGroups.id, c.req.param('groupId')), eq(serenataGroups.ownerId, required.owner.id)) });
         if (!group) return jsonError(c, 'Grupo no encontrado', 404);
         const parsed = memberStatusSchema.safeParse(await c.req.json().catch(() => null));
         if (!parsed.success) return jsonError(c, 'Estado inválido');
@@ -1113,19 +1163,72 @@ export function createSerenatasRouter(deps: SerenatasRouterDeps) {
         if (!user) return jsonError(c, 'No autenticado', 401);
         const required = await requireMusician(c, user.id);
         if (!required.ok) return required.response;
-        const rows = await db.select({
+        const eventRows = await db.select({
             id: serenataGroupMembers.id,
+            kind: sql`'event'`,
             groupId: serenataGroupMembers.groupId,
             status: serenataGroupMembers.status,
             instrument: serenataGroupMembers.instrument,
             message: serenataGroupMembers.message,
             groupName: serenataGroups.name,
             groupDate: serenataGroups.date,
+            serenataId: serenatas.id,
+            recipientName: serenatas.recipientName,
+            eventDate: serenatas.eventDate,
+            eventTime: serenatas.eventTime,
+            address: serenatas.address,
+            comuna: serenatas.comuna,
+            ownerName: users.name,
         }).from(serenataGroupMembers)
             .innerJoin(serenataGroups, eq(serenataGroups.id, serenataGroupMembers.groupId))
+            .leftJoin(serenatas, eq(serenatas.groupId, serenataGroups.id))
+            .leftJoin(serenataOwners, eq(serenataOwners.id, serenataGroups.ownerId))
+            .leftJoin(users, eq(users.id, serenataOwners.userId))
             .where(eq(serenataGroupMembers.musicianId, required.musician.id))
             .orderBy(desc(serenataGroups.date));
-        return c.json({ ok: true, items: rows });
+
+        const providerRows = await db.select({
+            id: serenataProviderGroupMembers.id,
+            kind: sql`'provider'`,
+            groupId: serenataProviderGroupMembers.providerGroupId,
+            status: serenataProviderGroupMembers.status,
+            instrument: serenataProviderGroupMembers.instruments,
+            message: serenataProviderGroupMembers.message,
+            groupName: serenataProviderGroups.name,
+            groupDate: serenataProviderGroupMembers.createdAt,
+            serenataId: sql<string | null>`NULL`,
+            recipientName: sql<string | null>`NULL`,
+            eventDate: sql<Date | null>`NULL`,
+            eventTime: sql<string | null>`NULL`,
+            address: sql<string | null>`NULL`,
+            comuna: serenataProviderGroups.comunaBase,
+            ownerName: users.name,
+        }).from(serenataProviderGroupMembers)
+            .innerJoin(serenataProviderGroups, eq(serenataProviderGroups.id, serenataProviderGroupMembers.providerGroupId))
+            .innerJoin(users, eq(users.id, serenataProviderGroups.ownerUserId))
+            .where(eq(serenataProviderGroupMembers.musicianId, required.musician.id))
+            .orderBy(desc(serenataProviderGroupMembers.createdAt));
+
+        const rows = [...providerRows, ...eventRows].map((row) => ({
+            ...row,
+            instrument: Array.isArray(row.instrument) ? row.instrument.join(', ') : row.instrument,
+        }));
+        const byId = new Map<string, typeof rows[number]>();
+        for (const row of rows) {
+            const existing = byId.get(row.id);
+            if (!existing || (!existing.serenataId && row.serenataId)) {
+                byId.set(row.id, row);
+            }
+        }
+        const items = Array.from(byId.values()).sort((a, b) => {
+            const aPending = a.status === 'invited' ? 0 : 1;
+            const bPending = b.status === 'invited' ? 0 : 1;
+            if (aPending !== bPending) return aPending - bPending;
+            const aDate = a.eventDate ?? a.groupDate;
+            const bDate = b.eventDate ?? b.groupDate;
+            return new Date(bDate).getTime() - new Date(aDate).getTime();
+        });
+        return c.json({ ok: true, items });
     });
 
     app.post('/invitations/:id/respond', async (c) => {
@@ -1135,6 +1238,12 @@ export function createSerenatasRouter(deps: SerenatasRouterDeps) {
         if (!required.ok) return required.response;
         const parsed = z.object({ status: z.enum(['accepted', 'rejected']) }).safeParse(await c.req.json().catch(() => null));
         if (!parsed.success) return jsonError(c, 'Respuesta inválida');
+        const [providerMember] = await db.update(serenataProviderGroupMembers).set({
+            status: parsed.data.status === 'accepted' ? 'active' : 'rejected',
+            respondedAt: new Date(),
+            updatedAt: new Date(),
+        }).where(and(eq(serenataProviderGroupMembers.id, c.req.param('id')), eq(serenataProviderGroupMembers.musicianId, required.musician.id))).returning();
+        if (providerMember) return c.json({ ok: true, member: providerMember });
         const [member] = await db.update(serenataGroupMembers).set({ status: parsed.data.status, updatedAt: new Date() })
             .where(and(eq(serenataGroupMembers.id, c.req.param('id')), eq(serenataGroupMembers.musicianId, required.musician.id))).returning();
         if (!member) return jsonError(c, 'Invitación no encontrada', 404);
@@ -1147,22 +1256,22 @@ export function createSerenatasRouter(deps: SerenatasRouterDeps) {
         const date = c.req.query('date') ?? new Date().toISOString().slice(0, 10);
         const range = toDateRange(date);
         if (!range) return jsonError(c, 'Fecha inválida');
-        c.req.query('date');
-        const { coordinator, musician } = await getProfiles(user.id);
-        if (coordinator) {
+        const profiles = await getProfiles(user.id);
+        const role = resolveActorRoleFromRequest(c, profiles);
+
+        if (role === 'owner' && profiles.owner) {
+            const ownerUserId = await resolveOwnerUserId(profiles.owner.id);
+            if (ownerUserId) {
+                const reminderCandidates = await loadOwnerScheduledForReminders(profiles.owner.id);
+                await maybeSendClosureReminders(ownerUserId, reminderCandidates);
+            }
             const items = await db.select().from(serenatas)
-                .where(and(eq(serenatas.coordinatorId, coordinator.id), gte(serenatas.eventDate, range.start), lte(serenatas.eventDate, range.end)))
+                .where(and(eq(serenatas.ownerId, profiles.owner.id), gte(serenatas.eventDate, range.start), lte(serenatas.eventDate, range.end)))
                 .orderBy(asc(serenatas.eventTime));
             return c.json({ ok: true, items });
         }
-        if (musician) {
-            const memberRows = await db.select({ groupId: serenataGroupMembers.groupId }).from(serenataGroupMembers)
-                .where(and(eq(serenataGroupMembers.musicianId, musician.id), eq(serenataGroupMembers.status, 'accepted')));
-            const groupIds = memberRows.map((row) => row.groupId);
-            if (groupIds.length === 0) return c.json({ ok: true, items: [] });
-            const items = await db.select().from(serenatas)
-                .where(and(inArray(serenatas.groupId, groupIds), gte(serenatas.eventDate, range.start), lte(serenatas.eventDate, range.end)))
-                .orderBy(asc(serenatas.eventTime));
+        if (role === 'musician' && profiles.musician) {
+            const items = await listMusicianAgenda(profiles.musician, range);
             return c.json({ ok: true, items });
         }
         return c.json({ ok: true, items: [] });
@@ -1171,36 +1280,24 @@ export function createSerenatasRouter(deps: SerenatasRouterDeps) {
     app.get('/route', async (c) => {
         const user = await deps.authUser(c);
         if (!user) return jsonError(c, 'No autenticado', 401);
-        const required = await requireCoordinator(c, user.id);
+        const required = await requireOwner(c, user.id);
         if (!required.ok) return required.response;
         const range = toDateRange(c.req.query('date') ?? new Date().toISOString().slice(0, 10));
         if (!range) return jsonError(c, 'Fecha inválida');
         const rows = await db.select().from(serenatas)
-            .where(and(eq(serenatas.coordinatorId, required.coordinator.id), inArray(serenatas.status, ['accepted_pending_group', 'scheduled']), gte(serenatas.eventDate, range.start), lte(serenatas.eventDate, range.end)))
+            .where(and(eq(serenatas.ownerId, required.owner.id), inArray(serenatas.status, ['accepted_pending_group', 'scheduled']), gte(serenatas.eventDate, range.start), lte(serenatas.eventDate, range.end)))
             .orderBy(asc(serenatas.eventTime));
-        const pending = rows
-            .map((item) => ({ item, lat: toNumber(item.lat), lng: toNumber(item.lng) }))
-            .filter((entry): entry is { item: typeof rows[number]; lat: number; lng: number } => entry.lat != null && entry.lng != null);
-        const ordered: typeof pending = [];
-        let current = pending[0] ? { lat: pending[0].lat, lng: pending[0].lng } : null;
-        const queue = pending.slice();
-        while (current && queue.length > 0) {
-            let bestIndex = 0;
-            let bestDistance = Number.POSITIVE_INFINITY;
-            queue.forEach((entry, index) => {
-                const nextDistance = distanceKm(current!, entry);
-                if (nextDistance < bestDistance) {
-                    bestDistance = nextDistance;
-                    bestIndex = index;
-                }
-            });
-            const [next] = queue.splice(bestIndex, 1);
-            ordered.push(next);
-            current = { lat: next.lat, lng: next.lng };
-        }
-        const orderedIds = new Set(ordered.map((entry) => entry.item.id));
-        const withoutCoordinates = rows.filter((item) => !orderedIds.has(item.id));
-        return c.json({ ok: true, items: [...ordered.map((entry) => entry.item), ...withoutCoordinates] });
+        const withCoordinates = rows.filter((item) => toNumber(item.lat) != null && toNumber(item.lng) != null);
+        const withoutCoordinates = rows.filter((item) => toNumber(item.lat) == null || toNumber(item.lng) == null);
+        return c.json({ ok: true, items: [...withCoordinates, ...withoutCoordinates] });
+    });
+
+    registerMarketplaceRoutes(app, {
+        authUser: deps.authUser,
+        jsonError,
+        ensureClientProfile,
+        requireOwner,
+        validateOwnerAvailability,
     });
 
     return app;

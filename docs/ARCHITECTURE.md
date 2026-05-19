@@ -1,6 +1,6 @@
 # Arquitectura
 
-**Ultima actualizacion:** 9 de mayo de 2026
+**Ultima actualizacion:** 17 de mayo de 2026
 
 ## Vista General
 
@@ -11,6 +11,7 @@ apps/* (Next.js 16 + React 19)
   - simpleautos       :3002
   - simplepropiedades :3003
   - simpleagenda      :3004
+  - simpleserenatas   :3005  (marketplace grupos proveedores)
           |
           v
 services/api (Hono) :4000

@@ -1,7 +1,15 @@
 import { Hono } from 'hono';
+import {
+    buildMercadoPagoCheckoutBackUrls,
+    resolveMercadoPagoPreferenceCheckoutUrl,
+} from '../mercadopago/checkout-helpers.js';
+import { getPaymentById, verifyMercadoPagoWebhookSignature } from '../mercadopago/service.js';
+import { confirmPaymentFromProvider, findPaymentOrderByExternalReference } from './confirm-from-provider.js';
+import { listUserPaymentOrdersMerged } from './list-user-orders.js';
 
 export type PaymentsRouterDeps = {
     authUser: (c: any) => Promise<any | null>;
+    requireVerifiedSession: (c: any, next: () => Promise<void>) => Promise<Response | void>;
     parseVertical: (v: any) => any;
     isAdminRole: (role: any) => boolean;
     isMercadoPagoConfigured: () => boolean;
@@ -17,10 +25,18 @@ export type PaymentsRouterDeps = {
     // Payment order helpers
     getPaymentOrdersForUser: (userId: string, opts?: any) => any[];
     upsertPaymentOrder: (order: any) => any;
-    updatePaymentOrder: (userId: string, orderId: string, updater: (o: any) => any) => any;
+    updatePaymentOrder: (userId: string, orderId: string, updater: (o: any) => any) => Promise<any>;
+    listPaymentOrdersForUserFromDb?: (
+        userId: string,
+        options?: { vertical?: string; kind?: string; limit?: number },
+    ) => Promise<any[]>;
     paymentOrderToResponse: (order: any) => any;
     makePaymentOrderId: (kind: any) => string;
     paymentOrdersByUser: Map<string, any[]>;
+    /** Fallback DB cuando la orden no está en el Map (p. ej. tras reinicio de proceso). */
+    findPaymentOrderByIdFromDb?: (orderId: string) => Promise<{ userId: string; order: { id: string; userId: string } } | null>;
+    /** Hidrata orden completa desde PostgreSQL e inserta en el Map. */
+    loadPaymentOrderFromDb?: (orderId: string) => Promise<Record<string, unknown> | null>;
     // MercadoPago
     createCheckoutPreference: (input: any) => Promise<any>;
     createPreapproval: (input: any) => Promise<any>;
@@ -68,6 +84,8 @@ export type PaymentsRouterDeps = {
         applyPaid: (userId: string, serenataId: string, orderId: string) => Promise<{ item: any; offersCount: number } | null>;
         markFailed: (userId: string, serenataId: string) => Promise<any | null>;
     };
+    /** IDs de pago MP ya procesados por webhook (idempotencia en proceso). */
+    processedMercadoPagoWebhookPaymentIds?: Set<string>;
 };
 
 export function createPaymentsRouter(deps: PaymentsRouterDeps) {
@@ -209,7 +227,45 @@ export function createPaymentsRouter(deps: PaymentsRouterDeps) {
 
     // ── Payments ──────────────────────────────────────────────────────────────
 
-    app.post('/payments/checkout', async (c) => {
+    app.get('/payments/orders', deps.requireVerifiedSession, async (c) => {
+        const user = await deps.authUser(c);
+        if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
+
+        const vertical = c.req.query('vertical')?.trim() || undefined;
+        const kind = c.req.query('kind')?.trim() || undefined;
+        const limitRaw = Number(c.req.query('limit') ?? '50');
+        const limit = Number.isFinite(limitRaw) ? Math.min(Math.max(limitRaw, 1), 100) : 50;
+
+        const orders = await listUserPaymentOrdersMerged(deps, user.id, { vertical, kind, limit });
+
+        return c.json({
+            ok: true,
+            orders: orders.map((order: any) => deps.paymentOrderToResponse(order)),
+        });
+    });
+
+    app.get('/payments/orders/:orderId', deps.requireVerifiedSession, async (c) => {
+        const user = await deps.authUser(c);
+        if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
+
+        const orderId = c.req.param('orderId')?.trim();
+        if (!orderId) return c.json({ ok: false, error: 'Orden inválida' }, 400);
+
+        let order = deps.getPaymentOrdersForUser(user.id).find((item: any) => item.id === orderId);
+        if (!order && deps.loadPaymentOrderFromDb) {
+            const loaded = await deps.loadPaymentOrderFromDb(orderId);
+            if (loaded && loaded.userId === user.id) {
+                order = deps.upsertPaymentOrder(loaded);
+            }
+        }
+        if (!order) {
+            return c.json({ ok: false, error: 'Orden no encontrada' }, 404);
+        }
+
+        return c.json({ ok: true, status: order.status, order: deps.paymentOrderToResponse(order) });
+    });
+
+    app.post('/payments/checkout', deps.requireVerifiedSession, async (c) => {
         const user = await deps.authUser(c);
         if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
         if (!deps.isMercadoPagoConfigured()) {
@@ -240,11 +296,12 @@ export function createPaymentsRouter(deps: PaymentsRouterDeps) {
                 const vertical = 'serenatas';
                 const returnUrl = deps.resolveMercadoPagoReturnUrl(vertical, checkoutData.returnUrl);
                 const orderId = deps.makePaymentOrderId('serenata_booking');
-                const backUrls = {
-                    success: deps.appendCheckoutParams(returnUrl, { checkout: 'success', purchaseId: orderId, kind: 'serenata_booking' }),
-                    failure: deps.appendCheckoutParams(returnUrl, { checkout: 'failure', purchaseId: orderId, kind: 'serenata_booking' }),
-                    pending: deps.appendCheckoutParams(returnUrl, { checkout: 'pending', purchaseId: orderId, kind: 'serenata_booking' }),
-                };
+                const backUrls = buildMercadoPagoCheckoutBackUrls(
+                    deps.appendCheckoutParams,
+                    returnUrl,
+                    orderId,
+                    'serenata_booking',
+                );
                 let preference: any = null;
                 let checkoutUrl: string | null = null;
                 try {
@@ -259,7 +316,7 @@ export function createPaymentsRouter(deps: PaymentsRouterDeps) {
                         backUrls,
                         metadata: { kind: 'serenata_booking', vertical, serenataId: target.id },
                     });
-                    checkoutUrl = preference.initPoint ?? preference.sandboxInitPoint ?? null;
+                    checkoutUrl = resolveMercadoPagoPreferenceCheckoutUrl(preference);
                 } catch (error) {
                     if (process.env.NODE_ENV === 'production' || process.env.MERCADO_PAGO_DEV_CHECKOUT_FALLBACK === 'false') {
                         throw error;
@@ -330,11 +387,7 @@ export function createPaymentsRouter(deps: PaymentsRouterDeps) {
                 }
 
                 const orderId = deps.makePaymentOrderId('boost');
-                const backUrls = {
-                    success: deps.appendCheckoutParams(returnUrl, { checkout: 'success', purchaseId: orderId, kind: 'boost' }),
-                    failure: deps.appendCheckoutParams(returnUrl, { checkout: 'failure', purchaseId: orderId, kind: 'boost' }),
-                    pending: deps.appendCheckoutParams(returnUrl, { checkout: 'pending', purchaseId: orderId, kind: 'boost' }),
-                };
+                const backUrls = buildMercadoPagoCheckoutBackUrls(deps.appendCheckoutParams, returnUrl, orderId, 'boost');
                 const preference = await deps.createCheckoutPreference({
                     externalReference: orderId,
                     title: `Boost ${plan.name} · ${listing.title}`,
@@ -359,7 +412,7 @@ export function createPaymentsRouter(deps: PaymentsRouterDeps) {
                     providerStatus: 'created',
                     providerReferenceId: null,
                     preferenceId: preference.id,
-                    checkoutUrl: preference.initPoint ?? preference.sandboxInitPoint,
+                    checkoutUrl: resolveMercadoPagoPreferenceCheckoutUrl(preference),
                     createdAt: Date.now(),
                     updatedAt: Date.now(),
                     appliedAt: null,
@@ -383,11 +436,7 @@ export function createPaymentsRouter(deps: PaymentsRouterDeps) {
                 const returnUrl = deps.resolveMercadoPagoReturnUrl(vertical, checkoutData.returnUrl);
                 const amount = deps.getAdvertisingPrice(vertical, campaign.format, campaign.durationDays);
                 const orderId = deps.makePaymentOrderId('advertising');
-                const backUrls = {
-                    success: deps.appendCheckoutParams(returnUrl, { checkout: 'success', purchaseId: orderId, kind: 'advertising' }),
-                    failure: deps.appendCheckoutParams(returnUrl, { checkout: 'failure', purchaseId: orderId, kind: 'advertising' }),
-                    pending: deps.appendCheckoutParams(returnUrl, { checkout: 'pending', purchaseId: orderId, kind: 'advertising' }),
-                };
+                const backUrls = buildMercadoPagoCheckoutBackUrls(deps.appendCheckoutParams, returnUrl, orderId, 'advertising');
                 const preference = await deps.createCheckoutPreference({
                     externalReference: orderId,
                     title: `Publicidad ${deps.AD_FORMAT_LABELS[campaign.format]} · ${campaign.name}`,
@@ -417,7 +466,7 @@ export function createPaymentsRouter(deps: PaymentsRouterDeps) {
                     providerStatus: 'created',
                     providerReferenceId: null,
                     preferenceId: preference.id,
-                    checkoutUrl: preference.initPoint ?? preference.sandboxInitPoint,
+                    checkoutUrl: resolveMercadoPagoPreferenceCheckoutUrl(preference),
                     createdAt: Date.now(),
                     updatedAt: Date.now(),
                     appliedAt: null,
@@ -481,7 +530,7 @@ export function createPaymentsRouter(deps: PaymentsRouterDeps) {
         }
     });
 
-    app.post('/payments/confirm', async (c) => {
+    app.post('/payments/confirm', deps.requireVerifiedSession, async (c) => {
         const user = await deps.authUser(c);
         if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
         if (!deps.isMercadoPagoConfigured()) {
@@ -493,7 +542,13 @@ export function createPaymentsRouter(deps: PaymentsRouterDeps) {
         if (!parsed.success) return c.json({ ok: false, error: 'Payload inválido' }, 400);
 
         const paymentId = parsed.data.paymentId != null ? String(parsed.data.paymentId) : '';
-        const order = deps.getPaymentOrdersForUser(user.id).find((item: any) => item.id === parsed.data.orderId);
+        let order = deps.getPaymentOrdersForUser(user.id).find((item: any) => item.id === parsed.data.orderId);
+        if (!order && deps.loadPaymentOrderFromDb) {
+            const loaded = await deps.loadPaymentOrderFromDb(parsed.data.orderId);
+            if (loaded && loaded.userId === user.id) {
+                order = deps.upsertPaymentOrder(loaded);
+            }
+        }
         if (!order) {
             return c.json({ ok: false, error: 'Orden no encontrada' }, 404);
         }
@@ -515,7 +570,7 @@ export function createPaymentsRouter(deps: PaymentsRouterDeps) {
                     return c.json({ ok: false, error: 'La respuesta de Mercado Pago no coincide con esta orden.' }, 409);
                 }
 
-                let nextOrder = deps.updatePaymentOrder(user.id, order.id, (current: any) => ({
+                let nextOrder = await deps.updatePaymentOrder(user.id, order.id, (current: any) => ({
                     ...current,
                     status: deps.parseMercadoPagoPreapprovalStatus(providerStatus),
                     providerStatus,
@@ -544,7 +599,7 @@ export function createPaymentsRouter(deps: PaymentsRouterDeps) {
                         updatedAt: Date.now(),
                     });
 
-                    nextOrder = deps.updatePaymentOrder(user.id, order.id, (current: any) => ({
+                    nextOrder = await deps.updatePaymentOrder(user.id, order.id, (current: any) => ({
                         ...current,
                         status: 'authorized',
                         providerStatus,
@@ -570,179 +625,107 @@ export function createPaymentsRouter(deps: PaymentsRouterDeps) {
             }
 
             const paymentReferenceId = paymentId || order.providerReferenceId || '';
-            if (!paymentReferenceId) {
-                return c.json({ ok: false, error: 'Mercado Pago no devolvió un identificador de pago.' }, 400);
+            const confirmed = await confirmPaymentFromProvider(deps, {
+                userId: user.id,
+                orderId: order.id,
+                paymentReferenceId,
+            });
+            if (!confirmed.ok) {
+                const status = (confirmed.status === 400 || confirmed.status === 404 || confirmed.status === 409)
+                    ? confirmed.status
+                    : 409;
+                return c.json({ ok: false, error: confirmed.error }, status);
             }
-
-            const isDevApprovedPayment = paymentReferenceId === 'dev-approved' && process.env.NODE_ENV !== 'production';
-            const providerPayload = isDevApprovedPayment ? { status: 'approved', external_reference: order.id } : await deps.getPaymentById(paymentReferenceId);
-            const payloadObject = providerPayload as any;
-            const providerStatus = String(payloadObject?.status ?? '');
-            const externalReference = String(payloadObject?.external_reference ?? '');
-            if (externalReference && externalReference !== order.id) {
-                return c.json({ ok: false, error: 'La respuesta de Mercado Pago no coincide con esta orden.' }, 409);
-            }
-
-            let nextOrder = deps.updatePaymentOrder(user.id, order.id, (current: any) => ({
-                ...current,
-                status: deps.parseMercadoPagoPaymentStatus(providerStatus),
-                providerStatus,
-                providerReferenceId: paymentReferenceId,
-                updatedAt: Date.now(),
-            })) ?? order;
-
-            if ((nextOrder.status === 'approved' || nextOrder.status === 'authorized') && !nextOrder.appliedAt) {
-                if (nextOrder.kind === 'serenata_booking') {
-                    const serenataMeta = nextOrder.metadata.kind === 'serenata_booking' ? nextOrder.metadata : null;
-                    if (!serenataMeta || !deps.serenataPayments) {
-                        return c.json({ ok: false, error: 'La orden no tiene metadata de serenata válida.' }, 409);
-                    }
-                    const applied = await deps.serenataPayments.applyPaid(user.id, serenataMeta.serenataId, nextOrder.id);
-                    if (!applied) {
-                        return c.json({ ok: false, error: 'Pago aprobado, pero no pudimos activar la serenata.' }, 409);
-                    }
-                    nextOrder = deps.updatePaymentOrder(user.id, order.id, (current: any) => ({
-                        ...current,
-                        status: 'approved',
-                        providerStatus,
-                        providerReferenceId: paymentReferenceId,
-                        updatedAt: Date.now(),
-                        appliedAt: Date.now(),
-                        appliedResourceId: applied.item.id,
-                    })) ?? nextOrder;
-
-                    return c.json({
-                        ok: true,
-                        status: nextOrder.status,
-                        order: deps.paymentOrderToResponse(nextOrder),
-                        serenata: applied.item,
-                        offersCount: applied.offersCount,
-                    });
-                }
-
-                if (nextOrder.kind === 'boost') {
-                    const boostMeta = nextOrder.metadata.kind === 'boost' ? nextOrder.metadata : null;
-                    if (!boostMeta) {
-                        return c.json({ ok: false, error: 'La orden no tiene metadata de boost válida.' }, 409);
-                    }
-
-                    const listing = deps.getBoostListingById(nextOrder.vertical, boostMeta.listingId);
-                    if (!listing) {
-                        return c.json({ ok: false, error: 'Pago aprobado, pero la publicación ya no existe.' }, 409);
-                    }
-                    const plan = deps.getBoostPlans(nextOrder.vertical, boostMeta.section).find(
-                        (item: any) => item.id === boostMeta.planId
-                    );
-                    if (!plan) {
-                        return c.json({ ok: false, error: 'Pago aprobado, pero el plan ya no está disponible.' }, 409);
-                    }
-
-                    const created = deps.createBoostOrderRecord({
-                        userId: user.id,
-                        vertical: nextOrder.vertical,
-                        listing,
-                        section: boostMeta.section,
-                        plan,
-                    });
-                    if (!created.ok || !created.order) {
-                        return c.json({ ok: false, error: created.error ?? 'Pago aprobado, pero no pudimos activar el boost.' }, 409);
-                    }
-
-                    nextOrder = deps.updatePaymentOrder(user.id, order.id, (current: any) => ({
-                        ...current,
-                        status: 'approved',
-                        providerStatus,
-                        providerReferenceId: paymentReferenceId,
-                        updatedAt: Date.now(),
-                        appliedAt: Date.now(),
-                        appliedResourceId: created.order?.id ?? null,
-                    })) ?? nextOrder;
-
-                    return c.json({
-                        ok: true,
-                        status: nextOrder.status,
-                        order: deps.paymentOrderToResponse(nextOrder),
-                        boostOrder: {
-                            ...created.order,
-                            sectionLabel: deps.sectionLabel(created.order.section),
-                            listing,
-                        },
-                    });
-                }
-
-                if (nextOrder.kind === 'advertising') {
-                    const advertisingMeta = nextOrder.metadata.kind === 'advertising' ? nextOrder.metadata : null;
-                    if (!advertisingMeta) {
-                        return c.json({ ok: false, error: 'La orden no tiene metadata de publicidad válida.' }, 409);
-                    }
-
-                    const campaign = await deps.getAdCampaignRecordForUser(user.id, advertisingMeta.campaignId);
-                    if (!campaign) {
-                        return c.json({ ok: false, error: 'Pago aprobado, pero la campaña ya no existe.' }, 409);
-                    }
-
-                    const rows = await deps.db.update(deps.tables.adCampaigns).set({
-                        paymentStatus: 'paid',
-                        paidAt: new Date(),
-                        updatedAt: new Date(),
-                    }).where(deps.dbHelpers.and(
-                        deps.dbHelpers.eq(deps.tables.adCampaigns.id, campaign.id),
-                        deps.dbHelpers.eq(deps.tables.adCampaigns.userId, user.id),
-                    )).returning();
-
-                    const normalizedCampaign = deps.normalizeAdCampaigns([deps.mapAdCampaignRow(rows[0])])[0];
-                    nextOrder = deps.updatePaymentOrder(user.id, order.id, (current: any) => ({
-                        ...current,
-                        status: 'approved',
-                        providerStatus,
-                        providerReferenceId: paymentReferenceId,
-                        updatedAt: Date.now(),
-                        appliedAt: Date.now(),
-                        appliedResourceId: normalizedCampaign.id,
-                    })) ?? nextOrder;
-
-                    return c.json({
-                        ok: true,
-                        status: nextOrder.status,
-                        order: deps.paymentOrderToResponse(nextOrder),
-                        campaign: deps.adCampaignToResponse(normalizedCampaign),
-                    });
-                }
-
-                nextOrder = deps.updatePaymentOrder(user.id, order.id, (current: any) => ({
-                    ...current,
-                    status: 'approved',
-                    providerStatus,
-                    providerReferenceId: paymentReferenceId,
-                    updatedAt: Date.now(),
-                    appliedAt: Date.now(),
-                    appliedResourceId: current.id,
-                })) ?? nextOrder;
-            }
-
-            if (nextOrder.kind === 'advertising') {
-                const advertisingMeta = nextOrder.metadata.kind === 'advertising' ? nextOrder.metadata : null;
-                if (advertisingMeta) {
-                    await deps.db.update(deps.tables.adCampaigns).set({
-                        paymentStatus: deps.getAdPaymentStatusFromOrderStatus(nextOrder.status),
-                        updatedAt: new Date(),
-                    }).where(deps.dbHelpers.and(
-                        deps.dbHelpers.eq(deps.tables.adCampaigns.id, advertisingMeta.campaignId),
-                        deps.dbHelpers.eq(deps.tables.adCampaigns.userId, user.id),
-                    ));
-                }
-            }
-            if ((nextOrder.status === 'rejected' || nextOrder.status === 'cancelled') && nextOrder.kind === 'serenata_booking') {
-                const serenataMeta = nextOrder.metadata.kind === 'serenata_booking' ? nextOrder.metadata : null;
-                if (serenataMeta && deps.serenataPayments) {
-                    await deps.serenataPayments.markFailed(user.id, serenataMeta.serenataId);
-                }
-            }
-
-            return c.json({ ok: true, status: nextOrder.status, order: deps.paymentOrderToResponse(nextOrder) });
+            return c.json({ ok: true, status: confirmed.status, order: confirmed.order, ...confirmed.extra });
         } catch (error) {
             const message = error instanceof Error ? error.message : 'No pudimos validar el pago.';
             return c.json({ ok: false, error: message }, 502);
+        }
+    });
+
+    app.post('/payments/mercadopago/webhook', async (c) => {
+        try {
+            const body = await c.req.json().catch(() => ({})) as Record<string, unknown>;
+            const bodyData = (body.data ?? {}) as Record<string, unknown>;
+            const topic = String(c.req.query('topic') ?? c.req.query('type') ?? body.type ?? '');
+            const paymentId = String(c.req.query('id') ?? c.req.query('data.id') ?? bodyData.id ?? body.id ?? '');
+
+            const signatureResult = verifyMercadoPagoWebhookSignature({
+                xSignature: c.req.header('x-signature'),
+                xRequestId: c.req.header('x-request-id'),
+                dataId: paymentId || null,
+            });
+            if (signatureResult === false) {
+                return c.json({ ok: false, error: 'Firma de webhook inválida o no permitida' }, 401);
+            }
+
+            const isPayment = topic === 'payment' || String(body.type ?? '') === 'payment';
+            if (!isPayment) return c.json({ ok: true });
+            if (!paymentId) return c.json({ ok: true });
+
+            const processed = deps.processedMercadoPagoWebhookPaymentIds;
+            if (processed?.has(paymentId)) {
+                return c.json({ ok: true, duplicate: true });
+            }
+
+            let providerPayload: Record<string, unknown>;
+            try {
+                providerPayload = (await getPaymentById(paymentId)) as Record<string, unknown>;
+            } catch (err) {
+                console.warn('[payments] MP webhook: no se pudo consultar el pago:', err);
+                if (signatureResult !== 'unsigned') {
+                    return c.json({ ok: true });
+                }
+                providerPayload = {
+                    status: String(body.status ?? bodyData.status ?? ''),
+                    external_reference: String(body.external_reference ?? bodyData.external_reference ?? ''),
+                };
+            }
+
+            const providerStatus = String(providerPayload.status ?? '');
+            if (providerStatus !== 'approved') {
+                return c.json({ ok: true });
+            }
+
+            const orderId = String(providerPayload.external_reference ?? '');
+            if (!orderId) return c.json({ ok: true });
+
+            let located = findPaymentOrderByExternalReference(deps.paymentOrdersByUser, orderId);
+            if (!located && deps.loadPaymentOrderFromDb) {
+                const hydrated = await deps.loadPaymentOrderFromDb(orderId);
+                if (hydrated) {
+                    deps.upsertPaymentOrder(hydrated);
+                    located = {
+                        userId: String(hydrated.userId),
+                        order: { id: String(hydrated.id), userId: String(hydrated.userId) },
+                    };
+                }
+            } else if (!located && deps.findPaymentOrderByIdFromDb) {
+                located = await deps.findPaymentOrderByIdFromDb(orderId);
+                if (located && deps.loadPaymentOrderFromDb) {
+                    const hydrated = await deps.loadPaymentOrderFromDb(orderId);
+                    if (hydrated) deps.upsertPaymentOrder(hydrated);
+                }
+            }
+            if (!located) return c.json({ ok: true });
+
+            const result = await confirmPaymentFromProvider(deps, {
+                userId: located.userId,
+                orderId: located.order.id,
+                paymentReferenceId: paymentId,
+                providerPayload,
+            });
+
+            if (result.ok) {
+                processed?.add(paymentId);
+            } else {
+                console.warn('[payments] MP webhook: confirmación fallida:', result.error);
+            }
+
+            return c.json({ ok: true });
+        } catch (error) {
+            console.error('[payments] MP webhook error:', error);
+            return c.json({ ok: true });
         }
     });
 

@@ -143,7 +143,7 @@ export default function ConfiguracionPage() {
 
     return (
         <PanelConfigPage
-            title="Mi Cuenta"
+            title="Mi cuenta"
             description={allReady
                 ? 'Tu agenda está activa y lista para recibir reservas.'
                 : 'Administra tu cuenta, perfil y configuración de tu agenda desde aquí.'}

@@ -96,16 +96,6 @@ export function countFreeBoostsUsedThisMonth(userId: string, vertical: VerticalT
     return orders.filter((order) => order.createdAt >= monthStart && order.price === 0).length;
 }
 
-export function getFreeBoostQuota(user: any, vertical: VerticalType): { max: number; used: number; remaining: number } {
-    if (user.role === 'superadmin') {
-        return { max: -1, used: 0, remaining: -1 }; // -1 = ilimitado
-    }
-    // TODO: Implement proper plan lookup
-    const max = 5; // Default quota
-    const used = countFreeBoostsUsedThisMonth(user.id, vertical);
-    return { max, used, remaining: Math.max(0, max - used) };
-}
-
 export function createBoostOrderRecord(input: {
     userId: string;
     vertical: VerticalType;

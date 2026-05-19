@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useMemo, useState, type ComponentType } from 'react';
 import { IconChevronLeft, IconChevronRight, IconUser } from '@tabler/icons-react';
+import { cleanPanelPath, resolveActiveNavHref } from '../panel/resolve-active-nav';
 
 type TablerIcon = ComponentType<{ size?: number; stroke?: number }>;
 
@@ -37,10 +38,6 @@ function cleanHref(href: string): string {
     return href.split('#')[0] ?? href;
 }
 
-function cleanPathname(href: string): string {
-    return href.split('?')[0]?.split('#')[0] ?? href;
-}
-
 export function Sidebar({
     navItems,
     user,
@@ -55,11 +52,13 @@ export function Sidebar({
     const pathname = usePathname() ?? '';
     const [hovered, setHovered] = useState(false);
 
-    const isActive = (href: string) => {
-        if (activeHref) return cleanHref(activeHref) === cleanHref(href);
-        const normalized = cleanPathname(href);
-        return pathname === normalized || pathname.startsWith(`${normalized}/`);
-    };
+    const resolvedActiveHref = useMemo(() => {
+        if (activeHref) return activeHref;
+        return resolveActiveNavHref(pathname, navItems);
+    }, [activeHref, pathname, navItems]);
+
+    const isActive = (href: string) =>
+        resolvedActiveHref != null && cleanPanelPath(resolvedActiveHref) === cleanPanelPath(href);
 
     const showExpanded = !collapsed || hovered;
     const userName = user?.name || 'Usuario';
@@ -84,7 +83,7 @@ export function Sidebar({
 
     const innerClassName = fixed
         ? 'flex items-center h-16 px-4 border-b flex-shrink-0'
-        : 'sticky top-4 rounded-2xl border p-3 flex flex-col';
+        : 'sticky top-4 rounded-card border p-3 flex flex-col';
 
     const innerStyle = fixed
         ? { borderColor: 'var(--border)' }

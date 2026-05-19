@@ -8,13 +8,15 @@ export const users = pgTable('users', {
   passwordHash: varchar('password_hash', { length: 255 }),
   name: varchar('name', { length: 255 }).notNull(),
   phone: varchar('phone', { length: 20 }),
-  role: varchar('role', { length: 20 }).notNull().default('user'), // 'user' | 'musician' | 'coordinator' | 'client' | 'admin' | 'superadmin'
+  whatsappEnabled: boolean('whatsapp_enabled').notNull().default(false),
+  role: varchar('role', { length: 20 }).notNull().default('user'), // 'user' | 'musician' | 'client' | 'admin' | 'superadmin'
   status: varchar('status', { length: 20 }).notNull().default('active'), // 'active' | 'verified' | 'suspended'
   primaryVertical: varchar('primary_vertical', { length: 20 }), // NULL = platform/superadmin; 'autos' | 'propiedades' | 'agenda'
   avatarUrl: varchar('avatar_url', { length: 500 }),
   // OAuth fields
   provider: varchar('provider', { length: 20 }), // 'local' | 'google' | 'facebook' | etc.
   providerId: varchar('provider_id', { length: 255 }), // ID from OAuth provider
+  pendingEmail: varchar('pending_email', { length: 255 }),
   createdAt: timestamp('created_at').notNull().defaultNow(),
   updatedAt: timestamp('updated_at').notNull().defaultNow(),
   lastLoginAt: timestamp('last_login_at'),
@@ -634,6 +636,21 @@ export const mortgageRates = pgTable('mortgage_rates', {
   updatedAtIdx: index('mortgage_rates_updated_at_idx').on(table.updatedAt),
 }));
 
+// Platform admin — audit trail for sensitive actions (SimpleAdmin)
+export const adminAuditLogs = pgTable('admin_audit_logs', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  actorUserId: uuid('actor_user_id').references(() => users.id, { onDelete: 'cascade' }).notNull(),
+  action: varchar('action', { length: 120 }).notNull(),
+  entityType: varchar('entity_type', { length: 80 }).notNull(),
+  entityId: varchar('entity_id', { length: 100 }).notNull(),
+  payload: jsonb('payload').notNull().default({}),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+}, (table) => ({
+  actorIdx: index('admin_audit_logs_actor_idx').on(table.actorUserId),
+  entityIdx: index('admin_audit_logs_entity_idx').on(table.entityType, table.entityId),
+  createdAtIdx: index('admin_audit_logs_created_at_idx').on(table.createdAt),
+}));
+
 // Appointments / bookings
 export const agendaAppointments = pgTable('agenda_appointments', {
   id: uuid('id').primaryKey().defaultRandom(),
@@ -1056,6 +1073,7 @@ export const serenataMusicians = pgTable('serenata_musicians', {
   isAvailable: boolean('is_available').notNull().default(true),
   availableNow: boolean('available_now').notNull().default(false),
   experienceYears: integer('experience_years').notNull().default(0),
+  workZones: jsonb('working_comunas').$type<string[]>().notNull().default(sql`'[]'::jsonb`),
   createdAt: timestamp('created_at').notNull().defaultNow(),
   updatedAt: timestamp('updated_at').notNull().defaultNow(),
 }, (table) => ({
@@ -1076,7 +1094,7 @@ export const serenataClients = pgTable('serenata_clients', {
   locationIdx: index('serenata_clients_location_idx').on(table.region, table.comuna),
 }));
 
-export const serenataCoordinators = pgTable('serenata_coordinators', {
+export const serenataOwners = pgTable('serenata_owners', {
   id: uuid('id').primaryKey().defaultRandom(),
   userId: uuid('user_id').references(() => users.id, { onDelete: 'cascade' }).notNull(),
   bio: text('bio'),
@@ -1094,26 +1112,136 @@ export const serenataCoordinators = pgTable('serenata_coordinators', {
   createdAt: timestamp('created_at').notNull().defaultNow(),
   updatedAt: timestamp('updated_at').notNull().defaultNow(),
 }, (table) => ({
-  userIdx: uniqueIndex('serenata_coordinators_user_idx').on(table.userId),
+  userIdx: uniqueIndex('serenata_owners_user_idx').on(table.userId),
+}));
+
+/** @deprecated Usar `serenataOwners` (tabla renombrada en 0060). */
+export const serenataAdmins = serenataOwners;
+/** @deprecated Usar `serenataOwners`. */
+export const serenataCoordinators = serenataOwners;
+
+export const serenataProviderGroups = pgTable('serenata_provider_groups', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  ownerUserId: uuid('owner_user_id').references(() => users.id, { onDelete: 'cascade' }).notNull(),
+  ownerId: uuid('owner_id').references(() => serenataOwners.id, { onDelete: 'set null' }),
+  name: varchar('name', { length: 160 }).notNull(),
+  slug: varchar('slug', { length: 180 }).notNull(),
+  description: text('description'),
+  logoUrl: text('logo_url'),
+  coverUrl: text('cover_url'),
+  phone: varchar('phone', { length: 40 }),
+  whatsapp: varchar('whatsapp', { length: 40 }),
+  region: varchar('region', { length: 120 }),
+  comunaBase: varchar('comuna_base', { length: 120 }),
+  serviceComunas: jsonb('service_comunas').$type<string[]>().notNull().default(sql`'[]'::jsonb`),
+  status: varchar('status', { length: 30 }).notNull().default('draft'),
+  isVerified: boolean('is_verified').notNull().default(false),
+  ratingAverage: decimal('rating_average', { precision: 4, scale: 2 }).notNull().default('0'),
+  ratingCount: integer('rating_count').notNull().default(0),
+  slaHours: integer('sla_hours').notNull().default(24),
+  bookingMode: varchar('booking_mode', { length: 30 }).notNull().default('manual'),
+  bufferMinutes: integer('buffer_minutes').notNull().default(0),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+  updatedAt: timestamp('updated_at').notNull().defaultNow(),
+}, (table) => ({
+  slugIdx: uniqueIndex('serenata_provider_groups_slug_idx').on(table.slug),
+  ownerUserIdx: index('serenata_provider_groups_owner_user_idx').on(table.ownerUserId),
+  ownerProfileIdx: index('serenata_provider_groups_owner_idx').on(table.ownerId),
+  statusIdx: index('serenata_provider_groups_status_idx').on(table.status),
+}));
+
+export const serenataGroupServices = pgTable('serenata_group_services', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  providerGroupId: uuid('provider_group_id').references(() => serenataProviderGroups.id, { onDelete: 'cascade' }).notNull(),
+  name: varchar('name', { length: 160 }).notNull(),
+  description: text('description'),
+  musiciansCount: integer('musicians_count').notNull().default(3),
+  durationMinutes: integer('duration_minutes').notNull().default(45),
+  price: integer('price').notNull(),
+  currency: varchar('currency', { length: 8 }).notNull().default('CLP'),
+  eventType: varchar('event_type', { length: 80 }),
+  isActive: boolean('is_active').notNull().default(true),
+  sortOrder: integer('sort_order').notNull().default(0),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+  updatedAt: timestamp('updated_at').notNull().defaultNow(),
+}, (table) => ({
+  providerIdx: index('serenata_group_services_provider_idx').on(table.providerGroupId),
+}));
+
+export const serenataProviderGroupMembers = pgTable('serenata_provider_group_members', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  providerGroupId: uuid('provider_group_id').references(() => serenataProviderGroups.id, { onDelete: 'cascade' }).notNull(),
+  musicianId: uuid('musician_id').references(() => serenataMusicians.id, { onDelete: 'cascade' }).notNull(),
+  role: varchar('role', { length: 30 }).notNull().default('musician'),
+  instruments: jsonb('instruments').$type<string[]>().notNull().default(sql`'[]'::jsonb`),
+  status: varchar('status', { length: 30 }).notNull().default('invited'),
+  message: text('message'),
+  invitedByUserId: uuid('invited_by_user_id').references(() => users.id, { onDelete: 'set null' }),
+  respondedAt: timestamp('responded_at'),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+  updatedAt: timestamp('updated_at').notNull().defaultNow(),
+}, (table) => ({
+  providerIdx: index('serenata_provider_group_members_provider_idx').on(table.providerGroupId),
+  musicianIdx: index('serenata_provider_group_members_musician_idx').on(table.musicianId),
+  statusIdx: index('serenata_provider_group_members_status_idx').on(table.status),
+  uniqueProviderMusician: uniqueIndex('serenata_provider_group_members_unique_idx').on(table.providerGroupId, table.musicianId),
+}));
+
+export const serenataAvailabilityRules = pgTable('serenata_availability_rules', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  providerGroupId: uuid('provider_group_id').references(() => serenataProviderGroups.id, { onDelete: 'cascade' }).notNull(),
+  dayOfWeek: integer('day_of_week').notNull(),
+  startTime: varchar('start_time', { length: 5 }).notNull(),
+  endTime: varchar('end_time', { length: 5 }).notNull(),
+  isActive: boolean('is_active').notNull().default(true),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+  updatedAt: timestamp('updated_at').notNull().defaultNow(),
+}, (table) => ({
+  providerIdx: index('serenata_availability_rules_provider_idx').on(table.providerGroupId),
+}));
+
+export const serenataProviderGroupApplications = pgTable('serenata_provider_group_applications', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  userId: uuid('user_id').references(() => users.id, { onDelete: 'cascade' }).notNull(),
+  providerGroupId: uuid('provider_group_id').references(() => serenataProviderGroups.id, { onDelete: 'set null' }),
+  name: varchar('name', { length: 160 }).notNull(),
+  description: text(),
+  phone: varchar('phone', { length: 40 }),
+  whatsapp: varchar('whatsapp', { length: 40 }),
+  region: varchar('region', { length: 120 }),
+  comunaBase: varchar('comuna_base', { length: 120 }),
+  serviceComunas: jsonb('service_comunas').$type<string[]>().notNull().default(sql`'[]'::jsonb`),
+  status: varchar('status', { length: 30 }).notNull().default('pending'),
+  reviewNotes: text('review_notes'),
+  reviewedAt: timestamp('reviewed_at'),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+  updatedAt: timestamp('updated_at').notNull().defaultNow(),
+}, (table) => ({
+  userIdx: index('serenata_provider_group_applications_user_idx').on(table.userId),
+  statusIdx: index('serenata_provider_group_applications_status_idx').on(table.status),
 }));
 
 export const serenataGroups = pgTable('serenata_groups', {
   id: uuid('id').primaryKey().defaultRandom(),
-  coordinatorId: uuid('coordinator_id').references(() => serenataCoordinators.id, { onDelete: 'cascade' }).notNull(),
+  ownerId: uuid('owner_id').references(() => serenataOwners.id, { onDelete: 'cascade' }).notNull(),
+  providerGroupId: uuid('provider_group_id').references(() => serenataProviderGroups.id, { onDelete: 'set null' }),
   name: varchar('name', { length: 160 }).notNull(),
   date: timestamp('date').notNull(),
   status: varchar('status', { length: 30 }).notNull().default('draft'),
   createdAt: timestamp('created_at').notNull().defaultNow(),
   updatedAt: timestamp('updated_at').notNull().defaultNow(),
 }, (table) => ({
-  coordinatorIdx: index('serenata_groups_coordinator_idx').on(table.coordinatorId),
+  ownerIdx: index('serenata_groups_owner_idx').on(table.ownerId),
+  providerIdx: index('serenata_groups_provider_idx').on(table.providerGroupId),
   dateIdx: index('serenata_groups_date_idx').on(table.date),
 }));
 
 export const serenatas = pgTable('serenatas', {
   id: uuid('id').primaryKey().defaultRandom(),
   clientId: uuid('client_id').references(() => serenataClients.id, { onDelete: 'set null' }),
-  coordinatorId: uuid('coordinator_id').references(() => serenataCoordinators.id, { onDelete: 'set null' }),
+  ownerId: uuid('owner_id').references(() => serenataOwners.id, { onDelete: 'set null' }),
+  providerGroupId: uuid('provider_group_id').references(() => serenataProviderGroups.id, { onDelete: 'set null' }),
+  selectedServiceId: uuid('selected_service_id').references(() => serenataGroupServices.id, { onDelete: 'set null' }),
   groupId: uuid('group_id').references(() => serenataGroups.id, { onDelete: 'set null' }),
   source: varchar('source', { length: 30 }).notNull().default('own_lead'),
   status: varchar('status', { length: 30 }).notNull().default('scheduled'),
@@ -1128,17 +1256,30 @@ export const serenatas = pgTable('serenatas', {
   lat: decimal('lat', { precision: 10, scale: 7 }),
   lng: decimal('lng', { precision: 10, scale: 7 }),
   eventDate: timestamp('event_date').notNull(),
-  eventTime: varchar('event_time', { length: 10 }).notNull(),
+  eventTime: varchar('event_time', { length: 10 }),
+  flexibleSchedule: boolean('flexible_schedule').notNull().default(false),
   duration: integer('duration').notNull().default(45),
   price: integer('price'),
   packageCode: varchar('package_code', { length: 30 }),
   eventType: varchar('event_type', { length: 80 }),
   message: text('message'),
+  completedAt: timestamp('completed_at'),
+  completedBy: uuid('completed_by').references(() => users.id, { onDelete: 'set null' }),
+  cancelReason: text('cancel_reason'),
+  cancelledAt: timestamp('cancelled_at'),
+  cancelledBy: uuid('cancelled_by').references(() => users.id, { onDelete: 'set null' }),
+  clientConfirmedAt: timestamp('client_confirmed_at'),
+  closureReminderSentAt: timestamp('closure_reminder_sent_at'),
+  responseDueAt: timestamp('response_due_at', { withTimezone: true }),
+  expiredAt: timestamp('expired_at', { withTimezone: true }),
+  expiredReason: varchar('expired_reason', { length: 40 }),
+  pendingReminderSentAt: timestamp('pending_reminder_sent_at', { withTimezone: true }),
   createdAt: timestamp('created_at').notNull().defaultNow(),
   updatedAt: timestamp('updated_at').notNull().defaultNow(),
 }, (table) => ({
   clientIdx: index('serenatas_client_idx').on(table.clientId),
-  coordinatorIdx: index('serenatas_coordinator_idx').on(table.coordinatorId),
+  ownerIdx: index('serenatas_owner_idx').on(table.ownerId),
+  providerGroupIdx: index('serenatas_provider_group_idx').on(table.providerGroupId),
   groupIdx: index('serenatas_group_idx').on(table.groupId),
   eventDateIdx: index('serenatas_event_date_idx').on(table.eventDate),
 }));
@@ -1146,7 +1287,7 @@ export const serenatas = pgTable('serenatas', {
 export const serenataOffers = pgTable('serenata_offers', {
   id: uuid('id').primaryKey().defaultRandom(),
   serenataId: uuid('serenata_id').references(() => serenatas.id, { onDelete: 'cascade' }).notNull(),
-  coordinatorId: uuid('coordinator_id').references(() => serenataCoordinators.id, { onDelete: 'cascade' }).notNull(),
+  ownerId: uuid('owner_id').references(() => serenataOwners.id, { onDelete: 'cascade' }).notNull(),
   status: varchar('status', { length: 30 }).notNull().default('offered'),
   rank: integer('rank').notNull().default(0),
   offeredAt: timestamp('offered_at').notNull().defaultNow(),
@@ -1156,9 +1297,9 @@ export const serenataOffers = pgTable('serenata_offers', {
   updatedAt: timestamp('updated_at').notNull().defaultNow(),
 }, (table) => ({
   serenataIdx: index('serenata_offers_serenata_idx').on(table.serenataId),
-  coordinatorIdx: index('serenata_offers_coordinator_idx').on(table.coordinatorId),
+  ownerIdx: index('serenata_offers_owner_idx').on(table.ownerId),
   statusIdx: index('serenata_offers_status_idx').on(table.status),
-  uniqueOffer: uniqueIndex('serenata_offers_unique_idx').on(table.serenataId, table.coordinatorId),
+  uniqueOffer: uniqueIndex('serenata_offers_unique_owner_idx').on(table.serenataId, table.ownerId),
 }));
 
 export const serenataGroupMembers = pgTable('serenata_group_members', {

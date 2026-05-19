@@ -18,3 +18,24 @@
     --accent-border: rgba(255, 255, 255, 0.34);
     --accent-contrast: #111111;
 }
+
+.admin-modal-backdrop {
+    background: rgba(15, 23, 42, 0.44);
+    backdrop-filter: blur(8px);
+}
+
+.admin-modal-backdrop--dense {
+    background: rgba(0, 0, 0, 0.5);
+    backdrop-filter: blur(4px);
+}
+
+.admin-modal-surface {
+    border-color: var(--border);
+    background: var(--surface);
+    box-shadow: var(--shadow-xl);
+}
+
+.admin-modal-danger-icon {
+    background: rgba(244, 63, 94, 0.12);
+    color: rgb(244, 63, 94);
+}

@@ -6,6 +6,7 @@ type MercadoPagoRequestOptions = {
     method: 'GET' | 'POST';
     body?: unknown;
     idempotencyKey?: string;
+    accessToken?: string;
 };
 
 type MercadoPagoPreferenceResponse = {
@@ -62,9 +63,19 @@ function extractErrorMessage(payload: unknown, status: number): string {
 }
 
 async function requestMercadoPago<T>(path: string, options: MercadoPagoRequestOptions): Promise<T> {
+    const token = options.accessToken ?? getAccessToken();
+    if (!token) {
+        throw new Error('Mercado Pago no está configurado. Falta MERCADO_PAGO_ACCESS_TOKEN.');
+    }
+    const headers: HeadersInit = {
+        Accept: 'application/json',
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json',
+        ...(options.idempotencyKey ? { 'X-Idempotency-Key': options.idempotencyKey } : {}),
+    };
     const response = await fetch(`${MERCADO_PAGO_API_BASE}${path}`, {
         method: options.method,
-        headers: getHeaders(options.idempotencyKey),
+        headers,
         body: options.body == null ? undefined : JSON.stringify(options.body),
     });
 
@@ -141,9 +152,13 @@ export async function createCheckoutPreference(input: {
     };
 }
 
-export async function getPaymentById(paymentId: string): Promise<MercadoPagoPaymentResponse> {
+export async function getPaymentById(
+    paymentId: string,
+    options?: { accessToken?: string }
+): Promise<MercadoPagoPaymentResponse> {
     return requestMercadoPago<MercadoPagoPaymentResponse>(`/v1/payments/${encodeURIComponent(paymentId)}`, {
         method: 'GET',
+        accessToken: options?.accessToken,
     });
 }
 
@@ -209,32 +224,43 @@ export async function refundPayment(input: {
     );
 }
 
+export type MercadoPagoWebhookSignatureResult = true | false | 'unsigned';
+
 /**
  * Verifica la firma del webhook de Mercado Pago.
  *
  * Documentación: https://www.mercadopago.cl/developers/es/docs/your-integrations/notifications/webhooks
  *
- * El header `x-signature` viene como `ts=1700000000,v1=<sha256hex>`. La firma se calcula como:
- *
- *   manifest = `id:${dataId};request-id:${requestId};ts:${ts};`
- *   v1 = HMAC_SHA256(secret, manifest)
- *
- * - `secret` = `MERCADO_PAGO_WEBHOOK_SECRET`
- * - `dataId` = id del recurso recibido (query `data.id` o body.data.id)
- * - `requestId` = header `x-request-id`
- *
- * Si el secret no está configurado, devuelve `'unsigned'` (no aborta — la verificación
- * con `getPaymentById` ya cubre el caso). Si está configurado y la firma no coincide,
- * devuelve `false`.
+ * - Producción sin `MERCADO_PAGO_WEBHOOK_SECRET` → `false` (rechazar webhook).
+ * - Desarrollo sin secret → `'unsigned'` solo si `MERCADO_PAGO_WEBHOOK_ALLOW_UNSIGNED=true`.
  */
 export function verifyMercadoPagoWebhookSignature(input: {
     xSignature: string | null | undefined;
     xRequestId: string | null | undefined;
     dataId: string | null | undefined;
-}): true | false | 'unsigned' {
+}): MercadoPagoWebhookSignatureResult {
     const secret = asString(process.env.MERCADO_PAGO_WEBHOOK_SECRET);
-    if (!secret) return 'unsigned';
+    if (!secret) {
+        if (process.env.NODE_ENV === 'production') {
+            return false;
+        }
+        if (process.env.MERCADO_PAGO_WEBHOOK_ALLOW_UNSIGNED === 'true') {
+            return 'unsigned';
+        }
+        return false;
+    }
 
+    return verifyMercadoPagoWebhookSignatureWithSecret(secret, input);
+}
+
+export function verifyMercadoPagoWebhookSignatureWithSecret(
+    secret: string,
+    input: {
+        xSignature: string | null | undefined;
+        xRequestId: string | null | undefined;
+        dataId: string | null | undefined;
+    },
+): true | false {
     const sig = asString(input.xSignature);
     const reqId = asString(input.xRequestId);
     const dataId = asString(input.dataId);
@@ -260,4 +286,13 @@ export function verifyMercadoPagoWebhookSignature(input: {
     } catch {
         return false;
     }
+}
+
+export function warnMercadoPagoWebhookSecretAtStartup(): void {
+    if (process.env.NODE_ENV !== 'production') return;
+    if (asString(process.env.MERCADO_PAGO_WEBHOOK_SECRET)) return;
+    console.error(
+        '[mercadopago] CRÍTICO: NODE_ENV=production sin MERCADO_PAGO_WEBHOOK_SECRET. '
+        + 'Los webhooks de pago serán rechazados (401).',
+    );
 }

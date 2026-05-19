@@ -1,8 +1,8 @@
 'use client';
 
 import Link from 'next/link';
-import { useTheme } from 'next-themes';
-import React, { useState, useEffect } from 'react';
+import { BrandLogo, ThemeToggleButton } from '@simple/ui';
+import React, { useState } from 'react';
 import {
     IconArrowRight,
     IconCar,
@@ -11,8 +11,6 @@ import {
     IconUsers,
     IconShieldCheck,
     IconChartBar,
-    IconSun,
-    IconMoon,
     IconCheck,
     IconSearch,
     IconMapPin,
@@ -42,6 +40,8 @@ import {
     IconPhone,
     IconMail,
     IconExternalLink,
+    IconMoon,
+    IconSun,
 } from '@tabler/icons-react';
 
 // ============================================================================
@@ -56,7 +56,7 @@ const BRAND = {
     },
     propiedades: {
         name: 'SimplePropiedades',
-        color: '#3b82f6',
+        color: '#3232FF',
         icon: IconBuildingSkyscraper,
         url: 'https://propiedades.simple.cl',
     },
@@ -66,59 +66,50 @@ const BRAND = {
         icon: IconCalendar,
         url: 'https://agenda.simple.cl',
     },
+    serenatas: {
+        name: 'SimpleSerenatas',
+        color: '#E11D48',
+        icon: IconHeart,
+        url: 'https://serenatas.simple.cl',
+    },
+    admin: {
+        name: 'SimpleAdmin',
+        color: '#64748B',
+        icon: IconShieldCheck,
+        url: 'https://admin.simple.cl',
+    },
 } as const;
 
 // ============================================================================
 // COMPONENTES
 // ============================================================================
 
-function HeaderIconChip({
-    children,
-    onClick,
-    'aria-label': ariaLabel,
-}: {
-    children: React.ReactNode;
-    onClick?: () => void;
-    'aria-label'?: string;
-}) {
-    return (
-        <button
-            onClick={onClick}
-            aria-label={ariaLabel}
-            className="w-9 h-9 rounded-[10px] border flex items-center justify-center transition-all duration-200 hover:bg-[var(--bg-subtle)] hover:border-[var(--border-strong)] hover:shadow-[var(--shadow-xs)]"
-            style={{ borderColor: 'var(--border)', color: 'var(--fg-muted)' }}
-        >
-            {children}
-        </button>
-    );
-}
-
 function Logo({ brand }: { brand?: keyof typeof BRAND }) {
-    const b = brand ? BRAND[brand] : null;
-    const Icon = b?.icon || (() => (
-        <span className="font-semibold text-sm" style={{ color: 'var(--fg)' }}>S</span>
-    ));
-
+    if (!brand) {
+        return (
+            <Link href="/" className="flex shrink-0">
+                <BrandLogo appId="simpleplataforma" />
+            </Link>
+        );
+    }
+    const b = BRAND[brand];
+    const Icon = b.icon;
     return (
         <Link href="/" className="flex items-center gap-1.5 group shrink-0">
             <div
-                className="w-9 h-9 rounded-[10px] border flex items-center justify-center transition-all duration-200 group-hover:border-[var(--accent)]"
+                className="w-9 h-9 rounded-button border flex items-center justify-center transition-all duration-200 group-hover:border-[var(--accent)]"
                 style={{
                     borderColor: 'var(--border)',
-                    background: b
-                        ? `linear-gradient(135deg, ${b.color}20 0%, ${b.color}08 100%)`
-                        : 'var(--bg-subtle)',
+                    background: `linear-gradient(135deg, ${b.color}20 0%, ${b.color}08 100%)`,
                 }}
             >
-                {b ? <Icon size={18} stroke={1.5} style={{ color: b.color }} /> : <Icon />}
+                <Icon size={18} stroke={1.5} style={{ color: b.color }} />
             </div>
-            <span className="inline-flex items-end gap-[0.08rem] text-[1.05rem] tracking-tight" style={{ color: 'var(--fg)' }}>
+            <span className="inline-flex items-end gap-[0.08rem] text-[1.05rem] tracking-tight plt-fg">
                 <span className="font-semibold leading-none">Simple</span>
-                {b && (
-                    <span className="translate-y-[0.02em] font-normal leading-none" style={{ color: 'var(--fg-muted)' }}>
-                        {b.name.replace('Simple', '')}
-                    </span>
-                )}
+                <span className="translate-y-[0.02em] font-normal leading-none plt-muted">
+                    {b.name.replace('Simple', '')}
+                </span>
             </span>
         </Link>
     );
@@ -128,16 +119,12 @@ function NavLink({ href, children, isNew }: { href: string; children: React.Reac
     return (
         <Link
             href={href}
-            className="px-3.5 py-2 text-sm font-medium rounded-lg transition-colors duration-200 hover:bg-[var(--bg-subtle)] hover:text-[var(--fg)]"
-            style={{ color: 'var(--fg-secondary)' }}
+            className="px-3.5 py-2 text-sm font-medium rounded-button transition-colors duration-200 hover:bg-[var(--bg-subtle)] hover:text-[var(--fg)] plt-secondary"
         >
             <span className="inline-flex items-center gap-1.5">
                 {children}
                 {isNew && (
-                    <span
-                        className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] font-medium"
-                        style={{ background: 'var(--bg-muted)', color: 'var(--fg-muted)' }}
-                    >
+                    <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] font-medium plt-badge-new">
                         <IconSparkles size={10} />
                         Nuevo
                     </span>
@@ -159,13 +146,7 @@ function ButtonPrimary({
     external?: boolean;
 }) {
     const className =
-        'h-10 px-5 rounded-lg text-sm font-medium flex items-center gap-1.5 transition-all duration-200 hover:shadow-[var(--button-primary-hover-shadow)]';
-    const style = {
-        background: 'var(--button-primary-bg)',
-        color: 'var(--button-primary-color)',
-        border: '1px solid var(--button-primary-border)',
-        boxShadow: 'var(--button-primary-shadow)',
-    };
+        'btn btn-primary h-10 px-5 text-sm font-medium gap-1.5';
 
     const content = (
         <>
@@ -177,14 +158,14 @@ function ButtonPrimary({
     if (href) {
         const linkProps = external ? { target: '_blank', rel: 'noopener noreferrer' } : {};
         return (
-            <Link href={href} className={className} style={style} {...linkProps}>
+            <Link href={href} className={className} {...linkProps}>
                 {content}
             </Link>
         );
     }
 
     return (
-        <button onClick={onClick} className={className} style={style}>
+        <button type="button" onClick={onClick} className={className}>
             {content}
         </button>
     );
@@ -199,23 +180,18 @@ function ButtonOutline({
     href?: string;
     onClick?: () => void;
 }) {
-    const className =
-        'h-10 px-5 rounded-lg text-sm font-medium flex items-center gap-1.5 border transition-all duration-200 hover:bg-[var(--bg-subtle)] hover:border-[var(--border-strong)]';
-    const style = {
-        borderColor: 'var(--border)',
-        color: 'var(--fg-secondary)',
-    };
+    const className = 'btn btn-outline h-10 px-5 text-sm font-medium gap-1.5';
 
     if (href) {
         return (
-            <Link href={href} className={className} style={style}>
+            <Link href={href} className={className}>
                 {children}
             </Link>
         );
     }
 
     return (
-        <button onClick={onClick} className={className} style={style}>
+        <button type="button" onClick={onClick} className={className}>
             {children}
         </button>
     );
@@ -233,14 +209,11 @@ function SectionHeading({
     return (
         <div className="text-center max-w-2xl mx-auto mb-16">
             {eyebrow && (
-                <span
-                    className="inline-block text-xs font-semibold tracking-[0.08em] uppercase mb-4"
-                    style={{ color: 'var(--accent)' }}
-                >
+                <span className="inline-block text-xs font-semibold tracking-[0.08em] uppercase mb-4 plt-accent">
                     {eyebrow}
                 </span>
             )}
-            <h2 className="type-display mb-4" style={{ color: 'var(--fg)' }}>
+            <h2 className="type-display mb-4 plt-fg">
                 {title}
             </h2>
             {description && (
@@ -261,19 +234,15 @@ function FeatureCard({
 }) {
     return (
         <div
-            className="p-6 rounded-xl border transition-all duration-200 hover:border-[var(--border-strong)] hover:shadow-[var(--shadow-md)]"
-            style={{ borderColor: 'var(--border)', background: 'var(--surface)' }}
+            className="rounded-card border border-[var(--border)] bg-[var(--surface)] p-6 transition-all duration-200 hover:border-[var(--border-strong)] hover:shadow-[var(--shadow-md)]"
         >
-            <div
-                className="w-10 h-10 rounded-xl flex items-center justify-center mb-4"
-                style={{ background: 'var(--bg-subtle)', color: 'var(--accent)' }}
-            >
+            <div className="w-10 h-10 rounded-xl flex items-center justify-center mb-4 plt-feature-icon">
                 <Icon size={20} stroke={1.5} />
             </div>
-            <h3 className="text-base font-semibold mb-2" style={{ color: 'var(--fg)' }}>
+            <h3 className="text-base font-semibold mb-2 plt-fg">
                 {title}
             </h3>
-            <p className="text-sm" style={{ color: 'var(--fg-muted)' }}>
+            <p className="text-sm plt-muted">
                 {description}
             </p>
         </div>
@@ -311,10 +280,10 @@ function VerticalCard({
                     <Icon size={22} stroke={1.5} />
                 </div>
                 <div className="flex-1 min-w-0">
-                    <h3 className="font-semibold mb-0.5" style={{ color: 'var(--fg)' }}>
+                    <h3 className="font-semibold mb-0.5 plt-fg">
                         {brand.name}
                     </h3>
-                    <p className="text-xs" style={{ color: 'var(--fg-muted)' }}>
+                    <p className="text-xs plt-muted">
                         {id === 'autos' && 'Compra, vende y arrienda vehículos'}
                         {id === 'propiedades' && 'Encuentra tu hogar ideal'}
                         {id === 'agenda' && 'Gestión de citas y servicios'}
@@ -335,20 +304,14 @@ function VerticalCard({
 // ============================================================================
 
 export default function LandingPage() {
-    const { theme, setTheme } = useTheme();
-    const [mounted, setMounted] = useState(false);
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
     const [activeVertical, setActiveVertical] = useState<keyof typeof BRAND>('autos');
-
-    useEffect(() => {
-        setMounted(true);
-    }, []);
 
     const stats = [
         { value: '33,000+', label: 'Publicaciones activas' },
         { value: '25,000+', label: 'Usuarios registrados' },
         { value: '50,000+', label: 'Citas agendadas' },
-        { value: '3', label: 'Verticales conectadas' },
+        { value: '4', label: 'Verticales conectadas' },
     ];
 
     const features = [
@@ -399,15 +362,30 @@ export default function LandingPage() {
             { icon: IconUsers, title: 'CRM integrado', desc: 'Historial de clientes y preferencias' },
             { icon: IconStar, title: 'Reseñas y NPS', desc: 'Feedback y evaluación de servicio' },
         ],
+        serenatas: [
+            { icon: IconHeart, title: 'Solicita serenatas', desc: 'Arma el regalo musical y coordina fecha, lugar y sorpresa' },
+            { icon: IconMapPin, title: 'Músicos cerca', desc: 'Encuentra grupos y solistas según comuna y disponibilidad' },
+            { icon: IconUsers, title: 'Marketplace de grupos', desc: 'Contrata servicios publicados por proveedores verificados' },
+            { icon: IconBell, title: 'Invitaciones y agenda', desc: 'Gestiona invitaciones, rutas y eventos del equipo' },
+            { icon: IconMessageCircle, title: 'Coordinación en app', desc: 'Estado del evento, pagos y comunicación centralizada' },
+            { icon: IconSparkles, title: 'Perfiles dual', desc: 'Modo cliente o músico con un solo login Simple' },
+        ],
+        admin: [
+            { icon: IconShieldCheck, title: 'Usuarios y roles', desc: 'Gestión centralizada de cuentas del ecosistema Simple' },
+            { icon: IconChartBar, title: 'Reportes', desc: 'Moderación, métricas y seguimiento operativo' },
+            { icon: IconLock, title: 'Seguridad', desc: 'Accesos, auditoría y políticas por vertical' },
+            { icon: IconBell, title: 'Alertas', desc: 'Notificaciones de incidencias y actividad crítica' },
+            { icon: IconUsers, title: 'Verticales', desc: 'Vista unificada de Autos, Propiedades, Agenda y Serenatas' },
+            { icon: IconBolt, title: 'Operaciones', desc: 'Herramientas internas para soporte y configuración' },
+        ],
     };
 
     const activeBrand = BRAND[activeVertical];
     const activeFeatures = verticalFeatures[activeVertical];
 
     return (
-        <div className="min-h-screen" style={{ background: 'var(--bg)' }}>
-            {/* HEADER - Consistente con otras apps */}
-            <header className="sticky top-0 z-40" style={{ borderBottom: '1px solid var(--border)' }}>
+        <div className="flex min-h-screen flex-col bg-[var(--bg)] text-[var(--fg)]">
+            <header className="sticky top-0 z-40 border-b border-[var(--border)] bg-[var(--bg)]">
                 <div className="container-app flex items-center justify-between h-16">
                     <Logo />
 
@@ -423,14 +401,7 @@ export default function LandingPage() {
 
                     {/* Right Side */}
                     <div className="flex items-center gap-2">
-                        {mounted && (
-                            <HeaderIconChip
-                                onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
-                                aria-label="Cambiar tema"
-                            >
-                                {theme === 'dark' ? <IconSun size={16} /> : <IconMoon size={16} />}
-                            </HeaderIconChip>
-                        )}
+                        <ThemeToggleButton variant="header-chip" SunIcon={IconSun} MoonIcon={IconMoon} />
 
                         <div className="hidden md:block">
                             <ButtonPrimary href="#verticales">
@@ -440,49 +411,47 @@ export default function LandingPage() {
 
                         {/* Mobile Menu */}
                         <div className="md:hidden">
-                            <HeaderIconChip onClick={() => setMobileMenuOpen(!mobileMenuOpen)} aria-label="Menú">
+                            <button
+                                type="button"
+                                onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+                                aria-label="Menú"
+                                className="header-icon-chip"
+                            >
                                 {mobileMenuOpen ? <IconX size={18} /> : <IconMenu2 size={18} />}
-                            </HeaderIconChip>
+                            </button>
                         </div>
                     </div>
                 </div>
 
                 {/* Mobile Menu Dropdown */}
                 {mobileMenuOpen && (
-                    <div
-                        className="md:hidden absolute top-full left-0 right-0 border-b p-4 animate-slide-down"
-                        style={{ background: 'var(--surface)', borderColor: 'var(--border)', boxShadow: 'var(--shadow-md)' }}
-                    >
+                    <div className="md:hidden absolute top-full left-0 right-0 border-b p-4 animate-slide-down plt-mobile-menu">
                         <div className="flex flex-col gap-2">
                             <Link
                                 href="#verticales"
                                 onClick={() => setMobileMenuOpen(false)}
-                                className="px-4 py-3 rounded-lg text-sm font-medium"
-                                style={{ color: 'var(--fg-secondary)', background: 'var(--bg-subtle)' }}
+                                className="px-4 py-3 rounded-button text-sm font-medium plt-mobile-link"
                             >
                                 Verticales
                             </Link>
                             <Link
                                 href="#ecosistema"
                                 onClick={() => setMobileMenuOpen(false)}
-                                className="px-4 py-3 rounded-lg text-sm font-medium"
-                                style={{ color: 'var(--fg-secondary)', background: 'var(--bg-subtle)' }}
+                                className="px-4 py-3 rounded-button text-sm font-medium plt-mobile-link"
                             >
                                 Ecosistema
                             </Link>
                             <Link
                                 href="#como-funciona"
                                 onClick={() => setMobileMenuOpen(false)}
-                                className="px-4 py-3 rounded-lg text-sm font-medium"
-                                style={{ color: 'var(--fg-secondary)', background: 'var(--bg-subtle)' }}
+                                className="px-4 py-3 rounded-button text-sm font-medium plt-mobile-link"
                             >
                                 Cómo funciona
                             </Link>
                             <Link
                                 href="#contacto"
                                 onClick={() => setMobileMenuOpen(false)}
-                                className="px-4 py-3 rounded-lg text-sm font-medium flex items-center gap-2"
-                                style={{ color: 'var(--accent)', background: 'var(--accent-subtle)' }}
+                                className="px-4 py-3 rounded-button text-sm font-medium flex items-center gap-2 plt-mobile-link--accent"
                             >
                                 <IconSparkles size={14} /> Contacto
                             </Link>
@@ -513,14 +482,14 @@ export default function LandingPage() {
                         </div>
 
                         {/* Headline */}
-                        <h1 className="type-display mb-6" style={{ color: 'var(--fg)' }}>
+                        <h1 className="type-display mb-6 plt-fg">
                             Todo lo que necesitas,
                             <br />
                             <span style={{ color: activeBrand.color }}>en un solo lugar.</span>
                         </h1>
 
                         {/* Subheadline */}
-                        <p className="text-lg md:text-xl mb-10 max-w-2xl mx-auto" style={{ color: 'var(--fg-secondary)' }}>
+                        <p className="text-lg md:text-xl mb-10 max-w-2xl mx-auto plt-secondary">
                             SimplePlataforma conecta <strong>autos, propiedades y agenda</strong> bajo una
                             identidad única. Una cuenta, un ecosistema infinito de posibilidades.
                         </p>
@@ -534,15 +503,15 @@ export default function LandingPage() {
                         </div>
 
                         {/* Trust indicators */}
-                        <div className="flex flex-wrap items-center justify-center gap-6 mt-10 text-xs" style={{ color: 'var(--fg-muted)' }}>
+                        <div className="flex flex-wrap items-center justify-center gap-6 mt-10 text-xs plt-muted">
                             <span className="flex items-center gap-1.5">
-                                <IconCheck size={14} style={{ color: 'var(--color-success)' }} /> Sin costo de registro
+                                <IconCheck size={14} className="plt-check" /> Sin costo de registro
                             </span>
                             <span className="flex items-center gap-1.5">
-                                <IconCheck size={14} style={{ color: 'var(--color-success)' }} /> Una cuenta, todo Simple
+                                <IconCheck size={14} className="plt-check" /> Una cuenta, todo Simple
                             </span>
                             <span className="flex items-center gap-1.5">
-                                <IconCheck size={14} style={{ color: 'var(--color-success)' }} /> Hecho en Chile
+                                <IconCheck size={14} className="plt-check" /> Hecho en Chile
                             </span>
                         </div>
                     </div>
@@ -550,15 +519,15 @@ export default function LandingPage() {
             </section>
 
             {/* STATS BAR */}
-            <section style={{ borderTop: '1px solid var(--border)', borderBottom: '1px solid var(--border)', background: 'var(--bg-subtle)' }}>
+            <section className="plt-stats-band">
                 <div className="container-app py-10">
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-8">
                         {stats.map((stat, i) => (
                             <div key={i} className="text-center">
-                                <p className="type-kpi-value" style={{ color: 'var(--fg)' }}>
+                                <p className="type-kpi-value plt-fg">
                                     {stat.value}
                                 </p>
-                                <p className="text-xs mt-1" style={{ color: 'var(--fg-muted)' }}>
+                                <p className="text-xs mt-1 plt-muted">
                                     {stat.label}
                                 </p>
                             </div>
@@ -592,8 +561,7 @@ export default function LandingPage() {
                         {/* Vertical detail - Right side */}
                         <div className="lg:col-span-7">
                             <div
-                                className="rounded-2xl border overflow-hidden"
-                                style={{ borderColor: 'var(--border)', background: 'var(--surface)' }}
+                                className="rounded-2xl border overflow-hidden plt-border plt-surface"
                             >
                                 {/* Header with brand color */}
                                 <div
@@ -608,7 +576,7 @@ export default function LandingPage() {
                                             <activeBrand.icon size={28} stroke={1.5} />
                                         </div>
                                         <div>
-                                            <h3 className="text-xl font-semibold" style={{ color: 'var(--fg)' }}>
+                                            <h3 className="text-xl font-semibold plt-fg">
                                                 {activeBrand.name}
                                             </h3>
                                             <span
@@ -619,7 +587,7 @@ export default function LandingPage() {
                                             </span>
                                         </div>
                                     </div>
-                                    <p className="text-sm leading-relaxed" style={{ color: 'var(--fg-secondary)' }}>
+                                    <p className="text-sm leading-relaxed plt-secondary">
                                         {activeVertical === 'autos' &&
                                             'El marketplace de vehículos más completo de Chile. Desde autos y motos hasta camiones y maquinaria. Conectamos compradores con vendedores de forma segura, rápida y eficiente.'}
                                         {activeVertical === 'propiedades' &&
@@ -632,8 +600,7 @@ export default function LandingPage() {
                                 {/* Features grid */}
                                 <div className="p-6 md:p-8">
                                     <h4
-                                        className="text-xs font-semibold uppercase tracking-wider mb-4"
-                                        style={{ color: 'var(--fg-muted)' }}
+                                        className="text-xs font-semibold uppercase tracking-wider mb-4 plt-muted"
                                     >
                                         Funcionalidades destacadas
                                     </h4>
@@ -647,10 +614,10 @@ export default function LandingPage() {
                                                     <feature.icon size={16} stroke={1.5} />
                                                 </div>
                                                 <div>
-                                                    <h5 className="text-sm font-medium mb-0.5" style={{ color: 'var(--fg)' }}>
+                                                    <h5 className="text-sm font-medium mb-0.5 plt-fg">
                                                         {feature.title}
                                                     </h5>
-                                                    <p className="text-xs" style={{ color: 'var(--fg-muted)' }}>
+                                                    <p className="text-xs plt-muted">
                                                         {feature.desc}
                                                     </p>
                                                 </div>
@@ -659,12 +626,12 @@ export default function LandingPage() {
                                     </div>
 
                                     {/* CTA */}
-                                    <div className="mt-8 pt-6" style={{ borderTop: '1px solid var(--border)' }}>
+                                    <div className="mt-8 pt-6 plt-divider">
                                         <a
                                             href={activeBrand.url}
                                             target="_blank"
                                             rel="noopener noreferrer"
-                                            className="inline-flex items-center gap-2 h-11 px-6 rounded-lg text-sm font-medium transition-all duration-200 hover:opacity-90"
+                                            className="inline-flex items-center gap-2 h-11 px-6 rounded-button text-sm font-medium transition-all duration-200 hover:opacity-90"
                                             style={{ background: activeBrand.color, color: '#fff' }}
                                         >
                                             Visitar {activeBrand.name}
@@ -679,21 +646,18 @@ export default function LandingPage() {
             </section>
 
             {/* ECOSYSTEM SECTION */}
-            <section id="ecosistema" className="py-20 md:py-28" style={{ background: 'var(--bg-subtle)' }}>
+            <section id="ecosistema" className="py-20 md:py-28 plt-section-subtle">
                 <div className="container-app">
                     <div className="grid lg:grid-cols-2 gap-16 items-center">
                         {/* Left: Content */}
                         <div>
-                            <span
-                                className="inline-block text-xs font-semibold tracking-[0.08em] uppercase mb-4"
-                                style={{ color: 'var(--accent)' }}
-                            >
+                            <span className="inline-block text-xs font-semibold tracking-[0.08em] uppercase mb-4 plt-accent">
                                 El Ecosistema
                             </span>
-                            <h2 className="type-display mb-6" style={{ color: 'var(--fg)' }}>
+                            <h2 className="type-display mb-6 plt-fg">
                                 Por qué SimplePlataforma es diferente
                             </h2>
-                            <p className="text-base mb-10" style={{ color: 'var(--fg-secondary)' }}>
+                            <p className="text-base mb-10 plt-secondary">
                                 No somos solo otra plataforma. Somos un ecosistema pensado para que crezcas. Tu perfil,
                                 tus preferencias y tu actividad te siguen en cada vertical.
                             </p>
@@ -708,8 +672,7 @@ export default function LandingPage() {
                         {/* Right: Visual */}
                         <div className="relative">
                             <div
-                                className="rounded-2xl p-8 border"
-                                style={{ borderColor: 'var(--border)', background: 'var(--surface)' }}
+                                className="rounded-2xl p-8 border plt-border plt-surface"
                             >
                                 {/* App icons */}
                                 <div className="flex items-center gap-3 mb-8">
@@ -736,22 +699,15 @@ export default function LandingPage() {
                                         { icon: IconLock, title: 'Preferencias sincronizadas', desc: 'Configura una vez, aplica en todas' },
                                         { icon: IconChartBar, title: 'Dashboard unificado', desc: 'Métricas de todo tu negocio' },
                                     ].map((item, i) => (
-                                        <div
-                                            key={i}
-                                            className="flex items-center gap-4 p-4 rounded-xl"
-                                            style={{ background: 'var(--bg-subtle)' }}
-                                        >
-                                            <div
-                                                className="w-10 h-10 rounded-lg flex items-center justify-center"
-                                                style={{ background: 'var(--accent)', color: '#fff' }}
-                                            >
+                                        <div key={i} className="flex items-center gap-4 p-4 rounded-xl plt-eco-row">
+                                            <div className="w-10 h-10 rounded-lg flex items-center justify-center plt-eco-icon">
                                                 <item.icon size={18} stroke={1.5} />
                                             </div>
                                             <div>
-                                                <h4 className="text-sm font-medium" style={{ color: 'var(--fg)' }}>
+                                                <h4 className="text-sm font-medium plt-fg">
                                                     {item.title}
                                                 </h4>
-                                                <p className="text-xs" style={{ color: 'var(--fg-muted)' }}>
+                                                <p className="text-xs plt-muted">
                                                     {item.desc}
                                                 </p>
                                             </div>
@@ -761,10 +717,7 @@ export default function LandingPage() {
                             </div>
 
                             {/* Decorative elements */}
-                            <div
-                                className="absolute -top-4 -right-4 w-24 h-24 rounded-full blur-3xl opacity-40 pointer-events-none"
-                                style={{ background: 'var(--accent)' }}
-                            />
+                            <div className="absolute -top-4 -right-4 w-24 h-24 rounded-full blur-3xl opacity-40 pointer-events-none plt-blur-accent" />
                             <div
                                 className="absolute -bottom-4 -left-4 w-32 h-32 rounded-full blur-3xl opacity-30 pointer-events-none"
                                 style={{ background: activeBrand.color }}
@@ -805,22 +758,18 @@ export default function LandingPage() {
                             },
                         ].map((item, i) => (
                             <div key={i} className="relative text-center">
-                                <div
-                                    className="w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-5"
-                                    style={{ background: 'var(--bg-subtle)', border: '1px solid var(--border)' }}
-                                >
-                                    <item.icon size={28} stroke={1.5} style={{ color: 'var(--accent)' }} />
+                                <div className="w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-5 plt-step-icon">
+                                    <item.icon size={28} stroke={1.5} className="plt-step-icon-accent" />
                                 </div>
                                 <span
-                                    className="absolute top-0 right-0 md:right-8 text-6xl font-bold opacity-10 pointer-events-none"
-                                    style={{ color: 'var(--fg)' }}
+                                    className="absolute top-0 right-0 md:right-8 text-6xl font-bold opacity-10 pointer-events-none plt-fg"
                                 >
                                     {item.step}
                                 </span>
-                                <h3 className="text-lg font-semibold mb-2" style={{ color: 'var(--fg)' }}>
+                                <h3 className="text-lg font-semibold mb-2 plt-fg">
                                     {item.title}
                                 </h3>
-                                <p className="text-sm" style={{ color: 'var(--fg-muted)' }}>
+                                <p className="text-sm plt-muted">
                                     {item.description}
                                 </p>
                             </div>
@@ -830,7 +779,7 @@ export default function LandingPage() {
             </section>
 
             {/* CTA SECTION */}
-            <section id="contacto" className="py-20 md:py-28" style={{ background: 'var(--bg-subtle)' }}>
+            <section id="contacto" className="py-20 md:py-28 plt-section-subtle">
                 <div className="container-app">
                     <div
                         className="max-w-4xl mx-auto rounded-3xl p-10 md:p-16 text-center border"
@@ -839,10 +788,10 @@ export default function LandingPage() {
                             background: `linear-gradient(135deg, ${activeBrand.color}08 0%, var(--surface) 50%, ${activeBrand.color}05 100%)`,
                         }}
                     >
-                        <h2 className="type-display mb-4" style={{ color: 'var(--fg)' }}>
+                        <h2 className="type-display mb-4 plt-fg">
                             ¿Listo para simplificar?
                         </h2>
-                        <p className="text-base mb-8 max-w-lg mx-auto" style={{ color: 'var(--fg-secondary)' }}>
+                        <p className="text-base mb-8 max-w-lg mx-auto plt-secondary">
                             Únete a miles de chilenos que ya usan SimplePlataforma para comprar, vender, agendar y celebrar.
                         </p>
                         <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
@@ -851,8 +800,7 @@ export default function LandingPage() {
                             </ButtonPrimary>
                             <a
                                 href="mailto:hola@simple.cl"
-                                className="h-10 px-5 rounded-lg text-sm font-medium flex items-center gap-2 transition-colors hover:bg-[var(--bg-subtle)]"
-                                style={{ color: 'var(--fg-secondary)' }}
+                                className="h-10 px-5 rounded-button text-sm font-medium flex items-center gap-2 transition-colors hover:bg-[var(--bg-subtle)] plt-secondary"
                             >
                                 <IconMail size={16} /> Contactar
                             </a>
@@ -862,20 +810,20 @@ export default function LandingPage() {
             </section>
 
             {/* FOOTER */}
-            <footer className="py-12" style={{ borderTop: '1px solid var(--border)' }}>
+            <footer className="py-12 plt-footer-border">
                 <div className="container-app">
                     <div className="grid md:grid-cols-4 gap-8 mb-12">
                         {/* Brand */}
                         <div className="md:col-span-1">
                             <Logo />
-                            <p className="mt-4 text-sm" style={{ color: 'var(--fg-muted)' }}>
+                            <p className="mt-4 text-sm plt-muted">
                                 Ecosistema de marketplaces para Chile. Una cuenta, infinitas posibilidades.
                             </p>
                         </div>
 
                         {/* Links */}
                         <div>
-                            <h4 className="text-sm font-semibold mb-4" style={{ color: 'var(--fg)' }}>
+                            <h4 className="text-sm font-semibold mb-4 plt-fg">
                                 Verticales
                             </h4>
                             <ul className="space-y-2">
@@ -885,8 +833,7 @@ export default function LandingPage() {
                                             href={BRAND[id].url}
                                             target="_blank"
                                             rel="noopener noreferrer"
-                                            className="text-sm transition-colors hover:text-[var(--fg)]"
-                                            style={{ color: 'var(--fg-muted)' }}
+                                            className="text-sm transition-colors hover:text-[var(--fg)] plt-muted"
                                         >
                                             {BRAND[id].name}
                                         </a>
@@ -896,15 +843,14 @@ export default function LandingPage() {
                         </div>
 
                         <div>
-                            <h4 className="text-sm font-semibold mb-4" style={{ color: 'var(--fg)' }}>
+                            <h4 className="text-sm font-semibold mb-4 plt-fg">
                                 Producto
                             </h4>
                             <ul className="space-y-2">
                                 <li>
                                     <Link
                                         href="#verticales"
-                                        className="text-sm transition-colors hover:text-[var(--fg)]"
-                                        style={{ color: 'var(--fg-muted)' }}
+                                        className="text-sm transition-colors hover:text-[var(--fg)] plt-muted"
                                     >
                                         Características
                                     </Link>
@@ -912,8 +858,7 @@ export default function LandingPage() {
                                 <li>
                                     <Link
                                         href="#ecosistema"
-                                        className="text-sm transition-colors hover:text-[var(--fg)]"
-                                        style={{ color: 'var(--fg-muted)' }}
+                                        className="text-sm transition-colors hover:text-[var(--fg)] plt-muted"
                                     >
                                         Ecosistema
                                     </Link>
@@ -921,8 +866,7 @@ export default function LandingPage() {
                                 <li>
                                     <Link
                                         href="#como-funciona"
-                                        className="text-sm transition-colors hover:text-[var(--fg)]"
-                                        style={{ color: 'var(--fg-muted)' }}
+                                        className="text-sm transition-colors hover:text-[var(--fg)] plt-muted"
                                     >
                                         Cómo funciona
                                     </Link>
@@ -931,26 +875,25 @@ export default function LandingPage() {
                         </div>
 
                         <div>
-                            <h4 className="text-sm font-semibold mb-4" style={{ color: 'var(--fg)' }}>
+                            <h4 className="text-sm font-semibold mb-4 plt-fg">
                                 Soporte
                             </h4>
                             <ul className="space-y-2">
                                 <li>
                                     <a
                                         href="mailto:hola@simple.cl"
-                                        className="text-sm transition-colors hover:text-[var(--fg)]"
-                                        style={{ color: 'var(--fg-muted)' }}
+                                        className="text-sm transition-colors hover:text-[var(--fg)] plt-muted"
                                     >
                                         Contacto
                                     </a>
                                 </li>
                                 <li>
-                                    <span className="text-sm" style={{ color: 'var(--fg-muted)' }}>
+                                    <span className="text-sm plt-muted">
                                         FAQ
                                     </span>
                                 </li>
                                 <li>
-                                    <span className="text-sm" style={{ color: 'var(--fg-muted)' }}>
+                                    <span className="text-sm plt-muted">
                                         Términos de uso
                                     </span>
                                 </li>
@@ -959,14 +902,11 @@ export default function LandingPage() {
                     </div>
 
                     {/* Bottom */}
-                    <div
-                        className="pt-8 flex flex-col md:flex-row items-center justify-between gap-4"
-                        style={{ borderTop: '1px solid var(--border)' }}
-                    >
-                        <p className="text-xs" style={{ color: 'var(--fg-muted)' }}>
+                    <div className="pt-8 flex flex-col md:flex-row items-center justify-between gap-4 plt-footer-border">
+                        <p className="text-xs plt-muted">
                             &copy; {new Date().getFullYear()} SimplePlataforma. Todos los derechos reservados.
                         </p>
-                        <p className="text-xs flex items-center gap-1" style={{ color: 'var(--fg-muted)' }}>
+                        <p className="text-xs flex items-center gap-1 plt-muted">
                             Hecho con <IconHeart size={12} className="text-red-500" fill="currentColor" /> en Chile
                         </p>
                     </div>
@@ -975,4 +915,6 @@ export default function LandingPage() {
         </div>
     );
 }
+
+
 

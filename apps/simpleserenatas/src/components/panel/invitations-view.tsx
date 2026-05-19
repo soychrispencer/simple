@@ -1,40 +1,127 @@
-'use client';
+﻿'use client';
 
-import { IconCheck, IconX } from '@tabler/icons-react';
+import { IconCheck, IconClock, IconMapPin, IconX } from '@tabler/icons-react';
 import { PanelButton, PanelCard, PanelStatusBadge } from '@simple/ui';
-import type { Invitation } from '@/lib/serenatas-api';
+import type { Invitation, Profiles } from '@/lib/serenatas-api';
 import { serenatasApi } from '@/lib/serenatas-api';
-import { EmptyBlock, formatDate } from './shared';
+import { EmptyBlock, formatDate, toInputDate } from './shared';
+import { ProfileIncompleteNotice } from './profile-incomplete-notice';
 
-export function InvitationsView({ invitations, refresh }: { invitations: Invitation[]; refresh: () => Promise<void> }) {
+function invitationStatusLabel(status: Invitation['status']) {
+    if (status === 'invited') return 'Pendiente';
+    if (status === 'accepted') return 'Aceptada';
+    if (status === 'rejected') return 'Rechazada';
+    return 'Cancelada';
+}
+
+function invitationStatusTone(status: Invitation['status']): 'success' | 'warning' | 'danger' | 'neutral' {
+    if (status === 'accepted') return 'success';
+    if (status === 'rejected') return 'danger';
+    if (status === 'invited') return 'warning';
+    return 'neutral';
+}
+
+function invitationEventDate(item: Invitation) {
+    return item.eventDate ?? item.groupDate;
+}
+
+export function InvitationsView({
+    profiles,
+    invitations,
+    refresh,
+}: {
+    profiles: Profiles;
+    invitations: Invitation[];
+    refresh: () => Promise<void>;
+}) {
     async function respond(id: string, status: 'accepted' | 'rejected') {
         await serenatasApi.respondInvitation(id, status);
         await refresh();
     }
 
+    const pending = invitations.filter((item) => item.status === 'invited');
+
     return (
-        <PanelCard>
-            <h2 className="text-lg font-semibold" style={{ color: 'var(--fg)' }}>Invitaciones</h2>
-            <div className="mt-4 grid gap-3">
-                {invitations.length === 0 ? <EmptyBlock title="Sin invitaciones" description="Cuando un coordinador te invite, aparecerá aquí." /> : invitations.map((item) => (
-                    <div key={item.id} className="rounded-xl border p-4" style={{ borderColor: 'var(--border)' }}>
-                        <div className="flex items-start justify-between gap-3">
-                            <div>
-                                <p className="font-medium" style={{ color: 'var(--fg)' }}>{item.groupName}</p>
-                                <p className="text-sm" style={{ color: 'var(--fg-muted)' }}>{formatDate(item.groupDate)} · {item.instrument ?? 'Instrumento por definir'}</p>
-                                {item.message ? <p className="mt-2 text-sm" style={{ color: 'var(--fg-secondary)' }}>{item.message}</p> : null}
-                            </div>
-                            <PanelStatusBadge tone={item.status === 'accepted' ? 'success' : item.status === 'rejected' ? 'danger' : 'warning'} label={item.status} />
+        <div className="grid gap-4">
+            <ProfileIncompleteNotice mode="work" profiles={profiles} />
+            {pending.length > 0 ? (
+                <PanelCard>
+                    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                        <div>
+                            <p className="text-sm font-semibold text-[var(--fg)]">
+                                {pending.length} invitacion{pending.length === 1 ? '' : 'es'} pendiente{pending.length === 1 ? '' : 's'}
+                            </p>
+                            <p className="mt-1 text-sm text-[var(--fg-muted)]">
+                                Revisa fecha, lugar e instrumento antes de aceptar.
+                            </p>
                         </div>
-                        {item.status === 'invited' ? (
-                            <div className="mt-4 flex gap-2">
-                                <PanelButton onClick={() => void respond(item.id, 'accepted')}><IconCheck size={16} /> Aceptar</PanelButton>
-                                <PanelButton variant="secondary" onClick={() => void respond(item.id, 'rejected')}><IconX size={16} /> Rechazar</PanelButton>
-                            </div>
-                        ) : null}
+                        <PanelStatusBadge tone="warning" label={`${pending.length} por responder`} />
                     </div>
-                ))}
-            </div>
-        </PanelCard>
+                </PanelCard>
+            ) : null}
+            <PanelCard>
+                <h2 className="text-lg font-semibold text-[var(--fg)]">Invitaciones</h2>
+                <div className="mt-4 grid gap-3">
+                    {invitations.length === 0 ? (
+                        <EmptyBlock title="Sin invitaciones" description="Cuando el dueño de un grupo te invite, aparecerá aquí." />
+                    ) : invitations.map((item) => {
+                        const eventDate = invitationEventDate(item);
+                        const eventTime = item.eventTime ?? null;
+                        const locationLine = item.address
+                            ? `${item.comuna ? `${item.comuna} · ` : ''}${item.address}`
+                            : item.comuna ?? null;
+                        const cardTone = item.status === 'invited'
+                            ? 'border-[var(--accent-border)] bg-[var(--accent-soft)]'
+                            : 'border-[var(--border)] bg-[var(--surface)]';
+
+                        return (
+                            <div key={item.id} className={`rounded-xl border p-4 ${cardTone}`}>
+                                <div className="flex items-start justify-between gap-3">
+                                    <div>
+                                        <p className="font-medium text-[var(--fg)]">{item.groupName}</p>
+                                        {item.ownerName ? (
+                                            <p className="mt-1 text-xs text-[var(--fg-muted)]">Dueño: {item.ownerName}</p>
+                                        ) : null}
+                                        <div className="mt-3 grid gap-2 text-sm text-[var(--fg-secondary)]">
+                                            <span className="inline-flex items-center gap-2">
+                                                <IconClock size={16} className="shrink-0 text-[var(--fg-muted)]" />
+                                                {eventTime ? `${eventTime} · ` : ''}{formatDate(eventDate)}
+                                            </span>
+                                            {locationLine ? (
+                                                <span className="inline-flex items-start gap-2">
+                                                    <IconMapPin size={16} className="mt-0.5 shrink-0 text-[var(--fg-muted)]" />
+                                                    <span>{locationLine}</span>
+                                                </span>
+                                            ) : null}
+                                            <span>Instrumento: {item.instrument ?? 'Por definir'}</span>
+                                            {item.recipientName ? (
+                                                <span>Serenata para: {item.recipientName}</span>
+                                            ) : null}
+                                        </div>
+                                        {item.message ? (
+                                            <p className="mt-3 rounded-xl border border-[var(--border)] bg-[var(--bg-subtle)] px-3 py-2 text-sm text-[var(--fg-secondary)]">
+                                                <span className="font-medium text-[var(--fg)]">Mensaje del dueño: </span>
+                                                {item.message}
+                                            </p>
+                                        ) : null}
+                                    </div>
+                                    <PanelStatusBadge tone={invitationStatusTone(item.status)} label={invitationStatusLabel(item.status)} />
+                                </div>
+                                {item.status === 'invited' ? (
+                                    <div className="mt-4 flex gap-2">
+                                        <PanelButton onClick={() => void respond(item.id, 'accepted')}><IconCheck size={16} /> Aceptar</PanelButton>
+                                        <PanelButton variant="secondary" onClick={() => void respond(item.id, 'rejected')}><IconX size={16} /> Rechazar</PanelButton>
+                                    </div>
+                                ) : item.status === 'accepted' && item.serenataId && toInputDate(eventDate) ? (
+                                    <p className="mt-3 text-xs text-[var(--fg-muted)]">
+                                        Quedó en tu agenda para el {formatDate(eventDate)}.
+                                    </p>
+                                ) : null}
+                            </div>
+                        );
+                    })}
+                </div>
+            </PanelCard>
+        </div>
     );
 }

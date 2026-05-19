@@ -118,9 +118,9 @@ export function createMediaRouter(deps: MediaRouterDeps) {
 
             logDebug(`[UPLOAD META] file: ${file ? (file.name || 'blob') : 'null'}, type: ${fileType}, listingId: ${listingId}`);
 
-            if (!file) return c.json({ ok: false, error: 'No file provided' }, 400);
+            if (!file) return c.json({ ok: false, error: 'No se envió ningún archivo.' }, 400);
             if (!fileType || !['image', 'video', 'document'].includes(fileType)) {
-                return c.json({ ok: false, error: 'Invalid file type' }, 400);
+                return c.json({ ok: false, error: 'Tipo de archivo inválido.' }, 400);
             }
 
             // Validar tamaño máximo según tipo
@@ -163,16 +163,23 @@ export function createMediaRouter(deps: MediaRouterDeps) {
             });
 
             logDebug(`[UPLOAD SUCCESS] Result: ${JSON.stringify(result)}`);
+            // Medios sensibles (documentos privados, etc.): preferir servir vía GET /api/media/proxy?src=<url>
+            // en lugar de exponer la URL pública del bucket directamente al cliente.
             return c.json({ ok: true, result }, 200);
-        } catch (error: any) {
+        } catch (error: unknown) {
             const errMsg = error instanceof Error ? error.message : String(error);
             const stack = error instanceof Error ? error.stack : '';
             logDebug(`[UPLOAD ERROR] ${errMsg}\nStack: ${stack}`);
             console.error('[API] Upload error:', error);
-            return c.json(
-                { ok: false, error: error instanceof Error ? error.message : 'Upload failed' },
-                500
-            );
+
+            const isConfigError =
+                /faltan variables|Missing required|Unknown storage provider/i.test(errMsg);
+            const status = isConfigError ? 503 : 500;
+            const clientMessage = isConfigError
+                ? `${errMsg} En desarrollo local puedes definir STORAGE_PROVIDER=local en services/api/.env.local.`
+                : errMsg || 'No pudimos subir el archivo.';
+
+            return c.json({ ok: false, error: clientMessage }, status);
         }
     });
 

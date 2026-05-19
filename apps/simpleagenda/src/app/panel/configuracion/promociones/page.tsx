@@ -338,7 +338,7 @@ export default function PromocionesPage() {
                             <h2 className="text-sm font-semibold" style={{ color: 'var(--fg)' }}>
                                 {editingId ? 'Editar promoción' : 'Nueva promoción'}
                             </h2>
-                            <button type="button" onClick={closeForm} className="p-1 rounded-lg hover:bg-(--bg-muted)">
+                            <button type="button" onClick={closeForm} className="p-1 rounded-button hover:bg-(--bg-muted)">
                                 <IconX size={16} style={{ color: 'var(--fg-muted)' }} />
                             </button>
                         </div>

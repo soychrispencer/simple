@@ -12,7 +12,7 @@ import { PanelBottomNav as SharedPanelBottomNav } from '@simple/ui';
 import { isPanelNavActive } from '@/components/panel/panel-nav-config';
 
 const items = [
-    { href: '/panel', label: 'Inicio', icon: IconHome2 },
+    { href: '/panel', label: 'Mi panel', icon: IconHome2 },
     { href: '/panel/publicaciones', label: 'Publicaciones', icon: IconFileText },
     { href: '/panel/publicar', label: 'Publicar', icon: IconPlus, highlight: true },
     { href: '/panel/mensajes', label: 'Mensajes', icon: IconMessageCircle },

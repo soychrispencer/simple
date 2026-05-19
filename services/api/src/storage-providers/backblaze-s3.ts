@@ -1,5 +1,6 @@
 import type { StorageProvider, StorageUploadInput, StorageUploadResult } from '@simple/config';
 import { S3Client, PutObjectCommand, DeleteObjectCommand, HeadObjectCommand } from '@aws-sdk/client-s3';
+import { readUploadBuffer } from './file-buffer.js';
 
 export class BackblazeS3Provider implements StorageProvider {
     private client: S3Client;
@@ -36,10 +37,7 @@ export class BackblazeS3Provider implements StorageProvider {
             .replace(/-+/g, '-');
         const key = `${input.userId ?? 'unknown'}/${Date.now()}-${safeName}`;
 
-        // Correct handling for File-like objects and Buffer in Node.js
-        const buffer = Buffer.isBuffer(input.file)
-            ? input.file
-            : Buffer.from(await (input.file as any).arrayBuffer());
+        const buffer = await readUploadBuffer(input.file);
 
         await this.client.send(
             new PutObjectCommand({

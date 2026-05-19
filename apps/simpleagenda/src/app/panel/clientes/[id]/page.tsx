@@ -595,7 +595,7 @@ export default function ClienteFichaPage() {
                             >
                                 <div className="flex items-center justify-between px-5 py-4 border-b" style={{ borderColor: 'var(--border)' }}>
                                     <h2 className="text-sm font-semibold" style={{ color: 'var(--fg)' }}>Asignar pack a {`${client.firstName} ${client.lastName ?? ''}`.trim()}</h2>
-                                    <button type="button" onClick={closePackModal} className="p-1 rounded-lg hover:bg-(--bg-muted)">
+                                    <button type="button" onClick={closePackModal} className="p-1 rounded-button hover:bg-(--bg-muted)">
                                         <IconX size={16} style={{ color: 'var(--fg-muted)' }} />
                                     </button>
                                 </div>
@@ -628,7 +628,7 @@ export default function ClienteFichaPage() {
                                     )}
                                 </div>
                                 <div className="flex items-center justify-end gap-2 px-5 py-4 border-t" style={{ borderColor: 'var(--border)' }}>
-                                    <button type="button" onClick={closePackModal} className="px-3 py-1.5 rounded-lg text-xs font-medium border" style={{ borderColor: 'var(--border)', color: 'var(--fg-secondary)' }}>Cancelar</button>
+                                    <button type="button" onClick={closePackModal} className="px-3 py-1.5 rounded-button text-xs font-medium border" style={{ borderColor: 'var(--border)', color: 'var(--fg-secondary)' }}>Cancelar</button>
                                     <button
                                         type="button"
                                         onClick={() => void handleAssignPack()}

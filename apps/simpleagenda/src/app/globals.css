@@ -2,48 +2,60 @@
 @source "../../../../packages/ui/src";
 @import "../../../../packages/ui/src/theme-base.css";
 
+/*
+ * .field-input — alias de .form-input (theme-base) para panel y reservas públicas.
+ * Mismos tokens: --border, --field-focus-border, --bg-subtle, --surface.
+ * En flujo público preferir .booking-input (misma base).
+ */
+
 .field-input {
     width: 100%;
-    padding: 0.5rem 0.75rem;
-    border-radius: 0.75rem;
-    border: 1px solid var(--border-strong, rgba(0,0,0,0.15));
-    background: var(--bg-subtle, #f4f4f5);
-    color: var(--fg);
+    height: auto;
+    min-height: 42px;
+    padding: 0.5rem 0.875rem;
+    border-radius: var(--radius-button);
     font-size: 0.875rem;
+    background-color: var(--bg-subtle);
+    color: var(--fg);
+    border: 1px solid var(--border);
     outline: none;
-    transition: border-color 0.15s, box-shadow 0.15s;
-}
-.field-input::placeholder { color: var(--fg-muted); }
-.field-input:focus {
-    border-color: var(--accent);
-    box-shadow: 0 0 0 3px color-mix(in oklab, var(--accent) 15%, transparent);
-}
-.dark .field-input,
-[data-theme="dark"] .field-input {
-    border-color: rgba(255,255,255,0.14);
-    background: var(--bg-muted, #252525);
+    transition: border-color 0.2s, box-shadow 0.2s;
 }
 
+.field-input::placeholder {
+    color: var(--fg-muted);
+}
+
+.field-input:focus,
+.field-input:focus-visible {
+    border-color: var(--field-focus-border);
+    box-shadow: inset 0 0 0 1px var(--field-focus-border);
+    background-color: var(--surface);
+}
+
+/* Reserva pública — mismos tokens que .field-input / .form-input (sin @apply) */
 .booking-input {
     width: 100%;
-    padding: 0.625rem 0.875rem;
-    border-radius: 0.75rem;
-    border: 1px solid var(--border-strong, rgba(0,0,0,0.15));
-    background: var(--bg-subtle, #f4f4f5);
-    color: var(--fg);
+    min-height: 42px;
+    padding: 0.5rem 0.875rem;
+    border-radius: var(--radius-button);
     font-size: 0.875rem;
+    background-color: var(--bg-subtle);
+    color: var(--fg);
+    border: 1px solid var(--border);
     outline: none;
-    transition: border-color 0.15s, box-shadow 0.15s;
+    transition: border-color 0.2s, box-shadow 0.2s;
 }
-.booking-input::placeholder { color: var(--fg-muted); }
-.booking-input:focus {
-    border-color: var(--accent);
-    box-shadow: 0 0 0 3px color-mix(in oklab, var(--accent) 15%, transparent);
+
+.booking-input::placeholder {
+    color: var(--fg-muted);
 }
-.dark .booking-input,
-[data-theme="dark"] .booking-input {
-    border-color: rgba(255,255,255,0.14);
-    background: var(--bg-muted, #252525);
+
+.booking-input:focus,
+.booking-input:focus-visible {
+    border-color: var(--field-focus-border);
+    box-shadow: inset 0 0 0 1px var(--field-focus-border);
+    background-color: var(--surface);
 }
 
 :root {
@@ -62,3 +74,127 @@
     --accent-border: rgba(13, 148, 136, 0.34);
     --accent-contrast: #ffffff;
 }
+
+.booking-surface { border-color: var(--border); background: var(--surface); }
+.booking-subtle { border-color: var(--border); background: var(--bg-subtle); }
+.booking-fg { color: var(--fg); }
+.booking-muted { color: var(--fg-muted); }
+.booking-secondary { color: var(--fg-secondary); }
+.booking-accent-banner { border-color: var(--accent); background: var(--accent-soft); color: var(--accent); }
+.booking-badge-online { background: var(--accent-soft); color: var(--accent); }
+.booking-badge-presential { background: var(--bg-subtle); color: var(--fg-muted); }
+.booking-btn-primary { background: var(--accent); color: #fff; }
+.booking-modal { background: var(--surface); border-color: var(--border); box-shadow: var(--shadow-md); }
+.booking-btn-outline { border-color: var(--border); color: var(--fg-muted); }
+.booking-btn-secondary { border-color: var(--border); color: var(--fg-secondary); }
+.booking-info-banner { background: var(--accent-soft); color: var(--accent); }
+.booking-error { color: #dc2626; }
+.booking-error-banner { background: rgba(220, 38, 38, 0.1); color: #dc2626; }
+.booking-encuadre-box { border-color: var(--border); background: var(--bg-subtle); color: var(--fg); white-space: pre-wrap; }
+.booking-mercadopago { background: #009ee3; color: #fff; }
+.booking-confirmed-box { border-color: var(--accent-border); background: var(--accent-soft); }
+.booking-video-box { border-color: var(--border); background: color-mix(in srgb, var(--accent) 6%, transparent); }
+.booking-video-label { color: var(--accent); }
+.booking-muted-box { border-color: var(--border); background: var(--bg-subtle); color: var(--fg-muted); }
+
+/* Panel cobros (pagos) */
+.agenda-pagos-title { color: var(--fg); }
+.agenda-pagos-muted { color: var(--fg-muted); }
+.agenda-pagos-secondary { color: var(--fg-secondary); }
+.agenda-pagos-surface { border-color: var(--border); background: var(--surface); }
+.agenda-pagos-btn-outline { border-color: var(--border); color: var(--fg-secondary); }
+.agenda-pagos-btn-accent { background: var(--accent); color: #fff; }
+.agenda-pagos-tab { border-color: var(--border); background: var(--surface); color: var(--fg-secondary); }
+.agenda-pagos-tab--active { border-color: var(--accent); background: var(--accent); color: #fff; }
+.agenda-pagos-stat-accent { color: var(--accent); }
+.agenda-pagos-stat-warning { color: var(--color-warning); }
+.agenda-pagos-stat-fg { color: var(--fg); }
+.agenda-pagos-overdue { background: rgba(239, 68, 68, 0.1); color: var(--color-error); }
+.agenda-pagos-chart-track { background: var(--border); }
+.agenda-pagos-chart-bar { background: var(--accent); }
+.agenda-pagos-chart-bar--muted { background: var(--accent-soft); border: 1px solid var(--accent-border, var(--border)); }
+
+/* Panel agenda (calendario) */
+.agenda-panel-fg { color: var(--fg); }
+.agenda-panel-muted { color: var(--fg-muted); }
+.agenda-panel-secondary { color: var(--fg-secondary); }
+.agenda-panel-accent { color: var(--accent); }
+.agenda-panel-border { border-color: var(--border); }
+.agenda-panel-surface { border-color: var(--border); background: var(--surface); }
+.agenda-panel-accent-soft { border-color: var(--accent); background: var(--accent-soft); color: var(--accent); }
+.agenda-panel-accent-dot { background: var(--accent); }
+.agenda-panel-btn-accent { background: var(--accent); color: #fff; }
+.agenda-panel-btn-outline { border-color: var(--border); color: var(--fg-secondary); }
+.agenda-panel-btn-muted { border-color: var(--border); color: var(--fg-muted); }
+.agenda-panel-skeleton { background: var(--border); }
+.agenda-panel-view-toggle { border-color: var(--border); }
+.agenda-panel-view-btn { background: transparent; color: var(--fg-muted); }
+.agenda-panel-view-btn--active { background: var(--accent); color: #fff; }
+.agenda-panel-search-btn { border-color: var(--border); background: transparent; color: var(--fg-muted); }
+.agenda-panel-search-btn--active { border-color: var(--accent); background: var(--accent-soft); color: var(--accent); }
+.agenda-panel-chip { border-color: var(--border); background: transparent; color: var(--fg-secondary); }
+.agenda-panel-chip--active { border-color: var(--accent); background: var(--accent-soft); color: var(--accent); font-weight: 600; }
+.agenda-panel-card { border-color: var(--border); }
+.agenda-panel-card-surface { border-color: var(--border); background: var(--surface); }
+.agenda-panel-today { border-color: var(--border); background: var(--accent-soft); }
+.agenda-panel-hour { color: var(--fg-muted); }
+.agenda-panel-hour-row { border-top: 1px solid var(--border); }
+.agenda-panel-now-dot { background: var(--accent); }
+.agenda-panel-now-line { background: var(--accent); }
+.agenda-panel-subtle { background: var(--bg-subtle); color: var(--fg-muted); }
+.agenda-panel-series-badge { background: var(--accent-soft); color: var(--accent); }
+.agenda-panel-meet-link { border-color: var(--accent); color: var(--accent); }
+.agenda-panel-danger-banner { border: 1px solid rgba(220, 38, 38, 0.3); background: rgba(220, 38, 38, 0.06); color: #dc2626; }
+.agenda-panel-danger-soft { background: rgba(239, 68, 68, 0.06); border: 1px solid rgba(239, 68, 68, 0.2); }
+.agenda-panel-danger-btn { background: #ef4444; color: #fff; }
+.agenda-panel-danger-outline { border-color: var(--border); color: #ef4444; }
+.agenda-panel-status-complete { background: #6366f1; color: #fff; }
+.agenda-panel-status-secondary { background: var(--bg-subtle); color: var(--fg-secondary); border: 1px solid var(--border); }
+.agenda-panel-whatsapp { background: #25d366; color: #fff; }
+.agenda-panel-group { background: #8b5cf6; color: #fff; }
+.agenda-panel-popover { border-color: var(--border); background: var(--surface); box-shadow: var(--shadow-md); }
+.agenda-panel-note-btn { border-color: var(--border); color: var(--fg-secondary); }
+.agenda-panel-note-btn--saved { border-color: var(--border); color: var(--accent); }
+.agenda-panel-input { border: 1px solid var(--border); color: var(--fg); }
+.agenda-panel-input-danger { border: 1px solid #ef4444; color: #ef4444; }
+.agenda-panel-error { color: #dc2626; }
+.agenda-panel-day--today { border-color: var(--border); background: var(--accent-soft); }
+.agenda-panel-day--default { border-color: var(--border); background: transparent; }
+.agenda-panel-avatar { background: var(--accent-subtle); color: var(--accent); }
+.agenda-panel-delete-icon { background: rgba(220, 38, 38, 0.1); color: #dc2626; }
+.agenda-panel-delete-btn { background: rgba(220, 38, 38, 0.1); color: #dc2626; border-color: rgba(220, 38, 38, 0.3); }
+.agenda-panel-tag-chip { border-color: var(--border); color: var(--fg-muted); }
+.agenda-panel-whatsapp-icon { color: #22c55e; }
+
+/* Panel home (dashboard) */
+.agenda-home-fg { color: var(--fg); }
+.agenda-home-muted { color: var(--fg-muted); }
+.agenda-home-accent { color: var(--accent); }
+.agenda-home-surface { border-color: var(--border); background: var(--surface); }
+.agenda-home-skeleton { background: var(--border); }
+.agenda-home-border-top { border-top: 1px solid var(--border); }
+.agenda-home-progress-track { background: var(--border); }
+.agenda-home-progress-fill { background: var(--accent); }
+.agenda-home-trend-up { background: rgba(13, 148, 136, 0.08); color: var(--accent); }
+.agenda-home-trend-down { background: rgba(239, 68, 68, 0.08); color: #ef4444; }
+.agenda-home-trend-neutral { background: rgba(0, 0, 0, 0.04); color: var(--fg-muted); }
+.agenda-home-step-icon--done { background: var(--accent); color: #fff; }
+.agenda-home-step-icon--pending { background: var(--accent-soft); color: var(--accent); }
+.agenda-home-step-title--done { color: var(--fg); text-decoration: line-through; opacity: 0.5; }
+.agenda-home-step-title--pending { color: var(--fg); }
+.agenda-home-step-desc--done { color: var(--fg-muted); opacity: 0.5; }
+.agenda-home-step-desc--pending { color: var(--fg-muted); }
+.agenda-home-warning-banner { border-color: rgba(234, 179, 8, 0.4); background: rgba(234, 179, 8, 0.06); }
+.agenda-home-warning-icon { background: rgba(234, 179, 8, 0.12); color: rgb(161, 120, 0); }
+.agenda-home-warning-chevron { color: rgb(161, 120, 0); }
+.agenda-home-chart-overflow { overflow: visible; }
+
+.booking-modal-scroll { max-height: 90vh; overflow-y: auto; }
+.booking-required { color: var(--accent); }
+.booking-day { background: transparent; color: var(--fg); cursor: pointer; font-weight: 400; opacity: 1; }
+.booking-day--selected { background: var(--accent); color: #fff; font-weight: 600; }
+.booking-day--disabled { color: var(--fg-muted); opacity: 0.35; cursor: not-allowed; }
+.booking-slot { border-color: var(--border); background: transparent; color: var(--fg); }
+.booking-slot--selected { border-color: var(--accent); background: var(--accent-soft); color: var(--accent); }
+.booking-checkbox { border: 2px solid var(--border); background: transparent; }
+.booking-checkbox--checked { border-color: var(--accent); background: var(--accent); }

@@ -1,5 +1,7 @@
 @import "tailwindcss";
 @source "../../../../packages/ui/src";
+@source "../../../../packages/auth/src";
+@source "../../../../packages/marketplace-header/src";
 @import "../../../../packages/ui/src/theme-base.css";
 @import "leaflet/dist/leaflet.css";
 
@@ -38,7 +40,7 @@
 }
 
 .leaflet-control-attribution a {
-    color: var(--fg-secondary) !important;
+    color: var(--fg-secondary);
 }
 
 .leaflet-popup-content-wrapper,
@@ -48,3 +50,224 @@
     border: 1px solid var(--border);
     box-shadow: var(--shadow-md);
 }
+
+.text-balance {
+    text-wrap: balance;
+}
+
+/* Panel — utilidades de texto (bordes/superficies en @simple/ui theme-base.css) */
+
+.panel-text-muted {
+    color: var(--fg-muted);
+}
+
+.panel-text-secondary {
+    color: var(--fg-secondary);
+}
+
+.panel-text-fg {
+    color: var(--fg);
+}
+
+.panel-accent-soft {
+    background: var(--accent-soft);
+    color: var(--accent);
+}
+
+.panel-accent-btn {
+    background: var(--accent);
+    color: var(--accent-contrast);
+}
+
+.panel-accent-btn:disabled {
+    opacity: 0.5;
+}
+
+/* Landing pública — tokens sin style={{}} inline */
+.landing-text-fg { color: var(--fg); }
+.landing-text-muted { color: var(--fg-muted); }
+.landing-text-secondary { color: var(--fg-secondary); }
+.landing-text-accent { color: var(--accent); }
+.landing-border { border-color: var(--border); }
+.landing-bg-subtle { background: var(--bg-subtle); }
+.landing-bg-surface { background: var(--surface); }
+.landing-bg-muted { background: var(--bg-muted); }
+.landing-accent-soft { background: var(--accent-soft); color: var(--accent); }
+.landing-accent-chip {
+    border-color: var(--accent-border);
+    color: var(--accent);
+    background: var(--accent-soft);
+}
+.landing-icon-muted { color: var(--fg-muted); }
+.landing-icon-accent { color: var(--accent); }
+.landing-link { color: var(--fg-secondary); transition: color 0.15s ease; }
+.landing-link:hover { color: var(--accent); }
+.landing-social {
+    border-color: var(--border);
+    opacity: 0.4;
+    transition: opacity 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+.landing-social:hover {
+    opacity: 1;
+    border-color: var(--accent-border);
+    color: var(--accent);
+}
+.landing-progress-track { background: var(--bg-muted); }
+.landing-progress-fill { background: var(--accent); }
+.landing-badge-num {
+    background: var(--accent);
+    color: var(--accent-contrast);
+}
+.landing-step-hover {
+    background: linear-gradient(to top right, var(--accent-soft), transparent);
+}
+.landing-avatar-ring {
+    border-color: var(--bg);
+    background: var(--bg-muted);
+}
+.landing-preview-row {
+    border-color: var(--border);
+    background: var(--surface);
+}
+.landing-preview-row-icon {
+    border-color: var(--border);
+    color: var(--accent);
+}
+.landing-status-chip {
+    border-color: var(--border);
+    color: var(--fg-muted);
+}
+.landing-feature-icon-box {
+    border-color: var(--border);
+    color: var(--accent);
+}
+.landing-step-card {
+    border-color: var(--bg);
+    background: var(--surface);
+}
+.landing-step-badge {
+    background: var(--accent);
+    color: var(--accent-contrast);
+}
+.landing-status-dot {
+    background: var(--color-success);
+}
+.landing-dot-separator {
+    color: var(--fg-muted);
+    opacity: 0.35;
+}
+.landing-saber-mas {
+    color: var(--fg);
+    font-weight: 700;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    transition: color 0.15s ease;
+}
+.landing-saber-mas:hover {
+    color: var(--accent);
+}
+
+/* Auth — overlays y superficies tokenizados (sin rgba hardcoded) */
+.auth-overlay {
+    background: color-mix(in srgb, var(--bg) 72%, transparent);
+    backdrop-filter: blur(4px);
+}
+
+.dark .auth-overlay,
+[data-theme="dark"] .auth-overlay {
+    background: color-mix(in srgb, var(--bg) 48%, transparent);
+}
+
+.auth-surface {
+    background: var(--surface);
+    border: 1px solid var(--border);
+}
+
+.auth-title {
+    color: var(--fg);
+}
+
+.auth-text-muted {
+    color: var(--fg-muted);
+}
+
+.auth-spinner {
+    border-color: var(--accent);
+}
+
+.auth-icon-accent {
+    background: var(--accent-soft);
+    color: var(--accent);
+}
+
+.auth-icon-muted {
+    background: var(--bg-muted);
+    color: var(--fg-muted);
+}
+
+.auth-icon-success {
+    background: color-mix(in oklab, var(--accent) 14%, transparent);
+    color: var(--accent);
+}
+
+.auth-icon-error {
+    background: color-mix(in oklab, var(--danger) 14%, transparent);
+    color: var(--danger);
+}
+
+.auth-text-danger {
+    color: var(--danger);
+}
+
+.auth-text-success {
+    color: var(--success);
+}
+
+/* Panel sheet — bottom sheet móvil / modal desktop */
+.panel-sheet-scrim {
+    background: color-mix(in srgb, var(--bg) 55%, transparent);
+    backdrop-filter: blur(4px);
+}
+
+.dark .panel-sheet-scrim,
+[data-theme="dark"] .panel-sheet-scrim {
+    background: color-mix(in srgb, var(--bg) 38%, transparent);
+}
+
+.panel-sheet-panel {
+    background: var(--surface);
+}
+
+/* Registro dueño full-page (/para-duenos) */
+.auth-register-page {
+    background: var(--bg);
+}
+
+.auth-register-form {
+    min-height: 100dvh;
+}
+
+.auth-register-logo {
+    background: var(--accent);
+}
+
+.auth-register-progress-active {
+    background: var(--accent);
+}
+
+.auth-register-progress-idle {
+    background: color-mix(in oklab, var(--accent) 18%, var(--border));
+}
+
+.auth-register-brand {
+    background: var(--accent);
+}
+
+@media (max-width: 1023px) {
+    .auth-register-brand-mobile {
+        background: var(--accent);
+        color: var(--accent-contrast);
+    }
+}
+

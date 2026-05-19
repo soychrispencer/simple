@@ -49,6 +49,8 @@ export type AuthRouterDeps = {
     passwordResetConfirmSchema: any;
     emailVerificationRequestSchema: any;
     emailVerificationConfirmSchema: any;
+    getUserPendingEmail: (userId: string) => Promise<string | null>;
+    applyUserEmailChange: (userId: string, email: string) => Promise<void>;
 };
 
 export function createAuthRouter(deps: AuthRouterDeps) {
@@ -322,15 +324,18 @@ export function createAuthRouter(deps: AuthRouterDeps) {
         }
 
         // Campos permitidos para actualizar
-        const allowedFields = ['name', 'phone', 'avatarUrl'];
+        const allowedFields = ['name', 'phone', 'avatarUrl', 'whatsappEnabled'] as const;
         const updates: Record<string, unknown> = {};
 
         for (const key of allowedFields) {
-            if (key in payload) {
-                const value = payload[key as keyof typeof payload];
-                if (value !== undefined && value !== null) {
-                    updates[key] = value;
-                }
+            if (!(key in payload)) continue;
+            const value = payload[key as keyof typeof payload];
+            if (key === 'whatsappEnabled') {
+                if (typeof value === 'boolean') updates.whatsappEnabled = value;
+                continue;
+            }
+            if (value !== undefined && value !== null) {
+                updates[key] = value;
             }
         }
 
@@ -491,20 +496,71 @@ export function createAuthRouter(deps: AuthRouterDeps) {
         const user = await deps.getUserById(verificationToken.userId);
         if (!user || !deps.canAuthenticateUser(user)) return c.json({ ok: false, error: 'No se pudo confirmar esta cuenta.' }, 400);
 
-        await deps.db.update(deps.tables.users).set({ status: 'verified', updatedAt: now }).where(deps.eq(deps.tables.users.id, user.id));
+        const pendingEmail = await deps.getUserPendingEmail(user.id);
+        if (pendingEmail) {
+            await deps.applyUserEmailChange(user.id, pendingEmail);
+        } else {
+            await deps.db.update(deps.tables.users).set({ status: 'verified', updatedAt: now }).where(deps.eq(deps.tables.users.id, user.id));
+        }
+
         await deps.db.update(deps.tables.emailVerificationTokens).set({ usedAt: now }).where(deps.and(
             deps.eq(deps.tables.emailVerificationTokens.userId, user.id),
             deps.isNull(deps.tables.emailVerificationTokens.usedAt),
         ));
 
         const origin = deps.resolveBrowserOrigin(c);
-        if (origin) {
-            try { await deps.sendWelcomeEmail(user.email, user.name, origin); } catch (error) { console.error('Welcome email delivery error:', error); }
+        const nextUser = await deps.getUserById(user.id);
+        if (!nextUser) return c.json({ ok: false, error: 'No se pudo confirmar esta cuenta.' }, 400);
+
+        if (origin && !pendingEmail) {
+            try { await deps.sendWelcomeEmail(nextUser.email, nextUser.name, origin); } catch (error) { console.error('Welcome email delivery error:', error); }
         }
 
-        deps.setSession(c, user.id);
-        const personalAccount = await deps.ensurePrimaryAccountForUser(user);
-        return c.json({ ok: true, user: deps.sanitizeUser({ ...user, status: 'verified', primaryAccountId: personalAccount.id }) });
+        deps.setSession(c, nextUser.id);
+        const personalAccount = await deps.ensurePrimaryAccountForUser(nextUser);
+        return c.json({
+            ok: true,
+            emailChanged: Boolean(pendingEmail),
+            user: deps.sanitizeUser({ ...nextUser, status: 'verified', primaryAccountId: personalAccount.id }),
+        });
+    });
+
+    app.post('/google/disconnect', async (c) => {
+        const sessionUser = await deps.authUser(c);
+        if (!sessionUser) return c.json({ ok: false, error: 'No autenticado' }, 401);
+
+        const user = await deps.getUserById(sessionUser.id);
+        if (!user || !deps.canAuthenticateUser(user)) {
+            return c.json({ ok: false, error: 'No se pudo actualizar tu cuenta.' }, 400);
+        }
+
+        if (user.provider !== 'google') {
+            return c.json({ ok: true, disconnected: false });
+        }
+
+        if (!user.passwordHash) {
+            return c.json({
+                ok: false,
+                error: 'Esta cuenta solo usa Google. Crea una contraseña con recuperación de acceso antes de desvincular.',
+            }, 400);
+        }
+
+        const now = new Date();
+        await deps.db.update(deps.tables.users).set({
+            provider: 'local',
+            providerId: null,
+            updatedAt: now,
+        }).where(deps.eq(deps.tables.users.id, user.id));
+
+        const updatedUser = await deps.getUserById(user.id);
+        if (!updatedUser) return c.json({ ok: false, error: 'No se pudo actualizar tu cuenta.' }, 500);
+
+        const personalAccount = await deps.ensurePrimaryAccountForUser(updatedUser);
+        return c.json({
+            ok: true,
+            disconnected: true,
+            user: deps.sanitizeUser({ ...updatedUser, provider: 'local', providerId: undefined, primaryAccountId: personalAccount.id }),
+        });
     });
 
     // â”€â”€ Google OAuth â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€

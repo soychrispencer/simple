@@ -133,8 +133,7 @@ export default function HomePage() {
                 <div className="container-app pt-14 sm:pt-20 lg:pt-28 pb-14 sm:pb-20 lg:pb-24">
                     <div className="max-w-3xl mx-auto text-center">
                         <div
-                            className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full text-xs font-semibold uppercase tracking-wider mb-8 animate-fade-in"
-                            style={{ background: 'var(--accent-subtle)', color: 'var(--accent)', border: '1px solid var(--accent-border)' }}
+                            className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider mb-8 animate-fade-in border border-[var(--accent-border)] bg-[var(--accent-subtle)] text-[var(--accent)]"
                         >
                             <IconCalendar size={13} />
                             Agenda profesional online
@@ -156,7 +155,6 @@ export default function HomePage() {
                             <button
                                 onClick={handleCTA}
                                 className="btn btn-primary h-12 px-7 text-sm gap-2"
-                                style={{ borderRadius: '12px' }}
                             >
                                 Comenzar gratis
                                 <IconArrowRight size={16} />
@@ -164,7 +162,6 @@ export default function HomePage() {
                             <a
                                 href="#como-funciona"
                                 className="btn btn-outline h-12 px-7 text-sm gap-2"
-                                style={{ borderRadius: '12px' }}
                             >
                                 <IconPlayerPlay size={14} />
                                 Ver como funciona
@@ -420,7 +417,6 @@ export default function HomePage() {
                         <button
                             onClick={handleCTA}
                             className="btn btn-outline w-full h-11 text-sm"
-                            style={{ borderRadius: '12px' }}
                         >
                             Comenzar gratis
                         </button>
@@ -457,7 +453,6 @@ export default function HomePage() {
                         <button
                             onClick={handleCTA}
                             className="btn btn-primary w-full h-11 text-sm"
-                            style={{ borderRadius: '12px', background: 'var(--accent)', color: 'var(--accent-contrast)', borderColor: 'var(--accent)' }}
                         >
                             Suscribirme al plan Pro
                         </button>
@@ -488,10 +483,7 @@ export default function HomePage() {
             {/* ═══════════════ FINAL CTA ═══════════════ */}
             <section className="container-app py-16 sm:py-20 lg:py-24">
                 <div
-                    className="relative overflow-hidden rounded-2xl sm:rounded-3xl px-5 py-12 sm:px-12 sm:py-16 lg:py-20 text-center"
-                    style={{
-                        background: 'linear-gradient(135deg, #0D9488 0%, #0a766c 100%)',
-                    }}
+                    className="relative overflow-hidden rounded-card sm:rounded-[1.5rem] px-5 py-12 sm:px-12 sm:py-16 lg:py-20 text-center bg-[linear-gradient(135deg,var(--accent)_0%,color-mix(in_oklab,var(--accent)_78%,black)_100%)]"
                 >
                     {/* Decorative circles */}
                     <div className="absolute -top-20 -right-20 w-64 h-64 rounded-full" style={{ background: 'rgba(255,255,255,0.06)' }} />
@@ -506,13 +498,7 @@ export default function HomePage() {
                         </p>
                         <button
                             onClick={handleCTA}
-                            className="btn h-12 px-8 text-sm font-semibold gap-2 transition-all duration-200"
-                            style={{
-                                background: '#ffffff',
-                                color: '#0D9488',
-                                borderRadius: '12px',
-                                boxShadow: '0 8px 24px rgba(0,0,0,0.15)',
-                            }}
+                            className="btn h-12 px-8 text-sm font-semibold gap-2 transition-all duration-200 bg-[var(--accent-contrast)] text-[var(--accent)] shadow-[var(--shadow-md)]"
                         >
                             Crear mi cuenta gratis
                             <IconArrowRight size={16} />

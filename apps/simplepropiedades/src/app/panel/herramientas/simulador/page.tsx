@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useState, useMemo, useEffect, useCallback } from 'react';
 import { useAuth } from '@simple/auth';
@@ -604,10 +604,10 @@ export default function SimuladorPanelPage() {
     return (
         <div className="panel-content-frame">
             <div className="mb-6">
-                <h1 className="text-2xl font-semibold mb-1" style={{ color: 'var(--fg)' }}>
+                <h1 className="text-2xl font-semibold mb-1 mortgage-fg">
                     Simulador Hipotecario
                 </h1>
-                <p className="text-sm" style={{ color: 'var(--fg-muted)' }}>
+                <p className="text-sm mortgage-muted">
                     Calcula capacidad de endeudamiento y valor de propiedades asequibles para tus clientes.
                 </p>
             </div>
@@ -615,20 +615,14 @@ export default function SimuladorPanelPage() {
             <div className="grid gap-6 lg:grid-cols-[1fr_380px]">
                 {/* Calculator Form */}
                 <div className="space-y-6">
-                    <div 
-                        className="rounded-[20px] border p-6"
-                        style={{ borderColor: 'var(--border)', background: 'var(--surface)' }}
-                    >
+                    <div className="rounded-[20px] border p-6 mortgage-card">
                         <div className="flex items-center justify-between mb-6">
-                            <h2 className="text-lg font-semibold flex items-center gap-2" style={{ color: 'var(--fg)' }}>
+                            <h2 className="text-lg font-semibold flex items-center gap-2 mortgage-fg">
                                 <IconCalculator size={20} />
                                 Datos del solicitante
                             </h2>
                             {isPro && (
-                                <span 
-                                    className="text-xs font-medium px-2 py-1 rounded-full border"
-                                    style={{ borderColor: 'var(--border)', color: 'var(--fg-muted)' }}
-                                >
+                                <span className="text-xs font-medium px-2 py-1 rounded-full border mortgage-card-subtle mortgage-muted">
                                     Guardado automático activado
                                 </span>
                             )}
@@ -636,36 +630,34 @@ export default function SimuladorPanelPage() {
 
                         <div className="grid gap-5 sm:grid-cols-2">
                             <div className="space-y-2">
-                                <label className="text-sm font-medium" style={{ color: 'var(--fg)' }}>
+                                <label className="text-sm font-medium mortgage-fg">
                                     Ingreso líquido mensual
                                 </label>
                                 <div className="relative">
-                                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm" style={{ color: 'var(--fg-muted)' }}>$</span>
+                                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm mortgage-muted">$</span>
                                     <input
                                         type="number"
                                         value={monthlyIncome}
                                         onChange={(e) => setMonthlyIncome(e.target.value)}
-                                        className="w-full rounded-xl border bg-transparent px-8 py-2.5 text-sm outline-none focus:border-(--border-strong) transition-colors"
-                                        style={{ borderColor: 'var(--border)', color: 'var(--fg)' }}
+                                        className="mortgage-field-input w-full rounded-xl border bg-transparent px-8 py-2.5 text-sm outline-none focus:border-(--border-strong) transition-colors"
                                     />
                                 </div>
                             </div>
 
                             <div className="space-y-2">
-                                <label className="text-sm font-medium" style={{ color: 'var(--fg)' }}>
+                                <label className="text-sm font-medium mortgage-fg">
                                     Edad del solicitante
                                 </label>
                                 <input
                                     type="number"
                                     value={age}
                                     onChange={(e) => setAge(e.target.value)}
-                                    className="w-full rounded-xl border bg-transparent px-4 py-2.5 text-sm outline-none focus:border-(--border-strong) transition-colors"
-                                    style={{ borderColor: 'var(--border)', color: 'var(--fg)' }}
+                                    className="mortgage-field-input w-full rounded-xl border bg-transparent px-4 py-2.5 text-sm outline-none focus:border-(--border-strong) transition-colors"
                                 />
                             </div>
 
                             <div className="space-y-2">
-                                <label className="text-sm font-medium" style={{ color: 'var(--fg)' }}>
+                                <label className="text-sm font-medium mortgage-fg">
                                     Tasa de interés anual
                                 </label>
                                 <div className="relative">
@@ -674,17 +666,16 @@ export default function SimuladorPanelPage() {
                                         step="0.1"
                                         value={annualRate}
                                         onChange={(e) => setAnnualRate(e.target.value)}
-                                        className="w-full rounded-xl border bg-transparent px-4 py-2.5 text-sm outline-none focus:border-(--border-strong) transition-colors"
-                                        style={{ borderColor: 'var(--border)', color: 'var(--fg)' }}
+                                        className="mortgage-field-input w-full rounded-xl border bg-transparent px-4 py-2.5 text-sm outline-none focus:border-(--border-strong) transition-colors"
                                     />
-                                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm" style={{ color: 'var(--fg-muted)' }}>%</span>
+                                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm mortgage-muted">%</span>
                                 </div>
                                 <div className="flex items-center justify-between">
-                                    <span className="text-xs" style={{ color: 'var(--fg-muted)' }}>
+                                    <span className="text-xs mortgage-muted">
                                         Tasa típica: {mortgageRates?.standardRate ?? '5.5'}%
                                     </span>
                                     {mortgageRates && !ratesLoading && (
-                                        <span className="text-[10px] px-1.5 py-0.5 rounded" style={{ background: 'var(--bg-subtle)', color: 'var(--fg-muted)' }}>
+                                        <span className="mortgage-pill text-[10px] px-1.5 py-0.5 rounded">
                                             Actualizado: {new Date(mortgageRates.updatedAt).toLocaleDateString('es-CL')}
                                         </span>
                                     )}
@@ -692,7 +683,7 @@ export default function SimuladorPanelPage() {
                             </div>
 
                             <div className="space-y-2">
-                                <label className="text-sm font-medium" style={{ color: 'var(--fg)' }}>
+                                <label className="text-sm font-medium mortgage-fg">
                                     % Financiamiento banco
                                 </label>
                                 <div className="relative">
@@ -700,15 +691,14 @@ export default function SimuladorPanelPage() {
                                         type="number"
                                         value={bankPercentage}
                                         onChange={(e) => setBankPercentage(e.target.value)}
-                                        className="w-full rounded-xl border bg-transparent px-4 py-2.5 text-sm outline-none focus:border-(--border-strong) transition-colors"
-                                        style={{ borderColor: 'var(--border)', color: 'var(--fg)' }}
+                                        className="mortgage-field-input w-full rounded-xl border bg-transparent px-4 py-2.5 text-sm outline-none focus:border-(--border-strong) transition-colors"
                                     />
-                                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm" style={{ color: 'var(--fg-muted)' }}>%</span>
+                                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm mortgage-muted">%</span>
                                 </div>
                             </div>
 
                             <div className="space-y-2">
-                                <label className="text-sm font-medium" style={{ color: 'var(--fg)' }}>
+                                <label className="text-sm font-medium mortgage-fg">
                                     Plazo del crédito (años)
                                 </label>
                                 <input
@@ -722,67 +712,58 @@ export default function SimuladorPanelPage() {
                                             setCustomLoanYears(e.target.value);
                                         }
                                     }}
-                                    className="w-full rounded-xl border bg-transparent px-4 py-2.5 text-sm outline-none focus:border-(--border-strong) transition-colors"
-                                    style={{ borderColor: 'var(--border)', color: 'var(--fg)' }}
+                                    className="mortgage-field-input w-full rounded-xl border bg-transparent px-4 py-2.5 text-sm outline-none focus:border-(--border-strong) transition-colors"
                                 />
-                                <p className="text-xs" style={{ color: 'var(--fg-muted)' }}>
+                                <p className="text-xs mortgage-muted">
                                     Mínimo 5, máximo {MAX_LOAN_YEARS} años
                                 </p>
                             </div>
 
                             <div className="space-y-2">
-                                <label className="text-sm font-medium" style={{ color: 'var(--fg)' }}>
+                                <label className="text-sm font-medium mortgage-fg">
                                     Cargas crediticias mensuales
                                 </label>
                                 <div className="relative">
-                                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm" style={{ color: 'var(--fg-muted)' }}>$</span>
+                                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm mortgage-muted">$</span>
                                     <input
                                         type="number"
                                         value={monthlyDebts}
                                         onChange={(e) => setMonthlyDebts(e.target.value)}
-                                        className="w-full rounded-xl border bg-transparent px-8 py-2.5 text-sm outline-none focus:border-(--border-strong) transition-colors"
-                                        style={{ borderColor: 'var(--border)', color: 'var(--fg)' }}
+                                        className="mortgage-field-input w-full rounded-xl border bg-transparent px-8 py-2.5 text-sm outline-none focus:border-(--border-strong) transition-colors"
                                     />
                                 </div>
                             </div>
 
                             {/* Property type selector */}
                             <div className="space-y-2">
-                                <label className="text-sm font-medium" style={{ color: 'var(--fg)' }}>
+                                <label className="text-sm font-medium mortgage-fg">
                                     Tipo de propiedad
                                 </label>
-                                <div className="flex rounded-xl border overflow-hidden" style={{ borderColor: 'var(--border)' }}>
+                                <div className="mortgage-segment flex rounded-xl border overflow-hidden">
                                     <button
+                                        type="button"
                                         onClick={() => setPropertyType('new')}
-                                        className="flex-1 py-2.5 text-sm font-medium transition-colors"
-                                        style={{
-                                            background: propertyType === 'new' ? 'var(--accent)' : 'transparent',
-                                            color: propertyType === 'new' ? 'var(--accent-contrast)' : 'var(--fg)',
-                                        }}
+                                        className={`flex-1 py-2.5 text-sm font-medium transition-colors ${propertyType === 'new' ? 'mortgage-segment-btn--active' : 'mortgage-segment-btn'}`}
                                     >
                                         Nueva
                                     </button>
                                     <button
+                                        type="button"
                                         onClick={() => setPropertyType('used')}
-                                        className="flex-1 py-2.5 text-sm font-medium transition-colors"
-                                        style={{
-                                            background: propertyType === 'used' ? 'var(--accent)' : 'transparent',
-                                            color: propertyType === 'used' ? 'var(--accent-contrast)' : 'var(--fg)',
-                                        }}
+                                        className={`flex-1 py-2.5 text-sm font-medium transition-colors ${propertyType === 'used' ? 'mortgage-segment-btn--active' : 'mortgage-segment-btn'}`}
                                     >
                                         Usada
                                     </button>
                                 </div>
-                                <p className="text-xs" style={{ color: 'var(--fg-muted)' }}>
+                                <p className="text-xs mortgage-muted">
                                     {propertyType === 'used' ? 'Máx. 75% financiamiento' : 'Hasta 80-90% financiamiento'}
                                 </p>
                             </div>
 
                             {/* Subsidy checkbox */}
                             <div className="space-y-2 sm:col-span-2">
-                                <label 
-                                    className="flex items-start gap-3 p-3 rounded-xl border cursor-pointer transition-colors hover:bg-(--bg-subtle)"
-                                    style={{ borderColor: 'var(--border)' }}
+                                <label
+                                    className="mortgage-option-row flex items-start gap-3 p-3 rounded-xl border cursor-pointer transition-colors hover:bg-(--bg-subtle)"
                                 >
                                     <input
                                         type="checkbox"
@@ -791,10 +772,10 @@ export default function SimuladorPanelPage() {
                                         className="mt-0.5 w-4 h-4 rounded"
                                     />
                                     <div>
-                                        <p className="text-sm font-medium" style={{ color: 'var(--fg)' }}>
+                                        <p className="text-sm font-medium mortgage-fg">
                                             Subsidio al Crédito Hipotecario 2026
                                         </p>
-                                        <p className="text-xs mt-0.5" style={{ color: 'var(--fg-muted)' }}>
+                                        <p className="text-xs mt-0.5 mortgage-muted">
                                             Reduce tasa a ~{mortgageRates?.subsidyRate ?? '4.19'}% para viviendas nuevas
                                         </p>
                                     </div>
@@ -804,22 +785,21 @@ export default function SimuladorPanelPage() {
 
                         {/* PRO: Client Info */}
                         {isPro && (
-                            <div className="mt-6 pt-6 border-t" style={{ borderColor: 'var(--border)' }}>
+                            <div className="mortgage-divider mt-6 pt-6 border-t">
                                 <div className="flex items-center gap-2 mb-4">
-                                    <IconSparkles size={18} style={{ color: 'var(--color-accent)' }} />
-                                    <span className="text-sm font-medium" style={{ color: 'var(--fg)' }}>
+                                    <IconSparkles size={18} className="mortgage-sparkle-icon" />
+                                    <span className="text-sm font-medium">
                                         Información del cliente
                                     </span>
                                     <span 
-                                        className="text-xs font-semibold px-2 py-0.5 rounded-full"
-                                        style={{ background: 'var(--color-accent-subtle)', color: 'var(--color-accent)' }}
+                                        className="text-xs font-semibold px-2 py-0.5 rounded-full mortgage-accent-pill"
                                     >
                                         PRO
                                     </span>
                                 </div>
                                 <div className="grid gap-4 sm:grid-cols-2">
                                     <div className="space-y-2">
-                                        <label className="text-sm font-medium" style={{ color: 'var(--fg)' }}>
+                                        <label className="text-sm font-medium mortgage-fg">
                                             Nombre del cliente
                                         </label>
                                         <input
@@ -827,12 +807,11 @@ export default function SimuladorPanelPage() {
                                             value={clientName}
                                             onChange={(e) => setClientName(e.target.value)}
                                             placeholder="Ej: Juan Pérez"
-                                            className="w-full rounded-xl border bg-transparent px-4 py-2.5 text-sm outline-none focus:border-(--border-strong) transition-colors"
-                                            style={{ borderColor: 'var(--border)', color: 'var(--fg)' }}
+                                            className="mortgage-field-input w-full rounded-xl border bg-transparent px-4 py-2.5 text-sm outline-none focus:border-(--border-strong) transition-colors"
                                         />
                                     </div>
                                     <div className="space-y-2">
-                                        <label className="text-sm font-medium" style={{ color: 'var(--fg)' }}>
+                                        <label className="text-sm font-medium mortgage-fg">
                                             Notas / Preferencias
                                         </label>
                                         <input
@@ -840,8 +819,7 @@ export default function SimuladorPanelPage() {
                                             value={notes}
                                             onChange={(e) => setNotes(e.target.value)}
                                             placeholder="Ej: Busca departamento en Ñuñoa"
-                                            className="w-full rounded-xl border bg-transparent px-4 py-2.5 text-sm outline-none focus:border-(--border-strong) transition-colors"
-                                            style={{ borderColor: 'var(--border)', color: 'var(--fg)' }}
+                                            className="mortgage-field-input w-full rounded-xl border bg-transparent px-4 py-2.5 text-sm outline-none focus:border-(--border-strong) transition-colors"
                                         />
                                     </div>
                                 </div>
@@ -868,14 +846,13 @@ export default function SimuladorPanelPage() {
 
                     {/* Info Card */}
                     <div 
-                        className="rounded-[20px] border p-5"
-                        style={{ borderColor: 'var(--border)', background: 'var(--bg-subtle)' }}
+                        className="rounded-[20px] border p-5 mortgage-scenario"
                     >
-                        <h3 className="text-sm font-semibold mb-3 flex items-center gap-2" style={{ color: 'var(--fg)' }}>
+                        <h3 className="text-sm font-semibold mb-3 flex items-center gap-2">
                             <IconInfoCircle size={16} />
                             Sobre el cálculo
                         </h3>
-                        <div className="grid gap-3 sm:grid-cols-2 text-sm" style={{ color: 'var(--fg-secondary)' }}>
+                        <div className="grid gap-3 sm:grid-cols-2 text-sm">
                             <p>Los bancos permiten destinar entre 25% y 33% de tus ingresos al pago de deudas hipotecarias.</p>
                             <p>Seguros incluidos: Incendio+Sismo (0.0218 UF), Desgravamen (0.0020 UF), Invalidez (0.0042 UF) por cada 1.000 UF.</p>
                         </div>
@@ -906,10 +883,10 @@ export default function SimuladorPanelPage() {
                                     {result.approvalProbability === 'high' ? '✓' : result.approvalProbability === 'medium' ? '◐' : '✕'}
                                 </div>
                                 <div>
-                                    <p className="text-sm font-semibold" style={{ color: 'var(--fg)' }}>
+                                    <p className="text-sm font-semibold">
                                         Aprobación: {result.approvalProbability === 'high' ? 'Alta' : result.approvalProbability === 'medium' ? 'Media' : 'Baja'}
                                     </p>
-                                    <p className="text-xs" style={{ color: 'var(--fg-secondary)' }}>
+                                    <p className="text-xs">
                                         DTI: {result.dtiRatio.toFixed(1)}% {hasSubsidy && '• Con subsidio'}
                                     </p>
                                 </div>
@@ -919,71 +896,62 @@ export default function SimuladorPanelPage() {
 
                     {/* Capacity */}
                     <div 
-                        className="rounded-[20px] border p-5"
-                        style={{ borderColor: 'var(--border)', background: 'var(--surface)' }}
+                        className="rounded-[20px] border p-5 mortgage-result-surface"
                     >
-                        <h3 className="text-base font-semibold mb-4 flex items-center gap-2" style={{ color: 'var(--fg)' }}>
+                        <h3 className="text-base font-semibold mb-4 flex items-center gap-2">
                             <IconTrendingUp size={18} />
                             Capacidad hipotecaria
                         </h3>
 
                         <div className="space-y-3">
                             <div 
-                                className="rounded-xl p-4 border"
-                                style={{ borderColor: 'var(--border)', background: 'var(--bg-subtle)' }}
+                                className="rounded-xl p-4 border mortgage-scenario"
                             >
                                 <div className="flex items-center justify-between mb-1">
-                                    <span className="text-sm font-medium" style={{ color: 'var(--fg)' }}>
+                                    <span className="text-sm font-medium">
                                         Conservador (25%)
                                     </span>
                                     <span 
-                                        className="text-xs font-semibold px-2 py-0.5 rounded-full"
-                                        style={{ background: 'var(--color-success-subtle)', color: 'var(--color-success)' }}
+                                        className="text-xs font-semibold px-2 py-0.5 rounded-full mortgage-badge-success"
                                     >
                                         Muy seguro
                                     </span>
                                 </div>
-                                <p className="text-xl font-bold" style={{ color: 'var(--fg)' }}>
+                                <p className="text-xl font-bold">
                                     {hasValidIncome ? formatCurrency(result.availableQuota25) : '$0'}
                                 </p>
                             </div>
 
                             <div 
-                                className="rounded-xl p-4 border-2"
-                                style={{ borderColor: 'var(--accent)', background: 'var(--accent-subtle)' }}
+                                className="rounded-xl p-4 border-2 mortgage-scenario--accent"
                             >
                                 <div className="flex items-center justify-between mb-1">
-                                    <span className="text-sm font-medium" style={{ color: 'var(--fg)' }}>
+                                    <span className="text-sm font-medium">
                                         Realista (30%)
                                     </span>
-                                    <span 
-                                        className="text-xs font-semibold px-2 py-0.5 rounded-full"
-                                        style={{ background: 'var(--accent)', color: 'var(--accent-contrast)' }}
-                                    >
+                                    <span className="text-xs font-semibold px-2 py-0.5 rounded-full mortgage-badge-accent">
                                         Estándar 2026
                                     </span>
                                 </div>
-                                <p className="text-xl font-bold" style={{ color: 'var(--accent)' }}>
+                                <p className="text-xl font-bold mortgage-accent">
                                     {hasValidIncome ? formatCurrency(result.availableQuota30) : '$0'}
                                 </p>
                             </div>
 
                             <div 
-                                className="rounded-xl p-4 border"
-                                style={{ borderColor: 'var(--border)', background: 'var(--bg-subtle)' }}
+                                className="rounded-xl p-4 border mortgage-scenario"
                             >
                                 <div className="flex items-center justify-between mb-1">
-                                    <span className="text-sm font-medium" style={{ color: 'var(--fg)' }}>
+                                    <span className="text-sm font-medium">
                                         Máximo (33%)
                                     </span>
                                     <span 
-                                        className="text-xs font-semibold px-2 py-0.5 rounded-full"
-                                        style={{ background: 'var(--color-warning-subtle)', color: 'var(--color-warning)' }}
+                                        className="text-xs font-semibold px-2 py-0.5 rounded-full mortgage-badge-warning"
                                     >
                                         Límite
                                     </span>
                                 </div>
-                                <p className="text-xl font-bold" style={{ color: 'var(--fg)' }}>
+                                <p className="text-xl font-bold">
                                     {hasValidIncome ? formatCurrency(result.availableQuota33) : '$0'}
                                 </p>
                             </div>
@@ -992,10 +960,9 @@ export default function SimuladorPanelPage() {
 
                     {/* Property Value */}
                     <div 
-                        className="rounded-[20px] border p-5"
-                        style={{ borderColor: 'var(--border)', background: 'var(--surface)' }}
+                        className="rounded-[20px] border p-5 mortgage-result-surface"
                     >
-                        <h3 className="text-base font-semibold mb-3" style={{ color: 'var(--fg)' }}>
+                        <h3 className="text-base font-semibold mb-3">
                             Valor de propiedad asequible
                         </h3>
 
@@ -1008,16 +975,16 @@ export default function SimuladorPanelPage() {
                                     background: 'var(--bg-subtle)' 
                                 }}
                             >
-                                <p className="text-xs mb-1" style={{ color: 'var(--fg-muted)' }}>
+                                <p className="text-xs mb-1 mortgage-muted">
                                     Conservador (25%)
                                 </p>
-                                <p className="text-lg font-bold" style={{ color: 'var(--fg)' }}>
+                                <p className="text-lg font-bold">
                                     {hasValidIncome ? formatCurrency(result.propertyValue25) : '$0'}
                                 </p>
-                                <p className="text-xs" style={{ color: 'var(--fg-secondary)' }}>
+                                <p className="text-xs">
                                     {hasValidIncome ? formatUF(result.propertyValue25) : '0 UF'}
                                 </p>
-                                <div className="mt-2 pt-2 border-t text-xs" style={{ borderColor: 'var(--border)', color: 'var(--fg-muted)' }}>
+                                <div className="mortgage-divider mt-2 pt-2 border-t text-xs mortgage-muted">
                                     Pie: {hasValidIncome ? formatCurrency(result.pie25) : '$0'}
                                 </div>
                             </div>
@@ -1030,16 +997,16 @@ export default function SimuladorPanelPage() {
                                     background: 'var(--accent-subtle)' 
                                 }}
                             >
-                                <p className="text-xs mb-1" style={{ color: 'var(--fg-secondary)' }}>
+                                <p className="text-xs mb-1">
                                     Realista (30%)
                                 </p>
-                                <p className="text-lg font-bold" style={{ color: 'var(--accent)' }}>
+                                <p className="text-lg font-bold mortgage-accent">
                                     {hasValidIncome ? formatCurrency(result.propertyValue30) : '$0'}
                                 </p>
-                                <p className="text-xs" style={{ color: 'var(--fg-secondary)' }}>
+                                <p className="text-xs">
                                     {hasValidIncome ? formatUF(result.propertyValue30) : '0 UF'}
                                 </p>
-                                <div className="mt-2 pt-2 border-t text-xs" style={{ borderColor: 'var(--border)', color: 'var(--fg-muted)' }}>
+                                <div className="mortgage-divider mt-2 pt-2 border-t text-xs mortgage-muted">
                                     Pie: {hasValidIncome ? formatCurrency(result.pie30) : '$0'}
                                 </div>
                             </div>
@@ -1052,16 +1019,16 @@ export default function SimuladorPanelPage() {
                                     background: 'var(--bg-subtle)' 
                                 }}
                             >
-                                <p className="text-xs mb-1" style={{ color: 'var(--fg-muted)' }}>
+                                <p className="text-xs mb-1 mortgage-muted">
                                     Máximo (33%)
                                 </p>
-                                <p className="text-lg font-bold" style={{ color: 'var(--fg)' }}>
+                                <p className="text-lg font-bold">
                                     {hasValidIncome ? formatCurrency(result.propertyValue33) : '$0'}
                                 </p>
-                                <p className="text-xs" style={{ color: 'var(--fg-secondary)' }}>
+                                <p className="text-xs">
                                     {hasValidIncome ? formatUF(result.propertyValue33) : '0 UF'}
                                 </p>
-                                <div className="mt-2 pt-2 border-t text-xs" style={{ borderColor: 'var(--border)', color: 'var(--fg-muted)' }}>
+                                <div className="mortgage-divider mt-2 pt-2 border-t text-xs mortgage-muted">
                                     Pie: {hasValidIncome ? formatCurrency(result.pie33) : '$0'}
                                 </div>
                             </div>
@@ -1070,118 +1037,109 @@ export default function SimuladorPanelPage() {
 
                     {/* Loan Details */}
                     <div 
-                        className="rounded-[20px] border p-5"
-                        style={{ borderColor: 'var(--border)', background: 'var(--surface)' }}
+                        className="rounded-[20px] border p-5 mortgage-result-surface"
                     >
-                        <h3 className="text-sm font-semibold mb-3 flex items-center gap-2" style={{ color: 'var(--fg)' }}>
+                        <h3 className="text-sm font-semibold mb-3 flex items-center gap-2">
                             <IconShieldCheck size={16} />
                             Detalles del crédito
                         </h3>
                         
                         <div className="space-y-2 text-sm">
                             <div className="flex justify-between">
-                                <span style={{ color: 'var(--fg-muted)' }}>Plazo</span>
-                                <span style={{ color: 'var(--fg)' }}>{result.loanTermYears} años</span>
+                                <span className="mortgage-muted">Plazo</span>
+                                <span>{result.loanTermYears} años</span>
                             </div>
                             <div className="flex justify-between">
-                                <span style={{ color: 'var(--fg-muted)' }}>Tasa anual</span>
+                                <span className="mortgage-muted">Tasa anual</span>
                                 <span style={{ color: hasSubsidy ? 'var(--color-success)' : 'var(--fg)' }}>
                                     {hasSubsidy ? `${mortgageRates?.subsidyRate ?? '4.19'}% (con subsidio)` : `${annualRate}%`}
                                 </span>
                             </div>
                             <div className="flex justify-between">
-                                <span style={{ color: 'var(--fg-muted)' }}>Seguros/mes</span>
-                                <span style={{ color: 'var(--fg)' }}>{hasValidIncome ? formatCurrency(result.totalInsuranceMonthly) : '$0'}</span>
+                                <span className="mortgage-muted">Seguros/mes</span>
+                                <span>{hasValidIncome ? formatCurrency(result.totalInsuranceMonthly) : '$0'}</span>
                             </div>
                             <div className="flex justify-between">
-                                <span style={{ color: 'var(--fg-muted)' }}>% financiamiento</span>
-                                <span style={{ color: 'var(--fg)' }}>
+                                <span className="mortgage-muted">% financiamiento</span>
+                                <span>
                                     {propertyType === 'used' ? Math.min(parseFloat(bankPercentage) || 80, 75) : bankPercentage}%
                                     {propertyType === 'used' && parseFloat(bankPercentage) > 75 && ' (limitado)'}
                                 </span>
                             </div>
                         </div>
 
-                        <div className="mt-4 pt-4 border-t space-y-2" style={{ borderColor: 'var(--border)' }}>
-                            <p className="text-xs font-medium" style={{ color: 'var(--fg)' }}>Costo total del crédito</p>
+                        <div className="mortgage-divider mt-4 pt-4 border-t space-y-2">
+                            <p className="text-xs font-medium">Costo total del crédito</p>
                             <div className="flex justify-between text-sm">
-                                <span style={{ color: 'var(--fg-muted)' }}>Intereses (25%)</span>
-                                <span style={{ color: 'var(--fg)' }}>{hasValidIncome ? formatCurrency(result.totalInterest25) : '$0'}</span>
+                                <span className="mortgage-muted">Intereses (25%)</span>
+                                <span>{hasValidIncome ? formatCurrency(result.totalInterest25) : '$0'}</span>
                             </div>
                             <div className="flex justify-between text-sm">
-                                <span style={{ color: 'var(--fg-muted)' }}>Intereses (30%)</span>
-                                <span style={{ color: 'var(--accent)' }}>{hasValidIncome ? formatCurrency(result.totalInterest30) : '$0'}</span>
+                                <span className="mortgage-muted">Intereses (30%)</span>
+                                <span className="mortgage-accent">{hasValidIncome ? formatCurrency(result.totalInterest30) : '$0'}</span>
                             </div>
                             <div className="flex justify-between text-sm">
-                                <span style={{ color: 'var(--fg-muted)' }}>Intereses (33%)</span>
-                                <span style={{ color: 'var(--fg)' }}>{hasValidIncome ? formatCurrency(result.totalInterest33) : '$0'}</span>
+                                <span className="mortgage-muted">Intereses (33%)</span>
+                                <span>{hasValidIncome ? formatCurrency(result.totalInterest33) : '$0'}</span>
                             </div>
-                            <div className="flex justify-between text-sm font-medium pt-2 border-t" style={{ borderColor: 'var(--border)' }}>
-                                <span style={{ color: 'var(--accent)' }}>Total pagado (30% recomendado)</span>
-                                <span style={{ color: 'var(--accent)' }}>{hasValidIncome ? formatCurrency(result.totalCost30) : '$0'}</span>
+                            <div className="mortgage-divider flex justify-between text-sm font-medium pt-2 border-t">
+                                <span className="mortgage-accent">Total pagado (30% recomendado)</span>
+                                <span className="mortgage-accent">{hasValidIncome ? formatCurrency(result.totalCost30) : '$0'}</span>
                             </div>
                         </div>
                     </div>
 
                     {/* Saved Simulations */}
                     {isPro && (
-                        <div 
-                            className="rounded-[20px] border p-5"
-                            style={{ borderColor: 'var(--border)', background: 'var(--surface)' }}
-                        >
+                        <div className="rounded-[20px] border p-5 mortgage-result-surface">
                             <div className="flex items-center justify-between mb-4">
-                                <h3 className="text-sm font-semibold flex items-center gap-2" style={{ color: 'var(--fg)' }}>
+                                <h3 className="text-sm font-semibold flex items-center gap-2">
                                     <IconHistory size={16} />
                                     Simulaciones guardadas
                                 </h3>
-                                <span 
-                                    className="text-xs font-semibold px-2 py-0.5 rounded-full"
-                                    style={{ background: 'var(--color-accent-subtle)', color: 'var(--color-accent)' }}
-                                >
+                                <span className="text-xs font-semibold px-2 py-0.5 rounded-full mortgage-accent-pill">
                                     PRO
                                 </span>
                             </div>
 
                             <div className="space-y-3 max-h-64 overflow-y-auto">
                                 {savedSimulations.length === 0 ? (
-                                    <p className="text-sm text-center py-4" style={{ color: 'var(--fg-muted)' }}>
+                                    <p className="text-sm text-center py-4 mortgage-muted">
                                         No hay simulaciones guardadas
                                     </p>
                                 ) : (
                                     savedSimulations.map((sim) => (
                                         <div
                                             key={sim.id}
-                                            className="flex items-center gap-2 rounded-xl border p-3"
-                                            style={{ borderColor: 'var(--border)', background: 'var(--bg-subtle)' }}
+                                            className="flex items-center gap-2 rounded-xl border p-3 mortgage-scenario"
                                         >
                                             <button
                                                 onClick={() => loadSimulation(sim)}
                                                 className="flex-1 text-left"
                                             >
                                                 <div className="flex items-center justify-between mb-1">
-                                                    <span className="text-sm font-medium" style={{ color: 'var(--fg)' }}>
+                                                    <span className="text-sm font-medium">
                                                         {sim.clientName}
                                                     </span>
-                                                    <span className="text-xs" style={{ color: 'var(--fg-muted)' }}>
+                                                    <span className="text-xs mortgage-muted">
                                                         {formatDate(sim.date)}
                                                     </span>
                                                 </div>
-                                                <p className="text-xs" style={{ color: 'var(--fg-secondary)' }}>
+                                                <p className="text-xs">
                                                     {sim.loanTermYears} años • {formatCurrency(sim.monthlyIncome)}
                                                 </p>
-                                                <p className="text-xs" style={{ color: 'var(--fg-muted)' }}>
+                                                <p className="text-xs mortgage-muted">
                                                     {formatCurrency(sim.propertyValue25)} - {formatCurrency(sim.propertyValue33)}
                                                 </p>
                                                 {sim.notes && (
-                                                    <p className="text-xs mt-1 truncate" style={{ color: 'var(--fg-muted)' }}>
+                                                    <p className="text-xs mt-1 truncate mortgage-muted">
                                                         {sim.notes}
                                                     </p>
                                                 )}
                                             </button>
                                             <button
                                                 onClick={() => setSavedSimulations(prev => prev.filter(s => s.id !== sim.id))}
-                                                className="p-2 rounded-lg hover:bg-(--surface) transition-colors shrink-0"
-                                                style={{ color: 'var(--fg-muted)' }}
+                                                className="p-2 rounded-lg hover:bg-(--surface) transition-colors shrink-0 mortgage-muted"
                                                 title="Eliminar"
                                             >
                                                 <IconTrash size={16} />
@@ -1197,3 +1155,4 @@ export default function SimuladorPanelPage() {
         </div>
     );
 }
+

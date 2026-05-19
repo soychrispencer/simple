@@ -12,7 +12,7 @@ import { PanelBottomNav as SharedPanelBottomNav } from '@simple/ui';
 import { isPanelNavActive } from '@/components/panel/panel-nav-config';
 
 const items = [
-    { href: '/panel', label: 'Inicio', icon: IconLayoutDashboard },
+    { href: '/panel', label: 'Mi panel', icon: IconLayoutDashboard },
     { href: '/panel/agenda', label: 'Agenda', icon: IconCalendar },
     { href: '/panel/agenda?nueva=1', label: 'Nueva', icon: IconPlus, highlight: true },
     { href: '/panel/clientes', label: 'Pacientes', icon: IconUsers },

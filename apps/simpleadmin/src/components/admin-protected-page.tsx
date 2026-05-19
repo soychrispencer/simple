@@ -45,7 +45,7 @@ export function AdminProtectedPage(props: { children: (user: AdminSessionUser) =
                 <div className="text-center">
                     <p style={{ color: 'var(--fg-muted)' }}>Requiere permisos de administrador.</p>
                     <button
-                        className="mt-4 rounded-md border border-gray-300 px-4 py-2"
+                        className="mt-4 rounded-button border border-gray-300 px-4 py-2"
                         onClick={() => logout()}
                     >
                         Cerrar sesión
