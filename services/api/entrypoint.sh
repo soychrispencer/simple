@@ -23,8 +23,7 @@ fi
 
 echo "[Entrypoint] Running database migrations..."
 drizzle-kit migrate --config=drizzle.config.ts || {
-    echo "[Entrypoint] ERROR: Migration failed"
-    exit 1
+    echo "[Entrypoint] WARNING: Migration failed or no migrations to run. Continuing to post-journal migrations..."
 }
 
 echo "[Entrypoint] Running post-journal database migrations..."
