@@ -16,9 +16,12 @@ async function main() {
     try {
         const result = await applyPostJournalMigrations(sql, {
             migrationsFolder: path.resolve(process.cwd(), 'drizzle'),
+            continueOnError: true,
             log: (message) => console.info(`[simple-api] post-journal ${message}`),
         });
-        console.info(`[simple-api] post-journal: ${result.appliedNow} migration(s) applied`);
+        console.info(
+            `[simple-api] post-journal: ${result.appliedNow} migration(s) applied, ${result.failed} failed/skipped`
+        );
     } finally {
         await sql.end();
     }

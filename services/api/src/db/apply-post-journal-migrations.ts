@@ -54,11 +54,13 @@ function splitStatements(sql: string): string[] {
 export type ApplyPostJournalOptions = {
     migrationsFolder: string;
     dryRun?: boolean;
+    continueOnError?: boolean;
     log?: (message: string) => void;
 };
 
 export type ApplyPostJournalResult = {
     appliedNow: number;
+    failed: number;
     dryRun: boolean;
 };
 
@@ -67,6 +69,7 @@ export async function applyPostJournalMigrations(
     options: ApplyPostJournalOptions
 ): Promise<ApplyPostJournalResult> {
     const dryRun = options.dryRun ?? false;
+    const continueOnError = options.continueOnError ?? false;
     const log = options.log ?? console.info;
 
     await sql`CREATE SCHEMA IF NOT EXISTS drizzle`;
@@ -84,6 +87,7 @@ export async function applyPostJournalMigrations(
     const appliedHashes = new Set(appliedRows.map((row) => row.hash));
 
     let appliedNow = 0;
+    let failed = 0;
     for (const tag of POST_JOURNAL_TAGS) {
         const filePath = path.join(options.migrationsFolder, `${tag}.sql`);
         if (!existsSync(filePath)) {
@@ -105,19 +109,27 @@ export async function applyPostJournalMigrations(
 
         const statements = splitStatements(body);
         log(`  aplicando ${tag} (${statements.length} statements)…`);
-        for (const statement of statements) {
-            await sql.unsafe(statement);
+        try {
+            for (const statement of statements) {
+                await sql.unsafe(statement);
+            }
+            await sql`
+                INSERT INTO drizzle.__drizzle_migrations (hash, created_at)
+                VALUES (${hash}, ${Date.now()})
+            `;
+            appliedHashes.add(hash);
+            appliedNow += 1;
+            log(`  OK ${tag}`);
+        } catch (error) {
+            failed += 1;
+            log(`  ERROR ${tag}: ${error instanceof Error ? error.message : String(error)}`);
+            if (!continueOnError) {
+                throw error;
+            }
         }
-        await sql`
-            INSERT INTO drizzle.__drizzle_migrations (hash, created_at)
-            VALUES (${hash}, ${Date.now()})
-        `;
-        appliedHashes.add(hash);
-        appliedNow += 1;
-        log(`  OK ${tag}`);
     }
 
-    return { appliedNow, dryRun };
+    return { appliedNow, failed, dryRun };
 }
 
 /** Resuelve `services/api/drizzle` desde el cwd del proceso (pnpm dev / scripts). */
