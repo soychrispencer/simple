@@ -3,7 +3,7 @@ FROM node:22-bookworm-slim AS builder
 WORKDIR /app
 
 # Install pnpm
-RUN npm install -g pnpm
+RUN npm install -g pnpm@9.15.0
 
 COPY package*.json ./
 COPY pnpm-lock.yaml ./
@@ -63,7 +63,7 @@ COPY --from=builder /app/services/api/drizzle ./services/api/drizzle
 COPY --from=builder /app/services/api/entrypoint.sh ./services/api/entrypoint.sh
 
 # Install pnpm and drizzle-kit in production stage
-RUN npm install -g pnpm drizzle-kit
+RUN npm install -g pnpm@9.15.0 drizzle-kit
 RUN pnpm install --prod
 
 # Make entrypoint executable

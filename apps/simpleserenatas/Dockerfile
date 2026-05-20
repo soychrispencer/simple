@@ -4,7 +4,7 @@ ENV NEXT_TELEMETRY_DISABLED=1
 
 WORKDIR /app
 
-RUN npm install -g pnpm
+RUN npm install -g pnpm@9.15.0
 
 RUN apt-get update \
   && apt-get install -y --no-install-recommends ca-certificates \
