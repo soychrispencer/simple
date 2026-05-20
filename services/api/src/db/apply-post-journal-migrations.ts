@@ -40,6 +40,7 @@ export const POST_JOURNAL_TAGS = [
     '0075_serenata_group_max_musicians_backfill',
     '0076_serenata_group_required_instruments',
     '0077_serenata_group_member_slot_index',
+    '0078_serenatas_schema_repair',
 ] as const;
 
 export type PostJournalTag = (typeof POST_JOURNAL_TAGS)[number];
