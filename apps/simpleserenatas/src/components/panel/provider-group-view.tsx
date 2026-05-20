@@ -1,36 +1,21 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { PanelButton, PanelCard, PanelField, PanelNotice } from '@simple/ui';
+import { PanelButton, PanelCard, PanelField, PanelNotice, PanelSwitch } from '@simple/ui';
 import { serenatasApi, type ProviderGroup } from '@/lib/serenatas-api';
-import { useProviderGroups } from '@/hooks/use-provider-groups';
+import { useMyMariachi } from '@/hooks/use-my-mariachi';
 import { RegionCommuneFields } from '@/components/panel/region-commune-fields';
 import { WorkZonesPicker } from '@/components/panel/work-zones-picker';
-import { EmptyBlock, FieldInput, FieldSelect, FieldTextarea, FormFeedback, type FormStatus } from './shared';
-import { ProviderGroupBookingSettings } from './provider-group-booking-settings';
-import { ProviderGroupRequestsSection } from './provider-group-requests-section';
-import type { Section } from '@/context/serenata-context';
-import type { MiNegocioTab } from '@/lib/mi-negocio-tab';
+import { EmptyBlock, FieldInput, FieldTextarea, FormFeedback, type FormStatus } from './shared';
+import { ProviderContactPhonesFields } from './provider-contact-phones-fields';
+import { ProviderGroupBrandImages } from './provider-group-brand-images';
+import { ProviderPublicProfileLink } from './provider-public-profile-link';
 import { consumeSignupGroupName } from '@/lib/active-provider-group';
+import { GRUPOS_TAB_LABEL } from '@/lib/serenatas-terminology';
 
-export function ProviderGroupView({
-    refresh,
-    setSection,
-    onNavigateTab,
-}: {
-    refresh: () => Promise<void>;
-    setSection: (section: Section) => void;
-    onNavigateTab?: (tab: MiNegocioTab) => void;
-}) {
-    const { groups, applications, loading, error, refresh: refreshProviderGroups } = useProviderGroups();
-    const [selectedId, setSelectedId] = useState<string | null>(null);
+export function ProviderGroupView({ refresh }: { refresh: () => Promise<void> }) {
+    const { mariachi, hasMariachi, loading, error, refresh: refreshMariachi } = useMyMariachi();
     const [saveStatus, setSaveStatus] = useState<FormStatus>({ loading: false, error: null, ok: null });
-
-    const selected = groups.find((g) => g.id === selectedId) ?? groups[0] ?? null;
-
-    useEffect(() => {
-        if (!selectedId && groups[0]) setSelectedId(groups[0].id);
-    }, [groups, selectedId]);
 
     const [name, setName] = useState('');
     const [description, setDescription] = useState('');
@@ -41,29 +26,29 @@ export function ProviderGroupView({
     const [region, setRegion] = useState('');
     const [comunaBase, setComunaBase] = useState('');
     const [serviceComunas, setServiceComunas] = useState<string[]>([]);
-    const [groupStatus, setGroupStatus] = useState<ProviderGroup['status']>('draft');
+    const [groupStatus, setGroupStatus] = useState<ProviderGroup['status']>('active');
 
     useEffect(() => {
-        if (groups.length > 0 || loading) return;
+        if (hasMariachi || loading) return;
         const draft = consumeSignupGroupName();
         if (draft) setName(draft);
-    }, [groups.length, loading]);
+    }, [hasMariachi, loading]);
 
     useEffect(() => {
-        if (!selected) return;
-        setName(selected.name);
-        setDescription(selected.description ?? '');
-        setLogoUrl(selected.logoUrl ?? '');
-        setCoverUrl(selected.coverUrl ?? '');
-        setPhone(selected.phone ?? '');
-        setWhatsapp(selected.whatsapp ?? '');
-        setRegion(selected.region ?? '');
-        setComunaBase(selected.comunaBase ?? '');
-        setServiceComunas(selected.serviceComunas ?? []);
-        setGroupStatus(selected.status);
-    }, [selected?.id]);
+        if (!mariachi) return;
+        setName(mariachi.name);
+        setDescription(mariachi.description ?? '');
+        setLogoUrl(mariachi.logoUrl ?? '');
+        setCoverUrl(mariachi.coverUrl ?? '');
+        setPhone(mariachi.phone ?? '');
+        setWhatsapp(mariachi.whatsapp ?? '');
+        setRegion(mariachi.region ?? '');
+        setComunaBase(mariachi.comunaBase ?? '');
+        setServiceComunas(mariachi.serviceComunas ?? []);
+        setGroupStatus(mariachi.status);
+    }, [mariachi?.id, mariachi?.updatedAt]);
 
-    async function createGroupDraft() {
+    async function createMariachiProfile() {
         if (name.trim().length < 2) {
             setSaveStatus({ loading: false, error: 'Indica el nombre de tu mariachi.', ok: null });
             return;
@@ -77,41 +62,25 @@ export function ProviderGroupView({
             region: region || null,
             comunaBase: comunaBase || null,
             serviceComunas,
-            status: 'draft',
+            status: 'active',
         });
         if (!response.ok) {
-            setSaveStatus({ loading: false, error: response.error ?? 'No pudimos crear el grupo.', ok: null });
+            setSaveStatus({ loading: false, error: response.error ?? 'No pudimos crear tu perfil comercial.', ok: null });
             return;
         }
-        await refreshProviderGroups();
-        setSaveStatus({ loading: false, error: null, ok: 'Grupo creado. Completa el perfil y publícalo cuando esté listo.' });
-        await refresh();
-    }
-
-    async function submitApplication() {
-        setSaveStatus({ loading: true, error: null, ok: null });
-        const response = await serenatasApi.submitProviderGroupApplication({
-            name: name.trim(),
-            description: description.trim() || null,
-            phone: phone.trim() || null,
-            whatsapp: whatsapp.trim() || null,
-            region: region || null,
-            comunaBase: comunaBase || null,
-            serviceComunas,
+        await refreshMariachi();
+        setSaveStatus({
+            loading: false,
+            error: null,
+            ok: 'Perfil comercial creado y activo en el marketplace. Completa servicios y disponibilidad en las otras pestañas.',
         });
-        if (!response.ok) {
-            setSaveStatus({ loading: false, error: response.error ?? 'No pudimos enviar la solicitud', ok: null });
-            return;
-        }
-        await refreshProviderGroups();
-        setSaveStatus({ loading: false, error: null, ok: 'Solicitud enviada. Revisaremos tu grupo antes de publicarlo.' });
         await refresh();
     }
 
     async function saveGroup() {
-        if (!selected) return;
+        if (!mariachi) return;
         setSaveStatus({ loading: true, error: null, ok: null });
-        const response = await serenatasApi.updateProviderGroup(selected.id, {
+        const response = await serenatasApi.updateProviderGroup(mariachi.id, {
             name: name.trim(),
             description: description.trim() || null,
             logoUrl: logoUrl.trim() || null,
@@ -127,7 +96,7 @@ export function ProviderGroupView({
             setSaveStatus({ loading: false, error: response.error ?? 'No pudimos guardar', ok: null });
             return;
         }
-        await refreshProviderGroups();
+        await refreshMariachi();
         setSaveStatus({ loading: false, error: null, ok: 'Cambios guardados' });
         await refresh();
     }
@@ -140,59 +109,46 @@ export function ProviderGroupView({
         return (
             <PanelNotice tone="error">
                 {error}
-                <PanelButton className="mt-3" variant="secondary" size="sm" onClick={() => void refreshProviderGroups()}>
+                <PanelButton className="mt-3" variant="secondary" size="sm" onClick={() => void refreshMariachi()}>
                     Reintentar
                 </PanelButton>
             </PanelNotice>
         );
     }
 
-    if (groups.length === 0) {
-        const latestApplication = applications[0] ?? null;
+    if (!hasMariachi) {
         return (
             <div className="grid gap-5">
                 <EmptyBlock
-                    title="Crea tu mariachi"
-                    description="Configura tu marca comercial para el marketplace o envía una solicitud de revisión si prefieres validación manual."
+                    title="Configura tu perfil comercial"
+                    description="Al registrarte como dueño creas tu mariachi en el marketplace. Completa estos datos para que los clientes te encuentren."
                 />
                 <PanelNotice tone="neutral">
-                    Configura el perfil público de tu mariachi en el marketplace. El plantel de músicos se gestiona en la
-                    pestaña <strong>Grupos</strong>.
+                    Los músicos de tu plantilla se gestionan en la pestaña <strong>{GRUPOS_TAB_LABEL}</strong>.
                 </PanelNotice>
-                {latestApplication ? (
-                    <PanelNotice tone="neutral">
-                        Solicitud {latestApplication.status === 'pending' ? 'pendiente de revisión' : latestApplication.status}. Grupo: {latestApplication.name}
-                    </PanelNotice>
-                ) : null}
                 <PanelCard>
-                    <h3 className="text-lg font-semibold text-[var(--fg)]">Solicitud de grupo</h3>
+                    <h3 className="text-lg font-semibold text-[var(--fg)]">Perfil comercial</h3>
                     <div className="mt-5 grid gap-4">
-                        <PanelField label="Nombre del grupo">
+                        <PanelField label="Nombre del mariachi">
                             <FieldInput value={name} onChange={(e) => setName(e.target.value)} placeholder="Mariachi Los Reyes" />
                         </PanelField>
                         <PanelField label="Descripción">
                             <FieldTextarea rows={3} value={description} onChange={(e) => setDescription(e.target.value)} />
                         </PanelField>
                         <RegionCommuneFields region={region} comuna={comunaBase} onRegionChange={setRegion} onComunaChange={setComunaBase} />
-                        <PanelField label="Comunas de atención">
+                        <PanelField label="Zonas de trabajo">
                             <WorkZonesPicker value={serviceComunas} onChange={setServiceComunas} />
                         </PanelField>
-                        <div className="grid gap-4 md:grid-cols-2">
-                            <PanelField label="Teléfono">
-                                <FieldInput value={phone} onChange={(e) => setPhone(e.target.value)} />
-                            </PanelField>
-                            <PanelField label="WhatsApp">
-                                <FieldInput value={whatsapp} onChange={(e) => setWhatsapp(e.target.value)} />
-                            </PanelField>
-                        </div>
-                        <div className="flex flex-col gap-2 sm:flex-row">
-                            <PanelButton disabled={saveStatus.loading || name.trim().length < 2} onClick={() => void createGroupDraft()}>
-                                Crear mi mariachi
-                            </PanelButton>
-                            <PanelButton variant="secondary" disabled={saveStatus.loading || name.trim().length < 2} onClick={() => void submitApplication()}>
-                                Solicitar revisión manual
-                            </PanelButton>
-                        </div>
+                        <ProviderContactPhonesFields
+                            resetKey="signup"
+                            phone={phone}
+                            whatsapp={whatsapp}
+                            onPhoneChange={setPhone}
+                            onWhatsappChange={setWhatsapp}
+                        />
+                        <PanelButton disabled={saveStatus.loading || name.trim().length < 2} onClick={() => void createMariachiProfile()}>
+                            Crear y publicar en marketplace
+                        </PanelButton>
                     </div>
                 </PanelCard>
                 <FormFeedback status={saveStatus} />
@@ -202,94 +158,66 @@ export function ProviderGroupView({
 
     return (
         <div className="grid gap-5">
-            <PanelNotice tone="neutral">
-                Este perfil es lo que ven los clientes al contratar. Servicios y plantel de músicos están en las otras pestañas de{' '}
-                <strong>Mi Negocio</strong>.
-            </PanelNotice>
-            {groups.length > 1 ? (
-                <PanelField label="Grupo activo">
-                    <FieldSelect value={selected?.id ?? ''} onChange={(e) => setSelectedId(e.target.value)}>
-                        {groups.map((g) => (
-                            <option key={g.id} value={g.id}>{g.name}</option>
-                        ))}
-                    </FieldSelect>
-                </PanelField>
-            ) : null}
-
-            {selected ? (
-                <>
-                    <ProviderGroupRequestsSection
-                        groupId={selected.id}
-                        groupName={selected.name}
-                        setSection={setSection}
-                        refresh={refresh}
-                    />
-                    <ProviderGroupBookingSettings group={selected} />
-                </>
-            ) : null}
-
             <PanelCard>
-                <h3 className="text-lg font-semibold text-[var(--fg)]">Perfil comercial</h3>
-                <p className="mt-1 text-sm text-[var(--fg-muted)]">
-                    Marca pública del grupo en el marketplace. Los clientes solicitan directamente a este mariachi, no a
-                    varios grupos a la vez.
+                <div className="flex flex-col gap-3 border-b border-[var(--border)] pb-5 sm:flex-row sm:items-center sm:justify-between">
+                    <h3 className="text-lg font-semibold text-[var(--fg)]">Perfil comercial</h3>
+                    <div className="flex items-center gap-3">
+                        <div className="min-w-0 text-right sm:text-left">
+                            <p className="text-sm font-medium text-[var(--fg)]">Visible en marketplace</p>
+                            <p className="text-xs text-[var(--fg-muted)]">
+                                {groupStatus === 'active' ? 'Activo' : 'Oculto temporalmente'}
+                            </p>
+                        </div>
+                        <PanelSwitch
+                            checked={groupStatus === 'active'}
+                            onChange={(on) => setGroupStatus(on ? 'active' : 'paused')}
+                            ariaLabel="Visible en marketplace"
+                        />
+                    </div>
+                </div>
+
+                <ProviderGroupBrandImages
+                    className="mt-5"
+                    name={name}
+                    logoUrl={logoUrl}
+                    coverUrl={coverUrl}
+                    onLogoChange={setLogoUrl}
+                    onCoverChange={setCoverUrl}
+                    onError={(message) => setSaveStatus({ loading: false, error: message, ok: null })}
+                />
+
+                <p className="mt-4 text-sm text-[var(--fg-muted)]">
+                    Lo que verán los clientes al contratarte: nombre, fotos, descripción, zonas y contacto.
                 </p>
-                {selected?.status !== 'active' ? (
-                    <PanelNotice tone="neutral" className="mt-4">
-                        Publica el grupo (estado Activo) para aparecer en el marketplace.
-                    </PanelNotice>
-                ) : null}
+
                 <div className="mt-5 grid gap-4">
-                    <PanelField label="Nombre del grupo">
+                    <PanelField label="Nombre del mariachi">
                         <FieldInput value={name} onChange={(e) => setName(e.target.value)} />
                     </PanelField>
+                    {mariachi ? <ProviderPublicProfileLink group={mariachi} nameDraft={name} /> : null}
                     <PanelField label="Descripción">
                         <FieldTextarea rows={4} value={description} onChange={(e) => setDescription(e.target.value)} />
                     </PanelField>
-                    <div className="grid gap-4 md:grid-cols-2">
-                        <PanelField label="Logo o imagen principal">
-                            <FieldInput value={logoUrl} onChange={(e) => setLogoUrl(e.target.value)} placeholder="https://..." />
-                        </PanelField>
-                        <PanelField label="Portada">
-                            <FieldInput value={coverUrl} onChange={(e) => setCoverUrl(e.target.value)} placeholder="https://..." />
-                        </PanelField>
-                    </div>
                     <RegionCommuneFields
                         region={region}
                         comuna={comunaBase}
                         onRegionChange={setRegion}
                         onComunaChange={setComunaBase}
                     />
-                    <PanelField label="Comunas de atención">
+                    <PanelField label="Zonas de trabajo">
                         <WorkZonesPicker value={serviceComunas} onChange={setServiceComunas} />
                     </PanelField>
-                    <PanelField label="Teléfono">
-                        <FieldInput value={phone} onChange={(e) => setPhone(e.target.value)} />
-                    </PanelField>
-                    <PanelField label="WhatsApp">
-                        <FieldInput value={whatsapp} onChange={(e) => setWhatsapp(e.target.value)} />
-                    </PanelField>
-                    <PanelField label="Estado en marketplace">
-                        <FieldSelect value={groupStatus} onChange={(e) => setGroupStatus(e.target.value as ProviderGroup['status'])}>
-                            <option value="draft">Borrador</option>
-                            <option value="active">Activo (visible)</option>
-                            <option value="paused">Pausado</option>
-                        </FieldSelect>
-                    </PanelField>
+                    <ProviderContactPhonesFields
+                        resetKey={mariachi?.id ?? 'profile'}
+                        phone={phone}
+                        whatsapp={whatsapp}
+                        onPhoneChange={setPhone}
+                        onWhatsappChange={setWhatsapp}
+                    />
                     <FormFeedback status={saveStatus} />
-                    <div className="flex flex-wrap gap-2">
-                        <PanelButton disabled={saveStatus.loading} onClick={() => void saveGroup()}>Guardar</PanelButton>
-                        {onNavigateTab ? (
-                            <>
-                                <PanelButton variant="secondary" onClick={() => onNavigateTab('servicios')}>
-                                    Servicios
-                                </PanelButton>
-                                <PanelButton variant="secondary" onClick={() => onNavigateTab('grupos')}>
-                                    Grupos
-                                </PanelButton>
-                            </>
-                        ) : null}
-                    </div>
+                    <PanelButton disabled={saveStatus.loading} onClick={() => void saveGroup()}>
+                        Guardar
+                    </PanelButton>
                 </div>
             </PanelCard>
         </div>

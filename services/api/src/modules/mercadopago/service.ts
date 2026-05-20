@@ -3,7 +3,7 @@ import crypto from 'node:crypto';
 const MERCADO_PAGO_API_BASE = 'https://api.mercadopago.com';
 
 type MercadoPagoRequestOptions = {
-    method: 'GET' | 'POST';
+    method: 'GET' | 'POST' | 'PUT';
     body?: unknown;
     idempotencyKey?: string;
     accessToken?: string;
@@ -198,6 +198,13 @@ export async function createPreapproval(input: {
 export async function getPreapprovalById(preapprovalId: string): Promise<MercadoPagoSubscriptionResponse> {
     return requestMercadoPago<MercadoPagoSubscriptionResponse>(`/preapproval/${encodeURIComponent(preapprovalId)}`, {
         method: 'GET',
+    });
+}
+
+export async function cancelPreapproval(preapprovalId: string): Promise<void> {
+    await requestMercadoPago(`/preapproval/${encodeURIComponent(preapprovalId)}`, {
+        method: 'PUT',
+        body: { status: 'cancelled' },
     });
 }
 

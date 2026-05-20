@@ -4,6 +4,7 @@ import {
     serenataAvailabilityRules,
     serenataGroups,
     serenataGroupMembers,
+    serenataProviderGroupBlockedSlots,
     serenataProviderGroups,
     serenatas,
 } from '../../db/schema.js';
@@ -12,9 +13,9 @@ import { eventDateYmd, SERENATA_TIMEZONE, todayYmdInChile } from './lifecycle.js
 export const DEFAULT_SLA_HOURS = 24;
 export const MARKETPLACE_MIN_LEAD_HOURS = 2;
 export const MARKETPLACE_DAY_START = '09:00';
-export const MARKETPLACE_DAY_END = '22:00';
+export const MARKETPLACE_DAY_END = '23:00';
 
-const BLOCKING_SERENATA_STATUSES = ['accepted_pending_group', 'scheduled'] as const;
+export const BLOCKING_SERENATA_STATUSES = ['accepted_pending_group', 'scheduled'] as const;
 /** Incluye `pending` para anti-doble-booking: máximo una solicitud pendiente por slot/grupo. */
 const STRICT_BLOCKING_STATUSES = ['pending', 'accepted_pending_group', 'scheduled'] as const;
 
@@ -22,7 +23,10 @@ export type ProviderGroupSlotOptions = {
     dayStart?: string;
     dayEnd?: string;
     bufferMinutes?: number;
+    blockedSlots?: { startsAt: Date; endsAt: Date }[];
 };
+
+export type ProviderGroupBlockedSlotRow = typeof serenataProviderGroupBlockedSlots.$inferSelect;
 
 export type SerenataAvailabilityRuleInput = {
     dayOfWeek: number;
@@ -144,20 +148,37 @@ export function resolveBufferMinutes(value?: number | null) {
     return Math.min(120, Math.floor(value));
 }
 
-export const DEFAULT_WEEKLY_RULES: SerenataAvailabilityRuleInput[] = [
-    { dayOfWeek: 0, startTime: '10:00', endTime: '21:00', isActive: true },
-    { dayOfWeek: 1, startTime: MARKETPLACE_DAY_START, endTime: MARKETPLACE_DAY_END, isActive: true },
-    { dayOfWeek: 2, startTime: MARKETPLACE_DAY_START, endTime: MARKETPLACE_DAY_END, isActive: true },
-    { dayOfWeek: 3, startTime: MARKETPLACE_DAY_START, endTime: MARKETPLACE_DAY_END, isActive: true },
-    { dayOfWeek: 4, startTime: MARKETPLACE_DAY_START, endTime: MARKETPLACE_DAY_END, isActive: true },
-    { dayOfWeek: 5, startTime: MARKETPLACE_DAY_START, endTime: MARKETPLACE_DAY_END, isActive: true },
-    { dayOfWeek: 6, startTime: '10:00', endTime: '22:00', isActive: true },
-];
+export const DEFAULT_WEEKLY_RULES: SerenataAvailabilityRuleInput[] = [0, 1, 2, 3, 4, 5, 6].map((dayOfWeek) => ({
+    dayOfWeek,
+    startTime: MARKETPLACE_DAY_START,
+    endTime: MARKETPLACE_DAY_END,
+    isActive: true,
+}));
 
 export async function listProviderGroupAvailabilityRules(providerGroupId: string) {
     return db.select().from(serenataAvailabilityRules).where(
         eq(serenataAvailabilityRules.providerGroupId, providerGroupId),
     ).orderBy(asc(serenataAvailabilityRules.dayOfWeek), asc(serenataAvailabilityRules.startTime));
+}
+
+export async function listProviderGroupBlockedSlots(providerGroupId: string) {
+    const now = new Date();
+    return db.select().from(serenataProviderGroupBlockedSlots).where(and(
+        eq(serenataProviderGroupBlockedSlots.providerGroupId, providerGroupId),
+        gte(serenataProviderGroupBlockedSlots.endsAt, now),
+    )).orderBy(asc(serenataProviderGroupBlockedSlots.startsAt));
+}
+
+function slotRangeOverlapsBlocked(
+    dayYmd: string,
+    slotStartMinutes: number,
+    slotEndMinutes: number,
+    blocked: { startsAt: Date; endsAt: Date }[],
+): boolean {
+    const slotStartMs = chileWallClockToMs(dayYmd, slotStartMinutes);
+    const slotEndMs = chileWallClockToMs(dayYmd, slotEndMinutes);
+    if (slotStartMs == null || slotEndMs == null) return false;
+    return blocked.some((block) => slotStartMs < block.endsAt.getTime() && block.startsAt.getTime() < slotEndMs);
 }
 
 export async function getProviderGroupSlotOptions(
@@ -253,7 +274,10 @@ export async function validateGroupForSerenata<TClient extends Pick<typeof db, '
     const requiredMusicians = input.requiredMusicians ?? 0;
     if (requiredMusicians > 0) {
         const members = await tx.select({ id: serenataGroupMembers.id }).from(serenataGroupMembers)
-            .where(eq(serenataGroupMembers.groupId, input.groupId));
+            .where(and(
+                eq(serenataGroupMembers.groupId, input.groupId),
+                inArray(serenataGroupMembers.status, ['invited', 'accepted']),
+            ));
         if (members.length < requiredMusicians) {
             return `Este servicio requiere ${requiredMusicians} músicos. El grupo seleccionado tiene ${members.length}.`;
         }
@@ -282,6 +306,18 @@ export async function validateGroupForSerenata<TClient extends Pick<typeof db, '
     }
 
     return null;
+}
+
+export async function countOwnerBlockingSerenatas(ownerId: string): Promise<number> {
+    const rows = await db.select({ id: serenatas.id }).from(serenatas).where(and(
+        eq(serenatas.ownerId, ownerId),
+        inArray(serenatas.status, [...BLOCKING_SERENATA_STATUSES]),
+    ));
+    return rows.length;
+}
+
+export async function ownerCalendarIsClear(ownerId: string): Promise<boolean> {
+    return (await countOwnerBlockingSerenatas(ownerId)) === 0;
 }
 
 export async function validateOwnerAvailability(
@@ -355,7 +391,7 @@ export async function validateProviderGroupSlot(
     const ymd = eventDateYmd(input.eventDate);
     const range = ymd ? toDateRange(ymd) : null;
     const currentStart = minutesFromTime(input.eventTime);
-    if (!range || currentStart == null) return null;
+    if (!ymd || !range || currentStart == null) return null;
 
     const statuses = input.includePending
         ? [...STRICT_BLOCKING_STATUSES]
@@ -380,6 +416,12 @@ export async function validateProviderGroupSlot(
         return `Ese horario se solapa con una ${label} a las ${conflicting.eventTime}. Elige otro horario.`;
     }
 
+    const blocked = await listProviderGroupBlockedSlots(input.providerGroupId);
+    const slotEndMinutes = currentStart + input.duration;
+    if (slotRangeOverlapsBlocked(ymd, currentStart, slotEndMinutes, blocked)) {
+        return 'Ese horario cae en un período bloqueado. Elige otra fecha u horario.';
+    }
+
     return null;
 }
 
@@ -392,8 +434,9 @@ export function generateMarketplaceTimeSlots(
     options?: ProviderGroupSlotOptions,
 ): string[] {
     const dayStart = minutesFromTime(options?.dayStart ?? MARKETPLACE_DAY_START) ?? 9 * 60;
-    const dayEnd = minutesFromTime(options?.dayEnd ?? MARKETPLACE_DAY_END) ?? 22 * 60;
+    const dayEnd = minutesFromTime(options?.dayEnd ?? MARKETPLACE_DAY_END) ?? 23 * 60;
     const bufferMinutes = resolveBufferMinutes(options?.bufferMinutes);
+    const blocked = options?.blockedSlots ?? [];
     const step = durationMinutes + bufferMinutes;
     if (dayEnd <= dayStart || step <= 0) return [];
 
@@ -414,7 +457,9 @@ export function generateMarketplaceTimeSlots(
                 item.duration + bufferMinutes,
             );
         });
-        if (!overlaps) slots.push(minutesToTime(cursor));
+        if (overlaps) continue;
+        if (slotRangeOverlapsBlocked(dayYmd, cursor, cursor + durationMinutes + bufferMinutes, blocked)) continue;
+        slots.push(minutesToTime(cursor));
     }
 
     return slots;

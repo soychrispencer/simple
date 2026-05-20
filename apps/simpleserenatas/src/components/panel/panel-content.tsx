@@ -21,10 +21,9 @@ import { appearsInOwnerSolicitudes } from '@/lib/serenata-pending';
 import {
     groupSlugFromPanelPath,
     miNegocioTabFromPanelPath,
-    panelGroupHref,
     panelSectionHref,
-    panelSolicitarHref,
 } from '@/lib/panel-routes';
+import { publicMariachiPath } from '@/lib/public-mariachi-routes';
 import {
     clearMarketplaceRequestDraftRef,
     readMarketplaceRequestDraftFromSearch,
@@ -104,10 +103,9 @@ export function PanelContent(props: PanelContentProps) {
 
     const openGroupDetail = useCallback(
         (slug: string) => {
-            props.router.replace(panelGroupHref(slug), { scroll: false });
-            props.setSection('grupo');
+            props.router.push(publicMariachiPath(slug));
         },
-        [props],
+        [props.router],
     );
 
     const openRequest = useCallback(
@@ -115,8 +113,7 @@ export function PanelContent(props: PanelContentProps) {
             const ref = { groupSlug: group.slug, serviceId: service.id };
             writeMarketplaceRequestDraftRef(ref);
             setRequestDraft({ group, service });
-            props.setSection('solicitar');
-            props.router.replace(panelSolicitarHref(ref), { scroll: false });
+            props.setSection('solicitar', { grupo: ref.groupSlug, servicio: ref.serviceId });
         },
         [props],
     );
@@ -124,8 +121,7 @@ export function PanelContent(props: PanelContentProps) {
     const backToGrupos = useCallback(() => {
         clearMarketplaceRequestDraftRef();
         setRequestDraft(null);
-        props.setSection('grupos');
-        props.router.replace(panelSectionHref('grupos'), { scroll: false });
+        props.setSection('mariachis');
     }, [props]);
 
     useEffect(() => {
@@ -192,13 +188,13 @@ export function PanelContent(props: PanelContentProps) {
 
     if (props.section === 'contratar') {
         return (
-            <PanelSectionPage title="Contratar serenata" description="Marketplace de grupos de mariachis.">
+            <PanelSectionPage title="Contratar serenata" description="Marketplace de mariachis.">
                 <ContractSerenataView onExploreGroups={props.openClientRequest} />
             </PanelSectionPage>
         );
     }
 
-    if (props.section === 'grupos') {
+    if (props.section === 'mariachis' || props.section === 'grupos') {
         if (props.mode !== 'client') {
             return (
                 <PanelSectionPage title="Mariachis" description="Disponible en modo Cliente.">
@@ -210,8 +206,8 @@ export function PanelContent(props: PanelContentProps) {
         }
         return (
             <PanelSectionPage
-                title="Grupos de mariachis"
-                description="Explora grupos de mariachis y solicita el servicio que prefieras."
+                title="Mariachis"
+                description="Explora mariachis y solicita el servicio que prefieras."
             >
                 <GroupsMarketplaceView setSection={props.setSection} onOpenGroup={openGroupDetail} />
             </PanelSectionPage>
@@ -223,7 +219,7 @@ export function PanelContent(props: PanelContentProps) {
             return null;
         }
         return (
-            <PanelSectionPage title="Grupo de mariachis" description="Servicios y solicitud directa.">
+            <PanelSectionPage title="Mariachi" description="Servicios y solicitud directa.">
                 <GroupDetailView
                     slug={grupoSlug}
                     onBack={backToGrupos}
@@ -249,13 +245,6 @@ export function PanelContent(props: PanelContentProps) {
                     onBack={() => {
                         openGroupDetail(requestDraft.group.slug);
                     }}
-                    onSuccess={() => {
-                        clearMarketplaceRequestDraftRef();
-                        setRequestDraft(null);
-                        props.setSection('serenatas');
-                        props.router.replace(panelSectionHref('serenatas'), { scroll: false });
-                        void props.refresh();
-                    }}
                 />
             </PanelSectionPage>
         );
@@ -266,13 +255,12 @@ export function PanelContent(props: PanelContentProps) {
         return props.mode === 'work' && props.ownerFeaturesEnabled ? (
             <PanelSectionPage
                 title="Mi Negocio"
-                description="Perfil público, servicios y grupos con los que operas como dueño."
+                description="Marca comercial (mariachi), servicios y grupos de músicos."
             >
                 <MiNegocioView
                     tab={tab}
                     musicians={props.musicians}
                     refresh={props.refresh}
-                    setSection={props.setSection}
                 />
             </PanelSectionPage>
         ) : (

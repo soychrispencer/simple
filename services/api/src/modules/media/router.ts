@@ -2,6 +2,8 @@ import { Hono } from 'hono';
 import type { Context } from 'hono';
 import { GetObjectCommand } from '@aws-sdk/client-s3';
 import { logger } from '@simple/logger';
+import { readUploadBuffer } from '../../storage-providers/file-buffer.js';
+import { optimizeImageForStorage, type ImageUploadPurpose } from './image-optimize.js';
 
 export interface MediaRouterDeps {
     authUser: (c: Context) => Promise<any>;
@@ -21,20 +23,11 @@ export interface MediaRouterDeps {
     };
     getMediaProxyS3Client: () => any;
     getS3ClientForUrl: (url: string) => { client: any; bucketName: string };
-    isBackblazeUrl: (url: string) => boolean;
-    isCloudflareR2Url: (url: string) => boolean;
     isStorageUrl: (url: string) => boolean;
-    extractBackblazeObjectKey: (url: string) => string | null;
-    extractR2ObjectKey: (url: string) => string | null;
     extractStorageObjectKey: (url: string) => string | null;
     env: {
-        BACKBLAZE_BUCKET_NAME?: string;
         CLOUDFLARE_R2_BUCKET_NAME?: string;
         STORAGE_PROVIDER?: string;
-        BACKBLAZE_APP_KEY_ID?: string;
-        BACKBLAZE_APP_KEY?: string;
-        BACKBLAZE_BUCKET_ID?: string;
-        BACKBLAZE_DOWNLOAD_URL?: string;
     };
 }
 
@@ -47,18 +40,14 @@ export function createMediaRouter(deps: MediaRouterDeps) {
         getStorageProvider,
         getMediaProxyS3Client,
         getS3ClientForUrl,
-        isBackblazeUrl,
-        isCloudflareR2Url,
         isStorageUrl,
-        extractBackblazeObjectKey,
-        extractR2ObjectKey,
         extractStorageObjectKey,
         env,
     } = deps;
 
     const app = new Hono();
 
-    // Proxy para imágenes desde Backblaze B2 o Cloudflare R2
+    // Proxy para medios en Cloudflare R2 (cuando la URL no es pública directa)
     app.get('/proxy', async (c) => {
         const src = asString(c.req.query('src'));
         if (!src) {
@@ -66,7 +55,7 @@ export function createMediaRouter(deps: MediaRouterDeps) {
         }
 
         if (!isStorageUrl(src)) {
-            return c.json({ ok: false, error: 'Origen no soportado. Solo Backblaze B2 y Cloudflare R2.' }, 400);
+            return c.json({ ok: false, error: 'Origen no soportado. Solo almacenamiento Simple (R2).' }, 400);
         }
 
         // Get the appropriate S3 client and bucket for this URL
@@ -115,6 +104,11 @@ export function createMediaRouter(deps: MediaRouterDeps) {
             const file = formData.get('file') as any;
             const fileType = formData.get('fileType') as string | null;
             const listingId = formData.get('listingId') as string | null;
+            const purposeRaw = asString(formData.get('purpose'));
+            const imagePurpose: ImageUploadPurpose =
+                purposeRaw === 'avatar' ? 'avatar'
+                : purposeRaw === 'cover' ? 'cover'
+                : 'default';
 
             logDebug(`[UPLOAD META] file: ${file ? (file.name || 'blob') : 'null'}, type: ${fileType}, listingId: ${listingId}`);
 
@@ -152,11 +146,23 @@ export function createMediaRouter(deps: MediaRouterDeps) {
             logDebug(`[UPLOAD STORAGE START] Provider initialization...`);
             const storage = getStorageProvider();
 
+            let uploadFile: Blob | File = file;
+            let uploadFileName = file.name || 'unnamed-file';
+            let uploadMimeType = file.type || 'application/octet-stream';
+
+            if (fileType === 'image') {
+                const sourceBuffer = await readUploadBuffer(file);
+                const optimized = await optimizeImageForStorage(sourceBuffer, imagePurpose, uploadFileName);
+                uploadFile = new Blob([new Uint8Array(optimized.buffer)], { type: optimized.mimeType });
+                uploadFileName = optimized.fileName;
+                uploadMimeType = optimized.mimeType;
+            }
+
             logDebug(`[UPLOAD CALL] Calling storage.upload...`);
             const result = await storage.upload({
-                file,
-                fileName: file.name || 'unnamed-file',
-                mimeType: file.type || 'application/octet-stream',
+                file: uploadFile,
+                fileName: uploadFileName,
+                mimeType: uploadMimeType,
                 fileType: fileType as 'image' | 'video' | 'document',
                 userId: user.id,
                 listingId: listingId || undefined,
@@ -192,11 +198,7 @@ export interface StorageRouterDeps {
     };
     env: {
         STORAGE_PROVIDER?: string;
-        BACKBLAZE_APP_KEY_ID?: string;
-        BACKBLAZE_APP_KEY?: string;
-        BACKBLAZE_BUCKET_ID?: string;
-        BACKBLAZE_BUCKET_NAME?: string;
-        BACKBLAZE_DOWNLOAD_URL?: string;
+        CLOUDFLARE_R2_BUCKET_NAME?: string;
     };
 }
 
@@ -213,11 +215,7 @@ export function createStorageRouter(deps: StorageRouterDeps) {
             // Debug info
             logger.info('[STORAGE HEALTH] provider configuration', {
                 provider: env.STORAGE_PROVIDER,
-                b2AppKeyId: env.BACKBLAZE_APP_KEY_ID ? 'Set' : 'Not set',
-                b2AppKey: env.BACKBLAZE_APP_KEY ? 'Set' : 'Not set',
-                b2BucketId: env.BACKBLAZE_BUCKET_ID ? 'Set' : 'Not set',
-                b2BucketName: env.BACKBLAZE_BUCKET_NAME ? 'Set' : 'Not set',
-                b2DownloadUrl: env.BACKBLAZE_DOWNLOAD_URL ? 'Set' : 'Not set',
+                r2Bucket: env.CLOUDFLARE_R2_BUCKET_NAME ? 'Set' : 'Not set',
             });
 
             return c.json({ ok: true, healthy: isHealthy }, 200);

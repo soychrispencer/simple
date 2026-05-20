@@ -116,5 +116,18 @@ export function createAccountsRouter(deps: AccountsRouterDeps) {
     return c.json({ ok: true, pendingEmail: normalizedEmail });
   });
 
+  app.post('/cancel-email-change', async (c) => {
+    const user = await deps.authUser(c);
+    if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
+
+    const now = new Date();
+    await deps.db.update(deps.tables.users).set({
+      pendingEmail: null,
+      updatedAt: now,
+    }).where(deps.eq(deps.tables.users.id, user.id));
+
+    return c.json({ ok: true });
+  });
+
   return app;
 }

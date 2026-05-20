@@ -2,99 +2,72 @@
 
 ## Overview
 
-Simple soporta varios proveedores (`local`, `backblaze-s3`, `cloudflare-r2`). **Fuente de verdad operativa:** este documento y `services/api/.env.example`.
+Simple usa dos proveedores de almacenamiento: **`local`** (desarrollo) y **`cloudflare-r2`** (producción). **Fuente de verdad:** este documento y `services/api/.env.example`.
 
-- **Desarrollo:** `STORAGE_PROVIDER=local` (por defecto en `.env.local.example`).
-- **Producción (Coolify):** muchos entornos usan Backblaze B2; nuevos despliegues pueden usar Cloudflare R2 (ver comentarios en `docs/COOLIFY_DEPLOYMENT.md`).
+- **Desarrollo:** `STORAGE_PROVIDER=local` — archivos en `services/api/uploads/`, URLs `http://localhost:4000/uploads/*`.
+- **Producción:** `STORAGE_PROVIDER=cloudflare-r2` — bucket R2 con URL pública (`*.r2.dev` o dominio custom).
 
-Backblaze B2 es S3-compatible y sigue siendo válido para fotos, videos y documentos.
+Todas las subidas de imágenes pasan por `POST /api/media/upload` (Sharp → WebP). Los objetos huérfanos se eliminan al reemplazar URLs en avatares, portadas y publicaciones.
 
-## Cost Estimation
+> **Nota:** Backblaze B2 fue retirado del código activo. La migración histórica B2 → R2 está en `docs/archive/MIGRATION_BACKBLAZE_TO_CLOUDFLARE.md` y `scripts/migrate-to-cloudflare.ts`.
 
-For 100-500 listings with 5-10 photos each (~10GB/month transferred):
+## Cost Estimation (R2)
 
-- **Storage**: ~$0.005/GB/month = ~$0.05/month for 10GB
-- **Download/Transfer**: ~$0.01/GB = ~$0.10/month for 10GB
-- **Total**: ~$0.15/month (incredibly cheap)
+Para 100–500 publicaciones con 5–10 fotos cada una (~10 GB/mes):
 
-## Setup Instructions
+- **Storage**: ~$0.015/GB/mes
+- **Class A ops** (writes): mínimas con el patrón de upload actual
+- **Egress**: gratis vía dominio público R2 / Workers
 
-### 1. Create a Backblaze B2 Account
-
-1. Go to https://www.backblaze.com/b2/cloud-storage.html
-2. Sign up (free tier: 10GB storage)
-3. Create a bucket (e.g., `simple-media`)
-4. Keep the bucket private
-
-### 2. Generate API Credentials
-
-1. In B2 console, go to **Account** → **App Keys**
-2. Create a new **application key**:
-   - **Allowed capabilities**: `listBuckets`, `readBucketInfo`, `uploadFile`, `readFileInfo`
-   - **Bucket**: Select your bucket (or `All`)
-   - Copy the **Application Key ID** and **Application Key**
-
-### 3. Set Environment Variables (Backblaze S3 mode)
+## Setup — desarrollo local
 
 ```bash
-# services/api/.env
-STORAGE_PROVIDER=backblaze-s3
-BACKBLAZE_S3_ENDPOINT=https://s3.us-east-005.backblazeb2.com
-BACKBLAZE_S3_REGION=us-east-5
-BACKBLAZE_S3_ACCESS_KEY=your_app_key_id
-BACKBLAZE_S3_SECRET_KEY=your_app_key
-BACKBLAZE_BUCKET_NAME=your_bucket_name
-BACKBLAZE_DOWNLOAD_URL=https://yourdownloadurl.backblazeb2.com
-```
-
-Si prefieres usar la API nativa B2, mantiene `STORAGE_PROVIDER=backblaze-b2` y usa `BACKBLAZE_APP_KEY_ID`, `BACKBLAZE_APP_KEY`, `BACKBLAZE_BUCKET_ID`.
-
-### Opcional para desarrollo local
-
-Para desentenderte de Backblaze mientras pruebas localmente:
-
-```bash
+# services/api/.env.local
 STORAGE_PROVIDER=local
 LOCAL_STORAGE_URL=http://localhost:4000/uploads
 ```
 
-El backend guarda en `./uploads/{userId}/{listingId}/{timestamp}-{file}` y expone `/uploads/*`.
+El backend guarda en `./uploads/{userId}/...` y expone `/uploads/*`.
 
-### 4. Find Your Bucket Details
+## Setup — Cloudflare R2 (producción)
 
-In B2 console:
-- **Bucket ID**: Shown under bucket details
-- **Bucket Name**: The name you chose
-- **Download URL**: In bucket settings → "Friendly URL" or "S3-like URL"
+1. Dashboard Cloudflare → **R2** → crear bucket (p. ej. `simple-media`).
+2. **Manage R2 API Tokens** → permiso Object Read & Write.
+3. Habilitar acceso público (`*.r2.dev`) o custom domain → copiar URL base.
+
+```bash
+STORAGE_PROVIDER=cloudflare-r2
+CLOUDFLARE_R2_ACCOUNT_ID=
+CLOUDFLARE_R2_ACCESS_KEY_ID=
+CLOUDFLARE_R2_SECRET_ACCESS_KEY=
+CLOUDFLARE_R2_BUCKET_NAME=simple-media
+CLOUDFLARE_R2_PUBLIC_URL=https://pub-XXXXXXXX.r2.dev
+# Opcional: worker de overlays Instagram
+# CLOUDFLARE_WORKER_URL=https://simple-instagram-overlay.<subdomain>.workers.dev
+```
 
 ## How It Works
 
-1. **Frontend** uploads file to backend
-2. **Backend API** receives file via `/api/media/upload`
-3. **Storage Provider** uploads to B2 and returns public URL
-4. **URL is stored** in database (not the file content)
-5. **Frontend displays** file using public URL
+1. **Frontend** envía archivo a `POST /api/media/upload` (cookie de sesión).
+2. **API** optimiza imágenes a WebP (Sharp) y sube vía `StorageProvider`.
+3. **URL pública** se guarda en BD (listings, avatares, portadas, etc.).
+4. Al **reemplazar o quitar** una URL propia (R2/local), `deleteStoredMediaByUrl` borra el objeto anterior.
 
-## Future Scalability
+## Cliente (apps)
 
-The `StorageProvider` is an abstraction layer. Easy switches:
-
-- **AWS S3**: Replace BackblazeB2Provider with S3Provider
-- **MinIO** (self-hosted): Replace with MinIOProvider
-- **CDN**: Add CloudFlare in front without code changes
+Usar `uploadMediaFile` de `@simple/utils` o el mismo endpoint con `credentials: 'include'`.
 
 ## Testing
 
 ```bash
-# Check if B2 is configured correctly
 curl -X POST http://localhost:4000/api/media/upload \
-  -H "Authorization: Bearer YOUR_TOKEN" \
+  -H "Cookie: simple_session=..." \
   -F "file=@photo.jpg" \
   -F "fileType=image"
 ```
 
 ## Troubleshooting
 
-- **"Missing required Backblaze B2 environment variables"**: Ensure all env vars are set
-- **"Failed to authorize"**: Check credentials are correct
-- **"Upload failed"**: Check bucket permissions and quota
+- **"Unknown storage provider"**: solo `local` o `cloudflare-r2` (alias `r2`).
+- **R2 sin credenciales en dev**: el factory vuelve a `local` automáticamente.
+- **Imágenes no se ven**: revisar `CLOUDFLARE_R2_PUBLIC_URL` o `LOCAL_STORAGE_URL`.

@@ -4,9 +4,15 @@ import { API_BASE } from '@simple/config';
 export type MediaUploadOptions = {
     fileType: 'image' | 'video' | 'document';
     listingId?: string;
+    /** `avatar` recorta a 512px; el API convierte imágenes a WebP. */
+    purpose?: 'avatar' | 'default';
     onProgress?: (progress: number) => void;
 };
 
+/**
+ * Sube un archivo al endpoint unificado `/api/media/upload`.
+ * Las imágenes se optimizan en servidor (WebP) y los objetos huérfanos se limpian al actualizar URLs en la API.
+ */
 export async function uploadMediaFile(
     file: File,
     options: MediaUploadOptions
@@ -18,10 +24,12 @@ export async function uploadMediaFile(
         if (options.listingId) {
             formData.append('listingId', options.listingId);
         }
+        if (options.purpose) {
+            formData.append('purpose', options.purpose);
+        }
 
         const xhr = new XMLHttpRequest();
 
-        // Track upload progress if callback provided
         if (options.onProgress) {
             xhr.upload.addEventListener('progress', (event) => {
                 if (event.lengthComputable) {
@@ -31,7 +39,7 @@ export async function uploadMediaFile(
             });
         }
 
-        return new Promise((resolve, reject) => {
+        return new Promise((resolve) => {
             xhr.addEventListener('load', () => {
                 if (xhr.status === 200) {
                     try {

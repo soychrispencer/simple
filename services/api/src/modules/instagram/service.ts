@@ -474,7 +474,7 @@ async function requestInstagram<T>(url: string, init: RequestInit, retryCount = 
         
         // Mapeo de errores comunes de Meta para ayudar al usuario
         if (friendlyMessage.toLowerCase().includes('download') || friendlyMessage.toLowerCase().includes('uri')) {
-            friendlyMessage = 'Instagram no pudo descargar la imagen. Asegúrate de que el bucket de Backblaze sea PÚBLICO.';
+            friendlyMessage = 'Instagram no pudo descargar la imagen. Verifica que la URL pública de R2 sea accesible.';
         } else if (errorCode === 100 || errorCode === 10) {
             friendlyMessage = 'Error de parámetros o permisos. Por favor, DESCONECTA y vuelve a CONECTAR Instagram.';
         } else if (isTransient) {

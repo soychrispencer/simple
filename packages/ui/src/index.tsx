@@ -4,7 +4,6 @@ import { useEffect, useMemo, useRef, useState, type ComponentType, type CSSPrope
 import { IconBuildingSkyscraper, IconCalendar, IconConfetti, IconDotsCircleHorizontal, IconSteeringWheel, IconUser } from '@tabler/icons-react';
 import clsx from 'clsx';
 import { getSimpleAppBrand, type SimpleAppId } from '@simple/config';
-export * from './theme-provider';
 export * from './modern-select';
 
 // Deuda técnica: Google Places Autocomplete (API clásica). Migrar a PlaceAutocompleteElement cuando actualicemos la integración.
@@ -3191,9 +3190,21 @@ export function PanelConfigSection(props: PanelConfigSectionProps) {
 // Sidebar
 export { Sidebar, AppSidebar, type NavItem, type UserInfo, type SidebarProps, type AppSidebarProps } from './sidebar/app-sidebar';
 export { PanelShell, type PanelShellProps } from './panel/panel-shell';
+export { PanelConfirmDialog, type PanelConfirmDialogProps } from './panel/panel-confirm-dialog';
+export {
+    PanelConfirmProvider,
+    usePanelConfirm,
+    type PanelConfirmOptions,
+} from './panel/panel-confirm-provider';
+export {
+    PanelPersonalDataList,
+    PanelPersonalDataRow,
+    type PanelPersonalDataAction,
+    type PanelPersonalDataRowProps,
+} from './panel/panel-personal-data-list.js';
 export { resolveActiveNavHref, cleanPanelPath } from './panel/resolve-active-nav';
 export { PublicProfileEditor, type PublicProfileEditorProps, type PublicProfileVertical } from './panel/public-profile-editor';
-export { AvatarUpload, type AvatarUploadConfig, type AvatarUploadProps } from './avatar-upload';
+export { AvatarUpload, type AvatarUploadConfig, type AvatarUploadHandle, type AvatarUploadProps } from './avatar-upload';
 export { PanelAddressesPage } from './address-book/panel-addresses-page';
 export { CrmTeamSettingsManager, type CrmTeamSettingsManagerProps } from './panel/crm-team-settings-manager';
 export { CrmModalShell, type CrmModalShellProps } from './panel/crm-modal-shell';

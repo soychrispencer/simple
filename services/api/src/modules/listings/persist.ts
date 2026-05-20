@@ -2,6 +2,11 @@ import { and, eq } from 'drizzle-orm';
 import type { VerticalType } from '@simple/types';
 import { db } from '../../db/index.js';
 import { listingDrafts, listings } from '../../db/schema.js';
+import {
+    deleteStoredMediaUrls,
+    diffRemovedMediaUrls,
+} from '../media/stored-object.js';
+import { extractAllListingMediaUrls } from './media-delivery.js';
 import { asObject } from '../shared/index.js';
 
 const LISTING_INTEGRATIONS_STORAGE_KEY = '__simpleIntegrations';
@@ -48,8 +53,6 @@ export type ListingPersistDeps = {
     getListingById: (id: string) => Promise<ListingRecord | null>;
     mapListingRowToRecord: (row: ListingRow) => ListingRecord;
     listingDefaultHref: (vertical: VerticalType, listingId: string) => string;
-    getStorageProvider: () => { delete: (key: string) => Promise<void> };
-    extractBackblazeObjectKey: (url: string) => string;
     toPublicMediaUrl: (value: unknown) => string;
 };
 
@@ -102,24 +105,8 @@ export function isListingSlugConflictError(error: unknown): boolean {
         || (message.includes('duplicate key') && message.includes('listings'));
 }
 
-function extractAllListingMediaUrls(record: ListingRecord, toPublicMediaUrl: ListingPersistDeps['toPublicMediaUrl']): string[] {
-    const payload = asObject(record.rawData);
-    const media = asObject(payload.media);
-    const urls: string[] = [];
-
-    const photos = Array.isArray(media.photos) ? media.photos : [];
-    for (const photo of photos) {
-        const url = toPublicMediaUrl(photo);
-        if (url) urls.push(url);
-    }
-
-    const discoverVideo = media.discoverVideo;
-    if (discoverVideo && typeof discoverVideo === 'object') {
-        const url = toPublicMediaUrl(discoverVideo);
-        if (url) urls.push(url);
-    }
-
-    return urls;
+function listingMediaUrls(record: ListingRecord): string[] {
+    return extractAllListingMediaUrls(record);
 }
 
 export function createListingPersist(deps: ListingPersistDeps) {
@@ -133,6 +120,7 @@ export function createListingPersist(deps: ListingPersistDeps) {
     }
 
     async function saveListingRecord(record: ListingRecord): Promise<ListingRecord> {
+        const previous = deps.listingsById.get(record.id) ?? await deps.getListingById(record.id);
         const [row] = await db.update(listings).set({
             section: record.section,
             title: record.title,
@@ -150,7 +138,18 @@ export function createListingPersist(deps: ListingPersistDeps) {
             throw new Error('Publicación no encontrada');
         }
 
-        return upsertListingCache(deps, deps.mapListingRowToRecord(row));
+        const saved = upsertListingCache(deps, deps.mapListingRowToRecord(row));
+
+        if (previous) {
+            const prevUrls = listingMediaUrls(previous);
+            const nextUrls = listingMediaUrls(saved);
+            const removed = diffRemovedMediaUrls(prevUrls, nextUrls);
+            if (removed.length > 0) {
+                await deleteStoredMediaUrls(removed);
+            }
+        }
+
+        return saved;
     }
 
     async function deleteListingRecord(listingId: string): Promise<void> {
@@ -163,19 +162,9 @@ export function createListingPersist(deps: ListingPersistDeps) {
         }
 
         if (record) {
-            const mediaUrls = extractAllListingMediaUrls(record, deps.toPublicMediaUrl);
+            const mediaUrls = listingMediaUrls(record);
             if (mediaUrls.length > 0) {
-                try {
-                    const storage = deps.getStorageProvider();
-                    await Promise.allSettled(
-                        mediaUrls
-                            .map((url) => deps.extractBackblazeObjectKey(url))
-                            .filter((key) => key.length > 0)
-                            .map((key) => storage.delete(key)),
-                    );
-                } catch {
-                    // best-effort
-                }
+                await deleteStoredMediaUrls(mediaUrls);
             }
         }
     }

@@ -3,12 +3,15 @@ import { acceptMarketplaceSerenata, rejectMarketplaceSerenata } from './marketpl
 
 const mockFindFirst = vi.fn();
 const mockClientFindFirst = vi.fn();
+const mockUserFindFirst = vi.fn();
 const mockReturning = vi.fn();
 const mockInsertValues = vi.fn();
+const mockSelectRows = vi.fn();
 
 vi.mock('../../db/index.js', () => ({
     db: {
         query: {
+            users: { findFirst: (...args: unknown[]) => mockUserFindFirst(...args) },
             serenatas: { findFirst: (...args: unknown[]) => mockFindFirst(...args) },
             serenataClients: { findFirst: (...args: unknown[]) => mockClientFindFirst(...args) },
         },
@@ -17,6 +20,11 @@ vi.mock('../../db/index.js', () => ({
                 where: () => ({
                     returning: () => mockReturning(),
                 }),
+            }),
+        }),
+        select: () => ({
+            from: () => ({
+                where: () => mockSelectRows(),
             }),
         }),
         insert: () => ({
@@ -41,6 +49,8 @@ describe('acceptMarketplaceSerenata', () => {
         vi.clearAllMocks();
         mockReturning.mockResolvedValue([{ ...pendingSerenata, status: 'accepted_pending_group' }]);
         mockClientFindFirst.mockResolvedValue({ id: 'client-1', userId: 'user-1' });
+        mockUserFindFirst.mockResolvedValue({ id: 'user-1', inAppNotificationsEnabled: true });
+        mockSelectRows.mockResolvedValue([{ id: 'user-1', inAppNotificationsEnabled: true }]);
         mockInsertValues.mockResolvedValue(undefined);
     });
 
@@ -76,6 +86,8 @@ describe('rejectMarketplaceSerenata', () => {
         vi.clearAllMocks();
         mockReturning.mockResolvedValue([{ ...pendingSerenata, status: 'rejected' }]);
         mockClientFindFirst.mockResolvedValue({ id: 'client-1', userId: 'user-1' });
+        mockUserFindFirst.mockResolvedValue({ id: 'user-1', inAppNotificationsEnabled: true });
+        mockSelectRows.mockResolvedValue([{ id: 'user-1', inAppNotificationsEnabled: true }]);
         mockInsertValues.mockResolvedValue(undefined);
     });
 

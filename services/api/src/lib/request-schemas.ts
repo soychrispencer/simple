@@ -102,6 +102,17 @@ export const passwordResetConfirmSchema = z.object({
     password: z.string().min(8).max(120),
 });
 
+export const passwordChangeSchema = z
+    .object({
+        currentPassword: z.string().min(1).max(120).optional(),
+        newPassword: z.string().min(8).max(120),
+        confirmPassword: z.string().min(8).max(120),
+    })
+    .refine((data) => data.newPassword === data.confirmPassword, {
+        message: 'Las contraseñas no coinciden.',
+        path: ['confirmPassword'],
+    });
+
 export const savedRecordSchema = z.object({
     id: z.string().min(1),
 });

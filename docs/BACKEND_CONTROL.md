@@ -74,12 +74,11 @@ Al arrancar: `migrate()` (journal 0000–0045) y luego `applyPostJournalMigratio
 | `seed:admins` / `user:promote-admin` | Ops usuarios admin |
 | `smoke:marketplace` | HTTP smoke (API levantada) |
 
-**Scripts en `scripts/` sin entrada en package.json** (ejecutar con `pnpm exec tsx scripts/…` solo si sabes por qué):
+**Scripts archivados** (`scripts/archive/`, sin entrada en package.json): ops y one-off (`seed-superadmin.mjs`, `promote-to-superadmin.mjs`, `reset-password.ts`, `cleanup-users.ts`, `migrate-admin-accounts.ts`, `apply-pending-migrations.ts`, `apply-0041-check-only.ts`, `run-single-migration-file.ts`). Ver `scripts/archive/README.md`.
 
-- `apply-pending-migrations.ts` — journal por hash (duplica lógica de `migrate()` en casos raros)
-- `apply-0041-check-only.ts` — CHECK `users` sin vertical `serenatas` cuando 0041 completo fallaría
-- `repair-marketplace-schema.ts` — alias de reparación 0049–0052
-- `migrate-admin-accounts.ts`, `cleanup-users.ts`, `reset-password.ts`, `run-single-migration-file.ts` — **one-off / ops**
+**Scripts en `scripts/` sin package.json** (canónicos de reparación):
+
+- `repair-marketplace-schema.ts` — alias de reparación 0049–0052 (también `db:repair:marketplace`)
 
 ---
 
@@ -138,6 +137,20 @@ Cargados al inicio: users, accounts, listings, saved, follows, boost, address bo
 3. **`index.ts`** sigue siendo monolito de composición; extracción modular es deuda, no bloquea migraciones.
 
 **Cerrado (mayo 2026):** `mortgage_rates.highest_rate` (`0058`), tabla `admin_audit_logs` (`0059` + `schema.ts`).
+
+---
+
+## Limpieza código (2026-05-19)
+
+| Eliminado / movido | Motivo |
+|--------------------|--------|
+| `scripts/fix-mojibake.mjs`, `patch-*.mjs`, `_append-autos-css.mjs`, `_patch-crm-inline.mjs`, `refactor-ui.js` | One-off de parcheo ya aplicados; sin referencias en `package.json` ni docs operativos |
+| `services/api/scripts/archive/*` (antes en `scripts/`) | Ops documentados; imports actualizados a `../../src` |
+| `buildBookingEmailHtml`, `getEmailLogoPngDataUri` | Exports `@deprecated` sin consumidores en monorepo |
+| `publishPaidSerenataToAdmins`, `listAdminSerenatas`, `export { authUser }` | Alias/export público sin uso externo |
+| `packages/ui` `export *` duplicado de `theme-provider` | Re-export redundante (quedan exports explícitos) |
+
+**No tocado:** `drizzle/*.sql`, `SERENATAS_LEGACY_PACKAGES`, redirects `LegacySectionRedirect` / `panel-query-redirect`, componentes panel Serenatas en uso dinámico.
 
 ---
 

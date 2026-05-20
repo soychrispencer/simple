@@ -40,9 +40,9 @@ export function mapSerenataNotificationPanelType(kind: string): PanelNotificatio
 export function serenataNotificationCategoryLabel(kind: string): string {
     switch (kind) {
         case 'group_invitation':
-            return 'Invitación a jornada';
+            return 'Invitación al grupo';
         case 'provider_group_invitation':
-            return 'Invitación al plantel';
+            return 'Invitación al grupo';
         case 'provider_group_request':
             return 'Nueva solicitud';
         case 'platform_serenata_offer':

@@ -1,6 +1,6 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest';
 import { Hono } from 'hono';
-import { registerMarketplaceRoutes } from './marketplace.js';
+import { filterMarketplaceProviderGroups, registerMarketplaceRoutes } from './marketplace.js';
 
 const mockSelectChain = {
     from: vi.fn(),
@@ -18,6 +18,58 @@ vi.mock('../../db/index.js', () => ({
         },
     },
 }));
+
+describe('filterMarketplaceProviderGroups', () => {
+    const row = (overrides: Record<string, unknown>) => ({
+        id: 'g1',
+        ownerUserId: 'u1',
+        ownerId: null,
+        name: 'Test',
+        slug: 'test',
+        description: null,
+        logoUrl: null,
+        coverUrl: null,
+        phone: null,
+        whatsapp: null,
+        region: 'Región Metropolitana',
+        comunaBase: 'Santiago',
+        serviceComunas: ['Providencia'],
+        status: 'active',
+        isVerified: false,
+        ratingAverage: '0',
+        ratingCount: 0,
+        slaHours: 24,
+        bookingMode: 'manual',
+        bufferMinutes: 0,
+        requiresAdvancePayment: false,
+        advancePaymentInstructions: null,
+        acceptsCash: true,
+        acceptsTransfer: false,
+        acceptsMp: false,
+        acceptsPaymentLink: false,
+        paymentLinkUrl: null,
+        bankTransferData: null,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        ...overrides,
+    }) as Parameters<typeof filterMarketplaceProviderGroups>[0][number];
+
+    it('filtra por comuna listada', () => {
+        const items = filterMarketplaceProviderGroups([row({})], { comuna: 'Providencia' });
+        expect(items).toHaveLength(1);
+        expect(filterMarketplaceProviderGroups([row({})], { comuna: 'Maipú' })).toHaveLength(0);
+    });
+
+    it('usa comuna base cuando no hay zonas publicadas', () => {
+        const items = filterMarketplaceProviderGroups([
+            row({ serviceComunas: [], comunaBase: 'Santiago' }),
+        ], { comuna: 'Santiago' });
+        expect(items).toHaveLength(1);
+        expect(filterMarketplaceProviderGroups([
+            row({ serviceComunas: [], comunaBase: 'Santiago' }),
+        ], { comuna: 'Maipú' })).toHaveLength(0);
+    });
+});
 
 describe('GET /marketplace/groups', () => {
     beforeEach(() => {

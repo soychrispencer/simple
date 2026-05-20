@@ -15,6 +15,7 @@ import {
 import {
     fetchAgendaAvailability,
     createAvailabilityRule,
+    replaceAgendaAvailability,
     updateAvailabilityRule,
     deleteAvailabilityRule,
     createBlockedSlot,
@@ -239,21 +240,14 @@ export default function DisponibilidadConfigPage() {
     const handleLoadDefaults = async () => {
         setLoadingDefault(true);
         setDefaultError('');
-        try {
-            for (const rule of DEFAULT_WEEK) {
-                const result = await createAvailabilityRule(rule);
-                if (!result.ok) {
-                    setDefaultError(result.error ?? 'No se pudo crear el horario. ¿Configuraste tu perfil primero?');
-                    setLoadingDefault(false);
-                    return;
-                }
-            }
-            await load();
-        } catch {
-            setDefaultError('Error de conexión al cargar el horario típico.');
-        } finally {
+        const result = await replaceAgendaAvailability(DEFAULT_WEEK);
+        if (!result.ok) {
+            setDefaultError(result.error ?? 'No se pudo cargar el horario típico.');
             setLoadingDefault(false);
+            return;
         }
+        await load();
+        setLoadingDefault(false);
     };
 
     const handleAddBlockedSlot = async () => {

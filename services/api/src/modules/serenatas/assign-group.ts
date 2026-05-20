@@ -6,12 +6,13 @@ import {
     serenataGroupServices,
     serenataGroups,
     serenataMusicians,
-    serenataNotifications,
     serenataProviderGroupMembers,
     serenatas,
     users,
 } from '../../db/schema.js';
 import { validateGroupForSerenata } from './availability.js';
+import { insertSerenataNotifications } from '../../lib/serenata-in-app-notifications.js';
+import type { AssignGroupSideEffects } from '../../lib/serenatas-notification-delivery.js';
 
 export type AssignGroupInput = {
     mode: 'existing' | 'new';
@@ -22,18 +23,18 @@ export type AssignGroupInput = {
 };
 
 export type AssignGroupResult =
-    | { ok: true; item: typeof serenatas.$inferSelect; group: typeof serenataGroups.$inferSelect }
+    | { ok: true; item: typeof serenatas.$inferSelect; group: typeof serenataGroups.$inferSelect; sideEffects?: AssignGroupSideEffects }
     | { ok: false; error: string; status: 400 | 404 | 409 };
 
 type Tx = Pick<typeof db, 'query' | 'select' | 'insert' | 'update'>;
 
-export function assertOperationalGroupProviderMatch(
+export function assertMusicianGroupMariachiMatch(
     serenataProviderGroupId: string | null,
-    operationalGroupProviderGroupId: string | null,
+    musicianGroupProviderGroupId: string | null,
 ): string | null {
     if (!serenataProviderGroupId) return null;
-    if (operationalGroupProviderGroupId && operationalGroupProviderGroupId !== serenataProviderGroupId) {
-        return 'El grupo seleccionado no pertenece al proveedor de esta solicitud.';
+    if (musicianGroupProviderGroupId && musicianGroupProviderGroupId !== serenataProviderGroupId) {
+        return 'El grupo seleccionado no pertenece al mariachi de esta solicitud.';
     }
     return null;
 }
@@ -45,12 +46,12 @@ export function assertProviderRosterComplete(
     if (musicianIds.length === 0) return null;
     const roster = new Set(rosterMusicianIds);
     if (musicianIds.some((id) => !roster.has(id))) {
-        return 'Selecciona solo integrantes activos del grupo proveedor.';
+        return 'Selecciona solo integrantes activos del mariachi.';
     }
     return null;
 }
 
-export async function assignSerenataOperationalGroup(
+export async function assignSerenataMusicianGroup(
     tx: Tx,
     params: {
         ownerId: string;
@@ -78,7 +79,7 @@ export async function assignSerenataOperationalGroup(
             where: and(eq(serenataGroups.id, input.groupId), eq(serenataGroups.ownerId, ownerId)),
         });
         if (!group) return { ok: false, error: 'Grupo no encontrado', status: 404 };
-        const providerMismatch = assertOperationalGroupProviderMatch(
+        const providerMismatch = assertMusicianGroupMariachiMatch(
             current.providerGroupId,
             group.providerGroupId,
         );
@@ -92,14 +93,14 @@ export async function assignSerenataOperationalGroup(
         }
     } else {
         if (current.providerGroupId) {
-            const [existingJornada] = await tx.select().from(serenataGroups).where(and(
+            const [existingMusicianGroup] = await tx.select().from(serenataGroups).where(and(
                 eq(serenataGroups.ownerId, ownerId),
                 eq(serenataGroups.providerGroupId, current.providerGroupId),
                 eq(serenataGroups.status, 'active'),
                 sql`date_trunc('day', ${serenataGroups.date}) = date_trunc('day', ${current.eventDate})`,
             )).limit(1);
-            if (existingJornada) {
-                group = existingJornada;
+            if (existingMusicianGroup) {
+                group = existingMusicianGroup;
             }
         }
         if (!group) {
@@ -117,10 +118,25 @@ export async function assignSerenataOperationalGroup(
 
     const existingMembers = await tx.select({ musicianId: serenataGroupMembers.musicianId })
         .from(serenataGroupMembers)
-        .where(eq(serenataGroupMembers.groupId, group.id));
+        .where(and(
+            eq(serenataGroupMembers.groupId, group.id),
+            inArray(serenataGroupMembers.status, ['invited', 'accepted']),
+        ));
     if (existingMembers.length === 0 && musicianIds.length === 0) {
         return { ok: false, error: 'Agrega al menos un músico al grupo.', status: 400 };
     }
+    const nextMemberCount = existingMembers.length
+        + musicianIds.filter((id) => !existingMembers.some((member) => member.musicianId === id)).length;
+    if (group.maxMusicians != null && nextMemberCount > group.maxMusicians) {
+        return {
+            ok: false,
+            error: `Este grupo tiene cupo máximo de ${group.maxMusicians} músicos.`,
+            status: 409,
+        };
+    }
+
+    let invitationSideEffects: AssignGroupSideEffects['invitations'] = [];
+    let clientAgendaSideEffect: AssignGroupSideEffects['clientAgenda'];
 
     if (musicianIds.length > 0) {
         if (current.providerGroupId) {
@@ -158,17 +174,23 @@ export async function assignSerenataOperationalGroup(
             set: { message: input.message, status: 'invited', updatedAt: new Date() },
         });
 
-        await tx.insert(serenataNotifications).values(musicians.map((musician) => ({
+        await insertSerenataNotifications(
+            musicians.map((musician) => ({
+                userId: musician.userId,
+                type: 'group_invitation',
+                title: 'Nueva invitación',
+                message: `Te invitaron al grupo ${group.name}.`,
+                metadata: { serenataId: current.id, groupId: group.id, providerGroupId: current.providerGroupId },
+            })),
+            { onConflictDoNothing: true, tx },
+        );
+
+        invitationSideEffects = musicians.map((musician) => ({
             userId: musician.userId,
-            type: 'group_invitation',
-            title: 'Nueva invitación',
-            message: `Te invitaron al grupo ${group.name}.`,
-            metadata: { serenataId: current.id, groupId: group.id, providerGroupId: current.providerGroupId },
-        }))).onConflictDoNothing();
+            groupName: group.name,
+        }));
     }
 
-    const nextMemberCount = existingMembers.length
-        + musicianIds.filter((id) => !existingMembers.some((member) => member.musicianId === id)).length;
     const selectedService = current.selectedServiceId
         ? await tx.query.serenataGroupServices.findFirst({ where: eq(serenataGroupServices.id, current.selectedServiceId) })
         : null;
@@ -186,7 +208,7 @@ export async function assignSerenataOperationalGroup(
             ownerId,
             serenataId: current.id,
             groupId: group.id,
-            requiredMusicians: requiredMusiciansForPackage(current.packageCode),
+            requiredMusicians,
             eventDate: current.eventDate,
             eventTime: current.eventTime,
             duration: current.duration,
@@ -203,15 +225,27 @@ export async function assignSerenataOperationalGroup(
     if (item.clientId) {
         const client = await tx.query.serenataClients.findFirst({ where: eq(serenataClients.id, item.clientId) });
         if (client) {
-            await tx.insert(serenataNotifications).values({
+            await insertSerenataNotifications({
                 userId: client.userId,
                 type: 'client_serenata_scheduled',
                 title: 'Serenata confirmada',
                 message: 'El grupo confirmó el evento para tu serenata.',
                 metadata: { serenataId: item.id, groupId: group.id, providerGroupId: item.providerGroupId },
-            });
+            }, { tx });
+            clientAgendaSideEffect = {
+                userId: client.userId,
+                title: 'Serenata confirmada',
+                message: 'El grupo confirmó el evento para tu serenata.',
+                eventDate: item.eventDate,
+                eventLabel: item.recipientName,
+            };
         }
     }
 
-    return { ok: true, item, group };
+    const sideEffects: AssignGroupSideEffects | undefined =
+        invitationSideEffects.length > 0 || clientAgendaSideEffect
+            ? { invitations: invitationSideEffects, clientAgenda: clientAgendaSideEffect }
+            : undefined;
+
+    return { ok: true, item, group, sideEffects };
 }

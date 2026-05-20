@@ -1,4 +1,4 @@
-﻿import { appendFileSync } from 'node:fs';
+import { appendFileSync } from 'node:fs';
 import fs from 'node:fs/promises';
 import { createHash, randomBytes, randomUUID, timingSafeEqual } from 'node:crypto';
 import path from 'node:path';
@@ -30,6 +30,7 @@ import {
     getAgendaProfile,
     isFreePlan,
 } from './modules/agenda/plan-limits.js';
+import { createEnsureAgendaProfile } from './modules/agenda/ensure-profile.js';
 import { cors } from 'hono/cors';
 import { z } from 'zod';
 import { logger } from '@simple/logger';
@@ -86,15 +87,14 @@ import { refreshInstagramAccountIfNeeded as refreshInstagramAccountToken } from 
 import { createInstagramPublishWiring } from './modules/instagram/publish-wiring.js';
 import { createPaymentOrderStore } from './modules/payments/order-cache.js';
 import { createListingPersist, isListingSlugConflictError } from './modules/listings/persist.js';
+import { deleteStoredMediaUrls } from './modules/media/stored-object.js';
 import {
     extractAllListingMediaUrls,
-    extractBackblazeObjectKey,
     extractListingMediaUrls,
     extractR2ObjectKey,
     extractStorageObjectKey,
-    fixBrokenB2Url,
-    isBackblazeUrl,
     isCloudflareR2Url,
+    isOwnedStorageUrl,
     isStorageUrl,
     normalizeMediaValueForResponse,
     toDeliveredMediaUrl,
@@ -367,6 +367,7 @@ import {
     publicProfileWriteSchema,
     passwordResetRequestSchema,
     passwordResetConfirmSchema,
+    passwordChangeSchema,
     savedRecordSchema,
     followToggleSchema,
     updateListingStatusSchema,
@@ -399,6 +400,7 @@ import {
 import { logAudit, logNotification } from './lib/audit.js';
 import { createAgendaRouter, createPublicAgendaRouter } from './modules/agenda/router.js';
 import { registerAgendaCronJobs } from './modules/agenda/cron.js';
+import { registerSerenatasCronJobs } from './modules/serenatas/cron.js';
 import { createAccountRouter } from './modules/public-profile/index.js';
 import { createAdvertisingRouter } from './modules/advertising/index.js';
 import { getAdvertisingPrice, getAdPaymentStatusFromOrderStatus, normalizeAdCampaigns, getSubscriptionPlans, isValidHttpDestinationUrl, isAdPlacementSectionAllowed } from './modules/advertising/service.js';
@@ -410,7 +412,7 @@ import { createMediaRouter, createStorageRouter } from './modules/media/index.js
 import { createSystemRouter } from './modules/system/index.js';
 import { createSocialRouter } from './modules/social/index.js';
 import { createPublicRouter } from './modules/public/index.js';
-import { attachSerenataPaymentOrder, createSerenatasRouter, getSerenataPaymentTarget, markSerenataPaymentFailed, publishPaidSerenataToAdmins } from './modules/serenatas/index.js';
+import { attachSerenataPaymentOrder, createSerenatasRouter, getSerenataPaymentTarget, markSerenataPaymentFailed, publishPaidSerenataToOwners } from './modules/serenatas/index.js';
 import type {
     AccountRecord,
     AccountRole,
@@ -763,9 +765,13 @@ const {
     userCanUseInstagram,
     userCanUseCrm,
     upsertActiveSubscription,
+    cancelActiveSubscriptionForUser,
     makeSubscriptionId,
     formatPlanLimit,
 } = createSubscriptionAccess({ activeSubscriptionsByUser });
+
+const processedMercadoPagoWebhookPaymentIds = new Set<string>();
+const processedMercadoPagoWebhookPreapprovalIds = new Set<string>();
 
 function getDefaultPublicProfileAddress(userId: string): AddressBookEntry | null {
     const entries = addressBookByUser.get(userId) ?? [];
@@ -850,11 +856,23 @@ function sanitizeUser(user: AppUser): PublicUser {
         name: runtimeUser.name,
         phone: runtimeUser.phone ?? null,
         whatsappEnabled: runtimeUser.whatsappEnabled ?? false,
+        whatsappNotifyInvitations: runtimeUser.whatsappNotifyInvitations ?? false,
+        whatsappNotifyRequests: runtimeUser.whatsappNotifyRequests ?? false,
+        whatsappNotifyAgenda: runtimeUser.whatsappNotifyAgenda ?? false,
+        whatsappNotifyAccount: runtimeUser.whatsappNotifyAccount ?? false,
+        emailNotifyInvitations: runtimeUser.emailNotifyInvitations ?? true,
+        emailNotifyRequests: runtimeUser.emailNotifyRequests ?? true,
+        emailNotifyAgenda: runtimeUser.emailNotifyAgenda ?? true,
+        emailNotifyAccount: runtimeUser.emailNotifyAccount ?? true,
+        inAppNotificationsEnabled: runtimeUser.inAppNotificationsEnabled ?? true,
+        emailDigestFrequency: runtimeUser.emailDigestFrequency ?? 'off',
+        pendingEmail: runtimeUser.pendingEmail ?? null,
         role: runtimeUser.role,
         status: runtimeUser.status,
         primaryVertical: runtimeUser.primaryVertical ?? null,
         avatar: runtimeUser.avatar,
         provider: runtimeUser.provider,
+        hasPassword: Boolean(runtimeUser.passwordHash),
         lastLoginAt: runtimeUser.lastLoginAt ?? null,
         primaryAccountId: runtimeUser.primaryAccountId ?? defaultAccountIdByUserId.get(runtimeUser.id) ?? null,
     };
@@ -911,6 +929,19 @@ function mapUserRowToAppUser(user: typeof users.$inferSelect): AppUser {
         name: user.name,
         phone: user.phone ?? null,
         whatsappEnabled: user.whatsappEnabled ?? false,
+        whatsappNotifyInvitations: user.whatsappNotifyInvitations ?? false,
+        whatsappNotifyRequests: user.whatsappNotifyRequests ?? false,
+        whatsappNotifyAgenda: user.whatsappNotifyAgenda ?? false,
+        whatsappNotifyAccount: user.whatsappNotifyAccount ?? false,
+        emailNotifyInvitations: user.emailNotifyInvitations ?? true,
+        emailNotifyRequests: user.emailNotifyRequests ?? true,
+        emailNotifyAgenda: user.emailNotifyAgenda ?? true,
+        emailNotifyAccount: user.emailNotifyAccount ?? true,
+        inAppNotificationsEnabled: user.inAppNotificationsEnabled ?? true,
+        emailDigestFrequency: (user.emailDigestFrequency === 'daily' || user.emailDigestFrequency === 'weekly'
+            ? user.emailDigestFrequency
+            : 'off') as 'off' | 'daily' | 'weekly',
+        pendingEmail: user.pendingEmail ?? null,
         role: user.role as UserRole,
         status: user.status as UserStatus,
         primaryVertical: (user.primaryVertical as VerticalType | null | undefined) ?? null,
@@ -1246,8 +1277,7 @@ const permanentlyDeleteUser = createPermanentlyDeleteUser({
         agendaClientTags,
     },
     extractAllListingMediaUrls,
-    getStorageProvider,
-    extractBackblazeObjectKey,
+    deleteStoredMediaUrls,
     instagramAccountKey: (userId, vertical) => instagramAccountKey(userId, vertical as VerticalType),
     publicProfileUserVerticalKey: (userId, vertical) => publicProfileUserVerticalKey(userId, vertical as VerticalType),
     caches: {
@@ -1285,6 +1315,8 @@ const sendPushToUser = createAgendaPushSender({
 const syncToGoogleCalendar = createAgendaGoogleCalendarSync({ db, agendaAppointments });
 
 const ensureNpsForAppointment = createEnsureNpsForAppointment({ db, agendaNpsResponses });
+
+const ensureAgendaProfile = createEnsureAgendaProfile({ ensurePrimaryAccountForUser });
 
 const isValidSlug = isValidAgendaSlug;
 const RESERVED_SLUGS = AGENDA_RESERVED_SLUGS;
@@ -1327,8 +1359,6 @@ const {
     ensurePrimaryAccountForUser,
     applyRuntimeRole,
 });
-
-export { authUser };
 
 async function getListingLeadByExternalReference(input: {
     listingId: string;
@@ -1481,8 +1511,7 @@ app.route('/', createSystemRouter({
         NODE_ENV: env.NODE_ENV,
         STORAGE_PROVIDER: process.env.STORAGE_PROVIDER,
         LOCAL_STORAGE_URL: process.env.LOCAL_STORAGE_URL,
-        BACKBLAZE_DOWNLOAD_URL: process.env.BACKBLAZE_DOWNLOAD_URL,
-        BACKBLAZE_BUCKET_NAME: process.env.BACKBLAZE_BUCKET_NAME,
+        CLOUDFLARE_R2_BUCKET_NAME: process.env.CLOUDFLARE_R2_BUCKET_NAME,
     },
 }));
 
@@ -1561,6 +1590,7 @@ app.route('/api/auth', createAuthRouter({
     registerSchema,
     passwordResetRequestSchema,
     passwordResetConfirmSchema,
+    passwordChangeSchema,
     emailVerificationRequestSchema,
     emailVerificationConfirmSchema,
 }));
@@ -1592,8 +1622,6 @@ const {
     getListingById,
     mapListingRowToRecord,
     listingDefaultHref,
-    getStorageProvider,
-    extractBackblazeObjectKey,
     toPublicMediaUrl,
 } as Parameters<typeof createListingPersist>[0]);
 
@@ -1769,12 +1797,16 @@ app.route('/api', createPaymentsRouter({
     serenataPayments: {
         getTarget: getSerenataPaymentTarget,
         attachOrder: attachSerenataPaymentOrder,
-        applyPaid: publishPaidSerenataToAdmins,
+        applyPaid: publishPaidSerenataToOwners,
         markFailed: markSerenataPaymentFailed,
     },
     findPaymentOrderByIdFromDb,
     loadPaymentOrderFromDb,
     listPaymentOrdersForUserFromDb,
+    getPrimaryAccountIdForUser,
+    cancelActiveSubscriptionForUser,
+    processedMercadoPagoWebhookPaymentIds,
+    processedMercadoPagoWebhookPreapprovalIds,
 }));
 app.use('/api/advertising/campaigns', requireVerifiedSession);
 app.use('/api/advertising/campaigns/*', requireVerifiedSession);
@@ -2118,20 +2150,11 @@ app.route('/api/media', createMediaRouter({
     getStorageProvider,
     getMediaProxyS3Client,
     getS3ClientForUrl,
-    isBackblazeUrl,
-    isCloudflareR2Url,
     isStorageUrl,
-    extractBackblazeObjectKey,
-    extractR2ObjectKey,
     extractStorageObjectKey,
     env: {
-        BACKBLAZE_BUCKET_NAME: process.env.BACKBLAZE_BUCKET_NAME,
         CLOUDFLARE_R2_BUCKET_NAME: process.env.CLOUDFLARE_R2_BUCKET_NAME,
         STORAGE_PROVIDER: process.env.STORAGE_PROVIDER,
-        BACKBLAZE_APP_KEY_ID: process.env.BACKBLAZE_APP_KEY_ID,
-        BACKBLAZE_APP_KEY: process.env.BACKBLAZE_APP_KEY,
-        BACKBLAZE_BUCKET_ID: process.env.BACKBLAZE_BUCKET_ID,
-        BACKBLAZE_DOWNLOAD_URL: process.env.BACKBLAZE_DOWNLOAD_URL,
     },
 }));
 
@@ -2139,11 +2162,7 @@ app.route('/api/storage', createStorageRouter({
     getStorageProvider,
     env: {
         STORAGE_PROVIDER: process.env.STORAGE_PROVIDER,
-        BACKBLAZE_APP_KEY_ID: process.env.BACKBLAZE_APP_KEY_ID,
-        BACKBLAZE_APP_KEY: process.env.BACKBLAZE_APP_KEY,
-        BACKBLAZE_BUCKET_ID: process.env.BACKBLAZE_BUCKET_ID,
-        BACKBLAZE_BUCKET_NAME: process.env.BACKBLAZE_BUCKET_NAME,
-        BACKBLAZE_DOWNLOAD_URL: process.env.BACKBLAZE_DOWNLOAD_URL,
+        CLOUDFLARE_R2_BUCKET_NAME: process.env.CLOUDFLARE_R2_BUCKET_NAME,
     },
 }));
 
@@ -2203,6 +2222,8 @@ app.route('/api/public', createPublicRouter({
 app.route('/api/serenatas', createSerenatasRouter({
     authUser,
     requireVerifiedSession,
+    sanitizeUser: (user) => sanitizeUser(user as AppUser),
+    cancelActiveSubscriptionForUser: (userId) => cancelActiveSubscriptionForUser(userId, 'serenatas' as never),
 }));
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -2244,6 +2265,7 @@ app.route('/api/serenatas', createSerenatasRouter({
         },
         dbHelpers: { eq, and, or, asc, desc, gte, lte, lt, inArray, isNull },
         getAgendaProfile,
+        ensureAgendaProfile,
         isFreePlan,
         checkClientLimit,
         checkAppointmentLimit,
@@ -2312,6 +2334,7 @@ void refreshVehicleValuationFeeds();
     }
 
     registerAgendaCronJobs();
+    registerSerenatasCronJobs();
 
     try {
         await loadDataFromDB();

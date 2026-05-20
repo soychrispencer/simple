@@ -9,6 +9,18 @@ export const users = pgTable('users', {
   name: varchar('name', { length: 255 }).notNull(),
   phone: varchar('phone', { length: 20 }),
   whatsappEnabled: boolean('whatsapp_enabled').notNull().default(false),
+  whatsappNotifyInvitations: boolean('whatsapp_notify_invitations').notNull().default(false),
+  whatsappNotifyRequests: boolean('whatsapp_notify_requests').notNull().default(false),
+  whatsappNotifyAgenda: boolean('whatsapp_notify_agenda').notNull().default(false),
+  whatsappNotifyAccount: boolean('whatsapp_notify_account').notNull().default(false),
+  emailNotifyInvitations: boolean('email_notify_invitations').notNull().default(true),
+  emailNotifyRequests: boolean('email_notify_requests').notNull().default(true),
+  emailNotifyAgenda: boolean('email_notify_agenda').notNull().default(true),
+  emailNotifyAccount: boolean('email_notify_account').notNull().default(true),
+  inAppNotificationsEnabled: boolean('in_app_notifications_enabled').notNull().default(true),
+  emailDigestFrequency: varchar('email_digest_frequency', { length: 10 }).notNull().default('off'),
+  lastNotificationEmailAt: timestamp('last_notification_email_at'),
+  lastNotificationWhatsappAt: timestamp('last_notification_whatsapp_at'),
   role: varchar('role', { length: 20 }).notNull().default('user'), // 'user' | 'musician' | 'client' | 'admin' | 'superadmin'
   status: varchar('status', { length: 20 }).notNull().default('active'), // 'active' | 'verified' | 'suspended'
   primaryVertical: varchar('primary_vertical', { length: 20 }), // NULL = platform/superadmin; 'autos' | 'propiedades' | 'agenda'
@@ -17,6 +29,10 @@ export const users = pgTable('users', {
   provider: varchar('provider', { length: 20 }), // 'local' | 'google' | 'facebook' | etc.
   providerId: varchar('provider_id', { length: 255 }), // ID from OAuth provider
   pendingEmail: varchar('pending_email', { length: 255 }),
+  googleCalendarId: varchar('google_calendar_id', { length: 255 }),
+  googleCalendarAccessToken: text('google_calendar_access_token'),
+  googleCalendarRefreshToken: text('google_calendar_refresh_token'),
+  googleCalendarTokenExpiry: timestamp('google_calendar_token_expiry'),
   createdAt: timestamp('created_at').notNull().defaultNow(),
   updatedAt: timestamp('updated_at').notNull().defaultNow(),
   lastLoginAt: timestamp('last_login_at'),
@@ -1141,6 +1157,22 @@ export const serenataProviderGroups = pgTable('serenata_provider_groups', {
   slaHours: integer('sla_hours').notNull().default(24),
   bookingMode: varchar('booking_mode', { length: 30 }).notNull().default('manual'),
   bufferMinutes: integer('buffer_minutes').notNull().default(0),
+  requiresAdvancePayment: boolean('requires_advance_payment').notNull().default(false),
+  advancePaymentInstructions: text('advance_payment_instructions'),
+  acceptsCash: boolean('accepts_cash').notNull().default(true),
+  acceptsTransfer: boolean('accepts_transfer').notNull().default(false),
+  acceptsMp: boolean('accepts_mp').notNull().default(false),
+  acceptsPaymentLink: boolean('accepts_payment_link').notNull().default(false),
+  paymentLinkUrl: varchar('payment_link_url', { length: 500 }),
+  bankTransferData: jsonb('bank_transfer_data').$type<{
+    bank: string;
+    accountType: string;
+    accountNumber: string;
+    holderName: string;
+    holderRut: string;
+    holderEmail: string;
+    alias?: string;
+  } | null>(),
   createdAt: timestamp('created_at').notNull().defaultNow(),
   updatedAt: timestamp('updated_at').notNull().defaultNow(),
 }, (table) => ({
@@ -1187,6 +1219,24 @@ export const serenataProviderGroupMembers = pgTable('serenata_provider_group_mem
   uniqueProviderMusician: uniqueIndex('serenata_provider_group_members_unique_idx').on(table.providerGroupId, table.musicianId),
 }));
 
+export const serenataProviderGroupMemberInvites = pgTable('serenata_provider_group_member_invites', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  providerGroupId: uuid('provider_group_id').references(() => serenataProviderGroups.id, { onDelete: 'cascade' }).notNull(),
+  invitedByUserId: uuid('invited_by_user_id').references(() => users.id, { onDelete: 'cascade' }).notNull(),
+  displayName: varchar('display_name', { length: 160 }),
+  email: varchar('email', { length: 255 }),
+  phone: varchar('phone', { length: 40 }),
+  token: varchar('token', { length: 64 }).notNull(),
+  status: varchar('status', { length: 30 }).notNull().default('pending'),
+  musicianId: uuid('musician_id').references(() => serenataMusicians.id, { onDelete: 'set null' }),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+  updatedAt: timestamp('updated_at').notNull().defaultNow(),
+}, (table) => ({
+  tokenIdx: uniqueIndex('serenata_provider_group_member_invites_token_idx').on(table.token),
+  providerIdx: index('serenata_provider_group_member_invites_provider_idx').on(table.providerGroupId),
+  statusIdx: index('serenata_provider_group_member_invites_status_idx').on(table.status),
+}));
+
 export const serenataAvailabilityRules = pgTable('serenata_availability_rules', {
   id: uuid('id').primaryKey().defaultRandom(),
   providerGroupId: uuid('provider_group_id').references(() => serenataProviderGroups.id, { onDelete: 'cascade' }).notNull(),
@@ -1198,6 +1248,17 @@ export const serenataAvailabilityRules = pgTable('serenata_availability_rules', 
   updatedAt: timestamp('updated_at').notNull().defaultNow(),
 }, (table) => ({
   providerIdx: index('serenata_availability_rules_provider_idx').on(table.providerGroupId),
+}));
+
+export const serenataProviderGroupBlockedSlots = pgTable('serenata_provider_group_blocked_slots', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  providerGroupId: uuid('provider_group_id').references(() => serenataProviderGroups.id, { onDelete: 'cascade' }).notNull(),
+  startsAt: timestamp('starts_at').notNull(),
+  endsAt: timestamp('ends_at').notNull(),
+  reason: varchar('reason', { length: 255 }),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+}, (table) => ({
+  providerIdx: index('serenata_provider_group_blocked_slots_provider_idx').on(table.providerGroupId),
 }));
 
 export const serenataProviderGroupApplications = pgTable('serenata_provider_group_applications', {
@@ -1227,6 +1288,8 @@ export const serenataGroups = pgTable('serenata_groups', {
   providerGroupId: uuid('provider_group_id').references(() => serenataProviderGroups.id, { onDelete: 'set null' }),
   name: varchar('name', { length: 160 }).notNull(),
   date: timestamp('date').notNull(),
+  maxMusicians: integer('max_musicians'),
+  requiredInstruments: jsonb('required_instruments').$type<string[]>().notNull().default([]),
   status: varchar('status', { length: 30 }).notNull().default('draft'),
   createdAt: timestamp('created_at').notNull().defaultNow(),
   updatedAt: timestamp('updated_at').notNull().defaultNow(),
@@ -1307,6 +1370,7 @@ export const serenataGroupMembers = pgTable('serenata_group_members', {
   groupId: uuid('group_id').references(() => serenataGroups.id, { onDelete: 'cascade' }).notNull(),
   musicianId: uuid('musician_id').references(() => serenataMusicians.id, { onDelete: 'cascade' }).notNull(),
   instrument: varchar('instrument', { length: 80 }),
+  slotIndex: integer('slot_index'),
   status: varchar('status', { length: 30 }).notNull().default('invited'),
   message: text('message'),
   createdAt: timestamp('created_at').notNull().defaultNow(),
@@ -1315,6 +1379,35 @@ export const serenataGroupMembers = pgTable('serenata_group_members', {
   groupIdx: index('serenata_group_members_group_idx').on(table.groupId),
   musicianIdx: index('serenata_group_members_musician_idx').on(table.musicianId),
   uniqueGroupMusician: uniqueIndex('serenata_group_members_unique_idx').on(table.groupId, table.musicianId),
+}));
+
+export const serenataGroupInvites = pgTable('serenata_group_invites', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  groupId: uuid('group_id').references(() => serenataGroups.id, { onDelete: 'cascade' }).notNull(),
+  invitedByUserId: uuid('invited_by_user_id').references(() => users.id, { onDelete: 'cascade' }).notNull(),
+  displayName: varchar('display_name', { length: 160 }),
+  email: varchar('email', { length: 255 }),
+  phone: varchar('phone', { length: 40 }),
+  token: varchar('token', { length: 64 }).notNull(),
+  status: varchar('status', { length: 30 }).notNull().default('pending'),
+  musicianId: uuid('musician_id').references(() => serenataMusicians.id, { onDelete: 'set null' }),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+  updatedAt: timestamp('updated_at').notNull().defaultNow(),
+}, (table) => ({
+  tokenIdx: uniqueIndex('serenata_group_invites_token_idx').on(table.token),
+  groupIdx: index('serenata_group_invites_group_idx').on(table.groupId),
+  statusIdx: index('serenata_group_invites_status_idx').on(table.status),
+}));
+
+export const userNotificationLog = pgTable('user_notification_log', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  userId: uuid('user_id').references(() => users.id, { onDelete: 'cascade' }).notNull(),
+  channel: varchar('channel', { length: 20 }).notNull(),
+  eventType: varchar('event_type', { length: 60 }).notNull(),
+  summary: varchar('summary', { length: 255 }).notNull(),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+}, (table) => ({
+  userCreatedIdx: index('user_notification_log_user_created_idx').on(table.userId, table.createdAt),
 }));
 
 export const serenataNotifications = pgTable('serenata_notifications', {

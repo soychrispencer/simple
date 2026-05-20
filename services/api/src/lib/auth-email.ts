@@ -1,4 +1,4 @@
-﻿import { createHash, randomBytes } from 'node:crypto';
+import { createHash, randomBytes } from 'node:crypto';
 import nodemailer from 'nodemailer';
 import { isProduction, env } from '../env.js';
 import { db } from '../db/index.js';
@@ -19,6 +19,12 @@ import {
     fmtBookingDateTime,
     type BookingEmailData,
 } from './booking-email.js';
+import {
+    getUserNotificationPrefs,
+    getUserNotificationPrefsByEmail,
+    shouldSendAccountEmail,
+    shouldSendAgendaEmail,
+} from './user-notification-prefs.js';
 
 let passwordResetTransporter: ReturnType<typeof nodemailer.createTransport> | null | undefined;
 
@@ -46,7 +52,7 @@ function isAuthEmailConfigured(): boolean {
     );
 }
 
-function getAuthMailerTransporter() {
+export function getAuthMailerTransporter() {
     if (passwordResetTransporter !== undefined) return passwordResetTransporter;
     if (!isAuthEmailConfigured()) {
         passwordResetTransporter = null;
@@ -67,7 +73,7 @@ function getAuthMailerTransporter() {
 }
 
 
-function formatAuthFromAddress(brand: EmailBrandProfile): string {
+export function formatAuthFromAddress(brand: EmailBrandProfile): string {
     return formatEmailFromAddress(brand.appName);
 }
 
@@ -87,6 +93,22 @@ function buildAuthActionMail(
     return mail;
 }
 
+/** Bloquea correos no críticos de cuenta (p. ej. bienvenida). Nunca usar en verify/reset. */
+async function skipAccountEmail(userId: string | undefined, kind: string): Promise<boolean> {
+    if (!userId) return false;
+    const prefs = await getUserNotificationPrefs(userId);
+    if (!prefs || shouldSendAccountEmail(prefs)) return false;
+    console.debug('[auth-email] skipped (emailNotifyAccount off)', { kind, userId });
+    return true;
+}
+
+async function skipAgendaEmail(clientEmail: string, kind: string): Promise<boolean> {
+    const prefs = await getUserNotificationPrefsByEmail(clientEmail);
+    if (!prefs || shouldSendAgendaEmail(prefs)) return false;
+    console.debug('[auth-email] skipped (emailNotifyAgenda off)', { kind, email: clientEmail });
+    return true;
+}
+
 function logAuthEmailDelivery(kind: string, brand: EmailBrandProfile, info: any): void {
     console.info(`[auth-email] ${kind} sent`, {
         appName: brand.appName,
@@ -97,7 +119,16 @@ function logAuthEmailDelivery(kind: string, brand: EmailBrandProfile, info: any)
     });
 }
 
-async function sendPasswordResetEmail(email: string, resetUrl: string, origin: string): Promise<void> {
+/**
+ * Restablecimiento de contraseña: siempre se envía (seguridad crítica).
+ * No respeta email_notify_account.
+ */
+async function sendPasswordResetEmail(
+    email: string,
+    resetUrl: string,
+    origin: string,
+    _userId?: string,
+): Promise<void> {
     const transporter = getAuthMailerTransporter();
     const brand = await brandForAuthEmail(origin);
     if (!transporter) {
@@ -138,7 +169,16 @@ async function sendPasswordResetEmail(email: string, resetUrl: string, origin: s
     logAuthEmailDelivery('password reset', brand, info);
 }
 
-async function sendEmailVerificationEmail(email: string, verificationUrl: string, origin: string): Promise<void> {
+/**
+ * Verificación de correo: siempre se envía (activación de cuenta).
+ * No respeta email_notify_account.
+ */
+async function sendEmailVerificationEmail(
+    email: string,
+    verificationUrl: string,
+    origin: string,
+    _userId?: string,
+): Promise<void> {
     const transporter = getAuthMailerTransporter();
     const brand = await brandForAuthEmail(origin);
     if (!transporter) {
@@ -185,7 +225,8 @@ async function sendEmailVerificationEmail(email: string, verificationUrl: string
     }
 }
 
-async function sendPasswordChangedEmail(email: string, origin: string): Promise<void> {
+async function sendPasswordChangedEmail(email: string, origin: string, userId?: string): Promise<void> {
+    if (await skipAccountEmail(userId, 'password-changed')) return;
     const transporter = getAuthMailerTransporter();
     const brand = await brandForAuthEmail(origin);
     if (!transporter) {
@@ -226,7 +267,8 @@ async function sendPasswordChangedEmail(email: string, origin: string): Promise<
     logAuthEmailDelivery('password changed', brand, info);
 }
 
-async function sendWelcomeEmail(email: string, name: string, origin: string): Promise<void> {
+async function sendWelcomeEmail(email: string, name: string, origin: string, userId?: string): Promise<void> {
+    if (await skipAccountEmail(userId, 'welcome')) return;
     const transporter = getAuthMailerTransporter();
     const brand = await brandForAuthEmail(origin);
     if (!transporter) {
@@ -268,6 +310,7 @@ async function sendWelcomeEmail(email: string, name: string, origin: string): Pr
 }
 
 async function sendBookingConfirmationEmail(clientEmail: string, data: BookingEmailData & { cancelUrl: string; appUrl: string }): Promise<void> {
+    if (await skipAgendaEmail(clientEmail, 'booking-confirmation')) return;
     const transporter = getAuthMailerTransporter();
     if (!transporter) {
         if (isProduction) {
@@ -325,6 +368,7 @@ async function sendAppointmentReminderEmail(clientEmail: string, data: {
     cancelUrl: string;
     appUrl?: string;
 }): Promise<void> {
+    if (await skipAgendaEmail(clientEmail, 'appointment-reminder')) return;
     const transporter = getAuthMailerTransporter();
     if (!transporter) {
         if (isProduction) return;
@@ -368,7 +412,12 @@ async function issueEmailVerification(userId: string, email: string, origin: str
         tokenHash: hashOpaqueToken(rawToken),
         expiresAt,
     });
-    await sendEmailVerificationEmail(email, buildEmailVerificationUrl(origin, rawToken), origin);
+    await sendEmailVerificationEmail(
+        email,
+        buildEmailVerificationUrl(origin, rawToken),
+        origin,
+        userId,
+    );
 }
 export {
     buildPasswordResetUrl,

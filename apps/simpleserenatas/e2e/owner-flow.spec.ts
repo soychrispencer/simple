@@ -38,7 +38,7 @@ test.describe('SimpleSerenatas dueño (E2E real)', () => {
         await expect(page.getByRole('heading', { name: /agenda/i })).toBeVisible({ timeout: 15_000 });
     });
 
-    test('solicitud aceptada: asignar grupo desde plantel (opcional)', async ({ page }) => {
+    test('solicitud aceptada: asignar grupo operativo (opcional)', async ({ page }) => {
         await loginSerenatasSession(page, creds!.email, creds!.password);
         await page.goto('/panel/solicitudes?filter=accepted_pending_group');
         await expect(page.getByRole('heading', { name: /solicitudes/i }).first()).toBeVisible({ timeout: 15_000 });

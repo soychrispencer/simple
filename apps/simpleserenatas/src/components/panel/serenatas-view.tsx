@@ -1,17 +1,18 @@
 'use client';
 
-import { useEffect, useState, type ComponentType, type CSSProperties, type ReactNode } from 'react';
+import { useEffect, useMemo, useState, type ComponentType, type CSSProperties, type ReactNode } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { ListingLocationEditor } from '@simple/ui';
 import { PanelBlockHeader, PanelButton, PanelCard, PanelField, PanelNotice, PanelStatusBadge } from '@simple/ui';
 import { applyAddressBookEntryToLocation, type AddressBookEntry, type ListingLocation } from '@simple/types';
 import { createAddressBookEntry, fetchAddressBook, getCommunesForRegion, LOCATION_REGIONS } from '@simple/utils';
 import { IconCheck, IconClock, IconLoader2, IconMapPin, IconPencil, IconPlus, IconUsers, IconX } from '@tabler/icons-react';
-import { type MusicianDirectoryItem, type ProviderGroupMember, type Serenata, type SerenataGroup, type SerenataPackage, type SerenataPackageCode, serenatasApi } from '@/lib/serenatas-api';
+import { type MusicianDirectoryItem, type ProviderGroupMember, type ProviderGroupService, type Serenata, type SerenataGroup, type SerenataPackage, type SerenataPackageCode, serenatasApi } from '@/lib/serenatas-api';
 import { isOwnerSolicitudesInbox, isPendingSerenataAction } from '@/lib/serenata-pending';
 import { SerenataClosureActions } from './serenata-closure-actions';
 import { MusicianAvailabilityBadge } from './musician-availability-toggle';
 import { startSerenataCheckout } from '@/lib/payments';
+import { panelSectionHref } from '@/lib/panel-routes';
 import { PanelSheet } from './panel-sheet';
 import {
     EmptyBlock,
@@ -100,7 +101,7 @@ export function MusicianSerenatasView({ serenatas }: { serenatas: Serenata[] }) 
 function ClientPendingCancelPrompt({ item, refresh }: { item: Serenata; refresh: () => Promise<void> }) {
     const [status, setStatus] = useState<FormStatus>({ loading: false, error: null, ok: null });
 
-    if (item.status !== 'pending') return null;
+    if (!['payment_pending', 'pending', 'pending_open'].includes(item.status)) return null;
 
     async function cancel() {
         setStatus({ loading: true, error: null, ok: null });
@@ -123,13 +124,50 @@ function ClientPendingCancelPrompt({ item, refresh }: { item: Serenata; refresh:
     );
 }
 
+function ClientPaymentPrompt({ item }: { item: Serenata }) {
+    const [status, setStatus] = useState<FormStatus>({ loading: false, error: null, ok: null });
+
+    if (item.status !== 'payment_pending') return null;
+
+    async function pay() {
+        setStatus({ loading: true, error: null, ok: null });
+        const response = await startSerenataCheckout({
+            serenataId: item.id,
+            returnUrl: `${window.location.origin}${panelSectionHref('serenatas')}`,
+        });
+        if (!response.ok || !response.checkoutUrl) {
+            setStatus({ loading: false, error: response.error ?? 'No pudimos iniciar el pago.', ok: null });
+            return;
+        }
+        setStatus({ loading: true, error: null, ok: 'Redirigiendo al pago…' });
+        window.location.assign(response.checkoutUrl);
+    }
+
+    return (
+        <div className="mt-3 rounded-xl border border-accent-border bg-accent-soft p-3">
+            <p className="text-sm font-semibold text-fg">Falta confirmar el pago</p>
+            <p className="mt-1 text-xs text-fg-muted">El grupo recibirá tu solicitud cuando el pago quede confirmado.</p>
+            <FormFeedback status={status} />
+            <PanelButton className="mt-3 w-full" size="sm" disabled={status.loading} onClick={() => void pay()}>
+                {status.loading ? <IconLoader2 size={14} className="animate-spin" /> : null}
+                Pagar ahora
+            </PanelButton>
+        </div>
+    );
+}
+
 function ClientSerenataConfirmPrompt({ item, refresh }: { item: Serenata; refresh: () => Promise<void> }) {
     const [status, setStatus] = useState<FormStatus>({ loading: false, error: null, ok: null });
+    const [rating, setRating] = useState(5);
+    const showRating = Boolean(item.providerGroupId);
     if (item.status !== 'completed' || item.clientConfirmedAt) return null;
 
     async function confirm() {
         setStatus({ loading: true, error: null, ok: null });
-        const response = await serenatasApi.confirmClientSerenata(item.id);
+        const response = await serenatasApi.confirmClientSerenata(
+            item.id,
+            showRating ? { rating } : undefined,
+        );
         if (!response.ok) {
             setStatus({ loading: false, error: response.error ?? 'No pudimos confirmar la serenata.', ok: null });
             return;
@@ -142,6 +180,24 @@ function ClientSerenataConfirmPrompt({ item, refresh }: { item: Serenata; refres
         <div className="mt-3 rounded-xl border border-accent-border bg-accent-soft p-3">
             <p className="text-sm font-semibold text-fg">¿Se realizó la serenata?</p>
             <p className="mt-1 text-xs text-fg-muted">Confirma para cerrar el seguimiento de este evento.</p>
+            {showRating ? (
+                <div className="mt-3">
+                    <p className="text-xs font-medium text-fg-muted">Califica al mariachi (opcional)</p>
+                    <div className="mt-2 flex gap-1">
+                        {[1, 2, 3, 4, 5].map((value) => (
+                            <button
+                                key={value}
+                                type="button"
+                                className={`rounded-lg px-2 py-1 text-sm font-semibold ${rating >= value ? 'bg-accent text-white' : 'border border-border bg-surface text-fg-muted'}`}
+                                onClick={() => setRating(value)}
+                                aria-label={`${value} estrellas`}
+                            >
+                                {value}
+                            </button>
+                        ))}
+                    </div>
+                </div>
+            ) : null}
             <FormFeedback status={status} />
             <PanelButton className="mt-3 w-full" size="sm" disabled={status.loading} onClick={() => void confirm()}>
                 {status.loading ? <IconLoader2 size={14} className="animate-spin" /> : <IconCheck size={14} />}
@@ -186,6 +242,7 @@ export function ClientSerenatasView({ serenatas, refresh, onContract }: { serena
                     : serenatas.map((item) => (
                         <div key={item.id}>
                             <SerenataRow item={item} context="client" />
+                            <ClientPaymentPrompt item={item} />
                             <ClientPendingCancelPrompt item={item} refresh={refresh} />
                             <ClientSerenataConfirmPrompt item={item} refresh={refresh} />
                         </div>
@@ -424,7 +481,7 @@ export function SerenatasView({ serenatas, groups, musicians, selectedSerenataId
                                             <div className="mt-2 flex flex-col items-end gap-2">
                                                 <PanelStatusBadge tone={serenataStatusTone(item.status)} label={serenataStatusLabel(item.status)} size="sm" />
                                                 {needsGroup ? (
-                                                    <span className="text-xs font-semibold text-accent">Asignar grupo →</span>
+                                                    <span className="text-xs font-semibold text-accent">Conformar grupo →</span>
                                                 ) : null}
                                             </div>
                                         </div>
@@ -524,7 +581,7 @@ function SerenataDetail({ item, groups, refresh, onEdit, onAssignGroup, onCreate
                 <div className="mt-5 rounded-card border p-4 border-accent-border bg-accent-soft">
                     <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
                         <div className="min-w-0">
-                            <p className="text-sm font-semibold text-[var(--fg)]">Solicitud disponible</p>
+                            <p className="text-sm font-semibold text-[var(--fg)]">Solicitud pagada</p>
                             <p className="mt-1 text-sm text-fg-secondary">
                                 Acepta solo si puedes cubrir fecha, horario y comuna. Después debes asignar un grupo para confirmarla.
                             </p>
@@ -545,14 +602,14 @@ function SerenataDetail({ item, groups, refresh, onEdit, onAssignGroup, onCreate
                 <div className="mt-5 rounded-card border p-4 border-accent-border bg-accent-soft">
                     <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                         <div>
-                            <p className="text-sm font-semibold text-[var(--fg)]">Falta asignar grupo</p>
+                            <p className="text-sm font-semibold text-[var(--fg)]">Falta conformar grupo</p>
                             <p className="mt-1 text-sm text-fg-secondary">
                                 La solicitud fue aceptada; confirma la serenata cuando selecciones el equipo que la cubrirá.
                             </p>
                         </div>
                         <PanelButton onClick={onAssignGroup}>
                             <IconUsers size={15} />
-                            Asignar grupo
+                            Conformar grupo
                         </PanelButton>
                     </div>
                 </div>
@@ -634,13 +691,26 @@ function SerenataDetail({ item, groups, refresh, onEdit, onAssignGroup, onCreate
 function SerenataGroupAssignment({ item, groups, musicians, refresh, onDone, onCancel }: { item: Serenata; groups: SerenataGroup[]; musicians: MusicianDirectoryItem[]; refresh: () => Promise<void>; onDone: (item: Serenata) => void; onCancel: () => void }) {
     const [providerMembers, setProviderMembers] = useState<ProviderGroupMember[]>([]);
     const [membersLoading, setMembersLoading] = useState(Boolean(item.providerGroupId));
+    const [selectedService, setSelectedService] = useState<ProviderGroupService | null>(null);
+    const [serviceLoading, setServiceLoading] = useState(Boolean(item.providerGroupId && item.selectedServiceId));
     const providerMusicianIds = new Set(providerMembers.map((member) => member.musicianId));
     const eligibleMusicians = item.providerGroupId
         ? musicians.filter((musician) => providerMusicianIds.has(musician.id))
         : musicians;
     const marketplaceRequest = Boolean(item.providerGroupId);
-    const sameDateGroups = groups.filter((group) => toInputDate(group.date) === toInputDate(item.eventDate));
-    const initialGroupId = marketplaceRequest ? '' : sameDateGroups[0]?.id ?? groups[0]?.id ?? '';
+    const draftGroups = item.providerGroupId
+        ? groups.filter((group) => group.status === 'draft' && group.providerGroupId === item.providerGroupId)
+        : [];
+    const sameDateGroups = groups.filter((group) => (
+        toInputDate(group.date) === toInputDate(item.eventDate)
+        && (!item.providerGroupId || !group.providerGroupId || group.providerGroupId === item.providerGroupId)
+    ));
+    const selectableGroups = useMemo(() => {
+        const byId = new Map<string, SerenataGroup>();
+        for (const group of [...draftGroups, ...sameDateGroups]) byId.set(group.id, group);
+        return [...byId.values()];
+    }, [draftGroups, sameDateGroups]);
+    const initialGroupId = selectableGroups[0]?.id ?? '';
     const sortedMusicians = [...eligibleMusicians].sort((a, b) => {
         const aAvailable = a.availableNow ? 0 : 1;
         const bAvailable = b.availableNow ? 0 : 1;
@@ -651,13 +721,10 @@ function SerenataGroupAssignment({ item, groups, musicians, refresh, onDone, onC
         return a.name.localeCompare(b.name);
     });
     const [status, setStatus] = useState<FormStatus>({ loading: false, error: null, ok: null });
-    const [mode, setMode] = useState<'existing' | 'new'>(marketplaceRequest ? 'new' : initialGroupId ? 'existing' : 'new');
+    const [mode, setMode] = useState<'existing' | 'new'>(initialGroupId ? 'existing' : 'new');
     const [groupId, setGroupId] = useState(initialGroupId);
     const [name, setName] = useState(`Grupo ${formatDate(item.eventDate)} ${item.eventTime}`);
-    const [selectedMusicians, setSelectedMusicians] = useState<string[]>(() => {
-        const firstAvailable = sortedMusicians.find((musician) => musician.availableNow);
-        return firstAvailable ? [firstAvailable.id] : [];
-    });
+    const [selectedMusicians, setSelectedMusicians] = useState<string[]>([]);
     useEffect(() => {
         if (!item.providerGroupId) {
             setMembersLoading(false);
@@ -669,9 +736,6 @@ function SerenataGroupAssignment({ item, groups, musicians, refresh, onDone, onC
             if (cancelled) return;
             const active = response.ok ? response.items.filter((member) => member.status === 'active') : [];
             setProviderMembers(active);
-            if (active.length > 0) {
-                setSelectedMusicians(active.map((member) => member.musicianId));
-            }
             setMembersLoading(false);
         });
         return () => {
@@ -679,19 +743,54 @@ function SerenataGroupAssignment({ item, groups, musicians, refresh, onDone, onC
         };
     }, [item.providerGroupId]);
     useEffect(() => {
-        setSelectedMusicians((current) => {
-            const allowed = current.filter((id) => sortedMusicians.some((musician) => musician.id === id));
-            if (allowed.length > 0) return allowed;
-            const firstAvailable = sortedMusicians.find((musician) => musician.availableNow) ?? sortedMusicians[0];
-            return firstAvailable ? [firstAvailable.id] : [];
+        if (!item.providerGroupId || !item.selectedServiceId) {
+            setSelectedService(null);
+            setServiceLoading(false);
+            return;
+        }
+        let cancelled = false;
+        setServiceLoading(true);
+        void serenatasApi.providerGroupServices(item.providerGroupId).then((response) => {
+            if (cancelled) return;
+            const service = response.ok
+                ? response.items.find((entry) => entry.id === item.selectedServiceId) ?? null
+                : null;
+            setSelectedService(service);
+            setServiceLoading(false);
         });
-    }, [sortedMusicians.map((musician) => musician.id).join('|')]);
+        return () => {
+            cancelled = true;
+        };
+    }, [item.providerGroupId, item.selectedServiceId]);
     const [message, setMessage] = useState(`Serenata para ${item.recipientName} el ${formatDate(item.eventDate)} a las ${item.eventTime}.`);
     const selectedGroup = groups.find((group) => group.id === groupId);
-    const selectedGroupMemberCount = selectedGroup?.members.length ?? 0;
-    const requiredMusicians = requiredMusiciansForPackage(item.packageCode);
-    const selectedGroupTotal = selectedGroupMemberCount + selectedMusicians.length;
-    const groupDateMismatch = selectedGroup?.date && toInputDate(selectedGroup.date) !== toInputDate(item.eventDate);
+    const selectedGroupActiveMembers = selectedGroup?.members.filter((member) => member.status === 'accepted' || member.status === 'invited') ?? [];
+    const selectedGroupMemberIds = new Set(selectedGroupActiveMembers.map((member) => member.musicianId));
+    const selectedGroupMemberCount = selectedGroupActiveMembers.length;
+    const requiredMusicians = selectedService?.musiciansCount ?? requiredMusiciansForPackage(item.packageCode);
+    const selectedAdditionalCount = selectedMusicians.filter((id) => !selectedGroupMemberIds.has(id)).length;
+    const selectedGroupTotal = selectedGroupMemberCount + selectedAdditionalCount;
+    const serviceLabel = selectedService
+        ? `${selectedService.name} · ${selectedService.musiciansCount} músico${selectedService.musiciansCount === 1 ? '' : 's'} · ${selectedService.durationMinutes} min`
+        : item.eventType ?? item.packageCode ?? 'Servicio sin detalle';
+    const groupDateMismatch = Boolean(
+        selectedGroup
+        && selectedGroup.status !== 'draft'
+        && toInputDate(selectedGroup.date) !== toInputDate(item.eventDate),
+    );
+
+    useEffect(() => {
+        setSelectedMusicians((current) => {
+            const allowed = current.filter((id) => sortedMusicians.some((musician) => musician.id === id));
+            const missingCount = Math.max(0, requiredMusicians - selectedGroupMemberCount - allowed.length);
+            if (missingCount === 0) return allowed;
+            const missing = sortedMusicians
+                .map((musician) => musician.id)
+                .filter((id) => !allowed.includes(id))
+                .slice(0, missingCount);
+            return [...allowed, ...missing];
+        });
+    }, [requiredMusicians, selectedGroupMemberCount, sortedMusicians.map((musician) => musician.id).join('|')]);
 
     function toggleMusician(id: string) {
         setSelectedMusicians((current) => current.includes(id) ? current.filter((entry) => entry !== id) : [...current, id]);
@@ -712,11 +811,11 @@ function SerenataGroupAssignment({ item, groups, musicians, refresh, onDone, onC
             return;
         }
         if (mode === 'new' && selectedMusicians.length < requiredMusicians) {
-            setStatus({ loading: false, error: `Este paquete requiere al menos ${requiredMusicians} músicos.`, ok: null });
+            setStatus({ loading: false, error: `Este servicio requiere al menos ${requiredMusicians} músicos.`, ok: null });
             return;
         }
         if (mode === 'existing' && selectedGroupTotal < requiredMusicians) {
-            setStatus({ loading: false, error: `El grupo seleccionado no suma suficientes músicos para este paquete (${selectedGroupTotal}/${requiredMusicians}).`, ok: null });
+            setStatus({ loading: false, error: `El grupo seleccionado no suma suficientes músicos para este servicio (${selectedGroupTotal}/${requiredMusicians}).`, ok: null });
             return;
         }
         const response = await serenatasApi.assignSerenataGroup(item.id, {
@@ -738,13 +837,14 @@ function SerenataGroupAssignment({ item, groups, musicians, refresh, onDone, onC
     return (
         <PanelCard size="lg" className="xl:min-h-[680px]">
             <PanelBlockHeader
-                title="Asignar grupo"
-                description="Confirma qué grupo cubrirá esta serenata. Los músicos seleccionados recibirán una invitación."
+                title="Conformar grupo"
+                description="Elige los músicos que cubrirán la serenata según el servicio contratado."
                 actions={<PanelStatusBadge tone={serenataStatusTone(item.status)} label={serenataStatusLabel(item.status)} />}
             />
 
             <div className="mt-5 rounded-card border p-4 border-border bg-bg-subtle">
-                <div className="grid gap-4 md:grid-cols-3">
+                <div className="grid gap-4 md:grid-cols-4">
+                    <SerenataDetailMetric icon={IconUsers} label="Servicio" title={serviceLoading ? 'Cargando...' : serviceLabel} />
                     <SerenataDetailMetric icon={IconClock} label="Fecha y hora" title={`${formatDate(item.eventDate)} a las ${item.eventTime}`} />
                     <SerenataDetailMetric icon={IconMapPin} label="Comuna" title={item.comuna ?? 'Sin comuna'} description={item.region ?? undefined} />
                     <MoneyMetric label="Precio confirmado" value={item.price} strong />
@@ -753,47 +853,64 @@ function SerenataGroupAssignment({ item, groups, musicians, refresh, onDone, onC
 
             {marketplaceRequest ? (
                 <PanelNotice tone="neutral" className="mt-5">
-                    Solicitud del marketplace: arma una jornada operativa con integrantes activos de tu plantel
-                    comercial. Solo puedes invitar músicos de ese grupo proveedor.
+                    Solicitud del marketplace: usa un grupo ya conformado o crea uno para este evento.
+                    El servicio contratado define el mínimo de músicos.
                 </PanelNotice>
-            ) : (
-                <div className="mt-5 grid gap-3 sm:grid-cols-2">
-                    <button
-                        type="button"
-                        onClick={() => setMode('existing')}
-                        className={`rounded-card border p-4 text-left transition-colors ${
-                            mode === 'existing' ? 'border-accent-border bg-accent-soft' : 'border-border bg-surface'
-                        }`}
-                    >
-                        <p className="text-sm font-semibold text-fg">Usar jornada existente</p>
-                        <p className="mt-1 text-xs text-fg-muted">Reutiliza un grupo operativo ya creado para otra serenata.</p>
-                    </button>
-                    <button
-                        type="button"
-                        onClick={() => setMode('new')}
-                        className={`rounded-card border p-4 text-left transition-colors ${
-                            mode === 'new' ? 'border-accent-border bg-accent-soft' : 'border-border bg-surface'
-                        }`}
-                    >
-                        <p className="text-sm font-semibold text-fg">Nueva jornada para esta serenata</p>
-                        <p className="mt-1 text-xs text-fg-muted">Crea la jornada e invita músicos en un solo paso.</p>
-                    </button>
-                </div>
-            )}
+            ) : null}
+
+            <div className="mt-5 grid gap-3 sm:grid-cols-2">
+                <button
+                    type="button"
+                    onClick={() => setMode('existing')}
+                    disabled={selectableGroups.length === 0}
+                    className={`rounded-card border p-4 text-left transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
+                        mode === 'existing' ? 'border-accent-border bg-accent-soft' : 'border-border bg-surface'
+                    }`}
+                >
+                    <p className="text-sm font-semibold text-fg">Usar grupo existente</p>
+                    <p className="mt-1 text-xs text-fg-muted">
+                        Asigna un grupo que ya tienes conformado para este mariachi o fecha.
+                    </p>
+                </button>
+                <button
+                    type="button"
+                    onClick={() => setMode('new')}
+                    className={`rounded-card border p-4 text-left transition-colors ${
+                        mode === 'new' ? 'border-accent-border bg-accent-soft' : 'border-border bg-surface'
+                    }`}
+                >
+                    <p className="text-sm font-semibold text-fg">Crear grupo para esta serenata</p>
+                    <p className="mt-1 text-xs text-fg-muted">Arma el grupo con integrantes activos antes de agendar.</p>
+                </button>
+            </div>
 
             <div className="mt-5 grid gap-4">
-                {mode === 'existing' && !marketplaceRequest ? (
-                    <PanelField label="Jornada operativa">
+                {mode === 'existing' ? (
+                    <PanelField label="Grupo de músicos">
                         <FieldSelect value={groupId} onChange={(event) => setGroupId(event.target.value)}>
                             <option value="">Seleccionar grupo</option>
-                            {sameDateGroups.length > 0 ? <optgroup label="Misma fecha">{sameDateGroups.map((group) => <option key={group.id} value={group.id}>{group.name} · {group.members.length} músicos</option>)}</optgroup> : null}
-                            <optgroup label="Todos los grupos">
-                                {groups.map((group) => <option key={group.id} value={group.id}>{group.name} · {formatDate(group.date)}</option>)}
-                            </optgroup>
+                            {draftGroups.length > 0 ? (
+                                <optgroup label="Grupos guardados">
+                                    {draftGroups.map((group) => (
+                                        <option key={group.id} value={group.id}>
+                                            {group.name} · {group.members.filter((member) => member.status === 'accepted' || member.status === 'invited').length} músicos
+                                        </option>
+                                    ))}
+                                </optgroup>
+                            ) : null}
+                            {sameDateGroups.filter((group) => group.status !== 'draft').length > 0 ? (
+                                <optgroup label="Misma fecha">
+                                    {sameDateGroups.filter((group) => group.status !== 'draft').map((group) => (
+                                        <option key={group.id} value={group.id}>
+                                            {group.name} · {group.members.filter((member) => member.status === 'accepted' || member.status === 'invited').length} músicos
+                                        </option>
+                                    ))}
+                                </optgroup>
+                            ) : null}
                         </FieldSelect>
                     </PanelField>
                 ) : (
-                    <PanelField label="Nombre de la jornada">
+                    <PanelField label="Nombre del grupo">
                         <FieldInput value={name} onChange={(event) => setName(event.target.value)} placeholder="Grupo serenata viernes" />
                     </PanelField>
                 )}
@@ -801,20 +918,25 @@ function SerenataGroupAssignment({ item, groups, musicians, refresh, onDone, onC
                 {groupDateMismatch ? (
                     <PanelNotice tone="error">El grupo seleccionado no tiene la misma fecha que la serenata. Elige un grupo con fecha {formatDate(item.eventDate)} o crea uno nuevo.</PanelNotice>
                 ) : null}
+                {mode === 'existing' && selectedGroupMemberCount > requiredMusicians ? (
+                    <PanelNotice tone="neutral">
+                        Este grupo tiene {selectedGroupMemberCount} músicos y el servicio requiere {requiredMusicians}. Todos los músicos activos del grupo quedarán asociados a la serenata.
+                    </PanelNotice>
+                ) : null}
 
                 <div className="rounded-card border p-4 border-border bg-surface">
                     <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                         <div>
-                            <p className="text-sm font-semibold text-[var(--fg)]">Invitar músicos</p>
+                            <p className="text-sm font-semibold text-[var(--fg)]">Elegir músicos</p>
                             <p className="mt-1 text-xs text-fg-muted">
                                 {mode === 'existing' && selectedGroupMemberCount > 0
                                     ? `El grupo seleccionado ya tiene ${selectedGroupMemberCount} músico${selectedGroupMemberCount === 1 ? '' : 's'}. Puedes sumar más.`
-                                    : 'Selecciona al menos un músico para enviar invitación.'}
+                                    : 'Selecciona los músicos que cubrirán esta serenata.'}
                             </p>
                         </div>
                         <PanelStatusBadge
                             tone={selectedGroupTotal >= requiredMusicians ? 'success' : 'warning'}
-                            label={`${selectedGroupTotal}/${requiredMusicians} músicos requeridos`}
+                            label={`${selectedGroupTotal}/${requiredMusicians} para el servicio`}
                             size="sm"
                         />
                     </div>

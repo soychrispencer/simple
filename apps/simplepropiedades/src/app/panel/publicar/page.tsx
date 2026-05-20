@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
@@ -478,33 +478,6 @@ function slugify(value: string): string {
         .replace(/(^-|-$)/g, '');
 }
 
-function fixBrokenB2Url(url: string): string {
-    if (!url || !url.startsWith('http')) return url;
-    if (url.includes('backblazeb2.com')) {
-        const bucketName = 'simple-media';
-        
-        let key = '';
-        if (url.includes(`/file/${bucketName}/`)) {
-            key = url.split(`/file/${bucketName}/`)[1];
-        } else if (url.includes(`backblazeb2.com/${bucketName}/`)) {
-            key = url.split(`backblazeb2.com/${bucketName}/`)[1];
-        } else {
-            const parts = url.split('.backblazeb2.com/');
-            if (parts.length === 2) {
-                const pathParts = parts[1].split('/');
-                if (pathParts[0] === 'file') pathParts.shift();
-                if (pathParts[0] === bucketName) pathParts.shift();
-                key = pathParts.join('/');
-            }
-        }
-
-        if (key) {
-            return `https://f005.backblazeb2.com/file/${bucketName}/${key}`;
-        }
-    }
-    return url;
-}
-
 function mergeDraft(raw: unknown): { data: WizardData; valuationEstimate: PropertyValuationEstimate | null } | null {
     if (!raw || typeof raw !== 'object') return null;
     const parsed = raw as PersistedDraft;
@@ -539,8 +512,8 @@ function mergeDraft(raw: unknown): { data: WizardData; valuationEstimate: Proper
                 ? parsed.data.media.photos.map((photo) => ({
                         id: photo.id,
                         name: photo.name,
-                        dataUrl: fixBrokenB2Url((typeof photo.dataUrl === 'string' ? photo.dataUrl : (typeof (photo as { url?: string }).url === 'string' ? (photo as { url?: string }).url : '')) || ''),
-                        previewUrl: fixBrokenB2Url((typeof photo.previewUrl === 'string' ? photo.previewUrl : (typeof (photo as { url?: string }).url === 'string' ? (photo as { url?: string }).url : '')) || ''),
+                        dataUrl: (typeof photo.dataUrl === 'string' ? photo.dataUrl : (typeof (photo as { url?: string }).url === 'string' ? (photo as { url?: string }).url : '')) || ''),
+                        previewUrl: (typeof photo.previewUrl === 'string' ? photo.previewUrl : (typeof (photo as { url?: string }).url === 'string' ? (photo as { url?: string }).url : '')) || ''),
                         isCover: !!photo.isCover,
                         width: typeof photo.width === 'number' ? photo.width : 0,
                         height: typeof photo.height === 'number' ? photo.height : 0,
@@ -552,8 +525,8 @@ function mergeDraft(raw: unknown): { data: WizardData; valuationEstimate: Proper
                     ? {
                         id: parsed.data.media.discoverVideo.id,
                         name: parsed.data.media.discoverVideo.name,
-                        dataUrl: fixBrokenB2Url((typeof parsed.data.media.discoverVideo.dataUrl === 'string' ? parsed.data.media.discoverVideo.dataUrl : (typeof (parsed.data.media.discoverVideo as { url?: string }).url === 'string' ? (parsed.data.media.discoverVideo as { url?: string }).url : '')) || ''),
-                        previewUrl: fixBrokenB2Url((typeof parsed.data.media.discoverVideo.previewUrl === 'string' ? parsed.data.media.discoverVideo.previewUrl : (typeof (parsed.data.media.discoverVideo as { url?: string }).url === 'string' ? (parsed.data.media.discoverVideo as { url?: string }).url : '')) || ''),
+                        dataUrl: (typeof parsed.data.media.discoverVideo.dataUrl === 'string' ? parsed.data.media.discoverVideo.dataUrl : (typeof (parsed.data.media.discoverVideo as { url?: string }).url === 'string' ? (parsed.data.media.discoverVideo as { url?: string }).url : '')) || ''),
+                        previewUrl: (typeof parsed.data.media.discoverVideo.previewUrl === 'string' ? parsed.data.media.discoverVideo.previewUrl : (typeof (parsed.data.media.discoverVideo as { url?: string }).url === 'string' ? (parsed.data.media.discoverVideo as { url?: string }).url : '')) || ''),
                         width: typeof parsed.data.media.discoverVideo.width === 'number' ? parsed.data.media.discoverVideo.width : 0,
                         height: typeof parsed.data.media.discoverVideo.height === 'number' ? parsed.data.media.discoverVideo.height : 0,
                         sizeBytes: typeof parsed.data.media.discoverVideo.sizeBytes === 'number' ? parsed.data.media.discoverVideo.sizeBytes : 0,

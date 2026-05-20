@@ -1,7 +1,8 @@
 'use client';
 
-import { useState, useCallback } from 'react';
+import { forwardRef, useImperativeHandle, useState, useCallback, useEffect } from 'react';
 import Cropper, { type Area } from 'react-easy-crop';
+import { IconPlus } from '@tabler/icons-react';
 
 export type AvatarUploadConfig = {
     maxSize?: number; // in KB
@@ -12,14 +13,32 @@ export type AvatarUploadConfig = {
     onUpload?: (file: File, croppedBlob: Blob) => Promise<{ url: string }>;
 };
 
+export type AvatarUploadHandle = {
+    openPicker: () => void;
+};
+
 export type AvatarUploadProps = {
     currentUrl?: string | null;
     config?: AvatarUploadConfig;
     onSuccess?: (url: string) => void;
     onError?: (error: string) => void;
+    /** `overlay`: círculo con botón + (estilo Instagram). `default`: botones laterales. */
+    variant?: 'default' | 'overlay';
+    /** Oculta botones propios; usar con `ref` para abrir el selector desde fuera. */
+    hideTrigger?: boolean;
 };
 
-export function AvatarUpload({ currentUrl, config = {}, onSuccess, onError }: AvatarUploadProps) {
+export const AvatarUpload = forwardRef<AvatarUploadHandle, AvatarUploadProps>(function AvatarUpload(
+    {
+        currentUrl,
+        config = {},
+        onSuccess,
+        onError,
+        variant = 'default',
+        hideTrigger = false,
+    },
+    ref,
+) {
     const [imageUrl, setImageUrl] = useState<string | null>(currentUrl || null);
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [selectedFile, setSelectedFile] = useState<File | null>(null);
@@ -38,17 +57,19 @@ export function AvatarUpload({ currentUrl, config = {}, onSuccess, onError }: Av
         onUpload,
     } = config;
 
+    useEffect(() => {
+        setImageUrl(currentUrl || null);
+    }, [currentUrl]);
+
     const handleFileSelect = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
         if (!file) return;
 
-        // Validate file size
         if (file.size > maxSize * 1024) {
             onError?.(`La imagen es muy grande. Máximo ${maxSize}KB`);
             return;
         }
 
-        // Validate file type
         if (!file.type.startsWith('image/')) {
             onError?.('Solo se permiten archivos de imagen');
             return;
@@ -66,7 +87,17 @@ export function AvatarUpload({ currentUrl, config = {}, onSuccess, onError }: Av
         reader.readAsDataURL(file);
     }, [maxSize, onError]);
 
-    const handleCropComplete = useCallback((croppedArea: Area, croppedAreaPixels: Area) => {
+    const openFilePicker = useCallback(() => {
+        const input = document.createElement('input');
+        input.type = 'file';
+        input.accept = 'image/*';
+        input.onchange = (e) => handleFileSelect(e as unknown as React.ChangeEvent<HTMLInputElement>);
+        input.click();
+    }, [handleFileSelect]);
+
+    useImperativeHandle(ref, () => ({ openPicker: openFilePicker }), [openFilePicker]);
+
+    const handleCropComplete = useCallback((_croppedArea: Area, croppedAreaPixels: Area) => {
         setCroppedArea(croppedAreaPixels);
     }, []);
 
@@ -100,7 +131,7 @@ export function AvatarUpload({ currentUrl, config = {}, onSuccess, onError }: Av
                 0,
                 0,
                 maxWidth,
-                maxHeight
+                maxHeight,
             );
 
             canvas.toBlob(async (blob) => {
@@ -116,19 +147,18 @@ export function AvatarUpload({ currentUrl, config = {}, onSuccess, onError }: Av
                         setImageUrl(result.url);
                         onSuccess?.(result.url);
                     } else {
-                        // Default: return the blob as data URL
                         const croppedUrl = URL.createObjectURL(blob);
                         setImageUrl(croppedUrl);
                         onSuccess?.(croppedUrl);
                     }
                     setIsModalOpen(false);
-                } catch (error) {
+                } catch {
                     onError?.('Error al subir la imagen');
                 } finally {
                     setIsUploading(false);
                 }
-            }, 'image/jpeg', 0.95);
-        } catch (error) {
+            }, 'image/webp', 0.9);
+        } catch {
             onError?.('Error al procesar la imagen');
             setIsUploading(false);
         }
@@ -148,71 +178,112 @@ export function AvatarUpload({ currentUrl, config = {}, onSuccess, onError }: Av
         onSuccess?.('');
     }, [onSuccess]);
 
+    const shapeClass = circular ? 'rounded-full' : 'rounded-lg';
+    const previewSize = Math.min(maxWidth, maxHeight);
+
+    const avatarPreview = (
+        <div
+            className={`relative shrink-0 overflow-hidden ${shapeClass} ring-2 ring-[var(--border)]`}
+            style={{ width: previewSize, height: previewSize, background: 'var(--bg-subtle)' }}
+        >
+            {imageUrl ? (
+                <img
+                    src={imageUrl}
+                    alt=""
+                    className={`h-full w-full object-cover ${shapeClass}`}
+                />
+            ) : (
+                <div
+                    className={`flex h-full w-full items-center justify-center ${shapeClass}`}
+                    style={{ color: 'var(--fg-muted)' }}
+                >
+                    <svg className="h-1/2 w-1/2" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+                        <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"
+                        />
+                    </svg>
+                </div>
+            )}
+        </div>
+    );
+
     return (
         <>
-            <div className="relative inline-flex items-center gap-4">
-                <div className={`relative ${circular ? 'rounded-full' : 'rounded-lg'} overflow-hidden`} style={{ background: 'var(--bg-subtle)' }}>
-                    {imageUrl ? (
-                        <img
-                            src={imageUrl}
-                            alt="Avatar"
-                            className={`object-cover ${circular ? 'rounded-full' : 'rounded-lg'}`}
-                            style={{ width: maxWidth, height: maxHeight }}
-                        />
-                    ) : (
-                        <div
-                            className={`flex items-center justify-center ${circular ? 'rounded-full' : 'rounded-lg'}`}
-                            style={{ width: maxWidth, height: maxHeight, color: 'var(--fg-muted)' }}
-                        >
-                            <svg className="w-1/2 h-1/2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                            </svg>
-                        </div>
-                    )}
-                </div>
-                <div className="flex flex-col gap-2">
+            {!hideTrigger && variant === 'overlay' ? (
+                <div className="relative inline-block" style={{ width: previewSize, height: previewSize }}>
+                    {avatarPreview}
                     <button
                         type="button"
-                        onClick={() => {
-                            const input = document.createElement('input');
-                            input.type = 'file';
-                            input.accept = 'image/*';
-                            input.onchange = (e) => handleFileSelect(e as any);
-                            input.click();
+                        onClick={openFilePicker}
+                        className="absolute -bottom-0.5 -right-0.5 flex h-7 w-7 items-center justify-center rounded-full border-2 shadow-sm transition-opacity hover:opacity-90"
+                        style={{
+                            borderColor: 'var(--surface, #fff)',
+                            background: 'var(--accent)',
+                            color: 'var(--accent-contrast, #fff)',
                         }}
-                        className="panel-button px-4 py-2 text-sm font-medium rounded-button border"
-                        style={{ background: 'var(--accent)', color: 'var(--accent-contrast)' }}
+                        aria-label={imageUrl ? 'Cambiar foto de perfil' : 'Agregar foto de perfil'}
                     >
-                        Cambiar foto
+                        <IconPlus size={16} stroke={2.5} aria-hidden />
                     </button>
-                    {imageUrl && (
+                </div>
+            ) : !hideTrigger ? (
+                <div className="relative inline-flex items-center gap-4">
+                    {avatarPreview}
+                    <div className="flex flex-col gap-2">
                         <button
                             type="button"
-                            onClick={handleRemove}
-                            className="panel-button px-4 py-2 text-sm font-medium rounded-button border"
-                            style={{ background: 'var(--bg-subtle)', color: 'var(--fg-muted)' }}
+                            onClick={openFilePicker}
+                            className="panel-button rounded-button border px-4 py-2 text-sm font-medium"
+                            style={{ background: 'var(--accent)', color: 'var(--accent-contrast)' }}
                         >
-                            Eliminar
+                            Cambiar foto
                         </button>
-                    )}
+                        {imageUrl ? (
+                            <button
+                                type="button"
+                                onClick={handleRemove}
+                                className="panel-button rounded-button border px-4 py-2 text-sm font-medium"
+                                style={{ background: 'var(--bg-subtle)', color: 'var(--fg-muted)' }}
+                            >
+                                Eliminar
+                            </button>
+                        ) : null}
+                    </div>
                 </div>
-            </div>
+            ) : null}
 
-            {isModalOpen && imageUrl && (
+            {isModalOpen && imageUrl ? (
                 <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-                    <div className="rounded-2xl p-6 w-full max-w-lg max-h-[90vh] flex flex-col" style={{ background: 'var(--bg)' }}>
-                        <div className="flex items-center justify-between mb-4">
-                            <h3 className="text-xl font-semibold" style={{ color: 'var(--fg)' }}>Ajustar foto</h3>
+                    <div
+                        className="flex max-h-[90vh] w-full max-w-lg flex-col rounded-2xl p-6"
+                        style={{ background: 'var(--bg)' }}
+                    >
+                        <div className="mb-4 flex items-center justify-between">
+                            <h3 className="text-xl font-semibold" style={{ color: 'var(--fg)' }}>
+                                Ajustar foto
+                            </h3>
                             <button
                                 type="button"
                                 onClick={() => setShowGrid(!showGrid)}
-                                className="px-3 py-1 text-xs rounded-lg"
+                                className="rounded-lg px-3 py-1 text-xs"
                                 style={{ background: 'var(--bg-subtle)', color: 'var(--fg)' }}
                             >
                                 {showGrid ? 'Ocultar guía' : 'Mostrar guía'}
                             </button>
                         </div>
-                        <div style={{ position: 'relative', width: '100%', height: '400px', backgroundColor: 'var(--bg-subtle)', borderRadius: '8px', overflow: 'hidden' }}>
+                        <div
+                            style={{
+                                position: 'relative',
+                                width: '100%',
+                                height: '400px',
+                                backgroundColor: 'var(--bg-subtle)',
+                                borderRadius: '8px',
+                                overflow: 'hidden',
+                            }}
+                        >
                             <Cropper
                                 image={imageUrl}
                                 crop={crop}
@@ -226,7 +297,9 @@ export function AvatarUpload({ currentUrl, config = {}, onSuccess, onError }: Av
                             />
                         </div>
                         <div className="mt-4">
-                            <label className="block text-sm mb-2" style={{ color: 'var(--fg-muted)' }}>Zoom</label>
+                            <label className="mb-2 block text-sm" style={{ color: 'var(--fg-muted)' }}>
+                                Zoom
+                            </label>
                             <input
                                 type="range"
                                 min={1}
@@ -238,11 +311,11 @@ export function AvatarUpload({ currentUrl, config = {}, onSuccess, onError }: Av
                                 style={{ accentColor: 'var(--accent)' }}
                             />
                         </div>
-                        <div className="flex justify-end gap-3 mt-4">
+                        <div className="mt-4 flex justify-end gap-3">
                             <button
                                 type="button"
                                 onClick={handleCancel}
-                                className="panel-button px-4 py-2 text-sm font-medium rounded-button border"
+                                className="panel-button rounded-button border px-4 py-2 text-sm font-medium"
                                 style={{ background: 'var(--bg-subtle)', color: 'var(--fg)' }}
                             >
                                 Cancelar
@@ -251,15 +324,19 @@ export function AvatarUpload({ currentUrl, config = {}, onSuccess, onError }: Av
                                 type="button"
                                 onClick={handleSave}
                                 disabled={isUploading}
-                                className="panel-button px-4 py-2 text-sm font-medium rounded-button border"
-                                style={{ background: 'var(--accent)', color: 'var(--accent-contrast)', opacity: isUploading ? 0.5 : 1 }}
+                                className="panel-button rounded-button border px-4 py-2 text-sm font-medium"
+                                style={{
+                                    background: 'var(--accent)',
+                                    color: 'var(--accent-contrast)',
+                                    opacity: isUploading ? 0.5 : 1,
+                                }}
                             >
                                 {isUploading ? 'Guardando...' : 'Guardar'}
                             </button>
                         </div>
                     </div>
                 </div>
-            )}
+            ) : null}
         </>
     );
-}
+});

@@ -1,44 +1,6 @@
 import { isProduction } from '../../env.js';
 import { asObject, asString } from '../shared/helpers.js';
 
-export function fixBrokenB2Url(url: string): string {
-    if (!url || !url.startsWith('http')) return url;
-
-    if (url.includes('backblazeb2.com')) {
-        const bucketName = process.env.BACKBLAZE_BUCKET_NAME || 'simple-media';
-
-        let key = '';
-        if (url.includes(`/file/${bucketName}/`)) {
-            key = url.split(`/file/${bucketName}/`)[1];
-        } else if (url.includes(`backblazeb2.com/${bucketName}/`)) {
-            key = url.split(`backblazeb2.com/${bucketName}/`)[1];
-        } else {
-            const parts = url.split('.backblazeb2.com/');
-            if (parts.length === 2) {
-                const pathParts = parts[1].split('/');
-                if (pathParts[0] === 'file') pathParts.shift();
-                if (pathParts[0] === bucketName) pathParts.shift();
-                key = pathParts.join('/');
-            }
-        }
-
-        if (key) {
-            const downloadOrigin = process.env.BACKBLAZE_DOWNLOAD_URL || 'https://f005.backblazeb2.com';
-            return `${downloadOrigin}/file/${bucketName}/${key}`;
-        }
-    }
-
-    return url;
-}
-
-export function isBackblazeUrl(url: string): boolean {
-    try {
-        return new URL(url).hostname.endsWith('backblazeb2.com');
-    } catch {
-        return false;
-    }
-}
-
 export function isCloudflareR2Url(url: string): boolean {
     try {
         const hostname = new URL(url).hostname;
@@ -48,24 +10,20 @@ export function isCloudflareR2Url(url: string): boolean {
     }
 }
 
-export function isStorageUrl(url: string): boolean {
-    return isBackblazeUrl(url) || isCloudflareR2Url(url);
+function isLocalStorageUrl(url: string): boolean {
+    const base = (process.env.LOCAL_STORAGE_URL || 'http://localhost:4000/uploads').replace(/\/+$/, '');
+    return url.startsWith(base);
 }
 
-export function extractBackblazeObjectKey(url: string): string {
-    if (!isBackblazeUrl(url)) return '';
-    const bucketName = process.env.BACKBLAZE_BUCKET_NAME || 'simple-media';
-    const normalized = fixBrokenB2Url(url);
-    try {
-        const parsed = new URL(normalized);
-        const prefix = `/file/${bucketName}/`;
-        if (parsed.pathname.startsWith(prefix)) {
-            return decodeURIComponent(parsed.pathname.slice(prefix.length));
-        }
-    } catch {
-        return '';
-    }
-    return '';
+export function isOwnedStorageUrl(url: string): boolean {
+    if (!url?.trim()) return false;
+    if (isCloudflareR2Url(url)) return extractR2ObjectKey(url).length > 0;
+    return isLocalStorageUrl(url);
+}
+
+/** Alias histórico */
+export function isStorageUrl(url: string): boolean {
+    return isOwnedStorageUrl(url);
 }
 
 export function extractR2ObjectKey(url: string): string {
@@ -89,29 +47,25 @@ export function extractR2ObjectKey(url: string): string {
 }
 
 export function extractStorageObjectKey(url: string): string {
-    if (isBackblazeUrl(url)) {
-        return extractBackblazeObjectKey(url);
-    }
-    if (isCloudflareR2Url(url)) {
-        return extractR2ObjectKey(url);
-    }
-    return '';
+    return extractR2ObjectKey(url);
 }
 
 export function buildMediaProxyUrl(url: string): string {
     const apiBaseUrl = process.env.API_BASE_URL ?? 'http://localhost:4000';
-    return `${apiBaseUrl}/api/media/proxy?src=${encodeURIComponent(fixBrokenB2Url(url))}`;
+    return `${apiBaseUrl}/api/media/proxy?src=${encodeURIComponent(url)}`;
 }
 
 export function toDeliveredMediaUrl(url: string): string {
-    const normalized = fixBrokenB2Url(url);
-    const apiBaseUrl = process.env.API_BASE_URL;
+    const normalized = url.trim();
+    if (!normalized) return '';
 
-    if (isBackblazeUrl(normalized)) {
-        if (isProduction && (!apiBaseUrl || apiBaseUrl.includes('localhost'))) {
-            return normalized;
-        }
-        return buildMediaProxyUrl(normalized);
+    const apiBaseUrl = process.env.API_BASE_URL;
+    if (
+        isCloudflareR2Url(normalized)
+        && isProduction
+        && (!apiBaseUrl || apiBaseUrl.includes('localhost'))
+    ) {
+        return normalized;
     }
 
     return normalized;
@@ -171,21 +125,30 @@ export function toPublicMediaUrl(value: unknown): string {
 
 type ListingMediaSource = { rawData?: unknown };
 
-export function extractAllListingMediaUrls(record: ListingMediaSource): string[] {
-    const payload = asObject(record.rawData);
-    const media = asObject(payload.media);
+function collectMediaFieldUrls(media: Record<string, unknown>): string[] {
     const urls: string[] = [];
+
     const photos = Array.isArray(media.photos) ? media.photos : [];
     for (const photo of photos) {
         const url = toPublicMediaUrl(photo);
         if (url) urls.push(url);
     }
-    const discoverVideo = media.discoverVideo;
-    if (discoverVideo && typeof discoverVideo === 'object') {
-        const url = toPublicMediaUrl(discoverVideo);
-        if (url) urls.push(url);
+
+    for (const key of ['discoverVideo', 'video'] as const) {
+        const item = media[key];
+        if (item) {
+            const url = toPublicMediaUrl(item);
+            if (url) urls.push(url);
+        }
     }
+
     return urls;
+}
+
+export function extractAllListingMediaUrls(record: ListingMediaSource): string[] {
+    const payload = asObject(record.rawData);
+    const media = asObject(payload.media);
+    return collectMediaFieldUrls(media);
 }
 
 export function extractListingMediaUrls(record: ListingMediaSource): string[] {

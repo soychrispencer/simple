@@ -7,10 +7,10 @@ import {
 } from './lifecycle.js';
 
 describe('serenata lifecycle', () => {
-    it('needsClosure solo para scheduled/accepted_pending_group con fecha pasada', () => {
+    it('needsClosure solo para scheduled con fecha pasada', () => {
         const past = '2020-01-01';
         expect(needsClosure({ status: 'scheduled', eventDate: past })).toBe(true);
-        expect(needsClosure({ status: 'accepted_pending_group', eventDate: past })).toBe(true);
+        expect(needsClosure({ status: 'accepted_pending_group', eventDate: past })).toBe(false);
         expect(needsClosure({ status: 'completed', eventDate: past })).toBe(false);
         expect(needsClosure({ status: 'scheduled', eventDate: '2099-12-31' })).toBe(false);
     });

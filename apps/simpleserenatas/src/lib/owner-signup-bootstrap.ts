@@ -1,9 +1,4 @@
-import {
-    consumeSignupGroupName,
-    consumeSignupOwnerName,
-    persistActiveProviderGroupId,
-    readSignupGroupName,
-} from '@/lib/active-provider-group';
+import { consumeSignupGroupName, consumeSignupOwnerName, readSignupGroupName } from '@/lib/active-provider-group';
 import { persistAppMode } from '@/lib/app-mode';
 import { serenatasApi } from '@/lib/serenatas-api';
 import { clearSignupProfile, hasOwnerSignupIntent } from '@/lib/signup-profile';
@@ -32,13 +27,10 @@ export async function applyOwnerSignupDrafts(options?: {
     const groupName = readSignupGroupName();
     if (!groupName || groupName.trim().length < 2) return;
 
-    const created = await serenatasApi.createProviderGroup({
+    await serenatasApi.createProviderGroup({
         name: groupName.trim(),
-        status: 'draft',
+        status: 'active',
     });
-    if (!created.ok || !created.item) return;
-
-    persistActiveProviderGroupId(created.item.id);
     consumeSignupGroupName();
 }
 

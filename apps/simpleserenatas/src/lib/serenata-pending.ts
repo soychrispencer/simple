@@ -2,14 +2,12 @@ import type { Serenata } from '@/lib/serenatas-api';
 
 /** Estados que suelen requerir acción inmediata del admin en home / alertas. */
 export const ADMIN_ACTION_STATUSES = [
-    'payment_pending',
     'pending',
     'accepted_pending_group',
 ] as const satisfies readonly Serenata['status'][];
 
 /** Bandeja principal de Solicitudes (acción inmediata). */
 export const ADMIN_SOLICITUDES_INBOX_STATUSES = [
-    'payment_pending',
     'pending',
     'pending_open',
     'accepted_pending_group',

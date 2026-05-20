@@ -139,11 +139,6 @@ export function buildBookingEmailPackage(
     });
 }
 
-/** @deprecated Usar buildBookingEmailPackage para adjuntar logo inline. */
-export function buildBookingEmailHtml(data: BookingEmailData & { cancelUrl: string; appUrl: string }): string {
-    return buildBookingEmailPackage(data).html;
-}
-
 export function buildAppointmentReminderEmailPackage(data: {
     clientName: string;
     professionalName: string;

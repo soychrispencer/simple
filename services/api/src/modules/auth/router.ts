@@ -1,6 +1,20 @@
 import { Hono } from 'hono';
-import { randomBytes, createHash } from 'crypto';
+import { randomBytes } from 'crypto';
 import { logger } from '@simple/logger';
+import { sanitizeBrowserReturnUrl } from '../../lib/browser-origin.js';
+import {
+    buildGoogleOAuthState,
+    googleOAuthErrorCode,
+    verifyGoogleOAuthState,
+    type GoogleOAuthStatePayload,
+} from './google-oauth-state.js';
+import { cleanupReplacedMediaUrl } from '../media/stored-object.js';
+import {
+    sendNotificationTestEmail,
+    sendNotificationTestWhatsApp,
+} from '../../lib/notification-test-delivery.js';
+import { getRecentUserNotificationLogs } from '../../lib/user-notification-log.js';
+import { resolveAvatarAfterGoogleOAuth } from './google-oauth-avatar.js';
 
 export type AuthRouterDeps = {
     db: any;
@@ -31,9 +45,9 @@ export type AuthRouterDeps = {
     resolveBrowserOrigin: (c: any) => string | null;
     isAuthEmailConfigured: () => boolean;
     issueEmailVerification: (userId: string, email: string, origin: string) => Promise<void>;
-    sendPasswordResetEmail: (email: string, url: string, origin: string) => Promise<void>;
-    sendPasswordChangedEmail: (email: string, origin: string) => Promise<void>;
-    sendWelcomeEmail: (email: string, name: string, origin: string) => Promise<void>;
+    sendPasswordResetEmail: (email: string, url: string, origin: string, userId?: string) => Promise<void>;
+    sendPasswordChangedEmail: (email: string, origin: string, userId?: string) => Promise<void>;
+    sendWelcomeEmail: (email: string, name: string, origin: string, userId?: string) => Promise<void>;
     buildPasswordResetUrl: (origin: string, token: string) => string;
     hashOpaqueToken: (token: string) => string;
     buildGoogleRedirectUri: (origin: string) => string;
@@ -47,6 +61,7 @@ export type AuthRouterDeps = {
     registerSchema: any;
     passwordResetRequestSchema: any;
     passwordResetConfirmSchema: any;
+    passwordChangeSchema: any;
     emailVerificationRequestSchema: any;
     emailVerificationConfirmSchema: any;
     getUserPendingEmail: (userId: string) => Promise<string | null>;
@@ -68,41 +83,83 @@ export function createAuthRouter(deps: AuthRouterDeps) {
     // Store cleanup function for graceful shutdown
     (app as any).cleanup = () => clearInterval(cleanupInterval);
 
-    function buildOAuthState(nonce: string, origin: string): string {
-        const ts = Math.floor(Date.now() / 1000);
-        const payload = `${nonce}~${ts}~${origin}`;
-        const sig = createHash('sha256').update(`${deps.SESSION_SECRET}:${payload}`).digest('hex').slice(0, 32);
-        return Buffer.from(`${payload}~${sig}`).toString('base64url');
-    }
-
-    function verifyOAuthState(state: string): { nonce: string; origin: string } | null {
-        try {
-            const decoded = Buffer.from(state, 'base64url').toString('utf8');
-            const firstTilde = decoded.indexOf('~');
-            const secondTilde = decoded.indexOf('~', firstTilde + 1);
-            const lastTilde = decoded.lastIndexOf('~');
-            if (firstTilde === -1 || secondTilde === -1 || lastTilde === secondTilde) return null;
-            const nonce = decoded.slice(0, firstTilde);
-            const tsStr = decoded.slice(firstTilde + 1, secondTilde);
-            const origin = decoded.slice(secondTilde + 1, lastTilde);
-            const sig = decoded.slice(lastTilde + 1);
-            const ts = parseInt(tsStr, 10);
-            if (isNaN(ts) || Date.now() / 1000 - ts > 600) return null;
-            const payload = `${nonce}~${ts}~${origin}`;
-            const expected = createHash('sha256').update(`${deps.SESSION_SECRET}:${payload}`).digest('hex').slice(0, 32);
-            if (!deps.safeEqualStrings(sig, expected)) return null;
-            return { nonce, origin };
-        } catch {
-            return null;
+    function resolveLinkUserFromState(
+        stateData: GoogleOAuthStatePayload | null,
+    ): Promise<{ id: string; email: string } | undefined> {
+        if (!stateData || stateData.mode !== 'link' || !stateData.userId) {
+            return Promise.resolve(undefined);
         }
+        return deps.getUserById(stateData.userId).then((user) => {
+            if (!user || !deps.canAuthenticateUser(user)) return undefined;
+            return { id: user.id, email: user.email };
+        });
     }
 
-    async function exchangeGoogleCode(code: string, state: string, c: any): Promise<
+    async function linkGoogleToSessionUser(
+        googleUser: Record<string, unknown>,
+        normalizedEmail: string,
+        sessionUser: { id: string; email: string },
+    ): Promise<
+        | { ok: true; user: any; isNewUser: false }
+        | { ok: false; error: string; status: number }
+    > {
+        const accountEmail = deps.asString(sessionUser.email).trim().toLowerCase();
+        if (normalizedEmail !== accountEmail) {
+            return {
+                ok: false,
+                error: `La cuenta de Google (${normalizedEmail}) no coincide con el correo de esta cuenta (${accountEmail}). Usa la misma cuenta de Google o inicia sesión con Google desde la pantalla de acceso.`,
+                status: 409,
+            };
+        }
+
+        let user = await deps.getUserById(sessionUser.id);
+        if (!user || !deps.canAuthenticateUser(user)) {
+            return { ok: false, error: 'No se pudo vincular Google a tu cuenta.', status: 400 };
+        }
+
+        const existingByEmail = await deps.getUserByEmail(normalizedEmail);
+        if (existingByEmail && existingByEmail.id !== user.id) {
+            return {
+                ok: false,
+                error: 'Ese correo de Google ya está registrado en otra cuenta.',
+                status: 409,
+            };
+        }
+
+        const personalAccount = await deps.ensurePrimaryAccountForUser(user);
+        const nextLoginAt = new Date();
+        const nextAvatarUrl = resolveAvatarAfterGoogleOAuth(user.avatar, googleUser.picture, deps.asString);
+        await deps.db.update(deps.tables.users).set({
+            name: deps.asString(googleUser.name) || user.name,
+            avatarUrl: nextAvatarUrl,
+            provider: 'google',
+            providerId: deps.asString(googleUser.id) || user.providerId || null,
+            status: googleUser.verified_email ? 'verified' : user.status,
+            updatedAt: nextLoginAt,
+            lastLoginAt: nextLoginAt,
+        }).where(deps.eq(deps.tables.users.id, user.id));
+
+        const refreshed = await deps.getUserById(user.id);
+        if (!refreshed || !deps.canAuthenticateUser(refreshed)) {
+            return { ok: false, error: 'No se pudo vincular Google a tu cuenta.', status: 400 };
+        }
+
+        user = { ...refreshed, primaryAccountId: personalAccount.id };
+
+        return { ok: true, user, isNewUser: false };
+    }
+
+    async function exchangeGoogleCode(
+        code: string,
+        state: string,
+        c: any,
+        linkToSessionUser?: { id: string; email: string },
+    ): Promise<
         | { ok: true; user: any; origin: string; isNewUser: boolean }
         | { ok: false; error: string; status: number }
     > {
         if (!code || !state) return { ok: false, error: 'Código de autorización inválido', status: 400 };
-        const stateData = verifyOAuthState(state);
+        const stateData = verifyGoogleOAuthState(state, deps.SESSION_SECRET, deps.safeEqualStrings);
         if (!stateData) return { ok: false, error: 'Tu sesión de autenticación con Google expiró. Intenta nuevamente.', status: 400 };
 
         const origin = stateData.origin;
@@ -132,6 +189,12 @@ export function createAuthRouter(deps: AuthRouterDeps) {
 
         const normalizedEmail = deps.asString(googleUser.email).toLowerCase();
         if (!normalizedEmail) return { ok: false, error: 'Google no devolvió un correo válido.', status: 400 };
+
+        if (linkToSessionUser) {
+            const linked = await linkGoogleToSessionUser(googleUser, normalizedEmail, linkToSessionUser);
+            if (!linked.ok) return linked;
+            return { ok: true, user: linked.user, origin, isNewUser: linked.isNewUser };
+        }
 
         let user = await deps.getUserByEmail(normalizedEmail);
         if (user && !deps.canAuthenticateUser(user)) return { ok: false, error: 'Tu cuenta está suspendida. Contacta al soporte.', status: 403 };
@@ -169,16 +232,20 @@ export function createAuthRouter(deps: AuthRouterDeps) {
         } else {
             const personalAccount = await deps.ensurePrimaryAccountForUser(user);
             const nextLoginAt = new Date();
+            const nextAvatarUrl = resolveAvatarAfterGoogleOAuth(user.avatar, googleUser.picture, deps.asString);
             await deps.db.update(deps.tables.users).set({
                 name: deps.asString(googleUser.name) || user.name,
-                avatarUrl: deps.asString(googleUser.picture) || user.avatar || null,
+                avatarUrl: nextAvatarUrl,
                 provider: 'google',
                 providerId: deps.asString(googleUser.id) || user.providerId || null,
                 status: googleUser.verified_email ? 'verified' : user.status,
                 updatedAt: nextLoginAt,
                 lastLoginAt: nextLoginAt,
             }).where(deps.eq(deps.tables.users.id, user.id));
-            user = { ...user, name: deps.asString(googleUser.name) || user.name, avatar: deps.asString(googleUser.picture) || user.avatar, provider: 'google', providerId: deps.asString(googleUser.id) || user.providerId, status: googleUser.verified_email ? 'verified' : user.status, lastLoginAt: nextLoginAt, primaryAccountId: personalAccount.id };
+            const refreshed = await deps.getUserById(user.id);
+            user = refreshed
+                ? { ...refreshed, primaryAccountId: personalAccount.id }
+                : { ...user, avatar: nextAvatarUrl ?? undefined, name: deps.asString(googleUser.name) || user.name, provider: 'google', providerId: deps.asString(googleUser.id) || user.providerId, status: googleUser.verified_email ? 'verified' : user.status, lastLoginAt: nextLoginAt, primaryAccountId: personalAccount.id };
         }
 
         if (!user.lastLoginAt) {
@@ -324,19 +391,111 @@ export function createAuthRouter(deps: AuthRouterDeps) {
         }
 
         // Campos permitidos para actualizar
-        const allowedFields = ['name', 'phone', 'avatarUrl', 'whatsappEnabled'] as const;
+        const allowedFields = [
+            'name',
+            'phone',
+            'avatarUrl',
+            'whatsappEnabled',
+            'whatsappNotifyInvitations',
+            'whatsappNotifyRequests',
+            'whatsappNotifyAgenda',
+            'whatsappNotifyAccount',
+            'emailNotifyInvitations',
+            'emailNotifyRequests',
+            'emailNotifyAgenda',
+            'emailNotifyAccount',
+            'emailDigestFrequency',
+        ] as const;
         const updates: Record<string, unknown> = {};
 
         for (const key of allowedFields) {
             if (!(key in payload)) continue;
             const value = payload[key as keyof typeof payload];
-            if (key === 'whatsappEnabled') {
-                if (typeof value === 'boolean') updates.whatsappEnabled = value;
+            if (
+                key === 'whatsappEnabled'
+                || key === 'whatsappNotifyInvitations'
+                || key === 'whatsappNotifyRequests'
+                || key === 'whatsappNotifyAgenda'
+                || key === 'whatsappNotifyAccount'
+                || key === 'emailNotifyInvitations'
+                || key === 'emailNotifyRequests'
+                || key === 'emailNotifyAgenda'
+                || key === 'emailNotifyAccount'
+            ) {
+                if (typeof value === 'boolean') updates[key] = value;
+                continue;
+            }
+            if (key === 'emailDigestFrequency') {
+                if (value === 'off' || value === 'daily' || value === 'weekly') {
+                    updates.emailDigestFrequency = value;
+                }
+                continue;
+            }
+            if (key === 'avatarUrl') {
                 continue;
             }
             if (value !== undefined && value !== null) {
                 updates[key] = value;
             }
+        }
+
+        if ('avatarUrl' in payload) {
+            const raw = payload.avatarUrl;
+            const nextAvatarUrl =
+                raw === null
+                    ? null
+                    : typeof raw === 'string'
+                      ? raw.trim() || null
+                      : user.avatar ?? null;
+            await cleanupReplacedMediaUrl(user.avatar ?? null, nextAvatarUrl);
+            updates.avatarUrl = nextAvatarUrl;
+        }
+
+        if ('phone' in payload && payload.phone !== undefined) {
+            const phone = typeof payload.phone === 'string' ? payload.phone.trim() : '';
+            updates.phone = phone || null;
+        }
+
+        if (
+            'whatsappNotifyInvitations' in updates
+            || 'whatsappNotifyRequests' in updates
+            || 'whatsappNotifyAgenda' in updates
+            || 'whatsappNotifyAccount' in updates
+        ) {
+            const row = await deps.db.query.users.findFirst({
+                where: deps.eq(deps.tables.users.id, user.id),
+                columns: {
+                    whatsappNotifyInvitations: true,
+                    whatsappNotifyRequests: true,
+                    whatsappNotifyAgenda: true,
+                    whatsappNotifyAccount: true,
+                    whatsappEnabled: true,
+                },
+            });
+            const invitations =
+                (updates.whatsappNotifyInvitations as boolean | undefined)
+                ?? row?.whatsappNotifyInvitations
+                ?? row?.whatsappEnabled
+                ?? false;
+            const requests =
+                (updates.whatsappNotifyRequests as boolean | undefined)
+                ?? row?.whatsappNotifyRequests
+                ?? row?.whatsappEnabled
+                ?? false;
+            const agenda =
+                (updates.whatsappNotifyAgenda as boolean | undefined)
+                ?? row?.whatsappNotifyAgenda
+                ?? row?.whatsappEnabled
+                ?? false;
+            const account =
+                (updates.whatsappNotifyAccount as boolean | undefined)
+                ?? row?.whatsappNotifyAccount
+                ?? false;
+            updates.whatsappNotifyInvitations = invitations;
+            updates.whatsappNotifyRequests = requests;
+            updates.whatsappNotifyAgenda = agenda;
+            updates.whatsappNotifyAccount = account;
+            updates.whatsappEnabled = invitations || requests || agenda || account;
         }
 
         if (Object.keys(updates).length === 0) {
@@ -360,9 +519,138 @@ export function createAuthRouter(deps: AuthRouterDeps) {
         }
     });
 
+    app.get('/me/notification-log', async (c) => {
+        const user = await deps.authUser(c);
+        if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
+        const items = await getRecentUserNotificationLogs(user.id, 5);
+        return c.json({
+            ok: true,
+            items: items.map((row) => ({
+                id: row.id,
+                channel: row.channel,
+                eventType: row.eventType,
+                summary: row.summary,
+                createdAt: row.createdAt.getTime(),
+            })),
+        });
+    });
+
+    app.post('/me/test-notification', async (c) => {
+        const user = await deps.authUser(c);
+        if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
+
+        const rate = deps.consumeRateLimit(
+            `auth:notification-test:${user.id}`,
+            1,
+            5 * 60 * 1000,
+        );
+        if (!rate.ok) {
+            return c.json(
+                {
+                    ok: false,
+                    error: `Demasiadas pruebas. Intenta en ${rate.retryAfterSeconds} s.`,
+                },
+                429,
+            );
+        }
+
+        const payload = await c.req.json().catch(() => ({}));
+        const channel =
+            payload && typeof payload === 'object' && payload.channel === 'whatsapp'
+                ? 'whatsapp'
+                : 'email';
+
+        try {
+            if (channel === 'email') {
+                await sendNotificationTestEmail(user.id, user.email, user.name ?? '');
+                return c.json({
+                    ok: true,
+                    channel: 'email',
+                    message: 'Correo de prueba enviado. Revisa tu bandeja.',
+                });
+            }
+
+            const wa = await sendNotificationTestWhatsApp(user.id);
+            if (wa.deferredQuietHours) {
+                return c.json({
+                    ok: true,
+                    channel: 'whatsapp',
+                    message: 'Prueba registrada en tu historial.',
+                });
+            }
+            return c.json({
+                ok: true,
+                channel: 'whatsapp',
+                message: 'WhatsApp de prueba enviado.',
+            });
+        } catch (error) {
+            const message = error instanceof Error ? error.message : 'No pudimos enviar la prueba.';
+            return c.json({ ok: false, error: message }, 400);
+        }
+    });
+
     app.post('/logout', (c) => {
         deps.clearSession(c);
         return c.json({ ok: true });
+    });
+
+    app.post('/password/change', async (c) => {
+        const sessionUser = await deps.authUser(c);
+        if (!sessionUser) return c.json({ ok: false, error: 'No autenticado' }, 401);
+
+        const payload = await c.req.json().catch(() => null);
+        const parsed = deps.passwordChangeSchema.safeParse(payload);
+        if (!parsed.success) {
+            const issue = parsed.error.issues[0];
+            return c.json({ ok: false, error: issue?.message ?? 'Datos inválidos.' }, 400);
+        }
+
+        const user = await deps.getUserById(sessionUser.id);
+        if (!user || !deps.canAuthenticateUser(user)) {
+            return c.json({ ok: false, error: 'No se pudo actualizar tu contraseña.' }, 400);
+        }
+
+        const hasPassword = Boolean(user.passwordHash);
+        const { currentPassword, newPassword } = parsed.data;
+
+        if (hasPassword) {
+            if (!currentPassword?.trim()) {
+                return c.json({ ok: false, error: 'Ingresa tu contraseña actual.' }, 400);
+            }
+            const matches = await deps.bcrypt.compare(currentPassword, user.passwordHash);
+            if (!matches) {
+                return c.json({ ok: false, error: 'La contraseña actual no es correcta.' }, 401);
+            }
+            const sameAsCurrent = await deps.bcrypt.compare(newPassword, user.passwordHash);
+            if (sameAsCurrent) {
+                return c.json({ ok: false, error: 'La nueva contraseña debe ser distinta a la actual.' }, 400);
+            }
+        }
+
+        const nextPasswordHash = await deps.bcrypt.hash(newPassword, 10);
+        const now = new Date();
+        await deps.db.update(deps.tables.users).set({
+            passwordHash: nextPasswordHash,
+            updatedAt: now,
+        }).where(deps.eq(deps.tables.users.id, user.id));
+
+        const origin = deps.resolveBrowserOrigin(c);
+        if (origin) {
+            try {
+                await deps.sendPasswordChangedEmail(user.email, origin, user.id);
+            } catch (error) {
+                console.error('Password changed email error:', error);
+            }
+        }
+
+        const updatedUser = await deps.getUserById(user.id);
+        if (!updatedUser) return c.json({ ok: false, error: 'No se pudo actualizar tu contraseña.' }, 500);
+
+        const personalAccount = await deps.ensurePrimaryAccountForUser(updatedUser);
+        return c.json({
+            ok: true,
+            user: deps.sanitizeUser({ ...updatedUser, passwordHash: nextPasswordHash, primaryAccountId: personalAccount.id }),
+        });
     });
 
     app.post('/password-reset/request', async (c) => {
@@ -397,7 +685,12 @@ export function createAuthRouter(deps: AuthRouterDeps) {
         });
 
         try {
-            await deps.sendPasswordResetEmail(normalizedEmail, deps.buildPasswordResetUrl(origin, rawToken), origin);
+            await deps.sendPasswordResetEmail(
+                normalizedEmail,
+                deps.buildPasswordResetUrl(origin, rawToken),
+                origin,
+                user.id,
+            );
         } catch (error) {
             console.error('Password reset email error:', error);
             return c.json({ ok: false, error: 'No pudimos enviar el correo de recuperación. Inténtalo nuevamente.' }, 502);
@@ -441,7 +734,11 @@ export function createAuthRouter(deps: AuthRouterDeps) {
 
         const origin = deps.resolveBrowserOrigin(c);
         if (origin) {
-            try { await deps.sendPasswordChangedEmail(user.email, origin); } catch (error) { console.error('Password changed email error:', error); }
+            try {
+                await deps.sendPasswordChangedEmail(user.email, origin, user.id);
+            } catch (error) {
+                console.error('Password changed email error:', error);
+            }
         }
 
         deps.setSession(c, user.id);
@@ -513,7 +810,11 @@ export function createAuthRouter(deps: AuthRouterDeps) {
         if (!nextUser) return c.json({ ok: false, error: 'No se pudo confirmar esta cuenta.' }, 400);
 
         if (origin && !pendingEmail) {
-            try { await deps.sendWelcomeEmail(nextUser.email, nextUser.name, origin); } catch (error) { console.error('Welcome email delivery error:', error); }
+            try {
+                await deps.sendWelcomeEmail(nextUser.email, nextUser.name, origin, nextUser.id);
+            } catch (error) {
+                console.error('Welcome email delivery error:', error);
+            }
         }
 
         deps.setSession(c, nextUser.id);
@@ -576,8 +877,28 @@ export function createAuthRouter(deps: AuthRouterDeps) {
         const redirectUri = configuredRedirectUri || deps.buildGoogleRedirectUri(origin);
         logger.info('[Google OAuth] Using redirect URI', { redirectUri, configuredRedirectUri });
 
+        const linkRequested = deps.asString(c.req.query('mode')) === 'link';
+        const sessionUser = await deps.authUser(c);
+        const isProduction = process.env.NODE_ENV === 'production';
+        const fallbackReturn = `${origin}/`;
+        const returnToRaw = deps.asString(c.req.query('returnTo'));
+        const returnTo = returnToRaw
+            ? sanitizeBrowserReturnUrl(returnToRaw, fallbackReturn, { isProduction })
+            : undefined;
+        const mode = linkRequested && sessionUser ? 'link' as const : 'login' as const;
+
+        if (linkRequested && !sessionUser) {
+            return c.json({ ok: false, error: 'Debes iniciar sesión para vincular Google.' }, 401);
+        }
+
         const nonce = randomBytes(16).toString('hex');
-        const state = buildOAuthState(nonce, origin);
+        const state = buildGoogleOAuthState(deps.SESSION_SECRET, {
+            nonce,
+            origin,
+            mode,
+            userId: mode === 'link' ? sessionUser?.id : undefined,
+            returnTo: mode === 'link' ? returnTo : undefined,
+        });
         const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?` +
             `client_id=${encodeURIComponent(clientId)}&` +
             `redirect_uri=${encodeURIComponent(redirectUri)}&` +
@@ -588,23 +909,83 @@ export function createAuthRouter(deps: AuthRouterDeps) {
         return c.json({ ok: true, authUrl });
     });
 
-    async function completeGoogleCallback(code: string, state: string, c: any) {
+    type GoogleCallbackResult =
+        | { ok: true; result: { user: any; origin: string; isNewUser: boolean; stateData: GoogleOAuthStatePayload } }
+        | { ok: false; error: string; status: number; stateData: GoogleOAuthStatePayload | null };
+
+    async function completeGoogleCallback(code: string, state: string, c: any): Promise<GoogleCallbackResult> {
         if (!code || !state) {
-            return c.json({ ok: false, error: 'Parámetros requeridos faltantes' }, 400);
+            return { ok: false, error: 'Parámetros requeridos faltantes', status: 400, stateData: null };
+        }
+
+        const stateData = verifyGoogleOAuthState(state, deps.SESSION_SECRET, deps.safeEqualStrings);
+        if (!stateData) {
+            return {
+                ok: false,
+                error: 'Tu sesión de autenticación con Google expiró. Intenta nuevamente.',
+                status: 400,
+                stateData: null,
+            };
         }
 
         try {
-            const result = await exchangeGoogleCode(code, state, c);
+            const sessionUser = await deps.authUser(c);
+            const linkFromState = await resolveLinkUserFromState(stateData);
+            const linkToSessionUser =
+                linkFromState
+                ?? (sessionUser ? { id: sessionUser.id, email: sessionUser.email } : undefined);
+
+            if (stateData.mode === 'link' && !linkToSessionUser) {
+                return {
+                    ok: false,
+                    error: 'No pudimos validar tu sesión para vincular Google. Intenta de nuevo desde Mi cuenta.',
+                    status: 400,
+                    stateData,
+                };
+            }
+
+            const result = await exchangeGoogleCode(code, state, c, linkToSessionUser);
             if (!result.ok) {
-                return c.json({ ok: false, error: result.error }, result.status as 400 | 403 | 500);
+                return { ok: false, error: result.error, status: result.status, stateData };
             }
 
             deps.setSession(c, result.user.id);
-            return { result };
+            return { ok: true, result: { ...result, stateData } };
         } catch (error) {
             console.error('Error en google callback:', error);
-            return c.json({ ok: false, error: 'Error procesando autenticación' }, 500);
+            return { ok: false, error: 'Error procesando autenticación', status: 500, stateData };
         }
+    }
+
+    function buildGoogleReturnRedirect(
+        stateData: GoogleOAuthStatePayload | null,
+        params: Record<string, string>,
+    ): string {
+        const origin = stateData?.origin || 'http://localhost:3000';
+        const fallback = `${origin}/auth/google/callback`;
+        const rawReturn = stateData?.returnTo || fallback;
+        const isProduction = process.env.NODE_ENV === 'production';
+        let resolvedReturn = rawReturn;
+        try {
+            if (!/^https?:\/\//i.test(rawReturn)) {
+                resolvedReturn = new URL(rawReturn, origin).toString();
+            }
+        } catch {
+            resolvedReturn = fallback;
+        }
+        const target = new URL(sanitizeBrowserReturnUrl(resolvedReturn, fallback, { isProduction }));
+        for (const [key, value] of Object.entries(params)) {
+            if (value) target.searchParams.set(key, value);
+        }
+        return target.toString();
+    }
+
+    function googleLinkRedirectParams(error: string, status: number): Record<string, string> {
+        const errorCode = googleOAuthErrorCode(error, status);
+        return {
+            google_error: errorCode ?? 'link_failed',
+            google_error_message: encodeURIComponent(error),
+        };
     }
 
     app.get('/google/callback', async (c) => {
@@ -612,12 +993,34 @@ export function createAuthRouter(deps: AuthRouterDeps) {
         const state = deps.asString(c.req.query('state'));
 
         const callback = await completeGoogleCallback(code, state, c);
-        if (!('result' in callback)) return callback;
+        if (!callback.ok) {
+            if (callback.stateData?.mode === 'link') {
+                const redirectUrl = buildGoogleReturnRedirect(
+                    callback.stateData,
+                    googleLinkRedirectParams(callback.error, callback.status),
+                );
+                return c.redirect(redirectUrl, 302);
+            }
+            const errorCode = googleOAuthErrorCode(callback.error, callback.status);
+            if (errorCode) {
+                const redirectUrl = buildGoogleReturnRedirect(callback.stateData, {
+                    google_error: errorCode,
+                    google_error_message: encodeURIComponent(callback.error),
+                });
+                return c.redirect(redirectUrl, 302);
+            }
+            return c.json({ ok: false, error: callback.error }, callback.status as 400 | 403 | 409 | 500);
+        }
 
-        const origin = callback.result.origin || deps.resolveBrowserOrigin(c) || 'http://localhost:3000';
-        const redirectUrl = `${origin}/`;
+        const { stateData, origin } = callback.result;
 
-        // Devolver HTML con redirección JavaScript para mantener la sesión cross-origin
+        if (stateData.mode === 'link') {
+            const redirectUrl = buildGoogleReturnRedirect(stateData, { google_linked: '1' });
+            return c.redirect(redirectUrl, 302);
+        }
+
+        const redirectUrl = `${origin || deps.resolveBrowserOrigin(c) || 'http://localhost:3000'}/`;
+
         return c.html(`
 <!DOCTYPE html>
 <html>
@@ -650,7 +1053,17 @@ export function createAuthRouter(deps: AuthRouterDeps) {
         const state = deps.asString(body.state);
 
         const callback = await completeGoogleCallback(code, state, c);
-        if (!('result' in callback)) return callback;
+        if (!callback.ok) {
+            const errorCode = googleOAuthErrorCode(callback.error, callback.status);
+            return c.json(
+                {
+                    ok: false,
+                    error: callback.error,
+                    ...(errorCode ? { code: errorCode } : {}),
+                },
+                callback.status as 400 | 403 | 409 | 500,
+            );
+        }
 
         return c.json({
             ok: true,

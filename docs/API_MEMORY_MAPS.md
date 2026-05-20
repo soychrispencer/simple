@@ -307,7 +307,7 @@
 | Cambio | Detalle |
 |--------|---------|
 | Smoke marketplace | `smoke-marketplace.ts` usa `GET /api/serenatas/marketplace/groups/:id/services` (no `/marketplace/services`); valida `id`, `name`, `providerGroupId` en items |
-| S3 media proxy | `modules/media/s3-clients.ts` — `getR2S3Client`, `getBackblazeS3Client`, `getS3ClientForUrl`, `getMediaProxyS3Client` |
+| S3 media proxy | `modules/media/s3-clients.ts` — `getR2S3Client`, `getS3ClientForUrl`, `getMediaProxyS3Client` |
 | Agenda plan limits | `modules/agenda/plan-limits.ts` — `getAgendaProfile`, `isFreePlan`, límites free, `generateSlots` |
 | `index.ts` | ~6.99k → ~6.85k líneas |
 

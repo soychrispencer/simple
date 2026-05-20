@@ -40,7 +40,7 @@ export type PrimaryActionConfig = {
 
 export function getPrimaryActionConfig(mode: AppMode, profiles: Profiles): PrimaryActionConfig {
     if (mode === 'client') {
-        return { label: 'Contratar serenata', href: panelSectionHref('grupos'), icon: IconUsersGroup, show: true };
+        return { label: 'Contratar serenata', href: panelSectionHref('mariachis'), icon: IconUsersGroup, show: true };
     }
     if (ownerFeaturesEnabled(profiles)) {
         return { label: 'Ver solicitudes', href: panelSectionHref('solicitudes'), icon: IconBell, show: true };
@@ -54,7 +54,7 @@ export function getPanelNavItems(mode: AppMode, profiles: Profiles): PanelNavIte
     ];
 
     if (mode === 'client') {
-        items.push({ id: 'grupos', href: panelSectionHref('grupos'), label: 'Mariachis', icon: IconUsersGroup });
+        items.push({ id: 'mariachis', href: panelSectionHref('mariachis'), label: 'Mariachis', icon: IconUsersGroup });
         items.push({ id: 'serenatas', href: panelSectionHref('serenatas'), label: 'Mis Serenatas', icon: IconMusic });
         items.push({ id: 'profile', href: panelSectionHref('profile'), label: 'Mi cuenta', icon: IconUser });
         return items;
@@ -83,7 +83,7 @@ export function getPanelNavItems(mode: AppMode, profiles: Profiles): PanelNavIte
  */
 export function getMobileBottomNavItems(mode: AppMode, profiles: Profiles): PanelNavItem[] {
     if (mode === 'client') {
-        return getPanelNavItems(mode, profiles).filter((t) => ['home', 'grupos', 'serenatas', 'profile'].includes(t.id));
+        return getPanelNavItems(mode, profiles).filter((t) => ['home', 'mariachis', 'serenatas', 'profile'].includes(t.id));
     }
     if (ownerFeaturesEnabled(profiles)) {
         return getPanelNavItems(mode, profiles).filter((t) =>
@@ -128,6 +128,12 @@ export function isPanelNavActive(pathname: string, href: string, currentSection?
             if (hrefSection === 'mi-negocio' && (currentSection === 'mi-negocio' || currentSection === 'servicios' || currentSection === 'groups')) {
                 return true;
             }
+            if (
+                (hrefSection === 'mariachis' || hrefSection === 'grupos')
+                && (currentSection === 'mariachis' || currentSection === 'grupos')
+            ) {
+                return true;
+            }
             return hrefSection === currentSection;
         }
         if (pathname === url.pathname) return true;
@@ -137,14 +143,20 @@ export function isPanelNavActive(pathname: string, href: string, currentSection?
     return false;
 }
 
-export async function fetchNotifications(): Promise<PanelNotification[]> {
+export async function fetchNotifications(inAppEnabled = true): Promise<PanelNotification[]> {
+    if (!inAppEnabled) return [];
     try {
         const response = await serenatasApi.notifications();
         if (!response.ok) return [];
-        return response.items.map(toPanelNotification);
+        return response.items.filter((item) => item.isRead !== true).map(toPanelNotification);
     } catch {
         return [];
     }
+}
+
+export function notifyPanelNotificationsChanged(): void {
+    if (typeof window === 'undefined') return;
+    window.dispatchEvent(new Event('simple:panel-notifications-changed'));
 }
 
 export function panelModeLabel(mode: AppMode): string {

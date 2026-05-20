@@ -1,5 +1,7 @@
 # Migración: Backblaze B2 → Cloudflare R2
 
+> **Legacy:** el runtime de Simple ya no soporta Backblaze; este doc y `scripts/migrate-to-cloudflare.ts` son solo referencia histórica / migración one-off.
+
 ## Resumen
 
 Migrar todas las imágenes de Backblaze B2 a Cloudflare R2 para unificar el stack en Cloudflare y eliminar dependencias externas.

@@ -1,16 +1,21 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import { IconArrowLeft, IconCreditCard, IconLoader2 } from '@tabler/icons-react';
 import { ListingLocationEditor, PanelButton, PanelCard, PanelField, PanelNotice } from '@simple/ui';
 import type { AddressBookEntry, ListingLocation } from '@simple/types';
 import { createAddressBookEntry, fetchAddressBook, getCommunesForRegion, LOCATION_REGIONS } from '@simple/utils';
 import { serenatasApi, type ProviderGroup, type ProviderGroupService } from '@/lib/serenatas-api';
-import { RegionCommuneFields } from './region-commune-fields';
+import { startSerenataCheckout } from '@/lib/payments';
+import { panelSectionHref } from '@/lib/panel-routes';
+import { clearMarketplaceRequestDraftRef } from '@/lib/marketplace-request-draft';
 import {
     cleanSerenataAddress,
     FieldInput,
+    FieldSelect,
     FieldTextarea,
     FormFeedback,
+    money,
     serenataLocation,
     today,
     toInputDate,
@@ -22,15 +27,12 @@ export function MarketplaceRequestView({
     service,
     contactPhone,
     onBack,
-    onSuccess,
 }: {
     group: ProviderGroup;
     service: ProviderGroupService;
     contactPhone: string;
     onBack: () => void;
-    onSuccess: () => void;
 }) {
-    const [quickMode, setQuickMode] = useState(true);
     const [recipientName, setRecipientName] = useState('');
     const [clientPhone, setClientPhone] = useState(contactPhone);
     const [eventDate, setEventDate] = useState(today);
@@ -41,15 +43,23 @@ export function MarketplaceRequestView({
     const [addressBook, setAddressBook] = useState<AddressBookEntry[]>([]);
     const [addressBookLoading, setAddressBookLoading] = useState(true);
     const [status, setStatus] = useState<FormStatus>({ loading: false, error: null, ok: null });
-    const [submitted, setSubmitted] = useState(false);
     const [availableSlots, setAvailableSlots] = useState<string[]>([]);
     const [slotsLoading, setSlotsLoading] = useState(false);
+    const [pendingCreated, setPendingCreated] = useState(false);
 
     const regions = LOCATION_REGIONS.map((region) => ({ value: region.id, label: region.name }));
     const communes = getCommunesForRegion(location.regionId ?? '').map((commune) => ({
         value: commune.id,
         label: commune.name,
     }));
+    const addressSummary = useMemo(
+        () => cleanSerenataAddress(
+            [location.addressLine1, location.addressLine2].filter(Boolean).join(', '),
+            location.communeName?.trim() ?? '',
+            location.regionName?.trim() ?? '',
+        ),
+        [location.addressLine1, location.addressLine2, location.communeName, location.regionName],
+    );
 
     useEffect(() => {
         void fetchAddressBook().then((response) => {
@@ -72,42 +82,61 @@ export function MarketplaceRequestView({
         const day = toInputDate(eventDate);
         if (!day) {
             setAvailableSlots([]);
+            setEventTime('');
             return;
         }
+        let cancelled = false;
         setSlotsLoading(true);
         void serenatasApi.marketplaceAvailability(group.slug, day, service.id).then((response) => {
-            setAvailableSlots(response.ok ? response.slots ?? [] : []);
+            if (cancelled) return;
+            const slots = response.ok ? response.slots ?? [] : [];
+            setAvailableSlots(slots);
+            setEventTime((current) => slots.includes(current) ? current : slots[0] ?? '');
             setSlotsLoading(false);
         });
+        return () => {
+            cancelled = true;
+        };
     }, [eventDate, flexibleSchedule, group.slug, service.id]);
 
     async function submit() {
         const regionName = location.regionName?.trim() ?? '';
         const communeName = location.communeName?.trim() ?? '';
-        const recipient = recipientName.trim() || 'Por confirmar';
-        let address: string;
-        let lat: number | null = null;
-        let lng: number | null = null;
+        const recipient = recipientName.trim();
+        const phone = clientPhone.trim();
+        const address = addressSummary;
+        const lat = location.geoPoint.latitude == null ? null : Number(location.geoPoint.latitude);
+        const lng = location.geoPoint.longitude == null ? null : Number(location.geoPoint.longitude);
 
-        if (quickMode) {
-            if (!eventDate || (!flexibleSchedule && !eventTime) || !clientPhone.trim() || !communeName || !regionName) {
-                setStatus({ loading: false, error: 'Completa fecha, comuna y teléfono de contacto.', ok: null });
+        if (!recipient) {
+            setStatus({ loading: false, error: 'Indica a quién va dirigida la serenata.', ok: null });
+            return;
+        }
+        if (!phone) {
+            setStatus({ loading: false, error: 'Indica un teléfono de contacto.', ok: null });
+            return;
+        }
+        if (!eventDate) {
+            setStatus({ loading: false, error: 'Selecciona la fecha del evento.', ok: null });
+            return;
+        }
+        if (!flexibleSchedule) {
+            if (slotsLoading) {
+                setStatus({ loading: false, error: 'Espera que carguen los horarios disponibles.', ok: null });
                 return;
             }
-            address = cleanSerenataAddress(
-                `Evento en ${communeName} (dirección por confirmar)`,
-                communeName,
-                regionName,
-            );
-        } else {
-            const rawAddress = [location.addressLine1, location.addressLine2].filter(Boolean).join(', ').trim();
-            address = cleanSerenataAddress(rawAddress, communeName, regionName);
-            lat = location.geoPoint.latitude == null ? null : Number(location.geoPoint.latitude);
-            lng = location.geoPoint.longitude == null ? null : Number(location.geoPoint.longitude);
-            if (!eventDate || (!flexibleSchedule && !eventTime) || !clientPhone.trim() || !address || !communeName || !regionName) {
-                setStatus({ loading: false, error: 'Completa fecha, dirección, comuna y teléfono de contacto.', ok: null });
+            if (!availableSlots.length) {
+                setStatus({ loading: false, error: 'No hay horarios disponibles para esa fecha. Marca horario por definir o cambia la fecha.', ok: null });
                 return;
             }
+            if (!eventTime || !availableSlots.includes(eventTime)) {
+                setStatus({ loading: false, error: 'Selecciona uno de los horarios disponibles.', ok: null });
+                return;
+            }
+        }
+        if (!address || !communeName || !regionName) {
+            setStatus({ loading: false, error: 'Completa la dirección, comuna y región del evento.', ok: null });
+            return;
         }
 
         setStatus({ loading: true, error: null, ok: null });
@@ -115,7 +144,7 @@ export function MarketplaceRequestView({
             providerGroupId: group.id,
             serviceId: service.id,
             recipientName: recipient,
-            clientPhone: clientPhone.trim() || null,
+            clientPhone: phone,
             address,
             comuna: communeName,
             region: regionName,
@@ -127,38 +156,31 @@ export function MarketplaceRequestView({
             message: message.trim() || null,
         });
         if (!response.ok) {
-            const conflict = (response.error ?? '').toLowerCase().includes('solapa')
-                || (response.error ?? '').toLowerCase().includes('horario');
             setStatus({
                 loading: false,
-                error: conflict
-                    ? (response.error ?? 'Ese horario no está disponible. Elige otro de la lista.')
-                    : (response.error ?? 'No pudimos enviar la solicitud.'),
+                error: response.error ?? 'No pudimos crear la solicitud.',
                 ok: null,
             });
             return;
         }
-        setStatus({ loading: false, error: null, ok: null });
-        setSubmitted(true);
-    }
 
-    if (submitted) {
-        return (
-            <div className="grid gap-5">
-                <PanelCard>
-                    <PanelNotice tone="success">
-                        Tu solicitud fue enviada a <strong>{group.name}</strong>. Te avisaremos cuando el grupo responda.
-                    </PanelNotice>
-                    <p className="mt-3 text-sm text-[var(--fg-muted)]">
-                        Servicio: {service.name} · {service.durationMinutes} min
-                    </p>
-                    <div className="mt-5 flex flex-col gap-2 sm:flex-row">
-                        <PanelButton onClick={onSuccess}>Ver mis serenatas</PanelButton>
-                        <PanelButton variant="secondary" onClick={onBack}>Volver al grupo</PanelButton>
-                    </div>
-                </PanelCard>
-            </div>
-        );
+        setPendingCreated(true);
+        clearMarketplaceRequestDraftRef();
+        const returnUrl = `${window.location.origin}${panelSectionHref('serenatas')}`;
+        const checkout = await startSerenataCheckout({
+            serenataId: response.item.id,
+            returnUrl,
+        });
+        if (!checkout.ok || !checkout.checkoutUrl) {
+            setStatus({
+                loading: false,
+                error: checkout.error ?? 'La solicitud quedó pendiente, pero no pudimos iniciar el pago. Puedes retomarlo en Mis Serenatas.',
+                ok: null,
+            });
+            return;
+        }
+        setStatus({ loading: true, error: null, ok: 'Redirigiendo al pago...' });
+        window.location.assign(checkout.checkoutUrl);
     }
 
     async function saveCurrentAddress() {
@@ -187,123 +209,165 @@ export function MarketplaceRequestView({
 
     return (
         <div className="grid gap-5">
-            <PanelButton variant="ghost" onClick={onBack}>← Volver</PanelButton>
-            <PanelCard>
-                <h2 className="text-xl font-semibold text-[var(--fg)]">Solicitar serenata</h2>
-                <p className="mt-1 text-sm text-[var(--fg-muted)]">
-                    Tu solicitud irá directamente a <strong>{group.name}</strong> · {service.name} · {service.durationMinutes} min
-                </p>
-                <div className="mt-4 flex flex-wrap gap-2">
-                    <PanelButton
-                        variant={quickMode ? 'primary' : 'secondary'}
-                        onClick={() => setQuickMode(true)}
-                    >
-                        Solicitud rápida
-                    </PanelButton>
-                    <PanelButton
-                        variant={!quickMode ? 'primary' : 'secondary'}
-                        onClick={() => setQuickMode(false)}
-                    >
-                        Dirección completa
-                    </PanelButton>
-                </div>
-                {quickMode ? (
-                    <p className="mt-2 text-xs text-[var(--fg-muted)]">
-                        Envía fecha, comuna y contacto ahora. El dueño del grupo podrá confirmar la dirección exacta después.
-                    </p>
-                ) : null}
-                <div className="mt-5 grid gap-4">
-                    <PanelField label={quickMode ? 'Destinatario (opcional)' : 'Destinatario'}>
-                        <FieldInput
-                            value={recipientName}
-                            onChange={(e) => setRecipientName(e.target.value)}
-                            placeholder={quickMode ? 'Nombre (puedes completar después)' : 'Nombre de la persona homenajeada'}
-                        />
-                    </PanelField>
-                    <PanelField label="Teléfono de contacto">
-                        <FieldInput value={clientPhone} onChange={(e) => setClientPhone(e.target.value)} placeholder="+56 9 …" />
-                    </PanelField>
-                    <div className="grid gap-3 sm:grid-cols-2">
-                        <PanelField label="Fecha">
-                            <FieldInput type="date" value={toInputDate(eventDate) ?? ''} min={toInputDate(today) ?? undefined} onChange={(e) => setEventDate(e.target.value)} />
-                        </PanelField>
-                        <PanelField label="Hora">
+            <PanelButton className="w-fit" variant="ghost" onClick={onBack}>
+                <IconArrowLeft size={16} />
+                Volver al grupo
+            </PanelButton>
+
+            <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_340px] xl:items-start">
+                <PanelCard size="lg">
+                    <div>
+                        <p className="text-lg font-semibold text-fg">Datos del evento</p>
+                        <p className="mt-1 text-sm text-fg-muted">
+                            Completa la información necesaria antes de pagar. El dueño recibirá la solicitud pagada y confirmará si puede cubrirla con su grupo.
+                        </p>
+                    </div>
+
+                    <div className="mt-6 grid gap-4">
+                        <PanelField label="A quién va dirigida" required>
                             <FieldInput
-                                type="time"
-                                value={eventTime}
-                                disabled={flexibleSchedule}
-                                onChange={(e) => setEventTime(e.target.value)}
+                                value={recipientName}
+                                onChange={(event) => setRecipientName(event.target.value)}
+                                placeholder="Nombre de la persona homenajeada"
                             />
                         </PanelField>
-                    </div>
-                    <label className="flex items-center gap-2 text-sm text-[var(--fg)]">
-                        <input
-                            type="checkbox"
-                            checked={flexibleSchedule}
-                            onChange={(e) => setFlexibleSchedule(e.target.checked)}
-                        />
-                        Aún no sé la hora (el grupo te propondrá horarios)
-                    </label>
-                    {!flexibleSchedule && availableSlots.length > 0 ? (
-                        <PanelField label="Horarios disponibles">
-                            <div className="flex flex-wrap gap-2">
-                                {slotsLoading ? (
-                                    <span className="text-sm text-[var(--fg-muted)]">Cargando horarios…</span>
-                                ) : availableSlots.map((slot) => (
-                                    <PanelButton
-                                        key={slot}
-                                        variant={eventTime === slot ? 'primary' : 'secondary'}
-                                        onClick={() => setEventTime(slot)}
-                                    >
-                                        {slot}
-                                    </PanelButton>
-                                ))}
-                            </div>
+
+                        <PanelField label="Teléfono de contacto" hint="Usamos el teléfono de tu cuenta; puedes cambiarlo para esta serenata." required>
+                            <FieldInput
+                                value={clientPhone}
+                                onChange={(event) => setClientPhone(event.target.value)}
+                                placeholder="+56 9..."
+                            />
                         </PanelField>
-                    ) : slotsLoading ? (
-                        <p className="text-sm text-[var(--fg-muted)]">Buscando horarios disponibles…</p>
-                    ) : null}
-                    {quickMode ? (
-                        <RegionCommuneFields
-                            region={location.regionName ?? ''}
-                            comuna={location.communeName ?? ''}
-                            onRegionChange={(regionName) => setLocation((current) => ({ ...current, regionName, communeName: '' }))}
-                            onComunaChange={(communeName) => setLocation((current) => ({ ...current, communeName }))}
-                        />
-                    ) : (
-                        <ListingLocationEditor
-                            title="Dirección del evento"
-                            description="Selecciona la dirección donde será la serenata."
-                            simpleMode
-                            location={location}
-                            onChange={setLocation}
-                            regions={regions}
-                            communes={communes}
-                            addressBook={addressBook}
-                            addressBookLoading={addressBookLoading}
-                            addressFirst
-                            showAddressLine2={false}
-                            showAreaFields
-                            showSourceSelector={false}
-                            showVisibilityField={false}
-                            showPublicPreviewCard={false}
-                            showActionBar={false}
-                            showSimpleVisibilityToggle={false}
-                            showGoogleMapsLink
-                            addressRequired
-                            onSaveToAddressBook={() => void saveCurrentAddress()}
-                            googleMapsApiKey={process.env.NEXT_PUBLIC_GOOGLE_MAPS_BROWSER_KEY || process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY}
-                        />
-                    )}
-                    <PanelField label="Mensaje (opcional)">
-                        <FieldTextarea rows={3} value={message} onChange={(e) => setMessage(e.target.value)} />
-                    </PanelField>
-                    <FormFeedback status={status} />
-                    <PanelButton disabled={status.loading} onClick={() => void submit()}>
-                        Enviar solicitud
-                    </PanelButton>
-                </div>
-            </PanelCard>
+
+                        <div className="grid gap-3 sm:grid-cols-2">
+                            <PanelField label="Fecha" required>
+                                <FieldInput
+                                    type="date"
+                                    value={toInputDate(eventDate) ?? ''}
+                                    min={toInputDate(today) ?? undefined}
+                                    onChange={(event) => setEventDate(event.target.value)}
+                                />
+                            </PanelField>
+                            <PanelField label="Hora" required={!flexibleSchedule}>
+                                <FieldSelect
+                                    value={eventTime}
+                                    disabled={flexibleSchedule || slotsLoading || availableSlots.length === 0}
+                                    onChange={(event) => setEventTime(event.target.value)}
+                                >
+                                    {slotsLoading ? (
+                                        <option value="">Cargando horarios...</option>
+                                    ) : availableSlots.length > 0 ? (
+                                        availableSlots.map((slot) => (
+                                            <option key={slot} value={slot}>{slot}</option>
+                                        ))
+                                    ) : (
+                                        <option value="">Sin horarios disponibles</option>
+                                    )}
+                                </FieldSelect>
+                            </PanelField>
+                        </div>
+
+                        <label className="flex items-start gap-2 text-sm text-fg">
+                            <input
+                                className="mt-1"
+                                type="checkbox"
+                                checked={flexibleSchedule}
+                                onChange={(event) => setFlexibleSchedule(event.target.checked)}
+                            />
+                            <span>
+                                Aún no sé la hora exacta
+                                <span className="block text-xs text-fg-muted">El dueño deberá proponerte horario antes de aceptar.</span>
+                            </span>
+                        </label>
+
+                        <div className="rounded-card border border-border p-4">
+                            <p className="text-sm font-semibold text-fg">Dirección del evento</p>
+                            <p className="mt-1 text-xs text-fg-muted">Selecciona una dirección guardada o escribe una nueva con sugerencias de Google Maps.</p>
+                            <div className="mt-4">
+                                <ListingLocationEditor
+                                    simpleMode
+                                    framed={false}
+                                    showHeader={false}
+                                    location={location}
+                                    onChange={setLocation}
+                                    regions={regions}
+                                    communes={communes}
+                                    addressBook={addressBook}
+                                    addressBookLoading={addressBookLoading}
+                                    addressFirst
+                                    showAddressLine2={false}
+                                    showAreaFields
+                                    showSourceSelector={false}
+                                    showVisibilityField={false}
+                                    showPublicPreviewCard={false}
+                                    showActionBar={false}
+                                    showSimpleVisibilityToggle={false}
+                                    showGoogleMapsLink
+                                    addressRequired
+                                    addressHintMode="minimal"
+                                    onSaveToAddressBook={() => void saveCurrentAddress()}
+                                    googleMapsApiKey={process.env.NEXT_PUBLIC_GOOGLE_MAPS_BROWSER_KEY || process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY}
+                                />
+                            </div>
+                        </div>
+
+                        <PanelField label="Mensaje o dedicatoria" hint="Opcional. Sirve para orientar al grupo antes del evento.">
+                            <FieldTextarea
+                                rows={3}
+                                value={message}
+                                onChange={(event) => setMessage(event.target.value)}
+                                placeholder="Ej: cumpleaños, aniversario, canción especial o indicaciones de sorpresa."
+                            />
+                        </PanelField>
+
+                        <FormFeedback status={status} />
+                        {pendingCreated && status.error ? (
+                            <PanelButton variant="secondary" onClick={() => window.location.assign(panelSectionHref('serenatas'))}>
+                                Ver Mis Serenatas
+                            </PanelButton>
+                        ) : null}
+
+                        <div className="flex flex-col gap-2 border-t border-border pt-4 sm:flex-row sm:items-center sm:justify-end">
+                            <PanelButton variant="secondary" disabled={status.loading} onClick={onBack}>
+                                Cancelar
+                            </PanelButton>
+                            <PanelButton
+                                variant="primary"
+                                className="w-full sm:w-auto"
+                                disabled={status.loading || slotsLoading || pendingCreated}
+                                onClick={() => void submit()}
+                            >
+                                {status.loading ? <IconLoader2 size={16} className="animate-spin" /> : <IconCreditCard size={16} />}
+                                {status.loading ? 'Procesando...' : 'Pagar y solicitar'}
+                            </PanelButton>
+                        </div>
+                    </div>
+                </PanelCard>
+
+                <PanelCard className="xl:sticky xl:top-6">
+                    <p className="text-xs font-semibold uppercase tracking-[0.08em] text-fg-muted">Servicio seleccionado</p>
+                    <h3 className="mt-2 text-xl font-semibold text-fg">{service.name}</h3>
+                    <p className="mt-1 text-sm text-fg-muted">{group.name}</p>
+                    <div className="mt-5 grid gap-3 rounded-card border border-border bg-bg-subtle p-4">
+                        <div className="flex items-center justify-between gap-4">
+                            <span className="text-sm text-fg-muted">Precio</span>
+                            <span className="text-lg font-semibold text-accent">{money(service.price)}</span>
+                        </div>
+                        <div className="flex items-center justify-between gap-4">
+                            <span className="text-sm text-fg-muted">Duración</span>
+                            <span className="text-sm font-medium text-fg">{service.durationMinutes} min</span>
+                        </div>
+                        <div className="flex items-center justify-between gap-4">
+                            <span className="text-sm text-fg-muted">Músicos</span>
+                            <span className="text-sm font-medium text-fg">{service.musiciansCount}</span>
+                        </div>
+                    </div>
+                    <PanelNotice tone="neutral" className="mt-4">
+                        Al confirmar el pago, enviamos la solicitud al dueño. Si el grupo no puede cubrirla, verás la respuesta en Mis Serenatas.
+                    </PanelNotice>
+                </PanelCard>
+            </div>
         </div>
     );
 }

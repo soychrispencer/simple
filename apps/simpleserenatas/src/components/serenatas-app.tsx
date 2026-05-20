@@ -3,7 +3,7 @@
 import { useMemo, useCallback } from 'react';
 import { useRouter, useSearchParams, usePathname } from 'next/navigation';
 import { panelPathFromSection } from '@/lib/panel-routes';
-import { PanelNotice } from '@simple/ui';
+import { PanelConfirmProvider, PanelNotice } from '@simple/ui';
 import { MarketplaceHeader } from '@simple/marketplace-header';
 
 import { useAuth } from '@simple/auth';
@@ -29,7 +29,7 @@ import { suspendedAccountNotice } from '@/lib/suspended-notice';
 import { persistSignupProfile } from '@/lib/signup-profile';
 
 /**
- * Panel operativo: rutas `/panel/*` + compat `/?section=` → redirect en `LegacySectionRedirect`.
+ * Panel de trabajo: rutas `/panel/*` + compat `/?section=` → redirect en `LegacySectionRedirect`.
  * Chrome: header compacto + `SerenataPanelShell` (sidebar / bottom nav).
  */
 export function SerenatasApp() {
@@ -88,7 +88,7 @@ export function SerenatasApp() {
     }, [pathname, router, searchParams, section]);
 
     const openClientRequest = useCallback(() => {
-        changeSection('grupos');
+        changeSection('mariachis');
     }, [changeSection]);
 
     const isSuspended = user?.status === 'suspended';
@@ -152,6 +152,7 @@ export function SerenatasApp() {
     const primaryAction = getPrimaryActionConfig(mode, profiles);
 
     return (
+        <PanelConfirmProvider>
         <div className="flex min-h-screen flex-col bg-[var(--bg)] text-[var(--fg)]">
             <MarketplaceHeader
                 brandAppId="simpleserenatas"
@@ -159,7 +160,9 @@ export function SerenatasApp() {
                 publicLinks={[]}
                 getPanelNavItems={() => []}
                 isPanelNavActive={panelNavActive}
-                fetchPanelNotifications={fetchNotifications}
+                fetchPanelNotifications={() =>
+                    fetchNotifications()
+                }
                 centerSlot={
                     switchItems.length > 1 ? (
                         <ProfileSwitcher
@@ -268,5 +271,6 @@ export function SerenatasApp() {
                 </div>
             </SerenataPanelShell>
         </div>
+        </PanelConfirmProvider>
     );
 }

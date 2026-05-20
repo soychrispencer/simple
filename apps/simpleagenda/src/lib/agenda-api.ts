@@ -14,6 +14,27 @@ async function apiFetch<T>(path: string, options?: RequestInit): Promise<T> {
     return data;
 }
 
+/** Mutaciones agenda: no lanza en errores HTTP; devuelve `{ ok: false, error }`. */
+async function agendaMutation<T extends { ok: boolean }>(
+    path: string,
+    options?: RequestInit,
+): Promise<T & { error?: string }> {
+    try {
+        const res = await fetch(`${API_BASE}${path}`, {
+            ...options,
+            credentials: 'include',
+            headers: { 'Content-Type': 'application/json', ...options?.headers },
+        });
+        const data = await res.json().catch(() => ({ ok: false, error: `HTTP ${res.status}` })) as T & { error?: string };
+        if (!res.ok) {
+            return { ...data, ok: false as T['ok'], error: data.error ?? `HTTP ${res.status}` };
+        }
+        return data;
+    } catch (err) {
+        return { ok: false as T['ok'], error: err instanceof Error ? err.message : 'Error desconocido' };
+    }
+}
+
 export type AgendaPlanId = 'free' | 'pro' | 'enterprise';
 
 export function isPlanActive(profile: { plan: string; planExpiresAt: string | null }, minPlan: AgendaPlanId = 'pro'): boolean {
@@ -197,23 +218,27 @@ export async function fetchAgendaAvailability(): Promise<{ rules: AvailabilityRu
 }
 
 export async function createAvailabilityRule(body: Partial<AvailabilityRule>): Promise<{ ok: boolean; rule?: AvailabilityRule; error?: string }> {
-    return apiFetch('/api/agenda/availability/rules', { method: 'POST', body: JSON.stringify(body) });
+    return agendaMutation('/api/agenda/availability/rules', { method: 'POST', body: JSON.stringify(body) });
 }
 
 export async function updateAvailabilityRule(id: string, body: Partial<AvailabilityRule>): Promise<{ ok: boolean; rule?: AvailabilityRule; error?: string }> {
-    return apiFetch(`/api/agenda/availability/rules/${id}`, { method: 'PUT', body: JSON.stringify(body) });
+    return agendaMutation(`/api/agenda/availability/rules/${id}`, { method: 'PUT', body: JSON.stringify(body) });
 }
 
-export async function deleteAvailabilityRule(id: string): Promise<{ ok: boolean }> {
-    return apiFetch(`/api/agenda/availability/rules/${id}`, { method: 'DELETE' });
+export async function deleteAvailabilityRule(id: string): Promise<{ ok: boolean; error?: string }> {
+    return agendaMutation(`/api/agenda/availability/rules/${id}`, { method: 'DELETE' });
+}
+
+export async function replaceAgendaAvailability(rules: Partial<AvailabilityRule>[]): Promise<{ ok: boolean; rules?: AvailabilityRule[]; error?: string }> {
+    return agendaMutation('/api/agenda/availability', { method: 'PUT', body: JSON.stringify({ rules }) });
 }
 
 export async function createBlockedSlot(body: { startsAt: string; endsAt: string; reason?: string }): Promise<{ ok: boolean; slot?: BlockedSlot; error?: string }> {
-    return apiFetch('/api/agenda/availability/blocked-slots', { method: 'POST', body: JSON.stringify(body) });
+    return agendaMutation('/api/agenda/availability/blocked-slots', { method: 'POST', body: JSON.stringify(body) });
 }
 
-export async function deleteBlockedSlot(id: string): Promise<{ ok: boolean }> {
-    return apiFetch(`/api/agenda/availability/blocked-slots/${id}`, { method: 'DELETE' });
+export async function deleteBlockedSlot(id: string): Promise<{ ok: boolean; error?: string }> {
+    return agendaMutation(`/api/agenda/availability/blocked-slots/${id}`, { method: 'DELETE' });
 }
 
 // ── Locations (consulting rooms) ──────────────────────────────────────────────

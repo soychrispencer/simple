@@ -42,15 +42,14 @@ AUTH_COOKIE_SAMESITE=none
 GOOGLE_CLIENT_ID=                    # ver .env local → GOOGLE_CLIENT_ID
 GOOGLE_CLIENT_SECRET=                # ver .env local → GOOGLE_CLIENT_SECRET
 
-# Storage: ver docs/STORAGE_SETUP.md (fuente única). Producción puede usar backblaze-s3 o cloudflare-r2.
-STORAGE_PROVIDER=backblaze-s3
-BACKBLAZE_S3_ENDPOINT=https://s3.us-east-005.backblazeb2.com
-BACKBLAZE_S3_REGION=us-east-5
-BACKBLAZE_S3_ACCESS_KEY=             # ver .env local → BACKBLAZE_S3_ACCESS_KEY
-BACKBLAZE_S3_SECRET_KEY=             # ver .env local → BACKBLAZE_S3_SECRET_KEY
-BACKBLAZE_BUCKET_NAME=simple-media
-BACKBLAZE_DOWNLOAD_URL=              # ver .env local → BACKBLAZE_DOWNLOAD_URL
-# Alternativa R2 (recomendada en services/api/.env.example): STORAGE_PROVIDER=cloudflare-r2 + CLOUDFLARE_R2_*
+# Storage: ver docs/STORAGE_SETUP.md (fuente única). Producción: cloudflare-r2.
+STORAGE_PROVIDER=cloudflare-r2
+CLOUDFLARE_R2_ACCOUNT_ID=            # ver .env local → CLOUDFLARE_R2_ACCOUNT_ID
+CLOUDFLARE_R2_ACCESS_KEY_ID=         # ver .env local → CLOUDFLARE_R2_ACCESS_KEY_ID
+CLOUDFLARE_R2_SECRET_ACCESS_KEY=     # ver .env local → CLOUDFLARE_R2_SECRET_ACCESS_KEY
+CLOUDFLARE_R2_BUCKET_NAME=simple-media
+CLOUDFLARE_R2_PUBLIC_URL=            # ver .env local → CLOUDFLARE_R2_PUBLIC_URL
+# CLOUDFLARE_WORKER_URL=             # opcional — overlays Instagram
 
 GOOGLE_MAPS_API_KEY=                 # ver .env local → GOOGLE_MAPS_API_KEY
 

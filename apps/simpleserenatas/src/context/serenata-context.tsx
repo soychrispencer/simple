@@ -7,6 +7,7 @@ import {
     legacyQueryToPanelPath,
     panelSectionHref,
     resolveGrupoQueryRedirect,
+    resolveCanonicalMarketplaceRedirect,
     resolveCanonicalMiNegocioRedirect,
     resolveNestedPanelRedirect,
     sectionFromPanelPath,
@@ -40,6 +41,7 @@ import { confirmCheckout } from '@/lib/payments';
 /** Secciones del panel; sincronizadas con rutas `/panel/*` (ver `changeSection`). */
 export type Section =
     | 'home'
+    | 'mariachis'
     | 'grupos'
     | 'grupo'
     | 'solicitar'
@@ -318,7 +320,7 @@ export function SerenataProvider({ children }: { children: ReactNode }) {
                 setCheckoutStatus({
                     loading: false,
                     error: null,
-                    ok: 'Pago confirmado. Tu solicitud irá directamente al grupo que elegiste.',
+                    ok: 'Pago confirmado. Tu solicitud fue enviada al grupo que elegiste.',
                 });
             } else {
                 setCheckoutStatus({ loading: false, error: 'El pago no fue aprobado.', ok: null });
@@ -333,6 +335,12 @@ export function SerenataProvider({ children }: { children: ReactNode }) {
         const nestedTarget = resolveNestedPanelRedirect(pathname);
         if (nestedTarget) {
             router.replace(nestedTarget, { scroll: false });
+            return;
+        }
+
+        const marketplaceTarget = resolveCanonicalMarketplaceRedirect(pathname, searchParams.toString());
+        if (marketplaceTarget) {
+            router.replace(marketplaceTarget, { scroll: false });
             return;
         }
 
@@ -379,7 +387,11 @@ export function SerenataProvider({ children }: { children: ReactNode }) {
         query?: Record<string, string | null | undefined>,
     ) => {
         const normalized =
-            next === 'servicios' || next === 'groups' ? 'mi-negocio' : next;
+            next === 'servicios' || next === 'groups'
+                ? 'mi-negocio'
+                : next === 'grupos'
+                  ? 'mariachis'
+                  : next;
         setSection(normalized);
         router.replace(panelSectionHref(next, query), { scroll: false });
     };

@@ -9,14 +9,15 @@ import { ProfileIncompleteNotice } from './profile-incomplete-notice';
 
 function invitationStatusLabel(status: Invitation['status']) {
     if (status === 'invited') return 'Pendiente';
-    if (status === 'accepted') return 'Aceptada';
+    if (status === 'accepted' || status === 'active') return 'Aceptada';
+    if (status === 'removed') return 'Quitada';
     if (status === 'rejected') return 'Rechazada';
     return 'Cancelada';
 }
 
 function invitationStatusTone(status: Invitation['status']): 'success' | 'warning' | 'danger' | 'neutral' {
-    if (status === 'accepted') return 'success';
-    if (status === 'rejected') return 'danger';
+    if (status === 'accepted' || status === 'active') return 'success';
+    if (status === 'rejected' || status === 'removed') return 'danger';
     if (status === 'invited') return 'warning';
     return 'neutral';
 }
@@ -52,7 +53,7 @@ export function InvitationsView({
                                 {pending.length} invitacion{pending.length === 1 ? '' : 'es'} pendiente{pending.length === 1 ? '' : 's'}
                             </p>
                             <p className="mt-1 text-sm text-[var(--fg-muted)]">
-                                Revisa fecha, lugar e instrumento antes de aceptar.
+                                Revisa si es una invitación al mariachi o a una serenata antes de aceptar.
                             </p>
                         </div>
                         <PanelStatusBadge tone="warning" label={`${pending.length} por responder`} />
@@ -112,7 +113,7 @@ export function InvitationsView({
                                         <PanelButton onClick={() => void respond(item.id, 'accepted')}><IconCheck size={16} /> Aceptar</PanelButton>
                                         <PanelButton variant="secondary" onClick={() => void respond(item.id, 'rejected')}><IconX size={16} /> Rechazar</PanelButton>
                                     </div>
-                                ) : item.status === 'accepted' && item.serenataId && toInputDate(eventDate) ? (
+                                ) : (item.status === 'accepted' || item.status === 'active') && item.serenataId && toInputDate(eventDate) ? (
                                     <p className="mt-3 text-xs text-[var(--fg-muted)]">
                                         Quedó en tu agenda para el {formatDate(eventDate)}.
                                     </p>

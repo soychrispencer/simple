@@ -1,10 +1,11 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { Suspense, useEffect, useState } from 'react';
 import { AuthModal, AuthProvider, useAuth } from '@simple/auth';
 import { IconHeart, IconMusic } from '@tabler/icons-react';
 import { LogoutHomeRedirect } from '@/components/logout-home-redirect';
 import { SignupProfileBootstrap } from '@/components/signup-profile-bootstrap';
+import { GroupInviteBootstrap } from '@/components/group-invite-bootstrap';
 import {
     clearSignupProfile,
     isModalSignupProfile,
@@ -97,6 +98,9 @@ export function ClientProviders({ children }: { children: React.ReactNode }) {
         <AuthProvider>
             <LogoutHomeRedirect />
             <SignupProfileBootstrap />
+            <Suspense fallback={null}>
+                <GroupInviteBootstrap />
+            </Suspense>
             {children}
             <AuthModalWithSignupProfile />
         </AuthProvider>

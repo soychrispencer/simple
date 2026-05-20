@@ -23,8 +23,26 @@ export default function GoogleCallbackPage() {
         setReturnTo(nextReturnTo);
 
         if (googleError) {
+            const storedReturnTo = sessionStorage.getItem('auth.returnTo');
+            if (googleError === 'email_mismatch' && storedReturnTo) {
+                try {
+                    const target = new URL(storedReturnTo, window.location.origin);
+                    target.searchParams.set('google_error', 'email_mismatch');
+                    window.location.replace(target.toString());
+                    return;
+                } catch {
+                    // fall through to inline error UI
+                }
+            }
             setStatus('error');
-            setMessage(googleError);
+            if (googleError === 'email_mismatch') {
+                setMessage(
+                    'El Google que elegiste usa otro correo. Vuelve a Datos personales e intenta con la misma cuenta de correo.',
+                );
+            } else {
+                const detail = search.get('google_error_message');
+                setMessage(detail ? decodeURIComponent(detail) : googleError);
+            }
             return;
         }
         if (!code || !state) {

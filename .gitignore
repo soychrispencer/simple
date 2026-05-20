@@ -16,6 +16,7 @@ out/
 .env
 
 # IDE/Editor
+.cursor/
 .vscode/
 .idea/
 *.swp
@@ -59,3 +60,6 @@ seed.txt
 playwright-report/
 test-results/
 blob-report/
+
+# Local uploads
+services/api/uploads/

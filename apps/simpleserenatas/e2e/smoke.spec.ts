@@ -139,7 +139,7 @@ test.describe('SimpleSerenatas smoke', () => {
 
         await page.goto('/panel/grupos');
         await expect(page).toHaveURL(/\/panel\/grupos/);
-        await expect(page.getByRole('heading', { name: /explora grupos|grupos de mariachis/i }).first()).toBeVisible({
+        await expect(page.getByRole('heading', { name: /explora mariachis|grupos de mariachis/i }).first()).toBeVisible({
             timeout: 15_000,
         });
     });

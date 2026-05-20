@@ -12,6 +12,33 @@ const mockSelect = vi.fn();
 const mockInsert = vi.fn();
 const mockUpdate = vi.fn();
 
+function selectRows(rows: unknown[]) {
+    return {
+        from: () => ({
+            where: async () => rows,
+        }),
+    };
+}
+
+function selectOrderedRows(rows: unknown[]) {
+    return {
+        from: () => ({
+            where: () => ({
+                orderBy: async () => rows,
+            }),
+        }),
+    };
+}
+
+function mockMarketplaceSlotSelects(providerExisting: unknown[] = [], blocked: unknown[] = [], ownerExisting: unknown[] = []) {
+    mockSelect
+        .mockReturnValueOnce(selectRows(providerExisting))
+        .mockReturnValueOnce(selectOrderedRows(blocked))
+        .mockReturnValueOnce(selectRows(ownerExisting))
+        .mockReturnValueOnce(selectRows(providerExisting))
+        .mockReturnValueOnce(selectOrderedRows(blocked));
+}
+
 vi.mock('../../db/index.js', () => ({
     db: {
         query: {
@@ -96,17 +123,16 @@ describe('expirePendingSerenatas', () => {
 
 describe('createMarketplaceSerenata', () => {
     beforeEach(() => {
-        vi.clearAllMocks();
-        mockSelect.mockReturnValue({
-            from: () => ({
-                where: async () => [],
-            }),
-        });
+        mockFindFirst.mockReset();
+        mockSelect.mockReset();
+        mockInsert.mockReset();
+        mockUpdate.mockReset();
+        mockSelect.mockImplementation(() => selectRows([]));
         mockInsert.mockReturnValue({
             values: () => ({
                 returning: async () => [{
                     id: 's-new',
-                    status: 'pending',
+                    status: 'payment_pending',
                     clientId: 'c1',
                     providerGroupId: 'g1',
                 }],
@@ -114,7 +140,7 @@ describe('createMarketplaceSerenata', () => {
         });
     });
 
-    it('auto_if_available confirma cuando el slot está libre', async () => {
+    it('crea solicitud pendiente de pago cuando el slot está libre', async () => {
         mockFindFirst
             .mockResolvedValueOnce({
                 id: 'g1',
@@ -127,21 +153,14 @@ describe('createMarketplaceSerenata', () => {
             .mockResolvedValueOnce({
                 id: 'svc1',
                 providerGroupId: 'g1',
-                durationMinutes: 45,
+                durationMinutes: 30,
                 price: 50000,
                 isActive: true,
                 eventType: 'Serenata',
                 name: 'Trío',
-            })
-            .mockResolvedValueOnce({ id: 'a1', userId: 'admin-u' });
+            });
 
-        const future = new Date(Date.now() + 5 * 60 * 60 * 1000);
-        const ymd = new Intl.DateTimeFormat('en-CA', {
-            timeZone: 'America/Santiago',
-            year: 'numeric',
-            month: '2-digit',
-            day: '2-digit',
-        }).format(future);
+        mockMarketplaceSlotSelects();
 
         const result = await createMarketplaceSerenata(
             { id: 'u1', email: 'a@b.c', name: 'U', role: 'user', status: 'active' },
@@ -153,7 +172,7 @@ describe('createMarketplaceSerenata', () => {
                 address: 'Calle 1',
                 comuna: 'Santiago',
                 region: 'RM',
-                eventDate: new Date(`${ymd}T12:00:00.000Z`),
+                eventDate: new Date('2099-06-15T12:00:00.000Z'),
                 eventTime: '20:00',
             },
             { ensureClientProfile: async () => ({ id: 'c1', userId: 'u1' }) },
@@ -176,35 +195,23 @@ describe('createMarketplaceSerenata', () => {
             .mockResolvedValueOnce({
                 id: 'svc1',
                 providerGroupId: 'g1',
-                durationMinutes: 45,
+                durationMinutes: 30,
                 price: 50000,
                 isActive: true,
                 eventType: 'Serenata',
                 name: 'Trío',
             });
 
-        mockSelect.mockReturnValue({
-            from: () => ({
-                where: async () => [{
-                    id: 'other',
-                    eventTime: '20:00',
-                    duration: 45,
-                    status: 'scheduled',
-                    ownerId: 'a1',
-                    providerGroupId: 'g1',
-                    lat: null,
-                    lng: null,
-                }],
-            }),
-        });
-
-        const future = new Date(Date.now() + 5 * 60 * 60 * 1000);
-        const ymd = new Intl.DateTimeFormat('en-CA', {
-            timeZone: 'America/Santiago',
-            year: 'numeric',
-            month: '2-digit',
-            day: '2-digit',
-        }).format(future);
+        mockMarketplaceSlotSelects([{
+            id: 'other',
+            eventTime: '20:00',
+            duration: 30,
+            status: 'scheduled',
+            ownerId: 'a1',
+            providerGroupId: 'g1',
+            lat: null,
+            lng: null,
+        }]);
 
         const result = await createMarketplaceSerenata(
             { id: 'u1', email: 'a@b.c', name: 'U', role: 'user', status: 'active' },
@@ -216,7 +223,7 @@ describe('createMarketplaceSerenata', () => {
                 address: 'Calle 1',
                 comuna: 'Santiago',
                 region: 'RM',
-                eventDate: new Date(`${ymd}T12:00:00.000Z`),
+                eventDate: new Date('2099-06-15T12:00:00.000Z'),
                 eventTime: '20:00',
             },
             { ensureClientProfile: async () => ({ id: 'c1', userId: 'u1' }) },
@@ -225,7 +232,7 @@ describe('createMarketplaceSerenata', () => {
         expect(result.ok).toBe(false);
         if (!result.ok) {
             expect(result.status).toBe(409);
-            expect(result.error).toMatch(/solapa|tiempo suficiente/i);
+            expect(result.error).toMatch(/disponible|solapa|tiempo suficiente/i);
         }
     });
 });

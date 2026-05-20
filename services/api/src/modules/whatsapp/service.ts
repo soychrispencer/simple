@@ -12,6 +12,7 @@
  *   WHATSAPP_PHONE_NUMBER_ID_AGENDA     — SimpleAgenda number
  *   WHATSAPP_PHONE_NUMBER_ID_AUTOS      — SimpleAutos number
  *   WHATSAPP_PHONE_NUMBER_ID_PROPIEDADES — SimplePropiedades number
+ *   WHATSAPP_PHONE_NUMBER_ID_SERENATAS  — SimpleSerenatas number
  *   WHATSAPP_PHONE_NUMBER_ID            — fallback / default number
  *
  * Templates (approved in Meta Business Manager, per vertical):
@@ -20,6 +21,8 @@
  *     simpleagenda_recordatorio_24h   — recordatorio día anterior
  *     simpleagenda_recordatorio_30min — recordatorio 30 min antes
  *     simpleagenda_cancelacion        — cita cancelada
+ *   SimpleSerenatas:
+ *     simpleserenatas_invitacion_grupo — invitación a grupo (params: nombre, grupo, enlace panel)
  */
 
 import { fmtDateTz, fmtTime } from '@simple/utils';
@@ -28,9 +31,9 @@ import { logger } from '@simple/logger';
 const GRAPH_API = 'https://graph.facebook.com/v21.0';
 
 import type { VerticalType } from '@simple/types';
-export type WaVertical = VerticalType;
+export type WaVertical = VerticalType | 'serenatas';
 
-function getPhoneNumberId(vertical?: WaVertical | 'serenatas'): string | null {
+function getPhoneNumberId(vertical?: WaVertical): string | null {
     if (vertical === 'agenda')       return process.env.WHATSAPP_PHONE_NUMBER_ID_AGENDA    ?? process.env.WHATSAPP_PHONE_NUMBER_ID ?? null;
     if (vertical === 'autos')        return process.env.WHATSAPP_PHONE_NUMBER_ID_AUTOS     ?? process.env.WHATSAPP_PHONE_NUMBER_ID ?? null;
     if (vertical === 'propiedades')  return process.env.WHATSAPP_PHONE_NUMBER_ID_PROPIEDADES ?? process.env.WHATSAPP_PHONE_NUMBER_ID ?? null;

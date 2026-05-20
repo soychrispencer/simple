@@ -193,7 +193,7 @@ export function PublicLanding({ onLogin, onRegisterClient, onRegisterMusician }:
                                 eyebrow="Para dueños"
                                 title="Administra tu mariachi como un negocio"
                                 description="Agenda, músicos, marketplace, mapa y rutas. La suite para quien administra uno o más grupos de mariachis."
-                                bullets={['Perfil público y servicios', 'Plantel de músicos', 'Mapa y logística del día']}
+                                bullets={['Perfil público y servicios', 'Grupos e integrantes', 'Mapa y logística del día']}
                                 ctaLabel="Crear cuenta de dueño"
                                 href="/para-duenos"
                                 accent

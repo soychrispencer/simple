@@ -86,10 +86,10 @@ export function money(value: number | null) {
 
 export function serenataStatusLabel(status: Serenata['status']) {
     if (status === 'payment_pending') return 'Pago pendiente';
-    if (status === 'pending') return 'Pendiente';
-    if (status === 'pending_open') return 'Sin hora definida';
-    if (status === 'accepted_pending_group') return 'Falta grupo';
-    if (status === 'scheduled') return 'Programada';
+    if (status === 'pending') return 'En revisión';
+    if (status === 'pending_open') return 'Horario por definir';
+    if (status === 'accepted_pending_group') return 'Aceptada, falta grupo';
+    if (status === 'scheduled') return 'Agendada';
     if (status === 'completed') return 'Completada';
     if (status === 'rejected') return 'Rechazada';
     if (status === 'expired') return 'Expirada';
@@ -100,7 +100,7 @@ export function clientSerenataStatusLabel(status: Serenata['status']) {
     if (status === 'payment_pending') return 'Pago pendiente';
     if (status === 'pending') return 'Solicitud enviada';
     if (status === 'pending_open') return 'Horario por confirmar';
-    if (status === 'accepted_pending_group') return 'Grupo preparando';
+    if (status === 'accepted_pending_group') return 'Aceptada, coordinando grupo';
     if (status === 'scheduled') return 'Confirmada';
     if (status === 'completed') return 'Completada';
     if (status === 'rejected') return 'No aceptada';
@@ -112,7 +112,7 @@ export function serenataStatusTone(status: Serenata['status']): 'success' | 'war
     if (status === 'payment_pending') return 'warning';
     if (status === 'pending' || status === 'pending_open') return 'info';
     if (status === 'accepted_pending_group') return 'warning';
-    if (status === 'scheduled') return 'warning';
+    if (status === 'scheduled') return 'success';
     if (status === 'completed') return 'success';
     if (status === 'cancelled') return 'danger';
     if (status === 'rejected' || status === 'expired') return 'neutral';

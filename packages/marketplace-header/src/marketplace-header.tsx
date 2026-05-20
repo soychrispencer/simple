@@ -139,8 +139,13 @@ export function MarketplaceHeader({
       setNotifications(items);
     };
     void run();
+    const onRefresh = () => {
+      void run();
+    };
+    window.addEventListener('simple:panel-notifications-changed', onRefresh);
     return () => {
       active = false;
+      window.removeEventListener('simple:panel-notifications-changed', onRefresh);
     };
   }, [isLoggedIn, pathname, fetchPanelNotifications, notificationSlot]);
 

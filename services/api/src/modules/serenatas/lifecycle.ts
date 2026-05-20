@@ -1,10 +1,15 @@
 import { and, eq, inArray, isNotNull, isNull, lt } from 'drizzle-orm';
 import { db } from '../../db/index.js';
-import { serenataOwners, serenataClients, serenataNotifications, serenatas } from '../../db/schema.js';
+import { serenataOwners, serenataClients, serenatas } from '../../db/schema.js';
+import { insertSerenataNotifications } from '../../lib/serenata-in-app-notifications.js';
+import {
+    deliverSerenataAgendaNotification,
+    deliverSerenataRequestNotification,
+} from '../../lib/serenatas-notification-delivery.js';
 
 export const SERENATA_TIMEZONE = 'America/Santiago';
 
-export const CLOSURE_PENDING_STATUSES = ['scheduled', 'accepted_pending_group'] as const;
+export const CLOSURE_PENDING_STATUSES = ['scheduled'] as const;
 export const COMPLETABLE_STATUSES = ['scheduled'] as const;
 export const CANCELLABLE_STATUSES = ['scheduled', 'accepted_pending_group'] as const;
 export const TERMINAL_STATUSES = ['completed', 'cancelled'] as const;
@@ -131,12 +136,19 @@ export async function maybeSendClosureReminders(
 
         if (!updated) continue;
 
-        await db.insert(serenataNotifications).values({
+        const title = 'Confirma si se realizó';
+        const message = `La serenata para ${item.recipientName} ya pasó. Márcala como completada o cancelada.`;
+        await insertSerenataNotifications({
             userId: ownerUserId,
             type: 'serenata_closure_reminder',
-            title: 'Confirma si se realizó',
-            message: `La serenata para ${item.recipientName} ya pasó. Márcala como completada o cancelada.`,
+            title,
+            message,
             metadata: { serenataId: item.id },
+        });
+        void deliverSerenataAgendaNotification(ownerUserId, {
+            title,
+            message,
+            panelPath: `/panel/solicitudes?serenata=${encodeURIComponent(item.id)}`,
         });
     }
 }
@@ -170,7 +182,7 @@ export async function expirePendingSerenatas(now = new Date()) {
         .select()
         .from(serenatas)
         .where(and(
-            inArray(serenatas.status, ['pending', 'pending_open']),
+            inArray(serenatas.status, ['payment_pending', 'pending', 'pending_open']),
             eq(serenatas.source, 'platform_lead'),
             isNotNull(serenatas.responseDueAt),
             lt(serenatas.responseDueAt, now),
@@ -185,7 +197,10 @@ export async function expirePendingSerenatas(now = new Date()) {
                 expiredReason: 'sla_timeout',
                 updatedAt: now,
             })
-            .where(and(eq(serenatas.id, row.id), inArray(serenatas.status, ['pending', 'pending_open'])))
+            .where(and(
+                eq(serenatas.id, row.id),
+                inArray(serenatas.status, ['payment_pending', 'pending', 'pending_open']),
+            ))
             .returning();
 
         if (!updated) continue;
@@ -193,12 +208,19 @@ export async function expirePendingSerenatas(now = new Date()) {
         if (updated.clientId) {
             const client = await db.query.serenataClients.findFirst({ where: eq(serenataClients.id, updated.clientId) });
             if (client) {
-                await db.insert(serenataNotifications).values({
+                const expiredTitle = 'Solicitud expirada';
+                const expiredMessage = 'El grupo no respondió a tiempo. Puedes solicitar otra serenata.';
+                await insertSerenataNotifications({
                     userId: client.userId,
                     type: 'client_serenata_expired',
-                    title: 'Solicitud expirada',
-                    message: 'El grupo no respondió a tiempo. Puedes solicitar otra serenata.',
+                    title: expiredTitle,
+                    message: expiredMessage,
                     metadata: { serenataId: updated.id, providerGroupId: updated.providerGroupId },
+                });
+                void deliverSerenataRequestNotification(client.userId, {
+                    title: expiredTitle,
+                    message: expiredMessage,
+                    panelPath: '/panel/serenatas',
                 });
             }
         }
@@ -206,7 +228,7 @@ export async function expirePendingSerenatas(now = new Date()) {
         if (updated.ownerId) {
             const admin = await db.query.serenataOwners.findFirst({ where: eq(serenataOwners.id, updated.ownerId) });
             if (admin) {
-                await db.insert(serenataNotifications).values({
+                await insertSerenataNotifications({
                     userId: admin.userId,
                     type: 'provider_group_request_expired',
                     title: 'Solicitud expirada',
@@ -252,12 +274,19 @@ export async function maybeSendPendingSlaReminders(now = new Date()) {
         const admin = await db.query.serenataOwners.findFirst({ where: eq(serenataOwners.id, item.ownerId) });
         if (!admin) continue;
 
-        await db.insert(serenataNotifications).values({
+        const reminderTitle = 'Solicitud pendiente';
+        const reminderMessage = `Queda poco plazo para responder la solicitud de ${item.recipientName}.`;
+        await insertSerenataNotifications({
             userId: admin.userId,
             type: 'provider_group_request_reminder',
-            title: 'Solicitud pendiente',
-            message: `Queda poco plazo para responder la solicitud de ${item.recipientName}.`,
+            title: reminderTitle,
+            message: reminderMessage,
             metadata: { serenataId: item.id, providerGroupId: item.providerGroupId },
+        });
+        void deliverSerenataRequestNotification(admin.userId, {
+            title: reminderTitle,
+            message: reminderMessage,
+            panelPath: `/panel/solicitudes?serenata=${encodeURIComponent(item.id)}`,
         });
     }
 }
@@ -296,7 +325,7 @@ export async function cancelClientPendingSerenata(
             cancelledBy: userId,
             updatedAt: now,
         })
-        .where(and(eq(serenatas.id, serenataId), inArray(serenatas.status, ['pending', 'pending_open'])))
+        .where(and(eq(serenatas.id, serenataId), inArray(serenatas.status, ['payment_pending', 'pending', 'pending_open'])))
         .returning();
 
     if (!item) {
@@ -306,12 +335,19 @@ export async function cancelClientPendingSerenata(
     if (item.ownerId) {
         const admin = await db.query.serenataOwners.findFirst({ where: eq(serenataOwners.id, item.ownerId) });
         if (admin) {
-            await db.insert(serenataNotifications).values({
+            const cancelTitle = 'Solicitud cancelada';
+            const cancelMessage = `El cliente canceló la solicitud para ${item.recipientName}.`;
+            await insertSerenataNotifications({
                 userId: admin.userId,
                 type: 'provider_group_request_cancelled',
-                title: 'Solicitud cancelada',
-                message: `El cliente canceló la solicitud para ${item.recipientName}.`,
+                title: cancelTitle,
+                message: cancelMessage,
                 metadata: { serenataId: item.id, providerGroupId: item.providerGroupId },
+            });
+            void deliverSerenataRequestNotification(admin.userId, {
+                title: cancelTitle,
+                message: cancelMessage,
+                panelPath: `/panel/solicitudes?serenata=${encodeURIComponent(item.id)}`,
             });
         }
     }

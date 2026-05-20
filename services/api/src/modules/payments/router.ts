@@ -1,10 +1,15 @@
 import { Hono } from 'hono';
 import {
     buildMercadoPagoCheckoutBackUrls,
+    isDevMercadoPagoPreapprovalId,
+    mercadoPagoDevCheckoutFallbackEnabled,
     resolveMercadoPagoPreferenceCheckoutUrl,
 } from '../mercadopago/checkout-helpers.js';
-import { getPaymentById, verifyMercadoPagoWebhookSignature } from '../mercadopago/service.js';
+import { getPaymentById, getPreapprovalById, verifyMercadoPagoWebhookSignature } from '../mercadopago/service.js';
+import { serenataProMonthlyChargeClp } from '../serenatas/plan-config.js';
+import { loadCurrentSubscriptionFromDb } from '../subscriptions/persist-db.js';
 import { confirmPaymentFromProvider, findPaymentOrderByExternalReference } from './confirm-from-provider.js';
+import { confirmSubscriptionFromPreapproval } from './confirm-subscription.js';
 import { listUserPaymentOrdersMerged } from './list-user-orders.js';
 
 export type PaymentsRouterDeps = {
@@ -86,6 +91,9 @@ export type PaymentsRouterDeps = {
     };
     /** IDs de pago MP ya procesados por webhook (idempotencia en proceso). */
     processedMercadoPagoWebhookPaymentIds?: Set<string>;
+    processedMercadoPagoWebhookPreapprovalIds?: Set<string>;
+    getPrimaryAccountIdForUser: (userId: string) => Promise<string | null>;
+    cancelActiveSubscriptionForUser?: (userId: string, vertical: any) => void;
 };
 
 export function createPaymentsRouter(deps: PaymentsRouterDeps) {
@@ -136,36 +144,26 @@ export function createPaymentsRouter(deps: PaymentsRouterDeps) {
             }
         } else {
             try {
-                const subRows = await deps.db.execute(deps.dbSql`
-                    SELECT id, account_id, plan_id, vertical, status, provider_status, started_at, updated_at
-                    FROM subscriptions
-                    WHERE user_id = ${user.id} AND vertical = ${vertical}
-                    ORDER BY created_at DESC
-                    LIMIT 1
-                `);
-
-                if (subRows.length > 0) {
-                    const sub = subRows[0] as any;
-                    const matchedPlan = plans.find((p: any) => p.id === sub.plan_id);
-                    const isExpired = sub.expires_at && new Date(sub.expires_at) < new Date();
-                    const subStatus = isExpired ? 'expired' : (sub.status || 'active');
-
-                    if (subStatus !== 'expired' && subStatus !== 'cancelled') {
-                        currentSubscription = {
-                            id: sub.id,
-                            accountId: sub.account_id ?? null,
-                            vertical: sub.vertical,
-                            planId: sub.plan_id,
-                            planName: matchedPlan?.name ?? sub.plan_id,
-                            priceMonthly: matchedPlan?.priceMonthly ?? 0,
-                            currency: 'CLP',
-                            features: matchedPlan?.features ?? [],
-                            status: subStatus === 'active' ? 'active' : 'paused',
-                            providerStatus: sub.provider_status ?? 'manual',
-                            startedAt: new Date(sub.started_at).getTime(),
-                            updatedAt: new Date(sub.updated_at).getTime(),
-                        };
-                    }
+                const dbSub = await loadCurrentSubscriptionFromDb(user.id, vertical);
+                if (dbSub) {
+                    currentSubscription = {
+                        id: dbSub.id,
+                        accountId: dbSub.accountId,
+                        vertical: dbSub.vertical,
+                        planId: dbSub.planSlug,
+                        planName: dbSub.planName,
+                        priceMonthly: dbSub.priceMonthly,
+                        currency: dbSub.currency,
+                        features: dbSub.features,
+                        status: 'active' as const,
+                        providerStatus: dbSub.providerStatus ?? 'authorized',
+                        startedAt: dbSub.startedAt.getTime(),
+                        updatedAt: dbSub.updatedAt.getTime(),
+                    };
+                } else {
+                    currentSubscription = deps.activeSubscriptionToResponse(
+                        deps.getCurrentSubscription(user.id, vertical),
+                    );
                 }
             } catch (dbErr) {
                 console.error('[subscriptions/catalog] DB error for', vertical, ':', dbErr);
@@ -268,14 +266,17 @@ export function createPaymentsRouter(deps: PaymentsRouterDeps) {
     app.post('/payments/checkout', deps.requireVerifiedSession, async (c) => {
         const user = await deps.authUser(c);
         if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
-        if (!deps.isMercadoPagoConfigured()) {
-            return c.json({ ok: false, error: 'Mercado Pago no está configurado en el backend.' }, 503);
-        }
 
         const payload = await c.req.json().catch(() => null);
         const parsed = deps.schemas.createCheckoutSchema.safeParse(payload);
         if (!parsed.success) return c.json({ ok: false, error: 'Payload inválido' }, 400);
         const checkoutData = parsed.data;
+        const mercadoPagoConfigured = deps.isMercadoPagoConfigured();
+        const allowDevCheckoutFallback =
+            process.env.NODE_ENV !== 'production' && process.env.MERCADO_PAGO_DEV_CHECKOUT_FALLBACK !== 'false';
+        if (!mercadoPagoConfigured && !(allowDevCheckoutFallback && checkoutData.kind === 'serenata_booking')) {
+            return c.json({ ok: false, error: 'Mercado Pago no está configurado en el backend.' }, 503);
+        }
 
         try {
             if (checkoutData.kind === 'serenata_booking') {
@@ -305,6 +306,9 @@ export function createPaymentsRouter(deps: PaymentsRouterDeps) {
                 let preference: any = null;
                 let checkoutUrl: string | null = null;
                 try {
+                    if (!mercadoPagoConfigured) {
+                        throw new Error('Mercado Pago no está configurado en el backend.');
+                    }
                     preference = await deps.createCheckoutPreference({
                         externalReference: orderId,
                         title: target.eventType ?? 'Serenata SimpleSerenatas',
@@ -487,20 +491,67 @@ export function createPaymentsRouter(deps: PaymentsRouterDeps) {
             if (!plan) {
                 return c.json({ ok: false, error: 'Plan no disponible' }, 400);
             }
-            const currentSubscription = deps.getCurrentSubscription(user.id, vertical);
-            if (currentSubscription?.planId === plan.id && currentSubscription.status === 'active') {
+            let subscriptionAlreadyActive = false;
+            try {
+                const dbSub = await loadCurrentSubscriptionFromDb(user.id, vertical);
+                if (dbSub && dbSub.planSlug === plan.id) {
+                    subscriptionAlreadyActive = true;
+                } else {
+                    const memorySub = deps.getCurrentSubscription(user.id, vertical);
+                    if (
+                        memorySub?.status === 'active'
+                        && memorySub.planId === plan.id
+                        && deps.cancelActiveSubscriptionForUser
+                    ) {
+                        deps.cancelActiveSubscriptionForUser(user.id, vertical);
+                    }
+                }
+            } catch (dbErr) {
+                console.error('[payments/checkout] subscription DB lookup failed:', dbErr);
+            }
+            if (subscriptionAlreadyActive) {
                 return c.json({ ok: false, error: 'Ese plan ya está activo en tu cuenta.' }, 409);
             }
 
             const orderId = deps.makePaymentOrderId('subscription');
-            const preapproval = await deps.createPreapproval({
-                externalReference: orderId,
-                reason: `Suscripción ${plan.name} · ${vertical === 'autos' ? 'SimpleAutos' : vertical === 'propiedades' ? 'SimplePropiedades' : vertical === 'serenatas' ? 'SimpleSerenatas' : 'SimpleAgenda'}`,
-                amount: plan.priceMonthly,
-                currencyId: plan.currency,
-                payerEmail: user.email,
-                backUrl: deps.appendCheckoutParams(returnUrl, { checkout: 'return', purchaseId: orderId, kind: 'subscription' }),
+            const subscriptionChargeAmount =
+                vertical === 'serenatas' && plan.id === 'pro'
+                    ? serenataProMonthlyChargeClp()
+                    : plan.priceMonthly;
+            const subscriptionBackUrl = deps.appendCheckoutParams(returnUrl, {
+                checkout: 'return',
+                purchaseId: orderId,
+                kind: 'subscription',
             });
+            const subscriptionReason = `Suscripción ${plan.name} · ${vertical === 'autos' ? 'SimpleAutos' : vertical === 'propiedades' ? 'SimplePropiedades' : vertical === 'serenatas' ? 'SimpleSerenatas' : 'SimpleAgenda'}`;
+
+            let preapproval: { id: string; initPoint: string | null; status: string | null };
+            let checkoutUrl: string | null;
+            let providerStatus: string;
+
+            try {
+                preapproval = await deps.createPreapproval({
+                    externalReference: orderId,
+                    reason: subscriptionReason,
+                    amount: subscriptionChargeAmount,
+                    currencyId: plan.currency,
+                    payerEmail: user.email,
+                    backUrl: subscriptionBackUrl,
+                });
+                checkoutUrl = preapproval.initPoint;
+                providerStatus = preapproval.status ?? 'pending';
+            } catch (error) {
+                if (process.env.NODE_ENV === 'production' || !mercadoPagoDevCheckoutFallbackEnabled()) {
+                    throw error;
+                }
+                preapproval = {
+                    id: `dev-preapproval-${orderId}`,
+                    initPoint: null,
+                    status: 'authorized',
+                };
+                checkoutUrl = subscriptionBackUrl;
+                providerStatus = 'dev_fallback';
+            }
 
             const order = deps.upsertPaymentOrder({
                 id: orderId,
@@ -508,18 +559,23 @@ export function createPaymentsRouter(deps: PaymentsRouterDeps) {
                 vertical,
                 kind: 'subscription',
                 title: `Suscripción ${plan.name}`,
-                amount: plan.priceMonthly,
+                amount: subscriptionChargeAmount,
                 currency: plan.currency,
                 status: preapproval.status === 'authorized' ? 'authorized' : 'pending',
-                providerStatus: preapproval.status,
+                providerStatus,
                 providerReferenceId: preapproval.id,
                 preferenceId: null,
-                checkoutUrl: preapproval.initPoint,
+                checkoutUrl,
                 createdAt: Date.now(),
                 updatedAt: Date.now(),
                 appliedAt: null,
                 appliedResourceId: null,
-                metadata: { kind: 'subscription', planId: plan.id, planName: plan.name },
+                metadata: {
+                    kind: 'subscription',
+                    planId: plan.id,
+                    planName: plan.name,
+                    chargeAmountClp: subscriptionChargeAmount,
+                },
             });
 
             return c.json({ ok: true, orderId: order.id, checkoutUrl: order.checkoutUrl, order: deps.paymentOrderToResponse(order) });
@@ -555,72 +611,57 @@ export function createPaymentsRouter(deps: PaymentsRouterDeps) {
 
         try {
             if (order.kind === 'subscription') {
-                const subscriptionMeta = order.metadata.kind === 'subscription' ? order.metadata : null;
-                if (!subscriptionMeta) {
-                    return c.json({ ok: false, error: 'La orden no tiene metadata de suscripción válida.' }, 409);
-                }
                 if (!order.providerReferenceId) {
                     return c.json({ ok: false, error: 'La suscripción no tiene referencia en Mercado Pago.' }, 409);
                 }
 
-                const providerPayload = await deps.getPreapprovalById(order.providerReferenceId);
-                const providerStatus = String((providerPayload as any)?.status ?? '');
-                const externalReference = String((providerPayload as any)?.external_reference ?? '');
-                if (externalReference && externalReference !== order.id) {
-                    return c.json({ ok: false, error: 'La respuesta de Mercado Pago no coincide con esta orden.' }, 409);
-                }
-
-                let nextOrder = await deps.updatePaymentOrder(user.id, order.id, (current: any) => ({
-                    ...current,
-                    status: deps.parseMercadoPagoPreapprovalStatus(providerStatus),
-                    providerStatus,
-                    updatedAt: Date.now(),
-                })) ?? order;
-
-                if (nextOrder.status === 'authorized' && !nextOrder.appliedAt) {
-                    const plan = deps.getPaidSubscriptionPlan(nextOrder.vertical, subscriptionMeta.planId);
-                    if (!plan) {
-                        return c.json({ ok: false, error: 'No pudimos resolver el plan de suscripción.' }, 409);
+                const preapprovalId = String(order.providerReferenceId);
+                let providerStatus: string;
+                if (isDevMercadoPagoPreapprovalId(preapprovalId)) {
+                    providerStatus = 'authorized';
+                } else {
+                    const providerPayload = await deps.getPreapprovalById(preapprovalId);
+                    providerStatus = String((providerPayload as any)?.status ?? '');
+                    const externalReference = String((providerPayload as any)?.external_reference ?? '');
+                    if (externalReference && externalReference !== order.id) {
+                        return c.json({ ok: false, error: 'La respuesta de Mercado Pago no coincide con esta orden.' }, 409);
                     }
-
-                    const subscription = deps.upsertActiveSubscription({
-                        id: deps.makeSubscriptionId(nextOrder.vertical, subscriptionMeta.planId),
-                        userId: user.id,
-                        vertical: nextOrder.vertical,
-                        planId: subscriptionMeta.planId,
-                        planName: plan.name,
-                        priceMonthly: plan.priceMonthly,
-                        currency: plan.currency,
-                        features: plan.features,
-                        status: 'active',
-                        providerPreapprovalId: nextOrder.providerReferenceId ?? '',
-                        providerStatus,
-                        startedAt: Date.now(),
-                        updatedAt: Date.now(),
-                    });
-
-                    nextOrder = await deps.updatePaymentOrder(user.id, order.id, (current: any) => ({
-                        ...current,
-                        status: 'authorized',
-                        providerStatus,
-                        updatedAt: Date.now(),
-                        appliedAt: Date.now(),
-                        appliedResourceId: subscription.id,
-                    })) ?? nextOrder;
-
-                    return c.json({
-                        ok: true,
-                        status: nextOrder.status,
-                        order: deps.paymentOrderToResponse(nextOrder),
-                        subscription: deps.activeSubscriptionToResponse(subscription),
-                    });
                 }
 
+                const confirmed = await confirmSubscriptionFromPreapproval(
+                    {
+                        getPaidSubscriptionPlan: deps.getPaidSubscriptionPlan,
+                        upsertActiveSubscription: deps.upsertActiveSubscription,
+                        makeSubscriptionId: deps.makeSubscriptionId,
+                        updatePaymentOrder: deps.updatePaymentOrder,
+                        getPrimaryAccountIdForUser: deps.getPrimaryAccountIdForUser,
+                        parseMercadoPagoPreapprovalStatus: deps.parseMercadoPagoPreapprovalStatus,
+                        cancelActiveSubscriptionForUser: deps.cancelActiveSubscriptionForUser,
+                    },
+                    {
+                        userId: user.id,
+                        order,
+                        providerStatus,
+                        providerPreapprovalId: String(order.providerReferenceId),
+                    },
+                );
+
+                if (!confirmed.ok) {
+                    const httpStatus =
+                        confirmed.status === 400 ? 400
+                        : confirmed.status === 404 ? 404
+                        : 409;
+                    return c.json({ ok: false, error: confirmed.error }, httpStatus);
+                }
+
+                const memorySub = confirmed.applied
+                    ? (confirmed.subscription as Record<string, unknown>)
+                    : deps.getCurrentSubscription(user.id, order.vertical);
                 return c.json({
                     ok: true,
-                    status: nextOrder.status,
-                    order: deps.paymentOrderToResponse(nextOrder),
-                    subscription: deps.activeSubscriptionToResponse(deps.getCurrentSubscription(user.id, order.vertical)),
+                    status: confirmed.order.status,
+                    order: deps.paymentOrderToResponse(confirmed.order),
+                    subscription: deps.activeSubscriptionToResponse(memorySub),
                 });
             }
 
@@ -657,6 +698,77 @@ export function createPaymentsRouter(deps: PaymentsRouterDeps) {
             });
             if (signatureResult === false) {
                 return c.json({ ok: false, error: 'Firma de webhook inválida o no permitida' }, 401);
+            }
+
+            const isPreapproval =
+                topic === 'preapproval'
+                || topic === 'subscription_preapproval'
+                || String(body.type ?? '').includes('preapproval');
+            if (isPreapproval) {
+                const preapprovalId = String(
+                    c.req.query('id') ?? c.req.query('data.id') ?? bodyData.id ?? body.id ?? '',
+                );
+                if (!preapprovalId) return c.json({ ok: true });
+
+                const processedPre = deps.processedMercadoPagoWebhookPreapprovalIds;
+                if (processedPre?.has(preapprovalId)) {
+                    return c.json({ ok: true, duplicate: true });
+                }
+
+                let providerPayload: Record<string, unknown>;
+                try {
+                    providerPayload = (await getPreapprovalById(preapprovalId)) as Record<string, unknown>;
+                } catch (err) {
+                    console.warn('[payments] MP webhook preapproval: no se pudo consultar:', err);
+                    return c.json({ ok: true });
+                }
+
+                const providerStatus = String(providerPayload.status ?? '');
+                const orderId = String(providerPayload.external_reference ?? '');
+                if (!orderId) return c.json({ ok: true });
+
+                let located = findPaymentOrderByExternalReference(deps.paymentOrdersByUser, orderId);
+                if (!located && deps.loadPaymentOrderFromDb) {
+                    const hydrated = await deps.loadPaymentOrderFromDb(orderId);
+                    if (hydrated) {
+                        deps.upsertPaymentOrder(hydrated);
+                        located = {
+                            userId: String(hydrated.userId),
+                            order: { id: String(hydrated.id), userId: String(hydrated.userId) },
+                        };
+                    }
+                }
+                if (!located) return c.json({ ok: true });
+
+                const fullOrder = deps.getPaymentOrdersForUser(located.userId).find((o: { id: string }) => o.id === orderId)
+                    ?? (await deps.loadPaymentOrderFromDb?.(orderId));
+                if (!fullOrder || fullOrder.kind !== 'subscription') return c.json({ ok: true });
+
+                const result = await confirmSubscriptionFromPreapproval(
+                    {
+                        getPaidSubscriptionPlan: deps.getPaidSubscriptionPlan,
+                        upsertActiveSubscription: deps.upsertActiveSubscription,
+                        makeSubscriptionId: deps.makeSubscriptionId,
+                        updatePaymentOrder: deps.updatePaymentOrder,
+                        getPrimaryAccountIdForUser: deps.getPrimaryAccountIdForUser,
+                        parseMercadoPagoPreapprovalStatus: deps.parseMercadoPagoPreapprovalStatus,
+                        cancelActiveSubscriptionForUser: deps.cancelActiveSubscriptionForUser,
+                    },
+                    {
+                        userId: located.userId,
+                        order: fullOrder as Record<string, unknown>,
+                        providerStatus,
+                        providerPreapprovalId: preapprovalId,
+                    },
+                );
+
+                if (result.ok) {
+                    processedPre?.add(preapprovalId);
+                } else {
+                    console.warn('[payments] MP webhook preapproval: confirmación fallida:', result.error);
+                }
+
+                return c.json({ ok: true });
             }
 
             const isPayment = topic === 'payment' || String(body.type ?? '') === 'payment';

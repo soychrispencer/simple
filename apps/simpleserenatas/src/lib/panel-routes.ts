@@ -1,5 +1,5 @@
 import type { Section } from '@/context/serenata-context';
-import { CONFIG_SLUG_TO_ACCOUNT_TAB, type AccountTab, isAccountTab } from '@/lib/account-tab';
+import { CONFIG_SLUG_TO_ACCOUNT_TAB, type AccountTab, isAccountTab, normalizeAccountTab } from '@/lib/account-tab';
 import type { MarketplaceRequestDraftRef } from '@/lib/marketplace-request-draft';
 import { marketplaceRequestDraftQuery } from '@/lib/marketplace-request-draft';
 import { type MiNegocioTab, isMiNegocioTab, miNegocioTabFromSearch } from '@/lib/mi-negocio-tab';
@@ -8,7 +8,8 @@ import { type MiNegocioTab, isMiNegocioTab, miNegocioTabFromSearch } from '@/lib
 export const PANEL_SLUG_TO_SECTION: Record<string, Section> = {
     inicio: 'home',
     home: 'home',
-    grupos: 'grupos',
+    grupos: 'mariachis',
+    mariachis: 'mariachis',
     grupo: 'grupo',
     solicitar: 'solicitar',
     contratar: 'contratar',
@@ -32,16 +33,17 @@ export const PANEL_SLUG_TO_SECTION: Record<string, Section> = {
     profile: 'profile',
     'mi-cuenta': 'profile',
     configuracion: 'profile',
-    marketplace: 'grupos',
-    explorar: 'grupos',
-    'nuevo-evento': 'grupos',
+    marketplace: 'mariachis',
+    explorar: 'mariachis',
+    'nuevo-evento': 'mariachis',
     notificaciones: 'home',
 };
 
 /** Sección → slug canónico en `/panel/{slug}`. */
 export const SECTION_TO_PANEL_SLUG: Record<Section, string> = {
     home: '',
-    grupos: 'grupos',
+    grupos: 'mariachis',
+    mariachis: 'mariachis',
     grupo: 'grupo',
     solicitar: 'solicitar',
     contratar: 'contratar',
@@ -160,17 +162,26 @@ export function profilePanelHref(accountTab?: AccountTab): string {
 export function miNegocioTabFromPanelPath(pathname: string, search: string): MiNegocioTab {
     const match = pathname.match(/^\/panel\/([^/?#]+)/);
     const slug = match?.[1];
+    if (slug === 'disponibilidad') return 'disponibilidad';
     if (slug === 'servicios') return 'servicios';
     if (slug === 'jornadas' || slug === 'groups') return 'grupos';
     return miNegocioTabFromSearch(search);
 }
 
-/** Redirige slugs legacy de Mi Negocio / grupos / servicios a la ruta canónica. */
+/** `/panel/grupos` (marketplace legacy) → `/panel/mariachis`. */
+export function resolveCanonicalMarketplaceRedirect(pathname: string, search: string): string | null {
+    const base = pathname.replace(/\/$/, '');
+    if (base !== '/panel/grupos') return null;
+    const qs = search.startsWith('?') ? search : search ? `?${search}` : '';
+    return `/panel/mariachis${qs}`;
+}
+
+/** Redirige slugs legacy de Mi Negocio / servicios a la ruta canónica. */
 export function resolveCanonicalMiNegocioRedirect(pathname: string, search: string): string | null {
     const match = pathname.match(/^\/panel\/([^/?#]+)/);
     if (!match) return null;
     const slug = match[1];
-    const legacySlugs = new Set(['mi-grupo', 'publicar', 'servicios', 'jornadas', 'groups']);
+    const legacySlugs = new Set(['mi-grupo', 'publicar', 'disponibilidad', 'servicios', 'jornadas', 'groups']);
     if (!legacySlugs.has(slug)) return null;
     return panelMiNegocioHref(miNegocioTabFromPanelPath(pathname, search));
 }
@@ -179,7 +190,8 @@ export function resolveCanonicalMiNegocioRedirect(pathname: string, search: stri
 export function legacyQueryToPanelPath(search: string): string | null {
     const params = new URLSearchParams(search.startsWith('?') ? search.slice(1) : search);
     const rawSection = params.get('section');
-    const section = rawSection === 'mi-grupo' ? 'mi-negocio' : rawSection;
+    const sectionRaw = rawSection === 'mi-grupo' ? 'mi-negocio' : rawSection;
+    const section = sectionRaw === 'grupos' ? 'mariachis' : sectionRaw;
     if (!section || !isPanelSection(section)) return null;
 
     const grupo = params.get('grupo');
@@ -232,7 +244,7 @@ export function resolveGrupoQueryRedirect(pathname: string, search: string): str
     }
 
     const section = sectionFromPanelPath(pathname);
-    if (section === 'grupos' || section === 'grupo') {
+    if (section === 'mariachis' || section === 'grupos' || section === 'grupo') {
         return withQuery;
     }
 
@@ -260,7 +272,7 @@ export function resolveNestedPanelRedirect(pathname: string): string | null {
 export function accountTabFromSearch(search: string): AccountTab | null {
     try {
         const tab = new URLSearchParams(search.startsWith('?') ? search.slice(1) : search).get('account_tab');
-        return isAccountTab(tab) ? tab : null;
+        return normalizeAccountTab(tab);
     } catch {
         return null;
     }

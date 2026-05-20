@@ -1,27 +1,27 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest';
 import {
-    assertOperationalGroupProviderMatch,
+    assertMusicianGroupMariachiMatch,
     assertProviderRosterComplete,
-    assignSerenataOperationalGroup,
+    assignSerenataMusicianGroup,
 } from './assign-group.js';
 
-describe('assertOperationalGroupProviderMatch', () => {
-    it('permite jornada legacy sin provider_group_id', () => {
-        expect(assertOperationalGroupProviderMatch('pg-1', null)).toBeNull();
+describe('assertMusicianGroupMariachiMatch', () => {
+    it('permite grupo legacy sin provider_group_id', () => {
+        expect(assertMusicianGroupMariachiMatch('pg-1', null)).toBeNull();
     });
 
-    it('rechaza jornada de otro proveedor', () => {
-        expect(assertOperationalGroupProviderMatch('pg-1', 'pg-2')).toMatch(/proveedor/i);
+    it('rechaza grupo de otro mariachi', () => {
+        expect(assertMusicianGroupMariachiMatch('pg-1', 'pg-2')).toMatch(/mariachi/i);
     });
 });
 
 describe('assertProviderRosterComplete', () => {
-    it('acepta cuando todos los músicos están en plantel', () => {
+    it('acepta cuando todos los músicos están en el grupo', () => {
         expect(assertProviderRosterComplete(['m1', 'm2'], ['m1', 'm2', 'm3'])).toBeNull();
     });
 
-    it('rechaza músicos fuera del plantel', () => {
-        expect(assertProviderRosterComplete(['m1', 'm9'], ['m1'])).toMatch(/proveedor/i);
+    it('rechaza músicos fuera del mariachi', () => {
+        expect(assertProviderRosterComplete(['m1', 'm9'], ['m1'])).toMatch(/mariachi/i);
     });
 });
 
@@ -34,6 +34,10 @@ const mockUpdate = vi.fn();
 
 vi.mock('./availability.js', () => ({
     validateGroupForSerenata: vi.fn().mockResolvedValue(null),
+}));
+
+vi.mock('../../lib/serenata-in-app-notifications.js', () => ({
+    insertSerenataNotifications: vi.fn().mockResolvedValue(undefined),
 }));
 
 function buildTx() {
@@ -64,7 +68,7 @@ function mockSelectChain(responses: unknown[][]) {
     });
 }
 
-describe('assignSerenataOperationalGroup (marketplace)', () => {
+describe('assignSerenataMusicianGroup (marketplace)', () => {
     beforeEach(() => {
         vi.clearAllMocks();
         mockFindFirstSerenata.mockResolvedValue({
@@ -84,7 +88,7 @@ describe('assignSerenataOperationalGroup (marketplace)', () => {
         mockInsert.mockReturnValue({
             values: () => ({
                 returning: () => Promise.resolve([{
-                    id: 'jornada-1',
+                    id: 'musician-group-1',
                     ownerId: 'admin-1',
                     providerGroupId: 'pg-1',
                     name: 'Grupo evento',
@@ -101,7 +105,7 @@ describe('assignSerenataOperationalGroup (marketplace)', () => {
                     returning: () => Promise.resolve([{
                         id: 'ser-1',
                         status: 'scheduled',
-                        groupId: 'jornada-1',
+                        groupId: 'musician-group-1',
                         providerGroupId: 'pg-1',
                     }]),
                 }),
@@ -109,7 +113,7 @@ describe('assignSerenataOperationalGroup (marketplace)', () => {
         });
     });
 
-    it('crea jornada vinculada al provider_group y valida plantel', async () => {
+    it('crea grupo de músicos vinculado al provider_group y valida integrantes', async () => {
         mockSelectChain([
             [],
             [],
@@ -121,7 +125,7 @@ describe('assignSerenataOperationalGroup (marketplace)', () => {
             ],
         ]);
 
-        const result = await assignSerenataOperationalGroup(buildTx() as never, {
+        const result = await assignSerenataMusicianGroup(buildTx() as never, {
             ownerId: 'admin-1',
             serenataId: 'ser-1',
             input: {
@@ -141,13 +145,13 @@ describe('assignSerenataOperationalGroup (marketplace)', () => {
         expect(mockInsert).toHaveBeenCalled();
     });
 
-    it('rechaza músicos fuera del plantel activo', async () => {
+    it('rechaza músicos fuera del mariachi activo', async () => {
         mockSelectChain([
             [],
             [{ musicianId: 'm1' }],
         ]);
 
-        const result = await assignSerenataOperationalGroup(buildTx() as never, {
+        const result = await assignSerenataMusicianGroup(buildTx() as never, {
             ownerId: 'admin-1',
             serenataId: 'ser-1',
             input: { mode: 'new', musicianIds: ['m1', 'm2'] },
@@ -156,7 +160,7 @@ describe('assignSerenataOperationalGroup (marketplace)', () => {
 
         expect(result.ok).toBe(false);
         if (!result.ok) {
-            expect(result.error).toMatch(/proveedor/i);
+            expect(result.error).toMatch(/mariachi/i);
             expect(result.status).toBe(409);
         }
     });

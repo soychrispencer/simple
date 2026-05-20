@@ -3,8 +3,7 @@ export type PermanentlyDeleteUserDeps = {
     db: any;
     tables: Record<string, any>;
     extractAllListingMediaUrls: (listing: { rawData?: unknown }) => string[];
-    getStorageProvider: () => { delete: (key: string) => Promise<unknown> };
-    extractBackblazeObjectKey: (url: string) => string;
+    deleteStoredMediaUrls: (urls: string[]) => Promise<void>;
     instagramAccountKey: (userId: string, vertical: string) => string;
     publicProfileUserVerticalKey: (userId: string, vertical: string) => string;
     caches: {
@@ -30,8 +29,7 @@ export function createPermanentlyDeleteUser(deps: PermanentlyDeleteUserDeps) {
         db,
         tables,
         extractAllListingMediaUrls,
-        getStorageProvider,
-        extractBackblazeObjectKey,
+        deleteStoredMediaUrls,
         instagramAccountKey,
         publicProfileUserVerticalKey,
         caches,
@@ -293,17 +291,7 @@ export function createPermanentlyDeleteUser(deps: PermanentlyDeleteUserDeps) {
         }
 
         if (listingMediaUrlsToDelete.length > 0) {
-            try {
-                const storage = getStorageProvider();
-                await Promise.allSettled(
-                    listingMediaUrlsToDelete
-                        .map((url) => extractBackblazeObjectKey(url))
-                        .filter((key) => key.length > 0)
-                        .map((key) => storage.delete(key)),
-                );
-            } catch {
-                // Media cleanup is best-effort
-            }
+            await deleteStoredMediaUrls(listingMediaUrlsToDelete);
         }
     };
 }

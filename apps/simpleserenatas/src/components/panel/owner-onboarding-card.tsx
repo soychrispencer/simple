@@ -37,11 +37,11 @@ export function OwnerOnboardingCard({
         <PanelCard className="border-accent-border bg-accent-soft">
             <h3 className="text-lg font-semibold text-[var(--fg)]">Crea tu mariachi en el marketplace</h3>
             <p className="mt-2 text-sm text-[var(--fg-muted)]">
-                Aún no tienes un grupo comercial publicado. Configura tu marca, servicios y comunas de atención para
+                Aún no tienes un mariachi publicado en el marketplace. Configura tu marca comercial, servicios y zonas de trabajo para
                 recibir solicitudes directas de clientes.
             </p>
             <PanelNotice tone="neutral" className="mt-4">
-                En <strong>Mi Negocio</strong> configuras tu perfil público, servicios y los grupos con los que operas.
+                En <strong>Mi Negocio</strong> configuras tu perfil comercial, servicios y el equipo de músicos.
             </PanelNotice>
             <div className="mt-4">
                 <PanelButton onClick={() => setSection('mi-negocio')}>Crear mi mariachi</PanelButton>

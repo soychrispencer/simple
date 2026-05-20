@@ -5,7 +5,6 @@ export {
     legacySerenataPackagesEnabled,
     markSerenataPaymentFailed,
     publishPaidSerenataToOwners,
-    publishPaidSerenataToAdmins,
 } from './router.js';
 export {
     acceptMarketplaceSerenata,

@@ -17,7 +17,7 @@ Verifica que esté en `http://localhost:4000` y retorne `{ ok: true, service: "s
 ### Paso 2: Ejecutar el script de seed en OTRA terminal
 ```bash
 cd c:\Users\chris\Desktop\Simple\services\api
-node scripts/seed-superadmin.mjs admin@simpleplataforma.app Pik@0819 "Admin User"
+node scripts/archive/seed-superadmin.mjs admin@simpleplataforma.app Pik@0819 "Admin User"
 ```
 
 **Output esperado:**

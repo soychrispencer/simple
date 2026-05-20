@@ -10,8 +10,7 @@ export interface SystemRouterDeps {
         NODE_ENV?: string;
         STORAGE_PROVIDER?: string;
         LOCAL_STORAGE_URL?: string;
-        BACKBLAZE_DOWNLOAD_URL?: string;
-        BACKBLAZE_BUCKET_NAME?: string;
+        CLOUDFLARE_R2_BUCKET_NAME?: string;
     };
 }
 
@@ -49,8 +48,7 @@ export function createSystemRouter(deps: SystemRouterDeps) {
                 NODE_ENV: env.NODE_ENV,
                 STORAGE_PROVIDER: env.STORAGE_PROVIDER,
                 LOCAL_STORAGE_URL: env.LOCAL_STORAGE_URL,
-                BACKBLAZE_DOWNLOAD_URL: env.BACKBLAZE_DOWNLOAD_URL,
-                BACKBLAZE_BUCKET_NAME: env.BACKBLAZE_BUCKET_NAME,
+                CLOUDFLARE_R2_BUCKET_NAME: env.CLOUDFLARE_R2_BUCKET_NAME,
             },
             api_root: apiRootDir,
         });

@@ -20,6 +20,22 @@ export const POST_JOURNAL_TAGS = [
     '0059_admin_audit_logs',
     '0060_serenata_owners',
     '0061_users_whatsapp_enabled',
+    '0062_users_email_notification_prefs',
+    '0063_users_in_app_notifications_enabled',
+    '0064_users_last_notification_sent',
+    '0065_users_email_digest_notification_log',
+    '0066_users_google_calendar',
+    '0067_users_whatsapp_category_prefs',
+    '0068_users_requests_notification_prefs',
+    '0069_subscriptions_plan_id_uuid',
+    '0070_serenata_provider_group_blocked_slots',
+    '0071_serenata_provider_group_payment_settings',
+    '0072_serenata_group_invites',
+    '0073_serenata_group_max_musicians',
+    '0074_serenata_provider_group_member_invites',
+    '0075_serenata_group_max_musicians_backfill',
+    '0076_serenata_group_required_instruments',
+    '0077_serenata_group_member_slot_index',
 ] as const;
 
 export type PostJournalTag = (typeof POST_JOURNAL_TAGS)[number];

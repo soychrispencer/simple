@@ -1,6 +1,7 @@
 import { Hono } from 'hono';
 import type { Context } from 'hono';
 import type { SQL } from 'drizzle-orm';
+import { cleanupReplacedMediaUrl } from '../media/stored-object.js';
 import { getPaymentById, verifyMercadoPagoWebhookSignature } from '../mercadopago/service.js';
 
 export interface AgendaRouterDeps {
@@ -37,6 +38,7 @@ export interface AgendaRouterDeps {
     };
     dbHelpers: { eq: any; and: any; or: any; asc: any; desc: any; gte: any; lte: any; lt: any; inArray: any; isNull: any };
     getAgendaProfile: (userId: string) => Promise<any>;
+    ensureAgendaProfile: (user: any) => Promise<any>;
     isFreePlan: (profile: any, role?: string) => boolean;
     checkClientLimit: (profileId: string) => Promise<string | null>;
     checkAppointmentLimit: (profileId: string) => Promise<string | null>;
@@ -158,7 +160,7 @@ export function createAgendaRouter(deps: AgendaRouterDeps) {
     const {
         authUser, requireVerifiedSession, asString, randomUUID, randomBytes,
         db, sql, tables, dbHelpers: { eq, and, or, asc, desc, gte, lte, lt, inArray, isNull },
-        getAgendaProfile, isFreePlan, checkClientLimit, checkAppointmentLimit, generateSlots,
+        getAgendaProfile, ensureAgendaProfile, isFreePlan, checkClientLimit, checkAppointmentLimit, generateSlots,
         isValidSlug, logAudit, logNotification, syncToGoogleCalendar, sendPushToUser,
         sendBookingConfirmationEmail, sendAppointmentReminderEmail,
         notifyConfirmation, notifyProfessionalNewBooking, notifyCancellation, notifyReminder24h,
@@ -196,12 +198,14 @@ export function createAgendaRouter(deps: AgendaRouterDeps) {
     app.patch('/profile', requireVerifiedSession, async (c) => {
         const user = await authUser(c);
         if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
-        const profile = await getAgendaProfile(user.id);
-        if (!profile) return c.json({ ok: false, error: 'Perfil no encontrado' }, 404);
+        const profile = await ensureAgendaProfile(user);
         const body = await c.req.json().catch(() => ({})) as Record<string, unknown>;
         const patch: Record<string, unknown> = { updatedAt: new Date() };
         const allowed = ['displayName','profession','headline','bio','avatarUrl','city','publicEmail','publicPhone','publicWhatsapp','isPublished','slug','currency','timezone','bookingWindowDays','cancellationHours','confirmationMode','encuadre','requiresAdvancePayment','advancePaymentInstructions','acceptsTransfer','acceptsMp','acceptsPaymentLink','waNotificationsEnabled','waNotifyProfessional','waProfessionalPhone','paymentLinkUrl','bankTransferData','coverUrl','websiteUrl','instagramUrl','facebookUrl','linkedinUrl','tiktokUrl','youtubeUrl','twitterUrl','allowsRecurrentBooking'] as const;
-        for (const key of allowed) { if (key in body) patch[key] = body[key]; }
+        for (const key of allowed) {
+            if (key === 'avatarUrl' || key === 'coverUrl') continue;
+            if (key in body) patch[key] = body[key];
+        }
         if ('slug' in body && body.slug !== profile.slug) {
             const newSlug = String(body.slug ?? '').toLowerCase().trim();
             const validation = isValidSlug(newSlug);
@@ -209,6 +213,28 @@ export function createAgendaRouter(deps: AgendaRouterDeps) {
             const existing = await db.select({ id: agendaProfessionalProfiles.id }).from(agendaProfessionalProfiles).where(eq(agendaProfessionalProfiles.slug, newSlug)).limit(1);
             if (existing.length > 0 && existing[0].id !== profile.id) return c.json({ ok: false, error: 'Este link ya está en uso por otro profesional.' }, 409);
             patch.slug = newSlug;
+        }
+        if ('avatarUrl' in body) {
+            const raw = body.avatarUrl;
+            const nextAvatarUrl =
+                raw === null
+                    ? null
+                    : typeof raw === 'string'
+                      ? raw.trim() || null
+                      : profile.avatarUrl ?? null;
+            await cleanupReplacedMediaUrl(profile.avatarUrl, nextAvatarUrl);
+            patch.avatarUrl = nextAvatarUrl;
+        }
+        if ('coverUrl' in body) {
+            const raw = body.coverUrl;
+            const nextCoverUrl =
+                raw === null
+                    ? null
+                    : typeof raw === 'string'
+                      ? raw.trim() || null
+                      : profile.coverUrl ?? null;
+            await cleanupReplacedMediaUrl(profile.coverUrl, nextCoverUrl);
+            patch.coverUrl = nextCoverUrl;
         }
         const [updated] = await db.update(agendaProfessionalProfiles).set(patch).where(eq(agendaProfessionalProfiles.id, profile.id)).returning();
         if ('isPublished' in body && body.isPublished !== profile.isPublished) await logAudit({ professionalId: profile.id, userId: user.id, entityType: 'profile', entityId: profile.id, action: body.isPublished ? 'publish' : 'unpublish', ctx: c });
@@ -278,23 +304,10 @@ export function createAgendaRouter(deps: AgendaRouterDeps) {
     });
 
     // ── Availability ──────────────────────────────────────────────────────────
-    app.get('/availability', requireVerifiedSession, async (c) => {
-        const user = await authUser(c);
-        if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
-        const profile = await getAgendaProfile(user.id);
-        if (!profile) return c.json({ ok: true, rules: [], blockedSlots: [] });
-        const [rules, blockedSlots] = await Promise.all([
-            db.select().from(agendaAvailabilityRules).where(eq(agendaAvailabilityRules.professionalId, profile.id)).orderBy(asc(agendaAvailabilityRules.dayOfWeek)),
-            db.select().from(agendaBlockedSlots).where(and(eq(agendaBlockedSlots.professionalId, profile.id), gte(agendaBlockedSlots.endsAt, new Date()))).orderBy(asc(agendaBlockedSlots.startsAt)),
-        ]);
-        return c.json({ ok: true, rules, blockedSlots });
-    });
-
     app.post('/availability/rules', requireVerifiedSession, async (c) => {
         const user = await authUser(c);
         if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
-        const profile = await getAgendaProfile(user.id);
-        if (!profile) return c.json({ ok: false, error: 'Perfil no encontrado' }, 404);
+        const profile = await ensureAgendaProfile(user);
         const body = await c.req.json().catch(() => ({})) as Record<string, unknown>;
         const [rule] = await db.insert(agendaAvailabilityRules).values({ professionalId: profile.id, dayOfWeek: Number(body.dayOfWeek), startTime: String(body.startTime ?? '09:00'), endTime: String(body.endTime ?? '18:00'), breakStart: typeof body.breakStart === 'string' ? body.breakStart : null, breakEnd: typeof body.breakEnd === 'string' ? body.breakEnd : null, isActive: body.isActive !== false }).returning();
         return c.json({ ok: true, rule });
@@ -303,8 +316,7 @@ export function createAgendaRouter(deps: AgendaRouterDeps) {
     app.put('/availability/rules/:id', requireVerifiedSession, async (c) => {
         const user = await authUser(c);
         if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
-        const profile = await getAgendaProfile(user.id);
-        if (!profile) return c.json({ ok: false, error: 'Perfil no encontrado' }, 404);
+        const profile = await ensureAgendaProfile(user);
         const id = c.req.param('id') ?? '';
         const body = await c.req.json().catch(() => ({})) as Record<string, unknown>;
         const patch: Record<string, unknown> = { updatedAt: new Date() };
@@ -317,8 +329,7 @@ export function createAgendaRouter(deps: AgendaRouterDeps) {
     app.delete('/availability/rules/:id', requireVerifiedSession, async (c) => {
         const user = await authUser(c);
         if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
-        const profile = await getAgendaProfile(user.id);
-        if (!profile) return c.json({ ok: false, error: 'Perfil no encontrado' }, 404);
+        const profile = await ensureAgendaProfile(user);
         const id = c.req.param('id') ?? '';
         await db.delete(agendaAvailabilityRules).where(and(eq(agendaAvailabilityRules.id, id), eq(agendaAvailabilityRules.professionalId, profile.id)));
         return c.json({ ok: true });
@@ -327,8 +338,7 @@ export function createAgendaRouter(deps: AgendaRouterDeps) {
     app.post('/availability/blocked-slots', requireVerifiedSession, async (c) => {
         const user = await authUser(c);
         if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
-        const profile = await getAgendaProfile(user.id);
-        if (!profile) return c.json({ ok: false, error: 'Perfil no encontrado' }, 404);
+        const profile = await ensureAgendaProfile(user);
         const body = await c.req.json().catch(() => ({})) as Record<string, unknown>;
         const [slot] = await db.insert(agendaBlockedSlots).values({ professionalId: profile.id, startsAt: new Date(String(body.startsAt)), endsAt: new Date(String(body.endsAt)), reason: typeof body.reason === 'string' ? body.reason : null }).returning();
         return c.json({ ok: true, slot });
@@ -337,11 +347,56 @@ export function createAgendaRouter(deps: AgendaRouterDeps) {
     app.delete('/availability/blocked-slots/:id', requireVerifiedSession, async (c) => {
         const user = await authUser(c);
         if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
-        const profile = await getAgendaProfile(user.id);
-        if (!profile) return c.json({ ok: false, error: 'Perfil no encontrado' }, 404);
+        const profile = await ensureAgendaProfile(user);
         const id = c.req.param('id') ?? '';
         await db.delete(agendaBlockedSlots).where(and(eq(agendaBlockedSlots.id, id), eq(agendaBlockedSlots.professionalId, profile.id)));
         return c.json({ ok: true });
+    });
+
+    app.put('/availability', requireVerifiedSession, async (c) => {
+        const user = await authUser(c);
+        if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
+        const profile = await ensureAgendaProfile(user);
+        const body = await c.req.json().catch(() => ({})) as { rules?: unknown[] };
+        const rulesInput = Array.isArray(body.rules) ? body.rules : [];
+
+        await db.delete(agendaAvailabilityRules).where(eq(agendaAvailabilityRules.professionalId, profile.id));
+
+        if (rulesInput.length > 0) {
+            await db.insert(agendaAvailabilityRules).values(
+                rulesInput.map((raw) => {
+                    const r = (raw && typeof raw === 'object' ? raw : {}) as Record<string, unknown>;
+                    return {
+                        professionalId: profile.id,
+                        dayOfWeek: Number(r.dayOfWeek),
+                        startTime: String(r.startTime ?? '09:00'),
+                        endTime: String(r.endTime ?? '18:00'),
+                        breakStart: typeof r.breakStart === 'string' ? r.breakStart : null,
+                        breakEnd: typeof r.breakEnd === 'string' ? r.breakEnd : null,
+                        isActive: r.isActive !== false,
+                    };
+                }),
+            );
+        }
+
+        const rules = await db
+            .select()
+            .from(agendaAvailabilityRules)
+            .where(eq(agendaAvailabilityRules.professionalId, profile.id))
+            .orderBy(asc(agendaAvailabilityRules.dayOfWeek));
+        return c.json({ ok: true, rules });
+    });
+
+    app.get('/availability', requireVerifiedSession, async (c) => {
+        const user = await authUser(c);
+        if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
+        const profile = await getAgendaProfile(user.id);
+        if (!profile) return c.json({ ok: true, rules: [], blockedSlots: [] });
+        const [rules, blockedSlots] = await Promise.all([
+            db.select().from(agendaAvailabilityRules).where(eq(agendaAvailabilityRules.professionalId, profile.id)).orderBy(asc(agendaAvailabilityRules.dayOfWeek)),
+            db.select().from(agendaBlockedSlots).where(and(eq(agendaBlockedSlots.professionalId, profile.id), gte(agendaBlockedSlots.endsAt, new Date()))).orderBy(asc(agendaBlockedSlots.startsAt)),
+        ]);
+        return c.json({ ok: true, rules, blockedSlots });
     });
 
     // ── Locations ─────────────────────────────────────────────────────────────

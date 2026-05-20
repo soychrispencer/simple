@@ -247,7 +247,7 @@ export default function PerfilConfigPage() {
                                     aspectRatio: 1,
                                     circular: false,
                                     onUpload: async (_file, croppedBlob) => {
-                                        const uploadFile = new File([croppedBlob], 'avatar.jpg', { type: 'image/jpeg' });
+                                        const uploadFile = new File([croppedBlob], 'avatar.webp', { type: 'image/webp' });
                                         const result = await uploadAvatar(uploadFile);
                                         if (!result.ok || !result.url) {
                                             throw new Error(result.error ?? 'Error al subir la imagen.');

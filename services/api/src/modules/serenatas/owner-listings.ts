@@ -92,6 +92,3 @@ export async function listMusicianAgenda(
         ))
         .orderBy(asc(serenatas.eventTime));
 }
-
-/** @deprecated Usar `listOwnerSerenatas`. */
-export const listAdminSerenatas = listOwnerSerenatas;

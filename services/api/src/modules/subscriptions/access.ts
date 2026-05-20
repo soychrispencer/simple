@@ -74,6 +74,21 @@ export function createSubscriptionAccess(store: SubscriptionAccessStore) {
         return Boolean(plan?.crmEnabled);
     }
 
+    function cancelActiveSubscriptionForUser(userId: string, vertical: VerticalType): void {
+        const current = activeSubscriptionsByUser.get(userId) ?? [];
+        activeSubscriptionsByUser.set(
+            userId,
+            current.map((item) => {
+                if (item.vertical !== vertical || item.status !== 'active') return item;
+                return {
+                    ...item,
+                    status: 'cancelled' as const,
+                    updatedAt: Date.now(),
+                };
+            }),
+        );
+    }
+
     function upsertActiveSubscription(nextSubscription: ActiveSubscription): ActiveSubscription {
         const current = activeSubscriptionsByUser.get(nextSubscription.userId) ?? [];
         const replaced = current.map((item) => {
@@ -110,6 +125,7 @@ export function createSubscriptionAccess(store: SubscriptionAccessStore) {
         userCanUseInstagram,
         userCanUseCrm,
         upsertActiveSubscription,
+        cancelActiveSubscriptionForUser,
         makeSubscriptionId,
         formatPlanLimit,
     };

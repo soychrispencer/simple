@@ -62,13 +62,6 @@ export function getEmailLogoInlineAttachment(appId: SimpleAppId): EmailLogoInlin
     };
 }
 
-/** @deprecated Gmail no muestra data: en img; usar CID vía getEmailLogoInlineAttachment. */
-export function getEmailLogoPngDataUri(appId: SimpleAppId): string | null {
-    const content = pngBufferByApp[appId];
-    if (!content) return null;
-    return `data:image/png;base64,${content.toString('base64')}`;
-}
-
 /** Garantiza PNG antes de armar HTML (por si el arranque aún no precalentó). */
 export async function ensureEmailLogoCache(): Promise<void> {
     if (APP_IDS.every((appId) => Boolean(pngBufferByApp[appId]))) return;

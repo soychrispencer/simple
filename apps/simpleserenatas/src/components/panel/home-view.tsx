@@ -14,7 +14,6 @@ import {
 } from '@simple/ui';
 import type { Invitation, Serenata, SerenataGroup, Profiles } from '@/lib/serenatas-api';
 import { serenatasApi } from '@/lib/serenatas-api';
-import { resolveActiveProviderGroupId } from '@/lib/active-provider-group';
 import type { AppMode } from '@/lib/app-mode';
 import { type Section } from '@/context/serenata-context';
 import { isOwnerHomePendingMetric } from '@/lib/serenata-pending';
@@ -118,7 +117,7 @@ function ClientHome(props: Parameters<typeof HomeView>[0]) {
                                 type="button"
                                 className="w-full"
                                 disabled={props.accountSuspended}
-                                onClick={() => props.openClientRequest?.() ?? props.setSection('grupos')}
+                                onClick={() => props.openClientRequest?.() ?? props.setSection('mariachis')}
                             >
                                 Contratar serenata
                             </PanelButton>
@@ -228,8 +227,7 @@ function WorkHome(props: Parameters<typeof HomeView>[0]) {
                 if (!cancelled) setProviderMusicianCount(0);
                 return;
             }
-            const activeId = resolveActiveProviderGroupId(groupsResponse.items);
-            const group = groupsResponse.items.find((g) => g.id === activeId) ?? groupsResponse.items[0];
+            const group = groupsResponse.items[0];
             const membersResponse = await serenatasApi.providerGroupMembers(group.id);
             if (cancelled) return;
             setProviderMusicianCount(

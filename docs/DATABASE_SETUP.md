@@ -58,7 +58,7 @@ pnpm --filter=@simple/api run db:seed:marketplace      # datos demo marketplace
 | `0023_agenda_payment_methods` | `agenda_professional_profiles.mp_access_token` |
 | `0024_address_book` | tabla `address_book` |
 | `0039_user_primary_vertical` | `users.primary_vertical` |
-| `0041_remove_discontinued_vertical` | CHECK sin vertical `serenatas` (en BD con esquema 0042+, usar `scripts/apply-0041-check-only.ts` en lugar del DROP completo) |
+| `0041_remove_discontinued_vertical` | CHECK sin vertical `serenatas` (en BD con esquema 0042+, usar `scripts/archive/apply-0041-check-only.ts` en lugar del DROP completo) |
 | `0044_serenata_client_requests` | `serenatas.client_id` |
 | `0046_serenata_musician_working_comunas` | `serenata_musicians.working_comunas` |
 | `0048_serenata_package_logistics` | `serenatas.package_code` |

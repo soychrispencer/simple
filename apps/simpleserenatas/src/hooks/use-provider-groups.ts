@@ -1,29 +1,20 @@
 'use client';
 
 import useSWR from 'swr';
-import {
-    serenatasApi,
-    type ProviderGroup,
-    type ProviderGroupApplication,
-} from '@/lib/serenatas-api';
+import { serenatasApi, type ProviderGroup } from '@/lib/serenatas-api';
 
 const SWR_KEY = 'serenatas-provider-groups';
 
 type ProviderGroupsCache = {
     groups: ProviderGroup[];
-    applications: ProviderGroupApplication[];
     error: string | null;
 };
 
 async function fetchProviderGroups(): Promise<ProviderGroupsCache> {
-    const [groupsResponse, applicationsResponse] = await Promise.all([
-        serenatasApi.myProviderGroups(),
-        serenatasApi.myProviderGroupApplications(),
-    ]);
+    const groupsResponse = await serenatasApi.myProviderGroups();
     return {
-        groups: groupsResponse.ok ? groupsResponse.items : [],
-        applications: applicationsResponse.ok ? applicationsResponse.items : [],
-        error: groupsResponse.ok ? null : groupsResponse.error ?? 'No pudimos cargar tus grupos.',
+        groups: groupsResponse.ok ? groupsResponse.items.slice(0, 1) : [],
+        error: groupsResponse.ok ? null : groupsResponse.error ?? 'No pudimos cargar tu mariachi.',
     };
 }
 
@@ -38,7 +29,6 @@ export function useProviderGroups(options?: { enabled?: boolean }) {
 
     return {
         groups: data?.groups ?? [],
-        applications: data?.applications ?? [],
         loading: enabled && isLoading && !data,
         error: error instanceof Error ? error.message : data?.error ?? null,
         refresh: async () => {

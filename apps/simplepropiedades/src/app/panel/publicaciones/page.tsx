@@ -527,33 +527,6 @@ export default function PublicacionesPage() {
         { id: 'draft' as const, label: 'Borradores', count: listings.filter((item) => item.status === 'draft').length },
     ], [listings]);
 
-    const fixBrokenB2Url = (url: string): string => {
-        if (!url || !url.startsWith('http')) return url;
-        if (url.includes('backblazeb2.com')) {
-            const bucketName = 'simple-media';
-            
-            let key = '';
-            if (url.includes(`/file/${bucketName}/`)) {
-                key = url.split(`/file/${bucketName}/`)[1];
-            } else if (url.includes(`backblazeb2.com/${bucketName}/`)) {
-                key = url.split(`backblazeb2.com/${bucketName}/`)[1];
-            } else {
-                const parts = url.split('.backblazeb2.com/');
-                if (parts.length === 2) {
-                    const pathParts = parts[1].split('/');
-                    if (pathParts[0] === 'file') pathParts.shift();
-                    if (pathParts[0] === bucketName) pathParts.shift();
-                    key = pathParts.join('/');
-                }
-            }
-
-            if (key) {
-                return `https://f005.backblazeb2.com/file/${bucketName}/${key}`;
-            }
-        }
-        return url;
-    };
-
     const getListingImages = (listing: PanelListing): string[] => {
         const rawData = listing.rawData as any;
         const photos = rawData?.media?.photos;
@@ -566,7 +539,7 @@ export default function PublicacionesPage() {
             } else {
                 url = p?.url || p?.previewUrl || p?.dataUrl || '';
             }
-            return typeof url === 'string' && url.trim() ? fixBrokenB2Url(url.trim()) : null;
+            return typeof url === 'string' && url.trim() ? url.trim() : null;
         }).filter(Boolean) as string[];
     };
 

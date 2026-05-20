@@ -4,14 +4,14 @@ import type { OwnerProfile, Profiles } from '@/lib/serenatas-api';
 export type AppMode = 'client' | 'work';
 
 export const APP_MODE_STORAGE_KEY = 'serenatas-app-mode';
-/** Clave legada (`musician` / `admin` / `coordinator`); se migra al guardar modo. */
+/** Clave legada (`musician` / `owner` / perfiles antiguos); se migra al guardar modo. */
 const LEGACY_PROFILE_STORAGE_KEY = 'serenatas-active-profile';
 
-/** Perfil admin operativo; la suscripción ya no restringe el panel. */
+/** Perfil dueño; la suscripción ya no restringe el panel. */
 export function isOwnerSubscriptionActive(
-    admin: OwnerProfile | null | undefined,
+    owner: OwnerProfile | null | undefined,
 ): boolean {
-    return Boolean(admin);
+    return Boolean(owner);
 }
 
 export function ownerFeaturesEnabled(profiles: Profiles): boolean {
@@ -26,7 +26,7 @@ export function hasClientProfile(profiles: Profiles): boolean {
     return Boolean(profiles.client);
 }
 
-/** Preferencia de ?as= para API en modo operación (solo admin si tiene perfil de dueño). */
+/** Preferencia de ?as= para API en modo trabajo (usa owner si tiene perfil de dueño). */
 export function workApiAs(profiles: Profiles): 'musician' | 'owner' {
     if (ownerFeaturesEnabled(profiles)) return 'owner';
     if (profiles.musician) return 'musician';

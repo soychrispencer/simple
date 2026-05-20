@@ -1,4 +1,4 @@
-﻿import type { listings, listingDrafts } from '../db/schema.js';
+import type { listings, listingDrafts } from '../db/schema.js';
 import type {
     ListingLeadChannel,
     ListingLeadSource,
@@ -75,12 +75,24 @@ export type AppUser = {
     name: string;
     phone?: string | null;
     whatsappEnabled?: boolean;
+    whatsappNotifyInvitations?: boolean;
+    whatsappNotifyRequests?: boolean;
+    whatsappNotifyAgenda?: boolean;
+    whatsappNotifyAccount?: boolean;
+    emailNotifyInvitations?: boolean;
+    emailNotifyRequests?: boolean;
+    emailNotifyAgenda?: boolean;
+    emailNotifyAccount?: boolean;
+    inAppNotificationsEnabled?: boolean;
+    emailDigestFrequency?: 'off' | 'daily' | 'weekly';
+    pendingEmail?: string | null;
     role: UserRole;
     status: UserStatus;
     primaryVertical?: VerticalType | null;
     avatar?: string;
     provider?: string; // 'local' | 'google' | etc.
     providerId?: string; // ID from OAuth provider
+    hasPassword?: boolean;
     lastLoginAt?: Date | null;
     primaryAccountId?: string | null;
 };
@@ -91,11 +103,23 @@ export type PublicUser = {
     name: string;
     phone?: string | null;
     whatsappEnabled?: boolean;
+    whatsappNotifyInvitations?: boolean;
+    whatsappNotifyRequests?: boolean;
+    whatsappNotifyAgenda?: boolean;
+    whatsappNotifyAccount?: boolean;
+    emailNotifyInvitations?: boolean;
+    emailNotifyRequests?: boolean;
+    emailNotifyAgenda?: boolean;
+    emailNotifyAccount?: boolean;
+    inAppNotificationsEnabled?: boolean;
+    emailDigestFrequency?: 'off' | 'daily' | 'weekly';
+    pendingEmail?: string | null;
     role: UserRole;
     status: UserStatus;
     primaryVertical?: VerticalType | null;
     avatar?: string;
     provider?: string;
+    hasPassword?: boolean;
     lastLoginAt?: Date | null;
     primaryAccountId?: string | null;
 };

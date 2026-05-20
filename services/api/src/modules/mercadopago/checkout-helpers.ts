@@ -79,14 +79,31 @@ export function resolveMercadoPagoPreferenceCheckoutUrl(
     return preference?.initPoint ?? preference?.sandboxInitPoint ?? null;
 }
 
+export function mercadoPagoDevCheckoutFallbackEnabled(): boolean {
+    return process.env.NODE_ENV !== 'production'
+        && process.env.MERCADO_PAGO_DEV_CHECKOUT_FALLBACK !== 'false';
+}
+
+export function mercadoPagoSubscriptionOriginEnvName(vertical: MercadoPagoCheckoutVertical): string {
+    if (vertical === 'autos') return 'MERCADO_PAGO_PUBLIC_ORIGIN_AUTOS';
+    if (vertical === 'agenda') return 'MERCADO_PAGO_PUBLIC_ORIGIN_AGENDA';
+    if (vertical === 'serenatas') return 'MERCADO_PAGO_PUBLIC_ORIGIN_SERENATAS';
+    return 'MERCADO_PAGO_PUBLIC_ORIGIN_PROPIEDADES';
+}
+
+export function isDevMercadoPagoPreapprovalId(preapprovalId: string): boolean {
+    return preapprovalId.startsWith('dev-preapproval-');
+}
+
 export function ensureMercadoPagoSubscriptionReturnUrl(vertical: MercadoPagoCheckoutVertical, rawReturnUrl: string): string {
     const resolved = resolveMercadoPagoReturnUrl(vertical, rawReturnUrl);
-    const target = new URL(resolved);
+    if (mercadoPagoDevCheckoutFallbackEnabled()) {
+        return resolved;
+    }
 
+    const target = new URL(resolved);
     if (target.protocol !== 'https:' || isLocalHostname(target.hostname)) {
-        const envName = vertical === 'autos'
-            ? 'MERCADO_PAGO_PUBLIC_ORIGIN_AUTOS'
-            : 'MERCADO_PAGO_PUBLIC_ORIGIN_PROPIEDADES';
+        const envName = mercadoPagoSubscriptionOriginEnvName(vertical);
         throw new Error(
             `Mercado Pago suscripciones requiere una URL publica HTTPS. `
             + `Configura ${envName} en services/api/.env con tu URL publica (por ejemplo ngrok o Cloudflare Tunnel).`,

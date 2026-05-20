@@ -21,9 +21,20 @@ export type SerenatasUser = {
     name: string;
     phone?: string | null;
     whatsappEnabled?: boolean;
+    whatsappNotifyInvitations?: boolean;
+    whatsappNotifyRequests?: boolean;
+    whatsappNotifyAgenda?: boolean;
+    whatsappNotifyAccount?: boolean;
+    emailNotifyInvitations?: boolean;
+    emailNotifyRequests?: boolean;
+    emailNotifyAgenda?: boolean;
+    emailNotifyAccount?: boolean;
+    inAppNotificationsEnabled?: boolean;
+    emailDigestFrequency?: 'off' | 'daily' | 'weekly';
     avatarUrl?: string | null;
     avatar?: string | null;
     provider?: string | null;
+    hasPassword?: boolean;
     pendingEmail?: string | null;
     status: 'active' | 'verified' | 'suspended';
 };
@@ -43,6 +54,12 @@ export type MusicianProfile = {
     experienceYears: number;
     /** Nombres de comunas (catálogo @simple/utils), alineado con serenata.comuna */
     workZones: string[];
+};
+
+/** Ficha pública de músico para listados y modal de detalle. */
+export type MusicianPublicProfile = MusicianProfile & {
+    name: string;
+    avatarUrl?: string | null;
 };
 
 export type ClientProfile = {
@@ -70,6 +87,35 @@ export type OwnerProfile = {
     trialEndsAt: string;
 };
 
+export type SerenataBillingPlanId = 'free' | 'pro';
+
+export type SerenataMePlan = {
+    plan: SerenataBillingPlanId;
+    planLabel: string;
+    alwaysFreeMonthly: true;
+    ownerOwnSerenataCommissionPercent: 0;
+    commissionAppBps: number;
+    commissionAppPercent: number;
+    commissionVatBps: number;
+    commissionVatPercent: number;
+    proPriceMonthly: number;
+    proPriceMonthlyNet: number;
+    proPriceMonthlyWithVat: number;
+    proCheckoutAvailable: boolean;
+    exampleGrossClp: number;
+    example: {
+        grossClp: number;
+        commissionClp: number;
+        vatOnCommissionClp: number;
+        totalDeductionClp: number;
+    };
+    constants: {
+        APP_COMMISSION_FREE_BPS: number;
+        APP_COMMISSION_PRO_BPS: number;
+        COMMISSION_VAT_BPS: number;
+    };
+};
+
 export type Profiles = {
     client: ClientProfile | null;
     musician: MusicianProfile | null;
@@ -78,6 +124,16 @@ export type Profiles = {
 
 export type ProviderGroupStatus = 'draft' | 'active' | 'paused' | 'rejected';
 export type ProviderBookingMode = 'manual' | 'auto_if_available' | 'auto_decline';
+
+export type ProviderBankTransferData = {
+    bank: string;
+    accountType: string;
+    accountNumber: string;
+    holderName: string;
+    holderRut: string;
+    holderEmail: string;
+    alias?: string;
+};
 
 export type ProviderGroupAvailabilityRule = {
     id?: string;
@@ -88,12 +144,22 @@ export type ProviderGroupAvailabilityRule = {
     isActive?: boolean;
 };
 
+export type ProviderGroupBlockedSlot = {
+    id: string;
+    providerGroupId: string;
+    startsAt: string;
+    endsAt: string;
+    reason: string | null;
+    createdAt?: string;
+};
+
 export type ProviderGroupAvailability = {
     providerGroupId: string;
     slaHours: number;
     bookingMode: ProviderBookingMode;
     bufferMinutes: number;
     rules: ProviderGroupAvailabilityRule[];
+    blockedSlots: ProviderGroupBlockedSlot[];
 };
 
 export type ProviderGroup = {
@@ -117,6 +183,14 @@ export type ProviderGroup = {
     slaHours?: number;
     bookingMode?: ProviderBookingMode;
     bufferMinutes?: number;
+    requiresAdvancePayment?: boolean;
+    advancePaymentInstructions?: string | null;
+    acceptsCash?: boolean;
+    acceptsTransfer?: boolean;
+    acceptsMp?: boolean;
+    acceptsPaymentLink?: boolean;
+    paymentLinkUrl?: string | null;
+    bankTransferData?: ProviderBankTransferData | null;
     startingPrice?: number | null;
     activeServicesCount?: number;
     servicesPreview?: Pick<ProviderGroupService, 'id' | 'name' | 'price' | 'musiciansCount' | 'durationMinutes'>[];
@@ -140,31 +214,13 @@ export type ProviderGroupService = {
     updatedAt: string;
 };
 
-export type ProviderGroupApplication = {
-    id: string;
-    userId: string;
-    providerGroupId: string | null;
-    name: string;
-    description: string | null;
-    phone: string | null;
-    whatsapp: string | null;
-    region: string | null;
-    comunaBase: string | null;
-    serviceComunas: string[];
-    status: 'pending' | 'approved' | 'rejected';
-    reviewNotes: string | null;
-    reviewedAt: string | null;
-    createdAt: string;
-    updatedAt: string;
-};
-
 export type ProviderGroupMember = {
     id: string;
     providerGroupId: string;
     musicianId: string;
     role: 'owner' | 'musician';
     instruments: string[];
-    status: 'invited' | 'active' | 'inactive' | 'removed' | 'rejected';
+    status: 'invited' | 'active' | 'removed' | 'rejected';
     message: string | null;
     invitedByUserId: string | null;
     respondedAt: string | null;
@@ -172,9 +228,26 @@ export type ProviderGroupMember = {
     updatedAt: string;
     musicianName?: string | null;
     instrument?: string | null;
+    avatarUrl?: string | null;
+    bio?: string | null;
+    experienceYears?: number;
+    workZones?: string[];
     availableNow?: boolean;
     comuna?: string | null;
     region?: string | null;
+};
+
+export type ProviderGroupMemberInvite = {
+    id: string;
+    providerGroupId: string;
+    invitedByUserId: string;
+    displayName: string | null;
+    email: string | null;
+    phone: string | null;
+    status: 'pending' | 'accepted' | 'cancelled' | 'expired';
+    musicianId: string | null;
+    createdAt: string;
+    updatedAt: string;
 };
 
 export type Serenata = {
@@ -219,6 +292,14 @@ export type Serenata = {
     pendingReminderSentAt?: string | null;
 };
 
+export type UserNotificationLogItem = {
+    id: string;
+    channel: string;
+    eventType: string;
+    summary: string;
+    createdAt: number;
+};
+
 export type SerenatasPanelNotification = {
     id: string;
     /** Tipo para iconografía del header (`@simple/marketplace-header`). */
@@ -229,6 +310,7 @@ export type SerenatasPanelNotification = {
     time: string;
     href: string;
     createdAt: number;
+    isRead?: boolean;
 };
 
 export type SerenataGroupMember = {
@@ -236,10 +318,25 @@ export type SerenataGroupMember = {
     groupId: string;
     musicianId: string;
     instrument: string | null;
+    slotIndex?: number | null;
     status: 'invited' | 'accepted' | 'rejected' | 'cancelled';
     message: string | null;
     musicianName?: string;
+    instruments?: string[];
+    avatarUrl?: string | null;
+    comuna?: string | null;
+    region?: string | null;
     availableNow?: boolean;
+};
+
+export type SerenataGroupPendingInvite = {
+    id: string;
+    groupId: string;
+    displayName: string | null;
+    email: string | null;
+    phone: string | null;
+    status: 'pending' | 'accepted' | 'cancelled';
+    createdAt: string;
 };
 
 export type SerenataGroup = {
@@ -248,18 +345,24 @@ export type SerenataGroup = {
     providerGroupId?: string | null;
     name: string;
     date: string;
+    maxMusicians?: number | null;
+    requiredInstruments?: string[];
     status: 'draft' | 'active' | 'closed';
     members: SerenataGroupMember[];
+    pendingInvites?: SerenataGroupPendingInvite[];
 };
 
-export type MusicianDirectoryItem = Pick<MusicianProfile, 'id' | 'userId' | 'instrument' | 'instruments' | 'comuna' | 'region' | 'workZones' | 'isAvailable' | 'availableNow' | 'experienceYears'> & {
+export type GroupInviteMode = 'email' | 'whatsapp' | 'app';
+
+export type MusicianDirectoryItem = Pick<MusicianProfile, 'id' | 'userId' | 'instrument' | 'instruments' | 'comuna' | 'region' | 'workZones' | 'isAvailable' | 'availableNow' | 'experienceYears' | 'bio'> & {
     name: string;
+    avatarUrl?: string | null;
 };
 
 export type Invitation = {
     id: string;
     groupId: string;
-    status: SerenataGroupMember['status'];
+    status: SerenataGroupMember['status'] | ProviderGroupMember['status'];
     instrument: string | null;
     message: string | null;
     groupName: string;
@@ -292,13 +395,33 @@ function withActiveProfile(path: string, as?: ActiveProfile) {
 
 export const serenatasApi = {
     notifications: () => request<{ items: SerenatasPanelNotification[] }>('/notifications'),
+    markAllNotificationsRead: () =>
+        request<Record<string, never>>('/notifications/mark-all-read', { method: 'POST' }),
+    notificationLog: async (): Promise<ApiEnvelope<{ items: UserNotificationLogItem[] }>> => {
+        const response = await apiFetch<ApiEnvelope<{ items: UserNotificationLogItem[] }>>('/api/auth/me/notification-log');
+        if (!response.data) return { ok: false, error: 'No pudimos conectar con el servidor.' } as ApiEnvelope<{ items: UserNotificationLogItem[] }>;
+        return response.data;
+    },
     packages: () => request<{ items: SerenataPackage[] }>('/packages'),
     profiles: () => request<{ user: SerenatasUser; profiles: Profiles }>('/profiles'),
+    mePlan: () => request<SerenataMePlan>('/me/plan'),
+    cancelProSubscription: () =>
+        request<{ ok: boolean; message?: string; error?: string }>('/me/subscription/cancel', { method: 'POST' }),
     updateUser: async (payload: {
         name?: string;
         phone?: string | null;
         avatarUrl?: string | null;
         whatsappEnabled?: boolean;
+        whatsappNotifyInvitations?: boolean;
+        whatsappNotifyRequests?: boolean;
+        whatsappNotifyAgenda?: boolean;
+        whatsappNotifyAccount?: boolean;
+        emailNotifyInvitations?: boolean;
+        emailNotifyRequests?: boolean;
+        emailNotifyAgenda?: boolean;
+        emailNotifyAccount?: boolean;
+        inAppNotificationsEnabled?: boolean;
+        emailDigestFrequency?: 'off' | 'daily' | 'weekly';
     }): Promise<ApiEnvelope<{ user: SerenatasUser }>> => {
         const response = await apiFetch<ApiEnvelope<{ user: SerenatasUser }>>('/api/auth/me', {
             method: 'PATCH',
@@ -307,10 +430,33 @@ export const serenatasApi = {
         if (!response.data) return { ok: false, error: 'No pudimos conectar con el servidor.' } as ApiEnvelope<{ user: SerenatasUser }>;
         return response.data;
     },
-    uploadAvatar: async (file: Blob, filename = 'avatar.jpg'): Promise<{ ok: boolean; url?: string; error?: string }> => {
+    sendNotificationTest: async (
+        channel: 'email' | 'whatsapp' = 'email',
+    ): Promise<ApiEnvelope<{ channel: string; message?: string; deferredQuietHours?: boolean }>> => {
+        const response = await apiFetch<
+            ApiEnvelope<{ channel: string; message?: string; deferredQuietHours?: boolean }>
+        >('/api/auth/me/test-notification', {
+            method: 'POST',
+            body: JSON.stringify({ channel }),
+        });
+        if (!response.data) {
+            return { ok: false, error: 'No pudimos conectar con el servidor.' } as ApiEnvelope<{
+                channel: string;
+                message?: string;
+                deferredQuietHours?: boolean;
+            }>;
+        }
+        return response.data;
+    },
+    uploadAvatar: async (
+        file: Blob,
+        filename = 'avatar.webp',
+        purpose: 'avatar' | 'cover' = 'avatar',
+    ): Promise<{ ok: boolean; url?: string; error?: string }> => {
         const formData = new FormData();
         formData.append('file', file, filename);
         formData.append('fileType', 'image');
+        formData.append('purpose', purpose);
         const response = await fetch(`${API_BASE}/api/media/upload`, {
             method: 'POST',
             credentials: 'include',
@@ -338,6 +484,7 @@ export const serenatasApi = {
     startOwnerTrial: () => request<{ profile: OwnerProfile }>('/subscriptions/owner/start-trial', { method: 'POST' }),
     registerOwner: () => request<{ profile: OwnerProfile }>('/subscriptions/owner/start-trial', { method: 'POST' }),
     musicians: () => request<{ items: MusicianDirectoryItem[] }>('/musicians'),
+    musicianProfile: (musicianId: string) => request<{ item: MusicianPublicProfile }>(`/musicians/${musicianId}`),
     serenatas: (date?: string, as?: ActiveProfile, options?: { needsClosure?: boolean }) => {
         const params = new URLSearchParams();
         if (date) params.set('date', date);
@@ -389,21 +536,47 @@ export const serenatasApi = {
     marketplaceGroupBySlug: (slug: string) => request<{ item: ProviderGroup }>(`/marketplace/groups/${encodeURIComponent(slug)}`),
     marketplaceGroupServices: (groupId: string) => request<{ items: ProviderGroupService[] }>(`/marketplace/groups/${groupId}/services`),
     myProviderGroups: () => request<{ items: ProviderGroup[] }>('/provider-groups/me'),
-    myProviderGroupApplications: () => request<{ items: ProviderGroupApplication[] }>('/provider-groups/applications/me'),
-    submitProviderGroupApplication: (payload: Partial<ProviderGroupApplication> & { name: string }) => request<{ item: ProviderGroupApplication }>('/provider-groups/applications', { method: 'POST', body: JSON.stringify(payload) }),
     createProviderGroup: (payload: Partial<ProviderGroup> & { name: string }) => request<{ item: ProviderGroup }>('/provider-groups', { method: 'POST', body: JSON.stringify(payload) }),
+    providerGroupAutoAcceptEligibility: (groupId: string) => request<{ eligible: boolean; blockingCount: number }>(`/provider-groups/${groupId}/auto-accept-eligibility`),
     updateProviderGroup: (id: string, payload: Partial<ProviderGroup>) => request<{ item: ProviderGroup }>(`/provider-groups/${id}`, { method: 'PATCH', body: JSON.stringify(payload) }),
     providerGroupAvailability: (groupId: string) => request<{ item: ProviderGroupAvailability }>(`/provider-groups/${groupId}/availability`),
     updateProviderGroupAvailability: (
         groupId: string,
         payload: Partial<Pick<ProviderGroupAvailability, 'slaHours' | 'bookingMode' | 'bufferMinutes'>> & { rules?: ProviderGroupAvailabilityRule[] },
     ) => request<{ item: ProviderGroupAvailability }>(`/provider-groups/${groupId}/availability`, { method: 'PUT', body: JSON.stringify(payload) }),
+    createProviderGroupBlockedSlot: (
+        groupId: string,
+        body: { startsAt: string; endsAt: string; reason?: string },
+    ) => request<{ slot: ProviderGroupBlockedSlot }>(`/provider-groups/${groupId}/availability/blocked-slots`, { method: 'POST', body: JSON.stringify(body) }),
+    deleteProviderGroupBlockedSlot: (groupId: string, slotId: string) => request<Record<string, never>>(
+        `/provider-groups/${groupId}/availability/blocked-slots/${slotId}`,
+        { method: 'DELETE' },
+    ),
     providerGroupServices: (groupId: string) => request<{ items: ProviderGroupService[] }>(`/provider-groups/${groupId}/services`),
     createProviderGroupService: (groupId: string, payload: Partial<ProviderGroupService> & { name: string; price: number }) => request<{ item: ProviderGroupService }>(`/provider-groups/${groupId}/services`, { method: 'POST', body: JSON.stringify(payload) }),
     updateProviderGroupService: (groupId: string, serviceId: string, payload: Partial<ProviderGroupService>) => request<{ item: ProviderGroupService }>(`/provider-groups/${groupId}/services/${serviceId}`, { method: 'PATCH', body: JSON.stringify(payload) }),
     deleteProviderGroupService: (groupId: string, serviceId: string) => request<Record<string, never>>(`/provider-groups/${groupId}/services/${serviceId}`, { method: 'DELETE' }),
     providerGroupMembers: (groupId: string) => request<{ items: ProviderGroupMember[] }>(`/provider-groups/${groupId}/members`),
     inviteProviderGroupMember: (groupId: string, payload: { musicianId: string; role?: ProviderGroupMember['role']; instruments?: string[]; message?: string | null }) => request<{ member: ProviderGroupMember }>(`/provider-groups/${groupId}/members`, { method: 'POST', body: JSON.stringify(payload) }),
+    providerGroupMemberInvites: (groupId: string) => request<{ items: ProviderGroupMemberInvite[] }>(`/provider-groups/${groupId}/member-invites`),
+    inviteProviderGroupExternalMember: (
+        groupId: string,
+        payload: {
+            email?: string | null;
+            phone?: string | null;
+            displayName?: string | null;
+            message?: string | null;
+        },
+    ) => request<{
+        invite: ProviderGroupMemberInvite;
+        emailSent?: boolean;
+        signupUrl?: string;
+        whatsappUrl?: string;
+    }>(`/provider-groups/${groupId}/member-invites`, { method: 'POST', body: JSON.stringify(payload) }),
+    cancelProviderGroupMemberInvite: (groupId: string, inviteId: string) => request<Record<string, never>>(
+        `/provider-groups/${groupId}/member-invites/${inviteId}`,
+        { method: 'DELETE' },
+    ),
     updateProviderGroupMember: (groupId: string, memberId: string, payload: Partial<ProviderGroupMember>) => request<{ member: ProviderGroupMember }>(`/provider-groups/${groupId}/members/${memberId}`, { method: 'PATCH', body: JSON.stringify(payload) }),
     providerGroupRequests: (groupId: string) => request<{ items: Serenata[] }>(`/provider-groups/${groupId}/requests`),
     updateSerenata: (id: string, payload: Partial<Serenata>) => request<{ item: Serenata }>(`/serenatas/${id}`, { method: 'PATCH', body: JSON.stringify(payload) }),
@@ -412,14 +585,50 @@ export const serenatasApi = {
         `/serenatas/${id}/${action}`,
         { method: 'POST', body: body ? JSON.stringify(body) : undefined },
     ),
-    confirmClientSerenata: (id: string) => request<{ item: Serenata }>(`/serenatas/${id}/client-confirm`, { method: 'POST' }),
+    confirmClientSerenata: (id: string, payload?: { rating?: number }) => request<{ item: Serenata }>(`/serenatas/${id}/client-confirm`, {
+        method: 'POST',
+        body: JSON.stringify(payload ?? {}),
+    }),
     acceptSerenataOffer: (id: string) => request<{ item: Serenata }>(`/serenatas/${id}/accept-offer`, { method: 'POST' }),
     rejectSerenataOffer: (id: string) => request<{ offer: { id: string; status: string } }>(`/serenatas/${id}/reject-offer`, { method: 'POST' }),
-    groups: () => request<{ items: SerenataGroup[] }>('/groups'),
-    createGroup: (payload: { name: string; date: string; status: SerenataGroup['status'] }) => request<{ item: SerenataGroup }>('/groups', { method: 'POST', body: JSON.stringify(payload) }),
-    inviteMember: (groupId: string, payload: { musicianId: string; instrument: string; message: string }) => request<{ member: SerenataGroupMember }>(`/groups/${groupId}/members`, { method: 'POST', body: JSON.stringify(payload) }),
+    groups: (providerGroupId?: string) => {
+        const query = providerGroupId ? `?providerGroupId=${encodeURIComponent(providerGroupId)}` : '';
+        return request<{ items: SerenataGroup[] }>(`/groups${query}`);
+    },
+    createGroup: (payload: {
+        name: string;
+        status?: SerenataGroup['status'];
+        providerGroupId?: string;
+        date?: string;
+        maxMusicians?: number | null;
+        requiredInstruments?: string[];
+    }) => request<{ item: SerenataGroup }>('/groups', { method: 'POST', body: JSON.stringify(payload) }),
+    updateGroup: (id: string, payload: {
+        name?: string;
+        status?: SerenataGroup['status'];
+        requiredInstruments?: string[];
+    }) => request<{ item: SerenataGroup }>(`/groups/${id}`, { method: 'PATCH', body: JSON.stringify(payload) }),
+    deleteGroup: (id: string) => request<Record<string, never>>(`/groups/${id}`, { method: 'DELETE' }),
+    inviteToGroup: (
+        groupId: string,
+        payload:
+            | { mode: 'email'; email: string }
+            | { mode: 'whatsapp'; phone: string }
+            | { mode: 'app'; musicianId: string; slotIndex?: number; instrument?: string | null }
+    ) => request<{
+        mode: GroupInviteMode;
+        invite?: SerenataGroupPendingInvite;
+        emailSent?: boolean;
+        signupUrl?: string;
+        whatsappUrl?: string;
+        member?: SerenataGroupMember;
+    }>(`/groups/${groupId}/invites`, { method: 'POST', body: JSON.stringify(payload) }),
+    cancelGroupInvite: (groupId: string, inviteId: string) => request<Record<string, never>>(`/groups/${groupId}/invites/${inviteId}`, { method: 'DELETE' }),
+    claimGroupInvite: (token: string) => request<{ member: SerenataGroupMember | ProviderGroupMember; groupId?: string; providerGroupId?: string }>('/group-invites/claim', { method: 'POST', body: JSON.stringify({ token }) }),
+    inviteMember: (groupId: string, payload: { musicianId: string; instrument?: string | null; slotIndex?: number; message?: string | null }) => request<{ member: SerenataGroupMember }>(`/groups/${groupId}/members`, { method: 'POST', body: JSON.stringify(payload) }),
+    updateGroupMember: (groupId: string, memberId: string, payload: Partial<Pick<SerenataGroupMember, 'status' | 'message' | 'instrument' | 'slotIndex'>>) => request<{ member: SerenataGroupMember }>(`/groups/${groupId}/members/${memberId}`, { method: 'PATCH', body: JSON.stringify(payload) }),
     invitations: () => request<{ items: Invitation[] }>('/invitations'),
-    respondInvitation: (id: string, status: 'accepted' | 'rejected') => request<{ member: SerenataGroupMember }>(`/invitations/${id}/respond`, { method: 'POST', body: JSON.stringify({ status }) }),
+    respondInvitation: (id: string, status: 'accepted' | 'rejected') => request<{ member: SerenataGroupMember | ProviderGroupMember }>(`/invitations/${id}/respond`, { method: 'POST', body: JSON.stringify({ status }) }),
     agenda: (date: string, as?: ActiveProfile) => request<{ items: Serenata[] }>(
         withActiveProfile(`/agenda?date=${encodeURIComponent(date)}`, as),
     ),
@@ -434,9 +643,45 @@ export const serenatasApi = {
         if (!response.data) return { ok: false, error: 'No pudimos conectar con el servidor.' };
         return response.data;
     },
+    cancelEmailChange: async (): Promise<ApiEnvelope<object>> => {
+        const response = await apiFetch<ApiEnvelope<object>>('/api/accounts/cancel-email-change', {
+            method: 'POST',
+        });
+        if (!response.data) return { ok: false, error: 'No pudimos conectar con el servidor.' };
+        return response.data;
+    },
     disconnectGoogle: async (): Promise<ApiEnvelope<{ disconnected?: boolean; user?: SerenatasUser }>> => {
         const response = await apiFetch<ApiEnvelope<{ disconnected?: boolean; user?: SerenatasUser }>>('/api/auth/google/disconnect', {
             method: 'POST',
+        });
+        if (!response.data) return { ok: false, error: 'No pudimos conectar con el servidor.' };
+        return response.data;
+    },
+    googleCalendarStatus: async (): Promise<{ connected: boolean; calendarId: string | null }> => {
+        const response = await apiFetch<{ ok: boolean; connected: boolean; calendarId: string | null }>(
+            '/api/serenatas/google-calendar/status',
+        );
+        const data = response.data;
+        return {
+            connected: Boolean(data?.connected),
+            calendarId: data?.calendarId ?? null,
+        };
+    },
+    googleCalendarAuthUrl: () => `${API_BASE}/api/serenatas/google-calendar/auth`,
+    disconnectGoogleCalendar: async (): Promise<{ ok: boolean }> => {
+        const response = await apiFetch<{ ok: boolean }>('/api/serenatas/google-calendar/disconnect', {
+            method: 'DELETE',
+        });
+        return { ok: Boolean(response.data?.ok) };
+    },
+    changePassword: async (payload: {
+        currentPassword?: string;
+        newPassword: string;
+        confirmPassword: string;
+    }): Promise<ApiEnvelope<{ user?: SerenatasUser }>> => {
+        const response = await apiFetch<ApiEnvelope<{ user?: SerenatasUser }>>('/api/auth/password/change', {
+            method: 'POST',
+            body: JSON.stringify(payload),
         });
         if (!response.data) return { ok: false, error: 'No pudimos conectar con el servidor.' };
         return response.data;
