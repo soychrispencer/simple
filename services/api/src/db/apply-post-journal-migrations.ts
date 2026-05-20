@@ -69,6 +69,15 @@ export async function applyPostJournalMigrations(
     const dryRun = options.dryRun ?? false;
     const log = options.log ?? console.info;
 
+    await sql`CREATE SCHEMA IF NOT EXISTS drizzle`;
+    await sql`
+        CREATE TABLE IF NOT EXISTS drizzle.__drizzle_migrations (
+            id SERIAL PRIMARY KEY,
+            hash text NOT NULL,
+            created_at bigint
+        )
+    `;
+
     const appliedRows = await sql<{ hash: string }[]>`
         SELECT hash FROM drizzle.__drizzle_migrations
     `;
