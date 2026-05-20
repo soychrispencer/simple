@@ -22,6 +22,7 @@ RUN pnpm --filter=@simple/config run build
 RUN pnpm --filter=@simple/utils run build
 RUN pnpm --filter=@simple/ui run build
 RUN pnpm --filter=@simple/auth run build
+RUN pnpm --filter=@simple/logger run build
 RUN pnpm --filter=@simple/api run build
 
 FROM node:22-bookworm-slim
