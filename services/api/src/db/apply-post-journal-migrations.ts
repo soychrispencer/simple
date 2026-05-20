@@ -4,6 +4,10 @@ import path from 'node:path';
 import type postgres from 'postgres';
 
 export const POST_JOURNAL_TAGS = [
+    '0042_nasty_radioactive_man',
+    '0043_serenata_offers',
+    '0044_serenata_client_requests',
+    '0045_serenata_booking_payments',
     '0046_serenata_musician_working_comunas',
     '0047_user_pending_email',
     '0048_serenata_package_logistics',
@@ -109,10 +113,20 @@ export async function applyPostJournalMigrations(
 
         const statements = splitStatements(body);
         log(`  aplicando ${tag} (${statements.length} statements)…`);
-        try {
-            for (const statement of statements) {
+        let failedStatements = 0;
+        for (const statement of statements) {
+            try {
                 await sql.unsafe(statement);
+            } catch (error) {
+                failedStatements += 1;
+                log(`  ERROR ${tag}: ${error instanceof Error ? error.message : String(error)}`);
+                if (!continueOnError) {
+                    throw error;
+                }
             }
+        }
+
+        if (failedStatements === 0) {
             await sql`
                 INSERT INTO drizzle.__drizzle_migrations (hash, created_at)
                 VALUES (${hash}, ${Date.now()})
@@ -120,12 +134,9 @@ export async function applyPostJournalMigrations(
             appliedHashes.add(hash);
             appliedNow += 1;
             log(`  OK ${tag}`);
-        } catch (error) {
+        } else {
             failed += 1;
-            log(`  ERROR ${tag}: ${error instanceof Error ? error.message : String(error)}`);
-            if (!continueOnError) {
-                throw error;
-            }
+            log(`  parcial ${tag}: ${failedStatements} statement(s) fallaron/omitidos`);
         }
     }
 
