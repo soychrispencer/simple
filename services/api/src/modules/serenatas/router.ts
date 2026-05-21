@@ -2,7 +2,7 @@ import { Hono, type Context } from 'hono';
 import { and, asc, desc, eq, gte, inArray, lte, ne, or, sql } from 'drizzle-orm';
 import { google } from 'googleapis';
 import { z } from 'zod';
-import { getGoogleOAuth2Client } from '../../lib/google-auth.js';
+import { getSerenatasGoogleCalendarOAuthClient } from '../../lib/google-auth.js';
 import { db } from '../../db/index.js';
 import {
     serenataOwners,
@@ -2054,7 +2054,7 @@ export function createSerenatasRouter(deps: SerenatasRouterDeps) {
     app.get('/google-calendar/auth', deps.requireVerifiedSession, async (c) => {
         const user = await deps.authUser(c);
         if (!user) return jsonError(c, 'No autenticado', 401);
-        const oauth2Client = getGoogleOAuth2Client('/api/serenatas/google-calendar/callback');
+        const oauth2Client = getSerenatasGoogleCalendarOAuthClient();
         const url = oauth2Client.generateAuthUrl({
             access_type: 'offline',
             scope: ['https://www.googleapis.com/auth/calendar'],
@@ -2074,7 +2074,7 @@ export function createSerenatasRouter(deps: SerenatasRouterDeps) {
             }));
         }
         try {
-            const oauth2Client = getGoogleOAuth2Client('/api/serenatas/google-calendar/callback');
+            const oauth2Client = getSerenatasGoogleCalendarOAuthClient();
             const { tokens } = await oauth2Client.getToken(code);
             oauth2Client.setCredentials(tokens);
             const calendarApi = google.calendar({ version: 'v3', auth: oauth2Client });

@@ -65,6 +65,9 @@ MERCADO_PAGO_WEBHOOK_SECRET=         # obligatorio en prod — panel MP → Noti
 MERCADO_PAGO_PUBLIC_ORIGIN_AUTOS=https://simpleautos.app
 MERCADO_PAGO_PUBLIC_ORIGIN_PROPIEDADES=https://simplepropiedades.app
 MERCADO_PAGO_PUBLIC_ORIGIN_SERENATAS=https://simpleserenatas.app
+SERENATAS_APP_URL=https://simpleserenatas.app
+# Google Calendar OAuth redirect (registrar en GCP → OAuth client):
+# https://simpleserenatas.app/api/serenatas/google-calendar/callback
 
 MP_AGENDA_APP_ID=                    # ver .env local → MP_AGENDA_APP_ID
 MP_AGENDA_APP_SECRET=                # ver .env local → MP_AGENDA_APP_SECRET
@@ -167,6 +170,8 @@ NEXT_PUBLIC_APP_URL=https://simpleserenatas.app
 NEXT_PUBLIC_GOOGLE_MAPS_BROWSER_KEY=   # referrer: simpleserenatas.app, APIs: Places + Maps JS
 # Opción B (recomendada): solo en simple-api → GOOGLE_MAPS_BROWSER_KEY o GOOGLE_MAPS_API_KEY;
 # la app la obtiene en runtime vía GET /api/public/maps-browser-key (mismo origen).
+
+# Google Calendar: ver bloque simple-api (SERENATAS_APP_URL + redirect URI en GCP).
 ```
 
 Desarrollo local: `http://localhost:3005` (incluido en `CORS_ORIGINS` de `services/api/.env.example`).
