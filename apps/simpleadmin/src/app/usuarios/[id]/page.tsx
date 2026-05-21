@@ -40,7 +40,7 @@ function AdminUserDetailContent({ adminUser }: { adminUser: AdminSessionUser }) 
     const run = async () => {
       const next = await fetchAdminUsers();
       if (!active) return;
-      setItems(next);
+      setItems(next.items);
       setLoading(false);
     };
     void run();
@@ -62,7 +62,7 @@ function AdminUserDetailContent({ adminUser }: { adminUser: AdminSessionUser }) 
 
   async function refreshUsers() {
     const next = await fetchAdminUsers();
-    setItems(next);
+    setItems(next.items);
   }
 
   async function handleRoleChange(role: 'user' | 'admin' | 'superadmin') {

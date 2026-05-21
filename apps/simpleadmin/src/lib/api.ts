@@ -1,6 +1,7 @@
 import { API_BASE } from '@simple/config';
 
 type VerticalType = 'autos' | 'propiedades' | 'agenda';
+export type AdminVerticalType = VerticalType | 'serenatas';
 
 export type AdminSessionUser = {
     id: string;
@@ -39,12 +40,30 @@ export type AdminUserListItem = {
     role: 'user' | 'admin' | 'superadmin' | 'client' | 'musician' | 'coordinator';
     status: 'active' | 'verified' | 'suspended';
     provider: string | null;
+    signupApp?: string | null;
+    signupOrigin?: string | null;
+    signupSourceLabel?: string;
     createdAt: number;
     lastLoginAt: number | null;
     totalListings: number;
     autosListings: number;
     propiedadesListings: number;
     agendaListings: number;
+    likelySignupVertical?: AdminVerticalType | null;
+    verticalConfidence?: 'direct' | 'inferred' | 'unknown';
+    verticalSignals?: {
+        vertical: AdminVerticalType;
+        source: string;
+        label: string;
+        count: number;
+        firstSeenAt: number | null;
+        lastSeenAt: number | null;
+    }[];
+    realness?: {
+        label: string;
+        score: number;
+        reasons: string[];
+    };
     subscriptions?: {
         agenda?: { plan: 'free' | 'pro'; expiresAt: string | null; status: 'active' | 'expired' | 'free' } | null;
         autos?: { planId: string | null; planName: string | null; status: string; expiresAt: string | null } | null;
@@ -362,14 +381,20 @@ export async function fetchAdminOverview(): Promise<AdminOverview | null> {
     };
 }
 
-export async function fetchAdminUsers(): Promise<AdminUserListItem[]> {
+export async function fetchAdminUsers(): Promise<{ items: AdminUserListItem[]; error?: string }> {
     const { response, data } = await apiRequest<{ items?: AdminUserListItemWire[] }>('/api/admin/users', { method: 'GET' });
-    if (!response.ok || !data?.ok || !Array.isArray(data.items)) return [];
-    return data.items.map((item) => ({
-        ...item,
-        role: normalizeAdminUserRole(item.role),
-        status: normalizeAdminUserStatus(item.status),
-    }));
+    if (!response.ok || !data?.ok || !Array.isArray(data.items)) {
+        return { items: [], error: data?.error || 'No pudimos cargar usuarios.' };
+    }
+    return {
+        items: data.items.map((item) => ({
+            ...item,
+            role: normalizeAdminUserRole(item.role),
+            status: normalizeAdminUserStatus(item.status),
+            verticalSignals: item.verticalSignals ?? [],
+            realness: item.realness ?? { label: 'Sin diagnostico', score: 0, reasons: [] },
+        })),
+    };
 }
 
 export async function updateAdminUserRole(

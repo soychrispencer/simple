@@ -24,6 +24,8 @@ export const users = pgTable('users', {
   role: varchar('role', { length: 20 }).notNull().default('user'), // 'user' | 'musician' | 'client' | 'admin' | 'superadmin'
   status: varchar('status', { length: 20 }).notNull().default('active'), // 'active' | 'verified' | 'suspended'
   primaryVertical: varchar('primary_vertical', { length: 20 }), // NULL = platform/superadmin; 'autos' | 'propiedades' | 'agenda'
+  signupApp: varchar('signup_app', { length: 40 }),
+  signupOrigin: varchar('signup_origin', { length: 255 }),
   avatarUrl: varchar('avatar_url', { length: 500 }),
   // OAuth fields
   provider: varchar('provider', { length: 20 }), // 'local' | 'google' | 'facebook' | etc.

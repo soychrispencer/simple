@@ -89,6 +89,8 @@ export type AppUser = {
     role: UserRole;
     status: UserStatus;
     primaryVertical?: VerticalType | null;
+    signupApp?: string | null;
+    signupOrigin?: string | null;
     avatar?: string;
     provider?: string; // 'local' | 'google' | etc.
     providerId?: string; // ID from OAuth provider
@@ -117,6 +119,8 @@ export type PublicUser = {
     role: UserRole;
     status: UserStatus;
     primaryVertical?: VerticalType | null;
+    signupApp?: string | null;
+    signupOrigin?: string | null;
     avatar?: string;
     provider?: string;
     hasPassword?: boolean;

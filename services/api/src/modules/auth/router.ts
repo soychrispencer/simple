@@ -83,6 +83,58 @@ export function createAuthRouter(deps: AuthRouterDeps) {
     // Store cleanup function for graceful shutdown
     (app as any).cleanup = () => clearInterval(cleanupInterval);
 
+    type SignupSource = {
+        app: 'simpleadmin' | 'simpleplataforma' | 'simpleagenda' | 'simpleautos' | 'simplepropiedades' | 'simpleserenatas' | 'unknown';
+        primaryVertical: 'agenda' | 'autos' | 'propiedades' | null;
+    };
+
+    function resolveSignupSource(origin: string | null): SignupSource {
+        if (!origin) return { app: 'unknown', primaryVertical: null };
+        let hostname = '';
+        try {
+            hostname = new URL(origin).hostname.toLowerCase();
+        } catch {
+            return { app: 'unknown', primaryVertical: null };
+        }
+
+        if (hostname.includes('admin.simpleplataforma')) return { app: 'simpleadmin', primaryVertical: null };
+        if (hostname.includes('simpleagenda')) return { app: 'simpleagenda', primaryVertical: 'agenda' };
+        if (hostname.includes('simpleautos')) return { app: 'simpleautos', primaryVertical: 'autos' };
+        if (hostname.includes('simplepropiedades')) return { app: 'simplepropiedades', primaryVertical: 'propiedades' };
+        if (hostname.includes('simpleserenatas')) return { app: 'simpleserenatas', primaryVertical: null };
+        if (hostname.includes('simpleplataforma')) return { app: 'simpleplataforma', primaryVertical: null };
+        return { app: 'unknown', primaryVertical: null };
+    }
+
+    async function createUserRegistrationAudit(input: {
+        userId: string;
+        email: string;
+        provider: 'local' | 'google';
+        origin: string | null;
+        source: SignupSource;
+    }): Promise<void> {
+        try {
+            await deps.db.execute(deps.sql`
+                INSERT INTO admin_audit_logs (actor_user_id, action, entity_type, entity_id, payload)
+                VALUES (
+                    ${input.userId},
+                    'user.registered',
+                    'user',
+                    ${input.userId},
+                    ${JSON.stringify({
+                        email: input.email,
+                        provider: input.provider,
+                        origin: input.origin,
+                        signupApp: input.source.app,
+                        primaryVertical: input.source.primaryVertical,
+                    })}::jsonb
+                )
+            `);
+        } catch (error) {
+            console.error('[auth audit] error creating registration log', error);
+        }
+    }
+
     function resolveLinkUserFromState(
         stateData: GoogleOAuthStatePayload | null,
     ): Promise<{ id: string; email: string } | undefined> {
@@ -196,6 +248,7 @@ export function createAuthRouter(deps: AuthRouterDeps) {
             return { ok: true, user: linked.user, origin, isNewUser: linked.isNewUser };
         }
 
+        const signupSource = resolveSignupSource(origin);
         let user = await deps.getUserByEmail(normalizedEmail);
         if (user && !deps.canAuthenticateUser(user)) return { ok: false, error: 'Tu cuenta está suspendida. Contacta al soporte.', status: 403 };
 
@@ -210,6 +263,9 @@ export function createAuthRouter(deps: AuthRouterDeps) {
                 providerId: deps.asString(googleUser.id) || null,
                 role: 'user',
                 status: googleUser.verified_email ? 'verified' : 'active',
+                primaryVertical: signupSource.primaryVertical,
+                signupApp: signupSource.app,
+                signupOrigin: origin,
                 lastLoginAt: new Date(),
             }).returning({ id: deps.tables.users.id });
 
@@ -222,10 +278,20 @@ export function createAuthRouter(deps: AuthRouterDeps) {
                 avatar: deps.asString(googleUser.picture) || undefined,
                 provider: 'google',
                 providerId: deps.asString(googleUser.id) || undefined,
+                primaryVertical: signupSource.primaryVertical,
+                signupApp: signupSource.app,
+                signupOrigin: origin,
                 lastLoginAt: new Date(),
             };
             const personalAccount = await deps.ensurePrimaryAccountForUser(user);
             user = { ...user, primaryAccountId: personalAccount.id };
+            await createUserRegistrationAudit({
+                userId: user.id,
+                email: normalizedEmail,
+                provider: 'google',
+                origin,
+                source: signupSource,
+            });
             if (!googleUser.verified_email) {
                 try { await deps.issueEmailVerification(user.id, normalizedEmail, origin); } catch (e) { console.error('Email verification delivery error:', e); }
             }
@@ -322,6 +388,7 @@ export function createAuthRouter(deps: AuthRouterDeps) {
         if (existing) return c.json({ ok: false, error: 'Email ya registrado' }, 409);
 
         const hashedPassword = await deps.bcrypt.hash(parsed.data.password, 10);
+        const signupSource = resolveSignupSource(origin);
 
 
         let insertedUser: any;
@@ -333,6 +400,9 @@ export function createAuthRouter(deps: AuthRouterDeps) {
                 role: 'user',
                 status: 'active',
                 provider: 'local',
+                primaryVertical: signupSource.primaryVertical,
+                signupApp: signupSource.app,
+                signupOrigin: origin,
             }).returning({ id: deps.tables.users.id });
             insertedUser = createdUser;
         });
@@ -345,11 +415,21 @@ export function createAuthRouter(deps: AuthRouterDeps) {
             role: 'user',
             status: 'active',
             provider: 'local',
+            primaryVertical: signupSource.primaryVertical,
+            signupApp: signupSource.app,
+            signupOrigin: origin,
             lastLoginAt: new Date(),
         };
 
         const personalAccount = await deps.ensurePrimaryAccountForUser(newUser);
         newUser.primaryAccountId = personalAccount.id;
+        await createUserRegistrationAudit({
+            userId: newUser.id,
+            email: normalizedEmail,
+            provider: 'local',
+            origin,
+            source: signupSource,
+        });
 
         const shouldSendVerificationEmail = process.env.NODE_ENV === 'production' || deps.isAuthEmailConfigured();
         if (shouldSendVerificationEmail) {
