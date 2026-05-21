@@ -49,7 +49,6 @@ RUN apt-get update \
   && apt-get install -y --no-install-recommends ca-certificates curl \
   && rm -rf /var/lib/apt/lists/*
 
-COPY --from=builder /app/apps/simpleplataforma/public ./apps/simpleplataforma/public
 COPY --from=builder /app/apps/simpleplataforma/.next/standalone ./
 COPY --from=builder /app/apps/simpleplataforma/.next/static ./apps/simpleplataforma/.next/static
 
