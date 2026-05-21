@@ -6,11 +6,16 @@ ENV PORT=3000
 
 WORKDIR /app
 
+RUN npm install -g pnpm@9.15.0
+
 RUN apt-get update \
   && apt-get install -y --no-install-recommends curl wget ca-certificates \
   && rm -rf /var/lib/apt/lists/*
 
 COPY package*.json ./
+COPY pnpm-lock.yaml ./
+COPY pnpm-workspace.yaml ./
+COPY .npmrc ./
 COPY apps ./apps
 COPY packages ./packages
 COPY services ./services
@@ -20,16 +25,16 @@ COPY *.cjs ./
 COPY *.json ./
 COPY *.md ./
 
-RUN npm install --legacy-peer-deps --include=dev
-RUN npm run build --workspace=@simple/types
-RUN npm run build --workspace=@simple/config
-RUN npm run build --workspace=@simple/utils
-RUN npm run build --workspace=@simple/ui
-RUN npm run build --workspace=@simple/auth
-RUN npm run build --workspace=@simple/simpleadmin
+RUN pnpm install
+RUN pnpm --filter=@simple/types run build
+RUN pnpm --filter=@simple/config run build
+RUN pnpm --filter=@simple/utils run build
+RUN pnpm --filter=@simple/ui run build
+RUN pnpm --filter=@simple/auth run build
+RUN pnpm --filter=@simple/simpleadmin run build
 
 ENV NODE_ENV=production
 
 EXPOSE 3000
 
-CMD ["npm", "run", "start", "--workspace=@simple/simpleadmin"]
+CMD ["pnpm", "--filter=@simple/simpleadmin", "start"]
