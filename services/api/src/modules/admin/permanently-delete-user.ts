@@ -369,20 +369,23 @@ export function createPermanentlyDeleteUser(deps: PermanentlyDeleteUserDeps) {
                 }
             }
 
+            if (serenatas) {
+                await tx.update(serenatas).set({ completedBy: null }).where(eq(serenatas.completedBy, userId));
+                await tx.update(serenatas).set({ cancelledBy: null }).where(eq(serenatas.cancelledBy, userId));
+            }
+
             const accountRows = await tx
                 .select({ id: accounts.id })
                 .from(accounts)
                 .where(eq(accounts.ownerUserId, userId));
             const accountIds = accountRows.map((r: { id: string }) => r.id);
 
-            if (accountIds.length > 0) {
-                if (addressBook) {
-                    await tx.delete(addressBook).where(inArray(addressBook.accountId, accountIds));
-                }
-                await tx.delete(accountUsers).where(inArray(accountUsers.accountId, accountIds));
-                await tx.delete(accounts).where(inArray(accounts.id, accountIds));
+            if (ownedListingIds.length > 0) {
+                await tx.delete(listings).where(sql`${listings.id} = ANY(${ownedListingIds})`);
             }
-            await tx.delete(accountUsers).where(eq(accountUsers.userId, userId));
+            if (accountIds.length > 0) {
+                await tx.delete(listings).where(inArray(listings.accountId, accountIds));
+            }
 
             if (professionalId) {
                 const clientRows = await tx
@@ -436,9 +439,15 @@ export function createPermanentlyDeleteUser(deps: PermanentlyDeleteUserDeps) {
                 await tx.delete(agendaProfessionalProfiles).where(eq(agendaProfessionalProfiles.id, professionalId));
             }
 
-            if (ownedListingIds.length > 0) {
-                await tx.delete(listings).where(sql`${listings.id} = ANY(${ownedListingIds})`);
+            if (accountIds.length > 0) {
+                if (addressBook) {
+                    await tx.delete(addressBook).where(inArray(addressBook.accountId, accountIds));
+                }
+                await tx.delete(accountUsers).where(inArray(accountUsers.accountId, accountIds));
+                await tx.delete(accounts).where(inArray(accounts.id, accountIds));
             }
+            await tx.delete(accountUsers).where(eq(accountUsers.userId, userId));
+
             await tx.delete(users).where(eq(users.id, userId));
         });
 

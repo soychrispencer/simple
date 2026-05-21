@@ -186,7 +186,10 @@ function UsuariosContent() {
 
             if (!response.ok) {
                 const data = await response.json().catch(() => ({}));
-                setMessage({ type: 'error', text: data.error || 'Error al eliminar usuario' });
+                const detail = typeof data.detail === 'string' && data.detail.trim().length > 0
+                    ? ` (${data.detail})`
+                    : '';
+                setMessage({ type: 'error', text: `${data.error || 'Error al eliminar usuario'}${detail}` });
                 return;
             }
 

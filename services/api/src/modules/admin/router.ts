@@ -214,6 +214,7 @@ export function createAdminRouter(deps: AdminRouterDeps) {
                     error: isFkViolation
                         ? 'No se pudo eliminar: el usuario aún tiene datos vinculados. Revisa suscripciones, pagos o serenatas.'
                         : 'No se pudo eliminar el usuario. Intenta de nuevo o contacta soporte.',
+                    detail,
                 },
                 500,
             );
