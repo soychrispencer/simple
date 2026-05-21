@@ -41,7 +41,7 @@ export function PublicMariachiPage({ slug }: { slug: string }) {
             <SerenatasChromeHeader
                 publicLinks={[{ href: '/panel/mariachis', label: 'Mariachis' }]}
             />
-            <div className="mx-auto w-full max-w-5xl px-4 py-6 sm:px-6 lg:py-8">
+            <div className="mx-auto min-w-0 w-full max-w-5xl overflow-x-hidden px-4 py-6 sm:px-6 lg:py-8">
                 {loading ? (
                     <p className="text-sm text-fg-muted">Cargando mariachi…</p>
                 ) : error || !group ? (

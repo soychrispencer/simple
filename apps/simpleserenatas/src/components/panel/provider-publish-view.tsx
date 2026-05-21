@@ -90,7 +90,7 @@ export function ProviderPublishView({ refresh }: { refresh: () => Promise<void> 
                 description="Activa tu página en el marketplace, comparte tu link y el código QR."
             />
 
-            <div className="grid gap-5 lg:grid-cols-[minmax(0,1.2fr)_minmax(280px,0.8fr)] lg:items-start lg:gap-x-8 xl:grid-cols-[minmax(0,1.35fr)_320px] xl:gap-x-10">
+            <div className="grid min-w-0 gap-5 lg:grid-cols-[minmax(0,1.2fr)_minmax(280px,0.8fr)] lg:items-start lg:gap-x-8 xl:grid-cols-[minmax(0,1.35fr)_320px] xl:gap-x-10">
                 <div className="grid min-w-0 gap-5">
                     <PanelCard size="md">
                         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between sm:gap-6">

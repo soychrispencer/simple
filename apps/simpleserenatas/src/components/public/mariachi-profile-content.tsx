@@ -37,7 +37,7 @@ export function MariachiProfileContent({
     const trustFooter = profileTrustFooter(group);
 
     return (
-        <div className="grid gap-5">
+        <div className="grid min-w-0 gap-5">
             <MariachiProfileHero group={group} />
 
             <MariachiRepertoireSection groupSlug={group.slug} />

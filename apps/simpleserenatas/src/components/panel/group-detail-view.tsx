@@ -80,7 +80,7 @@ export function GroupDetailView({
     }
 
     return (
-        <div className="grid gap-5">
+        <div className="grid min-w-0 gap-5">
             <PanelButton className="w-fit" variant="ghost" onClick={onBack}>
                 <IconArrowLeft size={16} />
                 Volver a mariachis

@@ -24,7 +24,7 @@ export function ProfileSwitcher({
             aria-label="Cambiar modo"
             className={clsx(
                 'panel-surface-subtle inline-flex rounded-button border p-1',
-                compact ? 'w-full' : '',
+                compact ? 'w-full min-w-0 max-w-full' : 'max-w-full',
             )}
         >
             {items.map((item) => {

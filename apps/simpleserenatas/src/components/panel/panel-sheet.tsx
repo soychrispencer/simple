@@ -33,8 +33,8 @@ export function PanelSheet({
     const panelScrollClass = constrainHeight
         ? 'flex w-full min-h-0 max-h-[min(92dvh,calc(100dvh-0.5rem))] flex-col overflow-hidden sm:max-h-[min(90dvh,calc(100dvh-2rem))]'
         : scrollOnMobileOnly
-          ? 'max-h-[92vh] overflow-y-auto sm:max-h-none sm:overflow-visible'
-          : 'max-h-[92vh] overflow-y-auto';
+          ? 'max-h-[92vh] overflow-x-hidden overflow-y-auto sm:max-h-[min(90dvh,calc(100dvh-2rem))] sm:overflow-y-auto'
+          : 'max-h-[92vh] overflow-x-hidden overflow-y-auto';
 
     return (
         <div className="fixed inset-0 z-[90] flex items-end justify-center p-0 sm:items-center sm:p-4"
@@ -49,7 +49,7 @@ export function PanelSheet({
                 onClick={onClose}
             />
             <div
-                className={`panel-sheet-panel relative w-full rounded-t-3xl ${maxWidthClass} sm:rounded-3xl ${panelScrollClass}`}
+                className={`panel-sheet-panel relative min-w-0 max-w-full w-full rounded-t-3xl ${maxWidthClass} sm:rounded-3xl ${panelScrollClass}`}
             >
                 {constrainHeight ? (
                     <div className="flex min-h-0 flex-1 flex-col">{children}</div>

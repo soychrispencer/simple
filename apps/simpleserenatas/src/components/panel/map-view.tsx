@@ -19,7 +19,7 @@ export function MapView({ date, setDate, items }: { date: string; setDate: (date
     const routeUrl = googleMapsDirectionsUrl(sortedItems);
 
     return (
-        <div className="grid gap-5 xl:grid-cols-[390px_minmax(0,1fr)]">
+        <div className="grid min-w-0 gap-5 xl:grid-cols-[minmax(0,390px)_minmax(0,1fr)]">
             <div className="min-w-0">
                 <PanelCard>
                     <div className="flex items-start justify-between gap-3">

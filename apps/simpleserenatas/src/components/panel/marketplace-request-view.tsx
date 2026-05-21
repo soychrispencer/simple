@@ -44,7 +44,7 @@ function ModalCloseButton({ onClose }: { onClose: () => void }) {
 
 function RequestStepIndicator({ step }: { step: 1 | 2 }) {
     return (
-        <ol className="flex gap-2" aria-label="Pasos de la solicitud">
+        <ol className="flex min-w-0 gap-2" aria-label="Pasos de la solicitud">
             {REQUEST_STEPS.map((item, index) => {
                 const active = step === item.id;
                 const done = step > item.id;
@@ -563,13 +563,13 @@ export function MarketplaceRequestView({
     }
 
     return (
-        <div className="grid gap-5">
+        <div className="grid min-w-0 gap-5">
             <PanelButton className="w-fit" variant="ghost" onClick={onBack}>
                 <IconArrowLeft size={16} />
                 Volver al grupo
             </PanelButton>
 
-            <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_340px] xl:items-start">
+            <div className="grid min-w-0 gap-5 xl:grid-cols-[minmax(0,1fr)_340px] xl:items-start">
                 <PanelCard size="lg">
                     <div>
                         <p className="text-lg font-semibold text-fg">Datos del evento</p>

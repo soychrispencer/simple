@@ -29,7 +29,7 @@ export function MariachiProfileHero({ group }: { group: ProviderGroup }) {
     const policy = bookingPolicySummary(group);
 
     return (
-        <PanelCard className="overflow-hidden !p-0">
+        <PanelCard className="min-w-0 overflow-hidden !p-0">
             <div className="relative h-36 overflow-hidden sm:h-44">
                 <MarketplaceGroupCover group={group} className="h-full min-h-full" />
                 <div
@@ -49,7 +49,7 @@ export function MariachiProfileHero({ group }: { group: ProviderGroup }) {
                     <MarketplaceGroupLogo group={group} size="profile" />
                     <div className="min-w-0 flex-1 pt-0.5">
                         <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-                            <h1 className="text-xl font-bold leading-tight text-fg sm:text-2xl">{group.name}</h1>
+                            <h1 className="break-words text-xl font-bold leading-tight text-fg sm:text-2xl">{group.name}</h1>
                             {verifiedLabel ? (
                                 <span className="inline-flex shrink-0 items-center gap-0.5 rounded-full bg-accent-soft px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-accent">
                                     <IconRosetteDiscountCheck size={11} />

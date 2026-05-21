@@ -286,8 +286,8 @@ export function GroupsView({
                     }
                 />
             ) : (
-                <div className="grid gap-8 xl:grid-cols-[minmax(0,1.1fr)_390px]">
-                    <div className="grid content-start gap-5">
+                <div className="grid min-w-0 gap-8 xl:grid-cols-[minmax(0,1.1fr)_390px]">
+                    <div className="grid min-w-0 content-start gap-5">
                         <div className="flex items-center justify-between gap-3">
                             <p className="text-xs font-medium uppercase tracking-wide text-fg-muted">
                                 Grupos

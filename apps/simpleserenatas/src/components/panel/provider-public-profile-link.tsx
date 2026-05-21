@@ -118,7 +118,7 @@ export function ProviderPublicProfileLink({
                 <div
                     className="flex min-w-0 flex-1 items-center rounded-xl border border-border bg-bg px-4 py-3 lg:py-3.5"
                 >
-                    <span className="min-w-0 flex-1 text-sm text-fg lg:font-mono lg:text-[0.8125rem] lg:leading-relaxed lg:break-all">
+                    <span className="min-w-0 flex-1 break-all text-sm text-fg lg:font-mono lg:text-[0.8125rem] lg:leading-relaxed">
                         {url}
                     </span>
                 </div>

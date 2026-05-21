@@ -16,7 +16,7 @@ export const metadata: Metadata = buildSimpleAppMetadata('simpleserenatas');
 export default function RootLayout({ children }: { children: React.ReactNode }) {
     return (
         <html lang="es" suppressHydrationWarning>
-            <body className={`${inter.variable} font-sans antialiased`}>
+            <body className={`${inter.variable} overflow-x-hidden font-sans antialiased`}>
                 <ThemeProvider>
                     <ClientProviders>{children}</ClientProviders>
                 </ThemeProvider>

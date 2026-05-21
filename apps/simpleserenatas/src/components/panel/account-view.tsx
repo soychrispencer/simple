@@ -840,7 +840,7 @@ export function ProfileView({
     const notificationTogglesDisabled = !notificationsReady || notificationPrefsSaving;
 
     return (
-        <div className="grid w-full gap-5 lg:gap-6">
+        <div className="grid w-full min-w-0 max-w-full gap-5 lg:gap-6">
             <PanelPageHeader
                 title="Mi cuenta"
                 description="Datos personales, acceso, direcciones y preferencias."

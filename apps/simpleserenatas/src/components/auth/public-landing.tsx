@@ -44,7 +44,7 @@ export function PublicLanding({ onLogin, onRegisterClient, onRegisterMusician }:
     ];
 
     return (
-        <div className="flex min-h-screen flex-col bg-[var(--bg)] text-[var(--fg)]">
+        <div className="flex min-h-screen min-w-0 flex-col overflow-x-hidden bg-[var(--bg)] text-[var(--fg)]">
             <LandingHeader onLogin={onLogin} onRegister={onRegisterClient} />
 
             <main className="flex-1">

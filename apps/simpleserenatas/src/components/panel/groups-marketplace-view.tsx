@@ -60,7 +60,7 @@ export function GroupsMarketplaceView({
     );
 
     return (
-        <div className="grid gap-5">
+        <div className="grid min-w-0 gap-5">
             <PanelCard>
                 <div className="grid gap-4">
                     <div className="flex flex-col gap-3 sm:flex-row sm:items-end">

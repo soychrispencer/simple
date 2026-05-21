@@ -72,10 +72,10 @@ export function AgendaView({
     return (
         <div className="grid gap-5">
             {mode === 'work' ? <ProfileIncompleteNotice mode={mode} profiles={profiles} /> : null}
-        <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_360px]">
+        <div className="grid min-w-0 gap-5 xl:grid-cols-[minmax(0,1fr)_360px]">
             <div className="min-w-0">
                 <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-                    <div className="grid gap-3 sm:grid-cols-[180px_minmax(240px,340px)] ml-auto">
+                    <div className="grid w-full min-w-0 max-w-full gap-3 lg:ml-auto lg:max-w-xl lg:grid-cols-[180px_minmax(0,1fr)]">
                         <FieldInput
                             type="date"
                             value={date}

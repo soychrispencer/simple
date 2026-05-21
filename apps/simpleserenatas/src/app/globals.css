@@ -239,6 +239,19 @@
     background: var(--surface);
 }
 
+/* Panel — evitar scroll horizontal en móvil */
+@media (max-width: 1023px) {
+    .panel-content-frame {
+        min-width: 0;
+        overflow-x: clip;
+    }
+
+    .panel-page {
+        min-width: 0;
+        max-width: 100%;
+    }
+}
+
 /* Registro dueño full-page (/para-duenos) */
 .auth-register-page {
     background: var(--bg);

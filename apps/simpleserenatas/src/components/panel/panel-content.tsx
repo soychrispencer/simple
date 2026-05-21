@@ -324,7 +324,7 @@ function PanelSectionPage({
     children: ReactNode;
 }) {
     return (
-        <div className="grid w-full gap-5 lg:gap-6">
+        <div className="grid w-full min-w-0 max-w-full gap-5 lg:gap-6">
             <PanelPageHeader title={title} description={description} />
             {children}
         </div>
