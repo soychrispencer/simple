@@ -1,4 +1,4 @@
-import { buildSimpleBrandIconDataUri, buildSimpleBrandIconSvg } from './brand-icon-svg.js';
+import { buildSimpleBrandIconDataUri, buildSimpleBrandIconSvg } from './brand-icon-svg';
 
 export type SimpleAppId =
     | 'simpleautos'
