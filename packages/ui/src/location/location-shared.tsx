@@ -249,65 +249,77 @@ export function applyPlaceToLocation(
     });
 }
 
+async function resolvePlacesAutocompleteReady(): Promise<boolean> {
+    const googleMaps = (window as typeof window & { google?: { maps?: any } }).google?.maps;
+    if (!googleMaps) return false;
+    if (googleMaps.places?.Autocomplete) return true;
+    if (typeof googleMaps.importLibrary === 'function') {
+        try {
+            await googleMaps.importLibrary('places');
+        } catch {
+            return false;
+        }
+    }
+    return Boolean(googleMaps.places?.Autocomplete);
+}
+
 export function loadGooglePlacesScript(apiKey: string): Promise<boolean> {
     if (!apiKey || typeof window === 'undefined') return Promise.resolve(false);
-    const googleMaps = (window as typeof window & { google?: any }).google;
-    if (googleMaps?.maps?.places?.Autocomplete) {
-        return Promise.resolve(true);
-    }
-    if (googleMaps?.maps?.importLibrary) {
-        return googleMaps.maps.importLibrary('places')
-            .then(() => Boolean((window as typeof window & { google?: any }).google?.maps?.places?.Autocomplete))
-            .catch(() => false);
-    }
 
     if (googlePlacesScriptPromise) return googlePlacesScriptPromise;
 
-    googlePlacesScriptPromise = new Promise((resolve) => {
+    googlePlacesScriptPromise = (async () => {
+        const readyNow = await resolvePlacesAutocompleteReady();
+        if (readyNow) return true;
+
         const existingScript = document.querySelector<HTMLScriptElement>('script[data-google-places-script="true"]');
         if (existingScript) {
-            if ((window as typeof window & { google?: any }).google?.maps?.places?.Autocomplete) {
-                resolve(true);
-                return;
-            }
-            if (existingScript.dataset.googlePlacesLoaded === 'true' || existingScript.dataset.googlePlacesFailed === 'true') {
+            if (existingScript.dataset.googlePlacesFailed === 'true') {
                 existingScript.remove();
+            } else if (existingScript.dataset.googlePlacesLoaded !== 'true') {
+                const waited = await new Promise<boolean>((resolve) => {
+                    const timer = window.setTimeout(() => resolve(false), 8000);
+                    existingScript.addEventListener('load', () => {
+                        window.clearTimeout(timer);
+                        void resolvePlacesAutocompleteReady().then(resolve);
+                    }, { once: true });
+                    existingScript.addEventListener('error', () => {
+                        window.clearTimeout(timer);
+                        resolve(false);
+                    }, { once: true });
+                });
+                if (waited) return true;
+                existingScript.remove();
+            } else if (await resolvePlacesAutocompleteReady()) {
+                return true;
             } else {
-                const timer = window.setTimeout(() => {
-                    googlePlacesScriptPromise = null;
-                    resolve(Boolean((window as typeof window & { google?: any }).google?.maps?.places?.Autocomplete));
-                }, 8000);
-                existingScript.addEventListener('load', () => {
-                    window.clearTimeout(timer);
-                    resolve(Boolean((window as typeof window & { google?: any }).google?.maps?.places?.Autocomplete));
-                }, { once: true });
-                existingScript.addEventListener('error', () => {
-                    window.clearTimeout(timer);
-                    googlePlacesScriptPromise = null;
-                    resolve(false);
-                }, { once: true });
-                return;
+                existingScript.remove();
             }
         }
 
-        const script = document.createElement('script');
-        script.src = `https://maps.googleapis.com/maps/api/js?key=${encodeURIComponent(apiKey)}&libraries=places&language=es&region=CL&loading=async`;
-        script.async = true;
-        script.defer = true;
-        script.dataset.googlePlacesScript = 'true';
-        script.dataset.googlePlacesKey = apiKey;
-        script.onload = () => {
-            const ok = Boolean((window as typeof window & { google?: any }).google?.maps?.places?.Autocomplete);
-            script.dataset.googlePlacesLoaded = 'true';
-            if (!ok) googlePlacesScriptPromise = null;
-            resolve(ok);
-        };
-        script.onerror = () => {
-            script.dataset.googlePlacesFailed = 'true';
-            googlePlacesScriptPromise = null;
-            resolve(false);
-        };
-        document.head.appendChild(script);
+        const loaded = await new Promise<boolean>((resolve) => {
+            const script = document.createElement('script');
+            script.src = `https://maps.googleapis.com/maps/api/js?key=${encodeURIComponent(apiKey)}&libraries=places&language=es&region=CL&loading=async`;
+            script.async = true;
+            script.defer = true;
+            script.dataset.googlePlacesScript = 'true';
+            script.dataset.googlePlacesKey = apiKey;
+            script.onload = () => {
+                script.dataset.googlePlacesLoaded = 'true';
+                void resolvePlacesAutocompleteReady().then(resolve);
+            };
+            script.onerror = () => {
+                script.dataset.googlePlacesFailed = 'true';
+                resolve(false);
+            };
+            document.head.appendChild(script);
+        });
+
+        return loaded && (await resolvePlacesAutocompleteReady());
+    })().catch(() => false);
+
+    void googlePlacesScriptPromise.then((ok) => {
+        if (!ok) googlePlacesScriptPromise = null;
     });
 
     return googlePlacesScriptPromise;

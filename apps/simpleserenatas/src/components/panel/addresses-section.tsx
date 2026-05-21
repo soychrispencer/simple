@@ -11,6 +11,7 @@ import {
     LOCATION_REGIONS,
     updateAddressBookEntry,
 } from '@simple/utils';
+import { useGoogleMapsBrowserKey } from '@/lib/use-google-maps-browser-key';
 
 type AddressesSectionProps = {
     entries: AddressBookEntry[];
@@ -51,6 +52,7 @@ export function communesFromAddressBook(entries: AddressBookEntry[]): string[] {
 }
 
 export function AddressesSection({ entries, loading, onEntriesChange }: AddressesSectionProps) {
+    const googleMapsApiKey = useGoogleMapsBrowserKey();
     const [saving, setSaving] = useState(false);
     const [deletingId, setDeletingId] = useState<string | null>(null);
     const [message, setMessage] = useState<string | null>(null);
@@ -65,7 +67,7 @@ export function AddressesSection({ entries, loading, onEntriesChange }: Addresse
         <div className="grid gap-5">
             <AddressBookManager
                 showHeader={false}
-                googleMapsApiKey={process.env.NEXT_PUBLIC_GOOGLE_MAPS_BROWSER_KEY || process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY}
+                googleMapsApiKey={googleMapsApiKey}
                 entries={entries}
                 regions={LOCATION_REGIONS.map((item) => ({ value: item.id, label: item.name }))}
                 getCommunes={(regionId) => getCommunesForRegion(regionId).map((item) => ({ value: item.id, label: item.name }))}

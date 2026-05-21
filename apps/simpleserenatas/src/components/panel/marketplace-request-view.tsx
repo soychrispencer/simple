@@ -9,6 +9,7 @@ import { serenatasApi, type ProviderGroup, type ProviderGroupService } from '@/l
 import { startSerenataCheckout } from '@/lib/payments';
 import { panelSectionHref } from '@/lib/panel-routes';
 import { clearMarketplaceRequestDraftRef } from '@/lib/marketplace-request-draft';
+import { useGoogleMapsBrowserKey } from '@/lib/use-google-maps-browser-key';
 import {
     cleanSerenataAddress,
     FieldInput,
@@ -33,6 +34,7 @@ export function MarketplaceRequestView({
     contactPhone: string;
     onBack: () => void;
 }) {
+    const googleMapsApiKey = useGoogleMapsBrowserKey();
     const [recipientName, setRecipientName] = useState('');
     const [clientPhone, setClientPhone] = useState(contactPhone);
     const [eventDate, setEventDate] = useState(today);
@@ -307,7 +309,7 @@ export function MarketplaceRequestView({
                                     addressRequired
                                     addressHintMode="minimal"
                                     onSaveToAddressBook={() => void saveCurrentAddress()}
-                                    googleMapsApiKey={process.env.NEXT_PUBLIC_GOOGLE_MAPS_BROWSER_KEY || process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY}
+                                    googleMapsApiKey={googleMapsApiKey}
                                 />
                             </div>
                         </div>

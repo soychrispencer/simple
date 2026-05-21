@@ -162,6 +162,11 @@ NEXT_PUBLIC_APP_URL=https://simpleplataforma.app
 NEXT_PUBLIC_API_URL=
 API_INTERNAL_URL=https://api.simpleplataforma.app
 NEXT_PUBLIC_APP_URL=https://simpleserenatas.app
+
+# Google Places (libro de direcciones). Opción A: en build de esta app:
+NEXT_PUBLIC_GOOGLE_MAPS_BROWSER_KEY=   # referrer: simpleserenatas.app, APIs: Places + Maps JS
+# Opción B (recomendada): solo en simple-api → GOOGLE_MAPS_BROWSER_KEY o GOOGLE_MAPS_API_KEY;
+# la app la obtiene en runtime vía GET /api/public/maps-browser-key (mismo origen).
 ```
 
 Desarrollo local: `http://localhost:3005` (incluido en `CORS_ORIGINS` de `services/api/.env.example`).

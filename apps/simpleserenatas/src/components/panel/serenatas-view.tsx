@@ -13,6 +13,7 @@ import { SerenataClosureActions } from './serenata-closure-actions';
 import { MusicianAvailabilityBadge } from './musician-availability-toggle';
 import { startSerenataCheckout } from '@/lib/payments';
 import { panelSectionHref } from '@/lib/panel-routes';
+import { useGoogleMapsBrowserKey } from '@/lib/use-google-maps-browser-key';
 import { PanelSheet } from './panel-sheet';
 import {
     EmptyBlock,
@@ -1029,6 +1030,7 @@ const SERENATA_FORM_MOBILE_STEPS = [
 ] as const;
 
 export function SerenataForm({ title, item, groups, packages, refresh, onDone, onCancel, modal = false }: { title: string; item?: Serenata; groups: SerenataGroup[]; packages: SerenataPackage[]; refresh: () => Promise<void>; onDone: (item: Serenata) => void; onCancel?: () => void; modal?: boolean }) {
+    const googleMapsApiKey = useGoogleMapsBrowserKey();
     const [status, setStatus] = useState<FormStatus>({ loading: false, error: null, ok: null });
     const [mobileStep, setMobileStep] = useState(1);
     const [recipientName, setRecipientName] = useState(item?.recipientName ?? '');
@@ -1164,7 +1166,7 @@ export function SerenataForm({ title, item, groups, packages, refresh, onDone, o
                     showSimpleVisibilityToggle={false}
                     showGoogleMapsLink
                     addressRequired
-                    googleMapsApiKey={process.env.NEXT_PUBLIC_GOOGLE_MAPS_BROWSER_KEY || process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY}
+                    googleMapsApiKey={googleMapsApiKey}
                 />
                 <div className="mt-3 rounded-card border border-border bg-bg-subtle p-3 text-sm text-fg-secondary">
                     <span className="font-semibold text-[var(--fg)]">Ubicación detectada:</span>{' '}

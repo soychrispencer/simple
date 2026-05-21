@@ -41,6 +41,18 @@ export function createSystemRouter(deps: SystemRouterDeps) {
     app.get('/health', handleHealthcheck);
     app.get('/api/health', handleHealthcheck);
 
+    /** Clave de Maps para el navegador (Places). Pública por diseño (referrer-restricted en GCP). */
+    app.get('/api/public/maps-browser-key', (c) => {
+        const key =
+            process.env.GOOGLE_MAPS_BROWSER_KEY?.trim()
+            || process.env.GOOGLE_MAPS_API_KEY?.trim()
+            || '';
+        if (!key) {
+            return c.json({ ok: false, key: null, error: 'maps_key_not_configured' }, 200);
+        }
+        return c.json({ ok: true, key });
+    });
+
     // Debug environment endpoint
     app.get('/api/debug/env', (c) => {
         return c.json({
