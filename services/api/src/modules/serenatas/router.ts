@@ -312,6 +312,15 @@ function jsonError(
     return c.json(body, status);
 }
 
+function getNestedErrorMessage(err: unknown): string {
+    if (!(err instanceof Error)) return String(err);
+    const parts = [err.message];
+    const cause = (err as Error & { cause?: unknown }).cause;
+    if (cause instanceof Error) parts.push(cause.message);
+    else if (typeof cause === 'string') parts.push(cause);
+    return parts.join('\n');
+}
+
 function isSerenataSchemaError(message: string): boolean {
     return /column .* does not exist|relation .* does not exist|violates not-null constraint|null value in column|42703|42P01|23502/i.test(message);
 }
@@ -934,7 +943,7 @@ export function createSerenatasRouter(deps: SerenatasRouterDeps) {
         if (!user) return jsonError(c, 'No autenticado', 401);
 
         const serenataListDbError = (err: unknown, phase: string) => {
-            const message = err instanceof Error ? err.message : String(err);
+            const message = getNestedErrorMessage(err);
             const missingSchema = isSerenataSchemaError(message);
             console.error('[serenatas] list failed', { phase, userId: user.id, message, err });
             return jsonError(
@@ -1395,7 +1404,7 @@ export function createSerenatasRouter(deps: SerenatasRouterDeps) {
     });
 
     const groupDbError = (c: Context, err: unknown, phase: string, userId: string) => {
-        const message = err instanceof Error ? err.message : String(err);
+        const message = getNestedErrorMessage(err);
         const missingSchema = isSerenataSchemaError(message);
         console.error('[serenatas] groups failed', { phase, userId, message, err });
         return jsonError(
