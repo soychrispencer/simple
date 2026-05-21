@@ -143,6 +143,15 @@ NEXT_PUBLIC_APP_URL=https://simpleagenda.app
 
 ## 6. SimplePlataforma (`simpleplataforma.app`)
 
+- **Build Pack**: `Dockerfile`
+- **Dockerfile Location**: `apps/simpleplataforma/Dockerfile`
+- **Port / Exposed Port**: `3000`
+
+Páginas legales (Google OAuth / consola de desarrollador):
+
+- Política de privacidad: `https://simpleplataforma.app/privacidad`
+- Términos y condiciones: `https://simpleplataforma.app/terminos`
+
 ```env
 NEXT_PUBLIC_API_URL=https://api.simpleplataforma.app
 NEXT_PUBLIC_APP_URL=https://simpleplataforma.app

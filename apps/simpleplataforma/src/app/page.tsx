@@ -893,9 +893,20 @@ export default function LandingPage() {
                                     </span>
                                 </li>
                                 <li>
-                                    <span className="text-sm plt-muted">
-                                        Términos de uso
-                                    </span>
+                                    <Link
+                                        href="/terminos"
+                                        className="text-sm transition-colors hover:text-[var(--fg)] plt-muted"
+                                    >
+                                        Términos y condiciones
+                                    </Link>
+                                </li>
+                                <li>
+                                    <Link
+                                        href="/privacidad"
+                                        className="text-sm transition-colors hover:text-[var(--fg)] plt-muted"
+                                    >
+                                        Política de privacidad
+                                    </Link>
                                 </li>
                             </ul>
                         </div>
@@ -906,6 +917,14 @@ export default function LandingPage() {
                         <p className="text-xs plt-muted">
                             &copy; {new Date().getFullYear()} SimplePlataforma. Todos los derechos reservados.
                         </p>
+                        <div className="flex gap-4 text-xs">
+                            <Link href="/terminos" className="plt-muted hover:text-[var(--fg)]">
+                                Términos
+                            </Link>
+                            <Link href="/privacidad" className="plt-muted hover:text-[var(--fg)]">
+                                Privacidad
+                            </Link>
+                        </div>
                         <p className="text-xs flex items-center gap-1 plt-muted">
                             Hecho con <IconHeart size={12} className="text-red-500" fill="currentColor" /> en Chile
                         </p>
