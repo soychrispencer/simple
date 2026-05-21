@@ -11,7 +11,7 @@ export function isProfileIncomplete(mode: AppMode, profiles: Profiles): boolean 
     if (mode === 'client') {
         const client = profiles.client;
         if (!client) return true;
-        return !client.phone?.trim() || !client.comuna?.trim() || !client.region?.trim();
+        return !client.phone?.trim();
     }
 
     if (ownerFeaturesEnabled(profiles)) {
@@ -19,11 +19,14 @@ export function isProfileIncomplete(mode: AppMode, profiles: Profiles): boolean 
         return adminComunas.length === 0;
     }
 
-    return (
-        !profiles.musician?.instrument ||
-        !profiles.musician?.workZones ||
-        profiles.musician.workZones.length === 0
+    const musician = profiles.musician;
+    if (!musician) return true;
+    if (!musician.hasInstrument) return true;
+    const hasInstrumentName = Boolean(
+        musician.instrument?.trim()
+        || musician.instruments?.some((item) => item.trim()),
     );
+    return !hasInstrumentName;
 }
 
 function profileMissingLabels(mode: AppMode, profiles: Profiles): string[] {
@@ -31,8 +34,6 @@ function profileMissingLabels(mode: AppMode, profiles: Profiles): string[] {
         const client = profiles.client;
         const missing: string[] = [];
         if (!client?.phone?.trim()) missing.push('teléfono');
-        if (!client?.region?.trim()) missing.push('región');
-        if (!client?.comuna?.trim()) missing.push('comuna');
         return missing;
     }
 
@@ -42,17 +43,21 @@ function profileMissingLabels(mode: AppMode, profiles: Profiles): string[] {
         if (comunas.length === 0) missing.push('zonas de trabajo en Mi negocio');
         return missing;
     }
-    if (!profiles.musician?.instrument) missing.push('instrumento');
-    if (!profiles.musician?.workZones || profiles.musician.workZones.length === 0) {
-        missing.push('zonas de trabajo');
+    const musician = profiles.musician;
+    if (!musician?.hasInstrument) missing.push('confirmar instrumento propio');
+    else if (
+        !musician.instrument?.trim()
+        && !(musician.instruments?.some((item) => item.trim()))
+    ) {
+        missing.push('instrumento principal');
     }
     return missing;
 }
 
 function profileCompleteHref(mode: AppMode, profiles: Profiles): string {
     if (mode === 'client') return '/panel/cuenta?account_tab=data';
-    if (ownerFeaturesEnabled(profiles)) return panelMiNegocioHref('perfil');
-    return '/panel/cuenta?account_tab=data';
+    if (ownerFeaturesEnabled(profiles)) return panelMiNegocioHref('datos');
+    return '/panel/cuenta?account_tab=musician';
 }
 
 function profileCompleteLinkLabel(mode: AppMode, profiles: Profiles): string {

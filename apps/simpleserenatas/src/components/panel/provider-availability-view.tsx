@@ -26,8 +26,8 @@ export function ProviderAvailabilityView() {
     if (!hasMariachi || !mariachi) {
         return (
             <EmptyBlock
-                title="Crea tu perfil comercial primero"
-                description="Configura tu mariachi en la pestaña Perfil comercial y luego define horarios aquí."
+                title="Crea tus datos comerciales primero"
+                description="Configura tu mariachi en Datos comerciales y luego define horarios aquí."
             />
         );
     }

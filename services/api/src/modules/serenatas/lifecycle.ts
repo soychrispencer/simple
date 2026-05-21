@@ -14,6 +14,29 @@ export const COMPLETABLE_STATUSES = ['scheduled'] as const;
 export const CANCELLABLE_STATUSES = ['scheduled', 'accepted_pending_group'] as const;
 export const TERMINAL_STATUSES = ['completed', 'cancelled'] as const;
 
+/** Cliente: anular/cancelar antes de aceptación del dueño. */
+export const CLIENT_CANCELABLE_STATUSES = ['payment_pending', 'pending', 'pending_open'] as const;
+
+export function clientCancelRequiresReason(item: {
+    status: string;
+    paymentStatus?: string | null;
+}): boolean {
+    if (item.status === 'payment_pending') return false;
+    return item.paymentStatus === 'paid';
+}
+
+export function validateClientCancelReason(
+    item: { status: string; paymentStatus?: string | null },
+    cancelReason?: string | null,
+): string | null {
+    if (!clientCancelRequiresReason(item)) return null;
+    const reason = cancelReason?.trim() ?? '';
+    if (reason.length < 3) {
+        return 'Indica un motivo de cancelación de al menos 3 caracteres.';
+    }
+    return null;
+}
+
 export function todayYmdInChile(): string {
     return new Intl.DateTimeFormat('en-CA', {
         timeZone: SERENATA_TIMEZONE,
@@ -306,12 +329,21 @@ export async function cancelClientPendingSerenata(
         where: and(
             eq(serenatas.id, serenataId),
             eq(serenatas.clientId, clientId),
-            inArray(serenatas.status, ['pending', 'pending_open']),
+            inArray(serenatas.status, [...CLIENT_CANCELABLE_STATUSES]),
             eq(serenatas.source, 'platform_lead'),
         ),
     });
     if (!pending) {
-        return { ok: false as const, error: 'Solo puedes cancelar solicitudes pendientes.', status: 404 as const };
+        return {
+            ok: false as const,
+            error: 'Solo puedes anular solicitudes sin respuesta del mariachi (antes de que acepte).',
+            status: 404 as const,
+        };
+    }
+
+    const reasonError = validateClientCancelReason(pending, cancelReason);
+    if (reasonError) {
+        return { ok: false as const, error: reasonError, status: 400 as const };
     }
 
     const reason = cancelReason?.trim() || null;

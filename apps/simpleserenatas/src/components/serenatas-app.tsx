@@ -4,7 +4,6 @@ import { useMemo, useCallback } from 'react';
 import { useRouter, useSearchParams, usePathname } from 'next/navigation';
 import { panelPathFromSection } from '@/lib/panel-routes';
 import { PanelConfirmProvider, PanelNotice } from '@simple/ui';
-import { MarketplaceHeader } from '@simple/marketplace-header';
 
 import { useAuth } from '@simple/auth';
 import { useLogoutAndGoHome } from '@/hooks/use-logout-and-go-home';
@@ -17,13 +16,7 @@ import { SkeletonCard } from '@/components/panel/skeleton';
 // Modular Panel Parts
 import { PanelContent } from '@/components/panel/panel-content';
 import { SerenataPanelShell } from '@/components/panel/panel-shell';
-import { ProfileSwitcher } from '@/components/panel/profile-switcher';
-import {
-    isPanelNavActive,
-    fetchNotifications,
-    getPrimaryActionConfig,
-    getModeSwitchItems,
-} from '@/components/panel/panel-nav-config';
+import { SerenatasChromeHeader } from '@/components/layout/serenatas-chrome-header';
 
 import { suspendedAccountNotice } from '@/lib/suspended-notice';
 import { persistSignupProfile } from '@/lib/signup-profile';
@@ -71,13 +64,6 @@ export function SerenatasApp() {
 
     const selectedSerenataId = searchParams.get('serenata');
     const panelAction = searchParams.get('action');
-
-    const switchItems = useMemo(() => getModeSwitchItems(profiles), [profiles]);
-
-    const panelNavActive = useCallback(
-        (navPathname: string, href: string) => isPanelNavActive(navPathname, href, section),
-        [section],
-    );
 
     const clearPanelAction = useCallback(() => {
         const params = new URLSearchParams(searchParams.toString());
@@ -149,57 +135,13 @@ export function SerenatasApp() {
     }
 
 
-    const primaryAction = getPrimaryActionConfig(mode, profiles);
-
     return (
         <PanelConfirmProvider>
         <div className="flex min-h-screen flex-col bg-[var(--bg)] text-[var(--fg)]">
-            <MarketplaceHeader
-                brandAppId="simpleserenatas"
-                onLogout={logoutAndGoHome}
-                publicLinks={[]}
-                getPanelNavItems={() => []}
-                isPanelNavActive={panelNavActive}
-                fetchPanelNotifications={() =>
-                    fetchNotifications()
-                }
-                centerSlot={
-                    switchItems.length > 1 ? (
-                        <ProfileSwitcher
-                            items={switchItems}
-                            active={mode}
-                            onChange={changeMode}
-                        />
-                    ) : null
-                }
-                primaryActionLabel={primaryAction.label}
-                primaryActionHref={primaryAction.href}
-                primaryActionIcon={primaryAction.icon}
-                showPrimaryAction={!isSuspended && primaryAction.show}
-                renderMobileMenu={(closeMenu) => (
-                    <>
-                        {switchItems.length > 1 ? (
-                            <div className="mb-3 px-1">
-                                <ProfileSwitcher
-                                    items={switchItems}
-                                    active={mode}
-                                    onChange={changeMode}
-                                    compact
-                                />
-                            </div>
-                        ) : null}
-                        <button
-                            type="button"
-                            className="btn btn-ghost mb-2 h-10 w-full text-sm font-medium"
-                            onClick={() => {
-                                closeMenu();
-                                window.dispatchEvent(new Event('simple:panel-mobile-open'));
-                            }}
-                        >
-                            Abrir menú del panel
-                        </button>
-                    </>
-                )}
+            <SerenatasChromeHeader
+                mode={mode}
+                profiles={profiles}
+                onModeChange={changeMode}
             />
 
             <SerenataPanelShell section={section} onSectionChange={changeSection}>

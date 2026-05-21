@@ -29,6 +29,7 @@ import {
     recordProviderGroupRating,
     rejectMarketplaceSerenata,
 } from './marketplace.js';
+import { registerRepertoireRoutes } from './repertoire.js';
 import { listOwnerSerenatas, listMusicianAgenda, listMusicianSerenatas } from './owner-listings.js';
 import {
     cancelClientPendingSerenata,
@@ -124,6 +125,8 @@ const musicianProfileSchema = z.object({
     availableNow: z.boolean().default(false),
     experienceYears: z.number().int().min(0).max(80).default(0),
     workZones: z.array(z.string().min(1)).default([]),
+    hasInstrument: z.boolean().default(false),
+    hasMariachiAttire: z.boolean().default(false),
 });
 
 /** PUT parcial: solo valida campos enviados (sin defaults que pisen el perfil existente). */
@@ -139,6 +142,8 @@ const musicianProfileUpdateSchema = z.object({
     availableNow: z.boolean().optional(),
     experienceYears: z.number().int().min(0).max(80).optional(),
     workZones: z.array(z.string().min(1)).optional(),
+    hasInstrument: z.boolean().optional(),
+    hasMariachiAttire: z.boolean().optional(),
 });
 
 const ownerProfileSchema = z.object({
@@ -381,6 +386,8 @@ function zodFirstFieldError(error: z.ZodError): string {
         region: 'Región',
         experienceYears: 'Años de experiencia',
         workZones: 'Zonas de trabajo',
+        hasInstrument: 'Instrumento propio',
+        hasMariachiAttire: 'Tenida de mariachi',
     };
     const label = field ? fieldLabels[field] ?? field : 'Campo';
     return `${label}: ${issue.message}`;
@@ -824,8 +831,14 @@ export function createSerenatasRouter(deps: SerenatasRouterDeps) {
             availableNow: patch.availableNow !== undefined ? patch.availableNow : existing?.availableNow ?? false,
             experienceYears: patch.experienceYears !== undefined ? patch.experienceYears : existing?.experienceYears ?? 0,
             workZones: patch.workZones !== undefined ? patch.workZones : existing?.workZones ?? [],
+            hasInstrument: patch.hasInstrument !== undefined ? patch.hasInstrument : existing?.hasInstrument ?? false,
+            hasMariachiAttire: patch.hasMariachiAttire !== undefined ? patch.hasMariachiAttire : existing?.hasMariachiAttire ?? false,
             updatedAt: new Date(),
         };
+        if (values.hasInstrument === false) {
+            values.instrument = null;
+            values.instruments = [];
+        }
         const [profile] = existing
             ? await db.update(serenataMusicians).set(values).where(eq(serenataMusicians.id, existing.id)).returning()
             : await db.insert(serenataMusicians).values({ userId: user.id, ...values }).returning();
@@ -2063,13 +2076,15 @@ export function createSerenatasRouter(deps: SerenatasRouterDeps) {
         return c.json({ ok: true, items: [...withCoordinates, ...withoutCoordinates] });
     });
 
-    registerMarketplaceRoutes(app, {
+    const marketplaceDeps = {
         authUser: deps.authUser,
         jsonError,
         ensureClientProfile,
         requireOwner,
         validateOwnerAvailability,
-    });
+    };
+    registerMarketplaceRoutes(app, marketplaceDeps);
+    registerRepertoireRoutes(app, marketplaceDeps);
 
     const serenatasIntegrationsUrl = (params: Record<string, string>) => {
         const base = (process.env.SERENATAS_APP_URL ?? 'http://localhost:3005').replace(/\/$/, '');

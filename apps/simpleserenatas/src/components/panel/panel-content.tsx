@@ -1,6 +1,6 @@
 'use client';
 
-import { ReactNode, useCallback, useEffect, useState } from 'react';
+import { ReactNode, useCallback, useEffect } from 'react';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import dynamic from 'next/dynamic';
 import {
@@ -13,7 +13,6 @@ import {
     type SerenatasUser,
     type ProviderGroup,
     type ProviderGroupService,
-    serenatasApi,
 } from '@/lib/serenatas-api';
 import type { AppMode } from '@/lib/app-mode';
 import { type Section } from '@/context/serenata-context';
@@ -24,12 +23,7 @@ import {
     panelSectionHref,
 } from '@/lib/panel-routes';
 import { publicMariachiPath } from '@/lib/public-mariachi-routes';
-import {
-    clearMarketplaceRequestDraftRef,
-    readMarketplaceRequestDraftFromSearch,
-    readMarketplaceRequestDraftRef,
-    writeMarketplaceRequestDraftRef,
-} from '@/lib/marketplace-request-draft';
+import { useSerenataRequestModal } from '@/components/serenata-request/serenata-request-modal-context';
 import { PanelNotice, PanelPageHeader } from '@simple/ui';
 
 const AgendaView = dynamic(() => import('@/components/panel/agenda-view').then((mod) => mod.AgendaView));
@@ -52,9 +46,6 @@ const GroupsMarketplaceView = dynamic(() =>
 );
 const GroupDetailView = dynamic(() =>
     import('@/components/panel/group-detail-view').then((mod) => mod.GroupDetailView),
-);
-const MarketplaceRequestView = dynamic(() =>
-    import('@/components/panel/marketplace-request-view').then((mod) => mod.MarketplaceRequestView),
 );
 const MiNegocioView = dynamic(() =>
     import('@/components/panel/mi-negocio-view').then((mod) => mod.MiNegocioView),
@@ -90,14 +81,9 @@ export type PanelContentProps = {
 };
 
 export function PanelContent(props: PanelContentProps) {
-    const contactPhone = props.accountUser?.phone?.trim() || props.profiles.client?.phone?.trim() || '';
     const pathname = usePathname() ?? '';
     const searchParams = useSearchParams();
-    const [requestDraft, setRequestDraft] = useState<{
-        group: ProviderGroup;
-        service: ProviderGroupService;
-    } | null>(null);
-    const [requestDraftRestoring, setRequestDraftRestoring] = useState(false);
+    const { openRequest } = useSerenataRequestModal();
 
     const grupoSlug = groupSlugFromPanelPath(pathname) || searchParams.get('grupo') || '';
 
@@ -108,71 +94,24 @@ export function PanelContent(props: PanelContentProps) {
         [props.router],
     );
 
-    const openRequest = useCallback(
+    const openRequestFromPanel = useCallback(
         (group: ProviderGroup, service: ProviderGroupService) => {
-            const ref = { groupSlug: group.slug, serviceId: service.id };
-            writeMarketplaceRequestDraftRef(ref);
-            setRequestDraft({ group, service });
-            props.setSection('solicitar', { grupo: ref.groupSlug, servicio: ref.serviceId });
+            openRequest({ group, service });
         },
-        [props],
+        [openRequest],
     );
 
     const backToGrupos = useCallback(() => {
-        clearMarketplaceRequestDraftRef();
-        setRequestDraft(null);
         props.setSection('mariachis');
     }, [props]);
 
-    useEffect(() => {
-        if (props.section !== 'solicitar' || requestDraft) return;
-        const stored =
-            readMarketplaceRequestDraftFromSearch(searchParams.toString()) ?? readMarketplaceRequestDraftRef();
-        if (!stored) return;
-
-        let cancelled = false;
-        setRequestDraftRestoring(true);
-        void (async () => {
-            const groupResponse = await serenatasApi.marketplaceGroupBySlug(stored.groupSlug);
-            if (cancelled || !groupResponse.ok || !groupResponse.item) {
-                if (!cancelled) clearMarketplaceRequestDraftRef();
-                return;
-            }
-            const servicesResponse = await serenatasApi.marketplaceGroupServices(groupResponse.item.id);
-            if (cancelled || !servicesResponse.ok) {
-                if (!cancelled) clearMarketplaceRequestDraftRef();
-                return;
-            }
-            const service = servicesResponse.items.find((item) => item.id === stored.serviceId);
-            if (!service) {
-                clearMarketplaceRequestDraftRef();
-                return;
-            }
-            setRequestDraft({ group: groupResponse.item, service });
-        })().finally(() => {
-            if (!cancelled) setRequestDraftRestoring(false);
-        });
-
-        return () => {
-            cancelled = true;
-        };
-    }, [props.section, requestDraft, searchParams]);
-
     const needsGrupoSlug = props.section === 'grupo' && !grupoSlug;
-    const hasStoredRequestDraft =
-        props.section === 'solicitar' &&
-        !requestDraft &&
-        Boolean(
-            readMarketplaceRequestDraftFromSearch(searchParams.toString()) ?? readMarketplaceRequestDraftRef(),
-        );
-    const needsRequestDraft =
-        props.section === 'solicitar' && !requestDraft && !requestDraftRestoring && !hasStoredRequestDraft;
 
     useEffect(() => {
-        if (needsGrupoSlug || needsRequestDraft) {
+        if (needsGrupoSlug) {
             backToGrupos();
         }
-    }, [needsGrupoSlug, needsRequestDraft, backToGrupos]);
+    }, [needsGrupoSlug, backToGrupos]);
 
     if (props.section === 'profile') {
         return (
@@ -197,7 +136,7 @@ export function PanelContent(props: PanelContentProps) {
     if (props.section === 'mariachis' || props.section === 'grupos') {
         if (props.mode !== 'client') {
             return (
-                <PanelSectionPage title="Mariachis" description="Disponible en modo Cliente.">
+                <PanelSectionPage title="Explorar Mariachis" description="Disponible en modo Cliente.">
                     <PanelNotice tone="warning">
                         <strong>Explorar mariachis requiere modo Cliente</strong>
                     </PanelNotice>
@@ -205,11 +144,8 @@ export function PanelContent(props: PanelContentProps) {
             );
         }
         return (
-            <PanelSectionPage
-                title="Mariachis"
-                description="Explora mariachis y solicita el servicio que prefieras."
-            >
-                <GroupsMarketplaceView setSection={props.setSection} onOpenGroup={openGroupDetail} />
+            <PanelSectionPage title="Explorar Mariachis" description="">
+                <GroupsMarketplaceView onOpenGroup={openGroupDetail} />
             </PanelSectionPage>
         );
     }
@@ -223,31 +159,14 @@ export function PanelContent(props: PanelContentProps) {
                 <GroupDetailView
                     slug={grupoSlug}
                     onBack={backToGrupos}
-                    onRequest={openRequest}
+                    onRequest={openRequestFromPanel}
                 />
             </PanelSectionPage>
         );
     }
 
     if (props.section === 'solicitar') {
-        if (!requestDraft) {
-            if (requestDraftRestoring || hasStoredRequestDraft) {
-                return <p className="text-sm text-fg-muted">Cargando solicitud…</p>;
-            }
-            return null;
-        }
-        return (
-            <PanelSectionPage title="Solicitar serenata" description="Completa los datos del evento.">
-                <MarketplaceRequestView
-                    group={requestDraft.group}
-                    service={requestDraft.service}
-                    contactPhone={contactPhone}
-                    onBack={() => {
-                        openGroupDetail(requestDraft.group.slug);
-                    }}
-                />
-            </PanelSectionPage>
-        );
+        return null;
     }
 
     if (props.section === 'mi-negocio' || props.section === 'servicios' || props.section === 'groups') {

@@ -31,6 +31,8 @@ import {
     serenataClients,
     serenataOwners,
     serenataGroupServices,
+    serenataRepertoireSongs,
+    serenataServiceSongs,
     serenataMusicians,
     serenataProviderGroupApplications,
     serenataProviderGroupMemberInvites,
@@ -40,6 +42,11 @@ import {
     users,
 } from '../../db/schema.js';
 import { sendSerenataGuestGroupInviteEmail } from '../../lib/serenatas-email.js';
+import {
+    insertClientSongSelections,
+    listActiveSongsForService,
+    validateClientSongSelections,
+} from './repertoire.js';
 import {
     buildGroupInviteSignupUrl,
     buildGroupInviteWhatsAppMessage,
@@ -157,6 +164,9 @@ export const groupServiceWriteSchema = z.object({
     price: z.number().int().min(1000),
     currency: z.string().min(3).max(8).default('CLP'),
     eventType: emptyStringToNull,
+    songsIncluded: z.number().int().min(0).max(30).optional(),
+    repertoirePolicy: z.enum(['any_active', 'curated_only']).optional(),
+    curatedSongIds: z.array(z.string().uuid()).max(100).optional(),
     isActive: z.boolean().optional(),
     sortOrder: z.number().int().optional(),
 });
@@ -214,6 +224,10 @@ export const marketplaceSerenataSchema = z.object({
     eventTime: z.string().min(4).max(10).nullable().optional(),
     flexibleSchedule: z.boolean().optional(),
     message: emptyStringToNull,
+    songSelections: z.array(z.object({
+        repertoireSongId: z.string().uuid(),
+        clientNote: emptyStringToNull,
+    })).max(30).optional(),
 }).superRefine((data, ctx) => {
     if (data.flexibleSchedule) return;
     if (!data.eventTime?.trim()) {
@@ -332,11 +346,30 @@ function mapGroupService(row: typeof serenataGroupServices.$inferSelect) {
         price: row.price,
         currency: row.currency,
         eventType: row.eventType,
+        songsIncluded: row.songsIncluded ?? 0,
+        repertoirePolicy: (row.repertoirePolicy ?? 'any_active') as 'any_active' | 'curated_only',
         isActive: row.isActive,
         sortOrder: row.sortOrder,
         createdAt: row.createdAt,
         updatedAt: row.updatedAt,
     };
+}
+
+async function syncServiceCuratedSongs(serviceId: string, providerGroupId: string, songIds: string[] | undefined) {
+    await db.delete(serenataServiceSongs).where(eq(serenataServiceSongs.serviceId, serviceId));
+    if (!songIds?.length) return;
+    const valid = await db
+        .select({ id: serenataRepertoireSongs.id })
+        .from(serenataRepertoireSongs)
+        .where(and(
+            eq(serenataRepertoireSongs.providerGroupId, providerGroupId),
+            inArray(serenataRepertoireSongs.id, songIds),
+        ));
+    if (valid.length > 0) {
+        await db.insert(serenataServiceSongs).values(
+            valid.map((row) => ({ serviceId, repertoireSongId: row.id })),
+        );
+    }
 }
 
 function mapProviderGroupMember(row: {
@@ -482,6 +515,7 @@ async function enrichProviderGroupsForMarketplace(groups: (typeof serenataProvid
                 price: service.price,
                 musiciansCount: service.musiciansCount,
                 durationMinutes: service.durationMinutes,
+                songsIncluded: service.songsIncluded ?? 0,
             })),
         };
     });
@@ -619,6 +653,35 @@ export function registerMarketplaceRoutes(app: Hono, deps: MarketplaceDeps) {
             .where(and(eq(serenataGroupServices.providerGroupId, id), eq(serenataGroupServices.isActive, true)))
             .orderBy(asc(serenataGroupServices.sortOrder), asc(serenataGroupServices.name));
         return c.json({ ok: true, items: services.map(mapGroupService) });
+    });
+
+    app.get('/marketplace/groups/:groupId/services/:serviceId/repertoire', async (c) => {
+        const group = await db.query.serenataProviderGroups.findFirst({
+            where: and(
+                eq(serenataProviderGroups.id, c.req.param('groupId')),
+                eq(serenataProviderGroups.status, 'active'),
+            ),
+        });
+        if (!group) return deps.jsonError(c, 'Grupo no encontrado', 404);
+        const service = await db.query.serenataGroupServices.findFirst({
+            where: and(
+                eq(serenataGroupServices.id, c.req.param('serviceId')),
+                eq(serenataGroupServices.providerGroupId, group.id),
+                eq(serenataGroupServices.isActive, true),
+            ),
+        });
+        if (!service) return deps.jsonError(c, 'Servicio no disponible', 404);
+        const items = await listActiveSongsForService(group.id, service);
+        const tagSet = new Set<string>();
+        for (const song of items) {
+            for (const tag of song.tags) tagSet.add(tag);
+        }
+        return c.json({
+            ok: true,
+            songsIncluded: service.songsIncluded ?? 0,
+            tags: [...tagSet].sort((a, b) => a.localeCompare(b, 'es')),
+            items,
+        });
     });
 
     app.get('/provider-groups/me', async (c) => {
@@ -1227,7 +1290,7 @@ export function registerMarketplaceRoutes(app: Hono, deps: MarketplaceDeps) {
             ),
         });
         if (!existing) return deps.jsonError(c, 'Servicio no encontrado', 404);
-        const patch = parsed.data;
+        const { curatedSongIds, ...patch } = parsed.data;
         const [item] = await db.update(serenataGroupServices).set({
             ...(patch.name !== undefined ? { name: patch.name } : {}),
             ...(patch.description !== undefined ? { description: patch.description } : {}),
@@ -1236,10 +1299,15 @@ export function registerMarketplaceRoutes(app: Hono, deps: MarketplaceDeps) {
             ...(patch.price !== undefined ? { price: patch.price } : {}),
             ...(patch.currency !== undefined ? { currency: patch.currency } : {}),
             ...(patch.eventType !== undefined ? { eventType: patch.eventType } : {}),
+            ...(patch.songsIncluded !== undefined ? { songsIncluded: patch.songsIncluded } : {}),
+            ...(patch.repertoirePolicy !== undefined ? { repertoirePolicy: patch.repertoirePolicy } : {}),
             ...(patch.isActive !== undefined ? { isActive: patch.isActive } : {}),
             ...(patch.sortOrder !== undefined ? { sortOrder: patch.sortOrder } : {}),
             updatedAt: new Date(),
         }).where(eq(serenataGroupServices.id, serviceId)).returning();
+        if (curatedSongIds !== undefined || patch.repertoirePolicy === 'curated_only') {
+            await syncServiceCuratedSongs(item.id, access.group.id, curatedSongIds);
+        }
         return c.json({ ok: true, item: mapGroupService(item) });
     });
 
@@ -1292,6 +1360,11 @@ export async function createMarketplaceSerenata(
         ),
     });
     if (!service) return { ok: false as const, error: 'Servicio no disponible.' };
+    const songSelections = payload.songSelections ?? [];
+    const songsValidation = await validateClientSongSelections(group.id, service, songSelections);
+    if (!songsValidation.ok) {
+        return { ok: false as const, error: songsValidation.error, status: 400 as const };
+    }
     const comunas = Array.isArray(group.serviceComunas) ? group.serviceComunas : [];
     if (comunas.length > 0 && !comunas.includes(payload.comuna)) {
         return { ok: false as const, error: 'Este grupo no atiende la comuna seleccionada.' };
@@ -1378,7 +1451,14 @@ export async function createMarketplaceSerenata(
         status,
         paymentStatus: 'pending',
         responseDueAt: null,
+        setlistStatus: (service.songsIncluded ?? 0) > 0 ? 'pending_owner' : 'confirmed',
+        songsIncludedAtBooking: service.songsIncluded ?? 0,
+        setlistConfirmedAt: (service.songsIncluded ?? 0) > 0 ? null : new Date(),
     }).returning();
+
+    if (item) {
+        await insertClientSongSelections(item.id, group.id, service, songSelections);
+    }
 
     return { ok: true as const, item };
 }

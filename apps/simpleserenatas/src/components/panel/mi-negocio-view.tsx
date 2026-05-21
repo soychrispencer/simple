@@ -11,6 +11,8 @@ import { ProviderGroupView } from '@/components/panel/provider-group-view';
 import { ProviderAvailabilityView } from '@/components/panel/provider-availability-view';
 import { ProviderSettingsView } from '@/components/panel/provider-settings-view';
 import { ProviderServicesView } from '@/components/panel/provider-services-view';
+import { ProviderPublishView } from '@/components/panel/provider-publish-view';
+import { ProviderRepertoireView } from '@/components/panel/provider-repertoire-view';
 
 export function MiNegocioView({
     tab,
@@ -52,15 +54,17 @@ export function MiNegocioView({
                 size="sm"
             />
 
-            {tab === 'perfil' ? (
+            {tab === 'datos' ? (
                 <ProviderGroupView refresh={refresh} />
             ) : null}
             {tab === 'disponibilidad' ? <ProviderAvailabilityView /> : null}
             {tab === 'servicios' ? <ProviderServicesView refresh={refresh} /> : null}
+            {tab === 'repertorio' ? <ProviderRepertoireView refresh={refresh} /> : null}
             {tab === 'grupos' ? (
                 <GroupsView musicians={musicians} refresh={refresh} />
             ) : null}
             {tab === 'configuraciones' ? <ProviderSettingsView refresh={refresh} /> : null}
+            {tab === 'publicar' ? <ProviderPublishView refresh={refresh} /> : null}
         </div>
     );
 }

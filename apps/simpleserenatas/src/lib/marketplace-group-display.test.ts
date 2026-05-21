@@ -57,13 +57,13 @@ describe('marketplace-group-display', () => {
 
     it('elige el servicio más barato', () => {
         const services: ProviderGroupService[] = [
-            { id: '1', providerGroupId: 'g1', name: 'A', description: null, musiciansCount: 4, durationMinutes: 60, price: 80000, currency: 'CLP', eventType: null, isActive: true, sortOrder: 0, createdAt: '', updatedAt: '' },
-            { id: '2', providerGroupId: 'g1', name: 'B', description: null, musiciansCount: 4, durationMinutes: 45, price: 60000, currency: 'CLP', eventType: null, isActive: true, sortOrder: 1, createdAt: '', updatedAt: '' },
+            { id: '1', providerGroupId: 'g1', name: 'A', description: null, musiciansCount: 4, durationMinutes: 60, price: 80000, currency: 'CLP', eventType: null, isActive: true, sortOrder: 0, songsIncluded: 0, repertoirePolicy: 'any_active', createdAt: '', updatedAt: '' },
+            { id: '2', providerGroupId: 'g1', name: 'B', description: null, musiciansCount: 4, durationMinutes: 45, price: 60000, currency: 'CLP', eventType: null, isActive: true, sortOrder: 1, songsIncluded: 0, repertoirePolicy: 'any_active', createdAt: '', updatedAt: '' },
         ];
         expect(cheapestService(services)?.id).toBe('2');
     });
 
     it('cuenta servicios extra en preview', () => {
-        expect(extraServicesCount(baseGroup({ activeServicesCount: 5, servicesPreview: [{ id: '1', name: 'A', price: 1, musiciansCount: 4, durationMinutes: 60 }] }))).toBe(4);
+        expect(extraServicesCount(baseGroup({ activeServicesCount: 5, servicesPreview: [{ id: '1', name: 'A', price: 1, musiciansCount: 4, durationMinutes: 60, songsIncluded: 0 }] }))).toBe(4);
     });
 });

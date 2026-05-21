@@ -70,9 +70,9 @@ import { formatChileMobileHint, validateChileMobilePhone } from '@/lib/chile-pho
 import { OwnerOnboardingCard } from './owner-onboarding-card';
 import { FieldInput, FieldTextarea, FormFeedback, InstrumentSelect, type FormStatus } from './shared';
 import { RegionCommuneFields } from './region-commune-fields';
-import { WorkZonesPicker } from './work-zones-picker';
-import { AddressesSection, communesFromAddressBook } from './addresses-section';
+import { AddressesSection } from './addresses-section';
 import { PanelSheet } from './panel-sheet';
+import { useLogoutAndGoHome } from '@/hooks/use-logout-and-go-home';
 
 type AccountSubsection = AccountTab;
 type WorkProfile = Exclude<ActiveProfile, 'client'>;
@@ -225,6 +225,11 @@ export function ProfileView({
     const [googleStatus, setGoogleStatus] = useState<FormStatus>({ loading: false, error: null, ok: null });
     const [googleLinkNotice, setGoogleLinkNotice] = useState<string | null>(null);
     const [passwordChangeModalOpen, setPasswordChangeModalOpen] = useState(false);
+    const [deleteAccountOpen, setDeleteAccountOpen] = useState(false);
+    const [deleteAccountPassword, setDeleteAccountPassword] = useState('');
+    const [deleteAccountConfirmPhrase, setDeleteAccountConfirmPhrase] = useState('');
+    const [deleteAccountSaving, setDeleteAccountSaving] = useState(false);
+    const [deleteAccountStatus, setDeleteAccountStatus] = useState<FormStatus>({ loading: false, error: null, ok: null });
     const [currentPassword, setCurrentPassword] = useState('');
     const [newPassword, setNewPassword] = useState('');
     const [confirmPassword, setConfirmPassword] = useState('');
@@ -238,6 +243,7 @@ export function ProfileView({
     const [gcDisconnecting, setGcDisconnecting] = useState(false);
     const [gcFlash, setGcFlash] = useState<FormStatus>({ loading: false, error: null, ok: null });
     const { confirm } = usePanelConfirm();
+    const logoutAndGoHome = useLogoutAndGoHome();
 
     const notificationPrefsDirty = useMemo(() => {
         if (!accountUser || !savedNotificationPrefsRef.current) return notificationPrefsTouched;
@@ -298,13 +304,13 @@ export function ProfileView({
     const [firstName, setFirstName] = useState('');
     const [lastName, setLastName] = useState('');
     const [phone, setPhone] = useState('');
-    const [workZones, setWorkZones] = useState<string[]>([]);
     const [musicianBio, setMusicianBio] = useState('');
-    const [clientRegion, setClientRegion] = useState('');
-    const [clientComuna, setClientComuna] = useState('');
     const [musicianRegion, setMusicianRegion] = useState('');
     const [musicianComuna, setMusicianComuna] = useState('');
     const [instrument, setInstrument] = useState('');
+    const [secondInstrument, setSecondInstrument] = useState('');
+    const [hasInstrument, setHasInstrument] = useState(false);
+    const [hasMariachiAttire, setHasMariachiAttire] = useState(false);
     const [experienceYears, setExperienceYears] = useState(0);
     const [saving, setSaving] = useState(false);
     const [addressBook, setAddressBook] = useState<AddressBookEntry[]>([]);
@@ -324,12 +330,11 @@ export function ProfileView({
     }, [subsection, appMode, profiles, accountPillItems, router]);
 
     const isDualWorkProfile = appMode === 'work' && ownerActive && Boolean(profiles.musician);
-    const showMusicianWorkFields =
-        appMode === 'work' && Boolean(profiles.musician) && (!ownerActive || isDualWorkProfile);
+    const showMusicianProfileTab = appMode === 'work' && Boolean(profiles.musician);
 
     const experienceYearsError = useMemo(
-        () => (showMusicianWorkFields ? experienceYearsValidation(experienceYears) : null),
-        [showMusicianWorkFields, experienceYears],
+        () => (showMusicianProfileTab ? experienceYearsValidation(experienceYears) : null),
+        [showMusicianProfileTab, experienceYears],
     );
 
     useEffect(() => {
@@ -342,13 +347,25 @@ export function ProfileView({
                 : (accountUser?.phone?.trim() || profiles.client?.phone?.trim() || '');
         setPhone(preferredPhone);
         setAvatarUrl(resolveAvatarDisplayUrl(accountUser?.avatarUrl ?? accountUser?.avatar ?? '') ?? '');
-        setClientRegion(profiles.client?.region ?? '');
-        setClientComuna(profiles.client?.comuna ?? '');
-        setInstrument(profiles.musician?.instrument || '');
+        const musicianInstruments = profiles.musician?.instruments ?? [];
+        const primaryInstrument = profiles.musician?.instrument?.trim()
+            || musicianInstruments[0]?.trim()
+            || '';
+        setInstrument(primaryInstrument);
+        setSecondInstrument(
+            musicianInstruments[1]?.trim()
+            && musicianInstruments[1]?.trim() !== primaryInstrument
+                ? musicianInstruments[1].trim()
+                : '',
+        );
+        setHasInstrument(
+            profiles.musician?.hasInstrument
+            ?? Boolean(primaryInstrument || musicianInstruments.length > 0),
+        );
+        setHasMariachiAttire(profiles.musician?.hasMariachiAttire ?? false);
         setExperienceYears(profiles.musician?.experienceYears ?? 0);
         setMusicianRegion(profiles.musician?.region ?? '');
         setMusicianComuna(profiles.musician?.comuna ?? '');
-        setWorkZones(profiles.musician?.workZones ?? []);
         setMusicianBio(profiles.musician?.bio ?? '');
         if (!notificationPrefsTouched) {
             applyNotificationPrefsFromUser(accountUser);
@@ -424,6 +441,19 @@ export function ProfileView({
             setAccountStatus((s) => ({ ...s, loading: false }));
             return;
         }
+        if (appMode === 'client') {
+            const profileResponse = await serenatasApi.saveClientProfile({
+                phone: phone.trim() || null,
+            });
+            if (!profileResponse.ok) {
+                setAccountStatus({
+                    loading: false,
+                    error: profileResponse.error ?? 'No pudimos guardar tu contacto.',
+                    ok: null,
+                });
+                return;
+            }
+        }
         await refresh();
         setAccountStatus({ loading: false, error: null, ok: 'Datos personales guardados.' });
     };
@@ -470,33 +500,6 @@ export function ProfileView({
         });
     };
 
-    const handleSaveClient = async () => {
-        const phoneError = phone.trim() ? validateChileMobilePhone(phone) : null;
-        if (phoneError) {
-            setStatus({ loading: false, error: phoneError, ok: null });
-            return;
-        }
-        setSaving(true);
-        setStatus({ loading: true, error: null, ok: null });
-        if (!(await saveUserBasics())) {
-            setSaving(false);
-            return;
-        }
-        const profileResponse = await serenatasApi.saveClientProfile({
-            phone: phone.trim() || null,
-            region: clientRegion.trim() || null,
-            comuna: clientComuna.trim() || null,
-        });
-        if (!profileResponse.ok) {
-            setStatus({ loading: false, error: profileResponse.error ?? 'No pudimos guardar tu perfil.', ok: null });
-            setSaving(false);
-            return;
-        }
-        await refresh();
-        setSaving(false);
-        setStatus({ loading: false, error: null, ok: 'Perfil guardado correctamente.' });
-    };
-
     const handleSaveMusicianProfile = async () => {
         if (experienceYearsError) {
             setStatus({ loading: false, error: experienceYearsError, ok: null });
@@ -515,15 +518,26 @@ export function ProfileView({
             setSaving(false);
             return;
         }
-        const trimmedInstrument = instrument.trim();
+        const trimmedPrimary = instrument.trim();
+        const trimmedSecond = secondInstrument.trim();
+        if (hasInstrument && !trimmedPrimary) {
+            setStatus({ loading: false, error: 'Indica tu instrumento principal.', ok: null });
+            setSaving(false);
+            return;
+        }
+        const instruments = hasInstrument
+            ? [trimmedPrimary, trimmedSecond].filter((value, index, list) => value && list.indexOf(value) === index)
+            : [];
         const musicianResponse = await serenatasApi.saveMusicianProfile({
             bio: musicianBio.trim() || null,
-            instrument: trimmedInstrument || null,
-            instruments: trimmedInstrument ? [trimmedInstrument] : [],
+            hasInstrument,
+            hasMariachiAttire,
+            instrument: instruments[0] ?? null,
+            instruments,
             experienceYears,
             region: musicianRegion.trim() || null,
             comuna: musicianComuna.trim() || null,
-            workZones,
+            workZones: [],
         });
         if (!musicianResponse.ok) {
             setStatus({ loading: false, error: musicianResponse.error ?? 'No pudimos guardar el perfil músico.', ok: null });
@@ -637,6 +651,28 @@ export function ProfileView({
 
     const googleConnected = accountUser?.provider === 'google';
     const hasPassword = accountUser?.hasPassword === true;
+
+    const handleDeleteAccount = async () => {
+        setDeleteAccountSaving(true);
+        setDeleteAccountStatus({ loading: true, error: null, ok: null });
+        const response = await serenatasApi.deleteAccount(
+            hasPassword
+                ? { password: deleteAccountPassword }
+                : { confirmPhrase: deleteAccountConfirmPhrase },
+        );
+        setDeleteAccountSaving(false);
+        if (!response.ok) {
+            setDeleteAccountStatus({
+                loading: false,
+                error: response.error ?? 'No pudimos eliminar tu cuenta.',
+                ok: null,
+            });
+            return;
+        }
+        setDeleteAccountOpen(false);
+        await logoutAndGoHome();
+    };
+
     const displayName = useMemo(
         () => `${firstName} ${lastName}`.trim() || accountUser?.name?.trim() || 'Tu cuenta',
         [accountUser?.name, firstName, lastName],
@@ -798,12 +834,6 @@ export function ProfileView({
         setEmailChangeStatus({ loading: false, error: null, ok: 'Cambio de correo cancelado.' });
     };
 
-    const canPrefillWorkZones = addressBook.length > 0;
-    const handlePrefillWorkZonesFromAddresses = () => {
-        const fromAddresses = communesFromAddressBook(addressBook);
-        if (fromAddresses.length === 0) return;
-        setWorkZones(fromAddresses);
-    };
     const profileLabel =
         profile === 'client' ? 'Cliente' : profile === 'musician' ? 'Músico' : ownerActive ? 'Dueño del grupo' : 'Operación';
     const notificationsReady = accountUser !== null;
@@ -987,7 +1017,11 @@ export function ProfileView({
             <PanelCard>
                 <PanelBlockHeader
                     title="Datos personales"
-                    description="Identidad, acceso y contacto."
+                    description={
+                        appMode === 'client'
+                            ? 'Tu nombre, contacto y acceso a la cuenta.'
+                            : 'Identidad, acceso y contacto.'
+                    }
                 />
                 <div className="mt-5 space-y-6">
                     <div className="flex flex-col items-center gap-4 sm:flex-row sm:items-center sm:gap-5">
@@ -1037,7 +1071,28 @@ export function ProfileView({
                                 <FieldInput value={lastName} onChange={(e) => setLastName(e.target.value)} placeholder="Ej: Jara" />
                             </PanelField>
                         </div>
-                        {appMode === 'work' ? (
+                        {appMode === 'client' ? (
+                            <PanelField label="Teléfono" className="mt-3">
+                                <FieldInput
+                                    value={phone}
+                                    onChange={(e) => {
+                                        setPhone(e.target.value);
+                                        if (phoneFieldError) setPhoneFieldError(null);
+                                    }}
+                                    placeholder={formatChileMobileHint()}
+                                    aria-invalid={phoneFieldError ? true : undefined}
+                                />
+                                {phoneFieldError ? (
+                                    <p className="text-xs text-[var(--color-error,#b91c1c)]">{phoneFieldError}</p>
+                                ) : (
+                                    <p className="mt-1 text-xs text-[var(--fg-muted)]">
+                                        Para que el mariachi te contacte al coordinar la serenata. La dirección del evento la
+                                        indicas al solicitar o en la pestaña{' '}
+                                        <strong className="font-medium text-[var(--fg)]">Direcciones</strong>.
+                                    </p>
+                                )}
+                            </PanelField>
+                        ) : appMode === 'work' ? (
                             <PanelField label="Teléfono personal" className="mt-3">
                                 <FieldInput
                                     value={phone}
@@ -1056,10 +1111,9 @@ export function ProfileView({
                         {isDualWorkProfile ? (
                             <PanelNotice tone="neutral" className="mt-3 !px-3 !py-2.5">
                                 <p className="text-xs leading-snug">
-                                    <strong className="font-medium text-[var(--fg)]">Guardar datos personales</strong>{' '}
-                                    actualiza nombre y teléfono.{' '}
-                                    <strong className="font-medium text-[var(--fg)]">Guardar perfil músico</strong>{' '}
-                                    solo instrumento, zonas y bio. Avisos por correo o WhatsApp, en Notificaciones.
+                                    <strong className="font-medium text-[var(--fg)]">Datos personales</strong>: nombre, teléfono y acceso.{' '}
+                                    <strong className="font-medium text-[var(--fg)]">Perfil público</strong>: instrumentos, ubicación y bio visible para dueños.{' '}
+                                    Las zonas de cobertura del mariachi están en <strong className="font-medium text-[var(--fg)]">Mi negocio</strong>.
                                 </p>
                             </PanelNotice>
                         ) : null}
@@ -1206,131 +1260,167 @@ export function ProfileView({
                 </div>
             </PanelCard>
 
-            {appMode === 'client' ? (
-                <PanelCard>
-                    <PanelBlockHeader
-                        title="Datos de cliente"
-                        description="Teléfono y ubicación para coordinar tus serenatas."
-                    />
-                    <div className="mt-4 grid gap-4">
-                        <PanelField label="Teléfono">
-                            <FieldInput
-                                value={phone}
-                                onChange={(e) => setPhone(e.target.value)}
-                                placeholder={formatChileMobileHint()}
-                            />
-                            <p className="mt-1 text-xs text-[var(--fg-muted)]">Formato: {formatChileMobileHint()}.</p>
-                        </PanelField>
-                        <RegionCommuneFields
-                            region={clientRegion}
-                            comuna={clientComuna}
-                            onRegionChange={setClientRegion}
-                            onComunaChange={setClientComuna}
-                            disabled={saving}
-                        />
-                    </div>
-                    <FormFeedback status={status} />
-                    <PanelButton className="mt-4" onClick={() => void handleSaveClient()} disabled={saving}>
-                        {saving ? 'Guardando...' : 'Guardar perfil'}
-                    </PanelButton>
-                </PanelCard>
-            ) : null}
+            <PanelCard className="border-[var(--danger,#b91c1c)]/30">
+                <PanelBlockHeader
+                    title="Eliminar cuenta"
+                    description="Borra tu usuario, perfiles de músico/cliente/dueño, mariachis, grupos, direcciones e imágenes subidas a Simple. Esta acción no se puede deshacer."
+                />
+                <PanelNotice tone="warning" className="mt-4 !px-3 !py-2.5">
+                    <p className="text-xs leading-relaxed">
+                        Las serenatas y datos de negocio de <strong className="font-medium">otros usuarios</strong> no se
+                        eliminan; solo dejas de aparecer en ellos. Copias de respaldo del servidor pueden conservarse un
+                        tiempo según la operación de la plataforma.
+                    </p>
+                </PanelNotice>
+                <PanelButton
+                    type="button"
+                    variant="danger"
+                    className="mt-4 w-full sm:w-auto"
+                    onClick={() => {
+                        setDeleteAccountPassword('');
+                        setDeleteAccountConfirmPhrase('');
+                        setDeleteAccountStatus({ loading: false, error: null, ok: null });
+                        setDeleteAccountOpen(true);
+                    }}
+                >
+                    Eliminar mi cuenta
+                </PanelButton>
+            </PanelCard>
 
-            {showMusicianWorkFields && !isDualWorkProfile ? (
-                <PanelCard>
-                    <PanelBlockHeader title="Datos de músico" description="Tu ficha profesional como integrante." />
-                    <div className="mt-4 grid gap-4">
-                        <div className="grid gap-3 sm:grid-cols-2">
-                            <PanelField label="Instrumento principal">
-                                <InstrumentSelect value={instrument} onChange={setInstrument} />
-                            </PanelField>
-                            <PanelField label="Años de experiencia (opcional)">
-                                <FieldInput
-                                    type="number"
-                                    min={EXPERIENCE_YEARS_MIN}
-                                    max={EXPERIENCE_YEARS_MAX}
-                                    value={experienceYears}
-                                    onChange={(e) => setExperienceYears(Number(e.target.value))}
-                                />
-                                {experienceYearsError ? (
-                                    <p className="mt-1 text-xs text-[var(--danger)]">{experienceYearsError}</p>
-                                ) : null}
-                            </PanelField>
-                        </div>
-                        <RegionCommuneFields
-                            region={musicianRegion}
-                            comuna={musicianComuna}
-                            onRegionChange={setMusicianRegion}
-                            onComunaChange={setMusicianComuna}
-                            disabled={saving}
-                            optional
-                        />
-                        <PanelField label="Zonas de trabajo">
-                            <WorkZonesPicker value={workZones} onChange={setWorkZones} disabled={saving} />
-                        </PanelField>
-                        <PanelField label="Bio de músico (opcional)">
-                            <FieldTextarea
-                                rows={3}
-                                value={musicianBio}
-                                onChange={(e) => setMusicianBio(e.target.value)}
-                                placeholder="Estilo, repertorio y experiencia como músico."
-                            />
-                        </PanelField>
-                        <PanelButton onClick={() => void handleSaveMusicianProfile()} disabled={saving || Boolean(experienceYearsError)}>
-                            {saving ? 'Guardando...' : 'Guardar perfil músico'}
-                        </PanelButton>
-                    </div>
-                </PanelCard>
-            ) : null}
-
-            {isDualWorkProfile ? (
-                <PanelCard>
-                    <PanelBlockHeader
-                        title="Perfil de músico"
-                        description="Tu ficha como integrante, independiente del perfil comercial."
-                    />
-                    <div className="mt-4 grid gap-4">
-                        <div className="grid gap-3 sm:grid-cols-2">
-                            <PanelField label="Instrumento principal">
-                                <InstrumentSelect value={instrument} onChange={setInstrument} />
-                            </PanelField>
-                            <PanelField label="Años de experiencia (opcional)">
-                                <FieldInput
-                                    type="number"
-                                    min={EXPERIENCE_YEARS_MIN}
-                                    max={EXPERIENCE_YEARS_MAX}
-                                    value={experienceYears}
-                                    onChange={(e) => setExperienceYears(Number(e.target.value))}
-                                />
-                            </PanelField>
-                        </div>
-                        <RegionCommuneFields
-                            region={musicianRegion}
-                            comuna={musicianComuna}
-                            onRegionChange={setMusicianRegion}
-                            onComunaChange={setMusicianComuna}
-                            disabled={saving}
-                            optional
-                        />
-                        <PanelField label="Zonas de trabajo como músico">
-                            <WorkZonesPicker value={workZones} onChange={setWorkZones} disabled={saving} />
-                        </PanelField>
-                        <PanelField label="Bio de músico (opcional)">
-                            <FieldTextarea
-                                rows={3}
-                                value={musicianBio}
-                                onChange={(e) => setMusicianBio(e.target.value)}
-                                placeholder="Texto público en tu perfil de músico."
-                            />
-                        </PanelField>
-                        <PanelButton onClick={() => void handleSaveMusicianProfile()} disabled={saving || Boolean(experienceYearsError)}>
-                            {saving ? 'Guardando...' : 'Guardar perfil músico'}
-                        </PanelButton>
-                    </div>
-                </PanelCard>
+            {deleteAccountOpen ? (
+                <DeleteAccountSheet
+                    hasPassword={hasPassword}
+                    password={deleteAccountPassword}
+                    confirmPhrase={deleteAccountConfirmPhrase}
+                    saving={deleteAccountSaving}
+                    status={deleteAccountStatus}
+                    onPasswordChange={setDeleteAccountPassword}
+                    onConfirmPhraseChange={setDeleteAccountConfirmPhrase}
+                    onClose={() => setDeleteAccountOpen(false)}
+                    onSubmit={() => void handleDeleteAccount()}
+                />
             ) : null}
 
             </div>
+            ) : null}
+
+            {subsection === 'musician' && showMusicianProfileTab ? (
+            <PanelCard>
+                <PanelBlockHeader
+                    title="Perfil público"
+                    description="Lo que ven los dueños de mariachi al invitarte o revisar tu ficha. Tu nombre y foto salen de Datos personales."
+                />
+                <div className="mt-4 grid gap-5">
+                    <div className="grid gap-4">
+                        <p className="text-[10px] font-semibold uppercase tracking-wide text-[var(--fg-muted)]">
+                            Quién eres
+                        </p>
+                        <PanelField label="Presentación pública (opcional)">
+                            <FieldTextarea
+                                rows={3}
+                                value={musicianBio}
+                                onChange={(e) => setMusicianBio(e.target.value)}
+                                placeholder="Estilo, repertorio y experiencia que verán al revisar tu perfil."
+                                disabled={saving}
+                            />
+                        </PanelField>
+                        <PanelField label="Años de experiencia (opcional)">
+                            <FieldInput
+                                type="number"
+                                min={EXPERIENCE_YEARS_MIN}
+                                max={EXPERIENCE_YEARS_MAX}
+                                value={experienceYears}
+                                onChange={(e) => setExperienceYears(Number(e.target.value))}
+                                disabled={saving}
+                            />
+                            {experienceYearsError ? (
+                                <p className="mt-1 text-xs text-[var(--danger)]">{experienceYearsError}</p>
+                            ) : null}
+                        </PanelField>
+                    </div>
+
+                    <div className="grid gap-3 border-t border-[var(--border)] pt-5">
+                        <p className="text-[10px] font-semibold uppercase tracking-wide text-[var(--fg-muted)]">
+                            Dónde te ubican
+                        </p>
+                        <RegionCommuneFields
+                            region={musicianRegion}
+                            comuna={musicianComuna}
+                            onRegionChange={setMusicianRegion}
+                            onComunaChange={setMusicianComuna}
+                            disabled={saving}
+                            optional
+                        />
+                        <p className="text-xs text-[var(--fg-muted)]">
+                            La comuna base aparece en el directorio de músicos. La cobertura del mariachi se configura en
+                            Mi negocio.
+                        </p>
+                    </div>
+
+                    <div className="grid gap-3 border-t border-[var(--border)] pt-5">
+                        <p className="text-[10px] font-semibold uppercase tracking-wide text-[var(--fg-muted)]">
+                            Para integrar grupos
+                        </p>
+                        <div className="flex items-center justify-between gap-4 rounded-xl border border-[var(--border)] px-4 py-3">
+                            <div className="min-w-0">
+                                <p className="text-sm font-medium text-[var(--fg)]">¿Cuentas con instrumento propio?</p>
+                                <p className="mt-0.5 text-xs text-[var(--fg-muted)]">
+                                    Los dueños ven qué instrumentos aportas al armar el grupo.
+                                </p>
+                            </div>
+                            <PanelSwitch
+                                checked={hasInstrument}
+                                onChange={(value) => {
+                                    setHasInstrument(value);
+                                    if (!value) {
+                                        setInstrument('');
+                                        setSecondInstrument('');
+                                    }
+                                }}
+                                size="sm"
+                                ariaLabel="Cuenta con instrumento propio"
+                                disabled={saving}
+                            />
+                        </div>
+                        {hasInstrument ? (
+                            <div className="grid gap-3 sm:grid-cols-2">
+                                <PanelField label="Instrumento principal">
+                                    <InstrumentSelect value={instrument} onChange={setInstrument} />
+                                </PanelField>
+                                <PanelField label="Segundo instrumento (opcional)">
+                                    <InstrumentSelect
+                                        value={secondInstrument}
+                                        onChange={setSecondInstrument}
+                                        placeholder="Sin segundo instrumento"
+                                    />
+                                </PanelField>
+                            </div>
+                        ) : null}
+                        <div className="flex items-center justify-between gap-4 rounded-xl border border-[var(--border)] px-4 py-3">
+                            <div className="min-w-0">
+                                <p className="text-sm font-medium text-[var(--fg)]">¿Cuentas con tenida de mariachi?</p>
+                                <p className="mt-0.5 text-xs text-[var(--fg-muted)]">
+                                    Traje o vestimenta típica para presentaciones formales.
+                                </p>
+                            </div>
+                            <PanelSwitch
+                                checked={hasMariachiAttire}
+                                onChange={setHasMariachiAttire}
+                                size="sm"
+                                ariaLabel="Cuenta con tenida de mariachi"
+                                disabled={saving}
+                            />
+                        </div>
+                    </div>
+                    <FormFeedback status={status} />
+                    <PanelButton
+                        onClick={() => void handleSaveMusicianProfile()}
+                        disabled={saving || Boolean(experienceYearsError)}
+                    >
+                        {saving ? 'Guardando...' : 'Guardar perfil público'}
+                    </PanelButton>
+                </div>
+            </PanelCard>
             ) : null}
 
             {subsection === 'addresses' ? (
@@ -1356,6 +1446,85 @@ export function ProfileView({
             {subsection === 'subscription' ? <SubscriptionSection /> : null}
 
         </div>
+    );
+}
+
+function DeleteAccountSheet({
+    hasPassword,
+    password,
+    confirmPhrase,
+    saving,
+    status,
+    onPasswordChange,
+    onConfirmPhraseChange,
+    onClose,
+    onSubmit,
+}: {
+    hasPassword: boolean;
+    password: string;
+    confirmPhrase: string;
+    saving: boolean;
+    status: FormStatus;
+    onPasswordChange: (value: string) => void;
+    onConfirmPhraseChange: (value: string) => void;
+    onClose: () => void;
+    onSubmit: () => void;
+}) {
+    return (
+        <PanelSheet onClose={onClose} ariaLabel="Eliminar cuenta" maxWidthClass="sm:max-w-md">
+            <div className="p-5 sm:p-6">
+                <div className="flex items-center justify-between gap-3">
+                    <h2 className="text-lg font-semibold text-[var(--fg)]">Eliminar cuenta</h2>
+                    <button
+                        type="button"
+                        className="rounded-lg p-1.5 text-[var(--fg-muted)] hover:bg-[var(--bg-subtle)]"
+                        onClick={onClose}
+                        aria-label="Cerrar"
+                    >
+                        <IconX size={18} />
+                    </button>
+                </div>
+                <p className="mt-2 text-sm text-[var(--fg-muted)]">
+                    Se borrarán tus datos en SimpleSerenatas y en la plataforma compartida (perfiles, mariachis, fotos
+                    subidas, mensajes y suscripciones vinculadas a tu usuario).
+                </p>
+                {hasPassword ? (
+                    <PanelField label="Contraseña" className="mt-4">
+                        <FieldInput
+                            type="password"
+                            value={password}
+                            onChange={(e) => onPasswordChange(e.target.value)}
+                            placeholder="Tu contraseña actual"
+                            autoComplete="current-password"
+                        />
+                    </PanelField>
+                ) : (
+                    <PanelField label='Escribe "ELIMINAR" para confirmar' className="mt-4">
+                        <FieldInput
+                            value={confirmPhrase}
+                            onChange={(e) => onConfirmPhraseChange(e.target.value)}
+                            placeholder="ELIMINAR"
+                            autoComplete="off"
+                        />
+                    </PanelField>
+                )}
+                <FormFeedback status={status} />
+                <div className="mt-5 grid gap-2 sm:grid-cols-2">
+                    <PanelButton type="button" variant="secondary" className="w-full" onClick={onClose} disabled={saving}>
+                        Cancelar
+                    </PanelButton>
+                    <PanelButton
+                        type="button"
+                        variant="danger"
+                        className="w-full"
+                        disabled={saving || (hasPassword ? !password.trim() : confirmPhrase.trim().toUpperCase() !== 'ELIMINAR')}
+                        onClick={onSubmit}
+                    >
+                        {saving ? 'Eliminando...' : 'Eliminar definitivamente'}
+                    </PanelButton>
+                </div>
+            </div>
+        </PanelSheet>
     );
 }
 

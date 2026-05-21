@@ -1,11 +1,12 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { IconArrowLeft, IconCreditCard, IconLoader2 } from '@tabler/icons-react';
+import { IconArrowLeft, IconCreditCard, IconLoader2, IconX } from '@tabler/icons-react';
 import { ListingLocationEditor, PanelButton, PanelCard, PanelField, PanelNotice } from '@simple/ui';
 import type { AddressBookEntry, ListingLocation } from '@simple/types';
 import { createAddressBookEntry, fetchAddressBook, getCommunesForRegion, LOCATION_REGIONS } from '@simple/utils';
-import { serenatasApi, type ProviderGroup, type ProviderGroupService } from '@/lib/serenatas-api';
+import { serenatasApi, type ProviderGroup, type ProviderGroupService, type RepertoireSong } from '@/lib/serenatas-api';
+import { RepertoireSongPicker } from './repertoire-song-picker';
 import { startSerenataCheckout } from '@/lib/payments';
 import { panelSectionHref } from '@/lib/panel-routes';
 import { clearMarketplaceRequestDraftRef } from '@/lib/marketplace-request-draft';
@@ -23,17 +24,122 @@ import {
     type FormStatus,
 } from './shared';
 
+const REQUEST_STEPS = [
+    { id: 1 as const, label: 'Evento' },
+    { id: 2 as const, label: 'Lugar y pago' },
+];
+
+function ModalCloseButton({ onClose }: { onClose: () => void }) {
+    return (
+        <button
+            type="button"
+            className="shrink-0 rounded-xl bg-bg-subtle p-2 text-fg-muted transition-colors hover:text-fg"
+            onClick={onClose}
+            aria-label="Cerrar"
+        >
+            <IconX size={18} />
+        </button>
+    );
+}
+
+function RequestStepIndicator({ step }: { step: 1 | 2 }) {
+    return (
+        <ol className="flex gap-2" aria-label="Pasos de la solicitud">
+            {REQUEST_STEPS.map((item, index) => {
+                const active = step === item.id;
+                const done = step > item.id;
+                return (
+                    <li
+                        key={item.id}
+                        className={`flex flex-1 items-center gap-2 rounded-xl border px-3 py-2 text-xs font-medium ${
+                            active
+                                ? 'border-accent-border bg-accent-soft text-accent'
+                                : done
+                                  ? 'border-border bg-bg-subtle text-fg'
+                                  : 'border-border text-fg-muted'
+                        }`}
+                    >
+                        <span
+                            className={`flex size-5 shrink-0 items-center justify-center rounded-full text-[10px] font-bold ${
+                                active ? 'bg-accent text-[var(--button-primary-color)]' : 'bg-bg-subtle text-fg-muted'
+                            }`}
+                        >
+                            {item.id}
+                        </span>
+                        <span className="truncate">{item.label}</span>
+                        {index < REQUEST_STEPS.length - 1 ? (
+                            <span className="ml-auto hidden text-fg-muted sm:inline" aria-hidden>
+                                →
+                            </span>
+                        ) : null}
+                    </li>
+                );
+            })}
+        </ol>
+    );
+}
+
+function ServiceSummaryCard({
+    group,
+    service,
+    compact = false,
+}: {
+    group: ProviderGroup;
+    service: ProviderGroupService;
+    compact?: boolean;
+}) {
+    if (compact) {
+        return (
+            <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border bg-bg-subtle px-4 py-3">
+                <div className="min-w-0">
+                    <p className="truncate font-semibold text-fg">{service.name}</p>
+                    <p className="truncate text-xs text-fg-muted">{group.name}</p>
+                </div>
+                <p className="shrink-0 text-lg font-bold text-accent">{money(service.price)}</p>
+            </div>
+        );
+    }
+
+    return (
+        <PanelCard className="xl:sticky xl:top-6">
+            <p className="text-xs font-semibold uppercase tracking-[0.08em] text-fg-muted">Servicio seleccionado</p>
+            <h3 className="mt-2 text-xl font-semibold text-fg">{service.name}</h3>
+            <p className="mt-1 text-sm text-fg-muted">{group.name}</p>
+            <div className="mt-5 grid gap-3 rounded-card border border-border bg-bg-subtle p-4">
+                <div className="flex items-center justify-between gap-4">
+                    <span className="text-sm text-fg-muted">Precio</span>
+                    <span className="text-lg font-semibold text-accent">{money(service.price)}</span>
+                </div>
+                <div className="flex items-center justify-between gap-4">
+                    <span className="text-sm text-fg-muted">Duración</span>
+                    <span className="text-sm font-medium text-fg">{service.durationMinutes} min</span>
+                </div>
+                <div className="flex items-center justify-between gap-4">
+                    <span className="text-sm text-fg-muted">Músicos</span>
+                    <span className="text-sm font-medium text-fg">{service.musiciansCount}</span>
+                </div>
+            </div>
+            <PanelNotice tone="neutral" className="mt-4">
+                Al confirmar el pago, enviamos la solicitud al dueño. Si el grupo no puede cubrirla, verás la respuesta en Mis Serenatas.
+            </PanelNotice>
+        </PanelCard>
+    );
+}
+
 export function MarketplaceRequestView({
     group,
     service,
     contactPhone,
     onBack,
+    variant = 'page',
 }: {
     group: ProviderGroup;
     service: ProviderGroupService;
     contactPhone: string;
     onBack: () => void;
+    variant?: 'page' | 'modal';
 }) {
+    const inModal = variant === 'modal';
     const googleMapsApiKey = useGoogleMapsBrowserKey();
     const [recipientName, setRecipientName] = useState('');
     const [clientPhone, setClientPhone] = useState(contactPhone);
@@ -48,6 +154,11 @@ export function MarketplaceRequestView({
     const [availableSlots, setAvailableSlots] = useState<string[]>([]);
     const [slotsLoading, setSlotsLoading] = useState(false);
     const [pendingCreated, setPendingCreated] = useState(false);
+    const [step, setStep] = useState<1 | 2>(1);
+    const [repertoire, setRepertoire] = useState<RepertoireSong[]>([]);
+    const [repertoireLoading, setRepertoireLoading] = useState(false);
+    const [selectedSongIds, setSelectedSongIds] = useState<string[]>([]);
+    const songsIncluded = service.songsIncluded ?? 0;
 
     const regions = LOCATION_REGIONS.map((region) => ({ value: region.id, label: region.name }));
     const communes = getCommunesForRegion(location.regionId ?? '').map((commune) => ({
@@ -101,6 +212,55 @@ export function MarketplaceRequestView({
         };
     }, [eventDate, flexibleSchedule, group.slug, service.id]);
 
+    useEffect(() => {
+        setStep(1);
+        setSelectedSongIds([]);
+        setStatus({ loading: false, error: null, ok: null });
+    }, [group.id, service.id]);
+
+    useEffect(() => {
+        if (songsIncluded <= 0) {
+            setRepertoire([]);
+            return;
+        }
+        let cancelled = false;
+        setRepertoireLoading(true);
+        void serenatasApi.marketplaceServiceRepertoire(group.id, service.id).then((response) => {
+            if (cancelled) return;
+            setRepertoire(response.ok ? response.items : []);
+            setRepertoireLoading(false);
+        });
+        return () => {
+            cancelled = true;
+        };
+    }, [group.id, service.id, songsIncluded]);
+
+    function validateStep1(): string | null {
+        if (!recipientName.trim()) return 'Indica a quién va dirigida la serenata.';
+        if (!clientPhone.trim()) return 'Indica un teléfono de contacto.';
+        if (!eventDate) return 'Selecciona la fecha del evento.';
+        if (!flexibleSchedule) {
+            if (slotsLoading) return 'Espera que carguen los horarios disponibles.';
+            if (!availableSlots.length) {
+                return 'No hay horarios disponibles para esa fecha. Marca horario por definir o cambia la fecha.';
+            }
+            if (!eventTime || !availableSlots.includes(eventTime)) {
+                return 'Selecciona uno de los horarios disponibles.';
+            }
+        }
+        return null;
+    }
+
+    function goToStep2() {
+        const stepError = validateStep1();
+        if (stepError) {
+            setStatus({ loading: false, error: stepError, ok: null });
+            return;
+        }
+        setStatus({ loading: false, error: null, ok: null });
+        setStep(2);
+    }
+
     async function submit() {
         const regionName = location.regionName?.trim() ?? '';
         const communeName = location.communeName?.trim() ?? '';
@@ -110,31 +270,11 @@ export function MarketplaceRequestView({
         const lat = location.geoPoint.latitude == null ? null : Number(location.geoPoint.latitude);
         const lng = location.geoPoint.longitude == null ? null : Number(location.geoPoint.longitude);
 
-        if (!recipient) {
-            setStatus({ loading: false, error: 'Indica a quién va dirigida la serenata.', ok: null });
+        const stepError = validateStep1();
+        if (stepError) {
+            setStep(1);
+            setStatus({ loading: false, error: stepError, ok: null });
             return;
-        }
-        if (!phone) {
-            setStatus({ loading: false, error: 'Indica un teléfono de contacto.', ok: null });
-            return;
-        }
-        if (!eventDate) {
-            setStatus({ loading: false, error: 'Selecciona la fecha del evento.', ok: null });
-            return;
-        }
-        if (!flexibleSchedule) {
-            if (slotsLoading) {
-                setStatus({ loading: false, error: 'Espera que carguen los horarios disponibles.', ok: null });
-                return;
-            }
-            if (!availableSlots.length) {
-                setStatus({ loading: false, error: 'No hay horarios disponibles para esa fecha. Marca horario por definir o cambia la fecha.', ok: null });
-                return;
-            }
-            if (!eventTime || !availableSlots.includes(eventTime)) {
-                setStatus({ loading: false, error: 'Selecciona uno de los horarios disponibles.', ok: null });
-                return;
-            }
         }
         if (!address || !communeName || !regionName) {
             setStatus({ loading: false, error: 'Completa la dirección, comuna y región del evento.', ok: null });
@@ -156,6 +296,10 @@ export function MarketplaceRequestView({
             eventTime: flexibleSchedule ? null : eventTime,
             flexibleSchedule,
             message: message.trim() || null,
+            songSelections:
+                songsIncluded > 0 && selectedSongIds.length > 0
+                    ? selectedSongIds.map((repertoireSongId) => ({ repertoireSongId }))
+                    : undefined,
         });
         if (!response.ok) {
             setStatus({
@@ -209,6 +353,215 @@ export function MarketplaceRequestView({
         }
     }
 
+    const eventFields = (
+        <>
+            <PanelField label="A quién va dirigida" required>
+                <FieldInput
+                    value={recipientName}
+                    onChange={(event) => setRecipientName(event.target.value)}
+                    placeholder="Nombre de la persona homenajeada"
+                />
+            </PanelField>
+
+            <PanelField label="Teléfono de contacto" hint="Usamos el teléfono de tu cuenta; puedes cambiarlo para esta serenata." required>
+                <FieldInput
+                    value={clientPhone}
+                    onChange={(event) => setClientPhone(event.target.value)}
+                    placeholder="+56 9..."
+                />
+            </PanelField>
+
+            <div className="grid gap-3 sm:grid-cols-2">
+                <PanelField label="Fecha" required>
+                    <FieldInput
+                        type="date"
+                        value={toInputDate(eventDate) ?? ''}
+                        min={toInputDate(today) ?? undefined}
+                        onChange={(event) => setEventDate(event.target.value)}
+                    />
+                </PanelField>
+                <PanelField label="Hora" required={!flexibleSchedule}>
+                    <FieldSelect
+                        value={eventTime}
+                        disabled={flexibleSchedule || slotsLoading || availableSlots.length === 0}
+                        onChange={(event) => setEventTime(event.target.value)}
+                    >
+                        {slotsLoading ? (
+                            <option value="">Cargando horarios...</option>
+                        ) : availableSlots.length > 0 ? (
+                            availableSlots.map((slot) => (
+                                <option key={slot} value={slot}>{slot}</option>
+                            ))
+                        ) : (
+                            <option value="">Sin horarios disponibles</option>
+                        )}
+                    </FieldSelect>
+                </PanelField>
+            </div>
+
+            <label className="flex items-start gap-2 text-sm text-fg">
+                <input
+                    className="mt-1"
+                    type="checkbox"
+                    checked={flexibleSchedule}
+                    onChange={(event) => setFlexibleSchedule(event.target.checked)}
+                />
+                <span>
+                    Aún no sé la hora exacta
+                    <span className="block text-xs text-fg-muted">El dueño deberá proponerte horario antes de aceptar.</span>
+                </span>
+            </label>
+
+            <PanelField label="Mensaje o dedicatoria" hint="Opcional. Sirve para orientar al grupo antes del evento.">
+                <FieldTextarea
+                    rows={inModal ? 2 : 3}
+                    value={message}
+                    onChange={(event) => setMessage(event.target.value)}
+                    placeholder="Ej: cumpleaños, aniversario, canción especial o indicaciones de sorpresa."
+                />
+            </PanelField>
+
+            {songsIncluded > 0 ? (
+                <div className="rounded-xl border border-border bg-bg-subtle/60 p-3">
+                    {repertoireLoading ? (
+                        <p className="text-sm text-fg-muted">Cargando repertorio…</p>
+                    ) : (
+                        <RepertoireSongPicker
+                            songs={repertoire}
+                            maxSelections={songsIncluded}
+                            selectedIds={selectedSongIds}
+                            onChange={setSelectedSongIds}
+                        />
+                    )}
+                </div>
+            ) : null}
+        </>
+    );
+
+    const addressFields = (
+        <div className="rounded-card border border-border p-4">
+            <p className="text-sm font-semibold text-fg">Dirección del evento</p>
+            <p className="mt-1 text-xs text-fg-muted">Selecciona una dirección guardada o escribe una nueva con sugerencias de Google Maps.</p>
+            <div className="mt-4">
+                <ListingLocationEditor
+                    simpleMode
+                    framed={false}
+                    showHeader={false}
+                    location={location}
+                    onChange={setLocation}
+                    regions={regions}
+                    communes={communes}
+                    addressBook={addressBook}
+                    addressBookLoading={addressBookLoading}
+                    addressFirst
+                    showAddressLine2={false}
+                    showAreaFields
+                    showSourceSelector={false}
+                    showVisibilityField={false}
+                    showPublicPreviewCard={false}
+                    showActionBar={false}
+                    showSimpleVisibilityToggle={false}
+                    showGoogleMapsLink
+                    addressRequired
+                    addressHintMode="minimal"
+                    onSaveToAddressBook={() => void saveCurrentAddress()}
+                    googleMapsApiKey={googleMapsApiKey}
+                />
+            </div>
+        </div>
+    );
+
+    const actionButtons = inModal ? (
+        <div className="flex flex-col gap-2 sm:flex-row sm:justify-end">
+            {step === 2 ? (
+                <PanelButton variant="secondary" disabled={status.loading} onClick={() => setStep(1)}>
+                    Atrás
+                </PanelButton>
+            ) : null}
+            {step === 1 ? (
+                <PanelButton
+                    variant="primary"
+                    className="w-full sm:w-auto"
+                    disabled={slotsLoading}
+                    onClick={goToStep2}
+                >
+                    Continuar
+                </PanelButton>
+            ) : (
+                <PanelButton
+                    variant="primary"
+                    className="w-full sm:w-auto"
+                    disabled={status.loading || slotsLoading || pendingCreated}
+                    onClick={() => void submit()}
+                >
+                    {status.loading ? <IconLoader2 size={16} className="animate-spin" /> : <IconCreditCard size={16} />}
+                    {status.loading ? 'Procesando...' : 'Pagar y solicitar'}
+                </PanelButton>
+            )}
+        </div>
+    ) : (
+        <div className="flex flex-col gap-2 sm:flex-row sm:justify-end">
+            <PanelButton variant="secondary" disabled={status.loading} onClick={onBack}>
+                Cancelar
+            </PanelButton>
+            <PanelButton
+                variant="primary"
+                className="w-full sm:w-auto"
+                disabled={status.loading || slotsLoading || pendingCreated}
+                onClick={() => void submit()}
+            >
+                {status.loading ? <IconLoader2 size={16} className="animate-spin" /> : <IconCreditCard size={16} />}
+                {status.loading ? 'Procesando...' : 'Pagar y solicitar'}
+            </PanelButton>
+        </div>
+    );
+
+    if (inModal) {
+        return (
+            <div className="flex min-h-0 flex-1 flex-col">
+                <div className="shrink-0 space-y-3 border-b border-border px-4 pb-3 pt-4 sm:px-5">
+                    <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0 flex-1 space-y-2">
+                            <p className="text-lg font-semibold text-fg">Solicitar serenata</p>
+                            <RequestStepIndicator step={step} />
+                        </div>
+                        <ModalCloseButton onClose={onBack} />
+                    </div>
+                    <ServiceSummaryCard group={group} service={service} compact />
+                </div>
+
+                <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-3 sm:px-5">
+                    <p className="text-base font-semibold text-fg">
+                        {step === 2 ? 'Lugar del evento' : 'Datos del evento'}
+                    </p>
+                    <p className="mt-0.5 text-xs text-fg-muted">
+                        {step === 2
+                            ? 'Indica dónde será la serenata.'
+                            : 'Quién, cuándo y detalles del homenaje.'}
+                    </p>
+                    <div className="mt-3 grid gap-3">
+                        {step === 1 ? eventFields : addressFields}
+                    </div>
+                </div>
+
+                <div className="shrink-0 space-y-2 border-t border-border bg-surface px-4 py-3 sm:px-5">
+                    <FormFeedback status={status} />
+                    {pendingCreated && status.error ? (
+                        <PanelButton variant="secondary" onClick={() => window.location.assign(panelSectionHref('serenatas'))}>
+                            Ver Mis Serenatas
+                        </PanelButton>
+                    ) : null}
+                    {actionButtons}
+                    {step === 2 ? (
+                        <p className="text-center text-[11px] leading-snug text-fg-muted">
+                            Al pagar, enviamos la solicitud al dueño. Si no puede cubrirla, lo verás en Mis Serenatas.
+                        </p>
+                    ) : null}
+                </div>
+            </div>
+        );
+    }
+
     return (
         <div className="grid gap-5">
             <PanelButton className="w-fit" variant="ghost" onClick={onBack}>
@@ -226,102 +579,8 @@ export function MarketplaceRequestView({
                     </div>
 
                     <div className="mt-6 grid gap-4">
-                        <PanelField label="A quién va dirigida" required>
-                            <FieldInput
-                                value={recipientName}
-                                onChange={(event) => setRecipientName(event.target.value)}
-                                placeholder="Nombre de la persona homenajeada"
-                            />
-                        </PanelField>
-
-                        <PanelField label="Teléfono de contacto" hint="Usamos el teléfono de tu cuenta; puedes cambiarlo para esta serenata." required>
-                            <FieldInput
-                                value={clientPhone}
-                                onChange={(event) => setClientPhone(event.target.value)}
-                                placeholder="+56 9..."
-                            />
-                        </PanelField>
-
-                        <div className="grid gap-3 sm:grid-cols-2">
-                            <PanelField label="Fecha" required>
-                                <FieldInput
-                                    type="date"
-                                    value={toInputDate(eventDate) ?? ''}
-                                    min={toInputDate(today) ?? undefined}
-                                    onChange={(event) => setEventDate(event.target.value)}
-                                />
-                            </PanelField>
-                            <PanelField label="Hora" required={!flexibleSchedule}>
-                                <FieldSelect
-                                    value={eventTime}
-                                    disabled={flexibleSchedule || slotsLoading || availableSlots.length === 0}
-                                    onChange={(event) => setEventTime(event.target.value)}
-                                >
-                                    {slotsLoading ? (
-                                        <option value="">Cargando horarios...</option>
-                                    ) : availableSlots.length > 0 ? (
-                                        availableSlots.map((slot) => (
-                                            <option key={slot} value={slot}>{slot}</option>
-                                        ))
-                                    ) : (
-                                        <option value="">Sin horarios disponibles</option>
-                                    )}
-                                </FieldSelect>
-                            </PanelField>
-                        </div>
-
-                        <label className="flex items-start gap-2 text-sm text-fg">
-                            <input
-                                className="mt-1"
-                                type="checkbox"
-                                checked={flexibleSchedule}
-                                onChange={(event) => setFlexibleSchedule(event.target.checked)}
-                            />
-                            <span>
-                                Aún no sé la hora exacta
-                                <span className="block text-xs text-fg-muted">El dueño deberá proponerte horario antes de aceptar.</span>
-                            </span>
-                        </label>
-
-                        <div className="rounded-card border border-border p-4">
-                            <p className="text-sm font-semibold text-fg">Dirección del evento</p>
-                            <p className="mt-1 text-xs text-fg-muted">Selecciona una dirección guardada o escribe una nueva con sugerencias de Google Maps.</p>
-                            <div className="mt-4">
-                                <ListingLocationEditor
-                                    simpleMode
-                                    framed={false}
-                                    showHeader={false}
-                                    location={location}
-                                    onChange={setLocation}
-                                    regions={regions}
-                                    communes={communes}
-                                    addressBook={addressBook}
-                                    addressBookLoading={addressBookLoading}
-                                    addressFirst
-                                    showAddressLine2={false}
-                                    showAreaFields
-                                    showSourceSelector={false}
-                                    showVisibilityField={false}
-                                    showPublicPreviewCard={false}
-                                    showActionBar={false}
-                                    showSimpleVisibilityToggle={false}
-                                    showGoogleMapsLink
-                                    addressRequired
-                                    addressHintMode="minimal"
-                                    onSaveToAddressBook={() => void saveCurrentAddress()}
-                                    googleMapsApiKey={googleMapsApiKey}
-                                />
-                            </div>
-                        </div>
-
-                        <PanelField label="Mensaje o dedicatoria" hint="Opcional. Sirve para orientar al grupo antes del evento.">
-                            <FieldTextarea
-                                rows={3}
-                                value={message}
-                                onChange={(event) => setMessage(event.target.value)}
-                                placeholder="Ej: cumpleaños, aniversario, canción especial o indicaciones de sorpresa."
-                            />
-                        </PanelField>
+                        {eventFields}
+                        {addressFields}
 
                         <FormFeedback status={status} />
                         {pendingCreated && status.error ? (
@@ -331,44 +590,12 @@ export function MarketplaceRequestView({
                         ) : null}
 
                         <div className="flex flex-col gap-2 border-t border-border pt-4 sm:flex-row sm:items-center sm:justify-end">
-                            <PanelButton variant="secondary" disabled={status.loading} onClick={onBack}>
-                                Cancelar
-                            </PanelButton>
-                            <PanelButton
-                                variant="primary"
-                                className="w-full sm:w-auto"
-                                disabled={status.loading || slotsLoading || pendingCreated}
-                                onClick={() => void submit()}
-                            >
-                                {status.loading ? <IconLoader2 size={16} className="animate-spin" /> : <IconCreditCard size={16} />}
-                                {status.loading ? 'Procesando...' : 'Pagar y solicitar'}
-                            </PanelButton>
+                            {actionButtons}
                         </div>
                     </div>
                 </PanelCard>
 
-                <PanelCard className="xl:sticky xl:top-6">
-                    <p className="text-xs font-semibold uppercase tracking-[0.08em] text-fg-muted">Servicio seleccionado</p>
-                    <h3 className="mt-2 text-xl font-semibold text-fg">{service.name}</h3>
-                    <p className="mt-1 text-sm text-fg-muted">{group.name}</p>
-                    <div className="mt-5 grid gap-3 rounded-card border border-border bg-bg-subtle p-4">
-                        <div className="flex items-center justify-between gap-4">
-                            <span className="text-sm text-fg-muted">Precio</span>
-                            <span className="text-lg font-semibold text-accent">{money(service.price)}</span>
-                        </div>
-                        <div className="flex items-center justify-between gap-4">
-                            <span className="text-sm text-fg-muted">Duración</span>
-                            <span className="text-sm font-medium text-fg">{service.durationMinutes} min</span>
-                        </div>
-                        <div className="flex items-center justify-between gap-4">
-                            <span className="text-sm text-fg-muted">Músicos</span>
-                            <span className="text-sm font-medium text-fg">{service.musiciansCount}</span>
-                        </div>
-                    </div>
-                    <PanelNotice tone="neutral" className="mt-4">
-                        Al confirmar el pago, enviamos la solicitud al dueño. Si el grupo no puede cubrirla, verás la respuesta en Mis Serenatas.
-                    </PanelNotice>
-                </PanelCard>
+                <ServiceSummaryCard group={group} service={service} />
             </div>
         </div>
     );

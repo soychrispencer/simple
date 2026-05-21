@@ -6,6 +6,9 @@ import { IconHeart, IconMusic } from '@tabler/icons-react';
 import { LogoutHomeRedirect } from '@/components/logout-home-redirect';
 import { SignupProfileBootstrap } from '@/components/signup-profile-bootstrap';
 import { GroupInviteBootstrap } from '@/components/group-invite-bootstrap';
+import { SerenataRequestModalProvider } from '@/components/serenata-request/serenata-request-modal-context';
+import { SerenataRequestModal } from '@/components/serenata-request/serenata-request-modal';
+import { SerenataRequestDeepLink } from '@/components/serenata-request/serenata-request-deep-link';
 import {
     clearSignupProfile,
     isModalSignupProfile,
@@ -96,13 +99,17 @@ function RegisterProfilePicker({
 export function ClientProviders({ children }: { children: React.ReactNode }) {
     return (
         <AuthProvider>
-            <LogoutHomeRedirect />
-            <SignupProfileBootstrap />
-            <Suspense fallback={null}>
-                <GroupInviteBootstrap />
-            </Suspense>
-            {children}
-            <AuthModalWithSignupProfile />
+            <SerenataRequestModalProvider>
+                <LogoutHomeRedirect />
+                <SignupProfileBootstrap />
+                <Suspense fallback={null}>
+                    <GroupInviteBootstrap />
+                    <SerenataRequestDeepLink />
+                </Suspense>
+                {children}
+                <SerenataRequestModal />
+                <AuthModalWithSignupProfile />
+            </SerenataRequestModalProvider>
         </AuthProvider>
     );
 }

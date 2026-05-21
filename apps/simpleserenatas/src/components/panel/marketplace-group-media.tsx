@@ -32,21 +32,32 @@ export function MarketplaceGroupCover({
     );
 }
 
+const LOGO_SIZES = {
+    sm: 'size-12 text-base',
+    md: 'size-14 text-lg',
+    lg: 'size-24 text-3xl',
+    profile: 'size-20 text-2xl',
+} as const;
+
+const LOGO_FRAME =
+    'flex shrink-0 items-center justify-center overflow-hidden rounded-card border-4 border-[var(--bg)] bg-accent-soft font-bold text-accent shadow-sm';
+
 export function MarketplaceGroupLogo({
     group,
     size = 'md',
 }: {
     group: Pick<ProviderGroup, 'name' | 'logoUrl'>;
-    size?: 'md' | 'lg';
+    size?: 'sm' | 'md' | 'lg' | 'profile';
+    /** @deprecated Solo tamaño; forma siempre semiredonda (`rounded-card`). */
+    variant?: 'card' | 'profile';
 }) {
-    const box = size === 'lg' ? 'size-24 text-3xl' : 'size-20 text-2xl';
+    const box = LOGO_SIZES[size];
+
     return (
-        <div
-            className={`flex ${box} shrink-0 items-center justify-center overflow-hidden rounded-card border-4 border-surface bg-accent-soft font-bold text-accent shadow-sm`}
-        >
+        <div className={`${LOGO_FRAME} ${box}`}>
             {group.logoUrl ? (
                 // eslint-disable-next-line @next/next/no-img-element
-                <img src={group.logoUrl} alt={`Logo de ${group.name}`} className="h-full w-full object-cover" />
+                <img src={group.logoUrl} alt="" className="h-full w-full object-cover" />
             ) : (
                 <span>{group.name.slice(0, 1).toUpperCase()}</span>
             )}

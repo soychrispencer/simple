@@ -248,7 +248,7 @@ export function GroupsView({
         return (
             <EmptyBlock
                 title="Crea tu mariachi primero"
-                description="Configura tu perfil comercial en la pestaña Perfil comercial. Después podrás armar grupos de músicos aquí."
+                description="Configura tus datos comerciales y publícalo en la pestaña Publicar. Después podrás armar grupos de músicos aquí."
             />
         );
     }

@@ -8,6 +8,7 @@ import { profilePanelHref } from '@/lib/panel-routes';
 
 export const ACCOUNT_TAB_VALUES = [
     'data',
+    'musician',
     'addresses',
     'notifications',
     'integrations',
@@ -52,6 +53,9 @@ export function profileSectionHref(accountTab?: AccountTab): string {
 export function getAccountPillItems(mode: AppMode, profiles: Profiles): { key: AccountTab; label: string }[] {
     const items: { key: AccountTab; label: string }[] = [
         { key: 'data', label: 'Datos personales' },
+        ...(mode === 'work' && profiles.musician
+            ? [{ key: 'musician' as const, label: 'Perfil público' }]
+            : []),
         { key: 'addresses', label: 'Direcciones' },
         { key: 'notifications', label: 'Notificaciones' },
     ];
@@ -71,6 +75,9 @@ export const CONFIG_SLUG_TO_ACCOUNT_TAB: Record<string, AccountTab> = {
     cuenta: 'data',
     'datos-personales': 'data',
     personal: 'data',
+    musico: 'musician',
+    'perfil-publico': 'musician',
+    'datos-musico': 'musician',
     direcciones: 'addresses',
     seguridad: 'data',
     integraciones: 'integrations',

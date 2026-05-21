@@ -1635,6 +1635,8 @@ app.route('/api/auth', createAuthRouter({
     passwordChangeSchema,
     emailVerificationRequestSchema,
     emailVerificationConfirmSchema,
+    permanentlyDeleteUser,
+    countActiveSuperadminUsers,
 }));
 
 app.use('/api/account/*', requireVerifiedSession);

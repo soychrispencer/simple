@@ -31,8 +31,8 @@ export function ProviderServicesView({ refresh }: { refresh: () => Promise<void>
     if (!hasMariachi || !mariachi) {
         return (
             <EmptyBlock
-                title="Crea tu perfil comercial primero"
-                description="Configura tu mariachi en la pestaña Perfil comercial y luego publica tus servicios aquí."
+                title="Crea tus datos comerciales primero"
+                description="Configura tu mariachi en Datos comerciales y luego publica tus servicios aquí."
             />
         );
     }

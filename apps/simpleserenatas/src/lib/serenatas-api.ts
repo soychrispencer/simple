@@ -52,8 +52,10 @@ export type MusicianProfile = {
     isAvailable: boolean;
     availableNow: boolean;
     experienceYears: number;
-    /** Nombres de comunas (catálogo @simple/utils), alineado con serenata.comuna */
+    /** @deprecated Solo dueños; el músico usa comuna/región. */
     workZones: string[];
+    hasInstrument: boolean;
+    hasMariachiAttire: boolean;
 };
 
 /** Ficha pública de músico para listados y modal de detalle. */
@@ -193,7 +195,7 @@ export type ProviderGroup = {
     bankTransferData?: ProviderBankTransferData | null;
     startingPrice?: number | null;
     activeServicesCount?: number;
-    servicesPreview?: Pick<ProviderGroupService, 'id' | 'name' | 'price' | 'musiciansCount' | 'durationMinutes'>[];
+    servicesPreview?: Pick<ProviderGroupService, 'id' | 'name' | 'price' | 'musiciansCount' | 'durationMinutes' | 'songsIncluded'>[];
     createdAt: string;
     updatedAt: string;
 };
@@ -208,8 +210,57 @@ export type ProviderGroupService = {
     price: number;
     currency: string;
     eventType: string | null;
+    songsIncluded: number;
+    repertoirePolicy: 'any_active' | 'curated_only';
     isActive: boolean;
     sortOrder: number;
+    createdAt: string;
+    updatedAt: string;
+};
+
+export type CatalogSong = {
+    id: string;
+    title: string;
+    artist: string | null;
+    tags: string[];
+    isPreset: boolean;
+    createdAt: string;
+    updatedAt: string;
+};
+
+export type RepertoireSong = {
+    id: string;
+    providerGroupId: string;
+    catalogSongId: string | null;
+    title: string;
+    artist: string | null;
+    tags: string[];
+    isActive: boolean;
+    sortOrder: number;
+    notes: string | null;
+    createdAt: string;
+    updatedAt: string;
+};
+
+export type SerenataSongSelection = {
+    id: string;
+    serenataId: string;
+    repertoireSongId: string | null;
+    kind: 'client_preference' | 'setlist';
+    title: string;
+    artist: string | null;
+    sortOrder: number;
+    clientNote: string | null;
+    createdAt: string;
+};
+
+export type SongScore = {
+    id: string;
+    repertoireSongId: string;
+    instrument: string;
+    format: string;
+    storageUrl: string;
+    originalFilename: string | null;
     createdAt: string;
     updatedAt: string;
 };
@@ -290,6 +341,9 @@ export type Serenata = {
     expiredAt?: string | null;
     expiredReason?: string | null;
     pendingReminderSentAt?: string | null;
+    setlistStatus?: 'pending_owner' | 'confirmed';
+    songsIncludedAtBooking?: number | null;
+    setlistConfirmedAt?: string | null;
 };
 
 export type UserNotificationLogItem = {
@@ -430,6 +484,16 @@ export const serenatasApi = {
         if (!response.data) return { ok: false, error: 'No pudimos conectar con el servidor.' } as ApiEnvelope<{ user: SerenatasUser }>;
         return response.data;
     },
+    deleteAccount: async (payload: { password?: string; confirmPhrase?: string }): Promise<ApiEnvelope<Record<string, never>>> => {
+        const response = await apiFetch<ApiEnvelope<Record<string, never>>>('/api/auth/me', {
+            method: 'DELETE',
+            body: JSON.stringify(payload),
+        });
+        if (!response.data) {
+            return { ok: false, error: 'No pudimos conectar con el servidor.' } as ApiEnvelope<Record<string, never>>;
+        }
+        return response.data;
+    },
     sendNotificationTest: async (
         channel: 'email' | 'whatsapp' = 'email',
     ): Promise<ApiEnvelope<{ channel: string; message?: string; deferredQuietHours?: boolean }>> => {
@@ -525,6 +589,7 @@ export const serenatasApi = {
         eventTime?: string | null;
         flexibleSchedule?: boolean;
         message?: string | null;
+        songSelections?: Array<{ repertoireSongId: string; clientNote?: string | null }>;
     }) => request<{ item: Serenata; offersCount: number }>('/client/serenatas', { method: 'POST', body: JSON.stringify(payload) }),
     marketplaceGroups: (filters?: { comuna?: string; region?: string }) => {
         const params = new URLSearchParams();
@@ -556,6 +621,71 @@ export const serenatasApi = {
     createProviderGroupService: (groupId: string, payload: Partial<ProviderGroupService> & { name: string; price: number }) => request<{ item: ProviderGroupService }>(`/provider-groups/${groupId}/services`, { method: 'POST', body: JSON.stringify(payload) }),
     updateProviderGroupService: (groupId: string, serviceId: string, payload: Partial<ProviderGroupService>) => request<{ item: ProviderGroupService }>(`/provider-groups/${groupId}/services/${serviceId}`, { method: 'PATCH', body: JSON.stringify(payload) }),
     deleteProviderGroupService: (groupId: string, serviceId: string) => request<Record<string, never>>(`/provider-groups/${groupId}/services/${serviceId}`, { method: 'DELETE' }),
+    providerGroupCuratedSongIds: (groupId: string, serviceId: string) => request<{ items: string[] }>(`/provider-groups/${groupId}/services/${serviceId}/curated-songs`),
+    searchSongCatalog: (q?: string, limit = 20) => {
+        const params = new URLSearchParams();
+        if (q?.trim()) params.set('q', q.trim());
+        params.set('limit', String(limit));
+        const query = params.toString();
+        return request<{ items: CatalogSong[] }>(`/song-catalog${query ? `?${query}` : ''}`);
+    },
+    createCatalogSong: (payload: { title: string; artist?: string | null; tags?: string[] }) =>
+        request<{ item: CatalogSong; created?: boolean }>('/song-catalog', { method: 'POST', body: JSON.stringify(payload) }),
+    providerGroupRepertoire: (groupId: string) => request<{ items: RepertoireSong[] }>(`/provider-groups/${groupId}/repertoire`),
+    bulkAddRepertoireSongs: (groupId: string, catalogSongIds: string[]) =>
+        request<{ items: RepertoireSong[]; added: RepertoireSong[]; skipped: number }>(
+            `/provider-groups/${groupId}/repertoire/bulk`,
+            { method: 'POST', body: JSON.stringify({ catalogSongIds }) },
+        ),
+    createRepertoireSong: (groupId: string, payload: { catalogSongId?: string; title?: string; artist?: string | null; tags?: string[]; notes?: string | null }) =>
+        request<{ item: RepertoireSong }>(`/provider-groups/${groupId}/repertoire`, { method: 'POST', body: JSON.stringify(payload) }),
+    updateRepertoireSong: (groupId: string, songId: string, payload: Partial<RepertoireSong>) =>
+        request<{ item: RepertoireSong }>(`/provider-groups/${groupId}/repertoire/${songId}`, { method: 'PATCH', body: JSON.stringify(payload) }),
+    deleteRepertoireSong: (groupId: string, songId: string) =>
+        request<Record<string, never>>(`/provider-groups/${groupId}/repertoire/${songId}`, { method: 'DELETE' }),
+    repertoireSongScores: (groupId: string, songId: string) =>
+        request<{ items: SongScore[] }>(`/provider-groups/${groupId}/repertoire/${songId}/scores`),
+    saveRepertoireSongScore: (groupId: string, songId: string, instrument: string, payload: { storageUrl: string; originalFilename?: string | null }) =>
+        request<{ item: SongScore }>(`/provider-groups/${groupId}/repertoire/${songId}/scores/${encodeURIComponent(instrument)}`, { method: 'PUT', body: JSON.stringify(payload) }),
+    marketplaceGroupRepertoire: (slug: string, filters?: { tag?: string; q?: string }) => {
+        const params = new URLSearchParams();
+        if (filters?.tag) params.set('tag', filters.tag);
+        if (filters?.q) params.set('q', filters.q);
+        const query = params.toString();
+        return request<{ tags: string[]; items: RepertoireSong[] }>(
+            `/marketplace/groups/${encodeURIComponent(slug)}/repertoire${query ? `?${query}` : ''}`,
+        );
+    },
+    marketplaceServiceRepertoire: (groupId: string, serviceId: string) =>
+        request<{ songsIncluded: number; tags: string[]; items: RepertoireSong[] }>(
+            `/marketplace/groups/${groupId}/services/${serviceId}/repertoire`,
+        ),
+    serenataSongs: (serenataId: string) =>
+        request<{
+            setlistStatus: Serenata['setlistStatus'];
+            songsIncludedAtBooking: number | null;
+            setlistConfirmedAt: string | null;
+            items: SerenataSongSelection[];
+        }>(`/serenatas/${serenataId}/songs`),
+    confirmSerenataSetlist: (serenataId: string, songs: Array<{ repertoireSongId: string; sortOrder?: number }>) =>
+        request<{ items: SerenataSongSelection[] }>(`/serenatas/${serenataId}/setlist/confirm`, { method: 'POST', body: JSON.stringify({ songs }) }),
+    serenataSongScore: (serenataId: string, songId: string, instrument: string) =>
+        request<{ item: SongScore }>(`/serenatas/${serenataId}/repertoire/${songId}/score?instrument=${encodeURIComponent(instrument)}`),
+    uploadDocument: async (file: File): Promise<{ ok: boolean; url?: string; error?: string }> => {
+        const formData = new FormData();
+        formData.append('file', file, file.name);
+        formData.append('fileType', 'document');
+        const response = await fetch(`${API_BASE}/api/media/upload`, {
+            method: 'POST',
+            credentials: 'include',
+            body: formData,
+        });
+        const data = await response.json().catch(() => null) as { ok?: boolean; result?: { publicUrl?: string }; error?: string } | null;
+        if (!response.ok || !data?.ok || !data.result?.publicUrl) {
+            return { ok: false, error: data?.error ?? 'No pudimos subir el archivo.' };
+        }
+        return { ok: true, url: data.result.publicUrl };
+    },
     providerGroupMembers: (groupId: string) => request<{ items: ProviderGroupMember[] }>(`/provider-groups/${groupId}/members`),
     inviteProviderGroupMember: (groupId: string, payload: { musicianId: string; role?: ProviderGroupMember['role']; instruments?: string[]; message?: string | null }) => request<{ member: ProviderGroupMember }>(`/provider-groups/${groupId}/members`, { method: 'POST', body: JSON.stringify(payload) }),
     providerGroupMemberInvites: (groupId: string) => request<{ items: ProviderGroupMemberInvite[] }>(`/provider-groups/${groupId}/member-invites`),

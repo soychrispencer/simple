@@ -46,6 +46,9 @@ export const POST_JOURNAL_TAGS = [
     '0081_serenata_groups_repair',
     '0082_serenata_groups_legacy_columns',
     '0083_serenata_group_members_repair',
+    '0084_serenata_repertoire',
+    '0085_serenata_song_catalog',
+    '0086_serenata_musician_profile_fields',
 ] as const;
 
 export type PostJournalTag = (typeof POST_JOURNAL_TAGS)[number];

@@ -10,6 +10,8 @@ import { IconCheck, IconClock, IconLoader2, IconMapPin, IconPencil, IconPlus, Ic
 import { type MusicianDirectoryItem, type ProviderGroupMember, type ProviderGroupService, type Serenata, type SerenataGroup, type SerenataPackage, type SerenataPackageCode, serenatasApi } from '@/lib/serenatas-api';
 import { isOwnerSolicitudesInbox, isPendingSerenataAction } from '@/lib/serenata-pending';
 import { SerenataClosureActions } from './serenata-closure-actions';
+import { SerenataSetlistPanel } from './serenata-setlist-panel';
+import { ClientSerenataCancelPrompt } from './client-serenata-cancel-prompt';
 import { MusicianAvailabilityBadge } from './musician-availability-toggle';
 import { startSerenataCheckout } from '@/lib/payments';
 import { panelSectionHref } from '@/lib/panel-routes';
@@ -96,32 +98,6 @@ export function MusicianSerenatasView({ serenatas }: { serenatas: Serenata[] }) 
                     : serenatas.map((item) => <SerenataRow key={item.id} item={item} />)}
             </div>
         </PanelCard>
-    );
-}
-
-function ClientPendingCancelPrompt({ item, refresh }: { item: Serenata; refresh: () => Promise<void> }) {
-    const [status, setStatus] = useState<FormStatus>({ loading: false, error: null, ok: null });
-
-    if (!['payment_pending', 'pending', 'pending_open'].includes(item.status)) return null;
-
-    async function cancel() {
-        setStatus({ loading: true, error: null, ok: null });
-        const response = await serenatasApi.cancelClientSerenata(item.id);
-        if (!response.ok) {
-            setStatus({ loading: false, error: response.error ?? 'No pudimos cancelar la solicitud.', ok: null });
-            return;
-        }
-        setStatus({ loading: false, error: null, ok: 'Solicitud cancelada.' });
-        await refresh();
-    }
-
-    return (
-        <div className="mt-3 flex flex-wrap items-center gap-2">
-            <PanelButton variant="secondary" disabled={status.loading} onClick={() => void cancel()}>
-                Cancelar solicitud
-            </PanelButton>
-            <FormFeedback status={status} />
-        </div>
     );
 }
 
@@ -244,7 +220,7 @@ export function ClientSerenatasView({ serenatas, refresh, onContract }: { serena
                         <div key={item.id}>
                             <SerenataRow item={item} context="client" />
                             <ClientPaymentPrompt item={item} />
-                            <ClientPendingCancelPrompt item={item} refresh={refresh} />
+                            <ClientSerenataCancelPrompt item={item} refresh={refresh} />
                             <ClientSerenataConfirmPrompt item={item} refresh={refresh} />
                         </div>
                     ))}
@@ -658,6 +634,10 @@ function SerenataDetail({ item, groups, refresh, onEdit, onAssignGroup, onCreate
                     <p className="text-sm font-semibold text-[var(--fg)]">Mensaje</p>
                     <p className="mt-2 text-sm text-fg-secondary">{item.message}</p>
                 </div>
+            ) : null}
+
+            {item.providerGroupId ? (
+                <SerenataSetlistPanel serenata={item} mode="owner" refresh={refresh} />
             ) : null}
 
             <FormFeedback status={status} />

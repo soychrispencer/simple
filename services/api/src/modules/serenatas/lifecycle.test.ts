@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import {
+    clientCancelRequiresReason,
     needsClosure,
     validateCancelTransition,
+    validateClientCancelReason,
     validateClientConfirmTransition,
     validateCompleteTransition,
 } from './lifecycle.js';
@@ -33,5 +35,17 @@ describe('serenata lifecycle', () => {
         expect(validateClientConfirmTransition({ status: 'scheduled', clientConfirmedAt: null })).toMatch(/completadas/i);
         expect(validateClientConfirmTransition({ status: 'completed', clientConfirmedAt: new Date() })).toMatch(/Ya confirmaste/i);
         expect(validateClientConfirmTransition({ status: 'completed', clientConfirmedAt: null })).toBeNull();
+    });
+
+    it('clientCancelRequiresReason solo si ya pagó', () => {
+        expect(clientCancelRequiresReason({ status: 'payment_pending', paymentStatus: 'pending' })).toBe(false);
+        expect(clientCancelRequiresReason({ status: 'pending', paymentStatus: 'paid' })).toBe(true);
+        expect(clientCancelRequiresReason({ status: 'pending_open', paymentStatus: 'paid' })).toBe(true);
+    });
+
+    it('validateClientCancelReason exige motivo cuando hay pago', () => {
+        expect(validateClientCancelReason({ status: 'pending', paymentStatus: 'paid' }, 'ab')).toMatch(/3 caracteres/i);
+        expect(validateClientCancelReason({ status: 'pending', paymentStatus: 'paid' }, 'cambio de planes')).toBeNull();
+        expect(validateClientCancelReason({ status: 'payment_pending', paymentStatus: 'pending' }, undefined)).toBeNull();
     });
 });

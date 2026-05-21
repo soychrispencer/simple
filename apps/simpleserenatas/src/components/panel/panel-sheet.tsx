@@ -1,6 +1,6 @@
 'use client';
 
-import type { ReactNode } from 'react';
+import { useEffect, type ReactNode } from 'react';
 
 type PanelSheetProps = {
     children: ReactNode;
@@ -9,6 +9,8 @@ type PanelSheetProps = {
     maxWidthClass?: string;
     /** En escritorio el panel no hace scroll interno; en móvil sí si el contenido es alto. */
     scrollOnMobileOnly?: boolean;
+    /** Formularios largos: altura máx. viewport y scroll en el hijo (flex column). */
+    constrainHeight?: boolean;
 };
 
 export function PanelSheet({
@@ -17,10 +19,22 @@ export function PanelSheet({
     ariaLabel,
     maxWidthClass = 'sm:max-w-3xl',
     scrollOnMobileOnly = true,
+    constrainHeight = false,
 }: PanelSheetProps) {
-    const panelScrollClass = scrollOnMobileOnly
-        ? 'max-h-[92vh] overflow-y-auto sm:max-h-none sm:overflow-visible'
-        : 'max-h-[92vh] overflow-y-auto';
+    useEffect(() => {
+        if (!constrainHeight) return;
+        const previous = document.body.style.overflow;
+        document.body.style.overflow = 'hidden';
+        return () => {
+            document.body.style.overflow = previous;
+        };
+    }, [constrainHeight]);
+
+    const panelScrollClass = constrainHeight
+        ? 'flex w-full min-h-0 max-h-[min(92dvh,calc(100dvh-0.5rem))] flex-col overflow-hidden sm:max-h-[min(90dvh,calc(100dvh-2rem))]'
+        : scrollOnMobileOnly
+          ? 'max-h-[92vh] overflow-y-auto sm:max-h-none sm:overflow-visible'
+          : 'max-h-[92vh] overflow-y-auto';
 
     return (
         <div className="fixed inset-0 z-[90] flex items-end justify-center p-0 sm:items-center sm:p-4"
@@ -37,7 +51,11 @@ export function PanelSheet({
             <div
                 className={`panel-sheet-panel relative w-full rounded-t-3xl ${maxWidthClass} sm:rounded-3xl ${panelScrollClass}`}
             >
-                {children}
+                {constrainHeight ? (
+                    <div className="flex min-h-0 flex-1 flex-col">{children}</div>
+                ) : (
+                    children
+                )}
             </div>
         </div>
     );

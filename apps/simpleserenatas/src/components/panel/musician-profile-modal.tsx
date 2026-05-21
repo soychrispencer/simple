@@ -135,11 +135,14 @@ export function MusicianProfileModal({
                             </PanelField>
                         ) : null}
 
-                        {profile.workZones.length > 0 ? (
-                            <PanelField label="Zonas de trabajo">
-                                <p className="text-sm text-fg">{profile.workZones.join(', ')}</p>
-                            </PanelField>
-                        ) : null}
+                        <div className="flex flex-wrap gap-2">
+                            {profile.hasInstrument ? (
+                                <PanelStatusBadge tone="success" label="Instrumento propio" size="sm" />
+                            ) : null}
+                            {profile.hasMariachiAttire ? (
+                                <PanelStatusBadge tone="neutral" label="Tenida de mariachi" size="sm" />
+                            ) : null}
+                        </div>
 
                         {profile.bio?.trim() ? (
                             <PanelField label="Presentación">

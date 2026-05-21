@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { PanelButton, PanelCard, PanelField, PanelNotice, PanelSwitch } from '@simple/ui';
+import { PanelButton, PanelCard, PanelField, PanelNotice } from '@simple/ui';
 import { serenatasApi, type ProviderGroup } from '@/lib/serenatas-api';
 import { useMyMariachi } from '@/hooks/use-my-mariachi';
 import { RegionCommuneFields } from '@/components/panel/region-commune-fields';
@@ -9,8 +9,8 @@ import { WorkZonesPicker } from '@/components/panel/work-zones-picker';
 import { EmptyBlock, FieldInput, FieldTextarea, FormFeedback, type FormStatus } from './shared';
 import { ProviderContactPhonesFields } from './provider-contact-phones-fields';
 import { ProviderGroupBrandImages } from './provider-group-brand-images';
-import { ProviderPublicProfileLink } from './provider-public-profile-link';
 import { consumeSignupGroupName } from '@/lib/active-provider-group';
+import { panelMiNegocioHref } from '@/lib/panel-routes';
 import { GRUPOS_TAB_LABEL } from '@/lib/serenatas-terminology';
 
 export function ProviderGroupView({ refresh }: { refresh: () => Promise<void> }) {
@@ -26,8 +26,6 @@ export function ProviderGroupView({ refresh }: { refresh: () => Promise<void> })
     const [region, setRegion] = useState('');
     const [comunaBase, setComunaBase] = useState('');
     const [serviceComunas, setServiceComunas] = useState<string[]>([]);
-    const [groupStatus, setGroupStatus] = useState<ProviderGroup['status']>('active');
-
     useEffect(() => {
         if (hasMariachi || loading) return;
         const draft = consumeSignupGroupName();
@@ -45,7 +43,6 @@ export function ProviderGroupView({ refresh }: { refresh: () => Promise<void> })
         setRegion(mariachi.region ?? '');
         setComunaBase(mariachi.comunaBase ?? '');
         setServiceComunas(mariachi.serviceComunas ?? []);
-        setGroupStatus(mariachi.status);
     }, [mariachi?.id, mariachi?.updatedAt]);
 
     async function createMariachiProfile() {
@@ -65,14 +62,14 @@ export function ProviderGroupView({ refresh }: { refresh: () => Promise<void> })
             status: 'active',
         });
         if (!response.ok) {
-            setSaveStatus({ loading: false, error: response.error ?? 'No pudimos crear tu perfil comercial.', ok: null });
+            setSaveStatus({ loading: false, error: response.error ?? 'No pudimos crear tus datos comerciales.', ok: null });
             return;
         }
         await refreshMariachi();
         setSaveStatus({
             loading: false,
             error: null,
-            ok: 'Perfil comercial creado y activo en el marketplace. Completa servicios y disponibilidad en las otras pestañas.',
+            ok: 'Mariachi creado. Revisa Publicar para activar tu página y compartir el link.',
         });
         await refresh();
     }
@@ -90,7 +87,6 @@ export function ProviderGroupView({ refresh }: { refresh: () => Promise<void> })
             region: region || null,
             comunaBase: comunaBase || null,
             serviceComunas,
-            status: groupStatus,
         });
         if (!response.ok) {
             setSaveStatus({ loading: false, error: response.error ?? 'No pudimos guardar', ok: null });
@@ -120,14 +116,14 @@ export function ProviderGroupView({ refresh }: { refresh: () => Promise<void> })
         return (
             <div className="grid gap-5">
                 <EmptyBlock
-                    title="Configura tu perfil comercial"
+                    title="Configura tus datos comerciales"
                     description="Al registrarte como dueño creas tu mariachi en el marketplace. Completa estos datos para que los clientes te encuentren."
                 />
                 <PanelNotice tone="neutral">
                     Los músicos de tu plantilla se gestionan en la pestaña <strong>{GRUPOS_TAB_LABEL}</strong>.
                 </PanelNotice>
                 <PanelCard>
-                    <h3 className="text-lg font-semibold text-[var(--fg)]">Perfil comercial</h3>
+                    <h3 className="text-lg font-semibold text-[var(--fg)]">Datos comerciales</h3>
                     <div className="mt-5 grid gap-4">
                         <PanelField label="Nombre del mariachi">
                             <FieldInput value={name} onChange={(e) => setName(e.target.value)} placeholder="Mariachi Los Reyes" />
@@ -159,22 +155,7 @@ export function ProviderGroupView({ refresh }: { refresh: () => Promise<void> })
     return (
         <div className="grid gap-5">
             <PanelCard>
-                <div className="flex flex-col gap-3 border-b border-[var(--border)] pb-5 sm:flex-row sm:items-center sm:justify-between">
-                    <h3 className="text-lg font-semibold text-[var(--fg)]">Perfil comercial</h3>
-                    <div className="flex items-center gap-3">
-                        <div className="min-w-0 text-right sm:text-left">
-                            <p className="text-sm font-medium text-[var(--fg)]">Visible en marketplace</p>
-                            <p className="text-xs text-[var(--fg-muted)]">
-                                {groupStatus === 'active' ? 'Activo' : 'Oculto temporalmente'}
-                            </p>
-                        </div>
-                        <PanelSwitch
-                            checked={groupStatus === 'active'}
-                            onChange={(on) => setGroupStatus(on ? 'active' : 'paused')}
-                            ariaLabel="Visible en marketplace"
-                        />
-                    </div>
-                </div>
+                <h3 className="text-lg font-semibold text-[var(--fg)]">Datos comerciales</h3>
 
                 <ProviderGroupBrandImages
                     className="mt-5"
@@ -194,7 +175,15 @@ export function ProviderGroupView({ refresh }: { refresh: () => Promise<void> })
                     <PanelField label="Nombre del mariachi">
                         <FieldInput value={name} onChange={(e) => setName(e.target.value)} />
                     </PanelField>
-                    {mariachi ? <ProviderPublicProfileLink group={mariachi} nameDraft={name} /> : null}
+                    <PanelNotice tone="neutral" className="!py-3">
+                        <p className="text-sm text-fg-muted">
+                            Para activar tu página y compartir el link, ve a{' '}
+                            <a href={panelMiNegocioHref('publicar')} className="font-medium text-accent hover:underline">
+                                Publicar
+                            </a>
+                            .
+                        </p>
+                    </PanelNotice>
                     <PanelField label="Descripción">
                         <FieldTextarea rows={4} value={description} onChange={(e) => setDescription(e.target.value)} />
                     </PanelField>

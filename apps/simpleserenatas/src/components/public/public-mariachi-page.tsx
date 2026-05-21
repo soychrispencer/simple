@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { BrandLogo, PanelNotice } from '@simple/ui';
 import { serenatasApi, type ProviderGroup, type ProviderGroupService } from '@/lib/serenatas-api';
 import { ScreenShell } from '@/components/layout/screen-shell';
-import { PublicMariachiHeader } from '@/components/public/public-mariachi-header';
+import { SerenatasChromeHeader } from '@/components/layout/serenatas-chrome-header';
 import { MariachiProfileContent } from '@/components/public/mariachi-profile-content';
 
 export function PublicMariachiPage({ slug }: { slug: string }) {
@@ -38,7 +38,9 @@ export function PublicMariachiPage({ slug }: { slug: string }) {
 
     return (
         <ScreenShell>
-            <PublicMariachiHeader />
+            <SerenatasChromeHeader
+                publicLinks={[{ href: '/panel/mariachis', label: 'Mariachis' }]}
+            />
             <div className="mx-auto w-full max-w-5xl px-4 py-6 sm:px-6 lg:py-8">
                 {loading ? (
                     <p className="text-sm text-fg-muted">Cargando mariachi…</p>

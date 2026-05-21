@@ -1,8 +1,9 @@
 import type { Section } from '@/context/serenata-context';
 import { CONFIG_SLUG_TO_ACCOUNT_TAB, type AccountTab, isAccountTab, normalizeAccountTab } from '@/lib/account-tab';
 import type { MarketplaceRequestDraftRef } from '@/lib/marketplace-request-draft';
-import { marketplaceRequestDraftQuery } from '@/lib/marketplace-request-draft';
-import { type MiNegocioTab, isMiNegocioTab, miNegocioTabFromSearch } from '@/lib/mi-negocio-tab';
+import { marketplaceRequestDraftQuery, publicSerenataRequestQuery } from '@/lib/marketplace-request-draft';
+import { publicMariachiPath } from '@/lib/public-mariachi-routes';
+import { type MiNegocioTab, isMiNegocioTab, miNegocioTabFromSearch, normalizeMiNegocioTab } from '@/lib/mi-negocio-tab';
 
 /** Slug URL → sección interna del panel. */
 export const PANEL_SLUG_TO_SECTION: Record<string, Section> = {
@@ -65,9 +66,9 @@ export function isPanelSection(value: string | null | undefined): value is Secti
 }
 
 /** Ruta canónica de Mi Negocio con pestaña opcional. */
-export function panelMiNegocioHref(tab: MiNegocioTab = 'perfil'): string {
+export function panelMiNegocioHref(tab: MiNegocioTab = 'datos'): string {
     const path = '/panel/mi-negocio';
-    if (tab === 'perfil') return path;
+    if (tab === 'datos') return path;
     return `${path}?tab=${tab}`;
 }
 
@@ -128,9 +129,7 @@ export function panelSectionHref(
                 ? 'servicios'
                 : section === 'groups'
                   ? 'grupos'
-                  : isMiNegocioTab(tabParam)
-                    ? tabParam
-                    : 'perfil';
+                  : normalizeMiNegocioTab(tabParam ?? null) ?? 'datos';
         return panelMiNegocioHref(tab);
     }
 
@@ -149,9 +148,16 @@ export function panelSectionHref(
     return qs ? `${path}?${qs}` : path;
 }
 
-/** `/panel/solicitar` con draft en query (`grupo` + `servicio`). */
+/** Perfil público con query para abrir el modal de solicitud (`servicio`). */
 export function panelSolicitarHref(draft?: MarketplaceRequestDraftRef | null): string {
-    return panelSectionHref('solicitar', draft ? marketplaceRequestDraftQuery(draft) : undefined);
+    if (!draft) return panelSectionHref('solicitar');
+    const params = new URLSearchParams(publicSerenataRequestQuery(draft.serviceId));
+    return `${publicMariachiPath(draft.groupSlug)}?${params.toString()}`;
+}
+
+/** Compat: `/panel/solicitar?grupo=&servicio=` (redirige vía `SerenataRequestDeepLink`). */
+export function panelSolicitarLegacyHref(draft: MarketplaceRequestDraftRef): string {
+    return panelSectionHref('solicitar', marketplaceRequestDraftQuery(draft));
 }
 
 export function profilePanelHref(accountTab?: AccountTab): string {
@@ -165,6 +171,7 @@ export function miNegocioTabFromPanelPath(pathname: string, search: string): MiN
     if (slug === 'disponibilidad') return 'disponibilidad';
     if (slug === 'servicios') return 'servicios';
     if (slug === 'jornadas' || slug === 'groups') return 'grupos';
+    if (slug === 'publicar') return 'publicar';
     return miNegocioTabFromSearch(search);
 }
 

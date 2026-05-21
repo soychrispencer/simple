@@ -103,11 +103,52 @@ export function createPermanentlyDeleteUser(deps: PermanentlyDeleteUserDeps) {
         serenataGroups,
     } = tables;
 
+    const pushMediaUrl = (urls: string[], value: string | null | undefined) => {
+        const trimmed = value?.trim();
+        if (trimmed) urls.push(trimmed);
+    };
+
     return async function permanentlyDeleteUser(userId: string): Promise<void> {
         let instagramAccountRows: Array<{ id: string; vertical: string }> = [];
         let listingMediaUrlsToDelete: string[] = [];
+        const userMediaUrlsToDelete: string[] = [];
 
         await db.transaction(async (tx: any) => {
+            const [userRow] = await tx
+                .select({ avatarUrl: users.avatarUrl })
+                .from(users)
+                .where(eq(users.id, userId))
+                .limit(1);
+            pushMediaUrl(userMediaUrlsToDelete, userRow?.avatarUrl);
+
+            if (serenataProviderGroups) {
+                const providerMediaRows = await tx
+                    .select({
+                        logoUrl: serenataProviderGroups.logoUrl,
+                        coverUrl: serenataProviderGroups.coverUrl,
+                    })
+                    .from(serenataProviderGroups)
+                    .where(eq(serenataProviderGroups.ownerUserId, userId));
+                for (const row of providerMediaRows) {
+                    pushMediaUrl(userMediaUrlsToDelete, row.logoUrl);
+                    pushMediaUrl(userMediaUrlsToDelete, row.coverUrl);
+                }
+            }
+
+            if (publicProfiles) {
+                const profileMediaRows = await tx
+                    .select({
+                        avatarImageUrl: publicProfiles.avatarImageUrl,
+                        coverImageUrl: publicProfiles.coverImageUrl,
+                    })
+                    .from(publicProfiles)
+                    .where(eq(publicProfiles.userId, userId));
+                for (const row of profileMediaRows) {
+                    pushMediaUrl(userMediaUrlsToDelete, row.avatarImageUrl);
+                    pushMediaUrl(userMediaUrlsToDelete, row.coverImageUrl);
+                }
+            }
+
             const agendaProfile = await tx
                 .select({ id: agendaProfessionalProfiles.id })
                 .from(agendaProfessionalProfiles)
@@ -481,8 +522,9 @@ export function createPermanentlyDeleteUser(deps: PermanentlyDeleteUserDeps) {
             }
         }
 
-        if (listingMediaUrlsToDelete.length > 0) {
-            await deleteStoredMediaUrls(listingMediaUrlsToDelete);
+        const allMediaUrls = [...listingMediaUrlsToDelete, ...userMediaUrlsToDelete];
+        if (allMediaUrls.length > 0) {
+            await deleteStoredMediaUrls(allMediaUrls);
         }
     };
 }

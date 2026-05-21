@@ -8,6 +8,7 @@ import { type Profiles, type Serenata, type SerenataGroup, type SerenataPackage 
 import type { AppMode } from '@/lib/app-mode';
 import { EmptyBlock, FieldInput, money, SerenataAgendaCard } from './shared';
 import { SerenataClosureActions, SerenataPastDateNotice } from './serenata-closure-actions';
+import { SerenataSetlistPanel } from './serenata-setlist-panel';
 import { ProfileIncompleteNotice } from './profile-incomplete-notice';
 import { SerenataCreateModal, SerenataForm } from './serenatas-view';
 
@@ -204,7 +205,13 @@ function AgendaTimelineItem({
                     {ownerFeatures ? <SerenataClosureActions item={item} refresh={refresh} inline /> : null}
                 </>
             }
-            footer={ownerFeatures ? <SerenataPastDateNotice item={item} /> : null}
+            footer={
+                ownerFeatures ? (
+                    <SerenataPastDateNotice item={item} />
+                ) : (
+                    <SerenataSetlistPanel serenata={item} mode="musician" refresh={refresh} />
+                )
+            }
         />
     );
 }

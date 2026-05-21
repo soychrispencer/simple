@@ -3,7 +3,7 @@
  *
  * **Mariachi / marca comercial (marketplace, migración 0049)**
  * - Tablas: `serenata_provider_groups`, `serenata_provider_group_members`
- * - UI: Mi Negocio → Perfil comercial / Servicios / Disponibilidad / Configuraciones
+ * - UI: Mi Negocio → Datos comerciales / Servicios / Disponibilidad / Configuraciones / Publicar
  * - API: `/provider-groups/*`, `/marketplace/*`
  *
  * **Grupo de músicos**

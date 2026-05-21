@@ -1,5 +1,6 @@
 import { Hono } from 'hono';
 import { randomBytes } from 'crypto';
+import { z } from 'zod';
 import { logger } from '@simple/logger';
 import { sanitizeBrowserReturnUrl } from '../../lib/browser-origin.js';
 import {
@@ -66,7 +67,14 @@ export type AuthRouterDeps = {
     emailVerificationConfirmSchema: any;
     getUserPendingEmail: (userId: string) => Promise<string | null>;
     applyUserEmailChange: (userId: string, email: string) => Promise<void>;
+    permanentlyDeleteUser?: (userId: string) => Promise<void>;
+    countActiveSuperadminUsers?: () => Promise<number>;
 };
+
+const deleteAccountSchema = z.object({
+    password: z.string().optional(),
+    confirmPhrase: z.string().optional(),
+});
 
 export function createAuthRouter(deps: AuthRouterDeps) {
     const app = new Hono<{ Variables: { userId: string } }>();
@@ -670,6 +678,75 @@ export function createAuthRouter(deps: AuthRouterDeps) {
     });
 
     app.post('/logout', (c) => {
+        deps.clearSession(c);
+        return c.json({ ok: true });
+    });
+
+    app.delete('/me', async (c) => {
+        const sessionUser = await deps.authUser(c);
+        if (!sessionUser) return c.json({ ok: false, error: 'No autenticado' }, 401);
+        if (!deps.permanentlyDeleteUser) {
+            return c.json({ ok: false, error: 'Eliminación de cuenta no disponible.' }, 503);
+        }
+
+        const user = await deps.getUserById(sessionUser.id);
+        if (!user || !deps.canAuthenticateUser(user)) {
+            return c.json({ ok: false, error: 'No se pudo verificar tu cuenta.' }, 400);
+        }
+
+        if (user.role === 'superadmin' && deps.countActiveSuperadminUsers) {
+            const remaining = await deps.countActiveSuperadminUsers();
+            if (remaining <= 1) {
+                return c.json(
+                    { ok: false, error: 'No puedes eliminar la última cuenta de superadmin activa.' },
+                    400,
+                );
+            }
+        }
+
+        const payload = await c.req.json().catch(() => ({}));
+        const parsed = deleteAccountSchema.safeParse(payload);
+        if (!parsed.success) {
+            return c.json({ ok: false, error: 'Datos de confirmación inválidos.' }, 400);
+        }
+
+        if (user.passwordHash) {
+            const password = parsed.data.password?.trim() ?? '';
+            if (!password) {
+                return c.json({ ok: false, error: 'Ingresa tu contraseña para confirmar.' }, 400);
+            }
+            const matches = await deps.bcrypt.compare(password, user.passwordHash);
+            if (!matches) {
+                return c.json({ ok: false, error: 'La contraseña no es correcta.' }, 401);
+            }
+        } else {
+            const phrase = (parsed.data.confirmPhrase ?? '').trim().toUpperCase();
+            if (phrase !== 'ELIMINAR') {
+                return c.json(
+                    { ok: false, error: 'Escribe ELIMINAR (en mayúsculas) para confirmar la eliminación.' },
+                    400,
+                );
+            }
+        }
+
+        try {
+            await deps.permanentlyDeleteUser(user.id);
+        } catch (error) {
+            console.error('[auth] permanentlyDeleteUser failed', { userId: user.id, error });
+            const detail = error instanceof Error ? error.message : String(error);
+            const isFkViolation = /foreign key|violates foreign key|23503/i.test(detail);
+            return c.json(
+                {
+                    ok: false,
+                    error: isFkViolation
+                        ? 'No pudimos eliminar la cuenta: aún hay datos vinculados. Contacta soporte.'
+                        : 'No pudimos eliminar tu cuenta. Intenta más tarde o contacta soporte.',
+                    detail,
+                },
+                500,
+            );
+        }
+
         deps.clearSession(c);
         return c.json({ ok: true });
     });

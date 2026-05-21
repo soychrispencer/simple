@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { PanelButton, PanelCard, PanelField } from '@simple/ui';
+import { PanelCard, PanelField } from '@simple/ui';
 import { LOCATION_REGIONS, getCommunesForRegion } from '@simple/utils';
 import { serenatasApi, type ProviderGroup } from '@/lib/serenatas-api';
 import {
@@ -12,17 +12,14 @@ import {
 } from '@/lib/marketplace-group-display';
 import { EmptyBlock, FieldInput, FieldSelect, FormFeedback, type FormStatus } from './shared';
 import { MarketplaceGroupCard, MarketplaceGroupCardSkeleton } from './marketplace-group-card';
-import type { Section } from '@/context/serenata-context';
 
 function regionIdFromName(name: string) {
     return LOCATION_REGIONS.find((r) => r.name === name)?.id ?? '';
 }
 
 export function GroupsMarketplaceView({
-    setSection,
     onOpenGroup,
 }: {
-    setSection: (section: Section) => void;
     onOpenGroup: (slug: string) => void;
 }) {
     const [region, setRegion] = useState('');
@@ -65,48 +62,48 @@ export function GroupsMarketplaceView({
     return (
         <div className="grid gap-5">
             <PanelCard>
-                <h2 className="text-xl font-semibold text-fg">Explora mariachis</h2>
-                <p className="mt-1 text-sm text-fg-muted">
-                    Elige un mariachi, revisa sus servicios y solicita directamente.
-                </p>
-                <div className="mt-5 grid gap-4 sm:grid-cols-2">
-                    <PanelField label="Región">
-                        <FieldSelect value={region} onChange={(e) => { setRegion(e.target.value); setComuna(''); }}>
-                            <option value="">Todas</option>
-                            {LOCATION_REGIONS.map((r) => (
-                                <option key={r.id} value={r.name}>{r.name}</option>
-                            ))}
-                        </FieldSelect>
-                    </PanelField>
-                    <PanelField label="Comuna">
-                        <FieldSelect value={comuna} disabled={!region} onChange={(e) => setComuna(e.target.value)}>
-                            <option value="">Todas</option>
-                            {communes.map((c) => (
-                                <option key={c.id} value={c.name}>{c.name}</option>
-                            ))}
-                        </FieldSelect>
-                    </PanelField>
-                    <PanelField label="Buscar" className="sm:col-span-2">
-                        <FieldInput
-                            value={search}
-                            onChange={(e) => setSearch(e.target.value)}
-                            placeholder="Nombre o descripción del mariachi"
-                        />
-                    </PanelField>
-                    <PanelField label="Ordenar">
-                        <FieldSelect value={sort} onChange={(e) => setSort(e.target.value as MarketplaceGroupSort)}>
-                            {MARKETPLACE_SORT_OPTIONS.map((option) => (
-                                <option key={option.value} value={option.value}>{option.label}</option>
-                            ))}
-                        </FieldSelect>
-                    </PanelField>
+                <div className="grid gap-4">
+                    <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
+                        <PanelField label="Buscar" className="min-w-0 flex-1">
+                            <FieldInput
+                                value={search}
+                                onChange={(e) => setSearch(e.target.value)}
+                                placeholder="Nombre o descripción del mariachi"
+                            />
+                        </PanelField>
+                        <PanelField label="Ordenar" className="w-full shrink-0 sm:w-52">
+                            <FieldSelect value={sort} onChange={(e) => setSort(e.target.value as MarketplaceGroupSort)}>
+                                {MARKETPLACE_SORT_OPTIONS.map((option) => (
+                                    <option key={option.value} value={option.value}>{option.label}</option>
+                                ))}
+                            </FieldSelect>
+                        </PanelField>
+                    </div>
+                    <div className="grid gap-4 sm:grid-cols-2">
+                        <PanelField label="Región">
+                            <FieldSelect value={region} onChange={(e) => { setRegion(e.target.value); setComuna(''); }}>
+                                <option value="">Todas</option>
+                                {LOCATION_REGIONS.map((r) => (
+                                    <option key={r.id} value={r.name}>{r.name}</option>
+                                ))}
+                            </FieldSelect>
+                        </PanelField>
+                        <PanelField label="Comuna">
+                            <FieldSelect value={comuna} disabled={!region} onChange={(e) => setComuna(e.target.value)}>
+                                <option value="">Todas</option>
+                                {communes.map((c) => (
+                                    <option key={c.id} value={c.name}>{c.name}</option>
+                                ))}
+                            </FieldSelect>
+                        </PanelField>
+                    </div>
                 </div>
                 {status.error ? <FormFeedback status={status} /> : null}
             </PanelCard>
 
             {status.loading ? (
-                <div className="grid gap-4 md:grid-cols-2">
-                    {Array.from({ length: 4 }, (_, index) => (
+                <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-3">
+                    {Array.from({ length: 6 }, (_, index) => (
                         <MarketplaceGroupCardSkeleton key={index} />
                     ))}
                 </div>
@@ -120,16 +117,12 @@ export function GroupsMarketplaceView({
                     }
                 />
             ) : (
-                <div className="grid gap-4 md:grid-cols-2">
+                <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-3">
                     {visibleItems.map((group) => (
                         <MarketplaceGroupCard key={group.id} group={group} onOpen={onOpenGroup} />
                     ))}
                 </div>
             )}
-
-            <PanelButton variant="secondary" onClick={() => setSection('serenatas')}>
-                Ver mis serenatas
-            </PanelButton>
         </div>
     );
 }

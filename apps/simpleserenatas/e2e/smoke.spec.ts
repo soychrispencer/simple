@@ -96,10 +96,9 @@ test.describe('SimpleSerenatas smoke', () => {
         await expect(page).toHaveURL(/\/panel\/solicitar/, { timeout: 10_000 });
     });
 
-    test('panel solicitar sin sesión muestra acceso restringido', async ({ page }) => {
-        await page.goto('/panel/solicitar');
-        await expect(page).toHaveURL(/\/panel\/solicitar/);
-        await expect(page.getByRole('heading', { name: /acceso restringido/i })).toBeVisible();
+    test('panel solicitar sin sesión redirige al perfil público con modal', async ({ page }) => {
+        await page.goto('/panel/solicitar?grupo=demo-mariachi&servicio=demo-service');
+        await expect(page).not.toHaveURL(/\/panel\/solicitar/, { timeout: 10_000 });
     });
 
     test('panel inicio sin sesión muestra acceso restringido', async ({ page }) => {

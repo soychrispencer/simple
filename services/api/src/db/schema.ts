@@ -1,5 +1,5 @@
 import { sql } from 'drizzle-orm';
-import { pgTable, uuid, varchar, text, timestamp, jsonb, decimal, integer, boolean, uniqueIndex, index } from 'drizzle-orm/pg-core';
+import { pgTable, uuid, varchar, text, timestamp, jsonb, decimal, integer, boolean, uniqueIndex, index, primaryKey } from 'drizzle-orm/pg-core';
 
 // Users table
 export const users = pgTable('users', {
@@ -1092,6 +1092,8 @@ export const serenataMusicians = pgTable('serenata_musicians', {
   availableNow: boolean('available_now').notNull().default(false),
   experienceYears: integer('experience_years').notNull().default(0),
   workZones: jsonb('working_comunas').$type<string[]>().notNull().default(sql`'[]'::jsonb`),
+  hasInstrument: boolean('has_instrument').notNull().default(false),
+  hasMariachiAttire: boolean('has_mariachi_attire').notNull().default(false),
   createdAt: timestamp('created_at').notNull().defaultNow(),
   updatedAt: timestamp('updated_at').notNull().defaultNow(),
 }, (table) => ({
@@ -1194,12 +1196,83 @@ export const serenataGroupServices = pgTable('serenata_group_services', {
   price: integer('price').notNull(),
   currency: varchar('currency', { length: 8 }).notNull().default('CLP'),
   eventType: varchar('event_type', { length: 80 }),
+  songsIncluded: integer('songs_included').notNull().default(0),
+  repertoirePolicy: varchar('repertoire_policy', { length: 24 }).notNull().default('any_active'),
   isActive: boolean('is_active').notNull().default(true),
   sortOrder: integer('sort_order').notNull().default(0),
   createdAt: timestamp('created_at').notNull().defaultNow(),
   updatedAt: timestamp('updated_at').notNull().defaultNow(),
 }, (table) => ({
   providerIdx: index('serenata_group_services_provider_idx').on(table.providerGroupId),
+}));
+
+export const serenataSongCatalog = pgTable('serenata_song_catalog', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  title: varchar('title', { length: 200 }).notNull(),
+  titleNormalized: varchar('title_normalized', { length: 220 }).notNull(),
+  artist: varchar('artist', { length: 160 }),
+  tags: jsonb('tags').$type<string[]>().notNull().default(sql`'[]'::jsonb`),
+  isPreset: boolean('is_preset').notNull().default(false),
+  createdByUserId: uuid('created_by_user_id').references(() => users.id, { onDelete: 'set null' }),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+  updatedAt: timestamp('updated_at').notNull().defaultNow(),
+}, (table) => ({
+  titleNormIdx: uniqueIndex('serenata_song_catalog_title_norm_idx').on(table.titleNormalized),
+  presetIdx: index('serenata_song_catalog_preset_idx').on(table.isPreset),
+}));
+
+export const serenataRepertoireSongs = pgTable('serenata_repertoire_songs', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  providerGroupId: uuid('provider_group_id').references(() => serenataProviderGroups.id, { onDelete: 'cascade' }).notNull(),
+  catalogSongId: uuid('catalog_song_id').references(() => serenataSongCatalog.id, { onDelete: 'restrict' }),
+  title: varchar('title', { length: 200 }).notNull(),
+  artist: varchar('artist', { length: 160 }),
+  tags: jsonb('tags').$type<string[]>().notNull().default(sql`'[]'::jsonb`),
+  isActive: boolean('is_active').notNull().default(true),
+  sortOrder: integer('sort_order').notNull().default(0),
+  notes: text('notes'),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+  updatedAt: timestamp('updated_at').notNull().defaultNow(),
+}, (table) => ({
+  providerIdx: index('serenata_repertoire_songs_provider_idx').on(table.providerGroupId),
+  activeIdx: index('serenata_repertoire_songs_active_idx').on(table.providerGroupId, table.isActive),
+  providerCatalogIdx: uniqueIndex('serenata_repertoire_provider_catalog_idx')
+    .on(table.providerGroupId, table.catalogSongId)
+    .where(sql`${table.catalogSongId} is not null`),
+}));
+
+export const serenataServiceSongs = pgTable('serenata_service_songs', {
+  serviceId: uuid('service_id').references(() => serenataGroupServices.id, { onDelete: 'cascade' }).notNull(),
+  repertoireSongId: uuid('repertoire_song_id').references(() => serenataRepertoireSongs.id, { onDelete: 'cascade' }).notNull(),
+}, (table) => ({
+  pk: primaryKey({ columns: [table.serviceId, table.repertoireSongId] }),
+}));
+
+export const serenataSongScores = pgTable('serenata_song_scores', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  repertoireSongId: uuid('repertoire_song_id').references(() => serenataRepertoireSongs.id, { onDelete: 'cascade' }).notNull(),
+  instrument: varchar('instrument', { length: 80 }).notNull(),
+  format: varchar('format', { length: 16 }).notNull().default('pdf'),
+  storageUrl: text('storage_url').notNull(),
+  originalFilename: varchar('original_filename', { length: 255 }),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+  updatedAt: timestamp('updated_at').notNull().defaultNow(),
+}, (table) => ({
+  songInstrumentIdx: uniqueIndex('serenata_song_scores_song_instrument_idx').on(table.repertoireSongId, table.instrument),
+}));
+
+export const serenataSongSelections = pgTable('serenata_song_selections', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  serenataId: uuid('serenata_id').references(() => serenatas.id, { onDelete: 'cascade' }).notNull(),
+  repertoireSongId: uuid('repertoire_song_id').references(() => serenataRepertoireSongs.id, { onDelete: 'set null' }),
+  kind: varchar('kind', { length: 32 }).notNull(),
+  title: varchar('title', { length: 200 }).notNull(),
+  artist: varchar('artist', { length: 160 }),
+  sortOrder: integer('sort_order').notNull().default(0),
+  clientNote: text('client_note'),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+}, (table) => ({
+  serenataIdx: index('serenata_song_selections_serenata_idx').on(table.serenataId),
 }));
 
 export const serenataProviderGroupMembers = pgTable('serenata_provider_group_members', {
@@ -1339,6 +1412,9 @@ export const serenatas = pgTable('serenatas', {
   expiredAt: timestamp('expired_at', { withTimezone: true }),
   expiredReason: varchar('expired_reason', { length: 40 }),
   pendingReminderSentAt: timestamp('pending_reminder_sent_at', { withTimezone: true }),
+  setlistStatus: varchar('setlist_status', { length: 24 }).notNull().default('pending_owner'),
+  songsIncludedAtBooking: integer('songs_included_at_booking'),
+  setlistConfirmedAt: timestamp('setlist_confirmed_at'),
   createdAt: timestamp('created_at').notNull().defaultNow(),
   updatedAt: timestamp('updated_at').notNull().defaultNow(),
 }, (table) => ({

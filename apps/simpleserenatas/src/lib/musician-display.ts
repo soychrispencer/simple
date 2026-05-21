@@ -19,10 +19,8 @@ export function primaryInstrument(profile: {
     return first?.trim() ?? 'Instrumento por confirmar';
 }
 
-export function musicianLocationShort(profile: Pick<MusicianPublicProfile, 'comuna' | 'region' | 'workZones'>): string {
-    if (profile.comuna?.trim()) return profile.comuna.trim();
-    if (profile.region?.trim()) return profile.region.trim();
-    return musicianLocationLabel(profile as MusicianPublicProfile);
+export function musicianLocationShort(profile: Pick<MusicianPublicProfile, 'comuna' | 'region'>): string {
+    return musicianLocationLabel(profile);
 }
 
 export function musicianInitials(name: string | null | undefined): string {
@@ -44,6 +42,8 @@ export function toMusicianPublicProfile(input: {
     comuna?: string | null;
     region?: string | null;
     workZones?: string[] | null;
+    hasInstrument?: boolean | null;
+    hasMariachiAttire?: boolean | null;
     experienceYears?: number | null;
     availableNow?: boolean | null;
     isAvailable?: boolean | null;
@@ -62,6 +62,8 @@ export function toMusicianPublicProfile(input: {
         lat: null,
         lng: null,
         workZones: input.workZones ?? [],
+        hasInstrument: input.hasInstrument ?? Boolean(input.instrument?.trim() || input.instruments?.length),
+        hasMariachiAttire: input.hasMariachiAttire ?? false,
         experienceYears: input.experienceYears ?? 0,
         availableNow: Boolean(input.availableNow),
         isAvailable: input.isAvailable ?? true,

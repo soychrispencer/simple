@@ -33,6 +33,7 @@ const DEFAULT_FORM = {
     durationMinutes: '45',
     price: '45000',
     eventType: '',
+    songsIncluded: '0',
 };
 
 type FormMode = 'closed' | 'create' | 'edit';
@@ -107,6 +108,7 @@ export function ProviderServicesEditor({
             durationMinutes: String(service.durationMinutes),
             price: String(service.price),
             eventType: service.eventType ?? '',
+            songsIncluded: String(service.songsIncluded ?? 0),
         });
         setFormStatus({ loading: false, error: null, ok: null });
         setFormMode('edit');
@@ -135,6 +137,7 @@ export function ProviderServicesEditor({
             return;
         }
 
+        const songsIncluded = Math.max(0, Math.floor(Number(form.songsIncluded) || 0));
         const payload = {
             name: form.name.trim(),
             description: form.description.trim() || null,
@@ -142,6 +145,8 @@ export function ProviderServicesEditor({
             durationMinutes: Math.floor(durationMinutes),
             price: Math.floor(price),
             eventType: form.eventType.trim() || null,
+            songsIncluded,
+            repertoirePolicy: 'any_active' as const,
         };
 
         const wasEditing = formMode === 'edit' && editingServiceId;
@@ -308,6 +313,15 @@ export function ProviderServicesEditor({
                                         onChange={(e) => setForm((prev) => ({ ...prev, price: e.target.value }))}
                                     />
                                 </PanelField>
+                                <PanelField label="Canciones incluidas (preferencia cliente)" hint="0 = el mariachi arma el set. Hasta N canciones del repertorio.">
+                                    <FieldInput
+                                        type="number"
+                                        min={0}
+                                        max={30}
+                                        value={form.songsIncluded}
+                                        onChange={(e) => setForm((prev) => ({ ...prev, songsIncluded: e.target.value }))}
+                                    />
+                                </PanelField>
                                 <div className="flex w-full flex-col gap-3 sm:col-span-2 lg:col-span-3">
                                     <FormFeedback status={formStatus} />
                                     <div className="flex flex-wrap gap-2">
@@ -367,6 +381,9 @@ export function ProviderServicesEditor({
                                                 {service.musiciansCount} músicos · {service.durationMinutes} min ·{' '}
                                                 {money(service.price)}
                                                 {service.eventType ? ` · ${service.eventType}` : ''}
+                                                {(service.songsIncluded ?? 0) > 0
+                                                    ? ` · Hasta ${service.songsIncluded} canción${service.songsIncluded === 1 ? '' : 'es'} a elegir`
+                                                    : ''}
                                             </p>
                                             {service.description ? (
                                                 <p className="mt-1.5 text-sm text-fg-secondary line-clamp-2">

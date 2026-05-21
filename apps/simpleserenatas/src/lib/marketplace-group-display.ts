@@ -38,6 +38,16 @@ export function zonesText(group: ProviderGroup) {
         : 'Zonas de atención por publicar.';
 }
 
+/** Texto breve para perfil: pocas comunas nombradas, el resto resumido. */
+export function profileZonesSummary(group: ProviderGroup, maxVisible = 4): string | null {
+    const comunas = group.serviceComunas ?? [];
+    if (comunas.length === 0) return null;
+    if (comunas.length <= maxVisible) return comunas.join(', ');
+    const visible = comunas.slice(0, maxVisible).join(', ');
+    const rest = comunas.length - maxVisible;
+    return `${visible} y ${rest} comuna${rest === 1 ? '' : 's'} más`;
+}
+
 export function formatGroupRating(group: ProviderGroup): string | null {
     if (group.ratingCount <= 0) return null;
     return `${group.ratingAverage.toFixed(1)} (${group.ratingCount})`;

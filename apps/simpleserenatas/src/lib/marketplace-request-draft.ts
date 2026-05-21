@@ -44,3 +44,8 @@ export function readMarketplaceRequestDraftFromSearch(search: string): Marketpla
 export function marketplaceRequestDraftQuery(ref: MarketplaceRequestDraftRef): Record<string, string> {
     return { grupo: ref.groupSlug, servicio: ref.serviceId };
 }
+
+/** Deep link en perfil público: `/{slug}?servicio={serviceId}`. */
+export function publicSerenataRequestQuery(serviceId: string): Record<string, string> {
+    return { servicio: serviceId };
+}

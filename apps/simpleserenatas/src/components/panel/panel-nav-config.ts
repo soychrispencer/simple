@@ -54,7 +54,7 @@ export function getPanelNavItems(mode: AppMode, profiles: Profiles): PanelNavIte
     ];
 
     if (mode === 'client') {
-        items.push({ id: 'mariachis', href: panelSectionHref('mariachis'), label: 'Mariachis', icon: IconUsersGroup });
+        items.push({ id: 'mariachis', href: panelSectionHref('mariachis'), label: 'Explorar', icon: IconUsersGroup });
         items.push({ id: 'serenatas', href: panelSectionHref('serenatas'), label: 'Mis Serenatas', icon: IconMusic });
         items.push({ id: 'profile', href: panelSectionHref('profile'), label: 'Mi cuenta', icon: IconUser });
         return items;
