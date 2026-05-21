@@ -202,7 +202,22 @@ export function createAdminRouter(deps: AdminRouterDeps) {
             }
         }
 
-        await deps.permanentlyDeleteUser(userId);
+        try {
+            await deps.permanentlyDeleteUser(userId);
+        } catch (error) {
+            console.error('[admin] permanentlyDeleteUser failed', { userId, error });
+            const detail = error instanceof Error ? error.message : String(error);
+            const isFkViolation = /foreign key|violates foreign key|23503/i.test(detail);
+            return c.json(
+                {
+                    ok: false,
+                    error: isFkViolation
+                        ? 'No se pudo eliminar: el usuario aún tiene datos vinculados. Revisa suscripciones, pagos o serenatas.'
+                        : 'No se pudo eliminar el usuario. Intenta de nuevo o contacta soporte.',
+                },
+                500,
+            );
+        }
         return c.json({ ok: true, message: 'Usuario eliminado permanentemente' });
     });
 

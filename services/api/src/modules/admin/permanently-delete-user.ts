@@ -80,6 +80,27 @@ export function createPermanentlyDeleteUser(deps: PermanentlyDeleteUserDeps) {
         listingLeadActivities,
         serviceLeadActivities,
         agendaClientTags,
+        addressBook,
+        paymentOrders,
+        subscriptions,
+        mortgageRates,
+        userNotificationLog,
+        serenataNotifications,
+        serenataProviderGroupMemberInvites,
+        serenataGroupInvites,
+        serenataProviderGroupApplications,
+        serenataProviderGroups,
+        serenataGroupServices,
+        serenataAvailabilityRules,
+        serenataProviderGroupBlockedSlots,
+        serenataProviderGroupMembers,
+        serenatas,
+        serenataOffers,
+        serenataGroupMembers,
+        serenataMusicians,
+        serenataClients,
+        serenataOwners,
+        serenataGroups,
     } = tables;
 
     return async function permanentlyDeleteUser(userId: string): Promise<void> {
@@ -189,6 +210,165 @@ export function createPermanentlyDeleteUser(deps: PermanentlyDeleteUserDeps) {
             await tx.delete(passwordResetTokens).where(eq(passwordResetTokens.userId, userId));
             await tx.delete(emailVerificationTokens).where(eq(emailVerificationTokens.userId, userId));
 
+            await tx.delete(addressBook).where(eq(addressBook.userId, userId));
+            await tx.delete(paymentOrders).where(eq(paymentOrders.userId, userId));
+            await tx.delete(subscriptions).where(eq(subscriptions.userId, userId));
+            await tx.delete(pushSubscriptions).where(eq(pushSubscriptions.userId, userId));
+
+            if (mortgageRates) {
+                await tx
+                    .update(mortgageRates)
+                    .set({ updatedBy: null })
+                    .where(eq(mortgageRates.updatedBy, userId));
+            }
+
+            if (userNotificationLog) {
+                await tx.delete(userNotificationLog).where(eq(userNotificationLog.userId, userId));
+            }
+            if (serenataNotifications) {
+                await tx.delete(serenataNotifications).where(eq(serenataNotifications.userId, userId));
+            }
+            if (serenataProviderGroupMemberInvites) {
+                await tx
+                    .delete(serenataProviderGroupMemberInvites)
+                    .where(eq(serenataProviderGroupMemberInvites.invitedByUserId, userId));
+            }
+            if (serenataGroupInvites) {
+                await tx.delete(serenataGroupInvites).where(eq(serenataGroupInvites.invitedByUserId, userId));
+            }
+            if (serenataProviderGroupApplications) {
+                await tx
+                    .delete(serenataProviderGroupApplications)
+                    .where(eq(serenataProviderGroupApplications.userId, userId));
+            }
+
+            if (serenataProviderGroups) {
+                const ownedProviderGroups = await tx
+                    .select({ id: serenataProviderGroups.id })
+                    .from(serenataProviderGroups)
+                    .where(eq(serenataProviderGroups.ownerUserId, userId));
+                const ownedProviderGroupIds = ownedProviderGroups.map((row: { id: string }) => row.id);
+
+                if (ownedProviderGroupIds.length > 0 && serenatas) {
+                    const linkedSerenatas = await tx
+                        .select({ id: serenatas.id })
+                        .from(serenatas)
+                        .where(sql`${serenatas.providerGroupId} = ANY(${ownedProviderGroupIds})`);
+                    const linkedSerenataIds = linkedSerenatas.map((row: { id: string }) => row.id);
+
+                    if (linkedSerenataIds.length > 0 && serenataOffers) {
+                        await tx
+                            .delete(serenataOffers)
+                            .where(sql`${serenataOffers.serenataId} = ANY(${linkedSerenataIds})`);
+                    }
+                    if (linkedSerenataIds.length > 0) {
+                        await tx.delete(serenatas).where(sql`${serenatas.id} = ANY(${linkedSerenataIds})`);
+                    }
+                }
+
+                if (ownedProviderGroupIds.length > 0) {
+                    if (serenataGroupServices) {
+                        await tx
+                            .delete(serenataGroupServices)
+                            .where(sql`${serenataGroupServices.providerGroupId} = ANY(${ownedProviderGroupIds})`);
+                    }
+                    if (serenataAvailabilityRules) {
+                        await tx
+                            .delete(serenataAvailabilityRules)
+                            .where(sql`${serenataAvailabilityRules.providerGroupId} = ANY(${ownedProviderGroupIds})`);
+                    }
+                    if (serenataProviderGroupBlockedSlots) {
+                        await tx
+                            .delete(serenataProviderGroupBlockedSlots)
+                            .where(sql`${serenataProviderGroupBlockedSlots.providerGroupId} = ANY(${ownedProviderGroupIds})`);
+                    }
+                    if (serenataProviderGroupMembers) {
+                        await tx
+                            .delete(serenataProviderGroupMembers)
+                            .where(sql`${serenataProviderGroupMembers.providerGroupId} = ANY(${ownedProviderGroupIds})`);
+                    }
+                    await tx
+                        .delete(serenataProviderGroups)
+                        .where(sql`${serenataProviderGroups.id} = ANY(${ownedProviderGroupIds})`);
+                }
+            }
+
+            if (serenataMusicians) {
+                const musicianRows = await tx
+                    .select({ id: serenataMusicians.id })
+                    .from(serenataMusicians)
+                    .where(eq(serenataMusicians.userId, userId));
+                const musicianIds = musicianRows.map((row: { id: string }) => row.id);
+
+                if (musicianIds.length > 0) {
+                    if (serenataProviderGroupMembers) {
+                        await tx
+                            .delete(serenataProviderGroupMembers)
+                            .where(sql`${serenataProviderGroupMembers.musicianId} = ANY(${musicianIds})`);
+                    }
+                    if (serenataGroupMembers) {
+                        await tx
+                            .delete(serenataGroupMembers)
+                            .where(sql`${serenataGroupMembers.musicianId} = ANY(${musicianIds})`);
+                    }
+                    await tx.delete(serenataMusicians).where(sql`${serenataMusicians.id} = ANY(${musicianIds})`);
+                }
+            }
+
+            if (serenataClients) {
+                const clientRows = await tx
+                    .select({ id: serenataClients.id })
+                    .from(serenataClients)
+                    .where(eq(serenataClients.userId, userId));
+                const clientIds = clientRows.map((row: { id: string }) => row.id);
+
+                if (clientIds.length > 0 && serenatas) {
+                    const clientSerenatas = await tx
+                        .select({ id: serenatas.id })
+                        .from(serenatas)
+                        .where(sql`${serenatas.clientId} = ANY(${clientIds})`);
+                    const clientSerenataIds = clientSerenatas.map((row: { id: string }) => row.id);
+
+                    if (clientSerenataIds.length > 0 && serenataOffers) {
+                        await tx
+                            .delete(serenataOffers)
+                            .where(sql`${serenataOffers.serenataId} = ANY(${clientSerenataIds})`);
+                    }
+                    if (clientSerenataIds.length > 0) {
+                        await tx.delete(serenatas).where(sql`${serenatas.id} = ANY(${clientSerenataIds})`);
+                    }
+                    await tx.delete(serenataClients).where(sql`${serenataClients.id} = ANY(${clientIds})`);
+                }
+            }
+
+            if (serenataOwners) {
+                const ownerRows = await tx
+                    .select({ id: serenataOwners.id })
+                    .from(serenataOwners)
+                    .where(eq(serenataOwners.userId, userId));
+                const ownerIds = ownerRows.map((row: { id: string }) => row.id);
+
+                if (ownerIds.length > 0) {
+                    if (serenataGroups) {
+                        await tx.delete(serenataGroups).where(sql`${serenataGroups.ownerId} = ANY(${ownerIds})`);
+                    }
+                    if (serenataOffers) {
+                        await tx.delete(serenataOffers).where(sql`${serenataOffers.ownerId} = ANY(${ownerIds})`);
+                    }
+                    if (serenatas) {
+                        const ownerSerenatas = await tx
+                            .select({ id: serenatas.id })
+                            .from(serenatas)
+                            .where(sql`${serenatas.ownerId} = ANY(${ownerIds})`);
+                        const ownerSerenataIds = ownerSerenatas.map((row: { id: string }) => row.id);
+                        if (ownerSerenataIds.length > 0) {
+                            await tx.delete(serenatas).where(sql`${serenatas.id} = ANY(${ownerSerenataIds})`);
+                        }
+                    }
+                    await tx.delete(serenataOwners).where(sql`${serenataOwners.id} = ANY(${ownerIds})`);
+                }
+            }
+
             const accountRows = await tx
                 .select({ id: accounts.id })
                 .from(accounts)
@@ -196,6 +376,9 @@ export function createPermanentlyDeleteUser(deps: PermanentlyDeleteUserDeps) {
             const accountIds = accountRows.map((r: { id: string }) => r.id);
 
             if (accountIds.length > 0) {
+                if (addressBook) {
+                    await tx.delete(addressBook).where(inArray(addressBook.accountId, accountIds));
+                }
                 await tx.delete(accountUsers).where(inArray(accountUsers.accountId, accountIds));
                 await tx.delete(accounts).where(inArray(accounts.id, accountIds));
             }
@@ -250,7 +433,6 @@ export function createPermanentlyDeleteUser(deps: PermanentlyDeleteUserDeps) {
                 await tx.delete(agendaServices).where(eq(agendaServices.professionalId, professionalId));
                 await tx.delete(agendaAuditEvents).where(eq(agendaAuditEvents.professionalId, professionalId));
                 await tx.delete(agendaNotificationEvents).where(eq(agendaNotificationEvents.professionalId, professionalId));
-                await tx.delete(pushSubscriptions).where(eq(pushSubscriptions.userId, userId));
                 await tx.delete(agendaProfessionalProfiles).where(eq(agendaProfessionalProfiles.id, professionalId));
             }
 
