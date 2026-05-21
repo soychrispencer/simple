@@ -301,8 +301,19 @@ const serenataCancelSchema = z.object({
     cancelReason: z.string().trim().min(3, 'Indica un motivo de al menos 3 caracteres'),
 });
 
-function jsonError(c: Context, error: string, status: 400 | 401 | 403 | 404 | 409 | 500 | 503 = 400) {
-    return c.json({ ok: false, error }, status);
+function jsonError(
+    c: Context,
+    error: string,
+    status: 400 | 401 | 403 | 404 | 409 | 500 | 503 = 400,
+    detail?: string,
+) {
+    const body: { ok: false; error: string; detail?: string } = { ok: false, error };
+    if (detail) body.detail = detail;
+    return c.json(body, status);
+}
+
+function isSerenataSchemaError(message: string): boolean {
+    return /column .* does not exist|relation .* does not exist|42703|42P01/i.test(message);
 }
 
 function normalizeRequiredInstruments(value: unknown): string[] {
@@ -921,28 +932,68 @@ export function createSerenatasRouter(deps: SerenatasRouterDeps) {
     app.get('/serenatas', async (c) => {
         const user = await deps.authUser(c);
         if (!user) return jsonError(c, 'No autenticado', 401);
-        const profiles = await getProfiles(user.id);
+
+        const serenataListDbError = (err: unknown, phase: string) => {
+            const message = err instanceof Error ? err.message : String(err);
+            const missingSchema = isSerenataSchemaError(message);
+            console.error('[serenatas] list failed', { phase, userId: user.id, message, err });
+            return jsonError(
+                c,
+                missingSchema
+                    ? 'El servidor necesita aplicar migraciones de Serenatas. Intenta en unos minutos o contacta soporte.'
+                    : 'No pudimos cargar las serenatas.',
+                missingSchema ? 503 : 500,
+                message,
+            );
+        };
+
+        let profiles: Awaited<ReturnType<typeof getProfiles>>;
+        try {
+            profiles = await getProfiles(user.id);
+        } catch (err) {
+            return serenataListDbError(err, 'getProfiles');
+        }
+
         const role = resolveActorRoleFromRequest(c, profiles);
         const range = toDateRange(c.req.query('date'));
 
         if (role === 'owner' && profiles.owner) {
-            await runPendingSerenataLifecycle();
-            if (c.req.query('needsClosure') === '1') {
-                const items = await listOwnerSerenatasNeedingClosure(profiles.owner.id);
+            try {
+                await runPendingSerenataLifecycle();
+            } catch (lifecycleErr) {
+                const msg = lifecycleErr instanceof Error ? lifecycleErr.message : String(lifecycleErr);
+                console.error('[serenatas] lifecycle on list failed (non-blocking)', { message: msg, err: lifecycleErr });
+            }
+
+            try {
+                if (c.req.query('needsClosure') === '1') {
+                    const items = await listOwnerSerenatasNeedingClosure(profiles.owner.id);
+                    return c.json({ ok: true, items });
+                }
+                const items = await listOwnerSerenatas(profiles.owner, range);
+                try {
+                    const ownerUserId = await resolveOwnerUserId(profiles.owner.id);
+                    if (ownerUserId) {
+                        const reminderCandidates = await loadOwnerScheduledForReminders(profiles.owner.id);
+                        await maybeSendClosureReminders(ownerUserId, reminderCandidates);
+                    }
+                } catch (reminderErr) {
+                    const msg = reminderErr instanceof Error ? reminderErr.message : String(reminderErr);
+                    console.error('[serenatas] closure reminders on list failed (non-blocking)', { message: msg, err: reminderErr });
+                }
                 return c.json({ ok: true, items });
+            } catch (err) {
+                return serenataListDbError(err, 'listOwner');
             }
-            const items = await listOwnerSerenatas(profiles.owner, range);
-            const ownerUserId = await resolveOwnerUserId(profiles.owner.id);
-            if (ownerUserId) {
-                const reminderCandidates = await loadOwnerScheduledForReminders(profiles.owner.id);
-                await maybeSendClosureReminders(ownerUserId, reminderCandidates);
-            }
-            return c.json({ ok: true, items });
         }
 
         if (role === 'musician' && profiles.musician) {
-            const items = await listMusicianSerenatas(profiles.musician, range);
-            return c.json({ ok: true, items });
+            try {
+                const items = await listMusicianSerenatas(profiles.musician, range);
+                return c.json({ ok: true, items });
+            } catch (err) {
+                return serenataListDbError(err, 'listMusician');
+            }
         }
 
         return c.json({ ok: true, items: [] });

@@ -42,6 +42,7 @@ export const POST_JOURNAL_TAGS = [
     '0077_serenata_group_member_slot_index',
     '0078_serenatas_schema_repair',
     '0079_users_signup_source',
+    '0080_serenatas_columns_repair',
 ] as const;
 
 export type PostJournalTag = (typeof POST_JOURNAL_TAGS)[number];
