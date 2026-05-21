@@ -20,7 +20,7 @@ COPY *.cjs ./
 COPY *.json ./
 COPY *.md ./
 
-RUN npm install --include=dev
+RUN npm install --legacy-peer-deps --include=dev
 RUN npm run build --workspace=@simple/types
 RUN npm run build --workspace=@simple/config
 RUN npm run build --workspace=@simple/utils
