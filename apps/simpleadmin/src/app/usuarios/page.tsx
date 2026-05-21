@@ -8,20 +8,22 @@ import {
     IconAlertCircle,
     IconCheck,
     IconCircleDot,
+    IconCreditCard,
     IconSearch,
     IconShield,
     IconTrash,
     IconUserPlus,
 } from '@tabler/icons-react';
 import { AdminProtectedPage } from '@/components/admin-protected-page';
-import { fetchAdminUsers, type AdminUserListItem, type AdminVerticalType } from '@/lib/api';
+import { fetchAdminUsers, updateAdminUserSubscriptions, type AdminUserListItem, type AdminVerticalType } from '@/lib/api';
 import { PanelButton, PanelNotice, PanelStatCard } from '@simple/ui';
 import { adminScopeLabel, normalizeAdminScope, withAdminScope } from '@/lib/admin-scope';
 import { API_BASE } from '@simple/config';
 
-type ActionMode = 'role' | 'delete' | null;
+type ActionMode = 'role' | 'subscription' | 'delete' | null;
 type VerticalFilter = 'all' | AdminVerticalType | 'unknown';
 type ProviderFilter = 'all' | 'google' | 'local';
+type AgendaSubscription = NonNullable<NonNullable<AdminUserListItem['subscriptions']>['agenda']>;
 
 const VERTICAL_FILTERS: Array<{ value: VerticalFilter; label: string }> = [
     { value: 'all', label: 'Todos' },
@@ -59,6 +61,8 @@ function UsuariosContent() {
     const [isProcessing, setIsProcessing] = useState(false);
     const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
     const [roleValue, setRoleValue] = useState<AdminUserListItem['role'] | ''>('');
+    const [agendaPlanValue, setAgendaPlanValue] = useState<'free' | 'pro'>('free');
+    const [agendaExpiresAtValue, setAgendaExpiresAtValue] = useState('');
     const scope = normalizeAdminScope(searchParams.get('scope'));
 
     useEffect(() => {
@@ -126,12 +130,18 @@ function UsuariosContent() {
         setActionMode(mode);
         setMessage(null);
         if (mode === 'role') setRoleValue(user.role);
+        if (mode === 'subscription') {
+            setAgendaPlanValue(user.subscriptions?.agenda?.plan ?? 'free');
+            setAgendaExpiresAtValue(toDateInputValue(user.subscriptions?.agenda?.expiresAt ?? null));
+        }
     };
 
     const handleCloseAction = () => {
         setActionMode(null);
         setSelectedUser(null);
         setRoleValue('');
+        setAgendaPlanValue('free');
+        setAgendaExpiresAtValue('');
         setMessage(null);
     };
 
@@ -188,6 +198,34 @@ function UsuariosContent() {
         } finally {
             setIsProcessing(false);
         }
+    };
+
+    const handleSaveSubscription = async () => {
+        if (!selectedUser) return;
+
+        const nextSubscriptions: AdminUserListItem['subscriptions'] = {
+            ...(selectedUser.subscriptions ?? {}),
+            agenda: {
+                plan: agendaPlanValue,
+                status: agendaPlanValue === 'free' ? 'free' : 'active',
+                expiresAt: agendaPlanValue === 'pro' && agendaExpiresAtValue ? new Date(`${agendaExpiresAtValue}T23:59:59`).toISOString() : null,
+            },
+        };
+
+        setIsProcessing(true);
+        const result = await updateAdminUserSubscriptions(selectedUser.id, nextSubscriptions);
+        if (!result.ok) {
+            setMessage({ type: 'error', text: result.error ?? 'No pudimos actualizar la suscripción.' });
+            setIsProcessing(false);
+            return;
+        }
+
+        setItems((current) => current.map((user) => (
+            user.id === selectedUser.id ? { ...user, subscriptions: nextSubscriptions } : user
+        )));
+        setMessage({ type: 'success', text: 'Suscripción Agenda actualizada' });
+        setIsProcessing(false);
+        setTimeout(handleCloseAction, 900);
     };
 
     return (
@@ -276,6 +314,7 @@ function UsuariosContent() {
                                 user={user}
                                 scope={scope}
                                 onRole={() => handleOpenAction('role', user)}
+                                onSubscription={() => handleOpenAction('subscription', user)}
                                 onDelete={() => handleOpenAction('delete', user)}
                             />
                         ))}
@@ -336,6 +375,51 @@ function UsuariosContent() {
                     </div>
                 </div>
             ) : null}
+
+            {actionMode === 'subscription' && selectedUser ? (
+                <div className="fixed inset-0 z-80 flex items-center justify-center px-4 py-5">
+                    <button type="button" aria-label="Cerrar modal" onClick={handleCloseAction} className="absolute inset-0 admin-modal-backdrop" />
+                    <div className="relative z-1 w-full max-w-lg rounded-card border p-6 admin-modal-surface">
+                        <h2 className="type-section-title text-(--fg)">Suscripción Agenda</h2>
+                        <p className="mt-1 text-sm" style={{ color: 'var(--fg-muted)' }}>
+                            Controla manualmente el plan de <strong style={{ color: 'var(--fg)' }}>{selectedUser.name}</strong> en SimpleAgenda.
+                        </p>
+                        <div className="mt-5 grid gap-4">
+                            <label className="grid gap-2">
+                                <span className="text-xs font-medium uppercase tracking-[0.12em]" style={{ color: 'var(--fg-muted)' }}>Plan</span>
+                                <select
+                                    value={agendaPlanValue}
+                                    onChange={(event) => setAgendaPlanValue(event.target.value as 'free' | 'pro')}
+                                    className="form-select h-11 text-sm"
+                                >
+                                    <option value="free">Gratis</option>
+                                    <option value="pro">Profesional</option>
+                                </select>
+                            </label>
+                            <label className="grid gap-2">
+                                <span className="text-xs font-medium uppercase tracking-[0.12em]" style={{ color: 'var(--fg-muted)' }}>Vence</span>
+                                <input
+                                    type="date"
+                                    value={agendaExpiresAtValue}
+                                    disabled={agendaPlanValue === 'free'}
+                                    onChange={(event) => setAgendaExpiresAtValue(event.target.value)}
+                                    className="form-input h-11 text-sm disabled:opacity-50"
+                                />
+                            </label>
+                            <div className="rounded-xl border p-3 text-sm" style={{ borderColor: 'var(--border)', color: 'var(--fg-secondary)' }}>
+                                Gratis: 5 pacientes y 10 citas mensuales. Pro: agenda completa, integraciones y WhatsApp automático.
+                            </div>
+                        </div>
+                        {message ? <FeedbackNotice message={message} className="mt-4" /> : null}
+                        <div className="mt-5 flex gap-2">
+                            <PanelButton variant="secondary" className="flex-1" onClick={handleCloseAction} disabled={isProcessing}>Cancelar</PanelButton>
+                            <PanelButton className="flex-1" onClick={handleSaveSubscription} disabled={isProcessing}>
+                                {isProcessing ? 'Guardando...' : 'Guardar'}
+                            </PanelButton>
+                        </div>
+                    </div>
+                </div>
+            ) : null}
         </div>
     );
 }
@@ -344,11 +428,13 @@ function UserRow({
     user,
     scope,
     onRole,
+    onSubscription,
     onDelete,
 }: {
     user: AdminUserListItem;
     scope: ReturnType<typeof normalizeAdminScope>;
     onRole: () => void;
+    onSubscription: () => void;
     onDelete: () => void;
 }) {
     const signals = user.verticalSignals ?? [];
@@ -382,6 +468,11 @@ function UserRow({
                 <p className="mt-1 text-xs" style={{ color: 'var(--fg-muted)' }}>
                     {user.verticalConfidence === 'direct' ? 'Directa' : user.verticalConfidence === 'inferred' ? 'Inferida por actividad' : 'No determinada'}
                 </p>
+                {user.likelySignupVertical === 'agenda' || user.subscriptions?.agenda ? (
+                    <p className="mt-1 text-xs font-medium" style={{ color: agendaSubscriptionColor(user.subscriptions?.agenda?.status) }}>
+                        {agendaSubscriptionLabel(user.subscriptions?.agenda)}
+                    </p>
+                ) : null}
             </div>
 
             <div className="flex flex-wrap gap-1.5">
@@ -406,6 +497,7 @@ function UserRow({
                     Detalle
                 </Link>
                 <ActionButton onClick={onRole} icon={<IconShield size={16} />} label="Rol" />
+                <ActionButton onClick={onSubscription} icon={<IconCreditCard size={16} />} label="Suscripción" />
                 <ActionButton onClick={onDelete} icon={<IconTrash size={16} />} label="Eliminar" variant="danger" />
             </div>
         </article>
@@ -537,6 +629,26 @@ function initials(name: string) {
 
 function formatDate(value: number) {
     return new Date(value).toLocaleDateString('es-CL');
+}
+
+function toDateInputValue(value: string | null) {
+    if (!value) return '';
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return '';
+    return date.toISOString().slice(0, 10);
+}
+
+function agendaSubscriptionLabel(subscription: AgendaSubscription | null | undefined) {
+    if (!subscription) return 'Agenda: sin perfil';
+    if (subscription.plan === 'free') return 'Agenda: Gratis';
+    if (subscription.status === 'expired') return 'Agenda: Pro vencido';
+    return 'Agenda: Pro activo';
+}
+
+function agendaSubscriptionColor(status?: string) {
+    if (status === 'active') return 'rgb(34, 197, 94)';
+    if (status === 'expired') return 'rgb(245, 158, 11)';
+    return 'var(--fg-muted)';
 }
 
 function roleLabel(role: string) {

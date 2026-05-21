@@ -61,6 +61,7 @@ export type AdminUserSnapshot = {
         reasons: string[];
     };
     subscriptions?: {
+        agenda?: { plan: 'free' | 'pro'; status: 'active' | 'expired' | 'free'; expiresAt: string | null };
         autos?: { planId: string | null; planName: string | null; status: string; expiresAt: string | null };
         propiedades?: { planId: string | null; planName: string | null; status: string; expiresAt: string | null };
     };
@@ -177,6 +178,8 @@ export async function listAdminUsersSnapshot(vertical?: VerticalType | null): Pr
         }).from(listings),
         db.select({
             userId: agendaProfessionalProfiles.userId,
+            plan: agendaProfessionalProfiles.plan,
+            planExpiresAt: agendaProfessionalProfiles.planExpiresAt,
             createdAt: agendaProfessionalProfiles.createdAt,
             updatedAt: agendaProfessionalProfiles.updatedAt,
         }).from(agendaProfessionalProfiles),
@@ -407,8 +410,17 @@ export async function listAdminUsersSnapshot(vertical?: VerticalType | null): Pr
                       }
                     : undefined,
                 subscriptions: (() => {
-                    if (!sub) return undefined;
+                    if (!sub && !agendaProfile) return undefined;
+                    const agendaPlan = agendaProfile?.plan === 'pro' ? 'pro' : 'free';
+                    const agendaExpired = Boolean(agendaProfile?.planExpiresAt && agendaProfile.planExpiresAt < new Date());
                     return {
+                        agenda: agendaProfile
+                            ? {
+                                  plan: agendaPlan,
+                                  status: agendaPlan === 'free' ? 'free' : agendaExpired ? 'expired' : 'active',
+                                  expiresAt: agendaProfile.planExpiresAt?.toISOString() ?? null,
+                              }
+                            : undefined,
                         autos: sub?.autos
                             ? {
                                   planId: sub.autos.planId,
