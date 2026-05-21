@@ -40,7 +40,11 @@ function buildPasswordResetUrl(origin: string, token: string): string {
 }
 
 function buildEmailVerificationUrl(origin: string, token: string): string {
-    return `${origin}/auth/verify-email?token=${encodeURIComponent(token)}`;
+    const params = new URLSearchParams({
+        token,
+        returnTo: '/panel',
+    });
+    return `${origin}/auth/confirmar-correo?${params.toString()}`;
 }
 
 function isAuthEmailConfigured(): boolean {

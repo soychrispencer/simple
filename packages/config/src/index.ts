@@ -509,6 +509,29 @@ export function getSimpleBrandIconDataUri(appId: SimpleAppId): string {
 
 /**
  * URL base del API del backend.
- * Usar esta constante en lugar de duplicar process.env.NEXT_PUBLIC_API_URL.
+ * En el navegador, si la URL pública apunta a otro host (p. ej. api.simpleplataforma.app),
+ * usamos same-origin (`/api` vía rewrite de Next) para que la cookie de sesión quede en el dominio de la app.
  */
-export const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? (typeof window === 'undefined' ? 'http://127.0.0.1:4000' : '');
+function resolveApiBase(): string {
+    if (typeof window === 'undefined') {
+        return (
+            process.env.API_INTERNAL_URL ||
+            process.env.NEXT_PUBLIC_API_URL ||
+            'http://127.0.0.1:4000'
+        );
+    }
+
+    const configured = (process.env.NEXT_PUBLIC_API_URL ?? '').trim();
+    if (!configured) return '';
+
+    try {
+        const apiHost = new URL(configured).host;
+        if (apiHost !== window.location.host) return '';
+    } catch {
+        return configured;
+    }
+
+    return configured;
+}
+
+export const API_BASE = resolveApiBase();

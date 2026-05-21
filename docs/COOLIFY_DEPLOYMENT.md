@@ -158,7 +158,9 @@ NEXT_PUBLIC_APP_URL=https://simpleplataforma.app
 - **Importante**: redeploy completo si cambias `NEXT_PUBLIC_*`
 
 ```env
-NEXT_PUBLIC_API_URL=https://api.simpleplataforma.app
+# Vacío en cliente: el navegador usa /api (rewrite → API). Evita cookies cross-site bloqueadas.
+NEXT_PUBLIC_API_URL=
+API_INTERNAL_URL=https://api.simpleplataforma.app
 NEXT_PUBLIC_APP_URL=https://simpleserenatas.app
 ```
 

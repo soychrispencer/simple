@@ -15,7 +15,7 @@ export default function ConfirmEmailPage() {
     useEffect(() => {
         const search = new URLSearchParams(window.location.search);
         const token = search.get('token') ?? '';
-        const nextReturnTo = search.get('returnTo') || sessionStorage.getItem('auth.returnTo') || '/';
+        const nextReturnTo = search.get('returnTo') || sessionStorage.getItem('auth.returnTo') || '/panel';
         setReturnTo(nextReturnTo);
 
         if (!token) {
@@ -32,7 +32,11 @@ export default function ConfirmEmailPage() {
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ token }),
                 });
-                const data = (await response.json().catch(() => null)) as { ok?: boolean; error?: string } | null;
+                const data = (await response.json().catch(() => null)) as {
+                    ok?: boolean;
+                    error?: string;
+                    user?: { status?: string };
+                } | null;
                 if (!response.ok || !data?.ok) {
                     setStatus('error');
                     setMessage(data?.error || 'No pudimos confirmar tu correo.');
@@ -40,10 +44,12 @@ export default function ConfirmEmailPage() {
                 }
 
                 setStatus('success');
-                setMessage('Tu correo quedó confirmado. Redirigiendo…');
+                setMessage('Tu correo quedó confirmado. Redirigiendo a tu panel…');
                 window.setTimeout(() => {
                     sessionStorage.removeItem('auth.returnTo');
-                    window.location.replace(nextReturnTo);
+                    const destination =
+                        data.user?.status === 'verified' ? nextReturnTo : '/panel';
+                    window.location.replace(destination.startsWith('/') ? destination : '/panel');
                 }, 1000);
             } catch {
                 setStatus('error');
