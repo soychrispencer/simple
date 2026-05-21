@@ -1,9 +1,12 @@
 import { API_BASE } from '@simple/config';
 
+function isR2PublicHost(hostname: string): boolean {
+    return hostname.endsWith('.r2.dev') || hostname.endsWith('.r2.cloudflarestorage.com');
+}
+
 /**
  * Normaliza `users.avatar_url` para mostrarla en el cliente.
- * Convierte URLs absolutas de `/uploads/*` al mismo origen (vía rewrite en Next)
- * o las antepone con `API_BASE` cuando está definido.
+ * URLs de R2 se dejan absolutas; rutas `/uploads/*` locales usan same-origin o API_BASE.
  */
 export function resolveAvatarDisplayUrl(raw: string | null | undefined): string | null {
     const value = raw?.trim();
@@ -14,11 +17,13 @@ export function resolveAvatarDisplayUrl(raw: string | null | undefined): string 
     if (/^https?:\/\//i.test(value)) {
         try {
             const parsed = new URL(value);
-            if (parsed.pathname.startsWith('/uploads/')) {
-                return `${prefix}${parsed.pathname}`;
+            if (isR2PublicHost(parsed.hostname)) {
+                return value;
             }
-            if (parsed.pathname.startsWith('/api/')) {
-                return `${prefix}${parsed.pathname}${parsed.search}`;
+            if (parsed.pathname.startsWith('/uploads/') || parsed.pathname.startsWith('/api/')) {
+                return prefix
+                    ? `${prefix}${parsed.pathname}${parsed.search}`
+                    : `${parsed.pathname}${parsed.search}`;
             }
             return value;
         } catch {

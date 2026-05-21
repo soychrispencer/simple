@@ -11,6 +11,7 @@ export interface SystemRouterDeps {
         STORAGE_PROVIDER?: string;
         LOCAL_STORAGE_URL?: string;
         CLOUDFLARE_R2_BUCKET_NAME?: string;
+        CLOUDFLARE_R2_PUBLIC_URL?: string;
     };
 }
 
@@ -54,15 +55,20 @@ export function createSystemRouter(deps: SystemRouterDeps) {
         });
     });
 
-    // Development-only file server for local uploads
     app.get('/uploads/*', async (c) => {
-        if (env.STORAGE_PROVIDER !== 'local' && env.NODE_ENV !== 'development') {
-            return c.text('Not found', 404);
-        }
-
         const pathname = new URL(c.req.url).pathname;
         const relativePath = pathname.replace(/^\/uploads\//, '');
         if (!relativePath) {
+            return c.text('Not found', 404);
+        }
+
+        const r2PublicBase = env.CLOUDFLARE_R2_PUBLIC_URL?.replace(/\/+$/, '');
+        if (env.STORAGE_PROVIDER === 'cloudflare-r2' && r2PublicBase) {
+            const objectKey = `uploads/${relativePath}`;
+            return c.redirect(`${r2PublicBase}/${objectKey}`, 302);
+        }
+
+        if (env.STORAGE_PROVIDER !== 'local' && env.NODE_ENV !== 'development') {
             return c.text('Not found', 404);
         }
 

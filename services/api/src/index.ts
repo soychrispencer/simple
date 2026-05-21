@@ -1553,6 +1553,7 @@ app.route('/', createSystemRouter({
         STORAGE_PROVIDER: process.env.STORAGE_PROVIDER,
         LOCAL_STORAGE_URL: process.env.LOCAL_STORAGE_URL,
         CLOUDFLARE_R2_BUCKET_NAME: process.env.CLOUDFLARE_R2_BUCKET_NAME,
+        CLOUDFLARE_R2_PUBLIC_URL: process.env.CLOUDFLARE_R2_PUBLIC_URL,
     },
 }));
 
