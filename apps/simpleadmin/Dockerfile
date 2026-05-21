@@ -31,6 +31,7 @@ RUN pnpm --filter=@simple/config run build
 RUN pnpm --filter=@simple/utils run build
 RUN pnpm --filter=@simple/ui run build
 RUN pnpm --filter=@simple/auth run build
+RUN pnpm --filter=@simple/marketplace-header run build
 RUN pnpm --filter=@simple/simpleadmin run build
 
 ENV NODE_ENV=production
