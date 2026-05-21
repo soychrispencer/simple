@@ -313,7 +313,7 @@ function jsonError(
 }
 
 function isSerenataSchemaError(message: string): boolean {
-    return /column .* does not exist|relation .* does not exist|42703|42P01/i.test(message);
+    return /column .* does not exist|relation .* does not exist|violates not-null constraint|null value in column|42703|42P01|23502/i.test(message);
 }
 
 function normalizeRequiredInstruments(value: unknown): string[] {
@@ -1394,60 +1394,78 @@ export function createSerenatasRouter(deps: SerenatasRouterDeps) {
         return c.json({ ok: true, item });
     });
 
+    const groupDbError = (c: Context, err: unknown, phase: string, userId: string) => {
+        const message = err instanceof Error ? err.message : String(err);
+        const missingSchema = isSerenataSchemaError(message);
+        console.error('[serenatas] groups failed', { phase, userId, message, err });
+        return jsonError(
+            c,
+            missingSchema
+                ? 'El servidor necesita aplicar migraciones de Serenatas. Intenta en unos minutos o contacta soporte.'
+                : 'No pudimos procesar los grupos.',
+            missingSchema ? 503 : 500,
+            message,
+        );
+    };
+
     app.get('/groups', async (c) => {
         const user = await deps.authUser(c);
         if (!user) return jsonError(c, 'No autenticado', 401);
         const required = await requireOwner(c, user.id);
         if (!required.ok) return required.response;
-        const providerGroupId = c.req.query('providerGroupId')?.trim();
-        const groupFilters = [eq(serenataGroups.ownerId, required.owner.id)];
-        if (providerGroupId) groupFilters.push(eq(serenataGroups.providerGroupId, providerGroupId));
-        const groups = await db.select().from(serenataGroups).where(and(...groupFilters)).orderBy(desc(serenataGroups.updatedAt));
-        const groupIds = groups.map((group) => group.id);
-        const members = groupIds.length > 0
-            ? await db.select({
-                id: serenataGroupMembers.id,
-                groupId: serenataGroupMembers.groupId,
-                musicianId: serenataGroupMembers.musicianId,
-                instrument: serenataGroupMembers.instrument,
-                instruments: serenataMusicians.instruments,
-                status: serenataGroupMembers.status,
-                message: serenataGroupMembers.message,
-                musicianName: users.name,
-                avatarUrl: users.avatarUrl,
-                slotIndex: serenataGroupMembers.slotIndex,
-                availableNow: serenataMusicians.availableNow,
-                comuna: serenataMusicians.comuna,
-                region: serenataMusicians.region,
-            }).from(serenataGroupMembers)
-                .innerJoin(serenataMusicians, eq(serenataMusicians.id, serenataGroupMembers.musicianId))
-                .innerJoin(users, eq(users.id, serenataMusicians.userId))
-                .where(inArray(serenataGroupMembers.groupId, groupIds))
-            : [];
-        const pendingInvites = groupIds.length > 0
-            ? await db.select().from(serenataGroupInvites).where(and(
-                inArray(serenataGroupInvites.groupId, groupIds),
-                eq(serenataGroupInvites.status, 'pending'),
-            ))
-            : [];
-        return c.json({
-            ok: true,
-            items: groups.map((group) => ({
-                ...group,
-                members: members.filter((member) => member.groupId === group.id),
-                pendingInvites: pendingInvites
-                    .filter((invite) => invite.groupId === group.id)
-                    .map((invite) => ({
-                        id: invite.id,
-                        groupId: invite.groupId,
-                        displayName: invite.displayName,
-                        email: invite.email,
-                        phone: invite.phone,
-                        status: invite.status,
-                        createdAt: invite.createdAt,
-                    })),
-            })),
-        });
+        try {
+            const providerGroupId = c.req.query('providerGroupId')?.trim();
+            const groupFilters = [eq(serenataGroups.ownerId, required.owner.id)];
+            if (providerGroupId) groupFilters.push(eq(serenataGroups.providerGroupId, providerGroupId));
+            const groups = await db.select().from(serenataGroups).where(and(...groupFilters)).orderBy(desc(serenataGroups.updatedAt));
+            const groupIds = groups.map((group) => group.id);
+            const members = groupIds.length > 0
+                ? await db.select({
+                    id: serenataGroupMembers.id,
+                    groupId: serenataGroupMembers.groupId,
+                    musicianId: serenataGroupMembers.musicianId,
+                    instrument: serenataGroupMembers.instrument,
+                    instruments: serenataMusicians.instruments,
+                    status: serenataGroupMembers.status,
+                    message: serenataGroupMembers.message,
+                    musicianName: users.name,
+                    avatarUrl: users.avatarUrl,
+                    slotIndex: serenataGroupMembers.slotIndex,
+                    availableNow: serenataMusicians.availableNow,
+                    comuna: serenataMusicians.comuna,
+                    region: serenataMusicians.region,
+                }).from(serenataGroupMembers)
+                    .innerJoin(serenataMusicians, eq(serenataMusicians.id, serenataGroupMembers.musicianId))
+                    .innerJoin(users, eq(users.id, serenataMusicians.userId))
+                    .where(inArray(serenataGroupMembers.groupId, groupIds))
+                : [];
+            const pendingInvites = groupIds.length > 0
+                ? await db.select().from(serenataGroupInvites).where(and(
+                    inArray(serenataGroupInvites.groupId, groupIds),
+                    eq(serenataGroupInvites.status, 'pending'),
+                ))
+                : [];
+            return c.json({
+                ok: true,
+                items: groups.map((group) => ({
+                    ...group,
+                    members: members.filter((member) => member.groupId === group.id),
+                    pendingInvites: pendingInvites
+                        .filter((invite) => invite.groupId === group.id)
+                        .map((invite) => ({
+                            id: invite.id,
+                            groupId: invite.groupId,
+                            displayName: invite.displayName,
+                            email: invite.email,
+                            phone: invite.phone,
+                            status: invite.status,
+                            createdAt: invite.createdAt,
+                        })),
+                })),
+            });
+        } catch (err) {
+            return groupDbError(c, err, 'list', user.id);
+        }
     });
 
     app.post('/groups', async (c) => {
@@ -1469,21 +1487,25 @@ export function createSerenatasRouter(deps: SerenatasRouterDeps) {
                 return jsonError(c, 'El mariachi seleccionado no pertenece a tu cuenta.', 403);
             }
         }
-        const groupDate = parsed.data.date instanceof Date ? parsed.data.date : new Date();
-        const requiredInstruments = parsed.data.requiredInstruments?.length
-            ? parsed.data.requiredInstruments
-            : null;
-        const maxMusicians = requiredInstruments?.length ?? parsed.data.maxMusicians ?? 3;
-        const [item] = await db.insert(serenataGroups).values({
-            name: parsed.data.name,
-            status: parsed.data.status,
-            providerGroupId: parsed.data.providerGroupId ?? null,
-            maxMusicians,
-            requiredInstruments: requiredInstruments ?? [],
-            date: groupDate,
-            ownerId: required.owner.id,
-        }).returning();
-        return c.json({ ok: true, item }, 201);
+        try {
+            const groupDate = parsed.data.date instanceof Date ? parsed.data.date : new Date();
+            const requiredInstruments = parsed.data.requiredInstruments?.length
+                ? parsed.data.requiredInstruments
+                : null;
+            const maxMusicians = requiredInstruments?.length ?? parsed.data.maxMusicians ?? 3;
+            const [item] = await db.insert(serenataGroups).values({
+                name: parsed.data.name,
+                status: parsed.data.status,
+                providerGroupId: parsed.data.providerGroupId ?? null,
+                maxMusicians,
+                requiredInstruments: requiredInstruments ?? [],
+                date: groupDate,
+                ownerId: required.owner.id,
+            }).returning();
+            return c.json({ ok: true, item }, 201);
+        } catch (err) {
+            return groupDbError(c, err, 'create', user.id);
+        }
     });
 
     app.patch('/groups/:id', async (c) => {
