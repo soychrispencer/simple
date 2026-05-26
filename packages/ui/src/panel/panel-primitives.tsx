@@ -1,14 +1,48 @@
 'use client';
 
-import type { ReactNode } from 'react';
+import type { MouseEventHandler, ReactNode } from 'react';
 import { joinClasses } from '../shared/join-classes.js';
 
-export function PanelBlockHeader(props: {
+export type PanelBlockHeaderProps = {
     title: string;
-    description?: string;
+    description?: ReactNode;
     actions?: ReactNode;
     className?: string;
-}) {
+};
+
+export type PanelNoticeProps = {
+    children: ReactNode;
+    className?: string;
+    tone?: 'neutral' | 'success' | 'warning' | 'error';
+};
+
+export type PanelStatusBadgeProps = {
+    label: string;
+    tone?: 'neutral' | 'success' | 'warning' | 'danger' | 'info';
+    variant?: 'soft' | 'solid';
+    size?: 'xs' | 'sm';
+    className?: string;
+};
+
+export type PanelChoiceCardProps = {
+    children: ReactNode;
+    onClick?: MouseEventHandler<HTMLButtonElement>;
+    type?: 'button' | 'submit' | 'reset';
+    disabled?: boolean;
+    selected?: boolean;
+    className?: string;
+};
+
+export type PanelSwitchProps = {
+    checked: boolean;
+    onChange: (next: boolean) => void;
+    disabled?: boolean;
+    className?: string;
+    ariaLabel?: string;
+    size?: 'sm' | 'md';
+};
+
+export function PanelBlockHeader(props: PanelBlockHeaderProps) {
     const { title, description, actions, className } = props;
     return (
         <div className={joinClasses('mb-4 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between', className)}>
@@ -21,11 +55,7 @@ export function PanelBlockHeader(props: {
     );
 }
 
-export function PanelNotice(props: {
-    children: ReactNode;
-    className?: string;
-    tone?: 'neutral' | 'success' | 'warning' | 'error';
-}) {
+export function PanelNotice(props: PanelNoticeProps) {
     const { children, className, tone = 'neutral' } = props;
     const toneStyle = tone === 'success'
         ? { borderColor: 'rgba(4,120,87,0.25)', background: 'rgba(4,120,87,0.06)', color: '#047857' }
@@ -41,13 +71,7 @@ export function PanelNotice(props: {
     );
 }
 
-export function PanelStatusBadge(props: {
-    label: string;
-    tone?: 'neutral' | 'success' | 'warning' | 'danger' | 'info';
-    variant?: 'soft' | 'solid';
-    size?: 'xs' | 'sm';
-    className?: string;
-}) {
+export function PanelStatusBadge(props: PanelStatusBadgeProps) {
     const { label, tone = 'neutral', variant = 'soft', size = 'xs', className } = props;
     const softTone = tone === 'success'
         ? { background: 'var(--color-success-bg, rgba(22,163,74,0.14))', color: 'var(--color-success-text, #166534)' }
@@ -81,14 +105,7 @@ export function PanelStatusBadge(props: {
     );
 }
 
-export function PanelChoiceCard(props: {
-    children: ReactNode;
-    onClick?: () => void;
-    type?: 'button' | 'submit';
-    disabled?: boolean;
-    selected?: boolean;
-    className?: string;
-}) {
+export function PanelChoiceCard(props: PanelChoiceCardProps) {
     const { children, onClick, type = 'button', disabled = false, selected = false, className } = props;
     return (
         <button
@@ -110,32 +127,32 @@ export function PanelChoiceCard(props: {
     );
 }
 
-export function PanelSwitch(props: {
-    checked: boolean;
-    onChange: (checked: boolean) => void;
-    disabled?: boolean;
-    className?: string;
-    ariaLabel?: string;
-    size?: 'sm' | 'md';
-}) {
+export function PanelSwitch(props: PanelSwitchProps) {
     const { checked, onChange, disabled = false, className, ariaLabel, size = 'md' } = props;
     const dimensions = size === 'sm'
         ? { track: 'w-9 h-5', thumb: 'w-4 h-4', left: 2, right: 18 }
-        : { track: 'w-11 h-6', thumb: 'w-5 h-5', left: 2, right: 22 };
+        : { track: 'w-10 h-6', thumb: 'w-5 h-5', left: 2, right: 18 };
     return (
         <button
             type="button"
             role="switch"
-            aria-checked={checked}
             aria-label={ariaLabel}
+            aria-checked={checked}
             disabled={disabled}
             onClick={() => onChange(!checked)}
-            className={joinClasses('relative inline-flex shrink-0 rounded-full transition-colors', dimensions.track, className)}
-            style={{ background: checked ? 'var(--accent)' : 'var(--border-strong)' }}
+            className={joinClasses(
+                'relative inline-flex items-center rounded-full transition-[background,opacity,transform] duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-black/10 disabled:cursor-not-allowed disabled:opacity-50',
+                dimensions.track,
+                className,
+            )}
+            style={{ background: checked ? 'var(--accent)' : 'var(--bg-muted)' }}
         >
             <span
-                className={joinClasses('absolute top-0.5 rounded-full bg-white shadow transition-transform', dimensions.thumb)}
-                style={{ transform: `translateX(${checked ? dimensions.right : dimensions.left}px)` }}
+                className={joinClasses('absolute top-1/2 -translate-y-1/2 rounded-full transition-[left,background] duration-150', dimensions.thumb)}
+                style={{
+                    background: checked ? 'var(--accent-contrast, #fff)' : 'var(--fg-muted)',
+                    left: checked ? dimensions.right : dimensions.left,
+                }}
             />
         </button>
     );
