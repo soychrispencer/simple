@@ -585,7 +585,6 @@ export const serenatasApi = {
         `/marketplace/groups/${encodeURIComponent(slug)}/availability?date=${encodeURIComponent(date)}&serviceId=${encodeURIComponent(serviceId)}`,
     ),
     createSerenata: (payload: Partial<Serenata>) => request<{ item: Serenata }>('/serenatas', { method: 'POST', body: JSON.stringify(payload) }),
-    requestSerenata: (payload: Partial<Serenata> & { packageCode: SerenataPackageCode }) => request<{ item: Serenata; offersCount: number }>('/client/serenatas', { method: 'POST', body: JSON.stringify(payload) }),
     requestMarketplaceSerenata: (payload: {
         providerGroupId: string;
         serviceId: string;

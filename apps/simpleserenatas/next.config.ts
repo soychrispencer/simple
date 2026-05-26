@@ -30,6 +30,11 @@ const nextConfig: NextConfig = {
                 destination: '/panel/guardados',
                 permanent: false,
             },
+            {
+                source: '/panel/grupo/:slug',
+                destination: '/:slug',
+                permanent: false,
+            },
         ];
     },
     async rewrites() {

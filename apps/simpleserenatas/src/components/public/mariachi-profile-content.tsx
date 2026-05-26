@@ -3,11 +3,7 @@
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import type { ProviderGroup, ProviderGroupService } from '@/lib/serenatas-api';
-import {
-    bookingPolicySummary,
-    contactAvailabilityLabel,
-    formatPaymentMethods,
-} from '@/lib/marketplace-group-display';
+import { mariachiProfileTrustFooter } from '@/lib/mariachi-profile-trust';
 import { useSerenataRequestModal } from '@/components/serenata-request/serenata-request-modal-context';
 import {
     MariachiProfileHero,
@@ -15,18 +11,6 @@ import {
 } from '@/components/panel/mariachi-profile-layout';
 import { MariachiRepertoireSection } from '@/components/public/mariachi-repertoire-section';
 import { MariachiReviewsSection } from '@/components/public/mariachi-reviews-section';
-
-function profileTrustFooter(group: ProviderGroup) {
-    const paymentMethods = formatPaymentMethods(group);
-    const contact = contactAvailabilityLabel(group);
-    const policy = bookingPolicySummary(group).mode;
-    const parts = [
-        paymentMethods.length > 0 ? `Pagos: ${paymentMethods.join(' · ')}` : null,
-        contact,
-        policy,
-    ].filter(Boolean);
-    return parts.length > 0 ? <p className="leading-relaxed">{parts.join(' · ')}</p> : null;
-}
 
 export function MariachiProfileContent({
     group,
@@ -38,7 +22,7 @@ export function MariachiProfileContent({
     const { openRequest } = useSerenataRequestModal();
     const searchParams = useSearchParams();
     const initialDate = searchParams.get('fecha')?.trim() || searchParams.get('date')?.trim() || undefined;
-    const trustFooter = profileTrustFooter(group);
+    const trustFooter = mariachiProfileTrustFooter(group);
 
     return (
         <div className="grid min-w-0 gap-5">

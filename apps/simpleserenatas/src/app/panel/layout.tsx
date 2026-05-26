@@ -3,6 +3,7 @@
 import { Suspense } from 'react';
 import { AuthGuard } from '@/components/auth/auth-guard';
 import { PanelQueryRedirect } from '@/components/panel/panel-query-redirect';
+import { PanelLoadingFallback } from '@/components/panel/panel-loading-fallback';
 import { Inter } from 'next/font/google';
 
 const inter = Inter({
@@ -15,7 +16,7 @@ const inter = Inter({
 export default function PanelLayout({ children }: { children: React.ReactNode }) {
     return (
         <div className={(inter as { variable: string }).variable}>
-            <Suspense fallback={null}>
+            <Suspense fallback={<PanelLoadingFallback />}>
                 <PanelQueryRedirect />
             </Suspense>
             <AuthGuard>{children}</AuthGuard>

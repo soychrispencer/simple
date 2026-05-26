@@ -138,9 +138,10 @@ test.describe('SimpleSerenatas smoke', () => {
         await expect(page.getByRole('button', { name: /iniciar sesión/i })).toBeVisible();
     });
 
-    test('legacy ?grupo= redirige a /panel/grupo/{slug}', async ({ page }) => {
+    test('legacy ?grupo= redirige al perfil público del mariachi', async ({ page }) => {
         await page.goto('/panel/grupo?grupo=demo-mariachi');
-        await expect(page).toHaveURL(/\/panel\/grupo\/demo-mariachi/, { timeout: 10_000 });
+        await expect(page).toHaveURL(/\/demo-mariachi/, { timeout: 10_000 });
+        await expect(page).not.toHaveURL(/\/panel\/grupo/, { timeout: 5_000 });
     });
 
     test('compat ?section=solicitar redirige a /panel/solicitar', async ({ page }) => {

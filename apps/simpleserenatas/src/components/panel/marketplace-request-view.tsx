@@ -122,7 +122,7 @@ function ServiceSummaryCard({
                 </div>
             </div>
             <PanelNotice tone="neutral" className="mt-4">
-                Al confirmar el pago, enviamos la solicitud al dueño. Si el grupo no puede cubrirla, verás la respuesta en Mis Serenatas.
+                Al confirmar el pago, enviamos la solicitud al dueño. Si el grupo no puede cubrirla, verás la respuesta en Mis serenatas.
             </PanelNotice>
         </PanelCard>
     );
@@ -324,7 +324,7 @@ export function MarketplaceRequestView({
         if (!checkout.ok || !checkout.checkoutUrl) {
             setStatus({
                 loading: false,
-                error: checkout.error ?? 'La solicitud quedó pendiente, pero no pudimos iniciar el pago. Puedes retomarlo en Mis Serenatas.',
+                error: checkout.error ?? 'La solicitud quedó pendiente, pero no pudimos iniciar el pago. Puedes retomarlo en Mis serenatas.',
                 ok: null,
             });
             return;
@@ -552,13 +552,13 @@ export function MarketplaceRequestView({
                     <FormFeedback status={status} />
                     {pendingCreated && status.error ? (
                         <PanelButton variant="secondary" onClick={() => window.location.assign(panelSectionHref('serenatas'))}>
-                            Ver Mis Serenatas
+                            Ver Mis serenatas
                         </PanelButton>
                     ) : null}
                     {actionButtons}
                     {step === 2 ? (
                         <p className="text-center text-[11px] leading-snug text-fg-muted">
-                            Al pagar, enviamos la solicitud al dueño. Si no puede cubrirla, lo verás en Mis Serenatas.
+                            Al pagar, enviamos la solicitud al dueño. Si no puede cubrirla, lo verás en Mis serenatas.
                         </p>
                     ) : null}
                 </div>
@@ -589,7 +589,7 @@ export function MarketplaceRequestView({
                         <FormFeedback status={status} />
                         {pendingCreated && status.error ? (
                             <PanelButton variant="secondary" onClick={() => window.location.assign(panelSectionHref('serenatas'))}>
-                                Ver Mis Serenatas
+                                Ver Mis serenatas
                             </PanelButton>
                         ) : null}
 

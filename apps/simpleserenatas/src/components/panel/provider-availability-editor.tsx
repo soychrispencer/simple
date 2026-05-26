@@ -307,7 +307,7 @@ export function ProviderAvailabilityEditor({ group }: { group: ProviderGroup }) 
 
     if (loadError) {
         return (
-            <div className="w-full rounded-2xl border px-4 py-3 text-sm flex items-center gap-2" style={{ borderColor: 'rgba(185,28,28,0.20)', background: 'rgba(185,28,28,0.06)', color: '#b91c1c' }}>
+            <div className="w-full rounded-2xl border px-4 py-3 text-sm flex items-center gap-2" style={{ borderColor: 'var(--danger-border, rgba(185,28,28,0.20))', background: 'var(--danger-soft, rgba(185,28,28,0.06))', color: 'var(--danger, #b91c1c)' }}>
                 <IconAlertCircle size={15} className="shrink-0" />
                 <div>
                     <p className="font-medium">{loadError}</p>
@@ -342,7 +342,7 @@ export function ProviderAvailabilityEditor({ group }: { group: ProviderGroup }) 
             />
 
             {defaultError ? (
-                <div className="mb-4 rounded-2xl border px-4 py-3 text-sm flex items-center gap-2" style={{ borderColor: 'rgba(185,28,28,0.20)', background: 'rgba(185,28,28,0.06)', color: '#b91c1c' }}>
+                <div className="mb-4 rounded-2xl border px-4 py-3 text-sm flex items-center gap-2" style={{ borderColor: 'var(--danger-border, rgba(185,28,28,0.20))', background: 'var(--danger-soft, rgba(185,28,28,0.06))', color: 'var(--danger, #b91c1c)' }}>
                     <IconAlertCircle size={15} className="shrink-0" />
                     {defaultError}
                 </div>

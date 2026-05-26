@@ -1,41 +1,15 @@
 'use client';
 
-import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { BrandLogo } from '@simple/ui/brand';
 import { PanelNotice } from '@simple/ui/panel';
-import { serenatasApi, type ProviderGroup, type ProviderGroupService } from '@/lib/serenatas-api';
 import { ScreenShell } from '@/components/layout/screen-shell';
 import { SerenatasChromeHeader } from '@/components/layout/serenatas-chrome-header';
 import { MariachiProfileContent } from '@/components/public/mariachi-profile-content';
+import { useMarketplaceGroup } from '@/hooks/use-marketplace-group';
 
 export function PublicMariachiPage({ slug }: { slug: string }) {
-    const [group, setGroup] = useState<ProviderGroup | null>(null);
-    const [services, setServices] = useState<ProviderGroupService[]>([]);
-    const [loading, setLoading] = useState(true);
-    const [error, setError] = useState<string | null>(null);
-
-    useEffect(() => {
-        let cancelled = false;
-        setLoading(true);
-        setError(null);
-        void serenatasApi.marketplaceGroupBySlug(slug).then(async (groupResponse) => {
-            if (cancelled) return;
-            if (!groupResponse.ok || !groupResponse.item) {
-                setLoading(false);
-                setError(groupResponse.error ?? 'Mariachi no encontrado');
-                return;
-            }
-            setGroup(groupResponse.item);
-            const servicesResponse = await serenatasApi.marketplaceGroupServices(groupResponse.item.id);
-            if (cancelled) return;
-            setServices(servicesResponse.ok ? servicesResponse.items : []);
-            setLoading(false);
-        });
-        return () => {
-            cancelled = true;
-        };
-    }, [slug]);
+    const { group, services, loading, error } = useMarketplaceGroup(slug);
 
     return (
         <ScreenShell>

@@ -3,6 +3,7 @@ import { redirect } from 'next/navigation';
 import { SerenatasApp } from '@/components/serenatas-app';
 import { SerenataProvider } from '@/context/serenata-context';
 import { ErrorBoundary } from '@/components/error-boundary';
+import { PanelLoadingFallback } from '@/components/panel/panel-loading-fallback';
 import { marketplaceCatalogHref, parseMarketplaceSearchParams } from '@/lib/marketplace-search';
 
 type PanelPageProps = {
@@ -42,7 +43,7 @@ export default async function PanelPage({ params, searchParams }: PanelPageProps
 
     return (
         <ErrorBoundary>
-            <Suspense fallback={null}>
+            <Suspense fallback={<PanelLoadingFallback />}>
                 <SerenataProvider>
                     <SerenatasApp />
                 </SerenataProvider>

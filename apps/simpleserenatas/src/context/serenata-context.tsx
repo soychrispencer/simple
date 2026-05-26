@@ -2,16 +2,8 @@
 
 import { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
 import { useRouter, useSearchParams, usePathname } from 'next/navigation';
-import {
-    isPanelSection,
-    legacyQueryToPanelPath,
-    panelSectionHref,
-    resolveGrupoQueryRedirect,
-    resolveCanonicalMarketplaceRedirect,
-    resolveCanonicalMiNegocioRedirect,
-    resolveNestedPanelRedirect,
-    sectionFromPanelPath,
-} from '@/lib/panel-routes';
+import { isPanelSection, panelSectionHref, sectionFromPanelPath } from '@/lib/panel-routes';
+import { resolvePanelRedirect } from '@/lib/panel-redirects';
 import useSWR, { mutate as globalMutate } from 'swr';
 import { providerGroupsSwrKey } from '@/hooks/use-provider-groups';
 import { useAuth } from '@simple/auth';
@@ -56,8 +48,6 @@ export type Section =
     | 'profile';
 export type LoadState = 'idle' | 'loading' | 'error' | 'ready';
 
-const SIDEBAR_COLLAPSED_KEY = 'serenatas-sidebar-collapsed';
-
 interface SerenataContextType {
     user: ReturnType<typeof useAuth>['user'];
     isLoggedIn: boolean;
@@ -72,8 +62,6 @@ interface SerenataContextType {
     section: Section;
     setSection: (next: Section) => void;
     changeSection: (next: Section, query?: Record<string, string | null | undefined>) => void;
-    sidebarCollapsed: boolean;
-    setSidebarCollapsed: (value: boolean) => void;
 
     /** Serenatas del cliente o del músico (modo trabajo). */
     serenatas: Serenata[];
@@ -110,7 +98,6 @@ export function SerenataProvider({ children }: { children: ReactNode }) {
     const searchParams = useSearchParams();
 
     const [section, setSection] = useState<Section>('home');
-    const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
     const [agendaDate, setAgendaDate] = useState(today);
     const [checkoutStatus, setCheckoutStatus] = useState<FormStatus>({ loading: false, error: null, ok: null });
     const [handledSerenataPurchaseId, setHandledSerenataPurchaseId] = useState<string | null>(null);
@@ -265,15 +252,6 @@ export function SerenataProvider({ children }: { children: ReactNode }) {
     }, [pathname, router, searchParams, section]);
 
     useEffect(() => {
-        const stored = window.localStorage.getItem(SIDEBAR_COLLAPSED_KEY);
-        if (stored === '1') setSidebarCollapsed(true);
-    }, []);
-
-    useEffect(() => {
-        window.localStorage.setItem(SIDEBAR_COLLAPSED_KEY, sidebarCollapsed ? '1' : '0');
-    }, [sidebarCollapsed]);
-
-    useEffect(() => {
         const purchaseId = searchParams.get('purchaseId');
         const kind = searchParams.get('kind');
         if (kind !== 'serenata_booking' || !purchaseId || handledSerenataPurchaseId === purchaseId) return;
@@ -313,33 +291,12 @@ export function SerenataProvider({ children }: { children: ReactNode }) {
     }, [clearCheckoutParams, handledSerenataPurchaseId, refreshAgenda, swrMutate, searchParams]);
 
     useEffect(() => {
-        const nestedTarget = resolveNestedPanelRedirect(pathname);
-        if (nestedTarget) {
-            router.replace(nestedTarget, { scroll: false });
-            return;
-        }
-
-        const marketplaceTarget = resolveCanonicalMarketplaceRedirect(pathname, searchParams.toString());
-        if (marketplaceTarget) {
-            router.replace(marketplaceTarget, { scroll: false });
-            return;
-        }
-
-        const miNegocioTarget = resolveCanonicalMiNegocioRedirect(pathname, searchParams.toString());
-        if (miNegocioTarget) {
-            router.replace(miNegocioTarget, { scroll: false });
-            return;
-        }
-
-        const grupoTarget = resolveGrupoQueryRedirect(pathname, searchParams.toString());
-        if (grupoTarget) {
-            router.replace(grupoTarget, { scroll: false });
-            return;
-        }
-
-        const legacyTarget = legacyQueryToPanelPath(searchParams.toString());
-        if (legacyTarget && !pathname.startsWith('/panel')) {
-            router.replace(legacyTarget, { scroll: false });
+        const preferOwnerSolicitudes = mode === 'work' && ownerFeatures;
+        const redirectTarget = resolvePanelRedirect(pathname, searchParams.toString(), {
+            preferOwnerSolicitudes,
+        });
+        if (redirectTarget) {
+            router.replace(redirectTarget, { scroll: false });
             return;
         }
 
@@ -353,7 +310,7 @@ export function SerenataProvider({ children }: { children: ReactNode }) {
         if (isPanelSection(nextSection)) {
             setSection(nextSection);
         }
-    }, [pathname, router, searchParams]);
+    }, [mode, ownerFeatures, pathname, router, searchParams]);
 
     const changeSection = (
         next: Section,
@@ -389,8 +346,6 @@ export function SerenataProvider({ children }: { children: ReactNode }) {
         section,
         setSection,
         changeSection,
-        sidebarCollapsed,
-        setSidebarCollapsed,
         serenatas: data?.serenatas ?? [],
         ownerSerenatas: data?.ownerSerenatas ?? [],
         ownerClosureSerenatas: data?.ownerClosureSerenatas ?? [],

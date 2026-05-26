@@ -5,6 +5,7 @@ import { PanelEmptyState, PanelNotice, PanelStatusBadge } from '@simple/ui/panel
 import { createEmptyListingLocation, patchListingLocation, type ListingLocation } from '@simple/types';
 import { getCommunesForRegion, LOCATION_REGIONS } from '@simple/utils';
 import type { Serenata } from '@/lib/serenatas-api';
+import { formatMoney } from '@/lib/marketplace-display';
 
 export type FormStatus = {
     loading: boolean;
@@ -80,8 +81,7 @@ export function formatShortSerenataDate(item: Serenata) {
 }
 
 export function money(value: number | null) {
-    if (value == null) return 'Sin precio';
-    return new Intl.NumberFormat('es-CL', { style: 'currency', currency: 'CLP', maximumFractionDigits: 0 }).format(value);
+    return formatMoney(value);
 }
 
 export function serenataStatusLabel(status: Serenata['status']) {

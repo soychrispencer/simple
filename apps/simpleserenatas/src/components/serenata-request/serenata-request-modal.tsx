@@ -6,6 +6,7 @@ import { PanelSheet } from '@/components/panel/panel-sheet';
 import { MarketplaceRequestView } from '@/components/panel/marketplace-request-view';
 import { serenatasApi } from '@/lib/serenatas-api';
 import { clearMarketplaceRequestDraftRef } from '@/lib/marketplace-request-draft';
+import { useMarketplaceGroup } from '@/hooks/use-marketplace-group';
 import { useSerenataRequestModal } from './serenata-request-modal-context';
 import { SerenataRequestModalGuest } from './serenata-request-modal-guest';
 
@@ -14,44 +15,31 @@ export function SerenataRequestModal() {
         useSerenataRequestModal();
     const { isLoggedIn, authLoading, user } = useAuth();
     const [contactPhone, setContactPhone] = useState('');
+    const slug = isOpen && draftRef && !resolved ? draftRef.groupSlug : null;
+    const { group, services, loading: groupLoading, error: groupError } = useMarketplaceGroup(slug);
 
     useEffect(() => {
         if (!isOpen || !draftRef || resolved) return;
-        let cancelled = false;
-        setLoading(true);
+        if (groupLoading) {
+            setLoading(true);
+            return;
+        }
+        setLoading(false);
+        if (groupError || !group) {
+            setError(groupError ?? 'Mariachi no encontrado');
+            setResolved(null);
+            return;
+        }
+        const service = services.find((item) => item.id === draftRef.serviceId);
+        if (!service) {
+            setError('El servicio seleccionado ya no está disponible.');
+            setResolved(null);
+            clearMarketplaceRequestDraftRef();
+            return;
+        }
         setError(null);
-        void (async () => {
-            const groupResponse = await serenatasApi.marketplaceGroupBySlug(draftRef.groupSlug);
-            if (cancelled) return;
-            if (!groupResponse.ok || !groupResponse.item) {
-                setError(groupResponse.error ?? 'Mariachi no encontrado');
-                setResolved(null);
-                setLoading(false);
-                return;
-            }
-            const servicesResponse = await serenatasApi.marketplaceGroupServices(groupResponse.item.id);
-            if (cancelled) return;
-            if (!servicesResponse.ok) {
-                setError(servicesResponse.error ?? 'No pudimos cargar servicios');
-                setResolved(null);
-                setLoading(false);
-                return;
-            }
-            const service = servicesResponse.items.find((item) => item.id === draftRef.serviceId);
-            if (!service) {
-                setError('El servicio seleccionado ya no está disponible.');
-                setResolved(null);
-                setLoading(false);
-                clearMarketplaceRequestDraftRef();
-                return;
-            }
-            setResolved({ group: groupResponse.item, service });
-            setLoading(false);
-        })();
-        return () => {
-            cancelled = true;
-        };
-    }, [draftRef, isOpen, resolved, setError, setLoading, setResolved]);
+        setResolved({ group, service });
+    }, [draftRef, group, groupError, groupLoading, isOpen, resolved, services, setError, setLoading, setResolved]);
 
     useEffect(() => {
         if (!isOpen || !isLoggedIn) {
@@ -76,7 +64,7 @@ export function SerenataRequestModal() {
 
     const showGuest = !authLoading && !isLoggedIn;
     const showForm = !authLoading && isLoggedIn && resolved;
-    const busy = authLoading || loading;
+    const busy = authLoading || loading || groupLoading;
 
     return (
         <PanelSheet

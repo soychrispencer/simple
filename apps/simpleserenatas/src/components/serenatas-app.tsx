@@ -3,8 +3,7 @@
 import { useMemo, useCallback } from 'react';
 import { useRouter, useSearchParams, usePathname } from 'next/navigation';
 import { panelPathFromSection } from '@/lib/panel-routes';
-import { PanelConfirmProvider } from '@simple/ui/panel';
-import { PanelNotice } from '@simple/ui/panel';
+import { PanelButton, PanelConfirmProvider, PanelNotice } from '@simple/ui/panel';
 
 import { useAuth } from '@simple/auth';
 import { useLogoutAndGoHome } from '@/hooks/use-logout-and-go-home';
@@ -138,8 +137,8 @@ export function SerenatasApp() {
             <ScreenShell>
                 <div className="flex h-screen flex-col items-center justify-center gap-4 text-center">
                     <h2 className="text-xl font-bold">Ocurrió un error al cargar tus datos</h2>
-                    <button className="btn btn-primary" onClick={() => void refresh()}>Reintentar</button>
-                    <button className="btn btn-ghost" onClick={() => void logoutAndGoHome()}>Cerrar sesión</button>
+                    <PanelButton onClick={() => void refresh()}>Reintentar</PanelButton>
+                    <PanelButton variant="secondary" onClick={() => void logoutAndGoHome()}>Cerrar sesión</PanelButton>
                 </div>
             </ScreenShell>
         );

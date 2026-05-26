@@ -42,7 +42,7 @@ export function OwnerOnboardingCard({
                 recibir solicitudes directas de clientes.
             </p>
             <PanelNotice tone="neutral" className="mt-4">
-                En <strong>Mi Negocio</strong> configuras tus datos comerciales, servicios, publicación y el equipo de músicos.
+                En <strong>Mi negocio</strong> configuras tus datos comerciales, servicios, publicación y el equipo de músicos.
             </PanelNotice>
             <div className="mt-4">
                 <PanelButton onClick={() => setSection('mi-negocio')}>Crear mi mariachi</PanelButton>

@@ -61,6 +61,11 @@ import { AddressesSection } from './addresses-section';
 import { PanelSheet } from './panel-sheet';
 import { SubscriptionSection } from './subscription-section';
 import { useLogoutAndGoHome } from '@/hooks/use-logout-and-go-home';
+import { NotificationCategoryRow, NotificationPrefsSkeleton } from './account/notification-category-row';
+import { DeleteAccountSheet } from './account/delete-account-sheet';
+import { GoogleDisconnectConfirmSheet } from './account/google-disconnect-confirm-sheet';
+import { PasswordChangeModal } from './account/password-change-modal';
+import { EmailChangeModal } from './account/email-change-modal';
 
 type AccountSubsection = AccountTab;
 type WorkProfile = Exclude<ActiveProfile, 'client'>;
@@ -74,76 +79,6 @@ function isValidEmail(value: string): boolean {
     const trimmed = value.trim();
     if (!trimmed || trimmed.length > 255) return false;
     return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed);
-}
-
-function NotificationCategoryRow({
-    title,
-    hint,
-    emailChecked,
-    whatsappChecked,
-    whatsappAvailable = true,
-    disabled,
-    onEmailChange,
-    onWhatsappChange,
-}: {
-    title: string;
-    hint?: string;
-    emailChecked: boolean;
-    whatsappChecked: boolean;
-    whatsappAvailable?: boolean;
-    disabled?: boolean;
-    onEmailChange: (value: boolean) => void;
-    onWhatsappChange: (value: boolean) => void;
-}) {
-    return (
-        <div className={`py-3 ${disabled ? 'opacity-60' : ''}`}>
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
-                <div className="min-w-0 flex-1">
-                    <p className="text-sm font-medium text-[var(--fg)]">{title}</p>
-                    {hint ? (
-                        <p className="mt-0.5 text-xs leading-relaxed text-[var(--fg-muted)]">{hint}</p>
-                    ) : null}
-                </div>
-                <div className="flex flex-wrap items-center gap-4 sm:justify-end">
-                    <div className="flex items-center gap-2">
-                        <span className="text-xs text-[var(--fg-muted)]">Correo</span>
-                        <PanelSwitch
-                            checked={emailChecked}
-                            onChange={onEmailChange}
-                            size="sm"
-                            ariaLabel={`${title} por correo`}
-                            disabled={disabled}
-                        />
-                    </div>
-                    <div className="flex items-center gap-2">
-                        <span className="text-xs text-[var(--fg-muted)]">WhatsApp</span>
-                        {whatsappAvailable ? (
-                            <PanelSwitch
-                                checked={whatsappChecked}
-                                onChange={onWhatsappChange}
-                                size="sm"
-                                ariaLabel={`${title} por WhatsApp`}
-                                disabled={disabled}
-                            />
-                        ) : (
-                            <span className="text-xs text-[var(--fg-muted)]" title="No disponible para esta categoría">
-                                —
-                            </span>
-                        )}
-                    </div>
-                </div>
-            </div>
-        </div>
-    );
-}
-function NotificationPrefsSkeleton({ rows = 3 }: { rows?: number }) {
-    return (
-        <div className="divide-y divide-[var(--border)] border-t border-[var(--border)]" aria-hidden="true">
-            {Array.from({ length: rows }, (_, i) => i + 1).map((key) => (
-                <div key={key} className="h-14 animate-pulse bg-[var(--bg-subtle)]/60" />
-            ))}
-        </div>
-    );
 }
 
 function splitDisplayName(name: string | null | undefined) {
@@ -926,7 +861,7 @@ export function ProfileView({
                     <div className="flex min-w-0 items-center gap-3">
                         <div
                             className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl"
-                            style={{ background: 'rgba(66,133,244,0.1)', color: '#4285F4' }}
+                            style={{ background: 'var(--google-brand-bg, rgba(66,133,244,0.1))', color: 'var(--google-brand-fg, #4285F4)' }}
                             aria-hidden
                         >
                             <IconCalendar size={20} />
@@ -974,7 +909,7 @@ export function ProfileView({
                             <a
                                 href={serenatasApi.googleCalendarAuthUrl()}
                                 className="inline-flex w-full items-center justify-center gap-2 rounded-xl px-4 py-2 text-sm font-medium text-white transition-opacity hover:opacity-90 sm:w-auto"
-                                style={{ background: '#4285F4' }}
+                                style={{ background: 'var(--google-brand-fg, #4285F4)' }}
                             >
                                 <IconBrandGoogle size={15} />
                                 Conectar con Google
@@ -1416,297 +1351,5 @@ export function ProfileView({
             ) : null}
 
         </div>
-    );
-}
-
-function DeleteAccountSheet({
-    hasPassword,
-    password,
-    confirmPhrase,
-    saving,
-    status,
-    onPasswordChange,
-    onConfirmPhraseChange,
-    onClose,
-    onSubmit,
-}: {
-    hasPassword: boolean;
-    password: string;
-    confirmPhrase: string;
-    saving: boolean;
-    status: FormStatus;
-    onPasswordChange: (value: string) => void;
-    onConfirmPhraseChange: (value: string) => void;
-    onClose: () => void;
-    onSubmit: () => void;
-}) {
-    return (
-        <PanelSheet onClose={onClose} ariaLabel="Eliminar cuenta" maxWidthClass="sm:max-w-md">
-            <div className="p-5 sm:p-6">
-                <div className="flex items-center justify-between gap-3">
-                    <h2 className="text-lg font-semibold text-[var(--fg)]">Eliminar cuenta</h2>
-                    <button
-                        type="button"
-                        className="rounded-lg p-1.5 text-[var(--fg-muted)] hover:bg-[var(--bg-subtle)]"
-                        onClick={onClose}
-                        aria-label="Cerrar"
-                    >
-                        <IconX size={18} />
-                    </button>
-                </div>
-                <p className="mt-2 text-sm text-[var(--fg-muted)]">
-                    Se borrarán tus datos en SimpleSerenatas y en la plataforma compartida (perfiles, mariachis, fotos
-                    subidas, mensajes y suscripciones vinculadas a tu usuario).
-                </p>
-                {hasPassword ? (
-                    <PanelField label="Contraseña" className="mt-4">
-                        <FieldInput
-                            type="password"
-                            value={password}
-                            onChange={(e) => onPasswordChange(e.target.value)}
-                            placeholder="Tu contraseña actual"
-                            autoComplete="current-password"
-                        />
-                    </PanelField>
-                ) : (
-                    <PanelField label='Escribe "ELIMINAR" para confirmar' className="mt-4">
-                        <FieldInput
-                            value={confirmPhrase}
-                            onChange={(e) => onConfirmPhraseChange(e.target.value)}
-                            placeholder="ELIMINAR"
-                            autoComplete="off"
-                        />
-                    </PanelField>
-                )}
-                <FormFeedback status={status} />
-                <div className="mt-5 grid gap-2 sm:grid-cols-2">
-                    <PanelButton type="button" variant="secondary" className="w-full" onClick={onClose} disabled={saving}>
-                        Cancelar
-                    </PanelButton>
-                    <PanelButton
-                        type="button"
-                        variant="danger"
-                        className="w-full"
-                        disabled={saving || (hasPassword ? !password.trim() : confirmPhrase.trim().toUpperCase() !== 'ELIMINAR')}
-                        onClick={onSubmit}
-                    >
-                        {saving ? 'Eliminando...' : 'Eliminar definitivamente'}
-                    </PanelButton>
-                </div>
-            </div>
-        </PanelSheet>
-    );
-}
-
-function GoogleDisconnectConfirmSheet({
-    hasPassword,
-    busy,
-    onClose,
-    onConfirm,
-    onCreatePassword,
-}: {
-    hasPassword: boolean;
-    busy: boolean;
-    onClose: () => void;
-    onConfirm: () => void;
-    onCreatePassword: () => void;
-}) {
-    return (
-        <PanelSheet onClose={onClose} ariaLabel="Desconectar Google" maxWidthClass="sm:max-w-sm">
-            <div className="p-5 sm:p-6">
-                <div className="flex items-center justify-between gap-3">
-                    <h2 className="text-lg font-semibold text-[var(--fg)]">Desconectar Google</h2>
-                    <button
-                        type="button"
-                        className="rounded-lg p-1.5 text-[var(--fg-muted)] hover:bg-[var(--bg-subtle)]"
-                        onClick={onClose}
-                        aria-label="Cerrar"
-                    >
-                        <IconX size={18} />
-                    </button>
-                </div>
-                <p className="mt-2 text-sm text-[var(--fg-muted)]">
-                    {hasPassword
-                        ? 'Ya no podrás entrar con Google. Podrás usar tu correo y contraseña.'
-                        : 'Sin contraseña no podrás volver a entrar. Créala antes de desconectar Google.'}
-                </p>
-                <div className="mt-5 grid gap-2">
-                    {hasPassword ? (
-                        <PanelButton type="button" className="w-full" disabled={busy} onClick={onConfirm}>
-                            {busy ? 'Desconectando...' : 'Desconectar Google'}
-                        </PanelButton>
-                    ) : (
-                        <PanelButton type="button" className="w-full" onClick={onCreatePassword}>
-                            Crear contraseña
-                        </PanelButton>
-                    )}
-                    <PanelButton type="button" variant="secondary" className="w-full" disabled={busy} onClick={onClose}>
-                        Cancelar
-                    </PanelButton>
-                </div>
-            </div>
-        </PanelSheet>
-    );
-}
-
-function PasswordChangeModal({
-    hasPassword,
-    currentPassword,
-    newPassword,
-    confirmPassword,
-    saving,
-    status,
-    onCurrentPasswordChange,
-    onNewPasswordChange,
-    onConfirmPasswordChange,
-    onClose,
-    onSubmit,
-}: {
-    hasPassword: boolean;
-    currentPassword: string;
-    newPassword: string;
-    confirmPassword: string;
-    saving: boolean;
-    status: FormStatus;
-    onCurrentPasswordChange: (value: string) => void;
-    onNewPasswordChange: (value: string) => void;
-    onConfirmPasswordChange: (value: string) => void;
-    onClose: () => void;
-    onSubmit: () => void;
-}) {
-    const title = hasPassword ? 'Cambiar contraseña' : 'Crear contraseña';
-    const submitLabel = hasPassword ? 'Guardar contraseña' : 'Crear contraseña';
-
-    return (
-        <PanelSheet onClose={onClose} ariaLabel={title} maxWidthClass="sm:max-w-sm">
-            <div className="p-5 sm:p-6">
-                <div className="flex items-center justify-between gap-3">
-                    <h2 className="text-lg font-semibold text-[var(--fg)]">{title}</h2>
-                    <button
-                        type="button"
-                        className="rounded-lg p-1.5 text-[var(--fg-muted)] hover:bg-[var(--bg-subtle)]"
-                        onClick={onClose}
-                        aria-label="Cerrar"
-                    >
-                        <IconX size={18} />
-                    </button>
-                </div>
-                <p className="mt-2 text-sm text-[var(--fg-muted)]">
-                    {hasPassword
-                        ? 'Usa una clave segura de al menos 8 caracteres.'
-                        : 'Así podrás entrar con tu correo además de Google.'}
-                </p>
-                <div className="mt-5 grid gap-3">
-                    {hasPassword ? (
-                        <PanelField label="Contraseña actual">
-                            <FieldInput
-                                type="password"
-                                autoComplete="current-password"
-                                value={currentPassword}
-                                onChange={(e) => onCurrentPasswordChange(e.target.value)}
-                            />
-                        </PanelField>
-                    ) : null}
-                    <PanelField label="Nueva contraseña">
-                        <FieldInput
-                            type="password"
-                            autoComplete="new-password"
-                            value={newPassword}
-                            onChange={(e) => onNewPasswordChange(e.target.value)}
-                        />
-                    </PanelField>
-                    <PanelField label="Confirmar contraseña">
-                        <FieldInput
-                            type="password"
-                            autoComplete="new-password"
-                            value={confirmPassword}
-                            onChange={(e) => onConfirmPasswordChange(e.target.value)}
-                        />
-                    </PanelField>
-                </div>
-                {hasPassword ? (
-                    <p className="mt-3 text-xs text-[var(--fg-muted)]">
-                        ¿La olvidaste?{' '}
-                        <Link href="/auth/restablecer" className="font-medium underline underline-offset-2" onClick={onClose}>
-                            Restablecer acceso
-                        </Link>
-                    </p>
-                ) : null}
-                <FormFeedback status={status} />
-                <div className="mt-5 grid gap-2">
-                    <PanelButton type="button" className="w-full" disabled={saving} onClick={onSubmit}>
-                        {saving ? 'Guardando...' : submitLabel}
-                    </PanelButton>
-                    <PanelButton type="button" variant="secondary" className="w-full" disabled={saving} onClick={onClose}>
-                        Cancelar
-                    </PanelButton>
-                </div>
-            </div>
-        </PanelSheet>
-    );
-}
-
-function EmailChangeModal({
-    currentEmail,
-    newEmail,
-    pendingEmail,
-    saving,
-    status,
-    onNewEmailChange,
-    onClose,
-    onSubmit,
-}: {
-    currentEmail: string;
-    newEmail: string;
-    pendingEmail?: string | null;
-    saving: boolean;
-    status: FormStatus;
-    onNewEmailChange: (value: string) => void;
-    onClose: () => void;
-    onSubmit: () => void;
-}) {
-    return (
-        <PanelSheet onClose={onClose} ariaLabel="Cambiar correo" maxWidthClass="sm:max-w-sm">
-            <div className="p-5 sm:p-6">
-                <div className="flex items-center justify-between gap-3">
-                    <h2 className="text-lg font-semibold text-[var(--fg)]">Cambiar correo</h2>
-                    <button
-                        type="button"
-                        className="rounded-lg p-1.5 text-[var(--fg-muted)] hover:bg-[var(--bg-subtle)]"
-                        onClick={onClose}
-                        aria-label="Cerrar"
-                    >
-                        <IconX size={18} />
-                    </button>
-                </div>
-                <p className="mt-2 text-sm text-[var(--fg-muted)]">
-                    Actual: <span className="text-[var(--fg)]">{currentEmail || 'Sin correo'}</span>
-                </p>
-                {pendingEmail ? (
-                    <p className="mt-1 text-xs text-[var(--fg-muted)]">
-                        Pendiente: <span className="font-medium text-[var(--fg)]">{pendingEmail}</span>
-                    </p>
-                ) : null}
-                <PanelField label="Nuevo correo" className="mt-5">
-                    <FieldInput
-                        type="email"
-                        autoComplete="email"
-                        value={newEmail}
-                        onChange={(e) => onNewEmailChange(e.target.value)}
-                        placeholder="nuevo@correo.com"
-                    />
-                </PanelField>
-                <p className="mt-2 text-xs text-[var(--fg-muted)]">Te enviaremos un enlace para confirmar el cambio.</p>
-                <FormFeedback status={status} />
-                <div className="mt-5 grid gap-2">
-                    <PanelButton type="button" className="w-full" disabled={saving} onClick={onSubmit}>
-                        {saving ? 'Enviando...' : 'Enviar enlace'}
-                    </PanelButton>
-                    <PanelButton type="button" variant="secondary" className="w-full" disabled={saving} onClick={onClose}>
-                        Cancelar
-                    </PanelButton>
-                </div>
-            </div>
-        </PanelSheet>
     );
 }

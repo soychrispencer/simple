@@ -86,8 +86,9 @@ export function groupSlugFromPanelPath(pathname: string): string | null {
     }
 }
 
+/** Perfil público del mariachi (antes `/panel/grupo/{slug}`). */
 export function panelGroupHref(slug: string): string {
-    return `/panel/grupo/${encodeURIComponent(slug)}`;
+    return publicMariachiPath(slug);
 }
 
 export function sectionFromPanelPath(pathname: string): Section | null {
@@ -206,8 +207,13 @@ export function resolveCanonicalMiNegocioRedirect(pathname: string, search: stri
     return panelMiNegocioHref(miNegocioTabFromPanelPath(pathname, search));
 }
 
+export type LegacyQueryToPanelOptions = {
+    /** Dueño/operación: `section=serenatas` → solicitudes en lugar de mis serenatas cliente. */
+    preferOwnerSolicitudes?: boolean;
+};
+
 /** `/?section=…` → ruta `/panel/…` conservando query (account_tab, checkout, etc.). */
-export function legacyQueryToPanelPath(search: string): string | null {
+export function legacyQueryToPanelPath(search: string, options?: LegacyQueryToPanelOptions): string | null {
     const params = new URLSearchParams(search.startsWith('?') ? search.slice(1) : search);
     const rawSection = params.get('section');
     const sectionRaw = rawSection === 'mi-grupo' ? 'mi-negocio' : rawSection;
@@ -245,7 +251,8 @@ export function legacyQueryToPanelPath(search: string): string | null {
             query[key] = value;
         });
         if (serenataId) query.serenata = serenataId;
-        return panelSectionHref('solicitudes', Object.keys(query).length > 0 ? query : undefined);
+        const targetSection = options?.preferOwnerSolicitudes ? 'solicitudes' : 'serenatas';
+        return panelSectionHref(targetSection, Object.keys(query).length > 0 ? query : undefined);
     }
 
     const path = panelPathFromSection(section);

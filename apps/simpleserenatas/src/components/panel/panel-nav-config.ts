@@ -18,11 +18,7 @@ import { CLIENT_MARKETPLACE_HREF } from '@/lib/client-marketplace';
 import { type AppMode, ownerFeaturesEnabled } from '@/lib/app-mode';
 import { type Section } from '@/context/serenata-context';
 import { panelSectionHref, sectionFromPanelPath } from '@/lib/panel-routes';
-import {
-    type MarketplacePanelNavItem,
-    type MarketplacePanelRole,
-    type PanelNotification,
-} from '@simple/marketplace-header';
+import { type MarketplacePanelNavItem, type PanelNotification } from '@simple/marketplace-header';
 import { toPanelNotification } from '@/lib/serenata-notifications';
 
 export type PanelNavItem = {
@@ -69,7 +65,7 @@ export function getPanelNavItems(mode: AppMode, profiles: Profiles): PanelNavIte
         items.push({ id: 'solicitudes', href: panelSectionHref('solicitudes'), label: 'Solicitudes', icon: IconBell });
         items.push({ id: 'agenda', href: panelSectionHref('agenda'), label: 'Agenda', icon: IconCalendar });
         items.push({ id: 'map', href: panelSectionHref('map'), label: 'Mapa', icon: IconMap });
-        items.push({ id: 'mi-negocio', href: panelSectionHref('mi-negocio'), label: 'Mi Negocio', icon: IconBriefcase });
+        items.push({ id: 'mi-negocio', href: panelSectionHref('mi-negocio'), label: 'Mi negocio', icon: IconBriefcase });
     } else if (profiles.musician) {
         items.push({ id: 'invitations', href: panelSectionHref('invitations'), label: 'Invitaciones', icon: IconUsersGroup });
         items.push({ id: 'agenda', href: panelSectionHref('agenda'), label: 'Agenda', icon: IconCalendar });
@@ -102,11 +98,6 @@ export function getMobileBottomNavItems(mode: AppMode, profiles: Profiles): Pane
 export function getMobileOverflowNavItems(mode: AppMode, profiles: Profiles): PanelNavItem[] {
     if (mode !== 'work' || !ownerFeaturesEnabled(profiles)) return [];
     return getPanelNavItems(mode, profiles).filter((t) => t.id === 'map');
-}
-
-export function mapModeToMarketplaceRole(mode: AppMode, profiles: Profiles): MarketplacePanelRole {
-    if (mode === 'work' && ownerFeaturesEnabled(profiles)) return 'user';
-    return 'user';
 }
 
 export function getMarketplaceNavItems(mode: AppMode, profiles: Profiles): MarketplacePanelNavItem[] {
