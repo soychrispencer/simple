@@ -2,8 +2,9 @@
 
 import { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
 import { useRouter, useSearchParams, usePathname } from 'next/navigation';
-import { isPanelSection, panelSectionHref, sectionFromPanelPath } from '@/lib/panel-routes';
+import { groupSlugFromPanelPath, isPanelSection, panelSectionHref, sectionFromPanelPath } from '@/lib/panel-routes';
 import { resolvePanelRedirect } from '@/lib/panel-redirects';
+import { publicMariachiPath } from '@/lib/public-mariachi-routes';
 import useSWR, { mutate as globalMutate } from 'swr';
 import { providerGroupsSwrKey } from '@/hooks/use-provider-groups';
 import { useAuth } from '@simple/auth';
@@ -291,6 +292,16 @@ export function SerenataProvider({ children }: { children: ReactNode }) {
     }, [clearCheckoutParams, handledSerenataPurchaseId, refreshAgenda, swrMutate, searchParams]);
 
     useEffect(() => {
+        const legacyGrupoSlug = groupSlugFromPanelPath(pathname);
+        if (legacyGrupoSlug) {
+            const qs = searchParams.toString();
+            const target = qs
+                ? `${publicMariachiPath(legacyGrupoSlug)}?${qs}`
+                : publicMariachiPath(legacyGrupoSlug);
+            router.replace(target, { scroll: false });
+            return;
+        }
+
         const preferOwnerSolicitudes = mode === 'work' && ownerFeatures;
         const redirectTarget = resolvePanelRedirect(pathname, searchParams.toString(), {
             preferOwnerSolicitudes,
@@ -377,4 +388,9 @@ export function useSerenata() {
         throw new Error('useSerenata must be used within a SerenataProvider');
     }
     return context;
+}
+
+/** Contexto del panel cuando está montado; `undefined` en rutas públicas sin provider. */
+export function useSerenataOptional() {
+    return useContext(SerenataContext);
 }

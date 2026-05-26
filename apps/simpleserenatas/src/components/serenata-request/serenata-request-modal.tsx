@@ -2,6 +2,8 @@
 
 import { useEffect, useState } from 'react';
 import { useAuth } from '@simple/auth';
+import { PanelButton } from '@simple/ui/panel';
+import { useSerenataOptional } from '@/context/serenata-context';
 import { PanelSheet } from '@/components/panel/panel-sheet';
 import { MarketplaceRequestView } from '@/components/panel/marketplace-request-view';
 import { serenatasApi } from '@/lib/serenatas-api';
@@ -14,6 +16,7 @@ export function SerenataRequestModal() {
     const { isOpen, draftRef, resolved, loading, error, closeRequest, setResolved, setLoading, setError } =
         useSerenataRequestModal();
     const { isLoggedIn, authLoading, user } = useAuth();
+    const serenataCtx = useSerenataOptional();
     const [contactPhone, setContactPhone] = useState('');
     const slug = isOpen && draftRef && !resolved ? draftRef.groupSlug : null;
     const { group, services, loading: groupLoading, error: groupError } = useMarketplaceGroup(slug);
@@ -46,19 +49,27 @@ export function SerenataRequestModal() {
             setContactPhone('');
             return;
         }
+        if (serenataCtx?.accountUser || serenataCtx?.profiles) {
+            const phone =
+                serenataCtx.accountUser?.phone?.trim()
+                || serenataCtx.profiles.client?.phone?.trim()
+                || '';
+            setContactPhone(phone);
+            return;
+        }
         let cancelled = false;
         void serenatasApi.profiles().then((response) => {
             if (cancelled || !response.ok) return;
             const phone =
-                response.user?.phone?.trim() ||
-                response.profiles.client?.phone?.trim() ||
-                '';
+                response.user?.phone?.trim()
+                || response.profiles.client?.phone?.trim()
+                || '';
             setContactPhone(phone);
         });
         return () => {
             cancelled = true;
         };
-    }, [isLoggedIn, isOpen, user?.id]);
+    }, [isLoggedIn, isOpen, serenataCtx?.accountUser, serenataCtx?.profiles, user?.id]);
 
     if (!isOpen) return null;
 
@@ -78,9 +89,9 @@ export function SerenataRequestModal() {
             ) : error ? (
                 <div className="grid gap-4 p-6">
                     <p className="text-sm text-fg-muted">{error}</p>
-                    <button type="button" className="btn btn-ghost w-fit text-sm" onClick={closeRequest}>
+                    <PanelButton type="button" variant="ghost" className="w-fit text-sm" onClick={closeRequest}>
                         Cerrar
-                    </button>
+                    </PanelButton>
                 </div>
             ) : showGuest && resolved ? (
                 <SerenataRequestModalGuest group={resolved.group} service={resolved.service} onClose={closeRequest} />

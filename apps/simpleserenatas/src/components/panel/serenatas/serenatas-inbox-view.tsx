@@ -76,14 +76,15 @@ type SerenataFilter = 'all' | Serenata['status'] | 'closed';
 type SerenataOriginFilter = 'all' | Serenata['source'];
 type SerenataMode = 'detail' | 'edit' | 'assignGroup';
 
-export function SerenatasView({ serenatas, groups, musicians, selectedSerenataId, action, clearAction, refresh, isSolicitudesMode = false, onAgendaDeepLink }: { serenatas: Serenata[]; groups: SerenataGroup[]; musicians: MusicianDirectoryItem[]; selectedSerenataId?: string | null; refresh: () => Promise<void>; isSolicitudesMode?: boolean; onAgendaDeepLink?: (serenataId: string) => void } & PanelActionProps) {
+export function SerenatasView({ serenatas, groups, musicians, packages: packagesProp, selectedSerenataId, action, clearAction, refresh, isSolicitudesMode = false, onAgendaDeepLink }: { serenatas: Serenata[]; groups: SerenataGroup[]; musicians: MusicianDirectoryItem[]; packages?: SerenataPackage[]; selectedSerenataId?: string | null; refresh: () => Promise<void>; isSolicitudesMode?: boolean; onAgendaDeepLink?: (serenataId: string) => void } & PanelActionProps) {
     const searchParams = useSearchParams();
     const [filter, setFilter] = useState<SerenataFilter>('all');
     const [originFilter, setOriginFilter] = useState<SerenataOriginFilter>('all');
     const [selectedId, setSelectedId] = useState<string | null>(serenatas[0]?.id ?? null);
     const [mode, setMode] = useState<SerenataMode>('detail');
     const [createOpen, setCreateOpen] = useState(false);
-    const [packages, setPackages] = useState<SerenataPackage[]>([]);
+    const [packagesLocal, setPackagesLocal] = useState<SerenataPackage[]>(packagesProp ?? []);
+    const packages = packagesProp ?? packagesLocal;
     const inboxCount = serenatas.filter(isOwnerSolicitudesInbox).length;
     const selected = serenatas.find((item) => item.id === selectedId) ?? serenatas[0] ?? null;
     const filtered = serenatas.filter((item) => {
@@ -158,14 +159,15 @@ export function SerenatasView({ serenatas, groups, musicians, selectedSerenataId
     }, [selectedSerenataId, serenatas]);
 
     useEffect(() => {
+        if (packagesProp) return;
         let active = true;
         void serenatasApi.packages().then((response) => {
-            if (active && response.ok) setPackages(response.items);
+            if (active && response.ok) setPackagesLocal(response.items);
         });
         return () => {
             active = false;
         };
-    }, []);
+    }, [packagesProp]);
 
     return (
         <>

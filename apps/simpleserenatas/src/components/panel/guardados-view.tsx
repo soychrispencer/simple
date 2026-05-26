@@ -2,8 +2,9 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { IconTrash } from '@tabler/icons-react';
-import { PanelEmptyState } from '@simple/ui/panel';
+import { PanelButton, PanelEmptyState } from '@simple/ui/panel';
 import { PanelIconButton, PanelList, PanelListRow } from '@simple/ui/panel';
 import { CLIENT_MARKETPLACE_HREF } from '@/lib/client-marketplace';
 import {
@@ -18,6 +19,7 @@ const FALLBACK_COVER =
     'https://images.unsplash.com/photo-1764593821767-352919115758?auto=format&fit=crop&w=400&q=82';
 
 export function GuardadosView() {
+    const router = useRouter();
     const [items, setItems] = useState<SavedMariachiRecord[]>([]);
     const [loading, setLoading] = useState(true);
 
@@ -45,9 +47,9 @@ export function GuardadosView() {
                 title="Aún no guardas mariachis"
                 description="Toca el corazón en una tarjeta del catálogo para añadirla aquí."
                 action={
-                    <Link href={CLIENT_MARKETPLACE_HREF} className="btn btn-primary">
+                    <PanelButton type="button" onClick={() => router.push(CLIENT_MARKETPLACE_HREF)}>
                         Explorar mariachis
-                    </Link>
+                    </PanelButton>
                 }
             />
         );

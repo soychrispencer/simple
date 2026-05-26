@@ -16,4 +16,12 @@ test.describe('SimpleSerenatas panel smoke', () => {
             timeout: 15_000,
         });
     });
+
+    test('/panel/cuenta muestra acceso o formulario de cuenta', async ({ page }) => {
+        await page.goto('/panel/cuenta');
+        await expect(page).toHaveURL(/\/panel\/cuenta/, { timeout: 10_000 });
+        await expect(
+            page.getByRole('heading', { name: /acceso restringido|mi cuenta/i }).first(),
+        ).toBeVisible({ timeout: 15_000 });
+    });
 });

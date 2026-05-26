@@ -1,6 +1,6 @@
 'use client';
 
-import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { useMemo, useState } from 'react';
 import { IconCheck, IconEye, IconEyeOff, IconLoader2 } from '@tabler/icons-react';
 import { PanelBlockHeader } from '@simple/ui/panel';
@@ -22,6 +22,7 @@ const SHARE_TIPS = [
 ];
 
 export function ProviderPublishView({ refresh }: { refresh: () => Promise<void> }) {
+    const router = useRouter();
     const { mariachi, hasMariachi, loading, error, refresh: refreshMariachi } = useMyMariachi();
     const [toggling, setToggling] = useState(false);
     const [toggleError, setToggleError] = useState('');
@@ -74,12 +75,13 @@ export function ProviderPublishView({ refresh }: { refresh: () => Promise<void> 
                     title="Primero tus datos comerciales"
                     description="Crea tu mariachi en la pestaña Datos comerciales. Luego podrás publicarlo y compartir tu link."
                 />
-                <Link
-                    href={panelMiNegocioHref('datos')}
-                    className="btn btn-primary inline-flex w-fit items-center justify-center px-4 py-2.5 text-sm font-semibold"
+                <PanelButton
+                    type="button"
+                    className="w-fit"
+                    onClick={() => router.push(panelMiNegocioHref('datos'))}
                 >
                     Ir a datos comerciales
-                </Link>
+                </PanelButton>
             </div>
         );
     }
@@ -103,7 +105,9 @@ export function ProviderPublishView({ refresh }: { refresh: () => Promise<void> 
                                     <span
                                         className="inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-medium"
                                         style={{
-                                            background: isPublished ? 'rgba(13,148,136,0.1)' : 'rgba(100,116,139,0.1)',
+                                            background: isPublished
+                                                ? 'color-mix(in oklab, var(--accent) 12%, var(--surface))'
+                                                : 'var(--bg-subtle)',
                                             color: isPublished ? 'var(--accent)' : 'var(--fg-muted)',
                                         }}
                                     >

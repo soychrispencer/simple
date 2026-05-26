@@ -13,6 +13,7 @@ import {
     getPrimaryActionConfig,
     isPanelNavActive,
 } from '@/components/panel/panel-nav-config';
+import { useSerenataOptional } from '@/context/serenata-context';
 import { sectionFromPanelPath } from '@/lib/panel-routes';
 import { clearSavedMariachisCache, syncSavedMariachisFromApi } from '@/lib/saved-mariachis';
 
@@ -37,12 +38,15 @@ export function SerenatasChromeHeader({
 }: SerenatasChromeHeaderProps) {
     const pathname = usePathname() ?? '/';
     const { isLoggedIn, authLoading, user } = useAuth();
+    const serenataCtx = useSerenataOptional();
     const logoutAndGoHome = useLogoutAndGoHome();
-    const [profiles, setProfiles] = useState<Profiles | null>(profilesProp ?? null);
-    const [mode, setMode] = useState<AppMode>(modeProp ?? 'client');
+    const [profiles, setProfiles] = useState<Profiles | null>(
+        profilesProp ?? serenataCtx?.profiles ?? null,
+    );
+    const [mode, setMode] = useState<AppMode>(modeProp ?? serenataCtx?.mode ?? 'client');
 
-    const profilesReady = profilesProp ?? profiles;
-    const modeReady = modeProp ?? mode;
+    const profilesReady = profilesProp ?? serenataCtx?.profiles ?? profiles;
+    const modeReady = modeProp ?? serenataCtx?.mode ?? mode;
 
     useEffect(() => {
         if (profilesProp) setProfiles(profilesProp);
@@ -53,7 +57,14 @@ export function SerenatasChromeHeader({
     }, [modeProp]);
 
     useEffect(() => {
-        if (!isLoggedIn || profilesProp) return;
+        if (serenataCtx?.profiles) {
+            setProfiles(serenataCtx.profiles);
+            setMode(serenataCtx.mode);
+        }
+    }, [serenataCtx?.mode, serenataCtx?.profiles]);
+
+    useEffect(() => {
+        if (!isLoggedIn || profilesProp || serenataCtx?.profiles) return;
         let cancelled = false;
         void serenatasApi.profiles().then((response) => {
             if (cancelled || !response.ok) return;
@@ -64,7 +75,7 @@ export function SerenatasChromeHeader({
         return () => {
             cancelled = true;
         };
-    }, [isLoggedIn, profilesProp, user?.id]);
+    }, [isLoggedIn, profilesProp, serenataCtx?.profiles, user?.id]);
 
     const currentSection = sectionFromPanelPath(pathname);
     const panelNavActive = useCallback(

@@ -126,6 +126,7 @@ export function PanelContent(props: PanelContentProps) {
                     serenatas={props.ownerSerenatas.filter(appearsInOwnerSolicitudes)}
                     groups={props.groups}
                     musicians={props.musicians}
+                    packages={props.packages}
                     selectedSerenataId={props.selectedSerenataId}
                     action={props.accountSuspended ? null : props.panelAction}
                     clearAction={props.clearPanelAction}

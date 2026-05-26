@@ -291,12 +291,18 @@ export function ProviderRepertoireView({ refresh }: { refresh: () => Promise<voi
                                                 Ver PDF
                                             </PanelButton>
                                         ) : null}
-                                        <label className="btn btn-ghost h-8 cursor-pointer px-3 text-xs">
-                                            Subir PDF
+                                        <label
+                                            htmlFor={`repertoire-score-${instrument}`}
+                                            className="inline-flex cursor-pointer"
+                                        >
+                                            <span className="inline-flex h-8 items-center rounded-lg border border-border bg-surface px-3 text-xs font-medium text-fg-secondary hover:bg-bg-subtle">
+                                                Subir PDF
+                                            </span>
                                             <input
+                                                id={`repertoire-score-${instrument}`}
                                                 type="file"
                                                 accept="application/pdf"
-                                                className="hidden"
+                                                className="sr-only"
                                                 onChange={(event) => {
                                                     const file = event.target.files?.[0];
                                                     if (file) void uploadScore(instrument, file);

@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { PanelButton } from '@simple/ui/panel';
 import { PanelNotice } from '@simple/ui/panel';
+import { useSerenataOptional } from '@/context/serenata-context';
 import { serenatasApi, type RepertoireSong, type Serenata, type SerenataSongSelection } from '@/lib/serenatas-api';
 import { FormFeedback, type FormStatus } from './shared';
 import { RepertoireSongPicker } from './repertoire-song-picker';
@@ -27,6 +28,7 @@ export function SerenataSetlistPanel({
     const [previewInstrument, setPreviewInstrument] = useState<string | null>(null);
     const [previewUrl, setPreviewUrl] = useState<string | null>(null);
     const [previewTitle, setPreviewTitle] = useState('');
+    const serenataCtx = useSerenataOptional();
 
     const clientPrefs = useMemo(
         () => selections.filter((item) => item.kind === 'client_preference').sort((a, b) => a.sortOrder - b.sortOrder),
@@ -39,18 +41,21 @@ export function SerenataSetlistPanel({
 
     useEffect(() => {
         if (mode !== 'musician') return;
+        const profile = serenataCtx?.profiles.musician;
+        if (profile) {
+            setMusicianInstrument(profile.instruments?.[0] ?? profile.instrument ?? 'Trompeta');
+            return;
+        }
         let cancelled = false;
         void serenatasApi.profiles().then((response) => {
             if (cancelled || !response.ok) return;
-            const profile = response.profiles.musician;
-            const instrument =
-                profile?.instruments?.[0] ?? profile?.instrument ?? 'Trompeta';
-            setMusicianInstrument(instrument);
+            const musician = response.profiles.musician;
+            setMusicianInstrument(musician?.instruments?.[0] ?? musician?.instrument ?? 'Trompeta');
         });
         return () => {
             cancelled = true;
         };
-    }, [mode]);
+    }, [mode, serenataCtx?.profiles.musician]);
 
     useEffect(() => {
         let cancelled = false;

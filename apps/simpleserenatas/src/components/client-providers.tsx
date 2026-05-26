@@ -9,6 +9,7 @@ import { GroupInviteBootstrap } from '@/components/group-invite-bootstrap';
 import { SerenataRequestModalProvider } from '@/components/serenata-request/serenata-request-modal-context';
 import { SerenataRequestModal } from '@/components/serenata-request/serenata-request-modal';
 import { SerenataRequestDeepLink } from '@/components/serenata-request/serenata-request-deep-link';
+import { PanelLoadingFallback } from '@/components/panel/panel-loading-fallback';
 import {
     clearSignupProfile,
     isModalSignupProfile,
@@ -102,7 +103,7 @@ export function ClientProviders({ children }: { children: React.ReactNode }) {
             <SerenataRequestModalProvider>
                 <LogoutHomeRedirect />
                 <SignupProfileBootstrap />
-                <Suspense fallback={null}>
+                <Suspense fallback={<PanelLoadingFallback />}>
                     <GroupInviteBootstrap />
                     <SerenataRequestDeepLink />
                 </Suspense>

@@ -69,11 +69,6 @@ import { EmailChangeModal } from './account/email-change-modal';
 
 type AccountSubsection = AccountTab;
 type WorkProfile = Exclude<ActiveProfile, 'client'>;
-type Profiles = {
-    client: ClientProfile | null;
-    musician: MusicianProfile | null;
-    owner: OwnerProfile | null;
-};
 
 function isValidEmail(value: string): boolean {
     const trimmed = value.trim();

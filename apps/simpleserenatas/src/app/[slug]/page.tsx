@@ -34,5 +34,5 @@ export default async function MariachiPublicProfilePage({ params }: PageProps) {
     if (isReservedPublicSlug(slug)) notFound();
     const profile = await fetchPublicMariachiBySlug(slug);
     if (!profile) notFound();
-    return <PublicMariachiPage slug={slug} />;
+    return <PublicMariachiPage slug={slug} initialData={profile} />;
 }

@@ -3,7 +3,7 @@
 import { PanelButton } from '@simple/ui/panel';
 import { IconChevronRight, IconMapPin, IconMusic, IconRosetteDiscountCheck } from '@tabler/icons-react';
 import type { ProviderGroup } from '@/lib/serenatas-api';
-import { GroupRatingDisplay } from '@/components/public/group-rating-display';
+import { GroupCardRatingBadge } from '@/components/marketplace/group-card-rating-badge';
 import {
     extraServicesCount,
     groupDescriptionFallback,
@@ -50,11 +50,7 @@ export function MarketplaceGroupCard({
                         className="pointer-events-none absolute inset-0 bg-gradient-to-t from-surface via-surface/25 to-transparent"
                         aria-hidden
                     />
-                    {rating.count > 0 ? (
-                        <span className="absolute right-2.5 top-2.5 rounded-full border border-border/80 bg-surface/90 px-2 py-0.5 shadow-sm backdrop-blur-sm">
-                            <GroupRatingDisplay group={group} size="sm" showCount={false} />
-                        </span>
-                    ) : null}
+                    <GroupCardRatingBadge group={group} />
                 </div>
 
                 <div className="flex flex-1 flex-col gap-3 px-4 pb-4 pt-4">

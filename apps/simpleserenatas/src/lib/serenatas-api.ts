@@ -556,7 +556,6 @@ export const serenatasApi = {
     setMusicianAvailableNow: (availableNow: boolean) => request<{ profile: MusicianProfile }>('/profiles/musician', { method: 'PUT', body: JSON.stringify({ availableNow }) }),
     saveOwnerProfile: (payload: Partial<OwnerProfile>) => request<{ profile: OwnerProfile }>('/profiles/owner', { method: 'PUT', body: JSON.stringify(payload) }),
     /** Alta gratuita de dueño (ruta legacy `start-trial`). */
-    startOwnerTrial: () => request<{ profile: OwnerProfile }>('/subscriptions/owner/start-trial', { method: 'POST' }),
     registerOwner: () => request<{ profile: OwnerProfile }>('/subscriptions/owner/start-trial', { method: 'POST' }),
     musicians: () => request<{ items: MusicianDirectoryItem[] }>('/musicians'),
     musicianProfile: (musicianId: string) => request<{ item: MusicianPublicProfile }>(`/musicians/${musicianId}`),

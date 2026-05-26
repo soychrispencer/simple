@@ -260,7 +260,7 @@ export function legacyQueryToPanelPath(search: string, options?: LegacyQueryToPa
     return qs ? `${path}?${qs}` : path;
 }
 
-/** `?grupo=` en `/panel/grupo` o `/panel/grupos` → `/panel/grupo/{slug}`. */
+/** `?grupo=` en rutas legacy del panel → perfil público `/{slug}`. */
 export function resolveGrupoQueryRedirect(pathname: string, search: string): string | null {
     const params = new URLSearchParams(search.startsWith('?') ? search.slice(1) : search);
     const grupo = params.get('grupo')?.trim();

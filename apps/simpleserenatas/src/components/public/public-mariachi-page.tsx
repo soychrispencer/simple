@@ -6,10 +6,16 @@ import { PanelNotice } from '@simple/ui/panel';
 import { ScreenShell } from '@/components/layout/screen-shell';
 import { SerenatasChromeHeader } from '@/components/layout/serenatas-chrome-header';
 import { MariachiProfileContent } from '@/components/public/mariachi-profile-content';
-import { useMarketplaceGroup } from '@/hooks/use-marketplace-group';
+import { useMarketplaceGroup, type MarketplaceGroupData } from '@/hooks/use-marketplace-group';
 
-export function PublicMariachiPage({ slug }: { slug: string }) {
-    const { group, services, loading, error } = useMarketplaceGroup(slug);
+export function PublicMariachiPage({
+    slug,
+    initialData,
+}: {
+    slug: string;
+    initialData?: MarketplaceGroupData;
+}) {
+    const { group, services, loading, error } = useMarketplaceGroup(slug, { fallbackData: initialData });
 
     return (
         <ScreenShell>
