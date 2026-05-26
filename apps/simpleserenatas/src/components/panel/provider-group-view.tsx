@@ -55,12 +55,14 @@ export function ProviderGroupView({ refresh }: { refresh: () => Promise<void> })
         const response = await serenatasApi.createProviderGroup({
             name: name.trim(),
             description: description.trim() || null,
+            logoUrl: logoUrl.trim() || null,
+            coverUrl: coverUrl.trim() || null,
             phone: phone.trim() || null,
             whatsapp: whatsapp.trim() || null,
             region: region || null,
             comunaBase: comunaBase || null,
             serviceComunas,
-            status: 'active',
+            status: 'draft',
         });
         if (!response.ok) {
             setSaveStatus({ loading: false, error: response.error ?? 'No pudimos crear tus datos comerciales.', ok: null });
@@ -70,7 +72,7 @@ export function ProviderGroupView({ refresh }: { refresh: () => Promise<void> })
         setSaveStatus({
             loading: false,
             error: null,
-            ok: 'Mariachi creado. Revisa Publicar para activar tu página y compartir el link.',
+            ok: 'Mariachi creado. Agrega portada, logo y servicios antes de publicarlo.',
         });
         await refresh();
     }
@@ -126,6 +128,14 @@ export function ProviderGroupView({ refresh }: { refresh: () => Promise<void> })
                 <PanelCard>
                     <h3 className="text-lg font-semibold text-[var(--fg)]">Datos comerciales</h3>
                     <div className="mt-5 grid gap-4">
+                        <ProviderGroupBrandImages
+                            name={name}
+                            logoUrl={logoUrl}
+                            coverUrl={coverUrl}
+                            onLogoChange={setLogoUrl}
+                            onCoverChange={setCoverUrl}
+                            onError={(message) => setSaveStatus({ loading: false, error: message, ok: null })}
+                        />
                         <PanelField label="Nombre del mariachi">
                             <FieldInput value={name} onChange={(e) => setName(e.target.value)} placeholder="Mariachi Los Reyes" />
                         </PanelField>
@@ -144,7 +154,7 @@ export function ProviderGroupView({ refresh }: { refresh: () => Promise<void> })
                             onWhatsappChange={setWhatsapp}
                         />
                         <PanelButton disabled={saveStatus.loading || name.trim().length < 2} onClick={() => void createMariachiProfile()}>
-                            Crear y publicar en marketplace
+                            Crear mariachi
                         </PanelButton>
                     </div>
                 </PanelCard>

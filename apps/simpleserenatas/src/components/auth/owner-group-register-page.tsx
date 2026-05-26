@@ -178,14 +178,14 @@ export function OwnerGroupRegisterPage() {
                     <button
                         type="button"
                         onClick={goBack}
-                        className="mb-6 inline-flex items-center gap-1.5 text-sm font-medium landing-text-secondary transition hover:landing-text-accent"
+                        className="mb-6 inline-flex items-center gap-1.5 text-sm font-medium text-fg-secondary transition hover:text-accent"
                     >
                         <IconArrowLeft size={18} />
                         Volver
                     </button>
 
                     <div className="mb-8 flex justify-center">
-                        <Link href="/" className="inline-flex items-center gap-2 font-bold landing-text-fg">
+                        <Link href="/" className="inline-flex items-center gap-2 font-bold text-fg">
                             <span className="auth-register-logo flex h-9 w-9 items-center justify-center rounded-xl text-white">
                                 <IconUsersGroup size={20} stroke={1.75} />
                             </span>
@@ -196,14 +196,14 @@ export function OwnerGroupRegisterPage() {
                     {showForm ? (
                         <>
                             <RegisterProgress step={step} total={TOTAL_STEPS} />
-                            <h1 className="mt-6 text-2xl font-bold tracking-tight landing-text-fg sm:text-3xl">
+                            <h1 className="mt-6 text-2xl font-bold tracking-tight text-fg sm:text-3xl">
                                 {step === 1
                                     ? 'Crea tu cuenta de dueño'
                                     : step === 2
                                       ? 'Datos de acceso'
                                       : 'Confirma y crea tu cuenta'}
                             </h1>
-                            <p className="mt-2 text-sm landing-text-muted sm:text-base">
+                            <p className="mt-2 text-sm text-fg-muted sm:text-base">
                                 {step === 1
                                     ? 'Indica el nombre de tu mariachi o grupo y tu nombre como dueño.'
                                     : step === 2
@@ -273,7 +273,7 @@ export function OwnerGroupRegisterPage() {
                                             />
                                             {password ? (
                                                 <p
-                                                    className={`text-xs ${passwordStrength === 'Débil' ? 'auth-text-danger' : 'landing-text-muted'}`}
+                                                    className={`text-xs ${passwordStrength === 'Débil' ? 'auth-text-danger' : 'text-fg-muted'}`}
                                                 >
                                                     Fortaleza: {passwordStrength}
                                                 </p>
@@ -292,11 +292,11 @@ export function OwnerGroupRegisterPage() {
                                     ) : null}
 
                                     {step === 3 ? (
-                                        <div className="space-y-3 rounded-xl border p-4 text-sm landing-border landing-bg-subtle">
+                                        <div className="space-y-3 rounded-xl border p-4 text-sm border-border bg-bg-subtle">
                                             <SummaryRow label="Mariachi / grupo" value={groupName.trim()} />
                                             <SummaryRow label="Dueño" value={coordinatorName.trim()} />
                                             <SummaryRow label="Correo" value={email.trim()} />
-                                            <p className="pt-1 text-xs landing-text-muted">
+                                            <p className="pt-1 text-xs text-fg-muted">
                                                 Al crear tu cuenta activarás el perfil de dueño sin costo ni tarjeta.
                                             </p>
                                         </div>
@@ -321,7 +321,7 @@ export function OwnerGroupRegisterPage() {
                                         <>
                                             <div className="flex items-center gap-3 py-1">
                                                 <div className="h-px flex-1 bg-[var(--border)]" />
-                                                <span className="text-xs landing-text-muted">o</span>
+                                                <span className="text-xs text-fg-muted">o</span>
                                                 <div className="h-px flex-1 bg-[var(--border)]" />
                                             </div>
                                             <GoogleLoginButton
@@ -341,11 +341,11 @@ export function OwnerGroupRegisterPage() {
                                         </>
                                     ) : null}
 
-                                    <p className="text-center text-sm landing-text-muted">
+                                    <p className="text-center text-sm text-fg-muted">
                                         ¿Ya tienes cuenta?{' '}
                                         <button
                                             type="button"
-                                            className="font-semibold landing-text-accent hover:underline"
+                                            className="font-semibold text-accent hover:underline"
                                             onClick={() => openAuth('login')}
                                         >
                                             Iniciar sesión
@@ -391,7 +391,7 @@ function AdminRegisterBrandMobile() {
 function RegisterProgress({ step, total }: { step: number; total: number }) {
     return (
         <div>
-            <p className="text-center text-[11px] font-bold uppercase tracking-[0.2em] landing-text-muted">
+            <p className="text-center text-[11px] font-bold uppercase tracking-[0.2em] text-fg-muted">
                 Paso {step} de {total}
             </p>
             <div className="mt-3 flex gap-2">
@@ -427,9 +427,9 @@ function AuthField({
 }) {
     return (
         <label className="block">
-            <span className="mb-1.5 block text-sm font-medium landing-text-fg">{label}</span>
+            <span className="mb-1.5 block text-sm font-medium text-fg">{label}</span>
             <div className="relative flex items-center">
-                <Icon size={16} className="pointer-events-none absolute left-3 landing-text-muted" />
+                <Icon size={16} className="pointer-events-none absolute left-3 text-fg-muted" />
                 <input
                     type={type}
                     value={value}
@@ -451,9 +451,9 @@ function AuthField({
 
 function SummaryRow({ label, value }: { label: string; value: string }) {
     return (
-        <div className="flex items-start justify-between gap-4 border-b pb-3 last:border-b-0 last:pb-0 landing-border">
-            <span className="landing-text-muted">{label}</span>
-            <span className="text-right font-semibold landing-text-fg">{value}</span>
+        <div className="flex items-start justify-between gap-4 border-b pb-3 last:border-b-0 last:pb-0 border-border">
+            <span className="text-fg-muted">{label}</span>
+            <span className="text-right font-semibold text-fg">{value}</span>
         </div>
     );
 }
@@ -476,9 +476,9 @@ function VerifyEmailPanel({
             <div className="auth-icon-success mx-auto mb-4 inline-flex h-16 w-16 items-center justify-center rounded-full">
                 <IconMailCheck size={32} />
             </div>
-            <h1 className="text-2xl font-bold landing-text-fg">Verifica tu correo</h1>
-            <p className="mt-2 text-sm landing-text-muted">
-                Enviamos un enlace a <span className="font-semibold landing-text-fg">{email}</span>. Confírmalo para
+            <h1 className="text-2xl font-bold text-fg">Verifica tu correo</h1>
+            <p className="mt-2 text-sm text-fg-muted">
+                Enviamos un enlace a <span className="font-semibold text-fg">{email}</span>. Confírmalo para
                 entrar al panel de dueño.
             </p>
             {error ? (
@@ -489,7 +489,7 @@ function VerifyEmailPanel({
             <PanelButton type="button" variant="secondary" className="mt-6 w-full" disabled={submitting} onClick={onResend}>
                 {submitting ? 'Reenviando…' : 'Reenviar correo de confirmación'}
             </PanelButton>
-            <button type="button" className="mt-4 text-sm font-medium landing-text-accent hover:underline" onClick={onLogin}>
+            <button type="button" className="mt-4 text-sm font-medium text-accent hover:underline" onClick={onLogin}>
                 Volver a iniciar sesión
             </button>
         </div>

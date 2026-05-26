@@ -44,8 +44,8 @@ export function GroupRatingDisplay({
     const label = formatGroupRating(group);
     const starSize = size === 'sm' ? 13 : 15;
     const textClass = size === 'sm' ? 'text-sm' : 'text-base';
-    const valueClass = onDark ? 'text-white' : 'landing-text-fg';
-    const countClass = onDark ? 'text-white/80' : 'landing-text-muted';
+    const valueClass = onDark ? 'text-white' : 'text-fg';
+    const countClass = onDark ? 'text-white/80' : 'text-fg-muted';
 
     return (
         <div

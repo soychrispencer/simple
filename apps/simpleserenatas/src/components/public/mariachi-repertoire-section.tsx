@@ -40,7 +40,7 @@ export function MariachiRepertoireSection({ groupSlug }: { groupSlug: string }) 
 
     if (loading) {
         return (
-            <p className="text-sm text-fg-muted">Cargando repertorio…</p>
+            <div className="h-24 animate-pulse rounded-xl border border-border bg-bg-subtle/60" aria-hidden />
         );
     }
 
@@ -60,21 +60,30 @@ export function MariachiRepertoireSection({ groupSlug }: { groupSlug: string }) 
                         </p>
                         {tagCounts.length > 0 ? (
                             <div className="mt-2 flex flex-wrap gap-1.5">
-                                {tagCounts.map(([tag, count]) => (
-                                    <PanelStatusBadge
+                                {tagCounts.map(([tag, count], index) => (
+                                    <span
                                         key={tag}
-                                        label={`${tag} (${count})`}
-                                        tone="neutral"
-                                        size="xs"
-                                    />
+                                        className={index >= 3 ? 'hidden sm:inline-flex' : 'inline-flex'}
+                                    >
+                                        <PanelStatusBadge
+                                            label={`${tag} (${count})`}
+                                            tone="neutral"
+                                            size="xs"
+                                        />
+                                    </span>
                                 ))}
+                                {tagCounts.length > 3 ? (
+                                    <span className="inline-flex items-center rounded-full bg-bg-subtle px-2 py-0.5 text-[10px] font-medium text-fg-muted sm:hidden">
+                                        +{tagCounts.length - 3}
+                                    </span>
+                                ) : null}
                             </div>
                         ) : null}
                     </div>
                 </div>
                 <PanelButton
                     type="button"
-                    variant="secondary"
+                    variant="accent"
                     size="sm"
                     className="w-full shrink-0 sm:w-auto"
                     onClick={() => setModalOpen(true)}

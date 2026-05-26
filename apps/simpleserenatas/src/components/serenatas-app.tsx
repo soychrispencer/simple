@@ -10,7 +10,6 @@ import { useLogoutAndGoHome } from '@/hooks/use-logout-and-go-home';
 import { useSerenata, type Section } from '@/context/serenata-context';
 import { ScreenShell } from '@/components/layout/screen-shell';
 import { PublicLanding } from '@/components/auth/public-landing';
-import { defaultPublicLinks } from '@/components/layout/landing-header';
 import { EmailVerificationGate } from '@/components/auth/email-verification-gate';
 
 // Modular Panel Parts
@@ -118,11 +117,7 @@ export function SerenatasApp() {
                 <PublicLanding
                     isLoggedIn
                     header={
-                        <SerenatasChromeHeader
-                            mode={mode}
-                            profiles={profiles}
-                            publicLinks={defaultPublicLinks}
-                        />
+                        <SerenatasChromeHeader mode={mode} profiles={profiles} />
                     }
                     onLogin={() => openAuth('login')}
                     onRegisterClient={() => openRegisterAs('client')}

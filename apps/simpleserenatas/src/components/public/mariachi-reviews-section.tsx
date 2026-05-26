@@ -42,7 +42,8 @@ export function MariachiReviewsSection({ group }: { group: ProviderGroup }) {
     if (summary.count <= 0) return null;
 
     return (
-        <PanelCard className="min-w-0 p-5 sm:p-6">
+        <section id="valoraciones" className="scroll-mt-24">
+            <PanelCard className="min-w-0 p-5 sm:p-6">
             <div className="flex flex-wrap items-center justify-between gap-3">
                 <h2 className="text-lg font-semibold text-fg">Valoraciones</h2>
                 <GroupRatingDisplay group={group} size="md" />
@@ -75,6 +76,7 @@ export function MariachiReviewsSection({ group }: { group: ProviderGroup }) {
                     ))}
                 </ul>
             )}
-        </PanelCard>
+            </PanelCard>
+        </section>
     );
 }

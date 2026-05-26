@@ -29,7 +29,7 @@ export async function applyOwnerSignupDrafts(options?: {
 
     await serenatasApi.createProviderGroup({
         name: groupName.trim(),
-        status: 'active',
+        status: 'draft',
     });
     consumeSignupGroupName();
 }

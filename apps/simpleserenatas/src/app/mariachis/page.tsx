@@ -11,7 +11,7 @@ export default function MariachisCatalogPage() {
     return (
         <Suspense
             fallback={
-                <div className="flex min-h-[50vh] items-center justify-center text-sm landing-text-muted">
+                <div className="flex min-h-[50vh] items-center justify-center text-sm text-fg-muted">
                     Cargando mariachis…
                 </div>
             }

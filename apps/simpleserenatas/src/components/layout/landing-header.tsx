@@ -7,15 +7,16 @@ import { MarketplaceHeader } from '@simple/marketplace-header';
 import { ThemeToggleButton } from '@simple/ui/theme';
 import { clearSavedMariachisCache, syncSavedMariachisFromApi } from '@/lib/saved-mariachis';
 
-export const defaultPublicLinks = [
-    { href: '/mariachis', label: 'Mariachis' },
-    { href: '/#para-clientes', label: 'Clientes' },
-    { href: '/#musicos', label: 'Músicos' },
-    { href: '/para-duenos', label: 'Dueños' },
-    { href: '/#como-funciona', label: 'Cómo funciona' },
-];
-
 type PublicLink = { href: string; label: string };
+
+/** Sin pestañas de audiencia en header (Inicio / explorar van en menú móvil del panel). */
+export const defaultPublicLinks: PublicLink[] = [];
+
+/** Enlaces del marketplace en menú móvil (panel y ficha pública). */
+export const serenatasExploreNavLinks: PublicLink[] = [
+    { href: '/', label: 'Inicio' },
+    { href: '/mariachis', label: 'Explorar mariachis' },
+];
 
 type LandingHeaderProps = {
     onLogin: () => void;
@@ -76,13 +77,13 @@ export function LandingHeader({ onLogin, onRegister, publicLinks = defaultPublic
                     >
                         Iniciar sesión
                     </button>
-                    <div className="my-2 border-t landing-border" role="presentation" />
+                    <div className="my-2 border-t border-border" role="presentation" />
                     {publicLinks.map((l) => (
                         <Link
                             key={l.href}
                             href={l.href}
                             onClick={closeMenu}
-                            className="flex items-center gap-2 rounded-button px-2.5 py-2 text-sm landing-text-secondary transition-colors hover:bg-[var(--bg-subtle)]"
+                            className="flex items-center gap-2 rounded-button px-2.5 py-2 text-sm text-fg-secondary transition-colors hover:bg-[var(--bg-subtle)]"
                         >
                             {l.label}
                         </Link>

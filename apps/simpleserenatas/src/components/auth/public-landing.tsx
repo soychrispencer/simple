@@ -25,6 +25,7 @@ import {
     type MarketplaceSearchFilters,
 } from '@/lib/marketplace-search';
 import { serenatasApi, type ProviderGroup } from '@/lib/serenatas-api';
+import { useLandingHashScroll } from '@/hooks/use-landing-hash-scroll';
 
 type PublicLandingProps = {
     onLogin: () => void;
@@ -58,6 +59,7 @@ export function PublicLanding({
     isLoggedIn = false,
 }: PublicLandingProps) {
     const router = useRouter();
+    useLandingHashScroll();
     const [search, setSearch] = useState<MarketplaceSearchFilters>(defaultLandingSearch);
     const [featured, setFeatured] = useState<ProviderGroup[]>([]);
     const [featuredStatus, setFeaturedStatus] = useState<FeaturedStatus>({ loading: true, error: null });
@@ -102,7 +104,7 @@ export function PublicLanding({
             {header ?? <LandingHeader onLogin={onLogin} onRegister={onRegisterClient} />}
 
             <main className="flex-1">
-                <section id="hero" className="relative isolate overflow-hidden border-b landing-border">
+                <section id="hero" className="relative isolate overflow-hidden border-b border-border">
                     <img
                         src={HERO_IMAGE}
                         alt="Mariachis tocando en una celebración"
@@ -161,31 +163,31 @@ export function PublicLanding({
                     </div>
                 </section>
 
-                <section id="destacados" className="scroll-mt-24 border-b py-14 landing-border sm:py-18">
+                <section id="destacados" className="scroll-mt-24 border-b py-14 border-border sm:py-18">
                     <div className="container-app max-w-6xl">
                         <div className="mb-7 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
                             <div>
-                                <p className="text-xs font-semibold uppercase tracking-[0.18em] landing-text-accent">
+                                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-accent">
                                     Marketplace
                                 </p>
-                                <h2 className="mt-2 text-3xl font-bold tracking-tight landing-text-fg sm:text-4xl">
+                                <h2 className="mt-2 text-3xl font-bold tracking-tight text-fg sm:text-4xl">
                                     Mariachis destacados
                                 </h2>
-                                <p className="mt-2 max-w-2xl text-sm landing-text-muted">
+                                <p className="mt-2 max-w-2xl text-sm text-fg-muted">
                                     Una muestra del catálogo. Filtra por zona, nombre y fecha con cupo disponible.
                                 </p>
                             </div>
                             <Link
                                 href="/mariachis"
-                                className="btn btn-outline h-11 px-5 text-sm font-semibold sm:self-center"
+                                className="btn btn-secondary h-11 px-5 text-sm font-semibold sm:self-center"
                             >
                                 Ver todos
                                 <IconChevronRight size={17} />
                             </Link>
                         </div>
                         {featuredStatus.loading ? null : featured.length === 0 ? (
-                            <div className="rounded-card border p-8 text-center landing-border landing-bg-surface">
-                                <p className="text-sm landing-text-muted">
+                            <div className="rounded-card border p-8 text-center border-border bg-surface">
+                                <p className="text-sm text-fg-muted">
                                     {featuredStatus.error ?? 'Aún no hay mariachis publicados en el catálogo.'}
                                 </p>
                                 <Link href="/mariachis" className="btn btn-primary mt-4 inline-flex h-11 px-6 font-semibold">
@@ -207,14 +209,14 @@ export function PublicLanding({
                     </div>
                 </section>
 
-                <section id="como-funciona" className="border-b py-14 landing-border landing-bg-subtle scroll-mt-20 sm:py-18">
+                <section id="como-funciona" className="border-b py-14 border-border bg-bg-subtle scroll-mt-20 sm:py-18">
                     <div className="container-app max-w-6xl">
                         <div className="grid gap-8 lg:grid-cols-[0.8fr_1.2fr] lg:items-start">
                             <div>
-                                <p className="text-xs font-semibold uppercase tracking-[0.18em] landing-text-accent">
+                                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-accent">
                                     Cómo funciona
                                 </p>
-                                <h2 className="mt-2 text-3xl font-bold tracking-tight landing-text-fg sm:text-4xl">
+                                <h2 className="mt-2 text-3xl font-bold tracking-tight text-fg sm:text-4xl">
                                     De la idea a la serenata en tres pasos
                                 </h2>
                             </div>
@@ -227,14 +229,14 @@ export function PublicLanding({
                     </div>
                 </section>
 
-                <section className="border-b py-14 landing-border sm:py-18">
+                <section className="border-b py-14 border-border sm:py-18">
                     <div className="container-app max-w-6xl">
                         <div className="grid gap-8 lg:grid-cols-[0.8fr_1.2fr] lg:items-center">
                             <div>
-                                <p className="text-xs font-semibold uppercase tracking-[0.18em] landing-text-accent">
+                                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-accent">
                                     Para cada ocasión
                                 </p>
-                                <h2 className="mt-2 text-3xl font-bold tracking-tight landing-text-fg sm:text-4xl">
+                                <h2 className="mt-2 text-3xl font-bold tracking-tight text-fg sm:text-4xl">
                                     La música correcta para el momento correcto
                                 </h2>
                             </div>
@@ -242,9 +244,9 @@ export function PublicLanding({
                                 {OCCASIONS.map((occasion) => (
                                     <span
                                         key={occasion}
-                                        className="inline-flex items-center gap-2 rounded-full border px-4 py-2 text-sm font-medium landing-border landing-bg-surface landing-text-secondary"
+                                        className="inline-flex items-center gap-2 rounded-full border px-4 py-2 text-sm font-medium border-border bg-surface text-fg-secondary"
                                     >
-                                        <IconHeart size={15} className="landing-text-accent" />
+                                        <IconHeart size={15} className="text-accent" />
                                         {occasion}
                                     </span>
                                 ))}
@@ -288,15 +290,15 @@ function StepCard({
     index: number;
 }) {
     return (
-        <div className="rounded-card border p-5 landing-border landing-bg-surface">
+        <div className="rounded-card border p-5 border-border bg-surface">
             <div className="mb-5 flex items-center justify-between">
                 <div className="flex size-11 items-center justify-center rounded-button bg-accent-soft text-accent">
                     <step.icon size={22} />
                 </div>
-                <span className="text-sm font-bold landing-text-muted">{String(index).padStart(2, '0')}</span>
+                <span className="text-sm font-bold text-fg-muted">{String(index).padStart(2, '0')}</span>
             </div>
-            <h3 className="text-lg font-bold landing-text-fg">{step.title}</h3>
-            <p className="mt-2 text-sm leading-relaxed landing-text-muted">{step.desc}</p>
+            <h3 className="text-lg font-bold text-fg">{step.title}</h3>
+            <p className="mt-2 text-sm leading-relaxed text-fg-muted">{step.desc}</p>
         </div>
     );
 }
@@ -324,11 +326,11 @@ function AudienceCard({
                 <Icon size={24} />
             </div>
             <div className="min-w-0 flex-1">
-                <h3 className="text-xl font-bold landing-text-fg">{title}</h3>
-                <p className="mt-1 text-sm leading-relaxed landing-text-muted">{description}</p>
+                <h3 className="text-xl font-bold text-fg">{title}</h3>
+                <p className="mt-1 text-sm leading-relaxed text-fg-muted">{description}</p>
             </div>
             <div className="shrink-0">
-                <span className={accent ? 'btn btn-primary h-11 px-5 font-semibold' : 'btn btn-outline h-11 px-5 font-semibold'}>
+                <span className={accent ? 'btn btn-primary h-11 px-5 font-semibold' : 'btn btn-secondary h-11 px-5 font-semibold'}>
                     {cta}
                     <IconChevronRight size={17} />
                 </span>
@@ -337,7 +339,7 @@ function AudienceCard({
     );
 
     const className =
-        'flex flex-col gap-5 rounded-card border p-5 landing-border landing-bg-surface shadow-sm sm:flex-row sm:items-center sm:p-6';
+        'flex flex-col gap-5 rounded-card border p-5 border-border bg-surface shadow-sm sm:flex-row sm:items-center sm:p-6';
 
     if (href) {
         return (

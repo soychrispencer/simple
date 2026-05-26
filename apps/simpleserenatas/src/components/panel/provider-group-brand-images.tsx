@@ -43,7 +43,7 @@ export function ProviderGroupBrandImages({
             <div className="overflow-hidden rounded-card border border-border bg-surface shadow-sm">
                 <div className="relative">
                     <div
-                        className="h-36 w-full bg-cover bg-center bg-accent-soft sm:h-40"
+                        className="aspect-[16/9] w-full bg-cover bg-center bg-accent-soft"
                         style={
                             coverUrl
                                 ? { backgroundImage: `url('${encodeURI(coverUrl)}')` }
@@ -63,7 +63,7 @@ export function ProviderGroupBrandImages({
                         ) : (
                             <IconPlus size={14} stroke={2.5} aria-hidden />
                         )}
-                        Portada
+                        {coverUrl ? 'Cambiar portada' : 'Agregar portada'}
                     </button>
                 </div>
 
@@ -108,6 +108,11 @@ export function ProviderGroupBrandImages({
                             <p className="text-xs text-fg-muted">Vista previa del marketplace</p>
                         </div>
                     </div>
+                    <div className="mt-4 rounded-xl border border-border bg-bg-subtle px-3 py-2.5 text-xs leading-relaxed text-fg-muted">
+                        <strong className="text-fg">Obligatorio para publicar:</strong> portada 16:9
+                        recomendada 1600x900 px y logo cuadrado recomendado 512x512 px. Son las mismas
+                        proporciones que se usan en la tarjeta y en la ficha pública.
+                    </div>
                 </div>
             </div>
 
@@ -117,8 +122,8 @@ export function ProviderGroupBrandImages({
                 currentUrl={logoUrl}
                 config={{
                     maxSize: 5120,
-                    maxWidth: 256,
-                    maxHeight: 256,
+                    maxWidth: 512,
+                    maxHeight: 512,
                     aspectRatio: 1,
                     circular: false,
                     onUpload: async (_file, croppedBlob) => {
@@ -148,8 +153,8 @@ export function ProviderGroupBrandImages({
                 currentUrl={coverUrl}
                 config={{
                     maxSize: 8192,
-                    maxWidth: 1280,
-                    maxHeight: 720,
+                    maxWidth: 1600,
+                    maxHeight: 900,
                     aspectRatio: 16 / 9,
                     circular: false,
                     onUpload: async (_file, croppedBlob) => {

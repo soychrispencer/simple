@@ -16,6 +16,7 @@ import {
 import { useSerenataOptional } from '@/context/serenata-context';
 import { sectionFromPanelPath } from '@/lib/panel-routes';
 import { clearSavedMariachisCache, syncSavedMariachisFromApi } from '@/lib/saved-mariachis';
+import { serenatasExploreNavLinks } from '@/components/layout/landing-header';
 
 type PublicLink = { href: string; label: string };
 
@@ -30,7 +31,7 @@ type SerenatasChromeHeaderProps = {
 };
 
 export function SerenatasChromeHeader({
-    publicLinks = [],
+    publicLinks = serenatasExploreNavLinks,
     homeHref = '/',
     mode: modeProp,
     profiles: profilesProp,
@@ -84,8 +85,8 @@ export function SerenatasChromeHeader({
     );
 
     const primaryAction = useMemo(
-        () => getPrimaryActionConfig(modeReady, profilesReady!),
-        [modeReady, profilesReady],
+        () => getPrimaryActionConfig(modeReady, profilesReady!, pathname),
+        [modeReady, pathname, profilesReady],
     );
 
     const savedMariachis = useMemo(
@@ -143,18 +144,6 @@ export function SerenatasChromeHeader({
             primaryActionHref={primaryAction.href}
             primaryActionIcon={primaryAction.icon}
             showPrimaryAction={showPrimaryAction && !isSuspended && primaryAction.show}
-            renderMobileMenu={(closeMenu) => (
-                <button
-                    type="button"
-                    className="btn btn-ghost mb-2 h-10 w-full text-sm font-medium"
-                    onClick={() => {
-                        closeMenu();
-                        window.dispatchEvent(new Event('simple:panel-mobile-open'));
-                    }}
-                >
-                    Abrir menú del panel
-                </button>
-            )}
         />
     );
 }

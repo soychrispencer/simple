@@ -5,9 +5,9 @@ import {
     extraServicesCount,
     filterMarketplaceGroupsByName,
     formatGroupRating,
+    isRecentlyCreatedGroup,
     normalizeGroupRating,
     sortMarketplaceGroups,
-    verificationBadgeLabel,
 } from './marketplace-group-display';
 
 function baseGroup(overrides: Partial<ProviderGroup> = {}): ProviderGroup {
@@ -43,11 +43,6 @@ describe('marketplace-group-display', () => {
         expect(normalizeGroupRating(baseGroup({ ratingCount: 3 }))).toEqual({ average: 4.5, count: 3 });
     });
 
-    it('solo muestra badge verificado cuando aplica', () => {
-        expect(verificationBadgeLabel(baseGroup({ isVerified: true }))).toBe('Verificado');
-        expect(verificationBadgeLabel(baseGroup({ isVerified: false }))).toBeNull();
-    });
-
     it('filtra y ordena por precio', () => {
         const items = [
             baseGroup({ id: 'a', name: 'Mariachi Sol', startingPrice: 90000 }),
@@ -68,5 +63,12 @@ describe('marketplace-group-display', () => {
 
     it('cuenta servicios extra en preview', () => {
         expect(extraServicesCount(baseGroup({ activeServicesCount: 5, servicesPreview: [{ id: '1', name: 'A', price: 1, musiciansCount: 4, durationMinutes: 60, songsIncluded: 0 }] }))).toBe(4);
+    });
+
+    it('detecta mariachis registrados recientemente sin mezclarlo con valoraciones', () => {
+        const now = Date.parse('2026-05-26T12:00:00.000Z');
+        expect(isRecentlyCreatedGroup(baseGroup({ createdAt: '2026-05-20T12:00:00.000Z' }), 45, now)).toBe(true);
+        expect(isRecentlyCreatedGroup(baseGroup({ createdAt: '2026-03-01T12:00:00.000Z' }), 45, now)).toBe(false);
+        expect(isRecentlyCreatedGroup(baseGroup({ createdAt: '' }), 45, now)).toBe(false);
     });
 });

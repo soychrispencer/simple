@@ -9,6 +9,7 @@ import { serenatasApi } from '@/lib/serenatas-api';
 import { useMyMariachi } from '@/hooks/use-my-mariachi';
 import { panelMiNegocioHref } from '@/lib/panel-routes';
 import { publicMariachiProfileUrl } from '@/lib/public-mariachi-routes';
+import { providerPublicMediaMissing } from '@/lib/marketplace-group-display';
 import { EmptyBlock } from './shared';
 import { ProviderPublicProfileLink, ProviderPublishQrPanel } from './provider-public-profile-link';
 
@@ -29,6 +30,11 @@ export function ProviderPublishView({ refresh }: { refresh: () => Promise<void> 
     const [toggleSaved, setToggleSaved] = useState(false);
 
     const isPublished = mariachi?.status === 'active';
+    const publishMissing = useMemo(
+        () => (mariachi ? providerPublicMediaMissing(mariachi) : []),
+        [mariachi?.logoUrl, mariachi?.coverUrl],
+    );
+    const canPublish = publishMissing.length === 0;
     const publicUrl = useMemo(
         () => (mariachi ? publicMariachiProfileUrl(mariachi.slug, APP_URL || undefined) : ''),
         [mariachi?.slug],
@@ -36,6 +42,10 @@ export function ProviderPublishView({ refresh }: { refresh: () => Promise<void> 
 
     async function handleTogglePublish(next: boolean) {
         if (!mariachi) return;
+        if (next && !canPublish) {
+            setToggleError(`Antes de publicar agrega ${publishMissing.join(' y ')} en Datos comerciales.`);
+            return;
+        }
         setToggling(true);
         setToggleError('');
         setToggleSaved(false);
@@ -120,6 +130,11 @@ export function ProviderPublishView({ refresh }: { refresh: () => Promise<void> 
                                         ? 'Los clientes pueden encontrarte en el marketplace y abrir tu página pública.'
                                         : 'Tu página y listado quedan ocultos. Puedes seguir editando datos y servicios.'}
                                 </p>
+                                {!isPublished && !canPublish ? (
+                                    <p className="mt-2 text-xs font-medium text-[var(--color-warning-text,#92400e)]">
+                                        Falta {publishMissing.join(' y ')} para publicar la ficha con buena presentación.
+                                    </p>
+                                ) : null}
                             </div>
                             <div className="flex shrink-0 items-center gap-3 sm:flex-col sm:items-end lg:flex-row lg:items-center">
                                 {toggling ? (
@@ -128,11 +143,31 @@ export function ProviderPublishView({ refresh }: { refresh: () => Promise<void> 
                                     <PanelSwitch
                                         checked={isPublished}
                                         onChange={(next) => void handleTogglePublish(next)}
+                                        disabled={!isPublished && !canPublish}
                                         ariaLabel={isPublished ? 'Ocultar en marketplace' : 'Publicar en marketplace'}
                                     />
                                 )}
                             </div>
                         </div>
+                        {!isPublished && !canPublish ? (
+                            <PanelNotice tone="warning" className="mt-4">
+                                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                                    <span>
+                                        La portada debe ser 16:9 y el logo cuadrado. Esas imágenes se usan en el
+                                        catálogo, la tarjeta y la ficha pública.
+                                    </span>
+                                    <PanelButton
+                                        type="button"
+                                        variant="secondary"
+                                        size="sm"
+                                        className="shrink-0"
+                                        onClick={() => router.push(panelMiNegocioHref('datos'))}
+                                    >
+                                        Completar imágenes
+                                    </PanelButton>
+                                </div>
+                            </PanelNotice>
+                        ) : null}
                         {toggleError ? (
                             <p className="mt-3 text-xs text-[var(--color-error)]">{toggleError}</p>
                         ) : null}

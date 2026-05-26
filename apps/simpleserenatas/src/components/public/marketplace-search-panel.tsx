@@ -27,7 +27,7 @@ export function MarketplaceSearchPanel({
     return (
         <form className="rounded-card border border-border bg-surface p-3 shadow-xl sm:p-4" onSubmit={onSubmit}>
             <label className="mb-3 grid gap-1.5 rounded-button border border-border bg-bg-subtle px-4 py-3">
-                <span className="flex items-center gap-2 text-xs font-medium landing-text-muted">
+                <span className="flex items-center gap-2 text-xs font-medium text-fg-muted">
                     <IconMusic size={15} />
                     Nombre del mariachi
                 </span>
@@ -42,7 +42,7 @@ export function MarketplaceSearchPanel({
             </label>
             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-[1fr_1fr_1fr_auto]">
                 <label className="grid gap-1.5 rounded-button border border-border bg-bg-subtle px-4 py-3">
-                    <span className="flex items-center gap-2 text-xs font-medium landing-text-muted">
+                    <span className="flex items-center gap-2 text-xs font-medium text-fg-muted">
                         <IconShield size={15} />
                         Región
                     </span>
@@ -61,7 +61,7 @@ export function MarketplaceSearchPanel({
                     </select>
                 </label>
                 <label className="grid gap-1.5 rounded-button border border-border bg-bg-subtle px-4 py-3">
-                    <span className="flex items-center gap-2 text-xs font-medium landing-text-muted">
+                    <span className="flex items-center gap-2 text-xs font-medium text-fg-muted">
                         <IconMapPin size={15} />
                         Comuna
                     </span>
@@ -78,7 +78,7 @@ export function MarketplaceSearchPanel({
                     </select>
                 </label>
                 <label className="grid gap-1.5 rounded-button border border-border bg-bg-subtle px-4 py-3">
-                    <span className="flex items-center gap-2 text-xs font-medium landing-text-muted">
+                    <span className="flex items-center gap-2 text-xs font-medium text-fg-muted">
                         <IconCalendar size={15} />
                         Disponible el
                     </span>

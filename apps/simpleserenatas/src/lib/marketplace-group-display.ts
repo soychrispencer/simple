@@ -1,6 +1,6 @@
 import type { ProviderBookingMode, ProviderGroup, ProviderGroupService } from '@/lib/serenatas-api';
 
-function bookingModeLabel(mode: ProviderBookingMode | null | undefined): string {
+export function bookingModeLabel(mode: ProviderBookingMode | null | undefined): string {
     switch (mode) {
         case 'auto_if_available':
             return 'Automático si hay cupo';
@@ -84,6 +84,27 @@ export function normalizeGroupRating(group: Pick<ProviderGroup, 'ratingAverage' 
     };
 }
 
+export function isRecentlyCreatedGroup(
+    group: Pick<ProviderGroup, 'createdAt'>,
+    days = 45,
+    now = Date.now(),
+): boolean {
+    const createdAt = Date.parse(group.createdAt);
+    if (!Number.isFinite(createdAt)) return false;
+    return now - createdAt >= 0 && now - createdAt <= days * 24 * 60 * 60 * 1000;
+}
+
+export function providerPublicMediaMissing(group: Pick<ProviderGroup, 'logoUrl' | 'coverUrl'>): string[] {
+    const missing: string[] = [];
+    if (!group.logoUrl?.trim()) missing.push('logo');
+    if (!group.coverUrl?.trim()) missing.push('portada');
+    return missing;
+}
+
+export function hasProviderPublicMedia(group: Pick<ProviderGroup, 'logoUrl' | 'coverUrl'>) {
+    return providerPublicMediaMissing(group).length === 0;
+}
+
 export function formatGroupRating(group: Pick<ProviderGroup, 'ratingAverage' | 'ratingCount'>): string | null {
     const { average, count } = normalizeGroupRating(group);
     if (count <= 0) return null;
@@ -94,11 +115,6 @@ export function formatGroupRatingShort(group: Pick<ProviderGroup, 'ratingAverage
     const { average, count } = normalizeGroupRating(group);
     if (count <= 0) return null;
     return average.toFixed(1);
-}
-
-export function verificationBadgeLabel(group: ProviderGroup): string | null {
-    if (group.isVerified) return 'Verificado';
-    return null;
 }
 
 export function groupDescriptionFallback(group: ProviderGroup) {
@@ -143,6 +159,7 @@ export function contactAvailabilityLabel(group: ProviderGroup) {
     return 'Por definir';
 }
 
+/** Métodos de cobro directo del mariachi (panel / uso interno). No mostrar en ficha pública del marketplace. */
 export function formatPaymentMethods(group: ProviderGroup): string[] {
     const methods: string[] = [];
     if (group.acceptsCash) methods.push('Efectivo');

@@ -14,7 +14,7 @@ import {
     IconBookmark,
 } from '@tabler/icons-react';
 import { serenatasApi, type Profiles } from '@/lib/serenatas-api';
-import { CLIENT_MARKETPLACE_HREF } from '@/lib/client-marketplace';
+import { CLIENT_MARKETPLACE_HREF, isClientMarketplaceHref } from '@/lib/client-marketplace';
 import { type AppMode, ownerFeaturesEnabled } from '@/lib/app-mode';
 import { type Section } from '@/context/serenata-context';
 import { panelSectionHref, sectionFromPanelPath } from '@/lib/panel-routes';
@@ -36,8 +36,20 @@ export type PrimaryActionConfig = {
     show: boolean;
 };
 
-export function getPrimaryActionConfig(mode: AppMode, profiles: Profiles): PrimaryActionConfig {
+export function getPrimaryActionConfig(
+    mode: AppMode,
+    profiles: Profiles,
+    pathname?: string,
+): PrimaryActionConfig {
     if (mode === 'client') {
+        if (pathname && isClientMarketplaceHref(pathname)) {
+            return {
+                label: 'Mis serenatas',
+                href: panelSectionHref('serenatas'),
+                icon: IconMusic,
+                show: true,
+            };
+        }
         return { label: 'Explorar mariachis', href: CLIENT_MARKETPLACE_HREF, icon: IconUsersGroup, show: true };
     }
     if (ownerFeaturesEnabled(profiles)) {

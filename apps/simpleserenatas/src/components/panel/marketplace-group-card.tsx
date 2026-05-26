@@ -1,23 +1,20 @@
 'use client';
 
 import { PanelButton } from '@simple/ui/panel';
-import { IconChevronRight, IconMapPin, IconMusic, IconRosetteDiscountCheck } from '@tabler/icons-react';
+import { IconChevronRight, IconMap, IconMapPin, IconMusic, IconStarFilled } from '@tabler/icons-react';
 import type { ProviderGroup } from '@/lib/serenatas-api';
-import { GroupCardRatingBadge } from '@/components/marketplace/group-card-rating-badge';
+import { GroupRatingDisplay } from '@/components/public/group-rating-display';
 import {
-    extraServicesCount,
+    cardFeaturedService,
+    extraServicesLabel,
     groupDescriptionFallback,
+    isRecentlyCreatedGroup,
     normalizeGroupRating,
     profileLocation,
-    verificationBadgeLabel,
+    zonesCoverageChip,
 } from '@/lib/marketplace-group-display';
 import { money } from './shared';
 import { MarketplaceGroupCover, MarketplaceGroupLogo } from './marketplace-group-media';
-import { MarketplaceGroupZonePills } from './marketplace-group-zones';
-
-function servicePreviewMeta(service: NonNullable<ProviderGroup['servicesPreview']>[number]) {
-    return `${service.durationMinutes} min · ${service.musiciansCount} músico${service.musiciansCount === 1 ? '' : 's'}`;
-}
 
 export function MarketplaceGroupCard({
     group,
@@ -26,11 +23,11 @@ export function MarketplaceGroupCard({
     group: ProviderGroup;
     onOpen: (slug: string) => void;
 }) {
-    const verifiedLabel = verificationBadgeLabel(group);
     const rating = normalizeGroupRating(group);
-    const extra = extraServicesCount(group);
-    const serviceCount = group.activeServicesCount ?? group.servicesPreview?.length ?? 0;
-    const hasServices = (group.servicesPreview?.length ?? 0) > 0;
+    const featured = cardFeaturedService(group);
+    const coverage = zonesCoverageChip(group);
+    const compactMoreServices = extraServicesLabel(group)?.replace(' más', '');
+    const showNewBadge = isRecentlyCreatedGroup(group);
 
     const open = () => onOpen(group.slug);
 
@@ -44,34 +41,40 @@ export function MarketplaceGroupCard({
                 aria-label={`Ver mariachi ${group.name}`}
                 onClick={open}
             >
-                <div className="relative h-28 shrink-0 overflow-hidden sm:h-32">
+                <div className="relative aspect-[16/9] shrink-0 overflow-hidden">
                     <MarketplaceGroupCover group={group} className="h-full min-h-full" />
                     <div
                         className="pointer-events-none absolute inset-0 bg-gradient-to-t from-surface via-surface/25 to-transparent"
                         aria-hidden
                     />
-                    <GroupCardRatingBadge group={group} />
+                    {showNewBadge ? (
+                        <span className="absolute left-3 top-3 rounded-full bg-surface px-3 py-1 text-xs font-semibold text-fg shadow-sm">
+                            Nuevo
+                        </span>
+                    ) : null}
                 </div>
 
                 <div className="flex flex-1 flex-col gap-3 px-4 pb-4 pt-4">
                     <header className="flex gap-3">
                         <MarketplaceGroupLogo group={group} size="md" />
                         <div className="min-w-0 flex-1 pt-0.5">
-                            <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-                                <h3 className="min-w-0 truncate text-base font-semibold leading-tight text-fg sm:text-lg">
-                                    {group.name}
-                                </h3>
-                                {verifiedLabel ? (
-                                    <span className="inline-flex shrink-0 items-center gap-0.5 rounded-full bg-accent-soft px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-accent">
-                                        <IconRosetteDiscountCheck size={11} />
-                                        {verifiedLabel}
-                                    </span>
-                                ) : null}
-                            </div>
+                            <h3 className="min-w-0 truncate text-base font-semibold leading-tight text-fg sm:text-lg">
+                                {group.name}
+                            </h3>
                             <p className="mt-1 flex items-center gap-1 text-xs text-fg-muted sm:text-sm">
                                 <IconMapPin size={13} className="shrink-0 text-fg-muted" />
                                 <span className="truncate">{profileLocation(group)}</span>
                             </p>
+                            <div className="mt-2 flex min-h-5 items-center">
+                                {rating.count > 0 ? (
+                                    <GroupRatingDisplay group={group} size="sm" />
+                                ) : (
+                                    <span className="inline-flex items-center gap-1 text-xs font-medium text-fg-muted">
+                                        <IconStarFilled size={13} className="text-amber-500/60" aria-hidden />
+                                        Sin valoraciones todavía
+                                    </span>
+                                )}
+                            </div>
                         </div>
                     </header>
 
@@ -79,53 +82,49 @@ export function MarketplaceGroupCard({
                         {groupDescriptionFallback(group)}
                     </p>
 
-                    <div className="flex items-end justify-between gap-3 rounded-xl border border-border bg-bg-subtle/80 px-3 py-2.5">
-                        <div className="min-w-0">
+                    <div className="flex items-end justify-between gap-4">
+                        <div className="min-w-0 flex-1">
+                            <p className="text-[10px] font-semibold uppercase tracking-wide text-fg-muted">
+                                Cobertura
+                            </p>
+                            <p className="mt-1 flex min-w-0 items-center gap-1.5 text-sm font-medium text-fg">
+                                <IconMap size={15} className="shrink-0 text-accent" />
+                                <span className="truncate" title={coverage?.title ?? 'Cobertura por confirmar'}>
+                                    {coverage?.label ?? 'Por confirmar'}
+                                </span>
+                            </p>
+                        </div>
+                        <div className="shrink-0 text-right">
                             <p className="text-[10px] font-semibold uppercase tracking-wide text-fg-muted">Desde</p>
-                            <p className="text-lg font-bold leading-none text-fg sm:text-xl">
+                            <p className="mt-1 text-lg font-bold leading-none text-fg sm:text-xl">
                                 {group.startingPrice ? money(group.startingPrice) : 'Consultar'}
                             </p>
                         </div>
-                        <p className="shrink-0 text-right text-xs text-fg-muted">
-                            {serviceCount > 0
-                                ? `${serviceCount} servicio${serviceCount === 1 ? '' : 's'}`
-                                : 'Sin servicios'}
-                            {extra > 0 ? (
-                                <>
-                                    <br />
-                                    <span className="text-[11px]">+{extra} en ficha</span>
-                                </>
-                            ) : null}
-                        </p>
                     </div>
 
-                    {hasServices ? (
-                        <ul className="divide-y divide-border overflow-hidden rounded-xl border border-border">
-                            {group.servicesPreview!.map((service) => (
-                                <li
-                                    key={service.id}
-                                    className="flex items-center justify-between gap-3 bg-surface px-3 py-2 first:bg-bg-subtle/40"
-                                >
-                                    <div className="min-w-0">
-                                        <p className="truncate text-sm font-medium text-fg">{service.name}</p>
-                                        <p className="text-[11px] text-fg-muted">{servicePreviewMeta(service)}</p>
-                                    </div>
-                                    <span className="shrink-0 text-sm font-semibold tabular-nums text-fg">
-                                        {money(service.price)}
-                                    </span>
-                                </li>
-                            ))}
-                        </ul>
+                    {featured ? (
+                        <div className="flex items-start justify-between gap-3 border-t border-border pt-3">
+                            <div className="min-w-0">
+                                <p className="text-[10px] font-semibold uppercase tracking-wide text-fg-muted">
+                                    Servicio principal
+                                </p>
+                                <p className="mt-1 truncate text-sm font-semibold text-fg">{featured.name}</p>
+                                {featured.details ? (
+                                    <p className="mt-1 text-[11px] text-fg-muted">{featured.details}</p>
+                                ) : null}
+                            </div>
+                            {compactMoreServices ? (
+                                <span className="shrink-0 rounded-full bg-accent-soft px-2.5 py-1 text-xs font-semibold text-accent">
+                                    {compactMoreServices}
+                                </span>
+                            ) : null}
+                        </div>
                     ) : (
-                        <div className="flex items-center gap-2 rounded-xl border border-dashed border-border px-3 py-2.5 text-sm text-fg-muted">
+                        <div className="flex items-center gap-2 border-t border-border pt-3 text-sm text-fg-muted">
                             <IconMusic size={16} className="shrink-0 opacity-60" />
                             Servicios pendientes de publicar
                         </div>
                     )}
-
-                    <div className="mt-auto pt-1">
-                        <MarketplaceGroupZonePills group={group} />
-                    </div>
                 </div>
             </button>
 
@@ -150,7 +149,7 @@ export function MarketplaceGroupCard({
 export function MarketplaceGroupCardSkeleton() {
     return (
         <div className="flex h-full flex-col overflow-hidden rounded-card border border-border bg-surface">
-            <div className="h-28 animate-pulse bg-bg-subtle sm:h-32" />
+            <div className="aspect-[16/9] animate-pulse bg-bg-subtle" />
             <div className="flex flex-1 flex-col gap-3 px-4 pb-4 pt-4">
                 <div className="flex gap-3">
                     <div className="size-14 shrink-0 animate-pulse rounded-card bg-bg-subtle" />
