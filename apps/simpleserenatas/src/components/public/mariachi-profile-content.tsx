@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
+import { PanelButton } from '@simple/ui/panel';
 import type { ProviderGroup, ProviderGroupService } from '@/lib/serenatas-api';
 import { mariachiProfileTrustFooter } from '@/lib/mariachi-profile-trust';
 import { useSerenataRequestModal } from '@/components/serenata-request/serenata-request-modal-context';
@@ -25,7 +26,7 @@ export function MariachiProfileContent({
     const trustFooter = mariachiProfileTrustFooter(group);
 
     return (
-        <div className="grid min-w-0 gap-5">
+        <div className="grid min-w-0 gap-4 sm:gap-5">
             <MariachiProfileHero group={group} />
 
             <MariachiRepertoireSection groupSlug={group.slug} />
@@ -36,13 +37,13 @@ export function MariachiProfileContent({
                 services={services}
                 footer={trustFooter}
                 renderAction={(service) => (
-                    <button
+                    <PanelButton
                         type="button"
-                        className="btn btn-primary w-full text-center text-sm"
+                        className="w-full"
                         onClick={() => openRequest({ group, service, date: initialDate })}
                     >
                         Contratar
-                    </button>
+                    </PanelButton>
                 )}
             />
 
