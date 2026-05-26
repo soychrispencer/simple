@@ -37,6 +37,11 @@ function notificationListIcon(type: PanelNotification['type']) {
   return IconSparkles;
 }
 
+/** Evita que overflow-x del layout recorte popovers en móvil (fixed bajo el header). */
+const HEADER_POPOVER_MOBILE =
+  'max-md:fixed max-md:inset-x-3 max-md:top-[calc(4rem+env(safe-area-inset-top,0px))] max-md:w-auto';
+const HEADER_POPOVER_DESKTOP = 'md:absolute md:right-0 md:top-[calc(100%+8px)]';
+
 export type MarketplaceHeaderProps = {
   brandAppId: 'simpleautos' | 'simplepropiedades' | 'simpleserenatas' | 'simpleadmin' | 'simpleagenda';
   publicLinks: Array<{ href: string; label: string; isNew?: boolean }>;
@@ -230,7 +235,7 @@ export function MarketplaceHeader({
 
               {notificationsOpen ? (
                 <div
-                  className="absolute right-0 top-[calc(100%+8px)] z-50 w-[min(320px,calc(100vw-1rem))] rounded-xl border p-2 animate-slide-down"
+                  className={`z-[60] rounded-xl border p-2 animate-slide-down ${HEADER_POPOVER_MOBILE} ${HEADER_POPOVER_DESKTOP} md:w-[min(320px,calc(100vw-1rem))]`}
                   style={{ background: 'var(--surface)', borderColor: 'var(--border)', boxShadow: 'var(--shadow-md)' }}
                 >
                   <div className="px-2.5 py-2 mb-1 flex items-center justify-between">
@@ -241,7 +246,7 @@ export function MarketplaceHeader({
                       {unreadNotifications} sin leer
                     </span>
                   </div>
-                  <div className="space-y-1">
+                  <div className="max-h-[min(60dvh,24rem)] space-y-1 overflow-y-auto overscroll-contain">
                     {notifications.length === 0 ? (
                       <div className="px-2.5 py-3 text-sm" style={{ color: 'var(--fg-muted)' }}>
                         Sin novedades por ahora.
@@ -314,7 +319,7 @@ export function MarketplaceHeader({
 
               {accountOpen && (
                 <div
-                  className="absolute right-0 top-[calc(100%+8px)] z-50 w-[min(290px,calc(100vw-1rem))] rounded-xl border p-2 animate-slide-down"
+                  className={`z-[60] rounded-xl border p-2 animate-slide-down ${HEADER_POPOVER_MOBILE} ${HEADER_POPOVER_DESKTOP} md:w-[min(290px,calc(100vw-1rem))]`}
                   style={{ background: 'var(--surface)', borderColor: 'var(--border)', boxShadow: 'var(--shadow-md)' }}
                 >
                   <div className="px-2.5 py-2 mb-1 rounded-lg" style={{ background: 'var(--bg-subtle)' }}>
@@ -418,7 +423,7 @@ export function MarketplaceHeader({
 
             {menuOpen && (
               <div
-                className="absolute right-0 top-[calc(100%+8px)] z-50 w-[260px] rounded-xl border p-2 animate-slide-down"
+                className={`z-[60] rounded-xl border p-2 animate-slide-down ${HEADER_POPOVER_MOBILE} ${HEADER_POPOVER_DESKTOP} md:w-[260px]`}
                 style={{ background: 'var(--surface)', borderColor: 'var(--border)', boxShadow: 'var(--shadow-md)' }}
               >
                 {renderMobileMenu ? (
