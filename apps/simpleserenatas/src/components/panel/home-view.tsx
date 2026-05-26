@@ -1,17 +1,11 @@
 'use client';
 
+import Link from 'next/link';
 import { useEffect, useState } from 'react';
-import { IconChevronRight } from '@tabler/icons-react';
-import {
-    PanelBlockHeader,
-    PanelButton,
-    PanelCard,
-    PanelList,
-    PanelListRow,
-    PanelNotice,
-    PanelStatCard,
-    PanelStatusBadge,
-} from '@simple/ui';
+import { IconChevronRight, IconSearch } from '@tabler/icons-react';
+import { CLIENT_MARKETPLACE_HREF } from '@/lib/client-marketplace';
+import { PanelBlockHeader } from '@simple/ui/panel';
+import { PanelButton, PanelCard, PanelList, PanelListRow, PanelNotice, PanelStatCard, PanelStatusBadge } from '@simple/ui/panel';
 import type { Invitation, Serenata, SerenataGroup, Profiles } from '@/lib/serenatas-api';
 import { serenatasApi } from '@/lib/serenatas-api';
 import type { AppMode } from '@/lib/app-mode';
@@ -91,6 +85,25 @@ function ClientHome(props: Parameters<typeof HomeView>[0]) {
     return (
         <div className="grid gap-4">
             <ProfileIncompleteNotice mode="client" profiles={props.profiles} />
+            <PanelCard size="md" className="border-[var(--accent)]/25 bg-[color-mix(in_oklab,var(--accent)_8%,var(--surface))]">
+                <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                    <div className="min-w-0">
+                        <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--accent)]">
+                            Marketplace
+                        </p>
+                        <h3 className="mt-1 text-lg font-bold text-[var(--fg)]">Contrata una serenata</h3>
+                        <p className="mt-1 text-sm leading-relaxed text-fg-muted">
+                            Explora mariachis por región, comuna y disponibilidad. El catálogo está fuera del panel, como en Simple Autos y Propiedades.
+                        </p>
+                    </div>
+                    <Link href={CLIENT_MARKETPLACE_HREF} className="shrink-0">
+                        <PanelButton type="button" className="w-full sm:w-auto" disabled={props.accountSuspended}>
+                            <IconSearch size={18} />
+                            Explorar mariachis
+                        </PanelButton>
+                    </Link>
+                </div>
+            </PanelCard>
             <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
                 <PanelStatCard label="Contratadas" value={String(props.serenatas.length)} />
                 <PanelStatCard label="En proceso" value={String(pending.length)} />
@@ -117,7 +130,7 @@ function ClientHome(props: Parameters<typeof HomeView>[0]) {
                                 type="button"
                                 className="w-full"
                                 disabled={props.accountSuspended}
-                                onClick={() => props.openClientRequest?.() ?? props.setSection('mariachis')}
+                                onClick={() => props.openClientRequest?.()}
                             >
                                 Contratar serenata
                             </PanelButton>
@@ -291,7 +304,7 @@ function WorkHome(props: Parameters<typeof HomeView>[0]) {
                 )}
                 {ownerActive ? (
                     <PanelStatCard
-                        label={toClose.length > 0 ? 'Por cerrar' : 'Por asignar'}
+                        label={toClose.length > 0 ? 'Por cerrar' : 'Por conformar'}
                         value={String(toClose.length > 0 ? toClose.length : needsGroupSerenatas.length)}
                     />
                 ) : (
@@ -401,7 +414,7 @@ function WorkHome(props: Parameters<typeof HomeView>[0]) {
 
                 <PanelCard size="md">
                     <PanelBlockHeader
-                        title={showAssignGroupCard ? 'Por asignar grupo' : 'Próximas serenatas'}
+                        title={showAssignGroupCard ? 'Por conformar grupo' : 'Próximas serenatas'}
                         description={
                             showAssignGroupCard
                                 ? 'Serenatas aceptadas que aún necesitan un grupo.'
@@ -427,7 +440,7 @@ function WorkHome(props: Parameters<typeof HomeView>[0]) {
                                             <p className="truncate text-sm font-semibold text-fg">{item.recipientName}</p>
                                             <p className="mt-1 text-xs text-fg-muted">{formatShortSerenataDate(item)}</p>
                                         </div>
-                                        <span className="shrink-0 text-sm font-semibold text-accent">Asignar</span>
+                                        <span className="shrink-0 text-sm font-semibold text-accent">Conformar</span>
                                     </button>
                                 </PanelListRow>
                             ))}

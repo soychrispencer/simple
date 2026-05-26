@@ -399,7 +399,7 @@ function packageForCode(code: string | null | undefined) {
 }
 
 async function createPlatformOffersForSerenata(serenata: { id: string; comuna: string | null; region: string | null; price: number | null; eventDate: Date }) {
-    const admins = await db
+    const owners = await db
         .select({
             id: serenataOwners.id,
             userId: serenataOwners.userId,
@@ -412,14 +412,14 @@ async function createPlatformOffersForSerenata(serenata: { id: string; comuna: s
         .from(serenataOwners)
         .innerJoin(users, eq(users.id, serenataOwners.userId));
 
-    const candidates = admins
-        .filter((admin) => {
-            const workingComunas = Array.isArray(admin.workingComunas) ? admin.workingComunas : [];
+    const candidates = owners
+        .filter((owner) => {
+            const workingComunas = Array.isArray(owner.workingComunas) ? owner.workingComunas : [];
             const matchesComuna = serenata.comuna
-                ? workingComunas.includes(serenata.comuna) || admin.comuna === serenata.comuna
+                ? workingComunas.includes(serenata.comuna) || owner.comuna === serenata.comuna
                 : true;
-            const matchesRegion = serenata.region ? admin.region === serenata.region || workingComunas.length > 0 : true;
-            const matchesPrice = admin.minPrice == null || serenata.price == null || serenata.price >= admin.minPrice;
+            const matchesRegion = serenata.region ? owner.region === serenata.region || workingComunas.length > 0 : true;
+            const matchesPrice = owner.minPrice == null || serenata.price == null || serenata.price >= owner.minPrice;
             return matchesComuna && matchesRegion && matchesPrice;
         })
         .sort((a, b) => {
@@ -434,17 +434,17 @@ async function createPlatformOffersForSerenata(serenata: { id: string; comuna: s
 
     if (candidates.length === 0) return [];
     const expiresAt = new Date(Date.now() + 15 * 60 * 1000);
-    const offers = await db.insert(serenataOffers).values(candidates.map((admin, index) => ({
+    const offers = await db.insert(serenataOffers).values(candidates.map((owner, index) => ({
         serenataId: serenata.id,
-        ownerId: admin.id,
+        ownerId: owner.id,
         status: 'offered',
         rank: index + 1,
         expiresAt,
     }))).onConflictDoNothing().returning();
 
     await insertSerenataNotifications(
-        candidates.map((admin) => ({
-            userId: admin.userId,
+        candidates.map((owner) => ({
+            userId: owner.userId,
             type: 'platform_serenata_offer',
             title: 'Nueva serenata de la aplicación',
             message: `${serenata.comuna ?? 'Comuna por confirmar'} · ${new Intl.DateTimeFormat('es-CL', { day: '2-digit', month: 'short' }).format(serenata.eventDate)}.`,
@@ -1403,6 +1403,7 @@ export function createSerenatasRouter(deps: SerenatasRouterDeps) {
         const now = new Date();
         const [item] = await db.update(serenatas).set({
             clientConfirmedAt: now,
+            clientRating: rating != null && rating >= 1 && rating <= 5 ? rating : null,
             updatedAt: now,
         }).where(and(
             eq(serenatas.id, id),
@@ -1410,8 +1411,8 @@ export function createSerenatasRouter(deps: SerenatasRouterDeps) {
             eq(serenatas.status, 'completed'),
         )).returning();
         if (!item) return jsonError(c, 'No se pudo confirmar la serenata.', 409);
-        if (item.providerGroupId && rating != null && rating >= 1 && rating <= 5) {
-            await recordProviderGroupRating(item.providerGroupId, rating);
+        if (item.providerGroupId && item.clientRating != null) {
+            await recordProviderGroupRating(item.providerGroupId);
         }
         return c.json({ ok: true, item });
     });

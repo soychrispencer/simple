@@ -2,7 +2,8 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { BrandLogo, PanelNotice } from '@simple/ui';
+import { BrandLogo } from '@simple/ui/brand';
+import { PanelNotice } from '@simple/ui/panel';
 import { serenatasApi, type ProviderGroup, type ProviderGroupService } from '@/lib/serenatas-api';
 import { ScreenShell } from '@/components/layout/screen-shell';
 import { SerenatasChromeHeader } from '@/components/layout/serenatas-chrome-header';
@@ -39,7 +40,7 @@ export function PublicMariachiPage({ slug }: { slug: string }) {
     return (
         <ScreenShell>
             <SerenatasChromeHeader
-                publicLinks={[{ href: '/panel/mariachis', label: 'Mariachis' }]}
+                publicLinks={[{ href: '/mariachis', label: 'Mariachis' }]}
             />
             <div className="mx-auto min-w-0 w-full max-w-5xl overflow-x-hidden px-4 py-6 sm:px-6 lg:py-8">
                 {loading ? (

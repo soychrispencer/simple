@@ -1,7 +1,8 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { PanelButton, PanelNotice } from '@simple/ui';
+import { PanelButton } from '@simple/ui/panel';
+import { PanelNotice } from '@simple/ui/panel';
 import { serenatasApi, type RepertoireSong, type Serenata, type SerenataSongSelection } from '@/lib/serenatas-api';
 import { FormFeedback, type FormStatus } from './shared';
 import { RepertoireSongPicker } from './repertoire-song-picker';

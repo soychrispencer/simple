@@ -1,7 +1,8 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
-import { PanelCard, PanelStatusBadge, PanelSwitch } from '@simple/ui';
+import { PanelCard } from '@simple/ui/panel';
+import { PanelStatusBadge, PanelSwitch } from '@simple/ui/panel';
 import { IconLoader2 } from '@tabler/icons-react';
 import type { MusicianProfile } from '@/lib/serenatas-api';
 import { serenatasApi } from '@/lib/serenatas-api';

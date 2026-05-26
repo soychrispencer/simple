@@ -2,21 +2,9 @@
 
 import { useEffect, useState } from 'react';
 import {
-    IconAlertCircle,
-    IconBuildingBank,
-    IconCash,
-    IconCheck,
-    IconCreditCard,
-    IconLink,
-    IconLoader2,
-} from '@tabler/icons-react';
-import {
-    PanelBlockHeader,
-    PanelButton,
-    PanelCard,
-    PanelField,
-    PanelSwitch,
-} from '@simple/ui';
+    IconAlertCircle, IconBuildingBank, IconCash, IconCheck, IconCreditCard, IconLink, IconLoader2, } from '@tabler/icons-react';
+import { PanelBlockHeader } from '@simple/ui/panel';
+import { PanelButton, PanelCard, PanelField, PanelSwitch } from '@simple/ui/panel';
 import {
     serenatasApi,
     type ProviderBankTransferData,
@@ -174,7 +162,7 @@ export function ProviderSettingsEditor({
             <section className="min-w-0 space-y-4">
                 <PanelBlockHeader
                     title="Solicitudes"
-                    description="Cómo respondes y confirmas pedidos del marketplace."
+                    description="Cómo respondes y confirmas solicitudes del marketplace."
                 />
                 <PanelCard size="md">
                     <div className="grid gap-5 sm:grid-cols-2">

@@ -2,7 +2,8 @@
 
 import { useEffect, useState } from 'react';
 import { IconLoader2, IconMapPin, IconX } from '@tabler/icons-react';
-import { PanelCard, PanelField, PanelStatusBadge } from '@simple/ui';
+import { PanelCard } from '@simple/ui/panel';
+import { PanelField, PanelStatusBadge } from '@simple/ui/panel';
 import type { MusicianPublicProfile } from '@/lib/serenatas-api';
 import { serenatasApi } from '@/lib/serenatas-api';
 import {

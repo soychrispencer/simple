@@ -4,19 +4,11 @@ import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import {
-    IconArrowLeft,
-    IconBrandGoogle,
-    IconBuildingStore,
-    IconCheck,
-    IconLock,
-    IconMail,
-    IconMailCheck,
-    IconUser,
-    IconUsersGroup,
-} from '@tabler/icons-react';
+    IconArrowLeft, IconBrandGoogle, IconBuildingStore, IconCheck, IconLock, IconMail, IconMailCheck, IconUser, IconUsersGroup, } from '@tabler/icons-react';
 import { GoogleLoginButton, useAuth } from '@simple/auth';
 import { API_BASE, getSimpleAppBrand } from '@simple/config';
-import { PanelButton, PanelNotice } from '@simple/ui';
+import { PanelButton } from '@simple/ui/panel';
+import { PanelNotice } from '@simple/ui/panel';
 import { ensureOwnerProfileFromSignup } from '@/lib/owner-signup-bootstrap';
 import { persistSignupDrafts } from '@/lib/active-provider-group';
 import { persistSignupProfile } from '@/lib/signup-profile';

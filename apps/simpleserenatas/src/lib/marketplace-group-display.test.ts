@@ -5,6 +5,7 @@ import {
     extraServicesCount,
     filterMarketplaceGroupsByName,
     formatGroupRating,
+    normalizeGroupRating,
     sortMarketplaceGroups,
     verificationBadgeLabel,
 } from './marketplace-group-display';
@@ -38,6 +39,8 @@ describe('marketplace-group-display', () => {
     it('oculta rating sin reseñas', () => {
         expect(formatGroupRating(baseGroup({ ratingCount: 0 }))).toBeNull();
         expect(formatGroupRating(baseGroup({ ratingCount: 3 }))).toBe('4.5 (3)');
+        expect(normalizeGroupRating(baseGroup({ ratingCount: 0 }))).toEqual({ average: 0, count: 0 });
+        expect(normalizeGroupRating(baseGroup({ ratingCount: 3 }))).toEqual({ average: 4.5, count: 3 });
     });
 
     it('solo muestra badge verificado cuando aplica', () => {

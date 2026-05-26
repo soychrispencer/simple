@@ -3,7 +3,7 @@
 import type { ReactNode } from 'react';
 import { useCallback, useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { PanelBlockHeader, PanelButton, PanelCard, PanelNotice, usePanelConfirm } from '@simple/ui';
+import { PanelBlockHeader, PanelButton, PanelCard, PanelNotice, usePanelConfirm } from '@simple/ui/panel';
 import { IconCheck, IconLoader2 } from '@tabler/icons-react';
 import { confirmCheckout, startSubscriptionCheckout } from '@/lib/payments';
 import { profileSectionHref } from '@/lib/account-tab';

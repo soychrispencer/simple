@@ -11,9 +11,11 @@ import {
     IconMap,
     IconUser,
     IconBriefcase,
+    IconBookmark,
 } from '@tabler/icons-react';
 import { serenatasApi, type Profiles } from '@/lib/serenatas-api';
-import { type AppMode, ownerFeaturesEnabled, hasClientProfile, hasWorkProfile } from '@/lib/app-mode';
+import { CLIENT_MARKETPLACE_HREF } from '@/lib/client-marketplace';
+import { type AppMode, ownerFeaturesEnabled } from '@/lib/app-mode';
 import { type Section } from '@/context/serenata-context';
 import { panelSectionHref, sectionFromPanelPath } from '@/lib/panel-routes';
 import {
@@ -40,7 +42,7 @@ export type PrimaryActionConfig = {
 
 export function getPrimaryActionConfig(mode: AppMode, profiles: Profiles): PrimaryActionConfig {
     if (mode === 'client') {
-        return { label: 'Contratar serenata', href: panelSectionHref('mariachis'), icon: IconUsersGroup, show: true };
+        return { label: 'Explorar mariachis', href: CLIENT_MARKETPLACE_HREF, icon: IconUsersGroup, show: true };
     }
     if (ownerFeaturesEnabled(profiles)) {
         return { label: 'Ver solicitudes', href: panelSectionHref('solicitudes'), icon: IconBell, show: true };
@@ -54,8 +56,9 @@ export function getPanelNavItems(mode: AppMode, profiles: Profiles): PanelNavIte
     ];
 
     if (mode === 'client') {
-        items.push({ id: 'mariachis', href: panelSectionHref('mariachis'), label: 'Explorar', icon: IconUsersGroup });
-        items.push({ id: 'serenatas', href: panelSectionHref('serenatas'), label: 'Mis Serenatas', icon: IconMusic });
+        items.push({ id: 'mariachis', href: CLIENT_MARKETPLACE_HREF, label: 'Explorar', icon: IconUsersGroup });
+        items.push({ id: 'guardados', href: panelSectionHref('guardados'), label: 'Guardados', icon: IconBookmark });
+        items.push({ id: 'serenatas', href: panelSectionHref('serenatas'), label: 'Mis serenatas', icon: IconMusic });
         items.push({ id: 'profile', href: panelSectionHref('profile'), label: 'Mi cuenta', icon: IconUser });
         return items;
     }
@@ -83,7 +86,9 @@ export function getPanelNavItems(mode: AppMode, profiles: Profiles): PanelNavIte
  */
 export function getMobileBottomNavItems(mode: AppMode, profiles: Profiles): PanelNavItem[] {
     if (mode === 'client') {
-        return getPanelNavItems(mode, profiles).filter((t) => ['home', 'mariachis', 'serenatas', 'profile'].includes(t.id));
+        return getPanelNavItems(mode, profiles).filter((t) =>
+            ['home', 'mariachis', 'guardados', 'serenatas', 'profile'].includes(t.id),
+        );
     }
     if (ownerFeaturesEnabled(profiles)) {
         return getPanelNavItems(mode, profiles).filter((t) =>
@@ -93,17 +98,10 @@ export function getMobileBottomNavItems(mode: AppMode, profiles: Profiles): Pane
     return getPanelNavItems(mode, profiles).filter((t) => ['home', 'invitations', 'agenda', 'profile'].includes(t.id));
 }
 
-/** Secciones del panel admin accesibles desde «Más» en bottom nav móvil (p. ej. Mapa). */
+/** Secciones del panel dueño accesibles desde «Más» en bottom nav móvil (p. ej. Mapa). */
 export function getMobileOverflowNavItems(mode: AppMode, profiles: Profiles): PanelNavItem[] {
     if (mode !== 'work' || !ownerFeaturesEnabled(profiles)) return [];
     return getPanelNavItems(mode, profiles).filter((t) => t.id === 'map');
-}
-
-export function getModeSwitchItems(profiles: Profiles): { key: AppMode; label: string }[] {
-    const items: { key: AppMode; label: string }[] = [];
-    if (hasClientProfile(profiles)) items.push({ key: 'client', label: 'Cliente' });
-    if (hasWorkProfile(profiles)) items.push({ key: 'work', label: ownerFeaturesEnabled(profiles) ? 'Negocio' : 'Músico' });
-    return items;
 }
 
 export function mapModeToMarketplaceRole(mode: AppMode, profiles: Profiles): MarketplacePanelRole {
@@ -160,5 +158,5 @@ export function notifyPanelNotificationsChanged(): void {
 }
 
 export function panelModeLabel(mode: AppMode): string {
-    return mode === 'work' ? 'Operación' : 'Cliente';
+    return mode === 'work' ? 'Operación' : 'Contratante';
 }

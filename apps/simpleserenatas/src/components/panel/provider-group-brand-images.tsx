@@ -2,7 +2,7 @@
 
 import { useRef, useState } from 'react';
 import { IconLoader2, IconPlus } from '@tabler/icons-react';
-import { AvatarUpload, type AvatarUploadHandle } from '@simple/ui';
+import { AvatarUpload, type AvatarUploadHandle } from '@simple/ui/media';
 import { serenatasApi } from '@/lib/serenatas-api';
 
 const COVER_PLACEHOLDER_STYLE = {
@@ -72,7 +72,6 @@ export function ProviderGroupBrandImages({
                         <div className="relative shrink-0">
                             <div className="flex size-20 items-center justify-center overflow-hidden rounded-card border-4 border-surface bg-accent-soft text-xl font-bold text-accent shadow-sm sm:size-24">
                                 {logoUrl && !logoLoadError ? (
-                                    // eslint-disable-next-line @next/next/no-img-element
                                     <img
                                         src={logoUrl}
                                         alt=""

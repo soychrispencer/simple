@@ -3,13 +3,13 @@
 import { useEffect, useRef } from 'react';
 import { useAuth } from '@simple/auth';
 import { serenatasApi } from '@/lib/serenatas-api';
-import { persistAppMode, type AppMode } from '@/lib/app-mode';
+import { clearLegacyAppModeStorage } from '@/lib/app-mode';
 import { applyOwnerSignupDrafts } from '@/lib/owner-signup-bootstrap';
 import { clearSignupProfile, resolveSignupProfileForBootstrap } from '@/lib/signup-profile';
 
 /**
  * Tras el registro, crea solo el perfil elegido (cliente, músico o dueño de grupo).
- * El modo de la app queda en client | work según esa elección.
+ * Cada cuenta queda con un solo tipo de perfil (cliente, músico o dueño).
  */
 export function SignupProfileBootstrap() {
     const { user, refreshSession } = useAuth();
@@ -46,12 +46,12 @@ export function SignupProfileBootstrap() {
                     await applyOwnerSignupDrafts({ refreshSession });
                 }
 
-                const mode: AppMode = signupProfile === 'client' ? 'client' : 'work';
-                persistAppMode(mode);
+                clearLegacyAppModeStorage();
                 success = true;
             } finally {
-                if (cancelled) return;
-                if (success) {
+                if (cancelled) {
+                    // El efecto fue desmontado; no actualizamos storage ni refs.
+                } else if (success) {
                     clearSignupProfile();
                 } else {
                     ranRef.current = false;

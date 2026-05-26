@@ -49,7 +49,7 @@ export function profileSectionHref(accountTab?: AccountTab): string {
     return profilePanelHref(accountTab);
 }
 
-/** Pestañas visibles según modo y perfiles (suscripción e integraciones solo dueño en trabajo). */
+/** Pestañas visibles según modo y perfiles. La suscripción solo aplica a dueños. */
 export function getAccountPillItems(mode: AppMode, profiles: Profiles): { key: AccountTab; label: string }[] {
     const items: { key: AccountTab; label: string }[] = [
         { key: 'data', label: 'Datos personales' },

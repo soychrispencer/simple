@@ -2,7 +2,9 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { IconArrowLeft, IconCreditCard, IconLoader2, IconX } from '@tabler/icons-react';
-import { ListingLocationEditor, PanelButton, PanelCard, PanelField, PanelNotice } from '@simple/ui';
+import { PanelButton } from '@simple/ui/panel';
+import { PanelCard, PanelField, PanelNotice } from '@simple/ui/panel';
+import { ListingLocationEditor } from '@simple/ui/location';
 import type { AddressBookEntry, ListingLocation } from '@simple/types';
 import { createAddressBookEntry, fetchAddressBook, getCommunesForRegion, LOCATION_REGIONS } from '@simple/utils';
 import { serenatasApi, type ProviderGroup, type ProviderGroupService, type RepertoireSong } from '@/lib/serenatas-api';
@@ -130,12 +132,14 @@ export function MarketplaceRequestView({
     group,
     service,
     contactPhone,
+    initialDate,
     onBack,
     variant = 'page',
 }: {
     group: ProviderGroup;
     service: ProviderGroupService;
     contactPhone: string;
+    initialDate?: string;
     onBack: () => void;
     variant?: 'page' | 'modal';
 }) {
@@ -143,7 +147,7 @@ export function MarketplaceRequestView({
     const googleMapsApiKey = useGoogleMapsBrowserKey();
     const [recipientName, setRecipientName] = useState('');
     const [clientPhone, setClientPhone] = useState(contactPhone);
-    const [eventDate, setEventDate] = useState(today);
+    const [eventDate, setEventDate] = useState(() => initialRequestDate(initialDate));
     const [eventTime, setEventTime] = useState('20:00');
     const [flexibleSchedule, setFlexibleSchedule] = useState(false);
     const [message, setMessage] = useState('');
@@ -599,4 +603,10 @@ export function MarketplaceRequestView({
             </div>
         </div>
     );
+}
+
+function initialRequestDate(value?: string) {
+    const inputDate = toInputDate(value);
+    if (!inputDate) return today;
+    return inputDate < today ? today : inputDate;
 }

@@ -1,7 +1,8 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { PanelCard, PanelField } from '@simple/ui';
+import { PanelCard } from '@simple/ui/panel';
+import { PanelField } from '@simple/ui/panel';
 import { LOCATION_REGIONS, getCommunesForRegion } from '@simple/utils';
 import { serenatasApi, type ProviderGroup } from '@/lib/serenatas-api';
 import {

@@ -1,7 +1,5 @@
 import type { APIRequestContext, BrowserContext, Page } from '@playwright/test';
 
-const APP_MODE_STORAGE_KEY = 'serenatas-app-mode';
-
 const DEFAULT_APP_ORIGIN = 'http://localhost:3005';
 const DEFAULT_API_URL = 'http://localhost:4000';
 
@@ -49,9 +47,6 @@ export async function loginSerenatasSession(page: Page, email: string, password:
     const origin = e2eAppOrigin();
     await page.context().addCookies(parseSetCookieHeader(setCookie, origin));
     await page.goto(origin);
-    await page.evaluate((key) => {
-        window.localStorage.setItem(key, 'work');
-    }, APP_MODE_STORAGE_KEY);
 }
 
 export async function loginSerenatasRequest(

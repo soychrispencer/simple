@@ -2,11 +2,12 @@
 
 import { useEffect, useMemo, useState, type ComponentType, type CSSProperties, type ReactNode } from 'react';
 import { useSearchParams } from 'next/navigation';
-import { ListingLocationEditor } from '@simple/ui';
-import { PanelBlockHeader, PanelButton, PanelCard, PanelField, PanelNotice, PanelStatusBadge } from '@simple/ui';
+import { ListingLocationEditor } from '@simple/ui/location';
+import { PanelBlockHeader } from '@simple/ui/panel';
+import { PanelButton, PanelCard, PanelField, PanelNotice, PanelStatusBadge } from '@simple/ui/panel';
 import { applyAddressBookEntryToLocation, type AddressBookEntry, type ListingLocation } from '@simple/types';
 import { createAddressBookEntry, fetchAddressBook, getCommunesForRegion, LOCATION_REGIONS } from '@simple/utils';
-import { IconCheck, IconClock, IconLoader2, IconMapPin, IconPencil, IconPlus, IconUsers, IconX } from '@tabler/icons-react';
+import { IconCheck, IconClock, IconLoader2, IconMapPin, IconPencil, IconPlus, IconStar, IconStarFilled, IconUsers, IconX } from '@tabler/icons-react';
 import { type MusicianDirectoryItem, type ProviderGroupMember, type ProviderGroupService, type Serenata, type SerenataGroup, type SerenataPackage, type SerenataPackageCode, serenatasApi } from '@/lib/serenatas-api';
 import { isOwnerSolicitudesInbox, isPendingSerenataAction } from '@/lib/serenata-pending';
 import { SerenataClosureActions } from './serenata-closure-actions';
@@ -135,7 +136,7 @@ function ClientPaymentPrompt({ item }: { item: Serenata }) {
 
 function ClientSerenataConfirmPrompt({ item, refresh }: { item: Serenata; refresh: () => Promise<void> }) {
     const [status, setStatus] = useState<FormStatus>({ loading: false, error: null, ok: null });
-    const [rating, setRating] = useState(5);
+    const [rating, setRating] = useState<number | null>(null);
     const showRating = Boolean(item.providerGroupId);
     if (item.status !== 'completed' || item.clientConfirmedAt) return null;
 
@@ -143,7 +144,7 @@ function ClientSerenataConfirmPrompt({ item, refresh }: { item: Serenata; refres
         setStatus({ loading: true, error: null, ok: null });
         const response = await serenatasApi.confirmClientSerenata(
             item.id,
-            showRating ? { rating } : undefined,
+            showRating && rating != null ? { rating } : undefined,
         );
         if (!response.ok) {
             setStatus({ loading: false, error: response.error ?? 'No pudimos confirmar la serenata.', ok: null });
@@ -161,17 +162,21 @@ function ClientSerenataConfirmPrompt({ item, refresh }: { item: Serenata; refres
                 <div className="mt-3">
                     <p className="text-xs font-medium text-fg-muted">Califica al mariachi (opcional)</p>
                     <div className="mt-2 flex gap-1">
-                        {[1, 2, 3, 4, 5].map((value) => (
-                            <button
-                                key={value}
-                                type="button"
-                                className={`rounded-lg px-2 py-1 text-sm font-semibold ${rating >= value ? 'bg-accent text-white' : 'border border-border bg-surface text-fg-muted'}`}
-                                onClick={() => setRating(value)}
-                                aria-label={`${value} estrellas`}
-                            >
-                                {value}
-                            </button>
-                        ))}
+                        {[1, 2, 3, 4, 5].map((value) => {
+                            const active = rating != null && rating >= value;
+                            const Icon = active ? IconStarFilled : IconStar;
+                            return (
+                                <button
+                                    key={value}
+                                    type="button"
+                                    className={`rounded-lg p-2 ${active ? 'bg-accent-soft text-amber-500' : 'border border-border bg-surface text-fg-muted'}`}
+                                    onClick={() => setRating(value)}
+                                    aria-label={`${value} estrellas`}
+                                >
+                                    <Icon size={18} aria-hidden />
+                                </button>
+                            );
+                        })}
                     </div>
                 </div>
             ) : null}

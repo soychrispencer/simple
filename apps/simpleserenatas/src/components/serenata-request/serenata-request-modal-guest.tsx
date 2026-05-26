@@ -1,7 +1,8 @@
 'use client';
 
 import { IconLock, IconX } from '@tabler/icons-react';
-import { PanelButton, PanelCard } from '@simple/ui';
+import { PanelButton } from '@simple/ui/panel';
+import { PanelCard } from '@simple/ui/panel';
 import { useAuth } from '@simple/auth';
 import { persistSignupProfile } from '@/lib/signup-profile';
 import type { ProviderGroup, ProviderGroupService } from '@/lib/serenatas-api';

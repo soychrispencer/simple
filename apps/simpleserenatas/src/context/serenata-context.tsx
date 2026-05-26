@@ -28,13 +28,11 @@ import {
 import {
     type AppMode,
     ownerFeaturesEnabled,
-    hasClientProfile,
-    hasWorkProfile,
-    persistAppMode,
-    readStoredAppMode,
+    clearLegacyAppModeStorage,
     resolveAppModeFromProfiles,
     workApiAs,
 } from '@/lib/app-mode';
+import { CLIENT_MARKETPLACE_HREF } from '@/lib/client-marketplace';
 import { today, type FormStatus } from '@/components/panel/shared';
 import { confirmCheckout } from '@/lib/payments';
 
@@ -47,6 +45,7 @@ export type Section =
     | 'solicitar'
     | 'contratar'
     | 'serenatas'
+    | 'guardados'
     | 'solicitudes'
     | 'mi-negocio'
     | 'servicios'
@@ -67,7 +66,6 @@ interface SerenataContextType {
 
     mode: AppMode;
     ownerFeaturesEnabled: boolean;
-    changeMode: (next: AppMode) => void;
 
     profiles: Profiles;
 
@@ -114,13 +112,10 @@ export function SerenataProvider({ children }: { children: ReactNode }) {
     const [section, setSection] = useState<Section>('home');
     const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
     const [agendaDate, setAgendaDate] = useState(today);
-    const [mode, setMode] = useState<AppMode>(readStoredAppMode);
-
     const [checkoutStatus, setCheckoutStatus] = useState<FormStatus>({ loading: false, error: null, ok: null });
     const [handledSerenataPurchaseId, setHandledSerenataPurchaseId] = useState<string | null>(null);
 
-    const fetcher = useCallback(
-        async (activeMode: AppMode) => {
+    const fetcher = useCallback(async () => {
             if (!isLoggedIn) return null;
 
             const [profileResponse, packagesResponse, musicianResponse] = await Promise.all([
@@ -132,13 +127,8 @@ export function SerenataProvider({ children }: { children: ReactNode }) {
             if (!profileResponse.ok) throw new Error(profileResponse.error || 'No pudimos cargar tu perfil.');
 
             const nextProfiles = profileResponse.profiles;
-            const resolvedMode = resolveAppModeFromProfiles(nextProfiles, { syncStorage: true });
-            const effectiveMode =
-                activeMode === 'client' && !hasClientProfile(nextProfiles)
-                    ? resolvedMode
-                    : activeMode === 'work' && !hasWorkProfile(nextProfiles)
-                      ? resolvedMode
-                      : activeMode;
+            clearLegacyAppModeStorage();
+            const effectiveMode = resolveAppModeFromProfiles(nextProfiles);
 
             const ownerActive = ownerFeaturesEnabled(nextProfiles);
 
@@ -148,7 +138,6 @@ export function SerenataProvider({ children }: { children: ReactNode }) {
                 return {
                     accountUser: profileResponse.user,
                     profiles: nextProfiles,
-                    initialMode: resolvedMode,
                     effectiveMode,
                     ownerFeaturesEnabled: ownerActive,
                     serenatas: serenataResponse.ok ? serenataResponse.items : [],
@@ -191,7 +180,6 @@ export function SerenataProvider({ children }: { children: ReactNode }) {
             return {
                 accountUser: profileResponse.user,
                 profiles: nextProfiles,
-                initialMode: resolvedMode,
                 effectiveMode,
                 ownerFeaturesEnabled: ownerActive,
                 serenatas: musicianSerenataResponse.ok ? musicianSerenataResponse.items : [],
@@ -207,23 +195,23 @@ export function SerenataProvider({ children }: { children: ReactNode }) {
     );
 
     const { data, error: swrError, isLoading, mutate: swrMutate } = useSWR(
-        isLoggedIn ? `serenatas-data-${mode}` : null,
-        () => fetcher(mode),
+        isLoggedIn ? 'serenatas-data' : null,
+        fetcher,
         {
-            revalidateOnFocus: mode === 'work',
-            revalidateOnReconnect: mode === 'work',
-            dedupingInterval: mode === 'work' ? 15_000 : 60_000,
+            revalidateOnFocus: true,
+            revalidateOnReconnect: true,
+            dedupingInterval: 15_000,
         },
     );
 
     const profiles = data?.profiles ?? { client: null, musician: null, owner: null };
-    const effectiveMode = data?.effectiveMode ?? mode;
+    const mode: AppMode = data?.effectiveMode ?? 'client';
     const ownerFeatures = data?.ownerFeaturesEnabled ?? false;
-    const agendaApiAs = effectiveMode === 'work' ? workApiAs(profiles) : null;
+    const agendaApiAs = mode === 'work' ? workApiAs(profiles) : null;
 
     const agendaSwrKey =
         isLoggedIn && data
-            ? `serenatas-agenda-${effectiveMode}-${agendaDate}-${agendaApiAs ?? 'client'}`
+            ? `serenatas-agenda-${mode}-${agendaDate}-${agendaApiAs ?? 'client'}`
             : null;
 
     const {
@@ -233,7 +221,7 @@ export function SerenataProvider({ children }: { children: ReactNode }) {
     } = useSWR(
         agendaSwrKey,
         async () => {
-            if (effectiveMode === 'client') {
+            if (mode === 'client') {
                 const response = await serenatasApi.clientSerenatas(agendaDate);
                 return response.ok ? response.items : [];
             }
@@ -257,15 +245,8 @@ export function SerenataProvider({ children }: { children: ReactNode }) {
         { revalidateOnFocus: false, dedupingInterval: 10_000 },
     );
 
-    useEffect(() => {
-        if (!data?.initialMode) return;
-        setMode((current) => (current === data.initialMode ? current : data.initialMode));
-    }, [data?.initialMode]);
-
     const loadState: LoadState = isLoading && !data ? 'loading' : swrError ? 'error' : data ? 'ready' : 'idle';
     const error = swrError?.message || null;
-
-    const sectionHref = useCallback((nextSection: Section) => panelSectionHref(nextSection), []);
 
     const refreshAgenda = useCallback(async () => {
         await Promise.all([mutateAgenda(), mutateRoute()]);
@@ -374,14 +355,6 @@ export function SerenataProvider({ children }: { children: ReactNode }) {
         }
     }, [pathname, router, searchParams]);
 
-    const changeMode = (next: AppMode) => {
-        setMode(next);
-        persistAppMode(next);
-        setSection('home');
-        router.replace(sectionHref('home'), { scroll: false });
-        void swrMutate();
-    };
-
     const changeSection = (
         next: Section,
         query?: Record<string, string | null | undefined>,
@@ -392,6 +365,15 @@ export function SerenataProvider({ children }: { children: ReactNode }) {
                 : next === 'grupos'
                   ? 'mariachis'
                   : next;
+
+        const clientBrowsingMarketplace =
+            mode === 'client'
+            && (next === 'mariachis' || next === 'grupos' || next === 'contratar');
+        if (clientBrowsingMarketplace) {
+            router.push(CLIENT_MARKETPLACE_HREF);
+            return;
+        }
+
         setSection(normalized);
         router.replace(panelSectionHref(next, query), { scroll: false });
     };
@@ -403,7 +385,6 @@ export function SerenataProvider({ children }: { children: ReactNode }) {
         accountUser: data?.accountUser ?? null,
         mode,
         ownerFeaturesEnabled: ownerFeatures,
-        changeMode,
         profiles,
         section,
         setSection,

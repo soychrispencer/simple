@@ -1,12 +1,13 @@
 'use client';
 
-import { PanelButton } from '@simple/ui';
-import { IconChevronRight, IconMapPin, IconMusic, IconRosetteDiscountCheck, IconStar } from '@tabler/icons-react';
+import { PanelButton } from '@simple/ui/panel';
+import { IconChevronRight, IconMapPin, IconMusic, IconRosetteDiscountCheck } from '@tabler/icons-react';
 import type { ProviderGroup } from '@/lib/serenatas-api';
+import { GroupRatingDisplay } from '@/components/public/group-rating-display';
 import {
     extraServicesCount,
-    formatGroupRating,
     groupDescriptionFallback,
+    normalizeGroupRating,
     profileLocation,
     verificationBadgeLabel,
 } from '@/lib/marketplace-group-display';
@@ -25,8 +26,8 @@ export function MarketplaceGroupCard({
     group: ProviderGroup;
     onOpen: (slug: string) => void;
 }) {
-    const rating = formatGroupRating(group);
     const verifiedLabel = verificationBadgeLabel(group);
+    const rating = normalizeGroupRating(group);
     const extra = extraServicesCount(group);
     const serviceCount = group.activeServicesCount ?? group.servicesPreview?.length ?? 0;
     const hasServices = (group.servicesPreview?.length ?? 0) > 0;
@@ -49,10 +50,9 @@ export function MarketplaceGroupCard({
                         className="pointer-events-none absolute inset-0 bg-gradient-to-t from-surface via-surface/25 to-transparent"
                         aria-hidden
                     />
-                    {rating ? (
-                        <span className="absolute right-2.5 top-2.5 inline-flex items-center gap-1 rounded-full border border-border/80 bg-surface/90 px-2 py-0.5 text-xs font-semibold text-fg shadow-sm backdrop-blur-sm">
-                            <IconStar size={12} className="text-amber-500" fill="currentColor" />
-                            {rating}
+                    {rating.count > 0 ? (
+                        <span className="absolute right-2.5 top-2.5 rounded-full border border-border/80 bg-surface/90 px-2 py-0.5 shadow-sm backdrop-blur-sm">
+                            <GroupRatingDisplay group={group} size="sm" showCount={false} />
                         </span>
                     ) : null}
                 </div>

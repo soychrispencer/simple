@@ -3,11 +3,12 @@
 import { useEffect, useRef } from 'react';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@simple/auth';
-import { panelPathFromSection } from '@/lib/panel-routes';
 import {
+    publicSerenataRequestQuery,
     readMarketplaceRequestDraftFromSearch,
     writeMarketplaceRequestDraftRef,
 } from '@/lib/marketplace-request-draft';
+import { marketplaceCatalogHref, parseMarketplaceSearchParams } from '@/lib/marketplace-search';
 import { isReservedPublicSlug, publicMariachiPath } from '@/lib/public-mariachi-routes';
 import { useSerenataRequestModal } from './serenata-request-modal-context';
 
@@ -39,15 +40,14 @@ export function SerenataRequestDeepLink() {
             writeMarketplaceRequestDraftRef(panelDraft);
 
             if (!isLoggedIn) {
-                const params = new URLSearchParams();
-                params.set(PUBLIC_SERVICIO_QUERY, panelDraft.serviceId);
+                const params = new URLSearchParams(publicSerenataRequestQuery(panelDraft.serviceId, panelDraft.date));
                 const target = `${publicMariachiPath(panelDraft.groupSlug)}?${params.toString()}`;
                 router.replace(target, { scroll: false });
                 return;
             }
 
             openRequest(panelDraft);
-            const fallback = panelPathFromSection('mariachis');
+            const fallback = marketplaceCatalogHref(parseMarketplaceSearchParams(new URLSearchParams(search)));
             router.replace(fallback, { scroll: false });
             return;
         }
@@ -60,7 +60,8 @@ export function SerenataRequestDeepLink() {
 
         handledRef.current = key;
         const groupSlug = decodeURIComponent(segments[0]);
-        openRequest({ groupSlug, serviceId });
+        const date = searchParams.get('fecha')?.trim() || searchParams.get('date')?.trim() || undefined;
+        openRequest({ groupSlug, serviceId, date });
 
         const params = new URLSearchParams(search);
         params.delete(PUBLIC_SERVICIO_QUERY);

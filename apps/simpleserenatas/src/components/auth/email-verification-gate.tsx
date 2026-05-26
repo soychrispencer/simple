@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { IconMail, IconLoader2, IconRefresh, IconLogout } from '@tabler/icons-react';
 import { API_BASE } from '@simple/config';
-import { PanelButton } from '@simple/ui';
+import { PanelButton } from '@simple/ui/panel';
 
 type EmailVerificationGateProps = {
     email: string;

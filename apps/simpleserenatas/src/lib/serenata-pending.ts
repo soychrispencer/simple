@@ -1,6 +1,6 @@
 import type { Serenata } from '@/lib/serenatas-api';
 
-/** Estados que suelen requerir acción inmediata del admin en home / alertas. */
+/** Estados que suelen requerir acción inmediata del dueño en home / alertas. */
 export const ADMIN_ACTION_STATUSES = [
     'pending',
     'accepted_pending_group',
@@ -26,14 +26,14 @@ export const ADMIN_SOLICITUDES_AGENDA_STATUSES = [
     'completed',
 ] as const satisfies readonly Serenata['status'][];
 
-/** Solicitud de app o marketplace directo al grupo, pendiente de respuesta del admin. */
+/** Solicitud de app o marketplace directo al mariachi, pendiente de respuesta del dueño. */
 export function isPendingSerenataAction(item: Serenata): boolean {
     if (item.source !== 'platform_lead' || item.status !== 'pending') return false;
     if (item.offerStatus === 'offered') return true;
     return Boolean(item.providerGroupId);
 }
 
-/** Métrica unificada de “pendiente” en home admin (KPI + tarjetas). */
+/** Métrica unificada de “pendiente” en home del dueño (KPI + tarjetas). */
 export function isOwnerHomePendingMetric(item: Serenata): boolean {
     if (ADMIN_ACTION_STATUSES.includes(item.status as (typeof ADMIN_ACTION_STATUSES)[number])) {
         return true;

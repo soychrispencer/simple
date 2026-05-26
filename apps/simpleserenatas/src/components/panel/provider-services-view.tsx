@@ -1,6 +1,6 @@
 'use client';
 
-import { PanelButton, PanelNotice } from '@simple/ui';
+import { PanelButton, PanelNotice } from '@simple/ui/panel';
 import { useMyMariachi } from '@/hooks/use-my-mariachi';
 import { ProviderServicesEditor } from '@/components/panel/provider-services-editor';
 import { EmptyBlock } from './shared';

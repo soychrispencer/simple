@@ -48,5 +48,5 @@ export function clientCancelSheetDescription(item: Pick<Serenata, 'status'>): st
     if (item.status === 'pending_open') {
         return 'El mariachi aún no confirmó el horario. Indica por qué cancelas para dejar registro de la solicitud.';
     }
-    return 'El mariachi puede estar revisando tu pedido. Indica por qué cancelas; quedará registrado en la solicitud.';
+    return 'El mariachi puede estar revisando tu solicitud. Indica por qué cancelas; quedará registrado en la solicitud.';
 }

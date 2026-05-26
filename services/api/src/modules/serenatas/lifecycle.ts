@@ -249,10 +249,10 @@ export async function expirePendingSerenatas(now = new Date()) {
         }
 
         if (updated.ownerId) {
-            const admin = await db.query.serenataOwners.findFirst({ where: eq(serenataOwners.id, updated.ownerId) });
-            if (admin) {
+            const owner = await db.query.serenataOwners.findFirst({ where: eq(serenataOwners.id, updated.ownerId) });
+            if (owner) {
                 await insertSerenataNotifications({
-                    userId: admin.userId,
+                    userId: owner.userId,
                     type: 'provider_group_request_expired',
                     title: 'Solicitud expirada',
                     message: `Venció el plazo de respuesta para ${updated.recipientName}.`,
@@ -265,7 +265,7 @@ export async function expirePendingSerenatas(now = new Date()) {
     return rows.length;
 }
 
-/** Recordatorio admin a mitad del SLA (una vez por solicitud). */
+/** Recordatorio al dueño a mitad del SLA (una vez por solicitud). */
 export async function maybeSendPendingSlaReminders(now = new Date()) {
     const pending = await db
         .select()
@@ -294,19 +294,19 @@ export async function maybeSendPendingSlaReminders(now = new Date()) {
 
         if (!updated) continue;
 
-        const admin = await db.query.serenataOwners.findFirst({ where: eq(serenataOwners.id, item.ownerId) });
-        if (!admin) continue;
+        const owner = await db.query.serenataOwners.findFirst({ where: eq(serenataOwners.id, item.ownerId) });
+        if (!owner) continue;
 
         const reminderTitle = 'Solicitud pendiente';
         const reminderMessage = `Queda poco plazo para responder la solicitud de ${item.recipientName}.`;
         await insertSerenataNotifications({
-            userId: admin.userId,
+            userId: owner.userId,
             type: 'provider_group_request_reminder',
             title: reminderTitle,
             message: reminderMessage,
             metadata: { serenataId: item.id, providerGroupId: item.providerGroupId },
         });
-        void deliverSerenataRequestNotification(admin.userId, {
+        void deliverSerenataRequestNotification(owner.userId, {
             title: reminderTitle,
             message: reminderMessage,
             panelPath: `/panel/solicitudes?serenata=${encodeURIComponent(item.id)}`,
@@ -365,18 +365,18 @@ export async function cancelClientPendingSerenata(
     }
 
     if (item.ownerId) {
-        const admin = await db.query.serenataOwners.findFirst({ where: eq(serenataOwners.id, item.ownerId) });
-        if (admin) {
+        const owner = await db.query.serenataOwners.findFirst({ where: eq(serenataOwners.id, item.ownerId) });
+        if (owner) {
             const cancelTitle = 'Solicitud cancelada';
             const cancelMessage = `El cliente canceló la solicitud para ${item.recipientName}.`;
             await insertSerenataNotifications({
-                userId: admin.userId,
+                userId: owner.userId,
                 type: 'provider_group_request_cancelled',
                 title: cancelTitle,
                 message: cancelMessage,
                 metadata: { serenataId: item.id, providerGroupId: item.providerGroupId },
             });
-            void deliverSerenataRequestNotification(admin.userId, {
+            void deliverSerenataRequestNotification(owner.userId, {
                 title: cancelTitle,
                 message: cancelMessage,
                 panelPath: `/panel/solicitudes?serenata=${encodeURIComponent(item.id)}`,

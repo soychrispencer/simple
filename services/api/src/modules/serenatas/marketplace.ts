@@ -17,9 +17,10 @@ import {
     validateMarketplaceEventLead,
     validateProviderGroupSlot,
     countOwnerBlockingSerenatas,
+    filterProviderGroupsAvailableOnDate,
 } from './availability.js';
 import { cleanupReplacedMediaUrl } from '../media/stored-object.js';
-import { eventDateYmd } from './lifecycle.js';
+import { eventDateYmd, todayYmdInChile } from './lifecycle.js';
 import {
     deliverSerenataInvitation,
     deliverSerenataRequestNotification,
@@ -54,6 +55,16 @@ import {
     createGroupInviteToken,
     normalizeChileWhatsAppNumber,
 } from '../../lib/serenata-group-invite.js';
+import { enrichProviderGroupsForMarketplace, mapProviderGroup } from './marketplace-enrich.js';
+import {
+    listSavedMariachisForUser,
+    removeSavedMariachiForUser,
+    toggleSavedMariachiForUser,
+    toggleSavedMariachiSchema,
+} from './saved-provider-groups.js';
+import { listProviderGroupReviews, recomputeProviderGroupRatings } from './provider-group-ratings.js';
+
+export { recomputeProviderGroupRatings, listProviderGroupReviews } from './provider-group-ratings.js';
 
 type AuthUser = {
     id: string;
@@ -276,41 +287,6 @@ async function syncOwnerOperatingZonesFromGroup(
     await db.update(serenataOwners).set(patch).where(eq(serenataOwners.id, ownerId));
 }
 
-function mapProviderGroup(row: typeof serenataProviderGroups.$inferSelect) {
-    return {
-        id: row.id,
-        ownerUserId: row.ownerUserId,
-        ownerId: row.ownerId,
-        name: row.name,
-        slug: row.slug,
-        description: row.description,
-        logoUrl: row.logoUrl,
-        coverUrl: row.coverUrl,
-        phone: row.phone,
-        whatsapp: row.whatsapp,
-        region: row.region,
-        comunaBase: row.comunaBase,
-        serviceComunas: row.serviceComunas ?? [],
-        status: row.status,
-        isVerified: row.isVerified,
-        ratingAverage: Number(row.ratingAverage ?? 0),
-        ratingCount: row.ratingCount,
-        slaHours: row.slaHours,
-        bookingMode: row.bookingMode,
-        bufferMinutes: row.bufferMinutes,
-        requiresAdvancePayment: row.requiresAdvancePayment,
-        advancePaymentInstructions: row.advancePaymentInstructions,
-        acceptsCash: row.acceptsCash,
-        acceptsTransfer: row.acceptsTransfer,
-        acceptsMp: row.acceptsMp,
-        acceptsPaymentLink: row.acceptsPaymentLink,
-        paymentLinkUrl: row.paymentLinkUrl,
-        bankTransferData: row.bankTransferData ?? null,
-        createdAt: row.createdAt,
-        updatedAt: row.updatedAt,
-    };
-}
-
 function mapAvailabilityRule(row: typeof serenataAvailabilityRules.$inferSelect) {
     return {
         id: row.id,
@@ -454,12 +430,154 @@ function mapProviderGroupApplication(row: typeof serenataProviderGroupApplicatio
     };
 }
 
+export const MARKETPLACE_GROUPS_DEFAULT_PAGE_SIZE = 12;
+export const MARKETPLACE_GROUPS_MAX_PAGE_SIZE = 48;
+
+export function parseMarketplaceGroupsPagination(query: {
+    limit?: string;
+    offset?: string;
+}): { limit: number | null; offset: number } {
+    const limitRaw = Number(query.limit);
+    const offsetRaw = Number(query.offset);
+    const limit =
+        Number.isFinite(limitRaw) && limitRaw > 0
+            ? Math.min(Math.floor(limitRaw), MARKETPLACE_GROUPS_MAX_PAGE_SIZE)
+            : null;
+    const offset = Number.isFinite(offsetRaw) && offsetRaw >= 0 ? Math.floor(offsetRaw) : 0;
+    return { limit, offset };
+}
+
+export function normalizeMarketplaceSearchText(value: string) {
+    return value
+        .trim()
+        .toLocaleLowerCase('es-CL')
+        .normalize('NFD')
+        .replace(/\p{M}/gu, '');
+}
+
+export const MARKETPLACE_GROUP_SORTS = ['recommended', 'price_asc', 'name_asc'] as const;
+export type MarketplaceGroupSort = typeof MARKETPLACE_GROUP_SORTS[number];
+
+export function parseMarketplaceGroupSort(raw?: string): MarketplaceGroupSort {
+    if (raw === 'price_asc' || raw === 'name_asc') return raw;
+    return 'recommended';
+}
+
+async function loadStartingPricesForGroups(groupIds: string[]) {
+    const prices = new Map<string, number | null>();
+    if (groupIds.length === 0) return prices;
+    for (const id of groupIds) prices.set(id, null);
+    const services = await db
+        .select({
+            providerGroupId: serenataGroupServices.providerGroupId,
+            price: serenataGroupServices.price,
+        })
+        .from(serenataGroupServices)
+        .where(and(
+            inArray(serenataGroupServices.providerGroupId, groupIds),
+            eq(serenataGroupServices.isActive, true),
+        ));
+    for (const service of services) {
+        if (!Number.isFinite(service.price)) continue;
+        const current = prices.get(service.providerGroupId);
+        if (current == null || service.price < current) {
+            prices.set(service.providerGroupId, service.price);
+        }
+    }
+    return prices;
+}
+
+export function sortMarketplaceProviderGroupRows(
+    rows: (typeof serenataProviderGroups.$inferSelect)[],
+    sort: MarketplaceGroupSort,
+    startingPrices: Map<string, number | null>,
+) {
+    const copy = [...rows];
+    if (sort === 'name_asc') {
+        return copy.sort((a, b) => a.name.localeCompare(b.name, 'es'));
+    }
+    if (sort === 'price_asc') {
+        return copy.sort((a, b) => {
+            const priceA = startingPrices.get(a.id) ?? Number.MAX_SAFE_INTEGER;
+            const priceB = startingPrices.get(b.id) ?? Number.MAX_SAFE_INTEGER;
+            if (priceA !== priceB) return priceA - priceB;
+            return a.name.localeCompare(b.name, 'es');
+        });
+    }
+    return copy.sort((a, b) => {
+        const ratingDiff = (b.ratingCount ?? 0) - (a.ratingCount ?? 0);
+        if (ratingDiff !== 0) return ratingDiff;
+        const avgDiff = Number(b.ratingAverage ?? 0) - Number(a.ratingAverage ?? 0);
+        if (avgDiff !== 0) return avgDiff;
+        return a.name.localeCompare(b.name, 'es');
+    });
+}
+
+export function parseMarketplaceCatalogDate(raw?: string): string | null {
+    if (!raw?.trim()) return null;
+    const value = raw.trim();
+    const ymd = /^\d{4}-\d{2}-\d{2}$/.test(value) ? value : eventDateYmd(new Date(value));
+    if (!ymd || ymd < todayYmdInChile()) return null;
+    return ymd;
+}
+
+export async function listMarketplaceProviderGroupsPage(input: {
+    comuna?: string;
+    region?: string;
+    q?: string;
+    date?: string;
+    sort?: string;
+    limit?: number | null;
+    offset?: number;
+}) {
+    const rows = await db
+        .select()
+        .from(serenataProviderGroups)
+        .where(eq(serenataProviderGroups.status, 'active'))
+        .orderBy(desc(serenataProviderGroups.ratingCount), asc(serenataProviderGroups.name));
+
+    const filtered = filterMarketplaceProviderGroups(rows, {
+        comuna: input.comuna,
+        region: input.region,
+        q: input.q,
+    });
+    const dayYmd = parseMarketplaceCatalogDate(input.date);
+    let candidates = dayYmd
+        ? await filterProviderGroupsAvailableOnDate(filtered, dayYmd)
+        : filtered;
+    const sort = parseMarketplaceGroupSort(input.sort);
+    const startingPrices = sort === 'price_asc'
+        ? await loadStartingPricesForGroups(candidates.map((row) => row.id))
+        : new Map<string, number | null>();
+    candidates = sortMarketplaceProviderGroupRows(candidates, sort, startingPrices);
+    const total = candidates.length;
+    const offset = input.offset ?? 0;
+
+    if (input.limit == null) {
+        const items = await enrichProviderGroupsForMarketplace(candidates);
+        return { items, total, hasMore: false, nextOffset: null };
+    }
+
+    const pageSlice = candidates.slice(offset, offset + input.limit);
+    const items = await enrichProviderGroupsForMarketplace(pageSlice);
+    const nextOffset = offset + items.length;
+    const hasMore = nextOffset < total;
+    return {
+        items,
+        total,
+        hasMore,
+        nextOffset: hasMore ? nextOffset : null,
+    };
+}
+
 export function filterMarketplaceProviderGroups(
     rows: (typeof serenataProviderGroups.$inferSelect)[],
-    query: { comuna?: string; region?: string },
+    query: { comuna?: string; region?: string; q?: string },
 ) {
     const comuna = query.comuna?.trim();
     const region = query.region?.trim();
+    const q = query.q?.trim();
+    const qNormalized = q ? normalizeMarketplaceSearchText(q) : '';
     return rows.filter((row) => {
         const comunas = Array.isArray(row.serviceComunas) ? row.serviceComunas : [];
         if (comuna) {
@@ -472,53 +590,18 @@ export function filterMarketplaceProviderGroups(
             }
         }
         if (region && row.region && row.region !== region) return false;
+        if (qNormalized) {
+            const haystack = normalizeMarketplaceSearchText(
+                [row.name, row.slug, row.description ?? ''].filter(Boolean).join(' '),
+            );
+            if (!haystack.includes(qNormalized)) return false;
+        }
         return true;
     });
 }
 
-export async function recordProviderGroupRating(providerGroupId: string, stars: number) {
-    if (!Number.isFinite(stars) || stars < 1 || stars > 5) return;
-    const group = await db.query.serenataProviderGroups.findFirst({
-        where: eq(serenataProviderGroups.id, providerGroupId),
-    });
-    if (!group) return;
-    const count = group.ratingCount ?? 0;
-    const avg = Number(group.ratingAverage ?? 0);
-    const nextCount = count + 1;
-    const nextAvg = ((avg * count) + stars) / nextCount;
-    await db.update(serenataProviderGroups).set({
-        ratingCount: nextCount,
-        ratingAverage: nextAvg.toFixed(2),
-        updatedAt: new Date(),
-    }).where(eq(serenataProviderGroups.id, providerGroupId));
-}
-
-async function enrichProviderGroupsForMarketplace(groups: (typeof serenataProviderGroups.$inferSelect)[]) {
-    if (groups.length === 0) return [];
-    const groupIds = groups.map((group) => group.id);
-    const services = await db
-        .select()
-        .from(serenataGroupServices)
-        .where(and(inArray(serenataGroupServices.providerGroupId, groupIds), eq(serenataGroupServices.isActive, true)))
-        .orderBy(asc(serenataGroupServices.sortOrder), asc(serenataGroupServices.price));
-
-    return groups.map((group) => {
-        const groupServices = services.filter((service) => service.providerGroupId === group.id);
-        const prices = groupServices.map((service) => service.price).filter((price) => Number.isFinite(price));
-        return {
-            ...mapProviderGroup(group),
-            startingPrice: prices.length > 0 ? Math.min(...prices) : null,
-            activeServicesCount: groupServices.length,
-            servicesPreview: groupServices.slice(0, 3).map((service) => ({
-                id: service.id,
-                name: service.name,
-                price: service.price,
-                musiciansCount: service.musiciansCount,
-                durationMinutes: service.durationMinutes,
-                songsIncluded: service.songsIncluded ?? 0,
-            })),
-        };
-    });
+export async function recordProviderGroupRating(providerGroupId: string) {
+    await recomputeProviderGroupRatings(providerGroupId);
 }
 
 async function requireProviderGroupAccess(
@@ -572,15 +655,61 @@ export function registerMarketplaceRoutes(app: Hono, deps: MarketplaceDeps) {
     app.get('/marketplace/groups', async (c) => {
         const comuna = c.req.query('comuna')?.trim();
         const region = c.req.query('region')?.trim();
-        const rows = await db
-            .select()
-            .from(serenataProviderGroups)
-            .where(eq(serenataProviderGroups.status, 'active'))
-            .orderBy(desc(serenataProviderGroups.isVerified), asc(serenataProviderGroups.name));
+        const q = c.req.query('q')?.trim();
+        const date = c.req.query('date')?.trim() || c.req.query('fecha')?.trim();
+        const sort = c.req.query('sort')?.trim();
+        const { limit, offset } = parseMarketplaceGroupsPagination({
+            limit: c.req.query('limit'),
+            offset: c.req.query('offset'),
+        });
+        const page = await listMarketplaceProviderGroupsPage({
+            comuna,
+            region,
+            q,
+            date,
+            sort,
+            limit,
+            offset,
+        });
+        return c.json({ ok: true, ...page });
+    });
 
-        const filtered = filterMarketplaceProviderGroups(rows, { comuna, region });
-        const items = await enrichProviderGroupsForMarketplace(filtered);
+    app.get('/marketplace/favorites', async (c) => {
+        const user = await deps.authUser(c);
+        if (!user) return deps.jsonError(c, 'No autenticado', 401);
+        const items = await listSavedMariachisForUser(user.id);
+        return c.json({ ok: true, items });
+    });
 
+    app.post('/marketplace/favorites/toggle', async (c) => {
+        const user = await deps.authUser(c);
+        if (!user) return deps.jsonError(c, 'No autenticado', 401);
+
+        const payload = await c.req.json().catch(() => null);
+        const parsed = toggleSavedMariachiSchema.safeParse(payload);
+        if (!parsed.success) return deps.jsonError(c, 'Payload inválido', 400);
+
+        try {
+            const result = await toggleSavedMariachiForUser(user.id, parsed.data.providerGroupId);
+            return c.json({ ok: true, saved: result.saved, items: result.items });
+        } catch (error) {
+            if (error instanceof Error && error.message === 'NOT_FOUND') {
+                return deps.jsonError(c, 'Este mariachi no está disponible.', 404);
+            }
+            throw error;
+        }
+    });
+
+    app.delete('/marketplace/favorites/:providerGroupId', async (c) => {
+        const user = await deps.authUser(c);
+        if (!user) return deps.jsonError(c, 'No autenticado', 401);
+
+        const providerGroupId = c.req.param('providerGroupId') ?? '';
+        if (!toggleSavedMariachiSchema.shape.providerGroupId.safeParse(providerGroupId).success) {
+            return deps.jsonError(c, 'Identificador inválido', 400);
+        }
+
+        const items = await removeSavedMariachiForUser(user.id, providerGroupId);
         return c.json({ ok: true, items });
     });
 
@@ -641,6 +770,23 @@ export function registerMarketplaceRoutes(app: Hono, deps: MarketplaceDeps) {
         return c.json({ ok: true, item: item ?? mapProviderGroup(group) });
     });
 
+    app.get('/marketplace/groups/:slug/reviews', async (c) => {
+        const slug = c.req.param('slug');
+        const group = await db.query.serenataProviderGroups.findFirst({
+            where: and(eq(serenataProviderGroups.slug, slug), eq(serenataProviderGroups.status, 'active')),
+        });
+        if (!group) return deps.jsonError(c, 'Grupo no encontrado', 404);
+        const items = await listProviderGroupReviews(group.id);
+        return c.json({
+            ok: true,
+            summary: {
+                average: Number(group.ratingAverage ?? 0),
+                count: group.ratingCount ?? 0,
+            },
+            items,
+        });
+    });
+
     app.get('/marketplace/groups/:id/services', async (c) => {
         const id = c.req.param('id');
         const group = await db.query.serenataProviderGroups.findFirst({
@@ -687,24 +833,22 @@ export function registerMarketplaceRoutes(app: Hono, deps: MarketplaceDeps) {
     app.get('/provider-groups/me', async (c) => {
         const user = await deps.authUser(c);
         if (!user) return deps.jsonError(c, 'No autenticado', 401);
-        const admin = await db.query.serenataOwners.findFirst({
+        const owner = await db.query.serenataOwners.findFirst({
             where: eq(serenataOwners.userId, user.id),
         });
-        if (admin) {
+        if (owner) {
             const owned = await db
                 .select()
                 .from(serenataProviderGroups)
                 .where(eq(serenataProviderGroups.ownerUserId, user.id))
                 .orderBy(desc(serenataProviderGroups.updatedAt));
-            const administered = admin
-                ? await db
-                    .select()
-                    .from(serenataProviderGroups)
-                    .where(eq(serenataProviderGroups.ownerId, admin.id))
-                    .orderBy(desc(serenataProviderGroups.updatedAt))
-                : [];
+            const ownerLinked = await db
+                .select()
+                .from(serenataProviderGroups)
+                .where(eq(serenataProviderGroups.ownerId, owner.id))
+                .orderBy(desc(serenataProviderGroups.updatedAt));
             const byId = new Map<string, typeof serenataProviderGroups.$inferSelect>();
-            for (const row of [...owned, ...administered]) byId.set(row.id, row);
+            for (const row of [...owned, ...ownerLinked]) byId.set(row.id, row);
             return c.json({ ok: true, items: [...byId.values()].map(mapProviderGroup) });
         }
         const rows = await db
@@ -729,7 +873,7 @@ export function registerMarketplaceRoutes(app: Hono, deps: MarketplaceDeps) {
             const existingOwner = await tx.query.serenataOwners.findFirst({
                 where: eq(serenataOwners.userId, application.userId),
             });
-            const admin = existingOwner ?? (await tx.insert(serenataOwners).values({
+            const owner = existingOwner ?? (await tx.insert(serenataOwners).values({
                 userId: application.userId,
                 bio: application.description,
                 comuna: application.comunaBase,
@@ -742,7 +886,7 @@ export function registerMarketplaceRoutes(app: Hono, deps: MarketplaceDeps) {
             const slug = await uniqueSlug(application.name);
             const [group] = await tx.insert(serenataProviderGroups).values({
                 ownerUserId: application.userId,
-                ownerId: admin.id,
+                ownerId: owner.id,
                 name: application.name,
                 slug,
                 description: application.description,
@@ -813,7 +957,7 @@ export function registerMarketplaceRoutes(app: Hono, deps: MarketplaceDeps) {
             where: eq(serenataProviderGroups.ownerUserId, user.id),
         });
         if (existingGroup) {
-            return deps.jsonError(c, 'Ya tienes un grupo registrado. Solo puedes administrar uno.', 409);
+            return deps.jsonError(c, 'Ya tienes un mariachi registrado. Solo puedes ser dueño de uno.', 409);
         }
         const slug = await uniqueSlug(parsed.data.name);
         const [item] = await db.insert(serenataProviderGroups).values({

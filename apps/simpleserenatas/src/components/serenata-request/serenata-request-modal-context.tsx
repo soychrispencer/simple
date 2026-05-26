@@ -16,7 +16,7 @@ import {
 
 export type SerenataRequestOpenInput =
     | MarketplaceRequestDraftRef
-    | { group: ProviderGroup; service: ProviderGroupService };
+    | { group: ProviderGroup; service: ProviderGroupService; date?: string };
 
 type SerenataRequestModalContextValue = {
     isOpen: boolean;
@@ -35,7 +35,11 @@ const SerenataRequestModalContext = createContext<SerenataRequestModalContextVal
 
 function toDraftRef(input: SerenataRequestOpenInput): MarketplaceRequestDraftRef {
     if ('groupSlug' in input) return input;
-    return { groupSlug: input.group.slug, serviceId: input.service.id };
+    return {
+        groupSlug: input.group.slug,
+        serviceId: input.service.id,
+        ...(input.date ? { date: input.date } : {}),
+    };
 }
 
 export function SerenataRequestModalProvider({ children }: { children: ReactNode }) {

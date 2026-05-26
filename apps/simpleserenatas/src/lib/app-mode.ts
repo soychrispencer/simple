@@ -1,10 +1,10 @@
 import type { OwnerProfile, Profiles } from '@/lib/serenatas-api';
 
-/** Modo de la app: cliente o operación de grupo/músico. */
+/** Modo de la app: cliente o operación de grupo/músico (derivado del perfil, sin alternar). */
 export type AppMode = 'client' | 'work';
 
+/** Clave legada; se elimina al cargar perfiles. */
 export const APP_MODE_STORAGE_KEY = 'serenatas-app-mode';
-/** Clave legada (`musician` / `owner` / perfiles antiguos); se migra al guardar modo. */
 const LEGACY_PROFILE_STORAGE_KEY = 'serenatas-active-profile';
 
 /** Perfil dueño; la suscripción ya no restringe el panel. */
@@ -33,61 +33,15 @@ export function workApiAs(profiles: Profiles): 'musician' | 'owner' {
     return 'musician';
 }
 
-export function readStoredAppMode(): AppMode {
-    if (typeof window === 'undefined') return 'client';
-    const appMode = window.localStorage.getItem(APP_MODE_STORAGE_KEY);
-    if (appMode === 'client' || appMode === 'work') return appMode;
-    if (appMode === 'musician' || appMode === 'owner') return 'work';
-
-    const legacyProfile = window.localStorage.getItem(LEGACY_PROFILE_STORAGE_KEY);
-    if (legacyProfile === 'musician' || (legacyProfile === 'owner' || legacyProfile === 'admin') || legacyProfile === 'coordinator') {
-        return 'work';
-    }
-
+/** Modo fijado por los perfiles de la cuenta (sin localStorage ni switch). */
+export function resolveAppModeFromProfiles(profiles: Profiles): AppMode {
+    if (hasWorkProfile(profiles)) return 'work';
     return 'client';
 }
 
-export function persistAppMode(mode: AppMode) {
-    window.localStorage.setItem(APP_MODE_STORAGE_KEY, mode);
+/** Quita preferencias antiguas de cambio de modo/perfil. */
+export function clearLegacyAppModeStorage(): void {
+    if (typeof window === 'undefined') return;
+    window.localStorage.removeItem(APP_MODE_STORAGE_KEY);
     window.localStorage.removeItem(LEGACY_PROFILE_STORAGE_KEY);
-}
-
-/** true si la preferencia guardada aplica a los perfiles actuales del usuario. */
-export function isStoredAppModeValid(profiles: Profiles, stored: AppMode = readStoredAppMode()): boolean {
-    if (stored === 'work') return hasWorkProfile(profiles);
-    if (stored === 'client') return hasClientProfile(profiles);
-    return false;
-}
-
-export function resolveAppModeFromProfiles(
-    profiles: Profiles,
-    options?: { syncStorage?: boolean },
-): AppMode {
-    const stored = readStoredAppMode();
-    const canWork = hasWorkProfile(profiles);
-    const canClient = hasClientProfile(profiles);
-
-    let mode: AppMode;
-
-    if (stored === 'work' && canWork) {
-        mode = 'work';
-    } else if (stored === 'client' && canClient) {
-        mode = 'client';
-    } else if (canWork && !canClient) {
-        mode = 'work';
-    } else if (canClient && !canWork) {
-        mode = 'client';
-    } else if (canWork) {
-        mode = 'work';
-    } else if (canClient) {
-        mode = 'client';
-    } else {
-        mode = 'client';
-    }
-
-    if (options?.syncStorage && stored !== mode) {
-        persistAppMode(mode);
-    }
-
-    return mode;
 }

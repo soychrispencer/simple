@@ -3,6 +3,7 @@ const STORAGE_KEY = 'simpleserenatas.marketplace-request-draft';
 export type MarketplaceRequestDraftRef = {
     groupSlug: string;
     serviceId: string;
+    date?: string;
 };
 
 export function readMarketplaceRequestDraftRef(): MarketplaceRequestDraftRef | null {
@@ -12,7 +13,12 @@ export function readMarketplaceRequestDraftRef(): MarketplaceRequestDraftRef | n
         if (!raw) return null;
         const parsed = JSON.parse(raw) as MarketplaceRequestDraftRef;
         if (!parsed?.groupSlug?.trim() || !parsed?.serviceId?.trim()) return null;
-        return { groupSlug: parsed.groupSlug.trim(), serviceId: parsed.serviceId.trim() };
+        const date = typeof parsed.date === 'string' ? parsed.date.trim() : '';
+        return {
+            groupSlug: parsed.groupSlug.trim(),
+            serviceId: parsed.serviceId.trim(),
+            ...(date ? { date } : {}),
+        };
     } catch {
         return null;
     }
@@ -34,18 +40,26 @@ export function readMarketplaceRequestDraftFromSearch(search: string): Marketpla
         const params = new URLSearchParams(search.startsWith('?') ? search.slice(1) : search);
         const groupSlug = params.get('grupo')?.trim();
         const serviceId = params.get('servicio')?.trim();
+        const date = params.get('fecha')?.trim() || params.get('date')?.trim() || '';
         if (!groupSlug || !serviceId) return null;
-        return { groupSlug, serviceId };
+        return { groupSlug, serviceId, ...(date ? { date } : {}) };
     } catch {
         return null;
     }
 }
 
 export function marketplaceRequestDraftQuery(ref: MarketplaceRequestDraftRef): Record<string, string> {
-    return { grupo: ref.groupSlug, servicio: ref.serviceId };
+    return {
+        grupo: ref.groupSlug,
+        servicio: ref.serviceId,
+        ...(ref.date ? { fecha: ref.date } : {}),
+    };
 }
 
 /** Deep link en perfil público: `/{slug}?servicio={serviceId}`. */
-export function publicSerenataRequestQuery(serviceId: string): Record<string, string> {
-    return { servicio: serviceId };
+export function publicSerenataRequestQuery(serviceId: string, date?: string): Record<string, string> {
+    return {
+        servicio: serviceId,
+        ...(date ? { fecha: date } : {}),
+    };
 }

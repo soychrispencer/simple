@@ -5,6 +5,7 @@ describe('public-mariachi-routes', () => {
     it('reserva rutas del sistema', () => {
         expect(isReservedPublicSlug('panel')).toBe(true);
         expect(isReservedPublicSlug('auth')).toBe(true);
+        expect(isReservedPublicSlug('mariachis')).toBe(true);
         expect(isReservedPublicSlug('mariachis-santiago')).toBe(false);
     });
 

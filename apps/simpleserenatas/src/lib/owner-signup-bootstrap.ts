@@ -1,5 +1,5 @@
 import { consumeSignupGroupName, consumeSignupOwnerName, readSignupGroupName } from '@/lib/active-provider-group';
-import { persistAppMode } from '@/lib/app-mode';
+import { clearLegacyAppModeStorage } from '@/lib/app-mode';
 import { serenatasApi } from '@/lib/serenatas-api';
 import { clearSignupProfile, hasOwnerSignupIntent } from '@/lib/signup-profile';
 
@@ -49,7 +49,7 @@ export async function ensureOwnerProfileFromSignup(options?: {
     }
 
     await applyOwnerSignupDrafts(options);
-    persistAppMode('work');
+    clearLegacyAppModeStorage();
     clearSignupProfile();
     return true;
 }

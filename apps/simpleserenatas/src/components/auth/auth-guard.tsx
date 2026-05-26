@@ -3,7 +3,7 @@
 import { useAuth } from '@simple/auth';
 import { useLogoutAndGoHome } from '@/hooks/use-logout-and-go-home';
 import { IconLock } from '@tabler/icons-react';
-import { PanelButton } from '@simple/ui';
+import { PanelButton } from '@simple/ui/panel';
 import { EmailVerificationGate } from '@/components/auth/email-verification-gate';
 
 export function AuthGuard({ children }: { children: React.ReactNode }) {

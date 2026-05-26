@@ -1,8 +1,11 @@
 'use client';
 
+import Link from 'next/link';
 import { useMemo, useState, type ReactNode } from 'react';
 import { usePathname } from 'next/navigation';
-import { PanelShell as SharedPanelShell, PanelBottomNav, resolveActiveNavHref } from '@simple/ui';
+import { isClientMarketplaceHref } from '@/lib/client-marketplace';
+import { PanelShell as SharedPanelShell } from '@simple/ui/panel';
+import { PanelBottomNav, resolveActiveNavHref } from '@simple/ui/panel';
 import { useSerenata } from '@/context/serenata-context';
 import {
     getPanelNavItems,
@@ -72,23 +75,33 @@ export function SerenataPanelShell({ children, section, onSectionChange }: Seren
                 <>
                     <PanelBottomNav
                         items={visibleBottomTabs.map((item) => ({
-                            href: item.id,
+                            href: item.href,
                             label: item.label,
                             icon: item.icon,
-                            active: section === item.id,
+                            active: isClientMarketplaceHref(item.href) ? false : section === item.id,
                         }))}
                         moreActive={moreActive}
                         onMoreClick={overflowNavItems.length > 0 ? () => setMoreOpen(true) : undefined}
-                        LinkComponent={({ href, className, children, 'aria-current': ariaCurrent }) => (
-                            <button
-                                type="button"
-                                className={className}
-                                aria-current={ariaCurrent}
-                                onClick={() => onSectionChange(href as Section)}
-                            >
-                                {children}
-                            </button>
-                        )}
+                        LinkComponent={({ href, className, children, 'aria-current': ariaCurrent }) => {
+                            const tab = visibleBottomTabs.find((item) => item.href === href);
+                            if (tab && isClientMarketplaceHref(tab.href)) {
+                                return (
+                                    <Link href={tab.href} className={className} aria-current={ariaCurrent}>
+                                        {children}
+                                    </Link>
+                                );
+                            }
+                            return (
+                                <button
+                                    type="button"
+                                    className={className}
+                                    aria-current={ariaCurrent}
+                                    onClick={() => onSectionChange((tab?.id ?? href) as Section)}
+                                >
+                                    {children}
+                                </button>
+                            );
+                        }}
                     />
                     {moreOpen ? (
                         <PanelMobileMoreSheet

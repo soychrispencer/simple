@@ -2,17 +2,8 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { IconLoader2, IconPlus, IconTrash } from '@tabler/icons-react';
-import {
-    PanelBlockHeader,
-    PanelButton,
-    PanelCard,
-    PanelEmptyState,
-    PanelField,
-    PanelIconButton,
-    PanelStatusBadge,
-    PanelSwitch,
-    usePanelConfirm,
-} from '@simple/ui';
+import { PanelBlockHeader } from '@simple/ui/panel';
+import { PanelButton, PanelCard, PanelEmptyState, PanelField, PanelIconButton, PanelStatusBadge, PanelSwitch, usePanelConfirm } from '@simple/ui/panel';
 import { serenatasApi, type ProviderGroup, type ProviderGroupService } from '@/lib/serenatas-api';
 import { FieldInput, FieldSelect, FieldTextarea, FormFeedback, money, type FormStatus } from './shared';
 

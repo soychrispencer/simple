@@ -4,7 +4,8 @@ import { useEffect, useState, type ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
 import { IconCheck, IconX } from '@tabler/icons-react';
 import { API_BASE } from '@simple/config';
-import { BrandLogo, PanelButton, PanelNotice } from '@simple/ui';
+import { BrandLogo } from '@simple/ui/brand';
+import { PanelButton, PanelNotice } from '@simple/ui/panel';
 
 export default function ConfirmEmailPage() {
     const router = useRouter();

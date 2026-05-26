@@ -9,10 +9,9 @@ import { fileURLToPath } from 'node:url';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 const accountPath = join(root, 'src/components/panel/account-view.tsx');
-const subscriptionPath = join(root, 'src/components/panel/subscription-section.tsx');
+const accountTabPath = join(root, 'src/lib/account-tab.ts');
 const source = readFileSync(accountPath, 'utf8');
-const subscriptionSource = readFileSync(subscriptionPath, 'utf8');
-const combinedSubscriptionSource = `${source}\n${subscriptionSource}`;
+const accountTabSource = readFileSync(accountTabPath, 'utf8');
 
 const forbidden = [
     { pattern: /PanelAccountProfileCard/, label: 'PanelAccountProfileCard' },
@@ -48,17 +47,6 @@ const forbidden = [
     { pattern: /subsection === 'subscription'[\s\S]*reservas/, label: 'reservas en pestaña Suscripción' },
 ];
 
-const subscriptionForbidden = [
-    { pattern: /Mercado Pago no está configurado/, label: 'aviso MP no configurado' },
-    { pattern: /no se puede activar aquí/, label: 'copy suscripción bloqueada por entorno' },
-    { pattern: /próximamente/i, label: 'copy próximamente en Suscripción' },
-    { pattern: /plantel/i, label: 'terminología plantel' },
-    { pattern: /jornadas/i, label: 'terminología jornadas en Suscripción' },
-    { pattern: /Ir a pagar con Mercado Pago/, label: 'CTA duplicado ir a pagar' },
-    { pattern: /Reportes operativos en el panel/, label: 'beneficio como enlace confuso' },
-    { pattern: /BenefitLink/, label: 'beneficios como links' },
-];
-
 const required = [
     { pattern: /PanelPillNav/, label: 'PanelPillNav' },
     { pattern: /AvatarUpload/, label: 'AvatarUpload' },
@@ -75,17 +63,6 @@ const required = [
     { pattern: /Google Calendar/, label: 'integración Google Calendar' },
     { pattern: /googleCalendarAuthUrl/, label: 'googleCalendarAuthUrl' },
     { pattern: /Conectar/, label: 'botón conectar Google Calendar' },
-    { pattern: /SubscriptionSection/, label: 'sección suscripción dedicada' },
-];
-
-const subscriptionRequired = [
-    { pattern: /serenatas por Simple/i, label: 'copy serenatas por Simple' },
-    { pattern: /Suscribirme/, label: 'CTA suscripción Pro' },
-    { pattern: /Cancelar suscripción Pro/, label: 'cancelar suscripción Pro' },
-    { pattern: /title="Suscripción"/, label: 'título sección Suscripción' },
-    { pattern: /Tu plan/, label: 'indicador tu plan' },
-    { pattern: /Plan actual/, label: 'plan actual visible' },
-    { pattern: /startSubscriptionCheckout/, label: 'checkout suscripción Pro' },
 ];
 
 const errors = [];
@@ -94,20 +71,16 @@ for (const { pattern, label } of forbidden) {
     if (pattern.test(source)) errors.push(`Patrón legacy detectado: ${label}`);
 }
 
-for (const { pattern, label } of subscriptionForbidden) {
-    if (pattern.test(combinedSubscriptionSource)) {
-        errors.push(`Patrón legacy en suscripción: ${label}`);
-    }
-}
-
 for (const { pattern, label } of required) {
     if (!pattern.test(source)) errors.push(`Patrón moderno ausente: ${label}`);
 }
 
-for (const { pattern, label } of subscriptionRequired) {
-    if (!pattern.test(combinedSubscriptionSource)) {
-        errors.push(`Patrón suscripción ausente: ${label}`);
-    }
+if (!/ownerFeaturesEnabled\(profiles\)[\s\S]*items\.push\(\{\s*key:\s*['"]subscription['"],\s*label:\s*['"]Suscripción['"]\s*\}\)/.test(accountTabSource)) {
+    errors.push('La pestaña Suscripción debe estar visible solo para dueños.');
+}
+
+if (!/subsection === ['"]subscription['"] && ownerActive[\s\S]*<SubscriptionSection/.test(source)) {
+    errors.push('SubscriptionSection debe renderizarse solo con ownerActive.');
 }
 
 const tuPerfilIdx = source.indexOf('Tu perfil');

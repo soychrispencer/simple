@@ -1,7 +1,7 @@
 'use client';
 
 import { useMemo, useState } from 'react';
-import { PanelField } from '@simple/ui';
+import { PanelField } from '@simple/ui/panel';
 import type { RepertoireSong } from '@/lib/serenatas-api';
 import { FieldInput } from './shared';
 

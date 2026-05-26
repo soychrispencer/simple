@@ -8,6 +8,30 @@ const nextConfig: NextConfig = {
     output: 'standalone',
     outputFileTracingRoot: path.join(process.cwd(), '../..'),
     transpilePackages: ['@simple/types', '@simple/config', '@simple/ui', '@simple/utils', '@simple/auth', '@simple/marketplace-header'],
+    async redirects() {
+        return [
+            {
+                source: '/panel/grupos',
+                destination: '/mariachis',
+                permanent: false,
+            },
+            {
+                source: '/panel/contratar',
+                destination: '/mariachis',
+                permanent: false,
+            },
+            {
+                source: '/panel/mariachis',
+                destination: '/mariachis',
+                permanent: false,
+            },
+            {
+                source: '/mariachis/guardados',
+                destination: '/panel/guardados',
+                permanent: false,
+            },
+        ];
+    },
     async rewrites() {
         return [
             {

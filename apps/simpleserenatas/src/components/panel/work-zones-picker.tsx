@@ -2,13 +2,9 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
-    IconCheck,
-    IconChevronRight,
-    IconMapPin,
-    IconSearch,
-    IconX,
-} from '@tabler/icons-react';
-import { PanelButton, PanelFilterChip } from '@simple/ui';
+    IconCheck, IconChevronRight, IconMapPin, IconSearch, IconX, } from '@tabler/icons-react';
+import { PanelButton } from '@simple/ui/panel';
+import { PanelFilterChip } from '@simple/ui/panel';
 import { LOCATION_REGIONS, getCommunesForRegion } from '@simple/utils';
 import { PanelSheet } from '@/components/panel/panel-sheet';
 

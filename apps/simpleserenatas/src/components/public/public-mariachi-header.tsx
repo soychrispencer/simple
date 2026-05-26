@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { BrandLogo } from '@simple/ui';
+import { BrandLogo } from '@simple/ui/brand';
 
 export function PublicMariachiHeader() {
     return (
@@ -12,7 +12,7 @@ export function PublicMariachiHeader() {
                     <span className="hidden text-sm font-semibold text-fg sm:inline">Simple Serenatas</span>
                 </Link>
                 <nav className="flex items-center gap-3 text-sm">
-                    <Link href="/panel/mariachis" className="font-medium text-fg-muted transition-colors hover:text-accent">
+                    <Link href="/mariachis" className="font-medium text-fg-muted transition-colors hover:text-accent">
                         Mariachis
                     </Link>
                     <Link href="/panel" className="btn btn-primary h-9 px-3 text-sm">

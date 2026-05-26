@@ -1,7 +1,7 @@
 'use client';
 
 import React, { Component, ErrorInfo, ReactNode } from 'react';
-import { PanelCard, PanelButton, PanelNotice } from '@simple/ui';
+import { PanelCard, PanelButton, PanelNotice } from '@simple/ui/panel';
 import { IconAlertTriangle, IconRefresh } from '@tabler/icons-react';
 
 interface Props {

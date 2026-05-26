@@ -1,7 +1,8 @@
 'use client';
 
 import { useState, type ReactNode } from 'react';
-import { PanelButton, PanelField } from '@simple/ui';
+import { PanelButton } from '@simple/ui/panel';
+import { PanelField } from '@simple/ui/panel';
 import { IconCheck, IconLoader2, IconX } from '@tabler/icons-react';
 import { type Serenata, serenatasApi } from '@/lib/serenatas-api';
 import { isEventBeforeToday, needsClosure } from '@/lib/serenata-dates';

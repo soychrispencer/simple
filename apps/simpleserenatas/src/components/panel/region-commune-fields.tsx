@@ -1,7 +1,7 @@
 'use client';
 
 import { useMemo } from 'react';
-import { PanelField } from '@simple/ui';
+import { PanelField } from '@simple/ui/panel';
 import { getCommunesForRegion, LOCATION_REGIONS } from '@simple/utils';
 
 type RegionCommuneFieldsProps = {

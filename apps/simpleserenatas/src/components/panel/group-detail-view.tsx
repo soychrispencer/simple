@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { PanelButton } from '@simple/ui';
+import { PanelButton } from '@simple/ui/panel';
 import { IconArrowLeft } from '@tabler/icons-react';
 import { serenatasApi, type ProviderGroup, type ProviderGroupService } from '@/lib/serenatas-api';
 import {

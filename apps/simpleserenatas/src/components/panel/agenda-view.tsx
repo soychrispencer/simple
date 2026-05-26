@@ -1,7 +1,8 @@
 'use client';
 
 import { useMemo, useState, type ReactNode } from 'react';
-import { PanelButton, PanelCard, PanelFilterChip } from '@simple/ui';
+import { PanelButton } from '@simple/ui/panel';
+import { PanelCard, PanelFilterChip } from '@simple/ui/panel';
 import { IconCalendar, IconCheck, IconClock, IconCurrencyDollar, IconMapPin, IconSearch, IconPencil } from '@tabler/icons-react';
 import { needsClosure } from '@/lib/serenata-dates';
 import { type Profiles, type Serenata, type SerenataGroup, type SerenataPackage } from '@/lib/serenatas-api';

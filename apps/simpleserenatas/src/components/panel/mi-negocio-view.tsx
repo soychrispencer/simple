@@ -2,7 +2,7 @@
 
 import { useCallback, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
-import { PanelPillNav } from '@simple/ui';
+import { PanelPillNav } from '@simple/ui/panel';
 import type { MusicianDirectoryItem } from '@/lib/serenatas-api';
 import { type MiNegocioTab, isMiNegocioTab, miNegocioTabLabel, MI_NEGOCIO_TABS } from '@/lib/mi-negocio-tab';
 import { panelMiNegocioHref } from '@/lib/panel-routes';

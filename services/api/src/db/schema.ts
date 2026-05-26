@@ -1336,6 +1336,15 @@ export const serenataProviderGroupBlockedSlots = pgTable('serenata_provider_grou
   providerIdx: index('serenata_provider_group_blocked_slots_provider_idx').on(table.providerGroupId),
 }));
 
+export const serenataSavedProviderGroups = pgTable('serenata_saved_provider_groups', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  userId: uuid('user_id').references(() => users.id, { onDelete: 'cascade' }).notNull(),
+  providerGroupId: uuid('provider_group_id').references(() => serenataProviderGroups.id, { onDelete: 'cascade' }).notNull(),
+  savedAt: timestamp('saved_at').notNull().defaultNow(),
+}, (table) => ({
+  uniqueUserGroup: uniqueIndex('serenata_saved_provider_groups_user_group_idx').on(table.userId, table.providerGroupId),
+}));
+
 export const serenataProviderGroupApplications = pgTable('serenata_provider_group_applications', {
   id: uuid('id').primaryKey().defaultRandom(),
   userId: uuid('user_id').references(() => users.id, { onDelete: 'cascade' }).notNull(),
@@ -1407,6 +1416,7 @@ export const serenatas = pgTable('serenatas', {
   cancelledAt: timestamp('cancelled_at'),
   cancelledBy: uuid('cancelled_by').references(() => users.id, { onDelete: 'set null' }),
   clientConfirmedAt: timestamp('client_confirmed_at'),
+  clientRating: integer('client_rating'),
   closureReminderSentAt: timestamp('closure_reminder_sent_at'),
   responseDueAt: timestamp('response_due_at', { withTimezone: true }),
   expiredAt: timestamp('expired_at', { withTimezone: true }),

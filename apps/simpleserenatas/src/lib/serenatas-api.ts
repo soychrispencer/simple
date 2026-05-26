@@ -164,6 +164,16 @@ export type ProviderGroupAvailability = {
     blockedSlots: ProviderGroupBlockedSlot[];
 };
 
+export type ProviderGroupReview = {
+    rating: number;
+    confirmedAt: string;
+};
+
+export type ProviderGroupRatingSummary = {
+    average: number;
+    count: number;
+};
+
 export type ProviderGroup = {
     id: string;
     ownerUserId: string;
@@ -336,6 +346,7 @@ export type Serenata = {
     cancelledAt?: string | null;
     cancelledBy?: string | null;
     clientConfirmedAt?: string | null;
+    clientRating?: number | null;
     closureReminderSentAt?: string | null;
     responseDueAt?: string | null;
     expiredAt?: string | null;
@@ -591,14 +602,36 @@ export const serenatasApi = {
         message?: string | null;
         songSelections?: Array<{ repertoireSongId: string; clientNote?: string | null }>;
     }) => request<{ item: Serenata; offersCount: number }>('/client/serenatas', { method: 'POST', body: JSON.stringify(payload) }),
-    marketplaceGroups: (filters?: { comuna?: string; region?: string }) => {
+    marketplaceGroups: (filters?: {
+        comuna?: string;
+        region?: string;
+        q?: string;
+        date?: string;
+        sort?: string;
+        limit?: number;
+        offset?: number;
+    }) => {
         const params = new URLSearchParams();
         if (filters?.comuna) params.set('comuna', filters.comuna);
         if (filters?.region) params.set('region', filters.region);
+        if (filters?.q) params.set('q', filters.q);
+        if (filters?.date) params.set('date', filters.date);
+        if (filters?.sort && filters.sort !== 'recommended') params.set('sort', filters.sort);
+        if (filters?.limit != null) params.set('limit', String(filters.limit));
+        if (filters?.offset != null) params.set('offset', String(filters.offset));
         const query = params.toString();
-        return request<{ items: ProviderGroup[] }>(query ? `/marketplace/groups?${query}` : '/marketplace/groups');
+        return request<{
+            items: ProviderGroup[];
+            total: number;
+            hasMore: boolean;
+            nextOffset: number | null;
+        }>(query ? `/marketplace/groups?${query}` : '/marketplace/groups');
     },
     marketplaceGroupBySlug: (slug: string) => request<{ item: ProviderGroup }>(`/marketplace/groups/${encodeURIComponent(slug)}`),
+    marketplaceGroupReviews: (slug: string) =>
+        request<{ summary: ProviderGroupRatingSummary; items: ProviderGroupReview[] }>(
+            `/marketplace/groups/${encodeURIComponent(slug)}/reviews`,
+        ),
     marketplaceGroupServices: (groupId: string) => request<{ items: ProviderGroupService[] }>(`/marketplace/groups/${groupId}/services`),
     myProviderGroups: () => request<{ items: ProviderGroup[] }>('/provider-groups/me'),
     createProviderGroup: (payload: Partial<ProviderGroup> & { name: string }) => request<{ item: ProviderGroup }>('/provider-groups', { method: 'POST', body: JSON.stringify(payload) }),

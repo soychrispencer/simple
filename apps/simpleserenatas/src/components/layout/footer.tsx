@@ -1,6 +1,7 @@
 'use client';
 
-import { BrandLogo, MarketplaceFooter } from '@simple/ui';
+import { BrandLogo } from '@simple/ui/brand';
+import { MarketplaceFooter } from '@simple/ui/layout';
 
 const platformLinks = [
     { label: 'Clientes', href: '/#para-clientes' },

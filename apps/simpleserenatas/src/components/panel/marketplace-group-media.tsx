@@ -13,7 +13,6 @@ export function MarketplaceGroupCover({
     if (group.coverUrl) {
         return (
             <div className={`w-full overflow-hidden bg-bg-subtle ${className}`}>
-                {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
                     src={group.coverUrl}
                     alt={`Portada de ${group.name}`}
@@ -45,18 +44,19 @@ const LOGO_FRAME =
 export function MarketplaceGroupLogo({
     group,
     size = 'md',
+    frameClassName,
 }: {
     group: Pick<ProviderGroup, 'name' | 'logoUrl'>;
     size?: 'sm' | 'md' | 'lg' | 'profile';
+    frameClassName?: string;
     /** @deprecated Solo tamaño; forma siempre semiredonda (`rounded-card`). */
     variant?: 'card' | 'profile';
 }) {
     const box = LOGO_SIZES[size];
 
     return (
-        <div className={`${LOGO_FRAME} ${box}`}>
+        <div className={`${frameClassName ?? LOGO_FRAME} ${box}`}>
             {group.logoUrl ? (
-                // eslint-disable-next-line @next/next/no-img-element
                 <img src={group.logoUrl} alt="" className="h-full w-full object-cover" />
             ) : (
                 <span>{group.name.slice(0, 1).toUpperCase()}</span>

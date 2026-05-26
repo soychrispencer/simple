@@ -1,7 +1,14 @@
-import { test, expect } from '@playwright/test';
+import { test, expect, type Page } from '@playwright/test';
 import { e2eApiBase, e2eCredentials, loginSerenatasSession } from './helpers/auth';
 
 const creds = e2eCredentials();
+
+async function expectPublicMariachisCatalog(page: Page) {
+    await expect(page).toHaveURL((url) => new URL(url).pathname === '/mariachis', { timeout: 10_000 });
+    await expect(page.getByRole('heading', { name: /mariachis en el marketplace/i })).toBeVisible({
+        timeout: 15_000,
+    });
+}
 
 test.describe('SimpleSerenatas smoke', () => {
     test('home carga documento HTML', async ({ page }) => {
@@ -22,9 +29,20 @@ test.describe('SimpleSerenatas smoke', () => {
         await expect(page.getByText(/grupos|marketplace|mariachis/i).first()).toBeVisible();
     });
 
+    test('catálogo público /mariachis carga', async ({ page }) => {
+        await page.goto('/mariachis');
+        await expectPublicMariachisCatalog(page);
+    });
+
     test('GET marketplace availability (API, sin auth)', async ({ request }) => {
         const apiBase = e2eApiBase();
-        const groupsRes = await request.get(`${apiBase}/api/serenatas/marketplace/groups`);
+        let groupsRes;
+        try {
+            groupsRes = await request.get(`${apiBase}/api/serenatas/marketplace/groups`);
+        } catch {
+            test.skip(true, 'API marketplace no disponible');
+            return;
+        }
         if (!groupsRes.ok()) {
             test.skip(true, 'API marketplace no disponible');
             return;
@@ -49,27 +67,61 @@ test.describe('SimpleSerenatas smoke', () => {
         expect(Array.isArray(json.slots)).toBe(true);
     });
 
+    test('perfil público de mariachi desde marketplace', async ({ page, request }) => {
+        const apiBase = e2eApiBase();
+        let groupsRes;
+        try {
+            groupsRes = await request.get(`${apiBase}/api/serenatas/marketplace/groups`);
+        } catch {
+            test.skip(true, 'API marketplace no disponible');
+            return;
+        }
+        if (!groupsRes.ok()) {
+            test.skip(true, 'API marketplace no disponible');
+            return;
+        }
+        const groupsJson = await groupsRes.json() as { items?: { name: string; slug: string }[] };
+        const group = groupsJson.items?.[0];
+        if (!group?.slug) {
+            test.skip(true, 'Sin grupos activos en marketplace (ejecutar db:seed:serenatas-e2e)');
+            return;
+        }
+
+        await page.goto(`/${group.slug}`);
+        await expect(page.getByRole('heading', { name: group.name }).first()).toBeVisible({ timeout: 15_000 });
+        await expect(page.getByText(/servicios/i).first()).toBeVisible();
+    });
+
     test('GET público listings con brand (API)', async ({ request }) => {
         const apiBase = e2eApiBase();
-        const response = await request.get(
-            `${apiBase}/api/public/listings?vertical=autos&brand=toyota&limit=1`,
-        );
+        let response;
+        try {
+            response = await request.get(
+                `${apiBase}/api/public/listings?vertical=autos&brand=toyota&limit=1`,
+            );
+        } catch {
+            test.skip(true, 'API pública no disponible');
+            return;
+        }
         expect(response.ok()).toBeTruthy();
         const json = await response.json() as { ok?: boolean; items?: unknown[] };
         expect(json.ok).toBe(true);
         expect(Array.isArray(json.items)).toBe(true);
     });
 
-    test('deep link /panel/grupos sin sesión', async ({ page }) => {
+    test('legacy /panel/grupos redirige al catálogo público', async ({ page }) => {
         await page.goto('/panel/grupos');
-        await expect(page).toHaveURL(/\/panel\/grupos/);
-        await expect(page.getByRole('heading', { name: /acceso restringido/i })).toBeVisible();
-        await expect(page.getByRole('button', { name: /iniciar sesión/i })).toBeVisible();
+        await expectPublicMariachisCatalog(page);
     });
 
-    test('compat ?section=grupos redirige a /panel/grupos', async ({ page }) => {
+    test('compat ?section=grupos redirige a /mariachis', async ({ page }) => {
         await page.goto('/?section=grupos');
-        await expect(page).toHaveURL(/\/panel\/grupos/, { timeout: 10_000 });
+        await expectPublicMariachisCatalog(page);
+    });
+
+    test('legacy /panel/contratar redirige a /mariachis', async ({ page }) => {
+        await page.goto('/panel/contratar');
+        await expectPublicMariachisCatalog(page);
     });
 
     test('panel agenda sin sesión muestra acceso restringido', async ({ page }) => {
@@ -117,7 +169,7 @@ test.describe('SimpleSerenatas smoke', () => {
         await expect(page.getByText(/agenda|grupos|serenatas|panel/i).first()).toBeVisible({ timeout: 15_000 });
     });
 
-    test('panel admin solicitudes y mi-negocio (requiere SERENATAS_E2E_EMAIL)', async ({ page }) => {
+    test('panel dueño solicitudes y mi-negocio (requiere SERENATAS_E2E_EMAIL)', async ({ page }) => {
         test.skip(!creds, 'Definir SERENATAS_E2E_EMAIL y SERENATAS_E2E_PASSWORD en .env.local');
 
         await loginSerenatasSession(page, creds!.email, creds!.password);
@@ -131,15 +183,8 @@ test.describe('SimpleSerenatas smoke', () => {
         await expect(page.getByText(/mi negocio|perfil comercial|mariachi/i).first()).toBeVisible({ timeout: 15_000 });
     });
 
-    test('marketplace grupos autenticado (requiere SERENATAS_E2E_EMAIL)', async ({ page }) => {
-        test.skip(!creds, 'Definir SERENATAS_E2E_EMAIL y SERENATAS_E2E_PASSWORD en .env.local');
-
-        await loginSerenatasSession(page, creds!.email, creds!.password);
-
-        await page.goto('/panel/grupos');
-        await expect(page).toHaveURL(/\/panel\/grupos/);
-        await expect(page.getByRole('heading', { name: /explora mariachis|grupos de mariachis/i }).first()).toBeVisible({
-            timeout: 15_000,
-        });
+    test('legacy /panel/mariachis redirige al catálogo público', async ({ page }) => {
+        await page.goto('/panel/mariachis');
+        await expectPublicMariachisCatalog(page);
     });
 });

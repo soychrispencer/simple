@@ -2,7 +2,8 @@
 
 import dynamic from 'next/dynamic';
 import { IconMapPin, IconNavigation, IconRoute } from '@tabler/icons-react';
-import { PanelButton, PanelCard, PanelNotice } from '@simple/ui';
+import { PanelButton } from '@simple/ui/panel';
+import { PanelCard, PanelNotice } from '@simple/ui/panel';
 import type { Serenata } from '@/lib/serenatas-api';
 import { EmptyBlock, FieldInput, googleMapsDirectionsUrl, googleMapsUrl, money } from './shared';
 

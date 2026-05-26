@@ -1,19 +1,23 @@
 'use client';
 
 import type { ReactNode } from 'react';
-import { PanelCard } from '@simple/ui';
-import { IconMapPin, IconRosetteDiscountCheck, IconStar } from '@tabler/icons-react';
+import { PanelCard } from '@simple/ui/panel';
+import { IconClock, IconMapPin, IconMusic, IconRosetteDiscountCheck, IconStar, IconUsersGroup } from '@tabler/icons-react';
 import type { ProviderGroup, ProviderGroupService } from '@/lib/serenatas-api';
+import { GroupRatingDisplay } from '@/components/public/group-rating-display';
 import {
     bookingPolicySummary,
-    formatGroupRating,
     groupDescriptionFallback,
+    normalizeGroupRating,
     profileLocation,
     verificationBadgeLabel,
 } from '@/lib/marketplace-group-display';
-import { MarketplaceGroupCover, MarketplaceGroupLogo } from './marketplace-group-media';
+import { MarketplaceGroupLogo } from './marketplace-group-media';
 import { MarketplaceGroupZonesSummary } from './marketplace-group-zones';
 import { money } from './shared';
+
+const PROFILE_FALLBACK_COVER =
+    'https://images.unsplash.com/photo-1764593821767-352919115758?auto=format&fit=crop&w=1400&q=82';
 
 function serviceMeta(service: ProviderGroupService) {
     const songs =
@@ -24,71 +28,99 @@ function serviceMeta(service: ProviderGroupService) {
 }
 
 export function MariachiProfileHero({ group }: { group: ProviderGroup }) {
-    const rating = formatGroupRating(group);
+    const rating = normalizeGroupRating(group);
     const verifiedLabel = verificationBadgeLabel(group);
     const policy = bookingPolicySummary(group);
 
     return (
         <PanelCard className="min-w-0 overflow-hidden !p-0">
-            <div className="relative h-36 overflow-hidden sm:h-44">
-                <MarketplaceGroupCover group={group} className="h-full min-h-full" />
+            <div className="relative h-[22rem] overflow-hidden sm:h-[24rem]">
+                <img
+                    src={group.coverUrl || PROFILE_FALLBACK_COVER}
+                    alt={`Portada de ${group.name}`}
+                    className="h-full w-full object-cover"
+                />
                 <div
-                    className="pointer-events-none absolute inset-0 bg-gradient-to-t from-surface via-surface/30 to-transparent"
+                    className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/88 via-black/35 to-black/15"
                     aria-hidden
                 />
-                {rating ? (
-                    <span className="absolute right-3 top-3 inline-flex items-center gap-1 rounded-full border border-border/80 bg-surface/90 px-2.5 py-0.5 text-xs font-semibold text-fg shadow-sm backdrop-blur-sm">
-                        <IconStar size={12} className="text-amber-500" fill="currentColor" />
-                        {rating}
+                <div className="absolute left-4 top-4 flex flex-wrap gap-2 sm:left-6 sm:top-6">
+                    <span className="inline-flex items-center gap-1.5 rounded-full bg-white/92 px-3 py-1 text-xs font-semibold text-neutral-950 shadow-sm">
+                        <IconRosetteDiscountCheck size={14} className="text-[var(--accent)]" />
+                        {verifiedLabel ?? 'Nuevo'}
                     </span>
-                ) : null}
+                    {rating.count > 0 ? (
+                        <span className="inline-flex items-center rounded-full bg-black/62 px-3 py-1 text-xs font-semibold text-white backdrop-blur">
+                            <GroupRatingDisplay group={group} size="sm" showCount onDark />
+                        </span>
+                    ) : (
+                        <span className="inline-flex items-center gap-1 rounded-full bg-black/62 px-3 py-1 text-xs font-semibold text-white backdrop-blur">
+                            <IconStar size={13} />
+                            Sin valoraciones aún
+                        </span>
+                    )}
+                </div>
+                <div className="absolute inset-x-0 bottom-0 p-5 sm:p-6">
+                    <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_18rem] lg:items-end">
+                        <div className="flex min-w-0 gap-4">
+                            <MarketplaceGroupLogo group={group} size="profile" />
+                            <div className="min-w-0 pt-1">
+                                <h1 className="break-words text-3xl font-bold leading-tight text-white sm:text-4xl">
+                                    {group.name}
+                                </h1>
+                                <p className="mt-2 flex items-center gap-1.5 text-sm font-medium text-white/78">
+                                    <IconMapPin size={16} className="shrink-0" />
+                                    <span className="truncate">{profileLocation(group)}</span>
+                                </p>
+                            </div>
+                        </div>
+                        <div className="rounded-card border border-white/18 bg-black/35 p-4 text-white shadow-lg backdrop-blur">
+                            <p className="text-[10px] font-semibold uppercase tracking-wide text-white/64">Desde</p>
+                            <p className="mt-1 text-3xl font-bold leading-none">
+                                {group.startingPrice ? money(group.startingPrice) : 'Consultar'}
+                            </p>
+                            <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-xs text-white/72">
+                                <span className="inline-flex items-center gap-1">
+                                    <IconUsersGroup size={14} />
+                                    {group.activeServicesCount ?? 0} servicio{(group.activeServicesCount ?? 0) === 1 ? '' : 's'}
+                                </span>
+                                <span className="inline-flex items-center gap-1">
+                                    <IconClock size={14} />
+                                    {policy.sla}
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
             </div>
 
-            <div className="px-5 pb-5 pt-4 md:px-6">
-                <div className="flex gap-4">
-                    <MarketplaceGroupLogo group={group} size="profile" />
-                    <div className="min-w-0 flex-1 pt-0.5">
-                        <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-                            <h1 className="break-words text-xl font-bold leading-tight text-fg sm:text-2xl">{group.name}</h1>
+            <div className="px-5 py-5 md:px-6">
+                <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_18rem]">
+                    <div className="min-w-0">
+                        <div className="flex flex-wrap items-center gap-2">
                             {verifiedLabel ? (
                                 <span className="inline-flex shrink-0 items-center gap-0.5 rounded-full bg-accent-soft px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-accent">
                                     <IconRosetteDiscountCheck size={11} />
                                     {verifiedLabel}
                                 </span>
                             ) : null}
+                            <span className="inline-flex shrink-0 items-center gap-1 rounded-full border border-border bg-bg-subtle px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-fg-muted">
+                                <IconMusic size={11} />
+                                Perfil comercial
+                            </span>
                         </div>
-                        <p className="mt-1 flex items-center gap-1 text-sm text-fg-muted">
-                            <IconMapPin size={14} className="shrink-0" />
-                            <span className="truncate">{profileLocation(group)}</span>
+                        <p className="mt-3 max-w-3xl text-sm leading-relaxed text-fg-muted">
+                            {groupDescriptionFallback(group)}
                         </p>
                     </div>
-                </div>
-
-                <p className="mt-4 max-w-3xl text-sm leading-relaxed text-fg-muted">
-                    {groupDescriptionFallback(group)}
-                </p>
-
-                <div className="mt-4 flex flex-col gap-3 rounded-xl border border-border bg-bg-subtle/80 p-4 sm:flex-row sm:items-center sm:justify-between">
-                    <div>
-                        <p className="text-[10px] font-semibold uppercase tracking-wide text-fg-muted">Desde</p>
-                        <p className="text-2xl font-bold leading-none text-fg">
-                            {group.startingPrice ? money(group.startingPrice) : 'Consultar'}
+                    <div className="rounded-xl border border-border bg-bg-subtle/80 p-4">
+                        <p className="text-[10px] font-semibold uppercase tracking-wide text-fg-muted">Zonas de atención</p>
+                        <div className="mt-2">
+                            <MarketplaceGroupZonesSummary group={group} maxVisible={4} />
+                        </div>
+                        <p className="mt-3 text-xs text-fg-muted">
+                            {policy.mode}
                         </p>
-                    </div>
-                    <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-fg-muted sm:justify-end">
-                        <span>
-                            <strong className="font-semibold text-fg">{group.activeServicesCount ?? 0}</strong>
-                            {' '}
-                            servicio{(group.activeServicesCount ?? 0) === 1 ? '' : 's'}
-                        </span>
-                        <span>{policy.sla}</span>
-                    </div>
-                </div>
-
-                <div className="mt-4">
-                    <p className="text-[10px] font-semibold uppercase tracking-wide text-fg-muted">Zonas de atención</p>
-                    <div className="mt-1.5">
-                        <MarketplaceGroupZonesSummary group={group} maxVisible={4} />
                     </div>
                 </div>
             </div>
@@ -141,4 +173,3 @@ export function MariachiProfileServicesList({
         </PanelCard>
     );
 }
-

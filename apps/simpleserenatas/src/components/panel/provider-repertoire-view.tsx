@@ -2,7 +2,8 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { IconMusic, IconTrash } from '@tabler/icons-react';
-import { PanelButton, PanelCard, PanelNotice } from '@simple/ui';
+import { PanelButton } from '@simple/ui/panel';
+import { PanelCard, PanelNotice } from '@simple/ui/panel';
 import { useMyMariachi } from '@/hooks/use-my-mariachi';
 import { serenatasApi, type CatalogSong, type RepertoireSong, type SongScore } from '@/lib/serenatas-api';
 import { COMMON_INSTRUMENTS } from '@/lib/repertoire-tags';

@@ -4,7 +4,8 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { IconLock } from '@tabler/icons-react';
 import { API_BASE } from '@simple/config';
-import { BrandLogo, PanelButton, PanelField, PanelNotice } from '@simple/ui';
+import { BrandLogo } from '@simple/ui/brand';
+import { PanelButton, PanelField, PanelNotice } from '@simple/ui/panel';
 
 export default function ResetPasswordPage() {
     const router = useRouter();

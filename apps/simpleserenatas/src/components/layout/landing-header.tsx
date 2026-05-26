@@ -1,11 +1,14 @@
 'use client';
 
+import { useMemo } from 'react';
 import Link from 'next/link';
 import { IconMoon, IconSun } from '@tabler/icons-react';
 import { MarketplaceHeader } from '@simple/marketplace-header';
-import { ThemeToggleButton } from '@simple/ui';
+import { ThemeToggleButton } from '@simple/ui/theme';
+import { clearSavedMariachisCache, syncSavedMariachisFromApi } from '@/lib/saved-mariachis';
 
 export const defaultPublicLinks = [
+    { href: '/mariachis', label: 'Mariachis' },
     { href: '/#para-clientes', label: 'Clientes' },
     { href: '/#musicos', label: 'Músicos' },
     { href: '/para-duenos', label: 'Dueños' },
@@ -21,6 +24,11 @@ type LandingHeaderProps = {
 };
 
 export function LandingHeader({ onLogin, onRegister, publicLinks = defaultPublicLinks }: LandingHeaderProps) {
+    const savedMariachis = useMemo(
+        () => ({ clearCache: clearSavedMariachisCache, syncFromApi: syncSavedMariachisFromApi }),
+        [],
+    );
+
     return (
         <MarketplaceHeader
             brandAppId="simpleserenatas"
@@ -28,10 +36,18 @@ export function LandingHeader({ onLogin, onRegister, publicLinks = defaultPublic
             getPanelNavItems={() => []}
             isPanelNavActive={() => false}
             fetchPanelNotifications={async () => []}
+            savedListings={savedMariachis}
             showPrimaryAction={false}
             rightSlot={
                 <>
                     <ThemeToggleButton variant="header-chip" SunIcon={IconSun} MoonIcon={IconMoon} />
+                    <button
+                        type="button"
+                        className="btn btn-primary inline-flex h-10 px-4 text-sm font-semibold sm:hidden"
+                        onClick={onLogin}
+                    >
+                        Iniciar sesión
+                    </button>
                     <button
                         type="button"
                         className="btn btn-ghost hidden h-10 px-4 text-sm font-medium sm:inline-flex"
@@ -41,7 +57,7 @@ export function LandingHeader({ onLogin, onRegister, publicLinks = defaultPublic
                     </button>
                     <button
                         type="button"
-                        className="btn btn-primary h-10 px-4 text-sm font-semibold"
+                        className="btn btn-primary hidden h-10 px-4 text-sm font-semibold sm:inline-flex"
                         onClick={onRegister}
                     >
                         Crear cuenta
@@ -52,23 +68,13 @@ export function LandingHeader({ onLogin, onRegister, publicLinks = defaultPublic
                 <>
                     <button
                         type="button"
-                        className="btn btn-ghost mb-2 h-10 w-full text-sm font-medium"
+                        className="btn btn-primary mb-2 h-10 w-full text-sm font-semibold"
                         onClick={() => {
                             closeMenu();
                             onLogin();
                         }}
                     >
                         Iniciar sesión
-                    </button>
-                    <button
-                        type="button"
-                        className="btn btn-primary mb-2 h-10 w-full text-sm font-semibold"
-                        onClick={() => {
-                            closeMenu();
-                            onRegister();
-                        }}
-                    >
-                        Crear cuenta
                     </button>
                     <div className="my-2 border-t landing-border" role="presentation" />
                     {publicLinks.map((l) => (

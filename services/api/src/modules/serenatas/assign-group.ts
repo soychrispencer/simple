@@ -68,7 +68,7 @@ export async function assignSerenataMusicianGroup(
     });
     if (!current) return { ok: false, error: 'Serenata no encontrada', status: 404 };
     if (!['accepted_pending_group', 'scheduled'].includes(current.status)) {
-        return { ok: false, error: 'Esta serenata no está lista para asignar grupo.', status: 409 };
+        return { ok: false, error: 'Esta serenata no está lista para conformar grupo.', status: 409 };
     }
 
     let group: typeof serenataGroups.$inferSelect | undefined;

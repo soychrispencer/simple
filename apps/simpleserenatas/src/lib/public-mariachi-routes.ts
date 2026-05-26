@@ -5,6 +5,7 @@ export const RESERVED_PUBLIC_SLUGS = new Set([
     'api',
     'uploads',
     'para-duenos',
+    'mariachis',
     '_next',
     'favicon.ico',
     'robots.txt',

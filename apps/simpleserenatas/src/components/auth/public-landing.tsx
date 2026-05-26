@@ -1,242 +1,275 @@
 'use client';
 
+import { useCallback, useEffect, useState, type FormEvent, type ReactNode } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import {
-    IconHeart,
-    IconShield,
-    IconMessageCircle,
-    IconPhone,
-    IconUser,
-    IconMusic,
-    IconUsersGroup,
-    IconMapPin,
-    IconClock,
+    IconCalendar,
+    IconCheck,
     IconChevronRight,
+    IconHeart,
+    IconMusic,
+    IconSearch,
     IconSparkles,
+    IconUsersGroup,
 } from '@tabler/icons-react';
 import { LandingHeader } from '@/components/layout/landing-header';
 import { Footer } from '@/components/layout/footer';
+import { MarketplaceSearchPanel } from '@/components/public/marketplace-search-panel';
+import { PublicProviderGroupCard } from '@/components/public/public-provider-group-card';
+import { sortMarketplaceGroups } from '@/lib/marketplace-group-display';
+import {
+    defaultLandingSearch,
+    marketplaceCatalogHref,
+    profileHrefWithDate,
+    type MarketplaceSearchFilters,
+} from '@/lib/marketplace-search';
+import { serenatasApi, type ProviderGroup } from '@/lib/serenatas-api';
 
 type PublicLandingProps = {
     onLogin: () => void;
     onRegisterClient: () => void;
     onRegisterMusician: () => void;
+    /** Header de invitado; si se omite y hay sesión, pásalo desde el padre (p. ej. chrome del panel). */
+    header?: ReactNode;
+    isLoggedIn?: boolean;
 };
 
-export function PublicLanding({ onLogin, onRegisterClient, onRegisterMusician }: PublicLandingProps) {
-    const clientFeatures = [
-        { icon: IconHeart, text: 'Ordena fecha, dirección, horario y datos del homenaje.' },
-        { icon: IconShield, text: 'Mantén la información importante en un solo lugar.' },
-        { icon: IconMessageCircle, text: 'Evita perder detalles en conversaciones desordenadas.' },
-        { icon: IconPhone, text: 'Ten a mano los datos de contacto del evento.' },
-    ];
+const HERO_IMAGE =
+    'https://images.unsplash.com/photo-1769230367366-13ed92feb145?auto=format&fit=crop&w=1800&q=82';
 
-    const productPreviewItems = [
-        { title: 'Cumpleaños', place: 'Las Condes', time: '20:30', status: 'Confirmada' },
-        { title: 'Aniversario', place: 'Providencia', time: '21:45', status: 'Grupo listo' },
-        { title: 'Sorpresa', place: 'Ñuñoa', time: '23:00', status: 'En ruta' },
-    ];
+const OCCASIONS = ['Cumpleaños', 'Aniversarios', 'Sorpresas', 'Bodas', 'Día de la Madre', 'Reconciliaciones'];
 
-    const howItWorksClient = [
-        { title: 'Explora mariachis', desc: 'Revisa grupos de mariachis y serenateros disponibles en tu zona.' },
-        { title: 'Solicita tu serenata', desc: 'Indica fecha, lugar y detalles del homenaje.' },
-        { title: 'Celebra sin estrés', desc: 'Sigue el estado de tu evento desde el celular.' },
-    ];
+const HOW_IT_WORKS = [
+    { icon: IconSearch, title: 'Elige un mariachi', desc: 'Compara fotos, servicios, zonas y precio desde.' },
+    { icon: IconCalendar, title: 'Solicita fecha y lugar', desc: 'Indica comuna, dirección, hora y destinatario.' },
+    { icon: IconCheck, title: 'Recibe confirmación', desc: 'El dueño revisa disponibilidad y conforma el grupo.' },
+];
+
+const FEATURED_COUNT = 3;
+
+type FeaturedStatus = { loading: boolean; error: string | null };
+
+export function PublicLanding({
+    onLogin,
+    onRegisterClient,
+    onRegisterMusician,
+    header,
+    isLoggedIn = false,
+}: PublicLandingProps) {
+    const router = useRouter();
+    const [search, setSearch] = useState<MarketplaceSearchFilters>(defaultLandingSearch);
+    const [featured, setFeatured] = useState<ProviderGroup[]>([]);
+    const [featuredStatus, setFeaturedStatus] = useState<FeaturedStatus>({ loading: true, error: null });
+
+    useEffect(() => {
+        let cancelled = false;
+        void serenatasApi.marketplaceGroups({ limit: 24, offset: 0 }).then((response) => {
+            if (cancelled) return;
+            if (!response.ok) {
+                setFeatured([]);
+                setFeaturedStatus({
+                    loading: false,
+                    error: response.error ?? 'No pudimos cargar destacados.',
+                });
+                return;
+            }
+            setFeatured(sortMarketplaceGroups(response.items, 'recommended').slice(0, FEATURED_COUNT));
+            setFeaturedStatus({ loading: false, error: null });
+        });
+        return () => {
+            cancelled = true;
+        };
+    }, []);
+
+    const submitSearch = useCallback(
+        (event?: FormEvent<HTMLFormElement>) => {
+            event?.preventDefault();
+            router.push(marketplaceCatalogHref(search));
+        },
+        [router, search],
+    );
+
+    const openMariachi = useCallback(
+        (slug: string) => {
+            router.push(profileHrefWithDate(slug, search.date));
+        },
+        [router, search.date],
+    );
 
     return (
         <div className="flex min-h-screen min-w-0 flex-col overflow-x-hidden bg-[var(--bg)] text-[var(--fg)]">
-            <LandingHeader onLogin={onLogin} onRegister={onRegisterClient} />
+            {header ?? <LandingHeader onLogin={onLogin} onRegister={onRegisterClient} />}
 
             <main className="flex-1">
-                <section id="hero" className="relative overflow-hidden border-b py-16 landing-border sm:py-20 lg:py-28">
-                    <div className="container-app relative z-10 grid items-center gap-12 lg:grid-cols-[minmax(0,1fr)_minmax(420px,0.8fr)]">
-                        <div className="max-w-2xl">
-                            <div className="mb-6 inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-bold uppercase tracking-wider landing-border landing-bg-surface landing-text-secondary">
-                                <span className="h-2 w-2 shrink-0 rounded-full bg-[var(--accent)]" aria-hidden />
-                                <p className="mb-0">Para quienes quieren sorprender</p>
+                <section id="hero" className="relative isolate overflow-hidden border-b landing-border">
+                    <img
+                        src={HERO_IMAGE}
+                        alt="Mariachis tocando en una celebración"
+                        className="absolute inset-0 -z-20 h-full w-full object-cover"
+                    />
+                    <div className="absolute inset-0 -z-10 bg-black/55" aria-hidden />
+                    <div className="absolute inset-x-0 bottom-0 -z-10 h-1/2 bg-gradient-to-t from-black/75 to-transparent" aria-hidden />
+
+                    <div className="container-app flex min-h-[calc(100svh-9rem)] max-w-6xl flex-col justify-center py-16 sm:min-h-[calc(100svh-11rem)] sm:py-20 lg:py-24">
+                        <div className="max-w-3xl">
+                            <div className="mb-5 inline-flex items-center gap-2 rounded-full border border-white/25 bg-white/12 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-white backdrop-blur">
+                                <IconSparkles size={14} />
+                                Marketplace de mariachis
                             </div>
-                            <h1 className="mb-6 text-4xl font-bold tracking-tight text-balance landing-text-fg sm:text-5xl lg:text-[4.5rem] lg:leading-[1.1]">
-                                Contrata la <span className="landing-text-accent">serenata perfecta</span> en minutos
+                            <h1 className="max-w-3xl text-4xl font-bold tracking-tight text-white text-balance sm:text-6xl lg:text-7xl">
+                                Encuentra mariachis para tu serenata
                             </h1>
-                            <p className="mb-10 max-w-xl text-lg leading-relaxed landing-text-muted sm:text-xl">
-                                Encuentra grupos de mariachis y serenateros en Chile, compara opciones y coordina tu evento sin perder
-                                mensajes en WhatsApp.
+                            <p className="mt-5 max-w-2xl text-base leading-relaxed text-white/82 sm:text-xl">
+                                Compara grupos, precios, servicios y zonas de atención. Solicita tu fecha sin depender de cadenas de mensajes.
                             </p>
-                            <div className="flex flex-col gap-4 sm:flex-row">
-                                <button
-                                    type="button"
-                                    className="btn btn-primary h-14 px-10 text-lg font-semibold"
-                                    onClick={onRegisterClient}
+                            <div className="mt-8 flex flex-col gap-3 sm:flex-row">
+                                <Link
+                                    href="/mariachis"
+                                    className="btn btn-primary h-13 px-7 text-base font-semibold sm:h-14 sm:px-9"
                                 >
-                                    Quiero una serenata
-                                </button>
-                                <button
-                                    type="button"
-                                    className="btn btn-outline h-14 px-10 text-lg font-semibold"
-                                    onClick={onLogin}
-                                >
-                                    Ya tengo cuenta
-                                </button>
-                            </div>
-
-                            <div className="mt-12 flex items-center gap-6">
-                                <div className="flex -space-x-3">
-                                    {[1, 2, 3, 4].map((i) => (
-                                        <div
-                                            key={i}
-                                            className="landing-avatar-ring flex h-10 w-10 items-center justify-center overflow-hidden rounded-full border-2"
-                                        >
-                                            <IconUser size={20} className="landing-text-muted" />
-                                        </div>
-                                    ))}
-                                </div>
-                                <p className="text-sm font-medium landing-text-secondary">
-                                    Familias en Santiago ya confían en SimpleSerenatas
-                                </p>
-                            </div>
-                        </div>
-
-                        <div className="relative">
-                            <div className="relative rounded-card border p-4 shadow-lg landing-border landing-bg-surface">
-                                <div className="rounded-card p-6 landing-bg-subtle">
-                                    <div className="mb-6 flex items-center justify-between">
-                                        <PreviewHeader />
-                                    </div>
-                                    <div className="space-y-4">
-                                        {productPreviewItems.map((item) => (
-                                            <div
-                                                key={item.title}
-                                                className="rounded-card border p-4 landing-border landing-bg-surface"
-                                            >
-                                                <div className="flex items-start justify-between gap-3">
-                                                    <div className="flex gap-3">
-                                                        <div className="flex h-10 w-10 items-center justify-center rounded-button landing-bg-subtle landing-text-accent">
-                                                            <IconMusic size={20} />
-                                                        </div>
-                                                        <div>
-                                                            <p className="text-sm font-bold landing-text-fg">{item.title}</p>
-                                                            <div className="mt-1 flex items-center gap-1.5 text-xs font-medium landing-text-muted">
-                                                                <IconMapPin size={12} />
-                                                                <span>{item.place}</span>
-                                                                <span className="landing-dot-separator">·</span>
-                                                                <IconClock size={12} />
-                                                                <span>{item.time}</span>
-                                                            </div>
-                                                        </div>
-                                                    </div>
-                                                    <span className="rounded-button border px-2 py-0.5 text-[10px] font-bold uppercase tracking-widest landing-status-chip">
-                                                        {item.status}
-                                                    </span>
-                                                </div>
-                                            </div>
-                                        ))}
-                                    </div>
-                                </div>
+                                    Explorar mariachis
+                                    <IconChevronRight size={19} />
+                                </Link>
+                                {isLoggedIn ? (
+                                    <Link
+                                        href="/panel"
+                                        className="btn h-13 border border-white/28 bg-white/12 px-7 text-base font-semibold text-white backdrop-blur transition-colors hover:bg-white/20 sm:h-14 sm:px-9"
+                                    >
+                                        Mi panel
+                                    </Link>
+                                ) : (
+                                    <Link
+                                        href="/para-duenos"
+                                        className="btn h-13 border border-white/28 bg-white/12 px-7 text-base font-semibold text-white backdrop-blur transition-colors hover:bg-white/20 sm:h-14 sm:px-9"
+                                    >
+                                        Soy dueño de un mariachi
+                                    </Link>
+                                )}
                             </div>
                         </div>
                     </div>
                 </section>
 
-                <section id="para-clientes" className="relative overflow-hidden border-b py-20 landing-bg-subtle landing-border scroll-mt-20 sm:py-24">
-                    <div className="container-app">
-                        <div className="grid items-center gap-12 lg:grid-cols-[1fr_0.85fr]">
+                <section id="para-clientes" className="relative z-10 -mt-10 scroll-mt-20">
+                    <div className="container-app max-w-6xl">
+                        <MarketplaceSearchPanel
+                            value={search}
+                            onChange={setSearch}
+                            onSubmit={submitSearch}
+                        />
+                    </div>
+                </section>
+
+                <section id="destacados" className="scroll-mt-24 border-b py-14 landing-border sm:py-18">
+                    <div className="container-app max-w-6xl">
+                        <div className="mb-7 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
                             <div>
-                                <div className="mb-6 inline-flex rounded-button border p-3 landing-accent-chip">
-                                    <IconHeart size={28} />
-                                </div>
-                                <h2 className="mb-6 text-3xl font-bold tracking-tight landing-text-fg sm:text-4xl">
-                                    Todo para tu evento, en un solo lugar
-                                </h2>
-                                <div className="grid gap-5">
-                                    {clientFeatures.map((f, i) => (
-                                        <FeatureRow key={i} icon={f.icon} text={f.text} />
-                                    ))}
-                                </div>
-                                <button
-                                    type="button"
-                                    className="btn btn-primary mt-10 h-12 px-8 font-semibold"
-                                    onClick={onRegisterClient}
-                                >
-                                    Crear cuenta de cliente
-                                </button>
-                            </div>
-                            <ClientSummaryCard />
-                        </div>
-                    </div>
-                </section>
-
-                <section id="partners" className="border-b py-20 landing-border scroll-mt-20 sm:py-24">
-                    <div className="container-app">
-                        <div className="mb-10 text-center md:mb-14">
-                            <p className="mb-3 text-xs font-bold uppercase tracking-[0.2em] landing-text-accent">También para profesionales</p>
-                            <h2 className="mb-4 text-3xl font-bold tracking-tight landing-text-fg sm:text-4xl">
-                                ¿Eres músico o administras un grupo?
-                            </h2>
-                            <p className="mx-auto max-w-2xl text-lg landing-text-muted">
-                                Elige tu camino. Cada perfil tiene herramientas diseñadas para lo que necesitas en terreno.
-                            </p>
-                        </div>
-
-                        <div className="grid gap-5 md:grid-cols-2">
-                            <PartnerCard
-                                id="musicos"
-                                icon={IconMusic}
-                                eyebrow="Para músicos"
-                                title="Recibe invitaciones y organiza tu agenda"
-                                description="Perfil profesional, invitaciones claras y calendario desde el celular. Ideal si tocas con varios grupos."
-                                bullets={['Perfil con instrumento y comuna', 'Invitaciones con un toque', 'Agenda de eventos confirmados']}
-                                ctaLabel="Registrarme como músico"
-                                onCta={onRegisterMusician}
-                            />
-                            <PartnerCard
-                                icon={IconUsersGroup}
-                                eyebrow="Para dueños"
-                                title="Administra tu mariachi como un negocio"
-                                description="Agenda, músicos, marketplace, mapa y rutas. La suite para quien administra uno o más grupos de mariachis."
-                                bullets={['Perfil público y servicios', 'Grupos e integrantes', 'Mapa y logística del día']}
-                                ctaLabel="Crear cuenta de dueño"
-                                href="/para-duenos"
-                                accent
-                            />
-                        </div>
-                    </div>
-                </section>
-
-                <section id="como-funciona" className="py-20 scroll-mt-20 sm:py-24">
-                    <div className="container-app max-w-4xl">
-                        <HowItWorksHeader />
-                        <div className="grid gap-8 md:grid-cols-3">
-                            {howItWorksClient.map((step, i) => (
-                                <div key={step.title} className="text-center">
-                                    <div className="landing-badge-num mx-auto mb-4 flex h-10 w-10 items-center justify-center rounded-full text-sm font-bold">
-                                        {i + 1}
-                                    </div>
-                                    <h3 className="mb-2 text-lg font-bold landing-text-fg">{step.title}</h3>
-                                    <p className="text-base leading-relaxed landing-text-muted">{step.desc}</p>
-                                </div>
-                            ))}
-                        </div>
-                    </div>
-                </section>
-
-                <section className="py-20">
-                    <div className="container-app">
-                        <div className="rounded-card border p-8 text-center landing-border landing-bg-subtle sm:p-16">
-                            <div className="mx-auto max-w-3xl">
-                                <h2 className="mb-6 text-3xl font-bold tracking-tight landing-text-fg sm:text-4xl">
-                                    Sorprende a quien más quieres
-                                </h2>
-                                <p className="mb-10 text-lg leading-relaxed landing-text-muted">
-                                    Crea tu cuenta gratis y solicita tu próxima serenata con grupos verificados en la plataforma.
+                                <p className="text-xs font-semibold uppercase tracking-[0.18em] landing-text-accent">
+                                    Marketplace
                                 </p>
-                                <button
-                                    type="button"
-                                    className="btn btn-primary h-14 px-10 text-lg font-bold"
-                                    onClick={onRegisterClient}
-                                >
-                                    Empezar como cliente
-                                </button>
+                                <h2 className="mt-2 text-3xl font-bold tracking-tight landing-text-fg sm:text-4xl">
+                                    Mariachis destacados
+                                </h2>
+                                <p className="mt-2 max-w-2xl text-sm landing-text-muted">
+                                    Una muestra del catálogo. Filtra por zona, nombre y fecha con cupo disponible.
+                                </p>
                             </div>
+                            <Link
+                                href="/mariachis"
+                                className="btn btn-outline h-11 px-5 text-sm font-semibold sm:self-center"
+                            >
+                                Ver todos
+                                <IconChevronRight size={17} />
+                            </Link>
+                        </div>
+                        {featuredStatus.loading ? null : featured.length === 0 ? (
+                            <div className="rounded-card border p-8 text-center landing-border landing-bg-surface">
+                                <p className="text-sm landing-text-muted">
+                                    {featuredStatus.error ?? 'Aún no hay mariachis publicados en el catálogo.'}
+                                </p>
+                                <Link href="/mariachis" className="btn btn-primary mt-4 inline-flex h-11 px-6 font-semibold">
+                                    Explorar catálogo
+                                </Link>
+                            </div>
+                        ) : (
+                            <div className="grid gap-5 md:grid-cols-3">
+                                {featured.map((group) => (
+                                    <PublicProviderGroupCard
+                                        key={group.id}
+                                        group={group}
+                                        href={profileHrefWithDate(group.slug, search.date)}
+                                        onOpen={openMariachi}
+                                    />
+                                ))}
+                            </div>
+                        )}
+                    </div>
+                </section>
+
+                <section id="como-funciona" className="border-b py-14 landing-border landing-bg-subtle scroll-mt-20 sm:py-18">
+                    <div className="container-app max-w-6xl">
+                        <div className="grid gap-8 lg:grid-cols-[0.8fr_1.2fr] lg:items-start">
+                            <div>
+                                <p className="text-xs font-semibold uppercase tracking-[0.18em] landing-text-accent">
+                                    Cómo funciona
+                                </p>
+                                <h2 className="mt-2 text-3xl font-bold tracking-tight landing-text-fg sm:text-4xl">
+                                    De la idea a la serenata en tres pasos
+                                </h2>
+                            </div>
+                            <div className="grid gap-4 sm:grid-cols-3">
+                                {HOW_IT_WORKS.map((step, index) => (
+                                    <StepCard key={step.title} step={step} index={index + 1} />
+                                ))}
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <section className="border-b py-14 landing-border sm:py-18">
+                    <div className="container-app max-w-6xl">
+                        <div className="grid gap-8 lg:grid-cols-[0.8fr_1.2fr] lg:items-center">
+                            <div>
+                                <p className="text-xs font-semibold uppercase tracking-[0.18em] landing-text-accent">
+                                    Para cada ocasión
+                                </p>
+                                <h2 className="mt-2 text-3xl font-bold tracking-tight landing-text-fg sm:text-4xl">
+                                    La música correcta para el momento correcto
+                                </h2>
+                            </div>
+                            <div className="flex flex-wrap gap-2">
+                                {OCCASIONS.map((occasion) => (
+                                    <span
+                                        key={occasion}
+                                        className="inline-flex items-center gap-2 rounded-full border px-4 py-2 text-sm font-medium landing-border landing-bg-surface landing-text-secondary"
+                                    >
+                                        <IconHeart size={15} className="landing-text-accent" />
+                                        {occasion}
+                                    </span>
+                                ))}
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <section id="musicos" className="py-14 scroll-mt-20 sm:py-18">
+                    <div className="container-app max-w-6xl">
+                        <div className="grid gap-5 lg:grid-cols-2">
+                            <AudienceCard
+                                icon={IconUsersGroup}
+                                title="Publica tu mariachi"
+                                description="Crea tu perfil comercial, servicios, precios y zonas para recibir solicitudes del marketplace."
+                                cta="Ir al panel de dueños"
+                                href="/para-duenos"
+                            />
+                            <AudienceCard
+                                icon={IconMusic}
+                                title="Toca con más grupos"
+                                description="Registra tu perfil de músico, recibe invitaciones y revisa tu agenda de presentaciones."
+                                cta="Registrarme como músico"
+                                onClick={onRegisterMusician}
+                            />
                         </div>
                     </div>
                 </section>
@@ -247,149 +280,76 @@ export function PublicLanding({ onLogin, onRegisterClient, onRegisterMusician }:
     );
 }
 
-function PreviewHeader() {
+function StepCard({
+    step,
+    index,
+}: {
+    step: (typeof HOW_IT_WORKS)[number];
+    index: number;
+}) {
     return (
-        <>
-            <div>
-                <p className="text-base font-bold landing-text-fg">Tu serenata</p>
-                <p className="text-xs font-medium landing-text-muted">Sábado, 24 de Mayo</p>
+        <div className="rounded-card border p-5 landing-border landing-bg-surface">
+            <div className="mb-5 flex items-center justify-between">
+                <div className="flex size-11 items-center justify-center rounded-button bg-accent-soft text-accent">
+                    <step.icon size={22} />
+                </div>
+                <span className="text-sm font-bold landing-text-muted">{String(index).padStart(2, '0')}</span>
             </div>
-            <div className="flex items-center gap-2 rounded-full px-4 py-1.5 text-xs font-bold landing-accent-soft">
-                <span className="landing-progress-fill flex h-1.5 w-1.5 rounded-full" />
-                Confirmada
+            <h3 className="text-lg font-bold landing-text-fg">{step.title}</h3>
+            <p className="mt-2 text-sm leading-relaxed landing-text-muted">{step.desc}</p>
+        </div>
+    );
+}
+
+function AudienceCard({
+    icon: Icon,
+    title,
+    description,
+    cta,
+    href,
+    onClick,
+    accent,
+}: {
+    icon: typeof IconMusic;
+    title: string;
+    description: string;
+    cta: string;
+    href?: string;
+    onClick?: () => void;
+    accent?: boolean;
+}) {
+    const content = (
+        <>
+            <div className="flex size-12 items-center justify-center rounded-button bg-accent-soft text-accent">
+                <Icon size={24} />
+            </div>
+            <div className="min-w-0 flex-1">
+                <h3 className="text-xl font-bold landing-text-fg">{title}</h3>
+                <p className="mt-1 text-sm leading-relaxed landing-text-muted">{description}</p>
+            </div>
+            <div className="shrink-0">
+                <span className={accent ? 'btn btn-primary h-11 px-5 font-semibold' : 'btn btn-outline h-11 px-5 font-semibold'}>
+                    {cta}
+                    <IconChevronRight size={17} />
+                </span>
             </div>
         </>
     );
-}
 
-function FeatureRow({ icon: Icon, text }: { icon: typeof IconHeart; text: string }) {
-    return (
-        <div className="flex gap-4">
-            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border landing-border landing-bg-surface landing-text-accent">
-                <Icon size={20} />
-            </div>
-            <p className="py-1.5 text-lg font-medium landing-text-secondary">{text}</p>
-        </div>
-    );
-}
+    const className =
+        'flex flex-col gap-5 rounded-card border p-5 landing-border landing-bg-surface shadow-sm sm:flex-row sm:items-center sm:p-6';
 
-function ClientSummaryCard() {
-    return (
-        <div className="relative flex aspect-[4/3] flex-col overflow-hidden rounded-card border shadow-md landing-border landing-bg-surface">
-            <div className="p-8 pb-4">
-                <h3 className="mb-1 text-lg font-bold landing-text-fg">Resumen de tu serenata</h3>
-                <p className="text-sm landing-text-muted">Gestiona los detalles de tu evento</p>
-            </div>
-            <div className="flex-1 px-8 py-2">
-                <ClientSummaryRows />
-            </div>
-            <div className="p-8 pt-4">
-                <div className="mb-3 flex items-center justify-between text-xs font-bold">
-                    <span className="landing-text-muted">Progreso de solicitud</span>
-                    <span className="landing-text-accent">80%</span>
-                </div>
-                <div className="h-2 overflow-hidden rounded-full landing-bg-subtle">
-                    <div className="landing-progress-fill h-full w-[80%] rounded-full" />
-                </div>
-            </div>
-        </div>
-    );
-}
-
-function ClientSummaryRows() {
-    const rows = [
-        { label: 'Fecha y lugar', val: '24 Mayo, Las Condes' },
-        { label: 'Paquete', val: 'Serenata Estándar' },
-        { label: 'Músicos', val: '3 músicos' },
-    ];
-    return (
-        <div className="space-y-4">
-            {rows.map((item) => (
-                <div key={item.label} className="flex items-center justify-between border-b py-2 landing-border">
-                    <span className="text-sm landing-text-muted">{item.label}</span>
-                    <span className="text-sm font-bold landing-text-fg">{item.val}</span>
-                </div>
-            ))}
-        </div>
-    );
-}
-
-function HowItWorksHeader() {
-    return (
-        <div className="mb-14 text-center">
-            <h2 className="mb-4 text-3xl font-bold tracking-tight landing-text-fg sm:text-4xl">Cómo contratar</h2>
-            <p className="text-lg landing-text-muted">Tres pasos simples para tu próxima sorpresa</p>
-        </div>
-    );
-}
-
-type PartnerCardProps = {
-    id?: string;
-    icon: typeof IconMusic;
-    eyebrow: string;
-    title: string;
-    description: string;
-    bullets: string[];
-    ctaLabel: string;
-    onCta?: () => void;
-    href?: string;
-    accent?: boolean;
-};
-
-function PartnerCard({
-    id,
-    icon: Icon,
-    eyebrow,
-    title,
-    description,
-    bullets,
-    ctaLabel,
-    onCta,
-    href,
-    accent,
-}: PartnerCardProps) {
-    const cardClass = accent
-        ? 'rounded-card border p-6 sm:p-8 landing-border landing-accent-soft shadow-sm transition-shadow hover:shadow-md'
-        : 'rounded-card border p-6 sm:p-8 landing-border landing-bg-surface transition-shadow hover:shadow-md';
-
-    const ctaClass = accent ? 'btn btn-primary w-full sm:w-auto' : 'btn btn-outline w-full sm:w-auto';
-    const rootClass = id ? `${cardClass} scroll-mt-20` : cardClass;
+    if (href) {
+        return (
+            <Link href={href} className={className}>
+                {content}
+            </Link>
+        );
+    }
 
     return (
-        <div id={id} className={rootClass}>
-            <div className="mb-4 flex items-center gap-3">
-                <div className="landing-feature-icon-box inline-flex rounded-card border p-3">
-                    <Icon size={26} className="landing-text-accent" />
-                </div>
-                {accent ? (
-                    <span className="inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider landing-border landing-bg-surface landing-text-accent">
-                        <IconSparkles size={12} />
-                        {eyebrow}
-                    </span>
-                ) : (
-                    <span className="text-xs font-bold uppercase tracking-wider landing-text-muted">{eyebrow}</span>
-                )}
-            </div>
-            <h3 className="mb-3 text-xl font-bold landing-text-fg sm:text-2xl">{title}</h3>
-            <p className="mb-5 text-base leading-relaxed landing-text-secondary">{description}</p>
-            <ul className="mb-8 space-y-2 text-sm landing-text-muted">
-                {bullets.map((b) => (
-                    <li key={b} className="flex items-start gap-2">
-                        <IconChevronRight size={16} className="mt-0.5 shrink-0 landing-text-accent" />
-                        {b}
-                    </li>
-                ))}
-            </ul>
-            {href ? (
-                <Link href={href} className={`${ctaClass} inline-flex h-12 items-center justify-center px-6 font-semibold`}>
-                    {ctaLabel}
-                    <IconChevronRight size={18} className="ml-1" />
-                </Link>
-            ) : (
-                <button type="button" className={`${ctaClass} h-12 px-6 font-semibold`} onClick={onCta}>
-                    {ctaLabel}
-                </button>
-            )}
-        </div>
+        <button type="button" className={`${className} text-left`} onClick={onClick}>
+            {content}
+        </button>
     );
 }

@@ -2,14 +2,9 @@
 
 import { useMemo, useState } from 'react';
 import {
-    IconCheck,
-    IconCopy,
-    IconDownload,
-    IconExternalLink,
-    IconQrcode,
-    IconShare3,
-} from '@tabler/icons-react';
-import { PanelButton, PanelCard } from '@simple/ui';
+    IconCheck, IconCopy, IconDownload, IconExternalLink, IconQrcode, IconShare3, } from '@tabler/icons-react';
+import { PanelButton } from '@simple/ui/panel';
+import { PanelCard } from '@simple/ui/panel';
 import type { ProviderGroup } from '@/lib/serenatas-api';
 import { publicMariachiProfileUrl } from '@/lib/public-mariachi-routes';
 

@@ -1,7 +1,8 @@
 ﻿'use client';
 
 import { IconCheck, IconClock, IconMapPin, IconX } from '@tabler/icons-react';
-import { PanelButton, PanelCard, PanelStatusBadge } from '@simple/ui';
+import { PanelButton } from '@simple/ui/panel';
+import { PanelCard, PanelStatusBadge } from '@simple/ui/panel';
 import type { Invitation, Profiles } from '@/lib/serenatas-api';
 import { serenatasApi } from '@/lib/serenatas-api';
 import { EmptyBlock, formatDate, toInputDate } from './shared';

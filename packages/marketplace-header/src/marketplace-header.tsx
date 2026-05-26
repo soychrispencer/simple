@@ -2,23 +2,13 @@
 
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { useTheme } from '@simple/ui';
+import { useTheme } from '@simple/ui/theme';
 import { useEffect, useMemo, useRef, useState, type ComponentType, type ReactNode } from 'react';
 import {
-  IconBell,
-  IconSun,
-  IconMoon,
-  IconUser,
-  IconPlus,
-  IconLogout,
-  IconSparkles,
-  IconMenu2,
-  IconX,
-  IconUsersGroup,
-  IconMessage,
-} from '@tabler/icons-react';
+  IconBell, IconSun, IconMoon, IconUser, IconPlus, IconLogout, IconSparkles, IconMenu2, IconX, IconUsersGroup, IconMessage, } from '@tabler/icons-react';
 import { useAuth } from '@simple/auth';
-import { BrandLogo, PanelButton } from '@simple/ui';
+import { BrandLogo } from '@simple/ui/brand';
+import { PanelButton } from '@simple/ui/panel';
 
 export type MarketplacePanelRole = 'user' | 'admin' | 'superadmin';
 

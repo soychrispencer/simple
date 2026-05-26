@@ -2,15 +2,8 @@
 
 import { useEffect, useState } from 'react';
 import { IconAlertCircle, IconCalendarOff, IconLoader2, IconPlus, IconTrash } from '@tabler/icons-react';
-import {
-    PanelBlockHeader,
-    PanelButton,
-    PanelCard,
-    PanelEmptyState,
-    PanelField,
-    PanelIconButton,
-    PanelSwitch,
-} from '@simple/ui';
+import { PanelBlockHeader } from '@simple/ui/panel';
+import { PanelButton, PanelCard, PanelEmptyState, PanelField, PanelIconButton, PanelSwitch } from '@simple/ui/panel';
 import {
     serenatasApi,
     type ProviderGroup,

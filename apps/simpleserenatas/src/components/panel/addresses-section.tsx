@@ -2,8 +2,8 @@
 
 import { useState } from 'react';
 import type { AddressBookEntry } from '@simple/types';
-import type { AddressBookManagerSubmitInput } from '@simple/ui';
-import { AddressBookManager, PanelNotice } from '@simple/ui';
+import { PanelNotice } from '@simple/ui/panel';
+import { AddressBookManager, type AddressBookManagerSubmitInput } from '@simple/ui/address-book';
 import {
     createAddressBookEntry,
     deleteAddressBookEntry,

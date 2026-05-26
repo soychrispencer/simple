@@ -1,7 +1,8 @@
 'use client';
 
 import { useState } from 'react';
-import { PanelButton, PanelField, usePanelConfirm } from '@simple/ui';
+import { PanelButton } from '@simple/ui/panel';
+import { PanelField, usePanelConfirm } from '@simple/ui/panel';
 import { type Serenata, serenatasApi } from '@/lib/serenatas-api';
 import {
     canClientCancelSerenata,

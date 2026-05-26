@@ -29,7 +29,7 @@ test.describe('SimpleSerenatas dueño (E2E real)', () => {
             await acceptButton.click();
         }
 
-        await expect(page.getByRole('button', { name: /asignar grupo/i })).toBeVisible({
+        await expect(page.getByRole('button', { name: /conformar grupo/i })).toBeVisible({
             timeout: 15_000,
         });
 
@@ -38,7 +38,7 @@ test.describe('SimpleSerenatas dueño (E2E real)', () => {
         await expect(page.getByRole('heading', { name: /agenda/i })).toBeVisible({ timeout: 15_000 });
     });
 
-    test('solicitud aceptada: asignar grupo operativo (opcional)', async ({ page }) => {
+    test('solicitud aceptada: conformar grupo operativo (opcional)', async ({ page }) => {
         await loginSerenatasSession(page, creds!.email, creds!.password);
         await page.goto('/panel/solicitudes?filter=accepted_pending_group');
         await expect(page.getByRole('heading', { name: /solicitudes/i }).first()).toBeVisible({ timeout: 15_000 });
@@ -50,13 +50,13 @@ test.describe('SimpleSerenatas dueño (E2E real)', () => {
         }
 
         await needsGroup.click();
-        const assignButton = page.getByRole('button', { name: /asignar grupo/i });
+        const assignButton = page.getByRole('button', { name: /conformar grupo/i });
         if (!(await assignButton.isVisible().catch(() => false))) {
             test.skip(true, 'Serenata ya tiene grupo asignado');
             return;
         }
         await assignButton.click();
-        await expect(page.getByRole('heading', { name: /asignar grupo/i })).toBeVisible({ timeout: 10_000 });
+        await expect(page.getByRole('heading', { name: /conformar grupo/i })).toBeVisible({ timeout: 10_000 });
 
         const confirm = page.getByRole('button', { name: /confirmar grupo y agendar/i });
         await expect(confirm).toBeVisible();

@@ -1,7 +1,8 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { PanelButton, PanelField } from '@simple/ui';
+import { PanelButton } from '@simple/ui/panel';
+import { PanelField } from '@simple/ui/panel';
 import { serenatasApi, type CatalogSong } from '@/lib/serenatas-api';
 import { SUGGESTED_REPERTOIRE_TAGS } from '@/lib/repertoire-tags';
 import { PanelSheet } from './panel-sheet';

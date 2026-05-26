@@ -102,6 +102,7 @@ export function SerenataRequestModal() {
                     group={resolved.group}
                     service={resolved.service}
                     contactPhone={contactPhone}
+                    initialDate={draftRef?.date}
                     onBack={closeRequest}
                 />
             ) : null}

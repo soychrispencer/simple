@@ -2,7 +2,8 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { IconMusic, IconX } from '@tabler/icons-react';
-import { PanelButton, PanelCard, PanelStatusBadge } from '@simple/ui';
+import { PanelButton } from '@simple/ui/panel';
+import { PanelCard, PanelStatusBadge } from '@simple/ui/panel';
 import { serenatasApi, type RepertoireSong } from '@/lib/serenatas-api';
 import { PanelSheet } from '@/components/panel/panel-sheet';
 

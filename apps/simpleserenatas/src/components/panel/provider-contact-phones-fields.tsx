@@ -2,7 +2,8 @@
 
 import { useEffect, useState } from 'react';
 import { IconLink, IconLinkOff } from '@tabler/icons-react';
-import { PanelField, PanelIconButton } from '@simple/ui';
+import { PanelField } from '@simple/ui/panel';
+import { PanelIconButton } from '@simple/ui/panel';
 import { formatChileMobileHint } from '@/lib/chile-phone';
 import { FieldInput } from './shared';
 

@@ -1,7 +1,8 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { PanelButton, PanelCard, PanelField, PanelNotice } from '@simple/ui';
+import { PanelButton } from '@simple/ui/panel';
+import { PanelCard, PanelField, PanelNotice } from '@simple/ui/panel';
 import { serenatasApi, type ProviderGroup } from '@/lib/serenatas-api';
 import { useMyMariachi } from '@/hooks/use-my-mariachi';
 import { RegionCommuneFields } from '@/components/panel/region-commune-fields';

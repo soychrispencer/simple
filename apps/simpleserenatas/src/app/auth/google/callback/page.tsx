@@ -5,7 +5,8 @@ import { useRouter } from 'next/navigation';
 import { IconCheck, IconX } from '@tabler/icons-react';
 import { useAuth } from '@simple/auth';
 import { API_BASE } from '@simple/config';
-import { BrandLogo, PanelButton, PanelNotice } from '@simple/ui';
+import { BrandLogo } from '@simple/ui/brand';
+import { PanelButton, PanelNotice } from '@simple/ui/panel';
 
 export default function GoogleCallbackPage() {
     const router = useRouter();

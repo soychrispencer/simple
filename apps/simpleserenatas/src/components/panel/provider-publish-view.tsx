@@ -3,7 +3,8 @@
 import Link from 'next/link';
 import { useMemo, useState } from 'react';
 import { IconCheck, IconEye, IconEyeOff, IconLoader2 } from '@tabler/icons-react';
-import { PanelBlockHeader, PanelButton, PanelCard, PanelNotice, PanelSwitch } from '@simple/ui';
+import { PanelBlockHeader } from '@simple/ui/panel';
+import { PanelButton, PanelCard, PanelNotice, PanelSwitch } from '@simple/ui/panel';
 import { serenatasApi } from '@/lib/serenatas-api';
 import { useMyMariachi } from '@/hooks/use-my-mariachi';
 import { panelMiNegocioHref } from '@/lib/panel-routes';

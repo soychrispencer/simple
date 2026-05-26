@@ -93,6 +93,7 @@ export function createPermanentlyDeleteUser(deps: PermanentlyDeleteUserDeps) {
         serenataGroupServices,
         serenataAvailabilityRules,
         serenataProviderGroupBlockedSlots,
+        serenataSavedProviderGroups,
         serenataProviderGroupMembers,
         serenatas,
         serenataOffers,
@@ -235,6 +236,9 @@ export function createPermanentlyDeleteUser(deps: PermanentlyDeleteUserDeps) {
                 await tx.delete(savedListings).where(sql`${savedListings.listingId} = ANY(${ownedListingIds})`);
             }
             await tx.delete(savedListings).where(eq(savedListings.userId, userId));
+            if (serenataSavedProviderGroups) {
+                await tx.delete(serenataSavedProviderGroups).where(eq(serenataSavedProviderGroups.userId, userId));
+            }
 
             if (ownedListingIds.length > 0) {
                 await tx.delete(boostOrders).where(sql`${boostOrders.listingId} = ANY(${ownedListingIds})`);

@@ -1,17 +1,8 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState, type DragEvent, type ReactNode } from 'react';
-import {
-    PanelBlockHeader,
-    PanelButton,
-    PanelCard,
-    PanelEmptyState,
-    PanelField,
-    PanelNotice,
-    PanelStatusBadge,
-    usePanelConfirm,
-    type PanelConfirmOptions,
-} from '@simple/ui';
+import { PanelBlockHeader } from '@simple/ui/panel';
+import { PanelButton, PanelCard, PanelEmptyState, PanelField, PanelNotice, PanelStatusBadge, usePanelConfirm, type PanelConfirmOptions } from '@simple/ui/panel';
 import { IconArrowDown, IconArrowUp, IconEdit, IconLoader2, IconPlus, IconTrash, IconUser, IconUserPlus, IconX } from '@tabler/icons-react';
 import type {
     MusicianDirectoryItem,
@@ -479,30 +470,6 @@ function providerMemberRosterBadge(member: Pick<ProviderGroupMember, 'status' | 
     if (member.status === 'removed') return { label: 'Quitado', tone: 'danger' };
     if (member.availableNow) return { label: 'Disponible', tone: 'success' };
     return { label: 'No disponible', tone: 'neutral' };
-}
-
-function groupOccupiedSlots(group: SerenataGroup) {
-    return group.members.filter((member) => ['accepted', 'invited'].includes(member.status)).length
-        + (group.pendingInvites?.filter((invite) => invite.status === 'pending').length ?? 0);
-}
-
-function groupCapacity(group: SerenataGroup): number {
-    return group.maxMusicians ?? 3;
-}
-
-function musicianGroupStatusLabel(status: SerenataGroupMember['status']) {
-    if (status === 'accepted') return 'Listo';
-    if (status === 'invited') return 'Invitado';
-    if (status === 'rejected') return 'Rechazado';
-    if (status === 'cancelled') return 'Cancelado';
-    return status;
-}
-
-function musicianGroupStatusTone(status: SerenataGroupMember['status']): 'success' | 'warning' | 'danger' | 'neutral' {
-    if (status === 'accepted') return 'success';
-    if (status === 'invited') return 'warning';
-    if (status === 'rejected') return 'danger';
-    return 'neutral';
 }
 
 function mergeProviderMemberProfile(
@@ -1346,71 +1313,6 @@ function CreateMusicianGroupModal({
                 </div>
             </PanelCard>
         </PanelSheet>
-    );
-}
-
-function MusicianGroupMemberRow({
-    groupId,
-    member,
-    musicianById,
-    onOpenProfile,
-    refresh,
-}: {
-    groupId: string;
-    member: SerenataGroupMember;
-    musicianById: Map<string, MusicianDirectoryItem>;
-    onOpenProfile: (musicianId: string) => void;
-    refresh: () => Promise<void>;
-}) {
-    const [busy, setBusy] = useState(false);
-    const directory = musicianById.get(member.musicianId);
-    const profile = toMusicianPublicProfile({
-        id: member.id,
-        musicianId: member.musicianId,
-        name: member.musicianName ?? directory?.name,
-        avatarUrl: member.avatarUrl ?? directory?.avatarUrl,
-        instrument: member.instrument ?? directory?.instrument,
-        instruments: member.instruments ?? directory?.instruments,
-        comuna: member.comuna ?? directory?.comuna,
-        region: member.region ?? directory?.region,
-        workZones: directory?.workZones,
-        availableNow: member.availableNow ?? directory?.availableNow,
-        isAvailable: directory?.isAvailable,
-        userId: directory?.userId,
-    });
-
-    async function cancelMember() {
-        setBusy(true);
-        await serenatasApi.updateGroupMember(groupId, member.id, { status: 'cancelled' });
-        await refresh();
-        setBusy(false);
-    }
-
-    const rosterBadge = groupMemberRosterBadge(member);
-
-    return (
-        <MusicianSummaryCard
-            profile={profile}
-            musicianId={member.musicianId}
-            onOpenProfile={() => onOpenProfile(member.musicianId)}
-            className={member.status === 'cancelled' ? 'opacity-60' : ''}
-            statusBadge={<PanelStatusBadge tone={rosterBadge.tone} label={rosterBadge.label} size="xs" />}
-            trailing={
-                member.status !== 'cancelled' ? (
-                    <ProviderMemberCompactRemoveButton
-                        busy={busy}
-                        label={`Quitar a ${profile.name} del grupo`}
-                        confirm={{
-                            title: 'Quitar del grupo',
-                            message: `¿Quitar a ${profile.name} del grupo?`,
-                            confirmLabel: 'Quitar',
-                            tone: 'danger',
-                        }}
-                        onClick={() => void cancelMember()}
-                    />
-                ) : null
-            }
-        />
     );
 }
 

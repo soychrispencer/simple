@@ -2,6 +2,7 @@ import type { Section } from '@/context/serenata-context';
 import { CONFIG_SLUG_TO_ACCOUNT_TAB, type AccountTab, isAccountTab, normalizeAccountTab } from '@/lib/account-tab';
 import type { MarketplaceRequestDraftRef } from '@/lib/marketplace-request-draft';
 import { marketplaceRequestDraftQuery, publicSerenataRequestQuery } from '@/lib/marketplace-request-draft';
+import { marketplaceCatalogHref, parseMarketplaceSearchParams } from '@/lib/marketplace-search';
 import { publicMariachiPath } from '@/lib/public-mariachi-routes';
 import { type MiNegocioTab, isMiNegocioTab, miNegocioTabFromSearch, normalizeMiNegocioTab } from '@/lib/mi-negocio-tab';
 
@@ -13,8 +14,9 @@ export const PANEL_SLUG_TO_SECTION: Record<string, Section> = {
     mariachis: 'mariachis',
     grupo: 'grupo',
     solicitar: 'solicitar',
-    contratar: 'contratar',
+    contratar: 'mariachis',
     serenatas: 'serenatas',
+    guardados: 'guardados',
     eventos: 'serenatas',
     musica: 'serenatas',
     solicitudes: 'solicitudes',
@@ -47,8 +49,9 @@ export const SECTION_TO_PANEL_SLUG: Record<Section, string> = {
     mariachis: 'mariachis',
     grupo: 'grupo',
     solicitar: 'solicitar',
-    contratar: 'contratar',
+    contratar: 'mariachis',
     serenatas: 'serenatas',
+    guardados: 'guardados',
     solicitudes: 'solicitudes',
     'mi-negocio': 'mi-negocio',
     servicios: 'mi-negocio',
@@ -151,7 +154,7 @@ export function panelSectionHref(
 /** Perfil público con query para abrir el modal de solicitud (`servicio`). */
 export function panelSolicitarHref(draft?: MarketplaceRequestDraftRef | null): string {
     if (!draft) return panelSectionHref('solicitar');
-    const params = new URLSearchParams(publicSerenataRequestQuery(draft.serviceId));
+    const params = new URLSearchParams(publicSerenataRequestQuery(draft.serviceId, draft.date));
     return `${publicMariachiPath(draft.groupSlug)}?${params.toString()}`;
 }
 
@@ -175,12 +178,22 @@ export function miNegocioTabFromPanelPath(pathname: string, search: string): MiN
     return miNegocioTabFromSearch(search);
 }
 
-/** `/panel/grupos` (marketplace legacy) → `/panel/mariachis`. */
+const PANEL_MARKETPLACE_SLUGS = new Set([
+    'grupos',
+    'mariachis',
+    'contratar',
+    'marketplace',
+    'explorar',
+    'nuevo-evento',
+]);
+
+/** Slugs legacy del marketplace cliente → catálogo público `/mariachis`. */
 export function resolveCanonicalMarketplaceRedirect(pathname: string, search: string): string | null {
-    const base = pathname.replace(/\/$/, '');
-    if (base !== '/panel/grupos') return null;
-    const qs = search.startsWith('?') ? search : search ? `?${search}` : '';
-    return `/panel/mariachis${qs}`;
+    const match = pathname.replace(/\/$/, '').match(/^\/panel\/([^/?#]+)$/);
+    if (!match?.[1] || !PANEL_MARKETPLACE_SLUGS.has(match[1])) return null;
+    const qs = search.startsWith('?') ? search.slice(1) : search;
+    const params = new URLSearchParams(qs);
+    return marketplaceCatalogHref(parseMarketplaceSearchParams(params));
 }
 
 /** Redirige slugs legacy de Mi Negocio / servicios a la ruta canónica. */
@@ -198,6 +211,11 @@ export function legacyQueryToPanelPath(search: string): string | null {
     const params = new URLSearchParams(search.startsWith('?') ? search.slice(1) : search);
     const rawSection = params.get('section');
     const sectionRaw = rawSection === 'mi-grupo' ? 'mi-negocio' : rawSection;
+    if (sectionRaw && PANEL_MARKETPLACE_SLUGS.has(sectionRaw)) {
+        params.delete('section');
+        return marketplaceCatalogHref(parseMarketplaceSearchParams(params));
+    }
+
     const section = sectionRaw === 'grupos' ? 'mariachis' : sectionRaw;
     if (!section || !isPanelSection(section)) return null;
 

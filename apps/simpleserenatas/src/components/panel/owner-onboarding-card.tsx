@@ -1,7 +1,8 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { PanelButton, PanelCard, PanelNotice } from '@simple/ui';
+import { PanelButton } from '@simple/ui/panel';
+import { PanelCard, PanelNotice } from '@simple/ui/panel';
 import { serenatasApi, type Profiles } from '@/lib/serenatas-api';
 import { ownerFeaturesEnabled } from '@/lib/app-mode';
 import type { Section } from '@/context/serenata-context';

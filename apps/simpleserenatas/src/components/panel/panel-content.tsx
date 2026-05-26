@@ -1,30 +1,20 @@
 'use client';
 
+import Link from 'next/link';
 import { ReactNode, useCallback, useEffect } from 'react';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import dynamic from 'next/dynamic';
 import {
-    type Profiles,
-    type Serenata,
-    type SerenataGroup,
-    type SerenataPackage,
-    type MusicianDirectoryItem,
-    type Invitation,
-    type SerenatasUser,
-    type ProviderGroup,
-    type ProviderGroupService,
-} from '@/lib/serenatas-api';
+    type Profiles, type Serenata, type SerenataGroup, type SerenataPackage, type MusicianDirectoryItem, type Invitation, type SerenatasUser, type ProviderGroup, type ProviderGroupService, } from '@/lib/serenatas-api';
 import type { AppMode } from '@/lib/app-mode';
 import { type Section } from '@/context/serenata-context';
 import { appearsInOwnerSolicitudes } from '@/lib/serenata-pending';
 import {
-    groupSlugFromPanelPath,
-    miNegocioTabFromPanelPath,
-    panelSectionHref,
-} from '@/lib/panel-routes';
+    groupSlugFromPanelPath, miNegocioTabFromPanelPath, panelSectionHref, } from '@/lib/panel-routes';
 import { publicMariachiPath } from '@/lib/public-mariachi-routes';
 import { useSerenataRequestModal } from '@/components/serenata-request/serenata-request-modal-context';
-import { PanelNotice, PanelPageHeader } from '@simple/ui';
+import { PanelNotice } from '@simple/ui/panel';
+import { PanelPageHeader } from '@simple/ui/panel';
 
 const AgendaView = dynamic(() => import('@/components/panel/agenda-view').then((mod) => mod.AgendaView));
 const ProfileView = dynamic(() => import('@/components/panel/account-view').then((mod) => mod.ProfileView));
@@ -34,21 +24,21 @@ const MapView = dynamic(() => import('@/components/panel/map-view').then((mod) =
 const ClientSerenatasView = dynamic(() =>
     import('@/components/panel/serenatas-view').then((mod) => mod.ClientSerenatasView),
 );
-const ContractSerenataView = dynamic(() =>
-    import('@/components/panel/serenatas-view').then((mod) => mod.ContractSerenataView),
-);
 const MusicianSerenatasView = dynamic(() =>
     import('@/components/panel/serenatas-view').then((mod) => mod.MusicianSerenatasView),
 );
 const SerenatasView = dynamic(() => import('@/components/panel/serenatas-view').then((mod) => mod.SerenatasView));
-const GroupsMarketplaceView = dynamic(() =>
-    import('@/components/panel/groups-marketplace-view').then((mod) => mod.GroupsMarketplaceView),
+const ClientMarketplaceRedirect = dynamic(() =>
+    import('@/components/panel/client-marketplace-redirect').then((mod) => mod.ClientMarketplaceRedirect),
 );
 const GroupDetailView = dynamic(() =>
     import('@/components/panel/group-detail-view').then((mod) => mod.GroupDetailView),
 );
 const MiNegocioView = dynamic(() =>
     import('@/components/panel/mi-negocio-view').then((mod) => mod.MiNegocioView),
+);
+const GuardadosView = dynamic(() =>
+    import('@/components/panel/guardados-view').then((mod) => mod.GuardadosView),
 );
 
 export type PanelContentProps = {
@@ -125,27 +115,15 @@ export function PanelContent(props: PanelContentProps) {
         );
     }
 
-    if (props.section === 'contratar') {
-        return (
-            <PanelSectionPage title="Contratar serenata" description="Marketplace de mariachis.">
-                <ContractSerenataView onExploreGroups={props.openClientRequest} />
-            </PanelSectionPage>
-        );
-    }
-
-    if (props.section === 'mariachis' || props.section === 'grupos') {
-        if (props.mode !== 'client') {
-            return (
-                <PanelSectionPage title="Explorar Mariachis" description="Disponible en modo Cliente.">
-                    <PanelNotice tone="warning">
-                        <strong>Explorar mariachis requiere modo Cliente</strong>
-                    </PanelNotice>
-                </PanelSectionPage>
-            );
+    if (props.section === 'mariachis' || props.section === 'grupos' || props.section === 'contratar') {
+        if (props.mode === 'client') {
+            return <ClientMarketplaceRedirect />;
         }
         return (
-            <PanelSectionPage title="Explorar Mariachis" description="">
-                <GroupsMarketplaceView onOpenGroup={openGroupDetail} />
+            <PanelSectionPage title="Mariachis" description="Disponible para cuentas cliente.">
+                <PanelNotice tone="warning">
+                    <strong>Explorar mariachis requiere una cuenta cliente</strong>
+                </PanelNotice>
             </PanelSectionPage>
         );
     }
@@ -209,6 +187,28 @@ export function PanelContent(props: PanelContentProps) {
             </PanelSectionPage>
         ) : (
             <PanelHomePage {...props} />
+        );
+    }
+
+    if (props.section === 'guardados') {
+        if (props.mode !== 'client') {
+            return (
+                <PanelSectionPage title="Guardados" description="Disponible para cuentas cliente.">
+                    <PanelNotice tone="warning">
+                        <strong>Los mariachis guardados están disponibles en el perfil de cliente.</strong>
+                    </PanelNotice>
+                </PanelSectionPage>
+            );
+        }
+        return (
+            <PanelSectionPage title="Guardados" description="Mariachis que marcaste desde el catálogo.">
+                <div className="-mt-2 mb-1 flex justify-end">
+                    <Link href="/mariachis" className="text-sm font-medium text-accent hover:underline">
+                        Explorar catálogo
+                    </Link>
+                </div>
+                <GuardadosView />
+            </PanelSectionPage>
         );
     }
 
@@ -291,7 +291,7 @@ function PanelHomePage(props: PanelContentProps) {
     const description =
         props.mode === 'work'
             ? 'Resumen de invitaciones, serenatas y operación.'
-            : 'Resumen de tus serenatas y datos de cuenta.';
+            : 'Seguimiento de tus serenatas contratadas y acceso al marketplace.';
 
     return (
         <PanelSectionPage title={title} description={description}>

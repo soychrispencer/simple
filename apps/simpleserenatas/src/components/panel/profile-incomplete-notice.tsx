@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { PanelNotice } from '@simple/ui';
+import { PanelNotice } from '@simple/ui/panel';
 import type { Profiles } from '@/lib/serenatas-api';
 import type { AppMode } from '@/lib/app-mode';
 import { ownerFeaturesEnabled } from '@/lib/app-mode';
@@ -15,8 +15,8 @@ export function isProfileIncomplete(mode: AppMode, profiles: Profiles): boolean 
     }
 
     if (ownerFeaturesEnabled(profiles)) {
-        const adminComunas = profiles.owner?.workingComunas ?? [];
-        return adminComunas.length === 0;
+        const ownerComunas = profiles.owner?.workingComunas ?? [];
+        return ownerComunas.length === 0;
     }
 
     const musician = profiles.musician;

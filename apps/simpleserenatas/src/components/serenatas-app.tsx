@@ -3,15 +3,16 @@
 import { useMemo, useCallback } from 'react';
 import { useRouter, useSearchParams, usePathname } from 'next/navigation';
 import { panelPathFromSection } from '@/lib/panel-routes';
-import { PanelConfirmProvider, PanelNotice } from '@simple/ui';
+import { PanelConfirmProvider } from '@simple/ui/panel';
+import { PanelNotice } from '@simple/ui/panel';
 
 import { useAuth } from '@simple/auth';
 import { useLogoutAndGoHome } from '@/hooks/use-logout-and-go-home';
 import { useSerenata, type Section } from '@/context/serenata-context';
 import { ScreenShell } from '@/components/layout/screen-shell';
 import { PublicLanding } from '@/components/auth/public-landing';
+import { defaultPublicLinks } from '@/components/layout/landing-header';
 import { EmailVerificationGate } from '@/components/auth/email-verification-gate';
-import { SkeletonCard } from '@/components/panel/skeleton';
 
 // Modular Panel Parts
 import { PanelContent } from '@/components/panel/panel-content';
@@ -19,6 +20,7 @@ import { SerenataPanelShell } from '@/components/panel/panel-shell';
 import { SerenatasChromeHeader } from '@/components/layout/serenatas-chrome-header';
 
 import { suspendedAccountNotice } from '@/lib/suspended-notice';
+import { CLIENT_MARKETPLACE_HREF } from '@/lib/client-marketplace';
 import { persistSignupProfile } from '@/lib/signup-profile';
 
 /**
@@ -34,7 +36,6 @@ export function SerenatasApp() {
         mode,
         profiles,
         ownerFeaturesEnabled: ownerFeatures,
-        changeMode,
         section,
         changeSection,
         serenatas,
@@ -74,10 +75,11 @@ export function SerenatasApp() {
     }, [pathname, router, searchParams, section]);
 
     const openClientRequest = useCallback(() => {
-        changeSection('mariachis');
-    }, [changeSection]);
+        router.push(CLIENT_MARKETPLACE_HREF);
+    }, [router]);
 
     const isSuspended = user?.status === 'suspended';
+    const isPanelRoute = pathname.startsWith('/panel');
 
     const openRegisterAs = useCallback(
         (profile: 'client' | 'musician') => {
@@ -86,17 +88,6 @@ export function SerenatasApp() {
         },
         [openAuth],
     );
-
-    if (authLoading || loadState === 'loading') {
-        return (
-            <ScreenShell>
-                <div className="mx-auto max-w-7xl space-y-4 p-4 lg:p-8">
-                    <SkeletonCard />
-                    <SkeletonCard />
-                </div>
-            </ScreenShell>
-        );
-    }
 
     if (!isLoggedIn) {
         return (
@@ -122,6 +113,26 @@ export function SerenatasApp() {
         );
     }
 
+    if (!isPanelRoute) {
+        return (
+            <ScreenShell>
+                <PublicLanding
+                    isLoggedIn
+                    header={
+                        <SerenatasChromeHeader
+                            mode={mode}
+                            profiles={profiles}
+                            publicLinks={defaultPublicLinks}
+                        />
+                    }
+                    onLogin={() => openAuth('login')}
+                    onRegisterClient={() => openRegisterAs('client')}
+                    onRegisterMusician={() => openRegisterAs('musician')}
+                />
+            </ScreenShell>
+        );
+    }
+
     if (loadState === 'error') {
         return (
             <ScreenShell>
@@ -138,11 +149,7 @@ export function SerenatasApp() {
     return (
         <PanelConfirmProvider>
         <div className="flex min-h-screen min-w-0 flex-col overflow-x-hidden bg-[var(--bg)] text-[var(--fg)]">
-            <SerenatasChromeHeader
-                mode={mode}
-                profiles={profiles}
-                onModeChange={changeMode}
-            />
+            <SerenatasChromeHeader mode={mode} profiles={profiles} />
 
             <SerenataPanelShell section={section} onSectionChange={changeSection}>
                 <div className="panel-page container-app mx-auto min-w-0 max-w-7xl py-4 lg:py-8">

@@ -1,7 +1,7 @@
 'use client';
 
 import type { InputHTMLAttributes, ReactNode, SelectHTMLAttributes, TextareaHTMLAttributes } from 'react';
-import { PanelEmptyState, PanelNotice, PanelStatusBadge } from '@simple/ui';
+import { PanelEmptyState, PanelNotice, PanelStatusBadge } from '@simple/ui/panel';
 import { createEmptyListingLocation, patchListingLocation, type ListingLocation } from '@simple/types';
 import { getCommunesForRegion, LOCATION_REGIONS } from '@simple/utils';
 import type { Serenata } from '@/lib/serenatas-api';

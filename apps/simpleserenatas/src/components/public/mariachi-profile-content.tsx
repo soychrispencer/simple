@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import { useSearchParams } from 'next/navigation';
 import type { ProviderGroup, ProviderGroupService } from '@/lib/serenatas-api';
 import {
     bookingPolicySummary,
@@ -13,6 +14,7 @@ import {
     MariachiProfileServicesList,
 } from '@/components/panel/mariachi-profile-layout';
 import { MariachiRepertoireSection } from '@/components/public/mariachi-repertoire-section';
+import { MariachiReviewsSection } from '@/components/public/mariachi-reviews-section';
 
 function profileTrustFooter(group: ProviderGroup) {
     const paymentMethods = formatPaymentMethods(group);
@@ -34,6 +36,8 @@ export function MariachiProfileContent({
     services: ProviderGroupService[];
 }) {
     const { openRequest } = useSerenataRequestModal();
+    const searchParams = useSearchParams();
+    const initialDate = searchParams.get('fecha')?.trim() || searchParams.get('date')?.trim() || undefined;
     const trustFooter = profileTrustFooter(group);
 
     return (
@@ -42,6 +46,8 @@ export function MariachiProfileContent({
 
             <MariachiRepertoireSection groupSlug={group.slug} />
 
+            <MariachiReviewsSection group={group} />
+
             <MariachiProfileServicesList
                 services={services}
                 footer={trustFooter}
@@ -49,15 +55,15 @@ export function MariachiProfileContent({
                     <button
                         type="button"
                         className="btn btn-primary w-full text-center text-sm"
-                        onClick={() => openRequest({ group, service })}
+                        onClick={() => openRequest({ group, service, date: initialDate })}
                     >
-                        Solicitar
+                        Contratar
                     </button>
                 )}
             />
 
             <p className="text-center">
-                <Link href="/panel/mariachis" className="text-sm font-medium text-accent hover:underline">
+                <Link href="/mariachis" className="text-sm font-medium text-accent hover:underline">
                     Explorar más mariachis
                 </Link>
             </p>

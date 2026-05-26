@@ -7,23 +7,10 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { API_BASE } from '@simple/config';
 import { resolveAvatarDisplayUrl } from '@/lib/resolve-avatar-url';
 import type { AddressBookEntry } from '@simple/types';
-import {
-    AvatarUpload,
-    PanelBlockHeader,
-    PanelButton,
-    PanelCard,
-    PanelField,
-    PanelNotice,
-    PanelPageHeader,
-    PanelPersonalDataList,
-    PanelPersonalDataRow,
-    PanelPillNav,
-    PanelStatusBadge,
-    PanelSwitch,
-    usePanelConfirm,
-} from '@simple/ui';
+import { PanelBlockHeader } from '@simple/ui/panel';
+import { PanelButton, PanelCard, PanelField, PanelNotice, PanelPageHeader, PanelPersonalDataList, PanelPersonalDataRow, PanelPillNav, PanelStatusBadge, PanelSwitch, usePanelConfirm } from '@simple/ui/panel';
+import { AvatarUpload } from '@simple/ui/media';
 import { fetchAddressBook } from '@simple/utils';
-import { SubscriptionSection } from '@/components/panel/subscription-section';
 import {
     IconBrandGoogle,
     IconCalendar,
@@ -72,6 +59,7 @@ import { FieldInput, FieldTextarea, FormFeedback, InstrumentSelect, type FormSta
 import { RegionCommuneFields } from './region-commune-fields';
 import { AddressesSection } from './addresses-section';
 import { PanelSheet } from './panel-sheet';
+import { SubscriptionSection } from './subscription-section';
 import { useLogoutAndGoHome } from '@/hooks/use-logout-and-go-home';
 
 type AccountSubsection = AccountTab;
@@ -173,17 +161,9 @@ function experienceYearsValidation(value: number): string | null {
     return null;
 }
 
-function resolveProfile(mode: AppMode | undefined, profiles: ApiProfiles, explicit?: ActiveProfile): ActiveProfile {
-    if (explicit) return explicit;
-    if (mode === 'client') return 'client';
-    if (mode === 'work') {
-        if (profiles.owner) return 'owner';
-        if (profiles.musician) return 'musician';
-        return 'musician';
-    }
-    if (profiles.client) return 'client';
-    if (profiles.musician) return 'musician';
+function resolveProfile(profiles: ApiProfiles): ActiveProfile {
     if (profiles.owner) return 'owner';
+    if (profiles.musician) return 'musician';
     return 'client';
 }
 
@@ -205,7 +185,7 @@ export function ProfileView({
     setSection,
 }: ProfileViewProps) {
     const profiles = apiProfiles;
-    const profile = resolveProfile(mode, apiProfiles, profileProp);
+    const profile = profileProp ?? resolveProfile(apiProfiles);
     const ownerActive = ownerFeaturesEnabled(profiles);
     const router = useRouter();
     const searchParams = useSearchParams();
@@ -329,7 +309,6 @@ export function ProfileView({
         router.replace(profileSectionHref(fallback), { scroll: false });
     }, [subsection, appMode, profiles, accountPillItems, router]);
 
-    const isDualWorkProfile = appMode === 'work' && ownerActive && Boolean(profiles.musician);
     const showMusicianProfileTab = appMode === 'work' && Boolean(profiles.musician);
 
     const experienceYearsError = useMemo(
@@ -505,16 +484,14 @@ export function ProfileView({
             setStatus({ loading: false, error: experienceYearsError, ok: null });
             return;
         }
-        if (!isDualWorkProfile) {
-            const phoneError = phone.trim() ? validateChileMobilePhone(phone) : null;
-            if (phoneError) {
-                setStatus({ loading: false, error: phoneError, ok: null });
-                return;
-            }
+        const phoneError = phone.trim() ? validateChileMobilePhone(phone) : null;
+        if (phoneError) {
+            setStatus({ loading: false, error: phoneError, ok: null });
+            return;
         }
         setSaving(true);
         setStatus({ loading: true, error: null, ok: null });
-        if (!isDualWorkProfile && !(await saveUserBasics())) {
+        if (!(await saveUserBasics())) {
             setSaving(false);
             return;
         }
@@ -1009,6 +986,10 @@ export function ProfileView({
             </PanelCard>
             ) : null}
 
+            {subsection === 'subscription' && ownerActive ? (
+                <SubscriptionSection />
+            ) : null}
+
             {subsection === 'data' ? (
             <div className="grid gap-6">
             {appMode === 'work' && setSection ? (
@@ -1107,15 +1088,6 @@ export function ProfileView({
                                     <p className="text-xs text-[var(--color-error,#b91c1c)]">{phoneFieldError}</p>
                                 ) : null}
                             </PanelField>
-                        ) : null}
-                        {isDualWorkProfile ? (
-                            <PanelNotice tone="neutral" className="mt-3 !px-3 !py-2.5">
-                                <p className="text-xs leading-snug">
-                                    <strong className="font-medium text-[var(--fg)]">Datos personales</strong>: nombre, teléfono y acceso.{' '}
-                                    <strong className="font-medium text-[var(--fg)]">Perfil público</strong>: instrumentos, ubicación y bio visible para dueños.{' '}
-                                    Las zonas de cobertura del mariachi están en <strong className="font-medium text-[var(--fg)]">Mi negocio</strong>.
-                                </p>
-                            </PanelNotice>
                         ) : null}
                         {showProfileSave ? (
                             <>
@@ -1442,8 +1414,6 @@ export function ProfileView({
                 </div>
             </PanelCard>
             ) : null}
-
-            {subsection === 'subscription' ? <SubscriptionSection /> : null}
 
         </div>
     );

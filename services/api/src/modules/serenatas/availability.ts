@@ -2,6 +2,7 @@ import { and, asc, eq, gte, inArray, lte } from 'drizzle-orm';
 import { db } from '../../db/index.js';
 import {
     serenataAvailabilityRules,
+    serenataGroupServices,
     serenataGroups,
     serenataGroupMembers,
     serenataProviderGroupBlockedSlots,
@@ -227,8 +228,8 @@ export async function replaceProviderGroupAvailabilityRules(
     }))).returning();
 }
 
-export function resolveSlaHours(groupSlaHours?: number | null, adminSlaHours?: number | null) {
-    const value = groupSlaHours ?? adminSlaHours ?? DEFAULT_SLA_HOURS;
+export function resolveSlaHours(groupSlaHours?: number | null, ownerSlaHours?: number | null) {
+    const value = groupSlaHours ?? ownerSlaHours ?? DEFAULT_SLA_HOURS;
     if (!Number.isFinite(value) || value < 1) return DEFAULT_SLA_HOURS;
     return Math.min(168, Math.max(1, Math.floor(value)));
 }
@@ -381,12 +382,12 @@ export async function validateProviderGroupSlot(
         lng: null,
     } as typeof serenatas.$inferSelect;
 
-    const adminConflict = await validateOwnerAvailability(client, {
+    const ownerConflict = await validateOwnerAvailability(client, {
         ownerId: input.ownerId,
         serenata: draft,
         excludeId: input.excludeId,
     });
-    if (adminConflict) return adminConflict;
+    if (ownerConflict) return ownerConflict;
 
     const ymd = eventDateYmd(input.eventDate);
     const range = ymd ? toDateRange(ymd) : null;
@@ -486,4 +487,88 @@ export async function listProviderGroupBusySerenatas(
         lte(serenatas.eventDate, range.end),
     ));
     return rows.filter((row) => row.eventTime != null);
+}
+
+type BusySerenataSlot = Pick<typeof serenatas.$inferSelect, 'eventTime' | 'duration' | 'status'>;
+
+export async function listProviderGroupsBusySerenatas(
+    providerGroupIds: string[],
+    dayYmd: string,
+    includePending = true,
+) {
+    if (providerGroupIds.length === 0) return [] as Array<BusySerenataSlot & { providerGroupId: string }>;
+    const range = toDateRange(dayYmd);
+    if (!range) return [];
+    const statuses = includePending
+        ? [...STRICT_BLOCKING_STATUSES]
+        : [...BLOCKING_SERENATA_STATUSES];
+    const rows = await db.select({
+        providerGroupId: serenatas.providerGroupId,
+        eventTime: serenatas.eventTime,
+        duration: serenatas.duration,
+        status: serenatas.status,
+    }).from(serenatas).where(and(
+        inArray(serenatas.providerGroupId, providerGroupIds),
+        inArray(serenatas.status, statuses),
+        gte(serenatas.eventDate, range.start),
+        lte(serenatas.eventDate, range.end),
+    ));
+    return rows.filter((row): row is BusySerenataSlot & { providerGroupId: string } => (
+        row.providerGroupId != null && row.eventTime != null
+    ));
+}
+
+export async function filterProviderGroupsAvailableOnDate(
+    groups: (typeof serenataProviderGroups.$inferSelect)[],
+    dayYmd: string,
+) {
+    if (groups.length === 0) return groups;
+    const groupIds = groups.map((group) => group.id);
+    const now = new Date();
+
+    const [services, rules, blockedSlots, busySerenatas] = await Promise.all([
+        db.select({
+            providerGroupId: serenataGroupServices.providerGroupId,
+            durationMinutes: serenataGroupServices.durationMinutes,
+        }).from(serenataGroupServices).where(and(
+            inArray(serenataGroupServices.providerGroupId, groupIds),
+            eq(serenataGroupServices.isActive, true),
+        )),
+        db.select().from(serenataAvailabilityRules).where(
+            inArray(serenataAvailabilityRules.providerGroupId, groupIds),
+        ),
+        db.select().from(serenataProviderGroupBlockedSlots).where(and(
+            inArray(serenataProviderGroupBlockedSlots.providerGroupId, groupIds),
+            gte(serenataProviderGroupBlockedSlots.endsAt, now),
+        )),
+        listProviderGroupsBusySerenatas(groupIds, dayYmd, true),
+    ]);
+
+    const dow = dayOfWeekChile(dayYmd);
+
+    return groups.filter((group) => {
+        const groupServices = services.filter((service) => service.providerGroupId === group.id);
+        if (groupServices.length === 0) return false;
+
+        const groupRules = rules.filter((rule) => rule.providerGroupId === group.id);
+        const activeRules = groupRules.filter((rule) => rule.isActive);
+        const dayRule = activeRules.length > 0
+            ? activeRules.find((rule) => rule.dayOfWeek === dow)
+            : DEFAULT_WEEKLY_RULES.find((rule) => rule.dayOfWeek === dow);
+        if (activeRules.length > 0 && !dayRule) return false;
+
+        const slotOptions: ProviderGroupSlotOptions = {
+            dayStart: dayRule?.startTime,
+            dayEnd: dayRule?.endTime,
+            bufferMinutes: resolveBufferMinutes(group.bufferMinutes),
+            blockedSlots: blockedSlots
+                .filter((slot) => slot.providerGroupId === group.id)
+                .map((slot) => ({ startsAt: slot.startsAt, endsAt: slot.endsAt })),
+        };
+        const busy = busySerenatas.filter((item) => item.providerGroupId === group.id);
+
+        return groupServices.some((service) => (
+            generateMarketplaceTimeSlots(service.durationMinutes, dayYmd, busy, slotOptions).length > 0
+        ));
+    });
 }
