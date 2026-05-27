@@ -196,11 +196,16 @@ export function OwnerGroupRegisterPage() {
                         Volver
                     </button>
 
-                    <div className="mb-8 flex justify-center">
-                        <Link href="/" className="inline-flex rounded-[var(--radius)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--accent)]">
-                            <BrandLogo appId="simpleserenatas" size="md" />
-                        </Link>
-                    </div>
+                    {showForm ? (
+                        <div className="mb-8 flex justify-center">
+                            <Link
+                                href="/"
+                                className="inline-flex rounded-[var(--radius)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--accent)]"
+                            >
+                                <BrandLogo appId="simpleserenatas" size="md" />
+                            </Link>
+                        </div>
+                    ) : null}
 
                     {showForm ? (
                         <>
