@@ -6,8 +6,10 @@ import { IconCheck, IconX } from '@tabler/icons-react';
 import { API_BASE } from '@simple/config';
 import { BrandLogo } from '@simple/ui/brand';
 import { PanelButton, PanelNotice } from '@simple/ui/panel';
+import { ensureOwnerProfileFromSignup } from '@/lib/owner-signup-bootstrap';
 import { OWNER_REGISTER_PATH } from '@/lib/owner-register-route';
-import { persistSignupProfile } from '@/lib/signup-profile';
+import { panelMiNegocioHref } from '@/lib/panel-routes';
+import { hasOwnerSignupIntent, persistSignupProfile } from '@/lib/signup-profile';
 
 export default function ConfirmEmailPage() {
     const router = useRouter();
@@ -49,12 +51,27 @@ export default function ConfirmEmailPage() {
                     return;
                 }
 
+                const ownerSignup = hasOwnerSignupIntent() || nextReturnTo.includes(OWNER_REGISTER_PATH);
+                if (ownerSignup) {
+                    persistSignupProfile('owner');
+                }
+
+                let destination = nextReturnTo;
+                if (data.user?.status === 'verified' && ownerSignup) {
+                    const activated = await ensureOwnerProfileFromSignup();
+                    destination = activated ? panelMiNegocioHref('datos') : OWNER_REGISTER_PATH;
+                } else if (data.user?.status !== 'verified') {
+                    destination = '/panel';
+                }
+
                 setStatus('success');
-                setMessage('Tu correo quedó confirmado. Redirigiendo a tu panel…');
+                setMessage(
+                    ownerSignup
+                        ? 'Tu correo quedó confirmado. Preparando tu panel de dueño…'
+                        : 'Tu correo quedó confirmado. Redirigiendo a tu panel…',
+                );
                 window.setTimeout(() => {
                     sessionStorage.removeItem('auth.returnTo');
-                    const destination =
-                        data.user?.status === 'verified' ? nextReturnTo : '/panel';
                     window.location.replace(destination.startsWith('/') ? destination : '/panel');
                 }, 1000);
             } catch {

@@ -46,6 +46,7 @@ export function OwnerGroupRegisterPage() {
     const [verifyEmail, setVerifyEmail] = useState<string | null>(null);
 
     useEffect(() => {
+        persistSignupProfile('owner');
         sessionStorage.setItem('auth.returnTo', OWNER_REGISTER_PATH);
     }, []);
 

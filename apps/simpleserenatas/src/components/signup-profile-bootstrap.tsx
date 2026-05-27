@@ -5,7 +5,11 @@ import { useAuth } from '@simple/auth';
 import { serenatasApi } from '@/lib/serenatas-api';
 import { clearLegacyAppModeStorage } from '@/lib/app-mode';
 import { applyOwnerSignupDrafts } from '@/lib/owner-signup-bootstrap';
-import { clearSignupProfile, resolveSignupProfileForBootstrap } from '@/lib/signup-profile';
+import {
+    clearSignupProfile,
+    hasOwnerSignupIntent,
+    resolveSignupProfileForBootstrap,
+} from '@/lib/signup-profile';
 
 /**
  * Tras el registro, crea solo el perfil elegido (cliente, músico o dueño de grupo).
@@ -19,7 +23,9 @@ export function SignupProfileBootstrap() {
         if (!user) return;
         if (user.status !== 'verified') return;
 
-        const signupProfile = resolveSignupProfileForBootstrap();
+        const signupProfile = hasOwnerSignupIntent()
+            ? 'owner'
+            : resolveSignupProfileForBootstrap();
         if (!signupProfile) return;
         if (ranRef.current) return;
 
@@ -43,10 +49,6 @@ export function SignupProfileBootstrap() {
                     const created = await serenatasApi.saveMusicianProfile({ hasInstrument: false, hasMariachiAttire: false, workZones: [] });
                     if (!created.ok) return;
                 } else if (signupProfile === 'owner') {
-                    if (response.profiles.client && !response.profiles.owner) {
-                        clearSignupProfile();
-                        return;
-                    }
                     if (!response.profiles.owner) {
                         const created = await serenatasApi.registerOwner();
                         if (!created.ok) return;
