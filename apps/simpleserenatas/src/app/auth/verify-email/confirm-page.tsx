@@ -6,6 +6,8 @@ import { IconCheck, IconX } from '@tabler/icons-react';
 import { API_BASE } from '@simple/config';
 import { BrandLogo } from '@simple/ui/brand';
 import { PanelButton, PanelNotice } from '@simple/ui/panel';
+import { OWNER_REGISTER_PATH } from '@/lib/owner-register-route';
+import { persistSignupProfile } from '@/lib/signup-profile';
 
 export default function ConfirmEmailPage() {
     const router = useRouter();
@@ -18,6 +20,9 @@ export default function ConfirmEmailPage() {
         const token = search.get('token') ?? '';
         const nextReturnTo = search.get('returnTo') || sessionStorage.getItem('auth.returnTo') || '/panel';
         setReturnTo(nextReturnTo);
+        if (nextReturnTo.includes(OWNER_REGISTER_PATH)) {
+            persistSignupProfile('owner');
+        }
 
         if (!token) {
             setStatus('error');

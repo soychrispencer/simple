@@ -61,9 +61,6 @@ export function OwnerGroupRegisterPage() {
                 router.replace(panelMiNegocioHref('datos'));
                 return;
             }
-            if (profilesResponse.profiles.client) {
-                return;
-            }
             const activated = await ensureOwnerProfileFromSignup({ refreshSession: () => refreshSession() });
             if (cancelled) return;
             if (activated) {

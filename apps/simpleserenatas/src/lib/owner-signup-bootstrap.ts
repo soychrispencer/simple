@@ -43,12 +43,6 @@ export async function ensureOwnerProfileFromSignup(options?: {
     const response = await serenatasApi.profiles();
     if (!response.ok) return false;
 
-    // No convertir cuentas cliente por abrir la landing de dueños sin registrarse ahí.
-    if (response.profiles.client && !response.profiles.owner) {
-        clearSignupProfile();
-        return false;
-    }
-
     if (!response.profiles.owner) {
         const created = await serenatasApi.registerOwner();
         if (!created.ok) return false;
