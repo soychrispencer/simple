@@ -3,22 +3,9 @@
 import { Suspense, useEffect, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import {
-    IconBrandGoogle,
-    IconCheck,
-    IconLoader2,
-    IconX,
-    IconCalendar,
-    IconLock,
-    IconCash,
-    IconBell,
-    IconChevronRight,
-} from '@tabler/icons-react';
-import {
-    PanelCard,
-    PanelButton,
-    PanelNotice,
-    PanelPageHeader,
-} from '@simple/ui';
+    IconBrandGoogle, IconCheck, IconLoader2, IconX, IconCalendar, IconLock, IconCash, IconBell, IconChevronRight, } from '@tabler/icons-react';
+import { PanelCard } from '@simple/ui/panel';
+import { PanelButton, PanelNotice, PanelPageHeader } from '@simple/ui/panel';
 import Link from 'next/link';
 import {
     fetchAgendaProfile,

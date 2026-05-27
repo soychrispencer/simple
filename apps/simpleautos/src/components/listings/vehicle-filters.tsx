@@ -3,10 +3,10 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { IconChevronDown, IconAdjustmentsHorizontal } from '@tabler/icons-react';
-import { ModernSelect } from '@simple/ui';
+import { ModernSelect } from '@simple/ui/forms';
 import { LOCATION_REGIONS, getCommunesForRegion } from '@simple/utils';
 import { loadPublishWizardCatalog, type CatalogBrand, type CatalogModel } from '@/lib/publish-wizard-catalog';
-import { PanelButton } from '@simple/ui';
+import { PanelButton } from '@simple/ui/panel';
 
 export type VehicleType = 'car' | 'motorcycle' | 'truck' | 'bus' | 'machinery' | 'nautical' | 'aerial';
 

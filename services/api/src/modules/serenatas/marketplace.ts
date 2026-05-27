@@ -1,5 +1,5 @@
 import { Hono, type Context } from 'hono';
-import { and, asc, desc, eq, gte, inArray, isNotNull, lte } from 'drizzle-orm';
+import { and, asc, desc, eq, gt, gte, inArray, isNotNull, lte } from 'drizzle-orm';
 import { z } from 'zod';
 import { db } from '../../db/index.js';
 import {
@@ -44,7 +44,7 @@ import {
 } from '../../db/schema.js';
 import { sendSerenataGuestGroupInviteEmail } from '../../lib/serenatas-email.js';
 import {
-    insertClientSongSelections,
+    applyClientSongSelectionsWithAutoSetlist,
     listActiveSongsForService,
     validateClientSongSelections,
 } from './repertoire.js';
@@ -56,6 +56,7 @@ import {
     normalizeChileWhatsAppNumber,
 } from '../../lib/serenata-group-invite.js';
 import { enrichProviderGroupsForMarketplace, mapProviderGroup } from './marketplace-enrich.js';
+import { validateMarketplaceClientRequest } from './marketplace-client-policy.js';
 import {
     listSavedMariachisForUser,
     removeSavedMariachiForUser,
@@ -150,6 +151,55 @@ export const providerGroupWriteSchema = z.object({
 });
 
 export const providerGroupPatchSchema = providerGroupWriteSchema.partial();
+
+function providerPublicMediaMissing(input: {
+    logoUrl?: string | null;
+    coverUrl?: string | null;
+}) {
+    const missing: string[] = [];
+    if (!input.logoUrl?.trim()) missing.push('logo');
+    if (!input.coverUrl?.trim()) missing.push('portada');
+    return missing;
+}
+
+function providerGroupPublishMissing(
+    group: {
+        name?: string | null;
+        logoUrl?: string | null;
+        coverUrl?: string | null;
+        region?: string | null;
+        comunaBase?: string | null;
+        serviceComunas?: string[] | null;
+    },
+    activeServiceCount: number,
+) {
+    const missing: string[] = [];
+    if (!group.name?.trim() || group.name.trim().length < 2) {
+        missing.push('nombre del mariachi');
+    }
+    missing.push(...providerPublicMediaMissing(group));
+    if (!group.region?.trim()) missing.push('región');
+    if (!group.comunaBase?.trim()) missing.push('comuna base');
+    if (!group.serviceComunas?.length) missing.push('zonas de trabajo');
+    if (activeServiceCount < 1) missing.push('al menos un servicio con precio');
+    return missing;
+}
+
+function publishBlockersErrorMessage(missing: string[]) {
+    return `Antes de publicar completa: ${missing.join(', ')}.`;
+}
+
+async function countPricedActiveServices(providerGroupId: string) {
+    const rows = await db
+        .select({ id: serenataGroupServices.id })
+        .from(serenataGroupServices)
+        .where(and(
+            eq(serenataGroupServices.providerGroupId, providerGroupId),
+            eq(serenataGroupServices.isActive, true),
+            gt(serenataGroupServices.price, 0),
+        ));
+    return rows.length;
+}
 
 export const providerAvailabilityRuleSchema = z.object({
     dayOfWeek: z.number().int().min(0).max(6),
@@ -533,7 +583,11 @@ export async function listMarketplaceProviderGroupsPage(input: {
     const rows = await db
         .select()
         .from(serenataProviderGroups)
-        .where(eq(serenataProviderGroups.status, 'active'))
+        .where(and(
+            eq(serenataProviderGroups.status, 'active'),
+            isNotNull(serenataProviderGroups.logoUrl),
+            isNotNull(serenataProviderGroups.coverUrl),
+        ))
         .orderBy(desc(serenataProviderGroups.ratingCount), asc(serenataProviderGroups.name));
 
     const filtered = filterMarketplaceProviderGroups(rows, {
@@ -721,6 +775,8 @@ export function registerMarketplaceRoutes(app: Hono, deps: MarketplaceDeps) {
             where: and(
                 eq(serenataProviderGroups.slug, c.req.param('slug')),
                 eq(serenataProviderGroups.status, 'active'),
+                isNotNull(serenataProviderGroups.logoUrl),
+                isNotNull(serenataProviderGroups.coverUrl),
             ),
         });
         if (!group) return deps.jsonError(c, 'Grupo no encontrado', 404);
@@ -763,7 +819,12 @@ export function registerMarketplaceRoutes(app: Hono, deps: MarketplaceDeps) {
     app.get('/marketplace/groups/:slug', async (c) => {
         const slug = c.req.param('slug');
         const group = await db.query.serenataProviderGroups.findFirst({
-            where: and(eq(serenataProviderGroups.slug, slug), eq(serenataProviderGroups.status, 'active')),
+            where: and(
+                eq(serenataProviderGroups.slug, slug),
+                eq(serenataProviderGroups.status, 'active'),
+                isNotNull(serenataProviderGroups.logoUrl),
+                isNotNull(serenataProviderGroups.coverUrl),
+            ),
         });
         if (!group) return deps.jsonError(c, 'Grupo no encontrado', 404);
         const [item] = await enrichProviderGroupsForMarketplace([group]);
@@ -773,7 +834,12 @@ export function registerMarketplaceRoutes(app: Hono, deps: MarketplaceDeps) {
     app.get('/marketplace/groups/:slug/reviews', async (c) => {
         const slug = c.req.param('slug');
         const group = await db.query.serenataProviderGroups.findFirst({
-            where: and(eq(serenataProviderGroups.slug, slug), eq(serenataProviderGroups.status, 'active')),
+            where: and(
+                eq(serenataProviderGroups.slug, slug),
+                eq(serenataProviderGroups.status, 'active'),
+                isNotNull(serenataProviderGroups.logoUrl),
+                isNotNull(serenataProviderGroups.coverUrl),
+            ),
         });
         if (!group) return deps.jsonError(c, 'Grupo no encontrado', 404);
         const items = await listProviderGroupReviews(group.id);
@@ -790,7 +856,12 @@ export function registerMarketplaceRoutes(app: Hono, deps: MarketplaceDeps) {
     app.get('/marketplace/groups/:id/services', async (c) => {
         const id = c.req.param('id');
         const group = await db.query.serenataProviderGroups.findFirst({
-            where: and(eq(serenataProviderGroups.id, id), eq(serenataProviderGroups.status, 'active')),
+            where: and(
+                eq(serenataProviderGroups.id, id),
+                eq(serenataProviderGroups.status, 'active'),
+                isNotNull(serenataProviderGroups.logoUrl),
+                isNotNull(serenataProviderGroups.coverUrl),
+            ),
         });
         if (!group) return deps.jsonError(c, 'Grupo no encontrado', 404);
         const services = await db
@@ -806,6 +877,8 @@ export function registerMarketplaceRoutes(app: Hono, deps: MarketplaceDeps) {
             where: and(
                 eq(serenataProviderGroups.id, c.req.param('groupId')),
                 eq(serenataProviderGroups.status, 'active'),
+                isNotNull(serenataProviderGroups.logoUrl),
+                isNotNull(serenataProviderGroups.coverUrl),
             ),
         });
         if (!group) return deps.jsonError(c, 'Grupo no encontrado', 404);
@@ -959,6 +1032,13 @@ export function registerMarketplaceRoutes(app: Hono, deps: MarketplaceDeps) {
         if (existingGroup) {
             return deps.jsonError(c, 'Ya tienes un mariachi registrado. Solo puedes ser dueño de uno.', 409);
         }
+        if (parsed.data.status === 'active') {
+            const missing = providerGroupPublishMissing(parsed.data, 0);
+            if (missing.length > 0) {
+                return deps.jsonError(c, publishBlockersErrorMessage(missing), 400);
+            }
+        }
+        const initialStatus = 'draft';
         const slug = await uniqueSlug(parsed.data.name);
         const [item] = await db.insert(serenataProviderGroups).values({
             ownerUserId: user.id,
@@ -973,7 +1053,7 @@ export function registerMarketplaceRoutes(app: Hono, deps: MarketplaceDeps) {
             region: parsed.data.region ?? null,
             comunaBase: parsed.data.comunaBase ?? null,
             serviceComunas: parsed.data.serviceComunas,
-            status: parsed.data.status ?? 'active',
+            status: initialStatus,
         }).returning();
         await syncOwnerOperatingZonesFromGroup(required.owner.id, {
             serviceComunas: item.serviceComunas ?? [],
@@ -996,6 +1076,21 @@ export function registerMarketplaceRoutes(app: Hono, deps: MarketplaceDeps) {
             const eligible = await ownerCalendarIsClear(group.ownerId);
             if (!eligible) {
                 return deps.jsonError(c, AUTO_BOOKING_BLOCKED_MESSAGE, 400);
+            }
+        }
+        if (patch.status === 'active') {
+            const merged = {
+                name: patch.name ?? group.name,
+                logoUrl: patch.logoUrl !== undefined ? patch.logoUrl : group.logoUrl,
+                coverUrl: patch.coverUrl !== undefined ? patch.coverUrl : group.coverUrl,
+                region: patch.region !== undefined ? patch.region : group.region,
+                comunaBase: patch.comunaBase !== undefined ? patch.comunaBase : group.comunaBase,
+                serviceComunas: patch.serviceComunas !== undefined ? patch.serviceComunas : group.serviceComunas,
+            };
+            const activeServiceCount = await countPricedActiveServices(group.id);
+            const missing = providerGroupPublishMissing(merged, activeServiceCount);
+            if (missing.length > 0) {
+                return deps.jsonError(c, publishBlockersErrorMessage(missing), 400);
             }
         }
         if (patch.logoUrl !== undefined) {
@@ -1491,11 +1586,22 @@ export async function createMarketplaceSerenata(
         where: and(
             eq(serenataProviderGroups.id, payload.providerGroupId),
             eq(serenataProviderGroups.status, 'active'),
+            isNotNull(serenataProviderGroups.logoUrl),
+            isNotNull(serenataProviderGroups.coverUrl),
         ),
     });
     if (!group || !group.ownerId) {
         return { ok: false as const, error: 'Este grupo no está disponible para solicitudes.' };
     }
+
+    const clientPolicy = await validateMarketplaceClientRequest(user.id, {
+        ownerUserId: group.ownerUserId,
+        ownerId: group.ownerId,
+    });
+    if (!clientPolicy.ok) {
+        return { ok: false as const, error: clientPolicy.error, status: clientPolicy.status };
+    }
+
     const service = await db.query.serenataGroupServices.findFirst({
         where: and(
             eq(serenataGroupServices.id, payload.serviceId),
@@ -1595,13 +1701,13 @@ export async function createMarketplaceSerenata(
         status,
         paymentStatus: 'pending',
         responseDueAt: null,
-        setlistStatus: (service.songsIncluded ?? 0) > 0 ? 'pending_owner' : 'confirmed',
-        songsIncludedAtBooking: service.songsIncluded ?? 0,
-        setlistConfirmedAt: (service.songsIncluded ?? 0) > 0 ? null : new Date(),
+        setlistStatus: 'confirmed',
+        songsIncludedAtBooking: Math.max(service.songsIncluded ?? 0, songSelections.length),
+        setlistConfirmedAt: new Date(),
     }).returning();
 
-    if (item) {
-        await insertClientSongSelections(item.id, group.id, service, songSelections);
+    if (item && songSelections.length > 0) {
+        await applyClientSongSelectionsWithAutoSetlist(item.id, group.id, service, songSelections);
     }
 
     return { ok: true as const, item };
@@ -1665,7 +1771,7 @@ export async function acceptMarketplaceSerenata(
     return { ok: true as const, item };
 }
 
-export async function rejectMarketplaceSerenata(ownerId: string, serenataId: string) {
+export async function rejectMarketplaceSerenata(ownerId: string, serenataId: string, reason?: string | null) {
     const pending = await db.query.serenatas.findFirst({
         where: and(
             eq(serenatas.id, serenataId),
@@ -1677,8 +1783,10 @@ export async function rejectMarketplaceSerenata(ownerId: string, serenataId: str
     });
     if (!pending) return { ok: false as const, error: 'Esta solicitud ya no está disponible.' };
 
+    const rejectReason = reason?.trim() || null;
     const [item] = await db.update(serenatas).set({
         status: 'rejected',
+        cancelReason: rejectReason,
         updatedAt: new Date(),
     }).where(and(
         eq(serenatas.id, serenataId),
@@ -1690,7 +1798,9 @@ export async function rejectMarketplaceSerenata(ownerId: string, serenataId: str
         const client = await db.query.serenataClients.findFirst({ where: eq(serenataClients.id, item.clientId) });
         if (client) {
             const rejectedTitle = 'Solicitud no disponible';
-            const rejectedMessage = 'El grupo no pudo aceptar tu solicitud en este momento.';
+            const rejectedMessage = rejectReason
+                ? `El grupo no pudo aceptar tu solicitud: ${rejectReason}`
+                : 'El grupo no pudo aceptar tu solicitud en este momento.';
             await insertSerenataNotifications({
                 userId: client.userId,
                 type: 'client_serenata_rejected',

@@ -2,7 +2,8 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { PanelButton, PanelNotice } from '@simple/ui';
+import { PanelButton } from '@simple/ui/panel';
+import { PanelNotice } from '@simple/ui/panel';
 import { API_BASE } from '@simple/config';
 
 export default function ResetPasswordPage() {

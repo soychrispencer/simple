@@ -5,11 +5,12 @@ import { useSearchParams } from 'next/navigation';
 import { IconArrowsSort, IconGridDots, IconList, IconChevronLeft, IconChevronRight, IconAdjustmentsHorizontal } from '@tabler/icons-react';
 import InlineResultAd from '@/components/ads/inline-result-ad';
 import { PublicBreadcrumbs } from '@/components/layout/public-breadcrumbs';
-import { ModernSelect } from '@simple/ui';
+import { ModernSelect } from '@simple/ui/forms';
 import VehicleListingCard, { type VehicleListingCardData } from '@/components/listings/vehicle-listing-card';
 import VehicleFilters, { type VehicleType } from '@/components/listings/vehicle-filters';
 import { fetchPublicListings, type PublicListing, type PublicListingSection, type PublicListingsFilters } from '@/lib/public-listings';
-import { PanelCard, PanelNotice, PanelPageHeader, PanelSegmentedToggle } from '@simple/ui';
+import { PanelCard } from '@simple/ui/panel';
+import { PanelNotice, PanelPageHeader, PanelSegmentedToggle } from '@simple/ui/panel';
 
 type ViewMode = 'grid' | 'list';
 

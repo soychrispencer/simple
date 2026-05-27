@@ -2,8 +2,7 @@
 
 import { AddressBookManager } from './address-book-manager';
 import { useAddressBookPage } from './use-address-book-page';
-// PanelNotice y PanelPageHeader viven en index.tsx; este módulo se re-exporta al final del barrel.
-import { PanelNotice, PanelPageHeader } from '../index';
+import { PanelNotice, PanelPageHeader } from '../panel';
 
 export function PanelAddressesPage() {
     const {

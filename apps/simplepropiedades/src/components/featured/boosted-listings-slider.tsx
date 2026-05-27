@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { FeaturedBoostSliderSection } from '@simple/ui';
+import { FeaturedBoostSliderSection } from '@simple/ui/featured';
 import {
     BOOST_SECTION_META,
     fetchFeaturedBoosted,

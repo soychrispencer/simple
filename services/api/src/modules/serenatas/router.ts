@@ -1,5 +1,5 @@
 import { Hono, type Context } from 'hono';
-import { and, asc, desc, eq, gte, inArray, lte, ne, or, sql } from 'drizzle-orm';
+import { and, asc, desc, eq, gt, gte, inArray, lte, ne, or, sql } from 'drizzle-orm';
 import { google } from 'googleapis';
 import { z } from 'zod';
 import { getSerenatasGoogleCalendarOAuthClient } from '../../lib/google-auth.js';
@@ -29,7 +29,12 @@ import {
     recordProviderGroupRating,
     rejectMarketplaceSerenata,
 } from './marketplace.js';
-import { registerRepertoireRoutes } from './repertoire.js';
+import { assertNoWorkProfileForClientAccount } from './marketplace-client-policy.js';
+import {
+    clientSongSelectionSchema,
+    registerRepertoireRoutes,
+    syncOwnerSerenataSongSelections,
+} from './repertoire.js';
 import { listOwnerSerenatas, listMusicianAgenda, listMusicianSerenatas } from './owner-listings.js';
 import {
     cancelClientPendingSerenata,
@@ -162,9 +167,15 @@ const clientProfileSchema = z.object({
     region: emptyStringToNull,
 });
 
+const optionalUuid = z.preprocess(
+    (value) => (value === '' || value == null ? undefined : value),
+    z.string().uuid().optional(),
+);
+
 const serenataWriteSchema = z.object({
     groupId: emptyStringToNull,
     packageCode: emptyStringToNull,
+    selectedServiceId: optionalUuid,
     recipientName: z.string().min(2),
     clientPhone: emptyStringToNull,
     address: z.string().min(4),
@@ -178,6 +189,7 @@ const serenataWriteSchema = z.object({
     price: optionalInt,
     eventType: emptyStringToNull,
     message: emptyStringToNull,
+    songSelections: z.array(clientSongSelectionSchema).max(30).optional(),
 });
 
 const serenataPackages = {
@@ -235,11 +247,6 @@ const clientSerenataWriteSchema = serenataWriteSchema.omit({
 const serenataPatchSchema = serenataWriteSchema.partial().extend({
     status: z.enum(['pending', 'scheduled', 'rejected', 'expired', 'cancelled', 'completed']).optional(),
 });
-
-const optionalUuid = z.preprocess(
-    (value) => (value === '' || value == null ? undefined : value),
-    z.string().uuid().optional(),
-);
 
 const requiredInstrumentsSchema = z.array(z.string().trim().min(1).max(80)).min(1).max(40);
 
@@ -396,6 +403,71 @@ function zodFirstFieldError(error: z.ZodError): string {
 function packageForCode(code: string | null | undefined) {
     if (!code) return null;
     return serenataPackageCodeSchema.safeParse(code).success ? serenataPackages[code as SerenataPackageCode] : null;
+}
+
+async function ownerProviderGroup(ownerId: string) {
+    return db.query.serenataProviderGroups.findFirst({
+        where: eq(serenataProviderGroups.ownerUserId, ownerId),
+    });
+}
+
+async function activeServiceForProviderGroup(providerGroupId: string, serviceId: string) {
+    return db.query.serenataGroupServices.findFirst({
+        where: and(
+            eq(serenataGroupServices.id, serviceId),
+            eq(serenataGroupServices.providerGroupId, providerGroupId),
+            eq(serenataGroupServices.isActive, true),
+            gt(serenataGroupServices.price, 0),
+        ),
+    });
+}
+
+async function resolveSerenataServiceContext(
+    ownerUserId: string,
+    input: { selectedServiceId?: string | null; packageCode?: string | null; duration?: number; price?: number | null; eventType?: string | null },
+) {
+    const providerGroup = await ownerProviderGroup(ownerUserId);
+    const legacyPackage = packageForCode(input.packageCode);
+    if (input.selectedServiceId) {
+        if (!providerGroup) {
+            return { ok: false as const, error: 'Configura tu mariachi antes de registrar serenatas.', status: 400 };
+        }
+        const service = await activeServiceForProviderGroup(providerGroup.id, input.selectedServiceId);
+        if (!service) {
+            return { ok: false as const, error: 'Servicio no válido o inactivo.', status: 400 };
+        }
+        return {
+            ok: true as const,
+            providerGroup,
+            service,
+            legacyPackage: null,
+            duration: service.durationMinutes,
+            eventType: service.name,
+            price: input.price ?? service.price,
+            requiredMusicians: service.musiciansCount,
+            packageCode: null,
+            selectedServiceId: service.id,
+        };
+    }
+    if (!legacySerenataPackagesEnabled() && !legacyPackage) {
+        return {
+            ok: false as const,
+            error: 'Selecciona un servicio activo de Mi negocio → Servicios.',
+            status: 400,
+        };
+    }
+    return {
+        ok: true as const,
+        providerGroup,
+        service: null,
+        legacyPackage,
+        duration: legacyPackage?.duration ?? input.duration ?? 45,
+        eventType: legacyPackage?.label ?? input.eventType ?? null,
+        price: input.price ?? legacyPackage?.price ?? null,
+        requiredMusicians: legacyPackage?.musicians ?? 0,
+        packageCode: legacyPackage ? input.packageCode ?? null : input.packageCode ?? null,
+        selectedServiceId: null,
+    };
 }
 
 async function createPlatformOffersForSerenata(serenata: { id: string; comuna: string | null; region: string | null; price: number | null; eventDate: Date }) {
@@ -573,12 +645,18 @@ function relativeNotificationTime(createdAt: Date) {
     return new Intl.DateTimeFormat('es-CL', { day: '2-digit', month: 'short' }).format(createdAt);
 }
 
-function notificationHref(metadata: Record<string, unknown> | null) {
+function notificationHref(metadata: Record<string, unknown> | null, type?: string) {
     const serenataId = typeof metadata?.serenataId === 'string' ? metadata.serenataId : null;
     if (serenataId) {
+        if (type?.startsWith('client_')) {
+            return `/panel/serenatas?serenata=${encodeURIComponent(serenataId)}`;
+        }
         return `/panel/solicitudes?serenata=${encodeURIComponent(serenataId)}`;
     }
-    return '/panel/solicitudes';
+    if (type === 'provider_group_invitation' || type === 'group_invitation') {
+        return '/panel/invitaciones';
+    }
+    return '/panel';
 }
 
 async function getProfiles(userId: string) {
@@ -711,11 +789,25 @@ export function createSerenatasRouter(deps: SerenatasRouterDeps) {
                         : 'service_lead',
                 title: item.title,
                 time: relativeNotificationTime(item.createdAt),
-                href: notificationHref(item.metadata ?? null),
+                href: notificationHref(item.metadata ?? null, item.type),
                 createdAt: item.createdAt.getTime(),
                 isRead: item.isRead,
             })),
         });
+    });
+
+    app.post('/notifications/:id/read', async (c) => {
+        const user = await deps.authUser(c);
+        if (!user) return jsonError(c, 'No autenticado', 401);
+        const notificationId = c.req.param('id');
+        await db
+            .update(serenataNotifications)
+            .set({ isRead: true })
+            .where(and(
+                eq(serenataNotifications.id, notificationId),
+                eq(serenataNotifications.userId, user.id),
+            ));
+        return c.json({ ok: true });
     });
 
     app.post('/notifications/mark-all-read', async (c) => {
@@ -787,6 +879,8 @@ export function createSerenatasRouter(deps: SerenatasRouterDeps) {
     app.put('/profiles/client', async (c) => {
         const user = await deps.authUser(c);
         if (!user) return jsonError(c, 'No autenticado', 401);
+        const clientPolicy = await assertNoWorkProfileForClientAccount(user.id);
+        if (!clientPolicy.ok) return jsonError(c, clientPolicy.error, clientPolicy.status);
         const parsed = clientProfileSchema.safeParse(await c.req.json().catch(() => null));
         if (!parsed.success) return jsonError(c, 'Perfil cliente inválido');
         const existing = await db.query.serenataClients.findFirst({ where: eq(serenataClients.userId, user.id) });
@@ -1024,19 +1118,37 @@ export function createSerenatasRouter(deps: SerenatasRouterDeps) {
     app.get('/client/serenatas', async (c) => {
         const user = await deps.authUser(c);
         if (!user) return jsonError(c, 'No autenticado', 401);
+        const clientPolicy = await assertNoWorkProfileForClientAccount(user.id);
+        if (!clientPolicy.ok) return c.json({ ok: true, items: [] });
         await runPendingSerenataLifecycle();
         const client = await db.query.serenataClients.findFirst({ where: eq(serenataClients.userId, user.id) });
         if (!client) return c.json({ ok: true, items: [] });
         const range = toDateRange(c.req.query('date'));
         const conditions = [eq(serenatas.clientId, client.id)];
         if (range) conditions.push(gte(serenatas.eventDate, range.start), lte(serenatas.eventDate, range.end));
-        const items = await db.select().from(serenatas).where(and(...conditions)).orderBy(desc(serenatas.eventDate), asc(serenatas.eventTime));
-        return c.json({ ok: true, items });
+        const rows = await db
+            .select({
+                item: serenatas,
+                providerGroupSlug: serenataProviderGroups.slug,
+            })
+            .from(serenatas)
+            .leftJoin(serenataProviderGroups, eq(serenataProviderGroups.id, serenatas.providerGroupId))
+            .where(and(...conditions))
+            .orderBy(desc(serenatas.eventDate), asc(serenatas.eventTime));
+        return c.json({
+            ok: true,
+            items: rows.map((row) => ({
+                ...row.item,
+                providerGroupSlug: row.providerGroupSlug ?? null,
+            })),
+        });
     });
 
     app.post('/client/serenatas/:id/cancel', async (c) => {
         const user = await deps.authUser(c);
         if (!user) return jsonError(c, 'No autenticado', 401);
+        const clientPolicy = await assertNoWorkProfileForClientAccount(user.id);
+        if (!clientPolicy.ok) return jsonError(c, clientPolicy.error, clientPolicy.status);
         const client = await db.query.serenataClients.findFirst({ where: eq(serenataClients.userId, user.id) });
         if (!client) return jsonError(c, 'Perfil de cliente no encontrado', 404);
         const parsed = z.object({ cancelReason: z.string().trim().optional() }).safeParse(await c.req.json().catch(() => ({})));
@@ -1057,34 +1169,61 @@ export function createSerenatasRouter(deps: SerenatasRouterDeps) {
         if (!required.ok) return required.response;
         const parsed = serenataWriteSchema.safeParse(await c.req.json().catch(() => null));
         if (!parsed.success) return jsonError(c, 'Serenata inválida');
-        const selectedPackage = packageForCode(parsed.data.packageCode);
-        const duration = selectedPackage?.duration ?? parsed.data.duration;
+        const serviceContext = await resolveSerenataServiceContext(user.id, parsed.data);
+        if (!serviceContext.ok) return jsonError(c, serviceContext.error, 400);
         const conflict = await validateGroupForSerenata(db, {
             ownerId: required.owner.id,
             groupId: parsed.data.groupId,
-            requiredMusicians: selectedPackage?.musicians ?? 0,
+            requiredMusicians: serviceContext.requiredMusicians,
             eventDate: parsed.data.eventDate,
             eventTime: parsed.data.eventTime,
-            duration,
+            duration: serviceContext.duration,
         });
         if (conflict) return jsonError(c, conflict, 409);
+        const { songSelections = [], ...serenataFields } = parsed.data;
+        if (songSelections.length > 0) {
+            if (!serviceContext.service || !serviceContext.providerGroup) {
+                return jsonError(c, 'Selecciona un servicio para registrar canciones del repertorio.', 400);
+            }
+        }
+        const songsIncludedAtBooking = serviceContext.service
+            ? Math.max(serviceContext.service.songsIncluded ?? 0, songSelections.length)
+            : 0;
+        const hasRepertoire = songsIncludedAtBooking > 0;
         const [item] = await db.insert(serenatas).values({
-            ...parsed.data,
+            ...serenataFields,
             ownerId: required.owner.id,
+            providerGroupId: serviceContext.providerGroup?.id ?? null,
+            selectedServiceId: serviceContext.selectedServiceId,
+            packageCode: serviceContext.packageCode,
             source: 'own_lead',
             status: 'scheduled',
-            duration,
-            eventType: selectedPackage?.label ?? parsed.data.eventType,
-            price: parsed.data.price ?? selectedPackage?.price ?? null,
+            duration: serviceContext.duration,
+            eventType: serviceContext.eventType,
+            price: serviceContext.price,
+            setlistStatus: 'confirmed',
+            songsIncludedAtBooking: hasRepertoire ? songsIncludedAtBooking : 0,
+            setlistConfirmedAt: new Date(),
             lat: parsed.data.lat == null ? null : String(parsed.data.lat),
             lng: parsed.data.lng == null ? null : String(parsed.data.lng),
         }).returning();
+        if (item && serviceContext.service && serviceContext.providerGroup && songSelections.length > 0) {
+            const songSync = await syncOwnerSerenataSongSelections(
+                item.id,
+                serviceContext.providerGroup.id,
+                serviceContext.service,
+                songSelections,
+            );
+            if (!songSync.ok) return jsonError(c, songSync.error, 400);
+        }
         return c.json({ ok: true, item }, 201);
     });
 
     app.post('/client/serenatas', async (c) => {
         const user = await deps.authUser(c);
         if (!user) return jsonError(c, 'No autenticado', 401);
+        const clientPolicy = await assertNoWorkProfileForClientAccount(user.id);
+        if (!clientPolicy.ok) return jsonError(c, clientPolicy.error, clientPolicy.status);
         const rawBody = await c.req.json().catch(() => null);
         const marketplaceParsed = marketplaceSerenataSchema.safeParse(rawBody);
         if (marketplaceParsed.success) {
@@ -1131,7 +1270,7 @@ export function createSerenatasRouter(deps: SerenatasRouterDeps) {
             title: 'Completa el pago de tu serenata',
             message: `Finaliza el pago para publicar la serenata de ${item.recipientName}.`,
             serenataLabel: item.recipientName,
-            panelPath: `/panel/solicitudes?serenata=${encodeURIComponent(item.id)}`,
+            panelPath: `/panel/serenatas?serenata=${encodeURIComponent(item.id)}`,
         });
         return c.json({ ok: true, item, offersCount: 0 }, 201);
     });
@@ -1227,11 +1366,16 @@ export function createSerenatasRouter(deps: SerenatasRouterDeps) {
         const required = await requireOwner(c, user.id);
         if (!required.ok) return required.response;
         const id = c.req.param('id');
+        const parsed = z.object({
+            reason: z.string().trim().min(3).max(500).optional(),
+        }).safeParse(await c.req.json().catch(() => ({})));
+        if (!parsed.success) return jsonError(c, 'Motivo de rechazo inválido');
+        const rejectReason = parsed.data.reason ?? null;
         const marketplaceSerenata = await db.query.serenatas.findFirst({
             where: and(eq(serenatas.id, id), eq(serenatas.ownerId, required.owner.id)),
         });
         if (marketplaceSerenata?.providerGroupId) {
-            const marketplaceResult = await rejectMarketplaceSerenata(required.owner.id, id);
+            const marketplaceResult = await rejectMarketplaceSerenata(required.owner.id, id, rejectReason);
             if (marketplaceResult.ok) {
                 return c.json({ ok: true, item: marketplaceResult.item });
             }
@@ -1259,25 +1403,55 @@ export function createSerenatasRouter(deps: SerenatasRouterDeps) {
         const nextDuration = parsed.data.duration ?? current.duration;
         const nextPackageCode = parsed.data.packageCode ?? current.packageCode;
         const nextGroupId = parsed.data.groupId === undefined ? current.groupId : parsed.data.groupId;
+        const nextServiceId = parsed.data.selectedServiceId === undefined
+            ? current.selectedServiceId
+            : parsed.data.selectedServiceId;
+        const serviceContext = await resolveSerenataServiceContext(user.id, {
+            selectedServiceId: nextServiceId,
+            packageCode: nextPackageCode,
+            duration: nextDuration,
+            price: parsed.data.price ?? current.price,
+            eventType: parsed.data.eventType ?? current.eventType,
+        });
+        if (!serviceContext.ok) return jsonError(c, serviceContext.error, 400);
         const conflict = nextEventTime
             ? await validateGroupForSerenata(db, {
                 ownerId: required.owner.id,
                 serenataId: current.id,
                 groupId: nextGroupId,
-                requiredMusicians: packageForCode(nextPackageCode)?.musicians ?? 0,
+                requiredMusicians: serviceContext.requiredMusicians,
                 eventDate: nextEventDate,
                 eventTime: nextEventTime,
-                duration: nextDuration,
+                duration: serviceContext.duration,
             })
             : null;
         if (conflict) return jsonError(c, conflict, 409);
+        const { songSelections, ...patchFields } = parsed.data;
         const [item] = await db.update(serenatas).set({
-            ...parsed.data,
+            ...patchFields,
             ...(nextStatus ? { status: nextStatus } : {}),
+            providerGroupId: serviceContext.providerGroup?.id ?? current.providerGroupId,
+            selectedServiceId: serviceContext.selectedServiceId,
+            packageCode: serviceContext.packageCode,
+            duration: serviceContext.duration,
+            eventType: serviceContext.eventType,
+            price: serviceContext.price,
             lat: parsed.data.lat == null ? undefined : String(parsed.data.lat),
             lng: parsed.data.lng == null ? undefined : String(parsed.data.lng),
             updatedAt: new Date(),
         }).where(eq(serenatas.id, id)).returning();
+        if (songSelections !== undefined) {
+            if (!serviceContext.service || !serviceContext.providerGroup) {
+                return jsonError(c, 'Selecciona un servicio para actualizar el repertorio.', 400);
+            }
+            const songSync = await syncOwnerSerenataSongSelections(
+                id,
+                serviceContext.providerGroup.id,
+                serviceContext.service,
+                songSelections,
+            );
+            if (!songSync.ok) return jsonError(c, songSync.error, 400);
+        }
         if (nextStatus === 'scheduled') {
             await notifySerenataClient(item.clientId, {
                 type: 'client_serenata_scheduled',

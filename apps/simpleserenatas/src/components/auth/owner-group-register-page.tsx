@@ -12,6 +12,7 @@ import { PanelNotice } from '@simple/ui/panel';
 import { ensureOwnerProfileFromSignup } from '@/lib/owner-signup-bootstrap';
 import { persistSignupDrafts } from '@/lib/active-provider-group';
 import { persistSignupProfile } from '@/lib/signup-profile';
+import { panelMiNegocioHref } from '@/lib/panel-routes';
 import { serenatasApi } from '@/lib/serenatas-api';
 
 const TOTAL_STEPS = 3;
@@ -42,7 +43,6 @@ export function OwnerGroupRegisterPage() {
     const [verifyEmail, setVerifyEmail] = useState<string | null>(null);
 
     useEffect(() => {
-        persistSignupProfile('owner');
         sessionStorage.setItem('auth.returnTo', '/para-duenos');
     }, []);
 
@@ -52,12 +52,19 @@ export function OwnerGroupRegisterPage() {
 
         let cancelled = false;
         void (async () => {
+            const profilesResponse = await serenatasApi.profiles();
+            if (cancelled || !profilesResponse.ok) return;
+            if (profilesResponse.profiles.owner) {
+                router.replace(panelMiNegocioHref('datos'));
+                return;
+            }
+            if (profilesResponse.profiles.client) {
+                return;
+            }
             const activated = await ensureOwnerProfileFromSignup({ refreshSession: () => refreshSession() });
             if (cancelled) return;
-            const profilesResponse = await serenatasApi.profiles();
-            const hasOwner = profilesResponse.ok && Boolean(profilesResponse.profiles.owner);
-            if (activated || hasOwner) {
-                router.replace('/panel');
+            if (activated) {
+                router.replace(panelMiNegocioHref('datos'));
             }
         })();
 
@@ -93,6 +100,7 @@ export function OwnerGroupRegisterPage() {
                 setError('Ingresa tu nombre como dueño.');
                 return;
             }
+            persistSignupProfile('owner');
             persistSignupDrafts(groupName, coordinatorName);
             setStep(2);
             return;
@@ -126,6 +134,7 @@ export function OwnerGroupRegisterPage() {
     async function handleCreateAccount(e: React.FormEvent) {
         e.preventDefault();
         setError('');
+        persistSignupProfile('owner');
         persistSignupDrafts(groupName, coordinatorName);
         setSubmitting(true);
         sessionStorage.setItem('auth.returnTo', '/para-duenos');
@@ -138,7 +147,7 @@ export function OwnerGroupRegisterPage() {
         if (result.user.status === 'verified') {
             const activated = await ensureOwnerProfileFromSignup({ refreshSession: () => refreshSession() });
             if (activated) {
-                router.replace('/panel');
+                router.replace(panelMiNegocioHref('datos'));
             }
             return;
         }

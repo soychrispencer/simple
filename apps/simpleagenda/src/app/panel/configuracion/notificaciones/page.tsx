@@ -3,24 +3,9 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import {
-    IconBrandWhatsapp,
-    IconMail,
-    IconBell,
-    IconCheck,
-    IconLoader2,
-    IconSend,
-    IconAlertCircle,
-    IconLock,
-    IconHistory,
-} from '@tabler/icons-react';
-import {
-    PanelCard,
-    PanelField,
-    PanelButton,
-    PanelSwitch,
-    PanelNotice,
-    PanelPageHeader,
-} from '@simple/ui';
+    IconBrandWhatsapp, IconMail, IconBell, IconCheck, IconLoader2, IconSend, IconAlertCircle, IconLock, IconHistory, } from '@tabler/icons-react';
+import { PanelCard } from '@simple/ui/panel';
+import { PanelField, PanelButton, PanelSwitch, PanelNotice, PanelPageHeader } from '@simple/ui/panel';
 import {
     fetchAgendaProfile,
     saveAgendaProfile,

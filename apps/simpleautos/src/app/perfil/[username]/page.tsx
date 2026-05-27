@@ -8,10 +8,10 @@ import { fetchPublicProfile, type PublicListing } from '@/lib/public-listings';
 import {
     PublicProfileShell,
     PublicProfileLoadingSkeleton,
-    PanelNotice,
     getPublicProfileTodayState,
     initialsFromPublicProfileName,
-} from '@simple/ui';
+} from '@simple/ui/public-profile';
+import { PanelNotice } from '@simple/ui/panel';
 
 function toCardData(item: PublicListing): VehicleListingCardData {
     return {

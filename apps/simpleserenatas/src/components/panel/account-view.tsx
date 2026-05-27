@@ -30,6 +30,7 @@ import {
 } from '@/lib/serenatas-api';
 import type { AppMode } from '@/lib/app-mode';
 import { ownerFeaturesEnabled } from '@/lib/app-mode';
+import { panelAccountTypeLabel } from '@/components/panel/panel-nav-config';
 import type { Section } from '@/context/serenata-context';
 import {
     type AccountTab,
@@ -63,6 +64,8 @@ import { SubscriptionSection } from './subscription-section';
 import { useLogoutAndGoHome } from '@/hooks/use-logout-and-go-home';
 import { NotificationCategoryRow, NotificationPrefsSkeleton } from './account/notification-category-row';
 import { DeleteAccountSheet } from './account/delete-account-sheet';
+import { syncAccountTabUrl } from '@/lib/sync-account-tab-url';
+import { useMyMariachi } from '@/hooks/use-my-mariachi';
 import { GoogleDisconnectConfirmSheet } from './account/google-disconnect-confirm-sheet';
 import { PasswordChangeModal } from './account/password-change-modal';
 import { EmailChangeModal } from './account/email-change-modal';
@@ -154,6 +157,7 @@ export function ProfileView({
     const [gcFlash, setGcFlash] = useState<FormStatus>({ loading: false, error: null, ok: null });
     const { confirm } = usePanelConfirm();
     const logoutAndGoHome = useLogoutAndGoHome();
+    const { mariachi: ownerMariachi } = useMyMariachi();
 
     const notificationPrefsDirty = useMemo(() => {
         if (!accountUser || !savedNotificationPrefsRef.current) return notificationPrefsTouched;
@@ -200,7 +204,7 @@ export function ProfileView({
         }
         setSubsection(tab);
         if (typeof window !== 'undefined') window.localStorage.setItem('account_tab', tab);
-        router.replace(profileSectionHref(tab), { scroll: false });
+        syncAccountTabUrl(tab);
     };
 
     useEffect(() => {
@@ -236,8 +240,8 @@ export function ProfileView({
         if (isAccountTabVisible(subsection, appMode, profiles)) return;
         const fallback = accountPillItems[0]?.key ?? 'data';
         setSubsection(fallback);
-        router.replace(profileSectionHref(fallback), { scroll: false });
-    }, [subsection, appMode, profiles, accountPillItems, router]);
+        syncAccountTabUrl(fallback);
+    }, [subsection, appMode, profiles, accountPillItems]);
 
     const showMusicianProfileTab = appMode === 'work' && Boolean(profiles.musician);
 
@@ -741,8 +745,7 @@ export function ProfileView({
         setEmailChangeStatus({ loading: false, error: null, ok: 'Cambio de correo cancelado.' });
     };
 
-    const profileLabel =
-        profile === 'client' ? 'Cliente' : profile === 'musician' ? 'Músico' : ownerActive ? 'Dueño del grupo' : 'Operación';
+    const profileLabel = panelAccountTypeLabel(profiles);
     const notificationsReady = accountUser !== null;
     const notificationTogglesDisabled = !notificationsReady || notificationPrefsSaving;
 
@@ -767,7 +770,7 @@ export function ProfileView({
             />
 
             {subsection === 'notifications' ? (
-            <PanelCard>
+            <PanelCard className="space-y-4">
                 <PanelBlockHeader
                     title="Notificaciones"
                     actions={
@@ -789,13 +792,13 @@ export function ProfileView({
                         ) : null
                     }
                 />
-                <p className="mt-1 text-xs leading-relaxed text-[var(--fg-muted)]">
+                <p className="text-sm leading-relaxed text-[var(--fg-muted)]">
                     {notificationPrefsContextDescription(appMode, profiles)}
                 </p>
                 {!notificationsReady ? (
                     <NotificationPrefsSkeleton rows={notificationCategoryRows.length} />
                 ) : (
-                <div className="divide-y divide-[var(--border)] border-t border-[var(--border)]">
+                <div className="divide-y divide-[var(--border)] rounded-xl border border-[var(--border)] bg-[var(--bg-subtle)]/30 px-2 sm:px-3">
                     {notificationCategoryRows.map(({ key, label, hint, whatsappAvailable }) => (
                         <NotificationCategoryRow
                             key={key}
@@ -828,7 +831,7 @@ export function ProfileView({
                         categoryNotificationPrefs,
                         phone.trim() || accountUser?.phone || '',
                     ) ? (
-                        <p className="py-3 text-xs leading-relaxed text-[var(--fg-muted)]">
+                        <p className="px-1 py-4 text-xs leading-relaxed text-[var(--fg-muted)]">
                             Para WhatsApp necesitas un móvil chileno en{' '}
                             <button
                                 type="button"
@@ -1191,6 +1194,7 @@ export function ProfileView({
 
             {deleteAccountOpen ? (
                 <DeleteAccountSheet
+                    mariachiName={ownerMariachi?.name}
                     hasPassword={hasPassword}
                     password={deleteAccountPassword}
                     confirmPhrase={deleteAccountConfirmPhrase}

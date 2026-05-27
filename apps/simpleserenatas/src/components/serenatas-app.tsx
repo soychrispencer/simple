@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useCallback } from 'react';
+import { useCallback, useEffect, useMemo } from 'react';
 import { useRouter, useSearchParams, usePathname } from 'next/navigation';
 import { panelPathFromSection } from '@/lib/panel-routes';
 import { PanelButton, PanelConfirmProvider, PanelNotice } from '@simple/ui/panel';
@@ -63,6 +63,11 @@ export function SerenatasApp() {
 
     const selectedSerenataId = searchParams.get('serenata');
     const panelAction = searchParams.get('action');
+
+    useEffect(() => {
+        if (panelAction !== 'create' || section !== 'solicitudes' || !ownerFeatures) return;
+        changeSection('agenda', { action: 'create' });
+    }, [changeSection, ownerFeatures, panelAction, section]);
 
     const clearPanelAction = useCallback(() => {
         const params = new URLSearchParams(searchParams.toString());

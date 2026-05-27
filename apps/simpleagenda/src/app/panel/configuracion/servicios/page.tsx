@@ -2,29 +2,10 @@
 
 import { useEffect, useState } from 'react';
 import {
-    IconPlus,
-    IconTrash,
-    IconLoader2,
-    IconEdit,
-    IconAlertCircle,
-    IconChevronRight,
-    IconPackage,
-    IconUsersGroup,
-    IconTag,
-    IconX,
-    IconArrowUp,
-    IconArrowDown,
-} from '@tabler/icons-react';
+    IconPlus, IconTrash, IconLoader2, IconEdit, IconAlertCircle, IconChevronRight, IconPackage, IconUsersGroup, IconTag, IconX, IconArrowUp, IconArrowDown, } from '@tabler/icons-react';
 import Link from 'next/link';
-import {
-    PanelCard,
-    PanelField,
-    PanelButton,
-    PanelSwitch,
-    PanelNotice,
-    PanelPageHeader,
-    PanelEmptyState,
-} from '@simple/ui';
+import { PanelCard } from '@simple/ui/panel';
+import { PanelField, PanelButton, PanelSwitch, PanelNotice, PanelPageHeader, PanelEmptyState } from '@simple/ui/panel';
 import {
     fetchAgendaServices,
     createAgendaService,

@@ -3,56 +3,15 @@
 import Link from 'next/link';
 import { useEffect, useMemo, useState, type DragEvent, type FormEvent, type ReactNode } from 'react';
 import {
-    IconBrandFacebook,
-    IconBrandInstagram,
-    IconBrandWhatsapp,
-    IconBuildingStore,
-    IconChevronDown,
-    IconClockHour4,
-    IconFileDescription,
-    IconHome,
-    IconLayoutGrid,
-    IconLink,
-    IconList,
-    IconMail,
-    IconMessageCircle,
-    IconPhone,
-    IconTag,
-    IconUser,
-    IconWorld,
-} from '@tabler/icons-react';
+    IconBrandFacebook, IconBrandInstagram, IconBrandWhatsapp, IconBuildingStore, IconChevronDown, IconClockHour4, IconFileDescription, IconHome, IconLayoutGrid, IconLink, IconList, IconMail, IconMessageCircle, IconPhone, IconTag, IconUser, IconWorld, } from '@tabler/icons-react';
 import PanelSectionHeader from '@/components/panel/panel-section-header';
 import { useAuth } from '@simple/auth';
 import {
-    addCrmLeadNote,
-    addCrmListingLeadNote,
-    createCrmPipelineColumn,
-    deleteCrmPipelineColumn,
-    fetchCrmLeadDetail,
-    fetchCrmLeads,
-    fetchCrmListingLeadDetail,
-    fetchCrmListingLeads,
-    fetchCrmPipelineColumns,
-    reorderCrmPipelineColumns,
-    runCrmLeadQuickAction,
-    runCrmListingLeadQuickAction,
-    updateCrmPipelineColumn,
-    updateCrmLead,
-    updateCrmListingLead,
-    type CrmAssignee,
-    type CrmLead,
-    type CrmLeadActivity,
-    type CrmLeadDetail,
-    type CrmPipelineColumn,
-    type CrmLeadQuickAction,
-    type CrmLeadPriority,
-    type CrmLeadStatus,
-    type CrmListingLead,
-    type CrmListingLeadActivity,
-    type CrmListingLeadDetail,
-} from '@simple/utils';
+    addCrmLeadNote, addCrmListingLeadNote, createCrmPipelineColumn, deleteCrmPipelineColumn, fetchCrmLeadDetail, fetchCrmLeads, fetchCrmListingLeadDetail, fetchCrmListingLeads, fetchCrmPipelineColumns, reorderCrmPipelineColumns, runCrmLeadQuickAction, runCrmListingLeadQuickAction, updateCrmPipelineColumn, updateCrmLead, updateCrmListingLead, type CrmAssignee, type CrmLead, type CrmLeadActivity, type CrmLeadDetail, type CrmPipelineColumn, type CrmLeadQuickAction, type CrmLeadPriority, type CrmLeadStatus, type CrmListingLead, type CrmListingLeadActivity, type CrmListingLeadDetail, } from '@simple/utils';
 import { fetchSubscriptionCatalog } from '@/lib/payments';
-import { CrmModalShell, PanelButton, PanelCard, PanelEmptyState, PanelStatCard, PanelStatusBadge } from '@simple/ui';
+import { PanelButton } from '@simple/ui/panel';
+import { PanelCard, PanelEmptyState, PanelStatCard, PanelStatusBadge } from '@simple/ui/panel';
+import { CrmModalShell } from '@simple/ui/panel';
 
 type LeadTab = 'publicaciones' | 'servicios';
 type AnyLead = CrmLead | CrmListingLead;

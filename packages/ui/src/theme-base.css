@@ -754,6 +754,181 @@ h4 {
     background: var(--surface);
 }
 
+/* Selects con .form-input (legado) heredan el mismo aspecto que .form-select */
+select.form-input:not([multiple]):not([size]) {
+    appearance: none;
+    -webkit-appearance: none;
+    cursor: pointer;
+    padding-right: 2.25rem;
+    background-repeat: no-repeat;
+    background-position: right 0.72rem center;
+    background-size: 14px 14px;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%236b7280' stroke-width='1.9' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+}
+
+.dark select.form-input:not([multiple]):not([size]),
+[data-theme="dark"] select.form-input:not([multiple]):not([size]) {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%23a1a1aa' stroke-width='1.9' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+}
+
+/* Select compacto dentro de chips de búsqueda (sin borde propio) */
+.form-select-inline {
+    appearance: none;
+    -webkit-appearance: none;
+    cursor: pointer;
+    width: 100%;
+    min-width: 0;
+    border: none;
+    outline: none;
+    background-color: transparent;
+    color: var(--fg);
+    font: inherit;
+    font-weight: 600;
+    padding-right: 1.35rem;
+    background-repeat: no-repeat;
+    background-position: right 0 center;
+    background-size: 12px 12px;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%236b7280' stroke-width='1.9' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+}
+
+.dark .form-select-inline,
+[data-theme="dark"] .form-select-inline {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23a1a1aa' stroke-width='1.9' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+}
+
+.form-select-inline:disabled {
+    cursor: not-allowed;
+    opacity: 0.55;
+}
+
+/* Fecha / hora — campo alineado al design system (popup nativo respeta color-scheme) */
+.form-input[type="date"],
+.form-input[type="time"],
+.form-input[type="datetime-local"],
+.form-input[type="month"],
+.form-input[type="week"] {
+    min-height: 42px;
+}
+
+.form-input[type="date"]::-webkit-calendar-picker-indicator,
+.form-input[type="time"]::-webkit-calendar-picker-indicator,
+.form-input[type="datetime-local"]::-webkit-calendar-picker-indicator {
+    cursor: pointer;
+    opacity: 0.7;
+}
+
+.dark .form-input[type="date"]::-webkit-calendar-picker-indicator,
+.dark .form-input[type="time"]::-webkit-calendar-picker-indicator,
+.dark .form-input[type="datetime-local"]::-webkit-calendar-picker-indicator,
+[data-theme="dark"] .form-input[type="date"]::-webkit-calendar-picker-indicator,
+[data-theme="dark"] .form-input[type="time"]::-webkit-calendar-picker-indicator,
+[data-theme="dark"] .form-input[type="datetime-local"]::-webkit-calendar-picker-indicator {
+    filter: invert(0.88);
+    opacity: 0.85;
+}
+
+/* Fecha con icono (ModernDateInput) — mismo look que ModernSelect */
+.form-datetime {
+    position: relative;
+    width: 100%;
+}
+
+.form-datetime-leading {
+    position: absolute;
+    left: 0.75rem;
+    top: 50%;
+    z-index: 1;
+    display: flex;
+    transform: translateY(-50%);
+    color: var(--fg-muted);
+}
+
+.form-datetime-control {
+    width: 100%;
+    padding-left: 2.35rem;
+    padding-right: 0.875rem;
+    color-scheme: light;
+}
+
+.dark .form-datetime-control,
+[data-theme="dark"] .form-datetime-control {
+    color-scheme: dark;
+}
+
+.form-datetime-control::-webkit-calendar-picker-indicator {
+    position: absolute;
+    right: 0.65rem;
+    top: 50%;
+    width: 1.25rem;
+    height: 1.25rem;
+    margin: 0;
+    padding: 0;
+    cursor: pointer;
+    transform: translateY(-50%);
+    opacity: 0.72;
+}
+
+.dark .form-datetime-control::-webkit-calendar-picker-indicator,
+[data-theme="dark"] .form-datetime-control::-webkit-calendar-picker-indicator {
+    filter: invert(0.88);
+    opacity: 0.85;
+}
+
+.form-input-inline[type="date"],
+.form-input-inline[type="time"] {
+    appearance: none;
+    -webkit-appearance: none;
+    width: 100%;
+    min-width: 0;
+    min-height: auto;
+    border: none;
+    outline: none;
+    background: transparent;
+    color: var(--fg);
+    font: inherit;
+    font-weight: 600;
+    padding: 0;
+}
+
+.form-input-inline[type="date"]::-webkit-calendar-picker-indicator,
+.form-input-inline[type="time"]::-webkit-calendar-picker-indicator {
+    cursor: pointer;
+    opacity: 0.7;
+}
+
+.dark .form-input-inline[type="date"]::-webkit-calendar-picker-indicator,
+.dark .form-input-inline[type="time"]::-webkit-calendar-picker-indicator,
+[data-theme="dark"] .form-input-inline[type="date"]::-webkit-calendar-picker-indicator,
+[data-theme="dark"] .form-input-inline[type="time"]::-webkit-calendar-picker-indicator {
+    filter: invert(0.88);
+}
+
+/* Archivos — botón «Elegir archivo» con tokens del repo (Edge/Chrome/Firefox) */
+.form-input[type="file"] {
+    height: auto;
+    min-height: 42px;
+    padding: 0.5rem 0.75rem;
+}
+
+.form-input[type="file"]::file-selector-button {
+    margin-right: 0.75rem;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    background: var(--bg-subtle);
+    color: var(--fg);
+    font-family: inherit;
+    font-size: var(--text-sm);
+    font-weight: 500;
+    padding: 0.4rem 0.85rem;
+    cursor: pointer;
+    transition: border-color 0.2s ease, background-color 0.2s ease;
+}
+
+.form-input[type="file"]::file-selector-button:hover {
+    border-color: var(--accent-border);
+    background: var(--surface);
+}
+
 .form-input::placeholder,
 .form-textarea::placeholder {
     color: var(--fg-muted);

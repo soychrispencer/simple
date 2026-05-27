@@ -2,28 +2,11 @@
 
 import { useEffect, useState } from 'react';
 import {
-    IconPlus,
-    IconTrash,
-    IconLoader2,
-    IconEdit,
-    IconMapPin,
-    IconStar,
-    IconStarFilled,
-    IconAlertCircle,
-    IconMap,
-    IconShare,
-    IconChevronRight,
-} from '@tabler/icons-react';
+    IconPlus, IconTrash, IconLoader2, IconEdit, IconMapPin, IconStar, IconStarFilled, IconAlertCircle, IconMap, IconShare, IconChevronRight, } from '@tabler/icons-react';
 import Link from 'next/link';
-import {
-    PanelCard,
-    PanelButton,
-    PanelSwitch,
-    PanelNotice,
-    PanelPageHeader,
-    PanelEmptyState,
-    ListingLocationEditor,
-} from '@simple/ui';
+import { PanelCard } from '@simple/ui/panel';
+import { PanelButton, PanelSwitch, PanelNotice, PanelPageHeader, PanelEmptyState } from '@simple/ui/panel';
+import { ListingLocationEditor } from '@simple/ui/location';
 import { LOCATION_REGIONS, LOCATION_COMMUNES, getCommunesForRegion } from '@simple/utils';
 import { createEmptyListingLocation, type ListingLocation } from '@simple/types';
 import {

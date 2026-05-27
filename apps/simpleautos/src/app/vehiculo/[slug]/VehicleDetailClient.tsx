@@ -4,15 +4,14 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { useState, useCallback, type ReactNode } from 'react';
 import { 
-    IconClock, IconEye, IconMapPin, IconUser, IconBookmark, IconBookmarkFilled,
-    IconCalendar, IconGauge, IconManualGearbox, IconGasStation, IconShare3,
-    IconChevronLeft, IconChevronRight, IconPhoto
+    IconClock, IconEye, IconMapPin, IconUser, IconBookmark, IconBookmarkFilled, IconCalendar, IconGauge, IconManualGearbox, IconGasStation, IconShare3, IconChevronLeft, IconChevronRight, IconPhoto
 } from '@tabler/icons-react';
 import { PublicBreadcrumbs } from '@/components/layout/public-breadcrumbs';
 import PublicListingContactCard from '@/components/listings/public-listing-contact-card';
 import { type PublicListing } from '@/lib/public-listings';
 import { buildVehicleJsonLd, JsonLd } from '@/lib/schema';
-import { PanelBlockHeader, PanelCard, PanelStatusBadge } from '@simple/ui';
+import { PanelBlockHeader } from '@simple/ui/panel';
+import { PanelCard, PanelStatusBadge } from '@simple/ui/panel';
 
 // Helper para formatear precio chileno
 function formatPrice(price: string): string {

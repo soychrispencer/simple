@@ -2,33 +2,49 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { PanelButton } from '@simple/ui/panel';
-import { PanelNotice } from '@simple/ui/panel';
-import { useSerenataOptional } from '@/context/serenata-context';
 import { serenatasApi, type RepertoireSong, type Serenata, type SerenataSongSelection } from '@/lib/serenatas-api';
 import { FormFeedback, type FormStatus } from './shared';
 import { RepertoireSongPicker } from './repertoire-song-picker';
 import { ScoreViewerModal } from './score-viewer-modal';
+import { useSerenataOptional } from '@/context/serenata-context';
+
+function canOwnerEditSetlist(serenata: Serenata): boolean {
+    return serenata.status === 'scheduled' || serenata.status === 'completed';
+}
+
+function formatRepertoireClientSummary(songsIncluded: number, selectedCount: number): string | null {
+    if (songsIncluded <= 0) return null;
+    const noun = songsIncluded === 1 ? 'canción' : 'canciones';
+    if (selectedCount > 0) {
+        return `${selectedCount} de ${songsIncluded} ${noun} elegida${selectedCount === 1 ? '' : 's'} por el cliente`;
+    }
+    return `El cliente aún no eligió entre las ${songsIncluded} ${noun} del servicio`;
+}
 
 export function SerenataSetlistPanel({
     serenata,
     mode,
     refresh,
+    embedded = false,
 }: {
     serenata: Serenata;
     mode: 'owner' | 'musician';
     refresh?: () => Promise<void>;
+    /** Sin margen superior extra cuando va dentro del detalle de solicitud. */
+    embedded?: boolean;
 }) {
     const [musicianInstrument, setMusicianInstrument] = useState<string | null>(null);
     const [status, setStatus] = useState<FormStatus>({ loading: true, error: null, ok: null });
     const [selections, setSelections] = useState<SerenataSongSelection[]>([]);
-    const [setlistStatus, setSetlistStatus] = useState<Serenata['setlistStatus']>('pending_owner');
     const [songsIncluded, setSongsIncluded] = useState(0);
     const [catalog, setCatalog] = useState<RepertoireSong[]>([]);
-    const [confirmIds, setConfirmIds] = useState<string[]>([]);
+    const [editIds, setEditIds] = useState<string[]>([]);
     const [previewInstrument, setPreviewInstrument] = useState<string | null>(null);
     const [previewUrl, setPreviewUrl] = useState<string | null>(null);
     const [previewTitle, setPreviewTitle] = useState('');
     const serenataCtx = useSerenataOptional();
+
+    const ownerCanEdit = mode === 'owner' && canOwnerEditSetlist(serenata);
 
     const clientPrefs = useMemo(
         () => selections.filter((item) => item.kind === 'client_preference').sort((a, b) => a.sortOrder - b.sortOrder),
@@ -38,6 +54,8 @@ export function SerenataSetlistPanel({
         () => selections.filter((item) => item.kind === 'setlist').sort((a, b) => a.sortOrder - b.sortOrder),
         [selections],
     );
+
+    const displaySongs = setlist.length > 0 ? setlist : clientPrefs;
 
     useEffect(() => {
         if (mode !== 'musician') return;
@@ -67,12 +85,11 @@ export function SerenataSetlistPanel({
                 return;
             }
             setSelections(response.items);
-            setSetlistStatus(response.setlistStatus ?? 'pending_owner');
             setSongsIncluded(response.songsIncludedAtBooking ?? 0);
-            const prefs = response.items.filter((item) => item.kind === 'client_preference' && item.repertoireSongId);
-            const confirmed = response.items.filter((item) => item.kind === 'setlist' && item.repertoireSongId);
-            setConfirmIds(
-                (confirmed.length > 0 ? confirmed : prefs).map((item) => item.repertoireSongId!).filter(Boolean),
+            const setlistRows = response.items.filter((item) => item.kind === 'setlist' && item.repertoireSongId);
+            const prefRows = response.items.filter((item) => item.kind === 'client_preference' && item.repertoireSongId);
+            setEditIds(
+                (setlistRows.length > 0 ? setlistRows : prefRows).map((item) => item.repertoireSongId!).filter(Boolean),
             );
             if (serenata.providerGroupId && mode === 'owner') {
                 const rep = await serenatasApi.providerGroupRepertoire(serenata.providerGroupId);
@@ -85,19 +102,18 @@ export function SerenataSetlistPanel({
         };
     }, [mode, serenata.id, serenata.providerGroupId]);
 
-    async function confirmSetlist() {
+    async function saveSetlist() {
         setStatus({ loading: true, error: null, ok: null });
         const response = await serenatasApi.confirmSerenataSetlist(
             serenata.id,
-            confirmIds.map((repertoireSongId, index) => ({ repertoireSongId, sortOrder: index })),
+            editIds.map((repertoireSongId, index) => ({ repertoireSongId, sortOrder: index })),
         );
         if (!response.ok) {
-            setStatus({ loading: false, error: response.error ?? 'No pudimos confirmar el setlist.', ok: null });
+            setStatus({ loading: false, error: response.error ?? 'No pudimos guardar el repertorio.', ok: null });
             return;
         }
         setSelections(response.items);
-        setSetlistStatus('confirmed');
-        setStatus({ loading: false, error: null, ok: 'Setlist confirmado para el equipo.' });
+        setStatus({ loading: false, error: null, ok: 'Repertorio actualizado.' });
         await refresh?.();
     }
 
@@ -116,68 +132,34 @@ export function SerenataSetlistPanel({
 
     if (songsIncluded <= 0 && selections.length === 0) return null;
 
+    const clientRepertoireSummary = formatRepertoireClientSummary(songsIncluded, displaySongs.length);
+
     return (
-        <div className="mt-6 rounded-card border border-border bg-bg-subtle p-4">
+        <div className={`rounded-card border border-border bg-bg-subtle p-5 ${embedded ? '' : 'mt-6'}`}>
             <p className="text-sm font-semibold text-fg">Repertorio de la serenata</p>
-            {songsIncluded > 0 ? (
-                <p className="mt-1 text-xs text-fg-muted">
-                    Servicio con hasta {songsIncluded} preferencia{songsIncluded === 1 ? '' : 's'} del cliente.
-                    {setlistStatus === 'confirmed' ? ' Setlist confirmado.' : ' Pendiente de confirmación del dueño.'}
-                </p>
+            {clientRepertoireSummary ? (
+                <p className="mt-2 text-xs text-fg-muted">{clientRepertoireSummary}</p>
+            ) : null}
+            {ownerCanEdit ? (
+                <p className="mt-2 text-xs text-fg-muted">Puedes ajustar las canciones si el cliente pide cambios.</p>
             ) : null}
 
             <FormFeedback status={status} />
 
-            {clientPrefs.length > 0 ? (
-                <div className="mt-3">
-                    <p className="text-xs font-semibold uppercase tracking-wide text-fg-muted">Preferencias del cliente</p>
-                    <ul className="mt-2 space-y-1">
-                        {clientPrefs.map((song) => (
-                            <li key={song.id} className="text-sm text-fg">
-                                {song.title}
-                                {song.artist ? <span className="text-fg-muted"> — {song.artist}</span> : null}
-                                {song.clientNote ? <span className="block text-xs text-fg-muted">{song.clientNote}</span> : null}
-                            </li>
-                        ))}
-                    </ul>
-                </div>
-            ) : (
-                <p className="mt-2 text-sm text-fg-muted">El cliente no indicó canciones; el mariachi arma el set en el evento.</p>
-            )}
-
-            {mode === 'owner' && setlistStatus !== 'confirmed' && catalog.length > 0 ? (
-                <div className="mt-4 border-t border-border pt-4">
-                    <p className="text-sm font-medium text-fg">Confirmar setlist para músicos</p>
-                    <p className="mt-1 text-xs text-fg-muted">
-                        Incluye las preferencias del cliente y agrega las que complete el mariachi. Máximo recomendado: {songsIncluded || 'sin límite'}.
-                    </p>
-                    <div className="mt-3">
-                        <RepertoireSongPicker
-                            songs={catalog}
-                            maxSelections={Math.max(songsIncluded, clientPrefs.length, 12)}
-                            selectedIds={confirmIds}
-                            onChange={setConfirmIds}
-                        />
-                    </div>
-                    <PanelButton className="mt-3" disabled={status.loading} onClick={() => void confirmSetlist()}>
-                        Confirmar setlist
-                    </PanelButton>
-                </div>
-            ) : null}
-
-            {setlist.length > 0 ? (
+            {displaySongs.length > 0 ? (
                 <div className="mt-4">
-                    <p className="text-xs font-semibold uppercase tracking-wide text-fg-muted">Setlist confirmado</p>
-                    <ul className="mt-2 space-y-1">
-                        {setlist.map((song, index) => (
-                            <li key={song.id} className="flex items-center justify-between gap-2 text-sm text-fg">
-                                <span>
-                                    {index + 1}. {song.title}
-                                </span>
-                                {mode === 'musician' && song.repertoireSongId ? (
+                    <ul className="space-y-2.5">
+                        {displaySongs.map((song, index) => (
+                            <li key={song.id} className="text-sm text-fg">
+                                {index + 1}. {song.title}
+                                {song.artist ? <span className="text-fg-muted"> — {song.artist}</span> : null}
+                                {song.clientNote ? (
+                                    <span className="block text-xs text-fg-muted">{song.clientNote}</span>
+                                ) : null}
+                                {mode === 'musician' && song.repertoireSongId && setlist.length > 0 ? (
                                     <button
                                         type="button"
-                                        className="text-xs font-medium text-accent hover:underline"
+                                        className="ml-2 text-xs font-medium text-accent hover:underline"
                                         onClick={() => void openScore(song)}
                                     >
                                         Partitura
@@ -187,12 +169,28 @@ export function SerenataSetlistPanel({
                         ))}
                     </ul>
                 </div>
-            ) : null}
+            ) : clientRepertoireSummary ? null : (
+                <p className="mt-2 text-sm text-fg-muted">El cliente no indicó canciones; el mariachi arma el set en el evento.</p>
+            )}
 
-            {mode === 'musician' && setlistStatus !== 'confirmed' && clientPrefs.length > 0 ? (
-                <PanelNotice tone="neutral" className="mt-3 text-xs">
-                    El dueño aún no confirma el setlist final. Puedes revisar las preferencias del cliente.
-                </PanelNotice>
+            {ownerCanEdit && catalog.length > 0 ? (
+                <div className="mt-4 border-t border-border pt-4">
+                    <p className="text-sm font-medium text-fg">Editar repertorio</p>
+                    <p className="mt-1 text-xs text-fg-muted">
+                        Agrega o quita canciones si coordinaste cambios con el cliente.
+                    </p>
+                    <div className="mt-3">
+                        <RepertoireSongPicker
+                            songs={catalog}
+                            maxSelections={Math.max(songsIncluded, clientPrefs.length, 12)}
+                            selectedIds={editIds}
+                            onChange={setEditIds}
+                        />
+                    </div>
+                    <PanelButton className="mt-3" disabled={status.loading} onClick={() => void saveSetlist()}>
+                        Guardar cambios
+                    </PanelButton>
+                </div>
             ) : null}
 
             {previewUrl && previewInstrument ? (

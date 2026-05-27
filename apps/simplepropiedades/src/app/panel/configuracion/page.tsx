@@ -1,12 +1,6 @@
-import {
-    IconUser,
-    IconNotebook,
-    IconMapPin,
-    IconPlugConnected,
-    IconCreditCard,
-    IconShield,
-} from '@tabler/icons-react';
-import { PanelConfigPage, type PanelConfigSectionItem } from '@simple/ui';
+import { IconUser, IconNotebook, IconMapPin, IconPlugConnected, IconCreditCard, IconShield, } from '@tabler/icons-react';
+import { PanelConfigPage } from '@simple/ui/panel';
+import { type PanelConfigSectionItem } from '@simple/ui/panel';
 
 const CONFIG_SECTIONS: PanelConfigSectionItem[] = [
     {

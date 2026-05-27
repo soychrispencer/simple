@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { PanelPageHeader } from '@simple/ui';
+import { PanelPageHeader } from '@simple/ui/panel';
 
 type PanelSectionHeaderProps = {
   title: string;

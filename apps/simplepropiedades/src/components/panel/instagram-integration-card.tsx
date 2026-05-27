@@ -1,6 +1,6 @@
 'use client';
 
-import { InstagramIntegrationCard } from '@simple/ui';
+import { InstagramIntegrationCard } from '@simple/ui/integrations';
 import {
     buildInstagramConnectUrl,
     disconnectInstagram,

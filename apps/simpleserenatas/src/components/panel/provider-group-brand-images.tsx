@@ -40,7 +40,8 @@ export function ProviderGroupBrandImages({
 
     return (
         <div className={className ? `grid gap-3 ${className}` : 'grid gap-3'}>
-            <div className="overflow-hidden rounded-card border border-border bg-surface shadow-sm">
+            {/* Vista previa compacta en panel; la ficha pública sigue usando portada 16:9 a ancho completo */}
+            <div className="mx-auto w-full max-w-md overflow-hidden rounded-card border border-border bg-surface shadow-sm">
                 <div className="relative">
                     <div
                         className="aspect-[16/9] w-full bg-cover bg-center bg-accent-soft"
@@ -67,10 +68,10 @@ export function ProviderGroupBrandImages({
                     </button>
                 </div>
 
-                <div className="p-5">
-                    <div className="-mt-12 flex items-end gap-4">
+                <div className="p-4">
+                    <div className="-mt-9 flex items-end gap-3">
                         <div className="relative shrink-0">
-                            <div className="flex size-20 items-center justify-center overflow-hidden rounded-card border-4 border-surface bg-accent-soft text-xl font-bold text-accent shadow-sm sm:size-24">
+                            <div className="flex size-16 items-center justify-center overflow-hidden rounded-card border-4 border-surface bg-accent-soft text-lg font-bold text-accent shadow-sm">
                                 {logoUrl && !logoLoadError ? (
                                     <img
                                         src={logoUrl}
@@ -101,17 +102,17 @@ export function ProviderGroupBrandImages({
                                 )}
                             </button>
                         </div>
-                        <div className="min-w-0 pb-1">
-                            <p className="truncate text-base font-semibold text-fg">
+                        <div className="min-w-0 pb-0.5">
+                            <p className="truncate text-sm font-semibold text-fg">
                                 {name.trim() || 'Tu mariachi'}
                             </p>
-                            <p className="text-xs text-fg-muted">Vista previa del marketplace</p>
+                            <p className="text-xs text-fg-muted">Vista previa (tamaño reducido en el panel)</p>
                         </div>
                     </div>
-                    <div className="mt-4 rounded-xl border border-border bg-bg-subtle px-3 py-2.5 text-xs leading-relaxed text-fg-muted">
+                    <div className="mt-3 rounded-xl border border-border bg-bg-subtle px-3 py-2.5 text-xs leading-relaxed text-fg-muted">
                         <strong className="text-fg">Obligatorio para publicar:</strong> portada 16:9
-                        recomendada 1600x900 px y logo cuadrado recomendado 512x512 px. Son las mismas
-                        proporciones que se usan en la tarjeta y en la ficha pública.
+                        recomendada 1600×900 px y logo cuadrado 512×512 px. En el marketplace y la ficha
+                        pública se muestran a tamaño completo con las mismas proporciones.
                     </div>
                 </div>
             </div>

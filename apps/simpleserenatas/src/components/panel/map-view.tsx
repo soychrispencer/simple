@@ -5,7 +5,7 @@ import { IconMapPin, IconNavigation, IconRoute } from '@tabler/icons-react';
 import { PanelButton } from '@simple/ui/panel';
 import { PanelCard, PanelNotice } from '@simple/ui/panel';
 import type { Serenata } from '@/lib/serenatas-api';
-import { EmptyBlock, FieldInput, googleMapsDirectionsUrl, googleMapsUrl, money } from './shared';
+import { EmptyBlock, FieldDate, googleMapsDirectionsUrl, googleMapsUrl, money } from './shared';
 
 const SerenataMap = dynamic(() => import('@/components/serenata-map'), {
     ssr: false,
@@ -36,7 +36,7 @@ export function MapView({ date, setDate, items }: { date: string; setDate: (date
                         ) : null}
                     </div>
                     <div className="mt-4">
-                        <FieldInput type="date" value={date} onChange={(event) => setDate(event.target.value)} />
+                        <FieldDate value={date} onChange={setDate} aria-label="Fecha del mapa" />
                     </div>
                 </PanelCard>
 

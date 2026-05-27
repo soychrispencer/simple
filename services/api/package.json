@@ -10,6 +10,7 @@
         "db:seed": "tsx scripts/seed-crm-example-leads.ts",
         "db:seed:marketplace": "tsx scripts/seed-marketplace-staging.ts",
         "db:seed:serenatas-e2e": "tsx scripts/seed-serenatas-e2e.ts",
+        "db:cleanup:serenatas-dual-clients": "tsx scripts/cleanup-serenatas-dual-client-profiles.ts",
         "db:repair:marketplace": "tsx scripts/repair-marketplace-schema.ts",
         "db:apply:post-journal": "tsx scripts/apply-post-journal-migrations.ts",
         "db:setup": "pnpm run db:migrate && pnpm run db:apply:post-journal && pnpm run db:sync:migration-hashes",

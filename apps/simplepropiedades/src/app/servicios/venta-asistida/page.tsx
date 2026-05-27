@@ -12,9 +12,10 @@ import {
     IconCoin,
     IconShieldCheck,
 } from '@tabler/icons-react';
-import { ModernSelect } from '@simple/ui';
+import { ModernSelect } from '@simple/ui/forms';
 import { submitServiceLead } from '@/lib/service-leads';
-import { PanelBlockHeader, PanelButton, PanelCard, PanelNotice, PanelSegmentedToggle } from '@simple/ui';
+import { PanelBlockHeader } from '@simple/ui/panel';
+import { PanelButton, PanelCard, PanelNotice, PanelSegmentedToggle } from '@simple/ui/panel';
 
 type Plan = 'basico' | 'premium';
 

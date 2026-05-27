@@ -1,6 +1,13 @@
 'use client';
 
-import type { InputHTMLAttributes, ReactNode, SelectHTMLAttributes, TextareaHTMLAttributes } from 'react';
+import { Children, isValidElement, useMemo, type InputHTMLAttributes, type ReactNode, type TextareaHTMLAttributes } from 'react';
+import {
+    ModernDateInput,
+    ModernSelect,
+    ModernTimeSelect,
+    buildTimeSlotOptions,
+    type ModernSelectOption,
+} from '@simple/ui';
 import { PanelEmptyState, PanelNotice, PanelStatusBadge } from '@simple/ui/panel';
 import { createEmptyListingLocation, patchListingLocation, type ListingLocation } from '@simple/types';
 import { getCommunesForRegion, LOCATION_REGIONS } from '@simple/utils';
@@ -43,8 +50,141 @@ export function FieldInput(props: InputHTMLAttributes<HTMLInputElement>) {
     return <input {...props} className={`form-input ${props.className ?? ''}`} />;
 }
 
-export function FieldSelect(props: SelectHTMLAttributes<HTMLSelectElement>) {
-    return <select {...props} className={`form-input ${props.className ?? ''}`} />;
+/** Texto visible de <option>…</option> sin comas de Array#toString (ej. "Pendientes (1)"). */
+function optionLabelFromChildren(children: ReactNode): string {
+    if (children == null || typeof children === 'boolean') return '';
+    if (typeof children === 'string' || typeof children === 'number') return String(children);
+    if (Array.isArray(children)) return children.map(optionLabelFromChildren).join('');
+    if (isValidElement(children)) {
+        const props = children.props as { children?: ReactNode };
+        return optionLabelFromChildren(props.children);
+    }
+    return '';
+}
+
+function optionsFromSelectChildren(children: ReactNode): ModernSelectOption[] {
+    const options: ModernSelectOption[] = [];
+    Children.forEach(children, (child) => {
+        if (!isValidElement(child)) return;
+        if (child.type === 'option') {
+            const optionProps = child.props as { value?: string; children?: ReactNode; disabled?: boolean };
+            options.push({
+                value: String(optionProps.value ?? ''),
+                label: optionLabelFromChildren(optionProps.children),
+                disabled: optionProps.disabled,
+            });
+            return;
+        }
+        if (child.type === 'optgroup') {
+            const groupProps = child.props as { label?: string; children?: ReactNode };
+            if (groupProps.label) {
+                options.push({
+                    value: `__heading__${groupProps.label}`,
+                    label: groupProps.label,
+                    disabled: true,
+                });
+            }
+            options.push(...optionsFromSelectChildren(groupProps.children));
+        }
+    });
+    return options;
+}
+
+const DEFAULT_TIME_OPTIONS = buildTimeSlotOptions(8, 23, 30);
+
+export type FieldDateProps = {
+    value: string;
+    onChange: (value: string) => void;
+    min?: string;
+    max?: string;
+    disabled?: boolean;
+    className?: string;
+    'aria-label'?: string;
+};
+
+export function FieldDate({ value, onChange, min, max, disabled, className, 'aria-label': ariaLabel }: FieldDateProps) {
+    return (
+        <ModernDateInput
+            value={value}
+            onChange={onChange}
+            min={min}
+            max={max}
+            disabled={disabled}
+            className={className}
+            aria-label={ariaLabel}
+        />
+    );
+}
+
+export type FieldTimeProps = {
+    value: string;
+    onChange: (value: string) => void;
+    options?: ModernSelectOption[];
+    disabled?: boolean;
+    placeholder?: string;
+    'aria-label'?: string;
+};
+
+export function FieldTime({
+    value,
+    onChange,
+    options = DEFAULT_TIME_OPTIONS,
+    disabled,
+    placeholder = 'Seleccionar hora',
+    'aria-label': ariaLabel,
+}: FieldTimeProps) {
+    return (
+        <ModernTimeSelect
+            value={value}
+            onChange={onChange}
+            options={options}
+            disabled={disabled}
+            placeholder={placeholder}
+            ariaLabel={ariaLabel}
+        />
+    );
+}
+
+export type FieldSelectProps = {
+    value: string;
+    onChange?: (event: { target: { value: string } }) => void;
+    disabled?: boolean;
+    placeholder?: string;
+    'aria-label'?: string;
+    className?: string;
+    children?: ReactNode;
+    options?: ModernSelectOption[];
+    leadingIcon?: ReactNode;
+};
+
+export function FieldSelect({
+    value,
+    onChange,
+    disabled,
+    placeholder = 'Seleccionar',
+    'aria-label': ariaLabel,
+    className,
+    children,
+    options: optionsProp,
+    leadingIcon,
+}: FieldSelectProps) {
+    const options = useMemo(
+        () => optionsProp ?? optionsFromSelectChildren(children),
+        [optionsProp, children],
+    );
+
+    return (
+        <ModernSelect
+            value={value}
+            onChange={(next) => onChange?.({ target: { value: next } })}
+            options={options}
+            disabled={disabled}
+            placeholder={placeholder}
+            ariaLabel={ariaLabel}
+            triggerClassName={className}
+            leadingIcon={leadingIcon}
+        />
+    );
 }
 
 export function FieldTextarea(props: TextareaHTMLAttributes<HTMLTextAreaElement>) {
@@ -52,13 +192,20 @@ export function FieldTextarea(props: TextareaHTMLAttributes<HTMLTextAreaElement>
 }
 
 export function InstrumentSelect({ value, onChange, placeholder = 'Seleccionar instrumento' }: { value: string; onChange: (value: string) => void; placeholder?: string }) {
+    const options = useMemo(
+        () => [
+            { value: '', label: placeholder },
+            ...SERENATA_INSTRUMENTS.map((item) => ({ value: item, label: item })),
+        ],
+        [placeholder],
+    );
     return (
-        <FieldSelect value={value} onChange={(event) => onChange(event.target.value)}>
-            <option value="">{placeholder}</option>
-            {SERENATA_INSTRUMENTS.map((item) => (
-                <option key={item} value={item}>{item}</option>
-            ))}
-        </FieldSelect>
+        <FieldSelect
+            value={value}
+            onChange={(event) => onChange(event.target.value)}
+            options={options}
+            placeholder={placeholder}
+        />
     );
 }
 
@@ -84,11 +231,29 @@ export function money(value: number | null) {
     return formatMoney(value);
 }
 
+/** Resumen compacto para filas de la bandeja de solicitudes. */
+export function formatSerenataListSummary(item: Pick<Serenata, 'eventType' | 'packageCode' | 'duration' | 'songsIncludedAtBooking'>): string {
+    const service = item.eventType ?? item.packageCode ?? 'Serenata';
+    const duration = `${item.duration} min`;
+    const songs = item.songsIncludedAtBooking;
+    if (songs != null && songs > 0) {
+        const songsLabel = songs === 1 ? '1 canción' : `${songs} canciones`;
+        return `${service} · ${duration} · ${songsLabel}`;
+    }
+    return `${service} · ${duration}`;
+}
+
+/** Cantidad de canciones que incluye el servicio contratado (no las elegidas por el cliente). */
+export function formatServiceSongsIncludedLabel(count: number): string {
+    if (count <= 0) return 'Sin canciones en el servicio';
+    return count === 1 ? '1 canción incluida' : `${count} canciones incluidas`;
+}
+
 export function serenataStatusLabel(status: Serenata['status']) {
     if (status === 'payment_pending') return 'Pago pendiente';
     if (status === 'pending') return 'En revisión';
     if (status === 'pending_open') return 'Horario por definir';
-    if (status === 'accepted_pending_group') return 'Aceptada, falta grupo';
+    if (status === 'accepted_pending_group') return 'Aceptada · sin grupo';
     if (status === 'scheduled') return 'Agendada';
     if (status === 'completed') return 'Completada';
     if (status === 'rejected') return 'Rechazada';
@@ -100,7 +265,7 @@ export function clientSerenataStatusLabel(status: Serenata['status']) {
     if (status === 'payment_pending') return 'Pago pendiente';
     if (status === 'pending') return 'Solicitud enviada';
     if (status === 'pending_open') return 'Horario por confirmar';
-    if (status === 'accepted_pending_group') return 'Aceptada, coordinando grupo';
+    if (status === 'accepted_pending_group') return 'Aceptada · asigna grupo en agenda o al editar';
     if (status === 'scheduled') return 'Confirmada';
     if (status === 'completed') return 'Completada';
     if (status === 'rejected') return 'No aceptada';
@@ -160,6 +325,37 @@ export function googleMapsDirectionsUrl(items: Serenata[]) {
     });
     if (waypoints.length > 0) params.set('waypoints', waypoints.join('|'));
     return `https://www.google.com/maps/dir/?${params.toString()}`;
+}
+
+/** Comisión app + IVA sobre bruto (misma fórmula que API / plan-config). */
+export function computeSerenataAppDeduction(
+    grossClp: number,
+    commissionAppBps: number,
+    commissionVatBps: number,
+) {
+    const commissionClp = Math.round((grossClp * commissionAppBps) / 10_000);
+    const vatOnCommissionClp = Math.round((commissionClp * commissionVatBps) / 10_000);
+    const totalDeductionClp = commissionClp + vatOnCommissionClp;
+    return {
+        commissionClp: totalDeductionClp,
+        netClp: grossClp - totalDeductionClp,
+    };
+}
+
+export function commissionPercentFromBps(bps: number): number {
+    return bps / 100;
+}
+
+/** Teléfono del cliente en solicitudes marketplace: solo tras confirmar en agenda. */
+export function ownerCanViewClientPhone(item: Pick<Serenata, 'status' | 'source'>): boolean {
+    if (item.source === 'own_lead') return true;
+    return item.status === 'scheduled' || item.status === 'completed';
+}
+
+export function formatSerenataEventPlace(item: Pick<Serenata, 'address' | 'comuna' | 'region'>) {
+    const street = cleanSerenataAddress(item.address, item.comuna, item.region) || item.address?.trim() || 'Sin dirección';
+    const zone = [item.comuna, item.region].filter(Boolean).join(', ');
+    return { street, zone: zone || undefined };
 }
 
 export function cleanSerenataAddress(address: string, commune?: string | null, region?: string | null): string {

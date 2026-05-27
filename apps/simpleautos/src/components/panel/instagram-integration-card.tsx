@@ -1,7 +1,7 @@
 'use client';
 
 import Image from 'next/image';
-import { InstagramIntegrationCard } from '@simple/ui';
+import { InstagramIntegrationCard } from '@simple/ui/integrations';
 import {
     buildInstagramConnectUrl,
     disconnectInstagram,

@@ -31,7 +31,7 @@ async function agendaMutation<T extends { ok: boolean }>(
         }
         return data;
     } catch (err) {
-        return { ok: false as T['ok'], error: err instanceof Error ? err.message : 'Error desconocido' };
+        return { ok: false, error: err instanceof Error ? err.message : 'Error desconocido' } as T & { error?: string };
     }
 }
 

@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { IconEye, IconHeart, IconMessageCircle, IconTrendingUp } from '@tabler/icons-react';
 import PanelSectionHeader from '@/components/panel/panel-section-header';
 import { fetchMyPanelListings, type PanelListing } from '@/lib/panel-listings';
-import { PanelBlockHeader, PanelCard, PanelNotice, PanelPillNav, PanelStatCard } from '@simple/ui';
+import { PanelBlockHeader, PanelCard, PanelNotice, PanelPillNav, PanelStatCard } from '@simple/ui/panel';
 
 export default function EstadisticasPage() {
     const [items, setItems] = useState<PanelListing[]>([]);

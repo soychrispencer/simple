@@ -2,7 +2,9 @@
 
 export {
     InstagramTemplatePreview,
-} from '../index';
+    type InstagramTemplatePreviewData,
+    type InstagramTemplatePreviewProps,
+} from './instagram-template-preview';
 export {
     InstagramIntegrationCard,
     type InstagramIntegrationAccount,

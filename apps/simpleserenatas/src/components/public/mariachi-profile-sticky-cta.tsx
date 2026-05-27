@@ -1,7 +1,7 @@
 'use client';
 
-import { PanelButton } from '@simple/ui/panel';
 import type { ProviderGroup, ProviderGroupService } from '@/lib/serenatas-api';
+import { MarketplaceContractButton } from '@/components/public/marketplace-contract-button';
 import { money } from '@/components/panel/shared';
 
 type MariachiProfileStickyCtaProps = {
@@ -19,9 +19,11 @@ export function MariachiProfileStickyCta({ group, service, onContract }: Mariach
                     <p className="truncate text-xs text-fg-muted">{group.name}</p>
                     <p className="text-lg font-bold tabular-nums leading-none text-fg">{money(service.price)}</p>
                 </div>
-                <PanelButton type="button" variant="accent" className="shrink-0 px-5" onClick={onContract}>
-                    Contratar
-                </PanelButton>
+                <MarketplaceContractButton
+                    group={group}
+                    className="shrink-0 px-5"
+                    onContract={onContract}
+                />
             </div>
         </div>
     );

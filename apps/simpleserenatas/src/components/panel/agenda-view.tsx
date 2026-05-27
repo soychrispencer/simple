@@ -1,13 +1,13 @@
 'use client';
 
-import { useMemo, useState, type ReactNode } from 'react';
+import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { PanelButton } from '@simple/ui/panel';
 import { PanelCard, PanelFilterChip } from '@simple/ui/panel';
-import { IconCalendar, IconCheck, IconClock, IconCurrencyDollar, IconMapPin, IconSearch, IconPencil } from '@tabler/icons-react';
+import { IconCalendar, IconCheck, IconClock, IconCurrencyDollar, IconMapPin, IconPlus, IconSearch, IconPencil } from '@tabler/icons-react';
 import { needsClosure } from '@/lib/serenata-dates';
 import { type Profiles, type Serenata, type SerenataGroup, type SerenataPackage } from '@/lib/serenatas-api';
 import type { AppMode } from '@/lib/app-mode';
-import { EmptyBlock, FieldInput, money, SerenataAgendaCard } from './shared';
+import { EmptyBlock, FieldDate, FieldInput, money, SerenataAgendaCard, toInputDate } from './shared';
 import { SerenataClosureActions, SerenataPastDateNotice } from './serenata-closure-actions';
 import { SerenataSetlistPanel } from './serenata-setlist-panel';
 import { ProfileIncompleteNotice } from './profile-incomplete-notice';
@@ -28,6 +28,8 @@ export function AgendaView({
     refreshAgenda,
     agendaLoading,
     onEdit,
+    action,
+    clearAction,
     closurePendingTotal = 0,
 }: {
     mode: AppMode;
@@ -42,11 +44,27 @@ export function AgendaView({
     refreshAgenda?: () => Promise<void>;
     agendaLoading?: boolean;
     onEdit?: (id: string) => void;
+    action?: string | null;
+    clearAction?: () => void;
     closurePendingTotal?: number;
 }) {
     const [query, setQuery] = useState('');
     const [filter, setFilter] = useState<AgendaFilter>(mode === 'work' && !ownerFeatures ? 'scheduled' : 'all');
     const [editingSerenata, setEditingSerenata] = useState<Serenata | null>(null);
+    const [createOpen, setCreateOpen] = useState(false);
+
+    useEffect(() => {
+        if (!ownerFeatures || action !== 'create') return;
+        setCreateOpen(true);
+        clearAction?.();
+    }, [action, clearAction, ownerFeatures]);
+
+    async function handleSerenataSaved(item: Serenata) {
+        const eventYmd = toInputDate(item.eventDate);
+        if (eventYmd) setDate(eventYmd);
+        await refresh();
+        await refreshAgenda?.();
+    }
     const scheduled = items.filter((item) => item.status === 'scheduled');
     const pending = items.filter((item) => item.status === 'pending' || item.status === 'accepted_pending_group' || item.status === 'payment_pending');
     const completed = items.filter((item) => item.status === 'completed');
@@ -75,13 +93,19 @@ export function AgendaView({
             {mode === 'work' ? <ProfileIncompleteNotice mode={mode} profiles={profiles} /> : null}
         <div className="grid min-w-0 gap-5 xl:grid-cols-[minmax(0,1fr)_360px]">
             <div className="min-w-0">
-                <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-                    <div className="grid w-full min-w-0 max-w-full gap-3 lg:ml-auto lg:max-w-xl lg:grid-cols-[180px_minmax(0,1fr)]">
-                        <FieldInput
-                            type="date"
+                <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                    {ownerFeatures ? (
+                        <PanelButton className="shrink-0" onClick={() => setCreateOpen(true)}>
+                            <IconPlus size={15} />
+                            Agregar serenata
+                        </PanelButton>
+                    ) : null}
+                    <div className="grid w-full min-w-0 max-w-full gap-3 sm:ml-auto sm:max-w-xl sm:grid-cols-[180px_minmax(0,1fr)]">
+                        <FieldDate
                             value={date}
-                            onChange={(event) => setDate(event.target.value)}
+                            onChange={setDate}
                             disabled={agendaLoading}
+                            aria-label="Fecha de la agenda"
                         />
                         <div className="relative">
                             <IconSearch className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-fg-muted" size={18} />
@@ -112,7 +136,22 @@ export function AgendaView({
                             <div className="mb-4 flex size-14 items-center justify-center rounded-2xl bg-bg-subtle text-fg">
                                 <IconCalendar size={31} />
                             </div>
-                            <EmptyBlock title="No hay serenatas en tu agenda" description={query ? 'Prueba con otra búsqueda o filtro.' : 'Cuando tengas serenatas, aparecerán aquí.'} />
+                            <EmptyBlock
+                                title="No hay serenatas en tu agenda"
+                                description={
+                                    query
+                                        ? 'Prueba con otra búsqueda o filtro.'
+                                        : ownerFeatures
+                                            ? 'Registra una serenata propia o revisa otra fecha.'
+                                            : 'Cuando tengas serenatas, aparecerán aquí.'
+                                }
+                            />
+                            {ownerFeatures ? (
+                                <PanelButton className="mt-4" onClick={() => setCreateOpen(true)}>
+                                    <IconPlus size={15} />
+                                    Agregar serenata
+                                </PanelButton>
+                            ) : null}
                         </div>
                     ) : (
                         <div className="grid gap-1">
@@ -125,6 +164,16 @@ export function AgendaView({
                                     onEdit={ownerFeatures ? setEditingSerenata : undefined}
                                 />
                             ))}
+                            {ownerFeatures ? (
+                                <button
+                                    type="button"
+                                    onClick={() => setCreateOpen(true)}
+                                    className="mt-2 flex w-full items-center justify-center gap-2 rounded-card border-2 border-dashed border-border py-5 text-sm font-medium text-fg-muted transition-colors hover:border-accent-border hover:bg-accent-soft hover:text-accent"
+                                >
+                                    <IconPlus size={16} />
+                                    Agregar serenata
+                                </button>
+                            ) : null}
                         </div>
                     )}
                 </PanelCard>
@@ -156,10 +205,28 @@ export function AgendaView({
                         title="Editar serenata"
                         item={editingSerenata}
                         groups={groups}
-                        packages={packages}
                         refresh={refresh}
-                        onDone={() => setEditingSerenata(null)}
+                        onDone={async (item) => {
+                            await handleSerenataSaved(item);
+                            setEditingSerenata(null);
+                        }}
                         onCancel={() => setEditingSerenata(null)}
+                        modal
+                    />
+                </SerenataCreateModal>
+            ) : null}
+
+            {createOpen ? (
+                <SerenataCreateModal onClose={() => setCreateOpen(false)}>
+                    <SerenataForm
+                        title="Nueva serenata"
+                        groups={groups}
+                        refresh={refresh}
+                        onDone={async (item) => {
+                            await handleSerenataSaved(item);
+                            setCreateOpen(false);
+                        }}
+                        onCancel={() => setCreateOpen(false)}
                         modal
                     />
                 </SerenataCreateModal>

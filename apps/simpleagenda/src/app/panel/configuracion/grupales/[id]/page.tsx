@@ -3,35 +3,9 @@
 import { useEffect, useMemo, useState } from 'react';
 import { use } from 'react';
 import {
-    IconUserPlus,
-    IconLoader2,
-    IconTrash,
-    IconX,
-    IconCheck,
-    IconAlertCircle,
-    IconUsersGroup,
-    IconCalendarEvent,
-    IconMapPin,
-    IconVideo,
-    IconUser,
-    IconUserCheck,
-    IconUserX,
-    IconMail,
-    IconPhone,
-    IconCurrencyDollar,
-    IconEdit,
-    IconPlayerStop,
-    IconCircleCheck,
-    IconArrowBackUp,
-} from '@tabler/icons-react';
-import {
-    PanelCard,
-    PanelButton,
-    PanelField,
-    PanelNotice,
-    PanelPageHeader,
-    PanelEmptyState,
-} from '@simple/ui';
+    IconUserPlus, IconLoader2, IconTrash, IconX, IconCheck, IconAlertCircle, IconUsersGroup, IconCalendarEvent, IconMapPin, IconVideo, IconUser, IconUserCheck, IconUserX, IconMail, IconPhone, IconCurrencyDollar, IconEdit, IconPlayerStop, IconCircleCheck, IconArrowBackUp, } from '@tabler/icons-react';
+import { PanelCard } from '@simple/ui/panel';
+import { PanelButton, PanelField, PanelNotice, PanelPageHeader, PanelEmptyState } from '@simple/ui/panel';
 import {
     fetchGroupSession,
     patchGroupSession,

@@ -8,7 +8,7 @@ import {
     IconUsers,
     IconPlus,
 } from '@tabler/icons-react';
-import { PanelBottomNav as SharedPanelBottomNav } from '@simple/ui';
+import { PanelBottomNav as SharedPanelBottomNav } from '@simple/ui/panel';
 import { isPanelNavActive } from '@/components/panel/panel-nav-config';
 
 const items = [

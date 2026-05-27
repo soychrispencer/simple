@@ -33,37 +33,16 @@ import {
     IconPencil,
 } from '@tabler/icons-react';
 import PanelSectionHeader from '@/components/panel/panel-section-header';
-import { ModernSelect } from '@simple/ui';
-import { PanelIconButton } from '@simple/ui';
+import { ModernSelect } from '@simple/ui/forms';
+import { fetchInstagramIntegrationStatus, generateSmartTemplates, publishListingToInstagramEnhanced, type InstagramPublicationView, type InstagramTemplateView, } from '@/lib/instagram';
+import {
+    type ListingStatus, type PanelListing, type PortalKey, fetchMyPanelListings, publishListingToPortal, renewPanelListing, updatePanelListingStatus, } from '@/lib/panel-listings';
+import { InstagramTemplatePreview } from '@simple/ui/integrations';
+import { PanelIconButton } from '@simple/ui/panel';
 import { useAuth } from '@simple/auth';
-import {
-    fetchInstagramIntegrationStatus,
-    generateSmartTemplates,
-    publishListingToInstagramEnhanced,
-    type InstagramPublicationView,
-    type InstagramTemplateView,
-} from '@/lib/instagram';
-import {
-    type ListingStatus,
-    type PanelListing,
-    type PortalKey,
-    fetchMyPanelListings,
-    publishListingToPortal,
-    renewPanelListing,
-    updatePanelListingStatus,
-} from '@/lib/panel-listings';
-import {
-    InstagramTemplatePreview,
-    OwnerListingCard,
-    PanelButton,
-    PanelNotice,
-    PanelPillNav,
-    PanelSegmentedToggle,
-    PanelStatusBadge,
-    getPanelButtonClassName,
-    getPanelButtonStyle,
-} from '@simple/ui';
-import type { OwnerListingAction, OwnerListingStatus, ListingVariant } from '@simple/ui';
+import { PanelButton, PanelNotice, PanelPillNav, PanelSegmentedToggle, PanelStatusBadge, getPanelButtonClassName, getPanelButtonStyle } from '@simple/ui/panel';
+import { OwnerListingCard } from '@simple/ui/listings';
+import type { OwnerListingAction, OwnerListingStatus, ListingVariant } from '@simple/ui/listings';
 
 const PORTAL_ORDER: PortalKey[] = ['yapo', 'mercadolibre', 'facebook'];
 

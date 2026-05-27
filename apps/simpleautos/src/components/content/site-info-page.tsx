@@ -1,1 +1,1 @@
-export { SiteInfoPage, type SiteInfoPageData, type SiteInfoSection } from '@simple/ui';
+export { SiteInfoPage, type SiteInfoPageData, type SiteInfoSection } from '@simple/ui/content';

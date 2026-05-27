@@ -7,7 +7,9 @@ import { vocab } from '@/lib/vocabulary';
 import { generatePolicies } from '@/actions/generate-policies';
 import Link from 'next/link';
 import { IconChevronRight, IconMapPin, IconPlus, IconLoader2 as IconLoader2Loc } from '@tabler/icons-react';
-import { PanelCard, PanelField, PanelButton, PanelNotice, PanelBlockHeader, PanelPageHeader, PanelSwitch, AvatarUpload } from '@simple/ui';
+import { PanelCard } from '@simple/ui/panel';
+import { PanelField, PanelButton, PanelNotice, PanelBlockHeader, PanelPageHeader, PanelSwitch } from '@simple/ui/panel';
+import { AvatarUpload } from '@simple/ui/media';
 
 type SocialPlatform = 'instagram' | 'facebook' | 'linkedin' | 'tiktok' | 'youtube' | 'twitter';
 type SocialLink = { platform: SocialPlatform; username: string };

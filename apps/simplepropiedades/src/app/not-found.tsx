@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { ErrorView } from '@simple/ui';
+import { ErrorView } from '@simple/ui/feedback';
 
 export default function NotFound() {
     return (

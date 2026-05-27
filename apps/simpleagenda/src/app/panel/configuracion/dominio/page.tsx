@@ -3,15 +3,9 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import {
-    IconWorld,
-    IconLoader2,
-    IconCheck,
-    IconLock,
-    IconCopy,
-    IconAlertCircle,
-    IconBell,
-} from '@tabler/icons-react';
-import { PanelCard, PanelButton, PanelPageHeader } from '@simple/ui';
+    IconWorld, IconLoader2, IconCheck, IconLock, IconCopy, IconAlertCircle, IconBell, } from '@tabler/icons-react';
+import { PanelCard } from '@simple/ui/panel';
+import { PanelButton, PanelPageHeader } from '@simple/ui/panel';
 import {
     fetchAgendaProfile,
     isPlanActive,

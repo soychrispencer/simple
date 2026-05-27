@@ -2,18 +2,10 @@
 
 import { useState } from 'react';
 import {
-    IconArrowRight,
-    IconBrandFacebook,
-    IconBrandInstagram,
-    IconBrandTiktok,
-    IconBrandWhatsapp,
-    IconCheck,
-    IconClock,
-    IconCoin,
-    IconShieldCheck,
-} from '@tabler/icons-react';
+    IconArrowRight, IconBrandFacebook, IconBrandInstagram, IconBrandTiktok, IconBrandWhatsapp, IconCheck, IconClock, IconCoin, IconShieldCheck, } from '@tabler/icons-react';
 import { submitServiceLead } from '@/lib/service-leads';
-import { PanelBlockHeader, PanelButton, PanelCard, PanelNotice, PanelSegmentedToggle } from '@simple/ui';
+import { PanelBlockHeader } from '@simple/ui/panel';
+import { PanelButton, PanelCard, PanelNotice, PanelSegmentedToggle } from '@simple/ui/panel';
 
 type Plan = 'basico' | 'premium';
 

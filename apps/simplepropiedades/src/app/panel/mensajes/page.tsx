@@ -5,7 +5,8 @@ import { useEffect, useMemo, useState, type FormEvent } from 'react';
 import { useSearchParams } from 'next/navigation';
 import PanelSectionHeader from '@/components/panel/panel-section-header';
 import { fetchMessageThreadDetail, fetchMessageThreads, sendThreadMessage, updateMessageThreadState, type MessageEntry, type MessageThread } from '@/lib/messages';
-import { PanelButton, PanelCard, PanelEmptyState, PanelList, PanelListHeader, PanelPillNav, PanelSearchField, PanelStatusBadge } from '@simple/ui';
+import { PanelButton } from '@simple/ui/panel';
+import { PanelCard, PanelEmptyState, PanelList, PanelListHeader, PanelPillNav, PanelSearchField, PanelStatusBadge } from '@simple/ui/panel';
 
 export default function MensajesPage() {
     const searchParams = useSearchParams();

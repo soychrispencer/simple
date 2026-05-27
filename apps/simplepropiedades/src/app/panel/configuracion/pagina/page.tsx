@@ -1,7 +1,7 @@
 'use client';
 
 import PublicProfileEditor from '@/components/panel/public-profile-editor';
-import { PanelPageHeader } from '@simple/ui';
+import { PanelPageHeader } from '@simple/ui/panel';
 
 export default function PaginaPublicaPage() {
     return (

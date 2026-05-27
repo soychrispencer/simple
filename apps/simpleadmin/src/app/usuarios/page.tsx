@@ -5,18 +5,11 @@ import type { ReactNode } from 'react';
 import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import {
-    IconAlertCircle,
-    IconCheck,
-    IconCircleDot,
-    IconCreditCard,
-    IconSearch,
-    IconShield,
-    IconTrash,
-    IconUserPlus,
-} from '@tabler/icons-react';
+    IconAlertCircle, IconCheck, IconCircleDot, IconCreditCard, IconSearch, IconShield, IconTrash, IconUserPlus, } from '@tabler/icons-react';
 import { AdminProtectedPage } from '@/components/admin-protected-page';
 import { fetchAdminUsers, updateAdminUserSubscriptions, type AdminUserListItem, type AdminVerticalType } from '@/lib/api';
-import { PanelButton, PanelNotice, PanelStatCard } from '@simple/ui';
+import { PanelButton } from '@simple/ui/panel';
+import { PanelNotice, PanelStatCard } from '@simple/ui/panel';
 import { adminScopeLabel, normalizeAdminScope, withAdminScope } from '@/lib/admin-scope';
 import { API_BASE } from '@simple/config';
 

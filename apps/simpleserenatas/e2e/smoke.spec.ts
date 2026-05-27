@@ -34,6 +34,12 @@ test.describe('SimpleSerenatas smoke', () => {
         await expectPublicMariachisCatalog(page);
     });
 
+    test('catálogo acepta orden por query sort', async ({ page }) => {
+        await page.goto('/mariachis?sort=price_asc');
+        await expectPublicMariachisCatalog(page);
+        await expect(page.getByLabel(/ordenar/i)).toHaveValue('price_asc');
+    });
+
     test('GET marketplace availability (API, sin auth)', async ({ request }) => {
         const apiBase = e2eApiBase();
         let groupsRes;

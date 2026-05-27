@@ -1,3 +1,3 @@
 'use client';
 
-export { BrandLogo } from '../index';
+export { BrandLogo, type BrandLogoProps, type BrandLogoVariant } from './brand-logo';

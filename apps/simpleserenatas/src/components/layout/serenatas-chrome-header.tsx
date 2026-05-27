@@ -12,6 +12,8 @@ import {
     getMarketplaceNavItems,
     getPrimaryActionConfig,
     isPanelNavActive,
+    markAllPanelNotificationsRead,
+    markNotificationReadAndRefresh,
 } from '@/components/panel/panel-nav-config';
 import { useSerenataOptional } from '@/context/serenata-context';
 import { sectionFromPanelPath } from '@/lib/panel-routes';
@@ -46,7 +48,7 @@ export function SerenatasChromeHeader({
     );
     const [mode, setMode] = useState<AppMode>(modeProp ?? serenataCtx?.mode ?? 'client');
 
-    const profilesReady = profilesProp ?? serenataCtx?.profiles ?? profiles;
+    const resolvedProfiles = profilesProp ?? serenataCtx?.profiles ?? profiles;
     const modeReady = modeProp ?? serenataCtx?.mode ?? mode;
 
     useEffect(() => {
@@ -84,10 +86,12 @@ export function SerenatasChromeHeader({
         [currentSection],
     );
 
-    const primaryAction = useMemo(
-        () => getPrimaryActionConfig(modeReady, profilesReady!, pathname),
-        [modeReady, pathname, profilesReady],
-    );
+    const primaryAction = useMemo(() => {
+        if (!resolvedProfiles) {
+            return { label: '', href: '/', icon: undefined, show: false } as const;
+        }
+        return getPrimaryActionConfig(modeReady, resolvedProfiles, pathname);
+    }, [modeReady, pathname, resolvedProfiles]);
 
     const savedMariachis = useMemo(
         () => ({ clearCache: clearSavedMariachisCache, syncFromApi: syncSavedMariachisFromApi }),
@@ -120,7 +124,7 @@ export function SerenatasChromeHeader({
         );
     }
 
-    if (!profilesReady) {
+    if (!resolvedProfiles) {
         return (
             <header className="border-b border-border bg-surface">
                 <div className="container-app flex h-16 items-center justify-end gap-2">
@@ -136,9 +140,12 @@ export function SerenatasChromeHeader({
             homeHref={homeHref}
             onLogout={logoutAndGoHome}
             publicLinks={publicLinks}
-            getPanelNavItems={() => getMarketplaceNavItems(modeReady, profilesReady)}
+            getPanelNavItems={() => getMarketplaceNavItems(modeReady, resolvedProfiles)}
             isPanelNavActive={panelNavActive}
             fetchPanelNotifications={() => fetchNotifications()}
+            onNotificationOpened={(item) => markNotificationReadAndRefresh(item.id)}
+            onMarkAllNotificationsRead={() => markAllPanelNotificationsRead()}
+            panelLinkPrefetch={false}
             savedListings={savedMariachis}
             primaryActionLabel={primaryAction.label}
             primaryActionHref={primaryAction.href}

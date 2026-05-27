@@ -1,9 +1,13 @@
 'use client';
 
-import type { FormEvent } from 'react';
+import { useMemo, type FormEvent } from 'react';
 import { IconCalendar, IconMapPin, IconMusic, IconSearch, IconShield } from '@tabler/icons-react';
+import { ModernSelect } from '@simple/ui';
 import { LOCATION_REGIONS, getCommunesForRegion } from '@simple/utils';
 import { type MarketplaceSearchFilters, todayIsoDate } from '@/lib/marketplace-search';
+
+const INLINE_SELECT_TRIGGER =
+    '!h-auto !min-h-0 !border-0 !bg-transparent !shadow-none focus:!shadow-none focus:!border-transparent !px-0 text-sm font-semibold sm:text-base';
 
 function regionIdFromName(name: string) {
     return LOCATION_REGIONS.find((region) => region.name === name)?.id ?? '';
@@ -23,6 +27,22 @@ export function MarketplaceSearchPanel({
     const regionId = regionIdFromName(value.region);
     const communes = regionId ? getCommunesForRegion(regionId) : [];
     const update = (patch: Partial<MarketplaceSearchFilters>) => onChange({ ...value, ...patch });
+
+    const regionOptions = useMemo(
+        () => [
+            { value: '', label: 'Todas las regiones' },
+            ...LOCATION_REGIONS.map((region) => ({ value: region.name, label: region.name })),
+        ],
+        [],
+    );
+
+    const communeOptions = useMemo(
+        () => [
+            { value: '', label: 'Todas' },
+            ...communes.map((commune) => ({ value: commune.name, label: commune.name })),
+        ],
+        [communes],
+    );
 
     return (
         <form className="rounded-card border border-border bg-surface p-3 shadow-xl sm:p-4" onSubmit={onSubmit}>
@@ -46,36 +66,29 @@ export function MarketplaceSearchPanel({
                         <IconShield size={15} />
                         Región
                     </span>
-                    <select
+                    <ModernSelect
                         value={value.region}
-                        onChange={(event) => {
-                            const nextRegion = event.target.value;
-                            update({ region: nextRegion, comuna: '' });
-                        }}
-                        className="min-w-0 bg-transparent text-sm font-semibold outline-none sm:text-base"
-                    >
-                        <option value="">Todas las regiones</option>
-                        {LOCATION_REGIONS.map((region) => (
-                            <option key={region.id} value={region.name}>{region.name}</option>
-                        ))}
-                    </select>
+                        onChange={(nextRegion) => update({ region: nextRegion, comuna: '' })}
+                        options={regionOptions}
+                        triggerClassName={INLINE_SELECT_TRIGGER}
+                        dropdownClassName="z-50"
+                        ariaLabel="Región"
+                    />
                 </label>
                 <label className="grid gap-1.5 rounded-button border border-border bg-bg-subtle px-4 py-3">
                     <span className="flex items-center gap-2 text-xs font-medium text-fg-muted">
                         <IconMapPin size={15} />
                         Comuna
                     </span>
-                    <select
+                    <ModernSelect
                         value={value.comuna}
-                        onChange={(event) => update({ comuna: event.target.value })}
-                        className="min-w-0 bg-transparent text-sm font-semibold outline-none sm:text-base"
+                        onChange={(comuna) => update({ comuna })}
+                        options={communeOptions}
                         disabled={!regionId}
-                    >
-                        <option value="">Todas</option>
-                        {communes.map((commune) => (
-                            <option key={commune.id} value={commune.name}>{commune.name}</option>
-                        ))}
-                    </select>
+                        triggerClassName={INLINE_SELECT_TRIGGER}
+                        dropdownClassName="z-50"
+                        ariaLabel="Comuna"
+                    />
                 </label>
                 <label className="grid gap-1.5 rounded-button border border-border bg-bg-subtle px-4 py-3">
                     <span className="flex items-center gap-2 text-xs font-medium text-fg-muted">
@@ -87,7 +100,7 @@ export function MarketplaceSearchPanel({
                         min={todayIsoDate()}
                         value={value.date}
                         onChange={(event) => update({ date: event.target.value })}
-                        className="min-w-0 bg-transparent text-sm font-semibold outline-none sm:text-base"
+                        className="form-input-inline text-sm sm:text-base"
                     />
                 </label>
                 <button

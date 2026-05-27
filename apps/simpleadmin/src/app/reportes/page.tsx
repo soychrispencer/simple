@@ -2,46 +2,12 @@
 import { useSearchParams } from 'next/navigation';
 import { useEffect, useMemo, useState, type DragEvent, type FormEvent, type ReactNode } from 'react';
 import {
-    IconBrandFacebook,
-    IconBrandInstagram,
-    IconBrandWhatsapp,
-    IconBuildingStore,
-    IconChevronDown,
-    IconClockHour4,
-    IconFileDescription,
-    IconHome,
-    IconLayoutGrid,
-    IconLink,
-    IconList,
-    IconMail,
-    IconMessageCircle,
-    IconPhone,
-    IconTag,
-    IconUser,
-    IconWorld,
-} from '@tabler/icons-react';
+    IconBrandFacebook, IconBrandInstagram, IconBrandWhatsapp, IconBuildingStore, IconChevronDown, IconClockHour4, IconFileDescription, IconHome, IconLayoutGrid, IconLink, IconList, IconMail, IconMessageCircle, IconPhone, IconTag, IconUser, IconWorld, } from '@tabler/icons-react';
 import {
-    addAdminListingLeadNote,
-    addAdminServiceLeadNote,
-    fetchAdminListingLeadDetail,
-    fetchAdminListingLeads,
-    fetchAdminServiceLeadDetail,
-    fetchAdminServiceLeads,
-    runAdminListingLeadQuickAction,
-    runAdminServiceLeadQuickAction,
-    updateAdminListingLeadStatus,
-    updateAdminServiceLeadStatus,
-    type AdminLeadAssignee,
-    type AdminLeadQuickAction,
-    type AdminListingLead,
-    type AdminListingLeadActivity,
-    type AdminListingLeadDetail,
-    type AdminServiceLead,
-    type AdminServiceLeadActivity,
-    type AdminServiceLeadDetail,
-} from '@/lib/api';
+    addAdminListingLeadNote, addAdminServiceLeadNote, fetchAdminListingLeadDetail, fetchAdminListingLeads, fetchAdminServiceLeadDetail, fetchAdminServiceLeads, runAdminListingLeadQuickAction, runAdminServiceLeadQuickAction, updateAdminListingLeadStatus, updateAdminServiceLeadStatus, type AdminLeadAssignee, type AdminLeadQuickAction, type AdminListingLead, type AdminListingLeadActivity, type AdminListingLeadDetail, type AdminServiceLead, type AdminServiceLeadActivity, type AdminServiceLeadDetail, } from '@/lib/api';
 import { AdminProtectedPage } from '@/components/admin-protected-page';
-import { PanelButton, PanelStatusBadge } from '@simple/ui';
+import { PanelButton } from '@simple/ui/panel';
+import { PanelStatusBadge } from '@simple/ui/panel';
 import { adminScopeLabel, normalizeAdminScope } from '@/lib/admin-scope';
 
 type LeadTab = 'publicaciones' | 'servicios';

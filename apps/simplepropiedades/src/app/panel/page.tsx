@@ -5,15 +5,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { IconChevronRight, IconHome } from '@tabler/icons-react';
 import { fetchMyPanelListings, type PanelListing } from '@/lib/panel-listings';
 import {
-    PanelBlockHeader,
-    PanelButton,
-    PanelCard,
-    PanelList,
-    PanelListRow,
-    PanelNotice,
-    PanelPageHeader,
-    PanelStatCard,
-} from '@simple/ui';
+    PanelBlockHeader, PanelButton, PanelCard, PanelList, PanelListRow, PanelNotice, PanelPageHeader, PanelStatCard } from '@simple/ui/panel';
 
 function formatAgo(updatedAt: number): string {
     const diffMs = Date.now() - updatedAt;

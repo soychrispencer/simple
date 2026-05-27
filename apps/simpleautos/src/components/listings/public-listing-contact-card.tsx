@@ -5,7 +5,8 @@ import { useRouter } from 'next/navigation';
 import { IconBrandWhatsapp, IconMail, IconPhone } from '@tabler/icons-react';
 import { useAuth } from '@simple/auth';
 import { submitListingLead, submitListingLeadAction } from '@simple/utils';
-import { PanelBlockHeader, PanelButton, PanelCard } from '@simple/ui';
+import { PanelBlockHeader } from '@simple/ui/panel';
+import { PanelButton, PanelCard } from '@simple/ui/panel';
 
 export default function PublicListingContactCard(props: {
     listingId: string;

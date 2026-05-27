@@ -3,15 +3,8 @@
 import { useEffect, useState } from 'react';
 import { IconLoader2, IconPlus, IconTrash, IconCalendarOff, IconAlertCircle, IconChevronRight } from '@tabler/icons-react';
 import Link from 'next/link';
-import {
-    PanelCard,
-    PanelField,
-    PanelButton,
-    PanelSwitch,
-    PanelPageHeader,
-    PanelBlockHeader,
-    PanelEmptyState,
-} from '@simple/ui';
+import { PanelCard } from '@simple/ui/panel';
+import { PanelField, PanelButton, PanelSwitch, PanelPageHeader, PanelBlockHeader, PanelEmptyState } from '@simple/ui/panel';
 import {
     fetchAgendaAvailability,
     createAvailabilityRule,

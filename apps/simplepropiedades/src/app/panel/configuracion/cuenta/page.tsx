@@ -3,7 +3,8 @@
 import { useEffect, useState } from 'react';
 import { useAuth } from '@simple/auth';
 import { updateAccountProfile } from '@/lib/account-profile';
-import { PanelPageHeader, PanelAccountProfileCard, PanelField, PanelButton, PanelNotice } from '@simple/ui';
+import { PanelPageHeader } from '@simple/ui/panel';
+import { PanelAccountProfileCard, PanelField, PanelButton, PanelNotice } from '@simple/ui/panel';
 
 export default function CuentaPage() {
     const [profileName, setProfileName] = useState('');

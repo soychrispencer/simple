@@ -2,24 +2,9 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import {
-    IconPlus,
-    IconLoader2,
-    IconTrash,
-    IconEdit,
-    IconX,
-    IconCheck,
-    IconCopy,
-    IconAlertCircle,
-} from '@tabler/icons-react';
-import {
-    PanelCard,
-    PanelButton,
-    PanelField,
-    PanelSwitch,
-    PanelNotice,
-    PanelPageHeader,
-    PanelEmptyState,
-} from '@simple/ui';
+    IconPlus, IconLoader2, IconTrash, IconEdit, IconX, IconCheck, IconCopy, IconAlertCircle, } from '@tabler/icons-react';
+import { PanelCard } from '@simple/ui/panel';
+import { PanelButton, PanelField, PanelSwitch, PanelNotice, PanelPageHeader, PanelEmptyState } from '@simple/ui/panel';
 import {
     fetchAgendaPromotions,
     createAgendaPromotion,

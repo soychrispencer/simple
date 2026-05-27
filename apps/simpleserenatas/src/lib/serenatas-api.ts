@@ -316,6 +316,7 @@ export type Serenata = {
     clientId: string | null;
     ownerId: string | null;
     providerGroupId: string | null;
+    providerGroupSlug?: string | null;
     selectedServiceId: string | null;
     groupId: string | null;
     source: 'own_lead' | 'platform_lead';
@@ -355,6 +356,8 @@ export type Serenata = {
     setlistStatus?: 'pending_owner' | 'confirmed';
     songsIncludedAtBooking?: number | null;
     setlistConfirmedAt?: string | null;
+    createdAt?: string;
+    updatedAt?: string;
 };
 
 export type UserNotificationLogItem = {
@@ -460,6 +463,8 @@ function withActiveProfile(path: string, as?: ActiveProfile) {
 
 export const serenatasApi = {
     notifications: () => request<{ items: SerenatasPanelNotification[] }>('/notifications'),
+    markNotificationRead: (id: string) =>
+        request<Record<string, never>>(`/notifications/${encodeURIComponent(id)}/read`, { method: 'POST' }),
     markAllNotificationsRead: () =>
         request<Record<string, never>>('/notifications/mark-all-read', { method: 'POST' }),
     notificationLog: async (): Promise<ApiEnvelope<{ items: UserNotificationLogItem[] }>> => {
@@ -583,7 +588,9 @@ export const serenatasApi = {
     }>(
         `/marketplace/groups/${encodeURIComponent(slug)}/availability?date=${encodeURIComponent(date)}&serviceId=${encodeURIComponent(serviceId)}`,
     ),
-    createSerenata: (payload: Partial<Serenata>) => request<{ item: Serenata }>('/serenatas', { method: 'POST', body: JSON.stringify(payload) }),
+    createSerenata: (payload: Partial<Serenata> & {
+        songSelections?: Array<{ repertoireSongId: string; clientNote?: string | null }>;
+    }) => request<{ item: Serenata }>('/serenatas', { method: 'POST', body: JSON.stringify(payload) }),
     requestMarketplaceSerenata: (payload: {
         providerGroupId: string;
         serviceId: string;
@@ -740,7 +747,9 @@ export const serenatasApi = {
     ),
     updateProviderGroupMember: (groupId: string, memberId: string, payload: Partial<ProviderGroupMember>) => request<{ member: ProviderGroupMember }>(`/provider-groups/${groupId}/members/${memberId}`, { method: 'PATCH', body: JSON.stringify(payload) }),
     providerGroupRequests: (groupId: string) => request<{ items: Serenata[] }>(`/provider-groups/${groupId}/requests`),
-    updateSerenata: (id: string, payload: Partial<Serenata>) => request<{ item: Serenata }>(`/serenatas/${id}`, { method: 'PATCH', body: JSON.stringify(payload) }),
+    updateSerenata: (id: string, payload: Partial<Serenata> & {
+        songSelections?: Array<{ repertoireSongId: string; clientNote?: string | null }>;
+    }) => request<{ item: Serenata }>(`/serenatas/${id}`, { method: 'PATCH', body: JSON.stringify(payload) }),
     assignSerenataGroup: (id: string, payload: { mode: 'existing' | 'new'; groupId?: string | null; name?: string | null; musicianIds: string[]; message?: string | null }) => request<{ item: Serenata; group: SerenataGroup }>(`/serenatas/${id}/assign-group`, { method: 'POST', body: JSON.stringify(payload) }),
     updateSerenataStatus: (id: string, action: 'cancel' | 'complete', body?: { cancelReason?: string }) => request<{ item: Serenata }>(
         `/serenatas/${id}/${action}`,
@@ -751,7 +760,10 @@ export const serenatasApi = {
         body: JSON.stringify(payload ?? {}),
     }),
     acceptSerenataOffer: (id: string) => request<{ item: Serenata }>(`/serenatas/${id}/accept-offer`, { method: 'POST' }),
-    rejectSerenataOffer: (id: string) => request<{ offer: { id: string; status: string } }>(`/serenatas/${id}/reject-offer`, { method: 'POST' }),
+    rejectSerenataOffer: (id: string, payload?: { reason?: string }) => request<{ offer: { id: string; status: string }; item?: Serenata }>(
+        `/serenatas/${id}/reject-offer`,
+        { method: 'POST', body: JSON.stringify(payload ?? {}) },
+    ),
     groups: (providerGroupId?: string) => {
         const query = providerGroupId ? `?providerGroupId=${encodeURIComponent(providerGroupId)}` : '';
         return request<{ items: SerenataGroup[] }>(`/groups${query}`);

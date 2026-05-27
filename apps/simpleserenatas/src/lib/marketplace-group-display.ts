@@ -1,4 +1,18 @@
-import type { ProviderBookingMode, ProviderGroup, ProviderGroupService } from '@/lib/serenatas-api';
+import type { ProviderBookingMode, ProviderGroup, ProviderGroupService, ProviderGroupStatus } from '@/lib/serenatas-api';
+
+export function providerGroupStatusLabel(status: ProviderGroupStatus | null | undefined): string {
+    switch (status) {
+        case 'active':
+            return 'Publicado';
+        case 'paused':
+            return 'Pausado (oculto)';
+        case 'rejected':
+            return 'Rechazado';
+        case 'draft':
+        default:
+            return 'Borrador';
+    }
+}
 
 export function bookingModeLabel(mode: ProviderBookingMode | null | undefined): string {
     switch (mode) {

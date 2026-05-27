@@ -5,16 +5,12 @@ import { useEffect, useState } from 'react';
 import { useParams, useSearchParams } from 'next/navigation';
 import { AdminProtectedPage } from '@/components/admin-protected-page';
 import {
-  fetchAdminUsers,
-  updateAdminUserRole,
-  updateAdminUserStatus,
-  type AdminSessionUser,
-  type AdminUserListItem,
-} from '@/lib/api';
+  fetchAdminUsers, updateAdminUserRole, updateAdminUserStatus, type AdminSessionUser, type AdminUserListItem, } from '@/lib/api';
 import { adminScopeLabel, normalizeAdminScope, withAdminScope } from '@/lib/admin-scope';
 import { hasAdminCapability } from '@/lib/admin-capabilities';
 import { deriveUserVerticalMemberships } from '@/lib/admin-verticals';
-import { PanelCard, PanelNotice } from '@simple/ui';
+import { PanelCard } from '@simple/ui/panel';
+import { PanelNotice } from '@simple/ui/panel';
 
 export default function AdminUserDetailPage() {
   return (

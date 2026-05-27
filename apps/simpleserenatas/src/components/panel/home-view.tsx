@@ -19,8 +19,9 @@ import {
     SerenataRow,
     toInputDate,
 } from './shared';
-import { ProfileIncompleteNotice } from './profile-incomplete-notice';
+import { ProfileSetupChecklist, isProfileSetupPending } from './profile-setup-checklist';
 import { OwnerOnboardingCard } from './owner-onboarding-card';
+import { useMyMariachi } from '@/hooks/use-my-mariachi';
 import { MusicianAvailabilityToggle } from './musician-availability-toggle';
 
 export function HomeView(props: {
@@ -84,7 +85,7 @@ function ClientHome(props: Parameters<typeof HomeView>[0]) {
 
     return (
         <div className="grid gap-4">
-            <ProfileIncompleteNotice mode="client" profiles={props.profiles} />
+            <ProfileSetupChecklist mode="client" profiles={props.profiles} />
             <PanelCard size="md" className="border-[var(--accent)]/25 bg-[color-mix(in_oklab,var(--accent)_8%,var(--surface))]">
                 <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                     <div className="min-w-0">
@@ -226,7 +227,9 @@ function ClosurePendingCard({
 
 function WorkHome(props: Parameters<typeof HomeView>[0]) {
     const ownerActive = props.ownerFeaturesEnabled;
+    const { mariachi } = useMyMariachi();
     const [providerMusicianCount, setProviderMusicianCount] = useState<number | null>(null);
+    const [serviceCount, setServiceCount] = useState(0);
 
     useEffect(() => {
         if (!ownerActive) {
@@ -241,13 +244,17 @@ function WorkHome(props: Parameters<typeof HomeView>[0]) {
                 return;
             }
             const group = groupsResponse.items[0];
-            const membersResponse = await serenatasApi.providerGroupMembers(group.id);
+            const [membersResponse, servicesResponse] = await Promise.all([
+                serenatasApi.providerGroupMembers(group.id),
+                serenatasApi.providerGroupServices(group.id),
+            ]);
             if (cancelled) return;
             setProviderMusicianCount(
                 membersResponse.ok
                     ? membersResponse.items.filter((m) => m.status === 'active').length
                     : 0,
             );
+            setServiceCount(servicesResponse.ok ? servicesResponse.items.filter((s) => s.isActive !== false).length : 0);
         })();
         return () => {
             cancelled = true;
@@ -283,11 +290,19 @@ function WorkHome(props: Parameters<typeof HomeView>[0]) {
     const toClose = ownerActive ? props.ownerClosureSerenatas : props.serenatas.filter(needsClosure);
     const closurePreview = [...toClose].sort(sortSerenatasByEvent).slice(0, 3);
     const showAssignGroupCard = ownerActive && needsGroupSerenatas.length > 0;
+    const setupPending = isProfileSetupPending('work', props.profiles, ownerActive ? mariachi : null, serviceCount);
 
     return (
         <div className="grid gap-4">
-            <ProfileIncompleteNotice mode="work" profiles={props.profiles} />
-            <OwnerOnboardingCard profiles={props.profiles} setSection={props.setSection} />
+            <ProfileSetupChecklist
+                mode="work"
+                profiles={props.profiles}
+                mariachi={ownerActive ? mariachi : null}
+                serviceCount={serviceCount}
+            />
+            {!setupPending ? (
+                <OwnerOnboardingCard profiles={props.profiles} setSection={props.setSection} />
+            ) : null}
             {props.profiles.musician && !ownerActive ? (
                 <MusicianAvailabilityToggle musician={props.profiles.musician} refresh={props.refresh} />
             ) : null}
@@ -414,10 +429,10 @@ function WorkHome(props: Parameters<typeof HomeView>[0]) {
 
                 <PanelCard size="md">
                     <PanelBlockHeader
-                        title={showAssignGroupCard ? 'Por conformar grupo' : 'Próximas serenatas'}
+                        title={showAssignGroupCard ? 'Grupo pendiente' : 'Próximas serenatas'}
                         description={
                             showAssignGroupCard
-                                ? 'Serenatas aceptadas que aún necesitan un grupo.'
+                                ? 'Asigna el equipo desde Solicitudes, Agenda o al editar.'
                                 : 'Agenda confirmada para los próximos días.'
                         }
                         actions={(

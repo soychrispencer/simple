@@ -28,6 +28,8 @@ import {
 import { CLIENT_MARKETPLACE_HREF } from '@/lib/client-marketplace';
 import { today, type FormStatus } from '@/components/panel/shared';
 import { confirmCheckout } from '@/lib/payments';
+import { unlockSolicitudesAlertSound } from '@/lib/solicitudes-alert-sound';
+import { useOwnerSolicitudesAlerts } from '@/hooks/use-owner-solicitudes-alerts';
 
 /** Secciones del panel; sincronizadas con rutas `/panel/*` (ver `changeSection`). */
 export type Section =
@@ -88,6 +90,14 @@ interface SerenataContextType {
 
     checkoutStatus: FormStatus;
     setCheckoutStatus: (status: FormStatus) => void;
+
+    solicitudesPendingCount: number;
+    solicitudesSoundMuted: boolean;
+    toggleSolicitudesSound: () => void;
+    solicitudesNotificationPermission: NotificationPermission | 'unsupported';
+    solicitudesBrowserNotificationsEnabled: boolean;
+    solicitudesBrowserNotificationsSupported: boolean;
+    requestSolicitudesBrowserNotifications: () => Promise<NotificationPermission | 'unsupported'>;
 }
 
 const SerenataContext = createContext<SerenataContextType | undefined>(undefined);
@@ -235,6 +245,32 @@ export function SerenataProvider({ children }: { children: ReactNode }) {
 
     const loadState: LoadState = isLoading && !data ? 'loading' : swrError ? 'error' : data ? 'ready' : 'idle';
     const error = swrError?.message || null;
+    const ownerSerenatasList = data?.ownerSerenatas ?? [];
+
+    const refreshPanelData = useCallback(async () => {
+        await Promise.all([swrMutate(), mutateAgenda(), mutateRoute(), globalMutate(providerGroupsSwrKey())]);
+    }, [mutateAgenda, mutateRoute, swrMutate]);
+
+    const {
+        pendingCount: solicitudesPendingCount,
+        soundMuted: solicitudesSoundMuted,
+        toggleSoundMuted: toggleSolicitudesSound,
+        notificationPermission: solicitudesNotificationPermission,
+        requestBrowserNotifications: requestSolicitudesBrowserNotifications,
+        browserNotificationsEnabled: solicitudesBrowserNotificationsEnabled,
+        browserNotificationsSupported: solicitudesBrowserNotificationsSupported,
+    } = useOwnerSolicitudesAlerts({
+        serenatas: ownerSerenatasList,
+        enabled: ownerFeatures,
+        onRefresh: refreshPanelData,
+    });
+
+    useEffect(() => {
+        if (!ownerFeatures) return;
+        const unlock = () => unlockSolicitudesAlertSound();
+        window.addEventListener('pointerdown', unlock, { once: true });
+        return () => window.removeEventListener('pointerdown', unlock);
+    }, [ownerFeatures]);
 
     const refreshAgenda = useCallback(async () => {
         await Promise.all([mutateAgenda(), mutateRoute()]);
@@ -371,12 +407,17 @@ export function SerenataProvider({ children }: { children: ReactNode }) {
         agendaLoading: Boolean(agendaSwrKey) && agendaLoading && !agendaData,
         loadState,
         error,
-        refresh: async () => {
-            await Promise.all([swrMutate(), refreshAgenda(), globalMutate(providerGroupsSwrKey())]);
-        },
+        refresh: refreshPanelData,
         refreshAgenda,
         checkoutStatus,
         setCheckoutStatus,
+        solicitudesPendingCount,
+        solicitudesSoundMuted,
+        toggleSolicitudesSound,
+        solicitudesNotificationPermission,
+        solicitudesBrowserNotificationsEnabled,
+        solicitudesBrowserNotificationsSupported,
+        requestSolicitudesBrowserNotifications,
     };
 
     return <SerenataContext.Provider value={value}>{children}</SerenataContext.Provider>;

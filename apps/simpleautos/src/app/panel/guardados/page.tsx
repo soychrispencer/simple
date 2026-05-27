@@ -4,7 +4,8 @@ import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { IconTrash } from '@tabler/icons-react';
 import PanelSectionHeader from '@/components/panel/panel-section-header';
-import { PanelEmptyState, PanelIconButton, PanelList, PanelListRow } from '@simple/ui';
+import { PanelEmptyState } from '@simple/ui/panel';
+import { PanelIconButton, PanelList, PanelListRow } from '@simple/ui/panel';
 import { readSavedListings, removeSavedListing, subscribeSavedListings, syncSavedListingsFromApi, type SavedListingRecord } from '@/lib/saved-listings';
 
 function initialsFromName(name?: string): string {

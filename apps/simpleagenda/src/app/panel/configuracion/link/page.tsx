@@ -2,29 +2,10 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
-    IconLoader2,
-    IconCopy,
-    IconCheck,
-    IconExternalLink,
-    IconAlertCircle,
-    IconEye,
-    IconEyeOff,
-    IconEdit,
-    IconX,
-    IconShare3,
-    IconQrcode,
-    IconDownload,
-    IconWorld,
-    IconChevronRight,
-} from '@tabler/icons-react';
+    IconLoader2, IconCopy, IconCheck, IconExternalLink, IconAlertCircle, IconEye, IconEyeOff, IconEdit, IconX, IconShare3, IconQrcode, IconDownload, IconWorld, IconChevronRight, } from '@tabler/icons-react';
 import Link from 'next/link';
-import {
-    PanelCard,
-    PanelButton,
-    PanelSwitch,
-    PanelPageHeader,
-    PanelField,
-} from '@simple/ui';
+import { PanelCard } from '@simple/ui/panel';
+import { PanelButton, PanelSwitch, PanelPageHeader, PanelField } from '@simple/ui/panel';
 import { fetchAgendaProfile, saveAgendaProfile, checkSlugAvailable, type AgendaProfile } from '@/lib/agenda-api';
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3004';

@@ -1,7 +1,7 @@
 'use client';
 import { useMemo, useState } from 'react';
 import { IconBookmark, IconBookmarkFilled, IconMapPin } from '@tabler/icons-react';
-import { PanelIconButton } from '../index';
+import { PanelIconButton } from '../panel/panel-display';
 import ListingImageCarousel from './shared/listing-image-carousel';
 import ListingBadgeStack from './shared/listing-badge-stack';
 import ListingPriceBlock from './shared/listing-price-block';

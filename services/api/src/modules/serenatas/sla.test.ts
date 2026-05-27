@@ -45,6 +45,7 @@ vi.mock('../../db/index.js', () => ({
             serenataProviderGroups: { findFirst: (...args: unknown[]) => mockFindFirst(...args) },
             serenataGroupServices: { findFirst: (...args: unknown[]) => mockFindFirst(...args) },
             serenataOwners: { findFirst: (...args: unknown[]) => mockFindFirst(...args) },
+            serenataMusicians: { findFirst: (...args: unknown[]) => mockFindFirst(...args) },
             serenataClients: { findFirst: (...args: unknown[]) => mockFindFirst(...args) },
         },
         select: (...args: unknown[]) => mockSelect(...args),
@@ -145,11 +146,14 @@ describe('createMarketplaceSerenata', () => {
             .mockResolvedValueOnce({
                 id: 'g1',
                 ownerId: 'a1',
+                ownerUserId: 'u-other',
                 status: 'active',
                 serviceComunas: [],
                 slaHours: 24,
                 bookingMode: 'auto_if_available',
             })
+            .mockResolvedValueOnce(null)
+            .mockResolvedValueOnce(null)
             .mockResolvedValueOnce({
                 id: 'svc1',
                 providerGroupId: 'g1',
@@ -187,11 +191,14 @@ describe('createMarketplaceSerenata', () => {
             .mockResolvedValueOnce({
                 id: 'g1',
                 ownerId: 'a1',
+                ownerUserId: 'u-other',
                 status: 'active',
                 serviceComunas: [],
                 slaHours: 24,
                 bookingMode: 'manual',
             })
+            .mockResolvedValueOnce(null)
+            .mockResolvedValueOnce(null)
             .mockResolvedValueOnce({
                 id: 'svc1',
                 providerGroupId: 'g1',

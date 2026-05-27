@@ -2,19 +2,11 @@
 
 import { useEffect, useState } from 'react';
 import {
-    IconUser,
-    IconBriefcase,
-    IconClock,
-    IconLink,
-    IconPlug,
-    IconCreditCard,
-    IconMapPin,
-    IconBell,
-    IconShield,
-} from '@tabler/icons-react';
+    IconUser, IconBriefcase, IconClock, IconLink, IconPlug, IconCreditCard, IconMapPin, IconBell, IconShield, } from '@tabler/icons-react';
 import { fetchAgendaProfile, fetchAgendaStats, type AgendaProfile, type AgendaStats } from '@/lib/agenda-api';
 import { vocab } from '@/lib/vocabulary';
-import { PanelConfigPage, type PanelConfigSectionItem } from '@simple/ui';
+import { PanelConfigPage } from '@simple/ui/panel';
+import { type PanelConfigSectionItem } from '@simple/ui/panel';
 
 export default function ConfiguracionPage() {
     const [profile, setProfile] = useState<AgendaProfile | null>(null);

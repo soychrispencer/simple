@@ -1,6 +1,6 @@
 'use client';
 
-import { SubscriptionManager } from '@simple/ui';
+import { SubscriptionManager } from '@simple/ui/panel';
 import {
     confirmCheckout,
     fetchSubscriptionCatalog,

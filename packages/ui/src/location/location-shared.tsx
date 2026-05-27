@@ -1,6 +1,12 @@
 'use client';
 
 import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { createPortal } from 'react-dom';
+import {
+    FLOATING_POPOVER_Z_INDEX,
+    useFloatingPortalDismiss,
+    useFloatingPortalPosition,
+} from '../floating-portal.js';
 import type { AddressBookEntry, AddressBookKind, ListingLocation, ListingLocationKind, ListingLocationVisibilityMode } from '@simple/types';
 import { patchListingLocation } from '@simple/types';
 
@@ -375,17 +381,12 @@ export function StyledSelect(props: {
     const { value, onChange, options, placeholder = 'Seleccionar', disabled = false, ariaLabel } = props;
     const [open, setOpen] = useState(false);
     const rootRef = useRef<HTMLDivElement | null>(null);
+    const triggerRef = useRef<HTMLButtonElement | null>(null);
+    const popoverRef = useRef<HTMLDivElement | null>(null);
     const selectedOption = options.find((option) => option.value === value);
+    const popoverPosition = useFloatingPortalPosition(open, triggerRef, popoverRef, [options.length]);
 
-    useEffect(() => {
-        const onPointerDown = (event: PointerEvent) => {
-            if (!rootRef.current?.contains(event.target as Node)) {
-                setOpen(false);
-            }
-        };
-        window.addEventListener('pointerdown', onPointerDown);
-        return () => window.removeEventListener('pointerdown', onPointerDown);
-    }, []);
+    useFloatingPortalDismiss(open, () => setOpen(false), rootRef, popoverRef);
 
     useEffect(() => {
         const onKeyDown = (event: KeyboardEvent) => {
@@ -395,9 +396,53 @@ export function StyledSelect(props: {
         return () => window.removeEventListener('keydown', onKeyDown);
     }, []);
 
+    const listbox = open ? (
+        <div
+            ref={popoverRef}
+            role="listbox"
+            className="max-h-64 overflow-auto rounded-xl border p-1.5"
+            style={{
+                position: 'fixed',
+                top: popoverPosition?.top ?? 0,
+                left: popoverPosition?.left ?? 0,
+                width: popoverPosition?.width ?? undefined,
+                visibility: popoverPosition ? 'visible' : 'hidden',
+                zIndex: FLOATING_POPOVER_Z_INDEX,
+                borderColor: 'var(--border)',
+                background: 'var(--surface)',
+                boxShadow: '0 18px 44px rgba(0,0,0,0.16)',
+            }}
+        >
+            {options.map((option) => {
+                const isSelected = option.value === value;
+                return (
+                    <button
+                        key={`${option.value}-${option.label}`}
+                        type="button"
+                        disabled={option.disabled}
+                        onClick={() => {
+                            if (option.disabled) return;
+                            onChange(option.value);
+                            setOpen(false);
+                        }}
+                        className="flex h-9 w-full items-center justify-between rounded-lg px-2.5 text-sm transition-colors"
+                        style={{
+                            background: isSelected ? 'var(--bg-subtle)' : 'transparent',
+                            color: option.disabled ? 'var(--fg-faint)' : 'var(--fg)',
+                        }}
+                    >
+                        <span className="truncate">{option.label}</span>
+                        {isSelected ? <span style={{ color: 'var(--fg-secondary)' }}>✓</span> : null}
+                    </button>
+                );
+            })}
+        </div>
+    ) : null;
+
     return (
         <div className="relative w-full" ref={rootRef}>
             <button
+                ref={triggerRef}
                 type="button"
                 aria-label={ariaLabel}
                 aria-haspopup="listbox"
@@ -412,7 +457,7 @@ export function StyledSelect(props: {
             >
                 <span className="truncate pr-1">{selectedOption?.label ?? placeholder}</span>
                 <span
-                    className="absolute right-3 top-1/2 pointer-events-none transition-transform"
+                    className="pointer-events-none absolute right-3 top-1/2 transition-transform"
                     style={{
                         color: 'var(--fg-muted)',
                         transform: `translateY(-50%) rotate(${open ? '180deg' : '0deg'})`,
@@ -422,41 +467,7 @@ export function StyledSelect(props: {
                 </span>
             </button>
 
-            {open ? (
-                <div
-                    role="listbox"
-                    className="absolute left-0 right-0 top-[calc(100%+0.35rem)] z-40 max-h-64 overflow-auto rounded-xl border p-1.5"
-                    style={{
-                        borderColor: 'var(--border)',
-                        background: 'var(--surface)',
-                        boxShadow: '0 18px 44px rgba(0,0,0,0.16)',
-                    }}
-                >
-                    {options.map((option) => {
-                        const isSelected = option.value === value;
-                        return (
-                            <button
-                                key={`${option.value}-${option.label}`}
-                                type="button"
-                                disabled={option.disabled}
-                                onClick={() => {
-                                    if (option.disabled) return;
-                                    onChange(option.value);
-                                    setOpen(false);
-                                }}
-                                className="w-full h-9 px-2.5 rounded-lg text-sm flex items-center justify-between transition-colors"
-                                style={{
-                                    background: isSelected ? 'var(--bg-subtle)' : 'transparent',
-                                    color: option.disabled ? 'var(--fg-faint)' : 'var(--fg)',
-                                }}
-                            >
-                                <span className="truncate">{option.label}</span>
-                                {isSelected ? <span style={{ color: 'var(--fg-secondary)' }}>✓</span> : null}
-                            </button>
-                        );
-                    })}
-                </div>
-            ) : null}
+            {typeof document !== 'undefined' && listbox ? createPortal(listbox, document.body) : null}
         </div>
     );
 }

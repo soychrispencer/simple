@@ -3,8 +3,8 @@
 import Link from 'next/link';
 import { useMemo } from 'react';
 import { useSearchParams } from 'next/navigation';
-import { PanelButton } from '@simple/ui/panel';
 import type { ProviderGroup, ProviderGroupService } from '@/lib/serenatas-api';
+import { MarketplaceContractButton } from '@/components/public/marketplace-contract-button';
 import { cheapestService } from '@/lib/marketplace-group-display';
 import { useSerenataRequestModal } from '@/components/serenata-request/serenata-request-modal-context';
 import {
@@ -55,13 +55,10 @@ export function MariachiProfileContent({
                     services={sortedServices}
                     featuredServiceId={featuredServiceId}
                     renderAction={(service) => (
-                        <PanelButton
-                            type="button"
-                            variant="accent"
-                            onClick={() => openContract(service)}
-                        >
-                            Contratar
-                        </PanelButton>
+                        <MarketplaceContractButton
+                            group={group}
+                            onContract={() => openContract(service)}
+                        />
                     )}
                 />
 

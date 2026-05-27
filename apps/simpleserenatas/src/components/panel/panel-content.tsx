@@ -210,6 +210,8 @@ export function PanelContent(props: PanelContentProps) {
                     refresh={props.refresh}
                     refreshAgenda={props.refreshAgenda}
                     agendaLoading={props.agendaLoading}
+                    action={props.accountSuspended ? null : props.panelAction}
+                    clearAction={props.clearPanelAction}
                     closurePendingTotal={
                         props.ownerFeaturesEnabled ? props.ownerClosureSerenatas.length : 0
                     }

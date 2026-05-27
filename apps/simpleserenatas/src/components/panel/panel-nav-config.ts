@@ -41,6 +41,14 @@ export function getPrimaryActionConfig(
     profiles: Profiles,
     pathname?: string,
 ): PrimaryActionConfig {
+    if (ownerFeaturesEnabled(profiles)) {
+        return {
+            label: 'Agenda',
+            href: panelSectionHref('agenda'),
+            icon: IconCalendar,
+            show: true,
+        };
+    }
     if (mode === 'client') {
         if (pathname && isClientMarketplaceHref(pathname)) {
             return {
@@ -51,9 +59,6 @@ export function getPrimaryActionConfig(
             };
         }
         return { label: 'Explorar mariachis', href: CLIENT_MARKETPLACE_HREF, icon: IconUsersGroup, show: true };
-    }
-    if (ownerFeaturesEnabled(profiles)) {
-        return { label: 'Ver solicitudes', href: panelSectionHref('solicitudes'), icon: IconBell, show: true };
     }
     return { label: 'Ver invitaciones', href: panelSectionHref('invitations'), icon: IconUsersGroup, show: true };
 }
@@ -75,6 +80,9 @@ export function getPanelNavItems(mode: AppMode, profiles: Profiles): PanelNavIte
 
     if (isOwner) {
         items.push({ id: 'solicitudes', href: panelSectionHref('solicitudes'), label: 'Solicitudes', icon: IconBell });
+        if (profiles.musician) {
+            items.push({ id: 'invitations', href: panelSectionHref('invitations'), label: 'Invitaciones', icon: IconUsersGroup });
+        }
         items.push({ id: 'agenda', href: panelSectionHref('agenda'), label: 'Agenda', icon: IconCalendar });
         items.push({ id: 'map', href: panelSectionHref('map'), label: 'Mapa', icon: IconMap });
         items.push({ id: 'mi-negocio', href: panelSectionHref('mi-negocio'), label: 'Mi negocio', icon: IconBriefcase });
@@ -99,9 +107,9 @@ export function getMobileBottomNavItems(mode: AppMode, profiles: Profiles): Pane
         );
     }
     if (ownerFeaturesEnabled(profiles)) {
-        return getPanelNavItems(mode, profiles).filter((t) =>
-            ['home', 'solicitudes', 'mi-negocio', 'agenda', 'profile'].includes(t.id),
-        );
+        const tabIds = ['home', 'solicitudes', 'mi-negocio', 'agenda', 'profile'];
+        if (profiles.musician) tabIds.splice(2, 0, 'invitations');
+        return getPanelNavItems(mode, profiles).filter((t) => tabIds.includes(t.id));
     }
     return getPanelNavItems(mode, profiles).filter((t) => ['home', 'invitations', 'agenda', 'profile'].includes(t.id));
 }
@@ -160,6 +168,28 @@ export function notifyPanelNotificationsChanged(): void {
     window.dispatchEvent(new Event('simple:panel-notifications-changed'));
 }
 
-export function panelModeLabel(mode: AppMode): string {
-    return mode === 'work' ? 'Operación' : 'Contratante';
+export async function markNotificationReadAndRefresh(notificationId: string): Promise<void> {
+    try {
+        await serenatasApi.markNotificationRead(notificationId);
+        notifyPanelNotificationsChanged();
+    } catch {
+        // ignore — la navegación sigue aunque falle el marcado
+    }
+}
+
+export async function markAllPanelNotificationsRead(): Promise<void> {
+    try {
+        await serenatasApi.markAllNotificationsRead();
+        notifyPanelNotificationsChanged();
+    } catch {
+        // ignore
+    }
+}
+
+/** Etiqueta del tipo de cuenta en sidebar y cabecera del panel. */
+export function panelAccountTypeLabel(profiles: Profiles): string {
+    if (profiles.owner) return 'Dueño';
+    if (profiles.musician) return 'Músico';
+    if (profiles.client) return 'Cliente';
+    return 'Usuario';
 }

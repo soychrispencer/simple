@@ -14,8 +14,8 @@ import {
     IconSearch,
     IconX,
 } from '@tabler/icons-react';
-import { ModernSelect } from '@simple/ui';
-import { PanelButton } from '@simple/ui';
+import { ModernSelect } from '@simple/ui/forms';
+import { PanelButton } from '@simple/ui/panel';
 import { LOCATION_REGIONS, getCommunesForRegion } from '@simple/utils';
 import { loadPublishWizardCatalog, type CatalogBrand, type CatalogModel } from '@/lib/publish-wizard-catalog';
 import dynamic from 'next/dynamic';

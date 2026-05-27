@@ -104,6 +104,17 @@ describe('rejectMarketplaceSerenata', () => {
         expect(mockInsertValues).toHaveBeenCalled();
     });
 
+    it('incluye motivo en notificación al cliente', async () => {
+        mockFindFirst.mockResolvedValue(pendingSerenata);
+        const reason = 'No tenemos disponibilidad para la fecha y hora solicitadas.';
+
+        await rejectMarketplaceSerenata('admin-1', 'ser-1', reason);
+
+        const payloads = mockInsertValues.mock.calls.map((call) => call[0]) as Array<{ message?: string } | Array<{ message?: string }>>;
+        const messages = payloads.flatMap((entry) => (Array.isArray(entry) ? entry : [entry]).map((row) => row.message ?? ''));
+        expect(messages.some((message) => message.includes(reason))).toBe(true);
+    });
+
     it('falla si ya no está pending', async () => {
         mockFindFirst.mockResolvedValue(null);
 

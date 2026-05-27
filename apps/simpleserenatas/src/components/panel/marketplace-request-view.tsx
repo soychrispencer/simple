@@ -1,20 +1,29 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { IconArrowLeft, IconCreditCard, IconLoader2, IconX } from '@tabler/icons-react';
+import { IconArrowLeft, IconClock, IconCreditCard, IconLoader2 } from '@tabler/icons-react';
 import { PanelButton } from '@simple/ui/panel';
 import { PanelCard, PanelField, PanelNotice } from '@simple/ui/panel';
 import { ListingLocationEditor } from '@simple/ui/location';
 import type { AddressBookEntry, ListingLocation } from '@simple/types';
 import { createAddressBookEntry, fetchAddressBook, getCommunesForRegion, LOCATION_REGIONS } from '@simple/utils';
-import { serenatasApi, type ProviderGroup, type ProviderGroupService, type RepertoireSong } from '@/lib/serenatas-api';
-import { RepertoireSongPicker } from './repertoire-song-picker';
+import { serenatasApi, type ProviderGroup, type ProviderGroupService } from '@/lib/serenatas-api';
+import {
+    CollapsibleRepertoireSection,
+    SerenataFormDualStepFooter,
+    SerenataFormModalShell,
+    SerenataFormResponsiveLayout,
+} from './serenata-form-layout';
 import { startSerenataCheckout } from '@/lib/payments';
 import { panelSectionHref } from '@/lib/panel-routes';
 import { clearMarketplaceRequestDraftRef } from '@/lib/marketplace-request-draft';
+import { resolveMarketplaceRequestBlock } from '@/lib/marketplace-client-policy';
+import { useAuth } from '@simple/auth';
+import { useSerenataProfiles } from '@/hooks/use-serenata-profiles';
 import { useGoogleMapsBrowserKey } from '@/lib/use-google-maps-browser-key';
 import {
     cleanSerenataAddress,
+    FieldDate,
     FieldInput,
     FieldSelect,
     FieldTextarea,
@@ -30,56 +39,6 @@ const REQUEST_STEPS = [
     { id: 1 as const, label: 'Evento' },
     { id: 2 as const, label: 'Lugar y pago' },
 ];
-
-function ModalCloseButton({ onClose }: { onClose: () => void }) {
-    return (
-        <button
-            type="button"
-            className="shrink-0 rounded-xl bg-bg-subtle p-2 text-fg-muted transition-colors hover:text-fg"
-            onClick={onClose}
-            aria-label="Cerrar"
-        >
-            <IconX size={18} />
-        </button>
-    );
-}
-
-function RequestStepIndicator({ step }: { step: 1 | 2 }) {
-    return (
-        <ol className="flex min-w-0 gap-2" aria-label="Pasos de la solicitud">
-            {REQUEST_STEPS.map((item, index) => {
-                const active = step === item.id;
-                const done = step > item.id;
-                return (
-                    <li
-                        key={item.id}
-                        className={`flex flex-1 items-center gap-2 rounded-xl border px-3 py-2 text-xs font-medium ${
-                            active
-                                ? 'border-accent-border bg-accent-soft text-accent'
-                                : done
-                                  ? 'border-border bg-bg-subtle text-fg'
-                                  : 'border-border text-fg-muted'
-                        }`}
-                    >
-                        <span
-                            className={`flex size-5 shrink-0 items-center justify-center rounded-full text-[10px] font-bold ${
-                                active ? 'bg-accent text-[var(--button-primary-color)]' : 'bg-bg-subtle text-fg-muted'
-                            }`}
-                        >
-                            {item.id}
-                        </span>
-                        <span className="truncate">{item.label}</span>
-                        {index < REQUEST_STEPS.length - 1 ? (
-                            <span className="ml-auto hidden text-fg-muted sm:inline" aria-hidden>
-                                →
-                            </span>
-                        ) : null}
-                    </li>
-                );
-            })}
-        </ol>
-    );
-}
 
 function ServiceSummaryCard({
     group,
@@ -144,7 +103,15 @@ export function MarketplaceRequestView({
     variant?: 'page' | 'modal';
 }) {
     const inModal = variant === 'modal';
+    const { user, isLoggedIn } = useAuth();
+    const { profiles, profilesReady } = useSerenataProfiles();
     const googleMapsApiKey = useGoogleMapsBrowserKey();
+    const requestBlock = resolveMarketplaceRequestBlock(profiles, {
+        isLoggedIn,
+        profilesReady,
+        userId: user?.id,
+        group,
+    });
     const [recipientName, setRecipientName] = useState('');
     const [clientPhone, setClientPhone] = useState(contactPhone);
     const [eventDate, setEventDate] = useState(() => initialRequestDate(initialDate));
@@ -159,10 +126,18 @@ export function MarketplaceRequestView({
     const [slotsLoading, setSlotsLoading] = useState(false);
     const [pendingCreated, setPendingCreated] = useState(false);
     const [step, setStep] = useState<1 | 2>(1);
-    const [repertoire, setRepertoire] = useState<RepertoireSong[]>([]);
-    const [repertoireLoading, setRepertoireLoading] = useState(false);
     const [selectedSongIds, setSelectedSongIds] = useState<string[]>([]);
     const songsIncluded = service.songsIncluded ?? 0;
+
+    const timeSlotOptions = useMemo(() => {
+        if (slotsLoading) {
+            return [{ value: '', label: 'Cargando horarios…', disabled: true }];
+        }
+        if (availableSlots.length === 0) {
+            return [{ value: '', label: 'Sin horarios disponibles', disabled: true }];
+        }
+        return availableSlots.map((slot) => ({ value: slot, label: slot }));
+    }, [availableSlots, slotsLoading]);
 
     const regions = LOCATION_REGIONS.map((region) => ({ value: region.id, label: region.name }));
     const communes = getCommunesForRegion(location.regionId ?? '').map((commune) => ({
@@ -222,23 +197,6 @@ export function MarketplaceRequestView({
         setStatus({ loading: false, error: null, ok: null });
     }, [group.id, service.id]);
 
-    useEffect(() => {
-        if (songsIncluded <= 0) {
-            setRepertoire([]);
-            return;
-        }
-        let cancelled = false;
-        setRepertoireLoading(true);
-        void serenatasApi.marketplaceServiceRepertoire(group.id, service.id).then((response) => {
-            if (cancelled) return;
-            setRepertoire(response.ok ? response.items : []);
-            setRepertoireLoading(false);
-        });
-        return () => {
-            cancelled = true;
-        };
-    }, [group.id, service.id, songsIncluded]);
-
     function validateStep1(): string | null {
         if (!recipientName.trim()) return 'Indica a quién va dirigida la serenata.';
         if (!clientPhone.trim()) return 'Indica un teléfono de contacto.';
@@ -266,6 +224,11 @@ export function MarketplaceRequestView({
     }
 
     async function submit() {
+        if (!requestBlock.allowed) {
+            setStatus({ loading: false, error: requestBlock.reason, ok: null });
+            return;
+        }
+
         const regionName = location.regionName?.trim() ?? '';
         const communeName = location.communeName?.trim() ?? '';
         const recipient = recipientName.trim();
@@ -377,29 +340,21 @@ export function MarketplaceRequestView({
 
             <div className="grid gap-3 sm:grid-cols-2">
                 <PanelField label="Fecha" required>
-                    <FieldInput
-                        type="date"
+                    <FieldDate
                         value={toInputDate(eventDate) ?? ''}
                         min={toInputDate(today) ?? undefined}
-                        onChange={(event) => setEventDate(event.target.value)}
+                        onChange={setEventDate}
                     />
                 </PanelField>
                 <PanelField label="Hora" required={!flexibleSchedule}>
                     <FieldSelect
                         value={eventTime}
+                        options={timeSlotOptions}
+                        placeholder="Seleccionar hora"
                         disabled={flexibleSchedule || slotsLoading || availableSlots.length === 0}
+                        leadingIcon={<IconClock size={16} stroke={1.75} />}
                         onChange={(event) => setEventTime(event.target.value)}
-                    >
-                        {slotsLoading ? (
-                            <option value="">Cargando horarios...</option>
-                        ) : availableSlots.length > 0 ? (
-                            availableSlots.map((slot) => (
-                                <option key={slot} value={slot}>{slot}</option>
-                            ))
-                        ) : (
-                            <option value="">Sin horarios disponibles</option>
-                        )}
-                    </FieldSelect>
+                    />
                 </PanelField>
             </div>
 
@@ -426,27 +381,20 @@ export function MarketplaceRequestView({
             </PanelField>
 
             {songsIncluded > 0 ? (
-                <div className="rounded-xl border border-border bg-bg-subtle/60 p-3">
-                    {repertoireLoading ? (
-                        <p className="text-sm text-fg-muted">Cargando repertorio…</p>
-                    ) : (
-                        <RepertoireSongPicker
-                            songs={repertoire}
-                            maxSelections={songsIncluded}
-                            selectedIds={selectedSongIds}
-                            onChange={setSelectedSongIds}
-                        />
-                    )}
-                </div>
+                <CollapsibleRepertoireSection
+                    providerGroupId={group.id}
+                    serviceId={service.id}
+                    songsIncluded={songsIncluded}
+                    variant="client"
+                    selectedIds={selectedSongIds}
+                    onChange={setSelectedSongIds}
+                />
             ) : null}
         </>
     );
 
     const addressFields = (
-        <div className="rounded-card border border-border p-4">
-            <p className="text-sm font-semibold text-fg">Dirección del evento</p>
-            <p className="mt-1 text-xs text-fg-muted">Selecciona una dirección guardada o escribe una nueva con sugerencias de Google Maps.</p>
-            <div className="mt-4">
+        <div className="min-w-0">
                 <ListingLocationEditor
                     simpleMode
                     framed={false}
@@ -471,98 +419,84 @@ export function MarketplaceRequestView({
                     onSaveToAddressBook={() => void saveCurrentAddress()}
                     googleMapsApiKey={googleMapsApiKey}
                 />
-            </div>
         </div>
     );
 
-    const actionButtons = inModal ? (
-        <div className="flex flex-col gap-2 sm:flex-row sm:justify-end">
-            {step === 2 ? (
-                <PanelButton variant="secondary" disabled={status.loading} onClick={() => setStep(1)}>
-                    Atrás
-                </PanelButton>
-            ) : null}
-            {step === 1 ? (
-                <PanelButton
-                    variant="primary"
-                    className="w-full sm:w-auto"
-                    disabled={slotsLoading}
-                    onClick={goToStep2}
-                >
-                    Continuar
-                </PanelButton>
-            ) : (
-                <PanelButton
-                    variant="primary"
-                    className="w-full sm:w-auto"
-                    disabled={status.loading || slotsLoading || pendingCreated}
-                    onClick={() => void submit()}
-                >
-                    {status.loading ? <IconLoader2 size={16} className="animate-spin" /> : <IconCreditCard size={16} />}
-                    {status.loading ? 'Procesando...' : 'Pagar y solicitar'}
-                </PanelButton>
-            )}
-        </div>
-    ) : (
-        <div className="flex flex-col gap-2 sm:flex-row sm:justify-end">
-            <PanelButton variant="secondary" disabled={status.loading} onClick={onBack}>
-                Cancelar
-            </PanelButton>
-            <PanelButton
-                variant="primary"
-                className="w-full sm:w-auto"
-                disabled={status.loading || slotsLoading || pendingCreated}
-                onClick={() => void submit()}
-            >
-                {status.loading ? <IconLoader2 size={16} className="animate-spin" /> : <IconCreditCard size={16} />}
-                {status.loading ? 'Procesando...' : 'Pagar y solicitar'}
-            </PanelButton>
-        </div>
+    const formBody = (
+        <SerenataFormResponsiveLayout
+            step={step}
+            steps={REQUEST_STEPS}
+            leftTitle="Datos del evento"
+            rightTitle="Lugar del evento"
+            leftSubtitle="Quién recibe la serenata, fecha, hora y mensaje."
+            rightSubtitle="Dirección donde se realizará el evento."
+            desktopIntro="Completa los dos bloques del formulario antes de pagar."
+            leftColumn={eventFields}
+            rightColumn={addressFields}
+        />
     );
+
+    const payFooter = (
+        <SerenataFormDualStepFooter
+            step={step}
+            loading={status.loading}
+            onBackStep={() => setStep(1)}
+            onCancel={onBack}
+            onContinue={goToStep2}
+            onSubmit={() => void submit()}
+            continueDisabled={slotsLoading}
+            submitDisabled={status.loading || slotsLoading || pendingCreated}
+            submitLabel={status.loading ? 'Procesando...' : 'Pagar y solicitar'}
+            submitIcon={<IconCreditCard size={16} />}
+        />
+    );
+
+    if (!requestBlock.allowed) {
+        return (
+            <div className={inModal ? 'p-6' : 'grid min-w-0 gap-4'}>
+                <PanelNotice tone="warning">{requestBlock.reason}</PanelNotice>
+                <PanelButton variant="secondary" className="w-fit" onClick={onBack}>
+                    Volver
+                </PanelButton>
+            </div>
+        );
+    }
 
     if (inModal) {
         return (
-            <div className="flex min-h-0 flex-1 flex-col">
-                <div className="shrink-0 space-y-3 border-b border-border px-4 pb-3 pt-4 sm:px-5">
-                    <div className="flex items-start justify-between gap-3">
-                        <div className="min-w-0 flex-1 space-y-2">
-                            <p className="text-lg font-semibold text-fg">Solicitar serenata</p>
-                            <RequestStepIndicator step={step} />
-                        </div>
-                        <ModalCloseButton onClose={onBack} />
+            <SerenataFormModalShell
+                title="Solicitar serenata"
+                subtitle={`${group.name} · pago seguro`}
+                onClose={onBack}
+                summary={
+                    <div className="lg:hidden">
+                        <ServiceSummaryCard group={group} service={service} compact />
                     </div>
-                    <ServiceSummaryCard group={group} service={service} compact />
-                </div>
-
-                <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-3 sm:px-5">
-                    <p className="text-base font-semibold text-fg">
-                        {step === 2 ? 'Lugar del evento' : 'Datos del evento'}
-                    </p>
-                    <p className="mt-0.5 text-xs text-fg-muted">
-                        {step === 2
-                            ? 'Indica dónde será la serenata.'
-                            : 'Quién, cuándo y detalles del homenaje.'}
-                    </p>
-                    <div className="mt-3 grid gap-3">
-                        {step === 1 ? eventFields : addressFields}
-                    </div>
-                </div>
-
-                <div className="shrink-0 space-y-2 border-t border-border bg-surface px-4 py-3 sm:px-5">
-                    <FormFeedback status={status} />
-                    {pendingCreated && status.error ? (
-                        <PanelButton variant="secondary" onClick={() => window.location.assign(panelSectionHref('serenatas'))}>
-                            Ver Mis serenatas
-                        </PanelButton>
-                    ) : null}
-                    {actionButtons}
-                    {step === 2 ? (
-                        <p className="text-center text-[11px] leading-snug text-fg-muted">
+                }
+                footer={
+                    <>
+                        <FormFeedback status={status} />
+                        {pendingCreated && status.error ? (
+                            <PanelButton variant="secondary" onClick={() => window.location.assign(panelSectionHref('serenatas'))}>
+                                Ver Mis serenatas
+                            </PanelButton>
+                        ) : null}
+                        {payFooter}
+                        <p className="text-center text-[11px] leading-snug text-fg-muted lg:block">
                             Al pagar, enviamos la solicitud al dueño. Si no puede cubrirla, lo verás en Mis serenatas.
                         </p>
-                    ) : null}
+                    </>
+                }
+            >
+                <div className="hidden lg:block">
+                    <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-fg-muted">Servicio</p>
+                    <div className="mt-2">
+                        <ServiceSummaryCard group={group} service={service} compact />
+                    </div>
+                    <div className="mt-5">{formBody}</div>
                 </div>
-            </div>
+                <div className="lg:hidden">{formBody}</div>
+            </SerenataFormModalShell>
         );
     }
 
@@ -576,15 +510,14 @@ export function MarketplaceRequestView({
             <div className="grid min-w-0 gap-5 xl:grid-cols-[minmax(0,1fr)_340px] xl:items-start">
                 <PanelCard size="lg">
                     <div>
-                        <p className="text-lg font-semibold text-fg">Datos del evento</p>
+                        <p className="text-lg font-semibold text-fg">Solicitar serenata</p>
                         <p className="mt-1 text-sm text-fg-muted">
-                            Completa la información necesaria antes de pagar. El dueño recibirá la solicitud pagada y confirmará si puede cubrirla con su grupo.
+                            Completa la información antes de pagar. El dueño confirmará si puede cubrir el evento.
                         </p>
                     </div>
 
                     <div className="mt-6 grid gap-4">
-                        {eventFields}
-                        {addressFields}
+                        {formBody}
 
                         <FormFeedback status={status} />
                         {pendingCreated && status.error ? (
@@ -593,9 +526,7 @@ export function MarketplaceRequestView({
                             </PanelButton>
                         ) : null}
 
-                        <div className="flex flex-col gap-2 border-t border-border pt-4 sm:flex-row sm:items-center sm:justify-end">
-                            {actionButtons}
-                        </div>
+                        <div className="border-t border-border pt-4">{payFooter}</div>
                     </div>
                 </PanelCard>
 

@@ -3,26 +3,13 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import {
-    IconCalendar,
-    IconUsers,
-    IconCreditCard,
-    IconClockHour4,
-    IconTrendingUp,
-    IconTrendingDown,
-    IconMinus,
-    IconChevronRight,
-    IconCheck,
-    IconUser,
-    IconBriefcase,
-    IconClock,
-    IconRocket,
-    IconX,
-} from '@tabler/icons-react';
+    IconCalendar, IconUsers, IconCreditCard, IconClockHour4, IconTrendingUp, IconTrendingDown, IconMinus, IconChevronRight, IconCheck, IconUser, IconBriefcase, IconClock, IconRocket, IconX, } from '@tabler/icons-react';
 import Link from 'next/link';
 import { fetchAgendaStats, fetchAgendaProfile, isPlanActive, type AgendaStats, type AgendaWeekDay, type AgendaProfile } from '@/lib/agenda-api';
 import { fmtCLP, fmtTime, fmtDateShort as fmtDate } from '@/lib/format';
 import { vocab } from '@/lib/vocabulary';
-import { PanelPageHeader, PanelStatCard } from '@simple/ui';
+import { PanelPageHeader } from '@simple/ui/panel';
+import { PanelStatCard } from '@simple/ui/panel';
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 

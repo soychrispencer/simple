@@ -15,7 +15,7 @@ export function PublicMariachiHeader() {
                     <Link href="/mariachis" className="font-medium text-fg-muted transition-colors hover:text-accent">
                         Mariachis
                     </Link>
-                    <Link href="/panel" className="btn btn-primary h-9 px-3 text-sm">
+                    <Link href="/panel" prefetch={false} className="btn btn-primary h-9 px-3 text-sm">
                         Entrar
                     </Link>
                 </nav>

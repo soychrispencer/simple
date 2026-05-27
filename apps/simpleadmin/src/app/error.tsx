@@ -2,7 +2,7 @@
 
 import { useEffect } from 'react';
 import Link from 'next/link';
-import { ErrorView } from '@simple/ui';
+import { ErrorView } from '@simple/ui/feedback';
 
 export default function Error({
     error,

@@ -1,32 +1,64 @@
 ﻿'use client';
 
+import Link from 'next/link';
 import { useEffect, useMemo, useState, type ComponentType, type CSSProperties, type ReactNode } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { ListingLocationEditor } from '@simple/ui/location';
-import { PanelBlockHeader } from '@simple/ui/panel';
-import { PanelButton, PanelCard, PanelField, PanelNotice, PanelStatusBadge } from '@simple/ui/panel';
+import { PanelButton, PanelCard, PanelField, PanelStatusBadge, getPanelButtonClassName, getPanelButtonStyle } from '@simple/ui/panel';
 import { applyAddressBookEntryToLocation, type AddressBookEntry, type ListingLocation } from '@simple/types';
 import { createAddressBookEntry, fetchAddressBook, getCommunesForRegion, LOCATION_REGIONS } from '@simple/utils';
-import { IconCheck, IconClock, IconLoader2, IconMapPin, IconPencil, IconPlus, IconStar, IconStarFilled, IconUsers, IconX } from '@tabler/icons-react';
-import { type MusicianDirectoryItem, type ProviderGroupMember, type ProviderGroupService, type Serenata, type SerenataGroup, type SerenataPackage, type SerenataPackageCode, serenatasApi } from '@/lib/serenatas-api';
+import {
+    IconCheck,
+    IconClock,
+    IconHourglass,
+    IconBell,
+    IconBellOff,
+    IconMapPin,
+    IconMessage,
+    IconMusic,
+    IconPencil,
+    IconPhone,
+    IconStar,
+    IconStarFilled,
+    IconUsers,
+    IconX,
+} from '@tabler/icons-react';
+import { type MusicianDirectoryItem, type Serenata, type SerenataGroup, type SerenataMePlan, type SerenataPackage, serenatasApi } from '@/lib/serenatas-api';
+import { buildSerenataGroupSelectOptions } from '@/lib/serenata-group-select';
+import {
+    SERENATA_REJECT_OTHER_ID,
+    SERENATA_REJECT_TEMPLATES,
+    resolveSerenataRejectReason,
+} from '@/lib/serenata-reject-templates';
+import { useSerenata } from '@/context/serenata-context';
+import { SolicitudWaitTimer } from '../solicitud-wait-timer';
 import { isOwnerSolicitudesInbox, isPendingSerenataAction } from '@/lib/serenata-pending';
+import {
+    getSolicitudWaitState,
+    pickMostUrgentSolicitudId,
+    sortSolicitudesInbox,
+} from '@/lib/solicitud-wait-time';
 import { SerenataClosureActions } from '../serenata-closure-actions';
 import { SerenataSetlistPanel } from '../serenata-setlist-panel';
 import { ClientSerenataCancelPrompt } from '../client-serenata-cancel-prompt';
-import { MusicianAvailabilityBadge } from '../musician-availability-toggle';
 import { startSerenataCheckout } from '@/lib/payments';
-import { panelSectionHref } from '@/lib/panel-routes';
+import { panelMiNegocioHref, panelSectionHref } from '@/lib/panel-routes';
 import { useGoogleMapsBrowserKey } from '@/lib/use-google-maps-browser-key';
 import { PanelSheet } from '../panel-sheet';
 import {
     EmptyBlock,
-    FieldInput,
     FieldSelect,
-    FieldTextarea,
     FormFeedback,
     SerenataRow,
     cleanSerenataAddress,
+    commissionPercentFromBps,
+    computeSerenataAppDeduction,
     formatDate,
+    formatSerenataListSummary,
+    formatServiceSongsIncludedLabel,
+    formatSerenataEventPlace,
+    googleMapsUrl,
+    ownerCanViewClientPhone,
     formatShortSerenataDate,
     money,
     serenataLocation,
@@ -37,7 +69,6 @@ import {
     type FormStatus,
 } from '../shared';
 import { SerenataForm } from './serenata-form';
-import { SerenataCreateModal } from './serenata-create-modal';
 
 type PanelActionProps = {
     action?: string | null;
@@ -63,18 +94,9 @@ const SERENATA_OCCASIONS = [
     'Otro',
 ];
 
-function requiredMusiciansForPackage(code: SerenataPackageCode | null) {
-    if (code === 'duo') return 2;
-    if (code === 'trio') return 3;
-    if (code === 'cuarteto') return 4;
-    if (code === 'quinteto') return 5;
-    return 3;
-}
-
-
-type SerenataFilter = 'all' | Serenata['status'] | 'closed';
+type SerenataFilter = 'all' | 'needs_response' | Serenata['status'] | 'closed';
 type SerenataOriginFilter = 'all' | Serenata['source'];
-type SerenataMode = 'detail' | 'edit' | 'assignGroup';
+type SerenataMode = 'detail' | 'edit';
 
 export function SerenatasView({ serenatas, groups, musicians, packages: packagesProp, selectedSerenataId, action, clearAction, refresh, isSolicitudesMode = false, onAgendaDeepLink }: { serenatas: Serenata[]; groups: SerenataGroup[]; musicians: MusicianDirectoryItem[]; packages?: SerenataPackage[]; selectedSerenataId?: string | null; refresh: () => Promise<void>; isSolicitudesMode?: boolean; onAgendaDeepLink?: (serenataId: string) => void } & PanelActionProps) {
     const searchParams = useSearchParams();
@@ -82,28 +104,65 @@ export function SerenatasView({ serenatas, groups, musicians, packages: packages
     const [originFilter, setOriginFilter] = useState<SerenataOriginFilter>('all');
     const [selectedId, setSelectedId] = useState<string | null>(serenatas[0]?.id ?? null);
     const [mode, setMode] = useState<SerenataMode>('detail');
-    const [createOpen, setCreateOpen] = useState(false);
     const [packagesLocal, setPackagesLocal] = useState<SerenataPackage[]>(packagesProp ?? []);
+    const [ownerPlan, setOwnerPlan] = useState<SerenataMePlan | null>(null);
+    const [urgencyTick, setUrgencyTick] = useState(0);
     const packages = packagesProp ?? packagesLocal;
     const inboxCount = serenatas.filter(isOwnerSolicitudesInbox).length;
+    const alertCount = serenatas.filter(isPendingSerenataAction).length;
     const selected = serenatas.find((item) => item.id === selectedId) ?? serenatas[0] ?? null;
     const filtered = serenatas.filter((item) => {
-        const matchesStatus = filter === 'all'
-            ? (isSolicitudesMode ? isOwnerSolicitudesInbox(item) : true)
-            : (filter === 'closed'
-                ? ['cancelled', 'rejected', 'expired'].includes(item.status)
-                : filter === 'pending'
-                    ? item.status === 'pending' || item.status === 'pending_open' || isPendingSerenataAction(item)
-                    : item.status === filter);
+        const matchesStatus = filter === 'needs_response'
+            ? isPendingSerenataAction(item)
+            : filter === 'all'
+              ? (isSolicitudesMode ? isOwnerSolicitudesInbox(item) : true)
+              : (filter === 'closed'
+                  ? ['cancelled', 'rejected', 'expired'].includes(item.status)
+                  : filter === 'pending'
+                      ? item.status === 'pending' || item.status === 'pending_open' || isPendingSerenataAction(item)
+                      : item.status === filter);
         const matchesOrigin = originFilter === 'all' || item.source === originFilter;
         return matchesStatus && matchesOrigin;
     });
+    const filteredSorted = useMemo(() => {
+        void urgencyTick;
+        return isSolicitudesMode ? sortSolicitudesInbox(filtered) : filtered;
+    }, [filtered, isSolicitudesMode, urgencyTick]);
+    const mostUrgentId = useMemo(() => {
+        void urgencyTick;
+        return isSolicitudesMode ? pickMostUrgentSolicitudId(filteredSorted) : null;
+    }, [filteredSorted, isSolicitudesMode, urgencyTick]);
     const pendingCount = serenatas.filter((item) => item.status === 'pending' || item.status === 'pending_open' || isPendingSerenataAction(item)).length;
     const expiredCount = serenatas.filter((item) => item.status === 'expired').length;
     const needsGroupCount = serenatas.filter((item) => item.status === 'accepted_pending_group').length;
     const closedCount = serenatas.filter((item) => ['cancelled', 'rejected', 'expired'].includes(item.status)).length;
     const ownCount = serenatas.filter((item) => item.source === 'own_lead').length;
     const appCount = serenatas.filter((item) => item.source === 'platform_lead').length;
+
+    const {
+        solicitudesPendingCount,
+        solicitudesSoundMuted: soundMuted,
+        toggleSolicitudesSound: toggleSoundMuted,
+        solicitudesBrowserNotificationsEnabled: browserNotificationsEnabled,
+        solicitudesBrowserNotificationsSupported: browserNotificationsSupported,
+        requestSolicitudesBrowserNotifications: requestBrowserNotifications,
+    } = useSerenata();
+
+    useEffect(() => {
+        if (!isSolicitudesMode || alertCount === 0) return;
+        const timer = window.setInterval(() => setUrgencyTick((value) => value + 1), 1000);
+        return () => window.clearInterval(timer);
+    }, [alertCount, isSolicitudesMode]);
+
+    useEffect(() => {
+        let cancelled = false;
+        void serenatasApi.mePlan().then((response) => {
+            if (!cancelled && response.ok) setOwnerPlan(response);
+        });
+        return () => {
+            cancelled = true;
+        };
+    }, []);
 
     useEffect(() => {
         if (serenatas.length === 0) {
@@ -128,6 +187,7 @@ export function SerenatasView({ serenatas, groups, musicians, packages: packages
         }
         if (
             urlFilter === 'all'
+            || urlFilter === 'needs_response'
             || urlFilter === 'pending'
             || urlFilter === 'pending_open'
             || urlFilter === 'accepted_pending_group'
@@ -143,12 +203,6 @@ export function SerenatasView({ serenatas, groups, musicians, packages: packages
         if (serenatas.some((item) => item.id === selectedSerenataId)) return;
         onAgendaDeepLink(selectedSerenataId);
     }, [isSolicitudesMode, onAgendaDeepLink, selectedSerenataId, serenatas]);
-
-    useEffect(() => {
-        if (action !== 'create') return;
-        setCreateOpen(true);
-        clearAction?.();
-    }, [action, clearAction]);
 
     useEffect(() => {
         if (!selectedSerenataId || !serenatas.some((item) => item.id === selectedSerenataId)) return;
@@ -173,7 +227,7 @@ export function SerenatasView({ serenatas, groups, musicians, packages: packages
         <>
             <div className="grid min-w-0 gap-5 xl:grid-cols-[minmax(380px,0.95fr)_minmax(560px,1.05fr)]">
                 <PanelCard size="lg" className="min-w-0 xl:min-h-[680px]">
-                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                     <div>
                         <h2 className="type-section-title text-[var(--fg)]">{isSolicitudesMode ? 'Solicitudes' : 'Serenatas'}</h2>
                         <p className="mt-1 text-sm text-fg-muted">
@@ -181,10 +235,55 @@ export function SerenatasView({ serenatas, groups, musicians, packages: packages
                                 ? (inboxCount === 0
                                     ? 'No hay solicitudes por revisar'
                                     : `${filtered.length} solicitud${filtered.length === 1 ? '' : 'es'} por revisar`)
-                                : `${serenatas.length} registros entre propias y aplicaciÃ³n`}
+                                : `${serenatas.length} registros entre propias y aplicación`}
                         </p>
                     </div>
+                    {isSolicitudesMode ? (
+                        <div className="flex flex-wrap items-center gap-2 sm:justify-end">
+                            {solicitudesPendingCount > 0 ? (
+                                <span className="inline-flex items-center gap-1.5 rounded-full border border-accent-border bg-accent-soft px-2.5 py-1 text-xs font-semibold text-accent">
+                                    <IconBell size={14} className="animate-pulse" />
+                                    {solicitudesPendingCount} por responder
+                                </span>
+                            ) : null}
+                            <PanelButton
+                                type="button"
+                                variant="secondary"
+                                size="sm"
+                                onClick={toggleSoundMuted}
+                                aria-pressed={!soundMuted}
+                            >
+                                {soundMuted ? <IconBellOff size={15} /> : <IconBell size={15} />}
+                                {soundMuted ? 'Activar sonido' : 'Silenciar'}
+                            </PanelButton>
+                            {browserNotificationsSupported && !browserNotificationsEnabled ? (
+                                <PanelButton
+                                    type="button"
+                                    variant="secondary"
+                                    size="sm"
+                                    onClick={() => void requestBrowserNotifications()}
+                                >
+                                    Activar avisos
+                                </PanelButton>
+                            ) : null}
+                        </div>
+                    ) : null}
                 </div>
+
+                {isSolicitudesMode && alertCount > 0 ? (
+                    <div className="mt-4 flex flex-wrap gap-2">
+                        <SolicitudesFilterChip
+                            active={filter !== 'needs_response'}
+                            onClick={() => setFilter('all')}
+                            label={`Por revisar (${inboxCount})`}
+                        />
+                        <SolicitudesFilterChip
+                            active={filter === 'needs_response'}
+                            onClick={() => setFilter('needs_response')}
+                            label={`Con alerta (${alertCount})`}
+                        />
+                    </div>
+                ) : null}
 
                 <div className="mt-5 grid gap-3 sm:grid-cols-2">
                         <PanelField label="Estado">
@@ -194,7 +293,7 @@ export function SerenatasView({ serenatas, groups, musicians, packages: packages
                                 </option>
                                 <option value="pending">Pendientes ({pendingCount})</option>
                                 {isSolicitudesMode ? <option value="expired">Expiradas ({expiredCount})</option> : null}
-                                <option value="accepted_pending_group">Falta grupo ({needsGroupCount})</option>
+                                <option value="accepted_pending_group">Sin grupo ({needsGroupCount})</option>
                                 {!isSolicitudesMode ? (
                                     <>
                                         <option value="scheduled">Programadas</option>
@@ -208,46 +307,60 @@ export function SerenatasView({ serenatas, groups, musicians, packages: packages
                             <FieldSelect value={originFilter} onChange={(event) => setOriginFilter(event.target.value as SerenataOriginFilter)}>
                                 <option value="all">Todo origen ({serenatas.length})</option>
                                 <option value="own_lead">Propias ({ownCount})</option>
-                                <option value="platform_lead">AplicaciÃ³n ({appCount})</option>
+                                <option value="platform_lead">Aplicación ({appCount})</option>
                             </FieldSelect>
                         </PanelField>
                 </div>
 
                 <div className="mt-6 grid gap-4">
-                    {filtered.length === 0 ? (
+                    {filteredSorted.length === 0 ? (
                         <div className="flex min-h-[400px] flex-col items-center justify-center rounded-3xl border-2 border-dashed p-8 text-center border-border">
                             <EmptyBlock
                                 title={isSolicitudesMode
-                                    ? (filter === 'all' ? 'No hay solicitudes por revisar' : 'Sin solicitudes con este filtro')
+                                    ? (filter === 'needs_response'
+                                        ? 'Ninguna solicitud con alerta activa'
+                                        : filter === 'all'
+                                          ? 'No hay solicitudes por revisar'
+                                          : 'Sin solicitudes con este filtro')
                                     : 'Sin serenatas'}
                                 description={isSolicitudesMode
-                                    ? (filter === 'all'
-                                        ? 'Las serenatas confirmadas aparecen en Agenda. Cuando llegue una nueva solicitud del marketplace, la verÃ¡s aquÃ­.'
-                                        : 'Prueba otro estado u origen, o espera nuevas solicitudes del marketplace.')
-                                    : 'Crea una serenata propia para empezar.'}
+                                    ? (filter === 'needs_response'
+                                        ? 'Las que requieren respuesta urgente aparecen aquí cuando el cliente ya pagó.'
+                                        : filter === 'all'
+                                          ? 'Las serenatas confirmadas aparecen en Agenda. Cuando llegue una nueva solicitud del marketplace, la verás aquí.'
+                                          : 'Prueba otro estado u origen, o espera nuevas solicitudes del marketplace.')
+                                    : 'Sin serenatas con este filtro.'}
                             />
-                            <PanelButton className="mt-6" onClick={() => setCreateOpen(true)}>
-                                <IconPlus size={15} />
-                                Nueva serenata
-                            </PanelButton>
                         </div>
                     ) : (
                         <>
-                            {filtered.map((item) => {
+                            {filteredSorted.map((item) => {
                                 const needsGroup = item.status === 'accepted_pending_group' && !item.groupId;
+                                const showWaitTimer = isPendingSerenataAction(item);
+                                const waitState = showWaitTimer ? getSolicitudWaitState(item) : null;
+                                const isMostUrgent = item.id === mostUrgentId && showWaitTimer;
+                                const urgentCardClass = isMostUrgent
+                                    ? waitState?.urgency === 'danger'
+                                        ? 'solicitud-card--urgent-danger'
+                                        : waitState?.urgency === 'warning'
+                                          ? 'solicitud-card--urgent-warning'
+                                          : 'solicitud-card--urgent'
+                                    : '';
                                 return (
                                 <button
                                     key={item.id}
                                     type="button"
                                     onClick={() => {
                                         setSelectedId(item.id);
-                                        setMode(needsGroup ? 'assignGroup' : 'detail');
+                                        setMode('detail');
                                     }}
                                     className={`group w-full rounded-card border p-5 text-left transition-all hover:shadow-md ${
-                                        selected?.id === item.id || needsGroup
+                                        selected?.id === item.id
                                             ? 'border-accent bg-accent-soft'
-                                            : 'border-border bg-surface'
-                                    }`}
+                                            : needsGroup
+                                              ? 'border-accent-border bg-surface'
+                                              : 'border-border bg-surface'
+                                    } ${urgentCardClass}`}
                                 >
                                     <div className="flex items-start justify-between gap-4">
                                         <div className="min-w-0 flex-1">
@@ -255,6 +368,9 @@ export function SerenatasView({ serenatas, groups, musicians, packages: packages
                                                 <p className="truncate text-base font-bold text-[var(--fg)]">{item.recipientName}</p>
                                                 <SerenataSourceBadge source={item.source} size="sm" />
                                             </div>
+                                            <p className="mt-1.5 truncate text-sm text-fg-secondary">
+                                                {formatSerenataListSummary(item)}
+                                            </p>
                                             <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-fg-muted">
                                                 <span className="flex items-center gap-1.5">
                                                     <IconClock size={15} className="shrink-0" />
@@ -266,38 +382,30 @@ export function SerenatasView({ serenatas, groups, musicians, packages: packages
                                                 </span>
                                             </div>
                                         </div>
-                                        <div className="text-right">
-                                            <p className="text-lg font-bold text-accent">{money(item.price)}</p>
-                                            <div className="mt-2 flex flex-col items-end gap-2">
+                                        <div className="flex shrink-0 flex-col items-end gap-2 text-right">
+                                            {showWaitTimer ? (
+                                                <SolicitudWaitTimer item={item} />
+                                            ) : (
                                                 <PanelStatusBadge tone={serenataStatusTone(item.status)} label={serenataStatusLabel(item.status)} size="sm" />
-                                                {needsGroup ? (
-                                                    <span className="text-xs font-semibold text-accent">Conformar grupo â†’</span>
-                                                ) : null}
-                                            </div>
+                                            )}
+                                            <p className="text-lg font-bold text-accent">{money(item.price)}</p>
+                                            {needsGroup ? (
+                                                <span className="text-xs font-semibold text-accent">Sin grupo</span>
+                                            ) : null}
                                         </div>
                                     </div>
                                 </button>
                                 );
                             })}
-                            <button
-                                type="button"
-                                onClick={() => setCreateOpen(true)}
-                                className="flex w-full items-center justify-center gap-2 rounded-card border-2 border-dashed border-border py-6 text-sm font-medium text-fg-muted transition-colors hover:border-accent-border hover:bg-accent-soft hover:text-accent"
-                            >
-                                <IconPlus size={16} />
-                                Nueva serenata
-                            </button>
                         </>
                     )}
                 </div>
                 </PanelCard>
 
-                {mode === 'assignGroup' && selected ? (
-                <SerenataGroupAssignment item={selected} groups={groups} musicians={musicians} refresh={refresh} onDone={(item) => { setSelectedId(item.id); setMode('detail'); }} onCancel={() => setMode('detail')} />
-            ) : mode === 'edit' && selected ? (
-                <SerenataForm title="Editar serenata" item={selected} groups={groups} packages={packages} refresh={refresh} onDone={(item) => { setSelectedId(item.id); setMode('detail'); }} onCancel={() => setMode('detail')} />
+                {mode === 'edit' && selected ? (
+                <SerenataForm title="Editar serenata" item={selected} groups={groups} refresh={refresh} onDone={(item) => { setSelectedId(item.id); setMode('detail'); }} onCancel={() => setMode('detail')} />
             ) : selected ? (
-                <SerenataDetail item={selected} groups={groups} refresh={refresh} onEdit={() => setMode('edit')} onAssignGroup={() => setMode('assignGroup')} onCreate={() => setCreateOpen(true)} />
+                <SerenataDetail item={selected} groups={groups} ownerPlan={ownerPlan} refresh={refresh} onEdit={() => setMode('edit')} />
             ) : (
                 <PanelCard size="lg">
                     <div className="flex min-h-[420px] flex-col items-center justify-center gap-4 text-center">
@@ -307,165 +415,272 @@ export function SerenatasView({ serenatas, groups, musicians, packages: packages
             )}
             </div>
 
-            {createOpen ? (
-                <SerenataCreateModal onClose={() => setCreateOpen(false)}>
-                    <SerenataForm
-                        title="Nueva serenata"
-                        groups={groups}
-                        packages={packages}
-                        refresh={refresh}
-                        onDone={(item) => {
-                            setSelectedId(item.id);
-                            setMode('detail');
-                            setCreateOpen(false);
-                        }}
-                        onCancel={() => setCreateOpen(false)}
-                        modal
-                    />
-                </SerenataCreateModal>
-            ) : null}
         </>
     );
 }
 
-function SerenataDetail({ item, groups, refresh, onEdit, onAssignGroup, onCreate }: { item: Serenata; groups: SerenataGroup[]; refresh: () => Promise<void>; onEdit: () => void; onAssignGroup: () => void; onCreate: () => void }) {
-    const group = groups.find((entry) => entry.id === item.groupId);
+function SerenataDetail({ item, groups, ownerPlan, refresh, onEdit }: { item: Serenata; groups: SerenataGroup[]; ownerPlan: SerenataMePlan | null; refresh: () => Promise<void>; onEdit: () => void }) {
+    const assignedGroup = groups.find((entry) => entry.id === item.groupId);
     const [status, setStatus] = useState<FormStatus>({ loading: false, error: null, ok: null });
+    const [pickedGroupId, setPickedGroupId] = useState(item.groupId ?? '');
+    const [groupPickError, setGroupPickError] = useState<string | null>(null);
+    const [groupSaving, setGroupSaving] = useState(false);
+    const [serviceSongsIncluded, setServiceSongsIncluded] = useState<number | null>(item.songsIncludedAtBooking ?? null);
+    const [rejectOpen, setRejectOpen] = useState(false);
+    const [rejectTemplateId, setRejectTemplateId] = useState<string | null>(null);
+    const [rejectCustomText, setRejectCustomText] = useState('');
     const isPendingApp = isPendingSerenataAction(item);
-    const needsGroup = item.status === 'accepted_pending_group' && !item.groupId;
-    const commission = item.source === 'platform_lead' && item.price != null ? Math.round(item.price * 0.08 * 1.19) : null;
-    const net = item.price != null && commission != null ? item.price - commission : item.price;
+    const showGroupPicker = isPendingApp || item.status === 'accepted_pending_group';
+    const groupOptions = useMemo(() => buildSerenataGroupSelectOptions(item, groups), [item, groups]);
+
+    useEffect(() => {
+        setPickedGroupId(item.groupId ?? '');
+        setGroupPickError(null);
+        setRejectOpen(false);
+        setRejectTemplateId(null);
+        setRejectCustomText('');
+    }, [item.id, item.groupId]);
+
+    useEffect(() => {
+        if (item.songsIncludedAtBooking != null) {
+            setServiceSongsIncluded(item.songsIncludedAtBooking);
+            return;
+        }
+        if (!item.providerGroupId || !item.selectedServiceId) {
+            setServiceSongsIncluded(0);
+            return;
+        }
+        let cancelled = false;
+        void serenatasApi.providerGroupServices(item.providerGroupId).then((response) => {
+            if (cancelled || !response.ok) return;
+            const service = response.items.find((entry) => entry.id === item.selectedServiceId);
+            setServiceSongsIncluded(service?.songsIncluded ?? 0);
+        });
+        return () => {
+            cancelled = true;
+        };
+    }, [item.id, item.providerGroupId, item.selectedServiceId, item.songsIncludedAtBooking]);
+    const commissionBps = ownerPlan?.commissionAppBps ?? ownerPlan?.constants.APP_COMMISSION_FREE_BPS ?? 1500;
+    const commissionVatBps = ownerPlan?.commissionVatBps ?? ownerPlan?.constants.COMMISSION_VAT_BPS ?? 1900;
+    const commissionPercent = ownerPlan?.commissionAppPercent ?? commissionPercentFromBps(commissionBps);
+    const appDeduction = item.source === 'platform_lead' && item.price != null
+        ? computeSerenataAppDeduction(item.price, commissionBps, commissionVatBps)
+        : null;
+    const commission = appDeduction?.commissionClp ?? null;
+    const net = appDeduction?.netClp ?? item.price;
+    const eventPlace = formatSerenataEventPlace(item);
+    const showClientPhone = ownerCanViewClientPhone(item);
+
+    async function persistGroupSelection(nextGroupId: string) {
+        if (!nextGroupId) return true;
+        setGroupSaving(true);
+        setGroupPickError(null);
+        const response = await serenatasApi.updateSerenata(item.id, { groupId: nextGroupId });
+        setGroupSaving(false);
+        if (!response.ok) {
+            setGroupPickError(response.error ?? 'No pudimos asignar el grupo.');
+            return false;
+        }
+        await refresh();
+        return true;
+    }
+
+    async function handleGroupChange(nextGroupId: string) {
+        setPickedGroupId(nextGroupId);
+        setGroupPickError(null);
+        if (item.status === 'accepted_pending_group' && nextGroupId) {
+            await persistGroupSelection(nextGroupId);
+        }
+    }
+
+    const resolvedRejectReason = rejectTemplateId
+        ? resolveSerenataRejectReason(rejectTemplateId, rejectCustomText)
+        : null;
+    const canConfirmReject = rejectTemplateId != null && (
+        rejectTemplateId !== SERENATA_REJECT_OTHER_ID || (rejectCustomText.trim().length >= 3)
+    );
 
     async function respondOffer(action: 'accept' | 'reject') {
+        if (action === 'reject') {
+            if (!rejectOpen) {
+                setRejectOpen(true);
+                return;
+            }
+            if (!canConfirmReject) {
+                setStatus({ loading: false, error: 'Elige un motivo o escribe al menos 3 caracteres.', ok: null });
+                return;
+            }
+        }
         setStatus({ loading: true, error: null, ok: null });
         const response = action === 'accept'
             ? await serenatasApi.acceptSerenataOffer(item.id)
-            : await serenatasApi.rejectSerenataOffer(item.id);
+            : await serenatasApi.rejectSerenataOffer(item.id, { reason: resolvedRejectReason ?? undefined });
         if (!response.ok) {
             setStatus({ loading: false, error: response.error ?? 'No pudimos responder esta solicitud.', ok: null });
             return;
         }
-        setStatus({ loading: false, error: null, ok: action === 'accept' ? 'Serenata aceptada. Asigna un grupo para confirmarla.' : 'Solicitud rechazada.' });
+        let okMessage = action === 'accept'
+            ? 'Solicitud aceptada. Asigna un grupo cuando puedas para confirmarla en agenda.'
+            : 'Solicitud rechazada. El cliente recibirá el motivo indicado.';
+        if (action === 'accept' && pickedGroupId) {
+            const assigned = await persistGroupSelection(pickedGroupId);
+            okMessage = assigned
+                ? 'Listo: solicitud aceptada, grupo asignado y serenata confirmada en tu agenda.'
+                : 'Solicitud aceptada, pero no pudimos asignar el grupo elegido. Elige otro grupo e inténtalo de nuevo.';
+        }
+        setRejectOpen(false);
+        setRejectTemplateId(null);
+        setRejectCustomText('');
+        setStatus({ loading: false, error: null, ok: okMessage });
         await refresh();
-        if (action === 'accept') onAssignGroup();
     }
+
+    const serviceLabel = item.eventType ?? item.packageCode ?? 'Serenata';
 
     return (
         <PanelCard size="lg" className={`min-w-0 xl:min-h-[680px] ${isPendingApp ? 'border-[color:var(--accent-border)]' : ''}`}>
-            <div className="flex flex-col gap-4 border-b pb-5 sm:flex-row sm:items-start sm:justify-between border-border">
+            <div className="flex flex-col gap-5 border-b border-border pb-6 sm:flex-row sm:items-start sm:justify-between">
                 <div className="min-w-0">
                     <div className="mb-3 flex flex-wrap items-center gap-2">
                         <PanelStatusBadge tone={serenataStatusTone(item.status)} label={serenataStatusLabel(item.status)} />
                         <SerenataSourceBadge source={item.source} />
                     </div>
-                    <h2 className="break-words text-2xl font-bold lg:text-3xl text-[var(--fg)]">{item.recipientName}</h2>
-                    <p className="mt-2 text-sm text-fg-muted">{item.eventType ?? 'Serenata'}{group ? ` Â· ${group.name}` : ''}</p>
+                    <h2 className="break-words text-2xl font-bold text-fg lg:text-3xl">{item.recipientName}</h2>
+                    <p className="mt-2 text-sm text-fg-muted">{serviceLabel}</p>
                 </div>
                 <div className="shrink-0 text-left sm:text-right">
-                    <p className="text-3xl font-bold lg:text-4xl text-accent">{money(item.price)}</p>
+                    <p className="text-3xl font-bold text-accent lg:text-4xl">{money(item.price)}</p>
                     <p className="mt-1 text-sm text-fg-muted">por serenata</p>
                 </div>
             </div>
 
             {isPendingApp ? (
-                <div className="mt-5 rounded-card border p-4 border-accent-border bg-accent-soft">
-                    <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
-                        <div className="min-w-0">
-                            <p className="text-sm font-semibold text-[var(--fg)]">Solicitud pagada</p>
-                            <p className="mt-1 text-sm text-fg-secondary">
-                                Acepta solo si puedes cubrir fecha, horario y comuna. DespuÃ©s debes asignar un grupo para confirmarla.
-                            </p>
-                        </div>
-                        <div className="shrink-0">
-                            <PanelStatusBadge tone="info" label="Responder ahora" />
-                        </div>
+                <div className="mt-6 rounded-card border border-accent-border bg-accent-soft p-5">
+                    <div className="flex flex-wrap items-center justify-between gap-3">
+                        <p className="text-sm font-semibold text-fg">Solicitud pagada</p>
+                        <SolicitudWaitTimer item={item} />
                     </div>
-                    <div className="mt-4 grid min-w-0 gap-3 sm:grid-cols-3">
+                    <div className="mt-5 grid min-w-0 gap-4 sm:grid-cols-3">
                         <MoneyMetric label="Precio" value={item.price} strong />
-                        <MoneyMetric label="ComisiÃ³n 8% + IVA" value={commission} />
+                        <MoneyMetric label={`Comisión ${commissionPercent}% + IVA`} value={commission} />
                         <MoneyMetric label="Estimado neto" value={net} strong />
                     </div>
                 </div>
             ) : null}
 
-            {needsGroup ? (
-                <div className="mt-5 rounded-card border p-4 border-accent-border bg-accent-soft">
-                    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                        <div>
-                            <p className="text-sm font-semibold text-[var(--fg)]">Falta conformar grupo</p>
-                            <p className="mt-1 text-sm text-fg-secondary">
-                                La solicitud fue aceptada; confirma la serenata cuando selecciones el equipo que la cubrirÃ¡.
-                            </p>
-                        </div>
-                        <PanelButton onClick={onAssignGroup}>
-                            <IconUsers size={15} />
-                            Conformar grupo
-                        </PanelButton>
+            <div className={`flex flex-col gap-8 ${isPendingApp ? 'mt-8' : 'mt-6'}`}>
+                <div className="grid gap-x-8 gap-y-8 md:grid-cols-2">
+                    <SerenataDetailMetric
+                        icon={IconClock}
+                        label="Fecha y hora"
+                        title={`${formatDate(item.eventDate)} a las ${item.eventTime}`}
+                    />
+                    <SerenataDetailMetric
+                        icon={IconMapPin}
+                        label="Lugar del evento"
+                        title={eventPlace.street}
+                        description={eventPlace.zone}
+                        action={
+                            <a
+                                href={googleMapsUrl(item)}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="inline-flex items-center gap-1 text-xs font-semibold text-accent hover:underline"
+                            >
+                                <IconMapPin size={14} />
+                                Ver en mapa
+                            </a>
+                        }
+                    />
+                    <SerenataDetailMetric icon={IconHourglass} label="Duración" title={`${item.duration} minutos`} />
+                    <SerenataDetailMetric
+                        icon={IconMusic}
+                        label="Canciones del servicio"
+                        title={
+                            serviceSongsIncluded == null
+                                ? 'Cargando…'
+                                : formatServiceSongsIncludedLabel(serviceSongsIncluded)
+                        }
+                    />
+                </div>
+
+                {showClientPhone ? (
+                    <SerenataDetailMetric icon={IconPhone} label="Contacto solicitante" title={item.clientPhone ?? 'Sin teléfono'} />
+                ) : null}
+
+                {showGroupPicker ? (
+                    <SerenataDetailGroupPicker
+                        value={pickedGroupId}
+                        options={groupOptions}
+                        disabled={status.loading || groupSaving}
+                        error={groupPickError}
+                        onChange={(next) => void handleGroupChange(next)}
+                    />
+                ) : (
+                    <SerenataDetailMetric
+                        icon={IconUsers}
+                        label="Grupo"
+                        title={assignedGroup?.name ?? 'Sin grupo asignado'}
+                    />
+                )}
+
+                {item.message ? (
+                    <div className="rounded-card border border-border bg-bg-subtle p-5">
+                        <SerenataDetailMetric icon={IconMessage} label="Mensaje" title={item.message} />
                     </div>
-                </div>
-            ) : null}
+                ) : null}
 
-            <div className="grid gap-6 py-6 md:grid-cols-2">
-                <SerenataDetailMetric icon={IconClock} label="Fecha y hora" title={`${formatDate(item.eventDate)} a las ${item.eventTime}`} />
-                <SerenataDetailMetric icon={IconMapPin} label="UbicaciÃ³n" title={item.comuna ?? 'Sin comuna'} description={item.region ?? undefined} />
+                {item.providerGroupId ? (
+                    <SerenataSetlistPanel serenata={item} mode="owner" refresh={refresh} embedded />
+                ) : null}
             </div>
 
-            <div className="grid gap-6 md:grid-cols-2">
-                <div>
-                    <p className="text-sm font-semibold text-[var(--fg)]">DirecciÃ³n</p>
-                    <p className="mt-2 text-sm text-fg-secondary">{item.address}</p>
-                </div>
-                <div>
-                    <p className="text-sm font-semibold text-[var(--fg)]">Contacto de coordinaciÃ³n</p>
-                    <p className="mt-2 text-sm text-fg-secondary">{item.clientPhone ?? 'Sin telÃ©fono'}</p>
-                </div>
-                <div>
-                    <p className="text-sm font-semibold text-[var(--fg)]">DuraciÃ³n</p>
-                    <p className="mt-2 text-sm text-fg-secondary">{item.duration} minutos</p>
-                </div>
-                <div>
-                    <p className="text-sm font-semibold text-[var(--fg)]">Servicio contratado</p>
-                    <p className="mt-2 text-sm text-fg-secondary">{item.eventType ?? item.packageCode ?? 'Sin servicio definido'}</p>
-                </div>
-                <div>
-                    <p className="text-sm font-semibold text-[var(--fg)]">Grupo</p>
-                    <p className="mt-2 text-sm text-fg-secondary">{group?.name ?? 'Sin grupo asignado'}</p>
-                </div>
-            </div>
-
-            <div className="mt-6 rounded-card border p-4 border-border bg-bg-subtle">
-                <p className="text-sm font-semibold text-[var(--fg)]">Origen</p>
-                <p className="mt-2 text-sm text-fg-secondary">
-                    {item.source === 'own_lead'
-                        ? 'Serenata propia agregada por el grupo. Costo de plataforma: $0.'
-                        : 'Serenata enviada por la aplicaciÃ³n. ComisiÃ³n aplicable: 8% + IVA.'}
-                </p>
-            </div>
-
-            {item.message ? (
-                <div className="mt-6 rounded-card border p-4 border-border bg-bg-subtle">
-                    <p className="text-sm font-semibold text-[var(--fg)]">Mensaje</p>
-                    <p className="mt-2 text-sm text-fg-secondary">{item.message}</p>
-                </div>
-            ) : null}
-
-            {item.providerGroupId ? (
-                <SerenataSetlistPanel serenata={item} mode="owner" refresh={refresh} />
+            {isPendingApp && rejectOpen ? (
+                <SerenataRejectReasonPanel
+                    templateId={rejectTemplateId}
+                    customText={rejectCustomText}
+                    disabled={status.loading}
+                    onSelectTemplate={setRejectTemplateId}
+                    onCustomTextChange={setRejectCustomText}
+                    onCancel={() => {
+                        setRejectOpen(false);
+                        setRejectTemplateId(null);
+                        setRejectCustomText('');
+                        setStatus({ loading: false, error: null, ok: null });
+                    }}
+                />
             ) : null}
 
             <FormFeedback status={status} />
-            <div className="sticky bottom-3 z-10 mt-6 flex flex-col gap-3 rounded-card border p-3 shadow-sm md:static md:rounded-none md:border-0 md:border-t md:p-0 md:pt-5 md:shadow-none sm:flex-row border-border bg-surface">
+            <div className="sticky bottom-3 z-10 mt-8 flex flex-col gap-3 rounded-card border p-4 shadow-sm md:static md:rounded-none md:border-0 md:border-t md:p-0 md:pt-6 md:shadow-none sm:flex-row border-border bg-surface">
                 {isPendingApp ? (
                     <>
-                        <PanelButton className="flex-1" disabled={status.loading} onClick={() => void respondOffer('accept')}>
+                        <PanelButton className="flex-1" disabled={status.loading || rejectOpen} onClick={() => void respondOffer('accept')}>
                             <IconCheck size={15} />
-                            Aceptar solicitud
+                            {pickedGroupId ? 'Aceptar y confirmar' : 'Aceptar solicitud'}
                         </PanelButton>
-                        <PanelButton className="flex-1" variant="secondary" disabled={status.loading} onClick={() => void respondOffer('reject')}>
-                            <IconX size={15} />
-                            Rechazar
-                        </PanelButton>
+                        {rejectOpen ? (
+                            <PanelButton
+                                className="flex-1"
+                                variant="secondary"
+                                disabled={status.loading || !canConfirmReject}
+                                onClick={() => void respondOffer('reject')}
+                            >
+                                <IconX size={15} />
+                                Confirmar rechazo
+                            </PanelButton>
+                        ) : (
+                            <PanelButton className="flex-1" variant="secondary" disabled={status.loading} onClick={() => void respondOffer('reject')}>
+                                <IconX size={15} />
+                                Rechazar
+                            </PanelButton>
+                        )}
                     </>
+                ) : item.status === 'accepted_pending_group' ? (
+                    <PanelButton className="flex-1" variant="secondary" onClick={onEdit}>
+                        <IconPencil size={15} />
+                        Editar
+                    </PanelButton>
                 ) : (
                     <>
                         <PanelButton className="flex-1" onClick={onEdit}>
@@ -482,308 +697,11 @@ function SerenataDetail({ item, groups, refresh, onEdit, onAssignGroup, onCreate
     );
 }
 
-function SerenataGroupAssignment({ item, groups, musicians, refresh, onDone, onCancel }: { item: Serenata; groups: SerenataGroup[]; musicians: MusicianDirectoryItem[]; refresh: () => Promise<void>; onDone: (item: Serenata) => void; onCancel: () => void }) {
-    const [providerMembers, setProviderMembers] = useState<ProviderGroupMember[]>([]);
-    const [membersLoading, setMembersLoading] = useState(Boolean(item.providerGroupId));
-    const [selectedService, setSelectedService] = useState<ProviderGroupService | null>(null);
-    const [serviceLoading, setServiceLoading] = useState(Boolean(item.providerGroupId && item.selectedServiceId));
-    const providerMusicianIds = new Set(providerMembers.map((member) => member.musicianId));
-    const eligibleMusicians = item.providerGroupId
-        ? musicians.filter((musician) => providerMusicianIds.has(musician.id))
-        : musicians;
-    const marketplaceRequest = Boolean(item.providerGroupId);
-    const draftGroups = item.providerGroupId
-        ? groups.filter((group) => group.status === 'draft' && group.providerGroupId === item.providerGroupId)
-        : [];
-    const sameDateGroups = groups.filter((group) => (
-        toInputDate(group.date) === toInputDate(item.eventDate)
-        && (!item.providerGroupId || !group.providerGroupId || group.providerGroupId === item.providerGroupId)
-    ));
-    const selectableGroups = useMemo(() => {
-        const byId = new Map<string, SerenataGroup>();
-        for (const group of [...draftGroups, ...sameDateGroups]) byId.set(group.id, group);
-        return [...byId.values()];
-    }, [draftGroups, sameDateGroups]);
-    const initialGroupId = selectableGroups[0]?.id ?? '';
-    const sortedMusicians = [...eligibleMusicians].sort((a, b) => {
-        const aAvailable = a.availableNow ? 0 : 1;
-        const bAvailable = b.availableNow ? 0 : 1;
-        if (aAvailable !== bAvailable) return aAvailable - bAvailable;
-        const aMatch = a.comuna === item.comuna || a.region === item.region ? 0 : 1;
-        const bMatch = b.comuna === item.comuna || b.region === item.region ? 0 : 1;
-        if (aMatch !== bMatch) return aMatch - bMatch;
-        return a.name.localeCompare(b.name);
-    });
-    const [status, setStatus] = useState<FormStatus>({ loading: false, error: null, ok: null });
-    const [mode, setMode] = useState<'existing' | 'new'>(initialGroupId ? 'existing' : 'new');
-    const [groupId, setGroupId] = useState(initialGroupId);
-    const [name, setName] = useState(`Grupo ${formatDate(item.eventDate)} ${item.eventTime}`);
-    const [selectedMusicians, setSelectedMusicians] = useState<string[]>([]);
-    useEffect(() => {
-        if (!item.providerGroupId) {
-            setMembersLoading(false);
-            return;
-        }
-        let cancelled = false;
-        setMembersLoading(true);
-        void serenatasApi.providerGroupMembers(item.providerGroupId).then((response) => {
-            if (cancelled) return;
-            const active = response.ok ? response.items.filter((member) => member.status === 'active') : [];
-            setProviderMembers(active);
-            setMembersLoading(false);
-        });
-        return () => {
-            cancelled = true;
-        };
-    }, [item.providerGroupId]);
-    useEffect(() => {
-        if (!item.providerGroupId || !item.selectedServiceId) {
-            setSelectedService(null);
-            setServiceLoading(false);
-            return;
-        }
-        let cancelled = false;
-        setServiceLoading(true);
-        void serenatasApi.providerGroupServices(item.providerGroupId).then((response) => {
-            if (cancelled) return;
-            const service = response.ok
-                ? response.items.find((entry) => entry.id === item.selectedServiceId) ?? null
-                : null;
-            setSelectedService(service);
-            setServiceLoading(false);
-        });
-        return () => {
-            cancelled = true;
-        };
-    }, [item.providerGroupId, item.selectedServiceId]);
-    const [message, setMessage] = useState(`Serenata para ${item.recipientName} el ${formatDate(item.eventDate)} a las ${item.eventTime}.`);
-    const selectedGroup = groups.find((group) => group.id === groupId);
-    const selectedGroupActiveMembers = selectedGroup?.members.filter((member) => member.status === 'accepted' || member.status === 'invited') ?? [];
-    const selectedGroupMemberIds = new Set(selectedGroupActiveMembers.map((member) => member.musicianId));
-    const selectedGroupMemberCount = selectedGroupActiveMembers.length;
-    const requiredMusicians = selectedService?.musiciansCount ?? requiredMusiciansForPackage(item.packageCode);
-    const selectedAdditionalCount = selectedMusicians.filter((id) => !selectedGroupMemberIds.has(id)).length;
-    const selectedGroupTotal = selectedGroupMemberCount + selectedAdditionalCount;
-    const serviceLabel = selectedService
-        ? `${selectedService.name} Â· ${selectedService.musiciansCount} mÃºsico${selectedService.musiciansCount === 1 ? '' : 's'} Â· ${selectedService.durationMinutes} min`
-        : item.eventType ?? item.packageCode ?? 'Servicio sin detalle';
-    const groupDateMismatch = Boolean(
-        selectedGroup
-        && selectedGroup.status !== 'draft'
-        && toInputDate(selectedGroup.date) !== toInputDate(item.eventDate),
-    );
-
-    useEffect(() => {
-        setSelectedMusicians((current) => {
-            const allowed = current.filter((id) => sortedMusicians.some((musician) => musician.id === id));
-            const missingCount = Math.max(0, requiredMusicians - selectedGroupMemberCount - allowed.length);
-            if (missingCount === 0) return allowed;
-            const missing = sortedMusicians
-                .map((musician) => musician.id)
-                .filter((id) => !allowed.includes(id))
-                .slice(0, missingCount);
-            return [...allowed, ...missing];
-        });
-    }, [requiredMusicians, selectedGroupMemberCount, sortedMusicians.map((musician) => musician.id).join('|')]);
-
-    function toggleMusician(id: string) {
-        setSelectedMusicians((current) => current.includes(id) ? current.filter((entry) => entry !== id) : [...current, id]);
-    }
-
-    async function submit() {
-        setStatus({ loading: true, error: null, ok: null });
-        if (mode === 'existing' && !groupId) {
-            setStatus({ loading: false, error: 'Selecciona un grupo existente o crea uno nuevo.', ok: null });
-            return;
-        }
-        if (mode === 'new' && name.trim().length < 2) {
-            setStatus({ loading: false, error: 'Escribe un nombre para el grupo.', ok: null });
-            return;
-        }
-        if (mode === 'existing' && groupDateMismatch) {
-            setStatus({ loading: false, error: 'El grupo seleccionado tiene una fecha distinta a la serenata.', ok: null });
-            return;
-        }
-        if (mode === 'new' && selectedMusicians.length < requiredMusicians) {
-            setStatus({ loading: false, error: `Este servicio requiere al menos ${requiredMusicians} mÃºsicos.`, ok: null });
-            return;
-        }
-        if (mode === 'existing' && selectedGroupTotal < requiredMusicians) {
-            setStatus({ loading: false, error: `El grupo seleccionado no suma suficientes mÃºsicos para este servicio (${selectedGroupTotal}/${requiredMusicians}).`, ok: null });
-            return;
-        }
-        const response = await serenatasApi.assignSerenataGroup(item.id, {
-            mode,
-            groupId: mode === 'existing' ? groupId : null,
-            name: mode === 'new' ? name.trim() : null,
-            musicianIds: selectedMusicians,
-            message: message.trim() || null,
-        });
-        if (!response.ok) {
-            setStatus({ loading: false, error: response.error ?? 'No pudimos asignar el grupo.', ok: null });
-            return;
-        }
-        setStatus({ loading: false, error: null, ok: 'Grupo asignado. La serenata quedÃ³ confirmada.' });
-        await refresh();
-        onDone(response.item);
-    }
-
-    return (
-        <PanelCard size="lg" className="xl:min-h-[680px]">
-            <PanelBlockHeader
-                title="Conformar grupo"
-                description="Elige los mÃºsicos que cubrirÃ¡n la serenata segÃºn el servicio contratado."
-                actions={<PanelStatusBadge tone={serenataStatusTone(item.status)} label={serenataStatusLabel(item.status)} />}
-            />
-
-            <div className="mt-5 rounded-card border p-4 border-border bg-bg-subtle">
-                <div className="grid gap-4 md:grid-cols-4">
-                    <SerenataDetailMetric icon={IconUsers} label="Servicio" title={serviceLoading ? 'Cargando...' : serviceLabel} />
-                    <SerenataDetailMetric icon={IconClock} label="Fecha y hora" title={`${formatDate(item.eventDate)} a las ${item.eventTime}`} />
-                    <SerenataDetailMetric icon={IconMapPin} label="Comuna" title={item.comuna ?? 'Sin comuna'} description={item.region ?? undefined} />
-                    <MoneyMetric label="Precio confirmado" value={item.price} strong />
-                </div>
-            </div>
-
-            {marketplaceRequest ? (
-                <PanelNotice tone="neutral" className="mt-5">
-                    Solicitud del marketplace: usa un grupo ya conformado o crea uno para este evento.
-                    El servicio contratado define el mÃ­nimo de mÃºsicos.
-                </PanelNotice>
-            ) : null}
-
-            <div className="mt-5 grid gap-3 sm:grid-cols-2">
-                <button
-                    type="button"
-                    onClick={() => setMode('existing')}
-                    disabled={selectableGroups.length === 0}
-                    className={`rounded-card border p-4 text-left transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
-                        mode === 'existing' ? 'border-accent-border bg-accent-soft' : 'border-border bg-surface'
-                    }`}
-                >
-                    <p className="text-sm font-semibold text-fg">Usar grupo existente</p>
-                    <p className="mt-1 text-xs text-fg-muted">
-                        Asigna un grupo que ya tienes conformado para este mariachi o fecha.
-                    </p>
-                </button>
-                <button
-                    type="button"
-                    onClick={() => setMode('new')}
-                    className={`rounded-card border p-4 text-left transition-colors ${
-                        mode === 'new' ? 'border-accent-border bg-accent-soft' : 'border-border bg-surface'
-                    }`}
-                >
-                    <p className="text-sm font-semibold text-fg">Crear grupo para esta serenata</p>
-                    <p className="mt-1 text-xs text-fg-muted">Arma el grupo con integrantes activos antes de agendar.</p>
-                </button>
-            </div>
-
-            <div className="mt-5 grid gap-4">
-                {mode === 'existing' ? (
-                    <PanelField label="Grupo de mÃºsicos">
-                        <FieldSelect value={groupId} onChange={(event) => setGroupId(event.target.value)}>
-                            <option value="">Seleccionar grupo</option>
-                            {draftGroups.length > 0 ? (
-                                <optgroup label="Grupos guardados">
-                                    {draftGroups.map((group) => (
-                                        <option key={group.id} value={group.id}>
-                                            {group.name} Â· {group.members.filter((member) => member.status === 'accepted' || member.status === 'invited').length} mÃºsicos
-                                        </option>
-                                    ))}
-                                </optgroup>
-                            ) : null}
-                            {sameDateGroups.filter((group) => group.status !== 'draft').length > 0 ? (
-                                <optgroup label="Misma fecha">
-                                    {sameDateGroups.filter((group) => group.status !== 'draft').map((group) => (
-                                        <option key={group.id} value={group.id}>
-                                            {group.name} Â· {group.members.filter((member) => member.status === 'accepted' || member.status === 'invited').length} mÃºsicos
-                                        </option>
-                                    ))}
-                                </optgroup>
-                            ) : null}
-                        </FieldSelect>
-                    </PanelField>
-                ) : (
-                    <PanelField label="Nombre del grupo">
-                        <FieldInput value={name} onChange={(event) => setName(event.target.value)} placeholder="Grupo serenata viernes" />
-                    </PanelField>
-                )}
-
-                {groupDateMismatch ? (
-                    <PanelNotice tone="error">El grupo seleccionado no tiene la misma fecha que la serenata. Elige un grupo con fecha {formatDate(item.eventDate)} o crea uno nuevo.</PanelNotice>
-                ) : null}
-                {mode === 'existing' && selectedGroupMemberCount > requiredMusicians ? (
-                    <PanelNotice tone="neutral">
-                        Este grupo tiene {selectedGroupMemberCount} mÃºsicos y el servicio requiere {requiredMusicians}. Todos los mÃºsicos activos del grupo quedarÃ¡n asociados a la serenata.
-                    </PanelNotice>
-                ) : null}
-
-                <div className="rounded-card border p-4 border-border bg-surface">
-                    <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                        <div>
-                            <p className="text-sm font-semibold text-[var(--fg)]">Elegir mÃºsicos</p>
-                            <p className="mt-1 text-xs text-fg-muted">
-                                {mode === 'existing' && selectedGroupMemberCount > 0
-                                    ? `El grupo seleccionado ya tiene ${selectedGroupMemberCount} mÃºsico${selectedGroupMemberCount === 1 ? '' : 's'}. Puedes sumar mÃ¡s.`
-                                    : 'Selecciona los mÃºsicos que cubrirÃ¡n esta serenata.'}
-                            </p>
-                        </div>
-                        <PanelStatusBadge
-                            tone={selectedGroupTotal >= requiredMusicians ? 'success' : 'warning'}
-                            label={`${selectedGroupTotal}/${requiredMusicians} para el servicio`}
-                            size="sm"
-                        />
-                    </div>
-                    <div className="mt-4 grid max-h-[260px] gap-2 overflow-y-auto pr-1">
-                        {sortedMusicians.length === 0 ? (
-                            <PanelNotice>No hay mÃºsicos disponibles en el directorio todavÃ­a.</PanelNotice>
-                        ) : sortedMusicians.map((musician) => {
-                            const checked = selectedMusicians.includes(musician.id);
-                            return (
-                                <label
-                                    key={musician.id}
-                                    className={`flex cursor-pointer items-start gap-3 rounded-xl border p-3 transition-colors ${
-                                        checked ? 'border-accent-border bg-accent-soft' : 'border-border bg-bg-subtle'
-                                    }`}
-                                >
-                                    <input className="mt-1" type="checkbox" checked={checked} onChange={() => toggleMusician(musician.id)} />
-                                    <span className="min-w-0 flex-1">
-                                        <span className="block text-sm font-semibold text-[var(--fg)]">{musician.name}</span>
-                                        <span className="mt-1 block text-xs text-fg-muted">
-                                            {(musician.instrument || musician.instruments[0] || 'Instrumento por confirmar')} Â· {musician.comuna ?? musician.region ?? 'Sin comuna'}
-                                        </span>
-                                    </span>
-                                    <MusicianAvailabilityBadge availableNow={musician.availableNow} />
-                                </label>
-                            );
-                        })}
-                    </div>
-                </div>
-
-                <PanelField label="Mensaje para mÃºsicos">
-                    <FieldTextarea rows={3} value={message} onChange={(event) => setMessage(event.target.value)} />
-                </PanelField>
-            </div>
-
-            <FormFeedback status={status} />
-            <div className="mt-5 flex flex-col gap-3 sm:flex-row">
-                <PanelButton className="flex-1" disabled={status.loading} onClick={() => void submit()}>
-                    {status.loading ? <IconLoader2 size={14} className="animate-spin" /> : <IconCheck size={15} />}
-                    Confirmar grupo y agendar
-                </PanelButton>
-                <PanelButton className="flex-1" variant="secondary" disabled={status.loading} onClick={onCancel}>
-                    Cancelar
-                </PanelButton>
-            </div>
-        </PanelCard>
-    );
-}
-
 function MoneyMetric({ label, value, strong = false }: { label: string; value: number | null; strong?: boolean }) {
     return (
-        <div className="min-w-0 rounded-xl border p-3 border-border bg-surface">
+        <div className="min-w-0 rounded-xl border border-border bg-surface p-4">
             <p className="text-xs text-fg-muted">{label}</p>
-            <p className={`${strong ? 'font-bold text-accent' : 'font-semibold text-fg'} mt-1 truncate text-base lg:text-lg`}>
+            <p className={`${strong ? 'font-bold text-accent' : 'font-semibold text-fg'} mt-2 truncate text-base lg:text-lg`}>
                 {money(value)}
             </p>
         </div>
@@ -798,19 +716,178 @@ function SerenataSourceBadge({ source, size = 'md' }: { source: Serenata['source
                 isOwn ? 'bg-bg-muted text-fg-muted' : 'bg-accent-soft text-accent'
             }`}
         >
-            {isOwn ? 'Propia' : 'AplicaciÃ³n'}
+            {isOwn ? 'Propia' : 'Aplicación'}
         </span>
     );
 }
 
-function SerenataDetailMetric({ icon: Icon, label, title, description }: { icon: ComponentType<{ size?: number; stroke?: number; style?: CSSProperties; className?: string }>; label: string; title: string; description?: string }) {
+function SerenataRejectReasonPanel({
+    templateId,
+    customText,
+    disabled,
+    onSelectTemplate,
+    onCustomTextChange,
+    onCancel,
+}: {
+    templateId: string | null;
+    customText: string;
+    disabled?: boolean;
+    onSelectTemplate: (id: string) => void;
+    onCustomTextChange: (value: string) => void;
+    onCancel: () => void;
+}) {
     return (
-        <div className="flex items-start gap-3">
-            <Icon size={19} className="mt-0.5 shrink-0 text-fg-muted" />
-            <div>
-                <p className="text-sm text-fg-muted">{label}</p>
-                <p className="mt-1 text-sm font-semibold text-[var(--fg)]">{title}</p>
-                {description ? <p className="mt-1 text-sm text-accent">{description}</p> : null}
+        <div className="mt-6 rounded-card border border-border bg-bg-subtle p-5">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+                <div>
+                    <p className="text-sm font-semibold text-fg">Motivo del rechazo</p>
+                    <p className="mt-1 text-xs text-fg-muted">El cliente verá este mensaje en la notificación.</p>
+                </div>
+                <button
+                    type="button"
+                    className="text-xs font-semibold text-fg-muted hover:text-fg"
+                    disabled={disabled}
+                    onClick={onCancel}
+                >
+                    Cancelar
+                </button>
+            </div>
+            <div className="mt-4 flex flex-wrap gap-2">
+                {SERENATA_REJECT_TEMPLATES.map((template) => (
+                    <button
+                        key={template.id}
+                        type="button"
+                        disabled={disabled}
+                        onClick={() => onSelectTemplate(template.id)}
+                        className={`rounded-full border px-3 py-1.5 text-left text-xs font-semibold transition-colors ${
+                            templateId === template.id
+                                ? 'border-accent-border bg-accent-soft text-accent'
+                                : 'border-border bg-surface text-fg-muted hover:border-accent-border hover:text-fg'
+                        }`}
+                    >
+                        {template.label}
+                    </button>
+                ))}
+                <button
+                    type="button"
+                    disabled={disabled}
+                    onClick={() => onSelectTemplate(SERENATA_REJECT_OTHER_ID)}
+                    className={`rounded-full border px-3 py-1.5 text-xs font-semibold transition-colors ${
+                        templateId === SERENATA_REJECT_OTHER_ID
+                            ? 'border-accent-border bg-accent-soft text-accent'
+                            : 'border-border bg-surface text-fg-muted hover:border-accent-border hover:text-fg'
+                    }`}
+                >
+                    Otro motivo
+                </button>
+            </div>
+            {templateId === SERENATA_REJECT_OTHER_ID ? (
+                <textarea
+                    value={customText}
+                    disabled={disabled}
+                    onChange={(event) => onCustomTextChange(event.target.value)}
+                    placeholder="Escribe el motivo (mín. 3 caracteres)"
+                    rows={3}
+                    className="mt-4 w-full rounded-xl border border-border bg-surface px-3 py-2 text-sm text-fg placeholder:text-fg-muted focus:border-accent-border focus:outline-none"
+                />
+            ) : templateId ? (
+                <p className="mt-4 text-sm text-fg-secondary">
+                    {SERENATA_REJECT_TEMPLATES.find((entry) => entry.id === templateId)?.message}
+                </p>
+            ) : null}
+        </div>
+    );
+}
+
+function SolicitudesFilterChip({
+    active,
+    label,
+    onClick,
+}: {
+    active: boolean;
+    label: string;
+    onClick: () => void;
+}) {
+    return (
+        <button
+            type="button"
+            onClick={onClick}
+            className={`rounded-full border px-3 py-1.5 text-xs font-semibold transition-colors ${
+                active
+                    ? 'border-accent-border bg-accent-soft text-accent'
+                    : 'border-border bg-surface text-fg-muted hover:border-accent-border hover:text-fg'
+            }`}
+        >
+            {label}
+        </button>
+    );
+}
+
+function SerenataDetailMetric({
+    icon: Icon,
+    label,
+    title,
+    description,
+    action,
+}: {
+    icon: ComponentType<{ size?: number; stroke?: number; style?: CSSProperties; className?: string }>;
+    label: string;
+    title: string;
+    description?: string;
+    action?: ReactNode;
+}) {
+    return (
+        <div className="flex items-start gap-4">
+            <Icon size={20} stroke={1.75} className="mt-0.5 shrink-0 text-fg-muted" />
+            <div className="min-w-0 flex-1">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                    <p className="text-xs font-medium text-fg-muted">{label}</p>
+                    {action}
+                </div>
+                <p className="mt-2 text-sm font-semibold leading-snug text-fg">{title}</p>
+                {description ? <p className="mt-1.5 text-sm leading-relaxed text-fg-secondary">{description}</p> : null}
+            </div>
+        </div>
+    );
+}
+
+function SerenataDetailGroupPicker({
+    value,
+    options,
+    disabled,
+    error,
+    onChange,
+}: {
+    value: string;
+    options: { value: string; label: string }[];
+    disabled?: boolean;
+    error: string | null;
+    onChange: (next: string) => void;
+}) {
+    const groupsHref = panelMiNegocioHref('grupos');
+    return (
+        <div className="flex items-start gap-4">
+            <IconUsers size={20} stroke={1.75} className="mt-0.5 shrink-0 text-fg-muted" />
+            <div className="min-w-0 flex-1">
+                <p className="text-xs font-medium text-fg-muted">Grupo</p>
+                <div className="mt-3 flex flex-col gap-3 sm:flex-row sm:items-center">
+                    <FieldSelect
+                        value={value}
+                        options={options}
+                        disabled={disabled}
+                        placeholder="Sin grupo (asignar después)"
+                        onChange={(event) => onChange(event.target.value)}
+                        className="min-w-0 flex-1"
+                    />
+                    <Link
+                        href={groupsHref}
+                        className={getPanelButtonClassName({ size: 'sm', className: 'shrink-0 justify-center sm:w-auto w-full' })}
+                        style={getPanelButtonStyle('secondary')}
+                    >
+                        Ir a Grupos
+                    </Link>
+                </div>
+                {error ? <p className="mt-1.5 text-xs text-[var(--color-danger-text,#b91c1c)]">{error}</p> : null}
             </div>
         </div>
     );

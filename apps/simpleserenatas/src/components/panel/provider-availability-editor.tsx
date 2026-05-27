@@ -10,6 +10,7 @@ import {
     type ProviderGroupAvailabilityRule,
     type ProviderGroupBlockedSlot,
 } from '@/lib/serenatas-api';
+import { FieldSelect } from '@/components/panel/shared';
 import { formatBlockedSlotRange } from '@/lib/provider-availability-display';
 
 const DAYS = [
@@ -29,6 +30,8 @@ for (let h = 6; h <= 23; h++) {
     TIME_OPTIONS.push(`${String(h).padStart(2, '0')}:00`);
     if (h < 23) TIME_OPTIONS.push(`${String(h).padStart(2, '0')}:30`);
 }
+
+const TIME_SELECT_OPTIONS = TIME_OPTIONS.map((time) => ({ value: time, label: time }));
 
 const DEFAULT_WEEK = [0, 1, 2, 3, 4, 5, 6].map((dayOfWeek) => ({
     dayOfWeek,
@@ -392,53 +395,39 @@ export function ProviderAvailabilityEditor({ group }: { group: ProviderGroup }) 
                                     <div className="grid min-w-0 flex-1 grid-cols-2 gap-3 lg:flex lg:items-center lg:gap-4">
                                         <label className="hidden items-center gap-2 lg:flex">
                                             <span className="w-12 shrink-0 text-xs font-medium text-fg-muted">Inicio</span>
-                                            <select
+                                            <FieldSelect
                                                 value={draft.startTime}
                                                 onChange={(e) => setDraft(key, 'startTime', e.target.value)}
-                                                className="form-select w-[6.75rem] shrink-0"
+                                                options={TIME_SELECT_OPTIONS}
+                                                className="w-[6.75rem] shrink-0"
                                                 disabled={!rule.isActive}
-                                            >
-                                                {TIME_OPTIONS.map((time) => (
-                                                    <option key={time} value={time}>{time}</option>
-                                                ))}
-                                            </select>
+                                            />
                                         </label>
                                         <label className="hidden items-center gap-2 lg:flex">
                                             <span className="w-12 shrink-0 text-xs font-medium text-fg-muted">Fin</span>
-                                            <select
+                                            <FieldSelect
                                                 value={draft.endTime}
                                                 onChange={(e) => setDraft(key, 'endTime', e.target.value)}
-                                                className="form-select w-[6.75rem] shrink-0"
+                                                options={TIME_SELECT_OPTIONS}
+                                                className="w-[6.75rem] shrink-0"
                                                 disabled={!rule.isActive}
-                                            >
-                                                {TIME_OPTIONS.map((time) => (
-                                                    <option key={time} value={time}>{time}</option>
-                                                ))}
-                                            </select>
+                                            />
                                         </label>
                                     <PanelField label="Inicio" className="min-w-0 lg:hidden">
-                                        <select
+                                        <FieldSelect
                                             value={draft.startTime}
                                             onChange={(e) => setDraft(key, 'startTime', e.target.value)}
-                                            className="form-select w-full"
+                                            options={TIME_SELECT_OPTIONS}
                                             disabled={!rule.isActive}
-                                        >
-                                            {TIME_OPTIONS.map((time) => (
-                                                <option key={time} value={time}>{time}</option>
-                                            ))}
-                                        </select>
+                                        />
                                     </PanelField>
                                     <PanelField label="Fin" className="min-w-0 lg:hidden">
-                                        <select
+                                        <FieldSelect
                                             value={draft.endTime}
                                             onChange={(e) => setDraft(key, 'endTime', e.target.value)}
-                                            className="form-select w-full"
+                                            options={TIME_SELECT_OPTIONS}
                                             disabled={!rule.isActive}
-                                        >
-                                            {TIME_OPTIONS.map((time) => (
-                                                <option key={time} value={time}>{time}</option>
-                                            ))}
-                                        </select>
+                                        />
                                     </PanelField>
                                     </div>
 
@@ -538,18 +527,18 @@ export function ProviderAvailabilityEditor({ group }: { group: ProviderGroup }) 
                                         <input type="date" value={blockStartDate} onChange={(e) => setBlockStartDate(e.target.value)} className="form-input w-full" />
                                     </PanelField>
                                     <PanelField label="Desde" required>
-                                        <select value={blockStartTime} onChange={(e) => setBlockStartTime(e.target.value)} className="form-select w-full">
-                                            {TIME_OPTIONS.map((time) => (
-                                                <option key={time} value={time}>{time}</option>
-                                            ))}
-                                        </select>
+                                        <FieldSelect
+                                            value={blockStartTime}
+                                            onChange={(e) => setBlockStartTime(e.target.value)}
+                                            options={TIME_SELECT_OPTIONS}
+                                        />
                                     </PanelField>
                                     <PanelField label="Hasta" required>
-                                        <select value={blockEndTime} onChange={(e) => setBlockEndTime(e.target.value)} className="form-select w-full">
-                                            {TIME_OPTIONS.map((time) => (
-                                                <option key={time} value={time}>{time}</option>
-                                            ))}
-                                        </select>
+                                        <FieldSelect
+                                            value={blockEndTime}
+                                            onChange={(e) => setBlockEndTime(e.target.value)}
+                                            options={TIME_SELECT_OPTIONS}
+                                        />
                                     </PanelField>
                                 </div>
                             )}

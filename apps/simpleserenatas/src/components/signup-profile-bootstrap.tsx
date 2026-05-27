@@ -33,12 +33,20 @@ export function SignupProfileBootstrap() {
                 if (!response.ok || cancelled) return;
 
                 if (signupProfile === 'client' && !response.profiles.client) {
+                    if (response.profiles.owner || response.profiles.musician) {
+                        clearSignupProfile();
+                        return;
+                    }
                     const created = await serenatasApi.saveClientProfile({});
                     if (!created.ok) return;
                 } else if (signupProfile === 'musician' && !response.profiles.musician) {
                     const created = await serenatasApi.saveMusicianProfile({ hasInstrument: false, hasMariachiAttire: false, workZones: [] });
                     if (!created.ok) return;
                 } else if (signupProfile === 'owner') {
+                    if (response.profiles.client && !response.profiles.owner) {
+                        clearSignupProfile();
+                        return;
+                    }
                     if (!response.profiles.owner) {
                         const created = await serenatasApi.registerOwner();
                         if (!created.ok) return;

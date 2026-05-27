@@ -154,6 +154,31 @@ export async function listActiveSongsForService(
     return rows.map(mapRepertoireSong);
 }
 
+function validateSongIdsInServiceRepertoire(
+    providerGroupId: string,
+    service: typeof serenataGroupServices.$inferSelect,
+    selections: z.infer<typeof clientSongSelectionSchema>[],
+    limit: number,
+    limitError: string,
+): Promise<{ ok: true } | { ok: false; error: string }> {
+    if (selections.length > limit) {
+        return Promise.resolve({ ok: false, error: limitError });
+    }
+    const ids = selections.map((item) => item.repertoireSongId);
+    if (new Set(ids).size !== ids.length) {
+        return Promise.resolve({ ok: false, error: 'No repitas la misma canción.' });
+    }
+    return listActiveSongsForService(providerGroupId, service).then((allowed) => {
+        const allowedIds = new Set(allowed.map((song) => song.id));
+        for (const id of ids) {
+            if (!allowedIds.has(id)) {
+                return { ok: false, error: 'Una o más canciones no pertenecen al repertorio de este servicio.' };
+            }
+        }
+        return { ok: true };
+    });
+}
+
 export async function validateClientSongSelections(
     providerGroupId: string,
     service: typeof serenataGroupServices.$inferSelect,
@@ -166,20 +191,43 @@ export async function validateClientSongSelections(
         }
         return { ok: true };
     }
-    if (selections.length > limit) {
-        return { ok: false, error: `Puedes elegir hasta ${limit} canción${limit === 1 ? '' : 'es'} del repertorio.` };
-    }
-    const ids = selections.map((item) => item.repertoireSongId);
-    if (new Set(ids).size !== ids.length) {
-        return { ok: false, error: 'No repitas la misma canción.' };
-    }
-    const allowed = await listActiveSongsForService(providerGroupId, service);
-    const allowedIds = new Set(allowed.map((song) => song.id));
-    for (const id of ids) {
-        if (!allowedIds.has(id)) {
-            return { ok: false, error: 'Una o más canciones no pertenecen al repertorio de este servicio.' };
-        }
-    }
+    return validateSongIdsInServiceRepertoire(
+        providerGroupId,
+        service,
+        selections,
+        limit,
+        `Puedes elegir hasta ${limit} canción${limit === 1 ? '' : 'es'} del repertorio.`,
+    );
+}
+
+/** Serenatas propias del dueño: permite registrar pedidos aunque el servicio no tenga cupo marketplace. */
+export async function validateOwnerSongSelections(
+    providerGroupId: string,
+    service: typeof serenataGroupServices.$inferSelect,
+    selections: z.infer<typeof clientSongSelectionSchema>[],
+): Promise<{ ok: true } | { ok: false; error: string }> {
+    if (selections.length === 0) return { ok: true };
+    const configured = service.songsIncluded ?? 0;
+    const limit = configured > 0 ? configured : 12;
+    return validateSongIdsInServiceRepertoire(
+        providerGroupId,
+        service,
+        selections,
+        limit,
+        `Puedes registrar hasta ${limit} canción${limit === 1 ? '' : 'es'} pedidas.`,
+    );
+}
+
+export async function syncOwnerSerenataSongSelections(
+    serenataId: string,
+    providerGroupId: string,
+    service: typeof serenataGroupServices.$inferSelect,
+    selections: z.infer<typeof clientSongSelectionSchema>[],
+): Promise<{ ok: true } | { ok: false; error: string }> {
+    const validation = await validateOwnerSongSelections(providerGroupId, service, selections);
+    if (!validation.ok) return validation;
+
+    await applyClientSongSelectionsWithAutoSetlist(serenataId, providerGroupId, service, selections);
     return { ok: true };
 }
 
@@ -212,6 +260,67 @@ export async function insertClientSongSelections(
             };
         }),
     );
+}
+
+/** Copia preferencias del cliente al setlist confirmado (repertorio ya validado al contratar). */
+export async function mirrorClientPreferencesToSetlist(serenataId: string) {
+    const prefs = await db
+        .select()
+        .from(serenataSongSelections)
+        .where(and(
+            eq(serenataSongSelections.serenataId, serenataId),
+            eq(serenataSongSelections.kind, 'client_preference'),
+        ))
+        .orderBy(asc(serenataSongSelections.sortOrder));
+
+    await db.delete(serenataSongSelections).where(and(
+        eq(serenataSongSelections.serenataId, serenataId),
+        eq(serenataSongSelections.kind, 'setlist'),
+    ));
+
+    if (prefs.length > 0) {
+        await db.insert(serenataSongSelections).values(
+            prefs.map((row, index) => ({
+                serenataId,
+                repertoireSongId: row.repertoireSongId,
+                kind: 'setlist' as const,
+                title: row.title,
+                artist: row.artist,
+                sortOrder: index,
+                clientNote: null,
+            })),
+        );
+    }
+}
+
+export async function markSerenataSetlistConfirmed(
+    serenataId: string,
+    songsIncludedAtBooking: number,
+) {
+    await db.update(serenatas).set({
+        setlistStatus: 'confirmed',
+        songsIncludedAtBooking,
+        setlistConfirmedAt: new Date(),
+        updatedAt: new Date(),
+    }).where(eq(serenatas.id, serenataId));
+}
+
+/** Marketplace / reserva: guarda pedido del cliente y deja setlist listo sin paso manual del dueño. */
+export async function applyClientSongSelectionsWithAutoSetlist(
+    serenataId: string,
+    providerGroupId: string,
+    service: typeof serenataGroupServices.$inferSelect,
+    selections: z.infer<typeof clientSongSelectionSchema>[],
+) {
+    await db.delete(serenataSongSelections).where(eq(serenataSongSelections.serenataId, serenataId));
+    await insertClientSongSelections(serenataId, providerGroupId, service, selections);
+    await mirrorClientPreferencesToSetlist(serenataId);
+    const songsIncludedAtBooking = Math.max(service.songsIncluded ?? 0, selections.length);
+    await markSerenataSetlistConfirmed(serenataId, songsIncludedAtBooking);
+}
+
+export function canOwnerEditSerenataSetlist(status: typeof serenatas.$inferSelect['status']): boolean {
+    return status === 'scheduled' || status === 'completed';
 }
 
 export async function loadSerenataSongs(serenataId: string) {
@@ -567,6 +676,13 @@ export function registerRepertoireRoutes(app: Hono, deps: RepertoireDeps) {
         if (!serenata) return deps.jsonError(c, 'Serenata no encontrada', 404);
         if (!(await canAccessSerenataOwnerOps(user.id, serenata))) {
             return deps.jsonError(c, 'No autorizado', 403);
+        }
+        if (!canOwnerEditSerenataSetlist(serenata.status)) {
+            return deps.jsonError(
+                c,
+                'Solo puedes editar el repertorio cuando la serenata está confirmada en la agenda.',
+                409,
+            );
         }
         const parsed = confirmSetlistSchema.safeParse(await c.req.json().catch(() => null));
         if (!parsed.success) return deps.jsonError(c, 'Setlist inválido');

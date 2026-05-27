@@ -19,30 +19,13 @@ import {
 } from '@tabler/icons-react';
 import PanelSectionHeader from '@/components/panel/panel-section-header';
 import BoostManager from '@/components/panel/boost-manager';
-import { ModernSelect } from '@simple/ui';
+import { ModernSelect } from '@simple/ui/forms';
 import { fetchMyPanelListings } from '@/lib/panel-listings';
 import {
-  AD_UPDATE_EVENT,
-  MAX_ACTIVE_HERO_CAMPAIGNS,
-  MAX_CAMPAIGNS_TOTAL,
-  createAdCampaign,
-  deleteAdCampaign,
-  emitCampaignsUpdated,
-  fetchMyAdCampaigns,
-  getCampaignCounters,
-  getCampaignDestinationHref,
-  isValidHttpUrl,
-  normalizeCampaigns,
-  updateAdCampaignContent,
-  updateAdCampaignLifecycle,
-  type AdCampaign,
-  type AdDestinationType,
-  type AdFormat,
-  type AdOverlayAlign,
-  type AdPlacementSection,
-} from '@/lib/advertising';
+  AD_UPDATE_EVENT, MAX_ACTIVE_HERO_CAMPAIGNS, MAX_CAMPAIGNS_TOTAL, createAdCampaign, deleteAdCampaign, emitCampaignsUpdated, fetchMyAdCampaigns, getCampaignCounters, getCampaignDestinationHref, isValidHttpUrl, normalizeCampaigns, updateAdCampaignContent, updateAdCampaignLifecycle, type AdCampaign, type AdDestinationType, type AdFormat, type AdOverlayAlign, type AdPlacementSection, } from '@/lib/advertising';
 import { confirmCheckout, startAdvertisingCheckout } from '@/lib/payments';
-import { PanelActions, PanelBlockHeader, PanelButton, PanelCard, PanelChoiceCard, PanelNotice, PanelPillNav, PanelSegmentedToggle, PanelStatusBadge, PanelStepNav, PanelSummaryCard, getPanelButtonClassName, getPanelButtonStyle } from '@simple/ui';
+import { PanelActions } from '@simple/ui/panel';
+import { PanelBlockHeader, PanelButton, PanelCard, PanelChoiceCard, PanelNotice, PanelPillNav, PanelSegmentedToggle, PanelStatusBadge, PanelStepNav, PanelSummaryCard, getPanelButtonClassName, getPanelButtonStyle } from '@simple/ui/panel';
 
 type Duration = 7 | 15 | 30;
 type Step = 0 | 1 | 2;

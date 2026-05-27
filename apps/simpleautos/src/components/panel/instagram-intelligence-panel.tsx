@@ -2,12 +2,9 @@
 
 import { useState } from 'react';
 import {
-    IconBrain,
-    IconChartDots3,
-    IconClock,
-    IconTestPipe,
-} from '@tabler/icons-react';
-import { PanelButton, PanelSwitch } from '@simple/ui';
+    IconBrain, IconChartDots3, IconClock, IconTestPipe, } from '@tabler/icons-react';
+import { PanelButton } from '@simple/ui/panel';
+import { PanelSwitch } from '@simple/ui/panel';
 import {
     publishListingToInstagramEnhanced,
     type InstagramTargetAudience,

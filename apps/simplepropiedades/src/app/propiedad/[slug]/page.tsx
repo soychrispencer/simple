@@ -8,7 +8,8 @@ import { PublicBreadcrumbs } from '@/components/layout/public-breadcrumbs';
 import PublicListingContactCard from '@/components/listings/public-listing-contact-card';
 import { fetchPublicListing, type PublicListing } from '@/lib/public-listings';
 import { buildPropertyJsonLd, JsonLd } from '@/lib/schema';
-import { PanelBlockHeader, PanelCard, PanelNotice, PanelStatusBadge } from '@simple/ui';
+import { PanelBlockHeader } from '@simple/ui/panel';
+import { PanelCard, PanelNotice, PanelStatusBadge } from '@simple/ui/panel';
 
 export default function PropertyDetailPage() {
     const params = useParams<{ slug: string }>();

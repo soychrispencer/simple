@@ -5,7 +5,8 @@ import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { AdminProtectedPage } from '@/components/admin-protected-page';
 import { fetchAdminOverview, type AdminOverview } from '@/lib/api';
-import { PanelCard, PanelList, PanelListRow, PanelNotice, PanelStatCard } from '@simple/ui';
+import { PanelCard } from '@simple/ui/panel';
+import { PanelList, PanelListRow, PanelNotice, PanelStatCard } from '@simple/ui/panel';
 import { adminScopeLabel, normalizeAdminScope, withAdminScope } from '@/lib/admin-scope';
 
 export default function AdminDashboardPage() {

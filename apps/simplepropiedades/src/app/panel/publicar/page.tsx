@@ -20,56 +20,19 @@ import {
     IconSparkles,
 } from '@tabler/icons-react';
 import PanelSectionHeader from '@/components/panel/panel-section-header';
-import { ModernSelect } from '@simple/ui';
+import { ModernSelect } from '@simple/ui/forms';
 import { useAuth } from '@simple/auth';
 import { uploadMediaFile } from '@simple/utils';
 import { getPublicationLifecyclePolicy, type PublicationLifecyclePolicy } from '@simple/config';
 import {
-    createPanelListing,
-    deletePanelListingDraft,
-    fetchPanelListingDetail,
-    fetchPanelListingDraft,
-    type PanelListing,
-    savePanelListingDraft,
-    updatePanelListing,
-} from '@/lib/panel-listings';
+    createPanelListing, deletePanelListingDraft, fetchPanelListingDetail, fetchPanelListingDraft, savePanelListingDraft, updatePanelListing, type PanelListing, } from '@/lib/panel-listings';
 import {
-    createEmptyListingLocation,
-    type AddressBookEntry,
-    type ListingLocation,
-    patchListingLocation,
-    type PropertyValuationEstimate,
-    type PropertyValuationRequest,
-    type PropertyValuationSourceStatus,
-} from '@simple/types';
+    createEmptyListingLocation, type AddressBookEntry, type ListingLocation, patchListingLocation, type PropertyValuationEstimate, type PropertyValuationRequest, type PropertyValuationSourceStatus, } from '@simple/types';
 import {
-    estimatePropertyValue,
-    fetchAddressBook,
-    fetchPropertyValuationSources,
-    geocodeListingLocation,
-    getCommunesForRegion,
-    LOCATION_COMMUNES,
-    LOCATION_REGIONS,
-    refreshPropertyValuationSources,
-    resolveLocationNames,
-} from '@simple/utils';
-import {
-    ListingLocationEditor,
-    PanelActions,
-    PanelBlockHeader,
-    PanelButton,
-    PanelCard,
-    PanelChoiceCard,
-    PanelDocumentUploader,
-    PanelMediaUploader,
-    PanelNotice,
-    PanelStepNav,
-    PanelSummaryCard,
-    PanelVideoUploader,
-    type PanelDocumentAsset,
-    type PanelMediaAsset,
-    type PanelVideoAsset,
-} from '@simple/ui';
+    estimatePropertyValue, fetchAddressBook, fetchPropertyValuationSources, geocodeListingLocation, getCommunesForRegion, LOCATION_COMMUNES, LOCATION_REGIONS, refreshPropertyValuationSources, resolveLocationNames, } from '@simple/utils';
+import { PanelActions } from '@simple/ui/panel';
+import { PanelBlockHeader, PanelButton, PanelCard, PanelChoiceCard, PanelDocumentUploader, PanelMediaUploader, PanelNotice, PanelStepNav, PanelSummaryCard, PanelVideoUploader, type PanelDocumentAsset, type PanelMediaAsset, type PanelVideoAsset } from '@simple/ui/panel';
+import { ListingLocationEditor } from '@simple/ui/location';
 
 type StepId = 'setup' | 'basic' | 'specs' | 'media' | 'commercial' | 'review';
 type PropertyOperation = 'sale' | 'rent' | 'project';
@@ -512,8 +475,8 @@ function mergeDraft(raw: unknown): { data: WizardData; valuationEstimate: Proper
                 ? parsed.data.media.photos.map((photo) => ({
                         id: photo.id,
                         name: photo.name,
-                        dataUrl: (typeof photo.dataUrl === 'string' ? photo.dataUrl : (typeof (photo as { url?: string }).url === 'string' ? (photo as { url?: string }).url : '')) || ''),
-                        previewUrl: (typeof photo.previewUrl === 'string' ? photo.previewUrl : (typeof (photo as { url?: string }).url === 'string' ? (photo as { url?: string }).url : '')) || ''),
+                        dataUrl: (typeof photo.dataUrl === 'string' ? photo.dataUrl : (typeof (photo as { url?: string }).url === 'string' ? (photo as { url?: string }).url : '')) || '',
+                        previewUrl: (typeof photo.previewUrl === 'string' ? photo.previewUrl : (typeof (photo as { url?: string }).url === 'string' ? (photo as { url?: string }).url : '')) || '',
                         isCover: !!photo.isCover,
                         width: typeof photo.width === 'number' ? photo.width : 0,
                         height: typeof photo.height === 'number' ? photo.height : 0,
@@ -525,8 +488,8 @@ function mergeDraft(raw: unknown): { data: WizardData; valuationEstimate: Proper
                     ? {
                         id: parsed.data.media.discoverVideo.id,
                         name: parsed.data.media.discoverVideo.name,
-                        dataUrl: (typeof parsed.data.media.discoverVideo.dataUrl === 'string' ? parsed.data.media.discoverVideo.dataUrl : (typeof (parsed.data.media.discoverVideo as { url?: string }).url === 'string' ? (parsed.data.media.discoverVideo as { url?: string }).url : '')) || ''),
-                        previewUrl: (typeof parsed.data.media.discoverVideo.previewUrl === 'string' ? parsed.data.media.discoverVideo.previewUrl : (typeof (parsed.data.media.discoverVideo as { url?: string }).url === 'string' ? (parsed.data.media.discoverVideo as { url?: string }).url : '')) || ''),
+                        dataUrl: (typeof parsed.data.media.discoverVideo.dataUrl === 'string' ? parsed.data.media.discoverVideo.dataUrl : (typeof (parsed.data.media.discoverVideo as { url?: string }).url === 'string' ? (parsed.data.media.discoverVideo as { url?: string }).url : '')) || '',
+                        previewUrl: (typeof parsed.data.media.discoverVideo.previewUrl === 'string' ? parsed.data.media.discoverVideo.previewUrl : (typeof (parsed.data.media.discoverVideo as { url?: string }).url === 'string' ? (parsed.data.media.discoverVideo as { url?: string }).url : '')) || '',
                         width: typeof parsed.data.media.discoverVideo.width === 'number' ? parsed.data.media.discoverVideo.width : 0,
                         height: typeof parsed.data.media.discoverVideo.height === 'number' ? parsed.data.media.discoverVideo.height : 0,
                         sizeBytes: typeof parsed.data.media.discoverVideo.sizeBytes === 'number' ? parsed.data.media.discoverVideo.sizeBytes : 0,
@@ -2108,5 +2071,3 @@ export default function PublishWizardPage() {
         </div>
     );
 }
-
-

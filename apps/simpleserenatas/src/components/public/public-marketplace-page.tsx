@@ -12,6 +12,7 @@ import {
     PublicProviderGroupCard,
     PublicProviderGroupCardSkeleton,
 } from '@/components/public/public-provider-group-card';
+import { FieldSelect } from '@/components/panel/shared';
 import { MARKETPLACE_SORT_OPTIONS, type MarketplaceGroupSort } from '@/lib/marketplace-group-display';
 import {
     formatMarketplaceDate,
@@ -202,20 +203,20 @@ export function PublicMarketplacePage() {
                                 {resultsCountLabel}
                             </p>
                         </div>
-                        <label className="grid w-full gap-1.5 sm:w-52">
+                        <div className="grid w-full gap-1.5 sm:w-52">
                             <span className="text-xs font-medium text-fg-muted">Ordenar</span>
-                            <select
+                            <FieldSelect
                                 value={filters.sort}
+                                options={MARKETPLACE_SORT_OPTIONS.map((option) => ({
+                                    value: option.value,
+                                    label: option.label,
+                                }))}
                                 onChange={(event) => applyCatalogFilters({
                                     sort: event.target.value as MarketplaceGroupSort,
                                 })}
-                                className="h-11 rounded-button border border-border bg-surface px-3 text-sm font-semibold outline-none"
-                            >
-                                {MARKETPLACE_SORT_OPTIONS.map((option) => (
-                                    <option key={option.value} value={option.value}>{option.label}</option>
-                                ))}
-                            </select>
-                        </label>
+                                className="h-11 text-sm font-semibold"
+                            />
+                        </div>
                     </div>
 
                     <div className="mt-6">

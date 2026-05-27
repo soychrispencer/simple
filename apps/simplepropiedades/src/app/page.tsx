@@ -3,16 +3,11 @@
 import Link from 'next/link';
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import {
-    IconArrowRight,
-    IconSparkles,
-    IconShieldCheck,
-    IconClock,
-    IconTrendingUp,
-    IconUsers,
-} from '@tabler/icons-react';
+    IconArrowRight, IconSparkles, IconShieldCheck, IconClock, IconTrendingUp, IconUsers, } from '@tabler/icons-react';
 import HomeSearchBox from '@/components/search/home-searchbox';
 import BoostedListingsSlider from '@/components/featured/boosted-listings-slider';
-import { PanelCard, getPanelButtonClassName, getPanelButtonStyle } from '@simple/ui';
+import { PanelCard } from '@simple/ui/panel';
+import { getPanelButtonClassName, getPanelButtonStyle } from '@simple/ui/panel';
 import { getCardAdPlaceholders } from '@/lib/ad-placeholders';
 import {
     AD_UPDATE_EVENT,

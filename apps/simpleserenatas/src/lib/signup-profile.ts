@@ -38,10 +38,9 @@ export function clearOwnerSignupIntent() {
     window.sessionStorage.removeItem(OWNER_SIGNUP_INTENT_KEY);
 }
 
+/** Solo el perfil guardado en registro/modal; no inferir dueño por haber visitado `/para-duenos`. */
 export function resolveSignupProfileForBootstrap(): SignupProfile | null {
-    const stored = readSignupProfile();
-    if (stored) return stored;
-    return hasOwnerSignupIntent() ? 'owner' : null;
+    return readSignupProfile();
 }
 
 export function clearSignupProfile() {

@@ -3,7 +3,8 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { IconCheck, IconCreditCard, IconLoader2, IconAlertCircle, IconX } from '@tabler/icons-react';
-import { PanelBlockHeader, PanelButton, PanelCard, PanelNotice, PanelStatusBadge } from '@simple/ui';
+import { PanelBlockHeader } from '@simple/ui/panel';
+import { PanelButton, PanelCard, PanelNotice, PanelStatusBadge } from '@simple/ui/panel';
 import {
   cancelSubscription,
   confirmCheckout,

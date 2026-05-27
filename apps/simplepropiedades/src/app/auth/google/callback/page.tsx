@@ -4,7 +4,8 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth, GoogleLoginButton } from '@simple/auth';
 import { IconCheck, IconX } from '@tabler/icons-react';
-import { PanelButton, PanelNotice } from '@simple/ui';
+import { PanelButton } from '@simple/ui/panel';
+import { PanelNotice } from '@simple/ui/panel';
 
 export default function GoogleCallback() {
   const [status, setStatus] = useState<'loading' | 'success' | 'error'>('loading');

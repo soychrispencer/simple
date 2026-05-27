@@ -3,7 +3,7 @@
 import { useMemo, type ReactNode } from 'react';
 import { IconArrowLeft } from '@tabler/icons-react';
 import { useAuth } from '@simple/auth';
-import { PanelShell as SharedPanelShell } from '@simple/ui';
+import { PanelShell as SharedPanelShell } from '@simple/ui/panel';
 import { PanelBottomNav } from '@/components/panel/panel-bottom-nav';
 import { getPanelNavItems, panelRoleLabel, type PanelRole } from '@/components/panel/panel-nav-config';
 

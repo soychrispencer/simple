@@ -1,7 +1,13 @@
 'use client';
 
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { IconCheck, IconChevronDown } from '@tabler/icons-react';
+import {
+    FLOATING_POPOVER_Z_INDEX,
+    useFloatingPortalDismiss,
+    useFloatingPortalPosition,
+} from './floating-portal.js';
 
 export type ModernSelectOption = {
     value: string;
@@ -37,16 +43,10 @@ export function ModernSelect({
     const [focusedIndex, setFocusedIndex] = useState(-1);
     const rootRef = useRef<HTMLDivElement | null>(null);
     const triggerRef = useRef<HTMLButtonElement | null>(null);
+    const popoverRef = useRef<HTMLDivElement | null>(null);
+    const popoverPosition = useFloatingPortalPosition(open, triggerRef, popoverRef, [options.length]);
 
-    useEffect(() => {
-        const onPointerDown = (event: PointerEvent) => {
-            if (!rootRef.current?.contains(event.target as Node)) {
-                setOpen(false);
-            }
-        };
-        window.addEventListener('pointerdown', onPointerDown);
-        return () => window.removeEventListener('pointerdown', onPointerDown);
-    }, []);
+    useFloatingPortalDismiss(open, () => setOpen(false), rootRef, popoverRef);
 
     const enabledOptions = useMemo(() => options.filter((o) => !o.disabled), [options]);
 
@@ -106,6 +106,67 @@ export function ModernSelect({
         return `select-${base}-${hash}`;
     }, [placeholder, options.length]);
 
+    const listbox = open ? (
+        <div
+            ref={popoverRef}
+            id={`${idPrefix}-listbox`}
+            role="listbox"
+            className={`max-h-64 overflow-auto rounded-xl border p-1.5 ${dropdownClassName ?? ''}`}
+            style={{
+                position: 'fixed',
+                top: popoverPosition?.top ?? 0,
+                left: popoverPosition?.left ?? 0,
+                width: popoverPosition?.width ?? undefined,
+                visibility: popoverPosition ? 'visible' : 'hidden',
+                zIndex: FLOATING_POPOVER_Z_INDEX,
+                borderColor: 'var(--border)',
+                background: 'var(--surface)',
+                boxShadow: '0 18px 44px rgba(0,0,0,0.16)',
+            }}
+        >
+            {options.map((option) => {
+                const isSelected = option.value === value;
+                const enabledIdx = enabledOptions.indexOf(option);
+                const isFocused = enabledIdx >= 0 && enabledIdx === focusedIndex;
+                return (
+                    <button
+                        key={`${option.value}-${option.label}`}
+                        id={enabledIdx >= 0 ? `${idPrefix}-option-${enabledIdx}` : undefined}
+                        role="option"
+                        aria-selected={isSelected}
+                        type="button"
+                        disabled={option.disabled}
+                        onClick={() => {
+                            if (option.disabled) return;
+                            onChange(option.value);
+                            setOpen(false);
+                            triggerRef.current?.focus();
+                        }}
+                        onMouseEnter={() => { if (enabledIdx >= 0) setFocusedIndex(enabledIdx); }}
+                        className="flex h-9 w-full items-center justify-between rounded-lg px-2.5 text-sm transition-colors"
+                        style={{
+                            background: isFocused ? 'var(--bg-muted)' : isSelected ? 'var(--bg-subtle)' : 'transparent',
+                            color: option.disabled ? 'var(--fg-faint)' : 'var(--fg)',
+                            outline: isFocused ? '2px solid var(--accent-border)' : 'none',
+                            outlineOffset: '-2px',
+                        }}
+                    >
+                        <span className="flex min-w-0 items-center gap-2 truncate">
+                            {option.swatchColor ? (
+                                <span
+                                    className="h-3 w-3 shrink-0 rounded-full border"
+                                    style={{ background: option.swatchColor, borderColor: 'var(--border)' }}
+                                />
+                            ) : null}
+                            <span className="truncate">{option.label}</span>
+                        </span>
+                        {isSelected ? <IconCheck size={14} style={{ color: 'var(--fg-secondary)' }} /> : null}
+                    </button>
+                );
+            })}
+        </div>
+    ) : null;
+
     return (
         <div className="relative w-full" ref={rootRef}>
             <button
@@ -134,80 +195,28 @@ export function ModernSelect({
                 }}
             >
                 {leadingIcon ? (
-                    <span className="absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" style={{ color: 'var(--fg-muted)' }}>
+                    <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2" style={{ color: 'var(--fg-muted)' }}>
                         {leadingIcon}
                     </span>
                 ) : null}
-                <span className="truncate pr-1 flex items-center gap-2 min-w-0">
+                <span className="flex min-w-0 items-center gap-2 truncate pr-1">
                     {selectedOption?.swatchColor ? (
                         <span
-                            className="h-3 w-3 rounded-full border shrink-0"
+                            className="h-3 w-3 shrink-0 rounded-full border"
                             style={{ background: selectedOption.swatchColor, borderColor: 'var(--border)' }}
                         />
                     ) : null}
                     <span className="truncate">{triggerLabel}</span>
                 </span>
                 <span
-                    className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none transition-transform"
+                    className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 transition-transform"
                     style={{ color: 'var(--fg-muted)', transform: `translateY(-50%) rotate(${open ? '180deg' : '0deg'})` }}
                 >
                     <IconChevronDown size={14} />
                 </span>
             </button>
 
-            {open ? (
-                <div
-                    id={`${idPrefix}-listbox`}
-                    role="listbox"
-                    className={`absolute left-0 right-0 top-[calc(100%+0.35rem)] z-40 max-h-64 overflow-auto rounded-xl border p-1.5 ${dropdownClassName ?? ''}`}
-                    style={{
-                        borderColor: 'var(--border)',
-                        background: 'var(--surface)',
-                        boxShadow: '0 18px 44px rgba(0,0,0,0.16)',
-                    }}
-                >
-                    {options.map((option) => {
-                        const isSelected = option.value === value;
-                        const enabledIdx = enabledOptions.indexOf(option);
-                        const isFocused = enabledIdx >= 0 && enabledIdx === focusedIndex;
-                        return (
-                            <button
-                                key={`${option.value}-${option.label}`}
-                                id={enabledIdx >= 0 ? `${idPrefix}-option-${enabledIdx}` : undefined}
-                                role="option"
-                                aria-selected={isSelected}
-                                type="button"
-                                disabled={option.disabled}
-                                onClick={() => {
-                                    if (option.disabled) return;
-                                    onChange(option.value);
-                                    setOpen(false);
-                                    triggerRef.current?.focus();
-                                }}
-                                onMouseEnter={() => { if (enabledIdx >= 0) setFocusedIndex(enabledIdx); }}
-                                className="w-full h-9 px-2.5 rounded-lg text-sm flex items-center justify-between transition-colors"
-                                style={{
-                                    background: isFocused ? 'var(--bg-muted)' : isSelected ? 'var(--bg-subtle)' : 'transparent',
-                                    color: option.disabled ? 'var(--fg-faint)' : 'var(--fg)',
-                                    outline: isFocused ? '2px solid var(--accent-border)' : 'none',
-                                    outlineOffset: '-2px',
-                                }}
-                            >
-                                <span className="truncate flex items-center gap-2 min-w-0">
-                                    {option.swatchColor ? (
-                                        <span
-                                            className="h-3 w-3 rounded-full border shrink-0"
-                                            style={{ background: option.swatchColor, borderColor: 'var(--border)' }}
-                                        />
-                                    ) : null}
-                                    <span className="truncate">{option.label}</span>
-                                </span>
-                                {isSelected ? <IconCheck size={14} style={{ color: 'var(--fg-secondary)' }} /> : null}
-                            </button>
-                        );
-                    })}
-                </div>
-            ) : null}
+            {typeof document !== 'undefined' && listbox ? createPortal(listbox, document.body) : null}
         </div>
     );
 }

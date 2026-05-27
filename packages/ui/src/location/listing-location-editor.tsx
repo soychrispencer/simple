@@ -302,7 +302,9 @@ export function ListingLocationEditor(props: ListingLocationEditorProps) {
     const addressHint = addressHintMode === 'none'
         ? undefined
         : addressHintMode === 'minimal'
-            ? 'Escribe la dirección o elige una sugerencia.'
+            ? (showAreaFields
+                ? 'Elige una sugerencia de Google o completa región y comuna más abajo.'
+                : 'Escribe la dirección o elige una sugerencia.')
             : (autocompleteReady
                 ? 'Selecciona una sugerencia cuando aparezca.'
                 : (googlePlacesKey ? 'Si no ves sugerencias, puedes escribir la dirección manualmente.' : 'Puedes escribir la dirección manualmente.'));
@@ -497,28 +499,26 @@ export function ListingLocationEditor(props: ListingLocationEditorProps) {
             {simpleMode ? (
                 <>
                     {locationMetaFields}
-                    {addressBookLoading || addressBook.length > 0 ? (
-                        <Field label="Usar dirección">
-                            <StyledSelect
-                                value={savedAddressSelectValue}
-                                placeholder={addressBookLoading ? 'Cargando...' : 'Nueva dirección'}
-                                disabled={addressBookLoading}
-                                options={savedAddressOptions}
-                                onChange={(nextValue) => {
-                                    if (!nextValue || nextValue === '__new__') {
-                                        onChange(patchListingLocation(location, {
-                                            sourceMode: 'custom',
-                                            sourceAddressId: null,
-                                        }));
-                                        return;
-                                    }
-                                    const nextAddress = addressBook.find((item) => item.id === nextValue);
-                                    if (!nextAddress) return;
-                                    onChange(applyAddressBookEntryToLocation(nextAddress, location));
-                                }}
-                            />
-                        </Field>
-                    ) : null}
+                    <Field label="Usar dirección" hint={!addressBookLoading && addressBook.length === 0 ? 'Aún no tienes direcciones guardadas. Completa el formulario y usa «Guardar en libreta».' : undefined}>
+                        <StyledSelect
+                            value={savedAddressSelectValue}
+                            placeholder={addressBookLoading ? 'Cargando...' : 'Nueva dirección'}
+                            disabled={addressBookLoading}
+                            options={savedAddressOptions}
+                            onChange={(nextValue) => {
+                                if (!nextValue || nextValue === '__new__') {
+                                    onChange(patchListingLocation(location, {
+                                        sourceMode: 'custom',
+                                        sourceAddressId: null,
+                                    }));
+                                    return;
+                                }
+                                const nextAddress = addressBook.find((item) => item.id === nextValue);
+                                if (!nextAddress) return;
+                                onChange(applyAddressBookEntryToLocation(nextAddress, location));
+                            }}
+                        />
+                    </Field>
                     {addressFields}
                     {showAreaFields ? (
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">

@@ -8,84 +8,22 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import {
-    DndContext,
-    closestCenter,
-    KeyboardSensor,
-    PointerSensor,
-    TouchSensor,
-    useSensor,
-    useSensors,
-    type DragEndEvent,
-} from '@dnd-kit/core';
+    DndContext, closestCenter, KeyboardSensor, PointerSensor, TouchSensor, useSensor, useSensors, type DragEndEvent, } from '@dnd-kit/core';
 import {
-    arrayMove,
-    SortableContext,
-    sortableKeyboardCoordinates,
-    rectSortingStrategy,
-    useSortable,
-} from '@dnd-kit/sortable';
+    arrayMove, SortableContext, sortableKeyboardCoordinates, rectSortingStrategy, useSortable, } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import {
-    IconArrowLeft,
-    IconArrowRight,
-    IconCheck,
-    IconCamera,
-    IconPhoto,
-    IconX,
-    IconUpload,
-    IconMapPin,
-    IconCurrencyDollar,
-    IconCar,
-    IconMotorbike,
-    IconTruck,
-    IconBus,
-    IconTractor,
-    IconAnchor,
-    IconPlane,
-    IconTag,
-    IconKey,
-    IconHammer,
-    IconChevronDown,
-    IconChevronUp,
-    IconSparkles,
-    IconShare3,
-    IconBrandWhatsapp,
-    IconLoader2,
-    IconPlus,
-    IconTrash,
-    IconGripVertical,
-    IconStar,
-    IconGauge,
-    IconEngine,
-    IconSteeringWheel,
-    IconRocket,
-    IconCalendar,
-    IconGasStation,
-    IconManualGearbox,
-    IconBrandInstagram,
-    IconExternalLink,
-    IconLock,
-} from '@tabler/icons-react';
+    IconArrowLeft, IconArrowRight, IconCheck, IconCamera, IconPhoto, IconX, IconUpload, IconMapPin, IconCurrencyDollar, IconCar, IconMotorbike, IconTruck, IconBus, IconTractor, IconAnchor, IconPlane, IconTag, IconKey, IconHammer, IconChevronDown, IconChevronUp, IconSparkles, IconShare3, IconBrandWhatsapp, IconLoader2, IconPlus, IconTrash, IconGripVertical, IconStar, IconGauge, IconEngine, IconSteeringWheel, IconRocket, IconCalendar, IconGasStation, IconManualGearbox, IconBrandInstagram, IconExternalLink, IconLock, } from '@tabler/icons-react';
 import Link from 'next/link';
 import { useAuth } from '@simple/auth';
 import {
-    type PublishWizardCatalog,
-    type VehicleCatalogType,
-    getBrandsForVehicleType,
-    getModelsForBrand,
-    loadPublishWizardCatalog,
-} from '@/lib/publish-wizard-catalog';
+    type PublishWizardCatalog, type VehicleCatalogType, getBrandsForVehicleType, getModelsForBrand, loadPublishWizardCatalog, } from '@/lib/publish-wizard-catalog';
 import {
-    createPanelListing,
-    updatePanelListing,
-    fetchPanelListingDetail,
-    fetchPanelListingDraft,
-    deletePanelListingDraft,
-    type CreatePanelListingInput,
-} from '@/lib/panel-listings';
+    createPanelListing, updatePanelListing, fetchPanelListingDetail, fetchPanelListingDraft, deletePanelListingDraft, type CreatePanelListingInput, } from '@/lib/panel-listings';
 import { mapPanelListingToPublishForm } from '@/lib/map-listing-to-publish-form';
-import { PanelButton, PanelCard, PanelNotice } from '@simple/ui';
-import { ModernSelect } from '@simple/ui';
+import { PanelButton } from '@simple/ui/panel';
+import { PanelCard, PanelNotice } from '@simple/ui/panel';
+import { ModernSelect } from '@simple/ui/forms';
 import { ColorPicker } from '@/components/ui/color-picker';
 import { fetchAddressBook, uploadMediaFile } from '@simple/utils';
 import type { AddressBookEntry } from '@simple/types';

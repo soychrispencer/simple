@@ -1,1 +1,1 @@
-export { PanelAddressesPage as default } from '@simple/ui';
+export { PanelAddressesPage as default } from '@simple/ui/address-book';

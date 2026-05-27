@@ -12,7 +12,6 @@ import { ProviderContactPhonesFields } from './provider-contact-phones-fields';
 import { ProviderGroupBrandImages } from './provider-group-brand-images';
 import { consumeSignupGroupName } from '@/lib/active-provider-group';
 import { panelMiNegocioHref } from '@/lib/panel-routes';
-import { GRUPOS_TAB_LABEL } from '@/lib/serenatas-terminology';
 
 export function ProviderGroupView({ refresh }: { refresh: () => Promise<void> }) {
     const { mariachi, hasMariachi, loading, error, refresh: refreshMariachi } = useMyMariachi();
@@ -122,9 +121,6 @@ export function ProviderGroupView({ refresh }: { refresh: () => Promise<void> })
                     title="Configura tus datos comerciales"
                     description="Al registrarte como dueño creas tu mariachi en el marketplace. Completa estos datos para que los clientes te encuentren."
                 />
-                <PanelNotice tone="neutral">
-                    Los músicos de tu plantilla se gestionan en la pestaña <strong>{GRUPOS_TAB_LABEL}</strong>.
-                </PanelNotice>
                 <PanelCard>
                     <h3 className="text-lg font-semibold text-[var(--fg)]">Datos comerciales</h3>
                     <div className="mt-5 grid gap-4">

@@ -1,3 +1,3 @@
 'use client';
 
-export { ErrorView } from '../index';
+export { ErrorView, type ErrorViewProps } from './error-view';

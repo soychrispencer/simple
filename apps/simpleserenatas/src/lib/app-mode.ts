@@ -14,27 +14,27 @@ export function isOwnerSubscriptionActive(
     return Boolean(owner);
 }
 
-export function ownerFeaturesEnabled(profiles: Profiles): boolean {
-    return Boolean(profiles.owner);
+export function ownerFeaturesEnabled(profiles: Profiles | null | undefined): boolean {
+    return Boolean(profiles?.owner);
 }
 
-export function hasWorkProfile(profiles: Profiles): boolean {
-    return Boolean(profiles.musician) || Boolean(profiles.owner);
+export function hasWorkProfile(profiles: Profiles | null | undefined): boolean {
+    return Boolean(profiles?.musician) || Boolean(profiles?.owner);
 }
 
-export function hasClientProfile(profiles: Profiles): boolean {
-    return Boolean(profiles.client);
+export function hasClientProfile(profiles: Profiles | null | undefined): boolean {
+    return Boolean(profiles?.client);
 }
 
 /** Preferencia de ?as= para API en modo trabajo (usa owner si tiene perfil de dueño). */
 export function workApiAs(profiles: Profiles): 'musician' | 'owner' {
     if (ownerFeaturesEnabled(profiles)) return 'owner';
-    if (profiles.musician) return 'musician';
+    if (profiles?.musician) return 'musician';
     return 'musician';
 }
 
 /** Modo fijado por los perfiles de la cuenta (sin localStorage ni switch). */
-export function resolveAppModeFromProfiles(profiles: Profiles): AppMode {
+export function resolveAppModeFromProfiles(profiles: Profiles | null | undefined): AppMode {
     if (hasWorkProfile(profiles)) return 'work';
     return 'client';
 }

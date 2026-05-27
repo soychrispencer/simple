@@ -3,8 +3,9 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import PanelSectionHeader from '@/components/panel/panel-section-header';
-import { fetchPanelNotifications, type PanelNotification } from '@/lib/panel-notifications';
-import { PanelEmptyState, PanelList, PanelListRow } from '@simple/ui';
+import { fetchPanelNotifications } from '@/lib/panel-notifications';
+import { type PanelNotification } from '@/lib/panel-notifications';
+import { PanelEmptyState, PanelList, PanelListRow } from '@simple/ui/panel';
 
 export default function NotificacionesPage() {
     const [items, setItems] = useState<PanelNotification[]>([]);

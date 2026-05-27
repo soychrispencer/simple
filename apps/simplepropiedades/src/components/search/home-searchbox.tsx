@@ -9,8 +9,8 @@ import {
     IconSearch,
     IconX,
 } from '@tabler/icons-react';
-import { ModernSelect } from '@simple/ui';
-import { PanelButton } from '@simple/ui';
+import { ModernSelect } from '@simple/ui/forms';
+import { PanelButton } from '@simple/ui/panel';
 
 type PropertiesTab = 'comprar' | 'arrendar' | 'proyectos';
 

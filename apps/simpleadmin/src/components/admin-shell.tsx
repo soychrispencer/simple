@@ -2,22 +2,14 @@
 
 import Link from 'next/link';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
-import { useTheme } from '@simple/ui';
+import { useTheme } from '@simple/ui/theme';
 import { useEffect, useMemo, useState } from 'react';
 import {
-    IconArrowLeft,
-    IconBell,
-    IconCar,
-    IconFlag,
-    IconLayoutDashboard,
-    IconLogout,
-    IconMoon,
-    IconSettings,
-    IconSun,
-    IconUsers,
-} from '@tabler/icons-react';
+    IconArrowLeft, IconBell, IconCar, IconFlag, IconLayoutDashboard, IconLogout, IconMoon, IconSettings, IconSun, IconUsers, } from '@tabler/icons-react';
 import { MarketplaceHeader } from '@simple/marketplace-header';
-import { Sidebar, PanelBottomNav, PanelPillNav } from '@simple/ui';
+import { PanelBottomNav } from '@simple/ui/panel';
+import { PanelPillNav } from '@simple/ui/panel';
+import { Sidebar } from '@simple/ui/sidebar';
 import { logoutAdmin, type AdminSessionUser } from '@/lib/api';
 import { ADMIN_SCOPE_ITEMS, adminScopeLabel, normalizeAdminScope, withAdminScope } from '@/lib/admin-scope';
 

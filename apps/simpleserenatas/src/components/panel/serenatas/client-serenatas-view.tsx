@@ -8,6 +8,7 @@ import { startSerenataCheckout } from '@/lib/payments';
 import { panelSectionHref } from '@/lib/panel-routes';
 import { PanelButton, PanelCard } from '@simple/ui/panel';
 import { ClientSerenataCancelPrompt } from '../client-serenata-cancel-prompt';
+import { ClientSerenataRebook } from './client-serenata-rebook';
 import { EmptyBlock, FormFeedback, SerenataRow, type FormStatus } from '../shared';
 
 type PanelActionProps = {
@@ -144,6 +145,7 @@ export function ClientSerenatasView({
                             <ClientPaymentPrompt item={item} />
                             <ClientSerenataCancelPrompt item={item} refresh={refresh} />
                             <ClientSerenataConfirmPrompt item={item} refresh={refresh} />
+                            <ClientSerenataRebook item={item} />
                         </div>
                     ))}
             </div>

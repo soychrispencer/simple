@@ -2,23 +2,9 @@
 
 import { Suspense, useEffect, useState } from 'react';
 import {
-    IconLink,
-    IconBuildingBank,
-    IconCheck,
-    IconLoader2,
-    IconCreditCard,
-    IconCash,
-    IconExternalLink,
-    IconAlertCircle,
-    IconChevronRight,
-} from '@tabler/icons-react';
-import {
-    PanelCard,
-    PanelField,
-    PanelButton,
-    PanelSwitch,
-    PanelPageHeader,
-} from '@simple/ui';
+    IconLink, IconBuildingBank, IconCheck, IconLoader2, IconCreditCard, IconCash, IconExternalLink, IconAlertCircle, IconChevronRight, } from '@tabler/icons-react';
+import { PanelCard } from '@simple/ui/panel';
+import { PanelField, PanelButton, PanelSwitch, PanelPageHeader } from '@simple/ui/panel';
 import Link from 'next/link';
 import {
     fetchAgendaProfile,

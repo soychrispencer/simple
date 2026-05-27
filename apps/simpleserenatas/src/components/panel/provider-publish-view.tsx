@@ -1,7 +1,8 @@
 'use client';
 
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { IconCheck, IconEye, IconEyeOff, IconLoader2 } from '@tabler/icons-react';
 import { PanelBlockHeader } from '@simple/ui/panel';
 import { PanelButton, PanelCard, PanelNotice, PanelSwitch } from '@simple/ui/panel';
@@ -9,7 +10,14 @@ import { serenatasApi } from '@/lib/serenatas-api';
 import { useMyMariachi } from '@/hooks/use-my-mariachi';
 import { panelMiNegocioHref } from '@/lib/panel-routes';
 import { publicMariachiProfileUrl } from '@/lib/public-mariachi-routes';
-import { providerPublicMediaMissing } from '@/lib/marketplace-group-display';
+import { providerGroupStatusLabel } from '@/lib/marketplace-group-display';
+import {
+    canPublishProviderGroup,
+    countPricedActiveServices,
+    getProviderGroupPublishRequirements,
+    publishBlockersErrorMessage,
+    providerGroupPublishMissing,
+} from '@/lib/provider-group-publish';
 import { EmptyBlock } from './shared';
 import { ProviderPublicProfileLink, ProviderPublishQrPanel } from './provider-public-profile-link';
 
@@ -28,13 +36,44 @@ export function ProviderPublishView({ refresh }: { refresh: () => Promise<void> 
     const [toggling, setToggling] = useState(false);
     const [toggleError, setToggleError] = useState('');
     const [toggleSaved, setToggleSaved] = useState(false);
+    const [activeServiceCount, setActiveServiceCount] = useState(0);
+    const [servicesLoading, setServicesLoading] = useState(false);
+
+    useEffect(() => {
+        if (!mariachi?.id) {
+            setActiveServiceCount(0);
+            return;
+        }
+        let cancelled = false;
+        setServicesLoading(true);
+        void serenatasApi.providerGroupServices(mariachi.id).then((response) => {
+            if (cancelled) return;
+            setServicesLoading(false);
+            if (!response.ok) {
+                setActiveServiceCount(0);
+                return;
+            }
+            setActiveServiceCount(countPricedActiveServices(response.items));
+        });
+        return () => {
+            cancelled = true;
+        };
+    }, [mariachi?.id]);
+
+    const requirements = useMemo(
+        () => getProviderGroupPublishRequirements(mariachi, activeServiceCount),
+        [mariachi, activeServiceCount],
+    );
+    const canPublish = useMemo(
+        () => (mariachi ? canPublishProviderGroup(mariachi, activeServiceCount) : false),
+        [mariachi, activeServiceCount],
+    );
+    const publishMissing = useMemo(
+        () => (mariachi ? providerGroupPublishMissing(mariachi, activeServiceCount) : []),
+        [mariachi, activeServiceCount],
+    );
 
     const isPublished = mariachi?.status === 'active';
-    const publishMissing = useMemo(
-        () => (mariachi ? providerPublicMediaMissing(mariachi) : []),
-        [mariachi?.logoUrl, mariachi?.coverUrl],
-    );
-    const canPublish = publishMissing.length === 0;
     const publicUrl = useMemo(
         () => (mariachi ? publicMariachiProfileUrl(mariachi.slug, APP_URL || undefined) : ''),
         [mariachi?.slug],
@@ -43,7 +82,7 @@ export function ProviderPublishView({ refresh }: { refresh: () => Promise<void> 
     async function handleTogglePublish(next: boolean) {
         if (!mariachi) return;
         if (next && !canPublish) {
-            setToggleError(`Antes de publicar agrega ${publishMissing.join(' y ')} en Datos comerciales.`);
+            setToggleError(publishBlockersErrorMessage(publishMissing));
             return;
         }
         setToggling(true);
@@ -110,7 +149,7 @@ export function ProviderPublishView({ refresh }: { refresh: () => Promise<void> 
                             <div className="min-w-0 flex-1">
                                 <div className="flex flex-wrap items-center gap-2">
                                     <p className="text-base font-semibold text-fg lg:text-lg">
-                                        {isPublished ? 'Visible en marketplace' : 'Oculto en marketplace'}
+                                        {isPublished ? 'Visible en marketplace' : providerGroupStatusLabel(mariachi.status)}
                                     </p>
                                     <span
                                         className="inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-medium"
@@ -128,16 +167,11 @@ export function ProviderPublishView({ refresh }: { refresh: () => Promise<void> 
                                 <p className="mt-2 max-w-xl text-sm leading-relaxed text-fg-muted">
                                     {isPublished
                                         ? 'Los clientes pueden encontrarte en el marketplace y abrir tu página pública.'
-                                        : 'Tu página y listado quedan ocultos. Puedes seguir editando datos y servicios.'}
+                                        : 'Tu página y listado quedan ocultos hasta completar los datos mínimos y activar la publicación.'}
                                 </p>
-                                {!isPublished && !canPublish ? (
-                                    <p className="mt-2 text-xs font-medium text-[var(--color-warning-text,#92400e)]">
-                                        Falta {publishMissing.join(' y ')} para publicar la ficha con buena presentación.
-                                    </p>
-                                ) : null}
                             </div>
                             <div className="flex shrink-0 items-center gap-3 sm:flex-col sm:items-end lg:flex-row lg:items-center">
-                                {toggling ? (
+                                {toggling || servicesLoading ? (
                                     <IconLoader2 size={22} className="animate-spin text-fg-muted" />
                                 ) : (
                                     <PanelSwitch
@@ -151,21 +185,29 @@ export function ProviderPublishView({ refresh }: { refresh: () => Promise<void> 
                         </div>
                         {!isPublished && !canPublish ? (
                             <PanelNotice tone="warning" className="mt-4">
-                                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                                    <span>
-                                        La portada debe ser 16:9 y el logo cuadrado. Esas imágenes se usan en el
-                                        catálogo, la tarjeta y la ficha pública.
-                                    </span>
-                                    <PanelButton
-                                        type="button"
-                                        variant="secondary"
-                                        size="sm"
-                                        className="shrink-0"
-                                        onClick={() => router.push(panelMiNegocioHref('datos'))}
-                                    >
-                                        Completar imágenes
-                                    </PanelButton>
-                                </div>
+                                <p className="text-sm font-medium text-fg">
+                                    Completa estos requisitos antes de publicar:
+                                </p>
+                                <ul className="mt-3 grid gap-2">
+                                    {requirements.map((item) => (
+                                        <li key={item.id}>
+                                            {item.met ? (
+                                                <span className="flex items-center gap-2 text-sm text-fg-muted">
+                                                    <IconCheck size={14} className="shrink-0 text-accent" />
+                                                    {item.label}
+                                                </span>
+                                            ) : (
+                                                <Link
+                                                    href={item.href}
+                                                    className="flex items-center justify-between gap-3 rounded-lg border border-border bg-bg-subtle/60 px-3 py-2 text-sm font-medium text-fg transition-colors hover:border-accent-border hover:bg-accent-soft/30"
+                                                >
+                                                    <span>{item.label}</span>
+                                                    <span className="text-xs text-accent">Completar</span>
+                                                </Link>
+                                            )}
+                                        </li>
+                                    ))}
+                                </ul>
                             </PanelNotice>
                         ) : null}
                         {toggleError ? (

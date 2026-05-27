@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { IconArrowRight } from '@tabler/icons-react';
-import { FeaturedCardSwiper } from '@simple/ui';
+import { FeaturedCardSwiper } from '@simple/ui/listings';
 import { fetchPublicListings, type PublicListing } from '@/lib/public-listings';
 import VehicleListingCard, { type VehicleListingCardData } from '@/components/listings/vehicle-listing-card';
 

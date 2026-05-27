@@ -1,7 +1,8 @@
 'use client';
 
 import Link from 'next/link';
-import { BrandLogo, ThemeToggleButton } from '@simple/ui';
+import { BrandLogo } from '@simple/ui/brand';
+import { ThemeToggleButton } from '@simple/ui/theme';
 import React, { useState } from 'react';
 import {
     IconArrowRight,
@@ -934,6 +935,5 @@ export default function LandingPage() {
         </div>
     );
 }
-
 
 

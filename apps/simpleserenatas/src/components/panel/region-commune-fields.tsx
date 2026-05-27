@@ -3,6 +3,7 @@
 import { useMemo } from 'react';
 import { PanelField } from '@simple/ui/panel';
 import { getCommunesForRegion, LOCATION_REGIONS } from '@simple/utils';
+import { FieldSelect } from '@/components/panel/shared';
 
 type RegionCommuneFieldsProps = {
     region: string;
@@ -35,47 +36,47 @@ export function RegionCommuneFields({
         () => (regionId ? getCommunesForRegion(regionId) : []),
         [regionId],
     );
+    const regionOptions = useMemo(
+        () => [
+            { value: '', label: 'Selecciona región' },
+            ...LOCATION_REGIONS.map((item) => ({ value: item.id, label: item.name })),
+        ],
+        [],
+    );
+    const communeOptions = useMemo(
+        () => [
+            { value: '', label: 'Selecciona comuna' },
+            ...communes.map((item) => ({ value: item.id, label: item.name })),
+        ],
+        [communes],
+    );
+    const communeValue =
+        communes.find((c) => c.name.toLowerCase() === comuna.trim().toLowerCase())?.id ?? '';
 
     return (
         <div className="grid gap-3 sm:grid-cols-2">
             <PanelField label={`Región${optionalSuffix}`}>
-                <select
-                    className="form-input w-full"
+                <FieldSelect
                     value={regionId}
                     disabled={disabled}
+                    options={regionOptions}
                     onChange={(event) => {
                         const next = LOCATION_REGIONS.find((r) => r.id === event.target.value);
                         onRegionChange(next?.name ?? '');
                         onComunaChange('');
                     }}
-                >
-                    <option value="">Selecciona región</option>
-                    {LOCATION_REGIONS.map((item) => (
-                        <option key={item.id} value={item.id}>
-                            {item.name}
-                        </option>
-                    ))}
-                </select>
+                />
             </PanelField>
             <PanelField label={`Comuna${optionalSuffix}`}>
-                <select
-                    className="form-input w-full"
-                    value={
-                        communes.find((c) => c.name.toLowerCase() === comuna.trim().toLowerCase())?.id ?? ''
-                    }
+                <FieldSelect
+                    value={communeValue}
                     disabled={disabled || !regionId}
+                    options={communeOptions}
                     onChange={(event) => {
                         const next = communes.find((c) => c.id === event.target.value);
                         onComunaChange(next?.name ?? '');
                     }}
-                >
-                    <option value="">Selecciona comuna</option>
-                    {communes.map((item) => (
-                        <option key={item.id} value={item.id}>
-                            {item.name}
-                        </option>
-                    ))}
-                </select>
+                />
             </PanelField>
         </div>
     );

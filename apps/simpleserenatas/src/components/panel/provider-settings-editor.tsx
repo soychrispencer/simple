@@ -11,7 +11,7 @@ import {
     type ProviderBookingMode,
     type ProviderGroup,
 } from '@/lib/serenatas-api';
-import { FieldInput } from './shared';
+import { FieldInput, FieldSelect } from './shared';
 
 const CL_BANKS = [
     'BancoEstado', 'Banco Santander', 'Banco de Chile', 'BCI', 'Scotiabank',
@@ -19,6 +19,16 @@ const CL_BANKS = [
 ];
 
 const ACCOUNT_TYPES = ['Cuenta Corriente', 'Cuenta Vista', 'Cuenta RUT', 'Cuenta de Ahorro'];
+
+const BANK_OPTIONS = [
+    { value: '', label: '— Seleccionar —' },
+    ...CL_BANKS.map((bank) => ({ value: bank, label: bank })),
+];
+
+const ACCOUNT_TYPE_OPTIONS = [
+    { value: '', label: '— Seleccionar —' },
+    ...ACCOUNT_TYPES.map((type) => ({ value: type, label: type })),
+];
 
 const EMPTY_BANK: ProviderBankTransferData = {
     bank: '',
@@ -326,34 +336,24 @@ export function ProviderSettingsEditor({
                     {form.acceptsTransfer ? (
                         <div className="mt-4 grid gap-3 border-t border-border pt-4 sm:grid-cols-2">
                             <PanelField label="Banco">
-                                <select
+                                <FieldSelect
                                     value={form.bankData.bank}
+                                    options={BANK_OPTIONS}
                                     onChange={(e) => setForm((prev) => ({
                                         ...prev,
                                         bankData: { ...prev.bankData, bank: e.target.value },
                                     }))}
-                                    className="form-select w-full"
-                                >
-                                    <option value="">— Seleccionar —</option>
-                                    {CL_BANKS.map((bank) => (
-                                        <option key={bank} value={bank}>{bank}</option>
-                                    ))}
-                                </select>
+                                />
                             </PanelField>
                             <PanelField label="Tipo de cuenta">
-                                <select
+                                <FieldSelect
                                     value={form.bankData.accountType}
+                                    options={ACCOUNT_TYPE_OPTIONS}
                                     onChange={(e) => setForm((prev) => ({
                                         ...prev,
                                         bankData: { ...prev.bankData, accountType: e.target.value },
                                     }))}
-                                    className="form-select w-full"
-                                >
-                                    <option value="">— Seleccionar —</option>
-                                    {ACCOUNT_TYPES.map((type) => (
-                                        <option key={type} value={type}>{type}</option>
-                                    ))}
-                                </select>
+                                />
                             </PanelField>
                             <PanelField label="Número de cuenta">
                                 <input

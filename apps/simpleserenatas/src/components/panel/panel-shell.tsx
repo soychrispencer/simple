@@ -11,7 +11,7 @@ import {
     getPanelNavItems,
     getMobileBottomNavItems,
     getMobileOverflowNavItems,
-    panelModeLabel,
+    panelAccountTypeLabel,
 } from '@/components/panel/panel-nav-config';
 import { PanelMobileMoreSheet } from '@/components/panel/panel-mobile-more-sheet';
 import type { Section } from '@/context/serenata-context';
@@ -26,19 +26,21 @@ type SerenataPanelShellProps = {
 };
 
 export function SerenataPanelShell({ children, section, onSectionChange }: SerenataPanelShellProps) {
-    const { user, accountUser, mode, profiles } = useSerenata();
+    const { user, accountUser, mode, profiles, solicitudesPendingCount } = useSerenata();
     const routerPathname = usePathname() ?? '';
     const [moreOpen, setMoreOpen] = useState(false);
 
     const navItems = useMemo(
         () =>
-            getPanelNavItems(mode, profiles).map(({ href, label, icon, badge }) => ({
+            getPanelNavItems(mode, profiles).map(({ href, label, icon, badge, id }) => ({
                 href,
                 label,
                 icon,
-                badge,
+                badge: id === 'solicitudes' && solicitudesPendingCount > 0
+                    ? String(solicitudesPendingCount)
+                    : badge,
             })),
-        [mode, profiles],
+        [mode, profiles, solicitudesPendingCount],
     );
 
     const visibleBottomTabs = useMemo(
@@ -60,12 +62,13 @@ export function SerenataPanelShell({ children, section, onSectionChange }: Seren
         return panelSectionHref(section);
     }, [activePathname, navItems, section]);
     const userName = accountUser?.name?.trim() || user?.name?.trim() || 'Usuario';
+    const accountTypeLabel = useMemo(() => panelAccountTypeLabel(profiles), [profiles]);
 
     return (
         <SharedPanelShell
             navItems={navItems}
-            user={{ name: userName, role: panelModeLabel(mode) }}
-            roleLabel={panelModeLabel(mode)}
+            user={{ name: userName, role: accountTypeLabel }}
+            roleLabel={accountTypeLabel}
             collapsedStorageKey={STORAGE_COLLAPSED}
             footerHref={null}
             activePathname={activePathname}

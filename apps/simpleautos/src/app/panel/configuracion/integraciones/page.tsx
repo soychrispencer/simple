@@ -1,7 +1,7 @@
 'use client';
 
 import InstagramIntegrationCard from '@/components/panel/instagram-integration-card';
-import { PanelPageHeader } from '@simple/ui';
+import { PanelPageHeader } from '@simple/ui/panel';
 
 export default function IntegracionesPage() {
     return (

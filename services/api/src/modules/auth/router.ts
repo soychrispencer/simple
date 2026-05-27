@@ -463,7 +463,8 @@ export function createAuthRouter(deps: AuthRouterDeps) {
 
     app.get('/me', async (c) => {
         const user = await deps.authUser(c);
-        if (!user) return c.json({ ok: false, error: 'No autenticado' }, 401);
+        // Sin sesión: 200 + user null (evita 401 en consola al cargar landing como invitado).
+        if (!user) return c.json({ ok: true, user: null });
         const profile = null;
         return c.json({ ok: true, user: deps.sanitizeUser(user), ...(profile ? { profile } : {}) });
     });

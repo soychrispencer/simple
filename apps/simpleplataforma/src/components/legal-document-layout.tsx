@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
 import Link from 'next/link';
-import { BrandLogo } from '@simple/ui';
+import { BrandLogo } from '@simple/ui/brand';
 
 const LAST_UPDATED = '21 de mayo de 2026';
 const CONTACT_EMAIL = 'hola@simpleplataforma.app';

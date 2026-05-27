@@ -2,7 +2,9 @@
 
 import { useState, useRef, useEffect } from 'react';
 import { IconCalendar, IconMapPin, IconRocket, IconShare3, IconCopy, IconBrandWhatsapp, IconBrandInstagram, IconLink, IconCheck } from '@tabler/icons-react';
-import { PanelStatusBadge, PanelButton, PanelIconButton, getPanelButtonClassName, getPanelButtonStyle } from '../index';
+import { PanelButton, getPanelButtonClassName, getPanelButtonStyle } from '../panel/panel-button';
+import { PanelIconButton } from '../panel/panel-display';
+import { PanelStatusBadge } from '../panel/panel-primitives';
 import ListingImageCarousel from './shared/listing-image-carousel';
 import ListingPriceBlock from './shared/listing-price-block';
 import ListingMetaTags from './shared/listing-meta-tags';

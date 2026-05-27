@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { useAuth } from '@simple/auth';
 import { IconLock } from '@tabler/icons-react';
-import { PanelButton } from '@simple/ui';
+import { PanelButton } from '@simple/ui/panel';
 import { API_BASE } from '@simple/config';
 
 export function AuthGuard({ children }: { children: React.ReactNode }) {

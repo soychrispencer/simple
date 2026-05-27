@@ -70,6 +70,12 @@ export type MarketplaceHeaderProps = {
   showPrimaryAction?: boolean;
   /** Si se define, reemplaza `logout` de useAuth (p. ej. redirigir al inicio). */
   onLogout?: () => void | Promise<void>;
+  /** Al abrir una notificación (p. ej. marcar como leída). */
+  onNotificationOpened?: (notification: PanelNotification) => void | Promise<void>;
+  /** Acción "Marcar todas como leídas" en el dropdown. */
+  onMarkAllNotificationsRead?: () => void | Promise<void>;
+  /** Prefetch de Next en enlaces del panel (desactivar reduce ruido RSC en Serenatas). */
+  panelLinkPrefetch?: boolean;
 };
 
 export function MarketplaceHeader({
@@ -89,6 +95,9 @@ export function MarketplaceHeader({
   primaryActionIcon: PrimaryActionIcon = IconPlus,
   showPrimaryAction = true,
   onLogout,
+  onNotificationOpened,
+  onMarkAllNotificationsRead,
+  panelLinkPrefetch = true,
 }: MarketplaceHeaderProps) {
   const pathname = usePathname() ?? '';
   const router = useRouter();
@@ -235,20 +244,20 @@ export function MarketplaceHeader({
 
               {notificationsOpen ? (
                 <div
-                  className={`z-[60] rounded-xl border p-2 animate-slide-down ${HEADER_POPOVER_MOBILE} ${HEADER_POPOVER_DESKTOP} md:w-[min(320px,calc(100vw-1rem))]`}
+                  className={`z-[60] rounded-xl border p-3 animate-slide-down ${HEADER_POPOVER_MOBILE} ${HEADER_POPOVER_DESKTOP} md:w-[min(380px,calc(100vw-1.5rem))]`}
                   style={{ background: 'var(--surface)', borderColor: 'var(--border)', boxShadow: 'var(--shadow-md)' }}
                 >
-                  <div className="px-2.5 py-2 mb-1 flex items-center justify-between">
-                    <p className="text-sm font-medium" style={{ color: 'var(--fg)' }}>
+                  <div className="mb-2 flex items-center justify-between gap-3 px-1 py-1">
+                    <p className="text-sm font-semibold" style={{ color: 'var(--fg)' }}>
                       Notificaciones
                     </p>
-                    <span className="text-xs" style={{ color: 'var(--fg-muted)' }}>
+                    <span className="shrink-0 text-xs" style={{ color: 'var(--fg-muted)' }}>
                       {unreadNotifications} sin leer
                     </span>
                   </div>
-                  <div className="max-h-[min(60dvh,24rem)] space-y-1 overflow-y-auto overscroll-contain">
+                  <div className="max-h-[min(65dvh,28rem)] space-y-1.5 overflow-y-auto overscroll-contain px-0.5">
                     {notifications.length === 0 ? (
-                      <div className="px-2.5 py-3 text-sm" style={{ color: 'var(--fg-muted)' }}>
+                      <div className="rounded-lg px-3 py-5 text-sm leading-relaxed" style={{ color: 'var(--fg-muted)' }}>
                         Sin novedades por ahora.
                       </div>
                     ) : (
@@ -258,25 +267,29 @@ export function MarketplaceHeader({
                         <Link
                           key={item.id}
                           href={item.href}
-                          onClick={() => setNotificationsOpen(false)}
-                          className="flex items-start gap-2.5 rounded-lg px-2.5 py-2 transition-colors hover:bg-[var(--bg-subtle)]"
+                          prefetch={panelLinkPrefetch}
+                          onClick={() => {
+                            void onNotificationOpened?.(item);
+                            setNotificationsOpen(false);
+                          }}
+                          className="flex items-start gap-3 rounded-xl px-3 py-3 transition-colors hover:bg-[var(--bg-subtle)]"
                         >
                           <span
-                            className="mt-0.5 flex size-7 shrink-0 items-center justify-center rounded-lg"
+                            className="mt-0.5 flex size-9 shrink-0 items-center justify-center rounded-xl"
                             style={{ background: 'var(--bg-subtle)', color: 'var(--fg-muted)' }}
                           >
-                            <ItemIcon size={15} stroke={1.8} />
+                            <ItemIcon size={17} stroke={1.75} />
                           </span>
-                          <span className="min-w-0 flex-1">
+                          <span className="min-w-0 flex-1 space-y-1">
                             {item.categoryLabel ? (
-                              <p className="text-[11px] font-medium uppercase tracking-wide" style={{ color: 'var(--fg-muted)' }}>
+                              <p className="text-xs font-medium uppercase tracking-wide" style={{ color: 'var(--fg-muted)' }}>
                                 {item.categoryLabel}
                               </p>
                             ) : null}
-                            <p className="text-sm leading-5" style={{ color: 'var(--fg)' }}>
+                            <p className="text-sm leading-relaxed" style={{ color: 'var(--fg)' }}>
                               {item.title}
                             </p>
-                            <p className="text-xs mt-0.5" style={{ color: 'var(--fg-muted)' }}>
+                            <p className="text-xs leading-relaxed" style={{ color: 'var(--fg-muted)' }}>
                               {item.time}
                             </p>
                           </span>
@@ -285,6 +298,20 @@ export function MarketplaceHeader({
                       })
                     )}
                   </div>
+                  {onMarkAllNotificationsRead && notifications.length > 0 ? (
+                    <div className="mt-2 border-t border-[var(--border)] pt-2">
+                      <button
+                        type="button"
+                        className="w-full rounded-lg px-3 py-2.5 text-left text-xs font-semibold text-[var(--fg-secondary)] transition-colors hover:bg-[var(--bg-subtle)] hover:text-[var(--fg)]"
+                        onClick={() => {
+                          void onMarkAllNotificationsRead();
+                          setNotificationsOpen(false);
+                        }}
+                      >
+                        Marcar todas como leídas
+                      </button>
+                    </div>
+                  ) : null}
                 </div>
               ) : null}
             </div>
@@ -339,6 +366,7 @@ export function MarketplaceHeader({
                         <Link
                           key={item.href}
                           href={item.href}
+                          prefetch={panelLinkPrefetch}
                           onClick={() => setAccountOpen(false)}
                           className="group flex items-center gap-2.5 rounded-xl px-2.5 py-2 text-sm transition-colors hover:bg-[var(--bg-subtle)]"
                           style={{

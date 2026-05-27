@@ -4,7 +4,8 @@ import { createPortal } from 'react-dom';
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { IconX, IconBrandGoogle, IconMail, IconLock, IconUser, IconMailCheck } from '@tabler/icons-react';
 import { API_BASE } from '@simple/config';
-import { PanelButton, PanelIconButton, PanelNotice } from '@simple/ui';
+import { PanelButton } from '@simple/ui/panel';
+import { PanelIconButton, PanelNotice } from '@simple/ui/panel';
 import GoogleLoginButton from './google-login-button';
 import { useAuth } from './auth-context';
 
