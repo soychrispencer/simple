@@ -17,7 +17,15 @@ function normalizeStatus(value: string | undefined): string {
   if (value === 'active') return 'Activa';
   if (value === 'expired') return 'Expirada';
   if (value === 'free') return 'Gratis';
+  if (value === 'trialing') return 'Trial';
   return value;
+}
+
+function serenataOwnerSubscriptionLabel(status: string | null | undefined): string {
+  if (!status) return 'Dueño';
+  if (status === 'trialing') return 'Dueño (trial)';
+  const normalized = normalizeStatus(status);
+  return normalized === 'Sin estado' ? 'Dueño' : `Dueño · ${normalized}`;
 }
 
 export function deriveUserVerticalMemberships(user: AdminUserListItem): AdminVerticalMembership[] {
@@ -60,10 +68,10 @@ export function deriveUserVerticalMemberships(user: AdminUserListItem): AdminVer
       roleLabel: [
         serenatas?.client ? 'Cliente' : null,
         serenatas?.musician ? 'Músico' : null,
-        serenatas?.coordinator ? 'Administrador Serenatas' : null,
+        serenatas?.coordinator ? 'Dueño' : null,
       ].filter(Boolean).join(' + ') || 'Sin perfil',
       subscriptionLabel: serenatas?.coordinator
-        ? (serenatas.coordinatorStatus === 'trialing' ? 'Admin Serenatas trial' : serenatas.coordinatorStatus || 'Administrador Serenatas')
+        ? serenataOwnerSubscriptionLabel(serenatas.coordinatorStatus)
         : 'Sin suscripción',
       statusLabel: serenatas ? 'Activa' : 'Sin estado',
       activityCount: serenatas ? 1 : 0,
