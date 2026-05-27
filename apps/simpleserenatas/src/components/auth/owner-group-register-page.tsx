@@ -34,7 +34,7 @@ export function OwnerGroupRegisterPage() {
     const { user, isLoggedIn, authLoading, register, openAuth, refreshSession } = useAuth();
     const [step, setStep] = useState(1);
     const [groupName, setGroupName] = useState('');
-    const [coordinatorName, setCoordinatorName] = useState('');
+    const [ownerName, setOwnerName] = useState('');
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [confirmPassword, setConfirmPassword] = useState('');
@@ -86,8 +86,8 @@ export function OwnerGroupRegisterPage() {
     }, [password]);
 
     useEffect(() => {
-        if (step >= 2) persistSignupDrafts(groupName, coordinatorName);
-    }, [step, groupName, coordinatorName]);
+        if (step >= 2) persistSignupDrafts(groupName, ownerName);
+    }, [step, groupName, ownerName]);
 
     function goNext() {
         setError('');
@@ -96,12 +96,12 @@ export function OwnerGroupRegisterPage() {
                 setError('Ingresa el nombre de tu grupo o mariachi.');
                 return;
             }
-            if (!coordinatorName.trim()) {
+            if (!ownerName.trim()) {
                 setError('Ingresa tu nombre como dueño.');
                 return;
             }
             persistSignupProfile('owner');
-            persistSignupDrafts(groupName, coordinatorName);
+            persistSignupDrafts(groupName, ownerName);
             setStep(2);
             return;
         }
@@ -135,10 +135,10 @@ export function OwnerGroupRegisterPage() {
         e.preventDefault();
         setError('');
         persistSignupProfile('owner');
-        persistSignupDrafts(groupName, coordinatorName);
+        persistSignupDrafts(groupName, ownerName);
         setSubmitting(true);
         sessionStorage.setItem('auth.returnTo', '/para-duenos');
-        const result = await register(coordinatorName.trim(), email.trim(), password);
+        const result = await register(ownerName.trim(), email.trim(), password);
         setSubmitting(false);
         if (!result.ok || !result.user) {
             setError(result.error || 'No pudimos completar el registro.');
@@ -251,8 +251,8 @@ export function OwnerGroupRegisterPage() {
                                             <AuthField
                                                 icon={IconUser}
                                                 label="Tu nombre (dueño)"
-                                                value={coordinatorName}
-                                                onChange={setCoordinatorName}
+                                                value={ownerName}
+                                                onChange={setOwnerName}
                                                 placeholder="Nombre y apellido"
                                                 required
                                             />
@@ -303,7 +303,7 @@ export function OwnerGroupRegisterPage() {
                                     {step === 3 ? (
                                         <div className="space-y-3 rounded-xl border p-4 text-sm border-border bg-bg-subtle">
                                             <SummaryRow label="Mariachi / grupo" value={groupName.trim()} />
-                                            <SummaryRow label="Dueño" value={coordinatorName.trim()} />
+                                            <SummaryRow label="Dueño" value={ownerName.trim()} />
                                             <SummaryRow label="Correo" value={email.trim()} />
                                             <p className="pt-1 text-xs text-fg-muted">
                                                 Al crear tu cuenta activarás el perfil de dueño sin costo ni tarjeta.

@@ -5,6 +5,7 @@ import { useSearchParams } from 'next/navigation';
 import { AdminProtectedPage } from '@/components/admin-protected-page';
 import { fetchAdminSystemStatus, type AdminSystemStatus } from '@/lib/api';
 import { adminScopeLabel, normalizeAdminScope } from '@/lib/admin-scope';
+import { PanelList, PanelListRow, PanelNotice, PanelPageHeader, PanelStatusBadge } from '@simple/ui/panel';
 
 export default function ConfiguracionPage() {
     return (
@@ -46,26 +47,31 @@ function ConfiguracionContent() {
     ] : [];
 
     return (
-        <>
-            <h1 className="text-xl font-semibold mb-1" style={{ color: 'var(--fg)' }}>Configuración</h1>
-            <p className="text-xs mb-6" style={{ color: 'var(--fg-muted)' }}>Estado operativo de {adminScopeLabel(scope).toLowerCase()} y sus integraciones compartidas.</p>
-
-            <div className="max-w-2xl rounded-xl border p-5" style={{ borderColor: 'var(--border)' }}>
-                {loading ? (
-                    <p className="text-sm" style={{ color: 'var(--fg-muted)' }}>Cargando estado del sistema...</p>
-                ) : !status ? (
-                    <p className="text-sm" style={{ color: 'var(--fg-muted)' }}>No pudimos leer el estado del backend.</p>
-                ) : (
-                    <div className="space-y-3">
-                        {items.map((item) => (
-                            <div key={item.label} className="flex items-center justify-between gap-4">
+        <div className="container-app panel-page py-7">
+            <PanelPageHeader
+                title="Configuración"
+                description={`Estado técnico para ${adminScopeLabel(scope).toLowerCase()} con señales globales limpias.`}
+            />
+            {loading ? (
+                <PanelNotice tone="neutral">Cargando estado del sistema...</PanelNotice>
+            ) : !status ? (
+                <PanelNotice tone="error">No pudimos leer el estado del backend.</PanelNotice>
+            ) : (
+                <PanelList className="max-w-3xl">
+                    {items.map((item, index) => (
+                        <PanelListRow key={item.label} divider={index > 0}>
+                            <div className="flex items-center justify-between gap-4 px-4 py-3">
                                 <span className="text-sm" style={{ color: 'var(--fg-secondary)' }}>{item.label}</span>
-                                <span className="text-xs px-2 py-1 rounded-full" style={{ background: 'var(--bg-muted)', color: 'var(--fg-muted)' }}>{item.value}</span>
+                                <PanelStatusBadge
+                                    label={item.value}
+                                    tone={item.value.includes('Falta') || item.value.includes('No configurado') ? 'warning' : 'success'}
+                                    size="sm"
+                                />
                             </div>
-                        ))}
-                    </div>
-                )}
-            </div>
-        </>
+                        </PanelListRow>
+                    ))}
+                </PanelList>
+            )}
+        </div>
     );
 }

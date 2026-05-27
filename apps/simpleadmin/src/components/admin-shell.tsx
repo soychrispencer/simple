@@ -5,13 +5,22 @@ import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { useTheme } from '@simple/ui/theme';
 import { useEffect, useMemo, useState } from 'react';
 import {
-    IconArrowLeft, IconBell, IconCar, IconFlag, IconLayoutDashboard, IconLogout, IconMoon, IconSettings, IconSun, IconUsers, } from '@tabler/icons-react';
+    IconArrowLeft, IconBell, IconCar, IconFlag, IconLayoutDashboard, IconLogout, IconMoon, IconSettings, IconSun, IconUsers,
+} from '@tabler/icons-react';
 import { MarketplaceHeader } from '@simple/marketplace-header';
 import { PanelBottomNav } from '@simple/ui/panel';
 import { PanelPillNav } from '@simple/ui/panel';
 import { Sidebar } from '@simple/ui/sidebar';
 import { logoutAdmin, type AdminSessionUser } from '@/lib/api';
-import { ADMIN_SCOPE_ITEMS, adminScopeLabel, normalizeAdminScope, withAdminScope } from '@/lib/admin-scope';
+import {
+    ADMIN_SCOPE_ITEMS,
+    ADMIN_VIEW_ITEMS,
+    normalizeAdminScope,
+    normalizeAdminView,
+    withAdminScope,
+    type AdminPanelView,
+    type AdminScope,
+} from '@/lib/admin-scope';
 
 const STORAGE_COLLAPSED = 'simpleadmin:sidebar:collapsed';
 
@@ -21,13 +30,23 @@ type NavItem = {
     label: string;
 };
 
-const NAV_ITEMS: NavItem[] = [
-    { href: '/', icon: IconLayoutDashboard, label: 'Dashboard' },
-    { href: '/usuarios', icon: IconUsers, label: 'Usuarios' },
-    { href: '/publicaciones', icon: IconCar, label: 'Publicaciones' },
-    { href: '/reportes', icon: IconFlag, label: 'Leads' },
-    { href: '/configuracion', icon: IconSettings, label: 'Configuración' },
-];
+const NAV_BY_VIEW: Record<AdminPanelView, NavItem[]> = {
+    global: [
+        { href: '/', icon: IconLayoutDashboard, label: 'Resumen' },
+        { href: '/usuarios', icon: IconUsers, label: 'Usuarios' },
+        { href: '/configuracion', icon: IconSettings, label: 'Configuración' },
+    ],
+    verticales: [
+        { href: '/usuarios', icon: IconUsers, label: 'Usuarios vertical' },
+        { href: '/publicaciones', icon: IconCar, label: 'Publicaciones' },
+        { href: '/reportes', icon: IconFlag, label: 'Leads vertical' },
+    ],
+    operacion: [
+        { href: '/reportes', icon: IconFlag, label: 'Leads' },
+        { href: '/usuarios', icon: IconUsers, label: 'Cuentas' },
+        { href: '/configuracion', icon: IconSettings, label: 'Sistema' },
+    ],
+};
 
 function adminRoleLabel(role: AdminSessionUser['role']): string {
     return role === 'superadmin' ? 'Superadmin' : 'Admin';
@@ -46,15 +65,17 @@ export function AdminShell({ children, user }: { children: React.ReactNode; user
     const [collapsed, setCollapsed] = useState(false);
 
     const scope = normalizeAdminScope(searchParams.get('scope'));
+    const view = normalizeAdminView(searchParams.get('view'), scope);
+    const activeVertical = scope === 'all' ? 'serenatas' : scope;
 
     const nav = useMemo(
         () =>
-            NAV_ITEMS.map((item) => ({
+            NAV_BY_VIEW[view].map((item) => ({
                 ...item,
-                href: withAdminScope(item.href, scope),
+                href: withAdminScope(item.href, scope, view),
                 active: isAdminNavActive(pathname, item.href),
             })),
-        [pathname, scope]
+        [pathname, scope, view]
     );
 
     useEffect(() => setMounted(true), []);
@@ -83,7 +104,8 @@ export function AdminShell({ children, user }: { children: React.ReactNode; user
         router.refresh();
     };
 
-    const scopeItems = ADMIN_SCOPE_ITEMS.map((item) => ({ key: item.key, label: item.label }));
+    const viewItems = ADMIN_VIEW_ITEMS.map((item) => ({ key: item.key, label: item.label }));
+    const verticalItems = ADMIN_SCOPE_ITEMS.filter((item) => item.key !== 'all').map((item) => ({ key: item.key, label: item.label }));
     const userName = user.name?.trim() || 'Administrador';
     const roleLabel = adminRoleLabel(user.role);
 
@@ -95,24 +117,40 @@ export function AdminShell({ children, user }: { children: React.ReactNode; user
                 getPanelNavItems={() => []}
                 isPanelNavActive={() => false}
                 fetchPanelNotifications={async () => []}
-                homeHref={withAdminScope('/', scope)}
+                homeHref={withAdminScope('/', scope, view)}
                 centerSlot={
-                    <PanelPillNav
-                        items={scopeItems}
-                        activeKey={scope}
-                        onChange={(nextScope) => {
-                            router.push(withAdminScope(pathname || '/', nextScope as Parameters<typeof withAdminScope>[1]));
-                        }}
-                        mobileLabel="Vista del panel"
-                        ariaLabel="Selección de ámbito administrativo"
-                        size="sm"
-                    />
+                    <div className="flex items-center gap-2">
+                        <PanelPillNav
+                            items={viewItems}
+                            activeKey={view}
+                            onChange={(nextView) => {
+                                const resolvedView = nextView as AdminPanelView;
+                                const nextScope: AdminScope = resolvedView === 'verticales' ? activeVertical : 'all';
+                                router.push(withAdminScope(pathname || '/', nextScope, resolvedView));
+                            }}
+                            mobileLabel="Área del panel"
+                            ariaLabel="Selección de área administrativa"
+                            size="sm"
+                        />
+                        {view === 'verticales' ? (
+                            <PanelPillNav
+                                items={verticalItems}
+                                activeKey={activeVertical}
+                                onChange={(nextScope) => {
+                                    router.push(withAdminScope(pathname || '/', nextScope as AdminScope, 'verticales'));
+                                }}
+                                mobileLabel="Vertical"
+                                ariaLabel="Selección de vertical"
+                                size="sm"
+                            />
+                        ) : null}
+                    </div>
                 }
                 rightSlot={
                     <>
                         <button
                             type="button"
-                            onClick={() => router.push(withAdminScope('/reportes', scope))}
+                            onClick={() => router.push(withAdminScope('/reportes', scope, view))}
                             className="header-icon-chip"
                             aria-label="Leads"
                         >

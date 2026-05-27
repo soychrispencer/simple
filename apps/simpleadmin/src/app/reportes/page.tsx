@@ -84,10 +84,12 @@ function LeadsContent() {
     const activeLoading = tab === 'publicaciones' ? listingLoading : serviceLoading;
     const scopedListingItems = useMemo(() => {
         if (scope === 'autos' || scope === 'propiedades') return listingItems.filter((item) => item.vertical === scope);
+        if (scope === 'agenda' || scope === 'serenatas') return [];
         return listingItems;
     }, [listingItems, scope]);
     const scopedServiceItems = useMemo(() => {
         if (scope === 'autos' || scope === 'propiedades') return serviceItems.filter((item) => item.vertical === scope);
+        if (scope === 'agenda' || scope === 'serenatas') return [];
         return serviceItems;
     }, [scope, serviceItems]);
     const listingFilterStats = useMemo(() => ({
@@ -362,8 +364,11 @@ function LeadsContent() {
         <>
               <div className="mb-4 flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
                   <div>
+                      <p className="text-xs font-medium uppercase tracking-[0.14em]" style={{ color: 'var(--fg-muted)' }}>
+                          {adminScopeLabel(scope)}
+                      </p>
                       <h1 className="text-xl font-semibold" style={{ color: 'var(--fg)' }}>Leads</h1>
-                      <p className="text-xs" style={{ color: 'var(--fg-muted)' }}>Vista operativa de {adminScopeLabel(scope).toLowerCase()} por cuenta, canal y etapa comercial</p>
+                      <p className="text-xs" style={{ color: 'var(--fg-muted)' }}>Operación comercial por canal, etapa y responsable.</p>
                   </div>
               </div>
 
@@ -428,6 +433,10 @@ function LeadsContent() {
                 <div className="rounded-xl border overflow-hidden" style={{ borderColor: 'var(--border)' }}>
                     {activeLoading ? (
                         <div className="px-4 py-6 text-sm" style={{ color: 'var(--fg-muted)' }}>Cargando leads...</div>
+                    ) : (scope === 'agenda' || scope === 'serenatas') ? (
+                        <div className="px-4 py-6 text-sm" style={{ color: 'var(--fg-muted)' }}>
+                            Este módulo de leads está enfocado en Autos y Propiedades. Cambia la vertical para evitar mezclar datos operativos.
+                        </div>
                     ) : filtered.length === 0 ? (
                         <div className="px-4 py-6 text-sm" style={{ color: 'var(--fg-muted)' }}>Todavía no hay leads para ese filtro.</div>
                     ) : leadView === 'list' ? (

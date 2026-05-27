@@ -6,6 +6,7 @@ import { IconSearch } from '@tabler/icons-react';
 import { AdminProtectedPage } from '@/components/admin-protected-page';
 import { fetchAdminListings, type AdminListingListItem } from '@/lib/api';
 import { adminScopeLabel, normalizeAdminScope } from '@/lib/admin-scope';
+import { PanelEmptyState, PanelList, PanelListHeader, PanelListRow, PanelNotice, PanelPageHeader, PanelStatusBadge } from '@simple/ui/panel';
 
 export default function PublicacionesPage() {
     return (
@@ -54,61 +55,74 @@ function PublicacionesContent() {
         });
     }, [query, scopedItems, statusFilter]);
 
-    return (
-        <>
-            <div className="flex items-center justify-between mb-6">
-                <div>
-                    <h1 className="text-xl font-semibold" style={{ color: 'var(--fg)' }}>Publicaciones</h1>
-                    <p className="text-xs" style={{ color: 'var(--fg-muted)' }}>Inventario administrativo de {adminScopeLabel(scope).toLowerCase()}</p>
-                </div>
-                <div className="flex gap-2">
-                    <div className="relative">
-                        <IconSearch size={14} className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: 'var(--fg-muted)' }} />
-                        <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Buscar..." className="form-input pl-9 w-56 h-9 text-xs" />
-                    </div>
-                    <select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)} className="form-select w-36 h-9 text-xs">
-                        <option value="todas">Todas</option>
-                        <option value="draft">Draft</option>
-                        <option value="active">Activas</option>
-                        <option value="paused">Pausadas</option>
-                        <option value="sold">Vendidas</option>
-                        <option value="archived">Archivadas</option>
-                    </select>
-                </div>
-            </div>
+    const unsupportedScope = scope === 'agenda' || scope === 'serenatas';
 
-            <div className="rounded-xl border overflow-hidden" style={{ borderColor: 'var(--border)' }}>
-                <div className="grid grid-cols-[1.6fr_100px_140px_90px_120px] gap-4 px-4 py-2.5 text-xs font-medium uppercase tracking-wider" style={{ background: 'var(--bg-muted)', color: 'var(--fg-muted)' }}>
-                    <span>Publicación</span>
-                    <span>Vertical</span>
-                    <span>Autor</span>
-                    <span>Estado</span>
-                    <span>Ruta</span>
-                </div>
-                {loading ? (
-                    <div className="px-4 py-6 text-sm" style={{ color: 'var(--fg-muted)' }}>Cargando publicaciones...</div>
-                ) : scope === 'agenda' ? (
-                    <div className="px-4 py-6 text-sm" style={{ color: 'var(--fg-muted)' }}>La capa agenda no tiene publicaciones en este módulo. Usa General, SimpleAutos o SimplePropiedades.</div>
-                ) : filtered.length === 0 ? (
-                    <div className="px-4 py-6 text-sm" style={{ color: 'var(--fg-muted)' }}>No encontramos publicaciones para ese filtro.</div>
-                ) : (
-                    filtered.map((listing, index) => (
-                        <div key={listing.id} className="grid grid-cols-[1.6fr_100px_140px_90px_120px] gap-4 px-4 py-3 items-center" style={{ background: 'var(--surface)', borderTop: index ? '1px solid var(--border)' : 'none' }}>
-                            <div>
-                                <p className="text-sm font-medium line-clamp-1" style={{ color: 'var(--fg)' }}>{listing.title}</p>
-                                <p className="text-xs" style={{ color: 'var(--fg-muted)' }}>{listing.price || 'Sin precio'}</p>
-                            </div>
-                            <span className="text-xs px-1.5 py-0.5 rounded w-fit" style={{ background: 'var(--bg-muted)', color: 'var(--fg-muted)' }}>{listing.vertical}</span>
-                            <div>
-                                <p className="text-xs" style={{ color: 'var(--fg-secondary)' }}>{listing.ownerName}</p>
-                                <p className="text-xs" style={{ color: 'var(--fg-muted)' }}>{listing.ownerEmail}</p>
-                            </div>
-                            <span className="text-xs" style={{ color: 'var(--fg-muted)' }}>{listing.status}</span>
-                            <span className="text-xs truncate" style={{ color: 'var(--fg-muted)' }}>{listing.href || 'Sin URL'}</span>
+    return (
+        <div className="container-app panel-page py-7">
+            <PanelPageHeader
+                title="Publicaciones"
+                description={`Inventario de anuncios para ${adminScopeLabel(scope).toLowerCase()} sin mezclar otras verticales.`}
+                actions={
+                    <div className="flex gap-2">
+                        <div className="relative">
+                            <IconSearch size={14} className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: 'var(--fg-muted)' }} />
+                            <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Buscar..." className="form-input pl-9 w-56 h-9 text-xs" />
                         </div>
-                    ))
-                )}
-            </div>
-        </>
+                        <select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)} className="form-select w-36 h-9 text-xs">
+                            <option value="todas">Todas</option>
+                            <option value="draft">Draft</option>
+                            <option value="active">Activas</option>
+                            <option value="paused">Pausadas</option>
+                            <option value="sold">Vendidas</option>
+                            <option value="archived">Archivadas</option>
+                        </select>
+                    </div>
+                }
+            />
+
+            {loading ? (
+                <PanelNotice tone="neutral">Cargando publicaciones...</PanelNotice>
+            ) : unsupportedScope ? (
+                <PanelEmptyState
+                    title="Sin publicaciones para esta vertical"
+                    description="Este módulo opera publicaciones de Autos y Propiedades. Cambia la vertical para ver datos consistentes."
+                />
+            ) : filtered.length === 0 ? (
+                <PanelEmptyState
+                    description="No encontramos publicaciones para los filtros actuales."
+                />
+            ) : (
+                <PanelList>
+                    <PanelListHeader className="grid-cols-[minmax(260px,1.6fr)_110px_160px_100px_1fr]">
+                        <span>Publicación</span>
+                        <span>Vertical</span>
+                        <span>Autor</span>
+                        <span>Estado</span>
+                        <span>Ruta</span>
+                    </PanelListHeader>
+                    {filtered.map((listing, index) => (
+                        <PanelListRow key={listing.id} divider={index > 0}>
+                            <div className="grid grid-cols-1 gap-3 px-4 py-3 md:grid-cols-[minmax(260px,1.6fr)_110px_160px_100px_1fr] md:items-center">
+                                <div>
+                                    <p className="text-sm font-medium line-clamp-1" style={{ color: 'var(--fg)' }}>{listing.title}</p>
+                                    <p className="text-xs" style={{ color: 'var(--fg-muted)' }}>{listing.price || 'Sin precio'}</p>
+                                </div>
+                                <div>
+                                    <PanelStatusBadge label={listing.vertical} tone="info" />
+                                </div>
+                                <div>
+                                    <p className="text-xs" style={{ color: 'var(--fg-secondary)' }}>{listing.ownerName}</p>
+                                    <p className="text-xs" style={{ color: 'var(--fg-muted)' }}>{listing.ownerEmail}</p>
+                                </div>
+                                <div>
+                                    <PanelStatusBadge label={listing.status} tone={listing.status === 'active' ? 'success' : 'neutral'} />
+                                </div>
+                                <span className="text-xs truncate" style={{ color: 'var(--fg-muted)' }}>{listing.href || 'Sin URL'}</span>
+                            </div>
+                        </PanelListRow>
+                    ))}
+                </PanelList>
+            )}
+        </div>
     );
 }

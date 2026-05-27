@@ -53,9 +53,14 @@ import {
     toNumber,
     validateOwnerAvailability,
     validateGroupForSerenata,
+    computeMarketplaceResponseDueAt,
     resolveSlaHours,
 } from './availability.js';
 import { assignSerenataMusicianGroup } from './assign-group.js';
+import {
+    OWNER_COLLECTION_METHODS,
+    validateOwnerCollectionMethod,
+} from './owner-collection-method.js';
 import { insertSerenataNotifications } from '../../lib/serenata-in-app-notifications.js';
 import { getUserNotificationPrefs, shouldCreateInAppNotification } from '../../lib/user-notification-prefs.js';
 import {
@@ -68,6 +73,12 @@ import {
 import { isMercadoPagoConfigured } from '../mercadopago/service.js';
 import { APP_COMMISSION_FREE_BPS, COMMISSION_VAT_BPS } from './plan-config.js';
 import { listSerenataBillingHistory } from './billing-history.js';
+import {
+    listMusicianPayouts,
+    listOwnerMusicianPayouts,
+    listSerenataMusicianPayouts,
+    replaceSerenataMusicianPayouts,
+} from './musician-payouts.js';
 import { cancelSerenatasProSubscription } from './cancel-subscription.js';
 import { buildSerenataMePlanResponse, resolveActiveSerenataBillingPlan } from './plan.js';
 import { loadCurrentSubscriptionFromDb } from '../subscriptions/persist-db.js';
@@ -189,6 +200,7 @@ const serenataWriteSchema = z.object({
     price: optionalInt,
     eventType: emptyStringToNull,
     message: emptyStringToNull,
+    ownerCollectionMethod: z.enum(OWNER_COLLECTION_METHODS).nullable().optional(),
     songSelections: z.array(clientSongSelectionSchema).max(30).optional(),
 });
 
@@ -311,6 +323,12 @@ const memberPatchSchema = z.object({
 
 const serenataCancelSchema = z.object({
     cancelReason: z.string().trim().min(3, 'Indica un motivo de al menos 3 caracteres'),
+});
+
+const ownerPayoutSchema = z.object({
+    status: z.enum(['pending', 'paid']),
+    amount: optionalInt,
+    reference: emptyStringToNull,
 });
 
 function jsonError(
@@ -591,14 +609,8 @@ export async function publishPaidSerenataToOwners(userId: string, serenataId: st
     }
     if (target.status !== 'payment_pending') return null;
 
-    const providerGroup = target.providerGroupId
-        ? await db.query.serenataProviderGroups.findFirst({
-            where: eq(serenataProviderGroups.id, target.providerGroupId),
-            columns: { slaHours: true },
-        })
-        : null;
     const responseDueAt = target.providerGroupId
-        ? new Date(Date.now() + resolveSlaHours(providerGroup?.slaHours) * 60 * 60 * 1000)
+        ? computeMarketplaceResponseDueAt()
         : undefined;
 
     const [item] = await db.update(serenatas).set({
@@ -869,6 +881,58 @@ export function createSerenatasRouter(deps: SerenatasRouterDeps) {
         if (!user) return jsonError(c, 'No autenticado', 401);
         const items = await listSerenataBillingHistory(user.id);
         return c.json({ ok: true, items });
+    });
+
+    app.get('/serenatas/owner/musician-payouts', async (c) => {
+        const user = await deps.authUser(c);
+        if (!user) return jsonError(c, 'No autenticado', 401);
+        const required = await requireOwner(c, user.id);
+        if (!required.ok) return required.response;
+        const statusRaw = c.req.query('status')?.trim();
+        const status = statusRaw === 'pending' || statusRaw === 'paid' ? statusRaw : undefined;
+        const items = await listOwnerMusicianPayouts(required.owner.id, status);
+        return c.json({ ok: true, items });
+    });
+
+    app.get('/serenatas/musician/payouts', async (c) => {
+        const user = await deps.authUser(c);
+        if (!user) return jsonError(c, 'No autenticado', 401);
+        const required = await requireMusician(c, user.id);
+        if (!required.ok) return required.response;
+        const statusRaw = c.req.query('status')?.trim();
+        const status = statusRaw === 'pending' || statusRaw === 'paid' ? statusRaw : undefined;
+        const items = await listMusicianPayouts(required.musician.id, status);
+        return c.json({ ok: true, items });
+    });
+
+    app.get('/serenatas/:id/payouts', async (c) => {
+        const user = await deps.authUser(c);
+        if (!user) return jsonError(c, 'No autenticado', 401);
+        const required = await requireOwner(c, user.id);
+        if (!required.ok) return required.response;
+        const items = await listSerenataMusicianPayouts(c.req.param('id'), required.owner.id);
+        return c.json({ ok: true, items });
+    });
+
+    app.put('/serenatas/:id/payouts', async (c) => {
+        const user = await deps.authUser(c);
+        if (!user) return jsonError(c, 'No autenticado', 401);
+        const required = await requireOwner(c, user.id);
+        if (!required.ok) return required.response;
+        const body = await c.req.json().catch(() => null);
+        const lines = Array.isArray(body?.lines) ? body.lines : [];
+        const parsed = z.array(z.object({
+            musicianId: z.string().uuid().nullable().optional(),
+            musicianName: z.string().max(160).nullable().optional(),
+            amount: z.number().int().min(1),
+            status: z.enum(['pending', 'paid']).optional(),
+            paymentMethod: z.string().max(24).nullable().optional(),
+            notes: z.string().max(500).nullable().optional(),
+        })).safeParse(lines);
+        if (!parsed.success) return jsonError(c, 'Datos de pago inválidos', 400);
+        const result = await replaceSerenataMusicianPayouts(required.owner.id, c.req.param('id'), parsed.data);
+        if (!result.ok) return jsonError(c, result.error, 404);
+        return c.json({ ok: true, items: result.items });
     });
 
     app.get('/packages', async (c) => {
@@ -1180,12 +1244,14 @@ export function createSerenatasRouter(deps: SerenatasRouterDeps) {
             duration: serviceContext.duration,
         });
         if (conflict) return jsonError(c, conflict, 409);
-        const { songSelections = [], ...serenataFields } = parsed.data;
+        const { songSelections = [], ownerCollectionMethod, ...serenataFields } = parsed.data;
         if (songSelections.length > 0) {
             if (!serviceContext.service || !serviceContext.providerGroup) {
                 return jsonError(c, 'Selecciona un servicio para registrar canciones del repertorio.', 400);
             }
         }
+        const collectionCheck = validateOwnerCollectionMethod(ownerCollectionMethod);
+        if (!collectionCheck.ok) return jsonError(c, collectionCheck.error, 400);
         const songsIncludedAtBooking = serviceContext.service
             ? Math.max(serviceContext.service.songsIncluded ?? 0, songSelections.length)
             : 0;
@@ -1196,6 +1262,7 @@ export function createSerenatasRouter(deps: SerenatasRouterDeps) {
             providerGroupId: serviceContext.providerGroup?.id ?? null,
             selectedServiceId: serviceContext.selectedServiceId,
             packageCode: serviceContext.packageCode,
+            ownerCollectionMethod: collectionCheck.method,
             source: 'own_lead',
             status: 'scheduled',
             duration: serviceContext.duration,
@@ -1426,9 +1493,19 @@ export function createSerenatasRouter(deps: SerenatasRouterDeps) {
             })
             : null;
         if (conflict) return jsonError(c, conflict, 409);
-        const { songSelections, ...patchFields } = parsed.data;
+        const { songSelections, ownerCollectionMethod, ...patchFields } = parsed.data;
+        let nextOwnerCollectionMethod: string | null | undefined;
+        if (ownerCollectionMethod !== undefined) {
+            if (current.source !== 'own_lead') {
+                return jsonError(c, 'La forma de pago solo aplica a serenatas propias.', 400);
+            }
+            const collectionCheck = validateOwnerCollectionMethod(ownerCollectionMethod);
+            if (!collectionCheck.ok) return jsonError(c, collectionCheck.error, 400);
+            nextOwnerCollectionMethod = collectionCheck.method;
+        }
         const [item] = await db.update(serenatas).set({
             ...patchFields,
+            ...(nextOwnerCollectionMethod !== undefined ? { ownerCollectionMethod: nextOwnerCollectionMethod } : {}),
             ...(nextStatus ? { status: nextStatus } : {}),
             providerGroupId: serviceContext.providerGroup?.id ?? current.providerGroupId,
             selectedServiceId: serviceContext.selectedServiceId,
@@ -1558,16 +1635,50 @@ export function createSerenatasRouter(deps: SerenatasRouterDeps) {
         return c.json({ ok: true, item });
     });
 
+    app.post('/serenatas/:id/owner-payout', async (c) => {
+        const user = await deps.authUser(c);
+        if (!user) return jsonError(c, 'No autenticado', 401);
+        if (!['admin', 'superadmin'].includes(user.role)) {
+            return jsonError(c, 'No autorizado', 403);
+        }
+        const required = await requireOwner(c, user.id);
+        if (!required.ok) return required.response;
+        const parsed = ownerPayoutSchema.safeParse(await c.req.json().catch(() => null));
+        if (!parsed.success) return jsonError(c, 'Datos de liquidación inválidos', 400);
+        const id = c.req.param('id');
+        const current = await db.query.serenatas.findFirst({
+            where: and(eq(serenatas.id, id), eq(serenatas.ownerId, required.owner.id)),
+        });
+        if (!current) return jsonError(c, 'Serenata no encontrada', 404);
+        if (current.source !== 'platform_lead') {
+            return jsonError(c, 'La liquidación al dueño aplica solo a serenatas de la app.', 409);
+        }
+        const now = new Date();
+        const [item] = await db.update(serenatas).set({
+            ownerPayoutStatus: parsed.data.status,
+            ownerPayoutAt: parsed.data.status === 'paid' ? now : null,
+            ownerPayoutAmount: parsed.data.amount ?? current.ownerPayoutAmount ?? current.price ?? null,
+            ownerPayoutReference: parsed.data.reference ?? null,
+            updatedAt: now,
+        }).where(and(
+            eq(serenatas.id, id),
+            eq(serenatas.ownerId, required.owner.id),
+        )).returning();
+        if (!item) return jsonError(c, 'No se pudo actualizar la liquidación.', 409);
+        return c.json({ ok: true, item });
+    });
+
     app.post('/serenatas/:id/client-confirm', async (c) => {
         const user = await deps.authUser(c);
         if (!user) return jsonError(c, 'No autenticado', 401);
         const client = await db.query.serenataClients.findFirst({ where: eq(serenataClients.userId, user.id) });
         if (!client) return jsonError(c, 'Perfil de cliente no encontrado', 403);
         const id = c.req.param('id');
-        const body = await c.req.json().catch(() => ({})) as { rating?: unknown };
+        const body = await c.req.json().catch(() => ({})) as { rating?: unknown; comment?: unknown };
         const rating = typeof body.rating === 'number' && Number.isFinite(body.rating)
             ? Math.round(body.rating)
             : null;
+        const comment = typeof body.comment === 'string' ? body.comment.trim().slice(0, 800) : '';
         const current = await db.query.serenatas.findFirst({
             where: and(eq(serenatas.id, id), eq(serenatas.clientId, client.id)),
         });
@@ -1578,6 +1689,7 @@ export function createSerenatasRouter(deps: SerenatasRouterDeps) {
         const [item] = await db.update(serenatas).set({
             clientConfirmedAt: now,
             clientRating: rating != null && rating >= 1 && rating <= 5 ? rating : null,
+            clientReviewComment: comment || null,
             updatedAt: now,
         }).where(and(
             eq(serenatas.id, id),

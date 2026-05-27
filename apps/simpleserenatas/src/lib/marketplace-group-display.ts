@@ -1,4 +1,5 @@
 import type { ProviderBookingMode, ProviderGroup, ProviderGroupService, ProviderGroupStatus } from '@/lib/serenatas-api';
+import { platformResponseSlaLabel } from '@/lib/marketplace-response-sla';
 
 export function providerGroupStatusLabel(status: ProviderGroupStatus | null | undefined): string {
     switch (status) {
@@ -173,16 +174,6 @@ export function contactAvailabilityLabel(group: ProviderGroup) {
     return 'Por definir';
 }
 
-/** Métodos de cobro directo del mariachi (panel / uso interno). No mostrar en ficha pública del marketplace. */
-export function formatPaymentMethods(group: ProviderGroup): string[] {
-    const methods: string[] = [];
-    if (group.acceptsCash) methods.push('Efectivo');
-    if (group.acceptsTransfer) methods.push('Transferencia');
-    if (group.acceptsMp) methods.push('Mercado Pago');
-    if (group.acceptsPaymentLink && group.paymentLinkUrl) methods.push('Link de pago');
-    if (group.requiresAdvancePayment) methods.push('Anticipo requerido');
-    return methods;
-}
 
 export function policySlaLabel(hours: number | null | undefined) {
     const value = hours ?? 24;
@@ -228,7 +219,7 @@ export function extraServicesCount(group: ProviderGroup) {
 
 export function bookingPolicySummary(group: ProviderGroup) {
     return {
-        sla: policySlaLabel(group.slaHours),
+        sla: platformResponseSlaLabel(),
         mode: bookingModeLabel(group.bookingMode),
     };
 }

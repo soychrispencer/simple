@@ -65,12 +65,14 @@ async function authRequest(path: string, init?: RequestInit): Promise<{ status: 
 
         let data: AuthApiResponse | null = null;
         try {
+            const contentType = response.headers.get('content-type') ?? '';
+            const expectsJson = contentType.includes('application/json');
             const text = await response.text();
-            if (text) {
+            if (text && expectsJson) {
                 data = JSON.parse(text) as AuthApiResponse;
             }
         } catch (parseError) {
-            console.error('[AUTH] JSON parse error:', { path, status: response.status, parseError });
+            console.warn('[AUTH] Ignoring non-JSON auth response:', { path, status: response.status, parseError });
         }
         
         return { status: response.status, data };
@@ -128,7 +130,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
             if (!data?.user) {
                 const errorMsg = data?.error || (status === 0 ? 'Error de conexión con el servidor' : 'Error de inicio de sesión');
-                console.error('[AUTH] Login failed:', { status, data, errorMsg });
+                // Invalid credentials/session responses are expected UX states, not console errors.
+                if (status === 0 || status >= 500) {
+                    console.error('[AUTH] Login request error:', { status, data, errorMsg });
+                }
                 return { ok: false, error: errorMsg, status };
             }
             setUser(data.user);

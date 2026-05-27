@@ -1,7 +1,7 @@
-import { and, eq, inArray, isNotNull } from 'drizzle-orm';
+import { and, desc, eq, inArray, isNotNull, sql } from 'drizzle-orm';
 import { db } from '../../db/index.js';
-import { serenataProviderGroups, serenatas } from '../../db/schema.js';
-import { validateProviderGroupSlot } from './availability.js';
+import { serenataGroupMembers, serenataGroupServices, serenataGroups, serenataProviderGroups, serenatas } from '../../db/schema.js';
+import { validateGroupForSerenata, validateProviderGroupSlot } from './availability.js';
 import { acceptMarketplaceSerenata, type MarketplaceDeps } from './marketplace.js';
 
 type ValidateOwnerAvailability = MarketplaceDeps['validateOwnerAvailability'];
@@ -9,6 +9,52 @@ type ValidateOwnerAvailability = MarketplaceDeps['validateOwnerAvailability'];
 export type AutoAcceptResult =
     | { accepted: true; item: typeof serenatas.$inferSelect }
     | { accepted: false; reason: 'not_configured' | 'flexible_schedule' | 'slot_unavailable' | 'accept_failed'; error?: string };
+
+async function tryAutoAssignScheduledGroup(item: typeof serenatas.$inferSelect, ownerId: string) {
+    if (!item.providerGroupId || !item.eventTime) return item;
+    const candidates = await db
+        .select()
+        .from(serenataGroups)
+        .where(and(
+            eq(serenataGroups.ownerId, ownerId),
+            eq(serenataGroups.providerGroupId, item.providerGroupId),
+            eq(serenataGroups.status, 'active'),
+            sql`date_trunc('day', ${serenataGroups.date}) = date_trunc('day', ${item.eventDate})`,
+        ))
+        .orderBy(desc(serenataGroups.updatedAt));
+    for (const group of candidates) {
+        const service = item.selectedServiceId
+            ? await db.query.serenataGroupServices.findFirst({ where: eq(serenataGroupServices.id, item.selectedServiceId) })
+            : null;
+        const requiredMusicians = service?.musiciansCount ?? 0;
+        const activeMembers = await db
+            .select({ count: sql<number>`count(*)::int` })
+            .from(serenataGroupMembers)
+            .where(and(
+                eq(serenataGroupMembers.groupId, group.id),
+                inArray(serenataGroupMembers.status, ['invited', 'accepted']),
+            ));
+        const memberCount = Number(activeMembers[0]?.count ?? 0);
+        if (requiredMusicians > 0 && memberCount < requiredMusicians) continue;
+        const conflict = await validateGroupForSerenata(db, {
+            ownerId,
+            serenataId: item.id,
+            groupId: group.id,
+            requiredMusicians,
+            eventDate: item.eventDate,
+            eventTime: item.eventTime,
+            duration: item.duration,
+        });
+        if (conflict) continue;
+        const [scheduled] = await db.update(serenatas).set({
+            groupId: group.id,
+            status: 'scheduled',
+            updatedAt: new Date(),
+        }).where(eq(serenatas.id, item.id)).returning();
+        if (scheduled) return scheduled;
+    }
+    return item;
+}
 
 export async function tryAutoAcceptMarketplaceSerenata(
     ownerId: string,
@@ -65,5 +111,6 @@ export async function tryAutoAcceptMarketplaceSerenata(
     if (!result.ok) {
         return { accepted: false, reason: 'accept_failed', error: result.error };
     }
-    return { accepted: true, item: result.item };
+    const maybeScheduled = await tryAutoAssignScheduledGroup(result.item, ownerId);
+    return { accepted: true, item: maybeScheduled };
 }

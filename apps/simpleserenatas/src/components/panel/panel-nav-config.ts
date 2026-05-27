@@ -9,6 +9,7 @@ import {
     IconBell,
     IconCalendar,
     IconMap,
+    IconChartBar,
     IconUser,
     IconBriefcase,
     IconBookmark,
@@ -85,10 +86,12 @@ export function getPanelNavItems(mode: AppMode, profiles: Profiles): PanelNavIte
         }
         items.push({ id: 'agenda', href: panelSectionHref('agenda'), label: 'Agenda', icon: IconCalendar });
         items.push({ id: 'map', href: panelSectionHref('map'), label: 'Mapa', icon: IconMap });
+        items.push({ id: 'finanzas', href: panelSectionHref('finanzas'), label: 'Finanzas', icon: IconChartBar });
         items.push({ id: 'mi-negocio', href: panelSectionHref('mi-negocio'), label: 'Mi negocio', icon: IconBriefcase });
     } else if (profiles.musician) {
         items.push({ id: 'invitations', href: panelSectionHref('invitations'), label: 'Invitaciones', icon: IconUsersGroup });
         items.push({ id: 'agenda', href: panelSectionHref('agenda'), label: 'Agenda', icon: IconCalendar });
+        items.push({ id: 'serenatas', href: panelSectionHref('serenatas'), label: 'Mis serenatas', icon: IconMusic });
     }
 
     items.push({ id: 'profile', href: panelSectionHref('profile'), label: 'Mi cuenta', icon: IconUser });
@@ -111,13 +114,13 @@ export function getMobileBottomNavItems(mode: AppMode, profiles: Profiles): Pane
         if (profiles.musician) tabIds.splice(2, 0, 'invitations');
         return getPanelNavItems(mode, profiles).filter((t) => tabIds.includes(t.id));
     }
-    return getPanelNavItems(mode, profiles).filter((t) => ['home', 'invitations', 'agenda', 'profile'].includes(t.id));
+    return getPanelNavItems(mode, profiles).filter((t) => ['home', 'invitations', 'agenda', 'serenatas', 'profile'].includes(t.id));
 }
 
 /** Secciones del panel dueño accesibles desde «Más» en bottom nav móvil (p. ej. Mapa). */
 export function getMobileOverflowNavItems(mode: AppMode, profiles: Profiles): PanelNavItem[] {
     if (mode !== 'work' || !ownerFeaturesEnabled(profiles)) return [];
-    return getPanelNavItems(mode, profiles).filter((t) => t.id === 'map');
+    return getPanelNavItems(mode, profiles).filter((t) => t.id === 'map' || t.id === 'finanzas');
 }
 
 export function getMarketplaceNavItems(mode: AppMode, profiles: Profiles): MarketplacePanelNavItem[] {

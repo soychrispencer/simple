@@ -59,19 +59,24 @@ export function MariachiReviewsSection({ group }: { group: ProviderGroup }) {
                     {reviews.map((review) => (
                         <li
                             key={`${review.confirmedAt}-${review.rating}`}
-                            className="flex items-center justify-between gap-3 rounded-button border border-border px-3 py-2.5"
+                            className="rounded-button border border-border px-3 py-2.5"
                         >
-                            <div className="flex items-center gap-0.5" aria-label={`${review.rating} de 5 estrellas`}>
-                                {Array.from({ length: 5 }, (_, index) => (
-                                    <IconStarFilled
-                                        key={index}
-                                        size={14}
-                                        className={index < review.rating ? 'text-amber-500' : 'text-amber-500/25'}
-                                        aria-hidden
-                                    />
-                                ))}
+                            <div className="flex items-center justify-between gap-3">
+                                <div className="flex items-center gap-0.5" aria-label={`${review.rating} de 5 estrellas`}>
+                                    {Array.from({ length: 5 }, (_, index) => (
+                                        <IconStarFilled
+                                            key={index}
+                                            size={14}
+                                            className={index < review.rating ? 'text-amber-500' : 'text-amber-500/25'}
+                                            aria-hidden
+                                        />
+                                    ))}
+                                </div>
+                                <span className="text-xs text-fg-muted">{formatReviewDate(review.confirmedAt)}</span>
                             </div>
-                            <span className="text-xs text-fg-muted">{formatReviewDate(review.confirmedAt)}</span>
+                            {review.comment ? (
+                                <p className="mt-2 text-sm leading-relaxed text-fg-secondary">{review.comment}</p>
+                            ) : null}
                         </li>
                     ))}
                 </ul>

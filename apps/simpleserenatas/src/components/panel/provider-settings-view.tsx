@@ -32,7 +32,7 @@ export function ProviderSettingsView({ refresh }: { refresh: () => Promise<void>
         return (
             <EmptyBlock
                 title="Crea tus datos comerciales primero"
-                description="Configura tu mariachi en Datos comerciales y luego define reglas de reservas y pagos aquí."
+                description="Configura tu mariachi en Datos comerciales y luego define solicitudes aquí."
             />
         );
     }

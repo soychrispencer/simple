@@ -24,6 +24,10 @@ import {
 import { useMyMariachi } from '@/hooks/use-my-mariachi';
 import { panelMiNegocioHref } from '@/lib/panel-routes';
 import {
+    OWNER_COLLECTION_METHOD_OPTIONS,
+    type OwnerCollectionMethod,
+} from '@/lib/owner-collection-method';
+import {
     buildSerenataGroupSelectOptionsForScope,
     selectableMusicianGroups,
 } from '@/lib/serenata-group-select';
@@ -85,6 +89,7 @@ export function SerenataForm({
     const [message, setMessage] = useState(item?.message ?? '');
     const [selectedSongIds, setSelectedSongIds] = useState<string[]>([]);
     const [pricingExpanded, setPricingExpanded] = useState(false);
+    const [ownerCollectionMethod, setOwnerCollectionMethod] = useState(item?.ownerCollectionMethod ?? '');
     const [location, setLocation] = useState<ListingLocation>(() => serenataLocation(item));
 
     const regions = LOCATION_REGIONS.map((region) => ({ value: region.id, label: region.name }));
@@ -223,9 +228,19 @@ export function SerenataForm({
         }
     }, [selectedServiceId, item]);
 
+    useEffect(() => {
+        setOwnerCollectionMethod(item?.ownerCollectionMethod ?? '');
+    }, [item?.id, item?.ownerCollectionMethod]);
+
     function validateStep1(): string | null {
         if (!recipientName.trim()) return 'Indica el destinatario de la serenata.';
         if (!eventDate || !eventTime) return 'Indica fecha y hora del evento.';
+        const rawAddress = [location.addressLine1, location.addressLine2].filter(Boolean).join(', ').trim();
+        const address = cleanSerenataAddress(rawAddress, location.communeName, location.regionName);
+        if (!address) return 'Completa la dirección del evento.';
+        if (!location.communeName?.trim() || !location.regionName?.trim()) {
+            return 'Indica región y comuna: elige una sugerencia de Google o selecciónalas en los campos de abajo.';
+        }
         return null;
     }
 
@@ -250,20 +265,6 @@ export function SerenataForm({
         setStatus({ loading: true, error: null, ok: null });
         const rawAddress = [location.addressLine1, location.addressLine2].filter(Boolean).join(', ').trim();
         const address = cleanSerenataAddress(rawAddress, location.communeName, location.regionName);
-        if (!address) {
-            setStep(2);
-            setStatus({ loading: false, error: 'Completa la dirección del evento.', ok: null });
-            return;
-        }
-        if (!location.communeName?.trim() || !location.regionName?.trim()) {
-            setStep(2);
-            setStatus({
-                loading: false,
-                error: 'Indica región y comuna: elige una sugerencia de Google o selecciónalas en los campos de abajo.',
-                ok: null,
-            });
-            return;
-        }
         if (!selectedServiceId) {
             setStep(2);
             setStatus({
@@ -271,6 +272,11 @@ export function SerenataForm({
                 error: 'Selecciona un servicio de tu catálogo en Mi negocio.',
                 ok: null,
             });
+            return;
+        }
+        if (!ownerCollectionMethod) {
+            setStep(2);
+            setStatus({ loading: false, error: 'Indica cómo pagó el cliente.', ok: null });
             return;
         }
 
@@ -293,6 +299,7 @@ export function SerenataForm({
             price: price ? Number(price) : null,
             eventType: selectedService?.name ?? null,
             message: message.trim() || null,
+            ownerCollectionMethod: ownerCollectionMethod as OwnerCollectionMethod,
             songSelections: selectedSongIds.length > 0
                 ? selectedSongIds.map((repertoireSongId) => ({ repertoireSongId }))
                 : item
@@ -374,12 +381,29 @@ export function SerenataForm({
                     />
                 </PanelField>
             </div>
-            <PanelField label="Mensaje">
-                <FieldTextarea
-                    rows={modal ? 2 : 3}
-                    value={message}
-                    onChange={(event) => setMessage(event.target.value)}
-                    placeholder="Detalle para tu equipo o el destinatario"
+            <PanelField label="Dirección del evento" required>
+                <ListingLocationEditor
+                    simpleMode
+                    framed={false}
+                    showHeader={false}
+                    location={location}
+                    onChange={setLocation}
+                    regions={regions}
+                    communes={communes}
+                    allCommunes={allCommunes}
+                    addressBook={[]}
+                    addressFirst
+                    showAddressLine2={false}
+                    showAreaFields
+                    showSourceSelector={false}
+                    showVisibilityField={false}
+                    showPublicPreviewCard={false}
+                    showActionBar={false}
+                    showSimpleVisibilityToggle={false}
+                    showGoogleMapsLink
+                    addressRequired
+                    addressHintMode="minimal"
+                    googleMapsApiKey={googleMapsApiKey}
                 />
             </PanelField>
         </div>
@@ -476,6 +500,15 @@ export function SerenataForm({
                 />
             </PanelField>
 
+            <PanelField label="Forma de pago" required>
+                <FieldSelect
+                    value={ownerCollectionMethod}
+                    options={OWNER_COLLECTION_METHOD_OPTIONS}
+                    disabled={formDisabled}
+                    onChange={(event) => setOwnerCollectionMethod(event.target.value)}
+                />
+            </PanelField>
+
             {showRepertoire && mariachi ? (
                 <CollapsibleRepertoireSection
                     providerGroupId={mariachi.id}
@@ -490,30 +523,13 @@ export function SerenataForm({
                 />
             ) : null}
 
-            <PanelField label="Dirección del evento" required>
-                    <ListingLocationEditor
-                        simpleMode
-                        framed={false}
-                        showHeader={false}
-                        location={location}
-                        onChange={setLocation}
-                        regions={regions}
-                        communes={communes}
-                        allCommunes={allCommunes}
-                        addressBook={[]}
-                        addressFirst
-                        showAddressLine2={false}
-                        showAreaFields
-                        showSourceSelector={false}
-                        showVisibilityField={false}
-                        showPublicPreviewCard={false}
-                        showActionBar={false}
-                        showSimpleVisibilityToggle={false}
-                        showGoogleMapsLink
-                        addressRequired
-                        addressHintMode="minimal"
-                        googleMapsApiKey={googleMapsApiKey}
-                    />
+            <PanelField label="Mensaje">
+                <FieldTextarea
+                    rows={modal ? 2 : 3}
+                    value={message}
+                    onChange={(event) => setMessage(event.target.value)}
+                    placeholder="Detalle para tu equipo o el destinatario"
+                />
             </PanelField>
         </div>
     );
@@ -542,8 +558,8 @@ export function SerenataForm({
             steps={FORM_STEPS}
             leftTitle="Evento"
             rightTitle="Detalles"
-            leftSubtitle="Destinatario, fecha, hora y contacto."
-            rightSubtitle="Servicio, grupo operativo y dirección."
+            leftSubtitle="Destinatario, fecha, hora, dirección y contacto."
+            rightSubtitle="Servicio, grupo, forma de pago y mensaje."
             desktopIntro="Completa los dos bloques antes de crear la serenata."
             leftColumn={eventFields}
             rightColumn={detailFields}

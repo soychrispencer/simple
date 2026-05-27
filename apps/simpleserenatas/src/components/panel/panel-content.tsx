@@ -35,6 +35,9 @@ const MiNegocioView = dynamic(() =>
 const GuardadosView = dynamic(() =>
     import('@/components/panel/guardados-view').then((mod) => mod.GuardadosView),
 );
+const FinanzasView = dynamic(() =>
+    import('@/components/panel/finanzas/finanzas-view').then((mod) => mod.FinanzasView),
+);
 
 export type PanelContentProps = {
     section: Section;
@@ -217,6 +220,24 @@ export function PanelContent(props: PanelContentProps) {
                     }
                 />
             </PanelSectionPage>
+        );
+    }
+
+    if (props.section === 'finanzas') {
+        return props.mode === 'work' && props.ownerFeaturesEnabled ? (
+            <PanelSectionPage
+                title="Finanzas"
+                description="Reportes, estadísticas y pagos a músicos."
+            >
+                <FinanzasView
+                    serenatas={props.ownerSerenatas}
+                    groups={props.groups}
+                    accountUser={props.accountUser}
+                    refresh={props.refresh}
+                />
+            </PanelSectionPage>
+        ) : (
+            <PanelHomePage {...props} />
         );
     }
 

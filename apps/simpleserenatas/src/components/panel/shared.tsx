@@ -13,6 +13,7 @@ import { createEmptyListingLocation, patchListingLocation, type ListingLocation 
 import { getCommunesForRegion, LOCATION_REGIONS } from '@simple/utils';
 import type { Serenata } from '@/lib/serenatas-api';
 import { formatMoney } from '@/lib/marketplace-display';
+import { formatSerenataCollectionMethod } from '@/lib/owner-collection-method';
 
 export type FormStatus = {
     loading: boolean;
@@ -232,15 +233,18 @@ export function money(value: number | null) {
 }
 
 /** Resumen compacto para filas de la bandeja de solicitudes. */
-export function formatSerenataListSummary(item: Pick<Serenata, 'eventType' | 'packageCode' | 'duration' | 'songsIncludedAtBooking'>): string {
+export function formatSerenataListSummary(
+    item: Pick<Serenata, 'eventType' | 'packageCode' | 'duration' | 'songsIncludedAtBooking' | 'source' | 'ownerCollectionMethod'>,
+): string {
     const service = item.eventType ?? item.packageCode ?? 'Serenata';
-    const duration = `${item.duration} min`;
+    const parts = [service, `${item.duration} min`];
     const songs = item.songsIncludedAtBooking;
     if (songs != null && songs > 0) {
-        const songsLabel = songs === 1 ? '1 canción' : `${songs} canciones`;
-        return `${service} · ${duration} · ${songsLabel}`;
+        parts.push(songs === 1 ? '1 canción' : `${songs} canciones`);
     }
-    return `${service} · ${duration}`;
+    const payment = formatSerenataCollectionMethod(item);
+    if (payment) parts.push(payment);
+    return parts.join(' · ');
 }
 
 /** Cantidad de canciones que incluye el servicio contratado (no las elegidas por el cliente). */
@@ -385,6 +389,7 @@ export function SerenataAgendaCard({
     footer?: ReactNode;
 }) {
     const addressLine = item.comuna ? `${item.comuna} · ${item.address}` : item.address;
+    const collectionLabel = formatSerenataCollectionMethod(item);
 
     return (
         <article className="grid gap-3 border-b border-border p-4 last:border-b-0">
@@ -415,6 +420,10 @@ export function SerenataAgendaCard({
             </div>
 
             <p className="line-clamp-2 text-sm leading-snug text-fg-muted">{addressLine}</p>
+
+            {collectionLabel ? (
+                <p className="text-xs text-fg-muted">Pago: {collectionLabel}</p>
+            ) : null}
 
             {item.groupId ? <p className="text-xs font-medium text-accent">Grupo asignado</p> : null}
 

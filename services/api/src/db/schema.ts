@@ -1395,6 +1395,13 @@ export const serenatas = pgTable('serenatas', {
   paymentStatus: varchar('payment_status', { length: 30 }).notNull().default('not_required'),
   paymentOrderId: varchar('payment_order_id', { length: 120 }),
   paidAt: timestamp('paid_at'),
+  /** Forma de pago registrada por el dueño (solo serenatas propias). */
+  ownerCollectionMethod: varchar('owner_collection_method', { length: 24 }),
+  /** Estado de liquidación hacia el dueño (solo serenatas de la app). */
+  ownerPayoutStatus: varchar('owner_payout_status', { length: 24 }),
+  ownerPayoutAt: timestamp('owner_payout_at'),
+  ownerPayoutReference: text('owner_payout_reference'),
+  ownerPayoutAmount: integer('owner_payout_amount'),
   recipientName: varchar('recipient_name', { length: 160 }).notNull(),
   clientPhone: varchar('client_phone', { length: 40 }),
   address: text('address').notNull(),
@@ -1417,6 +1424,7 @@ export const serenatas = pgTable('serenatas', {
   cancelledBy: uuid('cancelled_by').references(() => users.id, { onDelete: 'set null' }),
   clientConfirmedAt: timestamp('client_confirmed_at'),
   clientRating: integer('client_rating'),
+  clientReviewComment: text('client_review_comment'),
   closureReminderSentAt: timestamp('closure_reminder_sent_at'),
   responseDueAt: timestamp('response_due_at', { withTimezone: true }),
   expiredAt: timestamp('expired_at', { withTimezone: true }),
@@ -1433,6 +1441,25 @@ export const serenatas = pgTable('serenatas', {
   providerGroupIdx: index('serenatas_provider_group_idx').on(table.providerGroupId),
   groupIdx: index('serenatas_group_idx').on(table.groupId),
   eventDateIdx: index('serenatas_event_date_idx').on(table.eventDate),
+}));
+
+export const serenataMusicianPayouts = pgTable('serenata_musician_payouts', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  serenataId: uuid('serenata_id').references(() => serenatas.id, { onDelete: 'cascade' }).notNull(),
+  ownerId: uuid('owner_id').references(() => serenataOwners.id, { onDelete: 'cascade' }).notNull(),
+  musicianId: uuid('musician_id').references(() => serenataMusicians.id, { onDelete: 'set null' }),
+  musicianName: varchar('musician_name', { length: 160 }),
+  amount: integer('amount').notNull(),
+  status: varchar('status', { length: 24 }).notNull().default('pending'),
+  paymentMethod: varchar('payment_method', { length: 24 }),
+  paidAt: timestamp('paid_at'),
+  notes: text('notes'),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+  updatedAt: timestamp('updated_at').notNull().defaultNow(),
+}, (table) => ({
+  ownerIdx: index('serenata_musician_payouts_owner_idx').on(table.ownerId),
+  serenataIdx: index('serenata_musician_payouts_serenata_idx').on(table.serenataId),
+  statusIdx: index('serenata_musician_payouts_status_idx').on(table.ownerId, table.status),
 }));
 
 export const serenataOffers = pgTable('serenata_offers', {

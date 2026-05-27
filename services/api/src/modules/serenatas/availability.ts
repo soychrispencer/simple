@@ -12,6 +12,8 @@ import {
 import { eventDateYmd, SERENATA_TIMEZONE, todayYmdInChile } from './lifecycle.js';
 
 export const DEFAULT_SLA_HOURS = 24;
+/** Plazo único de respuesta del dueño en solicitudes marketplace pagadas (expiración + cronómetro). */
+export const MARKETPLACE_RESPONSE_SLA_HOURS = 24;
 export const MARKETPLACE_MIN_LEAD_HOURS = 2;
 export const MARKETPLACE_DAY_START = '09:00';
 export const MARKETPLACE_DAY_END = '23:00';
@@ -232,6 +234,10 @@ export function resolveSlaHours(groupSlaHours?: number | null, ownerSlaHours?: n
     const value = groupSlaHours ?? ownerSlaHours ?? DEFAULT_SLA_HOURS;
     if (!Number.isFinite(value) || value < 1) return DEFAULT_SLA_HOURS;
     return Math.min(168, Math.max(1, Math.floor(value)));
+}
+
+export function computeMarketplaceResponseDueAt(from = new Date()): Date {
+    return new Date(from.getTime() + MARKETPLACE_RESPONSE_SLA_HOURS * 60 * 60 * 1000);
 }
 
 export function validateMarketplaceEventLead(

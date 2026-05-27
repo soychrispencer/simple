@@ -10,9 +10,9 @@ import { createAddressBookEntry, fetchAddressBook, getCommunesForRegion, LOCATIO
 import {
     IconCheck,
     IconClock,
+    IconCurrencyDollar,
     IconHourglass,
     IconBell,
-    IconBellOff,
     IconMapPin,
     IconMessage,
     IconMusic,
@@ -25,14 +25,10 @@ import {
 } from '@tabler/icons-react';
 import { type MusicianDirectoryItem, type Serenata, type SerenataGroup, type SerenataMePlan, type SerenataPackage, serenatasApi } from '@/lib/serenatas-api';
 import { buildSerenataGroupSelectOptions } from '@/lib/serenata-group-select';
-import {
-    SERENATA_REJECT_OTHER_ID,
-    SERENATA_REJECT_TEMPLATES,
-    resolveSerenataRejectReason,
-} from '@/lib/serenata-reject-templates';
+import { SerenataRejectModal } from './serenata-reject-modal';
 import { useSerenata } from '@/context/serenata-context';
 import { SolicitudWaitTimer } from '../solicitud-wait-timer';
-import { isOwnerSolicitudesInbox, isPendingSerenataAction } from '@/lib/serenata-pending';
+import { appearsInOwnerSolicitudes, isOwnerSolicitudesInbox, isPendingSerenataAction } from '@/lib/serenata-pending';
 import {
     getSolicitudWaitState,
     pickMostUrgentSolicitudId,
@@ -43,6 +39,7 @@ import { SerenataSetlistPanel } from '../serenata-setlist-panel';
 import { ClientSerenataCancelPrompt } from '../client-serenata-cancel-prompt';
 import { startSerenataCheckout } from '@/lib/payments';
 import { panelMiNegocioHref, panelSectionHref } from '@/lib/panel-routes';
+import { formatSerenataCollectionMethod } from '@/lib/owner-collection-method';
 import { useGoogleMapsBrowserKey } from '@/lib/use-google-maps-browser-key';
 import { PanelSheet } from '../panel-sheet';
 import {
@@ -94,13 +91,13 @@ const SERENATA_OCCASIONS = [
     'Otro',
 ];
 
-type SerenataFilter = 'all' | 'needs_response' | Serenata['status'] | 'closed';
+type SerenataFilter = 'all' | 'inbox' | 'needs_response' | Serenata['status'] | 'closed';
 type SerenataOriginFilter = 'all' | Serenata['source'];
 type SerenataMode = 'detail' | 'edit';
 
 export function SerenatasView({ serenatas, groups, musicians, packages: packagesProp, selectedSerenataId, action, clearAction, refresh, isSolicitudesMode = false, onAgendaDeepLink }: { serenatas: Serenata[]; groups: SerenataGroup[]; musicians: MusicianDirectoryItem[]; packages?: SerenataPackage[]; selectedSerenataId?: string | null; refresh: () => Promise<void>; isSolicitudesMode?: boolean; onAgendaDeepLink?: (serenataId: string) => void } & PanelActionProps) {
     const searchParams = useSearchParams();
-    const [filter, setFilter] = useState<SerenataFilter>('all');
+    const [filter, setFilter] = useState<SerenataFilter>(isSolicitudesMode ? 'inbox' : 'all');
     const [originFilter, setOriginFilter] = useState<SerenataOriginFilter>('all');
     const [selectedId, setSelectedId] = useState<string | null>(serenatas[0]?.id ?? null);
     const [mode, setMode] = useState<SerenataMode>('detail');
@@ -109,14 +106,17 @@ export function SerenatasView({ serenatas, groups, musicians, packages: packages
     const [urgencyTick, setUrgencyTick] = useState(0);
     const packages = packagesProp ?? packagesLocal;
     const inboxCount = serenatas.filter(isOwnerSolicitudesInbox).length;
+    const allSolicitudesCount = serenatas.filter(appearsInOwnerSolicitudes).length;
     const alertCount = serenatas.filter(isPendingSerenataAction).length;
     const selected = serenatas.find((item) => item.id === selectedId) ?? serenatas[0] ?? null;
     const filtered = serenatas.filter((item) => {
         const matchesStatus = filter === 'needs_response'
             ? isPendingSerenataAction(item)
-            : filter === 'all'
+            : filter === 'inbox'
               ? (isSolicitudesMode ? isOwnerSolicitudesInbox(item) : true)
-              : (filter === 'closed'
+              : filter === 'all'
+                ? (isSolicitudesMode ? appearsInOwnerSolicitudes(item) : true)
+                : (filter === 'closed'
                   ? ['cancelled', 'rejected', 'expired'].includes(item.status)
                   : filter === 'pending'
                       ? item.status === 'pending' || item.status === 'pending_open' || isPendingSerenataAction(item)
@@ -139,14 +139,28 @@ export function SerenatasView({ serenatas, groups, musicians, packages: packages
     const ownCount = serenatas.filter((item) => item.source === 'own_lead').length;
     const appCount = serenatas.filter((item) => item.source === 'platform_lead').length;
 
-    const {
-        solicitudesPendingCount,
-        solicitudesSoundMuted: soundMuted,
-        toggleSolicitudesSound: toggleSoundMuted,
-        solicitudesBrowserNotificationsEnabled: browserNotificationsEnabled,
-        solicitudesBrowserNotificationsSupported: browserNotificationsSupported,
-        requestSolicitudesBrowserNotifications: requestBrowserNotifications,
-    } = useSerenata();
+    const { solicitudesPendingCount } = useSerenata();
+
+    const solicitudesListCaption = useMemo(() => {
+        if (!isSolicitudesMode) return `${serenatas.length} registros entre propias y aplicación`;
+        if (filter === 'needs_response') {
+            return filtered.length === 0
+                ? 'Ninguna solicitud con alerta activa'
+                : `${filtered.length} con alerta activa`;
+        }
+        if (filter === 'accepted_pending_group') {
+            return `${filtered.length} sin grupo asignado`;
+        }
+        if (filter === 'expired') {
+            return `${filtered.length} expirada${filtered.length === 1 ? '' : 's'}`;
+        }
+        if (filter === 'closed') {
+            return `${filtered.length} cerrada${filtered.length === 1 ? '' : 's'}`;
+        }
+        return inboxCount === 0
+            ? 'No hay solicitudes por revisar'
+            : `${filtered.length} solicitud${filtered.length === 1 ? '' : 'es'} por revisar`;
+    }, [filter, filtered.length, inboxCount, isSolicitudesMode, serenatas.length]);
 
     useEffect(() => {
         if (!isSolicitudesMode || alertCount === 0) return;
@@ -187,6 +201,7 @@ export function SerenatasView({ serenatas, groups, musicians, packages: packages
         }
         if (
             urlFilter === 'all'
+            || urlFilter === 'inbox'
             || urlFilter === 'needs_response'
             || urlFilter === 'pending'
             || urlFilter === 'pending_open'
@@ -207,10 +222,10 @@ export function SerenatasView({ serenatas, groups, musicians, packages: packages
     useEffect(() => {
         if (!selectedSerenataId || !serenatas.some((item) => item.id === selectedSerenataId)) return;
         setSelectedId(selectedSerenataId);
-        setFilter('all');
+        setFilter(isSolicitudesMode ? 'inbox' : 'all');
         setOriginFilter('all');
         setMode('detail');
-    }, [selectedSerenataId, serenatas]);
+    }, [isSolicitudesMode, selectedSerenataId, serenatas]);
 
     useEffect(() => {
         if (packagesProp) return;
@@ -230,76 +245,38 @@ export function SerenatasView({ serenatas, groups, musicians, packages: packages
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                     <div>
                         <h2 className="type-section-title text-[var(--fg)]">{isSolicitudesMode ? 'Solicitudes' : 'Serenatas'}</h2>
-                        <p className="mt-1 text-sm text-fg-muted">
-                            {isSolicitudesMode
-                                ? (inboxCount === 0
-                                    ? 'No hay solicitudes por revisar'
-                                    : `${filtered.length} solicitud${filtered.length === 1 ? '' : 'es'} por revisar`)
-                                : `${serenatas.length} registros entre propias y aplicación`}
-                        </p>
+                        <p className="mt-1 text-sm text-fg-muted">{solicitudesListCaption}</p>
                     </div>
-                    {isSolicitudesMode ? (
-                        <div className="flex flex-wrap items-center gap-2 sm:justify-end">
-                            {solicitudesPendingCount > 0 ? (
-                                <span className="inline-flex items-center gap-1.5 rounded-full border border-accent-border bg-accent-soft px-2.5 py-1 text-xs font-semibold text-accent">
-                                    <IconBell size={14} className="animate-pulse" />
-                                    {solicitudesPendingCount} por responder
-                                </span>
-                            ) : null}
-                            <PanelButton
-                                type="button"
-                                variant="secondary"
-                                size="sm"
-                                onClick={toggleSoundMuted}
-                                aria-pressed={!soundMuted}
-                            >
-                                {soundMuted ? <IconBellOff size={15} /> : <IconBell size={15} />}
-                                {soundMuted ? 'Activar sonido' : 'Silenciar'}
-                            </PanelButton>
-                            {browserNotificationsSupported && !browserNotificationsEnabled ? (
-                                <PanelButton
-                                    type="button"
-                                    variant="secondary"
-                                    size="sm"
-                                    onClick={() => void requestBrowserNotifications()}
-                                >
-                                    Activar avisos
-                                </PanelButton>
-                            ) : null}
-                        </div>
+                    {isSolicitudesMode && solicitudesPendingCount > 0 ? (
+                        <span className="inline-flex items-center gap-1.5 self-start rounded-full border border-accent-border bg-accent-soft px-2.5 py-1 text-xs font-semibold text-accent sm:self-auto">
+                            <IconBell size={14} className="animate-pulse" />
+                            {solicitudesPendingCount} por responder
+                        </span>
                     ) : null}
                 </div>
 
-                {isSolicitudesMode && alertCount > 0 ? (
-                    <div className="mt-4 flex flex-wrap gap-2">
-                        <SolicitudesFilterChip
-                            active={filter !== 'needs_response'}
-                            onClick={() => setFilter('all')}
-                            label={`Por revisar (${inboxCount})`}
-                        />
-                        <SolicitudesFilterChip
-                            active={filter === 'needs_response'}
-                            onClick={() => setFilter('needs_response')}
-                            label={`Con alerta (${alertCount})`}
-                        />
+                {isSolicitudesMode ? (
+                    <div className="mt-5">
+                        <PanelField label="Mostrar">
+                            <FieldSelect value={filter} onChange={(event) => setFilter(event.target.value as SerenataFilter)}>
+                                <option value="inbox">Por revisar ({inboxCount})</option>
+                                <option value="all">Todas ({allSolicitudesCount})</option>
+                                <option value="needs_response">Con alerta ({alertCount})</option>
+                                <option value="accepted_pending_group">Sin grupo ({needsGroupCount})</option>
+                                <option value="expired">Expiradas ({expiredCount})</option>
+                                <option value="closed">Cerradas ({closedCount})</option>
+                            </FieldSelect>
+                        </PanelField>
                     </div>
-                ) : null}
-
-                <div className="mt-5 grid gap-3 sm:grid-cols-2">
+                ) : (
+                    <div className="mt-5 grid gap-3 sm:grid-cols-2">
                         <PanelField label="Estado">
                             <FieldSelect value={filter} onChange={(event) => setFilter(event.target.value as SerenataFilter)}>
-                                <option value="all">
-                                    {isSolicitudesMode ? `Por revisar (${inboxCount})` : `Todas (${serenatas.length})`}
-                                </option>
+                                <option value="all">Todas ({serenatas.length})</option>
                                 <option value="pending">Pendientes ({pendingCount})</option>
-                                {isSolicitudesMode ? <option value="expired">Expiradas ({expiredCount})</option> : null}
                                 <option value="accepted_pending_group">Sin grupo ({needsGroupCount})</option>
-                                {!isSolicitudesMode ? (
-                                    <>
-                                        <option value="scheduled">Programadas</option>
-                                        <option value="completed">Completadas</option>
-                                    </>
-                                ) : null}
+                                <option value="scheduled">Programadas</option>
+                                <option value="completed">Completadas</option>
                                 <option value="closed">Cerradas ({closedCount})</option>
                             </FieldSelect>
                         </PanelField>
@@ -310,7 +287,8 @@ export function SerenatasView({ serenatas, groups, musicians, packages: packages
                                 <option value="platform_lead">Aplicación ({appCount})</option>
                             </FieldSelect>
                         </PanelField>
-                </div>
+                    </div>
+                )}
 
                 <div className="mt-6 grid gap-4">
                     {filteredSorted.length === 0 ? (
@@ -319,16 +297,20 @@ export function SerenatasView({ serenatas, groups, musicians, packages: packages
                                 title={isSolicitudesMode
                                     ? (filter === 'needs_response'
                                         ? 'Ninguna solicitud con alerta activa'
-                                        : filter === 'all'
+                                        : filter === 'inbox'
                                           ? 'No hay solicitudes por revisar'
-                                          : 'Sin solicitudes con este filtro')
+                                          : filter === 'all'
+                                            ? 'No hay solicitudes en esta bandeja'
+                                            : 'Sin solicitudes con este filtro')
                                     : 'Sin serenatas'}
                                 description={isSolicitudesMode
                                     ? (filter === 'needs_response'
                                         ? 'Las que requieren respuesta urgente aparecen aquí cuando el cliente ya pagó.'
-                                        : filter === 'all'
+                                        : filter === 'inbox'
                                           ? 'Las serenatas confirmadas aparecen en Agenda. Cuando llegue una nueva solicitud del marketplace, la verás aquí.'
-                                          : 'Prueba otro estado u origen, o espera nuevas solicitudes del marketplace.')
+                                          : filter === 'all'
+                                            ? 'Incluye por revisar, sin grupo, expiradas y cerradas. Las confirmadas están en Agenda.'
+                                            : 'Prueba otro filtro o espera nuevas solicitudes del marketplace.')
                                     : 'Sin serenatas con este filtro.'}
                             />
                         </div>
@@ -426,9 +408,7 @@ function SerenataDetail({ item, groups, ownerPlan, refresh, onEdit }: { item: Se
     const [groupPickError, setGroupPickError] = useState<string | null>(null);
     const [groupSaving, setGroupSaving] = useState(false);
     const [serviceSongsIncluded, setServiceSongsIncluded] = useState<number | null>(item.songsIncludedAtBooking ?? null);
-    const [rejectOpen, setRejectOpen] = useState(false);
-    const [rejectTemplateId, setRejectTemplateId] = useState<string | null>(null);
-    const [rejectCustomText, setRejectCustomText] = useState('');
+    const [rejectModalOpen, setRejectModalOpen] = useState(false);
     const isPendingApp = isPendingSerenataAction(item);
     const showGroupPicker = isPendingApp || item.status === 'accepted_pending_group';
     const groupOptions = useMemo(() => buildSerenataGroupSelectOptions(item, groups), [item, groups]);
@@ -436,9 +416,7 @@ function SerenataDetail({ item, groups, ownerPlan, refresh, onEdit }: { item: Se
     useEffect(() => {
         setPickedGroupId(item.groupId ?? '');
         setGroupPickError(null);
-        setRejectOpen(false);
-        setRejectTemplateId(null);
-        setRejectCustomText('');
+        setRejectModalOpen(false);
     }, [item.id, item.groupId]);
 
     useEffect(() => {
@@ -493,49 +471,38 @@ function SerenataDetail({ item, groups, ownerPlan, refresh, onEdit }: { item: Se
         }
     }
 
-    const resolvedRejectReason = rejectTemplateId
-        ? resolveSerenataRejectReason(rejectTemplateId, rejectCustomText)
-        : null;
-    const canConfirmReject = rejectTemplateId != null && (
-        rejectTemplateId !== SERENATA_REJECT_OTHER_ID || (rejectCustomText.trim().length >= 3)
-    );
-
-    async function respondOffer(action: 'accept' | 'reject') {
-        if (action === 'reject') {
-            if (!rejectOpen) {
-                setRejectOpen(true);
-                return;
-            }
-            if (!canConfirmReject) {
-                setStatus({ loading: false, error: 'Elige un motivo o escribe al menos 3 caracteres.', ok: null });
-                return;
-            }
-        }
+    async function acceptOffer() {
         setStatus({ loading: true, error: null, ok: null });
-        const response = action === 'accept'
-            ? await serenatasApi.acceptSerenataOffer(item.id)
-            : await serenatasApi.rejectSerenataOffer(item.id, { reason: resolvedRejectReason ?? undefined });
+        const response = await serenatasApi.acceptSerenataOffer(item.id);
         if (!response.ok) {
             setStatus({ loading: false, error: response.error ?? 'No pudimos responder esta solicitud.', ok: null });
             return;
         }
-        let okMessage = action === 'accept'
-            ? 'Solicitud aceptada. Asigna un grupo cuando puedas para confirmarla en agenda.'
-            : 'Solicitud rechazada. El cliente recibirá el motivo indicado.';
-        if (action === 'accept' && pickedGroupId) {
+        let okMessage = 'Solicitud aceptada. Asigna un grupo cuando puedas para confirmarla en agenda.';
+        if (pickedGroupId) {
             const assigned = await persistGroupSelection(pickedGroupId);
             okMessage = assigned
                 ? 'Listo: solicitud aceptada, grupo asignado y serenata confirmada en tu agenda.'
                 : 'Solicitud aceptada, pero no pudimos asignar el grupo elegido. Elige otro grupo e inténtalo de nuevo.';
         }
-        setRejectOpen(false);
-        setRejectTemplateId(null);
-        setRejectCustomText('');
         setStatus({ loading: false, error: null, ok: okMessage });
         await refresh();
     }
 
+    async function confirmReject(reason: string) {
+        setStatus({ loading: true, error: null, ok: null });
+        const response = await serenatasApi.rejectSerenataOffer(item.id, { reason });
+        if (!response.ok) {
+            setStatus({ loading: false, error: response.error ?? 'No pudimos rechazar esta solicitud.', ok: null });
+            return;
+        }
+        setRejectModalOpen(false);
+        setStatus({ loading: false, error: null, ok: 'Solicitud rechazada. El cliente recibirá el motivo indicado.' });
+        await refresh();
+    }
+
     const serviceLabel = item.eventType ?? item.packageCode ?? 'Serenata';
+    const collectionLabel = formatSerenataCollectionMethod(item);
 
     return (
         <PanelCard size="lg" className={`min-w-0 xl:min-h-[680px] ${isPendingApp ? 'border-[color:var(--accent-border)]' : ''}`}>
@@ -593,6 +560,9 @@ function SerenataDetail({ item, groups, ownerPlan, refresh, onEdit }: { item: Se
                         }
                     />
                     <SerenataDetailMetric icon={IconHourglass} label="Duración" title={`${item.duration} minutos`} />
+                    {collectionLabel ? (
+                        <SerenataDetailMetric icon={IconCurrencyDollar} label="Forma de pago" title={collectionLabel} />
+                    ) : null}
                     <SerenataDetailMetric
                         icon={IconMusic}
                         label="Canciones del servicio"
@@ -635,46 +605,34 @@ function SerenataDetail({ item, groups, ownerPlan, refresh, onEdit }: { item: Se
                 ) : null}
             </div>
 
-            {isPendingApp && rejectOpen ? (
-                <SerenataRejectReasonPanel
-                    templateId={rejectTemplateId}
-                    customText={rejectCustomText}
-                    disabled={status.loading}
-                    onSelectTemplate={setRejectTemplateId}
-                    onCustomTextChange={setRejectCustomText}
-                    onCancel={() => {
-                        setRejectOpen(false);
-                        setRejectTemplateId(null);
-                        setRejectCustomText('');
-                        setStatus({ loading: false, error: null, ok: null });
-                    }}
-                />
-            ) : null}
+            <SerenataRejectModal
+                open={rejectModalOpen}
+                recipientName={item.recipientName}
+                loading={status.loading}
+                onClose={() => {
+                    if (status.loading) return;
+                    setRejectModalOpen(false);
+                }}
+                onConfirm={(reason) => void confirmReject(reason)}
+            />
 
             <FormFeedback status={status} />
             <div className="sticky bottom-3 z-10 mt-8 flex flex-col gap-3 rounded-card border p-4 shadow-sm md:static md:rounded-none md:border-0 md:border-t md:p-0 md:pt-6 md:shadow-none sm:flex-row border-border bg-surface">
                 {isPendingApp ? (
                     <>
-                        <PanelButton className="flex-1" disabled={status.loading || rejectOpen} onClick={() => void respondOffer('accept')}>
+                        <PanelButton className="flex-1" disabled={status.loading} onClick={() => void acceptOffer()}>
                             <IconCheck size={15} />
                             {pickedGroupId ? 'Aceptar y confirmar' : 'Aceptar solicitud'}
                         </PanelButton>
-                        {rejectOpen ? (
-                            <PanelButton
-                                className="flex-1"
-                                variant="secondary"
-                                disabled={status.loading || !canConfirmReject}
-                                onClick={() => void respondOffer('reject')}
-                            >
-                                <IconX size={15} />
-                                Confirmar rechazo
-                            </PanelButton>
-                        ) : (
-                            <PanelButton className="flex-1" variant="secondary" disabled={status.loading} onClick={() => void respondOffer('reject')}>
-                                <IconX size={15} />
-                                Rechazar
-                            </PanelButton>
-                        )}
+                        <PanelButton
+                            className="flex-1"
+                            variant="secondary"
+                            disabled={status.loading}
+                            onClick={() => setRejectModalOpen(true)}
+                        >
+                            <IconX size={15} />
+                            Rechazar
+                        </PanelButton>
                     </>
                 ) : item.status === 'accepted_pending_group' ? (
                     <PanelButton className="flex-1" variant="secondary" onClick={onEdit}>
@@ -718,108 +676,6 @@ function SerenataSourceBadge({ source, size = 'md' }: { source: Serenata['source
         >
             {isOwn ? 'Propia' : 'Aplicación'}
         </span>
-    );
-}
-
-function SerenataRejectReasonPanel({
-    templateId,
-    customText,
-    disabled,
-    onSelectTemplate,
-    onCustomTextChange,
-    onCancel,
-}: {
-    templateId: string | null;
-    customText: string;
-    disabled?: boolean;
-    onSelectTemplate: (id: string) => void;
-    onCustomTextChange: (value: string) => void;
-    onCancel: () => void;
-}) {
-    return (
-        <div className="mt-6 rounded-card border border-border bg-bg-subtle p-5">
-            <div className="flex flex-wrap items-start justify-between gap-3">
-                <div>
-                    <p className="text-sm font-semibold text-fg">Motivo del rechazo</p>
-                    <p className="mt-1 text-xs text-fg-muted">El cliente verá este mensaje en la notificación.</p>
-                </div>
-                <button
-                    type="button"
-                    className="text-xs font-semibold text-fg-muted hover:text-fg"
-                    disabled={disabled}
-                    onClick={onCancel}
-                >
-                    Cancelar
-                </button>
-            </div>
-            <div className="mt-4 flex flex-wrap gap-2">
-                {SERENATA_REJECT_TEMPLATES.map((template) => (
-                    <button
-                        key={template.id}
-                        type="button"
-                        disabled={disabled}
-                        onClick={() => onSelectTemplate(template.id)}
-                        className={`rounded-full border px-3 py-1.5 text-left text-xs font-semibold transition-colors ${
-                            templateId === template.id
-                                ? 'border-accent-border bg-accent-soft text-accent'
-                                : 'border-border bg-surface text-fg-muted hover:border-accent-border hover:text-fg'
-                        }`}
-                    >
-                        {template.label}
-                    </button>
-                ))}
-                <button
-                    type="button"
-                    disabled={disabled}
-                    onClick={() => onSelectTemplate(SERENATA_REJECT_OTHER_ID)}
-                    className={`rounded-full border px-3 py-1.5 text-xs font-semibold transition-colors ${
-                        templateId === SERENATA_REJECT_OTHER_ID
-                            ? 'border-accent-border bg-accent-soft text-accent'
-                            : 'border-border bg-surface text-fg-muted hover:border-accent-border hover:text-fg'
-                    }`}
-                >
-                    Otro motivo
-                </button>
-            </div>
-            {templateId === SERENATA_REJECT_OTHER_ID ? (
-                <textarea
-                    value={customText}
-                    disabled={disabled}
-                    onChange={(event) => onCustomTextChange(event.target.value)}
-                    placeholder="Escribe el motivo (mín. 3 caracteres)"
-                    rows={3}
-                    className="mt-4 w-full rounded-xl border border-border bg-surface px-3 py-2 text-sm text-fg placeholder:text-fg-muted focus:border-accent-border focus:outline-none"
-                />
-            ) : templateId ? (
-                <p className="mt-4 text-sm text-fg-secondary">
-                    {SERENATA_REJECT_TEMPLATES.find((entry) => entry.id === templateId)?.message}
-                </p>
-            ) : null}
-        </div>
-    );
-}
-
-function SolicitudesFilterChip({
-    active,
-    label,
-    onClick,
-}: {
-    active: boolean;
-    label: string;
-    onClick: () => void;
-}) {
-    return (
-        <button
-            type="button"
-            onClick={onClick}
-            className={`rounded-full border px-3 py-1.5 text-xs font-semibold transition-colors ${
-                active
-                    ? 'border-accent-border bg-accent-soft text-accent'
-                    : 'border-border bg-surface text-fg-muted hover:border-accent-border hover:text-fg'
-            }`}
-        >
-            {label}
-        </button>
     );
 }
 

@@ -55,7 +55,7 @@ import {
     createGroupInviteToken,
     normalizeChileWhatsAppNumber,
 } from '../../lib/serenata-group-invite.js';
-import { enrichProviderGroupsForMarketplace, mapProviderGroup } from './marketplace-enrich.js';
+import { enrichProviderGroupsForMarketplace, mapProviderGroup, mapPublicProviderGroup } from './marketplace-enrich.js';
 import { validateMarketplaceClientRequest } from './marketplace-client-policy.js';
 import {
     listSavedMariachisForUser,
@@ -828,7 +828,7 @@ export function registerMarketplaceRoutes(app: Hono, deps: MarketplaceDeps) {
         });
         if (!group) return deps.jsonError(c, 'Grupo no encontrado', 404);
         const [item] = await enrichProviderGroupsForMarketplace([group]);
-        return c.json({ ok: true, item: item ?? mapProviderGroup(group) });
+        return c.json({ ok: true, item: item ?? mapPublicProviderGroup(group) });
     });
 
     app.get('/marketplace/groups/:slug/reviews', async (c) => {

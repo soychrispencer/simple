@@ -31,6 +31,7 @@ export const PANEL_SLUG_TO_SECTION: Record<string, Section> = {
     agenda: 'agenda',
     mapa: 'map',
     map: 'map',
+    finanzas: 'finanzas',
     cuenta: 'profile',
     perfil: 'profile',
     profile: 'profile',
@@ -59,6 +60,7 @@ export const SECTION_TO_PANEL_SLUG: Record<Section, string> = {
     invitations: 'invitaciones',
     agenda: 'agenda',
     map: 'mapa',
+    finanzas: 'finanzas',
     profile: 'cuenta',
 };
 

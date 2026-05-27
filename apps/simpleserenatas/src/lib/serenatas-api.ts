@@ -19,6 +19,7 @@ export type SerenatasUser = {
     id: string;
     email: string;
     name: string;
+    role?: string;
     phone?: string | null;
     whatsappEnabled?: boolean;
     whatsappNotifyInvitations?: boolean;
@@ -167,6 +168,7 @@ export type ProviderGroupAvailability = {
 export type ProviderGroupReview = {
     rating: number;
     confirmedAt: string;
+    comment?: string | null;
 };
 
 export type ProviderGroupRatingSummary = {
@@ -324,6 +326,11 @@ export type Serenata = {
     paymentStatus?: 'not_required' | 'pending' | 'paid' | 'failed' | 'refunded' | null;
     paymentOrderId?: string | null;
     paidAt?: string | null;
+    ownerCollectionMethod?: 'cash' | 'card' | 'transfer' | 'other' | 'payment_link' | null;
+    ownerPayoutStatus?: 'pending' | 'paid' | null;
+    ownerPayoutAt?: string | null;
+    ownerPayoutReference?: string | null;
+    ownerPayoutAmount?: number | null;
     offerId?: string | null;
     offerStatus?: 'offered' | 'accepted' | 'rejected' | 'expired' | null;
     recipientName: string;
@@ -427,6 +434,45 @@ export type MusicianDirectoryItem = Pick<MusicianProfile, 'id' | 'userId' | 'ins
     avatarUrl?: string | null;
 };
 
+export type SerenataBillingOrder = {
+    id: string;
+    vertical: string;
+    kind: string;
+    title: string;
+    amount: number;
+    currency: string;
+    status: string;
+    createdAt: string;
+    appliedAt?: string | null;
+    appliedResourceId?: string | null;
+    metadata?: Record<string, unknown> | null;
+};
+
+export type MusicianPayout = {
+    id: string;
+    serenataId: string;
+    musicianId: string | null;
+    musicianName: string | null;
+    amount: number;
+    status: 'pending' | 'paid';
+    paymentMethod: string | null;
+    paidAt: string | null;
+    notes: string | null;
+    recipientName?: string;
+    eventDate?: string;
+    eventTime?: string | null;
+    serenataPrice?: number | null;
+};
+
+export type MusicianPayoutLineInput = {
+    musicianId?: string | null;
+    musicianName?: string | null;
+    amount: number;
+    status?: 'pending' | 'paid';
+    paymentMethod?: string | null;
+    notes?: string | null;
+};
+
 export type Invitation = {
     id: string;
     groupId: string;
@@ -475,6 +521,20 @@ export const serenatasApi = {
     packages: () => request<{ items: SerenataPackage[] }>('/packages'),
     profiles: () => request<{ user: SerenatasUser; profiles: Profiles }>('/profiles'),
     mePlan: () => request<SerenataMePlan>('/me/plan'),
+    billingHistory: () => request<{ items: SerenataBillingOrder[] }>('/me/billing-history'),
+    ownerMusicianPayouts: (status?: 'pending' | 'paid') => {
+        const query = status ? `?status=${encodeURIComponent(status)}` : '';
+        return request<{ items: MusicianPayout[] }>(`/serenatas/owner/musician-payouts${query}`);
+    },
+    musicianPayouts: (status?: 'pending' | 'paid') => {
+        const query = status ? `?status=${encodeURIComponent(status)}` : '';
+        return request<{ items: MusicianPayout[] }>(`/serenatas/musician/payouts${query}`);
+    },
+    serenataPayouts: (serenataId: string) => request<{ items: MusicianPayout[] }>(`/serenatas/${serenataId}/payouts`),
+    saveSerenataPayouts: (serenataId: string, lines: MusicianPayoutLineInput[]) => request<{ items: MusicianPayout[] }>(
+        `/serenatas/${serenataId}/payouts`,
+        { method: 'PUT', body: JSON.stringify({ lines }) },
+    ),
     cancelProSubscription: () =>
         request<{ ok: boolean; message?: string; error?: string }>('/me/subscription/cancel', { method: 'POST' }),
     updateUser: async (payload: {
@@ -755,7 +815,11 @@ export const serenatasApi = {
         `/serenatas/${id}/${action}`,
         { method: 'POST', body: body ? JSON.stringify(body) : undefined },
     ),
-    confirmClientSerenata: (id: string, payload?: { rating?: number }) => request<{ item: Serenata }>(`/serenatas/${id}/client-confirm`, {
+    markOwnerPayout: (
+        id: string,
+        payload: { status: 'pending' | 'paid'; amount?: number | null; reference?: string | null },
+    ) => request<{ item: Serenata }>(`/serenatas/${id}/owner-payout`, { method: 'POST', body: JSON.stringify(payload) }),
+    confirmClientSerenata: (id: string, payload?: { rating?: number; comment?: string | null }) => request<{ item: Serenata }>(`/serenatas/${id}/client-confirm`, {
         method: 'POST',
         body: JSON.stringify(payload ?? {}),
     }),

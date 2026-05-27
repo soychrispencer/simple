@@ -5,6 +5,7 @@ import { serenataProviderGroups, serenatas } from '../../db/schema.js';
 export type ProviderGroupReviewItem = {
     rating: number;
     confirmedAt: string;
+    comment: string | null;
 };
 
 export async function recomputeProviderGroupRatings(providerGroupId: string): Promise<void> {
@@ -44,6 +45,7 @@ export async function listProviderGroupReviews(
         .select({
             rating: serenatas.clientRating,
             confirmedAt: serenatas.clientConfirmedAt,
+            comment: serenatas.clientReviewComment,
         })
         .from(serenatas)
         .where(
@@ -58,11 +60,12 @@ export async function listProviderGroupReviews(
         .limit(limit);
 
     return rows
-        .filter((row): row is { rating: number; confirmedAt: Date } => {
-            return row.rating != null && row.confirmedAt != null && row.rating >= 1 && row.rating <= 5;
-        })
+        .filter((row): row is { rating: number; confirmedAt: Date; comment: string | null } => (
+            row.rating != null && row.confirmedAt != null && row.rating >= 1 && row.rating <= 5
+        ))
         .map((row) => ({
             rating: row.rating,
             confirmedAt: row.confirmedAt.toISOString(),
+            comment: row.comment?.trim() || null,
         }));
 }

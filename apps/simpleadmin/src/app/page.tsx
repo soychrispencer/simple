@@ -54,7 +54,9 @@ function DashboardContent() {
     }
 
     const scopedUsers =
-        scope === 'agenda'
+        scope === 'serenatas'
+            ? overview.recentUsers.filter((user) => user.likelySignupVertical === 'serenatas')
+            : scope === 'agenda'
             ? overview.recentUsers.filter((user) => user.agendaListings > 0)
             : scope === 'autos'
                 ? overview.recentUsers.filter((user) => user.autosListings > 0)
@@ -65,12 +67,16 @@ function DashboardContent() {
     const scopedListings =
         scope === 'autos' || scope === 'propiedades'
             ? overview.recentListings.filter((listing) => listing.vertical === scope)
-            : overview.recentListings;
+            : scope === 'agenda' || scope === 'serenatas'
+                ? []
+                : overview.recentListings;
 
     const scopedLeads =
         scope === 'autos' || scope === 'propiedades'
             ? overview.recentLeads.filter((lead) => lead.vertical === scope)
-            : overview.recentLeads;
+            : scope === 'agenda' || scope === 'serenatas'
+                ? []
+                : overview.recentLeads;
 
     const configCount = [
         overview.systemStatus.databaseConfigured,
@@ -83,7 +89,14 @@ function DashboardContent() {
     ].filter(Boolean).length;
 
     const cards =
-        scope === 'agenda'
+        scope === 'serenatas'
+            ? [
+                  { label: 'Usuarios serenatas', value: scopedUsers.length.toLocaleString('es-CL'), meta: 'Alta o actividad en serenatas' },
+                  { label: 'Clientes', value: scopedUsers.filter((user) => user.serenatas?.client).length.toLocaleString('es-CL'), meta: 'Cuentas con modo cliente' },
+                  { label: 'Músicos', value: scopedUsers.filter((user) => user.serenatas?.musician).length.toLocaleString('es-CL'), meta: 'Cuentas con modo músico' },
+                  { label: 'Coordinadores', value: scopedUsers.filter((user) => user.serenatas?.coordinator).length.toLocaleString('es-CL'), meta: 'Coordinación activa' },
+              ]
+            : scope === 'agenda'
             ? [
                   { label: 'Usuarios agenda', value: scopedUsers.length.toLocaleString('es-CL'), meta: 'Con publicaciones o actividad en agenda' },
                   { label: 'Publicaciones', value: (overview.stats.agendaListingsTotal ?? 0).toLocaleString('es-CL'), meta: 'Inventario de SimpleAgenda' },
@@ -114,8 +127,11 @@ function DashboardContent() {
     return (
         <div className="container-app panel-page py-8">
             <div className="mb-6">
-                <h1 className="type-page-title" style={{ color: 'var(--fg)' }}>Dashboard</h1>
-                <p className="type-page-subtitle mt-1">Resumen operativo de {adminScopeLabel(scope).toLowerCase()} dentro del ecosistema Simple.</p>
+                <p className="text-xs font-medium uppercase tracking-[0.14em]" style={{ color: 'var(--fg-muted)' }}>
+                    {adminScopeLabel(scope)}
+                </p>
+                <h1 className="type-page-title mt-1" style={{ color: 'var(--fg)' }}>Resumen</h1>
+                <p className="type-page-subtitle mt-1">Métricas limpias del contexto seleccionado, sin mezclar verticales.</p>
             </div>
 
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
@@ -163,7 +179,7 @@ function DashboardContent() {
                     <div className="mb-4 flex items-center justify-between gap-3">
                         <div>
                             <h2 className="type-section-title" style={{ color: 'var(--fg)' }}>Leads recientes</h2>
-                            <p className="type-page-subtitle mt-1">Últimos contactos capturados para este frente administrativo.</p>
+                            <p className="type-page-subtitle mt-1">Últimos contactos del contexto activo.</p>
                         </div>
                         <Link href={withAdminScope('/reportes', scope)} className="text-sm" style={{ color: 'var(--fg-muted)' }}>Ver todos</Link>
                     </div>
@@ -199,7 +215,9 @@ function DashboardContent() {
 
                 {scopedListings.length === 0 ? (
                     <PanelNotice tone="neutral">
-                        {scope === 'agenda' ? 'Todavía no hay publicaciones en SimpleAgenda.' : 'Todavía no hay publicaciones creadas.'}
+                        {scope === 'agenda' || scope === 'serenatas'
+                            ? 'Esta vertical no usa este módulo de publicaciones.'
+                            : 'Todavía no hay publicaciones creadas.'}
                     </PanelNotice>
                 ) : (
                     <PanelList className="border-0 rounded-[18px]">

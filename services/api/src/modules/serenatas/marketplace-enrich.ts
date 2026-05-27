@@ -37,6 +37,22 @@ export function mapProviderGroup(row: typeof serenataProviderGroups.$inferSelect
     };
 }
 
+/** Catálogo marketplace: sin métodos de cobro propios (solo pago online de la app). */
+export function mapPublicProviderGroup(row: typeof serenataProviderGroups.$inferSelect) {
+    const {
+        requiresAdvancePayment: _requiresAdvancePayment,
+        advancePaymentInstructions: _advancePaymentInstructions,
+        acceptsCash: _acceptsCash,
+        acceptsTransfer: _acceptsTransfer,
+        acceptsMp: _acceptsMp,
+        acceptsPaymentLink: _acceptsPaymentLink,
+        paymentLinkUrl: _paymentLinkUrl,
+        bankTransferData: _bankTransferData,
+        ...publicFields
+    } = mapProviderGroup(row);
+    return publicFields;
+}
+
 export async function enrichProviderGroupsForMarketplace(groups: (typeof serenataProviderGroups.$inferSelect)[]) {
     if (groups.length === 0) return [];
     const groupIds = groups.map((group) => group.id);
@@ -50,7 +66,7 @@ export async function enrichProviderGroupsForMarketplace(groups: (typeof serenat
         const groupServices = services.filter((service) => service.providerGroupId === group.id);
         const prices = groupServices.map((service) => service.price).filter((price) => Number.isFinite(price));
         return {
-            ...mapProviderGroup(group),
+            ...mapPublicProviderGroup(group),
             startingPrice: prices.length > 0 ? Math.min(...prices) : null,
             activeServicesCount: groupServices.length,
             servicesPreview: groupServices.slice(0, 3).map((service) => ({

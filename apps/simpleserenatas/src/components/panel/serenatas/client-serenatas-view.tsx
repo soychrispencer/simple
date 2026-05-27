@@ -51,6 +51,7 @@ function ClientPaymentPrompt({ item }: { item: Serenata }) {
 function ClientSerenataConfirmPrompt({ item, refresh }: { item: Serenata; refresh: () => Promise<void> }) {
     const [status, setStatus] = useState<FormStatus>({ loading: false, error: null, ok: null });
     const [rating, setRating] = useState<number | null>(null);
+    const [comment, setComment] = useState('');
     const showRating = Boolean(item.providerGroupId);
     if (item.status !== 'completed' || item.clientConfirmedAt) return null;
 
@@ -58,7 +59,12 @@ function ClientSerenataConfirmPrompt({ item, refresh }: { item: Serenata; refres
         setStatus({ loading: true, error: null, ok: null });
         const response = await serenatasApi.confirmClientSerenata(
             item.id,
-            showRating && rating != null ? { rating } : undefined,
+            showRating
+                ? {
+                    ...(rating != null ? { rating } : {}),
+                    ...(comment.trim() ? { comment: comment.trim() } : {}),
+                }
+                : undefined,
         );
         if (!response.ok) {
             setStatus({ loading: false, error: response.error ?? 'No pudimos confirmar la serenata.', ok: null });
@@ -92,6 +98,18 @@ function ClientSerenataConfirmPrompt({ item, refresh }: { item: Serenata; refres
                             );
                         })}
                     </div>
+                </div>
+            ) : null}
+            {showRating ? (
+                <div className="mt-3">
+                    <p className="text-xs font-medium text-fg-muted">Comentario (opcional)</p>
+                    <textarea
+                        rows={2}
+                        value={comment}
+                        onChange={(event) => setComment(event.target.value)}
+                        className="mt-2 w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm text-fg"
+                        placeholder="Cuéntanos cómo fue la experiencia."
+                    />
                 </div>
             ) : null}
             <FormFeedback status={status} />

@@ -48,6 +48,7 @@ export type Section =
     | 'invitations'
     | 'agenda'
     | 'map'
+    | 'finanzas'
     | 'profile';
 export type LoadState = 'idle' | 'loading' | 'error' | 'ready';
 
