@@ -2,15 +2,21 @@
 
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
-import { useParams, useSearchParams } from 'next/navigation';
+import { useParams, useRouter, useSearchParams } from 'next/navigation';
+import { IconAlertCircle } from '@tabler/icons-react';
 import { AdminProtectedPage } from '@/components/admin-protected-page';
 import {
-  fetchAdminUsers, updateAdminUserRole, updateAdminUserStatus, type AdminSessionUser, type AdminUserListItem, } from '@/lib/api';
+  deleteAdminUser,
+  fetchAdminUsers,
+  updateAdminUserRole,
+  updateAdminUserStatus,
+  type AdminSessionUser,
+  type AdminUserListItem,
+} from '@/lib/api';
 import { adminScopeLabel, normalizeAdminScope, withAdminScope } from '@/lib/admin-scope';
 import { hasAdminCapability } from '@/lib/admin-capabilities';
 import { deriveUserVerticalMemberships } from '@/lib/admin-verticals';
-import { PanelCard } from '@simple/ui/panel';
-import { PanelNotice } from '@simple/ui/panel';
+import { PanelButton, PanelCard, PanelNotice } from '@simple/ui/panel';
 
 export default function AdminUserDetailPage() {
   return (
@@ -23,11 +29,14 @@ export default function AdminUserDetailPage() {
 function AdminUserDetailContent({ adminUser }: { adminUser: AdminSessionUser }) {
   const params = useParams<{ id: string }>();
   const searchParams = useSearchParams();
+  const router = useRouter();
   const scope = normalizeAdminScope(searchParams.get('scope'));
   const userId = params?.id ?? '';
   const [items, setItems] = useState<AdminUserListItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -55,6 +64,7 @@ function AdminUserDetailContent({ adminUser }: { adminUser: AdminSessionUser }) 
       : 'user';
   const canEditRole = hasAdminCapability(adminUser, 'users.editRole', scope);
   const canEditStatus = hasAdminCapability(adminUser, 'users.editStatus', scope);
+  const canDelete = hasAdminCapability(adminUser, 'users.delete', scope);
 
   async function refreshUsers() {
     const next = await fetchAdminUsers();
@@ -89,6 +99,21 @@ function AdminUserDetailContent({ adminUser }: { adminUser: AdminSessionUser }) 
     }
     await refreshUsers();
     setMessage('Estado actualizado.');
+  }
+
+  async function handleDeleteUser() {
+    if (!user || !canDelete) return;
+    setDeleting(true);
+    setError(null);
+    const result = await deleteAdminUser(user.id);
+    setDeleting(false);
+    if (!result.ok) {
+      setError(result.error || 'No pudimos eliminar el usuario.');
+      return;
+    }
+    setDeleteModalOpen(false);
+    router.push(withAdminScope('/usuarios', scope));
+    router.refresh();
   }
 
   return (
@@ -185,8 +210,65 @@ function AdminUserDetailContent({ adminUser }: { adminUser: AdminSessionUser }) 
               ))}
             </div>
           </PanelCard>
+
+          {canDelete ? (
+            <PanelCard size="md">
+              <h2 className="type-section-title" style={{ color: 'var(--fg)' }}>Zona de riesgo</h2>
+              <p className="type-page-subtitle mt-1">
+                Elimina de forma permanente la cuenta y sus datos asociados. Solo disponible para superadmin.
+              </p>
+              <div className="mt-4">
+                <PanelButton
+                  variant="secondary"
+                  onClick={() => {
+                    setDeleteModalOpen(true);
+                    setError(null);
+                  }}
+                  disabled={deleting || adminUser.id === user.id}
+                >
+                  Eliminar usuario
+                </PanelButton>
+                {adminUser.id === user.id ? (
+                  <p className="mt-2 text-xs" style={{ color: 'var(--fg-muted)' }}>No puedes eliminar tu propia cuenta.</p>
+                ) : null}
+              </div>
+            </PanelCard>
+          ) : null}
         </div>
       )}
+
+      {deleteModalOpen && user ? (
+        <div className="fixed inset-0 z-80 flex items-center justify-center px-4 py-5">
+          <button
+            type="button"
+            aria-label="Cerrar modal"
+            onClick={() => setDeleteModalOpen(false)}
+            className="absolute inset-0 admin-modal-backdrop"
+          />
+          <div className="relative z-1 w-full max-w-md rounded-card border p-6 admin-modal-surface">
+            <div className="flex items-start gap-3">
+              <div className="admin-modal-danger-icon flex h-11 w-11 shrink-0 items-center justify-center rounded-full">
+                <IconAlertCircle size={20} stroke={1.9} />
+              </div>
+              <div>
+                <h2 className="type-section-title" style={{ color: 'var(--fg)' }}>Eliminar usuario</h2>
+                <p className="mt-1 text-sm" style={{ color: 'var(--fg-muted)' }}>
+                  Esta acción elimina de forma definitiva a <strong style={{ color: 'var(--fg)' }}>{user.name}</strong>.
+                </p>
+              </div>
+            </div>
+            {error ? <p className="mt-4 text-sm" style={{ color: 'var(--error)' }}>{error}</p> : null}
+            <div className="mt-5 flex gap-2">
+              <PanelButton variant="secondary" className="flex-1" onClick={() => setDeleteModalOpen(false)} disabled={deleting}>
+                Cancelar
+              </PanelButton>
+              <PanelButton className="flex-1" onClick={() => void handleDeleteUser()} disabled={deleting}>
+                {deleting ? 'Eliminando...' : 'Eliminar'}
+              </PanelButton>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }

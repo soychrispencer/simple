@@ -429,6 +429,20 @@ export async function updateAdminUserStatus(
     }
 }
 
+export async function deleteAdminUser(userId: string): Promise<{ ok: boolean; error?: string }> {
+    try {
+        const { response, data } = await apiRequest(`/api/admin/users/${encodeURIComponent(userId)}`, {
+            method: 'DELETE',
+        });
+        if (!response.ok || !data?.ok) {
+            return { ok: false, error: data?.error || 'No pudimos eliminar el usuario.' };
+        }
+        return { ok: true };
+    } catch {
+        return { ok: false, error: 'No pudimos conectar con el backend.' };
+    }
+}
+
 export async function updateAdminUserSubscriptions(
     userId: string,
     subscriptions: AdminUserListItem['subscriptions']
