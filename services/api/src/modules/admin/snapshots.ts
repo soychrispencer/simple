@@ -1,4 +1,4 @@
-import { desc, inArray } from 'drizzle-orm';
+import { desc, eq, inArray } from 'drizzle-orm';
 import { db } from '../../db/index.js';
 import {
     agendaProfessionalProfiles,
@@ -6,6 +6,7 @@ import {
     serenataOwners,
     serenataClients,
     serenataMusicians,
+    subscriptionPlans,
     subscriptions,
     users,
 } from '../../db/schema.js';
@@ -208,12 +209,16 @@ export async function listAdminUsersSnapshot(vertical?: VerticalType | null): Pr
         ? await db.select({
             userId: subscriptions.userId,
             vertical: subscriptions.vertical,
-            planId: subscriptions.planId,
+            planSlug: subscriptionPlans.planId,
+            planName: subscriptionPlans.name,
             status: subscriptions.status,
             expiresAt: subscriptions.expiresAt,
             createdAt: subscriptions.createdAt,
             updatedAt: subscriptions.updatedAt,
-        }).from(subscriptions).where(inArray(subscriptions.userId, userIds))
+        })
+            .from(subscriptions)
+            .innerJoin(subscriptionPlans, eq(subscriptions.planId, subscriptionPlans.id))
+            .where(inArray(subscriptions.userId, userIds))
         : [];
 
     const listingCounters = new Map<string, { total: number; autos: number; propiedades: number; rows: typeof listingRows }>();
@@ -234,7 +239,8 @@ export async function listAdminUsersSnapshot(vertical?: VerticalType | null): Pr
     const serenataMusiciansByUser = new Map(serenataMusicianRows.map((row) => [row.userId, row]));
     const serenataOwnersByUser = new Map(serenataOwnerRows.map((row) => [row.userId, row]));
     const subscriptionsByUser = new Map<string, Record<string, {
-        planId: string | null;
+        planId: string;
+        planName: string;
         status: string;
         expiresAt: Date | null;
         createdAt: Date;
@@ -243,7 +249,8 @@ export async function listAdminUsersSnapshot(vertical?: VerticalType | null): Pr
     for (const row of subscriptionRows) {
         const bucket = subscriptionsByUser.get(row.userId) ?? {};
         bucket[row.vertical] = {
-            planId: row.planId,
+            planId: row.planSlug,
+            planName: row.planName,
             status: row.status,
             expiresAt: row.expiresAt ?? null,
             createdAt: row.createdAt,
@@ -424,7 +431,7 @@ export async function listAdminUsersSnapshot(vertical?: VerticalType | null): Pr
                         autos: sub?.autos
                             ? {
                                   planId: sub.autos.planId,
-                                  planName: sub.autos.planId,
+                                  planName: sub.autos.planName,
                                   status: sub.autos.status,
                                   expiresAt: sub.autos.expiresAt?.toISOString() ?? null,
                               }
@@ -432,9 +439,17 @@ export async function listAdminUsersSnapshot(vertical?: VerticalType | null): Pr
                         propiedades: sub?.propiedades
                             ? {
                                   planId: sub.propiedades.planId,
-                                  planName: sub.propiedades.planId,
+                                  planName: sub.propiedades.planName,
                                   status: sub.propiedades.status,
                                   expiresAt: sub.propiedades.expiresAt?.toISOString() ?? null,
+                              }
+                            : undefined,
+                        serenatas: sub?.serenatas
+                            ? {
+                                  planId: sub.serenatas.planId,
+                                  planName: sub.serenatas.planName,
+                                  status: sub.serenatas.status,
+                                  expiresAt: sub.serenatas.expiresAt?.toISOString() ?? null,
                               }
                             : undefined,
                     };

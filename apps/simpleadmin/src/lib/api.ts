@@ -68,6 +68,7 @@ export type AdminUserListItem = {
         agenda?: { plan: 'free' | 'pro'; expiresAt: string | null; status: 'active' | 'expired' | 'free' } | null;
         autos?: { planId: string | null; planName: string | null; status: string; expiresAt: string | null } | null;
         propiedades?: { planId: string | null; planName: string | null; status: string; expiresAt: string | null } | null;
+        serenatas?: { planId: string | null; planName: string | null; status: string; expiresAt: string | null } | null;
     } | null;
     serenatas?: {
         client: boolean;
@@ -443,9 +444,16 @@ export async function deleteAdminUser(userId: string): Promise<{ ok: boolean; er
     }
 }
 
+export type AdminUserSubscriptionsPatch = {
+    agenda?: { plan: 'free' | 'pro'; expiresAt?: string | null };
+    autos?: { planId: string; status?: string; expiresAt?: string | null };
+    propiedades?: { planId: string; status?: string; expiresAt?: string | null };
+    serenatas?: { planId: 'free' | 'pro'; status?: string; expiresAt?: string | null; trialEndsAt?: string | null };
+};
+
 export async function updateAdminUserSubscriptions(
     userId: string,
-    subscriptions: AdminUserListItem['subscriptions']
+    subscriptions: AdminUserSubscriptionsPatch
 ): Promise<{ ok: boolean; error?: string }> {
     try {
         const { response, data } = await apiRequest(`/api/admin/users/${encodeURIComponent(userId)}/subscriptions`, {

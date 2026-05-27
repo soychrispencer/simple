@@ -10,7 +10,7 @@ export async function cancelSerenatasProSubscription(
     | { ok: false; error: string; status: number }
 > {
     const sub = await loadCurrentSubscriptionFromDb(userId, 'serenatas');
-    if (!sub || (sub.planSlug !== 'pro' && sub.planSlug !== 'enterprise')) {
+    if (!sub || sub.planSlug !== 'pro') {
         return { ok: false, error: 'No tienes una suscripción Pro activa.', status: 400 };
     }
 
@@ -27,7 +27,7 @@ export async function cancelSerenatasProSubscription(
         userId,
         accountId: sub.accountId,
         vertical: 'serenatas',
-        planSlug: sub.planSlug === 'enterprise' ? 'enterprise' : 'pro',
+        planSlug: 'pro',
         providerSubscriptionId: preapprovalId ?? `cancelled-${sub.id}`,
         providerStatus: 'cancelled',
         status: 'cancelled',

@@ -172,6 +172,71 @@ export async function persistUserSubscription(input: {
     return { subscriptionDbId: inserted.id, planSlug: input.planSlug };
 }
 
+/** Asignación manual desde SimpleAdmin (superadmin). */
+export async function persistManualAdminSubscription(input: {
+    userId: string;
+    accountId: string | null;
+    vertical: PaymentVerticalType;
+    planSlug: SubscriptionPlanId;
+    status?: 'active' | 'cancelled' | 'expired';
+    expiresAt?: Date | null;
+}): Promise<{ planSlug: string; status: string; expiresAt: string | null }> {
+    const status =
+        input.status ?? (input.planSlug === 'free' ? 'cancelled' : 'active');
+    const expiresAt = input.expiresAt ?? null;
+
+    if (input.planSlug === 'free' || status === 'cancelled' || status === 'expired') {
+        const existing = await db
+            .select({ id: subscriptions.id })
+            .from(subscriptions)
+            .where(and(eq(subscriptions.userId, input.userId), eq(subscriptions.vertical, input.vertical)))
+            .limit(1);
+
+        const resolvedStatus = status === 'active' ? 'cancelled' : status;
+
+        if (existing[0]) {
+            await db
+                .update(subscriptions)
+                .set({
+                    status: resolvedStatus,
+                    provider: 'manual',
+                    providerSubscriptionId: `admin-manual-${Date.now()}`,
+                    providerStatus: 'manual',
+                    expiresAt,
+                    cancelledAt: resolvedStatus === 'cancelled' ? new Date() : null,
+                    updatedAt: new Date(),
+                })
+                .where(eq(subscriptions.id, existing[0].id));
+        }
+
+        await syncSerenataOwnerCommissionForPlan(input.userId, 'free', resolvedStatus);
+        return {
+            planSlug: 'free',
+            status: resolvedStatus,
+            expiresAt: expiresAt?.toISOString() ?? null,
+        };
+    }
+
+    const paidSlug = input.planSlug as Exclude<SubscriptionPlanId, 'free'>;
+    const dbStatus: 'active' | 'expired' = input.status === 'expired' ? 'expired' : 'active';
+    const persisted = await persistUserSubscription({
+        userId: input.userId,
+        accountId: input.accountId,
+        vertical: input.vertical,
+        planSlug: paidSlug,
+        providerSubscriptionId: `admin-manual-${Date.now()}`,
+        providerStatus: 'manual',
+        status: dbStatus,
+        expiresAt,
+    });
+
+    return {
+        planSlug: persisted.planSlug,
+        status: dbStatus,
+        expiresAt: expiresAt?.toISOString() ?? null,
+    };
+}
+
 async function syncSerenataOwnerCommissionForPlan(
     userId: string,
     planSlug: string,
@@ -185,7 +250,7 @@ async function syncSerenataOwnerCommissionForPlan(
 
     if (!owner[0]) return;
 
-    const isActivePro = status === 'active' && (planSlug === 'pro' || planSlug === 'enterprise');
+    const isActivePro = status === 'active' && planSlug === 'pro';
     const commissionRateBps = isActivePro ? APP_COMMISSION_PRO_BPS : APP_COMMISSION_FREE_BPS;
 
     await db

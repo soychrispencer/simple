@@ -315,10 +315,6 @@ export function SubscriptionSection() {
                     </div>
                 )}
             </PanelCard>
-
-            <p className="text-center text-sm" style={{ color: 'var(--fg-muted)' }}>
-                ¿Varios grupos o coordinación avanzada? Consulta el plan Empresa con el equipo Simple.
-            </p>
         </div>
     );
 }

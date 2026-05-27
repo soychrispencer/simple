@@ -291,23 +291,6 @@ export const SUBSCRIPTION_PLANS_BY_VERTICAL: Record<VerticalType, SubscriptionPl
             maxFreeBoostsPerMonth: 0,
             features: ['Serenatas propias con costo de plataforma $0', 'Grupos e invitaciones por fecha', 'Mapa y ruta sugerida', 'Solicitudes de la app con comisión de 8% + IVA'],
         },
-        {
-            id: 'enterprise',
-            name: 'Empresa',
-            description: 'Para operaciones con varios coordinadores y soporte avanzado.',
-            priceMonthly: 59990,
-            currency: 'CLP',
-            maxListings: 0,
-            maxFeaturedListings: 0,
-            maxImagesPerListing: 0,
-            analyticsEnabled: true,
-            crmEnabled: true,
-            prioritySupport: true,
-            customBranding: true,
-            apiAccess: true,
-            maxFreeBoostsPerMonth: 0,
-            features: ['Múltiples coordinadores', 'Gestión avanzada de músicos', 'Reportes operacionales', 'Soporte prioritario'],
-        },
     ],
     plataforma: [
         {

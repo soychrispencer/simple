@@ -1,4 +1,7 @@
 import { Hono } from 'hono';
+import type { SubscriptionPlanId } from '../../lib/domain-types.js';
+import { serenataOwners } from '../../db/schema.js';
+import { persistManualAdminSubscription } from '../subscriptions/persist-db.js';
 import {
     type CrmServiceDeps,
     type AppUser,
@@ -254,35 +257,36 @@ export function createAdminRouter(deps: AdminRouterDeps) {
         try {
             const adminUser = await deps.authUser(c);
             if (!adminUser) return c.json({ ok: false, error: 'No autenticado' }, 401);
-            if (!deps.isAdminRole(adminUser.role)) {
-                return c.json({ ok: false, error: 'No autorizado' }, 403);
+            if (adminUser.role !== 'superadmin') {
+                return c.json({ ok: false, error: 'Solo superadmin puede editar suscripciones' }, 403);
             }
 
-            const payload = await c.req.json().catch(() => null);
+            const payload = await c.req.json().catch(() => null) as { subscriptions?: Record<string, unknown> } | null;
             const userId = c.req.param('id') ?? '';
 
             const targetUser = await deps.getUserById(userId);
             if (!targetUser) return c.json({ ok: false, error: 'Usuario no encontrado' }, 404);
             const targetAccount = await deps.ensurePrimaryAccountForUser(targetUser);
 
-            const subData = payload?.subscriptions || {};
-            const results: Record<string, any> = {};
+            const subData = payload?.subscriptions ?? {};
+            const results: Record<string, unknown> = {};
 
             if (subData.agenda) {
+                const agendaPayload = subData.agenda as { plan?: string; expiresAt?: string | null };
                 const profile = await deps.db.select()
                     .from(deps.tables.agendaProfessionalProfiles)
                     .where(deps.eq(deps.tables.agendaProfessionalProfiles.userId, userId))
                     .limit(1);
 
-                const plan = subData.agenda.plan;
-                const expiresAt = subData.agenda.expiresAt ? new Date(subData.agenda.expiresAt) : null;
+                const plan = agendaPayload.plan === 'pro' ? 'pro' : 'free';
+                const expiresAt = agendaPayload.expiresAt ? new Date(agendaPayload.expiresAt) : null;
 
                 if (profile.length > 0) {
                     await deps.db.update(deps.tables.agendaProfessionalProfiles)
                         .set({ plan, planExpiresAt: expiresAt, updatedAt: new Date() })
                         .where(deps.eq(deps.tables.agendaProfessionalProfiles.id, profile[0].id));
-                    results.agenda = { plan, expiresAt: expiresAt?.toISOString() || null };
-                } else {
+                    results.agenda = { plan, expiresAt: expiresAt?.toISOString() ?? null };
+                } else if (plan === 'pro') {
                     const slug = `${targetUser.name.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '')}-${Date.now().toString(36)}`;
                     await deps.db.insert(deps.tables.agendaProfessionalProfiles).values({
                         accountId: await deps.getPrimaryAccountIdForUser(userId),
@@ -292,57 +296,73 @@ export function createAdminRouter(deps: AdminRouterDeps) {
                         plan,
                         planExpiresAt: expiresAt,
                     }).returning();
-                    results.agenda = { plan, expiresAt: expiresAt?.toISOString() || null, created: true };
-                }
-            }
-
-            if (subData.autos) {
-                const planId = subData.autos.planId || null;
-                const status = subData.autos.status || 'active';
-                const expiresAt = subData.autos.expiresAt ? new Date(subData.autos.expiresAt) : null;
-                const existing = await deps.db.execute(deps.sql`
-                    SELECT id FROM subscriptions WHERE user_id = ${userId} AND vertical = 'autos' LIMIT 1
-                `);
-                if (existing.length > 0) {
-                    await deps.db.execute(deps.sql`
-                        UPDATE subscriptions SET plan_id = ${planId}, status = ${status}, expires_at = ${expiresAt}, updated_at = now()
-                        WHERE id = ${(existing[0] as any).id}
-                    `);
+                    results.agenda = { plan, expiresAt: expiresAt?.toISOString() ?? null, created: true };
                 } else {
-                    await deps.db.execute(deps.sql`
-                        INSERT INTO subscriptions (account_id, user_id, plan_id, vertical, status, provider, expires_at)
-                        VALUES (${targetAccount.id}, ${userId}, ${planId}, 'autos', ${status}, 'manual', ${expiresAt})
-                    `);
+                    results.agenda = { plan, skipped: 'Sin perfil Agenda para asignar free' };
                 }
-                results.autos = { planId, status, expiresAt: expiresAt?.toISOString() || null };
             }
 
-            if (subData.propiedades) {
-                const planId = subData.propiedades.planId || null;
-                const status = subData.propiedades.status || 'active';
-                const expiresAt = subData.propiedades.expiresAt ? new Date(subData.propiedades.expiresAt) : null;
-                const existing = await deps.db.execute(deps.sql`
-                    SELECT id FROM subscriptions WHERE user_id = ${userId} AND vertical = 'propiedades' LIMIT 1
-                `);
-                if (existing.length > 0) {
-                    await deps.db.execute(deps.sql`
-                        UPDATE subscriptions SET plan_id = ${planId}, status = ${status}, expires_at = ${expiresAt}, updated_at = now()
-                        WHERE id = ${(existing[0] as any).id}
-                    `);
-                } else {
-                    await deps.db.execute(deps.sql`
-                        INSERT INTO subscriptions (account_id, user_id, plan_id, vertical, status, provider, expires_at)
-                        VALUES (${targetAccount.id}, ${userId}, ${planId}, 'propiedades', ${status}, 'manual', ${expiresAt})
-                    `);
+            const billingVerticals = ['autos', 'propiedades', 'serenatas'] as const;
+            for (const vertical of billingVerticals) {
+                const raw = subData[vertical] as {
+                    planId?: string;
+                    status?: 'active' | 'cancelled' | 'expired';
+                    expiresAt?: string | null;
+                    trialEndsAt?: string | null;
+                } | undefined;
+                if (!raw) continue;
+
+                const planSlug = (raw.planId ?? 'free') as SubscriptionPlanId;
+                const allowedPlans =
+                    vertical === 'serenatas'
+                        ? ['free', 'pro']
+                        : ['free', 'pro', 'enterprise'];
+                if (!allowedPlans.includes(planSlug)) {
+                    return c.json({ ok: false, error: `Plan inválido para ${vertical}` }, 400);
                 }
-                results.propiedades = { planId, status, expiresAt: expiresAt?.toISOString() || null };
+
+                const status = raw.status ?? (planSlug === 'free' ? 'cancelled' : 'active');
+                const expiresAt = raw.expiresAt ? new Date(raw.expiresAt) : null;
+
+                results[vertical] = await persistManualAdminSubscription({
+                    userId,
+                    accountId: targetAccount.id,
+                    vertical,
+                    planSlug,
+                    status,
+                    expiresAt,
+                });
+
+                if (vertical === 'serenatas' && raw.trialEndsAt !== undefined) {
+                    const trialEndsAt = raw.trialEndsAt ? new Date(raw.trialEndsAt) : null;
+                    const owners = await deps.db.select({ id: serenataOwners.id })
+                        .from(serenataOwners)
+                        .where(deps.eq(serenataOwners.userId, userId))
+                        .limit(1);
+                    if (owners[0]) {
+                        await deps.db.update(serenataOwners)
+                            .set({ trialEndsAt, updatedAt: new Date() })
+                            .where(deps.eq(serenataOwners.id, owners[0].id));
+                        results.serenatasTrialEndsAt = trialEndsAt?.toISOString() ?? null;
+                    } else {
+                        results.serenatasTrialEndsAt = { skipped: 'Usuario sin perfil dueño Serenatas' };
+                    }
+                }
             }
 
+            await createAdminAudit({
+                actorUserId: adminUser.id,
+                action: 'user.subscriptions.update',
+                entityType: 'user',
+                entityId: userId,
+                payload: { subscriptions: subData, results },
+            });
 
             return c.json({ ok: true, results });
         } catch (error) {
             console.error('[admin subscriptions] error:', error);
-            return c.json({ ok: false, error: 'Error al actualizar suscripciones' }, 500);
+            const message = error instanceof Error ? error.message : 'Error al actualizar suscripciones';
+            return c.json({ ok: false, error: message }, 500);
         }
     });
 

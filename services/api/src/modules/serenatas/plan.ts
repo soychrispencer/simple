@@ -33,7 +33,9 @@ export async function resolveActiveSerenataBillingPlan(userId: string): Promise<
     const inactive = row.status === 'cancelled' || row.status === 'expired' || expired;
     if (inactive) return 'free';
 
-    if (row.planSlug === 'pro' || row.planSlug === 'enterprise') return 'pro';
+    if (row.planSlug === 'pro') return 'pro';
+    // Legacy: filas antiguas con slug enterprise se tratan como Pro hasta migrar.
+    if (row.planSlug === 'enterprise') return 'pro';
     return 'free';
 }
 

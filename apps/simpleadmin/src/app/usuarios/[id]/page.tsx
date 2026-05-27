@@ -16,6 +16,7 @@ import {
 import { adminScopeLabel, normalizeAdminScope, withAdminScope } from '@/lib/admin-scope';
 import { hasAdminCapability } from '@/lib/admin-capabilities';
 import { deriveUserVerticalMemberships } from '@/lib/admin-verticals';
+import { UserVerticalMembershipsGrid } from '@/components/user-subscriptions-editor';
 import { PanelButton, PanelCard, PanelNotice } from '@simple/ui/panel';
 
 export default function AdminUserDetailPage() {
@@ -64,6 +65,7 @@ function AdminUserDetailContent({ adminUser }: { adminUser: AdminSessionUser }) 
       : 'user';
   const canEditRole = hasAdminCapability(adminUser, 'users.editRole', scope);
   const canEditStatus = hasAdminCapability(adminUser, 'users.editStatus', scope);
+  const canEditSubscriptions = hasAdminCapability(adminUser, 'users.editSubscriptions', scope);
   const canDelete = hasAdminCapability(adminUser, 'users.delete', scope);
 
   async function refreshUsers() {
@@ -183,32 +185,17 @@ function AdminUserDetailContent({ adminUser }: { adminUser: AdminSessionUser }) 
 
           <PanelCard size="md">
             <h2 className="type-section-title" style={{ color: 'var(--fg)' }}>Membresías por vertical</h2>
-            <p className="type-page-subtitle mt-1">Base para operar permisos y suscripciones por negocio.</p>
-            <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-3">
-              {memberships.map((membership) => (
-                <article
-                  key={membership.key}
-                  className="rounded-xl border p-4"
-                  style={{ borderColor: 'var(--border)', background: 'var(--surface)' }}
-                >
-                  <div className="flex items-center justify-between gap-2">
-                    <p className="text-sm font-semibold" style={{ color: 'var(--fg)' }}>{membership.label}</p>
-                    <span
-                      className="text-[11px] px-2 py-0.5 rounded-full"
-                      style={{ background: membership.enabled ? 'rgba(34,197,94,0.12)' : 'var(--bg-muted)', color: membership.enabled ? 'rgb(34,197,94)' : 'var(--fg-muted)' }}
-                    >
-                      {membership.enabled ? 'Habilitada' : 'No activa'}
-                    </span>
-                  </div>
-                  <div className="mt-3 grid grid-cols-2 gap-2 text-xs">
-                    <Meta label="Rol vertical" value={membership.roleLabel} />
-                    <Meta label="Suscripción" value={membership.subscriptionLabel} />
-                    <Meta label="Estado plan" value={membership.statusLabel} />
-                    <Meta label="Actividad" value={String(membership.activityCount)} />
-                  </div>
-                </article>
-              ))}
-            </div>
+            <p className="type-page-subtitle mt-1">
+              {canEditSubscriptions
+                ? 'Rol y actividad por negocio. Como superadmin puedes editar la suscripción en cada tarjeta.'
+                : 'Base para operar permisos y suscripciones por negocio.'}
+            </p>
+            <UserVerticalMembershipsGrid
+              user={user}
+              memberships={memberships}
+              editable={canEditSubscriptions}
+              onSaved={refreshUsers}
+            />
           </PanelCard>
 
           {canDelete ? (
