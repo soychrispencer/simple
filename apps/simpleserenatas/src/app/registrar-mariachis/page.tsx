@@ -2,6 +2,6 @@
 
 import { OwnerGroupRegisterPage } from '@/components/auth/owner-group-register-page';
 
-export default function ParaDuenosPage() {
+export default function RegistrarMariachisPage() {
     return <OwnerGroupRegisterPage />;
 }

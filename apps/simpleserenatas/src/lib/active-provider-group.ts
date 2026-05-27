@@ -1,7 +1,7 @@
-/** Nombre del mariachi capturado en `/para-duenos` antes del alta. */
+/** Nombre del mariachi capturado en `/registrar-mariachis` antes del alta. */
 export const SIGNUP_GROUP_NAME_KEY = 'serenatas-signup-group-name';
 
-/** Nombre del dueño capturado en `/para-duenos` (p. ej. registro con Google). */
+/** Nombre del dueño capturado en `/registrar-mariachis` (p. ej. registro con Google). */
 export const SIGNUP_OWNER_NAME_KEY = 'serenatas-signup-owner-name';
 
 export function persistSignupDrafts(groupName: string, ownerName: string) {

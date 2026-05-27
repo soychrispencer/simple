@@ -35,6 +35,21 @@ const nextConfig: NextConfig = {
                 destination: '/:slug',
                 permanent: false,
             },
+            {
+                source: '/para-duenos',
+                destination: '/registrar-mariachis',
+                permanent: true,
+            },
+            {
+                source: '/crear-mariachis',
+                destination: '/registrar-mariachis',
+                permanent: true,
+            },
+            {
+                source: '/registrar-grupo',
+                destination: '/registrar-mariachis',
+                permanent: true,
+            },
         ];
     },
     async rewrites() {

@@ -17,6 +17,7 @@ import { LandingHeader } from '@/components/layout/landing-header';
 import { Footer } from '@/components/layout/footer';
 import { MarketplaceSearchPanel } from '@/components/public/marketplace-search-panel';
 import { PublicProviderGroupCard } from '@/components/public/public-provider-group-card';
+import { OWNER_REGISTER_PATH } from '@/lib/owner-register-route';
 import { sortMarketplaceGroups } from '@/lib/marketplace-group-display';
 import {
     defaultLandingSearch,
@@ -142,10 +143,10 @@ export function PublicLanding({
                                     </Link>
                                 ) : (
                                     <Link
-                                        href="/para-duenos"
+                                        href={OWNER_REGISTER_PATH}
                                         className="btn h-13 border border-white/28 bg-white/12 px-7 text-base font-semibold text-white backdrop-blur transition-colors hover:bg-white/20 sm:h-14 sm:px-9"
                                     >
-                                        Soy dueño de un mariachi
+                                        Registrar mariachis
                                     </Link>
                                 )}
                             </div>
@@ -260,10 +261,10 @@ export function PublicLanding({
                         <div className="grid gap-5 lg:grid-cols-2">
                             <AudienceCard
                                 icon={IconUsersGroup}
-                                title="Publica tu mariachi"
-                                description="Crea tu perfil comercial, servicios, precios y zonas para recibir solicitudes del marketplace."
-                                cta="Ir al panel de dueños"
-                                href="/para-duenos"
+                                title="¿Tienes un mariachi?"
+                                description="Regístralo en SimpleSerenatas: perfil profesional, comunas, disponibilidad y nuevas oportunidades desde la web."
+                                cta="Registrar mariachis gratis"
+                                href={OWNER_REGISTER_PATH}
                             />
                             <AudienceCard
                                 icon={IconMusic}

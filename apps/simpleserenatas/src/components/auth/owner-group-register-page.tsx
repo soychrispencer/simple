@@ -12,15 +12,17 @@ import { PanelNotice } from '@simple/ui/panel';
 import { ensureOwnerProfileFromSignup } from '@/lib/owner-signup-bootstrap';
 import { persistSignupDrafts } from '@/lib/active-provider-group';
 import { persistSignupProfile } from '@/lib/signup-profile';
+import { trackOwnerRegistrationComplete } from '@/lib/meta-pixel';
+import { OWNER_REGISTER_PATH } from '@/lib/owner-register-route';
 import { panelMiNegocioHref } from '@/lib/panel-routes';
 import { serenatasApi } from '@/lib/serenatas-api';
 
 const TOTAL_STEPS = 3;
 
 const brandBenefits = [
-    'Gestiona músicos, grupos y agenda en un solo panel',
-    'Marketplace para recibir solicitudes de clientes',
-    'Mapa, rutas y operación del día desde el celular',
+    'Perfil profesional para tu mariachi',
+    'Comunas y disponibilidad visibles',
+    'Más oportunidades desde la web',
 ];
 
 const brandStats = [
@@ -43,7 +45,7 @@ export function OwnerGroupRegisterPage() {
     const [verifyEmail, setVerifyEmail] = useState<string | null>(null);
 
     useEffect(() => {
-        sessionStorage.setItem('auth.returnTo', '/para-duenos');
+        sessionStorage.setItem('auth.returnTo', OWNER_REGISTER_PATH);
     }, []);
 
     useEffect(() => {
@@ -93,7 +95,7 @@ export function OwnerGroupRegisterPage() {
         setError('');
         if (step === 1) {
             if (!groupName.trim()) {
-                setError('Ingresa el nombre de tu grupo o mariachi.');
+                setError('Ingresa el nombre de tu mariachi.');
                 return;
             }
             if (!ownerName.trim()) {
@@ -137,13 +139,14 @@ export function OwnerGroupRegisterPage() {
         persistSignupProfile('owner');
         persistSignupDrafts(groupName, ownerName);
         setSubmitting(true);
-        sessionStorage.setItem('auth.returnTo', '/para-duenos');
+        sessionStorage.setItem('auth.returnTo', OWNER_REGISTER_PATH);
         const result = await register(ownerName.trim(), email.trim(), password);
         setSubmitting(false);
         if (!result.ok || !result.user) {
             setError(result.error || 'No pudimos completar el registro.');
             return;
         }
+        trackOwnerRegistrationComplete();
         if (result.user.status === 'verified') {
             const activated = await ensureOwnerProfileFromSignup({ refreshSession: () => refreshSession() });
             if (activated) {
@@ -207,17 +210,17 @@ export function OwnerGroupRegisterPage() {
                             <RegisterProgress step={step} total={TOTAL_STEPS} />
                             <h1 className="mt-6 text-2xl font-bold tracking-tight text-fg sm:text-3xl">
                                 {step === 1
-                                    ? 'Crea tu cuenta de dueño'
+                                    ? 'Registra tu mariachi'
                                     : step === 2
                                       ? 'Datos de acceso'
-                                      : 'Confirma y crea tu cuenta'}
+                                      : 'Confirma y registra tu mariachi'}
                             </h1>
                             <p className="mt-2 text-sm text-fg-muted sm:text-base">
                                 {step === 1
-                                    ? 'Indica el nombre de tu mariachi o grupo y tu nombre como dueño.'
+                                    ? 'SimpleSerenatas es una plataforma para que tu mariachi aparezca y reciba nuevas oportunidades desde la web. El registro es gratis para los primeros mariachis.'
                                     : step === 2
                                       ? 'Usarás este correo para entrar al panel de dueño.'
-                                      : 'Revisa los datos antes de activar tu prueba gratuita.'}
+                                      : 'Revisa los datos antes de crear tu perfil.'}
                             </p>
 
                             {error ? (
@@ -321,8 +324,8 @@ export function OwnerGroupRegisterPage() {
                                     >
                                         {step === 3
                                             ? submitting
-                                                ? 'Creando cuenta…'
-                                                : 'Crear cuenta de dueño'
+                                                ? 'Registrando…'
+                                                : 'Registrar mariachis'
                                             : 'Siguiente'}
                                     </PanelButton>
 
@@ -513,11 +516,11 @@ function AdminRegisterBrandPanel() {
                     <IconUsersGroup size={36} stroke={1.5} />
                 </div>
                 <h2 className="max-w-md text-3xl font-bold leading-tight text-balance xl:text-4xl">
-                    Administra tu mariachi como un negocio
+                    ¿Tienes un mariachi?
                 </h2>
                 <p className="mt-4 max-w-md text-base leading-relaxed text-white/85">
-                    SimpleSerenatas centraliza músicos, agenda, marketplace y logística para dueños de mariachis y
-                    serenateros en Chile.
+                    Regístralo en SimpleSerenatas. Crea tu perfil, publica tus comunas y disponibilidad, y recibe nuevas
+                    oportunidades desde la web.
                 </p>
                 <ul className="mt-8 space-y-4">
                     {brandBenefits.map((item) => (

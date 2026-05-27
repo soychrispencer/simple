@@ -721,7 +721,7 @@ async function requireOwner(c: Context, userId: string): Promise<
             ok: false as const,
             response: jsonError(
                 c,
-                'Activa tu perfil de dueño en /para-duenos antes de continuar.',
+                'Activa tu perfil de dueño en /registrar-mariachis antes de continuar.',
                 403,
             ),
         };

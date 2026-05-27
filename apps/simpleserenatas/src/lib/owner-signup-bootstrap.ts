@@ -4,7 +4,7 @@ import { serenatasApi } from '@/lib/serenatas-api';
 import { clearSignupProfile, hasOwnerSignupIntent } from '@/lib/signup-profile';
 
 /**
- * Aplica borradores de `/para-duenos` tras crear el perfil de dueño:
+ * Aplica borradores de `/registrar-mariachis` tras crear el perfil de dueño:
  * nombre del dueño → `users.name`; nombre del grupo → primer `provider_group` en borrador.
  */
 export async function applyOwnerSignupDrafts(options?: {
@@ -34,7 +34,7 @@ export async function applyOwnerSignupDrafts(options?: {
     consumeSignupGroupName();
 }
 
-/** Activa perfil de dueño tras verificar correo (p. ej. registro en `/para-duenos`). */
+/** Activa perfil de dueño tras verificar correo (p. ej. registro en `/registrar-mariachis`). */
 export async function ensureOwnerProfileFromSignup(options?: {
     refreshSession?: () => Promise<unknown>;
 }): Promise<boolean> {

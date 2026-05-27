@@ -1,5 +1,5 @@
 export const SIGNUP_PROFILE_KEY = 'serenatas-signup-profile';
-/** Intención de alta en `/para-duenos`; no se borra al abrir el modal de login. */
+/** Intención de alta en `/registrar-mariachis`; no se borra al abrir el modal de login. */
 export const OWNER_SIGNUP_INTENT_KEY = 'serenatas-owner-signup-intent';
 
 export type SignupProfile = 'client' | 'musician' | 'owner';
@@ -38,7 +38,7 @@ export function clearOwnerSignupIntent() {
     window.sessionStorage.removeItem(OWNER_SIGNUP_INTENT_KEY);
 }
 
-/** Solo el perfil guardado en registro/modal; no inferir dueño por haber visitado `/para-duenos`. */
+/** Solo el perfil guardado en registro/modal; no inferir dueño por haber visitado `/registrar-mariachis`. */
 export function resolveSignupProfileForBootstrap(): SignupProfile | null {
     return readSignupProfile();
 }
