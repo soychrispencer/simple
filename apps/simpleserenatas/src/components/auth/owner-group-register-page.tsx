@@ -4,9 +4,10 @@ import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import {
-    IconArrowLeft, IconBrandGoogle, IconBuildingStore, IconCheck, IconLock, IconMail, IconMailCheck, IconUser, IconUsersGroup, } from '@tabler/icons-react';
+    IconArrowLeft, IconBrandGoogle, IconBuildingStore, IconCheck, IconLock, IconMail, IconMailCheck, IconUser, } from '@tabler/icons-react';
 import { GoogleLoginButton, useAuth } from '@simple/auth';
-import { API_BASE, getSimpleAppBrand } from '@simple/config';
+import { API_BASE } from '@simple/config';
+import { BrandLogo } from '@simple/ui/brand';
 import { PanelButton } from '@simple/ui/panel';
 import { PanelNotice } from '@simple/ui/panel';
 import { ensureOwnerProfileFromSignup } from '@/lib/owner-signup-bootstrap';
@@ -180,7 +181,6 @@ export function OwnerGroupRegisterPage() {
         }
     }
 
-    const appName = getSimpleAppBrand('simpleserenatas').name;
     const showForm = !verifyEmail;
 
     return (
@@ -197,11 +197,8 @@ export function OwnerGroupRegisterPage() {
                     </button>
 
                     <div className="mb-8 flex justify-center">
-                        <Link href="/" className="inline-flex items-center gap-2 font-bold text-fg">
-                            <span className="auth-register-logo flex h-9 w-9 items-center justify-center rounded-xl text-white">
-                                <IconUsersGroup size={20} stroke={1.75} />
-                            </span>
-                            <span className="text-lg">{appName}</span>
+                        <Link href="/" className="inline-flex rounded-[var(--radius)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--accent)]">
+                            <BrandLogo appId="simpleserenatas" size="md" />
                         </Link>
                     </div>
 
@@ -387,7 +384,8 @@ export function OwnerGroupRegisterPage() {
 function AdminRegisterBrandMobile() {
     return (
         <div className="auth-register-brand-mobile px-5 py-8 lg:hidden">
-            <p className="text-lg font-bold">Administra tu mariachi como un negocio</p>
+            <BrandLogo appId="simpleserenatas" size="sm" variant="onAccent" className="mb-4" />
+            <p className="text-lg font-bold">¿Tienes un mariachi?</p>
             <ul className="mt-4 space-y-2 text-sm opacity-90">
                 {brandBenefits.map((item) => (
                     <li key={item} className="flex items-start gap-2">
@@ -485,6 +483,9 @@ function VerifyEmailPanel({
 }) {
     return (
         <div className="mx-auto w-full max-w-md text-center">
+            <div className="mb-6 flex justify-center">
+                <BrandLogo appId="simpleserenatas" size="md" />
+            </div>
             <div className="auth-icon-success mx-auto mb-4 inline-flex h-16 w-16 items-center justify-center rounded-full">
                 <IconMailCheck size={32} />
             </div>
@@ -512,9 +513,7 @@ function AdminRegisterBrandPanel() {
     return (
         <aside className="auth-register-brand relative hidden flex-[1.2] flex-col justify-between overflow-hidden px-10 py-12 text-white lg:flex xl:px-14">
             <div className="relative z-10">
-                <div className="mb-8 inline-flex h-16 w-16 items-center justify-center rounded-2xl bg-white/15 backdrop-blur-sm">
-                    <IconUsersGroup size={36} stroke={1.5} />
-                </div>
+                <BrandLogo appId="simpleserenatas" size="lg" variant="onAccent" className="mb-8" />
                 <h2 className="max-w-md text-3xl font-bold leading-tight text-balance xl:text-4xl">
                     ¿Tienes un mariachi?
                 </h2>

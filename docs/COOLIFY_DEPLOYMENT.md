@@ -181,6 +181,10 @@ NEXT_PUBLIC_GOOGLE_MAPS_BROWSER_KEY=   # referrer: simpleserenatas.app, APIs: Pl
 # la app la obtiene en runtime vía GET /api/public/maps-browser-key (mismo origen).
 
 # Google Calendar: ver bloque simple-api (SERENATAS_APP_URL + redirect URI en GCP).
+
+# Meta Pixel (campañas Instagram / Ads Manager). Requiere redeploy al cambiar.
+# ID en Meta Business Suite → Eventos → Orígenes de datos → Píxeles.
+NEXT_PUBLIC_META_PIXEL_ID=
 ```
 
 Desarrollo local: `http://localhost:3005` (incluido en `CORS_ORIGINS` de `services/api/.env.example`).
