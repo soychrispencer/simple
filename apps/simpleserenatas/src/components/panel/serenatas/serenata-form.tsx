@@ -326,7 +326,7 @@ export function SerenataForm({
             {!hasMariachi && !mariachiLoading ? (
                 <PanelNotice tone="warning">
                     Configura tu mariachi en{' '}
-                    <Link href={panelMiNegocioHref('datos')} className="font-medium text-accent underline">
+                    <Link href={panelMiNegocioHref('datos')} prefetch={false} className="font-medium text-accent underline">
                         Mi negocio → Datos
                     </Link>{' '}
                     antes de registrar serenatas.
@@ -335,7 +335,7 @@ export function SerenataForm({
             {hasMariachi && !servicesLoading && activeServices.length === 0 ? (
                 <PanelNotice tone="warning">
                     Crea al menos un servicio con precio en{' '}
-                    <Link href={panelMiNegocioHref('servicios')} className="font-medium text-accent underline">
+                    <Link href={panelMiNegocioHref('servicios')} prefetch={false} className="font-medium text-accent underline">
                         Mi negocio → Servicios
                     </Link>
                     .
@@ -613,4 +613,3 @@ export function SerenataForm({
         </PanelCard>
     );
 }
-

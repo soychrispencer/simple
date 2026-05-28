@@ -81,6 +81,7 @@ export function ProfileIncompleteNotice({ mode, profiles }: { mode: AppMode; pro
                 ) : null}
                 <Link
                     href={href}
+                    prefetch={false}
                     className="inline-flex w-fit text-sm font-semibold underline underline-offset-2"
                 >
                     {linkLabel}

@@ -737,6 +737,7 @@ function SerenataDetailGroupPicker({
                     />
                     <Link
                         href={groupsHref}
+                        prefetch={false}
                         className={getPanelButtonClassName({ size: 'sm', className: 'shrink-0 justify-center sm:w-auto w-full' })}
                         style={getPanelButtonStyle('secondary')}
                     >

@@ -167,6 +167,7 @@ export function ProfileSetupChecklist({
 
             <Link
                 href={next.href}
+                prefetch={false}
                 className="serenatas-setup-next mt-4 flex items-center justify-between gap-3 rounded-xl border px-4 py-3.5 transition-colors"
             >
                 <span className="text-sm font-semibold text-fg">{next.label}</span>
@@ -186,6 +187,7 @@ export function ProfileSetupChecklist({
                             <li key={item.id}>
                                 <Link
                                     href={item.href}
+                                    prefetch={false}
                                     className="flex items-center gap-2 rounded-lg px-2 py-2 text-sm text-fg-secondary transition-colors hover:bg-surface/60 hover:text-fg"
                                 >
                                     <span className="size-1.5 shrink-0 rounded-full bg-accent/70" />
