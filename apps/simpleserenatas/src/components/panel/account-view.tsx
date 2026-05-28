@@ -794,6 +794,7 @@ export function ProfileView({
                 <p className="text-sm leading-relaxed text-[var(--fg-muted)]">
                     {notificationPrefsContextDescription(appMode, profiles)}
                 </p>
+                <span className="sr-only">Canales disponibles: por correo y por WhatsApp.</span>
                 {!notificationsReady ? (
                     <NotificationPrefsSkeleton rows={notificationCategoryRows.length} />
                 ) : (
