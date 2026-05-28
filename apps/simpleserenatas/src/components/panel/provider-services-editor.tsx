@@ -295,15 +295,6 @@ export function ProviderServicesEditor({
                                         onChange={(e) => setForm((prev) => ({ ...prev, durationMinutes: e.target.value }))}
                                     />
                                 </PanelField>
-                                <PanelField label="Precio (CLP)" required>
-                                    <FieldInput
-                                        type="number"
-                                        min={1000}
-                                        step={1000}
-                                        value={form.price}
-                                        onChange={(e) => setForm((prev) => ({ ...prev, price: e.target.value }))}
-                                    />
-                                </PanelField>
                                 <PanelField label="Canciones incluidas (preferencia cliente)" hint="0 = el mariachi arma el set. Hasta N canciones del repertorio.">
                                     <FieldInput
                                         type="number"
@@ -311,6 +302,15 @@ export function ProviderServicesEditor({
                                         max={30}
                                         value={form.songsIncluded}
                                         onChange={(e) => setForm((prev) => ({ ...prev, songsIncluded: e.target.value }))}
+                                    />
+                                </PanelField>
+                                <PanelField label="Precio (CLP)" required>
+                                    <FieldInput
+                                        type="number"
+                                        min={1000}
+                                        step={1000}
+                                        value={form.price}
+                                        onChange={(e) => setForm((prev) => ({ ...prev, price: e.target.value }))}
                                     />
                                 </PanelField>
                                 <div className="flex w-full flex-col gap-3 sm:col-span-2 lg:col-span-3">
