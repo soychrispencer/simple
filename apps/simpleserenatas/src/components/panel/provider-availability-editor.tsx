@@ -26,9 +26,9 @@ const DAYS = [
 const DAY_ORDER = [1, 2, 3, 4, 5, 6, 0] as const;
 
 const TIME_OPTIONS: string[] = [];
-for (let h = 6; h <= 23; h++) {
+for (let h = 0; h <= 23; h++) {
     TIME_OPTIONS.push(`${String(h).padStart(2, '0')}:00`);
-    if (h < 23) TIME_OPTIONS.push(`${String(h).padStart(2, '0')}:30`);
+    TIME_OPTIONS.push(`${String(h).padStart(2, '0')}:30`);
 }
 
 const TIME_SELECT_OPTIONS = TIME_OPTIONS.map((time) => ({ value: time, label: time }));

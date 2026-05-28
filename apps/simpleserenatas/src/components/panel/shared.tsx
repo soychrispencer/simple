@@ -5,7 +5,6 @@ import {
     ModernDateInput,
     ModernSelect,
     ModernTimeSelect,
-    buildTimeSlotOptions,
     type ModernSelectOption,
 } from '@simple/ui';
 import { PanelEmptyState, PanelNotice, PanelStatusBadge } from '@simple/ui/panel';
@@ -91,7 +90,10 @@ function optionsFromSelectChildren(children: ReactNode): ModernSelectOption[] {
     return options;
 }
 
-const DEFAULT_TIME_OPTIONS = buildTimeSlotOptions(8, 23, 30);
+const DEFAULT_TIME_OPTIONS: ModernSelectOption[] = Array.from({ length: 24 }, (_, hour) => [
+    `${String(hour).padStart(2, '0')}:00`,
+    `${String(hour).padStart(2, '0')}:30`,
+]).flat().map((time) => ({ value: time, label: time }));
 
 export type FieldDateProps = {
     value: string;
