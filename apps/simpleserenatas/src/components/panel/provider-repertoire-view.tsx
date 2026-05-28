@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { IconMusic, IconTrash } from '@tabler/icons-react';
+import { IconMusic, IconTrash, IconSearch, IconX, IconMusicOff, IconPlus } from '@tabler/icons-react';
 import { PanelButton } from '@simple/ui/panel';
 import { PanelCard, PanelNotice } from '@simple/ui/panel';
 import { useMyMariachi } from '@/hooks/use-my-mariachi';
@@ -16,13 +16,18 @@ export function ProviderRepertoireView({ refresh }: { refresh: () => Promise<voi
     const { mariachi, hasMariachi, loading, error, refresh: refreshMariachi } = useMyMariachi();
     const [songs, setSongs] = useState<RepertoireSong[]>([]);
     const [listLoading, setListLoading] = useState(true);
+    
+    // Estados para búsqueda y agregar canciones
+    const [localSearch, setLocalSearch] = useState('');
     const [pending, setPending] = useState<CatalogTagSelection[]>([]);
-    const [presets, setPresets] = useState<CatalogTagSelection[]>([]);
     const [formStatus, setFormStatus] = useState<FormStatus>({ loading: false, error: null, ok: null });
     const [createModalQuery, setCreateModalQuery] = useState<string | null>(null);
+    
+    // Estados para gestión de partituras (Inline)
     const [scoreSong, setScoreSong] = useState<RepertoireSong | null>(null);
     const [scores, setScores] = useState<SongScore[]>([]);
     const [previewScore, setPreviewScore] = useState<SongScore | null>(null);
+    const [scoreLoading, setScoreLoading] = useState(false);
 
     const excludeCatalogIds = useMemo(
         () => [
@@ -44,28 +49,17 @@ export function ProviderRepertoireView({ refresh }: { refresh: () => Promise<voi
         void loadSongs();
     }, [loadSongs]);
 
-    useEffect(() => {
-        void serenatasApi.searchSongCatalog('', 12).then((response) => {
-            if (!response.ok) return;
-            setPresets(
-                response.items.slice(0, 10).map((song) => ({
-                    catalogSongId: song.id,
-                    title: song.title,
-                    artist: song.artist,
-                })),
+    // Filtrar catálogo local propio
+    const filteredLocalSongs = useMemo(() => {
+        return songs.filter((song) => {
+            const query = localSearch.toLowerCase();
+            return (
+                song.title.toLowerCase().includes(query) ||
+                (song.artist && song.artist.toLowerCase().includes(query)) ||
+                song.tags.some((tag) => tag.toLowerCase().includes(query))
             );
         });
-    }, []);
-
-    function togglePreset(item: CatalogTagSelection) {
-        if (excludeCatalogIds.includes(item.catalogSongId)) return;
-        const exists = pending.some((entry) => entry.catalogSongId === item.catalogSongId);
-        if (exists) {
-            setPending(pending.filter((entry) => entry.catalogSongId !== item.catalogSongId));
-            return;
-        }
-        setPending([...pending, item]);
-    }
+    }, [songs, localSearch]);
 
     function onCatalogSongCreated(song: CatalogSong) {
         if (excludeCatalogIds.includes(song.id)) return;
@@ -108,19 +102,36 @@ export function ProviderRepertoireView({ refresh }: { refresh: () => Promise<voi
 
     async function removeSong(songId: string) {
         if (!mariachi) return;
+        
+        // Si eliminamos la canción que tiene el acordeón abierto, limpiamos
+        if (scoreSong?.id === songId) {
+            setScoreSong(null);
+            setScores([]);
+        }
+
         await serenatasApi.deleteRepertoireSong(mariachi.id, songId);
         await loadSongs();
     }
 
-    async function openScores(song: RepertoireSong) {
+    // Abrir/Cerrar sección de partituras inline
+    async function toggleScores(song: RepertoireSong) {
+        if (scoreSong?.id === song.id) {
+            setScoreSong(null);
+            setScores([]);
+            return;
+        }
         if (!mariachi) return;
         setScoreSong(song);
+        setScoreLoading(true);
+        setScores([]);
         const response = await serenatasApi.repertoireSongScores(mariachi.id, song.id);
         setScores(response.ok ? response.items : []);
+        setScoreLoading(false);
     }
 
     async function uploadScore(instrument: string, file: File) {
         if (!mariachi || !scoreSong) return;
+        setFormStatus({ loading: true, error: null, ok: null });
         const uploaded = await serenatasApi.uploadDocument(file);
         if (!uploaded.ok || !uploaded.url) {
             setFormStatus({ loading: false, error: uploaded.error ?? 'Error al subir PDF.', ok: null });
@@ -145,117 +156,200 @@ export function ProviderRepertoireView({ refresh }: { refresh: () => Promise<voi
             />
         );
     }
-
     return (
-        <div className="grid gap-5">
-            <PanelCard>
-                <div className="flex items-center gap-2">
-                    <IconMusic className="h-5 w-5 text-accent" aria-hidden />
-                    <h2 className="text-lg font-semibold text-fg">Repertorio público</h2>
-                </div>
-                <p className="mt-1 text-sm text-fg-muted">
-                    Agrega canciones del banco compartido. Aparecen en tu perfil y en las solicitudes de clientes.
-                </p>
-
-                <div className="mt-5 rounded-xl border border-border bg-bg-subtle/40 p-4">
-                    {presets.length > 0 ? (
-                        <div className="mb-4">
-                            <p className="text-xs font-semibold uppercase tracking-wide text-fg-muted">
-                                Populares en serenatas
-                            </p>
-                            <div className="mt-2 flex flex-wrap gap-1.5">
-                                {presets.map((item) => {
-                                    const inRepertoire = songs.some((song) => song.catalogSongId === item.catalogSongId);
-                                    const active =
-                                        pending.some((entry) => entry.catalogSongId === item.catalogSongId) || inRepertoire;
-                                    return (
-                                        <button
-                                            key={item.catalogSongId}
-                                            type="button"
-                                            disabled={inRepertoire || formStatus.loading}
-                                            className={[
-                                                'rounded-full border px-2.5 py-1 text-xs font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-50',
-                                                active
-                                                    ? 'border-accent-border bg-accent-soft text-accent'
-                                                    : 'border-border text-fg-muted hover:border-accent-border',
-                                            ].join(' ')}
-                                            onClick={() => togglePreset(item)}
-                                        >
-                                            {item.title}
-                                        </button>
-                                    );
-                                })}
-                            </div>
-                        </div>
-                    ) : null}
-
+        <div className="grid gap-4 sm:gap-5">
+            <PanelCard className="p-4 sm:p-5">
+                <div className="grid gap-4">
+                    <div>
+                        <h2 className="text-base font-semibold text-fg">Repertorio</h2>
+                        <p className="mt-1 text-sm text-fg-muted">
+                            Busca canciones, agrégalas y deja visible el catálogo que verá el cliente.
+                        </p>
+                    </div>
                     <SongCatalogTagPicker
                         selected={pending}
                         onChange={setPending}
                         excludeCatalogIds={excludeCatalogIds}
                         disabled={formStatus.loading}
+                        placeholder="Buscar canción para agregar..."
                         onRequestCreateNew={(query) => setCreateModalQuery(query)}
                     />
-
-                    <button
-                        type="button"
-                        className="mt-2 text-xs font-medium text-accent hover:underline"
-                        onClick={() => setCreateModalQuery('')}
-                    >
-                        ¿No está en el banco? Agregar canción nueva
-                    </button>
-
-                    <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                    <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                        <button
+                            type="button"
+                            className="inline-flex w-fit items-center gap-1 text-sm font-medium text-accent hover:underline"
+                            onClick={() => setCreateModalQuery('')}
+                        >
+                            <IconPlus size={14} /> Crear canción nueva
+                        </button>
                         <PanelButton
                             disabled={formStatus.loading || pending.length === 0}
                             onClick={() => void savePending()}
+                            className="w-full sm:w-auto"
                         >
-                            Agregar al repertorio ({pending.length})
+                            Guardar {pending.length > 0 ? `(${pending.length})` : ''}
                         </PanelButton>
                     </div>
+                    <FormFeedback status={formStatus} />
                 </div>
+            </PanelCard>
 
-                <FormFeedback status={formStatus} />
+            <PanelCard className="p-4 sm:p-5">
+                <div className="grid gap-4">
+                    <div className="relative">
+                        <IconSearch className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-fg-muted" />
+                        <input
+                            type="text"
+                            placeholder="Buscar en mi repertorio..."
+                            value={localSearch}
+                            onChange={(e) => setLocalSearch(e.target.value)}
+                            className="w-full rounded-xl border border-border bg-surface py-2.5 pl-10 pr-10 text-sm text-fg outline-none placeholder:text-fg-muted focus:border-accent-border focus:ring-2 focus:ring-accent/20"
+                        />
+                        {localSearch ? (
+                            <button
+                                type="button"
+                                onClick={() => setLocalSearch('')}
+                                className="absolute right-3 top-1/2 flex h-6 w-6 -translate-y-1/2 items-center justify-center rounded-full text-fg-muted hover:bg-bg-subtle hover:text-fg"
+                                aria-label="Limpiar búsqueda"
+                            >
+                                <IconX size={14} />
+                            </button>
+                        ) : null}
+                    </div>
 
-                <div className="mt-6 border-t border-border pt-5">
-                    <h3 className="font-semibold text-fg">Tu repertorio ({songs.length})</h3>
+                    <div className="flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
+                        <div>
+                            <h3 className="text-base font-semibold text-fg">Mis canciones</h3>
+                            <p className="text-sm text-fg-muted">
+                                {songs.length} canción{songs.length === 1 ? '' : 'es'} publicada{songs.length === 1 ? '' : 's'}.
+                            </p>
+                        </div>
+                    </div>
+
                     {listLoading ? (
-                        <p className="mt-3 text-sm text-fg-muted">Cargando canciones…</p>
+                        <p className="rounded-xl border border-border px-4 py-5 text-sm text-fg-muted">Cargando canciones...</p>
                     ) : songs.length === 0 ? (
-                        <p className="mt-3 text-sm text-fg-muted">
-                            Aún no publicas canciones. Usa el recuadro de arriba para etiquetar las que ofreces.
-                        </p>
+                        <div className="rounded-xl border border-dashed border-border px-4 py-8 text-center">
+                            <IconMusicOff className="mx-auto h-7 w-7 text-fg-muted" />
+                            <p className="mt-3 text-sm font-semibold text-fg">Todavía no hay canciones</p>
+                            <p className="mt-1 text-sm text-fg-muted">Usa el buscador de arriba para agregar tu primer tema.</p>
+                        </div>
+                    ) : filteredLocalSongs.length === 0 ? (
+                        <div className="rounded-xl border border-border px-4 py-8 text-center">
+                            <p className="text-sm font-semibold text-fg">Sin resultados</p>
+                            <p className="mt-1 text-sm text-fg-muted">Prueba con otro título, artista o etiqueta.</p>
+                        </div>
                     ) : (
-                        <ul className="mt-4 divide-y divide-border">
-                            {songs.map((song) => (
-                                <li key={song.id} className="flex flex-wrap items-start justify-between gap-3 py-3">
-                                    <div className="min-w-0">
-                                        <p className="font-medium text-fg">{song.title}</p>
-                                        {song.artist ? <p className="text-xs text-fg-muted">{song.artist}</p> : null}
-                                        {song.tags.length > 0 ? (
-                                            <div className="mt-1.5 flex flex-wrap gap-1">
-                                                {song.tags.map((tag) => (
-                                                    <span
-                                                        key={tag}
-                                                        className="rounded-full border border-border px-2 py-0.5 text-[10px] text-fg-muted"
-                                                    >
-                                                        {tag}
-                                                    </span>
-                                                ))}
+                    <div className="divide-y divide-border rounded-xl border border-border">
+                        {filteredLocalSongs.map((song) => {
+                            const isScoreOpen = scoreSong?.id === song.id;
+                            return (
+                                <div key={song.id} className="p-3 sm:p-4">
+                                    <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                                        <div className="min-w-0 flex-1">
+                                            <p className="text-sm font-semibold leading-snug text-fg">{song.title}</p>
+                                            {song.artist ? <p className="mt-0.5 text-sm text-fg-muted">{song.artist}</p> : null}
+                                            {song.tags.length > 0 ? (
+                                                <div className="mt-2 flex flex-wrap gap-1.5">
+                                                    {song.tags.map((tag) => (
+                                                        <span
+                                                            key={tag}
+                                                            className="rounded-full border border-border bg-bg-subtle px-2 py-0.5 text-xs text-fg-muted"
+                                                        >
+                                                            {tag}
+                                                        </span>
+                                                    ))}
+                                                </div>
+                                            ) : null}
+                                        </div>
+                                        <div className="flex shrink-0 items-center gap-2">
+                                            <PanelButton 
+                                                size="sm" 
+                                                variant={isScoreOpen ? 'accent' : 'secondary'} 
+                                                onClick={() => void toggleScores(song)}
+                                            >
+                                                Partituras
+                                            </PanelButton>
+                                            <button 
+                                                type="button" 
+                                                onClick={() => void removeSong(song.id)}
+                                                className="flex h-9 w-9 items-center justify-center rounded-lg border border-border bg-surface text-fg-muted transition-colors hover:border-error/30 hover:bg-error-soft hover:text-error"
+                                                title="Eliminar de mi repertorio"
+                                            >
+                                                <IconTrash size={14} />
+                                            </button>
+                                        </div>
+                                    </div>
+
+                                    {isScoreOpen ? (
+                                        <div className="mt-3 rounded-xl border border-border bg-bg-subtle p-3 sm:p-4">
+                                            <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+                                                <h4 className="text-xs font-semibold uppercase tracking-wide text-fg-muted">
+                                                    Partituras: {song.title}
+                                                </h4>
+                                                <span className="text-xs text-fg-muted">
+                                                    Solo los músicos de tu grupo tienen acceso
+                                                </span>
                                             </div>
-                                        ) : null}
-                                    </div>
-                                    <div className="flex shrink-0 gap-2">
-                                        <PanelButton size="sm" variant="secondary" onClick={() => void openScores(song)}>
-                                            Partituras
-                                        </PanelButton>
-                                        <PanelButton size="sm" variant="ghost" onClick={() => void removeSong(song.id)}>
-                                            <IconTrash size={14} />
-                                        </PanelButton>
-                                    </div>
-                                </li>
-                            ))}
-                        </ul>
+
+                                            {scoreLoading ? (
+                                                <p className="py-2 text-sm text-fg-muted">Cargando archivos...</p>
+                                            ) : (
+                                                <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
+                                                    {COMMON_INSTRUMENTS.map((instrument) => {
+                                                        const existing = scores.find((score) => score.instrument === instrument);
+                                                        return (
+                                                            <div
+                                                                key={instrument}
+                                                                className="flex items-center justify-between gap-3 rounded-lg border border-border bg-surface p-2.5"
+                                                            >
+                                                                <div className="min-w-0">
+                                                                    <p className="text-sm font-medium leading-none text-fg">{instrument}</p>
+                                                                    <p className="mt-1 max-w-[140px] truncate text-xs text-fg-muted">
+                                                                        {existing ? existing.originalFilename || 'PDF guardado' : 'Sin partitura'}
+                                                                    </p>
+                                                                </div>
+                                                                <div className="flex shrink-0 gap-1.5">
+                                                                    {existing ? (
+                                                                        <button
+                                                                            type="button"
+                                                                            onClick={() => setPreviewScore(existing)}
+                                                                            className="rounded-lg bg-accent-soft px-2.5 py-1 text-xs font-semibold text-accent hover:bg-accent hover:text-white"
+                                                                        >
+                                                                            Ver
+                                                                        </button>
+                                                                    ) : null}
+                                                                    <label
+                                                                        htmlFor={`repertoire-score-${song.id}-${instrument}`}
+                                                                        className="cursor-pointer"
+                                                                    >
+                                                                        <span className="inline-flex rounded-lg border border-border bg-surface px-2.5 py-1 text-xs font-semibold text-fg-secondary hover:bg-bg-subtle">
+                                                                            {existing ? 'Cambiar' : 'Subir'}
+                                                                        </span>
+                                                                        <input
+                                                                            id={`repertoire-score-${song.id}-${instrument}`}
+                                                                            type="file"
+                                                                            accept="application/pdf"
+                                                                            className="sr-only"
+                                                                            onChange={(event) => {
+                                                                                const file = event.target.files?.[0];
+                                                                                if (file) void uploadScore(instrument, file);
+                                                                                event.target.value = '';
+                                                                            }}
+                                                                        />
+                                                                    </label>
+                                                                </div>
+                                                            </div>
+                                                        );
+                                                    })}
+                                                </div>
+                                            )}
+                                        </div>
+                                    ) : null}
+                                </div>
+                            );
+                        })}
+                    </div>
                     )}
                 </div>
             </PanelCard>
@@ -266,59 +360,6 @@ export function ProviderRepertoireView({ refresh }: { refresh: () => Promise<voi
                     onClose={() => setCreateModalQuery(null)}
                     onCreated={onCatalogSongCreated}
                 />
-            ) : null}
-
-            {scoreSong ? (
-                <PanelCard>
-                    <h3 className="font-semibold text-fg">Partituras — {scoreSong.title}</h3>
-                    <p className="mt-1 text-xs text-fg-muted">Solo visibles para músicos del grupo.</p>
-                    <ul className="mt-4 space-y-3">
-                        {COMMON_INSTRUMENTS.map((instrument) => {
-                            const existing = scores.find((score) => score.instrument === instrument);
-                            return (
-                                <li
-                                    key={instrument}
-                                    className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-border px-3 py-2"
-                                >
-                                    <span className="text-sm font-medium text-fg">{instrument}</span>
-                                    <div className="flex gap-2">
-                                        {existing ? (
-                                            <PanelButton
-                                                size="sm"
-                                                variant="secondary"
-                                                onClick={() => setPreviewScore(existing)}
-                                            >
-                                                Ver PDF
-                                            </PanelButton>
-                                        ) : null}
-                                        <label
-                                            htmlFor={`repertoire-score-${instrument}`}
-                                            className="inline-flex cursor-pointer"
-                                        >
-                                            <span className="inline-flex h-8 items-center rounded-lg border border-border bg-surface px-3 text-xs font-medium text-fg-secondary hover:bg-bg-subtle">
-                                                Subir PDF
-                                            </span>
-                                            <input
-                                                id={`repertoire-score-${instrument}`}
-                                                type="file"
-                                                accept="application/pdf"
-                                                className="sr-only"
-                                                onChange={(event) => {
-                                                    const file = event.target.files?.[0];
-                                                    if (file) void uploadScore(instrument, file);
-                                                    event.target.value = '';
-                                                }}
-                                            />
-                                        </label>
-                                    </div>
-                                </li>
-                            );
-                        })}
-                    </ul>
-                    <PanelButton className="mt-3" variant="ghost" onClick={() => setScoreSong(null)}>
-                        Cerrar
-                    </PanelButton>
-                </PanelCard>
             ) : null}
 
             {previewScore ? (
