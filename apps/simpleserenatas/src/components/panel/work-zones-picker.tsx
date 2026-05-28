@@ -4,9 +4,9 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import {
     IconCheck, IconChevronRight, IconMapPin, IconSearch, IconX, } from '@tabler/icons-react';
 import { PanelButton } from '@simple/ui/panel';
-import { PanelFilterChip } from '@simple/ui/panel';
 import { LOCATION_REGIONS, getCommunesForRegion } from '@simple/utils';
 import { PanelSheet } from '@/components/panel/panel-sheet';
+import { FieldSelect } from './shared';
 
 type WorkZonesPickerProps = {
     value: string[];
@@ -88,6 +88,13 @@ export function WorkZonesPicker({ value, onChange, disabled = false }: WorkZones
         }
         return items;
     }, [normalizedQuery, regionStats]);
+    const regionOptions = useMemo(
+        () => regionStats.map(({ region, selectedCount }) => ({
+            value: region.id,
+            label: `${region.name}${selectedCount > 0 ? ` (${selectedCount})` : ''}`,
+        })),
+        [regionStats],
+    );
 
     const wasOpenRef = useRef(false);
     useEffect(() => {
@@ -218,14 +225,14 @@ export function WorkZonesPicker({ value, onChange, disabled = false }: WorkZones
                     onClose={() => setOpen(false)}
                     ariaLabel="Seleccionar zonas de trabajo"
                     maxWidthClass="sm:max-w-5xl"
-                    scrollOnMobileOnly={false}
+                    constrainHeight
                 >
-                    <div className="flex max-h-[min(92vh,920px)] flex-col sm:max-h-[min(88vh,880px)]">
-                        <div className="shrink-0 space-y-4 p-5 pb-0 sm:p-6 sm:pb-0">
+                    <div className="flex min-h-0 flex-1 flex-col">
+                        <div className="shrink-0 space-y-3 p-4 pb-0 sm:space-y-4 sm:p-6 sm:pb-0">
                             <div className="flex items-start justify-between gap-3">
                                 <div>
-                                    <h2 className="text-lg font-semibold text-fg">Zonas de trabajo</h2>
-                                    <p className="mt-1 text-sm text-fg-muted">
+                                    <h2 className="text-base font-semibold text-fg sm:text-lg">Zonas de trabajo</h2>
+                                    <p className="mt-1 text-xs text-fg-muted sm:text-sm">
                                         Elige región y comunas. En regiones grandes usa la búsqueda.
                                     </p>
                                 </div>
@@ -239,8 +246,8 @@ export function WorkZonesPicker({ value, onChange, disabled = false }: WorkZones
                                 </button>
                             </div>
 
-                            <div className="flex items-center gap-2 rounded-xl border border-border bg-bg-subtle px-3 py-2.5">
-                                <IconSearch size={18} className="shrink-0 text-fg-muted" aria-hidden />
+                            <div className="flex items-center gap-2 rounded-xl border border-border bg-bg-subtle px-3 py-2 sm:py-2.5">
+                                <IconSearch size={17} className="shrink-0 text-fg-muted" aria-hidden />
                                 <input
                                     type="search"
                                     value={query}
@@ -280,9 +287,9 @@ export function WorkZonesPicker({ value, onChange, disabled = false }: WorkZones
                             </div>
                         </div>
 
-                        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 py-4 sm:px-6">
+                        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-3 sm:px-6 sm:py-4">
                             {searchResults ? (
-                                <div className="rounded-card border border-border bg-surface p-3">
+                                <div className="min-h-[min(44dvh,360px)] rounded-card border border-border bg-surface p-2.5 sm:min-h-[min(48vh,430px)] sm:p-3">
                                     {searchResults.length === 0 ? (
                                         <p className="p-2 text-sm text-fg-muted">Sin resultados para tu búsqueda.</p>
                                     ) : (
@@ -326,17 +333,14 @@ export function WorkZonesPicker({ value, onChange, disabled = false }: WorkZones
                                         <p className="mb-2 text-xs font-medium uppercase tracking-wide text-fg-muted">
                                             Región
                                         </p>
-                                        <div className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-1 sm:hidden">
-                                            {regionStats.map(({ region, selectedCount }) => (
-                                                <PanelFilterChip
-                                                    key={region.id}
-                                                    label={region.name}
-                                                    active={region.id === activeRegionId}
-                                                    count={selectedCount > 0 ? selectedCount : undefined}
-                                                    onClick={() => setActiveRegionId(region.id)}
-                                                    className="shrink-0"
-                                                />
-                                            ))}
+                                        <div className="sm:hidden">
+                                            <FieldSelect
+                                                value={activeRegionId}
+                                                onChange={(event) => setActiveRegionId(event.target.value)}
+                                                options={regionOptions}
+                                                className="w-full"
+                                                aria-label="Seleccionar región"
+                                            />
                                         </div>
                                         <div className="hidden sm:grid sm:grid-cols-4 sm:gap-1.5 lg:grid-cols-4 xl:grid-cols-4">
                                             {regionStats.map(({ region, selectedCount }) => (
@@ -352,9 +356,9 @@ export function WorkZonesPicker({ value, onChange, disabled = false }: WorkZones
                                     </div>
 
                                     {activeRegion ? (
-                                        <div className="grid gap-3 rounded-card border border-border bg-surface p-4">
-                                            <div className="flex flex-wrap items-center justify-between gap-2">
-                                                <div>
+                                        <div className="grid min-h-[min(44dvh,360px)] gap-3 rounded-card border border-border bg-surface p-3 sm:min-h-[min(48vh,430px)] sm:p-4">
+                                            <div className="grid gap-2 sm:flex sm:flex-wrap sm:items-center sm:justify-between">
+                                                <div className="min-w-0">
                                                     <p className="text-sm font-semibold text-fg">{activeRegion.region.name}</p>
                                                     <p className="text-xs text-fg-muted">
                                                         {activeRegion.selectedCount} de {activeRegion.communes.length} comunas
@@ -364,7 +368,7 @@ export function WorkZonesPicker({ value, onChange, disabled = false }: WorkZones
                                                 <button
                                                     type="button"
                                                     onClick={toggleActiveRegion}
-                                                    className={`shrink-0 rounded-xl border px-3 py-1.5 text-xs font-semibold transition ${
+                                                    className={`w-full shrink-0 rounded-xl border px-3 py-2 text-xs font-semibold transition sm:w-auto sm:py-1.5 ${
                                                         activeRegionAllSelected
                                                             ? 'border-[var(--accent-border)] bg-[var(--accent-soft)] text-[var(--accent)]'
                                                             : 'border-border bg-bg-subtle text-fg hover:border-[var(--accent-border)]'
@@ -375,9 +379,9 @@ export function WorkZonesPicker({ value, onChange, disabled = false }: WorkZones
                                             </div>
 
                                             <ul
-                                                className={`grid grid-cols-2 gap-1.5 md:grid-cols-3 xl:grid-cols-4 ${
+                                                className={`grid grid-cols-1 gap-1.5 md:grid-cols-3 xl:grid-cols-4 ${
                                                     communeGridScrolls
-                                                        ? 'max-h-[min(42vh,380px)] overflow-y-auto overscroll-contain pr-0.5'
+                                                        ? 'max-h-[min(32dvh,250px)] overflow-y-auto overscroll-contain pr-0.5 sm:max-h-[min(42vh,380px)]'
                                                         : ''
                                                 }`}
                                             >
@@ -388,7 +392,7 @@ export function WorkZonesPicker({ value, onChange, disabled = false }: WorkZones
                                                             <button
                                                                 type="button"
                                                                 onClick={() => toggleCommune(commune.name)}
-                                                                className={`flex w-full items-center gap-2 rounded-lg border px-2.5 py-1.5 text-left text-sm transition ${
+                                                                className={`flex w-full items-center gap-2 rounded-lg border px-2.5 py-2 text-left text-sm transition sm:py-1.5 ${
                                                                     selected
                                                                         ? 'border-[var(--accent-border)] bg-[var(--accent-soft)] font-medium text-[var(--accent)]'
                                                                         : 'border-transparent bg-bg-subtle text-fg hover:border-border'
@@ -415,7 +419,7 @@ export function WorkZonesPicker({ value, onChange, disabled = false }: WorkZones
                             )}
                         </div>
 
-                        <div className="flex shrink-0 flex-col-reverse gap-2 border-t border-border bg-surface p-5 pt-4 sm:flex-row sm:justify-end sm:p-6">
+                        <div className="flex shrink-0 flex-col-reverse gap-2 border-t border-border bg-surface p-4 pt-3 sm:flex-row sm:justify-end sm:p-6">
                             <PanelButton variant="secondary" onClick={() => setOpen(false)}>
                                 Cancelar
                             </PanelButton>
