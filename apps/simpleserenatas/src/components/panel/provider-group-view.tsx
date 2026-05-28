@@ -12,6 +12,14 @@ import { EmptyBlock, FieldInput, FieldTextarea, FormFeedback, type FormStatus } 
 import { ProviderContactPhonesFields } from './provider-contact-phones-fields';
 import { ProviderGroupBrandImages } from './provider-group-brand-images';
 import { consumeSignupGroupName } from '@/lib/active-provider-group';
+
+function addUniqueCommune(communes: string[], commune: string) {
+    const clean = commune.trim();
+    if (!clean) return communes;
+    const exists = communes.some((item) => item.trim().toLowerCase() === clean.toLowerCase());
+    return exists ? communes : [...communes, clean];
+}
+
 export function ProviderGroupView({ refresh }: { refresh: () => Promise<void> }) {
     const { mariachi, hasMariachi, loading, error, refresh: refreshMariachi } = useMyMariachi();
     const [saveStatus, setSaveStatus] = useState<FormStatus>({ loading: false, error: null, ok: null });
@@ -25,6 +33,14 @@ export function ProviderGroupView({ refresh }: { refresh: () => Promise<void> })
     const [region, setRegion] = useState('');
     const [comunaBase, setComunaBase] = useState('');
     const [serviceComunas, setServiceComunas] = useState<string[]>([]);
+
+    const handleComunaBaseChange = (nextComuna: string) => {
+        setComunaBase(nextComuna);
+        setServiceComunas((current) => addUniqueCommune(current, nextComuna));
+    };
+
+    const comunaBaseHint = comunaBase.trim() ? `Tu comuna base es ${comunaBase.trim()}` : null;
+
     useEffect(() => {
         if (hasMariachi || loading) return;
         const draft = consumeSignupGroupName();
@@ -169,10 +185,6 @@ export function ProviderGroupView({ refresh }: { refresh: () => Promise<void> })
                         <PanelField label="Descripción">
                             <FieldTextarea rows={3} value={description} onChange={(e) => setDescription(e.target.value)} />
                         </PanelField>
-                        <RegionCommuneFields region={region} comuna={comunaBase} onRegionChange={setRegion} onComunaChange={setComunaBase} />
-                        <PanelField label="Zonas de trabajo">
-                            <WorkZonesPicker value={serviceComunas} onChange={setServiceComunas} />
-                        </PanelField>
                         <ProviderContactPhonesFields
                             resetKey="signup"
                             phone={phone}
@@ -180,6 +192,11 @@ export function ProviderGroupView({ refresh }: { refresh: () => Promise<void> })
                             onPhoneChange={setPhone}
                             onWhatsappChange={setWhatsapp}
                         />
+                        <RegionCommuneFields region={region} comuna={comunaBase} onRegionChange={setRegion} onComunaChange={handleComunaBaseChange} />
+                        <PanelField label="Zonas de trabajo">
+                            <WorkZonesPicker value={serviceComunas} onChange={setServiceComunas} />
+                            {comunaBaseHint ? <p className="mt-2 text-xs text-fg-muted">{comunaBaseHint}</p> : null}
+                        </PanelField>
                         <PanelButton disabled={saveStatus.loading || name.trim().length < 2} onClick={() => void createMariachiProfile()}>
                             Crear mariachi
                         </PanelButton>
@@ -217,15 +234,6 @@ export function ProviderGroupView({ refresh }: { refresh: () => Promise<void> })
                     <PanelField label="Descripción">
                         <FieldTextarea rows={4} value={description} onChange={(e) => setDescription(e.target.value)} />
                     </PanelField>
-                    <RegionCommuneFields
-                        region={region}
-                        comuna={comunaBase}
-                        onRegionChange={setRegion}
-                        onComunaChange={setComunaBase}
-                    />
-                    <PanelField label="Zonas de trabajo">
-                        <WorkZonesPicker value={serviceComunas} onChange={setServiceComunas} />
-                    </PanelField>
                     <ProviderContactPhonesFields
                         resetKey={mariachi?.id ?? 'profile'}
                         phone={phone}
@@ -233,6 +241,16 @@ export function ProviderGroupView({ refresh }: { refresh: () => Promise<void> })
                         onPhoneChange={setPhone}
                         onWhatsappChange={setWhatsapp}
                     />
+                    <RegionCommuneFields
+                        region={region}
+                        comuna={comunaBase}
+                        onRegionChange={setRegion}
+                        onComunaChange={handleComunaBaseChange}
+                    />
+                    <PanelField label="Zonas de trabajo">
+                        <WorkZonesPicker value={serviceComunas} onChange={setServiceComunas} />
+                        {comunaBaseHint ? <p className="mt-2 text-xs text-fg-muted">{comunaBaseHint}</p> : null}
+                    </PanelField>
                     <FormFeedback status={saveStatus} />
                     <PanelButton disabled={saveStatus.loading} onClick={() => void saveGroup()}>
                         Guardar
