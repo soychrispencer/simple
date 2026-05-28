@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { IconAlertCircle, IconCalendarOff, IconLoader2, IconPlus, IconTrash } from '@tabler/icons-react';
 import { PanelBlockHeader } from '@simple/ui/panel';
 import { PanelButton, PanelCard, PanelEmptyState, PanelField, PanelIconButton, PanelSwitch } from '@simple/ui/panel';
@@ -67,17 +67,27 @@ function mapRulesPayload(rules: RuleRow[]) {
     }));
 }
 
+function mergeDraftsIntoRules(rules: RuleRow[], drafts: Record<string, RuleDraft>) {
+    return rules.map((rule) => {
+        const draft = drafts[ruleKey(rule)];
+        if (!draft) return rule;
+        return { ...rule, startTime: draft.startTime, endTime: draft.endTime };
+    });
+}
+
+function rulesSnapshot(rules: RuleRow[]) {
+    return JSON.stringify(mapRulesPayload(sortRules(rules)));
+}
+
 export function ProviderAvailabilityEditor({ group }: { group: ProviderGroup }) {
     const [rules, setRules] = useState<RuleRow[]>([]);
     const [drafts, setDrafts] = useState<Record<string, RuleDraft>>({});
+    const [savedRulesSnapshot, setSavedRulesSnapshot] = useState('');
     const [loading, setLoading] = useState(true);
     const [loadError, setLoadError] = useState('');
     const [defaultError, setDefaultError] = useState('');
-    const [saving, setSaving] = useState<string | null>(null);
-    const [togglingKey, setTogglingKey] = useState<string | null>(null);
-    const [deletingKey, setDeletingKey] = useState<string | null>(null);
-    const [addingDay, setAddingDay] = useState(false);
-    const [loadingDefault, setLoadingDefault] = useState(false);
+    const [weeklySaving, setWeeklySaving] = useState(false);
+    const [weeklyStatus, setWeeklyStatus] = useState('');
     const [ruleErrors, setRuleErrors] = useState<Record<string, string>>({});
     const [blockedSlots, setBlockedSlots] = useState<ProviderGroupBlockedSlot[]>([]);
     const [showBlockedForm, setShowBlockedForm] = useState(false);
@@ -115,6 +125,8 @@ export function ProviderAvailabilityEditor({ group }: { group: ProviderGroup }) 
             init[ruleKey(rule)] = { startTime: rule.startTime, endTime: rule.endTime };
         }
         setDrafts(init);
+        setSavedRulesSnapshot(rulesSnapshot(sorted));
+        setWeeklyStatus('');
         setBlockedSlots((response.item.blockedSlots ?? []).slice().sort((a, b) => a.startsAt.localeCompare(b.startsAt)));
         setLoading(false);
     };
@@ -128,6 +140,7 @@ export function ProviderAvailabilityEditor({ group }: { group: ProviderGroup }) 
 
     const setDraft = (key: string, field: keyof RuleDraft, value: string) => {
         setDrafts((prev) => ({ ...prev, [key]: { ...prev[key], [field]: value } }));
+        setWeeklyStatus('');
         setRuleErrors((prev) => {
             if (!(key in prev)) return prev;
             const next = { ...prev };
@@ -136,12 +149,11 @@ export function ProviderAvailabilityEditor({ group }: { group: ProviderGroup }) 
         });
     };
 
-    const isDirty = (rule: RuleRow) => {
-        const key = ruleKey(rule);
-        const draft = drafts[key];
-        if (!draft) return false;
-        return draft.startTime !== rule.startTime || draft.endTime !== rule.endTime;
-    };
+    const draftedRules = useMemo(() => mergeDraftsIntoRules(rules, drafts), [rules, drafts]);
+    const weeklyDirty = useMemo(
+        () => rulesSnapshot(draftedRules) !== savedRulesSnapshot,
+        [draftedRules, savedRulesSnapshot],
+    );
 
     async function persistRules(nextRules: RuleRow[]) {
         return serenatasApi.updateProviderGroupAvailability(group.id, {
@@ -152,89 +164,80 @@ export function ProviderAvailabilityEditor({ group }: { group: ProviderGroup }) 
     const handleToggle = async (rule: RuleRow) => {
         const key = ruleKey(rule);
         const nextActive = !rule.isActive;
-        setTogglingKey(key);
         const nextRules = rules.map((entry) => (
             ruleKey(entry) === key ? { ...entry, isActive: nextActive } : entry
         ));
         setRules(nextRules);
-        const response = await persistRules(nextRules);
-        setTogglingKey(null);
-        if (!response.ok) {
-            setRules(rules);
-            setRuleErrors((prev) => ({ ...prev, [key]: response.error ?? 'No se pudo guardar.' }));
-        }
+        setWeeklyStatus('');
     };
 
-    const handleSaveRule = async (rule: RuleRow) => {
-        const key = ruleKey(rule);
-        const draft = drafts[key];
-        if (!draft) return;
-        if (draft.endTime <= draft.startTime) {
-            setRuleErrors((prev) => ({ ...prev, [key]: 'La hora de fin debe ser posterior al inicio.' }));
-            return;
+    const handleSaveWeeklyRules = async () => {
+        const nextErrors: Record<string, string> = {};
+        for (const rule of draftedRules) {
+            if (rule.endTime <= rule.startTime) {
+                nextErrors[ruleKey(rule)] = 'La hora de fin debe ser posterior al inicio.';
+            }
         }
-        setSaving(key);
-        const nextRules = rules.map((entry) => (
-            ruleKey(entry) === key
-                ? { ...entry, startTime: draft.startTime, endTime: draft.endTime }
-                : entry
-        ));
-        const response = await persistRules(nextRules);
-        setSaving(null);
+        setRuleErrors(nextErrors);
+        if (Object.keys(nextErrors).length > 0) return;
+
+        setWeeklySaving(true);
+        setWeeklyStatus('');
+        const response = await persistRules(draftedRules);
+        setWeeklySaving(false);
         if (!response.ok) {
-            setRuleErrors((prev) => ({ ...prev, [key]: response.error ?? 'No se pudo guardar.' }));
+            setWeeklyStatus(response.error ?? 'No se pudo guardar la disponibilidad.');
             return;
         }
-        setRules(nextRules);
-        setDrafts((prev) => ({ ...prev, [key]: { startTime: draft.startTime, endTime: draft.endTime } }));
+        const savedRules = sortRules(draftedRules);
+        setRules(savedRules);
+        const nextDrafts: Record<string, RuleDraft> = {};
+        for (const rule of savedRules) {
+            nextDrafts[ruleKey(rule)] = { startTime: rule.startTime, endTime: rule.endTime };
+        }
+        setDrafts(nextDrafts);
+        setSavedRulesSnapshot(rulesSnapshot(savedRules));
+        setWeeklyStatus('Guardado');
     };
 
     const handleDelete = async (rule: RuleRow) => {
         const key = ruleKey(rule);
-        setDeletingKey(key);
         const nextRules = rules.filter((entry) => ruleKey(entry) !== key);
-        const response = await persistRules(nextRules);
-        setDeletingKey(null);
-        if (!response.ok) {
-            setRuleErrors((prev) => ({ ...prev, [key]: response.error ?? 'No se pudo eliminar.' }));
-            return;
-        }
         setRules(nextRules);
         setDrafts((prev) => {
             const next = { ...prev };
             delete next[key];
             return next;
         });
+        setWeeklyStatus('');
     };
 
     const handleAddDay = async (dayOfWeek: number) => {
-        setAddingDay(true);
         setDefaultError('');
         const nextRules = sortRules([
             ...rules,
             { dayOfWeek, startTime: '09:00', endTime: '23:00', isActive: true },
         ]);
-        const response = await persistRules(nextRules);
-        setAddingDay(false);
-        if (!response.ok) {
-            setDefaultError(response.error ?? 'No se pudo agregar el día.');
-            return;
-        }
-        await load();
+        setRules(nextRules);
+        setDrafts((prev) => ({
+            ...prev,
+            [`day-${dayOfWeek}`]: { startTime: '09:00', endTime: '23:00' },
+        }));
+        setWeeklyStatus('');
     };
 
     const handleLoadDefaults = async () => {
-        setLoadingDefault(true);
         setDefaultError('');
-        const response = await persistRules(
+        const nextRules = sortRules(
             DEFAULT_WEEK.map((rule) => ({ ...rule, id: undefined, providerGroupId: group.id })),
         );
-        setLoadingDefault(false);
-        if (!response.ok) {
-            setDefaultError(response.error ?? 'No se pudo cargar el horario típico.');
-            return;
+        const nextDrafts: Record<string, RuleDraft> = {};
+        for (const rule of nextRules) {
+            nextDrafts[ruleKey(rule)] = { startTime: rule.startTime, endTime: rule.endTime };
         }
-        await load();
+        setRules(nextRules);
+        setDrafts(nextDrafts);
+        setWeeklyStatus('');
     };
 
     const resetBlockedForm = () => {
@@ -335,12 +338,29 @@ export function ProviderAvailabilityEditor({ group }: { group: ProviderGroup }) 
                             variant="secondary"
                             size="sm"
                             onClick={() => void handleLoadDefaults()}
-                            disabled={loadingDefault}
                         >
-                            {loadingDefault ? <IconLoader2 size={14} className="animate-spin" /> : null}
                             Cargar horario típico
                         </PanelButton>
-                    ) : null
+                    ) : (
+                        <div className="flex flex-wrap items-center justify-end gap-2">
+                            {weeklyStatus ? (
+                                <span className={`text-xs font-medium ${weeklyStatus === 'Guardado' ? 'text-[var(--accent)]' : 'text-[var(--color-error,#dc2626)]'}`}>
+                                    {weeklyStatus}
+                                </span>
+                            ) : weeklyDirty ? (
+                                <span className="text-xs font-medium text-fg-muted">Cambios sin guardar</span>
+                            ) : null}
+                            <PanelButton
+                                variant="accent"
+                                size="sm"
+                                onClick={() => void handleSaveWeeklyRules()}
+                                disabled={!weeklyDirty || weeklySaving}
+                            >
+                                {weeklySaving ? <IconLoader2 size={14} className="animate-spin" /> : null}
+                                {weeklySaving ? 'Guardando…' : 'Guardar cambios'}
+                            </PanelButton>
+                        </div>
+                    )
                 }
             />
 
@@ -362,7 +382,6 @@ export function ProviderAvailabilityEditor({ group }: { group: ProviderGroup }) 
                         const key = ruleKey(rule);
                         const draft = drafts[key] ?? { startTime: rule.startTime, endTime: rule.endTime };
                         const dayLabel = DAYS.find((day) => day.value === rule.dayOfWeek)?.label ?? `Día ${rule.dayOfWeek}`;
-                        const dirty = isDirty(rule);
                         const timeError = ruleErrors[key] ?? null;
 
                         return (
@@ -370,25 +389,20 @@ export function ProviderAvailabilityEditor({ group }: { group: ProviderGroup }) 
                                 <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:gap-3">
                                     <div className="flex shrink-0 items-center justify-between gap-3 lg:min-w-[7.5rem] lg:justify-start">
                                     <div className="flex items-center gap-2.5">
-                                        {togglingKey === key ? (
-                                            <IconLoader2 size={14} className="shrink-0 animate-spin text-fg-muted" />
-                                        ) : (
-                                            <PanelSwitch
-                                                checked={rule.isActive}
-                                                onChange={() => void handleToggle(rule)}
-                                                size="sm"
-                                                ariaLabel={rule.isActive ? 'Desactivar día' : 'Activar día'}
-                                            />
-                                        )}
+                                        <PanelSwitch
+                                            checked={rule.isActive}
+                                            onChange={() => void handleToggle(rule)}
+                                            size="sm"
+                                            ariaLabel={rule.isActive ? 'Desactivar día' : 'Activar día'}
+                                        />
                                         <span className="text-sm font-semibold text-fg">{dayLabel}</span>
                                     </div>
                                     <PanelIconButton
                                         label="Eliminar día"
                                         onClick={() => void handleDelete(rule)}
-                                        disabled={deletingKey === key}
                                         className="border border-border hover:border-red-500/40 hover:bg-red-500/10 lg:hidden"
                                     >
-                                        {deletingKey === key ? <IconLoader2 size={13} className="animate-spin" /> : <IconTrash size={13} />}
+                                        <IconTrash size={13} />
                                     </PanelIconButton>
                                     </div>
 
@@ -435,17 +449,10 @@ export function ProviderAvailabilityEditor({ group }: { group: ProviderGroup }) 
                                         <PanelIconButton
                                             label="Eliminar día"
                                             onClick={() => void handleDelete(rule)}
-                                            disabled={deletingKey === key}
                                             className="hidden border border-border hover:border-red-500/40 hover:bg-red-500/10 lg:flex"
                                         >
-                                            {deletingKey === key ? <IconLoader2 size={13} className="animate-spin" /> : <IconTrash size={13} />}
+                                            <IconTrash size={13} />
                                         </PanelIconButton>
-                                        {dirty ? (
-                                            <PanelButton variant="accent" size="sm" onClick={() => void handleSaveRule(rule)} disabled={saving === key}>
-                                                {saving === key ? <IconLoader2 size={13} className="animate-spin" /> : null}
-                                                {saving === key ? 'Guardando…' : 'Guardar'}
-                                            </PanelButton>
-                                        ) : null}
                                     </div>
                                 </div>
 
@@ -465,7 +472,6 @@ export function ProviderAvailabilityEditor({ group }: { group: ProviderGroup }) 
                             key={day.value}
                             type="button"
                             onClick={() => void handleAddDay(day.value)}
-                            disabled={addingDay}
                             className="inline-flex items-center gap-1.5 rounded-xl border border-border px-3.5 py-2 text-sm text-fg-secondary transition-colors hover:border-accent hover:text-accent disabled:opacity-50"
                         >
                             <IconPlus size={13} />
