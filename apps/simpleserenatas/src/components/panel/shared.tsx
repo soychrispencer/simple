@@ -92,7 +92,9 @@ function optionsFromSelectChildren(children: ReactNode): ModernSelectOption[] {
 
 const DEFAULT_TIME_OPTIONS: ModernSelectOption[] = Array.from({ length: 24 }, (_, hour) => [
     `${String(hour).padStart(2, '0')}:00`,
+    `${String(hour).padStart(2, '0')}:15`,
     `${String(hour).padStart(2, '0')}:30`,
+    `${String(hour).padStart(2, '0')}:45`,
 ]).flat().map((time) => ({ value: time, label: time }));
 
 export type FieldDateProps = {

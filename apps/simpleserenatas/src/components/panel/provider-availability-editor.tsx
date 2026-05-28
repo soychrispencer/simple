@@ -27,8 +27,9 @@ const DAY_ORDER = [1, 2, 3, 4, 5, 6, 0] as const;
 
 const TIME_OPTIONS: string[] = [];
 for (let h = 0; h <= 23; h++) {
-    TIME_OPTIONS.push(`${String(h).padStart(2, '0')}:00`);
-    TIME_OPTIONS.push(`${String(h).padStart(2, '0')}:30`);
+    for (const minutes of [0, 15, 30, 45]) {
+        TIME_OPTIONS.push(`${String(h).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`);
+    }
 }
 
 const TIME_SELECT_OPTIONS = TIME_OPTIONS.map((time) => ({ value: time, label: time }));
