@@ -244,7 +244,7 @@ export function SerenataProvider({ children }: { children: ReactNode }) {
         { revalidateOnFocus: false, dedupingInterval: 10_000 },
     );
 
-    const loadState: LoadState = isLoading && !data ? 'loading' : swrError ? 'error' : data ? 'ready' : 'idle';
+    const loadState: LoadState = isLoading && !data ? 'loading' : swrError && !data ? 'error' : data ? 'ready' : 'idle';
     const error = swrError?.message || null;
     const ownerSerenatasList = data?.ownerSerenatas ?? [];
 
