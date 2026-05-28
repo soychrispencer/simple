@@ -10,7 +10,7 @@ import {
     type ProviderGroupAvailabilityRule,
     type ProviderGroupBlockedSlot,
 } from '@/lib/serenatas-api';
-import { FieldSelect } from '@/components/panel/shared';
+import { FieldDate, FieldSelect } from '@/components/panel/shared';
 import { formatBlockedSlotRange } from '@/lib/provider-availability-display';
 
 const DAYS = [
@@ -521,16 +521,16 @@ export function ProviderAvailabilityEditor({ group }: { group: ProviderGroup }) 
                             {blockMode === 'fullDay' ? (
                                 <div className="grid gap-4 sm:grid-cols-2">
                                     <PanelField label="Desde" required>
-                                        <input type="date" value={blockStartDate} onChange={(e) => setBlockStartDate(e.target.value)} className="form-input w-full" />
+                                        <FieldDate value={blockStartDate} onChange={setBlockStartDate} />
                                     </PanelField>
                                     <PanelField label="Hasta" required>
-                                        <input type="date" value={blockEndDate} onChange={(e) => setBlockEndDate(e.target.value)} className="form-input w-full" />
+                                        <FieldDate value={blockEndDate} onChange={setBlockEndDate} />
                                     </PanelField>
                                 </div>
                             ) : (
                                 <div className="grid gap-4 sm:grid-cols-3">
                                     <PanelField label="Fecha" required>
-                                        <input type="date" value={blockStartDate} onChange={(e) => setBlockStartDate(e.target.value)} className="form-input w-full" />
+                                        <FieldDate value={blockStartDate} onChange={setBlockStartDate} />
                                     </PanelField>
                                     <PanelField label="Desde" required>
                                         <FieldSelect
