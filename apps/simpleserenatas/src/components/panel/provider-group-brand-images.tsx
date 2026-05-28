@@ -1,7 +1,7 @@
 'use client';
 
 import { useRef, useState } from 'react';
-import { IconLoader2, IconPlus } from '@tabler/icons-react';
+import { IconLoader2, IconPhoto, IconPlus, IconUser } from '@tabler/icons-react';
 import { AvatarUpload, type AvatarUploadHandle } from '@simple/ui/media';
 import { serenatasApi } from '@/lib/serenatas-api';
 
@@ -9,6 +9,16 @@ const COVER_PLACEHOLDER_STYLE = {
     background:
         'linear-gradient(135deg, var(--accent) 0%, color-mix(in srgb, var(--accent) 40%, #1a1a2e) 50%, #0f0f23 100%)',
 } as const;
+
+function DefaultLogoPreview() {
+    return (
+        <div className="flex h-full w-full items-center justify-center rounded-card bg-accent-soft text-accent">
+            <div className="flex h-16 w-16 items-center justify-center rounded-card bg-accent text-[color:var(--accent-contrast)] shadow-sm">
+                <IconUser size={28} aria-hidden="true" />
+            </div>
+        </div>
+    );
+}
 
 type ProviderGroupBrandImagesProps = {
     className?: string;
@@ -18,6 +28,8 @@ type ProviderGroupBrandImagesProps = {
     onLogoChange: (url: string) => void;
     onCoverChange: (url: string) => void;
     onError?: (message: string) => void;
+    onSave?: (logoUrl: string | null, coverUrl: string | null) => Promise<void>;
+    isSaving?: boolean;
 };
 
 export function ProviderGroupBrandImages({
@@ -28,6 +40,8 @@ export function ProviderGroupBrandImages({
     onLogoChange,
     onCoverChange,
     onError,
+    onSave,
+    isSaving,
 }: ProviderGroupBrandImagesProps) {
     const logoUploadRef = useRef<AvatarUploadHandle>(null);
     const coverUploadRef = useRef<AvatarUploadHandle>(null);
@@ -35,8 +49,8 @@ export function ProviderGroupBrandImages({
     const [logoUploading, setLogoUploading] = useState(false);
     const [logoLoadError, setLogoLoadError] = useState(false);
 
-    const initial = name.trim().charAt(0).toUpperCase() || '?';
     const imageUploading = coverUploading || logoUploading;
+    const hasLogo = Boolean(logoUrl && !logoLoadError);
 
     return (
         <div className={className ? `grid gap-3 ${className}` : 'grid gap-3'}>
@@ -71,16 +85,22 @@ export function ProviderGroupBrandImages({
                 <div className="p-4">
                     <div className="-mt-9 flex items-end gap-3">
                         <div className="relative shrink-0">
-                            <div className="flex size-16 items-center justify-center overflow-hidden rounded-card border-4 border-surface bg-accent-soft text-lg font-bold text-accent shadow-sm">
-                                {logoUrl && !logoLoadError ? (
+                            <div
+                                className={`flex size-16 flex-col items-center justify-center gap-0.5 overflow-hidden rounded-card border-4 border-surface shadow-sm ${
+                                    hasLogo
+                                        ? 'bg-bg-subtle'
+                                        : 'bg-surface ring-2 ring-inset ring-dashed ring-border'
+                                }`}
+                            >
+                                {hasLogo ? (
                                     <img
                                         src={logoUrl}
-                                        alt=""
+                                        alt="Logo del mariachi"
                                         className="h-full w-full object-cover"
                                         onError={() => setLogoLoadError(true)}
                                     />
                                 ) : (
-                                    initial
+                                    <DefaultLogoPreview />
                                 )}
                             </div>
                             <button
@@ -106,13 +126,16 @@ export function ProviderGroupBrandImages({
                             <p className="truncate text-sm font-semibold text-fg">
                                 {name.trim() || 'Tu mariachi'}
                             </p>
-                            <p className="text-xs text-fg-muted">Vista previa (tamaño reducido en el panel)</p>
+                            {!hasLogo || !coverUrl ? (
+                                <p className="mt-0.5 text-xs text-fg-muted">
+                                    Vista previa
+                                </p>
+                            ) : null}
                         </div>
                     </div>
                     <div className="mt-3 rounded-xl border border-border bg-bg-subtle px-3 py-2.5 text-xs leading-relaxed text-fg-muted">
                         <strong className="text-fg">Obligatorio para publicar:</strong> portada 16:9
-                        recomendada 1600×900 px y logo cuadrado 512×512 px. En el marketplace y la ficha
-                        pública se muestran a tamaño completo con las mismas proporciones.
+                        recomendada 1600×900 px y logo cuadrado 512×512 px.
                     </div>
                 </div>
             </div>
@@ -144,6 +167,7 @@ export function ProviderGroupBrandImages({
                 onSuccess={(url) => {
                     setLogoLoadError(false);
                     onLogoChange(url);
+                    onSave?.(url, coverUrl);
                 }}
                 onError={(message) => onError?.(message)}
             />
@@ -172,7 +196,10 @@ export function ProviderGroupBrandImages({
                         }
                     },
                 }}
-                onSuccess={(url) => onCoverChange(url)}
+                onSuccess={(url) => {
+                    onCoverChange(url);
+                    onSave?.(logoUrl, url);
+                }}
                 onError={(message) => onError?.(message)}
             />
         </div>

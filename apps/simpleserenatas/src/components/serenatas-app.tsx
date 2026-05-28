@@ -147,7 +147,7 @@ export function SerenatasApp() {
 
     return (
         <PanelConfirmProvider>
-        <div className="flex min-h-screen min-w-0 flex-col overflow-x-hidden bg-[var(--bg)] text-[var(--fg)]">
+        <div className="flex min-h-screen min-w-0 flex-col overflow-x-hidden bg-(--bg) text-(--fg)">
             <SerenatasChromeHeader mode={mode} profiles={profiles} />
 
             <SerenataPanelShell section={section} onSectionChange={changeSection}>

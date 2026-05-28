@@ -2,7 +2,6 @@
 
 import Link from 'next/link';
 import { IconCheck, IconChevronRight } from '@tabler/icons-react';
-import { PanelCard } from '@simple/ui/panel';
 import type { Profiles, ProviderGroup } from '@/lib/serenatas-api';
 import type { AppMode } from '@/lib/app-mode';
 import { ownerFeaturesEnabled } from '@/lib/app-mode';
@@ -118,6 +117,7 @@ export function ProfileSetupChecklist({
     if (pending.length === 0) return null;
 
     const doneCount = items.length - pending.length;
+    const pct = Math.round((doneCount / items.length) * 100);
     const isOwner = ownerFeaturesEnabled(profiles) && mode !== 'client';
     const title = mode === 'client'
         ? 'Completa tu cuenta'
@@ -133,23 +133,47 @@ export function ProfileSetupChecklist({
     const next = pending[0];
 
     return (
-        <PanelCard size="md" className="border-accent-border/30">
+        <div
+            className="serenatas-setup-banner rounded-2xl p-5"
+            role="region"
+            aria-label={title}
+        >
             <div className="flex flex-wrap items-start justify-between gap-3">
                 <div className="min-w-0">
-                    <h3 className="text-base font-semibold text-fg">{title}</h3>
+                    <p className="text-xs font-semibold uppercase tracking-wide serenatas-setup-kicker">
+                        Configuración inicial
+                    </p>
+                    <h3 className="mt-1 text-base font-semibold text-fg">{title}</h3>
                     <p className="mt-1 text-sm leading-relaxed text-fg-muted">{description}</p>
                 </div>
-                <span className="shrink-0 rounded-full bg-bg-subtle px-2.5 py-1 text-xs font-medium text-fg-muted">
+                <span className="shrink-0 rounded-full border border-accent-border/50 bg-surface/80 px-2.5 py-1 text-xs font-medium text-fg-muted">
                     {doneCount}/{items.length}
                 </span>
             </div>
 
+            <div
+                className="mt-4 h-1 overflow-hidden rounded-full serenatas-setup-progress-track"
+                role="progressbar"
+                aria-valuenow={pct}
+                aria-valuemin={0}
+                aria-valuemax={100}
+                aria-label={`Progreso de configuración: ${pct}%`}
+            >
+                <div
+                    className="h-full transition-all duration-500 serenatas-setup-progress-fill"
+                    style={{ width: `${pct}%` }}
+                />
+            </div>
+
             <Link
                 href={next.href}
-                className="mt-4 flex items-center justify-between gap-3 rounded-xl border border-border bg-bg-subtle/80 px-4 py-3.5 transition-colors hover:border-accent-border hover:bg-accent-soft/40"
+                className="serenatas-setup-next mt-4 flex items-center justify-between gap-3 rounded-xl border px-4 py-3.5 transition-colors"
             >
                 <span className="text-sm font-semibold text-fg">{next.label}</span>
-                <IconChevronRight size={18} className="shrink-0 text-fg-muted" />
+                <span className="inline-flex shrink-0 items-center gap-0.5 text-sm font-semibold text-accent">
+                    Ir
+                    <IconChevronRight size={16} stroke={2} aria-hidden />
+                </span>
             </Link>
 
             {pending.length > 1 ? (
@@ -157,14 +181,14 @@ export function ProfileSetupChecklist({
                     <summary className="cursor-pointer list-none text-xs font-medium text-fg-muted hover:text-fg [&::-webkit-details-marker]:hidden">
                         Ver {pending.length - 1} paso{pending.length - 1 === 1 ? '' : 's'} más
                     </summary>
-                    <ul className="mt-2 space-y-1 border-t border-border pt-2">
+                    <ul className="mt-2 space-y-1 border-t border-accent-border/25 pt-2">
                         {pending.slice(1).map((item) => (
                             <li key={item.id}>
                                 <Link
                                     href={item.href}
-                                    className="flex items-center gap-2 rounded-lg px-2 py-2 text-sm text-fg-secondary transition-colors hover:bg-bg-subtle hover:text-fg"
+                                    className="flex items-center gap-2 rounded-lg px-2 py-2 text-sm text-fg-secondary transition-colors hover:bg-surface/60 hover:text-fg"
                                 >
-                                    <span className="size-1.5 shrink-0 rounded-full bg-fg-muted" />
+                                    <span className="size-1.5 shrink-0 rounded-full bg-accent/70" />
                                     {item.label}
                                 </Link>
                             </li>
@@ -179,6 +203,6 @@ export function ProfileSetupChecklist({
                     {doneCount} paso{doneCount === 1 ? '' : 's'} listo{doneCount === 1 ? '' : 's'}
                 </p>
             ) : null}
-        </PanelCard>
+        </div>
     );
 }

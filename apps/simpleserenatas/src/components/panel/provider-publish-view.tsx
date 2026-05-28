@@ -224,6 +224,7 @@ export function ProviderPublishView({ refresh }: { refresh: () => Promise<void> 
                     <ProviderPublicProfileLink
                         group={mariachi}
                         published={isPublished}
+                        canPublish={canPublish}
                         showMobileQrToggle
                     />
                 </div>

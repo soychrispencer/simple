@@ -446,19 +446,19 @@ export function SerenataRow({ item, context = 'default' }: { item: Serenata; con
         : null;
 
     return (
-        <div className="rounded-xl border border-[var(--border)] bg-[var(--surface)] p-4">
+        <div className="rounded-xl border border-(--border) bg-(--surface) p-4">
             <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
-                    <p className="font-medium text-[var(--fg)]">{item.recipientName}</p>
-                    <p className="mt-1 text-sm text-[var(--fg-muted)]">
+                    <p className="font-medium text-(--fg)">{item.recipientName}</p>
+                    <p className="mt-1 text-sm text-(--fg-muted)">
                         {formatDate(item.eventDate)} · {item.eventTime} · {item.duration} min
                     </p>
                     {responseDueLabel ? (
-                        <p className="mt-1 text-xs text-[var(--fg-muted)]">
+                        <p className="mt-1 text-xs text-(--fg-muted)">
                             {context === 'client' ? 'Respuesta esperada antes de' : 'Responder antes de'} {responseDueLabel}
                         </p>
                     ) : null}
-                    <p className="mt-1 truncate text-sm text-[var(--fg-secondary)]">{item.address}</p>
+                    <p className="mt-1 truncate text-sm text-(--fg-secondary)">{item.address}</p>
                 </div>
                 <PanelStatusBadge
                     tone={tone}

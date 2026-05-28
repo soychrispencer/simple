@@ -179,6 +179,34 @@
     color: var(--accent);
 }
 
+/* Panel inicio — checklist provisional (referencia: agenda-home en SimpleAgenda) */
+.serenatas-setup-banner {
+    border: 1px solid var(--accent-border);
+    background: color-mix(in srgb, var(--accent-soft) 72%, var(--surface));
+}
+
+.serenatas-setup-kicker {
+    color: var(--accent);
+}
+
+.serenatas-setup-progress-track {
+    background: color-mix(in srgb, var(--accent-border) 35%, var(--border));
+}
+
+.serenatas-setup-progress-fill {
+    background: var(--accent);
+}
+
+.serenatas-setup-next {
+    border-color: color-mix(in srgb, var(--accent-border) 55%, var(--border));
+    background: var(--surface);
+}
+
+.serenatas-setup-next:hover {
+    border-color: var(--accent-border);
+    background: color-mix(in srgb, var(--accent-soft) 45%, var(--surface));
+}
+
 .panel-accent-btn {
     background: var(--accent);
     color: var(--accent-contrast);

@@ -55,7 +55,6 @@ import {
     whatsappPhoneValidation,
 } from '@/lib/account-notification-prefs';
 import { formatChileMobileHint, validateChileMobilePhone } from '@/lib/chile-phone';
-import { OwnerOnboardingCard } from './owner-onboarding-card';
 import { FieldInput, FieldTextarea, FormFeedback, InstrumentSelect, type FormStatus } from './shared';
 import { RegionCommuneFields } from './region-commune-fields';
 import { AddressesSection } from './addresses-section';
@@ -925,9 +924,6 @@ export function ProfileView({
 
             {subsection === 'data' ? (
             <div className="grid gap-6">
-            {appMode === 'work' && setSection ? (
-                <OwnerOnboardingCard profiles={profiles} setSection={setSection} />
-            ) : null}
             <PanelCard>
                 <PanelBlockHeader
                     title="Datos personales"

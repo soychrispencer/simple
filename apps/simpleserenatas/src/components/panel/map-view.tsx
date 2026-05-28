@@ -9,7 +9,7 @@ import { EmptyBlock, FieldDate, googleMapsDirectionsUrl, googleMapsUrl, money } 
 
 const SerenataMap = dynamic(() => import('@/components/serenata-map'), {
     ssr: false,
-    loading: () => <div className="h-full min-h-[520px] rounded-3xl border border-border bg-surface" />,
+    loading: () => <div className="h-full min-h-130 rounded-3xl border border-border bg-surface" />,
 });
 
 export function MapView({ date, setDate, items }: { date: string; setDate: (date: string) => void; items: Serenata[] }) {
@@ -76,16 +76,16 @@ export function MapView({ date, setDate, items }: { date: string; setDate: (date
                 </div>
             </div>
 
-            <PanelCard className="min-h-[50dvh] overflow-hidden p-0 sm:min-h-[620px]">
+            <PanelCard className="min-h-[50dvh] overflow-hidden p-0 sm:min-h-155">
                 {sortedItems.length === 0 ? (
-                    <div className="flex h-full min-h-[50dvh] flex-col items-center justify-center px-6 text-center sm:min-h-[620px]">
+                    <div className="flex h-full min-h-[50dvh] flex-col items-center justify-center px-6 text-center sm:min-h-155">
                         <div className="mb-4 flex size-16 items-center justify-center rounded-2xl bg-bg-subtle text-fg">
                             <IconMapPin size={38} />
                         </div>
                         <EmptyBlock title="No tienes serenatas para hoy" description="Cuando confirmes una serenata y asignes grupo, aparecerá en la ruta de su fecha." />
                     </div>
                 ) : (
-                    <div className="relative h-full min-h-[50dvh] sm:min-h-[620px]">
+                    <div className="relative h-full min-h-[50dvh] sm:min-h-155">
                         <SerenataMap items={sortedItems} />
                         <div className="absolute left-4 top-4 rounded-card border border-border bg-surface px-4 py-3 shadow-sm">
                             <p className="flex items-center gap-2 text-sm font-semibold text-fg">

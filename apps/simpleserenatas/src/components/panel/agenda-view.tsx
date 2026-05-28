@@ -10,7 +10,6 @@ import type { AppMode } from '@/lib/app-mode';
 import { EmptyBlock, FieldDate, FieldInput, money, SerenataAgendaCard, toInputDate } from './shared';
 import { SerenataClosureActions, SerenataPastDateNotice } from './serenata-closure-actions';
 import { SerenataSetlistPanel } from './serenata-setlist-panel';
-import { ProfileIncompleteNotice } from './profile-incomplete-notice';
 import { SerenataCreateModal, SerenataForm } from './serenatas-view';
 
 type AgendaFilter = 'all' | 'pending' | 'scheduled' | 'completed' | 'to_close';
@@ -90,7 +89,6 @@ export function AgendaView({
 
     return (
         <div className="grid gap-5">
-            {mode === 'work' ? <ProfileIncompleteNotice mode={mode} profiles={profiles} /> : null}
         <div className="grid min-w-0 gap-5 xl:grid-cols-[minmax(0,1fr)_360px]">
             <div className="min-w-0">
                 <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
@@ -130,9 +128,9 @@ export function AgendaView({
                     ) : null}
                 </div>
 
-                <PanelCard className="mt-6 min-h-[220px]">
+                <PanelCard className="mt-6 min-h-55">
                     {filteredItems.length === 0 ? (
-                        <div className="flex min-h-[170px] flex-col items-center justify-center text-center">
+                        <div className="flex min-h-42.5 flex-col items-center justify-center text-center">
                             <div className="mb-4 flex size-14 items-center justify-center rounded-2xl bg-bg-subtle text-fg">
                                 <IconCalendar size={31} />
                             </div>

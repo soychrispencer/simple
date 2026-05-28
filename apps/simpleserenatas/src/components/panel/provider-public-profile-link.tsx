@@ -60,10 +60,13 @@ export function ProviderPublishQrPanel({
 export function ProviderPublicProfileLink({
     group,
     published,
+    canPublish = true,
     showMobileQrToggle = true,
 }: {
     group: ProviderGroup;
     published: boolean;
+    /** Si false, la página aún no puede activarse (faltan datos). */
+    canPublish?: boolean;
     /** En desktop el QR va en la columna lateral; en móvil puede mostrarse bajo el link. */
     showMobileQrToggle?: boolean;
 }) {
@@ -130,8 +133,18 @@ export function ProviderPublicProfileLink({
             </div>
 
             {!published ? (
-                <p className="mt-3 text-xs text-fg-muted">
-                    Activa <strong>Visible en marketplace</strong> para que los clientes puedan abrir esta página.
+                <p className="mt-3 text-sm leading-relaxed text-fg-muted">
+                    {canPublish ? (
+                        <>
+                            Para activar tu página y compartir el link, activa{' '}
+                            <strong className="font-medium text-fg">Visible en marketplace</strong> en el interruptor de arriba.
+                        </>
+                    ) : (
+                        <>
+                            Para activar tu página y compartir el link, completa primero los requisitos del recuadro de arriba y
+                            luego activa <strong className="font-medium text-fg">Visible en marketplace</strong>.
+                        </>
+                    )}
                 </p>
             ) : null}
             <p className="mt-2 text-xs text-fg-muted lg:max-w-2xl">

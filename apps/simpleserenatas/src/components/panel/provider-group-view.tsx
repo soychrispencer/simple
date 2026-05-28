@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { IconMusic } from '@tabler/icons-react';
 import { PanelButton } from '@simple/ui/panel';
 import { PanelCard, PanelField, PanelNotice } from '@simple/ui/panel';
 import { serenatasApi, type ProviderGroup } from '@/lib/serenatas-api';
@@ -11,8 +12,6 @@ import { EmptyBlock, FieldInput, FieldTextarea, FormFeedback, type FormStatus } 
 import { ProviderContactPhonesFields } from './provider-contact-phones-fields';
 import { ProviderGroupBrandImages } from './provider-group-brand-images';
 import { consumeSignupGroupName } from '@/lib/active-provider-group';
-import { panelMiNegocioHref } from '@/lib/panel-routes';
-
 export function ProviderGroupView({ refresh }: { refresh: () => Promise<void> }) {
     const { mariachi, hasMariachi, loading, error, refresh: refreshMariachi } = useMyMariachi();
     const [saveStatus, setSaveStatus] = useState<FormStatus>({ loading: false, error: null, ok: null });
@@ -99,6 +98,26 @@ export function ProviderGroupView({ refresh }: { refresh: () => Promise<void> })
         await refresh();
     }
 
+    async function saveImages(logoUrl: string | null, coverUrl: string | null) {
+        if (!mariachi) return;
+        const response = await serenatasApi.updateProviderGroup(mariachi.id, {
+            name,
+            description: description || null,
+            logoUrl,
+            coverUrl,
+            phone: phone || null,
+            whatsapp: whatsapp || null,
+            region: region || null,
+            comunaBase: comunaBase || null,
+            serviceComunas,
+        });
+        if (!response.ok) {
+            setSaveStatus({ loading: false, error: response.error ?? 'No pudimos guardar la imagen', ok: null });
+            return;
+        }
+        await refreshMariachi();
+    }
+
     if (loading) {
         return <p className="text-sm text-[var(--fg-muted)]">Cargando…</p>;
     }
@@ -117,10 +136,22 @@ export function ProviderGroupView({ refresh }: { refresh: () => Promise<void> })
     if (!hasMariachi) {
         return (
             <div className="grid gap-5">
-                <EmptyBlock
-                    title="Configura tus datos comerciales"
-                    description="Al registrarte como dueño creas tu mariachi en el marketplace. Completa estos datos para que los clientes te encuentren."
-                />
+                <PanelCard size="md" className="border-[var(--accent)]/25 bg-[color-mix(in_oklab,var(--accent)_8%,var(--surface))]">
+                    <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                        <div className="min-w-0">
+                            <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--accent)]">
+                                Configuración inicial
+                            </p>
+                            <h2 className="mt-1 text-lg font-bold text-[var(--fg)]">Configura tus datos comerciales</h2>
+                            <p className="mt-1 text-sm leading-relaxed text-fg-muted">
+                                Al registrarte como dueño creas tu mariachi en el marketplace. Completa estos datos para que los clientes te encuentren.
+                            </p>
+                        </div>
+                        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-accent text-[color:var(--accent-contrast)] shadow-sm">
+                            <IconMusic size={20} aria-hidden="true" />
+                        </div>
+                    </div>
+                </PanelCard>
                 <PanelCard>
                     <h3 className="text-lg font-semibold text-[var(--fg)]">Datos comerciales</h3>
                     <div className="mt-5 grid gap-4">
@@ -172,6 +203,7 @@ export function ProviderGroupView({ refresh }: { refresh: () => Promise<void> })
                     onLogoChange={setLogoUrl}
                     onCoverChange={setCoverUrl}
                     onError={(message) => setSaveStatus({ loading: false, error: message, ok: null })}
+                    onSave={saveImages}
                 />
 
                 <p className="mt-4 text-sm text-[var(--fg-muted)]">
@@ -182,15 +214,6 @@ export function ProviderGroupView({ refresh }: { refresh: () => Promise<void> })
                     <PanelField label="Nombre del mariachi">
                         <FieldInput value={name} onChange={(e) => setName(e.target.value)} />
                     </PanelField>
-                    <PanelNotice tone="neutral" className="!py-3">
-                        <p className="text-sm text-fg-muted">
-                            Para activar tu página y compartir el link, ve a{' '}
-                            <a href={panelMiNegocioHref('publicar')} className="font-medium text-accent hover:underline">
-                                Publicar
-                            </a>
-                            .
-                        </p>
-                    </PanelNotice>
                     <PanelField label="Descripción">
                         <FieldTextarea rows={4} value={description} onChange={(e) => setDescription(e.target.value)} />
                     </PanelField>
