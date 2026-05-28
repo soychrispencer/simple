@@ -341,26 +341,7 @@ export function ProviderAvailabilityEditor({ group }: { group: ProviderGroup }) 
                         >
                             Cargar horario típico
                         </PanelButton>
-                    ) : (
-                        <div className="flex flex-wrap items-center justify-end gap-2">
-                            {weeklyStatus ? (
-                                <span className={`text-xs font-medium ${weeklyStatus === 'Guardado' ? 'text-[var(--accent)]' : 'text-[var(--color-error,#dc2626)]'}`}>
-                                    {weeklyStatus}
-                                </span>
-                            ) : weeklyDirty ? (
-                                <span className="text-xs font-medium text-fg-muted">Cambios sin guardar</span>
-                            ) : null}
-                            <PanelButton
-                                variant="accent"
-                                size="sm"
-                                onClick={() => void handleSaveWeeklyRules()}
-                                disabled={!weeklyDirty || weeklySaving}
-                            >
-                                {weeklySaving ? <IconLoader2 size={14} className="animate-spin" /> : null}
-                                {weeklySaving ? 'Guardando…' : 'Guardar cambios'}
-                            </PanelButton>
-                        </div>
-                    )
+                    ) : null
                 }
             />
 
@@ -480,6 +461,24 @@ export function ProviderAvailabilityEditor({ group }: { group: ProviderGroup }) 
                     ))}
                 </div>
             ) : null}
+
+            <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center">
+                {weeklyStatus ? (
+                    <p className={`text-sm font-medium ${weeklyStatus === 'Guardado' ? 'text-[var(--accent)]' : 'text-[var(--color-error,#dc2626)]'}`}>
+                        {weeklyStatus}
+                    </p>
+                ) : weeklyDirty ? (
+                    <p className="text-sm text-fg-muted">Cambios sin guardar</p>
+                ) : null}
+                <PanelButton
+                    onClick={() => void handleSaveWeeklyRules()}
+                    disabled={!weeklyDirty || weeklySaving}
+                    className="sm:ml-auto"
+                >
+                    {weeklySaving ? <IconLoader2 size={14} className="animate-spin" /> : null}
+                    {weeklySaving ? 'Guardando…' : 'Guardar'}
+                </PanelButton>
+            </div>
             </section>
 
             <section className="min-w-0">

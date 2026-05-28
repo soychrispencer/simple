@@ -150,9 +150,9 @@ export function ProviderSettingsEditor({
                         Configuración guardada
                     </p>
                 ) : null}
-                <PanelButton variant="accent" onClick={() => void handleSave()} disabled={saving}>
+                <PanelButton onClick={() => void handleSave()} disabled={saving}>
                     {saving ? <IconLoader2 size={14} className="animate-spin" /> : null}
-                    {saving ? 'Guardando…' : 'Guardar configuración'}
+                    {saving ? 'Guardando…' : 'Guardar'}
                 </PanelButton>
             </div>
         </div>
