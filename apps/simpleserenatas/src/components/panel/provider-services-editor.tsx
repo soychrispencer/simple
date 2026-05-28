@@ -295,7 +295,7 @@ export function ProviderServicesEditor({
                                         onChange={(e) => setForm((prev) => ({ ...prev, durationMinutes: e.target.value }))}
                                     />
                                 </PanelField>
-                                <PanelField label="Canciones incluidas" hint="Si escribes 0, tú eliges todas las canciones. Si escribes un número, el cliente podrá elegir hasta esa cantidad.">
+                                <PanelField label="Canciones incluidas">
                                     <FieldInput
                                         type="number"
                                         min={0}
