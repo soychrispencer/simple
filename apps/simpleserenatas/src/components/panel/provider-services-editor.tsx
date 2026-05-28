@@ -254,7 +254,7 @@ export function ProviderServicesEditor({
                                     <FieldInput
                                         value={form.name}
                                         onChange={(e) => setForm((prev) => ({ ...prev, name: e.target.value }))}
-                                        placeholder="Trío clásico · 45 min"
+                                        placeholder="Trío clásico"
                                     />
                                 </PanelField>
                                 <PanelField label="Tipo de evento" hint="Opcional.">
