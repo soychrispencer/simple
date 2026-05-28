@@ -16,6 +16,7 @@ import { MariachiSaveButton } from '@/components/public/mariachi-save-button';
 import { MarketplaceGroupLogo } from './marketplace-group-media';
 import { MarketplaceGroupZonesSummary } from './marketplace-group-zones';
 import { money } from './shared';
+import { serviceEffectivePrice, serviceHasPromoPrice } from '@/lib/service-pricing';
 
 function serviceMeta(service: ProviderGroupService) {
     const songs =
@@ -23,6 +24,18 @@ function serviceMeta(service: ProviderGroupService) {
             ? ` · Hasta ${service.songsIncluded} canción${service.songsIncluded === 1 ? '' : 'es'} a elegir`
             : '';
     return `${service.durationMinutes} min · ${service.musiciansCount} músico${service.musiciansCount === 1 ? '' : 's'}${songs}`;
+}
+
+function ServicePrice({ service, className = '' }: { service: ProviderGroupService; className?: string }) {
+    if (!serviceHasPromoPrice(service)) {
+        return <span className={className}>{money(service.price)}</span>;
+    }
+    return (
+        <span className={`inline-flex flex-wrap items-baseline gap-x-2 gap-y-1 ${className}`}>
+            <span className="text-sm font-semibold text-fg-muted line-through">{money(service.price)}</span>
+            <span>{money(serviceEffectivePrice(service))}</span>
+        </span>
+    );
 }
 
 function MariachiProfileHeroStats({ group }: { group: ProviderGroup }) {
@@ -173,7 +186,7 @@ export function MariachiProfileServicesList({
                             </div>
                             <div className="flex items-center justify-between gap-4 border-t border-border bg-bg-subtle/50 px-4 py-3 sm:px-5">
                                 <p className="text-xl font-bold tabular-nums leading-none text-fg">
-                                    {money(service.price)}
+                                    <ServicePrice service={service} />
                                 </p>
                                 <div className="shrink-0">{renderAction(service)}</div>
                             </div>

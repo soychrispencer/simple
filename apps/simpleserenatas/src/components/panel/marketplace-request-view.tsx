@@ -18,6 +18,7 @@ import { startSerenataCheckout } from '@/lib/payments';
 import { panelSectionHref } from '@/lib/panel-routes';
 import { clearMarketplaceRequestDraftRef } from '@/lib/marketplace-request-draft';
 import { resolveMarketplaceRequestBlock } from '@/lib/marketplace-client-policy';
+import { serviceEffectivePrice, serviceHasPromoPrice } from '@/lib/service-pricing';
 import { useAuth } from '@simple/auth';
 import { useSerenataProfiles } from '@/hooks/use-serenata-profiles';
 import { useGoogleMapsBrowserKey } from '@/lib/use-google-maps-browser-key';
@@ -49,6 +50,8 @@ function ServiceSummaryCard({
     service: ProviderGroupService;
     compact?: boolean;
 }) {
+    const hasPromo = serviceHasPromoPrice(service);
+    const displayPrice = serviceEffectivePrice(service);
     if (compact) {
         return (
             <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border bg-bg-subtle px-4 py-3">
@@ -56,7 +59,10 @@ function ServiceSummaryCard({
                     <p className="truncate font-semibold text-fg">{service.name}</p>
                     <p className="truncate text-xs text-fg-muted">{group.name}</p>
                 </div>
-                <p className="shrink-0 text-lg font-bold text-accent">{money(service.price)}</p>
+                <div className="shrink-0 text-right">
+                    {hasPromo ? <p className="text-xs font-semibold text-fg-muted line-through">{money(service.price)}</p> : null}
+                    <p className="text-lg font-bold text-accent">{money(displayPrice)}</p>
+                </div>
             </div>
         );
     }
@@ -69,7 +75,10 @@ function ServiceSummaryCard({
             <div className="mt-5 grid gap-3 rounded-card border border-border bg-bg-subtle p-4">
                 <div className="flex items-center justify-between gap-4">
                     <span className="text-sm text-fg-muted">Precio</span>
-                    <span className="text-lg font-semibold text-accent">{money(service.price)}</span>
+                    <span className="text-right">
+                        {hasPromo ? <span className="mr-2 text-sm font-semibold text-fg-muted line-through">{money(service.price)}</span> : null}
+                        <span className="text-lg font-semibold text-accent">{money(displayPrice)}</span>
+                    </span>
                 </div>
                 <div className="flex items-center justify-between gap-4">
                     <span className="text-sm text-fg-muted">Duración</span>

@@ -7,6 +7,7 @@ import { useAuth } from '@simple/auth';
 import { persistSignupProfile } from '@/lib/signup-profile';
 import type { ProviderGroup, ProviderGroupService } from '@/lib/serenatas-api';
 import { money } from '@/components/panel/shared';
+import { serviceEffectivePrice, serviceHasPromoPrice } from '@/lib/service-pricing';
 
 export function SerenataRequestModalGuest({
     group,
@@ -18,6 +19,7 @@ export function SerenataRequestModalGuest({
     onClose: () => void;
 }) {
     const { openAuth } = useAuth();
+    const hasPromo = serviceHasPromoPrice(service);
 
     function openLogin() {
         openAuth('login');
@@ -51,7 +53,10 @@ export function SerenataRequestModalGuest({
                 <p className="text-xs font-semibold uppercase tracking-[0.08em] text-fg-muted">Servicio seleccionado</p>
                 <h3 className="mt-2 text-xl font-semibold text-fg">{service.name}</h3>
                 <p className="mt-1 text-sm text-fg-muted">{group.name}</p>
-                <p className="mt-3 text-lg font-semibold text-accent">{money(service.price)}</p>
+                <div className="mt-3 flex flex-wrap items-baseline gap-2">
+                    {hasPromo ? <span className="text-sm font-semibold text-fg-muted line-through">{money(service.price)}</span> : null}
+                    <span className="text-lg font-semibold text-accent">{money(serviceEffectivePrice(service))}</span>
+                </div>
             </PanelCard>
 
             <div className="rounded-card border border-border bg-bg-subtle px-4 py-5 text-center">

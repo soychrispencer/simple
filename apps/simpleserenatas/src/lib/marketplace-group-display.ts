@@ -1,5 +1,6 @@
 import type { ProviderBookingMode, ProviderGroup, ProviderGroupService, ProviderGroupStatus } from '@/lib/serenatas-api';
 import { platformResponseSlaLabel } from '@/lib/marketplace-response-sla';
+import { serviceEffectivePrice } from '@/lib/service-pricing';
 
 export function providerGroupStatusLabel(status: ProviderGroupStatus | null | undefined): string {
     switch (status) {
@@ -156,7 +157,7 @@ export function cardFeaturedService(group: ProviderGroup) {
     return {
         name: service.name,
         details: details.join(' · '),
-        price: service.price,
+        price: serviceEffectivePrice(service),
     };
 }
 
@@ -208,7 +209,7 @@ export function sortMarketplaceGroups(items: ProviderGroup[], sort: MarketplaceG
 
 export function cheapestService(services: ProviderGroupService[]): ProviderGroupService | null {
     if (services.length === 0) return null;
-    return services.reduce((min, service) => (service.price < min.price ? service : min));
+    return services.reduce((min, service) => (serviceEffectivePrice(service) < serviceEffectivePrice(min) ? service : min));
 }
 
 export function extraServicesCount(group: ProviderGroup) {

@@ -6,6 +6,7 @@ import { PanelBlockHeader } from '@simple/ui/panel';
 import { PanelButton, PanelCard, PanelEmptyState, PanelField, PanelIconButton, PanelStatusBadge, PanelSwitch, usePanelConfirm } from '@simple/ui/panel';
 import { serenatasApi, type ProviderGroup, type ProviderGroupService } from '@/lib/serenatas-api';
 import { FieldInput, FieldSelect, FieldTextarea, FormFeedback, money, type FormStatus } from './shared';
+import { serviceEffectivePrice, serviceHasPromoPrice } from '@/lib/service-pricing';
 
 const EVENT_TYPE_OPTIONS = [
     { value: '', label: 'Uso general' },
@@ -23,6 +24,7 @@ const DEFAULT_FORM = {
     musiciansCount: '3',
     durationMinutes: '45',
     price: '45000',
+    promoPrice: '',
     eventType: '',
     songsIncluded: '0',
 };
@@ -98,6 +100,7 @@ export function ProviderServicesEditor({
             musiciansCount: String(service.musiciansCount),
             durationMinutes: String(service.durationMinutes),
             price: String(service.price),
+            promoPrice: service.promoPrice == null ? '' : String(service.promoPrice),
             eventType: service.eventType ?? '',
             songsIncluded: String(service.songsIncluded ?? 0),
         });
@@ -108,6 +111,7 @@ export function ProviderServicesEditor({
     async function saveService() {
         setFormStatus({ loading: true, error: null, ok: null });
         const price = Number(form.price);
+        const promoPrice = form.promoPrice.trim() === '' ? null : Number(form.promoPrice);
         const musiciansCount = Number(form.musiciansCount);
         const durationMinutes = Number(form.durationMinutes);
 
@@ -117,6 +121,14 @@ export function ProviderServicesEditor({
         }
         if (!Number.isFinite(price) || price < 1000) {
             setFormStatus({ loading: false, error: 'El precio mínimo es $1.000 CLP.', ok: null });
+            return;
+        }
+        if (promoPrice != null && (!Number.isFinite(promoPrice) || promoPrice < 1000)) {
+            setFormStatus({ loading: false, error: 'El precio oferta mínimo es $1.000 CLP.', ok: null });
+            return;
+        }
+        if (promoPrice != null && promoPrice >= price) {
+            setFormStatus({ loading: false, error: 'El precio oferta debe ser menor al precio normal.', ok: null });
             return;
         }
         if (!Number.isFinite(musiciansCount) || musiciansCount < 1) {
@@ -135,6 +147,7 @@ export function ProviderServicesEditor({
             musiciansCount: Math.floor(musiciansCount),
             durationMinutes: Math.floor(durationMinutes),
             price: Math.floor(price),
+            promoPrice: promoPrice == null ? null : Math.floor(promoPrice),
             eventType: form.eventType.trim() || null,
             songsIncluded,
             repertoirePolicy: 'any_active' as const,
@@ -313,6 +326,15 @@ export function ProviderServicesEditor({
                                         onChange={(e) => setForm((prev) => ({ ...prev, price: e.target.value }))}
                                     />
                                 </PanelField>
+                                <PanelField label="Precio oferta (CLP)" hint="Opcional. Debe ser menor que el precio normal.">
+                                    <FieldInput
+                                        type="number"
+                                        min={1000}
+                                        step={1000}
+                                        value={form.promoPrice}
+                                        onChange={(e) => setForm((prev) => ({ ...prev, promoPrice: e.target.value }))}
+                                    />
+                                </PanelField>
                                 <div className="flex w-full flex-col gap-3 sm:col-span-2 lg:col-span-3">
                                     <FormFeedback status={formStatus} />
                                     <div className="flex flex-wrap gap-2">
@@ -349,6 +371,8 @@ export function ProviderServicesEditor({
                     ) : services.length === 0 && formOpen ? null : (
                         services.map((service) => {
                             const isEditing = editingServiceId === service.id;
+                            const hasPromo = serviceHasPromoPrice(service);
+                            const displayPrice = serviceEffectivePrice(service);
                             return (
                                 <PanelCard
                                     key={service.id}
@@ -370,7 +394,15 @@ export function ProviderServicesEditor({
                                             </div>
                                             <p className="mt-1 text-sm text-fg-muted">
                                                 {service.musiciansCount} músicos · {service.durationMinutes} min ·{' '}
-                                                {money(service.price)}
+                                                {hasPromo ? (
+                                                    <>
+                                                        <span className="line-through opacity-70">{money(service.price)}</span>
+                                                        {' '}
+                                                        <span className="font-semibold text-accent">{money(displayPrice)}</span>
+                                                    </>
+                                                ) : (
+                                                    money(service.price)
+                                                )}
                                                 {service.eventType ? ` · ${service.eventType}` : ''}
                                                 {(service.songsIncluded ?? 0) > 0
                                                     ? ` · Hasta ${service.songsIncluded} canción${service.songsIncluded === 1 ? '' : 'es'} a elegir`

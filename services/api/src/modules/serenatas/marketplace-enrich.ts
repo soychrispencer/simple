@@ -2,6 +2,12 @@ import { and, asc, eq, inArray } from 'drizzle-orm';
 import { db } from '../../db/index.js';
 import { serenataGroupServices, serenataProviderGroups } from '../../db/schema.js';
 
+function effectiveServicePrice(service: Pick<typeof serenataGroupServices.$inferSelect, 'price' | 'promoPrice'>) {
+    return service.promoPrice != null && service.promoPrice > 0 && service.promoPrice < service.price
+        ? service.promoPrice
+        : service.price;
+}
+
 export function mapProviderGroup(row: typeof serenataProviderGroups.$inferSelect) {
     return {
         id: row.id,
@@ -64,7 +70,7 @@ export async function enrichProviderGroupsForMarketplace(groups: (typeof serenat
 
     return groups.map((group) => {
         const groupServices = services.filter((service) => service.providerGroupId === group.id);
-        const prices = groupServices.map((service) => service.price).filter((price) => Number.isFinite(price));
+        const prices = groupServices.map(effectiveServicePrice).filter((price) => Number.isFinite(price));
         return {
             ...mapPublicProviderGroup(group),
             startingPrice: prices.length > 0 ? Math.min(...prices) : null,
@@ -73,6 +79,7 @@ export async function enrichProviderGroupsForMarketplace(groups: (typeof serenat
                 id: service.id,
                 name: service.name,
                 price: service.price,
+                promoPrice: service.promoPrice,
                 musiciansCount: service.musiciansCount,
                 durationMinutes: service.durationMinutes,
                 songsIncluded: service.songsIncluded ?? 0,

@@ -33,6 +33,7 @@ import {
 } from '@/lib/serenata-group-select';
 import { useGoogleMapsBrowserKey } from '@/lib/use-google-maps-browser-key';
 import { formatMoney } from '@/lib/marketplace-display';
+import { serviceEffectivePrice } from '@/lib/service-pricing';
 import {
     FieldDate,
     FieldInput,
@@ -127,13 +128,13 @@ export function SerenataForm({
         const eventPrice = price === '' ? null : Number(price);
         if (duration !== selectedService.durationMinutes) return true;
         if (eventPrice == null || !Number.isFinite(eventPrice)) return false;
-        return eventPrice !== selectedService.price;
+        return eventPrice !== serviceEffectivePrice(selectedService);
     }, [duration, price, selectedService]);
 
     const effectivePrice = useMemo(() => {
         const parsed = price === '' ? null : Number(price);
         if (parsed != null && Number.isFinite(parsed)) return parsed;
-        return selectedService?.price ?? null;
+        return selectedService ? serviceEffectivePrice(selectedService) : null;
     }, [price, selectedService]);
 
     const groupSelectScope = useMemo(
@@ -173,7 +174,7 @@ export function SerenataForm({
                 const first = items[0];
                 setSelectedServiceId(first.id);
                 setDuration(first.durationMinutes);
-                setPrice(String(first.price));
+                setPrice(String(serviceEffectivePrice(first)));
             }
         });
         return () => {
@@ -185,17 +186,17 @@ export function SerenataForm({
         if (!selectedService) return;
         if (!item || selectedServiceId !== item.selectedServiceId) {
             setDuration(selectedService.durationMinutes);
-            setPrice(String(selectedService.price));
+            setPrice(String(serviceEffectivePrice(selectedService)));
             setPricingExpanded(false);
         }
     }, [item, selectedService, selectedServiceId]);
 
     useEffect(() => {
         if (!item?.id || !selectedService) return;
-        const eventPrice = item.price ?? selectedService.price;
+        const eventPrice = item.price ?? serviceEffectivePrice(selectedService);
         const differs =
             item.duration !== selectedService.durationMinutes
-            || eventPrice !== selectedService.price;
+            || eventPrice !== serviceEffectivePrice(selectedService);
         if (differs) setPricingExpanded(true);
     }, [item?.duration, item?.id, item?.price, selectedService]);
 
@@ -412,7 +413,7 @@ export function SerenataForm({
     function resetPricingToService() {
         if (!selectedService) return;
         setDuration(selectedService.durationMinutes);
-        setPrice(String(selectedService.price));
+        setPrice(String(serviceEffectivePrice(selectedService)));
         setPricingExpanded(false);
     }
 
@@ -443,7 +444,7 @@ export function SerenataForm({
                                 ) : null}
                             </span>
                             <span className="font-semibold text-fg tabular-nums">
-                                {formatMoney(effectivePrice ?? selectedService.price)}
+                                {formatMoney(effectivePrice ?? serviceEffectivePrice(selectedService))}
                             </span>
                         </div>
                         {pricingExpanded ? (

@@ -55,6 +55,7 @@ export const POST_JOURNAL_TAGS = [
     '0090_serenata_musician_payouts',
     '0091_serenata_client_review_comment',
     '0092_serenata_owner_payout_status',
+    '0093_serenata_service_promo_price',
 ] as const;
 
 export type PostJournalTag = (typeof POST_JOURNAL_TAGS)[number];

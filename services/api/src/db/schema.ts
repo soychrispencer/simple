@@ -1194,6 +1194,7 @@ export const serenataGroupServices = pgTable('serenata_group_services', {
   musiciansCount: integer('musicians_count').notNull().default(3),
   durationMinutes: integer('duration_minutes').notNull().default(45),
   price: integer('price').notNull(),
+  promoPrice: integer('promo_price'),
   currency: varchar('currency', { length: 8 }).notNull().default('CLP'),
   eventType: varchar('event_type', { length: 80 }),
   songsIncluded: integer('songs_included').notNull().default(0),

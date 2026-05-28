@@ -217,12 +217,13 @@ export const providerAvailabilityPutSchema = z.object({
 
 export const providerGroupApplicationSchema = providerGroupWriteSchema.omit({ status: true, logoUrl: true, coverUrl: true });
 
-export const groupServiceWriteSchema = z.object({
+const groupServiceWriteBaseSchema = z.object({
     name: z.string().min(2).max(160),
     description: emptyStringToNull,
     musiciansCount: z.number().int().min(1).max(20).default(3),
     durationMinutes: z.number().int().min(15).max(240).default(45),
     price: z.number().int().min(1000),
+    promoPrice: z.number().int().min(1000).nullable().optional(),
     currency: z.string().min(3).max(8).default('CLP'),
     eventType: emptyStringToNull,
     songsIncluded: z.number().int().min(0).max(30).optional(),
@@ -232,7 +233,17 @@ export const groupServiceWriteSchema = z.object({
     sortOrder: z.number().int().optional(),
 });
 
-export const groupServicePatchSchema = groupServiceWriteSchema.partial();
+export const groupServiceWriteSchema = groupServiceWriteBaseSchema.superRefine((data, ctx) => {
+    if (data.promoPrice != null && data.promoPrice >= data.price) {
+        ctx.addIssue({
+            code: 'custom',
+            path: ['promoPrice'],
+            message: 'El precio oferta debe ser menor al precio normal.',
+        });
+    }
+});
+
+export const groupServicePatchSchema = groupServiceWriteBaseSchema.partial();
 
 export const providerGroupMemberWriteSchema = z.object({
     musicianId: z.string().uuid(),
@@ -370,6 +381,7 @@ function mapGroupService(row: typeof serenataGroupServices.$inferSelect) {
         musiciansCount: row.musiciansCount,
         durationMinutes: row.durationMinutes,
         price: row.price,
+        promoPrice: row.promoPrice,
         currency: row.currency,
         eventType: row.eventType,
         songsIncluded: row.songsIncluded ?? 0,
@@ -379,6 +391,12 @@ function mapGroupService(row: typeof serenataGroupServices.$inferSelect) {
         createdAt: row.createdAt,
         updatedAt: row.updatedAt,
     };
+}
+
+function effectiveServicePrice(service: Pick<typeof serenataGroupServices.$inferSelect, 'price' | 'promoPrice'>) {
+    return service.promoPrice != null && service.promoPrice > 0 && service.promoPrice < service.price
+        ? service.promoPrice
+        : service.price;
 }
 
 async function syncServiceCuratedSongs(serviceId: string, providerGroupId: string, songIds: string[] | undefined) {
@@ -521,6 +539,7 @@ async function loadStartingPricesForGroups(groupIds: string[]) {
         .select({
             providerGroupId: serenataGroupServices.providerGroupId,
             price: serenataGroupServices.price,
+            promoPrice: serenataGroupServices.promoPrice,
         })
         .from(serenataGroupServices)
         .where(and(
@@ -528,10 +547,11 @@ async function loadStartingPricesForGroups(groupIds: string[]) {
             eq(serenataGroupServices.isActive, true),
         ));
     for (const service of services) {
-        if (!Number.isFinite(service.price)) continue;
+        const price = effectiveServicePrice(service);
+        if (!Number.isFinite(price)) continue;
         const current = prices.get(service.providerGroupId);
-        if (current == null || service.price < current) {
-            prices.set(service.providerGroupId, service.price);
+        if (current == null || price < current) {
+            prices.set(service.providerGroupId, price);
         }
     }
     return prices;
@@ -1530,12 +1550,18 @@ export function registerMarketplaceRoutes(app: Hono, deps: MarketplaceDeps) {
         });
         if (!existing) return deps.jsonError(c, 'Servicio no encontrado', 404);
         const { curatedSongIds, ...patch } = parsed.data;
+        const nextPrice = patch.price ?? existing.price;
+        const nextPromoPrice = patch.promoPrice !== undefined ? patch.promoPrice : existing.promoPrice;
+        if (nextPromoPrice != null && nextPromoPrice >= nextPrice) {
+            return deps.jsonError(c, 'El precio oferta debe ser menor al precio normal.', 400);
+        }
         const [item] = await db.update(serenataGroupServices).set({
             ...(patch.name !== undefined ? { name: patch.name } : {}),
             ...(patch.description !== undefined ? { description: patch.description } : {}),
             ...(patch.musiciansCount !== undefined ? { musiciansCount: patch.musiciansCount } : {}),
             ...(patch.durationMinutes !== undefined ? { durationMinutes: patch.durationMinutes } : {}),
             ...(patch.price !== undefined ? { price: patch.price } : {}),
+            ...(patch.promoPrice !== undefined ? { promoPrice: patch.promoPrice } : {}),
             ...(patch.currency !== undefined ? { currency: patch.currency } : {}),
             ...(patch.eventType !== undefined ? { eventType: patch.eventType } : {}),
             ...(patch.songsIncluded !== undefined ? { songsIncluded: patch.songsIncluded } : {}),
@@ -1693,7 +1719,7 @@ export async function createMarketplaceSerenata(
         eventTime,
         flexibleSchedule,
         duration: service.durationMinutes,
-        price: service.price,
+        price: effectiveServicePrice(service),
         packageCode: null,
         eventType: service.eventType ?? service.name,
         message: payload.message ?? null,

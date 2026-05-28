@@ -207,7 +207,7 @@ export type ProviderGroup = {
     bankTransferData?: ProviderBankTransferData | null;
     startingPrice?: number | null;
     activeServicesCount?: number;
-    servicesPreview?: Pick<ProviderGroupService, 'id' | 'name' | 'price' | 'musiciansCount' | 'durationMinutes' | 'songsIncluded'>[];
+    servicesPreview?: Pick<ProviderGroupService, 'id' | 'name' | 'price' | 'promoPrice' | 'musiciansCount' | 'durationMinutes' | 'songsIncluded'>[];
     createdAt: string;
     updatedAt: string;
 };
@@ -220,6 +220,7 @@ export type ProviderGroupService = {
     musiciansCount: number;
     durationMinutes: number;
     price: number;
+    promoPrice: number | null;
     currency: string;
     eventType: string | null;
     songsIncluded: number;
