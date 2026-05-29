@@ -14,6 +14,7 @@ export type PaymentOrderPersistInput = {
     amount: number;
     currency: string;
     status: string;
+    provider?: string;
     providerStatus: string | null;
     providerReferenceId: string | null;
     preferenceId: string | null;
@@ -57,7 +58,7 @@ export async function persistPaymentOrderToDb(order: PaymentOrderPersistInput): 
         amount: String(order.amount),
         currency: order.currency,
         status: order.status,
-        provider: 'mercadopago' as const,
+        provider: order.provider ?? 'mercadopago',
         providerOrderId,
         providerStatus: order.providerStatus,
         providerResponse,

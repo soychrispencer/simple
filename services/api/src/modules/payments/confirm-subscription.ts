@@ -127,6 +127,7 @@ export async function confirmSubscriptionFromPreapproval(
         amount: Number(nextOrder.amount ?? plan.priceMonthly),
         currency: String(nextOrder.currency ?? plan.currency),
         status: 'authorized',
+        provider: String(nextOrder.metadata && typeof nextOrder.metadata === 'object' && (nextOrder.metadata as Record<string, unknown>).provider === 'fintoc' ? 'fintoc' : 'mercadopago'),
         providerStatus: input.providerStatus,
         providerReferenceId: input.providerPreapprovalId,
         preferenceId: null,

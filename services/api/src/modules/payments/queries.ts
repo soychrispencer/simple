@@ -35,20 +35,23 @@ function asObjectRecord(value: unknown): Record<string, unknown> {
 
 export function mapPaymentOrderRowToHydrated(row: PaymentOrderRow): HydratedPaymentOrder {
     const meta = asObjectRecord(row.metadata);
+    const metadata = typeof meta.provider === 'string'
+        ? meta
+        : { ...meta, provider: row.provider };
     const providerResponse = asObjectRecord(row.providerResponse);
     const providerOrderId = row.providerOrderId?.trim() || null;
     const providerOrderIsNumeric = providerOrderId != null && /^\d+$/.test(providerOrderId);
 
     const preferenceId =
-        typeof meta.preferenceId === 'string'
-            ? meta.preferenceId
+            typeof metadata.preferenceId === 'string'
+            ? metadata.preferenceId
             : providerOrderId && !providerOrderIsNumeric
               ? providerOrderId
               : null;
 
     const providerReferenceId =
-        typeof meta.providerReferenceId === 'string'
-            ? meta.providerReferenceId
+        typeof metadata.providerReferenceId === 'string'
+            ? metadata.providerReferenceId
             : providerOrderIsNumeric
               ? providerOrderId
               : providerResponse.id != null
@@ -56,17 +59,17 @@ export function mapPaymentOrderRowToHydrated(row: PaymentOrderRow): HydratedPaym
                 : null;
 
     const checkoutUrl =
-        typeof meta.checkoutUrl === 'string'
-            ? meta.checkoutUrl
+        typeof metadata.checkoutUrl === 'string'
+            ? metadata.checkoutUrl
             : row.returnUrl ?? null;
 
     const appliedAt =
         row.paidAt?.getTime()
-        ?? (typeof meta.appliedAt === 'number' ? meta.appliedAt : null);
+        ?? (typeof metadata.appliedAt === 'number' ? metadata.appliedAt : null);
 
     const externalId =
-        typeof meta.orderExternalId === 'string' && meta.orderExternalId.trim()
-            ? meta.orderExternalId.trim()
+        typeof metadata.orderExternalId === 'string' && metadata.orderExternalId.trim()
+            ? metadata.orderExternalId.trim()
             : row.id;
 
     return {
@@ -87,8 +90,8 @@ export function mapPaymentOrderRowToHydrated(row: PaymentOrderRow): HydratedPaym
         updatedAt: row.updatedAt.getTime(),
         appliedAt,
         appliedResourceId:
-            typeof meta.appliedResourceId === 'string' ? meta.appliedResourceId : null,
-        metadata: meta,
+            typeof metadata.appliedResourceId === 'string' ? metadata.appliedResourceId : null,
+        metadata,
     };
 }
 
