@@ -10,7 +10,7 @@ import { ProviderPublicProfileLink, ProviderPublishQrPanel } from './provider-pu
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? '';
 
 export function ProviderPublishContent({ refresh }: { refresh: () => Promise<void> }) {
-    const { mariachi, hasMariachi, loading, error } = useMyMariachi();
+    const { mariachi, hasMariachi, loading, error, refresh: refreshMariachi } = useMyMariachi();
     const [activeServiceCount, setActiveServiceCount] = useState(0);
     const [servicesLoading, setServicesLoading] = useState(false);
 
@@ -65,6 +65,10 @@ export function ProviderPublishContent({ refresh }: { refresh: () => Promise<voi
                 published={isPublished}
                 canPublish={canPublish}
                 showMobileQrToggle
+                onSaved={async () => {
+                    await refreshMariachi();
+                    await refresh();
+                }}
             />
             <ProviderPublishQrPanel group={mariachi} url={publicUrl} className="hidden lg:block" />
         </div>

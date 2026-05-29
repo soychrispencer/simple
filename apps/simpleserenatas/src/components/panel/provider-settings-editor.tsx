@@ -3,7 +3,6 @@
 import { useEffect, useState } from 'react';
 import {
     IconAlertCircle,
-    IconBell,
     IconCalendarCheck,
     IconCheck,
     IconLoader2,
@@ -158,47 +157,23 @@ export function ProviderSettingsEditor({
                     </button>
                 </div>
 
-                <div className="rounded-2xl border border-[var(--border)] bg-[var(--bg-subtle)]/40 p-4">
-                    <div className="flex items-start justify-between gap-4">
-                        <div className="min-w-0">
-                            <p className="text-sm font-semibold text-fg">Estado de aceptación automática</p>
-                            <p className="mt-1 text-sm leading-relaxed text-fg-muted">
-                                {loadingEligibility
-                                    ? 'Verificando tu calendario y solicitudes activas...'
-                                    : autoAcceptEligible
-                                        ? 'Disponible. Solo se aplicará cuando exista horario configurado y el bloque esté libre.'
-                                        : blockingCount > 0
-                                            ? `No disponible: tienes ${blockingCount} serenata${blockingCount === 1 ? '' : 's'} confirmada${blockingCount === 1 ? '' : 's'} o pendiente${blockingCount === 1 ? '' : 's'} de asignar. Completa o cancela esas solicitudes antes de activarla.`
-                                            : 'No disponible en este momento.'}
-                            </p>
-                        </div>
-                        <PanelSwitch
-                            checked={automaticSelected}
-                            disabled={loadingEligibility}
-                            onChange={(checked) => {
-                                if (checked && !autoAcceptEligible) return;
-                                setForm((prev) => ({
-                                    ...prev,
-                                    bookingMode: checked ? 'auto_if_available' : 'manual',
-                                }));
-                            }}
-                            ariaLabel="Aceptación automática cuando el calendario está libre"
-                        />
-                    </div>
-                </div>
+                <p className="text-sm leading-relaxed text-fg-muted">
+                    {loadingEligibility
+                        ? 'Verificando tu calendario y solicitudes activas...'
+                        : autoAcceptEligible
+                            ? 'La aceptación automática está disponible para este negocio.'
+                            : blockingCount > 0
+                                ? `La aceptación automática no está disponible: tienes ${blockingCount} serenata${blockingCount === 1 ? '' : 's'} confirmada${blockingCount === 1 ? '' : 's'} o pendiente${blockingCount === 1 ? '' : 's'} de asignar. Completa o cancela esas solicitudes antes de activarla.`
+                                : 'La aceptación automática no está disponible en este momento.'}
+                </p>
             </PanelCard>
 
             <PanelCard size="lg" className="space-y-4">
-                <div className="flex items-start gap-3">
-                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-accent-soft text-accent">
-                        <IconBell size={18} />
-                    </div>
-                    <div>
-                        <p className="text-base font-semibold text-fg">Alertas de solicitudes</p>
-                        <p className="mt-1 text-sm leading-relaxed text-fg-muted">
-                            Configura los avisos cuando llegue una solicitud pagada del marketplace.
-                        </p>
-                    </div>
+                <div>
+                    <p className="text-base font-semibold text-fg">Alertas de solicitudes</p>
+                    <p className="mt-1 text-sm leading-relaxed text-fg-muted">
+                        Configura los avisos cuando llegue una solicitud pagada del marketplace.
+                    </p>
                 </div>
                 <SolicitudesInboxAlertsSettings embedded />
             </PanelCard>

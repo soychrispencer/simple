@@ -1,5 +1,5 @@
 import { Hono, type Context } from 'hono';
-import { and, asc, desc, eq, gt, gte, inArray, isNotNull, lte } from 'drizzle-orm';
+import { and, asc, desc, eq, gt, gte, inArray, isNotNull, lte, ne } from 'drizzle-orm';
 import { z } from 'zod';
 import { db } from '../../db/index.js';
 import {
@@ -128,6 +128,7 @@ const bankTransferDataSchema = z.object({
 
 export const providerGroupWriteSchema = z.object({
     name: z.string().min(2).max(160),
+    slug: z.string().regex(/^[a-z0-9-]{3,50}$/).optional(),
     description: emptyStringToNull,
     logoUrl: emptyStringToNull,
     coverUrl: emptyStringToNull,
@@ -135,7 +136,7 @@ export const providerGroupWriteSchema = z.object({
     whatsapp: emptyStringToNull,
     region: emptyStringToNull,
     comunaBase: emptyStringToNull,
-    serviceComunas: z.array(z.string().min(1)).default([]),
+    serviceComunas: z.array(z.string().min(1)).optional(),
     status: z.enum(['draft', 'active', 'paused', 'rejected']).optional(),
     slaHours: z.number().int().min(1).max(168).optional(),
     bookingMode: z.enum(BOOKING_MODES).optional(),
@@ -191,7 +192,7 @@ function publishBlockersErrorMessage(missing: string[]) {
 
 async function countPricedActiveServices(providerGroupId: string) {
     const rows = await db
-        .select({ id: serenataGroupServices.id })
+        .select({ id: serenataGroupServices.id, isActive: serenataGroupServices.isActive, price: serenataGroupServices.price })
         .from(serenataGroupServices)
         .where(and(
             eq(serenataGroupServices.providerGroupId, providerGroupId),
@@ -1088,9 +1089,12 @@ export function registerMarketplaceRoutes(app: Hono, deps: MarketplaceDeps) {
         if (!user) return deps.jsonError(c, 'No autenticado', 401);
         const access = await requireProviderGroupAccess(c, user.id, c.req.param('id'), deps);
         if (!access.ok) return access.response;
-        const parsed = providerGroupPatchSchema.safeParse(await c.req.json().catch(() => null));
+        const rawBody = await c.req.json().catch(() => null);
+        console.log('[marketplace PATCH] rawBody:', rawBody);
+        const parsed = providerGroupPatchSchema.safeParse(rawBody);
         if (!parsed.success) return deps.jsonError(c, 'Datos del grupo inválidos');
         const patch = parsed.data;
+        console.log('[marketplace PATCH] parsed.data:', patch);
         const group = access.group;
         if (patch.bookingMode === 'auto_if_available' && group.ownerId) {
             const eligible = await ownerCalendarIsClear(group.ownerId);
@@ -1119,8 +1123,22 @@ export function registerMarketplaceRoutes(app: Hono, deps: MarketplaceDeps) {
         if (patch.coverUrl !== undefined) {
             await cleanupReplacedMediaUrl(group.coverUrl, patch.coverUrl);
         }
+        let nextSlug: string | undefined;
+        if (patch.slug !== undefined && patch.slug !== group.slug) {
+            const existingSlug = await db.query.serenataProviderGroups.findFirst({
+                where: and(
+                    eq(serenataProviderGroups.slug, patch.slug),
+                    ne(serenataProviderGroups.id, access.group.id),
+                ),
+            });
+            if (existingSlug) {
+                return deps.jsonError(c, 'Ese link ya está en uso, prueba otro.', 409);
+            }
+            nextSlug = patch.slug;
+        }
         const [item] = await db.update(serenataProviderGroups).set({
             ...(patch.name !== undefined ? { name: patch.name } : {}),
+            ...(nextSlug !== undefined ? { slug: nextSlug } : {}),
             ...(patch.description !== undefined ? { description: patch.description } : {}),
             ...(patch.logoUrl !== undefined ? { logoUrl: patch.logoUrl } : {}),
             ...(patch.coverUrl !== undefined ? { coverUrl: patch.coverUrl } : {}),
@@ -1141,7 +1159,7 @@ export function registerMarketplaceRoutes(app: Hono, deps: MarketplaceDeps) {
             ...(patch.acceptsPaymentLink !== undefined ? { acceptsPaymentLink: patch.acceptsPaymentLink } : {}),
             ...(patch.paymentLinkUrl !== undefined ? { paymentLinkUrl: patch.paymentLinkUrl } : {}),
             ...(patch.bankTransferData !== undefined ? { bankTransferData: patch.bankTransferData } : {}),
-            ...(patch.name !== undefined ? { slug: await uniqueSlug(patch.name, access.group.id) } : {}),
+            ...(nextSlug === undefined && patch.name !== undefined ? { slug: await uniqueSlug(patch.name, access.group.id) } : {}),
             updatedAt: new Date(),
         }).where(eq(serenataProviderGroups.id, access.group.id)).returning();
         if (access.owner) {
