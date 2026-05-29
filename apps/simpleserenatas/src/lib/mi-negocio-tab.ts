@@ -1,4 +1,4 @@
-export const MI_NEGOCIO_TABS = ['datos', 'disponibilidad', 'servicios', 'repertorio', 'grupos', 'configuraciones', 'publicar'] as const;
+export const MI_NEGOCIO_TABS = ['datos', 'disponibilidad', 'servicios', 'repertorio', 'grupos', 'configuraciones'] as const;
 
 export type MiNegocioTab = (typeof MI_NEGOCIO_TABS)[number];
 
@@ -41,7 +41,5 @@ export function miNegocioTabLabel(tab: MiNegocioTab): string {
             return 'Grupos';
         case 'configuraciones':
             return 'Configuraciones';
-        case 'publicar':
-            return 'Publicar';
     }
 }

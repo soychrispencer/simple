@@ -60,7 +60,7 @@ function ownerItems(_profiles: Profiles, mariachi: ProviderGroup | null, service
             id: 'publish',
             label: 'Publicado en marketplace',
             done: mariachi?.status === 'active' && readyToPublish,
-            href: panelMiNegocioHref('publicar'),
+            href: panelMiNegocioHref('configuraciones'),
         },
     ];
 }

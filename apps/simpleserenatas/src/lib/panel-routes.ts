@@ -177,7 +177,7 @@ export function miNegocioTabFromPanelPath(pathname: string, search: string): MiN
     if (slug === 'disponibilidad') return 'disponibilidad';
     if (slug === 'servicios') return 'servicios';
     if (slug === 'jornadas' || slug === 'groups') return 'grupos';
-    if (slug === 'publicar') return 'publicar';
+    if (slug === 'publicar') return 'configuraciones';
     return miNegocioTabFromSearch(search);
 }
 

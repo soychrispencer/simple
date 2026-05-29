@@ -2357,7 +2357,7 @@ void refreshVehicleValuationFeeds();
     try {
         const migrationsFolder = path.resolve(__dirname, '../drizzle');
         await migrate(db, { migrationsFolder });
-        console.info('[simple-api] DB migrations applied');
+        console.info('[simple-api] DB migrations checked');
     } catch (error) {
         console.error('[simple-api] DB migration failed', error);
         if (!isProduction) {
@@ -2370,7 +2370,10 @@ void refreshVehicleValuationFeeds();
     try {
         const postJournal = await applyPostJournalMigrations(pgClient, {
             migrationsFolder: path.resolve(API_ROOT_DIR, 'drizzle'),
-            log: (message) => console.info(`[simple-api] post-journal ${message}`),
+            log: (message) => {
+                if (message.startsWith('  ya aplicado:')) return;
+                console.info(`[simple-api] post-journal ${message}`);
+            },
         });
         if (postJournal.appliedNow > 0) {
             console.info(`[simple-api] post-journal: ${postJournal.appliedNow} migración(es) aplicadas`);

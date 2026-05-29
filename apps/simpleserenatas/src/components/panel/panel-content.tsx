@@ -38,6 +38,9 @@ const GuardadosView = dynamic(() =>
 const FinanzasView = dynamic(() =>
     import('@/components/panel/finanzas/finanzas-view').then((mod) => mod.FinanzasView),
 );
+const MiNegocioPublishToggle = dynamic(() =>
+    import('@/components/panel/mi-negocio-publish-toggle').then((mod) => mod.MiNegocioPublishToggle),
+);
 
 export type PanelContentProps = {
     section: Section;
@@ -107,6 +110,7 @@ export function PanelContent(props: PanelContentProps) {
             <PanelSectionPage
                 title="Mi negocio"
                 description="Marca comercial (mariachi), servicios y grupos de músicos."
+                actions={<MiNegocioPublishToggle refresh={props.refresh} />}
             >
                 <MiNegocioView
                     tab={tab}
@@ -293,14 +297,16 @@ function PanelSectionPage({
     title,
     description,
     children,
+    actions,
 }: {
     title: string;
     description: string;
     children: ReactNode;
+    actions?: ReactNode;
 }) {
     return (
         <div className="grid w-full min-w-0 max-w-full gap-5 lg:gap-6">
-            <PanelPageHeader title={title} description={description} />
+            <PanelPageHeader title={title} description={description} actions={actions} />
             {children}
         </div>
     );

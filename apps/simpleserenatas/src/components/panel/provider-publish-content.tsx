@@ -3,11 +3,8 @@
 import { useEffect, useMemo, useState } from 'react';
 import { serenatasApi } from '@/lib/serenatas-api';
 import { useMyMariachi } from '@/hooks/use-my-mariachi';
-import { publicMariachiProfileUrl } from '@/lib/public-mariachi-routes';
 import { countPricedActiveServices } from '@/lib/provider-group-publish';
-import { ProviderPublicProfileLink, ProviderPublishQrPanel } from './provider-public-profile-link';
-
-const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? '';
+import { ProviderPublicProfileLink } from './provider-public-profile-link';
 
 export function ProviderPublishContent({ refresh }: { refresh: () => Promise<void> }) {
     const { mariachi, hasMariachi, loading, error, refresh: refreshMariachi } = useMyMariachi();
@@ -41,11 +38,6 @@ export function ProviderPublishContent({ refresh }: { refresh: () => Promise<voi
     );
 
     const isPublished = mariachi?.status === 'active';
-    const publicUrl = useMemo(
-        () => (mariachi ? publicMariachiProfileUrl(mariachi.slug, APP_URL || undefined) : ''),
-        [mariachi?.slug],
-    );
-
     if (loading) {
         return <p className="text-sm text-fg-muted">Cargando…</p>;
     }
@@ -70,7 +62,6 @@ export function ProviderPublishContent({ refresh }: { refresh: () => Promise<voi
                     await refresh();
                 }}
             />
-            <ProviderPublishQrPanel group={mariachi} url={publicUrl} className="hidden lg:block" />
         </div>
     );
 }
