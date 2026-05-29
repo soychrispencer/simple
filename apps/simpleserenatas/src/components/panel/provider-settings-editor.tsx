@@ -157,15 +157,15 @@ export function ProviderSettingsEditor({
                     </button>
                 </div>
 
-                <p className="text-sm leading-relaxed text-fg-muted">
-                    {loadingEligibility
-                        ? 'Verificando tu calendario y solicitudes activas...'
-                        : autoAcceptEligible
-                            ? 'La aceptación automática está disponible para este negocio.'
+                {loadingEligibility || !autoAcceptEligible ? (
+                    <p className="text-sm leading-relaxed text-fg-muted">
+                        {loadingEligibility
+                            ? 'Verificando tu calendario y solicitudes activas...'
                             : blockingCount > 0
                                 ? `La aceptación automática no está disponible: tienes ${blockingCount} serenata${blockingCount === 1 ? '' : 's'} confirmada${blockingCount === 1 ? '' : 's'} o pendiente${blockingCount === 1 ? '' : 's'} de asignar. Completa o cancela esas solicitudes antes de activarla.`
                                 : 'La aceptación automática no está disponible en este momento.'}
-                </p>
+                    </p>
+                ) : null}
             </PanelCard>
 
             <PanelCard size="lg" className="space-y-4">
