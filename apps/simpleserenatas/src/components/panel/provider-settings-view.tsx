@@ -3,6 +3,7 @@
 import { PanelButton, PanelNotice } from '@simple/ui/panel';
 import { useMyMariachi } from '@/hooks/use-my-mariachi';
 import { ProviderSettingsEditor } from '@/components/panel/provider-settings-editor';
+import { ProviderPublishContent } from '@/components/panel/provider-publish-content';
 import { EmptyBlock } from './shared';
 
 export function ProviderSettingsView({ refresh }: { refresh: () => Promise<void> }) {
@@ -37,5 +38,10 @@ export function ProviderSettingsView({ refresh }: { refresh: () => Promise<void>
         );
     }
 
-    return <ProviderSettingsEditor group={mariachi} onSaved={handleSaved} />;
+    return (
+        <div className="grid w-full gap-6 2xl:grid-cols-[minmax(0,1fr)_380px]">
+            <ProviderSettingsEditor group={mariachi} onSaved={handleSaved} />
+            <ProviderPublishContent refresh={refresh} />
+        </div>
+    );
 }
