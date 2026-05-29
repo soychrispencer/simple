@@ -3,9 +3,11 @@
 import { useEffect, useState } from 'react';
 import {
     IconAlertCircle,
+    IconBell,
     IconCalendarCheck,
     IconCheck,
     IconLoader2,
+    IconPointer,
 } from '@tabler/icons-react';
 import { PanelBlockHeader } from '@simple/ui/panel';
 import { PanelButton, PanelCard, PanelSwitch } from '@simple/ui/panel';
@@ -52,10 +54,14 @@ export function ProviderSettingsEditor({
             setBlockingCount(response.ok ? response.blockingCount ?? 0 : 0);
             setLoadingEligibility(false);
         });
-        return () => { cancelled = true; };
+        return () => {
+            cancelled = true;
+        };
     }, [group.id]);
 
     const bookingModeDirty = form.bookingMode !== (group.bookingMode ?? 'manual');
+    const hasChanges = bookingModeDirty;
+    const automaticSelected = form.bookingMode === 'auto_if_available';
 
     const handleSave = async () => {
         setSaving(true);
@@ -85,43 +91,89 @@ export function ProviderSettingsEditor({
     };
 
     return (
-        <div className="mx-auto w-full max-w-xl space-y-4">
+        <div className="w-full space-y-4">
             <PanelBlockHeader
-                title="Solicitudes"
-                description="Aceptación automática y alertas cuando llega una solicitud pagada."
+                title="Configuración del negocio"
+                description="Define cómo responderás las solicitudes pagadas y cómo quieres recibir los avisos."
             />
-            <PanelCard size="md" className="space-y-4">
-                <div className="flex items-start justify-between gap-4">
-                    <div className="flex min-w-0 flex-1 items-start gap-3">
-                        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-accent-soft text-accent">
-                            <IconCalendarCheck size={18} />
-                        </div>
+
+            <PanelCard size="lg" className="space-y-5">
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                    <div>
+                        <p className="text-base font-semibold text-fg">Respuesta a solicitudes</p>
+                        <p className="mt-1 max-w-2xl text-sm leading-relaxed text-fg-muted">
+                            Elige si cada solicitud queda para revisión manual o si se acepta sola cuando el horario
+                            está disponible.
+                        </p>
+                    </div>
+                    {automaticSelected && !hasChanges ? (
+                        <span className="inline-flex w-fit items-center rounded-full bg-accent-soft px-3 py-1 text-xs font-semibold text-accent">
+                            Automático activo
+                        </span>
+                    ) : null}
+                </div>
+
+                <div className="grid gap-3 md:grid-cols-2">
+                    <button
+                        type="button"
+                        onClick={() => setForm((prev) => ({ ...prev, bookingMode: 'manual' }))}
+                        className={`min-h-[132px] rounded-2xl border p-4 text-left transition-colors ${
+                            !automaticSelected
+                                ? 'border-accent-border bg-accent-soft text-fg'
+                                : 'border-[var(--border)] bg-[var(--surface)] text-fg hover:border-[var(--border-strong)]'
+                        }`}
+                    >
+                        <span className="flex items-center gap-3">
+                            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[var(--bg-subtle)] text-accent">
+                                <IconPointer size={18} />
+                            </span>
+                            <span className="text-sm font-semibold">Revisar manualmente</span>
+                        </span>
+                        <span className="mt-3 block text-sm leading-relaxed text-fg-muted">
+                            Cada solicitud pagada queda pendiente para que la aceptes, rechaces o coordines desde el
+                            panel.
+                        </span>
+                    </button>
+
+                    <button
+                        type="button"
+                        disabled={loadingEligibility || autoAcceptEligible === false}
+                        onClick={() => setForm((prev) => ({ ...prev, bookingMode: 'auto_if_available' }))}
+                        className={`min-h-[132px] rounded-2xl border p-4 text-left transition-colors disabled:cursor-not-allowed disabled:opacity-60 ${
+                            automaticSelected
+                                ? 'border-accent-border bg-accent-soft text-fg'
+                                : 'border-[var(--border)] bg-[var(--surface)] text-fg hover:border-[var(--border-strong)]'
+                        }`}
+                    >
+                        <span className="flex items-center gap-3">
+                            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[var(--bg-subtle)] text-accent">
+                                <IconCalendarCheck size={18} />
+                            </span>
+                            <span className="text-sm font-semibold">Aceptar automáticamente</span>
+                        </span>
+                        <span className="mt-3 block text-sm leading-relaxed text-fg-muted">
+                            Si el cliente paga y el horario está libre, la solicitud se acepta sin que tengas que
+                            responderla a mano.
+                        </span>
+                    </button>
+                </div>
+
+                <div className="rounded-2xl border border-[var(--border)] bg-[var(--bg-subtle)]/40 p-4">
+                    <div className="flex items-start justify-between gap-4">
                         <div className="min-w-0">
-                            <p className="text-sm font-semibold text-fg">Aceptación automática</p>
-                            <p className="mt-0.5 text-xs leading-relaxed text-fg-muted">
+                            <p className="text-sm font-semibold text-fg">Estado de aceptación automática</p>
+                            <p className="mt-1 text-sm leading-relaxed text-fg-muted">
                                 {loadingEligibility
-                                    ? 'Verificando tu calendario…'
+                                    ? 'Verificando tu calendario y solicitudes activas...'
                                     : autoAcceptEligible
-                                        ? 'Al pagar el cliente, si el horario está libre la solicitud se acepta sola. Luego asignas el grupo para confirmarla en Agenda.'
+                                        ? 'Disponible. Solo se aplicará cuando exista horario configurado y el bloque esté libre.'
                                         : blockingCount > 0
-                                            ? `Tienes ${blockingCount} serenata${blockingCount === 1 ? '' : 's'} confirmada${blockingCount === 1 ? '' : 's'} o pendiente${blockingCount === 1 ? '' : 's'} de asignar. Completa o cancela antes de activar.`
+                                            ? `No disponible: tienes ${blockingCount} serenata${blockingCount === 1 ? '' : 's'} confirmada${blockingCount === 1 ? '' : 's'} o pendiente${blockingCount === 1 ? '' : 's'} de asignar. Completa o cancela esas solicitudes antes de activarla.`
                                             : 'No disponible en este momento.'}
                             </p>
-                            {bookingModeDirty ? (
-                                <p className="mt-2 text-[11px] font-medium text-accent">
-                                    Guarda la configuración abajo para aplicar este cambio.
-                                </p>
-                            ) : null}
-                            {form.bookingMode === 'auto_if_available' && !bookingModeDirty ? (
-                                <p className="mt-2 text-[11px] text-fg-muted">
-                                    Activo. Solo con horario definido y slot libre al pagar el cliente.
-                                </p>
-                            ) : null}
                         </div>
-                    </div>
-                    <div className="shrink-0 self-center">
                         <PanelSwitch
-                            checked={form.bookingMode === 'auto_if_available'}
+                            checked={automaticSelected}
                             disabled={loadingEligibility}
                             onChange={(checked) => {
                                 if (checked && !autoAcceptEligible) return;
@@ -134,10 +186,24 @@ export function ProviderSettingsEditor({
                         />
                     </div>
                 </div>
+            </PanelCard>
+
+            <PanelCard size="lg" className="space-y-4">
+                <div className="flex items-start gap-3">
+                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-accent-soft text-accent">
+                        <IconBell size={18} />
+                    </div>
+                    <div>
+                        <p className="text-base font-semibold text-fg">Alertas de solicitudes</p>
+                        <p className="mt-1 text-sm leading-relaxed text-fg-muted">
+                            Configura los avisos cuando llegue una solicitud pagada del marketplace.
+                        </p>
+                    </div>
+                </div>
                 <SolicitudesInboxAlertsSettings embedded />
             </PanelCard>
 
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-end">
+            <div className="sticky bottom-3 z-10 flex flex-col gap-3 rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-3 shadow-sm sm:flex-row sm:items-center sm:justify-end">
                 {saveError ? (
                     <p className="flex items-center gap-1.5 text-sm text-[var(--color-error,#dc2626)] sm:mr-auto">
                         <IconAlertCircle size={14} className="shrink-0" />
@@ -150,9 +216,14 @@ export function ProviderSettingsEditor({
                         Configuración guardada
                     </p>
                 ) : null}
-                <PanelButton onClick={() => void handleSave()} disabled={saving}>
+                {!saveError && !saved ? (
+                    <p className="text-sm text-fg-muted sm:mr-auto">
+                        {hasChanges ? 'Tienes cambios sin guardar.' : 'Sin cambios pendientes.'}
+                    </p>
+                ) : null}
+                <PanelButton onClick={() => void handleSave()} disabled={saving || !hasChanges} variant="secondary">
                     {saving ? <IconLoader2 size={14} className="animate-spin" /> : null}
-                    {saving ? 'Guardando…' : 'Guardar'}
+                    {saving ? 'Guardando...' : 'Guardar'}
                 </PanelButton>
             </div>
         </div>
