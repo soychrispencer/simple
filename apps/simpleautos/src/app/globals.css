@@ -309,6 +309,23 @@
 .qp-btn-gallery { border-color: var(--border); background: var(--bg); color: var(--fg); }
 .qp-dropzone-icon { background: var(--bg-muted); color: var(--fg-muted); }
 .qp-dropzone-icon--active { background: var(--accent); color: white; }
+.qp-photo-start {
+    box-shadow: var(--shadow-sm);
+    background:
+        radial-gradient(circle at 18% 12%, color-mix(in oklab, var(--accent) 12%, transparent), transparent 34%),
+        var(--surface);
+}
+.qp-video-preview {
+    border-color: color-mix(in oklab, var(--accent) 18%, var(--border));
+    background: linear-gradient(135deg, color-mix(in oklab, var(--accent) 5%, var(--surface)), var(--surface));
+}
+
+@media (max-width: 640px) {
+    .qp-photo-start {
+        min-height: 9.5rem;
+        padding: 1.5rem;
+    }
+}
 .qp-dropzone--row { flex-direction: row; padding: 14px 20px; }
 .qp-dropzone--column { flex-direction: column; padding: 36px 24px; }
 .qp-dropzone-icon--sm { padding: 8px; }

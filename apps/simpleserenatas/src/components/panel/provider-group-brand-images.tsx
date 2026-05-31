@@ -13,7 +13,7 @@ const COVER_PLACEHOLDER_STYLE = {
 function DefaultLogoPreview() {
     return (
         <div className="flex h-full w-full items-center justify-center rounded-card bg-accent-soft text-accent">
-            <div className="flex h-16 w-16 items-center justify-center rounded-card bg-accent text-[color:var(--accent-contrast)] shadow-sm">
+            <div className="flex h-16 w-16 items-center justify-center rounded-card bg-accent text-(--accent-contrast) shadow-sm">
                 <IconUser size={28} aria-hidden="true" />
             </div>
         </div>
@@ -58,7 +58,7 @@ export function ProviderGroupBrandImages({
             <div className="mx-auto w-full max-w-md overflow-hidden rounded-card border border-border bg-surface shadow-sm">
                 <div className="relative">
                     <div
-                        className="aspect-[16/9] w-full bg-cover bg-center bg-accent-soft"
+                        className="aspect-video w-full bg-cover bg-center bg-accent-soft"
                         style={
                             coverUrl
                                 ? { backgroundImage: `url('${encodeURI(coverUrl)}')` }

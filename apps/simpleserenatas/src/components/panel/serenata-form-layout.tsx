@@ -45,7 +45,7 @@ export function SerenataFormStepIndicator<T extends number>({
                     >
                         <span
                             className={`flex size-5 shrink-0 items-center justify-center rounded-full text-[10px] font-bold ${
-                                active ? 'bg-accent text-[var(--button-primary-color)]' : 'bg-bg-subtle text-fg-muted'
+                                active ? 'bg-accent text-(--button-primary-color)' : 'bg-bg-subtle text-fg-muted'
                             }`}
                         >
                             {item.id}

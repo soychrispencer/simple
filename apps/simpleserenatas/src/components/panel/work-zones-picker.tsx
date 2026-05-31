@@ -44,8 +44,8 @@ function RegionChip({
             onClick={onClick}
             className={`rounded-lg border px-2.5 py-1.5 text-left text-xs font-medium transition ${
                 active
-                    ? 'border-[var(--accent-border)] bg-[var(--accent-soft)] text-[var(--accent)]'
-                    : 'border-border bg-bg-subtle text-fg hover:border-[var(--accent-border)]'
+                    ? 'border-(--accent-border) bg-(--accent-soft) text-(--accent)'
+                    : 'border-border bg-bg-subtle text-fg hover:border-(--accent-border)'
             }`}
         >
             <span className="line-clamp-2 leading-snug">{label}</span>
@@ -162,7 +162,7 @@ export function WorkZonesPicker({ value, onChange, disabled = false }: WorkZones
                     type="button"
                     onClick={openModal}
                     disabled={disabled}
-                    className="group w-full rounded-card border border-border bg-surface p-4 text-left shadow-sm transition-[border-color,box-shadow] hover:border-[var(--accent-border)] hover:shadow-md disabled:cursor-not-allowed disabled:opacity-60"
+                    className="group w-full rounded-card border border-border bg-surface p-4 text-left shadow-sm transition-[border-color,box-shadow] hover:border-(--accent-border) hover:shadow-md disabled:cursor-not-allowed disabled:opacity-60"
                 >
                     <div className="flex items-start gap-3">
                         <span
@@ -196,7 +196,7 @@ export function WorkZonesPicker({ value, onChange, disabled = false }: WorkZones
                         {visibleChips.map((communeName) => (
                             <span
                                 key={communeName}
-                                className="inline-flex items-center gap-1 rounded-full border border-[var(--accent-border)] bg-[var(--accent-soft)] px-2.5 py-1 text-xs font-medium text-[var(--accent)]"
+                                className="inline-flex items-center gap-1 rounded-full border border-(--accent-border) bg-(--accent-soft) px-2.5 py-1 text-xs font-medium text-(--accent)"
                             >
                                 <IconMapPin size={12} aria-hidden />
                                 {communeName}
@@ -303,14 +303,14 @@ export function WorkZonesPicker({ value, onChange, disabled = false }: WorkZones
                                                             onClick={() => toggleCommune(item.communeName)}
                                                             className={`flex w-full items-center gap-2 rounded-xl border px-3 py-2 text-left text-sm transition ${
                                                                 selected
-                                                                    ? 'border-[var(--accent-border)] bg-[var(--accent-soft)] text-[var(--accent)]'
-                                                                    : 'border-border bg-bg-subtle text-fg hover:border-[var(--accent-border)]'
+                                                                    ? 'border-(--accent-border) bg-(--accent-soft) text-(--accent)'
+                                                                    : 'border-border bg-bg-subtle text-fg hover:border-(--accent-border)'
                                                             }`}
                                                         >
                                                             <span
                                                                 className={`flex size-5 shrink-0 items-center justify-center rounded-md border ${
                                                                     selected
-                                                                        ? 'border-[var(--accent)] bg-[var(--accent)] text-[var(--accent-contrast)]'
+                                                                        ? 'border-(--accent) bg-(--accent) text-(--accent-contrast)'
                                                                         : 'border-border bg-surface'
                                                                 }`}
                                                             >
@@ -370,8 +370,8 @@ export function WorkZonesPicker({ value, onChange, disabled = false }: WorkZones
                                                     onClick={toggleActiveRegion}
                                                     className={`w-full shrink-0 rounded-xl border px-3 py-2 text-xs font-semibold transition sm:w-auto sm:py-1.5 ${
                                                         activeRegionAllSelected
-                                                            ? 'border-[var(--accent-border)] bg-[var(--accent-soft)] text-[var(--accent)]'
-                                                            : 'border-border bg-bg-subtle text-fg hover:border-[var(--accent-border)]'
+                                                            ? 'border-(--accent-border) bg-(--accent-soft) text-(--accent)'
+                                                            : 'border-border bg-bg-subtle text-fg hover:border-(--accent-border)'
                                                     }`}
                                                 >
                                                     {activeRegionAllSelected ? 'Quitar región' : 'Toda la región'}
@@ -394,14 +394,14 @@ export function WorkZonesPicker({ value, onChange, disabled = false }: WorkZones
                                                                 onClick={() => toggleCommune(commune.name)}
                                                                 className={`flex w-full items-center gap-2 rounded-lg border px-2.5 py-2 text-left text-sm transition sm:py-1.5 ${
                                                                     selected
-                                                                        ? 'border-[var(--accent-border)] bg-[var(--accent-soft)] font-medium text-[var(--accent)]'
+                                                                        ? 'border-(--accent-border) bg-(--accent-soft) font-medium text-(--accent)'
                                                                         : 'border-transparent bg-bg-subtle text-fg hover:border-border'
                                                                 }`}
                                                             >
                                                                 <span
                                                                     className={`flex size-4 shrink-0 items-center justify-center rounded border ${
                                                                         selected
-                                                                            ? 'border-[var(--accent)] bg-[var(--accent)] text-[var(--accent-contrast)]'
+                                                                            ? 'border-(--accent) bg-(--accent) text-(--accent-contrast)'
                                                                             : 'border-border bg-surface'
                                                                     }`}
                                                                 >

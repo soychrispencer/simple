@@ -69,6 +69,7 @@ export function BrandLogo({
             ? 'color-mix(in oklab, var(--accent-contrast) 88%, transparent)'
             : 'var(--accent)';
 
+    const useImageLogo = appId === 'simpleserenatas';
     const iconBox = clsx(
         'flex items-center justify-center border transition-[box-shadow,border-color,background-color,transform,filter] duration-[var(--serenatas-motion-duration,180ms)] ease-[var(--serenatas-motion-ease,cubic-bezier(0.16,1,0.3,1))]',
         size === 'sm' && 'w-8 h-8 rounded-[var(--radius)]',
@@ -85,7 +86,20 @@ export function BrandLogo({
     return (
         <span className={clsx('flex items-center gap-2 group shrink-0', className)}>
             <span className={iconBox} style={brandLogoIconWrapStyle(variant)}>
-                <Icon size={iconSize} />
+                {useImageLogo ? (
+                    <img
+                        src="/logo.png"
+                        alt={brand.shortName}
+                        className={clsx(
+                            'h-full w-full rounded-[inherit] object-contain',
+                            size === 'sm' && 'p-1.5',
+                            size === 'md' && 'p-2',
+                            size === 'lg' && 'p-3'
+                        )}
+                    />
+                ) : (
+                    <Icon size={iconSize} />
+                )}
             </span>
             {showWordmark ? (
                 <span

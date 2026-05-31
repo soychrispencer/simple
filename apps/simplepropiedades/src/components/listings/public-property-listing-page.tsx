@@ -58,6 +58,7 @@ function toCardData(item: PublicListing): PropertyListingCardData {
         badge: item.sectionLabel,
         variant: item.section,
         images: item.images,
+        videoUrl: item.videoUrl ?? undefined,
         projectStatus: item.section === 'project' ? item.summary[3] : undefined,
         listedSince: `Actualizado hace ${item.publishedAgo}`,
         engagement: {

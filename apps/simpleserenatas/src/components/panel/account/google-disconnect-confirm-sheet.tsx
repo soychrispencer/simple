@@ -21,17 +21,17 @@ export function GoogleDisconnectConfirmSheet({
         <PanelSheet onClose={onClose} ariaLabel="Desconectar Google" maxWidthClass="sm:max-w-sm">
             <div className="p-5 sm:p-6">
                 <div className="flex items-center justify-between gap-3">
-                    <h2 className="text-lg font-semibold text-[var(--fg)]">Desconectar Google</h2>
+                    <h2 className="text-lg font-semibold text-(--fg)">Desconectar Google</h2>
                     <button
                         type="button"
-                        className="rounded-lg p-1.5 text-[var(--fg-muted)] hover:bg-[var(--bg-subtle)]"
+                        className="rounded-lg p-1.5 text-(--fg-muted) hover:bg-(--bg-subtle)"
                         onClick={onClose}
                         aria-label="Cerrar"
                     >
                         <IconX size={18} />
                     </button>
                 </div>
-                <p className="mt-2 text-sm text-[var(--fg-muted)]">
+                <p className="mt-2 text-sm text-(--fg-muted)">
                     {hasPassword
                         ? 'Ya no podrás entrar con Google. Podrás usar tu correo y contraseña.'
                         : 'Sin contraseña no podrás volver a entrar. Créala antes de desconectar Google.'}

@@ -41,7 +41,7 @@ export function MarketplaceGroupCard({
                 aria-label={`Ver mariachi ${group.name}`}
                 onClick={open}
             >
-                <div className="relative aspect-[16/9] shrink-0 overflow-hidden">
+                <div className="relative aspect-video shrink-0 overflow-hidden">
                     <MarketplaceGroupCover group={group} className="h-full min-h-full" />
                     <div
                         className="pointer-events-none absolute inset-0 bg-gradient-to-t from-surface via-surface/25 to-transparent"
@@ -149,7 +149,7 @@ export function MarketplaceGroupCard({
 export function MarketplaceGroupCardSkeleton() {
     return (
         <div className="flex h-full flex-col overflow-hidden rounded-card border border-border bg-surface">
-            <div className="aspect-[16/9] animate-pulse bg-bg-subtle" />
+            <div className="aspect-video animate-pulse bg-bg-subtle" />
             <div className="flex flex-1 flex-col gap-3 px-4 pb-4 pt-4">
                 <div className="flex gap-3">
                     <div className="size-14 shrink-0 animate-pulse rounded-card bg-bg-subtle" />

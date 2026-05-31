@@ -36,8 +36,8 @@ export function OwnerOnboardingCard({
 
     return (
         <PanelCard className="border-accent-border bg-accent-soft">
-            <h3 className="text-lg font-semibold text-[var(--fg)]">Crea tu mariachi en el marketplace</h3>
-            <p className="mt-2 text-sm text-[var(--fg-muted)]">
+            <h3 className="text-lg font-semibold text-(--fg)">Crea tu mariachi en el marketplace</h3>
+            <p className="mt-2 text-sm text-(--fg-muted)">
                 Aún no tienes un mariachi publicado en el marketplace. Configura tu marca comercial, servicios y zonas de trabajo para
                 recibir solicitudes directas de clientes.
             </p>

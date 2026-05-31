@@ -183,7 +183,7 @@ export function OwnerGroupRegisterPage() {
 
     return (
         <div className="auth-register-page flex min-h-screen flex-col lg:flex-row">
-            <div className="auth-register-form flex flex-1 flex-col bg-white dark:bg-[var(--surface)]">
+            <div className="auth-register-form flex flex-1 flex-col bg-white dark:bg-(--surface)">
                 <div className="flex flex-1 flex-col px-5 py-6 sm:px-10 sm:py-8 lg:max-w-xl lg:px-14 lg:py-10">
                     <button
                         type="button"
@@ -332,9 +332,9 @@ export function OwnerGroupRegisterPage() {
                                     {step === 2 ? (
                                         <>
                                             <div className="flex items-center gap-3 py-1">
-                                                <div className="h-px flex-1 bg-[var(--border)]" />
+                                                <div className="h-px flex-1 bg-(--border)" />
                                                 <span className="text-xs text-fg-muted">o</span>
-                                                <div className="h-px flex-1 bg-[var(--border)]" />
+                                                <div className="h-px flex-1 bg-(--border)" />
                                             </div>
                                             <GoogleLoginButton
                                                 disabled={submitting}

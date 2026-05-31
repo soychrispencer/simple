@@ -39,7 +39,7 @@ const LOGO_SIZES = {
 } as const;
 
 const LOGO_FRAME =
-    'flex shrink-0 items-center justify-center overflow-hidden rounded-card border-4 border-[var(--bg)] bg-accent-soft font-bold text-accent shadow-sm';
+    'flex shrink-0 items-center justify-center overflow-hidden rounded-card border-4 border-(--bg) bg-accent-soft font-bold text-accent shadow-sm';
 
 export function MarketplaceGroupLogo({
     group,

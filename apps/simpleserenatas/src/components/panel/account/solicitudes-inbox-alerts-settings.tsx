@@ -17,14 +17,14 @@ function AlertSettingRow({
     action: ReactNode;
 }) {
     return (
-        <div className="flex items-start justify-between gap-4 rounded-xl border border-[var(--border)] bg-[var(--surface)] px-4 py-3">
+        <div className="flex items-start justify-between gap-4 rounded-xl border border-(--border) bg-(--surface) px-4 py-3">
             <div className="flex min-w-0 flex-1 items-start gap-3">
                 <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-accent-soft text-accent">
                     <Icon size={18} />
                 </div>
                 <div className="min-w-0">
-                    <p className="text-sm font-medium text-[var(--fg)]">{title}</p>
-                    <p className="mt-0.5 text-xs leading-relaxed text-[var(--fg-muted)]">{description}</p>
+                    <p className="text-sm font-medium text-(--fg)">{title}</p>
+                    <p className="mt-0.5 text-xs leading-relaxed text-(--fg-muted)">{description}</p>
                 </div>
             </div>
             <div className="shrink-0 self-center">{action}</div>
@@ -46,11 +46,11 @@ export function SolicitudesInboxAlertsSettings({ embedded = false }: { embedded?
     const browserGranted = solicitudesBrowserNotificationsEnabled;
 
     return (
-        <div className={`space-y-3 ${embedded ? '' : 'rounded-xl border border-[var(--border)] bg-[var(--bg-subtle)]/30 p-4'}`}>
+        <div className={`space-y-3 ${embedded ? '' : 'rounded-xl border border-(--border) bg-(--bg-subtle)/30 p-4'}`}>
             {!embedded ? (
                 <div>
-                    <p className="text-sm font-medium text-[var(--fg)]">Solicitudes del marketplace</p>
-                    <p className="mt-1 text-xs leading-relaxed text-[var(--fg-muted)]">
+                    <p className="text-sm font-medium text-(--fg)">Solicitudes del marketplace</p>
+                    <p className="mt-1 text-xs leading-relaxed text-(--fg-muted)">
                         Alertas en el panel cuando llega una solicitud pagada que debes responder.
                     </p>
                 </div>
@@ -101,7 +101,7 @@ export function SolicitudesInboxAlertsSettings({ embedded = false }: { embedded?
                         }
                     />
                     {browserGranted ? (
-                        <p className="px-1 text-xs text-[var(--fg-muted)]">Activado en este navegador.</p>
+                        <p className="px-1 text-xs text-(--fg-muted)">Activado en este navegador.</p>
                     ) : null}
                     {browserDenied ? (
                         <PanelNotice tone="warning" className="text-xs">

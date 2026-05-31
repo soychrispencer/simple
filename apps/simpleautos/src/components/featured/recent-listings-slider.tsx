@@ -52,6 +52,7 @@ function mapPublicListingToVehicleCard(item: PublicListing): VehicleListingCardD
         badge: item.sectionLabel,
         variant: item.section,
         images: item.images,
+        videoUrl: item.videoUrl ?? undefined,
         listedSince: `Actualizado hace ${item.publishedAgo}`,
         engagement: {
             views24h: item.views,

@@ -110,7 +110,7 @@ export function MusicianAvailabilityToggle({
             </div>
             <p className="panel-text-muted mt-2 w-full text-sm leading-snug">{hint}</p>
             {error ? (
-                <p className="mt-2 w-full text-sm text-[var(--danger)]" role="alert">
+                <p className="mt-2 w-full text-sm text-(--danger)" role="alert">
                     {error}
                 </p>
             ) : null}

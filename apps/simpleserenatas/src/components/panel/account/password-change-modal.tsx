@@ -38,17 +38,17 @@ export function PasswordChangeModal({
         <PanelSheet onClose={onClose} ariaLabel={title} maxWidthClass="sm:max-w-sm">
             <div className="p-5 sm:p-6">
                 <div className="flex items-center justify-between gap-3">
-                    <h2 className="text-lg font-semibold text-[var(--fg)]">{title}</h2>
+                    <h2 className="text-lg font-semibold text-(--fg)">{title}</h2>
                     <button
                         type="button"
-                        className="rounded-lg p-1.5 text-[var(--fg-muted)] hover:bg-[var(--bg-subtle)]"
+                        className="rounded-lg p-1.5 text-(--fg-muted) hover:bg-(--bg-subtle)"
                         onClick={onClose}
                         aria-label="Cerrar"
                     >
                         <IconX size={18} />
                     </button>
                 </div>
-                <p className="mt-2 text-sm text-[var(--fg-muted)]">
+                <p className="mt-2 text-sm text-(--fg-muted)">
                     {hasPassword
                         ? 'Usa una clave segura de al menos 8 caracteres.'
                         : 'Así podrás entrar con tu correo además de Google.'}
@@ -82,7 +82,7 @@ export function PasswordChangeModal({
                     </PanelField>
                 </div>
                 {hasPassword ? (
-                    <p className="mt-3 text-xs text-[var(--fg-muted)]">
+                    <p className="mt-3 text-xs text-(--fg-muted)">
                         ¿La olvidaste?{' '}
                         <Link href="/auth/restablecer" className="font-medium underline underline-offset-2" onClick={onClose}>
                             Restablecer acceso

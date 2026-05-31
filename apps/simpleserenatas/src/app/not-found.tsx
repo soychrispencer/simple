@@ -21,7 +21,7 @@ export default function NotFound() {
             secondaryAction={
                 <Link
                     href="/mariachis"
-                    className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-medium border transition-colors hover:bg-[var(--bg-subtle)]"
+                    className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-medium border transition-colors hover:bg-(--bg-subtle)"
                     style={{ borderColor: 'var(--border)', color: 'var(--fg)' }}
                 >
                     Explorar mariachis

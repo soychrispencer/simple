@@ -163,7 +163,7 @@ export function PublicMarketplacePage() {
             : `0 mariachis en ${resultsLabel}${dateSuffix}.`;
 
     return (
-        <div className="flex min-h-screen min-w-0 flex-col overflow-x-hidden bg-[var(--bg)] text-[var(--fg)]">
+        <div className="flex min-h-screen min-w-0 flex-col overflow-x-hidden bg-(--bg) text-(--fg)">
             <SerenatasChromeHeader publicLinks={serenatasExploreNavLinks} />
 
             <main className="flex-1 border-b border-border">
@@ -185,7 +185,7 @@ export function PublicMarketplacePage() {
                         </p>
                     </div>
 
-                    <div className="sticky top-[calc(4rem+env(safe-area-inset-top,0px))] z-30 -mx-3 mb-6 border-b border-border bg-[var(--bg)]/95 px-3 py-3 backdrop-blur-md sm:static sm:mx-0 sm:border-b-0 sm:bg-transparent sm:px-0 sm:py-0 sm:backdrop-blur-none">
+                    <div className="sticky top-[calc(4rem+env(safe-area-inset-top,0px))] z-30 -mx-3 mb-6 border-b border-border bg-(--bg)/95 px-3 py-3 backdrop-blur-md sm:static sm:mx-0 sm:border-b-0 sm:bg-transparent sm:px-0 sm:py-0 sm:backdrop-blur-none">
                         <MarketplaceSearchPanel
                             value={draft}
                             onChange={setDraft}

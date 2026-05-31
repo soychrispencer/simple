@@ -776,7 +776,7 @@ export function ProfileView({
                         notificationsReady ? (
                             <>
                                 {notificationPrefsDirty ? (
-                                    <span className="text-xs text-[var(--fg-muted)]">Sin guardar</span>
+                                    <span className="text-xs text-(--fg-muted)">Sin guardar</span>
                                 ) : null}
                                 <PanelButton
                                     type="button"
@@ -791,14 +791,14 @@ export function ProfileView({
                         ) : null
                     }
                 />
-                <p className="text-sm leading-relaxed text-[var(--fg-muted)]">
+                <p className="text-sm leading-relaxed text-(--fg-muted)">
                     {notificationPrefsContextDescription(appMode, profiles)}
                 </p>
                 <span className="sr-only">Canales disponibles: por correo y por WhatsApp.</span>
                 {!notificationsReady ? (
                     <NotificationPrefsSkeleton rows={notificationCategoryRows.length} />
                 ) : (
-                <div className="divide-y divide-[var(--border)] rounded-xl border border-[var(--border)] bg-[var(--bg-subtle)]/30 px-2 sm:px-3">
+                <div className="divide-y divide-(--border) rounded-xl border border-(--border) bg-(--bg-subtle)/30 px-2 sm:px-3">
                     {notificationCategoryRows.map(({ key, label, hint, whatsappAvailable }) => (
                         <NotificationCategoryRow
                             key={key}
@@ -831,11 +831,11 @@ export function ProfileView({
                         categoryNotificationPrefs,
                         phone.trim() || accountUser?.phone || '',
                     ) ? (
-                        <p className="px-1 py-4 text-xs leading-relaxed text-[var(--fg-muted)]">
+                        <p className="px-1 py-4 text-xs leading-relaxed text-(--fg-muted)">
                             Para WhatsApp necesitas un móvil chileno en{' '}
                             <button
                                 type="button"
-                                className="font-medium text-[var(--accent)] underline-offset-2 hover:underline"
+                                className="font-medium text-(--accent) underline-offset-2 hover:underline"
                                 onClick={() => void selectSubsection('data')}
                             >
                                 Datos personales
@@ -866,7 +866,7 @@ export function ProfileView({
                         </div>
                         <div className="min-w-0">
                             <div className="flex flex-wrap items-center gap-2">
-                                <h3 className="text-sm font-semibold text-[var(--fg)]">Google Calendar</h3>
+                                <h3 className="text-sm font-semibold text-(--fg)">Google Calendar</h3>
                                 {!gcLoading && gcConnected ? (
                                     <PanelStatusBadge tone="success" label="Conectado" size="sm" />
                                 ) : null}
@@ -878,7 +878,7 @@ export function ProfileView({
                     </div>
                     <div className="shrink-0 sm:ml-4">
                         {gcLoading ? (
-                            <p className="flex items-center justify-center gap-2 text-sm text-[var(--fg-muted)] sm:justify-end">
+                            <p className="flex items-center justify-center gap-2 text-sm text-(--fg-muted) sm:justify-end">
                                 <IconLoader2 size={14} className="animate-spin" aria-hidden />
                                 <span className="hidden sm:inline">Verificando…</span>
                             </p>
@@ -962,7 +962,7 @@ export function ProfileView({
                             onError={(error) => setAccountStatus({ loading: false, error, ok: null })}
                         />
                         <div className="min-w-0 text-center sm:text-left">
-                            <p className="truncate text-lg font-semibold text-[var(--fg)]">{displayName}</p>
+                            <p className="truncate text-lg font-semibold text-(--fg)">{displayName}</p>
                             <div className="mt-2 flex flex-wrap items-center justify-center gap-2 sm:justify-start">
                                 <PanelStatusBadge
                                     tone={emailVerified ? 'success' : 'warning'}
@@ -972,8 +972,8 @@ export function ProfileView({
                         </div>
                     </div>
 
-                    <div className="border-t border-[var(--border)] pt-6">
-                        <p className="mb-3 text-sm font-medium text-[var(--fg)]">Tu perfil</p>
+                    <div className="border-t border-(--border) pt-6">
+                        <p className="mb-3 text-sm font-medium text-(--fg)">Tu perfil</p>
                         <div className="grid gap-3 sm:grid-cols-2">
                             <PanelField label="Nombre">
                                 <FieldInput value={firstName} onChange={(e) => setFirstName(e.target.value)} placeholder="Ej: Felipe" />
@@ -994,12 +994,12 @@ export function ProfileView({
                                     aria-invalid={phoneFieldError ? true : undefined}
                                 />
                                 {phoneFieldError ? (
-                                    <p className="text-xs text-[var(--color-error,#b91c1c)]">{phoneFieldError}</p>
+                                    <p className="text-xs text-(--color-error,#b91c1c)">{phoneFieldError}</p>
                                 ) : (
-                                    <p className="mt-1 text-xs text-[var(--fg-muted)]">
+                                    <p className="mt-1 text-xs text-(--fg-muted)">
                                         Para que el mariachi te contacte al coordinar la serenata. La dirección del evento la
                                         indicas al solicitar o en la pestaña{' '}
-                                        <strong className="font-medium text-[var(--fg)]">Direcciones</strong>.
+                                        <strong className="font-medium text-(--fg)">Direcciones</strong>.
                                     </p>
                                 )}
                             </PanelField>
@@ -1015,7 +1015,7 @@ export function ProfileView({
                                     aria-invalid={phoneFieldError ? true : undefined}
                                 />
                                 {phoneFieldError ? (
-                                    <p className="text-xs text-[var(--color-error,#b91c1c)]">{phoneFieldError}</p>
+                                    <p className="text-xs text-(--color-error,#b91c1c)">{phoneFieldError}</p>
                                 ) : null}
                             </PanelField>
                         ) : null}
@@ -1033,8 +1033,8 @@ export function ProfileView({
                         ) : null}
                     </div>
 
-                    <div className="border-t border-[var(--border)] pt-6">
-                        <p className="mb-2 text-sm font-medium text-[var(--fg)]">Inicio de sesión</p>
+                    <div className="border-t border-(--border) pt-6">
+                        <p className="mb-2 text-sm font-medium text-(--fg)">Inicio de sesión</p>
                         <PanelPersonalDataList>
                             <PanelPersonalDataRow
                                 label="Correo"
@@ -1110,7 +1110,7 @@ export function ProfileView({
                         </PanelPersonalDataList>
                         <div className="mt-2 space-y-1">
                             {googleLinkNotice ? (
-                                <PanelNotice tone="warning" className="!px-3 !py-2.5">
+                                <PanelNotice tone="warning" className="px-3! py-2.5!">
                                     {googleLinkNotice}
                                 </PanelNotice>
                             ) : null}
@@ -1162,12 +1162,12 @@ export function ProfileView({
                 </div>
             </PanelCard>
 
-            <PanelCard className="border-[var(--danger,#b91c1c)]/30">
+            <PanelCard className="border-(--danger,#b91c1c)/30">
                 <PanelBlockHeader
                     title="Eliminar cuenta"
                     description="Borra tu usuario, perfiles de músico/cliente/dueño, mariachis, grupos, direcciones e imágenes subidas a Simple. Esta acción no se puede deshacer."
                 />
-                <PanelNotice tone="warning" className="mt-4 !px-3 !py-2.5">
+                <PanelNotice tone="warning" className="mt-4 px-3! py-2.5!">
                     <p className="text-xs leading-relaxed">
                         Las serenatas y datos de negocio de <strong className="font-medium">otros usuarios</strong> no se
                         eliminan; solo dejas de aparecer en ellos. Copias de respaldo del servidor pueden conservarse un
@@ -1215,7 +1215,7 @@ export function ProfileView({
                 />
                 <div className="mt-4 grid gap-5">
                     <div className="grid gap-4">
-                        <p className="text-[10px] font-semibold uppercase tracking-wide text-[var(--fg-muted)]">
+                        <p className="text-[10px] font-semibold uppercase tracking-wide text-(--fg-muted)">
                             Quién eres
                         </p>
                         <PanelField label="Presentación pública (opcional)">
@@ -1237,13 +1237,13 @@ export function ProfileView({
                                 disabled={saving}
                             />
                             {experienceYearsError ? (
-                                <p className="mt-1 text-xs text-[var(--danger)]">{experienceYearsError}</p>
+                                <p className="mt-1 text-xs text-(--danger)">{experienceYearsError}</p>
                             ) : null}
                         </PanelField>
                     </div>
 
-                    <div className="grid gap-3 border-t border-[var(--border)] pt-5">
-                        <p className="text-[10px] font-semibold uppercase tracking-wide text-[var(--fg-muted)]">
+                    <div className="grid gap-3 border-t border-(--border) pt-5">
+                        <p className="text-[10px] font-semibold uppercase tracking-wide text-(--fg-muted)">
                             Dónde te ubican
                         </p>
                         <RegionCommuneFields
@@ -1254,20 +1254,20 @@ export function ProfileView({
                             disabled={saving}
                             optional
                         />
-                        <p className="text-xs text-[var(--fg-muted)]">
+                        <p className="text-xs text-(--fg-muted)">
                             La comuna base aparece en el directorio de músicos. La cobertura del mariachi se configura en
                             Mi negocio.
                         </p>
                     </div>
 
-                    <div className="grid gap-3 border-t border-[var(--border)] pt-5">
-                        <p className="text-[10px] font-semibold uppercase tracking-wide text-[var(--fg-muted)]">
+                    <div className="grid gap-3 border-t border-(--border) pt-5">
+                        <p className="text-[10px] font-semibold uppercase tracking-wide text-(--fg-muted)">
                             Para integrar grupos
                         </p>
-                        <div className="flex items-center justify-between gap-4 rounded-xl border border-[var(--border)] px-4 py-3">
+                        <div className="flex items-center justify-between gap-4 rounded-xl border border-(--border) px-4 py-3">
                             <div className="min-w-0">
-                                <p className="text-sm font-medium text-[var(--fg)]">¿Cuentas con instrumento propio?</p>
-                                <p className="mt-0.5 text-xs text-[var(--fg-muted)]">
+                                <p className="text-sm font-medium text-(--fg)">¿Cuentas con instrumento propio?</p>
+                                <p className="mt-0.5 text-xs text-(--fg-muted)">
                                     Los dueños ven qué instrumentos aportas al armar el grupo.
                                 </p>
                             </div>
@@ -1299,10 +1299,10 @@ export function ProfileView({
                                 </PanelField>
                             </div>
                         ) : null}
-                        <div className="flex items-center justify-between gap-4 rounded-xl border border-[var(--border)] px-4 py-3">
+                        <div className="flex items-center justify-between gap-4 rounded-xl border border-(--border) px-4 py-3">
                             <div className="min-w-0">
-                                <p className="text-sm font-medium text-[var(--fg)]">¿Cuentas con tenida de mariachi?</p>
-                                <p className="mt-0.5 text-xs text-[var(--fg-muted)]">
+                                <p className="text-sm font-medium text-(--fg)">¿Cuentas con tenida de mariachi?</p>
+                                <p className="mt-0.5 text-xs text-(--fg-muted)">
                                     Traje o vestimenta típica para presentaciones formales.
                                 </p>
                             </div>

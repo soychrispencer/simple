@@ -101,7 +101,7 @@ export function PublicLanding({
     );
 
     return (
-        <div className="flex min-h-screen min-w-0 flex-col overflow-x-hidden bg-[var(--bg)] text-[var(--fg)]">
+        <div className="flex min-h-screen min-w-0 flex-col overflow-x-hidden bg-(--bg) text-(--fg)">
             {header ?? <LandingHeader onLogin={onLogin} onRegister={onRegisterClient} />}
 
             <main className="flex-1">

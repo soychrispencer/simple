@@ -50,14 +50,14 @@
        Ejemplo SimpleSerenatas: --accent: #E11D48 en apps/simpleserenatas/src/app/globals.css.
        No usamos applyVerticalTheme() en runtime: Next inyecta tokens por app en build; evita flash y mantiene SSR estático. */
     /* Modales/dialogs del panel: preferir rounded-card (--radius-card) salvo overlays fullscreen documentados en la app. */
-    --button-primary-bg: #111111;
+    --button-primary-bg: var(--accent);
     --button-primary-color: #ffffff;
-    --button-primary-border: #111111;
-    --button-primary-shadow: 0 10px 24px rgba(17, 17, 17, 0.16);
-    --button-primary-hover-bg: #1a1a1a;
+    --button-primary-border: var(--accent);
+    --button-primary-shadow: 0 14px 30px color-mix(in oklab, var(--accent) 24%, transparent);
+    --button-primary-hover-bg: color-mix(in oklab, var(--accent) 88%, #000000 12%);
     --button-primary-hover-color: #ffffff;
-    --button-primary-hover-border: #1a1a1a;
-    --button-primary-hover-shadow: 0 14px 28px rgba(17, 17, 17, 0.22);
+    --button-primary-hover-border: color-mix(in oklab, var(--accent) 88%, #000000 12%);
+    --button-primary-hover-shadow: 0 18px 38px color-mix(in oklab, var(--accent) 30%, transparent);
     --field-focus-border: var(--accent);
     --field-focus-ring: color-mix(in oklab, var(--accent) 12%, transparent);
     --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.04);
@@ -108,14 +108,14 @@
     --accent-soft: rgba(255, 255, 255, 0.08);
     --accent-border: rgba(255, 255, 255, 0.22);
     --accent-contrast: #111111;
-    --button-primary-bg: #f5f5f5;
-    --button-primary-color: #111111;
-    --button-primary-border: rgba(255, 255, 255, 0.08);
-    --button-primary-shadow: 0 14px 30px rgba(0, 0, 0, 0.34);
-    --button-primary-hover-bg: #ffffff;
-    --button-primary-hover-color: #111111;
-    --button-primary-hover-border: rgba(255, 255, 255, 0.18);
-    --button-primary-hover-shadow: 0 18px 34px rgba(0, 0, 0, 0.42);
+    --button-primary-bg: var(--accent);
+    --button-primary-color: var(--accent-contrast);
+    --button-primary-border: var(--accent);
+    --button-primary-shadow: 0 16px 34px color-mix(in oklab, var(--accent) 26%, transparent);
+    --button-primary-hover-bg: color-mix(in oklab, var(--accent) 86%, #ffffff 14%);
+    --button-primary-hover-color: var(--accent-contrast);
+    --button-primary-hover-border: color-mix(in oklab, var(--accent) 86%, #ffffff 14%);
+    --button-primary-hover-shadow: 0 20px 42px color-mix(in oklab, var(--accent) 32%, transparent);
     --color-error: #f87171;
     --color-error-subtle: rgba(248, 113, 113, 0.12);
     --color-success: #34d399;
@@ -503,6 +503,18 @@ h4 {
     border-radius: var(--radius-card);
     border: 1px solid var(--border);
     background: var(--surface);
+}
+
+.marketplace-card-social {
+    border-radius: calc(var(--radius-card) + 8px);
+    border: 1px solid color-mix(in oklab, var(--border) 86%, transparent);
+    background: var(--surface);
+    box-shadow: var(--shadow-sm);
+}
+
+.marketplace-card-social:hover {
+    border-color: color-mix(in oklab, var(--accent) 28%, var(--border));
+    box-shadow: var(--shadow-lg);
 }
 
 /* Listing owner actions */

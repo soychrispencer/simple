@@ -469,7 +469,7 @@ export function SerenataRow({ item, context = 'default' }: { item: Serenata; con
                     label={label}
                 />
             </div>
-            <div className="mt-3 flex items-center justify-between gap-3 text-sm text-[var(--fg-muted)]">
+            <div className="mt-3 flex items-center justify-between gap-3 text-sm text-(--fg-muted)">
                 <span>{item.eventType ?? 'Serenata'}</span>
                 <span>{money(item.price)}</span>
             </div>

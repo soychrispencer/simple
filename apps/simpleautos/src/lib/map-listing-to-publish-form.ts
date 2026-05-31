@@ -10,6 +10,7 @@ export type PublishFormPhoto = {
 
 export type PublishFormData = {
     photos: PublishFormPhoto[];
+    reelVideo: { id: string; preview: string; name: string; mimeType: string; sizeBytes: number } | null;
     listingType: 'sale' | 'rent' | 'auction';
     vehicleType: VehicleCatalogType;
     brandId: string;
@@ -77,6 +78,8 @@ export function mapPanelListingToPublishForm(listing: PanelListing): PublishForm
             isCover: photo.isCover === true || index === 0,
         };
     });
+    const rawVideo = asRecord(media.discoverVideo);
+    const videoPreview = asString(rawVideo.previewUrl) || asString(rawVideo.dataUrl) || asString(media.videoUrl);
 
     const priceDigits = asString(listing.price).replace(/\D/g, '') || asString(commercial.price).replace(/\D/g, '');
     const offerDigits = asString(commercial.offerPrice).replace(/\D/g, '');
@@ -89,6 +92,13 @@ export function mapPanelListingToPublishForm(listing: PanelListing): PublishForm
 
     return {
         photos,
+        reelVideo: videoPreview ? {
+            id: asString(rawVideo.id, 'video-1'),
+            preview: videoPreview,
+            name: asString(rawVideo.name, 'video-publicacion'),
+            mimeType: asString(rawVideo.mimeType, 'video/mp4'),
+            sizeBytes: Number(rawVideo.sizeBytes ?? 0),
+        } : null,
         listingType: listingType === 'rent' || listingType === 'auction' ? listingType : 'sale',
         vehicleType: (setup.vehicleType as VehicleCatalogType) ?? 'car',
         brandId: asString(basic.brandId),

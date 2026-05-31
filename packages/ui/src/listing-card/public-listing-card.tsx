@@ -46,7 +46,7 @@ export default function PublicListingCard(props: PublicListingCardProps) {
     const effectiveCtaLabel = ctaLabel ?? defaultCtaByVariant(variant);
     const badges = useMemo(() => buildPrimaryBadges(props), [props]);
 
-    const aspectClass = accent === 'propiedades' ? 'aspect-[3/2]' : 'aspect-[4/3]';
+    const aspectClass = 'aspect-[4/5] sm:aspect-[9/13]';
 
     const handleCardClick = () => {
         if (onClick) onClick(id);
@@ -204,7 +204,7 @@ export default function PublicListingCard(props: PublicListingCardProps) {
             onKeyDown={(e) => {
                 if (e.key === 'Enter') handleCardClick();
             }}
-            className="group/card relative flex h-full flex-col cursor-pointer rounded-card border transition-all duration-200 hover:shadow-lg hover:-translate-y-[2px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-[var(--accent)]"
+            className="marketplace-card-social group/card relative flex h-full flex-col cursor-pointer overflow-hidden transition-all duration-200 hover:-translate-y-[2px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-[var(--accent)]"
             style={{ borderColor: 'var(--border)', background: 'var(--surface)' }}
         >
             <div className="relative">
@@ -214,31 +214,31 @@ export default function PublicListingCard(props: PublicListingCardProps) {
                     seed={id}
                     accent={accent}
                     aspectClassName={aspectClass}
-                    rounded="rounded-t-2xl"
+                    rounded="rounded-t-[24px]"
                 />
                 <ListingBadgeStack badges={badges} size="sm" />
                 {saveButton}
             </div>
 
-            <div className="flex flex-1 flex-col p-4">
-                <div className="flex flex-1 flex-col justify-center gap-2.5 text-center">
-                    <ListingPriceBlock price={price} size="hero" alignment="center" />
+            <div className="flex flex-1 flex-col p-3.5 sm:p-4">
+                <div className="flex flex-1 flex-col gap-2.5">
+                    <ListingPriceBlock price={price} size="hero" alignment="start" />
                     <h3
                         className="line-clamp-2 text-[15px] font-semibold leading-snug"
                         style={{ color: 'var(--fg)' }}
                     >
                         {title}
                     </h3>
-                    <div className="flex justify-center">
+                    <div className="flex">
                         <ListingMetaTags tags={metaTags} max={4} size="xs" />
                     </div>
-                    <div className="flex items-center justify-center gap-1 text-[11px]" style={{ color: 'var(--fg-muted)' }}>
+                    <div className="flex items-center gap-1 text-[11px]" style={{ color: 'var(--fg-muted)' }}>
                         <IconMapPin size={12} />
                         <span className="truncate">{location}</span>
                     </div>
                 </div>
                 <div
-                    className="mt-4 flex items-center justify-center gap-3 border-t pt-3"
+                    className="mt-4 flex items-center justify-between gap-3 border-t pt-3"
                     style={{ borderColor: 'var(--border)' }}
                 >
                     <ListingSellerStrip seller={seller} size="sm" />

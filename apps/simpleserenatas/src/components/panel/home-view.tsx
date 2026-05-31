@@ -86,13 +86,13 @@ function ClientHome(props: Parameters<typeof HomeView>[0]) {
     return (
         <div className="grid gap-4">
             <ProfileSetupChecklist mode="client" profiles={props.profiles} />
-            <PanelCard size="md" className="border-[var(--accent)]/25 bg-[color-mix(in_oklab,var(--accent)_8%,var(--surface))]">
+            <PanelCard size="md" className="border-(--accent)/25 bg-[color-mix(in_oklab,var(--accent)_8%,var(--surface))]">
                 <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                     <div className="min-w-0">
-                        <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--accent)]">
+                        <p className="text-xs font-semibold uppercase tracking-[0.14em] text-(--accent)">
                             Marketplace
                         </p>
-                        <h3 className="mt-1 text-lg font-bold text-[var(--fg)]">Contrata una serenata</h3>
+                        <h3 className="mt-1 text-lg font-bold text-(--fg)">Contrata una serenata</h3>
                         <p className="mt-1 text-sm leading-relaxed text-fg-muted">
                             Explora mariachis por región, comuna y disponibilidad. El catálogo está fuera del panel, como en Simple Autos y Propiedades.
                         </p>

@@ -93,6 +93,16 @@ export function createListingPublicPresent(deps: ListingPublicPresentDeps) {
         return remoteUrls.length > 0 ? remoteUrls : urls;
     }
 
+    function extractListingVideoUrl(record: ListingPublicRecord): string | null {
+        const payload = asObject(record.rawData);
+        const media = asObject(payload.media);
+        const discoverVideo = asObject(media.discoverVideo);
+        const direct = toPublicMediaUrl(media.videoUrl);
+        if (direct) return direct;
+        const uploaded = toPublicMediaUrl(discoverVideo);
+        return uploaded || null;
+    }
+
     function appendUniqueSummary(summary: string[], value: string) {
         const normalized = value.trim();
         if (!normalized) return;
@@ -203,6 +213,7 @@ export function createListingPublicPresent(deps: ListingPublicPresentDeps) {
             publishedAgo: formatAgo(record.updatedAt),
             updatedAt: record.updatedAt,
             images: extractListingMediaUrls(record),
+            videoUrl: extractListingVideoUrl(record),
             summary: extractListingSummary(record),
             seller: owner ? {
                 id: owner.id,
@@ -217,6 +228,7 @@ export function createListingPublicPresent(deps: ListingPublicPresentDeps) {
 
     return {
         extractListingMediaUrls,
+        extractListingVideoUrl,
         extractListingSummary,
         isPublicListingVisible,
         matchesListingSlug,

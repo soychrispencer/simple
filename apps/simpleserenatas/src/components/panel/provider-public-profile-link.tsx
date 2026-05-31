@@ -45,7 +45,7 @@ export function ProviderPublishQrPanel({
                     alt={`QR de ${url}`}
                     width={200}
                     height={200}
-                    className="mx-auto rounded-xl border border-border bg-white p-2 lg:mx-0 lg:w-full lg:max-w-[220px]"
+                    className="mx-auto rounded-xl border border-border bg-white p-2 lg:mx-0 lg:w-full lg:max-w-55"
                 />
                 <div className="min-w-0 text-center lg:text-left">
                     <p className="text-sm font-semibold text-fg">Escanear para contratar</p>
@@ -169,7 +169,7 @@ export function ProviderPublicProfileLink({
                 <p className="text-xs font-semibold uppercase tracking-wide text-fg-muted">Tu link público</p>
                 <span
                     className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${
-                        published ? 'bg-accent-soft text-accent' : 'bg-[var(--bg-subtle)] text-fg-muted'
+                        published ? 'bg-accent-soft text-accent' : 'bg-(--bg-subtle) text-fg-muted'
                     }`}
                 >
                     {published ? 'Publicado' : 'No publicado'}
@@ -206,7 +206,7 @@ export function ProviderPublicProfileLink({
                         />
                     </div>
                     {slugError ? (
-                        <p className="mt-2 flex items-center gap-1 text-xs text-[var(--color-error,#dc2626)]">
+                        <p className="mt-2 flex items-center gap-1 text-xs text-(--color-error,#dc2626)">
                             <IconAlertCircle size={12} />
                             {slugError}
                         </p>
@@ -255,7 +255,7 @@ export function ProviderPublicProfileLink({
                     variant="accent"
                     onClick={() => void copyUrl()}
                     disabled={!url}
-                    className="min-w-[8.75rem] flex-1 justify-center"
+                    className="min-w-35 flex-1 justify-center"
                 >
                     {copied ? <IconCheck size={15} /> : <IconCopy size={15} />}
                     {copied ? 'Copiado' : 'Copiar link'}

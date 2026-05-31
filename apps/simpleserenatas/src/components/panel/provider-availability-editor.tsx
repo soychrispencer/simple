@@ -439,7 +439,7 @@ export function ProviderAvailabilityEditor({ group }: { group: ProviderGroup }) 
                                 </div>
 
                                 {timeError ? (
-                                    <p className="mt-2 text-xs text-[var(--color-error,#dc2626)] lg:mt-1">{timeError}</p>
+                                    <p className="mt-2 text-xs text-(--color-error,#dc2626) lg:mt-1">{timeError}</p>
                                 ) : null}
                             </PanelCard>
                         );
@@ -465,7 +465,7 @@ export function ProviderAvailabilityEditor({ group }: { group: ProviderGroup }) 
 
             <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center">
                 {weeklyStatus ? (
-                    <p className={`text-sm font-medium ${weeklyStatus === 'Guardado' ? 'text-[var(--accent)]' : 'text-[var(--color-error,#dc2626)]'}`}>
+                    <p className={`text-sm font-medium ${weeklyStatus === 'Guardado' ? 'text-(--accent)' : 'text-(--color-error,#dc2626)'}`}>
                         {weeklyStatus}
                     </p>
                 ) : weeklyDirty ? (
@@ -559,7 +559,7 @@ export function ProviderAvailabilityEditor({ group }: { group: ProviderGroup }) 
                                 />
                             </PanelField>
 
-                            {blockError ? <p className="text-xs text-[var(--color-error,#dc2626)]">{blockError}</p> : null}
+                            {blockError ? <p className="text-xs text-(--color-error,#dc2626)">{blockError}</p> : null}
 
                             <div className="flex gap-3">
                                 <PanelButton variant="accent" onClick={() => void handleAddBlockedSlot()} disabled={blockSaving}>

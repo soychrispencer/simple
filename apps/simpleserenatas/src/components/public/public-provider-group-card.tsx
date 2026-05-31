@@ -106,7 +106,7 @@ export function PublicProviderGroupCard({
 
     return (
         <CardShell href={href} groupName={group.name} onOpen={onOpen} slug={group.slug}>
-            <div className="relative aspect-[16/9] shrink-0 overflow-hidden bg-bg-subtle">
+            <div className="relative aspect-video shrink-0 overflow-hidden bg-bg-subtle">
                 {cover ? (
                     <img
                         src={cover}
@@ -229,7 +229,7 @@ export function PublicProviderGroupCard({
 export function PublicProviderGroupCardSkeleton() {
     return (
         <div className="flex h-full flex-col overflow-hidden rounded-[1.25rem] border border-border bg-surface shadow-sm">
-            <div className="aspect-[16/9] animate-pulse bg-bg-subtle" />
+            <div className="aspect-video animate-pulse bg-bg-subtle" />
             <div className="flex flex-1 flex-col gap-3 p-4">
                 <div className="h-[4.25rem] animate-pulse rounded-xl bg-bg-subtle" />
                 <div className="space-y-2">

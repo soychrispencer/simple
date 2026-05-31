@@ -353,7 +353,12 @@ export function createAuthRouter(deps: AuthRouterDeps) {
         const user = await deps.getUserByEmail(normalizedEmail);
         if (!user) return c.json({ ok: false, error: 'Tu correo o contraseña no coinciden. Si no tienes cuenta, regístrate.' }, 401);
         if (!deps.canAuthenticateUser(user)) return c.json({ ok: false, error: 'Tu cuenta está suspendida. Contacta al soporte.', }, 403);
-        if (!user.passwordHash) return c.json({ ok: false, error: 'Esta cuenta usa acceso con Google. Usa "Continuar con Google".' }, 401);
+        if (!user.passwordHash) {
+            return c.json({
+                ok: false,
+                error: 'Esta cuenta se creó con Google y no tiene contraseña. Usa "Continuar con Google" o restablece tu contraseña para entrar con correo y contraseña.',
+            }, 401);
+        }
 
         const passwordMatch = await deps.bcrypt.compare(parsed.data.password, user.passwordHash);
         if (!passwordMatch) return c.json({ ok: false, error: 'Tu correo o contraseña no coinciden.' }, 401);

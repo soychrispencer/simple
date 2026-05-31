@@ -119,11 +119,11 @@ export function ProviderSettingsEditor({
                         className={`min-h-[132px] rounded-2xl border p-4 text-left transition-colors ${
                             !automaticSelected
                                 ? 'border-accent-border bg-accent-soft text-fg'
-                                : 'border-[var(--border)] bg-[var(--surface)] text-fg hover:border-[var(--border-strong)]'
+                                : 'border-(--border) bg-(--surface) text-fg hover:border-(--border-strong)'
                         }`}
                     >
                         <span className="flex items-center gap-3">
-                            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[var(--bg-subtle)] text-accent">
+                            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-(--bg-subtle) text-accent">
                                 <IconPointer size={18} />
                             </span>
                             <span className="text-sm font-semibold">Revisar manualmente</span>
@@ -141,11 +141,11 @@ export function ProviderSettingsEditor({
                         className={`min-h-[132px] rounded-2xl border p-4 text-left transition-colors disabled:cursor-not-allowed disabled:opacity-60 ${
                             automaticSelected
                                 ? 'border-accent-border bg-accent-soft text-fg'
-                                : 'border-[var(--border)] bg-[var(--surface)] text-fg hover:border-[var(--border-strong)]'
+                                : 'border-(--border) bg-(--surface) text-fg hover:border-(--border-strong)'
                         }`}
                     >
                         <span className="flex items-center gap-3">
-                            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[var(--bg-subtle)] text-accent">
+                            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-(--bg-subtle) text-accent">
                                 <IconCalendarCheck size={18} />
                             </span>
                             <span className="text-sm font-semibold">Aceptar automáticamente</span>
@@ -178,9 +178,9 @@ export function ProviderSettingsEditor({
                 <SolicitudesInboxAlertsSettings embedded />
             </PanelCard>
 
-            <div className="sticky bottom-3 z-10 flex flex-col gap-3 rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-3 shadow-sm sm:flex-row sm:items-center sm:justify-end">
+            <div className="sticky bottom-3 z-10 flex flex-col gap-3 rounded-2xl border border-(--border) bg-(--surface) p-3 shadow-sm sm:flex-row sm:items-center sm:justify-end">
                 {saveError ? (
-                    <p className="flex items-center gap-1.5 text-sm text-[var(--color-error,#dc2626)] sm:mr-auto">
+                    <p className="flex items-center gap-1.5 text-sm text-(--color-error,#dc2626) sm:mr-auto">
                         <IconAlertCircle size={14} className="shrink-0" />
                         {saveError}
                     </p>

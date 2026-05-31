@@ -244,7 +244,7 @@ export function SerenatasView({ serenatas, groups, musicians, packages: packages
                 <PanelCard size="lg" className="min-w-0 xl:min-h-[680px]">
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                     <div>
-                        <h2 className="type-section-title text-[var(--fg)]">{isSolicitudesMode ? 'Solicitudes' : 'Serenatas'}</h2>
+                        <h2 className="type-section-title text-(--fg)">{isSolicitudesMode ? 'Solicitudes' : 'Serenatas'}</h2>
                         <p className="mt-1 text-sm text-fg-muted">{solicitudesListCaption}</p>
                     </div>
                     {isSolicitudesMode && solicitudesPendingCount > 0 ? (
@@ -347,7 +347,7 @@ export function SerenatasView({ serenatas, groups, musicians, packages: packages
                                     <div className="flex items-start justify-between gap-4">
                                         <div className="min-w-0 flex-1">
                                             <div className="flex items-center gap-2">
-                                                <p className="truncate text-base font-bold text-[var(--fg)]">{item.recipientName}</p>
+                                                <p className="truncate text-base font-bold text-(--fg)">{item.recipientName}</p>
                                                 <SerenataSourceBadge source={item.source} size="sm" />
                                             </div>
                                             <p className="mt-1.5 truncate text-sm text-fg-secondary">
@@ -744,7 +744,7 @@ function SerenataDetailGroupPicker({
                         Ir a Grupos
                     </Link>
                 </div>
-                {error ? <p className="mt-1.5 text-xs text-[var(--color-danger-text,#b91c1c)]">{error}</p> : null}
+                {error ? <p className="mt-1.5 text-xs text-(--color-danger-text,#b91c1c)">{error}</p> : null}
             </div>
         </div>
     );

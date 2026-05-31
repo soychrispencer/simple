@@ -66,7 +66,7 @@ export function MariachiProfileHero({ group }: { group: ProviderGroup }) {
 
     return (
         <PanelCard className="min-w-0 overflow-hidden !p-0">
-            <div className="relative aspect-[16/9] min-h-[14rem] overflow-hidden">
+            <div className="relative aspect-video min-h-[14rem] overflow-hidden">
                 {group.coverUrl ? (
                     <img
                         src={group.coverUrl}

@@ -135,7 +135,7 @@ export function ProviderGroupView({ refresh }: { refresh: () => Promise<void> })
     }
 
     if (loading) {
-        return <p className="text-sm text-[var(--fg-muted)]">Cargando…</p>;
+        return <p className="text-sm text-(--fg-muted)">Cargando…</p>;
     }
 
     if (error) {
@@ -152,24 +152,24 @@ export function ProviderGroupView({ refresh }: { refresh: () => Promise<void> })
     if (!hasMariachi) {
         return (
             <div className="grid gap-5">
-                <PanelCard size="md" className="border-[var(--accent)]/25 bg-[color-mix(in_oklab,var(--accent)_8%,var(--surface))]">
+                <PanelCard size="md" className="border-(--accent)/25 bg-[color-mix(in_oklab,var(--accent)_8%,var(--surface))]">
                     <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                         <div className="min-w-0">
-                            <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--accent)]">
+                            <p className="text-xs font-semibold uppercase tracking-[0.14em] text-(--accent)">
                                 Configuración inicial
                             </p>
-                            <h2 className="mt-1 text-lg font-bold text-[var(--fg)]">Configura tus datos comerciales</h2>
+                            <h2 className="mt-1 text-lg font-bold text-(--fg)">Configura tus datos comerciales</h2>
                             <p className="mt-1 text-sm leading-relaxed text-fg-muted">
                                 Al registrarte como dueño creas tu mariachi en el marketplace. Completa estos datos para que los clientes te encuentren.
                             </p>
                         </div>
-                        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-accent text-[color:var(--accent-contrast)] shadow-sm">
+                        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-accent text-(--accent-contrast) shadow-sm">
                             <IconMusic size={20} aria-hidden="true" />
                         </div>
                     </div>
                 </PanelCard>
                 <PanelCard>
-                    <h3 className="text-lg font-semibold text-[var(--fg)]">Datos comerciales</h3>
+                    <h3 className="text-lg font-semibold text-(--fg)">Datos comerciales</h3>
                     <div className="mt-5 grid gap-4">
                         <ProviderGroupBrandImages
                             name={name}
@@ -210,7 +210,7 @@ export function ProviderGroupView({ refresh }: { refresh: () => Promise<void> })
     return (
         <div className="grid gap-5">
             <PanelCard>
-                <h3 className="text-lg font-semibold text-[var(--fg)]">Datos comerciales</h3>
+                <h3 className="text-lg font-semibold text-(--fg)">Datos comerciales</h3>
 
                 <ProviderGroupBrandImages
                     className="mt-5"
@@ -223,7 +223,7 @@ export function ProviderGroupView({ refresh }: { refresh: () => Promise<void> })
                     onSave={saveImages}
                 />
 
-                <p className="mt-4 text-sm text-[var(--fg-muted)]">
+                <p className="mt-4 text-sm text-(--fg-muted)">
                     Lo que verán los clientes al contratarte: nombre, fotos, descripción, zonas y contacto.
                 </p>
 

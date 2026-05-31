@@ -13,7 +13,7 @@ import {
     arrayMove, SortableContext, sortableKeyboardCoordinates, rectSortingStrategy, useSortable, } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import {
-    IconArrowLeft, IconArrowRight, IconCheck, IconCamera, IconPhoto, IconX, IconUpload, IconMapPin, IconCurrencyDollar, IconCar, IconMotorbike, IconTruck, IconBus, IconTractor, IconAnchor, IconPlane, IconTag, IconKey, IconHammer, IconChevronDown, IconChevronUp, IconSparkles, IconShare3, IconBrandWhatsapp, IconLoader2, IconPlus, IconTrash, IconGripVertical, IconStar, IconGauge, IconEngine, IconSteeringWheel, IconRocket, IconCalendar, IconGasStation, IconManualGearbox, IconBrandInstagram, IconExternalLink, IconLock, } from '@tabler/icons-react';
+    IconArrowLeft, IconArrowRight, IconCheck, IconCamera, IconPhoto, IconX, IconUpload, IconMapPin, IconCurrencyDollar, IconCar, IconMotorbike, IconTruck, IconBus, IconTractor, IconAnchor, IconPlane, IconTag, IconKey, IconHammer, IconChevronDown, IconChevronUp, IconSparkles, IconShare3, IconBrandWhatsapp, IconLoader2, IconPlus, IconTrash, IconGripVertical, IconStar, IconGauge, IconEngine, IconSteeringWheel, IconRocket, IconCalendar, IconGasStation, IconManualGearbox, IconBrandInstagram, IconExternalLink, IconLock, IconVideo, } from '@tabler/icons-react';
 import Link from 'next/link';
 import { useAuth } from '@simple/auth';
 import {
@@ -44,6 +44,7 @@ type ListingType = 'sale' | 'rent' | 'auction';
 interface FormData {
     // Paso 1: Identidad
     photos: Array<{ id: string; file?: File; preview: string; isCover: boolean }>;
+    reelVideo: { id: string; file?: File; preview: string; name: string; mimeType: string; sizeBytes: number } | null;
     listingType: ListingType;
     vehicleType: VehicleCatalogType;
     brandId: string;
@@ -84,6 +85,7 @@ interface FormData {
 
 const EMPTY_FORM: FormData = {
     photos: [],
+    reelVideo: null,
     listingType: 'sale',
     vehicleType: 'car',
     brandId: '',
@@ -170,9 +172,6 @@ const COMMUNES: Record<string, string[]> = {
 // COMPONENTE PRINCIPAL
 // =============================================================================
 
-const QUICK_PUBLISH_PHOTOS_FIRST =
-    process.env.NEXT_PUBLIC_QUICK_PUBLISH_PHOTOS_FIRST === 'true';
-
 export default function PublicarPage() {
     const router = useRouter();
     const searchParams = useSearchParams();
@@ -229,13 +228,10 @@ export default function PublicarPage() {
 
     const canProceed = () => {
         if (step === 1) {
-            if (QUICK_PUBLISH_PHOTOS_FIRST) {
-                return form.photos.length >= 1;
-            }
-            return form.photos.length >= 1 && hasIdentityFields;
+            return form.photos.length >= 1;
         }
         if (step === 2) {
-            if (QUICK_PUBLISH_PHOTOS_FIRST && !hasIdentityFields) {
+            if (!hasIdentityFields) {
                 return false;
             }
             return true; // Todo opcional en paso 2
@@ -299,6 +295,56 @@ export default function PublicarPage() {
                     }
                 } catch (err) {
                     console.error('Error uploading photo:', err);
+                }
+            }
+
+            let uploadedVideo: {
+                id: string;
+                name: string;
+                dataUrl: string;
+                previewUrl: string;
+                width: number;
+                height: number;
+                sizeBytes: number;
+                mimeType: string;
+                durationSeconds: number;
+            } | null = null;
+
+            if (form.reelVideo) {
+                if (form.reelVideo.file) {
+                    try {
+                        const uploadResult = await uploadMediaFile(form.reelVideo.file, {
+                            fileType: 'video',
+                        });
+                        if (uploadResult.ok && uploadResult.result) {
+                            const url = uploadResult.result.publicUrl || uploadResult.result.url;
+                            uploadedVideo = {
+                                id: form.reelVideo.id,
+                                name: form.reelVideo.name,
+                                dataUrl: url,
+                                previewUrl: url,
+                                width: 0,
+                                height: 0,
+                                sizeBytes: form.reelVideo.sizeBytes,
+                                mimeType: form.reelVideo.mimeType,
+                                durationSeconds: 0,
+                            };
+                        }
+                    } catch (err) {
+                        console.error('Error uploading video:', err);
+                    }
+                } else {
+                    uploadedVideo = {
+                        id: form.reelVideo.id,
+                        name: form.reelVideo.name,
+                        dataUrl: form.reelVideo.preview,
+                        previewUrl: form.reelVideo.preview,
+                        width: 0,
+                        height: 0,
+                        sizeBytes: form.reelVideo.sizeBytes,
+                        mimeType: form.reelVideo.mimeType,
+                        durationSeconds: 0,
+                    };
                 }
             }
             
@@ -417,8 +463,8 @@ export default function PublicarPage() {
                         sizeBytes: p.sizeBytes,
                         mimeType: p.mimeType,
                     })),
-                    videoUrl: '',
-                    discoverVideo: null,
+                    videoUrl: uploadedVideo?.dataUrl ?? '',
+                    discoverVideo: uploadedVideo,
                     documents: [],
                 },
                 location: createEmptyListingLocation({
@@ -594,7 +640,7 @@ export default function PublicarPage() {
                         {/* Info del paso - solo desktop */}
                         <div className="hidden lg:block">
                             <p className="text-sm font-medium text-[var(--fg)]">
-                                {step === 1 && (QUICK_PUBLISH_PHOTOS_FIRST ? 'Paso 1: Fotos' : 'Paso 1: Fotos e identidad')}
+                                {step === 1 && 'Paso 1: Fotos'}
                                 {step === 2 && 'Paso 2: Estado del vehículo'}
                                 {step === 3 && 'Paso 3: Ubicación y publicar'}
                             </p>
@@ -638,7 +684,7 @@ export default function PublicarPage() {
                                 )}
                             </button>
                             
-                            {step === 2 && QUICK_PUBLISH_PHOTOS_FIRST && !canProceed() && (
+                            {step === 2 && !canProceed() && (
                                 <p className="text-xs text-center lg:text-right text-[var(--fg-muted)] mt-2">
                                     Completa marca, modelo, año y precio en el paso 1 antes de continuar
                                 </p>
@@ -743,6 +789,7 @@ function Step1PhotosAndIdentity({
     catalog: PublishWizardCatalog | null;
 }) {
     const fileInputRef = useRef<HTMLInputElement>(null);
+    const videoInputRef = useRef<HTMLInputElement>(null);
     const [dragOver, setDragOver] = useState(false);
 
     // DnD sensors
@@ -774,6 +821,29 @@ function Step1PhotosAndIdentity({
         }
         updateForm('photos', newPhotos);
     };
+
+    const handleVideoFile = (files: FileList | null) => {
+        const file = files?.[0];
+        if (!file) return;
+        if (form.reelVideo?.preview?.startsWith('blob:')) {
+            URL.revokeObjectURL(form.reelVideo.preview);
+        }
+        updateForm('reelVideo', {
+            id: Math.random().toString(36).slice(2),
+            file,
+            preview: URL.createObjectURL(file),
+            name: file.name,
+            mimeType: file.type || 'video/mp4',
+            sizeBytes: file.size,
+        });
+    };
+
+    const removeVideo = () => {
+        if (form.reelVideo?.preview?.startsWith('blob:')) {
+            URL.revokeObjectURL(form.reelVideo.preview);
+        }
+        updateForm('reelVideo', null);
+    };
     
     // Cleanup object URLs on unmount
     useEffect(() => {
@@ -783,6 +853,9 @@ function Step1PhotosAndIdentity({
                     URL.revokeObjectURL(p.preview);
                 }
             });
+            if (form.reelVideo?.preview?.startsWith('blob:')) {
+                URL.revokeObjectURL(form.reelVideo.preview);
+            }
         };
     }, []);
 
@@ -815,16 +888,16 @@ function Step1PhotosAndIdentity({
                     Paso 1 de 3
                 </div>
                 <h1 className="text-3xl lg:text-4xl font-bold text-[var(--fg)] tracking-tight">
-                    ¿Qué vehículo vendes?
+                    Fotos primero, datos después
                 </h1>
                 <p className="text-[var(--fg-muted)] text-base mt-2 max-w-lg">
-                    Sube fotos de calidad y cuéntanos los datos básicos. Los avisos completos venden 3x más rápido.
+                    Toma fotos en terreno, ordénalas como quieres que aparezcan y completa solo lo necesario para publicar rápido.
                 </p>
             </div>
             
             {/* Fotos - Grid con slots guía */}
             <section>
-                <label className="block text-sm font-medium mb-3">Fotos *</label>
+                <label className="block text-sm font-medium mb-3">Fotos y portada *</label>
                 
                 {form.photos.length === 0 ? (
                     <div
@@ -832,15 +905,15 @@ function Step1PhotosAndIdentity({
                         onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
                         onDragLeave={() => setDragOver(false)}
                         onDrop={(e) => { e.preventDefault(); setDragOver(false); handleFiles(e.dataTransfer.files); }}
-                        className={`border-2 border-dashed rounded-2xl p-8 text-center cursor-pointer transition-all
+                        className={`qp-photo-start border-2 border-dashed rounded-2xl p-8 text-center cursor-pointer transition-all
                             ${dragOver ? 'border-[var(--accent)] bg-[color-mix(in oklab, var(--accent) 6%, var(--bg))]' : 'border-[var(--border)] hover:border-[var(--accent)]/50'}`}
                     >
                         <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-[var(--bg-subtle)] flex items-center justify-center">
                             <IconCamera size={28} className="text-[var(--accent)]" />
                         </div>
-                        <p className="font-medium">Toma fotos o selecciona de tu galería</p>
+                        <p className="font-medium">Tomar fotos o seleccionar de tu galería</p>
                         <p className="text-xs text-[var(--fg-muted)] mt-1">
-                            Mínimo 1 foto · Máximo 20 · Arrastra para ordenar
+                            La primera será portada · Máximo 20 · Arrastra para ordenar
                         </p>
                     </div>
                 ) : (
@@ -929,6 +1002,58 @@ function Step1PhotosAndIdentity({
                     multiple
                     capture="environment"
                     onChange={(e) => handleFiles(e.target.files)}
+                    className="hidden"
+                />
+            </section>
+
+            <section className="bg-[var(--surface)] rounded-2xl p-5 lg:p-6 border border-[var(--border)] shadow-sm">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                    <div className="min-w-0">
+                        <div className="inline-flex items-center gap-2 text-sm font-semibold text-[var(--fg)]">
+                            <IconVideo size={17} className="text-[var(--accent)]" />
+                            Video opcional para redes
+                        </div>
+                        <p className="mt-1 text-xs text-[var(--fg-muted)]">
+                            Sube o graba un clip corto para mostrar el vehículo en formato vertical.
+                        </p>
+                    </div>
+                    <button
+                        type="button"
+                        onClick={() => videoInputRef.current?.click()}
+                        className="h-10 rounded-xl border px-4 text-sm font-semibold transition hover:border-[var(--accent)]"
+                        style={{ borderColor: 'var(--border)', color: 'var(--fg)', background: 'var(--bg)' }}
+                    >
+                        {form.reelVideo ? 'Cambiar video' : 'Agregar video'}
+                    </button>
+                </div>
+
+                {form.reelVideo ? (
+                    <div className="mt-4 grid grid-cols-[96px_minmax(0,1fr)_auto] items-center gap-3 rounded-2xl border p-3 qp-video-preview">
+                        <video src={form.reelVideo.preview} className="h-28 w-24 rounded-xl object-cover bg-black" muted playsInline />
+                        <div className="min-w-0">
+                            <p className="truncate text-sm font-semibold text-[var(--fg)]">{form.reelVideo.name}</p>
+                            <p className="mt-1 text-xs text-[var(--fg-muted)]">
+                                Se mostrará primero en cards tipo reel cuando esté disponible.
+                            </p>
+                        </div>
+                        <button
+                            type="button"
+                            onClick={removeVideo}
+                            className="h-9 w-9 rounded-full border flex items-center justify-center"
+                            style={{ borderColor: 'var(--border)', color: 'var(--fg-muted)' }}
+                            aria-label="Quitar video"
+                        >
+                            <IconX size={16} />
+                        </button>
+                    </div>
+                ) : null}
+
+                <input
+                    ref={videoInputRef}
+                    type="file"
+                    accept="video/*"
+                    capture="environment"
+                    onChange={(e) => handleVideoFile(e.target.files)}
                     className="hidden"
                 />
             </section>

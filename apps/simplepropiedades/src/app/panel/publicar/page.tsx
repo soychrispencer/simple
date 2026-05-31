@@ -11,13 +11,19 @@ import {
     IconBuildingSkyscraper,
     IconBuildingStore,
     IconCalculator,
+    IconCamera,
     IconCheck,
     IconCircleCheck,
+    IconCopy,
     IconDeviceFloppy,
+    IconExternalLink,
     IconHome2,
     IconKey,
     IconMapPin,
+    IconPhoto,
+    IconShare3,
     IconSparkles,
+    IconVideo,
 } from '@tabler/icons-react';
 import PanelSectionHeader from '@/components/panel/panel-section-header';
 import { ModernSelect } from '@simple/ui/forms';
@@ -35,6 +41,7 @@ import { PanelBlockHeader, PanelButton, PanelCard, PanelChoiceCard, PanelDocumen
 import { ListingLocationEditor } from '@simple/ui/location';
 
 type StepId = 'setup' | 'basic' | 'specs' | 'media' | 'commercial' | 'review';
+type PublishedListing = { id: string; href: string; title: string };
 type PropertyOperation = 'sale' | 'rent' | 'project';
 type Currency = 'UF' | 'CLP' | 'USD';
 type ProjectUnitModel = {
@@ -167,11 +174,11 @@ const PROPERTY_MEDIA_GUIDE_SLOTS = [
 ] as const;
 
 const STEPS: Array<{ id: StepId; label: string; helper: string }> = [
+    { id: 'media', label: 'Multimedia', helper: 'Fotos, video y portada' },
     { id: 'setup', label: 'Tipo', helper: 'Operación y tipología' },
     { id: 'basic', label: 'Datos', helper: 'Ficha principal y ubicación' },
-    { id: 'specs', label: 'Ant. y equip.', helper: 'Características y amenities' },
-    { id: 'media', label: 'Multimedia', helper: 'Fotos y video' },
     { id: 'commercial', label: 'Comercial', helper: 'Precio, contacto y tasación' },
+    { id: 'specs', label: 'Detalles', helper: 'Características y amenities' },
     { id: 'review', label: 'Revisión', helper: 'Validación final' },
 ];
 
@@ -831,6 +838,90 @@ function createPropertyBasicForPayload(data: WizardData) {
     };
 }
 
+function buildProgramLabel(data: WizardData): string {
+    if (data.setup.operationType === 'project') {
+        const models = data.project.models.filter((model) => model.label.trim());
+        if (models.length > 0) return `${models.length} tipologías`;
+        return data.project.availableUnits.trim() ? `${data.project.availableUnits.trim()} unidades` : 'Proyecto inmobiliario';
+    }
+
+    const parts = [
+        data.basic.rooms.trim() ? `${data.basic.rooms.trim()}D` : null,
+        data.basic.bathrooms.trim() ? `${data.basic.bathrooms.trim()}B` : null,
+        data.basic.totalArea.trim() ? `${data.basic.totalArea.trim()} m²` : null,
+    ].filter(Boolean);
+    return parts.length > 0 ? parts.join(' · ') : data.setup.propertyType || 'Propiedad';
+}
+
+function buildPreviewLocation(data: WizardData): string {
+    return data.location.publicLabel
+        || data.location.communeName
+        || data.location.communeId
+        || data.location.regionName
+        || 'Ubicación pendiente';
+}
+
+function ListingLivePreview(props: { data: WizardData; compact?: boolean }) {
+    const { data, compact = false } = props;
+    const title = data.setup.operationType === 'project'
+        ? data.project.projectName || data.basic.title || 'Tu proyecto aparecerá aquí'
+        : data.basic.title || 'Tu propiedad aparecerá aquí';
+    const photo = data.media.photos[0];
+    const video = data.media.discoverVideo;
+    const location = buildPreviewLocation(data);
+    const program = buildProgramLabel(data);
+    const operation = getOperationLabel(data.setup.operationType);
+    const price = data.commercial.price.trim() ? buildPriceLabel(data) : 'Precio pendiente';
+
+    return (
+        <div className={`prop-live-preview ${compact ? 'prop-live-preview--compact' : ''}`}>
+            <div className="prop-live-preview__media">
+                {video?.previewUrl || video?.dataUrl ? (
+                    <video
+                        src={video.previewUrl || video.dataUrl}
+                        className="h-full w-full object-cover"
+                        muted
+                        playsInline
+                        loop
+                    />
+                ) : photo?.previewUrl || photo?.dataUrl ? (
+                    <img
+                        src={photo.previewUrl || photo.dataUrl}
+                        alt={title}
+                        className="h-full w-full object-cover"
+                    />
+                ) : (
+                    <div className="flex h-full w-full flex-col items-center justify-center gap-3 text-center prop-live-preview__empty">
+                        <IconCamera size={28} />
+                        <span className="text-sm font-semibold">Sube la portada</span>
+                    </div>
+                )}
+                <div className="absolute inset-0 prop-live-preview__shade" />
+                <div className="absolute left-3 top-3 flex flex-wrap gap-1.5">
+                    <span className="prop-live-preview__badge">{operation}</span>
+                    {video ? <span className="prop-live-preview__badge">Video</span> : null}
+                </div>
+                <div className="absolute bottom-0 left-0 right-0 p-3">
+                    <p className="text-2xl font-bold leading-tight text-white drop-shadow-sm">{price}</p>
+                    <h3 className="mt-1 line-clamp-2 text-base font-semibold leading-tight text-white">{title}</h3>
+                    <div className="mt-2 flex flex-wrap items-center gap-2 text-[11px] text-white/85">
+                        <span>{program}</span>
+                        <span>·</span>
+                        <span className="truncate">{location}</span>
+                    </div>
+                </div>
+            </div>
+            <div className="flex items-center justify-between gap-3 p-3">
+                <div className="min-w-0">
+                    <p className="text-xs font-semibold text-(--fg)">Vista previa</p>
+                    <p className="truncate text-[11px] text-(--fg-muted)">Así verá el cliente tu publicación vertical.</p>
+                </div>
+                <span className="rounded-full px-2.5 py-1 text-[11px] font-semibold prop-media-pill">Simple</span>
+            </div>
+        </div>
+    );
+}
+
 type WizardSetter = React.Dispatch<React.SetStateAction<WizardData>>;
 
 function ErrorText(props: { text: string }) {
@@ -1340,34 +1431,70 @@ function StepMedia(props: { data: WizardData; setData: WizardSetter; errors: Rec
 
     return (
         <section className="space-y-4">
-            <h2 className="type-section-title">Multimedia</h2>
-            <PanelCard tone="surface" size="lg">
-                <div className="space-y-4">
-                    <PanelMediaUploader
-                        items={data.media.photos}
-                        onChange={(photos) => setData((current) => ({ ...current, media: { ...current.media, photos } }))}
-                        minItems={1}
-                        recommendedItems={12}
-                        maxItems={MAX_PHOTOS}
-                        minWidth={600}
-                        minHeight={400}
-                        maxWidth={2000}
-                        maxHeight={1500}
-                        targetBytes={450_000}
-                        dropzoneTitle="Fotos"
-                        helperText={isProject ? 'Mínimo 1 · Máximo 20 · Fachada, piloto, amenities y entorno.' : 'Mínimo 1 · Máximo 20 · Fachada, interiores y exteriores.'}
-                        guidedSlots={PROPERTY_MEDIA_GUIDE_SLOTS}
-                        emptyHint="Arrastra o selecciona"
-                    />
-                    {errors['media.photos'] ? <ErrorText text={errors['media.photos']} /> : null}
+            <div className="rounded-[28px] border p-4 sm:p-5 prop-media-hero">
+                <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+                    <div className="min-w-0">
+                        <span className="inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-semibold prop-media-pill">
+                            <IconCamera size={14} />
+                            Primero captura el contenido
+                        </span>
+                        <h2 className="mt-3 text-2xl font-semibold leading-tight text-(--fg)">
+                            Fotos y video de la propiedad
+                        </h2>
+                        <p className="mt-2 max-w-2xl text-sm text-(--fg-secondary)">
+                            Empieza como lo harías en terreno: toma fotos, sube un clip vertical y ordena el material. La primera foto será la portada de la publicación.
+                        </p>
+                    </div>
+                    <div className="grid grid-cols-3 gap-2 text-center sm:min-w-[310px]">
+                        <div className="rounded-2xl border p-3 prop-media-mini-card">
+                            <IconPhoto size={18} className="mx-auto mb-1" />
+                            <p className="text-[11px] font-semibold">Fotos</p>
+                        </div>
+                        <div className="rounded-2xl border p-3 prop-media-mini-card">
+                            <IconVideo size={18} className="mx-auto mb-1" />
+                            <p className="text-[11px] font-semibold">Video</p>
+                        </div>
+                        <div className="rounded-2xl border p-3 prop-media-mini-card">
+                            <IconSparkles size={18} className="mx-auto mb-1" />
+                            <p className="text-[11px] font-semibold">Compartir</p>
+                        </div>
+                    </div>
                 </div>
-            </PanelCard>
+            </div>
 
-            <PanelCard tone="surface" size="lg">
+            <div className="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(280px,340px)]">
+                <PanelCard tone="surface" size="lg" className="prop-media-card">
+                    <div className="space-y-4">
+                        <PanelMediaUploader
+                            className="prop-mobile-media-uploader"
+                            items={data.media.photos}
+                            onChange={(photos) => setData((current) => ({ ...current, media: { ...current.media, photos } }))}
+                            minItems={1}
+                            recommendedItems={12}
+                            maxItems={MAX_PHOTOS}
+                            minWidth={600}
+                            minHeight={400}
+                            maxWidth={2000}
+                            maxHeight={1500}
+                            targetBytes={450_000}
+                            dropzoneTitle="Fotos de la publicación"
+                            helperText={isProject ? 'Toma o sube fotos del proyecto, piloto, amenities y entorno.' : 'Toma o sube fotos de fachada, espacios principales y detalles.'}
+                            guidedSlots={PROPERTY_MEDIA_GUIDE_SLOTS}
+                            emptyHint="Tomar o subir fotos"
+                        />
+                        {errors['media.photos'] ? <ErrorText text={errors['media.photos']} /> : null}
+                    </div>
+                </PanelCard>
+                <div className="xl:sticky xl:top-24 xl:self-start">
+                    <ListingLivePreview data={data} />
+                </div>
+            </div>
+
+            <PanelCard tone="surface" size="lg" className="prop-media-card">
                 <div className="space-y-5">
                     <PanelBlockHeader
-                        title="Video"
-                        description="Video externo para el aviso, tour 360 y material promocional para Descubre."
+                        title="Video y material adicional"
+                        description="Agrega un video del aviso o un clip vertical para mostrarlo como contenido social."
                     />
                     <div className="space-y-4">
                         <Field label="Video del aviso" error={errors['media.videoUrl']}>
@@ -1555,15 +1682,18 @@ function StepReview(props: { data: WizardData; estimate: PropertyValuationEstima
     return (
         <section className="space-y-5">
             <h2 className="type-section-title">Revisión final</h2>
-            <div className="grid grid-cols-1 gap-3 xl:grid-cols-3">
-                <PanelSummaryCard eyebrow="Resumen" title={isProject ? (data.project.projectName || data.basic.title || 'Sin nombre') : (data.basic.title || 'Sin título')} rows={isProject ? [
-                    { label: 'Tipo', value: `${data.setup.propertyType || 'Pendiente'} · Proyecto` },
-                    { label: 'Proyecto', value: `${projectModels.length} tipologías · ${data.project.availableUnits || '0'} unidades disponibles` },
-                    { label: 'Precio', value: buildPriceLabel(data) },
-                ] : [{ label: 'Tipo', value: `${data.setup.propertyType || 'Pendiente'} · ${getOperationLabel(data.setup.operationType)}` }, { label: 'Programa', value: `${data.basic.rooms || '0'}D · ${data.basic.bathrooms || '0'}B · ${data.basic.totalArea || '0'} m²` }, { label: 'Precio', value: formatAmount(priceNumber, data.commercial.currency) }]} />
-                <PanelSummaryCard eyebrow="Ubicación" title={data.location.publicLabel || 'Pendiente'} rows={[{ label: 'Dirección interna', value: data.location.addressLine1 || 'Pendiente' }, { label: 'Visibilidad pública', value: data.location.visibilityMode === 'exact' ? 'Exacta' : data.location.visibilityMode === 'approximate' ? 'Aproximada' : data.location.visibilityMode === 'sector_only' ? 'Solo sector' : 'Solo comuna' }, { label: 'Fotos cargadas', value: data.media.photos.length }]} />
-                <PanelSummaryCard eyebrow="Calidad del aviso" title={`${score}% completado`} rows={isProject ? [{ label: 'Amenities y servicios', value: featureCount }, { label: 'Entrega', value: data.project.deliveryStatus || 'Pendiente' }, { label: 'Tipologías', value: projectModels.length > 0 ? String(projectModels.length) : 'Pendiente' }] : [{ label: 'Amenities y servicios', value: featureCount }, { label: 'Tasador', value: estimate ? 'Calculado' : 'Pendiente' }, { label: 'Precio', value: data.commercial.price.trim() ? 'Listo' : 'Pendiente' }]} />
-                <PanelSummaryCard eyebrow="Vigencia" title="Activo por defecto" rows={[{ label: 'Revisión', value: lifecyclePolicy.summaryLabel }, { label: 'Si no se renueva', value: 'Requiere renovación' }, { label: 'Estado inicial', value: 'Activo' }]} />
+            <div className="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(280px,340px)]">
+                <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                    <PanelSummaryCard eyebrow="Resumen" title={isProject ? (data.project.projectName || data.basic.title || 'Sin nombre') : (data.basic.title || 'Sin título')} rows={isProject ? [
+                        { label: 'Tipo', value: `${data.setup.propertyType || 'Pendiente'} · Proyecto` },
+                        { label: 'Proyecto', value: `${projectModels.length} tipologías · ${data.project.availableUnits || '0'} unidades disponibles` },
+                        { label: 'Precio', value: buildPriceLabel(data) },
+                    ] : [{ label: 'Tipo', value: `${data.setup.propertyType || 'Pendiente'} · ${getOperationLabel(data.setup.operationType)}` }, { label: 'Programa', value: buildProgramLabel(data) }, { label: 'Precio', value: formatAmount(priceNumber, data.commercial.currency) }]} />
+                    <PanelSummaryCard eyebrow="Ubicación" title={data.location.publicLabel || 'Pendiente'} rows={[{ label: 'Dirección interna', value: data.location.addressLine1 || 'Pendiente' }, { label: 'Visibilidad pública', value: data.location.visibilityMode === 'exact' ? 'Exacta' : data.location.visibilityMode === 'approximate' ? 'Aproximada' : data.location.visibilityMode === 'sector_only' ? 'Solo sector' : 'Solo comuna' }, { label: 'Fotos cargadas', value: data.media.photos.length }]} />
+                    <PanelSummaryCard eyebrow="Calidad del aviso" title={`${score}% completado`} rows={isProject ? [{ label: 'Amenities y servicios', value: featureCount }, { label: 'Entrega', value: data.project.deliveryStatus || 'Pendiente' }, { label: 'Tipologías', value: projectModels.length > 0 ? String(projectModels.length) : 'Pendiente' }] : [{ label: 'Amenities y servicios', value: featureCount }, { label: 'Tasador', value: estimate ? 'Calculado' : 'Pendiente' }, { label: 'Precio', value: data.commercial.price.trim() ? 'Listo' : 'Pendiente' }]} />
+                    <PanelSummaryCard eyebrow="Vigencia" title="Activo por defecto" rows={[{ label: 'Revisión', value: lifecyclePolicy.summaryLabel }, { label: 'Si no se renueva', value: 'Requiere renovación' }, { label: 'Estado inicial', value: 'Activo' }]} />
+                </div>
+                <ListingLivePreview data={data} />
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-2">
@@ -1586,6 +1716,100 @@ function StepReview(props: { data: WizardData; estimate: PropertyValuationEstima
     );
 }
 
+function StepSuccess(props: { published: PublishedListing; onReset: () => void }) {
+    const { published, onReset } = props;
+    const [copied, setCopied] = useState(false);
+    const publicUrl = typeof window !== 'undefined'
+        ? `${window.location.origin}${published.href}`
+        : published.href;
+
+    const copyLink = async () => {
+        try {
+            await navigator.clipboard.writeText(publicUrl);
+            setCopied(true);
+            window.setTimeout(() => setCopied(false), 1800);
+        } catch {
+            setCopied(false);
+        }
+    };
+
+    const shareListing = async () => {
+        if (navigator.share) {
+            try {
+                await navigator.share({
+                    title: published.title,
+                    text: `Mira esta propiedad publicada en SimplePropiedades: ${published.title}`,
+                    url: publicUrl,
+                });
+                return;
+            } catch {
+                // El usuario puede cancelar el share nativo.
+            }
+        }
+        await copyLink();
+    };
+
+    return (
+        <div className="container-app panel-page max-w-5xl py-4 lg:py-8">
+            <PanelCard size="lg" className="prop-success-card">
+                <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(280px,360px)] lg:items-center">
+                    <div className="space-y-5">
+                        <span className="inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-semibold prop-media-pill">
+                            <IconCircleCheck size={15} />
+                            Publicación lista
+                        </span>
+                        <div>
+                            <h1 className="text-3xl font-semibold tracking-tight text-(--fg)">
+                                Tu propiedad ya está publicada
+                            </h1>
+                            <p className="mt-2 max-w-xl text-sm text-(--fg-secondary)">
+                                Ahora compártela con interesados o en tus redes. Mientras más rápido la muevas, más rápido llegan consultas.
+                            </p>
+                        </div>
+                        <div className="rounded-2xl border p-3 prop-success-link">
+                            <p className="text-xs font-semibold uppercase tracking-[0.12em] text-(--fg-muted)">Link público</p>
+                            <p className="mt-1 truncate text-sm font-medium text-(--fg)">{publicUrl}</p>
+                        </div>
+                        <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
+                            <PanelButton type="button" variant="primary" onClick={() => window.open(published.href, '_blank', 'noopener,noreferrer')}>
+                                <IconExternalLink size={15} />
+                                Ver publicación
+                            </PanelButton>
+                            <PanelButton type="button" variant="secondary" onClick={() => void shareListing()}>
+                                <IconShare3 size={15} />
+                                Compartir
+                            </PanelButton>
+                            <PanelButton type="button" variant="secondary" onClick={() => void copyLink()}>
+                                <IconCopy size={15} />
+                                {copied ? 'Copiado' : 'Copiar link'}
+                            </PanelButton>
+                        </div>
+                        <div className="flex flex-col gap-2 sm:flex-row">
+                            <PanelButton type="button" variant="secondary" onClick={onReset}>
+                                Publicar otra
+                            </PanelButton>
+                            <PanelButton type="button" variant="secondary" onClick={() => window.location.href = '/panel/publicaciones'}>
+                                Ir a publicaciones
+                            </PanelButton>
+                        </div>
+                    </div>
+                    <div className="rounded-[28px] border p-4 prop-media-hero">
+                        <p className="text-sm font-semibold text-(--fg)">Siguiente paso</p>
+                        <div className="mt-4 space-y-3">
+                            {['Responder consultas desde el panel', 'Compartir el link por WhatsApp', 'Activar boost si quieres más visibilidad'].map((item) => (
+                                <div key={item} className="flex items-center gap-3 rounded-2xl border p-3 prop-media-mini-card">
+                                    <IconCheck size={16} />
+                                    <span className="text-sm font-medium">{item}</span>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                </div>
+            </PanelCard>
+        </div>
+    );
+}
+
 export default function PublishWizardPage() {
     const router = useRouter();
     const searchParams = useSearchParams();
@@ -1593,7 +1817,7 @@ export default function PublishWizardPage() {
     const editingId = searchParams.get('edit');
     const isEditing = Boolean(editingId);
     const [editingLoading, setEditingLoading] = useState(false);
-    const [step, setStep] = useState<StepId>('setup');
+    const [step, setStep] = useState<StepId>('media');
     const [data, setData] = useState<WizardData>(() => createDefaultData());
     const [errors, setErrors] = useState<Record<string, string>>({});
     const [, setLastSavedAt] = useState<string | null>(null);
@@ -1601,6 +1825,7 @@ export default function PublishWizardPage() {
     const [draftSavedNote, setDraftSavedNote] = useState<string | null>(null);
     const [storageError, setStorageError] = useState<string | null>(null);
     const [publishing, setPublishing] = useState(false);
+    const [published, setPublished] = useState<PublishedListing | null>(null);
     const [addressBook, setAddressBook] = useState<AddressBookEntry[]>([]);
     const [addressBookLoading, setAddressBookLoading] = useState(true);
     const [geocoding, setGeocoding] = useState(false);
@@ -1935,9 +2160,26 @@ export default function PublishWizardPage() {
         setEstimate(null);
         setDraftSavedNote(null);
         setLastSavedAt(null);
-        setMessage(isEditing ? 'Publicación actualizada correctamente.' : 'Publicación creada correctamente.');
-        router.push('/panel/publicaciones');
+        setMessage(null);
+        setPublished({
+            id: result.item?.id ?? editingId ?? '',
+            href: result.item?.href ?? payload.href ?? '/panel/publicaciones',
+            title: result.item?.title ?? payload.title,
+        });
     };
+
+    const resetForNewListing = () => {
+        setPublished(null);
+        setData(createDefaultData());
+        setEstimate(null);
+        setErrors({});
+        setMessage(null);
+        setStep('media');
+    };
+
+    if (published) {
+        return <StepSuccess published={published} onReset={resetForNewListing} />;
+    }
 
     return (
         <div className="container-app panel-page max-w-6xl py-4 lg:py-8">

@@ -19,6 +19,7 @@ export type PublicListing = {
     publishedAgo: string;
     updatedAt: number;
     images: string[];
+    videoUrl?: string | null;
     summary: string[];
     seller: {
         id: string;

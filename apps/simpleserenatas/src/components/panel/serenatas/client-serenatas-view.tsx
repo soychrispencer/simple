@@ -174,7 +174,7 @@ export function ClientSerenatasView({
 export function ClientMetric({ label, value }: { label: string; value: number }) {
     return (
         <div className="rounded-xl border border-border bg-bg-subtle p-4">
-            <p className="text-2xl font-semibold text-[var(--fg)]">{value}</p>
+            <p className="text-2xl font-semibold text-(--fg)">{value}</p>
             <p className="text-sm text-fg-muted">{label}</p>
         </div>
     );

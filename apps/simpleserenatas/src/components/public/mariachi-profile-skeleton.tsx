@@ -6,7 +6,7 @@ export function MariachiProfileSkeleton() {
     return (
         <div className="grid min-w-0 gap-4 sm:gap-5" aria-busy="true" aria-label="Cargando ficha del mariachi">
             <PanelCard className="min-w-0 overflow-hidden !p-0">
-                <div className="aspect-[16/9] min-h-[14rem] animate-pulse bg-bg-subtle" />
+                <div className="aspect-video min-h-[14rem] animate-pulse bg-bg-subtle" />
                 <div className="flex flex-wrap gap-4 border-b border-border px-4 py-3">
                     <div className="h-7 w-24 animate-pulse rounded-md bg-bg-subtle" />
                     <div className="h-7 w-20 animate-pulse rounded-md bg-bg-subtle" />

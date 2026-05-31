@@ -83,7 +83,7 @@ export function LandingHeader({ onLogin, onRegister, publicLinks = defaultPublic
                             key={l.href}
                             href={l.href}
                             onClick={closeMenu}
-                            className="flex items-center gap-2 rounded-button px-2.5 py-2 text-sm text-fg-secondary transition-colors hover:bg-[var(--bg-subtle)]"
+                            className="flex items-center gap-2 rounded-button px-2.5 py-2 text-sm text-fg-secondary transition-colors hover:bg-(--bg-subtle)"
                         >
                             {l.label}
                         </Link>
