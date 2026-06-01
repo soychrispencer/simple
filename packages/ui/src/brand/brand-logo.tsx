@@ -25,7 +25,32 @@ const BRAND_ICON_BY_APP: Record<SimpleAppId, ComponentType<{ size?: number; styl
     simpleserenatas: IconConfetti,
 };
 
-function brandLogoIconWrapStyle(variant: BrandLogoVariant): CSSProperties {
+function brandLogoIconWrapStyle(variant: BrandLogoVariant, imageLogo = false): CSSProperties {
+    if (imageLogo) {
+        switch (variant) {
+            case 'onAccent':
+                return {
+                    background: 'transparent',
+                    borderColor: 'color-mix(in oklab, var(--accent-contrast) 28%, transparent)',
+                    color: 'var(--accent-contrast)',
+                    boxShadow: 'none',
+                };
+            case 'ghost':
+                return {
+                    background: 'transparent',
+                    borderColor: 'var(--accent-border)',
+                    color: 'var(--accent)',
+                };
+            default:
+                return {
+                    background: 'var(--surface)',
+                    borderColor: 'var(--border)',
+                    color: 'var(--accent)',
+                    boxShadow: 'var(--shadow-sm)',
+                };
+        }
+    }
+
     switch (variant) {
         case 'ghost':
             return {
@@ -70,6 +95,7 @@ export function BrandLogo({
             : 'var(--accent)';
 
     const useImageLogo = appId === 'simpleserenatas';
+    const imageLogoSrc = variant === 'onAccent' ? '/logo%20white.png' : '/logo.png';
     const iconBox = clsx(
         'flex items-center justify-center border transition-[box-shadow,border-color,background-color,transform,filter] duration-[var(--serenatas-motion-duration,180ms)] ease-[var(--serenatas-motion-ease,cubic-bezier(0.16,1,0.3,1))]',
         size === 'sm' && 'w-8 h-8 rounded-[var(--radius)]',
@@ -85,10 +111,10 @@ export function BrandLogo({
 
     return (
         <span className={clsx('flex items-center gap-2 group shrink-0', className)}>
-            <span className={iconBox} style={brandLogoIconWrapStyle(variant)}>
+            <span className={iconBox} style={brandLogoIconWrapStyle(variant, useImageLogo)}>
                 {useImageLogo ? (
                     <img
-                        src="/logo.png"
+                        src={imageLogoSrc}
                         alt={brand.shortName}
                         className={clsx(
                             'h-full w-full rounded-[inherit] object-contain',
