@@ -55,7 +55,7 @@ import {
     createGroupInviteToken,
     normalizeChileWhatsAppNumber,
 } from '../../lib/serenata-group-invite.js';
-import { enrichProviderGroupsForMarketplace, mapProviderGroup, mapPublicProviderGroup } from './marketplace-enrich.js';
+import { enrichProviderGroupsForMarketplace, isDemoProviderGroup, mapProviderGroup, mapPublicProviderGroup } from './marketplace-enrich.js';
 import { validateMarketplaceClientRequest } from './marketplace-client-policy.js';
 import {
     listSavedMariachisForUser,
@@ -1636,6 +1636,13 @@ export async function createMarketplaceSerenata(
     });
     if (!group || !group.ownerId) {
         return { ok: false as const, error: 'Este grupo no está disponible para solicitudes.' };
+    }
+    if (isDemoProviderGroup(group)) {
+        return {
+            ok: false as const,
+            error: 'Este mariachi es de ejemplo y no recibe solicitudes.',
+            status: 403 as const,
+        };
     }
 
     const clientPolicy = await validateMarketplaceClientRequest(user.id, {

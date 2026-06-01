@@ -1,0 +1,21 @@
+<svg width="1200" height="675" viewBox="0 0 1200 675" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="1200" height="675" fill="#14532D"/>
+  <path d="M0 0h1200v675H0z" fill="url(#paint0_linear)"/>
+  <path d="M0 501c213-121 441-76 627-15 196 65 350 66 573-39v228H0V501Z" fill="#7C2D12" opacity=".72"/>
+  <path d="M119 391c55-124 202-124 257 0-63 45-194 45-257 0Z" fill="#FFF7ED"/>
+  <path d="M77 357c85-165 256-165 341 0-94 58-247 58-341 0Z" fill="#111827"/>
+  <path d="M193 332c26-41 81-41 107 0" stroke="#22C55E" stroke-width="17" stroke-linecap="round"/>
+  <rect x="509" y="250" width="88" height="244" rx="44" fill="#FFF7ED"/>
+  <rect x="542" y="184" width="24" height="352" rx="12" fill="#F59E0B"/>
+  <rect x="687" y="262" width="86" height="219" rx="43" fill="#FFF7ED"/>
+  <rect x="719" y="208" width="22" height="318" rx="11" fill="#F59E0B"/>
+  <text x="80" y="118" fill="#FFFFFF" font-family="Arial, sans-serif" font-size="60" font-weight="800">Alma Ranchera</text>
+  <text x="80" y="176" fill="#FED7AA" font-family="Arial, sans-serif" font-size="30" font-weight="600">Demo visual, sin solicitudes reales</text>
+  <defs>
+    <linearGradient id="paint0_linear" x1="143" y1="-8" x2="1060" y2="657" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#166534"/>
+      <stop offset=".55" stop-color="#F97316"/>
+      <stop offset="1" stop-color="#111827"/>
+    </linearGradient>
+  </defs>
+</svg>

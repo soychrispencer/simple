@@ -9,6 +9,7 @@
         "start": "node dist/index.js",
         "db:seed": "tsx scripts/seed-crm-example-leads.ts",
         "db:seed:marketplace": "tsx scripts/seed-marketplace-staging.ts",
+        "db:seed:serenatas-demo": "tsx scripts/seed-serenatas-marketplace-demo.ts",
         "db:seed:serenatas-e2e": "tsx scripts/seed-serenatas-e2e.ts",
         "db:cleanup:serenatas-dual-clients": "tsx scripts/cleanup-serenatas-dual-client-profiles.ts",
         "db:repair:marketplace": "tsx scripts/repair-marketplace-schema.ts",

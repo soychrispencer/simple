@@ -8,6 +8,10 @@ function effectiveServicePrice(service: Pick<typeof serenataGroupServices.$infer
         : service.price;
 }
 
+export function isDemoProviderGroup(row: Pick<typeof serenataProviderGroups.$inferSelect, 'slug'>) {
+    return row.slug.startsWith('demo-mariachi-');
+}
+
 export function mapProviderGroup(row: typeof serenataProviderGroups.$inferSelect) {
     return {
         id: row.id,
@@ -24,6 +28,7 @@ export function mapProviderGroup(row: typeof serenataProviderGroups.$inferSelect
         comunaBase: row.comunaBase,
         serviceComunas: row.serviceComunas ?? [],
         status: row.status,
+        isDemo: isDemoProviderGroup(row),
         isVerified: row.isVerified,
         ratingAverage: Number(row.ratingAverage ?? 0),
         ratingCount: row.ratingCount,

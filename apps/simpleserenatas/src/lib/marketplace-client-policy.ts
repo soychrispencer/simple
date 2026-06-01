@@ -10,9 +10,13 @@ export function resolveMarketplaceRequestBlock(
         isLoggedIn?: boolean;
         profilesReady?: boolean;
         userId?: string | null;
-        group?: Pick<ProviderGroup, 'ownerUserId'> | null;
+        group?: Pick<ProviderGroup, 'ownerUserId' | 'isDemo'> | null;
     },
 ): MarketplaceRequestBlock {
+    if (options?.group?.isDemo) {
+        return { allowed: false, reason: 'Este mariachi es de ejemplo y no recibe solicitudes.' };
+    }
+
     if (options?.isLoggedIn === false) {
         return { allowed: true };
     }

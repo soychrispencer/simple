@@ -191,6 +191,7 @@ export type ProviderGroup = {
     comunaBase: string | null;
     serviceComunas: string[];
     status: ProviderGroupStatus;
+    isDemo?: boolean;
     isVerified: boolean;
     ratingAverage: number;
     ratingCount: number;
